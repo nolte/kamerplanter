@@ -20,6 +20,33 @@ router = APIRouter(
     responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE},
 )
 
+# ── Authorisation (#1501) ───────────────────────────────────────────────────────
+#
+# An import job is **tenant-owned work**, not catalogue data: it holds the parsed
+# rows of an uploaded CSV until somebody confirms them. ``ImportJob`` has carried
+# ``tenant_key`` and ``uploaded_by`` from the start and nothing ever wrote either,
+# so ``GET /jobs``, ``GET /jobs/{key}`` and ``DELETE /jobs/{key}`` had nothing to
+# scope by and were open to every authenticated member of every tenant — one
+# tenant's staged master data readable, and destroyable, by another's.
+#
+# The axis is therefore the tenant one, not the platform-admin one its three
+# neighbours in #1501 take. This router carries no ``/t/{slug}/`` segment, so every
+# route here resolves the tenant from the ``X-Active-Tenant`` header through the one
+# :func:`~app.common.auth.get_active_tenant_context`, so the ownership stamp written
+# on upload and the scope applied on every read can never be two different notions
+# of "the caller's tenant".
+#
+# Ranks: staging and confirming are ordinary edits (grower and above), deleting is
+# the irreversibility boundary and is lead-only. All three are decided **in the
+# service**, keyword-only and without defaults — including staging, which the first
+# version of this change gated with a route dependency and which was therefore the
+# one write of the three with no platform-admin bypass (review SCR-005). Reads are
+# open to every member OF THE OWNING TENANT — the scope, not the rank, closes them.
+#
+# An **empty** resolved tenant is not a system context and not a wildcard. It is
+# what an anonymous, light-mode or personal-tenant-less caller resolves to, and it
+# sees and stages nothing (review SCR-001).
+
 # SEC-M-008: Upload security constants
 MAX_UPLOAD_SIZE_BYTES = 10_485_760  # 10 MB
 ALLOWED_MIME_TYPES = frozenset(
@@ -66,9 +93,23 @@ async def upload_csv(
     duplicate_strategy: DuplicateStrategy = Form(
         DuplicateStrategy.SKIP, description="How to handle rows that duplicate an existing record."
     ),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: ImportService = Depends(get_import_service),
 ):
-    """Upload a CSV file and stage an import job for preview."""
+    """Upload a CSV file and stage an import job for preview.
+
+    Grower and above (or a platform admin), and the job is stamped with the
+    caller's active tenant and user key (#1501) — the two fields every read and
+    the delete below scope by. A viewer may not stage an import: they could not
+    confirm it either, so the only thing staging would give them is a row nobody
+    can act on.
+
+    The rank is decided in :meth:`ImportService.upload`, not by a route
+    dependency, so this write has the same platform-admin bypass its ``confirm``
+    and ``delete`` siblings already had (review SCR-005) and the same rule is
+    reachable from a non-HTTP caller.
+    """
     # SEC-M-008: Validate MIME type
     content_type = (file.content_type or "").lower().strip()
     if content_type not in ALLOWED_MIME_TYPES:
@@ -80,7 +121,16 @@ async def upload_csv(
     if len(content) > MAX_UPLOAD_SIZE_BYTES:
         raise PayloadTooLargeError(MAX_UPLOAD_SIZE_BYTES)
 
-    job = service.upload(content, entity_type, file.filename or "upload.csv", duplicate_strategy)
+    job = service.upload(
+        content,
+        entity_type,
+        file.filename or "upload.csv",
+        duplicate_strategy,
+        uploaded_by=ctx.user_key,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
     return _job_response(job)
 
 
@@ -120,30 +170,48 @@ def confirm_import(
 @router.get("/jobs/{key}", response_model=ImportJobResponse)
 def get_job(
     key: Annotated[str, Path(description="Document key of the import job.")],
+    ctx: TenantContext = Depends(get_active_tenant_context),
     service: ImportService = Depends(get_import_service),
 ):
-    """Return a single import job by key."""
-    job = service.get_job(key)
+    """Return a single import job by key, from the caller's tenant only (#1501).
+
+    A foreign job answers 404, not 403: the caller must not learn it exists.
+    """
+    job = service.get_job(key, tenant_key=ctx.tenant_key)
     return _job_response(job)
 
 
 @router.get("/jobs", response_model=list[ImportJobResponse])
 def list_jobs(
     pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_active_tenant_context),
     service: ImportService = Depends(get_import_service),
 ):
-    """List import jobs (paginated)."""
-    items, _total = service.list_jobs(pagination.offset, pagination.limit)
+    """List the caller's tenant's import jobs (paginated, #1501)."""
+    items, _total = service.list_jobs(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_job_response(j) for j in items]
 
 
 @router.delete("/jobs/{key}", status_code=204)
 def delete_job(
     key: Annotated[str, Path(description="Document key of the import job.")],
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
     service: ImportService = Depends(get_import_service),
 ):
-    """Delete an import job."""
-    service.delete_job(key)
+    """Delete an import job of the caller's own tenant — lead only (#1501).
+
+    The rank is decided in :meth:`ImportService.delete_job`, whose three arguments
+    are keyword-only without defaults, so the decision cannot drift between this
+    route and any other caller. A foreign job is a 404 before the rank is even
+    consulted.
+    """
+    service.delete_job(
+        key,
+        tenant_key=ctx.tenant_key,
+        caller_role=ctx.role,
+        is_platform_admin=is_platform_admin,
+    )
 
 
 @router.get("/templates/{entity_type}")

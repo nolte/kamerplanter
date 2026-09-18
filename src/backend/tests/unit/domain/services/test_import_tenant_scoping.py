@@ -27,7 +27,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import DataOrigin, DuplicateStrategy, EntityType, ImportJobStatus, TenantRole
-from app.common.exceptions import ForbiddenError, ValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.config.settings import settings
 from app.domain.models.import_job import ImportJob
 from app.domain.models.species import Cultivar, Species
@@ -46,13 +46,26 @@ def _service() -> tuple[ImportService, MagicMock, MagicMock]:
     return ImportService(MagicMock(), species_repo=species_repo, family_repo=family_repo), species_repo, family_repo
 
 
-def _staged_job(entity_type: EntityType, strategy: DuplicateStrategy = DuplicateStrategy.SKIP) -> ImportJob:
-    """A job in the one status `confirm` accepts, so the gate is what rejects — not the status."""
+def _staged_job(
+    entity_type: EntityType,
+    strategy: DuplicateStrategy = DuplicateStrategy.SKIP,
+    *,
+    tenant_key: str = _TENANT,
+) -> ImportJob:
+    """A job in the one status `confirm` accepts, so the gate is what rejects — not the status.
+
+    Owned by ``_TENANT`` by default since #1501: ``confirm`` now loads the job
+    *scoped*, so a job stamped ``""`` would be refused before any role gate ran and
+    every refusal below would pass for the wrong reason. Stamping it keeps the #1110
+    assertions measuring what they were written to measure — which gate refuses —
+    and :class:`TestConfirmRefusesAForeignJob` covers the ownership arm separately.
+    """
     return ImportJob(
         entity_type=entity_type,
         status=ImportJobStatus.PREVIEW_READY,
         filename="rows.csv",
         duplicate_strategy=strategy,
+        tenant_key=tenant_key,
     )
 
 
@@ -240,7 +253,10 @@ def test_full_mode_import_without_an_active_tenant_is_refused(monkeypatch):
     """
     monkeypatch.setattr(settings, "kamerplanter_mode", "full")
     svc, _, _ = _service()
-    _confirming(svc, _staged_job(EntityType.SPECIES))
+    # The job is stamped "" too: this caller has no active tenant, so the job they
+    # staged could not have been stamped with one either. Pairing them keeps the
+    # ValidationError below the thing that refuses, rather than the #1501 scope.
+    _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key=""))
 
     with pytest.raises(ValidationError):
         svc.confirm("job1", tenant_key="", caller_role=TenantRole.LEAD)
@@ -268,3 +284,57 @@ def test_system_context_import_stays_global_and_ungated():
     species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
     assert species.tenant_key == ""
     assert species.origin == DataOrigin.SYSTEM
+
+
+# ── #1501 review SCR-002: the job's own ownership, not just the caller's role ─
+
+
+class TestConfirmRefusesAForeignJob:
+    """``confirm`` asks "is this *their* job", not only "may they import at all".
+
+    The #1110 gate above answers the second question and could not answer the
+    first: it reads ``entity_type`` and the caller's role, never the job's owner.
+    So until #1501 a member of tenant B could confirm a job tenant A had staged and
+    pull A's CSV rows — the parsed contents of A's uploaded file — into B's
+    catalogue, with every role check passing legitimately on the way.
+
+    The class the file's docstring pointed at did not exist when the review ran;
+    this is it, and the assertions are on the *absence* of work rather than only on
+    the exception, because an exception raised after the engine has already applied
+    rows would be a refusal that refuses nothing.
+    """
+
+    def test_a_foreign_job_is_not_found_and_nothing_is_applied(self):
+        svc, _species_repo, _family_repo = _service()
+        repo = _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key="tenant_rival"))
+        svc._engine = MagicMock()
+
+        with pytest.raises(NotFoundError):
+            svc.confirm("job1", tenant_key=_TENANT, caller_role=TenantRole.LEAD)
+
+        svc._engine.confirm_import.assert_not_called()
+        repo.update.assert_not_called()
+
+    def test_not_even_a_platform_admin_confirms_a_foreign_job(self):
+        """Ownership hiding has no privileged exception.
+
+        A platform admin bypasses the *rank*; the 404 is not about rank. An admin
+        arm that also skipped the scope would turn the refusal into the
+        cross-tenant read it exists to prevent.
+        """
+        svc, _species_repo, _family_repo = _service()
+        repo = _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key="tenant_rival"))
+        svc._engine = MagicMock()
+
+        with pytest.raises(NotFoundError):
+            svc.confirm("job1", tenant_key=_TENANT, caller_role=TenantRole.LEAD, is_platform_admin=True)
+
+        svc._engine.confirm_import.assert_not_called()
+        repo.update.assert_not_called()
+
+    def test_the_caller_s_own_job_still_confirms(self):
+        """The control. A scope that refused everything would pass the two above."""
+        svc, _species_repo, _family_repo = _service()
+        _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key=_TENANT))
+
+        svc.confirm("job1", tenant_key=_TENANT, caller_role=TenantRole.LEAD)

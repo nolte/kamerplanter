@@ -11,6 +11,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import OriginChip from '@/components/common/OriginChip';
 import { resolveOrigin } from '@/hooks/useOriginProtection';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchTreatments } from '@/store/slices/ipmSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -34,6 +35,11 @@ export default function TreatmentListPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { treatments, loading } = useAppSelector((s) => s.ipm);
+  // #1501 — pests, diseases and treatments are the INSTALLATION-WIDE IPM
+  // catalogue (no tenant_key on any of the three models), so creating one is a
+  // platform-admin write backend-side. `origin: 'tenant'` on a created row marks
+  // it as hand-curated rather than seeded; it never was an ownership stamp.
+  const canCurate = useCanEditInstallationCatalogue();
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({
     defaultSort: { column: 'name', direction: 'asc' },
@@ -107,14 +113,16 @@ export default function TreatmentListPage() {
       <PageTitle
         title={t('pages.ipm.treatmentsTitle')}
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-button"
-          >
-            {t('pages.ipm.createTreatment')}
-          </Button>
+          canCurate ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-button"
+            >
+              {t('pages.ipm.createTreatment')}
+            </Button>
+          ) : undefined
         }
       />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -126,8 +134,11 @@ export default function TreatmentListPage() {
         loading={loading}
         getRowKey={(r) => r.key}
         onRowClick={(r) => navigate(`/pflanzenschutz/treatments/${r.key}`)}
-        emptyActionLabel={t('pages.ipm.createTreatment')}
-        onEmptyAction={() => setCreateOpen(true)}
+        // The description closes the understanding gap the hidden create control
+        // (header and empty state alike) leaves behind for a non-admin (#1501).
+        emptyDescription={canCurate ? undefined : t('pages.ipm.catalogueCreateDenied')}
+        emptyActionLabel={canCurate ? t('pages.ipm.createTreatment') : undefined}
+        onEmptyAction={canCurate ? () => setCreateOpen(true) : undefined}
         emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.treatmentsTitle')}

@@ -936,6 +936,79 @@ _INSTALLATION_WIDE_MODULES: dict[str, str] = {
     "activities": "the activity catalogue every tenant's plans reference",
     "crop_rotation": "the rotation rules every bed plan is validated against",
     "enrichment": "external-source enrichment configuration for the installation",
+    # #1501. Two modules of exactly the kind the paragraph above says this set does
+    # not catch on its own, found by the classification rule below rather than by
+    # anybody remembering to add them.
+    "phase_sequences": (
+        "phase definitions, sequences and their entries — no tenant_key on any of "
+        "the three models, so one row is the row every tenant's lifecycle resolves"
+    ),
+    "ipm": (
+        "the pest / disease / treatment catalogue; ipm/tenant_router.py states in "
+        "its own docstring that these three stay global reference data"
+    ),
+}
+
+#: Every other module that mounts a write on the **global** router, with the reason
+#: it is not installation-wide master data — #1501.
+#:
+#: The dict above was an opt-in list, and its own docstring said so: "a new *module*
+#: of the same kind is not covered". That is not a hypothetical. `phase_sequences`
+#: and `ipm` are two such modules; between them they mounted **twenty** ungated
+#: writes on installation-wide catalogues — including the ``DELETE`` on the phase
+#: definition REQ-003's state machine runs on — and every sweep in this file was
+#: green the whole time, because neither name had ever been typed into a list.
+#:
+#: This closes that one level up, the same way
+#: `test_every_auth_shaped_dependency_is_classified` closes the dependency
+#: vocabulary: a module is not *reported*, it is *classified*. Adding a new global
+#: router without deciding which half it belongs in fails
+#: `test_every_global_write_module_is_classified` with the module's name in the
+#: message. The decision stays a human one; what changes is that it has to be made.
+#:
+#: Scoped to the global surface deliberately — a tenant-prefixed or `/api/v1/admin`
+#: module is answered by the first three questions and does not need a fourth.
+_NOT_INSTALLATION_WIDE: dict[str, str] = {
+    "auth": "session lifecycle; a caller reaches login/register/reset before having one",
+    "users": "the caller's own account, sessions and federated identities",
+    "privacy": "DSGVO Art. 15-21 self-service; the rows belong to the user",
+    "tenants": "tenant lifecycle and membership, gated on require_admin_scope",
+    "mcp": "REQ-033 protocol surface, gated on get_mcp_principal",
+    "ki_assistent": "REQ-031 light-mode probe, published on purpose",
+    # `glossar` stood here until #1515, and its removal is the obsolescence rule
+    # below working rather than breaking. The entry existed *because* of a
+    # persisting read: `public_get_term` answered an anonymous GET and wrote a
+    # cache row through `_store_cache`, so the #1443 detector counted the route as
+    # a global write and the module needed a classification. #1515 removed that
+    # write, `persists(public_get_term)` is now False, and the module's real
+    # writes live on the two surfaces the other selectors already own —
+    # `/t/{slug}/glossary/term/{slug}/generate` (tenant) and
+    # `/api/v1/admin/glossary/*` (admin, behind `require_platform_admin` since
+    # #536). Nothing is left on the global surface, so an entry claiming to
+    # classify one would be an exemption nobody can check.
+    #
+    # Left as a comment rather than deleted silently: the next reader wondering
+    # why the glossary is unclassified here should find the answer beside the gap,
+    # and `test_every_global_write_module_is_classified` will demand a real entry
+    # again the moment the module mounts a global write.
+    "care_reminders": "per-plant tenant data; require_owned_plant + require_active_tenant_role",
+    "phases": "per-plant tenant data; require_owned_plant + require_active_tenant_role",
+    "calculations": "POST-as-computation — reads its inputs, returns a result, persists nothing",
+    "companion_planting": "already require_platform_admin on both writes",
+    "family_relationships": "already _require_platform_admin on all three writes",
+    "botanical_families": (
+        "global-only catalogue, gated by require_platform_admin_for_global_catalogue "
+        "called in the handler body (#1120) rather than as a dependency, so the "
+        "chain-based gate above cannot see it"
+    ),
+    "species": "hybrid catalogue: own row → rank, global seed → platform admin, foreign → 404 (#808)",
+    "cultivars": "hybrid catalogue, same three-way gate in SpeciesService (#1090)",
+    "substrates": "hybrid catalogue, same three-way gate in SubstrateService (#1195)",
+    "imports": (
+        "tenant-owned staged work, not catalogue data: the job carries an uploaded "
+        "CSV and is scoped by ImportJob.tenant_key, with the rank decided in "
+        "ImportService (#1110 confirm, #1501 upload/read/delete)"
+    ),
 }
 
 _PLATFORM_ADMIN_GATES = frozenset({"require_platform_admin", "_require_platform_admin"})
@@ -957,7 +1030,30 @@ def _module_of(operation: Operation) -> str:
 
 
 def _installation_wide_write_operations() -> list[Operation]:
-    return [op for op in mounted_write_operations() if _module_of(op) in _INSTALLATION_WIDE_MODULES]
+    """The installation-wide writes: a classified module AND a global path.
+
+    Both halves, since #1501. The module alone was enough while every classified
+    module mounted exactly one router; `ipm` does not. Its `tenant_router` writes
+    inspections, treatment applications and pest-image contributions — rows that
+    DO carry a ``tenant_key`` and are correctly gated on ``require_permission`` /
+    ``require_attachment_permission``. Selecting them by module name would have
+    demanded ``require_platform_admin`` on four tenant-scoped routes, i.e. the
+    over-rejecting fix `test_the_reads_are_not_gated` exists to prevent, one door
+    along.
+    """
+    return [op for op in _global_write_operations() if _module_of(op) in _INSTALLATION_WIDE_MODULES]
+
+
+def _global_write_operations() -> list[Operation]:
+    """Write operations on neither the tenant nor the admin prefix — #1501.
+
+    The residue of the two prefix selectors, and the surface the fourth question
+    is asked of. Computed from the path rather than from a list of module names,
+    because a list of module names is what let twenty ungated writes through.
+    """
+    return [
+        op for op in mounted_write_operations() if TENANT_PREFIX not in op.path and not op.path.startswith(ADMIN_PREFIX)
+    ]
 
 
 def _tenant_write_operations() -> list[Operation]:
@@ -1702,6 +1798,8 @@ class TestInstallationWideMasterDataIsPlatformAdminOnly:
         deliberate act with a diff line to explain.
         """
         expected = {
+            "phase_sequences": 11,
+            "ipm": 9,
             "profiles": 5,
             "enrichment": 4,
             "growth_phases": 3,
@@ -1726,6 +1824,51 @@ class TestInstallationWideMasterDataIsPlatformAdminOnly:
         assert not shrunk, "installation-wide write operations disappeared from the gated set:\n  " + "\n  ".join(
             shrunk
         )
+
+    def test_every_global_write_module_is_classified(self):
+        """Every module writing on the global router is on one side or the other — #1501.
+
+        The rule that would have found `phase_sequences` and `ipm` before a security
+        issue did. `_INSTALLATION_WIDE_MODULES` was an opt-in list and could only
+        ever check the modules somebody had already thought of; this checks the
+        modules that EXIST.
+        """
+        classified = set(_INSTALLATION_WIDE_MODULES) | set(_NOT_INSTALLATION_WIDE)
+        modules = {_module_of(op) for op in _global_write_operations()}
+        unclassified = sorted(modules - classified)
+        assert not unclassified, (
+            "These modules mount write routes on the GLOBAL router and are classified nowhere. "
+            "Decide whether each writes installation-wide master data — a row every tenant "
+            "shares, which needs `require_platform_admin` — and add it to "
+            "_INSTALLATION_WIDE_MODULES, or record in _NOT_INSTALLATION_WIDE what it writes "
+            "instead and which gate answers for it:\n  " + "\n  ".join(unclassified)
+        )
+
+    def test_no_module_is_classified_on_both_sides(self):
+        both = sorted(set(_INSTALLATION_WIDE_MODULES) & set(_NOT_INSTALLATION_WIDE))
+        assert not both, f"classified as both installation-wide and not: {both}"
+
+    def test_every_not_installation_wide_entry_still_names_a_global_writer(self):
+        """Obsolescence, the direction the entry itself cannot notice.
+
+        An exemption for a module that no longer writes globally is an exemption
+        nobody re-reads, and the next module to take that name inherits it.
+        """
+        modules = {_module_of(op) for op in _global_write_operations()}
+        stale = sorted(set(_NOT_INSTALLATION_WIDE) - modules)
+        assert not stale, (
+            "These _NOT_INSTALLATION_WIDE entries name a module that mounts no global "
+            "write any more — drop them:\n  " + "\n  ".join(stale)
+        )
+
+    def test_every_not_installation_wide_reason_is_written_out(self):
+        for module, reason in _NOT_INSTALLATION_WIDE.items():
+            assert len(reason) >= 12, f"{module} carries no usable reason: {reason!r}"
+
+    def test_the_global_selector_is_populated(self):
+        """Either selector matching nothing would make the two rules above vacuous."""
+        assert len(_global_write_operations()) > 100
+        assert len({_module_of(op) for op in _global_write_operations()}) > 20
 
 
 # ── #1443: the read half of the write surface ──────────────────────────────────
