@@ -280,6 +280,111 @@ _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
 }
 
 
+#: Reads that persist **on purpose**, each bound to the writes it may reach.
+#:
+#: Two of the ten findings #1443 reported are not defects and cannot be repaired
+#: into pure reads (#1461, decision 1 of the group analysis):
+#:
+#: * ``auth.router.oauth_callback`` is a **browser redirect**. The identity
+#:   provider sends the user back with a ``GET`` and there is no other verb
+#:   available; the handler then completes the login, which by definition writes
+#:   (REQ-023 §4.3a). It is not a read that happens to persist — it is a write
+#:   path whose verb the OAuth2 protocol fixes.
+#: * ``privacy.router.download_export`` records that the export was collected
+#:   (REQ-025 §4.2a). The Art.-15 evidence *is* the download, so the write cannot
+#:   move to another request without the evidence recording a different event.
+#:
+#: **Why a third list and not :data:`_GUARDED_PERSISTING_READS`.** That list is
+#: for a write the detector reports but an ARGUMENT makes unreachable, and its
+#: value is a `(callee, keyword, sinks)` witness that
+#: `test_every_guarded_read_really_passes_its_guard` re-parses and fails unless
+#: every reachable call passes the keyword as literal `False`. Neither route here
+#: has such an argument — both write on every call — so an entry there would be a
+#: witness naming nothing, and it would take the route OUT of the sweep, which is
+#: exactly what must not happen: both routes stay in `mounted_write_operations`
+#: and keep answering the three authorisation questions like any `POST`.
+#:
+#: **The relation is `reachable ⊆ excused`, not equality**, and that is a
+#: measurement, not a softening. `write_sinks_of` over-approximates: where a
+#: receiver carries no type the detector falls back to matching by NAME, which
+#: resolves one `self._repo.create(...)` to *every* repository `create` in the
+#: tree. Measured on 2026-09-17, ``oauth_callback`` reaches fifteen sink
+#: identities that way, most of them `delete` methods on repositories the OAuth
+#: path never touches. Pinned as an equality, adding a `delete` to any unrelated
+#: repository would turn this red with no write moving, changing or appearing —
+#: the drift that cost this file its sink line numbers, one level up. A subset
+#: says the thing the entry actually claims: this route reaches no write it is
+#: not excused for.
+#:
+#: **How much "a NEW sink turns it red" is worth differs per entry, and the honest
+#: version of that sentence is below** (review SCR-006). Both halves were measured
+#: by mutation on 2026-09-18 — an added, detector-resolvable
+#: ``self._export_repo.create(...)`` inside the service each route reaches:
+#:
+#: * ``privacy.download_export`` excuses **one** sink (``_update_doc``). The
+#:   mutation adds ``_insert_doc``, which is not in the set, and the sweep goes
+#:   **red**. `test_a_second_write_in_an_intentional_read_is_reported` pins that,
+#:   so the claim is checked and not believed.
+#: * ``auth.oauth_callback`` excuses fifteen, and those fifteen already include
+#:   **all four** base document primitives plus ``create_edge``/``delete_edges``.
+#:   Any write added anywhere below it goes through one of them, so the identity
+#:   is already in the set and the sweep stays **green**. For this entry the sink
+#:   set bounds the *shape* of what the route reaches — repository primitives, no
+#:   raw query outside the listed ones — and nothing finer. Said out loud because
+#:   a witness whose limits are implicit is read as having none, which is the
+#:   #1441 failure this file exists to avoid repeating.
+#:
+#: What still covers ``oauth_callback`` is not this list: the route stays inside
+#: `mounted_write_operations`, answers the three authorisation questions like any
+#: `POST`, and carries a `_PUBLIC_ALLOWLIST` entry with an obsolescence rule. A
+#: sharper witness here needs the detector to carry the *call path* into the sink
+#: identity, which is a change to `_write_call_graph` and not to this dict.
+_INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
+    "auth.router.oauth_callback": (
+        "REQ-023 §4.3a — the OAuth2 redirect back from the provider can only be a GET, and "
+        "completing the login writes the User, the AuthProvider link and the refresh token. "
+        "A write path whose verb the protocol fixes, not a read that persists.",
+        frozenset(
+            {
+                "col.insert() in app.data_access.arango.base_repository::BaseArangoRepository.create_edge",
+                "raw query write (f-string) in app.data_access.arango.activity_repository"
+                "::ArangoActivityRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.base_repository"
+                "::BaseArangoRepository.delete_edges",
+                "raw query write (f-string) in app.data_access.arango.consent_repository"
+                "::ArangoConsentRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.data_export_repository"
+                "::ArangoDataExportRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.email_change_repository"
+                "::ArangoEmailChangeRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.fertilizer_repository"
+                "::ArangoFertilizerRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.membership_repository"
+                "::ArangoMembershipRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.processing_restriction_repository"
+                "::ArangoProcessingRestrictionRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.tank_repository::ArangoTankRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.user_repository"
+                "::ArangoUserRepository._remove_docs_for_user",
+                "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
+                "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
+                "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
+                "self.collection.update() in app.data_access.arango.base_repository"
+                "::BaseArangoRepository._update_doc_fields",
+            }
+        ),
+    ),
+    "privacy.router.download_export": (
+        "REQ-025 §4.2a — PrivacyService.prepare_export_download increments download_count on the "
+        "DataExportRequest. The Art.-15 evidence IS the collection of the export, so moving the "
+        "write to another request would record a different event. One sink, measured.",
+        frozenset(
+            {"self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc"}
+        ),
+    ),
+}
+
+
 #: Reads that really do persist. **Open findings, not approvals.**
 #:
 #: This dict is not an allowlist and must not be read as one. Every entry is a
@@ -303,51 +408,18 @@ _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
 #: route stops writing, and `test_the_finding_list_only_shrinks` is a ratchet
 #: against :data:`_MEASURED_2026_09_16` — against the IDS, not against their
 #: count, so that repairing one and listing the next is not a green diff either.
-_PERSISTING_READ_FINDINGS: dict[str, str] = {
-    "auth.router.oauth_callback": (
-        "AuthService.complete_oauth creates or updates the User, the AuthProvider link and the "
-        "refresh token. A browser redirect can only be a GET, so this one is arguably inherent to "
-        "OAuth2 rather than a defect — it still needs the decision written down somewhere other "
-        "than here"
-    ),
-    "privacy.router.download_export": (
-        "PrivacyService.prepare_export_download increments download_count and persists the "
-        "DataExportRequest before streaming (privacy_service.py:225-227)"
-    ),
-    "glossar.public_router.public_get_term": (
-        "GlossaryService.get_term stores a GlossaryTermCacheEntry through _store_cache on a miss, "
-        "and this route is ANONYMOUS (#1460). The first wording here said an unauthenticated caller "
-        "writes 'a row per unseen slug'; the review measured that and it overstates the finding. The "
-        "slug is resolved against a CURATED catalogue through _resolve_or_404 "
-        "(glossary_service.py:147-159) behind a whitelist charset, so an unknown slug is a 404 and "
-        "never a row, and @limiter.limit('30/minute') bounds the rate besides — the row count is "
-        "capped by the catalogue, not by the caller. What remains is still a finding and is why the "
-        "entry stays: an anonymous GET triggers the RAG/LLM lookup behind the cache miss, and it "
-        "writes at all, which a safe method must not"
-    ),
-    "glossar.router.get_term": "the tenant-scoped sibling of the route above, same _store_cache write",
-    "ki_assistent.tenant_router.get_daily_tip": (
-        "AiAssistantService.get_daily_tip persists the generated card to the AI tip cache and writes an AI audit record"
-    ),
-    "ki_assistent.tenant_router.get_tips": (
-        "AiAssistantService.get_tips invalidates the tip cache, creates the generated card and "
-        "records an audit entry (ai_assistant_service.py:153, 208-210)"
-    ),
-    "onboarding.tenant_router.get_onboarding_state": (
-        "OnboardingService.get_state auto-creates the OnboardingState singleton on a cold read "
-        "(onboarding_service.py:45-47)"
-    ),
-    "user_preferences.tenant_router.get_preferences": (
-        "UserPreferenceService.get_preferences auto-creates the UserPreference singleton on a cold "
-        "read (user_preference_service.py:92-94)"
-    ),
-    "dashboard.tenant_router.get_widget_catalog": (
-        "reaches the same UserPreferenceService.get_preferences auto-create as the route above"
-    ),
-    "season.tenant_router.get_site_season_state": (
-        "SeasonStateService.evaluate_site_detailed upserts the SeasonState it computed (season_state_service.py:126)"
-    ),
-}
+#: **Empty since #1461/#1460, and that is the acceptance condition.** All ten
+#: measured reads were answered: eight were repaired into pure reads and two are
+#: recorded as decisions in :data:`_INTENTIONAL_PERSISTING_READS` above, each bound
+#: to the writes it was measured reaching.
+#:
+#: This stays a dict rather than being deleted. It is what a NEWLY detected
+#: writing ``GET`` would have to be added to, and
+#: `test_the_finding_list_only_shrinks` refuses that against
+#: :data:`_MEASURED_2026_09_16` — so the empty dict is the ratchet's resting
+#: position, not a leftover. A new finding is a conversation and an issue; there
+#: is no id left that this list will accept.
+_PERSISTING_READ_FINDINGS: dict[str, str] = {}
 
 #: The ten findings **as measured** on 2026-09-16, by id. The ratchet, and it is
 #: deliberately not a length.
@@ -769,6 +841,19 @@ _PUBLIC_ALLOWLIST: dict[str, str] = {
     # valid-non-service case into the same generic 401 so it cannot be used as an
     # oracle.
     "auth.router.validate_service_account": "authenticates from the key in the body, like login",
+    # The OAuth2 redirect back from the provider. It carries no session — the
+    # session is what it is about to issue — and it carries no transport
+    # credential either: the caller is a browser following a 302, and everything
+    # the handler trusts comes out of the `state`/`code` pair it validates against
+    # the provider itself. `login` and `register` are exempt for the same reason,
+    # one step earlier in the same flow.
+    #
+    # It was previously exempt by ACCIDENT, as an entry in
+    # `_PERSISTING_READ_FINDINGS` — an open-defect list every sweep in this file
+    # skips. #1461 took it off that list, because a protocol-fixed verb is not a
+    # defect anybody can repair, and that removal is what makes the exemption
+    # visible here where the third question can see it.
+    "auth.router.oauth_callback": "the OAuth2 redirect carries no session; it issues one (REQ-023)",
 }
 
 
@@ -1405,11 +1490,17 @@ class TestEveryWriteOperationResolvesSomeAuthorisation:
     def test_the_allowlist_is_small(self):
         """A ceiling, because the cheapest way to make this test green is to grow the list.
 
-        Eleven entries today, all of them pre-session endpoints, a published
-        probe, or a route that authenticates from its own request body. A twelfth
-        is not automatically wrong, but it should cost a conversation.
+        Twelve entries today, all of them pre-session endpoints, a published
+        probe, or a route that authenticates from its own request body. A
+        thirteenth is not automatically wrong, but it should cost a conversation.
+
+        Grew by one in #1461: `oauth_callback` was exempt from every sweep as an
+        entry in `_PERSISTING_READ_FINDINGS`, which is not an allowlist and skips
+        more than this one does. Moving it here is a tightening, not a widening —
+        the route is now measured by the obsolescence rule and the reason rule
+        below, neither of which reached it before.
         """
-        assert len(_PUBLIC_ALLOWLIST) <= 12, (
+        assert len(_PUBLIC_ALLOWLIST) <= 13, (
             f"_PUBLIC_ALLOWLIST has grown to {len(_PUBLIC_ALLOWLIST)} entries. "
             "Adding a route here makes it anonymously reachable; say why in the issue, not only in the dict."
         )
@@ -2331,6 +2422,29 @@ class TestPersistingReadsAreSweptLikeWrites:
             "GET has to be gated or argued in an issue, not listed here."
         )
 
+    def test_the_finding_list_is_empty(self):
+        """The acceptance condition of #1461, asserted rather than described.
+
+        `test_the_finding_list_only_shrinks` is a ratchet against the 2026-09-16
+        ids and would stay green if one of the eight repaired routes were listed
+        again — it may shrink, and re-adding a measured id is a shrink from the
+        original ten. This says the stronger thing the group closed on: **none of
+        them is open**. Two of the ten are decisions now
+        (:data:`_INTENTIONAL_PERSISTING_READS`) and eight write nothing.
+
+        A route that starts persisting again is caught by
+        `test_the_sweep_admits_exactly_the_reads_the_detector_reports` and the
+        three gate sweeps regardless; what this refuses is the quiet path back —
+        re-listing it here as an open finding, where every sweep skips it.
+        """
+        assert _PERSISTING_READ_FINDINGS == {}, (
+            "A read that persists is recorded as an open finding again:\n  "
+            + "\n  ".join(sorted(_PERSISTING_READ_FINDINGS))
+            + "\nAll ten of the 2026-09-16 measurements were answered in #1461/#1460 — eight repaired, "
+            "two recorded as decisions with their sinks. Repair it, argue it in the issue and record "
+            "it as intentional, or say in the diff why the sweeps must skip it again."
+        )
+
     def test_the_measured_set_is_the_measurement(self):
         """The frozen set is an artefact too, and widening it is the next cheapest way out.
 
@@ -2439,6 +2553,183 @@ class TestPersistingReadsAreSweptLikeWrites:
         assert not problems, (
             "A guarded read reaches a write its witness does not account for. The exemption covers ONE "
             "measured sink; anything else has to be gated or argued on its own:\n  " + "\n  ".join(problems)
+        )
+
+    def test_every_intentional_persisting_read_still_persists(self):
+        """Obsolescence, the direction that rots — the same rule the findings carry.
+
+        An entry that outlives its write is an excuse for nothing, and the next
+        reader takes it as a statement that the route MUST keep writing. If one of
+        these two ever stops persisting, the entry goes, it does not stay "just in
+        case the write comes back".
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        stale = []
+        for route_id, (reason, _sinks) in _INTENTIONAL_PERSISTING_READS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                stale.append(f"{route_id}: no such read route any more ({reason})")
+            elif not persists(endpoint):
+                stale.append(f"{route_id}: no longer persists — delete the entry ({reason})")
+        assert not stale, "Obsolete _INTENTIONAL_PERSISTING_READS entries:\n  " + "\n  ".join(stale)
+
+    def test_an_intentional_persisting_read_reaches_no_write_it_is_not_excused_for(self):
+        """SEC-002, applied to the two reads that keep writing on purpose.
+
+        The decision each entry records is about the writes that were MEASURED,
+        not about the route. A second, unrelated write added to the same handler —
+        an audit row, a counter, a cache — would otherwise inherit an approval
+        nobody gave it, which is the failure `_CARE_PROFILE_SINKS` was widened to
+        prevent one list down.
+
+        Subset, not equality, and the module comment on
+        :data:`_INTENTIONAL_PERSISTING_READS` says why: `write_sinks_of`
+        over-approximates through its name fallback, so an equality would go red
+        on edits to repositories these routes never touch. A new sink still turns
+        this red, which is the claim the entry makes.
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        problems = []
+        for route_id, (_reason, excused) in _INTENTIONAL_PERSISTING_READS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                continue  # covered by the obsolescence rule above
+            unexcused = write_sinks_of(endpoint) - set(excused)
+            if unexcused:
+                problems.append(f"{route_id}:\n      not excused: " + "\n                   ".join(sorted(unexcused)))
+        assert not problems, (
+            "A read that persists on purpose reaches a write its entry does not account for. The "
+            "decision covers the MEASURED sinks; anything else has to be gated or argued on its "
+            "own:\n  " + "\n  ".join(problems)
+        )
+
+    def test_a_second_write_in_an_intentional_read_is_reported(self):
+        """The mutation SCR-006 asked for, run as a test rather than by hand.
+
+        `privacy.download_export` excuses exactly one sink, so a second write
+        inside `PrivacyService.prepare_export_download` has to surface. This drives
+        the predicate the sweep drives — `write_sinks_of` minus the excused set —
+        over a synthetic tree, because mutating the real service in a test run is
+        not available and a hand-run mutation is a claim nobody re-checks.
+
+        The companion claim, that the same mutation does **not** show up for
+        `oauth_callback`, is stated on the dict above with its reason; it is a
+        property of the sink-identity format, not something this file can fix.
+        """
+        excused = _INTENTIONAL_PERSISTING_READS["privacy.router.download_export"][1]
+        measured_today = {
+            "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc"
+        }
+        assert set(excused) == measured_today, (
+            "the download_export witness is no longer the single sink this test reasons about"
+        )
+
+        # The mutation: the handler grows an insert alongside its update.
+        with_a_second_write = measured_today | {
+            "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc"
+        }
+        assert with_a_second_write - set(excused), (
+            "a second, unexcused write no longer produces an unexcused sink — the entry has stopped "
+            "bounding anything and the dict's promise above is false for it too"
+        )
+
+    def test_the_oauth_entry_is_the_blunt_one_and_says_so(self):
+        """SCR-006, pinned: the limitation is measured, not merely written down.
+
+        If the entry ever stopped excusing the base primitives, the note above it
+        would become wrong in the *safe* direction — but silently, and the next
+        reader would take the docstring's caveat as still binding and trust it
+        less than they should. Either way the prose and the data have to agree.
+        """
+        _reason, excused = _INTENTIONAL_PERSISTING_READS["auth.router.oauth_callback"]
+        primitives = {
+            "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
+            "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
+            "self.collection.update() in app.data_access.arango.base_repository"
+            "::BaseArangoRepository._update_doc_fields",
+            "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
+        }
+        assert primitives <= set(excused), (
+            "the oauth_callback entry no longer excuses every base primitive, so the caveat on "
+            "_INTENTIONAL_PERSISTING_READS overstates its own weakness — tighten the note in the same diff."
+        )
+
+    def test_every_excused_sink_is_really_reachable(self):
+        """The other direction: an entry may not be padded to survive a refactor.
+
+        Subset alone would let somebody widen a set pre-emptively — list every
+        sink in the tree and the assertion above can never fail again. This pins
+        that each recorded sink is one the route really reaches today, so the set
+        is a measurement and not a wish.
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        problems = []
+        for route_id, (_reason, excused) in _INTENTIONAL_PERSISTING_READS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                continue
+            unreachable = set(excused) - write_sinks_of(endpoint)
+            if unreachable:
+                problems.append(f"{route_id}:\n      excused but unreachable: " + ", ".join(sorted(unreachable)))
+        assert not problems, (
+            "These sinks are excused on a route that cannot reach them. Drop them; an excuse for a "
+            "write that does not happen hides the next one that does:\n  " + "\n  ".join(problems)
+        )
+
+    def test_an_intentional_persisting_read_is_not_also_a_finding_or_an_exemption(self):
+        """Three lists, disjoint. An id in two of them means two different verdicts."""
+        entries = set(_INTENTIONAL_PERSISTING_READS)
+        assert not entries & set(_PERSISTING_READ_FINDINGS), (
+            f"recorded both as intentional and as an open finding: {sorted(entries & set(_PERSISTING_READ_FINDINGS))}"
+        )
+        assert not entries & set(_GUARDED_PERSISTING_READS), (
+            f"recorded both as intentional and as argument-guarded: {sorted(entries & set(_GUARDED_PERSISTING_READS))}"
+        )
+
+    def test_an_intentional_persisting_read_is_still_swept_like_a_write(self):
+        """The property that distinguishes this list from the other two.
+
+        `_GUARDED_PERSISTING_READS` removes a route from `mounted_write_operations`
+        and `_PERSISTING_READ_FINDINGS` excuses it from all four gate sweeps.
+        Neither may happen here: these routes write on every call, so they have to
+        answer the three authorisation questions exactly as a `POST` does. Without
+        this assertion the new list would silently become the cheapest way out of
+        the file.
+        """
+        admitted = {op.id for op in mounted_write_operations()}
+        missing = sorted(set(_INTENTIONAL_PERSISTING_READS) - admitted)
+        assert not missing, f"an intentional persisting read left the write sweep: {missing}"
+
+        for route_id in _INTENTIONAL_PERSISTING_READS:
+            assert route_id not in _PERSISTING_READ_FINDINGS
+
+    def test_every_intentional_reason_is_written_out(self):
+        for route_id, (reason, _sinks) in _INTENTIONAL_PERSISTING_READS.items():
+            assert len(reason) >= 12, f"{route_id} carries no usable reason: {reason!r}"
+
+    def test_the_intentional_list_is_small(self):
+        """A ceiling, for the same reason every other list in this file has one.
+
+        Two entries, both protocol- or evidence-bound. A third is the cheapest way
+        to close a finding without repairing it — "this one is intentional too" —
+        and should cost the conversation the issue is for.
+        """
+        assert len(_INTENTIONAL_PERSISTING_READS) <= 2, (
+            f"_INTENTIONAL_PERSISTING_READS has grown to {len(_INTENTIONAL_PERSISTING_READS)} entries. "
+            "A read that writes is a defect until somebody argues otherwise in an issue; say it there, "
+            "not only here."
         )
 
     def test_the_exemption_list_is_small(self):

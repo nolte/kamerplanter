@@ -25,7 +25,7 @@ from app.api.v1.ki_assistent.schemas import (
     TipCardSchema,
     TipListResponse,
 )
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.auth import get_current_tenant, meets_tenant_role, require_tenant_role
 from app.common.dependencies import get_ai_assistant_service
 from app.common.enums import TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
@@ -82,24 +82,45 @@ def _response_schema(response: AiResponse) -> AiResponseSchema:
 # ── Tips ────────────────────────────────────────────────────────────
 
 
+def _may_refresh(ctx: TenantContext) -> bool:
+    """Whether ``ctx`` passes the gate on the regeneration routes below.
+
+    Rank is the only axis left to report, and the precondition is what makes that
+    true: this is only ever evaluated inside a handler of **this router**, whose
+    `dependencies=[Depends(require_ai_tenant_enabled)]` has already answered both
+    other stages of the REQ-031 §1.3 toggle — 404 when the operator flag is off,
+    403 when the tenant has KI disabled. A caller who would fail either of them
+    never receives a body to read this flag out of. The consent stage is symmetric
+    for the same reason: `get_tips` requires `ai_tenant_data_access` itself, so a
+    caller without it gets a 403 on the read rather than a flag they cannot use.
+
+    Measured, not assumed — `tests/api/test_ai_tip_reads_are_gated.py` drives all
+    three refusals against the mounted router, because the dependency this leans
+    on is declared on the router and an edit to the handler signature would not
+    show it moving.
+
+    What remains is `require_tenant_role(GROWER)`, read out of the same predicate
+    the gate decides on rather than restated, so the flag on the response and the
+    gate on the ``POST`` cannot disagree.
+    """
+    return meets_tenant_role(ctx.role, TenantRole.GROWER)
+
+
 @router.get("/tips", response_model=TipListResponse)
 def get_tips(
     context_type: str = Query(..., description="Context entity type the tips relate to (e.g. plant, location)."),
     context_key: str = Query(..., description="Document key of the context entity."),
-    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(get_current_tenant),
-    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipListResponse:
-    """Context tip cards (cache-first). Consent ``ai_tenant_data_access``."""
-    tips = service.get_tips(
-        ctx,
-        context_type=context_type,
-        context_key=context_key,
-        language=language,
-        allow_cloud=ai_settings.ai_allow_cloud_providers,
-    )
-    return TipListResponse(tips=[_tip_schema(t) for t in tips])
+    """Stored context tip cards. Consent ``ai_tenant_data_access``.
+
+    A **read**: it never generates and never writes (#1461). An empty ``tips``
+    with ``refresh_available: true`` is the answer for "nothing generated yet,
+    and you may ask for it" — the regeneration is ``POST /ai/tips/refresh``.
+    """
+    tips = service.get_tips(ctx, context_type=context_type, context_key=context_key)
+    return TipListResponse(tips=[_tip_schema(t) for t in tips], refresh_available=_may_refresh(ctx))
 
 
 @router.post("/tips/refresh", response_model=TipListResponse)
@@ -111,16 +132,15 @@ def refresh_tips(
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipListResponse:
-    """Force-regenerate tips for a context. Consent ``ai_tenant_data_access``."""
-    tips = service.get_tips(
+    """Generate tips for a context. Consent ``ai_tenant_data_access``."""
+    tips = service.refresh_tips(
         ctx,
         context_type=context_type,
         context_key=context_key,
         language=language,
-        force=True,
         allow_cloud=ai_settings.ai_allow_cloud_providers,
     )
-    return TipListResponse(tips=[_tip_schema(t) for t in tips])
+    return TipListResponse(tips=[_tip_schema(t) for t in tips], refresh_available=True)
 
 
 @router.post("/tips/{tip_key}/dismiss", status_code=204)
@@ -148,13 +168,32 @@ def acted_on_tip(
 
 @router.get("/daily-tip", response_model=TipCardSchema | None)
 def get_daily_tip(
-    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(get_current_tenant),
+    service: AiAssistantService = Depends(get_ai_assistant_service),
+) -> TipCardSchema | None:
+    """Today's stored daily tip, or ``null``. Consent ``ai_tenant_data_access``.
+
+    A **read**: it never generates and never writes (#1461). ``null`` means
+    nothing has been generated for today; ``POST /ai/daily-tip/refresh`` is what
+    generates it.
+    """
+    tip = service.get_daily_tip(ctx)
+    return _tip_schema(tip) if tip else None
+
+
+@router.post("/daily-tip/refresh", response_model=TipCardSchema | None)
+def refresh_daily_tip(
+    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipCardSchema | None:
-    """A single personalised daily tip. Consent ``ai_tenant_data_access``."""
-    tip = service.get_daily_tip(ctx, language=language, allow_cloud=ai_settings.ai_allow_cloud_providers)
+    """Generate today's daily tip. Consent ``ai_tenant_data_access``.
+
+    Idempotent for the day: an already-generated card is returned rather than
+    regenerated, so a second click is not a second LLM call.
+    """
+    tip = service.refresh_daily_tip(ctx, language=language, allow_cloud=ai_settings.ai_allow_cloud_providers)
     return _tip_schema(tip) if tip else None
 
 

@@ -147,8 +147,35 @@ Begriffsliste wird in `spec/knowledge/glossary/seed_terms.yaml` versioniert und 
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `GET` | `/term/{slug}` | Erklaerung zu einem Begriff. Query: `?expertise=beginner|intermediate|expert&language=de|en` | Alle Rollen | — (kein Tenant-Daten-Zugriff) |
+| `GET` | `/term/{slug}` | Vorbereitete Erklaerung **lesen**. Query: `?expertise=beginner|intermediate|expert&language=de|en` | Alle Rollen | — (kein Tenant-Daten-Zugriff) |
+| `POST` | `/term/{slug}/generate` | Erklaerung **erzeugen** und zwischenspeichern. Gleiche Query-Parameter | Ab Gärtner (`glossary`/`create`) | `ai_cloud_processing`, wenn der Mandant einen Cloud-Provider als Standard hat |
 | `GET` | `/terms` | Liste aller aktiven Begriffe (slug + label + category). Query: `?category=&language=` | Alle Rollen | — |
+
+<!-- #1460 -->
+**Kein `GET` erzeugt eine Erklärung.** Beide `/term/{slug}`-Routen liefern den
+Cache-Eintrag, wenn es einen gibt, und sonst die kuratierte redaktionelle
+Kurzdefinition (`is_fallback=true`) — dieselbe Antwort, die der Pfad mit
+abgeschaltetem `AI_FEATURES_ENABLED` schon immer gegeben hat. `404` nur, wenn
+der Slug nicht im kuratierten Katalog steht.
+
+Vorher rief der Lesepfad bei einem Cache-Miss den Knowledge Service, schrieb den
+Cache-Eintrag (ArangoDB + Redis) und einen KI-Audit-Datensatz. Auf der
+**anonymen** Route aus §3.2 entschied damit ein Aufrufer ohne Konto, wann die
+Installation einen LLM-Aufruf bezahlt; Rate-Limit und kuratierter Katalog
+begrenzten Häufigkeit und Zeilenzahl, aber keines davon ist ein Grund, warum eine
+sichere HTTP-Methode schreiben dürfte. Erzeugt wird jetzt über
+`POST …/generate` (ab Gärtner) und über den Warm-up-Task aus §4.3.
+
+Zwei Folgen, die ausdrücklich so gewollt sind:
+
+- **Der Cloud-Gate sitzt auf dem `POST`, nicht auf dem `GET`.** Ohne LLM-Aufruf
+  gibt es keine Cloud-Verarbeitung, in die eingewilligt werden müsste. Die
+  Prüfung (`ai_cloud_processing`, §6) ist unverändert — sie läuft nur dort, wo
+  sie etwas gatet.
+- **Der Lesepfad schreibt keinen Audit-Datensatz mehr.** Der KI-Audit-Trail hält
+  einen *KI-Aufruf* fest (REQ-031 §4.3, NFR-007); eine aus dem Cache oder aus dem
+  redaktionellen Text beantwortete Anfrage ist keiner. Die Erzeugungspfade
+  protokollieren genau wie zuvor.
 
 Diese Endpunkte sind unter Tenant-Pfad erreichbar fuer einheitliches Routing, aber sie nutzen KEINE Tenant-Daten — der Knowledge-Service-Aufruf erfolgt strikt mit `context = null`.
 
@@ -158,6 +185,9 @@ Diese Endpunkte sind unter Tenant-Pfad erreichbar fuer einheitliches Routing, ab
 |---------|------|-------------|------|------------|
 | `GET` | `/term/{slug}` | wie 3.1, ohne Auth | keine | 30/min pro IP |
 | `GET` | `/terms` | wie 3.1, ohne Auth | keine | 10/min pro IP |
+
+Der Light-Modus hat **kein** Gegenstück zu `POST /term/{slug}/generate`: Erzeugen
+ist ein Schreibvorgang mit Kosten und bleibt an eine Rolle gebunden (#1460).
 
 Im Light-Modus wird Default-Expertise `beginner` angenommen, Default-Language aus `Accept-Language`-Header (de oder en).
 
@@ -240,7 +270,27 @@ Im Light-Modus wird Default-Expertise `beginner` angenommen, Default-Language au
 | Task | Schedule | Zweck |
 |------|----------|-------|
 | `glossary.cleanup_expired_cache` | taeglich 02:45 UTC | Loescht `glossary_term_cache` mit `valid_until < now()` |
-| `glossary.invalidate_after_reingest` | nach `ai.knowledge_service_ingest` (chained) | Invalidates kompletten Glossar-Cache; nachfolgende Anfragen regenerieren mit neuem KB-Index |
+| `glossary.invalidate_after_reingest` | nach `ai.knowledge_service_ingest` (chained) | Invalidiert den kompletten Glossar-Cache und stellt anschliessend `glossary.warm_cache` ein |
+| `glossary.warm_cache` | nach `glossary.invalidate_after_reingest` (eingestellt) | Erzeugt die Erklaerung jedes kuratierten Begriffs neu — je Sprache (de, en) und Erfahrungsstufe (beginner, intermediate, expert) |
+
+<!-- #1460 -->
+**Der Warm-up ist das, was die Invalidierung überlebensfähig macht.** Bis #1460
+füllte sich der Cache aus dem *Lesepfad* nach: Der erste Mensch, der nach einem
+Reingest einen Begriff aufrief, bezahlte den LLM-Aufruf — auf der anonymen Route
+ein Aufrufer ohne Konto. Da kein `GET` mehr erzeugt, muss ein Task es tun, und
+zwar dort, wo die Invalidierung ohnehin steht.
+
+Er wird **eingestellt, nicht aufgerufen**: er läuft lange (ein LLM-Aufruf je
+Begriff und Variante), und sein Scheitern darf eine bereits erfolgte
+Invalidierung nicht zurückrollen. Ein einzelner fehlgeschlagener Begriff bricht
+den Lauf nicht ab — die übrigen werden gewärmt, der fehlgeschlagene bleibt auf
+seiner redaktionellen Kurzdefinition, und die Zählwerte kommen für den Betreiber
+zurück. Bei abgeschaltetem `AI_FEATURES_ENABLED` tut der Task nichts: es gibt
+keinen RAG-Stack zu fragen, und die Kurzdefinition beantwortet jeden Lesezugriff.
+
+Alle Varianten werden gewärmt, nicht nur `de`/`beginner`: Eine ausgelassene
+Variante wäre für dieses Publikum dauerhaft die redaktionelle Kurzdefinition,
+weil nichts anderes mehr erzeugt.
 
 ## 5. Frontend-Komponenten (React/MUI)
 

@@ -155,7 +155,8 @@
         "fallbackHint": "Kurzdefinition (kein Wissensbasis-Treffer)",
         "relatedTitle": "Verwandte Begriffe",
         "back": "Zurück",
-        "close": "Schließen"
+        "close": "Schließen",
+        "generate": "Ausführliche Erklärung erzeugen"
       }
     },
     "inventree": {

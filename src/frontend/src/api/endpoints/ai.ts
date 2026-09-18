@@ -19,28 +19,34 @@ import type {
 
 const LIGHT_MODE_SLUG = 'mein-garten';
 
-/** Context tip cards for a plant/run. Consent `ai_tenant_data_access`. */
+/**
+ * Stored context tip cards for a plant/run. Consent `ai_tenant_data_access`.
+ *
+ * A read: since #1461 it never generates, so an empty `tips` is a normal answer
+ * meaning "nothing generated for this context yet". The whole response is
+ * returned rather than just the array, because `refresh_available` is what tells
+ * the caller whether they may do something about that.
+ */
 export async function getTips(
   contextType: string,
   contextKey: string,
-  language = 'de',
-): Promise<AiTipCard[]> {
+): Promise<AiTipListResponse> {
   const { data } = await tenantClient.get<AiTipListResponse>('/ai/tips', {
-    params: { context_type: contextType, context_key: contextKey, language },
+    params: { context_type: contextType, context_key: contextKey },
   });
-  return data.tips;
+  return data;
 }
 
-/** Force-regenerate the tips for a context. */
+/** Generate (or regenerate) the tips for a context. Requires grower. */
 export async function refreshTips(
   contextType: string,
   contextKey: string,
   language = 'de',
-): Promise<AiTipCard[]> {
+): Promise<AiTipListResponse> {
   const { data } = await tenantClient.post<AiTipListResponse>('/ai/tips/refresh', null, {
     params: { context_type: contextType, context_key: contextKey, language },
   });
-  return data.tips;
+  return data;
 }
 
 export async function dismissTip(tipKey: string): Promise<void> {
@@ -51,9 +57,20 @@ export async function markTipActedOn(tipKey: string): Promise<void> {
   await tenantClient.post(`/ai/tips/${tipKey}/acted-on`);
 }
 
-/** The single personalised daily tip for the dashboard (or `null`). */
-export async function getDailyTip(language = 'de'): Promise<AiTipCard | null> {
-  const { data } = await tenantClient.get<AiTipCard | null>('/ai/daily-tip', {
+/**
+ * Today's stored daily tip for the dashboard, or `null`.
+ *
+ * A read: since #1461 it never generates, so `null` also covers "nothing
+ * generated for today yet" — `refreshDailyTip` is what generates it.
+ */
+export async function getDailyTip(): Promise<AiTipCard | null> {
+  const { data } = await tenantClient.get<AiTipCard | null>('/ai/daily-tip');
+  return data;
+}
+
+/** Generate today's daily tip. Requires grower; idempotent for the day. */
+export async function refreshDailyTip(language = 'de'): Promise<AiTipCard | null> {
+  const { data } = await tenantClient.post<AiTipCard | null>('/ai/daily-tip/refresh', null, {
     params: { language },
   });
   return data;

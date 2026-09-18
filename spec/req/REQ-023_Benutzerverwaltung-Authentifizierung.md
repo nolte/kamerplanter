@@ -1031,6 +1031,17 @@ class UserService:
 | GET | `/auth/oauth/{provider_slug}` | OAuth-Redirect initiieren | Nein |
 | GET | `/auth/oauth/{provider_slug}/callback` | OAuth-Callback verarbeiten | Nein |
 
+<!-- #1461 -->
+**Der Callback ist ein Schreibpfad mit GET-Verb.** Der Identity-Provider schickt den Nutzer
+per Browser-Redirect zurück; ein Redirect kann nur ein `GET` sein, ein anderes Verb steht
+protokollbedingt nicht zur Verfügung. Der Handler legt dabei den User an oder aktualisiert
+ihn, verknüpft den `AuthProvider` und stellt das Refresh-Token aus — er **persistiert also
+auf einem `GET`**, und das ist hier kein Defekt, sondern die Form, die OAuth2 vorgibt. Die
+Ausnahme ist an die gemessenen Schreibsenken gebunden (`_INTENTIONAL_PERSISTING_READS` in
+`tests/unit/api/test_write_route_gates.py`): erreicht der Handler eine Schreibstelle, die
+dort nicht steht, wird der Wächter rot. Für jeden anderen `GET` der API gilt unverändert,
+dass er nichts schreibt.
+
 **Router: `/api/v1/users`** — Benutzerverwaltung:
 
 | Methode | Pfad | Beschreibung | Auth |

@@ -155,7 +155,8 @@
         "fallbackHint": "Short definition (no knowledge-base match)",
         "relatedTitle": "Related terms",
         "back": "Back",
-        "close": "Close"
+        "close": "Close",
+        "generate": "Generate detailed explanation"
       }
     },
     "inventree": {

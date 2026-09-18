@@ -468,6 +468,21 @@ _ROLE_ORDER: dict[TenantRole, int] = {
 }
 
 
+def meets_tenant_role(role: TenantRole, min_role: TenantRole) -> bool:
+    """Whether ``role`` ranks at or above ``min_role`` — the rank rule, as a function.
+
+    Extracted so a route that has to *report* the rank decision (rather than
+    enforce it) can read the same predicate the gate decides on. ``GET /ai/tips``
+    tells its caller whether they may regenerate (#1461); a hand-written copy of
+    "grower or lead" in the router or in the client would be a second ordering
+    to drift, and what it would drift about is who may write.
+
+    Fails closed on an unknown role for the same reason :data:`_ROLE_ORDER` maps
+    it to 0.
+    """
+    return _ROLE_ORDER.get(role, 0) >= _ROLE_ORDER[min_role]
+
+
 def require_tenant_role(min_role: TenantRole) -> Callable:
     """Dependency factory for axis 1: a minimum domain role (REQ-049 §2.3).
 
@@ -484,7 +499,7 @@ def require_tenant_role(min_role: TenantRole) -> Callable:
     """
 
     def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
-        if _ROLE_ORDER.get(ctx.role, 0) < _ROLE_ORDER[min_role]:
+        if not meets_tenant_role(ctx.role, min_role):
             raise ForbiddenError(f"Requires at least {min_role.value} role.")
         return ctx
 
@@ -517,7 +532,7 @@ def require_active_tenant_role(min_role: TenantRole) -> Callable:
     """
 
     def _check(ctx: TenantContext = Depends(get_active_tenant_context)) -> TenantContext:
-        if _ROLE_ORDER.get(ctx.role, 0) < _ROLE_ORDER[min_role]:
+        if not meets_tenant_role(ctx.role, min_role):
             raise ForbiddenError(f"Requires at least {min_role.value} role.")
         return ctx
 
