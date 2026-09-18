@@ -175,6 +175,7 @@ describe('tasks endpoints — tasks CRUD', () => {
     await tasks.listTasks();
     expect(client.get).toHaveBeenCalledWith('/tasks', {
       params: { offset: 0, limit: 50 },
+      paramsSerializer: { indexes: null },
     });
   });
 
@@ -195,6 +196,26 @@ describe('tasks endpoints — tasks CRUD', () => {
         entity_type: 'plant',
         entity_key: 'p1',
       },
+      paramsSerializer: { indexes: null },
+    });
+  });
+
+  it('listTasks repeats the origin parameter rather than bracketing it', async () => {
+    client.get.mockResolvedValue({ data: [] });
+    await tasks.listTasks(0, 50, { origin: ['system', 'pipeline'] });
+    expect(client.get).toHaveBeenCalledWith('/tasks', {
+      params: { offset: 0, limit: 50, origin: ['system', 'pipeline'] },
+      // Without this axios sends `origin[]=system`, which FastAPI does not read.
+      paramsSerializer: { indexes: null },
+    });
+  });
+
+  it('listTasks omits an empty origin list — "every origin" is the absent parameter', async () => {
+    client.get.mockResolvedValue({ data: [] });
+    await tasks.listTasks(0, 50, { origin: [] });
+    expect(client.get).toHaveBeenCalledWith('/tasks', {
+      params: { offset: 0, limit: 50 },
+      paramsSerializer: { indexes: null },
     });
   });
 
@@ -277,17 +298,30 @@ describe('tasks endpoints — tasks CRUD', () => {
 });
 
 describe('tasks endpoints — specialized queries', () => {
-  it('getTaskQueue gets queue without plant filter', async () => {
+  it('getTaskQueue gets queue without any scope', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tasks.getTaskQueue();
-    expect(client.get).toHaveBeenCalledWith('/tasks/queue', { params: {} });
+    expect(client.get).toHaveBeenCalledWith('/tasks/queue', {
+      params: {},
+      paramsSerializer: { indexes: null },
+    });
   });
 
   it('getTaskQueue adds plant_key param when provided', async () => {
     client.get.mockResolvedValue({ data: [] });
-    await tasks.getTaskQueue('p1');
+    await tasks.getTaskQueue({ plantKey: 'p1' });
     expect(client.get).toHaveBeenCalledWith('/tasks/queue', {
       params: { plant_key: 'p1' },
+      paramsSerializer: { indexes: null },
+    });
+  });
+
+  it('getTaskQueue sends the category and the repeated origin (#1503)', async () => {
+    client.get.mockResolvedValue({ data: [] });
+    await tasks.getTaskQueue({ plantKey: null, category: 'ipm', origin: ['system', 'pipeline'] });
+    expect(client.get).toHaveBeenCalledWith('/tasks/queue', {
+      params: { category: 'ipm', origin: ['system', 'pipeline'] },
+      paramsSerializer: { indexes: null },
     });
   });
 

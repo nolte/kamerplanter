@@ -10,6 +10,7 @@ import type {
   TaskItem,
   TaskItemCreate,
   TaskItemUpdate,
+  TaskOrigin,
   TaskTemplate,
   TaskTemplateCreate,
   TaskTemplateUpdate,
@@ -220,14 +221,29 @@ export async function deleteTaskTemplate(key: string): Promise<void> {
 export async function listTasks(
   offset = 0,
   limit = 50,
-  filters?: { status?: string; category?: string; entity_type?: string; entity_key?: string },
+  filters?: {
+    status?: string;
+    category?: string;
+    entity_type?: string;
+    entity_key?: string;
+    /** Provenances to keep (repeated `origin` parameter). Omit for every origin. */
+    origin?: readonly TaskOrigin[];
+  },
 ): Promise<TaskItem[]> {
-  const params: Record<string, string | number> = { offset, limit };
+  const params: Record<string, string | number | readonly string[]> = { offset, limit };
   if (filters?.status) params.status = filters.status;
   if (filters?.category) params.category = filters.category;
   if (filters?.entity_type) params.entity_type = filters.entity_type;
   if (filters?.entity_key) params.entity_key = filters.entity_key;
-  const { data } = await client.get<TaskItem[]>(BASE, { params });
+  // A *present but empty* list would mean "no origin matches" server-side, which
+  // no caller wants; "every origin" is the absent parameter (#1503).
+  if (filters?.origin?.length) params.origin = filters.origin;
+  const { data } = await client.get<TaskItem[]>(BASE, {
+    params,
+    // axios serialises `origin: ['a','b']` as `origin[]=a` by default; FastAPI
+    // expects the parameter repeated without brackets.
+    paramsSerializer: { indexes: null },
+  });
   return data;
 }
 
@@ -331,12 +347,29 @@ export async function skipTask(key: string): Promise<TaskItem> {
 
 // -- Specialized queries --
 
-export async function getTaskQueue(
-  plantKey?: string,
-): Promise<TaskItem[]> {
-  const params: Record<string, string> = {};
-  if (plantKey) params.plant_key = plantKey;
-  const { data } = await client.get<TaskItem[]>(`${BASE}/queue`, { params });
+/**
+ * What the queue is asked for. Every field is a **query** parameter, never a
+ * post-filter: the endpoint answers at most 200 rows, so a narrowing applied to
+ * the answer can only ever see what the cap already let through (#1484, #1503).
+ */
+export interface TaskQueueQuery {
+  /** Restrict to one plant instance. */
+  plantKey?: string | null;
+  /** Restrict to one task category. */
+  category?: string | null;
+  /** Provenances to keep (repeated `origin` parameter). Omit for every origin. */
+  origin?: readonly TaskOrigin[];
+}
+
+export async function getTaskQueue(query: TaskQueueQuery = {}): Promise<TaskItem[]> {
+  const params: Record<string, string | readonly string[]> = {};
+  if (query.plantKey) params.plant_key = query.plantKey;
+  if (query.category) params.category = query.category;
+  if (query.origin?.length) params.origin = query.origin;
+  const { data } = await client.get<TaskItem[]>(`${BASE}/queue`, {
+    params,
+    paramsSerializer: { indexes: null },
+  });
   return data;
 }
 

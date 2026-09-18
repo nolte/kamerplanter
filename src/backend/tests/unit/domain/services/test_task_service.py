@@ -274,6 +274,9 @@ class TestListTasksWithEntityFilter:
             50,
             {"entity_type": "planting_run", "entity_key": "run1"},
             tenant_key="t1",
+            # No provenance filter asked for is "every origin", spelled as the
+            # absent predicate rather than as a list of all of them (#1503).
+            origins=None,
         )
 
 
