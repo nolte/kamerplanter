@@ -975,11 +975,22 @@ _NOT_INSTALLATION_WIDE: dict[str, str] = {
     "tenants": "tenant lifecycle and membership, gated on require_admin_scope",
     "mcp": "REQ-033 protocol surface, gated on get_mcp_principal",
     "ki_assistent": "REQ-031 light-mode probe, published on purpose",
-    "glossar": (
-        "the write half lives under /api/v1/admin/glossary behind "
-        "require_platform_admin and is covered by the admin sweep; what is left on "
-        "the global router is the anonymous public read, a #1443 persisting-read finding"
-    ),
+    # `glossar` stood here until #1515, and its removal is the obsolescence rule
+    # below working rather than breaking. The entry existed *because* of a
+    # persisting read: `public_get_term` answered an anonymous GET and wrote a
+    # cache row through `_store_cache`, so the #1443 detector counted the route as
+    # a global write and the module needed a classification. #1515 removed that
+    # write, `persists(public_get_term)` is now False, and the module's real
+    # writes live on the two surfaces the other selectors already own —
+    # `/t/{slug}/glossary/term/{slug}/generate` (tenant) and
+    # `/api/v1/admin/glossary/*` (admin, behind `require_platform_admin` since
+    # #536). Nothing is left on the global surface, so an entry claiming to
+    # classify one would be an exemption nobody can check.
+    #
+    # Left as a comment rather than deleted silently: the next reader wondering
+    # why the glossary is unclassified here should find the answer beside the gap,
+    # and `test_every_global_write_module_is_classified` will demand a real entry
+    # again the moment the module mounts a global write.
     "care_reminders": "per-plant tenant data; require_owned_plant + require_active_tenant_role",
     "phases": "per-plant tenant data; require_owned_plant + require_active_tenant_role",
     "calculations": "POST-as-computation — reads its inputs, returns a result, persists nothing",
