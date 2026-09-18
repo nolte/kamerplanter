@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
+import TipCardsPanel from '@/components/ai/TipCardsPanel';
+import { isLightMode } from '@/config/mode';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -1950,6 +1952,20 @@ export default function PlantInstanceDetailPage() {
                 <HaPublishToggle entityType="plant" entityKey={key} />
               </CardContent>
             </Card>
+          )}
+          {/* REQ-031 §6.2 — the context tip cards, on the page the requirement's
+              own user story names: "auf der Detailseite meiner Pflanze". The
+              component was built and tested in v1.0 and mounted nowhere, so the
+              cards had never reached a user (review SCR-004).
+
+              Hidden in light mode because the panel needs a tenant context
+              (REQ-031 §REQ-027 row), and self-hiding when the tenant has KI off:
+              the read answers 403, the panel catches it and renders nothing —
+              "kein leerer Container", as §6.2 requires. */}
+          {plant && key && !isLightMode && (
+            <Box sx={{ mb: 2 }}>
+              <TipCardsPanel contextType="plant_instance" contextKey={key} />
+            </Box>
           )}
         </>
       )}
