@@ -87,7 +87,7 @@ class ImportService:
         if caller_role is not None and not tenant_key:
             # Same arm, same reason as `confirm`: a caller with no resolvable
             # tenant must not stage a job that would be stamped `""` — the ownerless
-            # shape v0051 deletes and that no scope can ever address (SCR-001).
+            # shape v0052 deletes and that no scope can ever address (SCR-001).
             raise ValidationError("Cannot stage an import without an active tenant.")
         if caller_role is not None and not is_platform_admin and not MembershipEngine.can_edit_resource(caller_role):
             raise ForbiddenError("Your role may not stage an import in this tenant.")
@@ -127,7 +127,7 @@ class ImportService:
 
         A job stamped ``""`` predates this change and belongs to no tenant. It is
         therefore reachable by nobody at all — not by the empty context either —
-        and migration ``v0051`` deletes those rows, because a row no caller can
+        and migration ``v0052`` deletes those rows, because a row no caller can
         ever address is not data, it is residue.
         """
         job = self._repo.get_or_raise(key)

@@ -1,4 +1,4 @@
-"""v0051 deletes staged import jobs that belong to no tenant (#1501, review SCR-001).
+"""v0052 deletes staged import jobs that belong to no tenant (#1501, review SCR-001).
 
 The rows this removes are the ones `ImportJob.tenant_key` was never written for:
 before #1501 the field existed and nothing set it, so every job in the collection
@@ -24,7 +24,7 @@ from typing import Any
 
 import pytest
 
-from app.migrations.versions.v0051_drop_unowned_import_jobs import DropUnownedImportJobsMigration
+from app.migrations.versions.v0052_drop_unowned_import_jobs import DropUnownedImportJobsMigration
 
 _IMPORT_JOBS = "import_jobs"
 
@@ -177,6 +177,6 @@ class TestItDeclaresItselfHonestly:
             migration.down(_Db(_docs()))  # type: ignore[arg-type]
 
     def test_its_metadata_matches_its_module(self, migration) -> None:
-        assert migration.version == "0051"
+        assert migration.version == "0052"
         assert migration.name == "drop_unowned_import_jobs"
         assert len(migration.description) > 20

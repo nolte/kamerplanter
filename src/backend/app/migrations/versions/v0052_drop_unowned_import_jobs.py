@@ -1,4 +1,4 @@
-"""v0051 — delete import jobs that belong to no tenant (#1501, review SCR-001).
+"""v0052 — delete import jobs that belong to no tenant (#1501, review SCR-001).
 
 ``ImportJob`` has carried ``tenant_key`` since it was written and **nothing ever
 set it**: the router called ``ImportService.upload`` without ``uploaded_by`` and
@@ -45,13 +45,20 @@ exists for installations that have staged an import: the count is a property of
 the deployment, not of the schema, and a migration that only runs where the
 developer happened to have data is the "inert guard" shape twice over.
 
-**On the version number.** ``0051`` is the next free number on this branch.
+**On the version number.** This module was written as ``0051`` and renumbered to
+``0052`` when #1523 (``v0051_rename_cec_key``) landed on ``develop`` first — the
+collision ``app/migrations/README.md`` describes, resolved the way it prescribes:
+whoever lands second rebases and renames *before* the merge, all four things at
+once (module file, ``version`` string, unit-test module and its imports; this
+migration has no integration test to rename). Safe because it has been applied
+nowhere: M-7 pins an *applied* migration to its number and its checksum, and a
+renumbering after that would be the thing M-7 forbids.
+
 ``discovery.validate_sequence`` enforces gapless numbering from ``0001`` (M-1) and
 that check sits on the application's startup path, so a number cannot be reserved
-ahead of a branch that has not landed. #1468 claims ``0051`` on a parallel branch;
-whichever lands second renames its module and its ``version`` string, which is
-mechanical while neither has been applied anywhere. v0047 and v0049 both record
-the same collision and the same resolution.
+ahead of a branch that has not landed — which is why the collision is resolved
+after the fact rather than avoided in advance. #1505 takes ``0053`` behind this
+one. v0047 and v0049 both record the same collision and the same resolution.
 """
 
 from __future__ import annotations
@@ -67,7 +74,7 @@ logger = structlog.get_logger(__name__)
 
 
 class DropUnownedImportJobsMigration(Migration):
-    version = "0051"
+    version = "0052"
     name = "drop_unowned_import_jobs"
     description = "Delete staged import jobs that carry no tenant_key (#1501)."
     reversible = False

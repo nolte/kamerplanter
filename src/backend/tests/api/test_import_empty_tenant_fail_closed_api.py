@@ -199,7 +199,7 @@ class TestTheEmptyContextSeesNoJob:
 
         422, matching `confirm` — the refusal is about the caller having no tenant,
         which is a true statement about themselves and hides no row. Without it the
-        collection would keep regrowing the very class `v0051` deletes, and the
+        collection would keep regrowing the very class `v0052` deletes, and the
         migration would be a one-off cleanup of a defect still in production.
         """
         client, _repo = _client_with_no_resolvable_tenant()
