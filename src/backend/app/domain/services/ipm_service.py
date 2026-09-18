@@ -16,6 +16,7 @@ from app.domain.models.ipm import (
     TreatmentApplication,
 )
 from app.domain.models.pest_taxonomy import get_taxon
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 
 # IPM-Hierarchie für die Gegenmaßnahmen-Reihenfolge auf der Detailseite
 # (REQ-010 DoD „Kultur > Biologisch > Chemisch"; mechanisch vor chemisch).
@@ -32,6 +33,36 @@ def _ipm_rank(treatment: Treatment) -> int:
 
 
 class IpmService:
+    """IPM service — global catalogue plus the tenant-scoped observation records.
+
+    **The catalogue half is installation-wide** (#1501). ``Pest``, ``Disease`` and
+    ``Treatment`` are global reference data — ``app/api/v1/ipm/tenant_router.py``
+    says so in its own module docstring, and the models bear it out: none of the
+    three carries a ``tenant_key``, so one pest row is the row every tenant's IPM
+    plan resolves. Their nine write methods therefore take ``is_platform_admin``
+    **keyword-only and without a default**, and refuse anyone else through the
+    same :func:`~app.domain.services.catalogue_authorization.require_platform_admin_for_global_catalogue`
+    the species, substrate and import paths call.
+
+    Until #1501 the nine routes above them resolved ``get_current_user`` alone, so
+    any authenticated member of any tenant could delete a catalogue pest for
+    everyone. ``create_disease`` / ``create_treatment`` stamp
+    ``origin=DataOrigin.TENANT``, which reads like tenant ownership and is not:
+    with no ``tenant_key`` on the model the marker records *that* a user created
+    the row, never *which tenant owns* it, and nothing anywhere scopes a read by
+    it. That marker is precisely why these creates looked tenant-local.
+
+    The **tenant-scoped** half below (inspections, treatment applications, pest
+    images) is unaffected: those models do carry ``tenant_key`` and their routes
+    are gated on ``require_permission`` / ``require_attachment_permission``.
+    """
+
+    #: The catalogue entity each refusal names. One map, so a 403 cannot name the
+    #: wrong catalogue.
+    _PEST = "pest"
+    _DISEASE = "disease"
+    _TREATMENT = "treatment"
+
     def __init__(
         self,
         repo: IIpmRepository,
@@ -61,10 +92,23 @@ class IpmService:
         """
         return self._repo.get_inspection_photo_refs_for_pest(tenant_key, pest_key)
 
-    def create_pest(self, pest: Pest) -> Pest:
+    @staticmethod
+    def _require_catalogue_admin(is_platform_admin: bool, entity: str) -> None:
+        """Refuse a non-platform-admin write to the global IPM catalogue (#1501).
+
+        One call site per write method rather than a decorator or a router-level
+        dependency alone: the rule has to be reachable from a caller that is not an
+        HTTP request, which is the argument ``catalogue_authorization`` makes about
+        why it is not a FastAPI dependency in the first place.
+        """
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=entity)
+
+    def create_pest(self, pest: Pest, *, is_platform_admin: bool) -> Pest:
+        self._require_catalogue_admin(is_platform_admin, self._PEST)
         return self._repo.create_pest(pest)
 
-    def update_pest(self, key: str, data: dict) -> Pest:
+    def update_pest(self, key: str, data: dict, *, is_platform_admin: bool) -> Pest:
+        self._require_catalogue_admin(is_platform_admin, self._PEST)
         existing = self.get_pest(key)
         allowed = {
             "scientific_name",
@@ -97,7 +141,8 @@ class IpmService:
                 setattr(existing, field, value)
         return self._repo.update_pest(key, existing)
 
-    def delete_pest(self, key: str) -> bool:
+    def delete_pest(self, key: str, *, is_platform_admin: bool) -> bool:
+        self._require_catalogue_admin(is_platform_admin, self._PEST)
         self.get_pest(key)
         return self._repo.delete_pest(key)
 
@@ -130,10 +175,12 @@ class IpmService:
     def get_disease(self, key: str) -> Disease:
         return self._repo.get_disease_or_raise(key)
 
-    def create_disease(self, disease: Disease) -> Disease:
+    def create_disease(self, disease: Disease, *, is_platform_admin: bool) -> Disease:
+        self._require_catalogue_admin(is_platform_admin, self._DISEASE)
         return self._repo.create_disease(disease)
 
-    def update_disease(self, key: str, data: dict) -> Disease:
+    def update_disease(self, key: str, data: dict, *, is_platform_admin: bool) -> Disease:
+        self._require_catalogue_admin(is_platform_admin, self._DISEASE)
         existing = self.get_disease(key)
         allowed = {
             "scientific_name",
@@ -149,7 +196,8 @@ class IpmService:
                 setattr(existing, field, value)
         return self._repo.update_disease(key, existing)
 
-    def delete_disease(self, key: str) -> bool:
+    def delete_disease(self, key: str, *, is_platform_admin: bool) -> bool:
+        self._require_catalogue_admin(is_platform_admin, self._DISEASE)
         self.get_disease(key)
         return self._repo.delete_disease(key)
 
@@ -161,10 +209,12 @@ class IpmService:
     def get_treatment(self, key: str) -> Treatment:
         return self._repo.get_treatment_or_raise(key)
 
-    def create_treatment(self, treatment: Treatment) -> Treatment:
+    def create_treatment(self, treatment: Treatment, *, is_platform_admin: bool) -> Treatment:
+        self._require_catalogue_admin(is_platform_admin, self._TREATMENT)
         return self._repo.create_treatment(treatment)
 
-    def update_treatment(self, key: str, data: dict) -> Treatment:
+    def update_treatment(self, key: str, data: dict, *, is_platform_admin: bool) -> Treatment:
+        self._require_catalogue_admin(is_platform_admin, self._TREATMENT)
         existing = self.get_treatment(key)
         allowed = {
             "name",
@@ -201,7 +251,8 @@ class IpmService:
             "targeted_diseases": diseases,
         }
 
-    def delete_treatment(self, key: str) -> bool:
+    def delete_treatment(self, key: str, *, is_platform_admin: bool) -> bool:
+        self._require_catalogue_admin(is_platform_admin, self._TREATMENT)
         self.get_treatment(key)
         return self._repo.delete_treatment(key)
 

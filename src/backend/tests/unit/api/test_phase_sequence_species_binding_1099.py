@@ -67,7 +67,7 @@ class TestPhaseSequenceSpeciesKeyRoundTrips:
         )
 
         body = PhaseSequenceUpdate(species_key="11507159")
-        response = update_phase_sequence(key="26733338", body=body, _user=MagicMock(), service=service)
+        response = update_phase_sequence(key="26733338", body=body, is_platform_admin=True, service=service)
 
         assert response.species_key == "11507159"
 
@@ -84,7 +84,7 @@ class TestUpdateSequenceRepointsTheBinding:
     def test_species_key_update_repoints_has_phase_sequence_edge(self) -> None:
         service, repo = self._service()
 
-        service.update_sequence("26733338", {"species_key": "11507159"})
+        service.update_sequence("26733338", {"species_key": "11507159"}, is_platform_admin=True)
 
         # Writing the document field alone was the no-op behind the 200; the binding
         # the lifecycle engine resolves is the edge, so it must be re-pointed too.
@@ -93,7 +93,7 @@ class TestUpdateSequenceRepointsTheBinding:
     def test_update_without_species_key_leaves_the_edge_untouched(self) -> None:
         service, repo = self._service()
 
-        service.update_sequence("26733338", {"display_name_de": "Immergrüne Staude"})
+        service.update_sequence("26733338", {"display_name_de": "Immergrüne Staude"}, is_platform_admin=True)
 
         repo.set_species_sequence.assert_not_called()
 
@@ -102,7 +102,7 @@ class TestUpdateSequenceRepointsTheBinding:
         # unbinding is done by binding a different sequence, never by a blank.
         service, repo = self._service()
 
-        service.update_sequence("26733338", {"species_key": ""})
+        service.update_sequence("26733338", {"species_key": ""}, is_platform_admin=True)
 
         repo.set_species_sequence.assert_not_called()
 
