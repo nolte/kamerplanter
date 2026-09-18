@@ -57,8 +57,16 @@ def _confirmation_to_response(c) -> CareConfirmationResponse:
 @router.get("/plants/{plant_key}/profile", response_model=CareProfileResponse)
 def get_or_create_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
-    species_name: str | None = Query(None, description="Species name used to seed a new profile's presets."),
-    botanical_family: str | None = Query(None, description="Botanical family used to seed a new profile's presets."),
+    species_name: Annotated[
+        str | None,
+        Query(
+            deprecated=True,
+            description=(
+                "Deprecated and ignored (#1489): the presets are resolved from the "
+                "plant's own species. Accepted so an existing client is not broken."
+            ),
+        ),
+    ] = None,
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Return the plant's care profile, generating presets if absent — without storing them.
@@ -66,14 +74,23 @@ def get_or_create_profile(
     A read. `may_create=False` is what makes that true: an absent profile is
     generated and returned, and nothing is written, so every member may call this
     including a viewer (#1422 round 2).
+
+    **The preset inputs are no longer taken from the client** (#1489). Two query
+    parameters used to seed the generated presets; measured 2026-09-17, the frontend
+    sends `species_name` and never `botanical_family`, and `species_name` takes part
+    in no decision the engine makes. So the family — the one that *did* decide — was
+    supplied by nobody and every generated profile came out `TROPICAL`.
+    `botanical_family` is therefore gone (no client sent it) and `species_name` is
+    kept deprecated and ignored, which is exactly what it always was.
     """
+    del species_name  # accepted for compatibility; the service resolves its own inputs
     # `may_create=False`: this is a read, and a read does not write. Round 1 of the
     # #1422 review gated the whole operation instead, which took the *read* away from
     # viewers — `get_or_create_profile` returns an existing profile untouched, so a
     # viewer opening the care tab of an already-profiled plant got a 403 and the
     # frontend a permanently spinning skeleton. The gate belonged on the write, and
     # the write is now simply not performed.
-    profile = service.get_or_create_profile(plant_key, species_name, botanical_family, may_create=False)
+    profile = service.get_or_create_profile(plant_key, may_create=False)
     return _profile_to_response(profile)
 
 
@@ -170,10 +187,15 @@ def get_confirmation_history(
 )
 def reset_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
-    species_name: str | None = Query(None, description="Species name used to re-seed the profile's presets."),
-    botanical_family: str | None = Query(None, description="Botanical family used to re-seed the profile's presets."),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
-    """Reset the plant's care profile back to its preset defaults."""
-    profile = service.reset_profile(plant_key, species_name, botanical_family)
+    """Reset the plant's care profile back to its preset defaults.
+
+    Both query parameters this route used to take are gone (#1489): measured
+    2026-09-17, `careReminders.resetProfile` sends neither, so the reset a user
+    reaches *because* the presets look wrong re-seeded them from the same
+    `TROPICAL` fallback that made them look wrong. The service resolves the
+    plant's species and family itself.
+    """
+    profile = service.reset_profile(plant_key)
     return _profile_to_response(profile)

@@ -88,8 +88,8 @@ describe('careRemindersSlice thunks', () => {
   it('fetchProfile forwards its args and stores the profile', async () => {
     mocked.getOrCreateProfile.mockResolvedValue({ key: 'cp1' } as never);
     const store = makeStore();
-    await store.dispatch(fetchProfile({ plantKey: 'pl1', speciesName: 'Rosa', botanicalFamily: 'Rosaceae' }));
-    expect(mocked.getOrCreateProfile).toHaveBeenCalledWith('pl1', 'Rosa', 'Rosaceae');
+    await store.dispatch(fetchProfile({ plantKey: 'pl1' }));
+    expect(mocked.getOrCreateProfile).toHaveBeenCalledWith('pl1');
     expect(store.getState().careReminders.currentProfile).toEqual({ key: 'cp1' });
   });
 
