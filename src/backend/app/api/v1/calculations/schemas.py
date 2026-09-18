@@ -1,12 +1,23 @@
+"""Request/response schemas for /calculations (REQ-003, REQ-018).
+
+``VPDRequest.phase`` carries ``PhaseName``, not ``str`` (#1520, review SCR-004).
+The classifier looks the phase up with ``vpd_ranges.get(phase, (0.8, 1.2))``, so
+a misspelt phase never raised — it silently classified the reading against the
+vegetative default and quoted the misspelling back in the recommendation. That is
+the quiet half of the same class: a wrong answer instead of an error.
+"""
+
 from datetime import date
 
 from pydantic import BaseModel, Field
+
+from app.common.enums import PhaseName
 
 
 class VPDRequest(BaseModel):
     temp_c: float
     humidity_percent: float = Field(ge=0, le=100)
-    phase: str = "vegetative"
+    phase: PhaseName = PhaseName.VEGETATIVE
 
 
 class VPDResponse(BaseModel):

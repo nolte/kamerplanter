@@ -27,7 +27,6 @@ from app.api.v1.nutrient_calculations.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
-from app.common.enums import PhaseName, SubstrateType
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.engines.ec_budget_engine import (
     EcBudgetCalculator,
@@ -83,9 +82,6 @@ def mixing_protocol(
     target EC after pH correction). The legacy response shape is preserved and
     additively extended with ``ec_net``, ``ec_ph_reserve`` and ``valid``.
     """
-    substrate = SubstrateType(body.substrate_type)
-    phase = PhaseName(body.phase)
-
     fert_inputs: list[EcBudgetFertilizerInput] = []
     for key in body.fertilizer_keys:
         fert = service.get_fertilizer(key, tenant_key=ctx.tenant_key)
@@ -104,8 +100,8 @@ def mixing_protocol(
         base_water_ec=body.base_water_ec,
         target_ec=body.target_ec_ms,
         alkalinity_ppm=body.alkalinity_ppm,
-        substrate=substrate,
-        phase=phase,
+        substrate=body.substrate_type,
+        phase=body.phase,
         volume_liters=body.target_volume_liters,
         fertilizers=fert_inputs,
         recipe_ml_per_liter=body.recipe_ml_per_liter or {},
@@ -167,12 +163,11 @@ def area_dosing(
 @router.post("/flushing", response_model=FlushingResponse)
 def flushing_protocol(body: FlushingRequest):
     """Compute a pre-harvest flushing schedule for a substrate."""
-    substrate = SubstrateType(body.substrate_type)
     protocol = FlushingProtocol()
     return protocol.generate(
         current_ec_ms=body.current_ec_ms,
         days_until_harvest=body.days_until_harvest,
-        substrate_type=substrate,
+        substrate_type=body.substrate_type,
     )
 
 
@@ -283,9 +278,6 @@ def ec_budget(
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     """Run the canonical EC-budget pipeline (REQ-004-A) for a fertilizer selection."""
-    substrate = SubstrateType(body.substrate)
-    phase = PhaseName(body.phase)
-
     # Resolve fertilizer keys → domain models
     fert_inputs: list[EcBudgetFertilizerInput] = []
     recipe_map: dict[str, float] = {}
@@ -321,8 +313,8 @@ def ec_budget(
         base_water_ec=body.base_water_ec,
         target_ec=body.target_ec,
         alkalinity_ppm=body.alkalinity_ppm,
-        substrate=substrate,
-        phase=phase,
+        substrate=body.substrate,
+        phase=body.phase,
         volume_liters=body.volume_liters,
         fertilizers=fert_inputs,
         recipe_ml_per_liter=recipe_map,
