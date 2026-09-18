@@ -185,7 +185,6 @@ class PrintService:
                     "plant_key": plant.key or "",
                     "plant_name": plant.plant_name or plant.instance_id or "",
                     "species_name": species_name,
-                    "botanical_family": None,
                     "current_phase": None,
                     "has_nutrient_plan": False,
                 }

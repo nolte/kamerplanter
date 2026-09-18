@@ -6,6 +6,12 @@
 #   prod (default, built by CI):   docker build .
 #   dev  (built by skaffold):      docker build --target dev .
 #
+# "built by CI" means BEFORE the merge since #1463: `build-inference-service` in
+# docker-lint-build.yml builds this file with the same context and no `target:`
+# as the publishing job in docker-publish.yml. Until then only the post-merge
+# publish built it, so a pull request could make this unbuildable and every check
+# stayed green — the breakage surfaced on develop, on somebody else's change.
+#
 # Every Python install below comes from uv.lock with hash verification
 # (NFR-009 §2.3/§6.1) — the export toolchain through the `build` dependency
 # group, the reloader through `dev`, the runtime through [project].dependencies.

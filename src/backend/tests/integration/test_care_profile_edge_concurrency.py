@@ -58,6 +58,10 @@ pytestmark = [
 _DB_NAME = "kamerplanter_care_profile_edge_test"
 _TENANT_KEY = "tenant-alpha"
 _PLANT_KEY = "plant-basil-1"
+_SPECIES_KEY = "ocimum-basilicum"
+#: A family ``_key`` in the numeric shape ArangoDB assigns — never the name.
+_FAMILY_KEY = "7242"
+_FAMILY_NAME = "Lamiaceae"
 
 #: How many requests race for the same plant's profile. Four mirrors the E2E
 #: suite's four xdist workers driving one tenant at once.
@@ -86,19 +90,64 @@ def _plant_doc(plant_key: str) -> dict:
         "_key": plant_key,
         "tenant_key": _TENANT_KEY,
         "instance_id": f"P-{plant_key}",
-        "species_key": "ocimum-basilicum",
+        "species_key": _SPECIES_KEY,
         "plant_name": "Basil",
         "planted_on": "2026-01-01",
     }
 
 
+def _species_doc() -> dict:
+    """The species the racing plant names, pointing at a family by its ``_key``.
+
+    Seeded because the write path *resolves* it since #1489: the service reads the
+    plant, its species and the family document to derive the presets. A race run
+    against a service that could not perform those reads would no longer be the
+    production path — it would be a shorter one, and the read-then-create window
+    this file exists to overlap is exactly what got longer.
+    """
+    return {"_key": _SPECIES_KEY, "scientific_name": "Ocimum basilicum", "family_key": _FAMILY_KEY}
+
+
+def _family_doc() -> dict:
+    """``Lamiaceae`` — and its ``_key`` is numeric, as ArangoDB assigns them.
+
+    That is the #1489 shape: the species stores the key, ``FAMILY_CARE_MAP`` is
+    keyed by the name, and handing the key over produced the TROPICAL fallback.
+    Here it makes the resolution observable — the answered profile's care style is
+    the family's, which it cannot be unless the resolver ran inside the race.
+    """
+    return {"_key": _FAMILY_KEY, "name": _FAMILY_NAME}
+
+
 def _make_service(db):
-    """A real service on real Arango repositories — the production write path, unfaked."""
+    """A real service on real Arango repositories — the production write path, unfaked.
+
+    Wired as ``dependencies.get_care_reminder_service`` wires it, and that is not
+    decoration: since #1489 ``get_or_create_profile`` resolves the plant's species,
+    cultivar and family name itself, so a service built without those collaborators
+    would take a different (shorter, read-free) path to the same insert and the race
+    would no longer be the one production runs.
+    """
+    from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
     from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
+    from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+    from app.data_access.arango.species_repository import ArangoSpeciesRepository
     from app.domain.engines.care_reminder_engine import CareReminderEngine
     from app.domain.services.care_reminder_service import CareReminderService
 
-    return CareReminderService(ArangoCareReminderRepository(db), CareReminderEngine())
+    family_repo = ArangoBotanicalFamilyRepository(db)
+
+    def _resolve_family_name(family_key: str) -> str | None:
+        family = family_repo.get_by_key(family_key)
+        return getattr(family, "name", None) if family else None
+
+    return CareReminderService(
+        ArangoCareReminderRepository(db),
+        CareReminderEngine(),
+        plant_repo=ArangoPlantInstanceRepository(db),
+        species_repo=ArangoSpeciesRepository(db),
+        family_name_resolver=_resolve_family_name,
+    )
 
 
 def _profile_edges(db, plant_key: str) -> list[dict]:
@@ -142,7 +191,7 @@ def _race_get_or_create(plant_key: str) -> tuple[list[BaseException], list[str]]
         try:
             service = _make_service(db)
             barrier.wait(timeout=30)
-            profile = service.get_or_create_profile(plant_key, "Ocimum basilicum", may_create=True)
+            profile = service.get_or_create_profile(plant_key, may_create=True)
             with lock:
                 keys.append(profile.key or "")
         except BaseException as exc:  # noqa: BLE001 — recorded and asserted on by the caller
@@ -175,9 +224,16 @@ def db():
 
 @pytest.fixture
 def plant(db):
-    """Seed one plant *without* a care profile — the state the race starts from."""
+    """Seed one plant *without* a care profile — the state the race starts from.
+
+    Its species and that species' family are seeded too, because the write path
+    reads them (#1489). Without them the racers would still race, but over a
+    service that resolves nothing.
+    """
     from app.data_access.arango import collections as col
 
+    db.collection(col.SPECIES).insert(_species_doc(), overwrite=True)
+    db.collection(col.BOTANICAL_FAMILIES).insert(_family_doc(), overwrite=True)
     db.collection(col.PLANT_INSTANCES).insert(_plant_doc(_PLANT_KEY), overwrite=True)
     return _PLANT_KEY
 
@@ -220,6 +276,20 @@ def test_concurrent_get_or_create_yields_one_profile_and_no_error(db, plant):
     assert len(_profile_docs(db, plant)) == 1, "a loser left an unlinked duplicate profile behind"
     assert len(set(keys)) == 1, f"racers answered with different profiles: {keys}"
     assert keys[0] == _profile_edges(db, plant)[0]["_to"].split("/", 1)[-1]
+
+    # The survivor is the *resolved* profile, not the fallback (#1489). Compared
+    # against the engine's own answer rather than a literal care style, so a preset
+    # change cannot make this assertion quietly wrong.
+    from app.domain.engines.care_reminder_engine import CareReminderEngine
+
+    expected = CareReminderEngine().auto_generate_profile(botanical_family=_FAMILY_NAME, plant_key=plant)
+    stored = _profile_docs(db, plant)[0]
+    assert stored["care_style"] == expected.care_style.value, (
+        "the racers' service did not resolve the family inside the race — it answered with "
+        f"{stored['care_style']!r} where the resolved family {_FAMILY_NAME!r} gives "
+        f"{expected.care_style.value!r}"
+    )
+    assert stored["watering_interval_days"] == expected.watering_interval_days
 
 
 def test_negative_control_without_the_index_duplicates(db):

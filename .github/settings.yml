@@ -32,6 +32,63 @@ repository:
 # just no longer blocks. The failure mode ADR-011 was written against (#763, an
 # E2E check merged red) therefore returns as a review obligation rather than an
 # enforced one: read the advisory check before merging.
+# The repository RULESET that overlays branch protection, declared here so it has
+# a versioned source (#1491). Until this block existed, `default-branch-protection`
+# (id 17783737, `source_type: Repository`) lived ONLY in the GitHub UI: it requires
+# `chain-bench / Chain Bench` and `security / Build`, two contexts that really do
+# gate a merge to develop and that no file in this tree mentioned. A ruleset is not
+# the same object as the `branches[].protection` block below — GitHub evaluates both
+# and takes the union — so the two lists are deliberately different and neither is a
+# copy of the other.
+#
+# SUPPORTED, MEASURED 2026-09-17, NOT ASSUMED. The Probot Settings App carries
+# `lib/plugins/rulesets.js` (repository-settings/app#1029, 2024-09-17; documented in
+# `docs/plugins/rulesets.md`). Upstream calls the support "still under development …
+# adopt cautiously, with the expectation of breaking changes" and tracks it in
+# repository-settings/app#732, which is why the fallback — folding the two contexts
+# into `required_status_checks.contexts` below and leaving the ruleset redundant —
+# stays written down here rather than only in the pull request that chose against it.
+#
+# THIS BLOCK MUST MIRROR THE LIVE RULESET FIELD FOR FIELD. The plugin diffs with
+# `deepEqual` over the whole object minus `id`, `_links`, `created_at`, `updated_at`,
+# `source_type`, `source`, `node_id` and `current_user_can_bypass`; an omitted key
+# (`bypass_actors: []`, `conditions.ref_name.exclude: []`) is a difference, so the
+# App would re-PUT on every sync. `rules` and `required_status_checks` are ARRAYS —
+# their order is part of the comparison. Refresh with:
+#   gh api repos/nolte/kamerplanter/rulesets/17783737
+#
+# IT ALSO OWNS DELETION. The plugin removes every repository-level ruleset this list
+# does not declare (`includes_parents: false`). Measured 2026-09-17, this repository
+# has exactly one; a second one created in the UI would be deleted on the next sync
+# rather than silently surviving, which is the intended direction.
+rulesets:
+  - name: default-branch-protection
+    target: branch
+    enforcement: active
+    bypass_actors: []
+    conditions:
+      ref_name:
+        include:
+          - refs/heads/develop
+        exclude: []
+    rules:
+      - type: deletion
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: true
+          do_not_enforce_on_create: false
+          required_status_checks:
+            # Both are jobs of `build-static-tests.yaml`, whose only trigger is a
+            # bare `on: push:` — no `paths:`, no `branches:`. Measured, because a
+            # required check in a path-filtered workflow never reports at all and
+            # blocks the pull request forever (#1432, and the guard in
+            # src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py
+            # holds these two to it alongside the protection contexts).
+            - context: static / Static CI Tests
+            - context: chain-bench / Chain Bench
+            - context: security / Build
+      - type: non_fast_forward
+
 branches:
   - name: develop
     protection:

@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from arango.database import StandardDatabase
 
 from app.config.settings import settings
@@ -179,6 +181,24 @@ def get_family_repo() -> ArangoBotanicalFamilyRepository:
     return ArangoBotanicalFamilyRepository(get_db())
 
 
+def get_family_name_resolver() -> Callable[[str], str | None]:
+    """``botanical_families._key`` → name — the ONE catalogue lookup (#1489).
+
+    There were two exemplars of this three-liner and a third place that needed it
+    and never got one: the AI context builder had it inline, the v0048 backfill
+    batches it in AQL, and the care-profile bootstrap passed the key straight
+    through. The care service and the context builder now share this one; v0050
+    passes its batched index into the same ``resolve_care_inputs``.
+    """
+    family_repo = get_family_repo()
+
+    def _resolve_family_name(family_key: str) -> str | None:
+        family = family_repo.get_by_key(family_key)
+        return getattr(family, "name", None) if family else None
+
+    return _resolve_family_name
+
+
 def get_lifecycle_repo() -> ArangoLifecycleRepository:
     return ArangoLifecycleRepository(get_db())
 
@@ -282,30 +302,22 @@ def _bootstrap_care_profile(plant) -> None:  # type: ignore[no-untyped-def]
     the profile as a side effect of being read, and the nightly task generator — which
     iterates stored profiles — silently depended on that.
 
-    **The species is resolved and passed on**, and leaving it out was a defect the
-    first version shipped with: `auto_generate_profile` derives the care style from
-    the botanical family and falls back to ``TROPICAL`` (7-day watering) when it has
-    none, so every plant created — a Cactaceae included — would have received tropical
-    presets. The profile is created once and read thereafter, so the wrong values
-    would have been the plant's for good.
+    **The species is resolved by the service, not here** (#1489). This function used
+    to resolve it and hand over ``species.family_key`` — the numeric ``_key`` of a
+    ``botanical_families`` document — as ``botanical_family``, which
+    ``FAMILY_CARE_MAP`` is keyed by *name*. It matched nothing, so every plant
+    created since #1440 got the ``TROPICAL`` 7-day preset, a Cactaceae included, and
+    the profile is created once and read thereafter: the wrong values were the
+    plant's for good. #1440's own note said "the species is resolved and passed on"
+    and it was true — the wrong field of it. Resolution now lives in
+    ``CareReminderService.care_inputs_for_plant`` over the shared ``resolve_care_inputs``,
+    where the read paths and the v0050
+    repair migration reach the same answer.
     """
     if not plant.key:
         return
 
-    species_name = None
-    family_key = None
-    if plant.species_key:
-        species = get_species_repo().get_by_key(plant.species_key)
-        if species is not None:
-            species_name = species.scientific_name
-            family_key = species.family_key
-
-    get_care_reminder_service().get_or_create_profile(
-        plant.key,
-        species_name=species_name,
-        botanical_family=family_key,
-        may_create=True,
-    )
+    get_care_reminder_service().get_or_create_profile(plant.key, may_create=True)
 
 
 def _cascade_plant_photo_cleanup(plant) -> None:  # type: ignore[no-untyped-def]
@@ -1014,6 +1026,7 @@ def get_care_reminder_service() -> CareReminderService:
         overwintering_template_repo=get_overwintering_template_repo(),
         recurrence=get_recurrence_engine(),
         notification_propagation=get_notification_propagation_service(),
+        family_name_resolver=get_family_name_resolver(),
     )
 
 
@@ -1680,16 +1693,11 @@ def get_ai_context_builder():
     from app.domain.services.ai_context_builder import AiContextBuilder
 
     species_repo = get_species_repo()
-    family_repo = get_family_repo()
 
     def _resolve_parent(parent_key: str):
         return species_repo.get_by_key(parent_key)
 
-    def _resolve_family(family_key: str):
-        family = family_repo.get_by_key(family_key)
-        return getattr(family, "name", None) if family else None
-
-    return AiContextBuilder(parent_resolver=_resolve_parent, family_resolver=_resolve_family)
+    return AiContextBuilder(parent_resolver=_resolve_parent, family_resolver=get_family_name_resolver())
 
 
 def get_ai_assistant_service():
