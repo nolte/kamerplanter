@@ -34,6 +34,10 @@ import { useApiError } from '@/hooks/useApiError';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 
+// Every CareStyleType the backend can generate, in the enum's own order. It held
+// only the nine houseplant styles until #1505: a plant the backend had given an
+// outdoor style opened this form with a Select whose value matched no MenuItem,
+// so the field rendered empty and saving silently replaced the style.
 const CARE_STYLES: CareStyleType[] = [
   'tropical',
   'succulent',
@@ -43,6 +47,18 @@ const CARE_STYLES: CareStyleType[] = [
   'mediterranean',
   'fern',
   'cactus',
+  'outdoor_annual_veg',
+  'outdoor_annual_ornamental',
+  'outdoor_perennial',
+  'fruit_tree',
+  'berry_shrub',
+  'rose',
+  'frost_tender_tuber',
+  'frost_tender_container',
+  'winter_vegetable',
+  'spring_bulb',
+  'bromeliad',
+  'aquatic',
   'custom',
 ];
 
