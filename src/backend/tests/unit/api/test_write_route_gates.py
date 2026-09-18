@@ -249,15 +249,27 @@ def mounted_write_operations() -> list[Operation]:
 #: moving, changing or appearing. A witness that goes red on an unrelated edit is
 #: lifted blind the third time, which is the drift this file exists to prevent. The
 #: line survives for humans in the path :func:`write_path_of` prints.
+#: **One** sink, and the shrink is the measurement (#1292 round two).
+#:
+#: This set held three until 2026-09-17: the profile document through
+#: ``_insert_doc``, its ``has_care_profile`` edge through ``create_edge``, and a
+#: ``_delete_doc`` for the orphan a losing racer had to clean up. Three sinks
+#: because a care profile was written by three separate statements — which is
+#: precisely the defect #1292 round two reports: between the first and the second,
+#: a committed-but-unlinked document was readable through the un-indexed
+#: ``plant_key`` field, and a concurrent request answered with it.
+#:
+#: ``ArangoCareReminderRepository.create_linked_profile`` now writes the document
+#: and the edge inside one stream transaction, so the delete has nothing to clean
+#: up and the two inserts are one function. The detector records at most one sink
+#: per function (stated in ``_write_call_graph``'s docstring, not hidden here), so
+#: the edge insert one line below is covered by this name rather than carrying its
+#: own — sound here because the two are the same transaction and cannot be reached
+#: apart.
 _CARE_PROFILE_SINKS = frozenset(
     {
-        "col.insert() in app.data_access.arango.base_repository::BaseArangoRepository.create_edge",
-        "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
-        # #1292: the loser of the profile+edge race deletes its own, never-linked
-        # profile document (CareReminderService._resolve_lost_profile_race). It is
-        # reachable only inside the may_create=True branch the witness already
-        # covers; the detector is path-insensitive, so the sink is named here.
-        "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
+        "transaction.collection(col.CARE_PROFILES).insert() in "
+        "app.data_access.arango.care_reminder_repository::ArangoCareReminderRepository.create_linked_profile",
     }
 )
 
