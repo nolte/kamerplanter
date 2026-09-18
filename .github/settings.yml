@@ -32,6 +32,63 @@ repository:
 # just no longer blocks. The failure mode ADR-011 was written against (#763, an
 # E2E check merged red) therefore returns as a review obligation rather than an
 # enforced one: read the advisory check before merging.
+# The repository RULESET that overlays branch protection, declared here so it has
+# a versioned source (#1491). Until this block existed, `default-branch-protection`
+# (id 17783737, `source_type: Repository`) lived ONLY in the GitHub UI: it requires
+# `chain-bench / Chain Bench` and `security / Build`, two contexts that really do
+# gate a merge to develop and that no file in this tree mentioned. A ruleset is not
+# the same object as the `branches[].protection` block below — GitHub evaluates both
+# and takes the union — so the two lists are deliberately different and neither is a
+# copy of the other.
+#
+# SUPPORTED, MEASURED 2026-09-17, NOT ASSUMED. The Probot Settings App carries
+# `lib/plugins/rulesets.js` (repository-settings/app#1029, 2024-09-17; documented in
+# `docs/plugins/rulesets.md`). Upstream calls the support "still under development …
+# adopt cautiously, with the expectation of breaking changes" and tracks it in
+# repository-settings/app#732, which is why the fallback — folding the two contexts
+# into `required_status_checks.contexts` below and leaving the ruleset redundant —
+# stays written down here rather than only in the pull request that chose against it.
+#
+# THIS BLOCK MUST MIRROR THE LIVE RULESET FIELD FOR FIELD. The plugin diffs with
+# `deepEqual` over the whole object minus `id`, `_links`, `created_at`, `updated_at`,
+# `source_type`, `source`, `node_id` and `current_user_can_bypass`; an omitted key
+# (`bypass_actors: []`, `conditions.ref_name.exclude: []`) is a difference, so the
+# App would re-PUT on every sync. `rules` and `required_status_checks` are ARRAYS —
+# their order is part of the comparison. Refresh with:
+#   gh api repos/nolte/kamerplanter/rulesets/17783737
+#
+# IT ALSO OWNS DELETION. The plugin removes every repository-level ruleset this list
+# does not declare (`includes_parents: false`). Measured 2026-09-17, this repository
+# has exactly one; a second one created in the UI would be deleted on the next sync
+# rather than silently surviving, which is the intended direction.
+rulesets:
+  - name: default-branch-protection
+    target: branch
+    enforcement: active
+    bypass_actors: []
+    conditions:
+      ref_name:
+        include:
+          - refs/heads/develop
+        exclude: []
+    rules:
+      - type: deletion
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: true
+          do_not_enforce_on_create: false
+          required_status_checks:
+            # Both are jobs of `build-static-tests.yaml`, whose only trigger is a
+            # bare `on: push:` — no `paths:`, no `branches:`. Measured, because a
+            # required check in a path-filtered workflow never reports at all and
+            # blocks the pull request forever (#1432, and the guard in
+            # src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py
+            # holds these two to it alongside the protection contexts).
+            - context: static / Static CI Tests
+            - context: chain-bench / Chain Bench
+            - context: security / Build
+      - type: non_fast_forward
+
 branches:
   - name: develop
     protection:
@@ -127,6 +184,45 @@ branches:
           # reports a failure that does not trace to a real ungated route. Either
           # is a measurement, not a judgement call.
           - Write-route and tree guards
+          #
+          # #1432 — the repository and AQL tier against a real ArangoDB. It is
+          # the only measurement of that layer against a server, and until
+          # 2026-09-16 it ran in no lane at all: each connecting module probed
+          # `localhost:8529` itself and skipped when nothing answered, so on a
+          # runner the tier reported `7 passed, 136 skipped` and exit code 0.
+          # `tests/integration/conftest.py` now makes a missing database a
+          # FAILURE whenever `CI` is set, and `task test:backend:integration`
+          # declares `--max-skipped 0`, so a session that skipped anything is
+          # red. That is what made the tier gateable.
+          #
+          # RECONCILED WITH THE LIVE STATE ON 2026-09-17, NOT PROMOTED HERE. The
+          # context was already required live — `gh api …/branches/develop/
+          # protection --jq '.required_status_checks.contexts'` listed it while
+          # this file did not, which is the drift the header warns about and the
+          # pull-request workflow forbids. The line is added so the versioned
+          # declaration and the live state agree again; the promotion itself was
+          # made outside a commit.
+          #
+          # ITS JOB IS IN `backend-guards.yml`, NOT `backend.yml`, and that is
+          # load-bearing rather than tidy: it was promoted while defined in the
+          # path-filtered `backend.yml`, so a pull request touching nothing under
+          # `src/backend/**` never ran the workflow, never got the check run, and
+          # sat on "Expected — waiting for status to be reported" indefinitely.
+          # Measured 2026-09-17 with `gh pr view <n> --json statusCheckRollup`:
+          # #1470 (frontend only), #1475 (workflow only) and #1410 (docs only)
+          # each listed every other required context and not this one.
+          # `src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py`
+          # holds every context in this list to an unfiltered workflow, and
+          # cross-checks this block against its fixture copy of the live state.
+          #
+          # COST: ~2–3 minutes with a service container, against the 41 s of the
+          # guard lane it now shares a workflow with. Accepted because the
+          # alternative is not a cheaper lane but an unmeasured data layer.
+          #
+          # TAKEN BACK IF: it reports a failure that does not trace to a real
+          # repository or AQL defect, or the ArangoDB service container becomes a
+          # source of infrastructure flake. Either is a measurement.
+          - Integration tests (ArangoDB)
       enforce_admins: true
       # No `required_pull_request_reviews` block, deliberately — recorded here
       # because the CI/CD audit on 2026-08-01 flagged its absence and the live

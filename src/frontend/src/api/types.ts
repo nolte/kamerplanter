@@ -1,6 +1,16 @@
 // Enums (mirrors src/backend/app/common/enums.py)
 
 /**
+ * `entity_type` of a task linked to a plant instance.
+ *
+ * Both the queries that scope a task list to a plant and the readers that pull
+ * the plant key back out of a task compare against this discriminator. Spelling
+ * it at each site is how one of them gets corrected and the others do not, so
+ * the string lives here once, beside the `entity_type` field it describes.
+ */
+export const PLANT_INSTANCE_ENTITY_TYPE = 'plant_instance';
+
+/**
  * Data-provenance / ownership marker (REQ-001/REQ-011, mirrors backend
  * `DataOrigin`). Drives read-only / deletion-protection logic (UI-NFR-018).
  */
@@ -163,6 +173,17 @@ export interface ApiErrorDetail {
   field: string;
   reason: string;
   code: string;
+  /**
+   * Which resource is missing, in the backend's normalised `snake_case`
+   * spelling — `task`, `attachment`, `plant_instance` (NFR-006 §2.2a).
+   *
+   * Set by every `NotFoundError`, absent everywhere else, which is why it is
+   * optional. A route that resolves a parent and then a child answers the same
+   * `ENTITY_NOT_FOUND` and the same 404 for both, differing only in the English
+   * `message` a German UI may not parse — so this is the only thing a caller can
+   * branch on when the two cases mean different things (#1437).
+   */
+  entity?: string;
 }
 
 // Botanical Families
@@ -3820,6 +3841,7 @@ export interface TaskItem {
   /** Optional producer dedupe key (idempotent machine creation). */
   external_ref: string | null;
   entity_key: string | null;
+  /** Kind of the linked entity; {@link PLANT_INSTANCE_ENTITY_TYPE} for a plant. */
   entity_type: string | null;
   due_date: string | null;
   scheduled_time: string | null;

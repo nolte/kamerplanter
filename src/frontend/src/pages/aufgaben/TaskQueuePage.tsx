@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
@@ -63,19 +64,28 @@ import PageTitle from '@/components/layout/PageTitle';
 import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import SpringReturnAssistant from '@/pages/pflege/components/SpringReturnAssistant';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import LoadingStatus from '@/components/common/LoadingStatus';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
 import PrintButton from '@/components/common/PrintButton';
 import TaskOriginBadge from '@/components/common/TaskOriginBadge';
 import { downloadCareChecklistPdf } from '@/api/endpoints/print';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchTaskQueue, fetchOverdueTasks, fetchCompletedTasks } from '@/store/slices/tasksSlice';
+import {
+  fetchTaskQueue,
+  fetchOverdueTasks,
+  fetchCompletedTasks,
+  setQueueScope,
+} from '@/store/slices/tasksSlice';
 import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as careApi from '@/api/endpoints/careReminders';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { TaskItem, PlantInstance, CareDashboardEntry, ReminderType, CareProfile } from '@/api/types';
+import { PLANT_INSTANCE_ENTITY_TYPE } from '@/api/types';
 import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import { kamiTasks } from '@/assets/brand/illustrations';
@@ -204,6 +214,9 @@ export default function TaskQueuePage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // `POST /tasks/batch/delete` carries `require_permission(TASK, DELETE)` — lead
+  // only (REQ-049 §2.3), so the bulk-delete action is not offered below it (#1467).
+  const { canDelete } = useTenantPermissions();
   const theme = useTheme();
   // Below `sm` the three 48px action targets, their 8px separations and the
   // border consume ~165px of a 361px card, which left the task name roughly
@@ -212,16 +225,29 @@ export default function TaskQueuePage() {
   // the full width (UI-NFR-001 R-002 mobile-first, R-011/R-012 touch targets).
   const isCompactCard = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Task state
-  const { taskQueue, loading: tasksLoading, completedTasks, completedTasksLoading } = useAppSelector(
-    (s) => s.tasks,
-  );
+  // Task state. The plant scope is read from the store rather than held here:
+  // it is what the queries ask for, so a component copy could disagree with the
+  // rows on screen (#1484).
+  const {
+    taskQueue,
+    taskQueueScope,
+    queueScope: filterPlantKey,
+    queueLoading: tasksLoading,
+    queueError,
+    queueLoaded,
+    completedTasks,
+    completedTasksLoading,
+    completedTasksError,
+  } = useAppSelector((s) => s.tasks);
   const [createOpen, setCreateOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('');
-  const [filterPlantKey, setFilterPlantKey] = useState<string | null>(null);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
+  // The plant list is how a user reaches a plant at all, so a failure here has
+  // to be visible: swallowing it left a silently empty filter that looked like
+  // "this tenant has no plants".
+  const [plantsError, setPlantsError] = useState<string | null>(null);
   // Part of the loading gate: the plant list feeds `plantNameMap`, which decides
   // whether a task card renders its plant-shortcut row. Without it the cards
   // painted first and grew a row per plant-linked task afterwards — a late
@@ -232,9 +258,12 @@ export default function TaskQueuePage() {
   const [showCompleted, setShowCompleted] = useState(false);
 
   // Care state
-  const { dashboard: careDashboard, loading: careLoading, currentProfile } = useAppSelector(
-    (s) => s.careReminders,
-  );
+  const {
+    dashboard: careDashboard,
+    loading: careLoading,
+    dashboardLoaded: careDashboardLoaded,
+    currentProfile,
+  } = useAppSelector((s) => s.careReminders);
   const [careActionLoading, setCareActionLoading] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editPlantKey, setEditPlantKey] = useState<string | null>(null);
@@ -246,23 +275,85 @@ export default function TaskQueuePage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  useEffect(() => {
+  // The plant filter is a *server-side scope*, not a filter over the answer
+  // (#1484). `GET /tasks/queue` returns at most 200 rows and the completed list
+  // at most 100, so a plant whose tasks sit past that cut was absent from the
+  // payload the page filtered — the filter then reported an empty queue for a
+  // plant that had work.
+  //
+  // Neither reload takes the scope as an argument: both thunks read it from the
+  // store. That is what makes the fix structural rather than a habit — there is
+  // no parameter for a call site to omit, and no component copy that can drift
+  // out of step with the rows on screen.
+  const reloadQueue = useCallback(() => {
     dispatch(fetchTaskQueue());
-    dispatch(fetchOverdueTasks());
-    dispatch(fetchDashboard());
-    plantApi
-      .listPlantInstances(0, 200)
-      .then(setPlants)
-      .catch(() => {})
-      .finally(() => setPlantsLoading(false));
   }, [dispatch]);
 
-  // Lazily load completed tasks only when the user reveals them.
+  const reloadCompleted = useCallback(() => {
+    dispatch(fetchCompletedTasks());
+  }, [dispatch]);
+
+  const setFilterPlantKey = useCallback(
+    (key: string | null) => {
+      dispatch(setQueueScope(key));
+    },
+    [dispatch],
+  );
+
+  // The scope is store state, so it outlives this page unless it is cleared;
+  // a fresh visit must start on the whole tenant, not on the plant picked last
+  // time — which the filter bar would not even be showing.
+  useEffect(() => () => { dispatch(setQueueScope(null)); }, [dispatch]);
+
+  // Only the async callbacks touch state here: the first call comes from an
+  // effect, and `plantsLoading` already starts true. 200 is the endpoint's
+  // maximum (`PaginationParams.limit`, `le=200`), so this list is the filter's
+  // hard ceiling — see the retry path below for what a failure must not do.
+  const loadPlants = useCallback(() => {
+    plantApi
+      .listPlantInstances(0, 200)
+      .then((loaded) => {
+        setPlants(loaded);
+        setPlantsError(null);
+      })
+      .catch((err) => {
+        handleError(err);
+        setPlantsError('errors.loadFailed');
+      })
+      .finally(() => setPlantsLoading(false));
+  }, [handleError]);
+
+  // The retry deliberately does *not* re-raise `plantsLoading`: that flag is
+  // half of the first-paint latch, and lowering the page back into the skeleton
+  // for a background retry is the very unmount this page stopped doing.
+  const retryLoadPlants = useCallback(() => {
+    setPlantsError(null);
+    loadPlants();
+  }, [loadPlants]);
+
+  useEffect(() => {
+    dispatch(fetchOverdueTasks());
+    dispatch(fetchDashboard());
+  }, [dispatch]);
+
+  useEffect(() => {
+    loadPlants();
+  }, [loadPlants]);
+
+  // Runs on mount and again whenever the plant scope changes — selecting a
+  // plant re-queries the server instead of narrowing a capped answer. The
+  // dependency is the scope, not the callback: the callback is stable now.
+  useEffect(() => {
+    dispatch(fetchTaskQueue());
+  }, [dispatch, filterPlantKey]);
+
+  // Lazily load completed tasks only when the user reveals them; re-loaded when
+  // the plant scope changes, for the same reason as the queue.
   useEffect(() => {
     if (showCompleted) {
       dispatch(fetchCompletedTasks());
     }
-  }, [showCompleted, dispatch]);
+  }, [showCompleted, filterPlantKey, dispatch]);
 
   // ── Task actions ─────────────────────────────────────────────────────
 
@@ -275,7 +366,7 @@ export default function TaskQueuePage() {
       } else {
         notification.info(t('pages.tasks.noNewReminders'));
       }
-      dispatch(fetchTaskQueue());
+      reloadQueue();
       dispatch(fetchOverdueTasks());
       dispatch(fetchDashboard());
     } catch (err) {
@@ -283,7 +374,7 @@ export default function TaskQueuePage() {
     } finally {
       setGenerateLoading(false);
     }
-  }, [dispatch, notification, handleError, t]);
+  }, [dispatch, reloadQueue, notification, handleError, t]);
 
   const handleStart = useCallback(
     async (key: string) => {
@@ -291,14 +382,14 @@ export default function TaskQueuePage() {
         setActionLoading(key);
         await taskApi.startTask(key);
         notification.success(t('pages.tasks.taskStarted'));
-        dispatch(fetchTaskQueue());
+        reloadQueue();
       } catch (err) {
         handleError(err);
       } finally {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t],
+    [reloadQueue, notification, handleError, t],
   );
 
   const handleComplete = useCallback(
@@ -307,15 +398,15 @@ export default function TaskQueuePage() {
         setActionLoading(key);
         await taskApi.completeTask(key, {});
         notification.success(t('pages.tasks.taskCompleted'));
-        dispatch(fetchTaskQueue());
-        if (showCompleted) dispatch(fetchCompletedTasks());
+        reloadQueue();
+        if (showCompleted) reloadCompleted();
       } catch (err) {
         handleError(err);
       } finally {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t, showCompleted],
+    [reloadQueue, reloadCompleted, notification, handleError, t, showCompleted],
   );
 
   const handleSkip = useCallback(
@@ -324,7 +415,7 @@ export default function TaskQueuePage() {
         setActionLoading(key);
         await taskApi.skipTask(key);
         notification.success(t('pages.tasks.taskSkipped'));
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchDashboard());
       } catch (err) {
         handleError(err);
@@ -332,7 +423,7 @@ export default function TaskQueuePage() {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t],
+    [dispatch, reloadQueue, notification, handleError, t],
   );
 
   // ── Care actions ─────────────────────────────────────────────────────
@@ -354,14 +445,14 @@ export default function TaskQueuePage() {
         setConfirmDialogOpen(false);
         setConfirmEntry(null);
         dispatch(fetchDashboard());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
       } catch (err) {
         handleError(err);
       } finally {
         setCareActionLoading(null);
       }
     },
-    [confirmEntry, dispatch, notification, handleError, t],
+    [confirmEntry, dispatch, reloadQueue, notification, handleError, t],
   );
 
   const handleSnooze = useCallback(
@@ -429,12 +520,12 @@ export default function TaskQueuePage() {
       } finally {
         setBulkLoading(false);
         setSelectedKeys(new Set());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchOverdueTasks());
-        if (showCompleted) dispatch(fetchCompletedTasks());
+        if (showCompleted) reloadCompleted();
       }
     },
-    [selectedKeys, dispatch, notification, handleError, t, showCompleted],
+    [selectedKeys, dispatch, reloadQueue, reloadCompleted, notification, handleError, t, showCompleted],
   );
 
   const handleBulkSkip = useCallback(
@@ -456,11 +547,11 @@ export default function TaskQueuePage() {
       } finally {
         setBulkLoading(false);
         setSelectedKeys(new Set());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchOverdueTasks());
       }
     },
-    [selectedKeys, dispatch, notification, handleError, t],
+    [selectedKeys, dispatch, reloadQueue, notification, handleError, t],
   );
 
   const handleBulkDelete = useCallback(
@@ -482,11 +573,11 @@ export default function TaskQueuePage() {
       } finally {
         setBulkLoading(false);
         setSelectedKeys(new Set());
-        dispatch(fetchTaskQueue());
+        reloadQueue();
         dispatch(fetchOverdueTasks());
       }
     },
-    [selectedKeys, dispatch, notification, handleError, t],
+    [selectedKeys, dispatch, reloadQueue, notification, handleError, t],
   );
 
   const exitBulkMode = useCallback(() => {
@@ -514,8 +605,8 @@ export default function TaskQueuePage() {
       if (filterCategory && task.category !== filterCategory) continue;
       if (originFilter === 'machine' && task.origin === 'user') continue;
       if (originFilter === 'user' && task.origin !== 'user') continue;
-      const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
-      if (filterPlantKey && taskPlantKey !== filterPlantKey) continue;
+      const taskPlantKey =
+        task.entity_type === PLANT_INSTANCE_ENTITY_TYPE ? task.entity_key : null;
       items.push({
         id: `task-${task.key}`,
         source: 'task',
@@ -552,6 +643,8 @@ export default function TaskQueuePage() {
       // The origin filter selects on *task* provenance; care reminders are a
       // distinct source, so any non-"all" origin selection hides them.
       if (originFilter !== 'all') continue;
+      // `GET /care-reminders/dashboard` takes only `hemisphere` — there is no
+      // plant scope to ask for, so this source stays narrowed client-side.
       if (filterPlantKey && entry.plant_key !== filterPlantKey) continue;
 
       // Skip if there's already a care_reminder task for this plant + type
@@ -612,8 +705,6 @@ export default function TaskQueuePage() {
         if (filterCategory && task.category !== filterCategory) return false;
         if (originFilter === 'machine' && task.origin === 'user') return false;
         if (originFilter === 'user' && task.origin !== 'user') return false;
-        const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
-        if (filterPlantKey && taskPlantKey !== filterPlantKey) return false;
         return true;
       })
       .slice()
@@ -625,7 +716,7 @@ export default function TaskQueuePage() {
         if (!db) return -1;
         return new Date(db).getTime() - new Date(da).getTime();
       });
-  }, [showCompleted, sourceFilter, completedTasks, filterCategory, filterPlantKey, originFilter]);
+  }, [showCompleted, sourceFilter, completedTasks, filterCategory, originFilter]);
 
   const allTaskKeys = useMemo(
     () => filtered.filter((i) => i.source === 'task').map((i) => i.task!.key),
@@ -647,7 +738,10 @@ export default function TaskQueuePage() {
   const renderTaskCard = useCallback(
     (task: TaskItem, urgency: UrgencyGroup) => {
       const isLoading = actionLoading === task.key;
-      const plantName = (task.entity_type === 'plant_instance' && task.entity_key) ? plantNameMap.get(task.entity_key) : undefined;
+      const plantName =
+        task.entity_type === PLANT_INSTANCE_ENTITY_TYPE && task.entity_key
+          ? plantNameMap.get(task.entity_key)
+          : undefined;
       const isSelected = selectedKeys.has(task.key);
       const isPending = task.status === 'pending';
       const isInProgress = task.status === 'in_progress';
@@ -1168,6 +1262,13 @@ export default function TaskQueuePage() {
               {t('common.loading')}
             </Typography>
           </Box>
+        ) : completedTasksError ? (
+          // Third arm, because two arms could not tell "nothing completed" from
+          // "the request failed" — the rejection used to be discarded entirely,
+          // so a failure rendered as the empty state.
+          <Box data-testid="completed-tasks-error">
+            <ErrorDisplay error={completedTasksError} onRetry={reloadCompleted} />
+          </Box>
         ) : tasks.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
             {t('pages.tasks.noCompletedTasks')}
@@ -1177,7 +1278,7 @@ export default function TaskQueuePage() {
         )}
       </Box>
     ),
-    [renderTaskCard, completedTasksLoading, t],
+    [renderTaskCard, completedTasksLoading, completedTasksError, reloadCompleted, t],
   );
 
   // ── Loading ──────────────────────────────────────────────────────────
@@ -1189,8 +1290,46 @@ export default function TaskQueuePage() {
   // aimed at a card's action row then landed on the container that had moved
   // into place — no handler fires and no error is reported, which is exactly
   // the class of defect a loading indicator exists to prevent.
-  const loading = tasksLoading || careLoading || plantsLoading;
-  if (loading) return <LoadingSkeleton variant="form" />;
+  //
+  // It is, however, the gate for the *first* paint only. Since #1484 a change of
+  // the plant filter re-queries the server, and a page-wide skeleton on every
+  // query would unmount the combobox the user is still operating — the focus
+  // would jump out mid-selection and the filter bar would flash away on each
+  // pick.
+  //
+  // "First paint" is therefore a latch over *whether each source has answered*,
+  // not a test on how many rows came back. Keying it on the row count looked
+  // equivalent and was not: a scope that legitimately answers nothing left the
+  // page with zero rows, so the very next reload — picking a second plant —
+  // unmounted the filter bar again, and precisely in the case the filter exists
+  // for. All three latches are monotone, so this can only go from true to false
+  // once.
+  const firstLoadDone = !plantsLoading && queueLoaded && careDashboardLoaded;
+  if (!firstLoadDone) return <LoadingSkeleton variant="form" />;
+
+  // A reload under a list that is already on screen. While the scope itself is
+  // in flight the rows below belong to the *previous* plant, which is what
+  // `rowsAreStale` marks: they are dimmed, taken out of the tab order and made
+  // unclickable, so nobody acts on a card that is about to be replaced.
+  const isRefetching = tasksLoading || careLoading;
+  // Stale means "a query for a *different* scope is resolving these rows away".
+  // Defining it as the scope mismatch alone also caught the state after a failed
+  // scope change, where nothing is in flight and the mismatch never clears — it
+  // made the error's own retry button unclickable.
+  const rowsAreStale = isRefetching && taskQueueScope !== filterPlantKey;
+
+  // Naming the plant here, rather than only in the "active filter" chip above
+  // the list, is what tells someone who scopes to a plant with no tasks that
+  // the *plant* is the reason — not a stuck request or a filter combination
+  // they've lost track of. Falls back to the generic wording for every other
+  // filter combination, and to the plant key on the one render where the list
+  // has answered before `plants`/`plantNameMap` have (`filterPlantKey` is store
+  // state; the name is a local derivation of it).
+  const filteredEmptyMessage = filterPlantKey
+    ? t('pages.tasks.noTasksFilteredForPlant', {
+        plant: plantNameMap.get(filterPlantKey) ?? filterPlantKey,
+      })
+    : t('pages.tasks.noTasksFiltered');
 
   const totalItems =
     grouped.overdue.length + grouped.today.length + grouped.thisWeek.length + grouped.future.length;
@@ -1323,22 +1462,24 @@ export default function TaskQueuePage() {
               </Button>
             </span>
           </Tooltip>
-          <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
-            <span>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />}
-                onClick={handleBulkDelete}
-                disabled={selectedKeys.size === 0 || bulkLoading}
-                data-testid="bulk-delete-button"
-                sx={{ minHeight: 44 }}
-              >
-                {t('pages.tasks.bulkDelete')}
-              </Button>
-            </span>
-          </Tooltip>
+          {canDelete && (
+            <Tooltip title={selectedKeys.size === 0 ? t('pages.tasks.bulkNoSelection') : ''}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={bulkLoading ? <CircularProgress size={14} /> : <DeleteOutlineIcon />}
+                  onClick={handleBulkDelete}
+                  disabled={selectedKeys.size === 0 || bulkLoading}
+                  data-testid="bulk-delete-button"
+                  sx={{ minHeight: 44 }}
+                >
+                  {t('pages.tasks.bulkDelete')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
         </Paper>
       )}
 
@@ -1410,17 +1551,41 @@ export default function TaskQueuePage() {
             </ToggleButtonGroup>
           )}
 
-          <Autocomplete
-            size="small"
-            sx={{ minWidth: 200, flex: '1 1 200px', maxWidth: 320 }}
-            options={plants}
-            getOptionLabel={(p) => getPlantLabel(p)}
-            value={plants.find((p) => p.key === filterPlantKey) ?? null}
-            onChange={(_, value) => setFilterPlantKey(value?.key ?? null)}
-            renderInput={(params) => (
-              <TextField {...params} label={t('pages.tasks.filterByPlant')} data-testid="filter-plant" />
-            )}
-          />
+          {plantsError ? (
+            // The plant list is the only way to reach a plant whose tasks sit
+            // past the queue's 200-row cap, so its failure cannot be silent.
+            <Box sx={{ minWidth: 200, flex: '1 1 240px' }} data-testid="plants-error">
+              <Alert
+                severity="warning"
+                sx={{ py: 0 }}
+                data-testid="plants-error-message"
+                action={
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={retryLoadPlants}
+                    data-testid="plants-error-retry-button"
+                  >
+                    {t('common.retry')}
+                  </Button>
+                }
+              >
+                {t('pages.tasks.plantFilterUnavailable')}
+              </Alert>
+            </Box>
+          ) : (
+            <Autocomplete
+              size="small"
+              sx={{ minWidth: 200, flex: '1 1 200px', maxWidth: 320 }}
+              options={plants}
+              getOptionLabel={(p) => getPlantLabel(p)}
+              value={plants.find((p) => p.key === filterPlantKey) ?? null}
+              onChange={(_, value) => setFilterPlantKey(value?.key ?? null)}
+              renderInput={(params) => (
+                <TextField {...params} label={t('pages.tasks.filterByPlant')} data-testid="filter-plant" />
+              )}
+            />
+          )}
 
           {hasActiveFilters && (
             <Button
@@ -1498,47 +1663,84 @@ export default function TaskQueuePage() {
         )}
       </Paper>
 
-      {/* Content area */}
-      {totalItems === 0 && !showCompleted ? (
-        hasActiveFilters ? (
-          // Contextual empty state when filters are active
-          <EmptyState
-            illustration={kamiTasks}
-            message={t('pages.tasks.noTasksFiltered')}
-            description={t('pages.tasks.noTasksFilteredDesc')}
-            actionLabel={t('common.clearFilters')}
-            onAction={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
-          />
-        ) : (
-          <EmptyState
-            illustration={kamiTasks}
-            message={t('pages.tasks.noTasks')}
-            description={t('pages.tasks.noTasksDesc')}
-            actionLabel={t('pages.tasks.createTask')}
-            onAction={() => setCreateOpen(true)}
-          />
-        )
-      ) : (
-        <>
-          {totalItems === 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              {hasActiveFilters ? t('pages.tasks.noTasksFiltered') : t('pages.tasks.noTasks')}
+      {/* Content area. `aria-busy` and the status region belong here rather than
+          on a replaced skeleton: a reload now happens *under* a visible list,
+          and without them the chip named the new plant while the rows below it
+          were still the old plant's, with nothing announcing the change. */}
+      <Box data-testid="task-queue-content" aria-busy={isRefetching}>
+        <LoadingStatus active={isRefetching} data-testid="task-queue-refetch-status" />
+        {/* Dimming the rows below is a "these are about to change" cue, not a
+            "this is disabled" one — but opacity alone reads as either, and a
+            sighted user gets no live-region text. This is the visible half of
+            the busy signal, sitting outside the dimmed subtree so it stays at
+            full contrast while the rows under it fade (UI-NFR-002). */}
+        {isRefetching && (
+          <Box
+            data-testid="task-queue-refetch-indicator"
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
+          >
+            <CircularProgress size={16} aria-hidden="true" />
+            <Typography variant="body2" color="text.secondary">
+              {t('common.loading')}
             </Typography>
+          </Box>
+        )}
+        <Box
+          sx={
+            rowsAreStale
+              ? { opacity: 0.5, pointerEvents: 'none', transition: 'opacity 120ms' }
+              : undefined
+          }
+          inert={rowsAreStale ? true : undefined}
+        >
+          {queueError ? (
+            // A failed reload used to leave the previous scope's rows standing
+            // under the new chip, indistinguishable from an answer.
+            <Box data-testid="queue-error">
+              <ErrorDisplay error={queueError} onRetry={reloadQueue} />
+            </Box>
+          ) : totalItems === 0 && !showCompleted ? (
+            hasActiveFilters ? (
+              // Contextual empty state when filters are active
+              <EmptyState
+                illustration={kamiTasks}
+                message={filteredEmptyMessage}
+                description={t('pages.tasks.noTasksFilteredDesc')}
+                actionLabel={t('common.clearFilters')}
+                onAction={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
+              />
+            ) : (
+              <EmptyState
+                illustration={kamiTasks}
+                message={t('pages.tasks.noTasks')}
+                description={t('pages.tasks.noTasksDesc')}
+                actionLabel={t('pages.tasks.createTask')}
+                onAction={() => setCreateOpen(true)}
+              />
+            )
+          ) : (
+            <>
+              {totalItems === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  {hasActiveFilters ? filteredEmptyMessage : t('pages.tasks.noTasks')}
+                </Typography>
+              )}
+              {renderSection('overdue', grouped.overdue)}
+              {renderSection('today', grouped.today)}
+              {renderSection('thisWeek', grouped.thisWeek)}
+              {renderSection('future', grouped.future)}
+              {showCompleted && renderCompletedSection(completedFiltered)}
+            </>
           )}
-          {renderSection('overdue', grouped.overdue)}
-          {renderSection('today', grouped.today)}
-          {renderSection('thisWeek', grouped.thisWeek)}
-          {renderSection('future', grouped.future)}
-          {showCompleted && renderCompletedSection(completedFiltered)}
-        </>
-      )}
+        </Box>
+      </Box>
 
       <TaskCreateDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchTaskQueue());
+          reloadQueue();
         }}
       />
 

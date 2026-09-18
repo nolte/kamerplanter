@@ -19,6 +19,11 @@ dependencies = [
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
     "structlog>=24.0.0",
+    # #777 — optional error tracking; no-op without SENTRY_DSN. It was installed
+    # into both images through requirements.txt while being absent from this
+    # table (#1374 measured the drift); with the lock generated from here, the
+    # declaration is the only way it reaches the image.
+    "sentry-sdk[fastapi]>=2.20.0",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +45,36 @@ dev = [
     # the dev extra rather than in [project].dependencies (#1058).
     "httpx>=0.28.0",
 ]
+
+# Dockerfile build-stage inputs, locked with everything else (#1374) rather than
+# installed unpinned inside the image. `build` carries the ONNX export toolchain
+# the `model-export` stage runs (torch/torchvision come from the CPU-only
+# PyTorch index declared below — the GPU build pulls multi-GB CUDA wheels that
+# exhaust the CI runner disk); `dev` carries the hot-reload watcher the `dev`
+# image target needs. Both are PEP 735 dependency groups rather than entries in
+# the extras above, so neither reaches the production image.
+[dependency-groups]
+build = [
+    "torch",
+    "torchvision",
+    "onnx",
+    "onnxscript",
+]
+dev = [
+    "watchfiles",
+]
+
+# CPU-only wheels for the export stage. `explicit = true` keeps this index out
+# of the resolution of every other package: only what [tool.uv.sources] points
+# here is fetched from it.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
 
 [tool.ruff]
 target-version = "py314"
@@ -84,3 +119,12 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["onnxruntime.*", "plantcv.*"]
 ignore_missing_imports = true
+
+[tool.uv]
+# The lock toolchain (NFR-009 section 2.3), pinned EXACT to the same value as
+# src/backend/pyproject.toml: Renovate's pep621 processor resolves the uv it
+# relocks with from here, the Dockerfile copies `ghcr.io/astral-sh/uv:<same>`
+# and CI installs `uv==<same>`. renovate.json5 groups all references into one
+# `uv toolchain` pull request, so the reading and the relocking side never age
+# apart (#1296 class).
+required-version = "==0.12.15"

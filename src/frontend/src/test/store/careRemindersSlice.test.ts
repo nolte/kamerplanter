@@ -13,7 +13,13 @@ import * as careApi from '@/api/endpoints/careReminders';
 // Isolated module mock — no real HTTP, no handlers.ts.
 vi.mock('@/api/endpoints/careReminders');
 
-const baseState = { dashboard: [], currentProfile: null, loading: false, error: null };
+const baseState = {
+  dashboard: [],
+  currentProfile: null,
+  loading: false,
+  dashboardLoaded: false,
+  error: null,
+};
 
 function makeStore() {
   return configureStore({ reducer: { careReminders: reducer } });
@@ -25,6 +31,15 @@ const entryB = { plant_key: 'pl2', reminder_type: 'fertilizing' };
 describe('careRemindersSlice', () => {
   it('has the empty initial state', () => {
     expect(reducer(undefined, { type: 'unknown' })).toEqual(baseState);
+  });
+
+  it('fetchDashboard latches dashboardLoaded on either outcome', () => {
+    // A host gating its first paint on "everything has answered" cannot read
+    // that off `loading`: false is also the state before anything was asked.
+    const settled = reducer(undefined, { type: fetchDashboard.fulfilled.type, payload: [] });
+    expect(settled.dashboardLoaded).toBe(true);
+    const failed = reducer(undefined, { type: fetchDashboard.rejected.type, error: {} });
+    expect(failed.dashboardLoaded).toBe(true);
   });
 
   it('clearCurrentProfile resets the profile', () => {
@@ -88,8 +103,8 @@ describe('careRemindersSlice thunks', () => {
   it('fetchProfile forwards its args and stores the profile', async () => {
     mocked.getOrCreateProfile.mockResolvedValue({ key: 'cp1' } as never);
     const store = makeStore();
-    await store.dispatch(fetchProfile({ plantKey: 'pl1', speciesName: 'Rosa', botanicalFamily: 'Rosaceae' }));
-    expect(mocked.getOrCreateProfile).toHaveBeenCalledWith('pl1', 'Rosa', 'Rosaceae');
+    await store.dispatch(fetchProfile({ plantKey: 'pl1' }));
+    expect(mocked.getOrCreateProfile).toHaveBeenCalledWith('pl1');
     expect(store.getState().careReminders.currentProfile).toEqual({ key: 'cp1' });
   });
 

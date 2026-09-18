@@ -1766,6 +1766,7 @@
       "deleteTitle": "Delete photo",
       "deletePhoto": "Delete photo",
       "deleteConfirm": "Do you really want to delete this photo? It will be permanently removed and cannot be restored.",
+      "deleteForbidden": "Only the \"Lead\" role may permanently delete photos in this tenant. Ask someone with that role to remove the photo.",
       "emptyTitle": "No photos yet",
       "emptyDescriptionWrite": "Add the first photo of your plant – so you can track its growth and recognise it at a glance in the overview.",
       "emptyDescriptionRead": "No photos have been added for this plant yet.",
@@ -3062,6 +3063,7 @@
       "future": "Future",
       "completed": "Completed",
       "showCompleted": "Show completed tasks",
+      "plantFilterUnavailable": "The plant list could not be loaded, so the plant filter is unavailable right now.",
       "noCompletedTasks": "No completed tasks yet.",
       "createTask": "Create Task",
       "createTaskForPlant": "Create task for {{plant}}",
@@ -3089,6 +3091,7 @@
       "noTasks": "No open tasks",
       "noTasksDesc": "All done! Create a new task or start a workflow.",
       "noTasksFiltered": "No tasks match this filter",
+      "noTasksFilteredForPlant": "No tasks for {{plant}}",
       "noTasksFilteredDesc": "No tasks found with the active filters. Clear filters to see all tasks.",
       "filterBarLabel": "Filter tasks",
       "filterSourceLabel": "Filter by source",
@@ -3178,6 +3181,7 @@
       "photoRequired": "Photo required",
       "noPhotos": "No photos available.",
       "photoRemove": "Remove photo {{index}}",
+      "photoRemoveTaskGone": "The task no longer exists. The photo was not deleted and has been kept.",
       "photoAlt": "Photo {{index}}",
       "photos": "Photos",
       "timerDuration": "Timer Duration (sec)",
@@ -3325,7 +3329,8 @@
         "tank": "Tank"
       },
       "instantiateError": "Workflow instantiation failed for all plants.",
-      "instantiatePartial": "{{success}} succeeded, {{failed}} failed."
+      "instantiatePartial": "{{success}} succeeded, {{failed}} failed.",
+      "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",

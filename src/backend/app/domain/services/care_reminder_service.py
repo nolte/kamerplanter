@@ -1,3 +1,6 @@
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import structlog
@@ -12,7 +15,7 @@ from app.common.enums import (
     TaskPriority,
     TaskStatus,
 )
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
@@ -31,7 +34,7 @@ from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
-from app.domain.models.species import Species
+from app.domain.models.species import Cultivar, Species, WateringGuide
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.notification_propagation_service import NotificationPropagationService
@@ -57,6 +60,81 @@ _INTERVAL_FIELD_REMINDERS: dict[str, ReminderType] = {
     "humidity_check_interval_days": ReminderType.HUMIDITY_CHECK,
     "repotting_interval_months": ReminderType.REPOTTING,
 }
+
+
+@dataclass(frozen=True)
+class CareInputs:
+    """What ``CareReminderEngine.auto_generate_profile`` needs about a species.
+
+    ``family_name`` is the botanical family **name** — the value
+    ``FAMILY_CARE_MAP`` is keyed by — never the ``_key`` the species stores.
+    ``watering_guide`` is the engine's tier-1 source, the cultivar's override
+    ahead of the species' own.
+    """
+
+    family_name: str | None = None
+    watering_guide: WateringGuide | None = None
+
+
+def resolve_care_inputs(
+    species: Species | None,
+    cultivar: Cultivar | None = None,
+    *,
+    resolve_family_name: Callable[[str], str | None],
+) -> CareInputs:
+    """``species → CareInputs`` — the one resolution, shared by every caller (#1489).
+
+    Three places knew this resolution before and the one path every new plant walks
+    did not: the v0048 backfill (``family_key → botanical_families.name``), the AI
+    context builder (``dependencies._resolve_family``) and nothing else — while
+    ``_bootstrap_care_profile`` handed the engine ``species.family_key`` verbatim.
+    That is the recurring shape in this repository: the rule exists, the sibling was
+    never served. So this is a module-level function taking its catalogue lookup as
+    a callable: the service passes its memoised repository read, and the v0050
+    repair migration passes a lookup into the family index it already batched — no
+    caller can resolve it a fourth way.
+
+    The ``watering_guide`` travels with it. Until #1481 no production caller passed
+    one, so the tier ``auto_generate_profile``'s docstring calls "highest priority"
+    existed only in that docstring and every stored profile came from the family
+    preset or the ``TROPICAL`` fallback.
+
+    A ``family_key`` that names no document is used **verbatim as the name** when it
+    is not numeric — an installation whose species carry family names in that field
+    is then served, which is the behaviour v0048 shipped with. A numeric key that
+    resolves to nothing is dropped: it is a dangling reference, it can only mean
+    ``TROPICAL``, and passing it on is the #1489 defect wearing a different value
+    (the engine refuses it outright).
+    """
+    guide = _watering_guide_of(species, cultivar)
+
+    if species is None or not species.family_key:
+        return CareInputs(watering_guide=guide)
+
+    family_key = species.family_key
+    family_name = resolve_family_name(family_key)
+    if family_name is None:
+        family_name = None if family_key.strip().isdigit() else family_key
+        logger.info(
+            "care_profile_family_key_unresolved",
+            family_key=family_key,
+            species_key=species.key,
+            used_verbatim=family_name is not None,
+        )
+    return CareInputs(family_name=family_name, watering_guide=guide)
+
+
+def _watering_guide_of(species: Species | None, cultivar: Cultivar | None) -> WateringGuide | None:
+    """The guide that governs this plant — the cultivar's override first (#1481).
+
+    The precedence is ``WateringService.get_volume_suggestion``'s
+    (``watering_service.py:321-325``), not a new one: ``cultivar_seed`` fills
+    ``watering_guide_override`` from the plant-info YAML, and two services
+    disagreeing about which guide governs one plant is the class this group closes.
+    """
+    if cultivar is not None and cultivar.watering_guide_override is not None:
+        return cultivar.watering_guide_override
+    return species.watering_guide if species is not None else None
 
 
 def _is_due(due_date: datetime | None) -> bool:
@@ -144,7 +222,12 @@ def build_care_reminder_task(
     )
 
 
-def create_care_reminder_task(task_repo: ITaskRepository, task: Task) -> Task | None:
+def create_care_reminder_task(
+    task_repo: ITaskRepository,
+    task: Task,
+    *,
+    reminder_type: ReminderType,
+) -> Task | None:
     """Insert a care-reminder task, resolving a lost creation race to ``None`` (#1301).
 
     The single insertion point for every care-reminder producer — the seasonal
@@ -157,23 +240,51 @@ def create_care_reminder_task(task_repo: ITaskRepository, task: Task) -> Task | 
     ``POST /t/{slug}/tasks/generate-care-reminders``, or two E2E workers) both
     read "none open" and both insert.
 
-    The ``tasks`` collection now carries a **unique sparse index over the open
+    The ``tasks`` collection carries a **unique sparse index over the open
     care-reminder dedup key** (``ensure_care_task_dedup_index``), so exactly one
-    of the two inserts lands and the other is rejected with ArangoDB error code
-    ``1210``, which the repository already surfaces as :class:`DuplicateError`.
+    of the two inserts lands and the other is rejected. ``reminder_type`` is
+    keyword-only and has no default because it is what the rejected insert has to
+    be re-read by: it is not a first-class ``Task`` field (audit P5), so the
+    caller is the only one who still knows it without re-parsing the task name.
 
-    The loser wanted to know one thing — "does an equivalent open task already
-    exist?" — and the rejection *is* that answer, so this returns ``None``: the
-    same outcome as the ``existing is not None`` branch the racing read missed by
-    microseconds. It is never an error, and never a 409 leaking out of a
-    generation endpoint.
+    **The rejection arrives as one of two different answers, and they do not mean
+    the same thing** (#1436). Both are HTTP 409 from ArangoDB and both are easy to
+    mistake for each other:
 
-    Why the exception is not narrowed further: ``tasks`` carries exactly one
-    unique index, this one, so on this collection code ``1210`` can only be it.
-    That assumption is pinned by
-    ``tests/integration/test_care_task_dedup_concurrency.py::test_tasks_carries_exactly_one_unique_index``
-    — add a second unique index to ``tasks`` and it reddens rather than letting a
-    genuinely different conflict be swallowed as "already exists".
+    ``1210`` — *unique constraint violated*, surfaced as :class:`DuplicateError`.
+        A statement about the **data**: the winner is committed and visible, so
+        an equivalent open task demonstrably exists. That is precisely the
+        question the loser was asking, so the answer is ``None`` — the same
+        outcome as the ``existing is not None`` branch its racing read missed by
+        microseconds. Never an error, and never a 409 leaking out of a generation
+        endpoint.
+
+        Why this one is not narrowed further: ``tasks`` carries exactly one unique
+        index, this one, so on this collection code ``1210`` can only be it. That
+        assumption is pinned by
+        ``tests/integration/test_care_task_dedup_concurrency.py::test_tasks_carries_exactly_one_unique_index``
+        — add a second unique index to ``tasks`` and it reddens rather than
+        letting a genuinely different conflict be swallowed as "already exists".
+
+    ``1200`` — *write-write conflict*, surfaced as :class:`WriteConflictError`.
+        A statement about **timing**, not about the data: a concurrent
+        transaction held the same unique-index entry and this insert could not be
+        serialized against it. It says nothing about whether that transaction
+        committed — it may have rolled back — so the "tasks carries exactly one
+        unique index" argument above does **not** carry over: it establishes
+        *which* index was contended, not that anything is now stored in it.
+        Swallowing it blind would report "an equivalent task already exists" for
+        a task that may exist nowhere, and the plant would silently never be
+        watered. So this branch re-reads through the very predicate the index
+        mirrors and decides on what it finds: an open task → the loser's answer,
+        ``None``; nothing → re-raise, because an unexplained 1200 is a real
+        failure.
+
+    The re-read passes ``include_completed_today=False`` deliberately. The
+    default recency rule also matches a task *completed today*, which the sparse
+    index does not count (its computed value is null unless the task is
+    pending/in_progress) — accepting one as "the winner" would absorb a genuine
+    conflict.
     """
     try:
         return task_repo.create_task(task)
@@ -183,6 +294,24 @@ def create_care_reminder_task(task_repo: ITaskRepository, task: Task) -> Task | 
             entity_key=task.entity_key,
             tenant_key=task.tenant_key,
             task_name=task.name,
+            conflict="unique_constraint",
+        )
+        return None
+    except WriteConflictError:
+        winner = task_repo.find_open_care_task(
+            task.entity_key or "",
+            reminder_type,
+            task.tenant_key,
+            include_completed_today=False,
+        )
+        if winner is None:
+            raise
+        logger.info(
+            "care_reminder_task_dedup_race_lost",
+            entity_key=task.entity_key,
+            tenant_key=task.tenant_key,
+            task_name=task.name,
+            conflict="write_write",
         )
         return None
 
@@ -212,6 +341,15 @@ def _template_to_profile(
     )
 
 
+#: How many times a ``1200`` loser re-reads the ``has_care_profile`` edge, and how
+#: long it waits between reads (#1292 / SCR-001). Six reads 50 ms apart bound the
+#: wait at 250 ms — long enough to outlive a two-insert transaction's commit,
+#: short enough that a genuinely failed write still answers the request promptly.
+#: A ``1210`` loser uses one read; see :meth:`CareReminderService._resolve_lost_profile_race`.
+_RACE_REREAD_ATTEMPTS = 6
+_RACE_REREAD_INTERVAL_SECONDS = 0.05
+
+
 class CareReminderService:
     def __init__(
         self,
@@ -228,6 +366,7 @@ class CareReminderService:
         overwintering_template_repo: IOverwinteringProfileTemplateRepository | None = None,
         recurrence: RecurrenceEngine | None = None,
         notification_propagation: NotificationPropagationService | None = None,
+        family_name_resolver: Callable[[str], str | None] | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
@@ -245,27 +384,201 @@ class CareReminderService:
         self._nutrient_plan_repo = nutrient_plan_repo
         self._overwintering_repo = overwintering_repo
         self._overwintering_template_repo = overwintering_template_repo
+        #: ``botanical_families._key`` → name. A callable rather than a repository
+        #: because the same lookup serves the AI context builder
+        #: (``dependencies.get_family_name_resolver``) and the v0050 migration, which
+        #: reads its families in one batched AQL pass.
+        self._family_name_resolver = family_name_resolver
+        self._family_name_cache: dict[str, str | None] = {}
+        #: Species read back during ONE service lifetime (the service is built per
+        #: request). The tenant dashboard resolved a species for its own listing and
+        #: the preset resolution then read the same document again per unprofiled
+        #: plant — two reads of one row inside one call (#1489 review, SCR-009).
+        self._species_cache: dict[str, Species | None] = {}
+
+    # ── the care inputs (#1489/#1481) ────────────────────────────────────────
+
+    def _family_name(self, family_key: str) -> str | None:
+        """``botanical_families._key`` → name, memoised for this service instance.
+
+        The catalogue is small and static, the service is built per request
+        (``dependencies.get_care_reminder_service`` constructs a new one), and the
+        dashboard generates presets for every unprofiled plant of the tenant in a
+        single call — so the memo bounds that to one read per distinct family.
+        """
+        if self._family_name_resolver is None:
+            # Not silent. The parameter is optional because 30-odd tests construct
+            # this service directly, but a *production* instance without it resolves
+            # no family and hands the engine `None` — which is #1489's outcome
+            # wearing a different cause. `tests/unit/guards/
+            # test_care_profile_resolver_is_wired.py` requires the injection in
+            # `dependencies.py`; this log is what an installation that got past the
+            # guard would show.
+            logger.warning(
+                "care_family_resolver_missing",
+                family_key=family_key,
+                consequence="care presets fall back to TROPICAL",
+            )
+            return None
+        if family_key not in self._family_name_cache:
+            self._family_name_cache[family_key] = self._family_name_resolver(family_key)
+        return self._family_name_cache[family_key]
+
+    def care_inputs_for_plant(self, plant_key: str) -> CareInputs:
+        """The care inputs of a plant, resolved here rather than taken from a caller.
+
+        Taken from the caller is what drifted (#1489): the creation bootstrap passed
+        ``species.family_key`` — a numeric document key against a name-keyed map —
+        the tenant dashboard passed a hard-coded ``None``, and the four internal
+        ``may_create=True`` call sites passed nothing at all. Four callers, four
+        answers, one of them right. Resolving from the plant is the only shape in
+        which they cannot disagree.
+        """
+        species = None
+        cultivar = None
+        if self._plant_repo is not None and self._species_repo is not None:
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant is not None:
+                species = self._resolve_species(plant.species_key, self._species_cache)
+                if plant.cultivar_key:
+                    cultivar = self._species_repo.get_cultivar_by_key(plant.cultivar_key)
+        return resolve_care_inputs(species, cultivar, resolve_family_name=self._family_name)
 
     def get_or_create_profile(
         self,
         plant_key: str,
-        species_name: str | None = None,
-        botanical_family: str | None = None,
+        *,
+        may_create: bool,
     ) -> CareProfile:
-        """Get existing profile or auto-generate one."""
+        """Return the plant's care profile, persisting a generated one only if allowed.
+
+        **``may_create`` is keyword-only and has no default**, so every call site
+        states whether it is a read or a write. A default would have been an opt-in,
+        and an opt-in on a persisting call is the #948 shape: the two paths that must
+        not write would have inherited the permissive answer by saying nothing.
+
+        Reads get the generated profile **without it being stored**. That is the
+        behaviour change and it is the point: until #1422's second review,
+        ``GET .../profile`` and the tenant care dashboard both persisted a
+        ``CareProfile`` and a profile edge for any plant that had none — the dashboard
+        for *every* plant of the tenant, on a plain read, by any member including a
+        viewer. A read that writes is the defect; refusing the write while still
+        answering with the presets keeps the UI working and leaves the database alone.
+
+        **The presets are resolved here, not passed in** (#1489/#1481) — see
+        :meth:`care_inputs_for_plant`. The resolution costs two reads and is reached
+        only when a profile has to be generated, which after the v0048 backfill and
+        the creation bootstrap is the exception rather than the rule.
+        """
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is not None:
             return profile
 
+        inputs = self.care_inputs_for_plant(plant_key)
         new_profile = self._engine.auto_generate_profile(
-            species_name=species_name,
-            botanical_family=botanical_family,
+            botanical_family=inputs.family_name,
             plant_key=plant_key,
+            watering_guide=inputs.watering_guide,
         )
-        created = self._repo.create_profile(new_profile)
-        if created.key:
-            self._repo.create_profile_edge(plant_key, created.key)
-        return created
+        if not may_create:
+            # Generated, not stored. The caller is reading.
+            return new_profile
+
+        try:
+            return self._repo.create_linked_profile(new_profile, plant_key)
+        except (DuplicateError, WriteConflictError) as conflict:
+            # How many times the edge is re-read is decided by WHICH rejection this
+            # is, because the two say different things about the winner (SCR-001):
+            # ``1210`` is a statement about committed data, so one read settles it;
+            # ``1200`` says only that somebody HELD the entry, and the holder's
+            # commit may still be in flight. Measured after the transactional write
+            # landed: 90 of 90 losers in a 30-burst four-way race got ``1200`` and
+            # none got ``1210`` — the transaction holds the unique-index entry from
+            # the edge insert until the commit, so ``1200`` is now the normal loser
+            # answer and this is the branch that carries the flow.
+            attempts = 1 if isinstance(conflict, DuplicateError) else _RACE_REREAD_ATTEMPTS
+            winner = self._resolve_lost_profile_race(plant_key, attempts=attempts)
+            if winner is None:
+                # The conflict was not a lost race — keep it propagating (409).
+                raise
+            return winner
+
+    def _resolve_lost_profile_race(self, plant_key: str, *, attempts: int) -> CareProfile | None:
+        """Answer a profile-creation race this caller lost, or re-raise (#1292).
+
+        The ``has_care_profile`` edge carries a unique index over ``_from``, so it
+        is the storage-level statement of "one care profile per plant". A ``1200``
+        from that index means a concurrent request held the same entry while this
+        one tried to take it — measured on ``GET /care-reminders/plants/{key}/profile``
+        in the 2026-09-14 nightly, where it surfaced as a raw ``DocumentInsertError``
+        and a 500.
+
+        Both of ArangoDB's rejections reach here, because both were measured on
+        that one index: ``1200`` in the nightly above, ``1210`` (unique constraint
+        violated, surfaced as :class:`DuplicateError`) from the four-way race in
+        ``tests/integration/test_care_profile_edge_concurrency.py``. Which one a
+        loser gets is the server's decision about how far the winner had got, so
+        handling one and not the other would leave the 500 in place half the time.
+
+        Two branches either way, for the reason :class:`WriteConflictError`
+        documents: ``1200`` is about timing, not about data, so it may never be
+        swallowed on its own — the other transaction may have rolled back. The
+        re-read below is what settles it, and it is correct for ``1210`` too.
+
+        * the edge resolves to a profile → that is the winner, and it is this
+          caller's answer too.
+        * the edge resolves to nothing → the winner did not commit. ``None`` is
+          returned and the caller re-raises, because reporting success here would
+          hand back a profile whose link does not exist.
+
+        **The loser has nothing to clean up.** It used to: the two writes were not
+        atomic, so a loser had already committed a profile document that no edge
+        referenced, and this method deleted it — after a fourth caller had had the
+        chance to read it through the non-unique ``plant_key`` field and answer with
+        it. That is the defect this whole change removes:
+        :meth:`ICareReminderRepository.create_linked_profile` writes both inside one
+        transaction, an aborted transaction leaves nothing behind, and so there is
+        no orphan to delete and never was a document for anyone to see.
+
+        The read is deliberately :meth:`get_linked_profile` and not
+        ``get_profile_by_plant_key``: the field carries no unique index and cannot
+        say which document is the linked one, the edge can.
+
+        **Why ``attempts`` and why it is keyword-only without a default.** For a
+        ``1210`` caller one read is not merely enough, it is exact: the winner is
+        committed by the time that code is produced. For a ``1200`` caller it is
+        not, and the atomic write made that worse rather than better — the unique
+        ``_from`` entry is now held from the edge insert until
+        ``commit_transaction`` instead of for the microseconds a bare insert took,
+        so a loser can be told "conflict" while the winner's commit is still in
+        flight and a single read would answer ``None`` and re-raise a 409 for a
+        profile that exists a moment later. The caller states which case it is; a
+        default would quietly give one of them the other's answer.
+
+        **This loop really waits.** It is worth saying because a retry loop that
+        re-creates the bad moment on every iteration is inert and looks robust
+        (the shape that has cost this project time before). Nothing here is
+        re-attempted: the write is not retried, the same read is repeated against
+        state *another transaction is committing*, so each iteration is a genuinely
+        later observation. It is bounded at
+        ``_RACE_REREAD_ATTEMPTS * _RACE_REREAD_INTERVAL_SECONDS`` and then gives up,
+        because a winner that never appears is a real failure and must stay one.
+        Sleeping is safe here: every caller of this path is a synchronous route
+        (FastAPI runs those in a worker thread) or a Celery task.
+
+        Measured local frequency of the case the loop exists for: **0 in 90 losers**
+        across 30 four-way bursts — the lock wait usually outlives the winner's
+        commit, so the first read already finds it. The loop is defence for the
+        widened window, not a repair of an observed local failure, and this number
+        is recorded here rather than implied.
+        """
+        for attempt in range(attempts):
+            winner = self._repo.get_linked_profile(plant_key)
+            if winner is not None:
+                return winner
+            if attempt + 1 < attempts:
+                time.sleep(_RACE_REREAD_INTERVAL_SECONDS)
+        return None
 
     def _propagate(self, action) -> None:  # noqa: ANN001 — Callable[[NotificationPropagationService], None]
         """Run a notification-propagation ``action`` when the coupling is wired.
@@ -296,9 +609,14 @@ class CareReminderService:
         adaptive-learned interval, so the edited base value — not a stale learned
         value — drives the new schedule.
         """
+        # Bootstrap rather than refuse. `GET .../profile` stopped materialising a
+        # profile in #1422 round 2 — reads do not write — so a plant that has never
+        # been confirmed or snoozed has no stored profile, and this path used to
+        # answer 404 for it. That is a write path: creating what it is about to edit
+        # is exactly what it may do, and it is what the read path may not.
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            raise NotFoundError("CareProfile", plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
         # Which task-interval fields actually change (a no-op write is not a change).
         changed_reminders = {
@@ -309,6 +627,21 @@ class CareReminderService:
 
         data = profile.model_dump()
         data.update(updates)
+
+        # A profile a user edited is no longer auto-generated (#1489 review, SCR-007).
+        # `auto_generated` used to survive every edit, which made it useless as
+        # provenance — the v0050 repair migration therefore cannot use it as more
+        # than a necessary condition and falls back to comparing values, so a user
+        # who happens to set exactly the fallback values would have their edit
+        # overwritten. This marks edits from here on; it does not rewrite history,
+        # which is why v0050's criterion stays value-based.
+        #
+        # Only a change flips it: a PATCH that sets a field to the value it already
+        # holds is not an edit, and the round-trip the frontend's care dialog makes
+        # (load the profile, save it back untouched) must not silently re-label
+        # every profile in the installation.
+        if any(field in data and data[field] != getattr(profile, field) for field in updates):
+            data["auto_generated"] = False
 
         # An explicit interval edit takes precedence over the adaptive-learned
         # value: reset the learned interval (unless the caller set it in the same
@@ -504,7 +837,7 @@ class CareReminderService:
 
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
         now = datetime.now(UTC)
         watering_log_key: str | None = None
@@ -1012,7 +1345,7 @@ class CareReminderService:
     ) -> CareConfirmation:
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
         confirmation = CareConfirmation(
             plant_key=plant_key,
@@ -1035,18 +1368,25 @@ class CareReminderService:
         """Build care dashboard from plant data.
 
         plant_data: list of dicts with keys: plant_key, plant_name, species_name,
-                    botanical_family, current_phase, has_nutrient_plan,
-                    frost_sensitivity, cultivar_traits
+                    current_phase, has_nutrient_plan, frost_sensitivity,
+                    cultivar_traits
+
+        ``botanical_family`` used to be one of them and both builders filled it with
+        a hard-coded ``None`` (#1489) — a caller-supplied preset input that no caller
+        supplied. The presets are resolved from the plant now, so the key is gone
+        rather than kept as a slot nobody fills.
         """
         entries: list[CareDashboardEntry] = []
 
         for plant in plant_data:
             plant_key = plant["plant_key"]
-            profile = self.get_or_create_profile(
-                plant_key,
-                species_name=plant.get("species_name"),
-                botanical_family=plant.get("botanical_family"),
-            )
+            # `may_create=False`: the dashboard is a READ. Until #1422's second review
+            # it persisted a `CareProfile` and a profile edge for *every* plant of the
+            # tenant that had none — on a plain GET, for any member including a viewer,
+            # and it thereby also pre-empted the narrower route's refusal by making the
+            # profile exist. The generated presets are what the dashboard needs; storing
+            # them was never part of that.
+            profile = self.get_or_create_profile(plant_key, may_create=False)
 
             # REQ-022 §3.2 — the winter-protection reminder types are gated by the
             # plant's OverwinteringProfile + frost sensitivity; without these the
@@ -1119,8 +1459,8 @@ class CareReminderService:
         """Assemble ``plant_data`` dicts for the tenant's active plants.
 
         Each dict carries the fields :meth:`get_care_dashboard` consumes:
-        ``plant_key``, ``plant_name``, ``species_name``, ``botanical_family``,
-        ``current_phase`` and ``has_nutrient_plan``. Missing context resolves to
+        ``plant_key``, ``plant_name``, ``species_name``, ``current_phase`` and
+        ``has_nutrient_plan``. Missing context resolves to
         ``None``/``False`` so a single broken record never aborts the dashboard.
         """
         if self._plant_repo is None:
@@ -1129,7 +1469,9 @@ class CareReminderService:
         plants, _total = self._plant_repo.get_all(offset=0, limit=500, tenant_key=tenant_key)
         active_plants = [p for p in plants if p.removed_on is None]
 
-        species_cache: dict[str, Species | None] = {}
+        # The service's own cache, not a local one: the preset resolution reads the
+        # same species again for every unprofiled plant in this listing (SCR-009).
+        species_cache = self._species_cache
         cultivar_traits_cache: dict[str, list[str]] = {}
         plant_data: list[dict] = []
 
@@ -1144,7 +1486,6 @@ class CareReminderService:
                     "plant_key": plant_key,
                     "plant_name": plant.plant_name or plant.instance_id or "",
                     "species_name": (species.common_names[0] if species and species.common_names else None),
-                    "botanical_family": None,
                     "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
                     "has_nutrient_plan": self._has_nutrient_plan(plant_key, plant.tenant_key),
                     # REQ-022 §3.2 winter-reminder gating context (B1).
@@ -1199,9 +1540,11 @@ class CareReminderService:
         if plant is None or plant.removed_on is not None:
             return []
 
-        profile = self._repo.get_profile_by_plant_key(plant_key) or self.get_or_create_profile(plant_key)
+        profile = self._repo.get_profile_by_plant_key(plant_key) or self.get_or_create_profile(
+            plant_key, may_create=True
+        )
         overwintering_profile = self._resolve_overwintering_profile(plant_key)
-        species = self._resolve_species(plant.species_key, {})
+        species = self._resolve_species(plant.species_key, self._species_cache)
         frost_sensitivity = species.frost_sensitivity if species else None
         cultivar_traits = self._resolve_cultivar_traits(plant.cultivar_key, {})
 
@@ -1243,7 +1586,7 @@ class CareReminderService:
             reminder_type=reminder_type,
             due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
         )
-        return create_care_reminder_task(self._task_repo, task)
+        return create_care_reminder_task(self._task_repo, task, reminder_type=reminder_type)
 
     def _resolve_overwintering_profile(self, plant_key: str) -> OverwinteringProfile | None:
         """Load the plant's overwintering profile (one lookup per subject, B1).
@@ -1280,21 +1623,29 @@ class CareReminderService:
             return False
         return self._nutrient_plan_repo.get_plant_plan(plant_key, tenant_key=tenant_key) is not None
 
-    def reset_profile(
-        self,
-        plant_key: str,
-        species_name: str | None = None,
-        botanical_family: str | None = None,
-    ) -> CareProfile:
-        """Reset profile to species/family defaults."""
+    def reset_profile(self, plant_key: str) -> CareProfile:
+        """Reset the profile to the species/family defaults, resolved from the plant.
+
+        The two client-supplied values this used to take (``species_name``,
+        ``botanical_family``) are gone: measured 2026-09-17, the frontend's
+        ``resetProfile`` sends neither, so this route re-seeded every profile from
+        the ``TROPICAL`` fallback — the creation bootstrap's defect again, on the
+        one path a user reaches *because* the presets looked wrong (#1489).
+        """
+        # Bootstrap rather than refuse. `GET .../profile` stopped materialising a
+        # profile in #1422 round 2 — reads do not write — so a plant that has never
+        # been confirmed or snoozed has no stored profile, and this path used to
+        # answer 404 for it. That is a write path: creating what it is about to edit
+        # is exactly what it may do, and it is what the read path may not.
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            raise NotFoundError("CareProfile", plant_key)
+            profile = self.get_or_create_profile(plant_key, may_create=True)
 
+        inputs = self.care_inputs_for_plant(plant_key)
         new_profile = self._engine.auto_generate_profile(
-            species_name=species_name,
-            botanical_family=botanical_family,
+            botanical_family=inputs.family_name,
             plant_key=plant_key,
+            watering_guide=inputs.watering_guide,
         )
         new_data = new_profile.model_dump(exclude={"key", "created_at", "updated_at"})
         reset = CareProfile(**{**profile.model_dump(), **new_data})
@@ -1412,7 +1763,7 @@ class CareReminderService:
             due_date=due_dt,
             instruction=f"Water {plant_label} (every {interval} days).",
         )
-        return create_care_reminder_task(self._task_repo, task)
+        return create_care_reminder_task(self._task_repo, task, reminder_type=ReminderType.WATERING)
 
     def _next_watering_due_date(
         self,

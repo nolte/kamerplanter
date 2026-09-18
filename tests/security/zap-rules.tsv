@@ -1,15 +1,68 @@
 # OWASP ZAP rule tuning for Baseline + Full-Scan profiles.
 # Spec: spec/nfr/NFR-015_OWASP-ZAP-Security-Scanning.md §6.1
 #
-# Format (tab-separated):
+# Format (tab-separated, exactly four fields):
 #   <PluginID>	<THRESHOLD>	<Confidence>	<Note>
 #
-# THRESHOLD ∈ {OFF, IGNORE, WARN, FAIL}
-# Confidence ∈ {LOW, MEDIUM, HIGH}
+# Confidence ∈ {LOW, MEDIUM, HIGH} — POSITIONAL AND READ BY NOBODY. The column is
+# kept so the file stays shaped like ZAP's own rule files, but neither `zap_gate.py`
+# nor ZAP acts on it: `zap_common.load_config` unpacks it into a variable literally
+# named `ignore` and keeps only the note after it. A suppression is bounded by its
+# `scope=`, not by this value, and `40018 IGNORE LOW` suppresses a High-confidence
+# instance exactly as `MEDIUM` does.
 #
-# Every IGNORE row MUST include "# expires YYYY-MM-DD — approved by <role>"
-# in the Note column. Expired IGNOREs trigger a CI warning; after 30 days
-# of grace, they fail the build.
+# THRESHOLD: **only IGNORE is honoured.** ZAP's own vocabulary is
+# {PASS, IGNORE, INFO, WARN, FAIL} — note that "OFF", which an earlier version of
+# this header listed, is not among them and makes `zap_common.load_config` raise
+# `Level OFF is not a supported level`. But ZAP does not read this file at all
+# (see below), and `zap_gate.py` implements no threshold overrides, so a WARN or
+# FAIL row would change nothing. It is rejected with a message rather than
+# accepted and left inert; the severity policy lives in `zap_gate.py` itself
+# (NFR-015 §5.1/§5.2).
+#
+# Tabs, not spaces: a space-separated row parses to a single field. `zap_gate.py`
+# reports that with the file and line rather than skipping it, because the two
+# are indistinguishable in a diff and the silent skip would leave the suppression
+# not applied with nobody told.
+#
+# WHO READS THIS FILE: `scripts/security/zap_gate.py` alone, via `--rules`. It is
+# deliberately NOT passed to the ZAP wrappers with `-c` (or `-u`), because
+# `zap-api-scan.py` decides its active scan policy from whether that config
+# produced any entries:
+#
+#     scan_policy = 'API-Minimal'
+#     if config_dict:
+#         scan_policy = 'Default Policy'
+#         zap.ascan.enable_all_scanners(scanpolicyname=scan_policy)
+#
+# The first suppression would therefore swap a 23-rule minimal policy for the full
+# active rule set — an unrelated, unbounded widening of a scan that runs under a
+# 45-minute job timeout — and the only shape ZAP can express is "turn this rule
+# off everywhere". The gate drops matching INSTANCES instead, so the rule keeps
+# running and a genuine finding at another URL still blocks.
+#
+# Every IGNORE row MUST carry, in the Note column:
+#   * `# expires YYYY-MM-DD — approved by <role> (YYYY-MM-DD)` — the expiry, the
+#     approver, AND the date of that approval. Expired is a CI warning; after 30
+#     days of grace it fails the build and stops applying, so the finding it was
+#     covering reappears in the run that goes red. The approval date is not
+#     decoration: it bounds the row's life at twelve months (366 days) WITHOUT a
+#     clock, so the check means the same on every day and in every lane. Deriving
+#     the span from "today" would put a calendar dependency into a required lane,
+#     which is how a ZAP rule ends up blocking every merge in the repository.
+#   * EXACTLY ONE `scope=<url regex>` — the URLs the suppression covers, matched
+#     with `re.search` and therefore UNANCHORED: `scope=/api/v1/auth/` is a prefix
+#     that also covers `/api/v1/auth/anything`, and `scope=/x/confirm` would cover
+#     `/x/confirm-v2` too. Anchor it (`^…$` against the full URL) when that
+#     matters. `scope=.*` means rule-wide and has to be written out; there is no
+#     implicit rule-wide. Exactly one, because the note is prose and the first
+#     match wins: a note that MENTIONS `scope=.*` while explaining why it did not
+#     use it would silence the rule everywhere. Two candidates is rejected.
+#
+# `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` enforces the file
+# format and the absence of `-c`/`-u` in the workflows; `test_zap_gate.py` enforces
+# what the gate does with a row. Both run in the REQUIRED `Write-route and tree
+# guards` lane.
 #
 # This file is intentionally empty in Phase 1. Tuning entries are added
 # alongside their motivating findings in Phase 3.

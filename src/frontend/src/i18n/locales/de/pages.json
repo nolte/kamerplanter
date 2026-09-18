@@ -1766,6 +1766,7 @@
       "deleteTitle": "Foto löschen",
       "deletePhoto": "Foto löschen",
       "deleteConfirm": "Möchten Sie dieses Foto wirklich löschen? Es wird endgültig entfernt und kann nicht wiederhergestellt werden.",
+      "deleteForbidden": "Fotos endgültig löschen darf in diesem Mandanten nur die Rolle „Leitung“. Bitten Sie eine Person mit dieser Rolle, das Foto zu entfernen.",
       "emptyTitle": "Noch keine Fotos",
       "emptyDescriptionWrite": "Fügen Sie das erste Foto Ihrer Pflanze hinzu – so behalten Sie den Wachstumsverlauf im Blick und erkennen sie in der Übersicht auf einen Blick.",
       "emptyDescriptionRead": "Für diese Pflanze wurden noch keine Fotos hinzugefügt.",
@@ -3062,6 +3063,7 @@
       "future": "Zukunft",
       "completed": "Erledigt",
       "showCompleted": "Erledigte Tasks anzeigen",
+      "plantFilterUnavailable": "Pflanzenliste konnte nicht geladen werden – der Pflanzenfilter steht gerade nicht zur Verfügung.",
       "noCompletedTasks": "Keine erledigten Aufgaben vorhanden.",
       "createTask": "Aufgabe erstellen",
       "createTaskForPlant": "Aufgabe für {{plant}} erstellen",
@@ -3089,6 +3091,7 @@
       "noTasks": "Keine offenen Aufgaben",
       "noTasksDesc": "Alle Aufgaben erledigt! Erstellen Sie eine neue Aufgabe oder starten Sie einen Workflow.",
       "noTasksFiltered": "Keine Aufgaben für diesen Filter",
+      "noTasksFilteredForPlant": "Keine Aufgaben für {{plant}}",
       "noTasksFilteredDesc": "Mit den aktiven Filtern gibt es keine Aufgaben. Filter zurücksetzen, um alle Aufgaben zu sehen.",
       "filterBarLabel": "Aufgaben filtern",
       "filterSourceLabel": "Quelle filtern",
@@ -3178,6 +3181,7 @@
       "photoRequired": "Foto erforderlich",
       "noPhotos": "Keine Fotos vorhanden.",
       "photoRemove": "Foto {{index}} entfernen",
+      "photoRemoveTaskGone": "Die Aufgabe existiert nicht mehr. Das Foto wurde nicht gelöscht und bleibt erhalten.",
       "photoAlt": "Foto {{index}}",
       "photos": "Fotos",
       "timerDuration": "Timer-Dauer (Sek.)",
@@ -3325,7 +3329,8 @@
         "tank": "Tank"
       },
       "instantiateError": "Workflow-Instanziierung für alle Pflanzen fehlgeschlagen.",
-      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen."
+      "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen.",
+      "cannotDeleteReopened": "Diese Aufgabe war abgeschlossen und wurde wiedereröffnet. Sie trägt die Fotos und den Nachweis dieses Abschlusses und lässt sich deshalb nicht löschen — überspringe sie, um sie aus der Liste zu nehmen."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",

@@ -3,26 +3,32 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import { configureStore } from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import calendarReducer from '@/store/slices/calendarSlice';
 import sitesReducer from '@/store/slices/sitesSlice';
 import uiReducer from '@/store/slices/uiSlice';
 import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
+import tenantsReducer from '@/store/slices/tenantSlice';
 import CalendarPage from '@/pages/kalender/CalendarPage';
-import { renderWithProviders, type TestStore } from '../helpers';
+import { renderWithProviders, tenantState, type TestStore } from '../helpers';
 import { server } from '../mocks/server';
 import type { CalendarEvent, CalendarFeed } from '@/api/types';
 
 // The CalendarPage reads `state.calendar` + `state.sites`, which the shared test
 // store does not carry. Build a dedicated store with the calendar reducer.
 function makeCalendarStore(): TestStore {
+  const rootReducer = combineReducers({
+    calendar: calendarReducer,
+    sites: sitesReducer,
+    ui: uiReducer,
+    userPreferences: userPreferencesReducer,
+    // #1467: the feed delete is lead-only, and `useTenantPermissions` reads this
+    // slice. Without it the page crashes on `state.tenants.activeTenant`.
+    tenants: tenantsReducer,
+  });
   return configureStore({
-    reducer: {
-      calendar: calendarReducer,
-      sites: sitesReducer,
-      ui: uiReducer,
-      userPreferences: userPreferencesReducer,
-    },
+    reducer: rootReducer,
+    preloadedState: tenantState('lead') as never,
   }) as unknown as TestStore;
 }
 

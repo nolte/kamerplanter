@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useNutrientPlanFavorites } from '@/hooks/useCatalogFavorites';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -222,8 +223,12 @@ export function useNutrientPlanData() {
     }
   }, [key, notification, t, load, handleError]);
 
+  // `require_permission(NUTRIENT_PLAN, DELETE)` is lead-only (REQ-049 §2.3), so the
+  // page must not offer the control below that rank — it could only answer 403 (#1467).
+  const { canDelete } = useTenantPermissions();
+
   const onDelete = useCallback(async () => {
-    if (!key) return;
+    if (!key || !canDelete) return;
     setDeleting(true);
     try {
       await planApi.deleteNutrientPlan(key);
@@ -234,7 +239,7 @@ export function useNutrientPlanData() {
     } finally {
       setDeleting(false);
     }
-  }, [key, notification, t, navigate, handleError]);
+  }, [key, canDelete, notification, t, navigate, handleError]);
 
   const resetForm = useCallback(() => reset(), [reset]);
 
@@ -244,14 +249,14 @@ export function useNutrientPlanData() {
       saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate, planOriginTooltip,
       isFavorite, toggleFavorite, control, handleSubmit, onSave, resetForm,
       editScheduleMode, editScheduleEnabled, editWeekdaySchedule, handleEditWeekdayToggle,
-      deleteOpen, setDeleteOpen, onDelete, deleting, load,
+      deleteOpen, setDeleteOpen, onDelete, deleting, load, canDelete,
     }),
     [
       key, plan, entries, fertilizers, validation, validating, loading, error, tab, setTab,
       saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate, planOriginTooltip,
       isFavorite, toggleFavorite, control, handleSubmit, onSave, resetForm,
       editScheduleMode, editScheduleEnabled, editWeekdaySchedule, handleEditWeekdayToggle,
-      deleteOpen, onDelete, deleting, load,
+      deleteOpen, onDelete, deleting, load, canDelete,
     ],
   );
 }

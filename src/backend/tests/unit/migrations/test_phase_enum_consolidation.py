@@ -6,10 +6,15 @@ The 53-value phase vocabulary lives in exactly one place —
 ``$ref`` instead of inline-duplicating it. The reduced task-phase subset in
 ``activities`` / ``workflows`` is intentionally left inline (out of scope).
 
-The structural assertions are dependency-free (PyYAML only) so they always run in
-CI; the runtime ``$ref``-resolution check uses ``jsonschema`` + ``referencing``
-via ``importorskip`` so it adds value where those are installed without making
-them a hard test dependency.
+The structural assertions are dependency-free (PyYAML only); the runtime
+``$ref``-resolution check imports ``jsonschema`` and ``referencing`` directly.
+
+That used to read "via ``importorskip`` so it adds value where those are installed
+without making them a hard test dependency" — and the consequence of *not* making
+them a hard dependency was that neither package was ever installed by CI, so the
+check never ran, in any run, since it was written (#1435). Both are declared in the
+``dev`` extra and pinned in ``uv.lock`` now, and their absence is a broken
+environment that should fail loudly rather than a feature to skip past.
 """
 
 from pathlib import Path
@@ -81,8 +86,18 @@ def test_reduced_task_phase_enums_not_consolidated(name: str) -> None:
 def test_phase_name_ref_resolves_and_enforces() -> None:
     """Runtime check: the cross-file $ref resolves under a Draft 2020-12
     validator and actually enforces the enum (invalid phase rejected)."""
-    jsonschema = pytest.importorskip("jsonschema")
-    referencing = pytest.importorskip("referencing")
+    # Plain imports, not ``pytest.importorskip``. Both packages are declared in the
+    # ``dev`` extra and pinned in ``uv.lock`` (#1435), so their absence is a broken
+    # environment rather than an optional feature being unavailable — and
+    # ``importorskip`` turns exactly that into a silent skip.
+    #
+    # It did, for the entire life of this suite: neither package was declared
+    # anywhere, so ``uv sync --locked --extra dev`` installed neither and all 35 cases
+    # skipped in every CI run. They executed only on a machine that happened to carry
+    # ``jsonschema`` from an unrelated tool, which is how the gap was found — a run on
+    # the *wrong* interpreter exercised more of this tier than a correct one.
+    import jsonschema
+    import referencing
     from referencing.jsonschema import DRAFT202012
 
     registry = referencing.Registry().with_resources(

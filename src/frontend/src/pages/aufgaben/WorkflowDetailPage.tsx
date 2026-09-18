@@ -62,6 +62,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -105,6 +106,9 @@ export default function WorkflowDetailPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // Workflow, phase and task-template deletes all sit behind
+  // `require_permission(TASK, DELETE)` — lead only (REQ-049 §2.3) (#1467).
+  const { canDelete } = useTenantPermissions();
 
   const [workflow, setWorkflow] = useState<WorkflowTemplate | null>(null);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
@@ -1005,7 +1009,7 @@ export default function WorkflowDetailPage() {
                                       </IconButton>
                                     </Tooltip>
                                   )}
-                                  {!isReadOnly && (
+                                  {!isReadOnly && canDelete && (
                                     <Tooltip title={t('common.delete')}>
                                       <IconButton
                                         size="small"
@@ -1080,16 +1084,19 @@ export default function WorkflowDetailPage() {
                       <EditIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={t('pages.tasks.deletePhase')}>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => setDeletePhaseKey(group.phaseKey)}
-                      aria-label={t('pages.tasks.deletePhase')}
-                    >
-                      <DeleteIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Tooltip>
+                  {canDelete && (
+                    <Tooltip title={t('pages.tasks.deletePhase')}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => setDeletePhaseKey(group.phaseKey)}
+                        aria-label={t('pages.tasks.deletePhase')}
+                        data-testid="workflow-phase-delete-button"
+                      >
+                        <DeleteIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               )}
             </Box>
@@ -1409,13 +1416,14 @@ export default function WorkflowDetailPage() {
           </Card>
 
           {/* UI-NFR-018 R-012: hide delete button entirely for system data */}
-          {!isDeletionProtected && (
+          {!isDeletionProtected && canDelete && (
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="outlined"
                 color="error"
                 startIcon={<DeleteIcon />}
                 onClick={() => setDeleteOpen(true)}
+                data-testid="workflow-delete-button"
               >
                 {t('pages.tasks.deleteWorkflow')}
               </Button>

@@ -36,6 +36,15 @@ on:
       - 'src/inference-service/**'
       - 'src/libs/kp_vectordb/**'
       - '.github/workflows/side-services.yml'
+      # The Taskfile now holds the install and test invocations this workflow
+      # runs (`task deps:sync:<service>`, `task test:<service>`), the same shape
+      # backend.yml records for `.taskfiles/backend.yaml`. Without these entries
+      # a pull request that changes `uv sync --locked --extra dev` into
+      # something weaker, or that rewires the include, triggers no job here at
+      # all — the gate's own definition would be the one input the gate does not
+      # watch.
+      - '.taskfiles/libs.yaml'
+      - 'Taskfile.yaml'
   pull_request:
     branches: [develop]
     paths:
@@ -43,6 +52,15 @@ on:
       - 'src/inference-service/**'
       - 'src/libs/kp_vectordb/**'
       - '.github/workflows/side-services.yml'
+      # The Taskfile now holds the install and test invocations this workflow
+      # runs (`task deps:sync:<service>`, `task test:<service>`), the same shape
+      # backend.yml records for `.taskfiles/backend.yaml`. Without these entries
+      # a pull request that changes `uv sync --locked --extra dev` into
+      # something weaker, or that rewires the include, triggers no job here at
+      # all — the gate's own definition would be the one input the gate does not
+      # watch.
+      - '.taskfiles/libs.yaml'
+      - 'Taskfile.yaml'
 
 # Least privilege: these jobs only read the checkout. No packages, no PRs, no
 # checks are written (github-actions-best-practices).
@@ -80,16 +98,33 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/knowledge-service/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/knowledge-service/uv.lock
+
       - name: Install knowledge-service (with dev extra)
-        # The service declares no hash-locked dev requirements file (unlike the
-        # backend); its pyproject [project.optional-dependencies].dev is the
-        # source of the test toolchain, so install the editable package with that
-        # extra. httpx is a runtime dependency here, so the TestClient tier works
-        # out of the box.
+        # From the hash-verified lock (#1383), like every other Python install in
+        # this repository. The test toolchain lives in the pyproject's
+        # [project.optional-dependencies].dev EXTRA, not in the uv.lock `dev`
+        # dependency GROUP (#1374) — that group carries only the image's
+        # hot-reload watcher, which `uv sync` adds as well because it is a default
+        # group. Both are in the lock, so `--locked` verifies both.
+        # `uv sync` installs the project itself editable, so the suite imports the
+        # working tree. httpx is a runtime dependency here, so the TestClient tier
+        # works out of the box. The environment goes on PATH because the Taskfile
+        # target below calls a bare `python -m pytest`.
+        # Through the Taskfile, so this lane and `task deps:sync:knowledge-service`
+        # are one invocation rather than two that can drift. Only the PATH export
+        # stays here — it is a runner fact, not part of the install.
         working-directory: src/knowledge-service
         run: |
-          python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          task deps:sync:knowledge-service
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run knowledge-service suite
         # task target carries the fail-on-empty-collection guard (NFR-018 §2) and
@@ -114,18 +149,35 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/inference-service/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/inference-service/uv.lock
+
       - name: Install inference-service (with dev extra)
-        # Installs onnxruntime + numpy + pillow from PyPI (the base runtime) plus
-        # the dev extra. The optional `cv` extra (plantcv/OpenCV, REQ-038) is
-        # deliberately NOT installed: the whole suite runs on fakes and exercises
-        # PlantCV only through its absence path. httpx is in the dev extra (added
-        # for this suite — the tests drive the FastAPI app through Starlette's
-        # TestClient, which needs an httpx transport; it is not a runtime dep of
-        # the service itself).
+        # From the hash-verified lock (#1383): onnxruntime + numpy + pillow (the
+        # base runtime) plus the dev extra, every artifact checked against the
+        # hash uv.lock records. The optional `cv` extra (plantcv/OpenCV, REQ-038)
+        # is deliberately NOT installed: the whole suite runs on fakes and
+        # exercises PlantCV only through its absence path. Neither is the `build`
+        # dependency group (torch/onnx, the model-export toolchain) — it is not a
+        # default group, so `uv sync` leaves it out and this job does not pay for
+        # a torch download. httpx is in the dev extra (added for this suite — the
+        # tests drive the FastAPI app through Starlette's TestClient, which needs
+        # an httpx transport; it is not a runtime dep of the service itself). The
+        # environment goes on PATH because the Taskfile target below calls a bare
+        # `python -m pytest`.
+        # Through the Taskfile, so this lane and `task deps:sync:inference-service`
+        # are one invocation rather than two that can drift. Only the PATH export
+        # stays here — it is a runner fact, not part of the install.
         working-directory: src/inference-service
         run: |
-          python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          task deps:sync:inference-service
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run inference-service suite
         run: task test:inference-service
@@ -148,13 +200,42 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — see the long note on
+        # the same step in backend.yml's `lint-test` job (#1383).
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/libs/kp_vectordb/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/libs/kp_vectordb/uv.lock
+
       - name: Install kp_vectordb (with dev extra)
         # Light package: psycopg + psycopg-pool + structlog. The suite uses fakes,
         # so no real PostgreSQL is required.
+        #
+        # From the hash-verified lock (#1464), like every other PEP 621 tree in
+        # this repository — the boundary is named rather than rounded up to "every
+        # Python install" (#1491 review): `tests/e2e/requirements.txt`,
+        # `docs/requirements.txt` and `tools/rag-eval/requirements.txt` are plain
+        # requirement lists with no lock and no hashes, and the sweep in
+        # scripts/ci/check_renovate_dashboard.py reports them as such. What to do
+        # about those three is #1509.
+        # Until then this was the ONE `pip install -e` left, and
+        # the reason given was that a shared library has no image and therefore
+        # no lock to sync from — true about images, not about hashes: NFR-009 §2.3
+        # is a property of the INSTALL, and this one runs on a runner exactly like
+        # the four that were locked in #1374. `src/libs/kp_vectordb/uv.lock` now
+        # exists and `LOCKLESS_PYTHON_PROJECTS` in
+        # scripts/ci/check_renovate_dashboard.py is empty, so a new lockless
+        # Python tree is a finding rather than an allowance.
+        #
+        # Through the Taskfile, so this lane and `task deps:sync:kp-vectordb` are
+        # one invocation rather than two that can drift. Only the PATH export
+        # stays here — it is a runner fact, not part of the install.
         working-directory: src/libs/kp_vectordb
         run: |
-          python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          task deps:sync:kp-vectordb
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Run kp_vectordb suite
         run: task test:kp-vectordb

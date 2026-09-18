@@ -32,6 +32,7 @@ from selenium.common.exceptions import (
     ElementNotInteractableException,
     StaleElementReferenceException,
     TimeoutException,
+    WebDriverException,
 )
 
 from .pages.base_page import DE_DATE_RE
@@ -325,17 +326,41 @@ def create_care_task(
         if key is not None:
             return key
         time.sleep(1.0)
-    diagnosis = (
-        "the queue was scoped to that plant on at least one pass, so the card is "
-        "genuinely absent — look at the create, not the lookup"
+    # What this message may claim is bounded by what the loop above measured
+    # (#1485). The previous wording concluded from ``filter_took`` alone that the
+    # create step was at fault — an inference, and an unsound one: the
+    # plant filter was a client-side narrowing of a response the server caps at
+    # 200 rows (#1484), so a taken filter did not mean the plant's cards had ever
+    # been in the payload. The scope is a server-side query parameter now, but
+    # the message still states only what it read: whether the filter took, and
+    # what a read taken at this moment sees. Naming the place to look is the
+    # reader's job, and it needs these numbers to do it.
+    try:
+        # Taken *here*, after the deadline — not carried out of the loop. It is a
+        # fresh navigation-free read, and ``get_task_keys`` waits for the queue's
+        # content itself, so what it returns describes the queue at diagnosis
+        # time and not the state of the pass that last failed to find the card.
+        # Saying which read this is matters: the two differ exactly when the card
+        # arrives late, which is the case the reader is here to judge.
+        seen_keys = task_queue.get_task_keys()
+        shown = seen_keys[:10]
+        more = "" if len(seen_keys) <= len(shown) else f" (first {len(shown)} of {len(seen_keys)})"
+        observed = (
+            f"a read taken after the deadline saw {len(seen_keys)} task card(s), keys {shown}{more}"
+        )
+    except WebDriverException as exc:
+        observed = f"the cards could not be read after the deadline ({type(exc).__name__})"
+    scope = (
+        f"the queue was scoped to plant '{instance_id}' server-side on at least one pass"
         if filter_took
         else "the plant filter never took (its autocomplete offered no option for "
-        "this instance id), so every scan read the unfiltered, shared head of the "
-        "queue — the lookup is what failed here, not necessarily the create"
+        "this instance id), so every scan read the unscoped queue, which the "
+        "server answers with at most 200 rows"
     )
     raise AssertionError(
         f"Self-provisioning failed: care task '{task_name}' did not appear in the "
-        f"queue within 15s after creation, for plant '{instance_id}'. {diagnosis}."
+        f"queue within 15s after creation, for plant '{instance_id}'. "
+        f"{scope}; {observed}."
     )
 
 
@@ -379,17 +404,29 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
 
     Three steps, each idempotent:
 
-    1. ``GET /care-reminders/plants/{key}/profile`` — the get-or-create route
-       *persists* a default profile (``auto_create_watering_task`` defaults to
-       ``True``) so the generator can see it.
-    2. ``PATCH …/profile`` — assert ``auto_create_watering_task`` is on
-       explicitly (belt-and-suspenders against a future default change).
+    1. ``GET /care-reminders/plants/{key}/profile`` — a **read**. It used to be a
+       get-or-*create* that persisted the default profile, and this docstring said
+       so; #1422 took the write out (a read that writes was the defect, and the
+       tenant dashboard was doing it for every plant of the tenant). Kept because a
+       non-200 here still says the plant or the route is wrong, before the write
+       step muddies the message.
+    2. ``PATCH …/profile`` — sets ``auto_create_watering_task`` explicitly **and,
+       since #1422, is the step that actually persists the profile**
+       (``update_profile`` is a write path, so it passes ``may_create=True``). Its
+       status is therefore checked: an unchecked failure here left the generator
+       with no profile and surfaced two steps later as a card that never appears.
     3. ``POST /t/{slug}/tasks/generate-care-reminders`` — materialise exactly one
        pending ``— watering`` task for the plant (runs the daily producer eagerly
        in-process).
 
     Raising (never skipping) on failure is deliberate: the test's whole point is
     that the cross-view path always runs (NFR-008a self-provisioning).
+
+    Every failure message carries the **response body**. ``_api_request`` already
+    parses it; the messages used to drop it, so the 2026-09-12/14 nightlies
+    reported bare ``status=500`` and the cause could only be recovered by
+    downloading the run's backend log. The body carries the ``error_id`` that
+    indexes straight into that log.
     """
     # Fresh token: the session-seed JWT expires after 15 min — long before a
     # late-scheduled test runs (led to 401 self-provisioning failures here).
@@ -399,25 +436,32 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
     slug = seed.get("tenant_slug", "mein-garten")
     api = base_url.rstrip("/") + "/api/v1"
 
-    status, _ = _api_request(f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token)
+    status, body = _api_request(f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token)
     if status not in (200, 201):
         raise AssertionError(
-            f"Self-provisioning failed: could not create a care profile for "
-            f"'{plant_key}' (status={status})"
+            f"Self-provisioning failed: could not read the care profile of "
+            f"'{plant_key}' (status={status}), body={body!r}"
         )
 
-    _api_request(
+    patch_status, patch_body = _api_request(
         f"{api}/care-reminders/plants/{plant_key}/profile",
         "PATCH",
         token,
         {"auto_create_watering_task": True},
     )
+    if patch_status not in (200, 201):
+        raise AssertionError(
+            f"Self-provisioning failed: could not persist the care profile of "
+            f"'{plant_key}' (status={patch_status}), body={patch_body!r}"
+        )
 
-    gen_status, _ = _api_request(f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {})
+    gen_status, gen_body = _api_request(
+        f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {}
+    )
     if gen_status not in (200, 201):
         raise AssertionError(
             f"Self-provisioning failed: generate-care-reminders returned "
-            f"status={gen_status} for tenant '{slug}'"
+            f"status={gen_status} for tenant '{slug}', body={gen_body!r}"
         )
 
 

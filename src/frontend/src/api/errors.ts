@@ -14,7 +14,11 @@ export class ApiError extends Error {
     this.errorId = response.error_id;
     this.errorCode = response.error_code;
     this.statusCode = statusCode;
-    this.details = response.details;
+    // Defaulted, not trusted: `ApiErrorResponse` promises `details`, but the
+    // interceptor builds this from whatever body came back — a proxy's error page
+    // or an older deployment carries none, and every reader below would then walk
+    // `undefined` and throw inside the caller's catch block (#1437).
+    this.details = response.details ?? [];
     this.path = response.path;
     this.method = response.method;
   }

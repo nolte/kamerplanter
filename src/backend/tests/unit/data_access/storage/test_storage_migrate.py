@@ -90,8 +90,14 @@ class TestStorageMigrator:
             assert await _collect(target, key) == data
 
     async def test_round_trip_local_to_s3_with_checksum_verify(self, tmp_path):
-        moto = pytest.importorskip("moto")
+        # Plain imports. ``moto[s3]`` and ``boto3`` are both declared and pinned, so
+        # their absence is a broken environment, not an optional feature — and
+        # ``importorskip`` reported exactly that as a pass. Measured on 2026-09-14:
+        # run against an interpreter without them, this file and its two siblings
+        # dropped 28 cases into the skip count while the summary stayed green
+        # (#1435, #1434).
         import boto3
+        import moto
 
         from app.data_access.storage.s3_adapter import S3StorageAdapter
 

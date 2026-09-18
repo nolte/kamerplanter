@@ -5,11 +5,11 @@ from typing import Any, ClassVar, Literal
 
 import structlog
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentInsertError, DocumentUpdateError
+from arango.exceptions import ArangoServerError, DocumentInsertError, DocumentUpdateError
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango import tenant_ownership
 from app.data_access.arango.query_builder import AQLBuilder
 
@@ -274,7 +274,7 @@ class BaseArangoRepository[TModel: BaseModel]:
     @classmethod
     def _describe_unique_conflict(
         cls,
-        error: DocumentInsertError | DocumentUpdateError,
+        error: ArangoServerError,
         data: dict[str, Any],
     ) -> tuple[str, str]:
         """Turn a unique-constraint violation into a ``(field, value)`` pair.
@@ -296,6 +296,48 @@ class BaseArangoRepository[TModel: BaseModel]:
         if field:
             return field, ""
         return "field", ""
+
+    def _mapped_insert_error(
+        self,
+        error: ArangoServerError,
+        collection_name: str,
+        data: dict[str, Any],
+    ) -> Exception | None:
+        """The domain conflict a rejected insert stands for, or ``None``.
+
+        The single copy of a translation three write paths need: :meth:`_insert_doc`
+        for documents, :meth:`create_edge` for edges, and — since #1292 —
+        ``ArangoCareReminderRepository.create_linked_profile``, which inserts a
+        document and an edge inside one stream transaction and so cannot reach
+        either of the other two. Written out once because the two existing copies
+        had already drifted apart: ``create_edge`` only grew the ``1200`` branch in
+        #1292, months after ``_insert_doc`` got it in #1436, and every caller of the
+        edge path turned that gap into a 500 in the meantime.
+
+        ``1210`` (unique constraint violated) becomes :class:`DuplicateError`, named
+        after the real conflicting field. ``1200`` (write-write conflict,
+        ``arango.errno.CONFLICT``) becomes :class:`WriteConflictError` — a *different
+        answer*, not a variant: it says a concurrent transaction held the same key
+        or unique-index entry, never that that transaction committed, so it may not
+        be read as "the record already exists" without a re-read. The driver message
+        is deliberately not forwarded in that case; it names an index and a document
+        key, and these errors' ``details`` are client-visible.
+
+        **Returns** the exception rather than raising it, so that every ``raise``
+        this module performs is visible at the site that performs it. The first
+        spelling raised from in here and relied on the caller writing a bare
+        ``raise`` underneath for the unrecognised codes; a reader of the call site
+        could not see which of the two happened, and dropping the trailing
+        ``raise`` would have swallowed an unknown driver failure silently. ``None``
+        means "not a conflict this layer translates" — the caller re-raises the
+        original.
+        """
+        if error.error_code == 1210:  # unique constraint violated
+            field, value = self._describe_unique_conflict(error, data)
+            return DuplicateError(collection_name, field, value)
+        if error.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+            return WriteConflictError(collection_name)
+        return None
 
     def _require_tenant_key(self, tenant_key: str, method: str) -> None:
         """Reject the empty-``tenant_key`` sentinel before issuing a scoped query.
@@ -566,24 +608,45 @@ class BaseArangoRepository[TModel: BaseModel]:
 
         return items, total
 
-    def _insert_doc(
+    def _insert_payload(
         self,
         model: BaseModel,
         *,
         default_now_fields: tuple[str, ...] = (),
     ) -> dict[str, Any]:
+        """Everything an insert does to a model *before* it reaches the driver.
+
+        Validate (through :meth:`_to_doc`, #968), stamp ``created_at``/``updated_at``,
+        back-fill the declared domain timestamps. Extracted from :meth:`_insert_doc`
+        so the transactional writer added in #1292
+        (``ArangoCareReminderRepository.create_linked_profile``), which cannot go
+        through ``_insert_doc`` because it writes through a transaction handle,
+        performs the *same* preamble instead of a second copy of it — a copy that
+        would have been the place the re-validation quietly stopped happening.
+        """
         data = self._to_doc(model)
         data["created_at"] = self._now()
         data["updated_at"] = self._now()
         for field in default_now_fields:
             if not data.get(field):
                 data[field] = self._now()
+        return data
+
+    def _insert_doc(
+        self,
+        model: BaseModel,
+        *,
+        default_now_fields: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        data = self._insert_payload(model, default_now_fields=default_now_fields)
         try:
             result = self.collection.insert(data, return_new=True)
         except DocumentInsertError as e:
-            if e.error_code == 1210:  # unique constraint violated
-                field, value = self._describe_unique_conflict(e, data)
-                raise DuplicateError(self._collection_name, field, value) from e
+            # #1436 for ``1200``, #1292 for the shared spelling: the mapping lives in
+            # one place so the edge path and the transactional pair cannot drift from it.
+            mapped = self._mapped_insert_error(e, self._collection_name, data)
+            if mapped is not None:
+                raise mapped from e
             raise
         return self._from_doc(result["new"])
 
@@ -603,7 +666,10 @@ class BaseArangoRepository[TModel: BaseModel]:
             result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=not full_replace)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
-                raise NotFoundError(self._collection_name, key) from e
+                # The entity, not the collection: ``details[0].entity`` is a contract
+                # (NFR-006 §2.2a), so this raiser has to answer the same word
+                # ``get_or_raise`` does for the same missing row (O-3).
+                raise NotFoundError(self._require_entity_name(), key) from e
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
@@ -634,7 +700,10 @@ class BaseArangoRepository[TModel: BaseModel]:
             result = self.collection.update({**data, "_key": key}, return_new=True, keep_none=True)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
-                raise NotFoundError(self._collection_name, key) from e
+                # The entity, not the collection: ``details[0].entity`` is a contract
+                # (NFR-006 §2.2a), so this raiser has to answer the same word
+                # ``get_or_raise`` does for the same missing row (O-3).
+                raise NotFoundError(self._require_entity_name(), key) from e
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
@@ -888,7 +957,20 @@ class BaseArangoRepository[TModel: BaseModel]:
         if data:
             edge_data.update(data)
         col = self._db.collection(edge_collection)
-        result = col.insert(edge_data, return_new=True)
+        try:
+            result = col.insert(edge_data, return_new=True)
+        except DocumentInsertError as exc:
+            # The same raw-to-domain translation :meth:`_insert_doc` performs for
+            # documents, which this path never inherited: edges are written through
+            # the driver directly, so a rejection from a *unique edge index* fell
+            # through as a bare driver exception and every caller above turned it
+            # into a 500 (#1292). Both codes are mapped because both were measured
+            # on one such index; which one a loser gets is the server's decision
+            # about how far the winner had got.
+            mapped = self._mapped_insert_error(exc, edge_collection, edge_data)
+            if mapped is not None:
+                raise mapped from exc
+            raise
         return result["new"]
 
     def get_edges(self, edge_collection: str, vertex_id: str, direction: str = "outbound") -> list[dict[str, Any]]:

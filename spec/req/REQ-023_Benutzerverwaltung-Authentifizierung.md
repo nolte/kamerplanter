@@ -185,7 +185,8 @@ Da Refresh Tokens als HttpOnly Cookie übertragen werden, sind zustandsändernde
 Ein User kann mehrere Auth-Provider verknüpfen:
 - Matching erfolgt über **verifizierte E-Mail-Adresse**: Login mit Google (`max@example.com`) wird automatisch mit dem lokalen Account (`max@example.com`) verknüpft
 - Kein Auto-Link bei unverifizierter E-Mail (verhindert Account-Übernahme)
-- User kann jederzeit zusätzliche Provider verknüpfen oder entfernen (mindestens eine Auth-Methode muss bestehen bleiben)
+- User kann verknüpfte Provider jederzeit entfernen (mindestens eine Auth-Methode muss bestehen bleiben)
+- **Kein manuelles Verknüpfen:** ein zusätzlicher Provider entsteht nur über den Auto-Link beim Login mit ihm. Der dafür gedachte Endpunkt `POST /users/me/providers/{provider_slug}/link` existierte, hatte aber nie einen Aufrufer im Frontend und wurde mit #1416 entfernt (Betreiberentscheidung 2026-09-17). Wer den Auto-Link nicht erhält — etwa weil der Anbieter keinen `email_verified`-Anspruch liefert — meldet sich mit E-Mail und Passwort an; die beiden Konten bleiben getrennt.
 
 ### 1.1 Szenarien
 
@@ -527,8 +528,9 @@ class OAuthEngine:
         # konfigurierter oder kompromittierter Anbieter behauptet
         # `email = opfer@example.org` und übernimmt das Konto, sofern das lokale
         # Konto bestätigt ist — was jedes regulär registrierte ist. Der Aufrufer
-        # landet stattdessen auf dem vorhandenen Weg „mit Passwort anmelden, dann
-        # verknüpfen".
+        # landet stattdessen auf „mit Passwort anmelden". Ein anschließendes
+        # manuelles Verknüpfen gibt es nicht (#1416); der Anbieter wird erst
+        # verknüpft, wenn er den Anspruch liefert.
         #
         # Bis #1403 reichte der Aufrufort ein literales `True` für den zweiten
         # Parameter, der Anspruch wurde also nie gelesen. Dieselbe Annahme stand
@@ -642,7 +644,10 @@ class AuthService:
         # Invalidiert ALLE Refresh Tokens des Users, gibt Anzahl zurück
 
     # --- Account-Linking ---
-    async def link_provider(self, user_key: str, provider_slug: str, code: str, state: str) -> AuthProvider: ...
+    # Es gibt KEIN manuelles `link_provider`: verknüpft wird ausschließlich
+    # automatisch beim OAuth-Login (`complete_oauth` -> `should_auto_link`).
+    # Die frühere Methode und ihre Route hatten nie einen Aufrufer und wurden
+    # mit #1416 entfernt (Betreiberentscheidung 2026-09-17).
     async def unlink_provider(self, user_key: str, provider_key: str) -> None: ...
         # Fehler wenn es die letzte Auth-Methode wäre
 
@@ -1033,7 +1038,6 @@ class UserService:
 | GET | `/users/me` | Eigenes Profil abrufen | Ja |
 | PATCH | `/users/me` | Eigenes Profil aktualisieren | Ja |
 | GET | `/users/me/providers` | Verknüpfte Auth-Provider auflisten | Ja |
-| POST | `/users/me/providers/{provider_slug}/link` | Provider verknüpfen | Ja |
 | DELETE | `/users/me/providers/{provider_key}` | Provider-Verknüpfung entfernen | Ja |
 | POST | `/users/me/password` | Lokales Passwort setzen/ändern | Ja |
 | GET | `/users/me/sessions` | Aktive Sessions auflisten | Ja |
@@ -1050,6 +1054,8 @@ class UserService:
 | PATCH | `/admin/oidc-providers/{slug}` | Provider aktualisieren | Plattform-Admin |
 | DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Plattform-Admin |
 | POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Plattform-Admin |
+
+**Scope-Anforderung GitHub (#1477).** Ein Provider mit `provider_type == "github"`, dessen `scopes` weder `user:email` noch den übergeordneten Scope `user` enthalten, wird von `POST` und `PATCH` mit `422` abgelehnt. GitHub liefert das `verified`-Merkmal einer Adresse nur über `GET /user/emails`, das ohne diesen Scope `403` antwortet; ohne ihn ist `email_verified` bei jeder Anmeldung leer und die automatische Kontoverknüpfung (§ REQ-023 OAuth-Callback) bleibt dauerhaft aus. `POST /{slug}/test` meldet denselben Befund für Bestandskonfigurationen im Antwortfeld `scope_check` (`ok`, `provider_type`, `configured_scopes`, `missing_scopes`, `detail`) — unabhängig davon, ob ein Discovery-Dokument abrufbar ist, denn GitHub veröffentlicht keins.
 
 **Gesamtanzahl API-Endpunkte:** ~25
 

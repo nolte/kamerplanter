@@ -84,7 +84,6 @@ def test_get_task_with_empty_tenant_key_is_rejected(service: TaskService) -> Non
         lambda s: s.delete_task("900001"),
         lambda s: s.reopen_task("900001"),
         lambda s: s.clone_task("900001"),
-        lambda s: s.add_photo_ref("900001", "http://example.test/p.jpg"),
         lambda s: s.create_comment("900001", "text", "user"),
         lambda s: s.get_task_history("900001"),
     ],

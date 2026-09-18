@@ -291,6 +291,10 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
     await waitFor(() => expect(coverCall).toHaveBeenCalledTimes(1));
   });
 
+  // The acting role is `lead`, not `grower`: DELETE on an attachment is the
+  // irreversibility boundary the backend grants to a lead alone (REQ-024 §1a.1,
+  // `app/core/permissions.py`). A grower never reaches this flow — see the
+  // "delete gating" block below.
   it('deletes a photo only after confirmation (AC-07)', async () => {
     const user = userEvent.setup();
     mockList([photo('a', true)], 'a');
@@ -303,7 +307,7 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
     );
 
     renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
-      store: storeWithRole('grower'),
+      store: storeWithRole('lead'),
     });
 
     await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
@@ -354,6 +358,137 @@ describe('PlantPhotoGallery (REQ-034 §2.3)', () => {
     expect(screen.queryByTestId('plant-photo-edit')).not.toBeInTheDocument();
     // But the viewer can still open the lightbox.
     expect(screen.getByTestId('plant-photo-thumb')).toBeInTheDocument();
+  });
+
+  /**
+   * Issue #1425 — the delete control must be offered only to callers the backend
+   * would admit. `DELETE /photos/{id}` is gated on `Action.DELETE`, granted to
+   * `lead` alone (REQ-024 §1a.1 / REQ-049 §2.3, `app/core/permissions.py`), while
+   * upload/cover/assess/edit are `CREATE`/`UPDATE` and stay open to a grower.
+   *
+   * Every case asserts in both directions — the present controls next to the
+   * absent one — because a bare absence assertion also holds on a failed render.
+   */
+  describe('delete gating (REQ-024 §1a.1 irreversibility boundary, #1425)', () => {
+    /** A non-cover photo, so the "set cover" control is rendered at all. */
+    function mockOneNonCoverPhoto() {
+      mockList([photo('a', false)], 'other');
+    }
+
+    it('offers a grower the four non-destructive controls but no delete', async () => {
+      mockOneNonCoverPhoto();
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      // CREATE/UPDATE — a grower is admitted by the backend.
+      expect(screen.getByTestId('plant-photo-add-button')).toBeInTheDocument();
+      expect(screen.getByTestId('plant-photo-set-cover')).toBeInTheDocument();
+      expect(screen.getByTestId('plant-photo-assess')).toBeInTheDocument();
+      expect(screen.getByTestId('plant-photo-edit')).toBeInTheDocument();
+      // DELETE — the backend answers 403, so no control may be offered.
+      expect(screen.queryByTestId('plant-photo-delete')).not.toBeInTheDocument();
+    });
+
+    it('offers a lead all five controls including delete', async () => {
+      mockOneNonCoverPhoto();
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('lead'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      expect(screen.getByTestId('plant-photo-add-button')).toBeInTheDocument();
+      expect(screen.getByTestId('plant-photo-set-cover')).toBeInTheDocument();
+      expect(screen.getByTestId('plant-photo-assess')).toBeInTheDocument();
+      expect(screen.getByTestId('plant-photo-edit')).toBeInTheDocument();
+      expect(screen.getByTestId('plant-photo-delete')).toBeInTheDocument();
+    });
+
+    it('hides the lightbox delete action from a grower while keeping the other three', async () => {
+      const user = userEvent.setup();
+      mockOneNonCoverPhoto();
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('grower'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-thumb'));
+
+      const lightbox = await screen.findByTestId('plant-photo-lightbox');
+      expect(within(lightbox).getByTestId('plant-photo-lightbox-assess')).toBeInTheDocument();
+      expect(within(lightbox).getByTestId('plant-photo-lightbox-edit')).toBeInTheDocument();
+      expect(within(lightbox).getByTestId('plant-photo-lightbox-set-cover')).toBeInTheDocument();
+      expect(
+        within(lightbox).queryByTestId('plant-photo-lightbox-delete'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('offers the lightbox delete action to a lead', async () => {
+      const user = userEvent.setup();
+      mockOneNonCoverPhoto();
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('lead'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-thumb'));
+
+      const lightbox = await screen.findByTestId('plant-photo-lightbox');
+      expect(within(lightbox).getByTestId('plant-photo-lightbox-assess')).toBeInTheDocument();
+      expect(within(lightbox).getByTestId('plant-photo-lightbox-edit')).toBeInTheDocument();
+      expect(within(lightbox).getByTestId('plant-photo-lightbox-set-cover')).toBeInTheDocument();
+      expect(within(lightbox).getByTestId('plant-photo-lightbox-delete')).toBeInTheDocument();
+    });
+
+    it('hides the delete control from a lead on a read-only instance', async () => {
+      mockOneNonCoverPhoto();
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} readOnly />, {
+        store: storeWithRole('lead'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      expect(screen.queryByTestId('plant-photo-delete')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('plant-photo-edit')).not.toBeInTheDocument();
+      // The photo itself stays readable.
+      expect(screen.getByTestId('plant-photo-thumb')).toBeInTheDocument();
+    });
+
+    it('names the required role when the backend still refuses a delete with 403', async () => {
+      const user = userEvent.setup();
+      mockOneNonCoverPhoto();
+      server.use(
+        http.delete(`${PHOTOS_URL}/a`, () =>
+          HttpResponse.json(
+            {
+              error_id: 'e1',
+              error_code: 'FORBIDDEN',
+              message: 'forbidden',
+              details: [],
+              path: `${PHOTOS_URL}/a`,
+              method: 'DELETE',
+            },
+            { status: 403 },
+          ),
+        ),
+      );
+
+      renderWithProviders(<PlantPhotoGallery plantInstanceKey={PLANT_KEY} />, {
+        store: storeWithRole('lead'),
+      });
+
+      await waitFor(() => expect(screen.getByTestId('plant-photo-item')).toBeInTheDocument());
+      await user.click(screen.getByTestId('plant-photo-delete'));
+      const dialog = screen.getByTestId('confirm-dialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Löschen' }));
+
+      // Understandable and actionable: it names the role that may delete rather
+      // than the generic "no permission for this action".
+      expect(await screen.findByText(/Leitung/)).toBeInTheDocument();
+      // Closes like every other delete-confirm flow in the app instead of
+      // leaving a modal open on top of an action the user cannot retry.
+      await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument());
+    });
   });
 
   describe('photo metadata (REQ-034 §2.1 v1.2)', () => {

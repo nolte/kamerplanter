@@ -49,15 +49,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request, UploadFile
+from fastapi import APIRouter, Depends, Path, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.schemas import ThumbnailUris
 from app.api.v1.attachments.tenant_router import _parse_content_length, _read_upload_bounded
 from app.api.v1.tasks.schemas import TaskPhotoResponse
 from app.common.dependencies import get_attachment_service, get_task_service
-from app.common.enums import AttachmentCategory
-from app.common.exceptions import FileTooLargeError, InvalidFileTypeError
+from app.common.enums import AttachmentCategory, TenantRole
+from app.common.exceptions import AttachmentNotFoundError, FileTooLargeError, InvalidFileTypeError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
@@ -127,3 +127,115 @@ async def upload_task_photo(
         category=AttachmentCategory.TASK,
     )
     return _photo_response(attachment, ctx.tenant_slug)
+
+
+@router.delete("/{attachment_id}", status_code=204)
+async def delete_task_photo(
+    key: Annotated[str, Path(description="Document key of the task.")],
+    attachment_id: Annotated[str, Path(description="Attachment id of the task photo.")],
+    # ``Action.CREATE``, not ``DELETE``, and the split moved into the service.
+    #
+    # Growers are the role that completes tasks and uploads their photos, and gating
+    # the whole route on the lead-only ``ATTACHMENT``/``DELETE`` grant made a grower's
+    # remove button a local no-op: the client dropped the reference and issued no
+    # request, so the stored object stayed for ever, counted against the tenant quota,
+    # with the sweep that would collect it shipped disabled. That is the leak #1393
+    # exists to close, still open on its most common path.
+    #
+    # ``deletable_from_task`` now decides per state: a photo the task references is
+    # its completion record and stays lead-only (REQ-024 §1a.1), while a *staged*
+    # upload — referenced by nothing, made moments ago — may be withdrawn by whoever
+    # made it. Undoing one's own not-yet-submitted CREATE is not the irreversible
+    # destruction the boundary reserves to leads.
+    ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
+    task_service: TaskService = Depends(get_task_service),
+    attachment_service: AttachmentService = Depends(get_attachment_service),
+) -> Response:
+    """Delete a task photo, storage object and thumbnails included (#1393).
+
+    **The route the remove button needed.** ``PhotoUpload`` dropped the reference
+    from local state and issued no request, because there was nothing to issue it
+    to — so a control that looks like a delete left the bytes behind, counting
+    against the tenant quota with no surface that reached them.
+
+    The task is resolved tenant-scoped first, exactly as on the upload above, so an
+    unknown and a foreign task answer the same 404 and neither reaches storage. That
+    404 is distinguishable from an attachment-level one: both keep
+    ``error_code="ENTITY_NOT_FOUND"``, and ``details[0].entity`` says ``task`` or
+    ``attachment`` (#1437). The client needs it — de-staging a photo is only right
+    when the *attachment* is the missing thing; if the task vanished, nothing was
+    deleted and dropping the entry would orphan the stored object.
+    Deletion itself is idempotent: removing an id that is already gone answers 204
+    rather than 404, so a double click, a retry, or a race with the orphan sweep is
+    not an error the user has to understand.
+
+    Known gap (#1437): when a lead deletes a photo the task itself references, the
+    entry stays in ``task.photo_refs`` and the gallery renders a broken image until
+    someone edits the list. Reconciling ``photo_refs`` against the catalogue is owned
+    by ``v0046_reconcile_photo_refs`` — but v0046 repairs a reference that *denotes*
+    an attachment, and this one denotes a row that is gone, so v0046 reports it
+    ``unresolved`` and deliberately leaves it: dropping a reference is the orphan
+    sweep's opposite question ("which attachment does nobody reference"), which
+    ships disabled and carries its own release decision.
+
+    This does **not** rewrite ``task.photo_refs``. The single-writer rule from
+    #1388 stands — ``TaskService.complete_task`` owns that list, and the staged
+    photos this route deletes are not in it yet. A photo already referenced by a
+    completed task is deleted here too, and its id then dangles in ``photo_refs``;
+    that is the same state a manual ``DELETE /attachments/{id}`` has always
+    produced, and the readers resolve ids against the catalogue rather than trusting
+    the list — an entry that resolves to nothing renders as a broken image, it does
+    not make some other photo disappear.
+    """
+    task_service.get_task(key, tenant_key=ctx.tenant_key)
+
+    # Already gone is success, not an error. The docstring promises idempotence and
+    # the client relies on it: ``get_attachment`` raises 404 for a missing row, so
+    # without this the nightly sweep collecting the photo minutes earlier — or a
+    # double click — answered an error toast, and `handleRemove` then skipped its
+    # `onChange`, leaving the deleted photo in the list for ever.
+    try:
+        attachment = attachment_service.get_attachment(attachment_id, ctx.tenant_key)
+    except AttachmentNotFoundError:
+        return Response(status_code=204)
+
+    # The category is checked, not assumed. Without it this route is a second door
+    # onto every attachment of the tenant: a caller could pass a plant-gallery id and
+    # destroy it here, bypassing ``PlantPhotoService.delete`` — the path that also
+    # prunes ``plant.photo_refs`` and repairs ``cover_photo_ref``, so the gallery
+    # would be left with a dangling reference and possibly a cover pointing at
+    # nothing. A task-photo route may delete task photos.
+    #
+    # 404 rather than 403, so a refused id gets the same answer as one that does not
+    # exist and the route never confirms that some other attachment is real
+    # (REQ-049 §2.4).
+    if attachment.category is not AttachmentCategory.TASK:
+        raise AttachmentNotFoundError(attachment_id)
+
+    # The task key in the path has to mean something, and "no *task* links it" is
+    # not enough to say. sha256 deduplication makes one stored object shared across
+    # carriers, so a photo staged here can be the same row a plant gallery links as
+    # its cover — destroying it there leaves a dangling reference and possibly a
+    # cover pointing at nothing.
+    #
+    # The question is therefore "does anything **other than this task** reference
+    # it", asked through the same repository query the deletion path uses, so the two
+    # cannot disagree — and so the answer survives legacy reference spellings, which
+    # a tasks-only exact match did not.
+    #
+    # An unreferenced photo is the normal case: a staged upload is in no
+    # ``photo_refs`` until completion writes it (#1388) — which is why ``actor_key``
+    # goes in as well. For such a photo the task key in the path constrains nothing
+    # (it is in no task's list, so "no *other* task references it" holds for every
+    # task of the tenant), and the predicate falls back to the uploader instead.
+    if not attachment_service.deletable_from_task(
+        attachment_id,
+        key,
+        ctx.tenant_key,
+        actor_key=ctx.user_key,
+        is_lead=ctx.role is TenantRole.LEAD,
+    ):
+        raise AttachmentNotFoundError(attachment_id)
+
+    await attachment_service.delete(attachment_id, ctx.tenant_key)
+    return Response(status_code=204)

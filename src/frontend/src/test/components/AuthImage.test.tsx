@@ -66,6 +66,9 @@ describe('AuthImage (REQ-034 — authenticated attachment rendering)', () => {
     // No broken <img> is rendered; the error box carries an accessible label.
     expect(screen.queryByTestId('auth-image')).not.toBeInTheDocument();
     expect(screen.getByTestId('auth-image-error')).toHaveAttribute('role', 'img');
-    expect(onError).toHaveBeenCalled();
+    // The error box can render before the onError callback fires (the component
+    // reports through a later tick); asserting synchronously raced under CI load
+    // (PR #1470, run 35222180723) while the file was untouched.
+    await waitFor(() => expect(onError).toHaveBeenCalled());
   });
 });

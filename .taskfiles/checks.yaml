@@ -8,7 +8,74 @@
 
 version: "3"
 
+vars:
+  # The Renovate CLI used by `renovate:dry-run`, pinned by tag AND digest.
+  # A floating `:latest` here would make the dry-run's verdict a function of
+  # whatever Renovate shipped that morning — the same reproducibility defect the
+  # nuclei binary pin records (#1177), where the meaning of "validated" changed
+  # under an unchanged repository. Aged by the Taskfile custom manager in
+  # renovate.json5 (added with this target), so the pin cannot rot either.
+  # renovate: datasource=docker depName=renovate/renovate
+  RENOVATE_IMAGE: renovate/renovate:44.94.1@sha256:009fd964cff7a42b1f0a90207250f9dc89affa28cc9a8c086f15fac74c28d803
+
 tasks:
+  renovate:dry-run:
+    desc: |
+      Run Renovate against THIS checkout and print what it would do — the
+      manager inventory it extracts, the updates it would propose, and any
+      config error — without touching the platform (#1383).
+
+      Why this exists as a target. renovate.json5 is the one configuration file
+      in the repository that nothing verifies before merge: a rule that matches
+      nothing, a manager accidentally disabled, a `managerFilePatterns` typo —
+      all of them parse fine and are only discovered on the next Renovate run,
+      hours later and on develop. That is precisely how the pip-compile manager
+      went silent for six weeks (#1303). The dry-run that proved the #1377
+      config was a one-off shell command nobody could repeat.
+
+      `--platform=local` reads the working tree instead of the GitHub API, so it
+      also sees UNCOMMITTED changes — which is the point: prove the edit before
+      committing it.
+
+      WHAT IS EXCLUDED, AND WHY THIS WAY. The one-off run also scanned
+      `src/backend/.venv/**` (the local platform has no git filter, and
+      config:recommended's ignorePaths covers `node_modules` but not a Python
+      virtualenv). The exclusion is done by MASKING those paths with anonymous
+      volumes, not by overriding `ignorePaths` through RENOVATE_IGNORE_PATHS:
+      overriding the setting would mean the dry-run proves a configuration that
+      is not the one CI uses, which defeats the purpose. Masking changes only
+      what the container can see.
+
+      GITHUB_TOKEN is passed through when set. Without it the datasource lookups
+      run anonymously and hit the rate limit quickly — the manager inventory is
+      still correct, the "would propose" half is not.
+
+      READING THE OUTPUT. The manager inventory is the `Dependency extraction
+      complete` / `packageFiles with updates` block; at LOG_LEVEL=debug each
+      extracted file is listed individually. `LOG_LEVEL=debug task renovate:dry-run`
+      is what you compare against `EXPECTED_PEP621_FILES` in
+      scripts/ci/check_renovate_dashboard.py before merging a renovate.json5
+      edit, instead of after the next Renovate run.
+
+      Requires Docker.
+    cmds:
+      - |
+        set -euo pipefail
+        printf 'renovate dry-run using %s\n\n' '{{.RENOVATE_IMAGE}}'
+        docker run --rm \
+          -v "$PWD:/repo" \
+          -v /repo/src/backend/.venv \
+          -v /repo/src/frontend/node_modules \
+          -v /repo/node_modules \
+          -w /repo \
+          -e LOG_LEVEL="${LOG_LEVEL:-info}" \
+          -e RENOVATE_CONFIG_FILE=/repo/renovate.json5 \
+          -e RENOVATE_PLATFORM=local \
+          -e RENOVATE_DRY_RUN=full \
+          -e RENOVATE_TOKEN="${GITHUB_TOKEN:-}" \
+          -e GITHUB_COM_TOKEN="${GITHUB_TOKEN:-}" \
+          '{{.RENOVATE_IMAGE}}' {{.CLI_ARGS}}
+
   check:schema-examples:
     desc: |
       Count the request/response schemas without an OpenAPI example against the
@@ -89,6 +156,42 @@ tasks:
       Pass --list to name every joined call, --json for machine-readable output.
     cmds:
       - python3 scripts/check_frontend_calls_served.py {{.CLI_ARGS}}
+
+  check:route-consumers:
+    desc: |
+      The reverse of check:frontend-calls-served (#1478, #1416): join every
+      mounted /api/v1 operation against the paths written in src/frontend/src,
+      tests/e2e and src/backend/app/mcp_server, and name the ones nothing in
+      this tree reaches. 175 of 797 here; #1478 recorded 176 with a script that
+      never landed in the tree, and the script's docstring shows where the two
+      re-implementations agree exactly and where they do not. #1416
+      (`POST /me/providers/{slug}/link`, mounted, documented, gated, called by
+      nothing) was one instance of the class.
+
+      AN INVENTORY, NOT A VERDICT, AND DELIBERATELY NOT A GATE. A zero here
+      means this checkout holds no string for the path; it does not mean the
+      route is dead. Home Assistant, Grafana, external MCP clients and a device
+      redeeming its own pairing code consume routes and leave no trace in the
+      tree. Promoting this to a gate is the triage decision #1478 asks for, so
+      it is neither a pre-commit hook nor part of the `check` aggregate, and no
+      CI job runs it. What makes that promotion possible later is
+      scripts/route_consumer_exemptions.yaml: a declared consumer-outside-the-
+      tree with a stated reason, which the script refuses without one and
+      reports as stale once the operation is gone or consumed again.
+
+      Same operand problem as check:frontend-calls-served, and the same answer:
+      its route side is the *mounted* app, so it needs the backend importable,
+      which the required `static` lane does not have. The extraction and the
+      join are asserted from
+      src/backend/tests/unit/test_route_consumers_check.py, which also pins the
+      two route walks against each other so this one cannot drift from the
+      sibling's.
+
+      Pass --inventory for the full table at exit 0, --json for machine-readable
+      output. Without either it exits 1 while candidates stand, which is its
+      state until the triage lands.
+    cmds:
+      - python3 scripts/check_route_consumers.py {{.CLI_ARGS}}
 
   check:seed-catalogue-page-size:
     desc: |
@@ -261,8 +364,13 @@ tasks:
   #   * `test:backend:api` and `test:backend:contracts` — both are CI gates, but
   #     this target is the fast local loop; the unit tier plus the static gates
   #     is what fits inside one. Run them explicitly before a pull request.
-  #   * `tests/integration/` — needs a real ArangoDB and self-skips without one,
-  #     which is precisely the vacuous green this target refuses to produce.
+  #   * `tests/integration/` — needs a real ArangoDB, which this fast local loop
+  #     does not start. Since #1432 it no longer self-skips into a vacuous green:
+  #     without a server it FAILS under `CI` and skips loudly elsewhere, and
+  #     `task test:backend:integration` declares `--max-skipped 0`, so even the
+  #     local skip is red. It runs in CI in its own job with a service container
+  #     (`Integration tests (ArangoDB)`); run it locally against `task dev:core`
+  #     before changing repositories or AQL.
   #   * backend mypy — the backend declares `strict = true` and ships no mypy
   #     step anywhere; the four sibling packages have pre-commit hooks, the
   #     backend does not. A documented gap, not something to paper over with a
@@ -301,7 +409,7 @@ tasks:
       side-service suites (knowledge-service, inference-service, kp_vectordb),
       the custom source-tree gates (UTC, boundary validation, layer imports,
       tenant body field, workflow gate integrity, seed harvest integrity, seed
-      catalogue page size) and workflow + shell linting (actionlint over
+      catalogue page size, plugin shadowing) and workflow + shell linting (actionlint over
       .github/workflows/, shellcheck over the own *.sh — the #1295 hooks, run
       through pre-commit so their version pins stay in one place).
 
@@ -359,6 +467,7 @@ tasks:
         python3 scripts/check_workflow_gate_integrity.py || gates=1
         python3 scripts/check_seed_harvest_integrity.py || gates=1
         python3 scripts/check_seed_catalogue_page_size.py || gates=1
+        python3 scripts/check_skill_plugin_shadowing.py || gates=1
 
         printf '\n=== workflow + shell lint (actionlint + shellcheck) ===\n'
         shelllint=0
@@ -372,7 +481,7 @@ tasks:
         printf '  %-34s %s\n' 'typecheck (tsc)' "$(verdict $typecheck)"
         printf '  %-34s %s\n' 'test:unit (pytest + vitest)' "$(verdict $tests)"
         printf '  %-34s %s\n' 'side-service tests (pytest)' "$(verdict $sideservices)"
-        printf '  %-34s %s\n' 'custom gates (7)' "$(verdict $gates)"
+        printf '  %-34s %s\n' 'custom gates (8)' "$(verdict $gates)"
         printf '  %-34s %s\n' 'actionlint + shellcheck (#1295)' "$(verdict $shelllint)"
         printf '\n'
 
@@ -383,3 +492,19 @@ tasks:
           exit 1
         fi
         printf 'task check: every category passed.\n\n'
+
+  check:plugin-shadowing:
+    desc: |
+      Refuse a local `.claude/` skill or agent that shadows a portfolio-plugin
+      one (#1405, CLAUDE.md §"Claude Code plugin adoption"). Pass `-- --refresh`
+      to rewrite the names-only plugin inventory in `.claude/plugin-adoption.yml`
+      from a live claude-shared checkout ($NOLTE_CLAUDE_SHARED, default
+      ~/repos/github/claude-shared).
+
+      READ THE SCRIPT HEADER BEFORE TRUSTING A ZERO. The comparison is lexical:
+      exact names plus the token-multiset rung that catches the reordered
+      `check-test-pyramid` / `test-pyramid-check` pair an exact-name guard misses.
+      A shadow under an unrelated name — `pre-pr` over `quality-gate`, the second
+      asset #1405 retired — is invisible here and still needs a reading pass.
+    cmds:
+      - python3 scripts/check_skill_plugin_shadowing.py {{.CLI_ARGS}}

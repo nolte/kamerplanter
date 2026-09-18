@@ -50,6 +50,53 @@ tasks:
         fi
         exit "$rc"
 
+  deps:sync:knowledge-service:
+    desc: |
+      Create or update src/knowledge-service/.venv from its hash-verified lock,
+      dev extra included — the local counterpart of the image's
+      `uv sync --locked` and the exact command side-services.yml runs (#1383).
+      The test toolchain lives in [project.optional-dependencies].dev, not in
+      the uv.lock `dev` GROUP (#1374); both are in the lock, so `--locked`
+      verifies both and refuses a stale lock instead of re-resolving silently.
+    dir: src/knowledge-service
+    cmds:
+      - uv sync --locked --extra dev
+
+  deps:sync:inference-service:
+    desc: |
+      Create or update src/inference-service/.venv from its hash-verified lock,
+      dev extra included — the local counterpart of the image's
+      `uv sync --locked` and the exact command side-services.yml runs (#1383).
+      The optional `cv` extra (plantcv/OpenCV, REQ-038) and the `build`
+      dependency group (torch/onnx) are deliberately left out: the suite runs on
+      fakes and exercises PlantCV only through its absence path.
+    dir: src/inference-service
+    cmds:
+      - uv sync --locked --extra dev
+
+  deps:sync:kp-vectordb:
+    desc: |
+      Create or update src/libs/kp_vectordb/.venv from its hash-verified lock,
+      dev extra included — the exact command side-services.yml runs (#1464).
+      This was a `pip install -e '.[dev]'` until #1464: the library has no image
+      of its own, but the INSTALL still happens on a runner, and NFR-009 §2.3 is
+      a property of the install rather than of the image.
+    dir: src/libs/kp_vectordb
+    cmds:
+      - uv sync --locked --extra dev
+
+  deps:sync:kp-errortracking:
+    desc: |
+      Create or update src/libs/kp_errortracking/.venv from its hash-verified
+      lock, dev extra included (#1464). No CI lane drives this one — the package
+      has no test suite of its own and is consumed through `sync.py` copies — but
+      it carries a lock for the same reason kp_vectordb does: it is a Python tree
+      Renovate must be able to bump source AND lock for in one pull request, and
+      `check_renovate_dashboard.py` now allows no lockless tree at all.
+    dir: src/libs/kp_errortracking
+    cmds:
+      - uv sync --locked --extra dev
+
   test:knowledge-service:
     desc: Run the knowledge-service pytest suite (fails on zero collection, NFR-018 §2)
     dir: src/knowledge-service
@@ -82,7 +129,9 @@ tasks:
       kp_vectordb) — the suites the side-services.yml workflow runs and that
       `task check` folds into its table. Aborts on the first failing suite; each
       sub-target fails on zero collection (NFR-018 §2). Requires each package
-      installed in the active environment (`pip install -e '.[dev]'` per service).
+      installed in the active environment — `task deps:sync:knowledge-service`,
+      `deps:sync:inference-service`, `deps:sync:kp-vectordb`, each of which syncs
+      from that tree's hash-verified lock.
     cmds:
       - task: test:knowledge-service
       - task: test:inference-service

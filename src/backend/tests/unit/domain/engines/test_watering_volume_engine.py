@@ -128,18 +128,49 @@ class TestRetentionModifier:
         )
         assert with_high.volume_ml < base.volume_ml
 
-    def test_whc_percent_overrides_retention_enum(self, engine: WateringVolumeEngine):
-        """water_holding_capacity_percent takes precedence over water_retention enum."""
+    def test_the_enum_decides_when_a_whc_number_contradicts_it(self, engine: WateringVolumeEngine):
+        """The declared enum wins over the numeric WHC (#1368, operator decision 2026-09-12).
+
+        Replaces ``test_whc_percent_overrides_retention_enum``, which certified the
+        opposite. The reason is not a preference between two equally good signals:
+        ``water_holding_capacity_percent`` is water at container capacity (pF 1,
+        EN 13041, the field's own definition), and for a bimodal medium that number
+        and the medium's *behaviour* disagree. Dried sphagnum at 30 g/L holds 28
+        vol-% at container capacity and 85 vol-% saturate-and-drain — both true, so
+        a number without its method cannot decide how much water an event needs.
+        The enum is a per-type statement (REQ-019) and carries no method ambiguity.
+
+        Measured on the sphagnum record before the change: the modifier was 1.22 for
+        whc 28 and 0.70 for whc 80, i.e. the same medium moved by a factor of 1.74
+        depending on which published figure the catalogue happened to carry, and
+        both sat on the far side of the enum's 0.80.
+        """
         result = engine.suggest_volume(
             container_volume_liters=10.0,
-            substrate_type=SubstrateType.SOIL,
-            water_retention=WaterRetention.LOW,  # would increase
-            water_holding_capacity_percent=80.0,  # high WHC → decrease
+            substrate_type=SubstrateType.SPHAGNUM,
+            water_retention=WaterRetention.HIGH,
+            # Contradicts the enum: 28 % is "low" under REQ-019's band (< 30 %).
+            water_holding_capacity_percent=28.0,
         )
-        # WHC 80% → modifier = 1.0 + (50 - 80)/100 = 0.70
-        # 1500 * 0.70 = 1050
-        assert result.volume_ml < 1500
-        assert any("whc=80.0%" in a for a in result.adjustments)
+        # 10 L * 0.20 * 1000 = 2000 ml, then the enum's high → *0.80.
+        assert result.volume_ml == 1600
+        assert any("retention=high→*0.8" in a for a in result.adjustments)
+        assert not any("whc=" in a for a in result.adjustments)
+
+    def test_a_whc_number_alone_does_not_move_the_volume(self, engine: WateringVolumeEngine):
+        """Without a declared enum there is no retention statement to act on.
+
+        The engine must not fall back to the number: that is the same unmethodded
+        figure, and falling back would restore the defect for every record whose
+        enum is absent instead of fixing it.
+        """
+        base = engine.suggest_volume(container_volume_liters=10.0, substrate_type=SubstrateType.SOIL)
+        with_whc = engine.suggest_volume(
+            container_volume_liters=10.0,
+            substrate_type=SubstrateType.SOIL,
+            water_holding_capacity_percent=28.0,
+        )
+        assert with_whc.volume_ml == base.volume_ml
 
 
 class TestIrrigationStrategyModifier:
