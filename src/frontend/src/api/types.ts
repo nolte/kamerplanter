@@ -3828,23 +3828,18 @@ export type TaskOrigin = 'user' | 'system' | 'pipeline';
  * queue's provenance filter, which the server is asked for as a repeated
  * `origin` parameter (#1503).
  *
- * `satisfies` rather than a plain annotation on purpose: it pins the array to
- * exactly `Exclude<TaskOrigin, 'user'>`, so adding a fourth origin to
- * {@link TaskOrigin} without listing it here is a *compile* error rather than a
- * filter that silently stops returning the new kind.
+ * `satisfies` rather than a plain annotation on purpose: every entry has to be a
+ * non-user origin, so a typo or a `'user'` slipping in is a compile error. That
+ * the list is also *complete* — the direction that matters when a fourth origin
+ * is added to {@link TaskOrigin} and the machine filter silently stops returning
+ * it — cannot be expressed in the same `satisfies`, and is asserted instead by
+ * `src/test/guards/queueScopeIsAskedOfTheServer.test.ts`, which reads the union
+ * members out of this file.
  */
 export const MACHINE_TASK_ORIGINS = ['system', 'pipeline'] as const satisfies readonly Exclude<
   TaskOrigin,
   'user'
 >[];
-
-/** Compile-time proof that {@link MACHINE_TASK_ORIGINS} covers every non-user origin. */
-type _EveryMachineOriginIsListed = Exclude<TaskOrigin, 'user'> extends
-  (typeof MACHINE_TASK_ORIGINS)[number]
-  ? true
-  : never;
-/** Instantiating it is what makes the check above run. */
-export const MACHINE_TASK_ORIGINS_ARE_EXHAUSTIVE: _EveryMachineOriginIsListed = true;
 
 export interface TaskItem {
   key: string;

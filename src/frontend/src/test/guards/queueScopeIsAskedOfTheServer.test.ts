@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MACHINE_TASK_ORIGINS } from '@/api/types';
 
 /**
  * #1503 / #1484 — a filter over a capped list must be a **query**, not a
@@ -31,6 +32,12 @@ const SLICE = import.meta.glob('/src/store/slices/tasksSlice.ts', {
   eager: true,
 }) as Record<string, string>;
 
+const TYPES = import.meta.glob('/src/api/types.ts', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
 const QUEUE_PAGE = import.meta.glob('/src/pages/aufgaben/TaskQueuePage.tsx', {
   query: '?raw',
   import: 'default',
@@ -38,7 +45,15 @@ const QUEUE_PAGE = import.meta.glob('/src/pages/aufgaben/TaskQueuePage.tsx', {
 }) as Record<string, string>;
 
 const sliceSource = Object.values(SLICE)[0];
+const typesSource = Object.values(TYPES)[0];
 const pageSource = Object.values(QUEUE_PAGE)[0];
+
+/** The members of a string-literal union declared in `types.ts`. */
+export function unionMembers(source: string, name: string): string[] {
+  const declaration = source.match(new RegExp(`export type ${name} =([^;]+);`))?.[1];
+  if (!declaration) throw new Error(`union ${name} not found — the guard is reading the wrong file.`);
+  return [...declaration.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+}
 
 /** `plantKey` → `plant_key`: the scope's field name in its wire spelling. */
 function wireName(field: string): string {
@@ -142,6 +157,24 @@ describe('#1503 — the queue scope is asked of the server, not applied to its a
       const body = thunkBody(sliceSource, actionType);
       const missing = fields.filter((f) => !new RegExp(`\\bscope\\.${f}\\b`).test(body));
       expect(missing, `${actionType} never reads scope.${missing.join(', scope.')}`).toEqual([]);
+    });
+  });
+
+  describe('the machine partition covers every non-user origin', () => {
+    // `satisfies readonly Exclude<TaskOrigin,'user'>[]` proves every listed value
+    // is a machine origin; it cannot prove the list is *complete*. Completeness
+    // is the direction that hurts: a fourth origin added to the union and not to
+    // the constant makes "machine-generated" quietly stop returning the new kind,
+    // and nothing else in the tree would notice.
+    const origins = unionMembers(typesSource, 'TaskOrigin');
+
+    it('the union was parsed, so the comparison cannot pass vacuously', () => {
+      expect(origins).toContain('user');
+      expect(origins.length).toBeGreaterThan(1);
+    });
+
+    it('lists exactly the union minus "user"', () => {
+      expect([...MACHINE_TASK_ORIGINS].sort()).toEqual(origins.filter((o) => o !== 'user').sort());
     });
   });
 
