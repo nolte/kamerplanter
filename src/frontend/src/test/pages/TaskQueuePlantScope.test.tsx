@@ -13,7 +13,7 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
@@ -25,7 +25,6 @@ vi.mock('react-router-dom', async (orig) => {
 });
 
 import TaskQueuePage from '@/pages/aufgaben/TaskQueuePage';
-import taskQueuePageSource from '@/pages/aufgaben/TaskQueuePage.tsx?raw';
 
 const TASKS = '/api/v1/t/:tenant/tasks';
 const CARE = '/api/v1/t/:tenant/care-reminders';
@@ -36,6 +35,7 @@ const QUEUE_CAP = 200;
 
 const TARGET_PLANT_KEY = 'plant-beyond-the-cap';
 const TARGET_TASK_NAME = 'Repot the fig';
+const OTHER_PLANT_KEY = 'plant-with-no-tasks';
 
 function makeTask(overrides: Partial<TaskItem> = {}): TaskItem {
   return {
@@ -141,7 +141,7 @@ const SMALL_QUEUE_TASKS = [FILLER_TASKS[0], TARGET_TASK];
 
 const PLANTS_FIXTURE = [
   makePlant(TARGET_PLANT_KEY, 'Feige Gustav'),
-  makePlant('plant-filler-0', 'Basilikum Bea'),
+  makePlant(OTHER_PLANT_KEY, 'Basilikum Bea'),
 ];
 
 /** Every `plant_key` the page sent to `GET /tasks/queue`, in order. */
@@ -149,20 +149,33 @@ let queueScopes: (string | null)[] = [];
 /** Every `entity_key` the page sent to `GET /tasks` (the completed list). */
 let completedScopes: (string | null)[] = [];
 
+/** A promise plus the handle that settles it — an explicit release, not a timer. */
+function deferred() {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { held, release };
+}
+
+function queueHandler(queueTasks: TaskItem[]) {
+  return http.get(`${TASKS}/queue`, ({ request }) => {
+    const plantKey = new URL(request.url).searchParams.get('plant_key');
+    queueScopes.push(plantKey);
+    if (plantKey) {
+      // Server branch `get_tasks_for_plant` — scoped and uncapped.
+      return HttpResponse.json(queueTasks.filter((t) => t.entity_key === plantKey));
+    }
+    // Server branch `get_pending_tasks(0, 200)` — unscoped and capped.
+    return HttpResponse.json(queueTasks.slice(0, QUEUE_CAP));
+  });
+}
+
 function seed(queueTasks: TaskItem[] = SMALL_QUEUE_TASKS) {
   queueScopes = [];
   completedScopes = [];
   server.use(
-    http.get(`${TASKS}/queue`, ({ request }) => {
-      const plantKey = new URL(request.url).searchParams.get('plant_key');
-      queueScopes.push(plantKey);
-      if (plantKey) {
-        // Server branch `get_tasks_for_plant` — scoped and uncapped.
-        return HttpResponse.json(queueTasks.filter((t) => t.entity_key === plantKey));
-      }
-      // Server branch `get_pending_tasks(0, 200)` — unscoped and capped.
-      return HttpResponse.json(queueTasks.slice(0, QUEUE_CAP));
-    }),
+    queueHandler(queueTasks),
     http.get(`${TASKS}/overdue`, () => HttpResponse.json([])),
     http.get(`${CARE}/dashboard`, () => HttpResponse.json([])),
     http.get(PLANTS, () => HttpResponse.json(PLANTS_FIXTURE)),
@@ -178,6 +191,9 @@ function seed(queueTasks: TaskItem[] = SMALL_QUEUE_TASKS) {
 async function selectPlantFilter(name: string) {
   const input = within(screen.getByTestId('filter-plant')).getByRole('combobox');
   await userEvent.click(input);
+  // A second pick types into a field that still holds the first selection's
+  // label, where the appended text matches nothing.
+  await userEvent.clear(input);
   await userEvent.type(input, name.slice(0, 5));
   const option = await screen.findByRole('option', { name: new RegExp(name, 'i') });
   await userEvent.click(option);
@@ -221,31 +237,103 @@ describe('TaskQueuePage — the plant filter is a server-side scope (#1484)', ()
     ).toBeInTheDocument();
   });
 
-  it('keeps the filter bar mounted while the scoped query is in flight', async () => {
+  it('keeps the filter bar mounted and focused while the scoped query is in flight', async () => {
     // The page-wide skeleton is the first paint's gate. If it also covered the
     // refetch a filter change now triggers, the combobox the user just used
-    // would be unmounted under their hands on every pick. A delayed answer holds
-    // the page in the in-flight state long enough to read it.
+    // would be unmounted under their hands on every pick.
+    //
+    // The answer is *held* rather than delayed: with a timed delay the
+    // assertions may run after the response has already landed, where they
+    // would pass against the old gate too — green about nothing.
+    const { held, release } = deferred();
     server.use(
       http.get(`${TASKS}/queue`, async ({ request }) => {
         const plantKey = new URL(request.url).searchParams.get('plant_key');
         queueScopes.push(plantKey);
         if (!plantKey) return HttpResponse.json(SMALL_QUEUE_TASKS.slice(0, QUEUE_CAP));
-        await delay(500);
+        await held;
         return HttpResponse.json([TARGET_TASK]);
       }),
     );
     renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
     await screen.findByText('Fülleraufgabe 0');
 
+    try {
+      await selectPlantFilter('Feige Gustav');
+
+      await waitFor(() => expect(queueScopes).toContain(TARGET_PLANT_KEY));
+      expect(screen.getByTestId('task-queue-page')).toBeInTheDocument();
+      expect(screen.queryByTestId('loading-skeleton')).not.toBeInTheDocument();
+      const filter = screen.getByTestId('filter-plant');
+      expect(filter).toBeInTheDocument();
+      expect(filter.contains(document.activeElement)).toBe(true);
+      // The region under the filter announces that it is reloading.
+      expect(screen.getByTestId('task-queue-content')).toHaveAttribute('aria-busy', 'true');
+    } finally {
+      release();
+    }
+
+    expect(await screen.findByText(TARGET_TASK_NAME)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('task-queue-content')).toHaveAttribute('aria-busy', 'false'),
+    );
+  });
+
+  it('keeps the filter bar mounted when a scope answers nothing and the next is picked', async () => {
+    // The row count is not the signal. A scope that legitimately answers zero
+    // rows used to send the *next* reload back into the page-wide skeleton —
+    // exactly the "plant A has nothing, try plant B" case the filter is for.
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+    await screen.findByText('Fülleraufgabe 0');
+
+    await selectPlantFilter('Basilikum Bea');
+    await waitFor(() => expect(queueScopes).toContain(OTHER_PLANT_KEY));
+    expect(await screen.findByText(i18n.t('pages.tasks.noTasksFiltered'))).toBeInTheDocument();
+    expect(screen.getByTestId('filter-plant')).toBeInTheDocument();
+    expect(screen.queryByTestId('loading-skeleton')).not.toBeInTheDocument();
+
     await selectPlantFilter('Feige Gustav');
 
     await waitFor(() => expect(queueScopes).toContain(TARGET_PLANT_KEY));
-    expect(screen.getByTestId('task-queue-page')).toBeInTheDocument();
     expect(screen.queryByTestId('loading-skeleton')).not.toBeInTheDocument();
     expect(screen.getByTestId('filter-plant')).toBeInTheDocument();
-
     expect(await screen.findByText(TARGET_TASK_NAME)).toBeInTheDocument();
+  });
+
+  it('lets the newer scope win when an older answer arrives last', async () => {
+    // Not a hypothetical ordering: the unscoped query is the slow branch (the
+    // backend resolves blocking tasks per row over up to 200 rows), so the
+    // earlier answer routinely lands after the later one.
+    const { held, release } = deferred();
+    server.use(
+      http.get(`${TASKS}/queue`, async ({ request }) => {
+        const plantKey = new URL(request.url).searchParams.get('plant_key');
+        queueScopes.push(plantKey);
+        if (plantKey === OTHER_PLANT_KEY) {
+          await held; // the first pick's answer is held until the second landed
+          return HttpResponse.json([
+            makeTask({ key: 'stale', name: 'Stale row', name_de: 'Veraltete Zeile' }),
+          ]);
+        }
+        if (plantKey) return HttpResponse.json([TARGET_TASK]);
+        return HttpResponse.json(SMALL_QUEUE_TASKS.slice(0, QUEUE_CAP));
+      }),
+    );
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+    await screen.findByText('Fülleraufgabe 0');
+
+    try {
+      await selectPlantFilter('Basilikum Bea'); // held in flight
+      await waitFor(() => expect(queueScopes).toContain(OTHER_PLANT_KEY));
+      await selectPlantFilter('Feige Gustav'); // answers immediately
+      expect(await screen.findByText(TARGET_TASK_NAME)).toBeInTheDocument();
+    } finally {
+      release(); // the older answer lands now
+    }
+
+    await waitFor(() => expect(queueScopes.filter((s) => s === TARGET_PLANT_KEY)).not.toHaveLength(0));
+    expect(screen.queryByText('Veraltete Zeile')).not.toBeInTheDocument();
+    expect(screen.getByText(TARGET_TASK_NAME)).toBeInTheDocument();
   });
 
   it('scopes the completed list through entity_type/entity_key, not through a client filter', async () => {
@@ -260,9 +348,79 @@ describe('TaskQueuePage — the plant filter is a server-side scope (#1484)', ()
     await waitFor(() => expect(completedScopes).toContain(TARGET_PLANT_KEY));
   });
 
+  describe('a failed load is shown as a failure, not as an empty list', () => {
+    it('offers the queue error and a retry that keeps the scope', async () => {
+      let attempts = 0;
+      server.use(
+        http.get(`${TASKS}/queue`, ({ request }) => {
+          const plantKey = new URL(request.url).searchParams.get('plant_key');
+          queueScopes.push(plantKey);
+          if (!plantKey) return HttpResponse.json(SMALL_QUEUE_TASKS.slice(0, QUEUE_CAP));
+          attempts += 1;
+          if (attempts === 1) return new HttpResponse(null, { status: 500 });
+          return HttpResponse.json([TARGET_TASK]);
+        }),
+      );
+      renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+      await screen.findByText('Fülleraufgabe 0');
+
+      await selectPlantFilter('Feige Gustav');
+
+      const errorBox = await screen.findByTestId('queue-error');
+      // The previous scope's rows are gone: leaving them under the new chip is
+      // what made a failure indistinguishable from an answer.
+      expect(screen.queryByText('Fülleraufgabe 0')).not.toBeInTheDocument();
+
+      await userEvent.click(within(errorBox).getByTestId('error-retry-button'));
+
+      expect(await screen.findByText(TARGET_TASK_NAME)).toBeInTheDocument();
+      // The retry asked for the same plant, not for the whole tenant.
+      expect(queueScopes.filter((s) => s === TARGET_PLANT_KEY).length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('offers the completed list its own error arm', async () => {
+      server.use(http.get(TASKS, () => new HttpResponse(null, { status: 500 })));
+      renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+      await screen.findByText('Fülleraufgabe 0');
+
+      await userEvent.click(
+        within(screen.getByTestId('show-completed-toggle')).getByRole('switch'),
+      );
+
+      expect(await screen.findByTestId('completed-tasks-error')).toBeInTheDocument();
+      // …rather than the "nothing completed yet" line, which is what a
+      // discarded rejection used to render.
+      expect(
+        screen.queryByText(i18n.t('pages.tasks.noCompletedTasks')),
+      ).not.toBeInTheDocument();
+    });
+
+    it('says so when the plant list itself could not be loaded', async () => {
+      let attempts = 0;
+      server.use(
+        http.get(PLANTS, () => {
+          attempts += 1;
+          if (attempts === 1) return new HttpResponse(null, { status: 500 });
+          return HttpResponse.json(PLANTS_FIXTURE);
+        }),
+      );
+      renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+      // The plant list is the only route to a plant past the queue's cap, so a
+      // swallowed failure left a filter that looked like "no plants here".
+      const errorBox = await screen.findByTestId('plants-error');
+      expect(screen.queryByTestId('filter-plant')).not.toBeInTheDocument();
+
+      await userEvent.click(within(errorBox).getByTestId('plants-error-retry-button'));
+
+      expect(await screen.findByTestId('filter-plant')).toBeInTheDocument();
+      expect(screen.queryByTestId('plants-error')).not.toBeInTheDocument();
+    });
+  });
+
   describe('every reload of the queue carries the active scope', () => {
-    // The exhaustive proof is the single-call-site guard below; these are the
-    // paths that can be driven through the UI without opening a dialog.
+    // The scope is read from the store by the thunks, so no call site can pass
+    // the wrong one; these drive the paths a user can reach without a dialog.
     const paths: { name: string; act: () => Promise<void> }[] = [
       {
         name: 'starting a task',
@@ -313,22 +471,5 @@ describe('TaskQueuePage — the plant filter is a server-side scope (#1484)', ()
       // Not one of the reloads after the action dropped the scope.
       expect(queueScopes.slice(before)).not.toContain(null);
     });
-  });
-
-  it('issues queue and completed reloads from exactly one call site each', () => {
-    // The class this closes is "a reload that forgets the scope". Counting the
-    // *identifier* rather than a call spelling is what makes the guard hold: a
-    // tenth `dispatch(fetchTaskQueue())` — however it is written, wrapped in
-    // `void`, split over lines or spaced differently — raises the count.
-    const body = taskQueuePageSource
-      .split('\n')
-      .filter((line) => !line.startsWith('import '))
-      .join('\n');
-
-    expect(body.match(/fetchTaskQueue/g) ?? []).toHaveLength(1);
-    expect(body.match(/fetchCompletedTasks/g) ?? []).toHaveLength(1);
-    // …and that one call site passes the scope.
-    expect(body).toContain('dispatch(fetchTaskQueue(filterPlantKey ?? undefined))');
-    expect(body).toContain('dispatch(fetchCompletedTasks(filterPlantKey ?? undefined))');
   });
 });

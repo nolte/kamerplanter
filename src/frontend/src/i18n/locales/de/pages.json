@@ -3063,6 +3063,7 @@
       "future": "Zukunft",
       "completed": "Erledigt",
       "showCompleted": "Erledigte Tasks anzeigen",
+      "plantFilterUnavailable": "Pflanzenliste konnte nicht geladen werden – der Pflanzenfilter steht gerade nicht zur Verfügung.",
       "noCompletedTasks": "Keine erledigten Aufgaben vorhanden.",
       "createTask": "Aufgabe erstellen",
       "createTaskForPlant": "Aufgabe für {{plant}} erstellen",

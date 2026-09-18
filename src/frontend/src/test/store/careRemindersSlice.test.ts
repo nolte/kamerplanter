@@ -13,7 +13,13 @@ import * as careApi from '@/api/endpoints/careReminders';
 // Isolated module mock — no real HTTP, no handlers.ts.
 vi.mock('@/api/endpoints/careReminders');
 
-const baseState = { dashboard: [], currentProfile: null, loading: false, error: null };
+const baseState = {
+  dashboard: [],
+  currentProfile: null,
+  loading: false,
+  dashboardLoaded: false,
+  error: null,
+};
 
 function makeStore() {
   return configureStore({ reducer: { careReminders: reducer } });
@@ -25,6 +31,15 @@ const entryB = { plant_key: 'pl2', reminder_type: 'fertilizing' };
 describe('careRemindersSlice', () => {
   it('has the empty initial state', () => {
     expect(reducer(undefined, { type: 'unknown' })).toEqual(baseState);
+  });
+
+  it('fetchDashboard latches dashboardLoaded on either outcome', () => {
+    // A host gating its first paint on "everything has answered" cannot read
+    // that off `loading`: false is also the state before anything was asked.
+    const settled = reducer(undefined, { type: fetchDashboard.fulfilled.type, payload: [] });
+    expect(settled.dashboardLoaded).toBe(true);
+    const failed = reducer(undefined, { type: fetchDashboard.rejected.type, error: {} });
+    expect(failed.dashboardLoaded).toBe(true);
   });
 
   it('clearCurrentProfile resets the profile', () => {

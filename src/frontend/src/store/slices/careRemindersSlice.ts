@@ -7,6 +7,16 @@ interface CareRemindersState {
   dashboard: CareDashboardEntry[];
   currentProfile: CareProfile | null;
   loading: boolean;
+  /**
+   * True once a dashboard query has settled at least once, either way.
+   *
+   * A consumer that gates its first paint on "everything has answered" cannot
+   * express that through `loading` alone: `loading === false` is also the state
+   * before anything was ever asked, and before the entries that decide the
+   * layout exist. Hosts of the dashboard reload it on interaction, so the
+   * distinction is the difference between a first paint and a refetch.
+   */
+  dashboardLoaded: boolean;
   error: string | null;
 }
 
@@ -14,6 +24,7 @@ const initialState: CareRemindersState = {
   dashboard: [],
   currentProfile: null,
   loading: false,
+  dashboardLoaded: false,
   error: null,
 };
 
@@ -89,10 +100,12 @@ const careRemindersSlice = createSlice({
       })
       .addCase(fetchDashboard.fulfilled, (state, action) => {
         state.loading = false;
+        state.dashboardLoaded = true;
         state.dashboard = action.payload;
       })
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.loading = false;
+        state.dashboardLoaded = true;
         state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Profile

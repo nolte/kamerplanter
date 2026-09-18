@@ -3063,6 +3063,7 @@
       "future": "Future",
       "completed": "Completed",
       "showCompleted": "Show completed tasks",
+      "plantFilterUnavailable": "The plant list could not be loaded, so the plant filter is unavailable right now.",
       "noCompletedTasks": "No completed tasks yet.",
       "createTask": "Create Task",
       "createTaskForPlant": "Create task for {{plant}}",
