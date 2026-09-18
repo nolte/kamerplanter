@@ -11,6 +11,10 @@ from app.common.enums import OidcProviderType
 #: API boundary enforces (#1497) so there is one spelling, not two.
 GITHUB_PROVIDER_TYPE = OidcProviderType.GITHUB.value
 
+#: The spellings the sign-in flow actually dispatches on, built once rather than
+#: per call. This is the vocabulary the API boundary enforces (#1497).
+KNOWN_PROVIDER_TYPES: frozenset[str] = frozenset(member.value for member in OidcProviderType)
+
 #: Scopes that let a GitHub token read ``GET /user/emails``, the only place GitHub
 #: exposes the per-address ``verified`` flag that ``should_auto_link`` needs (#1403).
 #: ``user`` is the parent scope and includes ``user:email``; either one works.
@@ -45,7 +49,7 @@ def is_known_provider_type(provider_type: str) -> bool:
     because a stored value is the operator's data and the read-only measurement
     that would justify a migration found no record at all.
     """
-    return provider_type in {member.value for member in OidcProviderType}
+    return provider_type in KNOWN_PROVIDER_TYPES
 
 
 def scope_tokens(scopes: list[str]) -> list[str]:
@@ -130,36 +134,3 @@ class OidcProviderConfig(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
-
-
-class OidcProviderConfigCreate(BaseModel):
-    slug: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9-]+$")
-    display_name: str = Field(min_length=1, max_length=200)
-    provider_type: OidcProviderType = OidcProviderType.OIDC
-    issuer_url: str
-    client_id: str
-    client_secret: str
-    scopes: list[str] = Field(default_factory=lambda: ["openid", "email", "profile"])
-    authorization_url: str | None = None
-    token_url: str | None = None
-    userinfo_url: str | None = None
-    auto_discover: bool = True
-    enabled: bool = False
-    icon_url: str | None = None
-    default_tenant_key: str | None = None
-
-
-class OidcProviderConfigUpdate(BaseModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=200)
-    provider_type: OidcProviderType | None = None
-    issuer_url: str | None = None
-    client_id: str | None = None
-    client_secret: str | None = None
-    scopes: list[str] | None = None
-    authorization_url: str | None = None
-    token_url: str | None = None
-    userinfo_url: str | None = None
-    auto_discover: bool | None = None
-    enabled: bool | None = None
-    icon_url: str | None = None
-    default_tenant_key: str | None = None

@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
@@ -36,6 +37,31 @@ router = APIRouter(
     tags=["admin-oidc"],
     responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES},
 )
+
+
+def _plain[T](value: T) -> T:
+    """Strip an enum member down to the value the domain model is annotated for.
+
+    ONE conversion rule for both write routes (#1497). The request schemas carry
+    `OidcProviderType`; `OidcProviderConfig.provider_type` is a `str`, and the
+    update route assigns with `setattr`, which pydantic does not validate — so
+    whatever is handed over is what gets stored. A `StrEnum` member would compare
+    equal to its value and still be a different object in the document.
+
+    Deliberately narrow. `model_dump(mode="json")` would do the same job and
+    rather more: it would also turn a future `datetime` field into a string and
+    set THAT on the domain model, silently, through the same unvalidated
+    `setattr`.
+
+    **Measured (2026-09-18), because only one of the two call sites needs it.**
+    `OidcProviderConfig(provider_type=OidcProviderType.GITHUB)` stores a plain
+    `str` — the constructor validates and coerces. `config.provider_type = member`
+    stores the MEMBER. So the create route is already safe through its own
+    construction, and the update route is not; applying the same rule at both
+    keeps them from answering the question differently, and keeps the create route
+    safe if it ever stops constructing the model itself.
+    """
+    return value.value if isinstance(value, Enum) else value
 
 
 def _response(c: OidcProviderConfig) -> OidcProviderResponse:
@@ -86,9 +112,9 @@ def create_provider(
     config = OidcProviderConfig(
         slug=body.slug,
         display_name=body.display_name,
-        # ``.value`` on purpose: what is persisted must be the bare spelling, not
-        # an enum member that happens to serialise like one today (#1497).
-        provider_type=body.provider_type.value,
+        # What is persisted must be the bare spelling, not an enum member that
+        # happens to serialise like one today (#1497).
+        provider_type=_plain(body.provider_type),
         issuer_url=body.issuer_url,
         client_id=body.client_id,
         client_secret_encrypted=encryption.encrypt(body.client_secret),
@@ -139,15 +165,14 @@ def update_provider(
     if config is None:
         raise NotFoundError("OidcProviderConfig", key)
 
-    # ``mode="json"`` so an enum-typed request field (``provider_type``, #1497)
-    # lands on the ``str``-typed domain model as its bare value. ``setattr`` does
-    # not validate, so whatever is assigned here is what gets stored.
-    data = body.model_dump(exclude_none=True, mode="json")
+    data = body.model_dump(exclude_none=True)
     for field, value in data.items():
         if field == "client_secret":
             config.client_secret_encrypted = encryption.encrypt(value)
         else:
-            setattr(config, field, value)
+            # Same rule as the create route (#1497): `setattr` does not validate,
+            # so an enum member would be stored as-is on a `str`-typed field.
+            setattr(config, field, _plain(value))
 
     oauth_engine.require_supported_scopes(config)
     updated = repo.update(key, config)
