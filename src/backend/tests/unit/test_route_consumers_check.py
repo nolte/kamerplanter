@@ -12,7 +12,7 @@ returns bare ``(method, path)`` pairs. Two walks of FastAPI's ``_IncludedRouter`
 nesting is exactly how a second, quietly different route table gets into a
 repository, so :class:`TestTheRouteOperand` asserts the two walks agree on the
 real app, set for set. ``include_router`` does not flatten: read ``app.routes``
-directly and you get six routes instead of 797, and every number here becomes
+directly and you get six routes instead of 799, and every number here becomes
 fiction — so both operands are size-checked too, an empty side being a broken
 scan and never a pass.
 
@@ -30,7 +30,8 @@ consumer is reported as stale rather than left standing.
 
 **The controls are constructed, not pinned to today's tree**, except where the
 measurement itself is the point: :func:`test_the_measured_candidate_count` records
-797 mounted operations because that is the figure #1478 was filed on, and a change
+799 mounted operations — 797 when #1478 was filed, plus the two write routes
+#1461/#1460 added when generation moved off the read path — and a change
 to it should be *noticed*. Everything else runs against miniature inputs, so a
 triage decision that legitimately gives a route a consumer does not turn this file
 red for the wrong reason.
@@ -135,14 +136,21 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """797 mounted ``/api/v1`` operations — the figure #1478 was filed on.
+        """799 mounted ``/api/v1`` operations.
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
-        added or removed, which is worth seeing.
+        added or removed, which is worth seeing — and it is exactly what this
+        assertion made visible here.
+
+        797 was the figure #1478 was filed on. #1461/#1460 added the two routes
+        that took generation off the read path, and nothing else:
+
+        * ``POST /t/{tenant_slug}/ai/daily-tip/refresh``
+        * ``POST /t/{tenant_slug}/glossary/term/{slug}/generate``
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 797
+        assert len(checker.collect_operations(app)) == 799
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

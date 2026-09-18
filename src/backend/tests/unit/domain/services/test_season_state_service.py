@@ -613,3 +613,114 @@ class TestReadingTheSeasonStateDoesNotPersist:
         assert state is service._repo.upsert.return_value
         materializer.materialize.assert_called_once()
         care_service.ensure_seasonal_winter_tasks.assert_called_once_with("plant-1", SeasonPhase.PRE_WINTER)
+
+
+class TestTheOverviewAgreesWithTheDetailRead:
+    """Review SCR-003 — one source for a site with no stored state yet.
+
+    #1461 made ``get_state_for_site`` compute transiently instead of evaluating
+    and upserting. ``get_overview`` kept reading only ``list_for_tenant``, so the
+    two reads disagreed for exactly the site the change was about: a freshly
+    created outdoor site showed a phase on its detail page and was **absent** from
+    the dashboard widget until the nightly task had written a row.
+
+    Both halves are asserted, because "the overview contains it" is also satisfied
+    by an overview that invents states for sites that have none.
+    """
+
+    def _service(self, *, stored: list, sites: list) -> SeasonStateService:
+        from app.common.enums import SeasonTriggerTier
+        from app.domain.services.season_signal_resolver import SeasonSignal
+
+        repo = MagicMock()
+        repo.list_for_tenant.return_value = (stored, len(stored))
+
+        site_repo = MagicMock()
+        site_repo.get_all_sites.return_value = (sites, len(sites))
+        site_repo.get_locations_by_site.return_value = []
+
+        resolver = MagicMock()
+        resolver.resolve.return_value = SeasonSignal(
+            tier=SeasonTriggerTier.CALENDAR,
+            reason_i18n_key="pages.season.trigger.calendar",
+            min_temp_c=None,
+            forecast_first_frost_date=None,
+            estimated_first_frost_md=None,
+            estimated_last_frost_md=None,
+        )
+
+        engine = MagicMock()
+        engine.next_phase.return_value = _transition(SeasonPhase.PRE_WINTER)
+
+        return SeasonStateService(
+            repo,
+            resolver,
+            engine,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            site_repo,
+        )
+
+    def test_a_site_without_a_stored_state_appears_in_the_overview(self) -> None:
+        service = self._service(stored=[], sites=[_site("site-new")])
+
+        overview = service.get_overview("tenant-1")
+
+        assert [state.site_key for state in overview] == ["site-new"]
+        assert overview[0].phase == SeasonPhase.PRE_WINTER
+        assert overview[0].key is None, "the overview persisted a state"
+        service._repo.upsert.assert_not_called()
+
+    def test_an_indoor_site_still_contributes_nothing(self) -> None:
+        """The control: the overview does not invent a season for every site."""
+        service = self._service(stored=[], sites=[_site("site-indoor", SiteType.INDOOR)])
+
+        assert service.get_overview("tenant-1") == []
+
+    def test_a_stored_state_is_answered_from_storage(self) -> None:
+        """The stored row keeps its key, so the two sources stay distinguishable."""
+        from app.domain.models.season_state import SeasonState
+
+        stored = SeasonState(
+            _key="ss-1",
+            season_state_id="season-abc",
+            site_key="site-1",
+            tenant_key="tenant-1",
+            phase=SeasonPhase.GROWING,
+        )
+        service = self._service(stored=[stored], sites=[_site("site-1")])
+
+        overview = service.get_overview("tenant-1")
+
+        assert [state.key for state in overview] == ["ss-1"]
+
+    def test_a_stored_state_beyond_the_site_page_is_not_dropped(self) -> None:
+        """Shortening the answer would be a regression dressed as a refinement."""
+        from app.domain.models.season_state import SeasonState
+
+        orphan = SeasonState(
+            _key="ss-9",
+            season_state_id="season-xyz",
+            site_key="site-not-listed",
+            tenant_key="tenant-1",
+            phase=SeasonPhase.WINTER_DORMANCY,
+        )
+        service = self._service(stored=[orphan], sites=[])
+
+        assert [state.key for state in service.get_overview("tenant-1")] == ["ss-9"]
+
+    def test_the_detail_read_and_the_overview_answer_the_same_phase(self) -> None:
+        """The property SCR-003 is about, asserted as the equality it really is."""
+        site = _site("site-new")
+        service = self._service(stored=[], sites=[site])
+        service._repo.get_by_site.return_value = None
+        service._site_repo.get_site_by_key.return_value = site
+
+        detail = service.get_state_for_site("site-new", "tenant-1")
+        overview = service.get_overview("tenant-1")
+
+        assert detail.phase == overview[0].phase
+        assert detail.site_key == overview[0].site_key

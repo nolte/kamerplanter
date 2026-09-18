@@ -1,12 +1,18 @@
-"""Unit tests for ``OnboardingService.get_state`` auto-create race guard.
+"""Unit tests for the ``onboarding_states`` per-user singleton.
 
-``onboarding_states`` holds one document per ``user_key`` and is auto-created on
-the first cold read. Under concurrent cold reads that insert raced, minting
-duplicate singletons and making the read flap. The service now upserts (re-read
-on ``DuplicateError``) and reads deterministically (smallest ``_key``).
+``onboarding_states`` holds one document per ``user_key``. It used to be
+auto-created on the first cold **read**, which made a plain ``GET`` persist
+(#1461) and raced under concurrent cold reads, minting duplicate singletons and
+making the read flap.
+
+Since #1461 the read creates nothing and the first **write** materialises the
+row; the race moved with it and is resolved the same way — re-read the winner on
+either refusal code (#1458) — and the read still picks deterministically
+(smallest ``_key``) while legacy duplicates exist.
 """
 
 from typing import Any
+from unittest.mock import MagicMock
 
 from app.common.exceptions import DuplicateError
 from app.domain.models.onboarding import OnboardingState
@@ -48,8 +54,12 @@ class _MultiDocRepo:
 
 
 def _service_with(repo: Any) -> OnboardingService:
-    service = OnboardingService.__new__(OnboardingService)
-    service._repo = repo  # type: ignore[attr-defined]
+    """The real service with only its repository doubled (review SCR-011)."""
+    from app.domain.services.starter_kit_service import StarterKitService
+
+    db = MagicMock()
+    service = OnboardingService(db, StarterKitService(db))
+    service._repo = repo  # type: ignore[assignment]
     return service
 
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.domain.interfaces.knowledge_service import ConfidenceLevel
 
@@ -132,6 +132,17 @@ class AiTipCard(BaseModel):
     priority: TipPriority = "medium"
     title: str
     body: str
+    #: An in-app link the card may offer ("Mehr erfahren"). Constrained to a
+    #: **site-relative** path (review SCR-012).
+    #:
+    #: Measured on 2026-09-18: nothing writes this field today — neither
+    #: ``TipEngine.rule_based_fallback`` nor the RAG path sets it — so no
+    #: model-derived value reaches it. The constraint is here because the frontend
+    #: renders it straight into ``href`` and the field is persisted: a future
+    #: producer, or a row written by hand, would otherwise be able to put
+    #: ``javascript:`` behind a button the user is invited to press. Refusing the
+    #: value where it enters the model is cheaper than remembering to escape it at
+    #: every render site, and the client checks again anyway.
     action_url: str | None = None
     sources: list[SourceReference] = Field(default_factory=list)
     language: Language = "de"
@@ -147,6 +158,21 @@ class AiTipCard(BaseModel):
     acted_on_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("action_url")
+    @classmethod
+    def _action_url_is_site_relative(cls, value: str | None) -> str | None:
+        """Refuse anything that is not a path inside this app.
+
+        ``//evil.example`` is rejected along with ``javascript:`` and ``https:``:
+        a protocol-relative URL starts with ``/`` and is an *absolute* link, which
+        is exactly the case a naive "must start with /" check waves through.
+        """
+        if value is None or value == "":
+            return None
+        if not value.startswith("/") or value.startswith("//"):
+            raise ValueError("action_url must be a site-relative path, e.g. '/pflanzen/123'")
+        return value
 
 
 class AiAuditLogEntry(BaseModel):

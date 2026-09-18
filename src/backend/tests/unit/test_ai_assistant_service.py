@@ -320,3 +320,49 @@ def test_refresh_tips_still_generates_and_persists() -> None:
     service._tip_cache.invalidate_context.assert_called_once()
     service._tip_cache.create.assert_called_once()
     service._audit.record.assert_called_once()
+
+
+# ── action_url is not an open href (review SCR-012) ──────────────────────────
+
+
+def test_action_url_accepts_a_site_relative_path() -> None:
+    from app.domain.models.ai_assistant import AiTipCard
+
+    card = AiTipCard(tenant_key="home", title="t", body="b", action_url="/pflanzen/p-1")
+
+    assert card.action_url == "/pflanzen/p-1"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "javascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "https://evil.example/phish",
+        # Protocol-relative: it starts with "/" and is an ABSOLUTE link, which is
+        # precisely what a naive "must start with /" check waves through.
+        "//evil.example/phish",
+    ],
+)
+def test_action_url_refuses_anything_that_leaves_the_app(value: str) -> None:
+    """The field is rendered straight into an ``href`` on a button the user is
+    invited to press, and it is persisted — so a row written by a future producer
+    or by hand must not be able to carry a script URL.
+
+    Nothing writes ``action_url`` today (measured 2026-09-18), which is why this
+    is a boundary constraint rather than a repair: the point is that the next
+    producer cannot introduce the hole without this test going red.
+    """
+    import pydantic
+
+    from app.domain.models.ai_assistant import AiTipCard
+
+    with pytest.raises(pydantic.ValidationError):
+        AiTipCard(tenant_key="home", title="t", body="b", action_url=value)
+
+
+def test_an_empty_action_url_is_simply_absent() -> None:
+    """``""`` is "no link", not a link to the site root."""
+    from app.domain.models.ai_assistant import AiTipCard
+
+    assert AiTipCard(tenant_key="home", title="t", body="b", action_url="").action_url is None

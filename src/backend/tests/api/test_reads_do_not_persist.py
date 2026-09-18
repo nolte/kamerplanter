@@ -22,6 +22,7 @@ below vacuous.
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -78,10 +79,19 @@ class _CountingSingletonRepo:
 
 
 def _preference_service(repo: _CountingSingletonRepo):
+    """The real service, really constructed, with only its repository doubled.
+
+    `__new__` was the shortcut here, and review SCR-011 is right that it is the
+    wrong one: it skips `__init__`, so a constructor that grew a second collection
+    or a derived field would leave these tests exercising an object the
+    application never builds. Passing a `MagicMock` database lets `__init__` run —
+    it only uses `db` to construct a `BaseArangoRepository` — and the counting
+    double then replaces that one attribute.
+    """
     from app.domain.services.user_preference_service import UserPreferenceService
 
-    service = UserPreferenceService.__new__(UserPreferenceService)
-    service._repo = repo  # type: ignore[attr-defined]
+    service = UserPreferenceService(MagicMock())
+    service._repo = repo  # type: ignore[assignment]
     return service
 
 
@@ -168,10 +178,13 @@ def test_reading_the_widget_catalog_writes_nothing(monkeypatch: pytest.MonkeyPat
 
 
 def _onboarding_service(repo: _CountingSingletonRepo):
+    """The real service, really constructed — see :func:`_preference_service`."""
     from app.domain.services.onboarding_service import OnboardingService
+    from app.domain.services.starter_kit_service import StarterKitService
 
-    service = OnboardingService.__new__(OnboardingService)
-    service._repo = repo  # type: ignore[attr-defined]
+    db = MagicMock()
+    service = OnboardingService(db, StarterKitService(db))
+    service._repo = repo  # type: ignore[assignment]
     return service
 
 

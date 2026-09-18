@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import get_args
 
 import structlog
 
@@ -29,12 +30,14 @@ from app.data_access.external.knowledge_service_adapter import KnowledgeServiceU
 from app.domain.guards.consent_guard import AI_CLOUD_PROCESSING, ConsentGuard
 from app.domain.interfaces.knowledge_service import IKnowledgeService
 from app.domain.models.glossary_term import (
+    ExpertiseLevel,
     GlossaryRelatedTerm,
     GlossarySource,
     GlossaryTerm,
     GlossaryTermAnswer,
     GlossaryTermCacheEntry,
     GlossaryTermSummary,
+    Language,
 )
 from app.domain.services.ai_audit_logger import AiAuditLogger
 
@@ -55,8 +58,13 @@ _TOP_K = 5
 #: XSS via the path segment (§9 scenario 9).
 _SLUG_MAX_LEN = 80
 
-_VALID_LEVELS: frozenset[str] = frozenset({"beginner", "intermediate", "expert"})
-_VALID_LANGUAGES: frozenset[str] = frozenset({"de", "en"})
+#: The accepted inputs, derived from the published ``Language``/``ExpertiseLevel``
+#: literals rather than retyped (review SCR-005). These were a second copy of a
+#: vocabulary the model already declares and the warm-up task a third; the way
+#: that set drifts is silent, because each copy stays internally consistent while
+#: disagreeing with the others about which variants exist.
+_VALID_LEVELS: frozenset[str] = frozenset(get_args(ExpertiseLevel))
+_VALID_LANGUAGES: frozenset[str] = frozenset(get_args(Language))
 
 
 class GlossaryService:
@@ -101,9 +109,12 @@ class GlossaryService:
         """Explain one term from what is stored — **read-only**, §4.1.
 
         Cache hit → the cached RAG answer. Cache miss → the curated editorial
-        short definition (``is_fallback=true``), which is the same answer the
-        ``ai_features_enabled=False`` path has always given. 404 only when the
-        slug is not in the curated catalogue.
+        short definition (``is_fallback=true``). 404 only when the slug is not in
+        the curated catalogue.
+
+        With the operator flag ``ai_features_enabled`` off the cache is not even
+        consulted and the curated text is always the answer: the kill switch gates
+        what is *served*, not merely what is *generated* (review SCR-004).
 
         **This path no longer calls the Knowledge Service and no longer writes.**
         It used to generate on a miss and persist the result, which made
@@ -132,7 +143,14 @@ class GlossaryService:
         if term is None:  # pragma: no cover - resolve guarantees existence
             raise NotFoundError("GlossaryTerm", slug)
 
-        cached = self._load_cache(canonical, language, expertise_level)
+        # The operator kill switch gates the OUTPUT, not only the generation
+        # (review SCR-004). With ``ai_features_enabled`` off, a warm cache would
+        # otherwise keep serving RAG text written before the switch was thrown —
+        # and the user-facing documentation promises the opposite: "the term stays
+        # explainable without any AI/RAG stack", i.e. the curated text. Reading the
+        # cache here would make turning KI off a thing that takes seven days to
+        # come into effect.
+        cached = self._load_cache(canonical, language, expertise_level) if settings.ai_features_enabled else None
         entry = cached if cached is not None else self._fallback_entry(term, language, expertise_level, _now())
         return self._to_answer(term, entry, language, expertise_level, uses_cloud=False)
 

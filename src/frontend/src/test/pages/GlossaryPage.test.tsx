@@ -154,6 +154,121 @@ describe('GlossaryPage — generating a detailed explanation (#1460)', () => {
     expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
   });
 
+  it('says so when generating is refused', async () => {
+    // Review SCR-001 — the hook's empty `catch {}` turned a 403/429/502 into a
+    // button that does nothing. The failure is reported inside the detail view's
+    // existing `aria-live` region, so it is announced too.
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockResolvedValue(answer({ is_fallback: true, answer_text: 'Short definition.' }));
+    generateTerm.mockRejectedValue(new Error('refused'));
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, {
+      route: '/glossar',
+      store: createStoreWithTenantRole('grower'),
+    });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+    await user.click(await screen.findByTestId('glossary-detail-generate'));
+
+    expect(await screen.findByTestId('glossary-detail-generate-error')).toBeTruthy();
+    // The curated answer survives the failure — losing the read surface over a
+    // refused generation would be the worse outcome.
+    expect(screen.getByText('Short definition.')).toBeTruthy();
+    expect(screen.getByTestId('glossary-detail-generate')).toBeTruthy();
+  });
+
+  it('explains a disabled-AI refusal instead of showing a generic failure', async () => {
+    const { ApiError } = await import('@/api/errors');
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockResolvedValue(answer({ is_fallback: true }));
+    generateTerm.mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'err-1',
+          timestamp: '2026-09-18T00:00:00Z',
+          error_code: 'AI_DISABLED_FOR_TENANT',
+          message: 'forbidden',
+          details: [],
+          path: '/glossary/term/vpd/generate',
+          method: 'POST',
+        },
+        403,
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, {
+      route: '/glossar',
+      store: createStoreWithTenantRole('grower'),
+    });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+    await user.click(await screen.findByTestId('glossary-detail-generate'));
+
+    const error = await screen.findByTestId('glossary-detail-generate-error');
+    expect(error.textContent).toContain('disabled');
+  });
+
+  it('does not apply a generated answer to a term the reader has moved on from', async () => {
+    // Review SCR-005 — a related-term chip switches the slug while the request is
+    // in flight. Applying the answer then shows one term's explanation under
+    // another's heading.
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockImplementation((slug: string) =>
+      Promise.resolve(
+        answer({
+          slug,
+          long_label: slug === 'vpd' ? 'Vapor Pressure Deficit' : 'Electrical Conductivity',
+          answer_text: `Short definition of ${slug}.`,
+          is_fallback: true,
+          related_terms: [{ slug: 'ec', label: 'EC' }],
+        }),
+      ),
+    );
+    let release: (value: GlossaryTermAnswer) => void = () => {};
+    generateTerm.mockReturnValue(
+      new Promise<GlossaryTermAnswer>((resolve) => {
+        release = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, {
+      route: '/glossar',
+      store: createStoreWithTenantRole('grower'),
+    });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+    await user.click(await screen.findByTestId('glossary-detail-generate'));
+    // Move to the related term while the generation is still in flight.
+    await user.click(await screen.findByTestId('glossary-detail-related-ec'));
+    await screen.findByText('Short definition of ec.');
+
+    release(answer({ slug: 'vpd', answer_text: 'A detailed VPD explanation.' }));
+
+    await waitFor(() => expect(screen.getByText('Short definition of ec.')).toBeTruthy());
+    expect(screen.queryByText('A detailed VPD explanation.')).toBeNull();
+  });
+
+  it('moves focus to the answer when the generate button disappears', async () => {
+    // Review SCR-010 — a successful generate unmounts the control the user just
+    // pressed, so keyboard focus would fall back to <body> and a screen-reader
+    // user would lose their place mid-task.
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockResolvedValue(answer({ is_fallback: true, answer_text: 'Short definition.' }));
+    generateTerm.mockResolvedValue(answer({ answer_text: 'A detailed explanation.' }));
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, {
+      route: '/glossar',
+      store: createStoreWithTenantRole('grower'),
+    });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+    await user.click(await screen.findByTestId('glossary-detail-generate'));
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByTestId('glossary-detail-heading')),
+    );
+  });
+
   it('offers no generate control once a detailed explanation exists', async () => {
     listTerms.mockResolvedValue(TERMS);
     getTerm.mockResolvedValue(answer({ is_fallback: false }));

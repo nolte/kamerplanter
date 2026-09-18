@@ -26,12 +26,25 @@ import type { DashboardLayout } from '@/api/types';
  * answers immediately, the aggregate answers only when a test releases it.
  */
 
-/** The five aggregated widgets the issue measured standing at once. */
+/**
+ * The five widget panels the issue measured standing at once.
+ *
+ * `daily_tip` used to be the fourth and was swapped for `community_activity` in
+ * #1461. What this test needs from each key is a **loading skeleton** while the
+ * aggregate is in flight, and `daily_tip` only produced one because it resolved
+ * to `GenericWidget`, which renders one for any key. Wiring `DailyTipCard`
+ * (review SCR-004) gave the key its real component, which renders `null` until
+ * it has a tip — deliberately, so the dashboard does not flash an empty card on
+ * every load — and the count here dropped to four.
+ *
+ * `community_activity` is still on the generic shell and, like the other four,
+ * carries no `requiredModule`, so it is not hidden by module visibility.
+ */
 const WIDGET_KEYS = [
   'tasks_today',
   'care_reminders',
   'active_plants_summary',
-  'daily_tip',
+  'community_activity',
   'onboarding_progress',
 ] as const;
 

@@ -577,7 +577,12 @@
     "errors": {
       "disabled": "Die KI-Funktionen sind für diesen Garten aktuell deaktiviert. Eine Administratorin oder ein Administrator kann sie in den Tenant-Einstellungen aktivieren.",
       "consentRequired": "Für diese KI-Funktion fehlt deine Einwilligung zur Nutzung deiner Pflanzendaten. Du kannst sie in den Datenschutz-Einstellungen erteilen.",
-      "consentRequiredLink": "Zu den Datenschutz-Einstellungen"
+      "consentRequiredLink": "Zu den Datenschutz-Einstellungen",
+      "generateFailed": "Die Erklärung konnte nicht erzeugt werden.",
+      "tipsGenerateFailed": "Die Hinweise konnten nicht erzeugt werden.",
+      "dailyTipGenerateFailed": "Der Tipp des Tages konnte nicht erzeugt werden.",
+      "dailyTipGenerateEmpty": "Es konnte gerade kein Tipp erzeugt werden. Versuche es später noch einmal.",
+      "retry": "Erneut versuchen"
     }
   },
   "components": {

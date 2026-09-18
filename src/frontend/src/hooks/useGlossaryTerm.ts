@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { glossaryApi } from '@/api';
 import type { GlossaryExpertiseLevel, GlossaryTermAnswer } from '@/api/types';
 
@@ -28,6 +28,16 @@ export function clearGlossaryCache(): void {
   answerCache.clear();
 }
 
+/**
+ * What the generation attempt is doing right now.
+ *
+ * A tri-state rather than two booleans (review SCR-001): `failed` and `idle`
+ * must be distinguishable, because the first version collapsed them — a 403, a
+ * 429 or a 502 all ended in an empty `catch {}` and the user saw a button that
+ * did nothing at all.
+ */
+export type GlossaryGenerateStatus = 'idle' | 'generating' | 'failed';
+
 export interface UseGlossaryTermResult {
   answer: GlossaryTermAnswer | null;
   loading: boolean;
@@ -39,9 +49,12 @@ export interface UseGlossaryTermResult {
    * Reading no longer generates, so a term whose answer arrives with
    * `is_fallback: true` stays on the curated short definition until somebody
    * with the grower role asks for this. Resolves once the answer (generated or
-   * refused) has been applied.
+   * refused) has been applied; the outcome is in `generateStatus`.
    */
   generate: () => Promise<void>;
+  generateStatus: GlossaryGenerateStatus;
+  /** The raw failure, for `resolveAiErrorMessage` to turn into a sentence. */
+  generateError: unknown;
   generating: boolean;
 }
 
@@ -58,11 +71,16 @@ export function useGlossaryTerm(
   language: 'de' | 'en',
   expertise: GlossaryExpertiseLevel,
 ): UseGlossaryTermResult {
+  // Which term/language/level the hook is currently showing. Read by `generate`
+  // after its await to decide whether its answer is still wanted (SCR-005).
+  const cacheKeyRef = useRef<string | null>(null);
+  cacheKeyRef.current = slug ? cacheKey(slug, language, expertise) : null;
   const [answer, setAnswer] = useState<GlossaryTermAnswer | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const [reloadToken, setReloadToken] = useState<number>(0);
-  const [generating, setGenerating] = useState<boolean>(false);
+  const [generateStatus, setGenerateStatus] = useState<GlossaryGenerateStatus>('idle');
+  const [generateError, setGenerateError] = useState<unknown>(null);
 
   const reload = useCallback(() => {
     if (slug) answerCache.delete(cacheKey(slug, language, expertise));
@@ -71,20 +89,28 @@ export function useGlossaryTerm(
 
   const generate = useCallback(async () => {
     if (!slug) return;
-    setGenerating(true);
+    // The key is captured BEFORE the await (review SCR-005). A related-term chip
+    // switches `slug` while the request is in flight, and applying the answer to
+    // whatever term is open by then would show one term's explanation under
+    // another's heading.
+    const key = cacheKey(slug, language, expertise);
+    setGenerateStatus('generating');
+    setGenerateError(null);
     try {
       const result = await glossaryApi.generateTerm(slug, expertise, language);
-      answerCache.set(cacheKey(slug, language, expertise), {
-        answer: result,
-        fetchedAt: Date.now(),
-      });
+      answerCache.set(key, { answer: result, fetchedAt: Date.now() });
+      if (key !== cacheKeyRef.current) return;
       setAnswer(result);
-    } catch {
+      setGenerateStatus('idle');
+    } catch (err) {
       // The read surface stays: the caller already has the curated short
       // definition, and clearing it would turn a refused generation into the
-      // loss of the answer too.
-    } finally {
-      setGenerating(false);
+      // loss of the answer too. But the failure is reported — a 403 (viewer, KI
+      // disabled, missing consent), a 429 or a 502 used to end here silently and
+      // the user saw a button that did nothing.
+      if (key !== cacheKeyRef.current) return;
+      setGenerateError(err);
+      setGenerateStatus('failed');
     }
   }, [slug, language, expertise]);
 
@@ -93,8 +119,13 @@ export function useGlossaryTerm(
       setAnswer(null);
       setLoading(false);
       setError(false);
+      setGenerateStatus('idle');
+      setGenerateError(null);
       return;
     }
+
+    setGenerateStatus('idle');
+    setGenerateError(null);
 
     const key = cacheKey(slug, language, expertise);
     const cached = answerCache.get(key);
@@ -128,7 +159,16 @@ export function useGlossaryTerm(
   }, [slug, language, expertise, reloadToken]);
 
   return useMemo(
-    () => ({ answer, loading, error, reload, generate, generating }),
-    [answer, loading, error, reload, generate, generating],
+    () => ({
+      answer,
+      loading,
+      error,
+      reload,
+      generate,
+      generateStatus,
+      generateError,
+      generating: generateStatus === 'generating',
+    }),
+    [answer, loading, error, reload, generate, generateStatus, generateError],
   );
 }

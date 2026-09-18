@@ -55,9 +55,21 @@ _CONFLICT = "WriteConflictError"
 #:
 #: Empty, and that is the measurement rather than an aspiration: every handler in
 #: the tree today resolves a race on a **unique index**, and the server may answer
-#: either code on any of them. An entry here has to name a raise path that cannot
-#: produce 1200 at all — not merely one where it has not been observed, because
-#: "not observed" is what #1292's four-way race disproved after a year.
+#: either code on any of them.
+#:
+#: **Two admissible reasons, and only two** (review SCR-010). Either
+#:
+#: * *there is no race* — the `try` catches 1210 for something other than a lost
+#:   concurrent insert (a caller-supplied key colliding with a committed row, say,
+#:   where the correct answer really is "an equivalent record exists" and a
+#:   re-read would change nothing); or
+#: * *1200 is unreachable on that raise path* — the write does not go through an
+#:   index a concurrent transaction can hold.
+#:
+#: "We have never seen 1200 there" is **not** one of them: that is exactly what
+#: was believed about the care-profile edge until #1292's four-way race produced
+#: it, a year in. An entry claiming either reason names the raise path, not the
+#: handler.
 _ALLOWED_WITHOUT_CONFLICT: dict[str, str] = {}
 
 

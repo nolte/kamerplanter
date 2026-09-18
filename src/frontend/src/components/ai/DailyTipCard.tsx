@@ -9,8 +9,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Button from '@mui/material/Button';
 import AIResponse from './AIResponse';
+import { resolveAiErrorMessage } from './aiErrorMessage';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { aiApi } from '@/api';
+import { apiLanguage } from '@/i18n/apiLanguage';
 import type { AiTipCard } from '@/api/types';
 
 const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
@@ -57,7 +61,19 @@ export default function DailyTipCard() {
   const dismissStorageKey = `${DISMISS_STORAGE_PREFIX}.${todayKey()}`;
   const [tip, setTip] = useState<AiTipCard | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  /**
+   * What the generation attempt is doing (review SCR-002).
+   *
+   * A tri-state, because the first version could not tell three outcomes apart:
+   * a refusal (`.catch(() => undefined)`), a success that legitimately produced
+   * no tip (`null`), and never having pressed the button all rendered the same
+   * empty card. `empty` is a *successful* call that produced nothing and gets its
+   * own sentence; `failed` carries the error for `resolveAiErrorMessage`.
+   */
+  const [generateState, setGenerateState] = useState<'idle' | 'generating' | 'failed' | 'empty'>(
+    'idle',
+  );
+  const [generateError, setGenerateError] = useState<unknown>(null);
   // Generating is a write (`require_tenant_role(grower)`), so the invitation is
   // absent for a viewer rather than present and refused.
   const { canEdit } = useTenantPermissions();
@@ -94,20 +110,34 @@ export default function DailyTipCard() {
   }, [dismissStorageKey]);
 
   const handleGenerate = useCallback(() => {
-    setGenerating(true);
+    setGenerateState('generating');
+    setGenerateError(null);
     aiApi
-      .refreshDailyTip(i18n.language.startsWith('en') ? 'en' : 'de')
-      .then(setTip)
-      .catch(() => undefined)
-      .finally(() => setGenerating(false));
+      .refreshDailyTip(apiLanguage(i18n.language))
+      .then((result) => {
+        setTip(result);
+        // A successful call that produced no card is not the same as a refused
+        // one, and neither is the same as not having asked. Each gets its own
+        // state, and its own sentence below.
+        setGenerateState(result ? 'idle' : 'empty');
+      })
+      .catch((err: unknown) => {
+        setGenerateError(err);
+        setGenerateState('failed');
+      });
   }, [i18n.language]);
 
   if (dismissed) return null;
 
+  const generating = generateState === 'generating';
+
   if (!tip) {
     if (!loaded || !canEdit) return null;
     return (
-      <Card variant="outlined" data-testid="daily-tip-empty">
+      // The whole card is the live region: its content changes from an invitation
+      // to a tip, an error or an "produced nothing" note without the user moving,
+      // and a screen reader has to hear that (UI-NFR-002 R-011).
+      <Card variant="outlined" data-testid="daily-tip-empty" aria-live="polite">
         <CardContent>
           <Typography variant="overline" color="text.secondary">
             {t('ai.dailyTip.heading')}
@@ -117,14 +147,38 @@ export default function DailyTipCard() {
           </Typography>
           <Button
             size="small"
-            startIcon={<AutoAwesomeIcon />}
+            startIcon={
+              generating ? <CircularProgress size={16} color="inherit" /> : <AutoAwesomeIcon />
+            }
             onClick={handleGenerate}
             disabled={generating}
+            aria-busy={generating}
             sx={{ minHeight: 48 }}
             data-testid="daily-tip-generate"
           >
-            {t('ai.dailyTip.generate')}
+            {t(generateState === 'failed' ? 'ai.errors.retry' : 'ai.dailyTip.generate')}
           </Button>
+          {generateState === 'failed' && (
+            <Box sx={{ mt: 1 }} data-testid="daily-tip-generate-error">
+              <ErrorDisplay
+                error={resolveAiErrorMessage(
+                  generateError,
+                  t,
+                  t('ai.errors.dailyTipGenerateFailed'),
+                )}
+              />
+            </Box>
+          )}
+          {generateState === 'empty' && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 1 }}
+              data-testid="daily-tip-generate-empty"
+            >
+              {t('ai.errors.dailyTipGenerateEmpty')}
+            </Typography>
+          )}
         </CardContent>
       </Card>
     );

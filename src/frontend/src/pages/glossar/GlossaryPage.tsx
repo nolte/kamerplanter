@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -13,6 +14,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { glossaryApi } from '@/api';
 import type { GlossaryExpertiseLevel, GlossaryTermSummary } from '@/api/types';
 import AIResponse from '@/components/ai/AIResponse';
+import { resolveAiErrorMessage } from '@/components/ai/aiErrorMessage';
+import { apiLanguage } from '@/i18n/apiLanguage';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -35,7 +38,7 @@ export default function GlossaryPage() {
   const { level } = useExpertiseLevel();
 
   const language = useMemo<'de' | 'en'>(
-    () => (i18n.language.startsWith('en') ? 'en' : 'de'),
+    () => apiLanguage(i18n.language),
     [i18n.language],
   );
   const expertise = level as GlossaryExpertiseLevel;
@@ -79,6 +82,20 @@ export default function GlossaryPage() {
 
   const detail = useGlossaryTerm(selectedSlug, language, expertise);
   const { canEdit } = useTenantPermissions();
+
+  // Review SCR-010 — a successful generate unmounts the button the user just
+  // pressed (the answer stops being a fallback), so keyboard focus would fall
+  // back to <body> and a screen-reader user would lose their place. Move it onto
+  // the answer heading, which is what they asked to have regenerated.
+  const answerHeadingRef = useRef<HTMLHeadingElement>(null);
+  const wasFallback = useRef(false);
+  useEffect(() => {
+    const isFallback = detail.answer?.is_fallback === true;
+    if (wasFallback.current && !isFallback && detail.answer) {
+      answerHeadingRef.current?.focus();
+    }
+    wasFallback.current = isFallback;
+  }, [detail.answer]);
 
   const handleBack = useCallback(() => setSelectedSlug(null), []);
 
@@ -132,7 +149,14 @@ export default function GlossaryPage() {
             )}
             {detail.answer && !detail.loading && !detail.error && (
               <Card sx={{ p: 3 }}>
-                <Typography variant="h5" component="h2" gutterBottom>
+                <Typography
+                  variant="h5"
+                  component="h2"
+                  gutterBottom
+                  ref={answerHeadingRef}
+                  tabIndex={-1}
+                  data-testid="glossary-detail-heading"
+                >
                   {detail.answer.long_label}
                 </Typography>
                 <AIResponse
@@ -169,14 +193,41 @@ export default function GlossaryPage() {
                   {detail.answer.is_fallback && canEdit && (
                     <Button
                       size="small"
-                      startIcon={<AutoAwesomeIcon />}
+                      startIcon={
+                        detail.generating ? (
+                          <CircularProgress size={16} color="inherit" />
+                        ) : (
+                          <AutoAwesomeIcon />
+                        )
+                      }
                       onClick={() => void detail.generate()}
                       disabled={detail.generating}
+                      aria-busy={detail.generating}
                       sx={{ mt: 1, minHeight: 48 }}
                       data-testid="glossary-detail-generate"
                     >
-                      {t('pages.glossary.tooltip.generate')}
+                      {t(
+                        detail.generateStatus === 'failed'
+                          ? 'ai.errors.retry'
+                          : 'pages.glossary.tooltip.generate',
+                      )}
                     </Button>
+                  )}
+                  {/* Review SCR-001 — a refusal used to end in an empty `catch`,
+                      so a 403 (viewer, KI disabled, missing consent), a 429 or a
+                      502 all looked like "the button does nothing". The message
+                      lands inside the `aria-live` region above, so it is
+                      announced, and the control above turns into "try again". */}
+                  {detail.generateStatus === 'failed' && (
+                    <Box sx={{ mt: 1 }} data-testid="glossary-detail-generate-error">
+                      <ErrorDisplay
+                        error={resolveAiErrorMessage(
+                          detail.generateError,
+                          t,
+                          t('ai.errors.generateFailed'),
+                        )}
+                      />
+                    </Box>
                   )}
                   {detail.answer.related_terms.length > 0 && (
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 2 }}>

@@ -302,8 +302,31 @@ _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
 #: repository would turn this red with no write moving, changing or appearing —
 #: the drift that cost this file its sink line numbers, one level up. A subset
 #: says the thing the entry actually claims: this route reaches no write it is
-#: not excused for. A NEW sink still turns it red, which is the property that
-#: matters.
+#: not excused for.
+#:
+#: **How much "a NEW sink turns it red" is worth differs per entry, and the honest
+#: version of that sentence is below** (review SCR-006). Both halves were measured
+#: by mutation on 2026-09-18 — an added, detector-resolvable
+#: ``self._export_repo.create(...)`` inside the service each route reaches:
+#:
+#: * ``privacy.download_export`` excuses **one** sink (``_update_doc``). The
+#:   mutation adds ``_insert_doc``, which is not in the set, and the sweep goes
+#:   **red**. `test_a_second_write_in_an_intentional_read_is_reported` pins that,
+#:   so the claim is checked and not believed.
+#: * ``auth.oauth_callback`` excuses fifteen, and those fifteen already include
+#:   **all four** base document primitives plus ``create_edge``/``delete_edges``.
+#:   Any write added anywhere below it goes through one of them, so the identity
+#:   is already in the set and the sweep stays **green**. For this entry the sink
+#:   set bounds the *shape* of what the route reaches — repository primitives, no
+#:   raw query outside the listed ones — and nothing finer. Said out loud because
+#:   a witness whose limits are implicit is read as having none, which is the
+#:   #1441 failure this file exists to avoid repeating.
+#:
+#: What still covers ``oauth_callback`` is not this list: the route stays inside
+#: `mounted_write_operations`, answers the three authorisation questions like any
+#: `POST`, and carries a `_PUBLIC_ALLOWLIST` entry with an obsolescence rule. A
+#: sharper witness here needs the detector to carry the *call path* into the sink
+#: identity, which is a change to `_write_call_graph` and not to this dict.
 _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
     "auth.router.oauth_callback": (
         "REQ-023 §4.3a — the OAuth2 redirect back from the provider can only be a GET, and "
@@ -2442,6 +2465,57 @@ class TestPersistingReadsAreSweptLikeWrites:
             "A read that persists on purpose reaches a write its entry does not account for. The "
             "decision covers the MEASURED sinks; anything else has to be gated or argued on its "
             "own:\n  " + "\n  ".join(problems)
+        )
+
+    def test_a_second_write_in_an_intentional_read_is_reported(self):
+        """The mutation SCR-006 asked for, run as a test rather than by hand.
+
+        `privacy.download_export` excuses exactly one sink, so a second write
+        inside `PrivacyService.prepare_export_download` has to surface. This drives
+        the predicate the sweep drives — `write_sinks_of` minus the excused set —
+        over a synthetic tree, because mutating the real service in a test run is
+        not available and a hand-run mutation is a claim nobody re-checks.
+
+        The companion claim, that the same mutation does **not** show up for
+        `oauth_callback`, is stated on the dict above with its reason; it is a
+        property of the sink-identity format, not something this file can fix.
+        """
+        excused = _INTENTIONAL_PERSISTING_READS["privacy.router.download_export"][1]
+        measured_today = {
+            "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc"
+        }
+        assert set(excused) == measured_today, (
+            "the download_export witness is no longer the single sink this test reasons about"
+        )
+
+        # The mutation: the handler grows an insert alongside its update.
+        with_a_second_write = measured_today | {
+            "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc"
+        }
+        assert with_a_second_write - set(excused), (
+            "a second, unexcused write no longer produces an unexcused sink — the entry has stopped "
+            "bounding anything and the dict's promise above is false for it too"
+        )
+
+    def test_the_oauth_entry_is_the_blunt_one_and_says_so(self):
+        """SCR-006, pinned: the limitation is measured, not merely written down.
+
+        If the entry ever stopped excusing the base primitives, the note above it
+        would become wrong in the *safe* direction — but silently, and the next
+        reader would take the docstring's caveat as still binding and trust it
+        less than they should. Either way the prose and the data have to agree.
+        """
+        _reason, excused = _INTENTIONAL_PERSISTING_READS["auth.router.oauth_callback"]
+        primitives = {
+            "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
+            "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
+            "self.collection.update() in app.data_access.arango.base_repository"
+            "::BaseArangoRepository._update_doc_fields",
+            "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
+        }
+        assert primitives <= set(excused), (
+            "the oauth_callback entry no longer excuses every base primitive, so the caveat on "
+            "_INTENTIONAL_PERSISTING_READS overstates its own weakness — tighten the note in the same diff."
         )
 
     def test_every_excused_sink_is_really_reachable(self):

@@ -13,6 +13,7 @@ dict handed to ``update_fields`` — that argument *is* the invariant under test
 """
 
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -60,9 +61,9 @@ class _RecordingRepo:
 
 
 def _service(seed: UserPreference) -> tuple[UserPreferenceService, _RecordingRepo]:
-    service = UserPreferenceService.__new__(UserPreferenceService)
+    service = UserPreferenceService(MagicMock())
     repo = _RecordingRepo(seed)
-    service._repo = repo  # type: ignore[attr-defined]
+    service._repo = repo  # type: ignore[assignment]
     return service, repo
 
 
@@ -171,8 +172,15 @@ class _MultiDocRepo:
 
 
 def _service_with(repo: Any) -> UserPreferenceService:
-    service = UserPreferenceService.__new__(UserPreferenceService)
-    service._repo = repo  # type: ignore[attr-defined]
+    """The real service with only its repository doubled (review SCR-011).
+
+    ``__new__`` skipped ``__init__`` here, so a constructor that grew a second
+    collection or a derived field would have left these tests exercising an object
+    the application never builds. The ``MagicMock`` database is enough: ``db`` is
+    only used to construct the repository this then replaces.
+    """
+    service = UserPreferenceService(MagicMock())
+    service._repo = repo  # type: ignore[assignment]
     return service
 
 

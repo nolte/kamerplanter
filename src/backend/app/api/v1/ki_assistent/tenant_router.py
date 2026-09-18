@@ -85,10 +85,23 @@ def _response_schema(response: AiResponse) -> AiResponseSchema:
 def _may_refresh(ctx: TenantContext) -> bool:
     """Whether ``ctx`` passes the gate on the regeneration routes below.
 
-    The same predicate `require_tenant_role(GROWER)` applies, read out of the
-    engine rather than restated, so the flag on the response and the gate on the
-    ``POST`` cannot disagree — a client that trusted a hand-written copy would
-    show a control the server then refuses.
+    Rank is the only axis left to report, and the precondition is what makes that
+    true: this is only ever evaluated inside a handler of **this router**, whose
+    `dependencies=[Depends(require_ai_tenant_enabled)]` has already answered both
+    other stages of the REQ-031 §1.3 toggle — 404 when the operator flag is off,
+    403 when the tenant has KI disabled. A caller who would fail either of them
+    never receives a body to read this flag out of. The consent stage is symmetric
+    for the same reason: `get_tips` requires `ai_tenant_data_access` itself, so a
+    caller without it gets a 403 on the read rather than a flag they cannot use.
+
+    Measured, not assumed — `tests/api/test_ai_tip_reads_are_gated.py` drives all
+    three refusals against the mounted router, because the dependency this leans
+    on is declared on the router and an edit to the handler signature would not
+    show it moving.
+
+    What remains is `require_tenant_role(GROWER)`, read out of the same predicate
+    the gate decides on rather than restated, so the flag on the response and the
+    gate on the ``POST`` cannot disagree.
     """
     return meets_tenant_role(ctx.role, TenantRole.GROWER)
 

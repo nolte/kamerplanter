@@ -85,6 +85,63 @@ describe('DailyTipCard', () => {
     expect(await screen.findByText('Generated today')).toBeTruthy();
   });
 
+  it('says so when generating is refused', async () => {
+    // Review SCR-002 — `.catch(() => undefined)` left a refusal and "never
+    // pressed" rendering identically, so a 403 (viewer, KI off, missing consent)
+    // looked like a dead button.
+    getDailyTip.mockResolvedValue(null);
+    refreshDailyTip.mockRejectedValue(new Error('refused'));
+    const user = userEvent.setup();
+    renderWithProviders(<DailyTipCard />, { store: createStoreWithTenantRole('grower') });
+
+    await user.click(await screen.findByTestId('daily-tip-generate'));
+
+    expect(await screen.findByTestId('daily-tip-generate-error')).toBeTruthy();
+    // The control stays, inviting a retry rather than repeating its first label.
+    expect(screen.getByTestId('daily-tip-generate')).toBeTruthy();
+  });
+
+  it('distinguishes a successful generate that produced nothing from a refusal', async () => {
+    // The third state the old code collapsed: the call succeeded and the
+    // Knowledge Service simply had nothing to say. Telling the user to try again
+    // later is a different sentence from telling them it failed.
+    getDailyTip.mockResolvedValue(null);
+    refreshDailyTip.mockResolvedValue(null);
+    const user = userEvent.setup();
+    renderWithProviders(<DailyTipCard />, { store: createStoreWithTenantRole('grower') });
+
+    await user.click(await screen.findByTestId('daily-tip-generate'));
+
+    expect(await screen.findByTestId('daily-tip-generate-empty')).toBeTruthy();
+    expect(screen.queryByTestId('daily-tip-generate-error')).toBeNull();
+  });
+
+  it('explains a disabled-AI refusal instead of showing a generic failure', async () => {
+    const { ApiError } = await import('@/api/errors');
+    getDailyTip.mockResolvedValue(null);
+    refreshDailyTip.mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'err-1',
+          timestamp: '2026-09-18T00:00:00Z',
+          error_code: 'AI_DISABLED_FOR_TENANT',
+          message: 'forbidden',
+          details: [],
+          path: '/ai/daily-tip/refresh',
+          method: 'POST',
+        },
+        403,
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<DailyTipCard />, { store: createStoreWithTenantRole('grower') });
+
+    await user.click(await screen.findByTestId('daily-tip-generate'));
+
+    const error = await screen.findByTestId('daily-tip-generate-error');
+    expect(error.textContent).toContain('disabled');
+  });
+
   it('offers no generate invitation after a failed read', async () => {
     // A fetch failure is not an empty day. Offering "generate" over an outage
     // would turn a transient error into a needless LLM call the user pays for.

@@ -186,7 +186,14 @@ def test_public_list_terms(service, monkeypatch) -> None:
 # fallback (``is_fallback=true``) inside the service instead of returning 404.
 
 
-def test_public_term_flag_off_serves_fallback(service, monkeypatch) -> None:
+def test_public_term_route_forwards_whatever_the_service_answers_with_the_flag_off(service, monkeypatch) -> None:
+    """Renamed for what it measures (review SCR-007).
+
+    The service is a double whose return value is already ``is_fallback=True``, so
+    this cannot say the *service* degrades correctly — it says the route does not
+    404 and forwards the body. The service-level claim, with a warm cache, is
+    ``tests/unit/test_glossary_read_does_not_generate.py::test_the_flag_off_serves_the_curated_text_over_a_warm_cache``.
+    """
     monkeypatch.setattr(limiter, "enabled", False)
     monkeypatch.setattr(settings, "ai_features_enabled", False)
     service.get_term = MagicMock(return_value=_answer(is_fallback=True))
@@ -207,7 +214,8 @@ def test_public_terms_flag_off_still_listed(service, monkeypatch) -> None:
     service.list_terms.assert_called_once()
 
 
-def test_tenant_term_flag_off_serves_fallback(service, monkeypatch) -> None:
+def test_tenant_term_route_forwards_whatever_the_service_answers_with_the_flag_off(service, monkeypatch) -> None:
+    """The tenant sibling of the route test above (review SCR-007)."""
     monkeypatch.setattr(settings, "ai_features_enabled", False)
     service.get_term = MagicMock(return_value=_answer(is_fallback=True))
     client = TestClient(_build_app(service))
