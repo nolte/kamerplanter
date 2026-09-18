@@ -37,6 +37,7 @@ export default function TipCardsPanel({ contextType, contextKey, title }: TipCar
   const { t, i18n } = useTranslation();
   const { level } = useExpertiseLevel();
   const [tips, setTips] = useState<AiTipCard[] | null>(null);
+  const [mayGenerate, setMayGenerate] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const language = i18n.language.startsWith('en') ? 'en' : 'de';
@@ -47,8 +48,9 @@ export default function TipCardsPanel({ contextType, contextKey, title }: TipCar
       try {
         const result = force
           ? await aiApi.refreshTips(contextType, contextKey, language)
-          : await aiApi.getTips(contextType, contextKey, language);
-        setTips(result);
+          : await aiApi.getTips(contextType, contextKey);
+        setTips(result.tips);
+        setMayGenerate(result.refresh_available === true);
       } catch {
         // Online-only feature (UI-NFR-012): hide the panel when it has nothing to
         // show. A *forced* refresh that fails is different — the panel already
@@ -69,9 +71,12 @@ export default function TipCardsPanel({ contextType, contextKey, title }: TipCar
   }, [load]);
 
   // Regenerating tips is a write on the server (`require_tenant_role(grower)`
-  // since #1353); `canEdit` is the same predicate, so the control is absent for a
-  // viewer rather than present and refused.
+  // since #1353); `canEdit` is the same predicate client-side, and
+  // `refresh_available` is the server's own answer to it. Both are required: the
+  // flag is absent on an older response, and `canEdit` alone would put the
+  // control on a surface the server then refuses.
   const { canEdit } = useTenantPermissions();
+  const canRefresh = canEdit && mayGenerate;
 
   const maxCards = level === 'beginner' ? 2 : 4;
   const visibleTips = (tips ?? []).slice(0, maxCards);
@@ -85,9 +90,17 @@ export default function TipCardsPanel({ contextType, contextKey, title }: TipCar
     );
   }
 
-  if (tips !== null && visibleTips.length === 0) {
+  // Empty and nobody here can do anything about it — stay invisible, as before.
+  //
+  // Empty and the caller MAY generate is a new state (#1461): reading the tips
+  // no longer generates them on a cache miss, so without an explicit invitation
+  // a grower would never find out that tips exist at all. The panel then renders
+  // its heading, one sentence of explanation and the generate button.
+  if (tips !== null && visibleTips.length === 0 && !canRefresh) {
     return null;
   }
+
+  const isEmpty = tips !== null && visibleTips.length === 0;
 
   return (
     <Box data-testid="tip-cards-panel">
@@ -98,19 +111,25 @@ export default function TipCardsPanel({ contextType, contextKey, title }: TipCar
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           {title ?? t('ai.tips.heading')}
         </Typography>
-        {canEdit && (
+        {canRefresh && (
         <Button
           size="small"
           startIcon={<RefreshIcon />}
           onClick={() => void load(true)}
           disabled={loading}
           sx={{ minHeight: 48 }}
-          data-testid="tip-cards-refresh"
+          data-testid={isEmpty ? 'tip-cards-generate' : 'tip-cards-refresh'}
         >
-          {t('ai.tips.refresh')}
+          {t(isEmpty ? 'ai.tips.generate' : 'ai.tips.refresh')}
         </Button>
         )}
       </Stack>
+
+      {isEmpty && (
+        <Typography variant="body2" color="text.secondary" data-testid="tip-cards-empty">
+          {t('ai.tips.empty')}
+        </Typography>
+      )}
 
       <Stack spacing={1.5}>
         {visibleTips.map((tip) => (

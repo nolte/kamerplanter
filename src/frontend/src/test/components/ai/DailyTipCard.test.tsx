@@ -1,16 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '@/test/helpers';
+import { renderWithProviders, createStoreWithTenantRole } from '@/test/helpers';
 import type { AiTipCard } from '@/api/types';
 
 const getDailyTip = vi.fn();
 const dismissDailyTip = vi.fn();
+const refreshDailyTip = vi.fn();
 
 vi.mock('@/api', () => ({
   aiApi: {
     getDailyTip: (...args: unknown[]) => getDailyTip(...args),
     dismissDailyTip: (...args: unknown[]) => dismissDailyTip(...args),
+    refreshDailyTip: (...args: unknown[]) => refreshDailyTip(...args),
   },
 }));
 
@@ -39,6 +41,7 @@ describe('DailyTipCard', () => {
   beforeEach(() => {
     getDailyTip.mockReset();
     dismissDailyTip.mockReset();
+    refreshDailyTip.mockReset();
     try {
       localStorage.clear();
     } catch {
@@ -57,12 +60,40 @@ describe('DailyTipCard', () => {
     expect(screen.getByTestId('ai-tenant-data-indicator')).toBeTruthy();
   });
 
-  it('renders nothing when there is no daily tip', async () => {
+  it('renders nothing when there is no daily tip and the viewer cannot generate one', async () => {
     getDailyTip.mockResolvedValue(null);
-    renderWithProviders(<DailyTipCard />);
+    renderWithProviders(<DailyTipCard />, { store: createStoreWithTenantRole('viewer') });
 
     await waitFor(() => expect(getDailyTip).toHaveBeenCalled());
     expect(screen.queryByTestId('daily-tip-card')).toBeNull();
+    expect(screen.queryByTestId('daily-tip-empty')).toBeNull();
+  });
+
+  it('invites a grower to generate today\u2019s tip when there is none', async () => {
+    // #1461 — the read stopped generating on a miss, so `null` is now also the
+    // "nothing generated for today" answer. Without an explicit invitation the
+    // dashboard card would be permanently invisible.
+    getDailyTip.mockResolvedValue(null);
+    refreshDailyTip.mockResolvedValue(makeTip({ title: 'Generated today' }));
+    const user = userEvent.setup();
+    renderWithProviders(<DailyTipCard />, { store: createStoreWithTenantRole('grower') });
+
+    expect(await screen.findByTestId('daily-tip-empty')).toBeTruthy();
+    await user.click(screen.getByTestId('daily-tip-generate'));
+
+    await waitFor(() => expect(refreshDailyTip).toHaveBeenCalled());
+    expect(await screen.findByText('Generated today')).toBeTruthy();
+  });
+
+  it('offers no generate invitation after a failed read', async () => {
+    // A fetch failure is not an empty day. Offering "generate" over an outage
+    // would turn a transient error into a needless LLM call the user pays for.
+    getDailyTip.mockRejectedValue(new Error('offline'));
+    renderWithProviders(<DailyTipCard />, { store: createStoreWithTenantRole('grower') });
+
+    await waitFor(() => expect(getDailyTip).toHaveBeenCalled());
+    expect(screen.queryByTestId('daily-tip-empty')).toBeNull();
+    expect(screen.queryByTestId('daily-tip-generate')).toBeNull();
   });
 
   it('hides the card and calls the API on dismiss', async () => {
