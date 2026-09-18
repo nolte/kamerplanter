@@ -1,7 +1,7 @@
 import re
 
 from app.common.enums import DataOrigin, DuplicateStrategy, EntityType, ImportJobStatus, TenantRole
-from app.common.exceptions import ValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.config.settings import settings
 from app.domain.engines.csv_parser import CsvParser
 from app.domain.engines.import_engine import ImportEngine
@@ -50,7 +50,48 @@ class ImportService:
         filename: str,
         duplicate_strategy: DuplicateStrategy = DuplicateStrategy.SKIP,
         uploaded_by: str = "",
+        *,
+        tenant_key: str = "",
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
     ) -> ImportJob:
+        """Stage a CSV for preview, stamped with the tenant that uploaded it (#1501).
+
+        The rank lives **here** rather than on the route, which is where the first
+        version of #1501 put it (review SCR-005). Two reasons, and neither is style:
+        a ``require_active_tenant_role`` dependency ranks the caller and knows
+        nothing about a platform admin, so ``upload`` was the one write of the three
+        with no admin bypass while ``confirm`` and ``delete_job`` both had one — the
+        light-mode operator (REQ-027) resolves to the fail-safe ``VIEWER`` and could
+        confirm an import they were not allowed to stage. And a gate that only
+        exists on the route is unreachable for any non-HTTP caller, which is the
+        argument :mod:`app.domain.services.catalogue_authorization` makes about why
+        its own rule is not a FastAPI dependency.
+
+        ``caller_role is None`` is the system context — seeders and tests with no
+        HTTP caller — and stays ungated, exactly as ``confirm`` leaves it.
+
+        ``ImportJob`` has carried ``tenant_key`` and ``uploaded_by`` since it was
+        written, and until now nothing ever set either: the router called this
+        without ``uploaded_by`` and there was no ``tenant_key`` parameter at all, so
+        every job in the collection was owned by ``""``. Two fields that exist, are
+        never written and are therefore never read — the "implemented but inert"
+        shape — and the direct consequence was that ``get_job``, ``list_jobs`` and
+        ``delete_job`` had nothing to scope by, so one tenant's staged CSV of master
+        data was readable and destroyable by every other tenant's members.
+
+        Stamping happens here rather than in the router for the reason the ownership
+        stamp lives in the service everywhere else: the field that decides who may
+        read the row is written by the layer that owns the rule.
+        """
+        if caller_role is not None and not tenant_key:
+            # Same arm, same reason as `confirm`: a caller with no resolvable
+            # tenant must not stage a job that would be stamped `""` — the ownerless
+            # shape v0052 deletes and that no scope can ever address (SCR-001).
+            raise ValidationError("Cannot stage an import without an active tenant.")
+        if caller_role is not None and not is_platform_admin and not MembershipEngine.can_edit_resource(caller_role):
+            raise ForbiddenError("Your role may not stage an import in this tenant.")
+
         existing_keys = self._get_existing_keys(entity_type)
         job = self._engine.upload_and_validate(
             file_bytes,
@@ -60,14 +101,58 @@ class ImportService:
             existing_keys,
         )
         job.uploaded_by = uploaded_by
+        job.tenant_key = tenant_key
         return self._repo.save(job)
 
-    def get_job(self, key: str) -> ImportJob:
+    def get_job(self, key: str, *, tenant_key: str | None = None) -> ImportJob:
+        """Return one staged job, scoped to ``tenant_key`` when one is given (#1501).
+
+        ``None`` is the unscoped **system-context** load, and also what this
+        service's own internal callers use — ``confirm`` re-reads the job after the
+        route has already resolved the tenant. A foreign job raises
+        :class:`NotFoundError`, never :class:`ForbiddenError`: ownership hiding, so
+        the by-key route cannot serve as a cross-tenant existence oracle. That is
+        the arm ``SpeciesService.get_species`` takes for the same reason.
+
+        ``""`` is a **caller with no resolvable tenant** — anonymous, light mode, or
+        a user without a personal tenant, all of which
+        :func:`~app.common.auth.get_active_tenant_context` resolves to the empty
+        key. It is *not* a system context and it is *not* a wildcard: such a caller
+        owns nothing and sees nothing, so every key is a 404. The first version of
+        this method wrote ``tenant_key is not None and job.tenant_key != tenant_key``,
+        which made ``""`` match every pre-#1501 job — the exact fail-open the
+        ``is_tenant_scoped`` guard on the repository now also refuses (review
+        SCR-001). ``None``, and only ``None``, is the unscoped system-context load;
+        this service's own ``confirm`` uses it after the route has already scoped.
+
+        A job stamped ``""`` predates this change and belongs to no tenant. It is
+        therefore reachable by nobody at all — not by the empty context either —
+        and migration ``v0052`` deletes those rows, because a row no caller can
+        ever address is not data, it is residue.
+        """
         job = self._repo.get_or_raise(key)
+        if tenant_key is None:
+            return job
+        if not tenant_key or job.tenant_key != tenant_key:
+            raise NotFoundError("ImportJob", key)
         return job
 
-    def list_jobs(self, offset: int = 0, limit: int = 50) -> tuple[list[ImportJob], int]:
-        return self._repo.list_all(offset, limit)
+    def list_jobs(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[ImportJob], int]:
+        """List staged jobs, scoped to ``tenant_key``; ``None`` is the system context.
+
+        The empty string short-circuits to an empty page and never reaches the
+        repository (review SCR-001). Passing it down would have been the fail-open:
+        ``_list_docs`` filters under ``if tenant_key:``, so ``""`` produced an
+        **unfiltered** list — every tenant's jobs with their ``preview_rows``, i.e.
+        the contents of other tenants' uploaded CSVs, to a caller with no tenant at
+        all. The repository now also refuses that call, and this arm means it never
+        has to.
+        """
+        if tenant_key is not None and not tenant_key:
+            return ([], 0)
+        return self._repo.list_all(offset, limit, tenant_key=tenant_key)
 
     def confirm(
         self,
@@ -97,8 +182,27 @@ class ImportService:
         it: deleting a global row has required a platform admin since #1109. The
         import was the unlocked back door of the gates #1109/#1113/#1120 fitted to
         the front.
+
+        #1501 adds the ownership half the gate above never had: the job is loaded
+        **scoped**, so a caller can only confirm a job their own tenant staged. Until
+        then ``confirm`` re-read the job unscoped, and the gate answered only "may
+        this caller import into *their* tenant" — never "is this *their* job". A
+        member of tenant B could therefore confirm tenant A's staged upload and pull
+        A's CSV rows into B's catalogue, reading A's data in the process. The stamp
+        ``upload`` now writes is what makes the scope possible at all.
+
+        An HTTP caller with **no resolvable tenant** is refused before anything is
+        loaded (review SCR-001). ``_authorize_confirm`` already held that rule, but
+        only for species and cultivars and only in full mode; here it is
+        unconditional, it precedes the load, and it keeps the refusal a
+        ``ValidationError`` — "you have no active tenant" is a true statement about
+        the caller and hides no row's existence, unlike the 404 a *foreign* job
+        earns. ``caller_role is not None`` is what distinguishes an HTTP caller from
+        the seeders, which pass no role and no tenant and stay ungated.
         """
-        job = self.get_job(key)
+        if caller_role is not None and not tenant_key:
+            raise ValidationError("Cannot confirm an import without an active tenant.")
+        job = self.get_job(key, tenant_key=tenant_key)
         if job.status != ImportJobStatus.PREVIEW_READY:
             raise ValidationError(f"Job must be in PREVIEW_READY status, got {job.status}")
 
@@ -177,8 +281,50 @@ class ImportService:
             is_platform_admin=is_platform_admin,
         )
 
-    def delete_job(self, key: str) -> bool:
-        self.get_job(key)
+    def delete_job(
+        self,
+        key: str,
+        *,
+        tenant_key: str | None,
+        caller_role: TenantRole | None,
+        is_platform_admin: bool,
+    ) -> bool:
+        """Delete a staged import job — owner-scoped and rank-gated (#1501).
+
+        Three keyword-only arguments **without defaults**. The signature used to be
+        ``delete_job(self, key)`` and the route above it resolved
+        ``get_current_user`` alone, so any authenticated member of any tenant could
+        destroy any staged import. A default on any of the three would let the next
+        caller re-open exactly that hole by omission; a ``TypeError`` is the only
+        failure mode nobody can walk past.
+
+        The arms, in order, mirror
+        :func:`~app.domain.services.species_service._authorize_tenant_owned_write`:
+
+        * ``tenant_key is None`` — unscoped system context, no HTTP caller.
+        * ``tenant_key == ""`` — an HTTP caller with no resolvable tenant. They own
+          nothing, so :meth:`get_job` answers 404 before the rank is consulted
+          (review SCR-001); the empty key is never a wildcard here.
+        * a *foreign* job — :class:`NotFoundError` out of :meth:`get_job`. Ownership
+          hiding, not a 403.
+        * the caller's own job — the domain rank. Deleting is the irreversibility
+          boundary, so it is ``can_delete_resource`` (**lead only**, REQ-024 §1a.1 /
+          REQ-049 §2.3), the very predicate ``require_permission(..., DELETE)``
+          resolves. A platform admin bypasses the rank, as everywhere else.
+
+        Lead-only is stricter than "whoever uploaded it may withdraw it", and that is
+        a deliberate choice rather than an oversight: ``uploaded_by`` only starts
+        being written by this change, so no stored job carries a trustworthy
+        uploader — a rule reading that field would be inert on exactly the rows it
+        is meant to govern.
+        """
+        self.get_job(key, tenant_key=tenant_key)
+        if (
+            tenant_key is not None
+            and not is_platform_admin
+            and (caller_role is None or not MembershipEngine.can_delete_resource(caller_role))
+        ):
+            raise ForbiddenError("Your role may not delete import jobs in this tenant.")
         return self._repo.delete(key)
 
     def get_template(self, entity_type: EntityType) -> str:

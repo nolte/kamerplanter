@@ -29,6 +29,7 @@ from app.common.auth import (
     get_creating_tenant_key,
     get_current_user,
     get_is_platform_admin,
+    require_platform_admin,
 )
 from app.common.dependencies import get_family_repo, get_ipm_service, get_species_service
 from app.common.enums import DataOrigin, TenantRole
@@ -187,11 +188,16 @@ def test_species_create_defaults_global_when_no_personal_tenant(monkeypatch):
 # ── IPM API: disease/treatment origin is served + create marks tenant ─
 
 
-def _ipm_app(service: MagicMock) -> FastAPI:
+def _ipm_app(service: MagicMock, *, platform_admin: bool = False) -> FastAPI:
     app = FastAPI()
     app.include_router(ipm_router, prefix="/api/v1")
     app.dependency_overrides[get_current_user] = _user
     app.dependency_overrides[get_ipm_service] = lambda: service
+    # #1501 — the IPM catalogue writes are platform-admin gated. ``require_platform_admin``
+    # is overridden rather than stubbed away so the read assertions below stay on the
+    # ordinary member path and only the write gets the elevated caller.
+    app.dependency_overrides[require_platform_admin] = lambda: _user()
+    app.dependency_overrides[get_is_platform_admin] = lambda: platform_admin
     return app
 
 
@@ -200,8 +206,8 @@ def test_disease_get_serves_origin_and_create_marks_tenant():
     service.get_disease.return_value = Disease(
         _key="d1", scientific_name="Botrytis cinerea", common_name="Grey mould", pathogen_type="fungal"
     )
-    service.create_disease.side_effect = lambda d: d
-    client = TestClient(_ipm_app(service))
+    service.create_disease.side_effect = lambda d, *, is_platform_admin: d
+    client = TestClient(_ipm_app(service, platform_admin=True))
 
     got = client.get("/api/v1/ipm/diseases/d1")
     assert got.status_code == 200

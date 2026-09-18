@@ -16,6 +16,7 @@ import OriginChip from '@/components/common/OriginChip';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -34,6 +35,12 @@ export default function PhaseDefinitionListPage() {
     defaultSort: { column: 'name', direction: 'asc' },
     pageSizeStorageKey: 'phaseDefinitions.pageSize',
   });
+
+  // #1501 — phase definitions, sequences and entries are an INSTALLATION-WIDE
+  // catalogue: neither model carries a tenant_key, so every write is gated on
+  // `require_platform_admin` backend-side. Hiding the controls from everyone else
+  // is the UX consequence, never the control — the API answers 403 regardless.
+  const canCurate = useCanEditInstallationCatalogue();
 
   const [definitions, setDefinitions] = useState<PhaseDefinition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,50 +164,60 @@ export default function PhaseDefinitionListPage() {
       searchable: false,
       hideBelowBreakpoint: 'md',
     },
-    {
-      id: 'actions',
-      label: t('common.actions'),
-      align: 'right',
-      sortable: false,
-      searchable: false,
-      render: (def) => (
-        <Box onClick={(e) => e.stopPropagation()}>
-          {/* UI-NFR-018 R-011/R-013: hide edit/delete actions for system data */}
-          {!def.is_system && (
-            <Tooltip title={t('common.edit')}>
-              <IconButton
-                size="small"
-                onClick={() => handleOpenEdit(def)}
-                aria-label={t('common.edit')}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-          {!def.is_system && (
-            <Tooltip
-              title={
-                def.usage_count > 0
-                  ? t('pages.phaseSequences.definitionInUse')
-                  : t('common.delete')
-              }
-            >
-              <span>
-                <IconButton
-                  size="small"
-                  color="error"
-                  disabled={def.usage_count > 0}
-                  onClick={() => setDeleteKey(def.key)}
-                  aria-label={t('common.delete')}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-          )}
-        </Box>
-      ),
-    },
+    // The edit/delete icons are this column's only content for a non-admin —
+    // unlike the other columns, which always carry data regardless of role — so
+    // gating them in `render` alone would leave a permanently empty "Aktionen"
+    // column, header and all, for anyone but a platform admin (#1467 usability
+    // pass; see CultivarListSection for the same fix). The whole column is
+    // omitted instead.
+    ...(canCurate
+      ? [
+          {
+            id: 'actions',
+            label: t('common.actions'),
+            align: 'right',
+            sortable: false,
+            searchable: false,
+            render: (def) => (
+              <Box onClick={(e) => e.stopPropagation()}>
+                {/* UI-NFR-018 R-011/R-013: hide edit/delete actions for system data. */}
+                {!def.is_system && (
+                  <Tooltip title={t('common.edit')}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenEdit(def)}
+                      aria-label={t('common.edit')}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {!def.is_system && (
+                  <Tooltip
+                    title={
+                      def.usage_count > 0
+                        ? t('pages.phaseSequences.definitionInUse')
+                        : t('common.delete')
+                    }
+                  >
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        disabled={def.usage_count > 0}
+                        onClick={() => setDeleteKey(def.key)}
+                        aria-label={t('common.delete')}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
+              </Box>
+            ),
+          } as Column<PhaseDefinition>,
+        ]
+      : []),
   ];
 
   return (
@@ -208,14 +225,16 @@ export default function PhaseDefinitionListPage() {
       <PageTitle
         title={t('pages.phaseSequences.definitionsTitle')}
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreate}
-            data-testid="create-definition-button"
-          >
-            {t('pages.phaseSequences.createDefinition')}
-          </Button>
+          canCurate ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreate}
+              data-testid="create-definition-button"
+            >
+              {t('pages.phaseSequences.createDefinition')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -234,8 +253,13 @@ export default function PhaseDefinitionListPage() {
         tableState={tableState}
         ariaLabel={t('pages.phaseSequences.definitionsTitle')}
         emptyMessage={t('pages.phaseSequences.noDefinitions')}
-        emptyActionLabel={t('pages.phaseSequences.createDefinition')}
-        onEmptyAction={handleOpenCreate}
+        // #1501 — the create control is a platform-admin write; offering it here
+        // for anyone else would be a control the API can only answer 403 to (the
+        // same "sibling nobody bound" class as the header button below). The
+        // description closes the understanding gap the missing button leaves.
+        emptyDescription={canCurate ? undefined : t('pages.phaseSequences.catalogueCreateDenied')}
+        emptyActionLabel={canCurate ? t('pages.phaseSequences.createDefinition') : undefined}
+        onEmptyAction={canCurate ? handleOpenCreate : undefined}
         emptyIllustration={kamiPhaseGermination}
         mobileCardRenderer={(def) => (
           <MobileCard

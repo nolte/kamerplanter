@@ -73,14 +73,14 @@ Im Bearbeiten-Dialog aktivierst oder deaktivierst du jeden Erinnerungstyp einzel
 
 ### Pflegestil-Presets
 
-Das System kennt vordefinierte Pflegestile für typische Zimmerpflanzengruppen. Über das Feld **Pflegestil** im Bearbeiten-Dialog wählst du einen der folgenden neun Presets — die Basiswerte gelten für den Sommer, im Winter wird das Gießintervall mit dem Winter-Faktor multipliziert:
+Das System kennt vordefinierte Pflegestile für typische Zimmerpflanzengruppen. Über das Feld **Pflegestil** im Bearbeiten-Dialog wählst du einen der folgenden zehn Presets — die Basiswerte gelten für den Sommer, im Winter wird das Gießintervall mit dem Winter-Faktor multipliziert:
 
 <!-- Quelle: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
 --8<-- "docs/_generated/care-style-presets-indoor.de.md"
 
 !!! warning "Nicht alle Sukkulenten sind Kakteen"
-    Kakteen (Cactaceae) und Sukkulenten wie Echeveria oder Haworthia gehören verschiedenen Familien an. Der Pflegestil `cactus` gilt nur für echte Kakteen. Echeveria und Haworthia nutzen `succulent`. Lithops und andere Mesembs (Aizoaceae) brauchen eine noch spezifischere Logik und sollten mit `custom` konfiguriert werden.
+    Kakteen (Cactaceae) und Sukkulenten wie Echeveria oder Haworthia gehören verschiedenen Familien an. Der Pflegestil `cactus` gilt nur für echte Kakteen. Echeveria und Haworthia nutzen `succulent`. Lithops und andere Mesembs (Aizoaceae) bekommen automatisch `cactus` — sie brauchen aber eine noch trockenere Führung mit einer längeren Ruhephase, also lohnt sich hier ein von Hand angepasstes Profil.
 
 !!! info "Wasserqualität"
     Für Calatheen und Orchideen empfiehlt das System Regenwasser oder gefiltertes Wasser — diese Pflanzen reagieren empfindlich auf Kalk im Leitungswasser (braune Blattspitzen).
@@ -151,20 +151,20 @@ Für Freiland-, Gewächshaus- und Balkon-Pflanzen erstellt Kamerplanter automati
 
 ## Freiland-Pflegestile
 
-Ergänzend zu den neun Zimmerpflanzen-Stilen kennt das Datenmodell zehn Freiland-Presets:
+Ergänzend zu den zehn Zimmerpflanzen-Stilen kennt das Datenmodell elf Freiland-Presets:
 
 <!-- Quelle: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
 --8<-- "docs/_generated/care-style-presets-outdoor.de.md"
 
-!!! info "Nur über die API auswählbar"
-    Diese zehn Freiland-Presets stehen aktuell **nicht** im Auswahlfeld „Pflegestil" des Pflegeprofil-Dialogs zur Verfügung — die Oberfläche bietet nur die neun Zimmerpflanzen-Stile aus der obigen Tabelle. Die automatische Familienzuordnung (siehe unten) weist von diesen Freiland-Stilen lediglich `outdoor_annual_ornamental` zu (für Zierpflanzen-Familien wie Veilchen-, Primel- oder Storchschnabelgewächse); die übrigen neun Freiland-Presets lassen sich ausschließlich über die technische API setzen.
+!!! info "Auch im Dialog auswählbar"
+    Diese elf Freiland-Presets stehen seit der Erweiterung der Familienzuordnung auch im Auswahlfeld „Pflegestil" des Pflegeprofil-Dialogs zur Verfügung — vorher bot die Oberfläche nur die Zimmerpflanzen-Stile, obwohl das Backend längst Freiland-Stile vergab. Die automatische Familienzuordnung (siehe unten) nutzt sie jetzt für die Gemüse-, Obst- und Staudenfamilien des Katalogs.
 
 ---
 
 ## Familienbasierte Pflegezuordnung
 
-Das System kennt die Pflegeanforderungen von 15 Pflanzenfamilien und ordnet neuen Pflanzen automatisch den passenden Care Style zu:
+Das System kennt die Pflegeanforderungen von 64 Pflanzenfamilien — das ist jede Familie, die der Pflanzenkatalog mitbringt — und ordnet neuen Pflanzen automatisch den passenden Care Style zu:
 
 <!-- Quelle: src/backend/app/domain/engines/care_reminder_engine.py (FAMILY_CARE_MAP) -->
 

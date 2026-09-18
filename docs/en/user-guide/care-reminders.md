@@ -73,14 +73,14 @@ In the edit dialog you enable or disable each reminder type individually (toggle
 
 ### Care Style Presets
 
-The system knows predefined care styles for typical houseplant groups. Use the **Care Style** field in the edit dialog to choose one of the following nine presets — the base values apply to summer; in winter the watering interval is multiplied by the winter factor:
+The system knows predefined care styles for typical houseplant groups. Use the **Care Style** field in the edit dialog to choose one of the following ten presets — the base values apply to summer; in winter the watering interval is multiplied by the winter factor:
 
 <!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
 --8<-- "docs/_generated/care-style-presets-indoor.en.md"
 
 !!! warning "Not all succulents are cacti"
-    Cacti (Cactaceae) and succulents like Echeveria or Haworthia belong to different families. The `cactus` care style applies only to true cacti. Echeveria and Haworthia use `succulent`. Lithops and other Mesembs (Aizoaceae) require even more specific logic and should be configured with `custom`.
+    Cacti (Cactaceae) and succulents like Echeveria or Haworthia belong to different families. The `cactus` care style applies only to true cacti. Echeveria and Haworthia use `succulent`. Lithops and other Mesembs (Aizoaceae) are assigned `cactus` automatically, but they want an even drier regime with a longer rest period — a hand-adjusted profile pays off here.
 
 !!! info "Water quality"
     For Calatheas and Orchids the system recommends rainwater or filtered water — these plants are sensitive to lime in tap water (brown leaf tips).
@@ -151,20 +151,20 @@ For outdoor, greenhouse, and balcony plants, Kamerplanter automatically creates 
 
 ## Outdoor Care Styles
 
-In addition to the nine houseplant styles, the data model knows ten outdoor presets:
+In addition to the ten houseplant styles, the data model knows eleven outdoor presets:
 
 <!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
 --8<-- "docs/_generated/care-style-presets-outdoor.en.md"
 
-!!! info "Selectable only via the API"
-    These ten outdoor presets are currently **not** available in the "Care Style" selector of the care profile dialog — the UI only offers the nine houseplant styles from the table above. Of these outdoor styles, automatic family-based assignment (see below) only assigns `outdoor_annual_ornamental` (for ornamental families such as violets, primroses, or geraniums); the other nine outdoor presets can only be set via the technical API.
+!!! info "Selectable in the dialog too"
+    Since the family map was extended, these eleven outdoor presets are also available in the "Care Style" selector of the care profile dialog — previously the UI offered only the houseplant styles even though the backend had long been assigning outdoor ones. Automatic family-based assignment (see below) now uses them for the vegetable, fruit and perennial families in the catalogue.
 
 ---
 
 ## Family-Based Care Assignment
 
-The system knows the care requirements of 15 plant families and automatically assigns new plants to the matching care style:
+The system knows the care requirements of 64 plant families — every family the plant catalogue ships — and automatically assigns new plants to the matching care style:
 
 <!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (FAMILY_CARE_MAP) -->
 
