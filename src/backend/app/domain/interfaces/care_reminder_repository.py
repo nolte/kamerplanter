@@ -13,13 +13,31 @@ class ICareReminderRepository(ABC):
     def get_profile_by_plant_key(self, plant_key: str) -> CareProfile | None: ...
 
     @abstractmethod
-    def create_profile(self, profile: CareProfile) -> CareProfile: ...
+    def create_linked_profile(self, profile: CareProfile, plant_key: str) -> CareProfile:
+        """Store the profile and its ``has_care_profile`` edge in ONE transaction (#1292).
+
+        There is deliberately no way to store a care profile without its edge. The
+        pair used to be ``create_profile`` + ``create_profile_edge``, and between the
+        two the document was committed and readable while nothing linked it — a
+        window in which a concurrent reader answered with a document that was about
+        to be deleted again as a lost racer's orphan. Removing the two narrow methods
+        from this interface is what makes that shape unspellable rather than merely
+        unused.
+
+        Raises :class:`DuplicateError`/:class:`WriteConflictError` when the plant
+        already owns an edge; nothing is persisted in that case.
+
+        There is no ``delete_profile`` here either, for the same reason and since
+        the same review: deleting the document while the ``has_care_profile`` edge
+        survives leaves the plant permanently unable to get a profile — every later
+        create hits the unique ``_from`` index and the edge resolves to nothing, so
+        the race resolution re-raises for good. Its only caller was the orphan
+        cleanup this change removed.
+        """
+        ...
 
     @abstractmethod
     def update_profile(self, key: CareProfileKey, profile: CareProfile) -> CareProfile: ...
-
-    @abstractmethod
-    def delete_profile(self, key: CareProfileKey) -> bool: ...
 
     @abstractmethod
     def get_all_profiles(self) -> list[CareProfile]: ...
@@ -50,9 +68,6 @@ class ICareReminderRepository(ABC):
         plant_key: str,
         reminder_type: ReminderType,
     ) -> CareConfirmation | None: ...
-
-    @abstractmethod
-    def create_profile_edge(self, plant_key: str, profile_key: str) -> None: ...
 
     @abstractmethod
     def get_linked_profile(self, plant_key: str) -> CareProfile | None: ...
