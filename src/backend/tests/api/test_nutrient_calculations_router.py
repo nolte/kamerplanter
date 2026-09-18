@@ -213,3 +213,132 @@ class TestAreaDosing:
             json={"fertilizer_keys": ["hornspaene"], "location_key": "loc-other"},
         )
         assert response.status_code == 404
+
+
+# ── Enum boundary validation (#1520) ─────────────────────────────────
+
+
+class TestEnumBoundaryValidation:
+    """A misspelt enum value is a 422 from the boundary, never a 500 (#1520).
+
+    Before this fix the handlers converted the free-form ``str`` fields
+    themselves (``SubstrateType(body.substrate_type)``). ``SubstrateType("Coco")``
+    raises a bare ``ValueError`` — neither ``KamerplanterError`` nor
+    ``RequestValidationError`` — so it reached ``unhandled_error_handler`` and the
+    caller was told ``INTERNAL_ERROR`` for input the application itself rejects.
+
+    Every case below pairs the misspelling with the canonical spelling on the very
+    same body: the control proves the status is caused by the spelling and not by
+    the fixture.
+    """
+
+    BASE = "/api/v1/t/personal/nutrient-calculations"
+
+    def _flushing_body(self, substrate: str) -> dict:
+        return {"current_ec_ms": 1.8, "days_until_harvest": 7, "substrate_type": substrate}
+
+    def _mixing_body(self, **overrides) -> dict:
+        body = {
+            "target_volume_liters": 10.0,
+            "target_ec_ms": 1.8,
+            "target_ph": 6.0,
+            "base_water_ec": 0.4,
+            "base_water_ph": 7.0,
+            "fertilizer_keys": ["fert-a"],
+            "substrate_type": "coco",
+            "phase": "vegetative",
+            "recipe_ml_per_liter": {"fert-a": 10.0},
+        }
+        body.update(overrides)
+        return body
+
+    def _ec_budget_body(self, **overrides) -> dict:
+        body = {
+            "base_water_ec": 0.4,
+            "target_ec": 1.8,
+            "substrate": "coco",
+            "phase": "vegetative",
+            "volume_liters": 10.0,
+            "fertilizer_keys": [{"key": "fert-a", "recipe_ml_per_liter": 10.0}],
+        }
+        body.update(overrides)
+        return body
+
+    def _assert_boundary_rejection(self, response, field: str) -> None:
+        assert response.status_code == 422, response.json()
+        payload = response.json()
+        assert payload["error_code"] == "VALIDATION_ERROR"
+        # NFR-006: the caller is told WHICH field it got wrong.
+        assert field in {detail["field"].split(".")[-1] for detail in payload["details"]}
+
+    def test_flushing_rejects_misspelt_substrate(self, client):
+        self._assert_boundary_rejection(
+            client.post(f"{self.BASE}/flushing", json=self._flushing_body("Coco")),
+            "substrate_type",
+        )
+
+    def test_flushing_accepts_canonical_substrate(self, client):
+        response = client.post(f"{self.BASE}/flushing", json=self._flushing_body("coco"))
+        assert response.status_code == 200, response.json()
+        assert response.json()["substrate_type"] == "coco"
+
+    def test_mixing_protocol_rejects_misspelt_substrate(self, client):
+        self._assert_boundary_rejection(
+            client.post(f"{self.BASE}/mixing-protocol", json=self._mixing_body(substrate_type="Coco")),
+            "substrate_type",
+        )
+
+    def test_mixing_protocol_rejects_misspelt_phase(self, client):
+        self._assert_boundary_rejection(
+            client.post(f"{self.BASE}/mixing-protocol", json=self._mixing_body(phase="Vegetative")),
+            "phase",
+        )
+
+    def test_mixing_protocol_rejects_retired_phase(self, client):
+        """``harvest`` was retired as a phase in #306 and is not a PhaseName."""
+        self._assert_boundary_rejection(
+            client.post(f"{self.BASE}/mixing-protocol", json=self._mixing_body(phase="harvest")),
+            "phase",
+        )
+
+    def test_mixing_protocol_accepts_canonical_values(self, client):
+        response = client.post(f"{self.BASE}/mixing-protocol", json=self._mixing_body())
+        assert response.status_code == 200, response.json()
+
+    def test_ec_budget_rejects_misspelt_substrate(self, client):
+        self._assert_boundary_rejection(
+            client.post(f"{self.BASE}/ec-budget", json=self._ec_budget_body(substrate="Coco")),
+            "substrate",
+        )
+
+    def test_ec_budget_rejects_misspelt_phase(self, client):
+        self._assert_boundary_rejection(
+            client.post(f"{self.BASE}/ec-budget", json=self._ec_budget_body(phase="Flowering")),
+            "phase",
+        )
+
+    def test_ec_budget_accepts_canonical_values(self, client):
+        response = client.post(f"{self.BASE}/ec-budget", json=self._ec_budget_body())
+        assert response.status_code == 200, response.json()
+
+    def test_area_dosing_rejects_misspelt_demand_level(self, client):
+        """``demand_level`` selects a branch by literal comparison in the engine.
+
+        It never raised — a misspelling silently took the non-nitrogen-fixer
+        branch and the caller got a plausible-looking wrong answer, which is worse
+        than the 500. Same repair: the enum belongs on the schema.
+        """
+        self._assert_boundary_rejection(
+            client.post(
+                f"{self.BASE}/area-dosing",
+                json={"fertilizer_keys": ["fert-a"], "area_m2": 2.0, "demand_level": "Nitrogen_Fixer"},
+            ),
+            "demand_level",
+        )
+
+    def test_area_dosing_accepts_canonical_demand_level(self, client):
+        response = client.post(
+            f"{self.BASE}/area-dosing",
+            json={"fertilizer_keys": ["fert-a"], "area_m2": 2.0, "demand_level": "nitrogen_fixer"},
+        )
+        assert response.status_code == 200, response.json()

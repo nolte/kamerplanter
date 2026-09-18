@@ -1,6 +1,18 @@
+"""Request/response schemas for /nutrient-calculations (REQ-004, REQ-004-A).
+
+Enum-valued fields carry their enum TYPE, not ``str`` (#1520). The handlers used
+to convert them (``SubstrateType(body.substrate_type)``), and a misspelt value —
+``"Coco"`` — raised a bare ``ValueError`` that reached the ``Exception`` handler:
+a 500 for input the application itself rejects. Declared here, Pydantic rejects
+it before the handler runs, so the caller gets the 422 with ``details[].field``
+that NFR-006 promises, and the value appears as an enum in the OpenAPI schema.
+"""
+
 from datetime import date
 
 from pydantic import BaseModel, Field
+
+from app.common.enums import NutrientDemandLevel, PhaseName, SubstrateType
 
 
 class MixingProtocolRequest(BaseModel):
@@ -11,17 +23,17 @@ class MixingProtocolRequest(BaseModel):
     base_water_ec: float = Field(ge=0, le=5)
     base_water_ph: float = Field(ge=0, le=14)
     fertilizer_keys: list[str] = Field(min_length=1)
-    substrate_type: str = "coco"
+    substrate_type: SubstrateType = SubstrateType.COCO
     # ── Additive REQ-004-A fields (default to previous behaviour) ──
     alkalinity_ppm: float = Field(default=0, ge=0, le=500)
-    phase: str = "vegetative"
+    phase: PhaseName = PhaseName.VEGETATIVE
     recipe_ml_per_liter: dict[str, float] | None = None
 
 
 class FlushingRequest(BaseModel):
     current_ec_ms: float = Field(ge=0)
     days_until_harvest: int = Field(gt=0)
-    substrate_type: str = "coco"
+    substrate_type: SubstrateType = SubstrateType.COCO
 
 
 class RunoffRequest(BaseModel):
@@ -121,8 +133,8 @@ class EcBudgetRequest(BaseModel):
     base_water_ec: float = Field(ge=0, le=2.0)
     alkalinity_ppm: float = Field(default=0, ge=0, le=500)
     target_ec: float = Field(gt=0, le=10)
-    substrate: str = "coco"
-    phase: str = "vegetative"
+    substrate: SubstrateType = SubstrateType.COCO
+    phase: PhaseName = PhaseName.VEGETATIVE
     volume_liters: float = Field(gt=0)
     fertilizer_keys: list[EcBudgetFertilizerRequest] = Field(default_factory=list)
     calmag_key: str | None = None
@@ -199,7 +211,10 @@ class AreaDosingRequest(BaseModel):
     fertilizer_keys: list[str] = Field(min_length=1)
     area_m2: float | None = Field(default=None, gt=0)
     location_key: str | None = None
-    demand_level: str | None = None
+    # Advisory only, but a misspelling here never raised: the engine compares it
+    # against a literal, so a wrong spelling silently took the other branch and
+    # the caller got a plausible wrong answer instead of an error (#1520).
+    demand_level: NutrientDemandLevel | None = None
 
 
 class AreaDosingItemResponse(BaseModel):
