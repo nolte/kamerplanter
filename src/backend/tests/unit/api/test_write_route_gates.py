@@ -373,20 +373,18 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
 #: route stops writing, and `test_the_finding_list_only_shrinks` is a ratchet
 #: against :data:`_MEASURED_2026_09_16` — against the IDS, not against their
 #: count, so that repairing one and listing the next is not a green diff either.
-_PERSISTING_READ_FINDINGS: dict[str, str] = {
-    "glossar.public_router.public_get_term": (
-        "GlossaryService.get_term stores a GlossaryTermCacheEntry through _store_cache on a miss, "
-        "and this route is ANONYMOUS (#1460). The first wording here said an unauthenticated caller "
-        "writes 'a row per unseen slug'; the review measured that and it overstates the finding. The "
-        "slug is resolved against a CURATED catalogue through _resolve_or_404 "
-        "(glossary_service.py:147-159) behind a whitelist charset, so an unknown slug is a 404 and "
-        "never a row, and @limiter.limit('30/minute') bounds the rate besides — the row count is "
-        "capped by the catalogue, not by the caller. What remains is still a finding and is why the "
-        "entry stays: an anonymous GET triggers the RAG/LLM lookup behind the cache miss, and it "
-        "writes at all, which a safe method must not"
-    ),
-    "glossar.router.get_term": "the tenant-scoped sibling of the route above, same _store_cache write",
-}
+#: **Empty since #1461/#1460, and that is the acceptance condition.** All ten
+#: measured reads were answered: eight were repaired into pure reads and two are
+#: recorded as decisions in :data:`_INTENTIONAL_PERSISTING_READS` above, each bound
+#: to the writes it was measured reaching.
+#:
+#: This stays a dict rather than being deleted. It is what a NEWLY detected
+#: writing ``GET`` would have to be added to, and
+#: `test_the_finding_list_only_shrinks` refuses that against
+#: :data:`_MEASURED_2026_09_16` — so the empty dict is the ratchet's resting
+#: position, not a leftover. A new finding is a conversation and an issue; there
+#: is no id left that this list will accept.
+_PERSISTING_READ_FINDINGS: dict[str, str] = {}
 
 #: The ten findings **as measured** on 2026-09-16, by id. The ratchet, and it is
 #: deliberately not a length.
@@ -2255,6 +2253,29 @@ class TestPersistingReadsAreSweptLikeWrites:
             + "\n  ".join(added)
             + "\nThe list may shrink as routes are repaired; it may not gain a member. A NEW writing "
             "GET has to be gated or argued in an issue, not listed here."
+        )
+
+    def test_the_finding_list_is_empty(self):
+        """The acceptance condition of #1461, asserted rather than described.
+
+        `test_the_finding_list_only_shrinks` is a ratchet against the 2026-09-16
+        ids and would stay green if one of the eight repaired routes were listed
+        again — it may shrink, and re-adding a measured id is a shrink from the
+        original ten. This says the stronger thing the group closed on: **none of
+        them is open**. Two of the ten are decisions now
+        (:data:`_INTENTIONAL_PERSISTING_READS`) and eight write nothing.
+
+        A route that starts persisting again is caught by
+        `test_the_sweep_admits_exactly_the_reads_the_detector_reports` and the
+        three gate sweeps regardless; what this refuses is the quiet path back —
+        re-listing it here as an open finding, where every sweep skips it.
+        """
+        assert _PERSISTING_READ_FINDINGS == {}, (
+            "A read that persists is recorded as an open finding again:\n  "
+            + "\n  ".join(sorted(_PERSISTING_READ_FINDINGS))
+            + "\nAll ten of the 2026-09-16 measurements were answered in #1461/#1460 — eight repaired, "
+            "two recorded as decisions with their sinks. Repair it, argue it in the issue and record "
+            "it as intentional, or say in the diff why the sweeps must skip it again."
         )
 
     def test_the_measured_set_is_the_measurement(self):

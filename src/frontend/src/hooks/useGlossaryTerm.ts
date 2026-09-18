@@ -33,6 +33,16 @@ export interface UseGlossaryTermResult {
   loading: boolean;
   error: boolean;
   reload: () => void;
+  /**
+   * Ask the backend to produce the detailed explanation (#1460).
+   *
+   * Reading no longer generates, so a term whose answer arrives with
+   * `is_fallback: true` stays on the curated short definition until somebody
+   * with the grower role asks for this. Resolves once the answer (generated or
+   * refused) has been applied.
+   */
+  generate: () => Promise<void>;
+  generating: boolean;
 }
 
 /**
@@ -52,10 +62,30 @@ export function useGlossaryTerm(
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const [reloadToken, setReloadToken] = useState<number>(0);
+  const [generating, setGenerating] = useState<boolean>(false);
 
   const reload = useCallback(() => {
     if (slug) answerCache.delete(cacheKey(slug, language, expertise));
     setReloadToken((token) => token + 1);
+  }, [slug, language, expertise]);
+
+  const generate = useCallback(async () => {
+    if (!slug) return;
+    setGenerating(true);
+    try {
+      const result = await glossaryApi.generateTerm(slug, expertise, language);
+      answerCache.set(cacheKey(slug, language, expertise), {
+        answer: result,
+        fetchedAt: Date.now(),
+      });
+      setAnswer(result);
+    } catch {
+      // The read surface stays: the caller already has the curated short
+      // definition, and clearing it would turn a refused generation into the
+      // loss of the answer too.
+    } finally {
+      setGenerating(false);
+    }
   }, [slug, language, expertise]);
 
   useEffect(() => {
@@ -98,7 +128,7 @@ export function useGlossaryTerm(
   }, [slug, language, expertise, reloadToken]);
 
   return useMemo(
-    () => ({ answer, loading, error, reload }),
-    [answer, loading, error, reload],
+    () => ({ answer, loading, error, reload, generate, generating }),
+    [answer, loading, error, reload, generate, generating],
   );
 }

@@ -53,6 +53,13 @@ class ResourceType(StrEnum):
     PRIVACY_REQUEST = "privacy_request"
     NOTE = "note"
     ATTACHMENT = "attachment"
+    #: REQ-035 — the KI terminology glossary. Installation-wide content, not a
+    #: tenant-owned record, so it is deliberately NOT in ``_PLANT_DOMAIN``: every
+    #: member may READ it, a grower or lead may spend an LLM call to CREATE a
+    #: cached explanation (#1460), and there is nothing here to update or delete —
+    #: the cache is machine-managed (``glossary.cleanup_expired_cache``,
+    #: ``glossary.invalidate_after_reingest``), never edited by hand.
+    GLOSSARY = "glossary"
 
 
 class Action(StrEnum):
@@ -140,6 +147,10 @@ _grant(
     [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER],
 )
 _grant(ResourceType.CALENDAR_FEED, [Action.EXPORT], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
+
+# REQ-035 glossary — read for everyone, generation for a writer (#1460).
+_grant(ResourceType.GLOSSARY, [Action.READ], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
+_grant(ResourceType.GLOSSARY, [Action.CREATE], [TenantRole.LEAD, TenantRole.GROWER])
 
 # Tenant management — admin only.
 _grant(
