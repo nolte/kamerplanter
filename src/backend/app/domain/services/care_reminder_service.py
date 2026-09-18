@@ -1,3 +1,5 @@
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import structlog
@@ -31,7 +33,7 @@ from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
-from app.domain.models.species import Species
+from app.domain.models.species import Cultivar, Species, WateringGuide
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.notification_propagation_service import NotificationPropagationService
@@ -57,6 +59,81 @@ _INTERVAL_FIELD_REMINDERS: dict[str, ReminderType] = {
     "humidity_check_interval_days": ReminderType.HUMIDITY_CHECK,
     "repotting_interval_months": ReminderType.REPOTTING,
 }
+
+
+@dataclass(frozen=True)
+class CareInputs:
+    """What ``CareReminderEngine.auto_generate_profile`` needs about a species.
+
+    ``family_name`` is the botanical family **name** — the value
+    ``FAMILY_CARE_MAP`` is keyed by — never the ``_key`` the species stores.
+    ``watering_guide`` is the engine's tier-1 source, the cultivar's override
+    ahead of the species' own.
+    """
+
+    family_name: str | None = None
+    watering_guide: WateringGuide | None = None
+
+
+def resolve_care_inputs(
+    species: Species | None,
+    cultivar: Cultivar | None = None,
+    *,
+    resolve_family_name: Callable[[str], str | None],
+) -> CareInputs:
+    """``species → CareInputs`` — the one resolution, shared by every caller (#1489).
+
+    Three places knew this resolution before and the one path every new plant walks
+    did not: the v0048 backfill (``family_key → botanical_families.name``), the AI
+    context builder (``dependencies._resolve_family``) and nothing else — while
+    ``_bootstrap_care_profile`` handed the engine ``species.family_key`` verbatim.
+    That is the recurring shape in this repository: the rule exists, the sibling was
+    never served. So this is a module-level function taking its catalogue lookup as
+    a callable: the service passes its memoised repository read, and the v0050
+    repair migration passes a lookup into the family index it already batched — no
+    caller can resolve it a fourth way.
+
+    The ``watering_guide`` travels with it. Until #1481 no production caller passed
+    one, so the tier ``auto_generate_profile``'s docstring calls "highest priority"
+    existed only in that docstring and every stored profile came from the family
+    preset or the ``TROPICAL`` fallback.
+
+    A ``family_key`` that names no document is used **verbatim as the name** when it
+    is not numeric — an installation whose species carry family names in that field
+    is then served, which is the behaviour v0048 shipped with. A numeric key that
+    resolves to nothing is dropped: it is a dangling reference, it can only mean
+    ``TROPICAL``, and passing it on is the #1489 defect wearing a different value
+    (the engine refuses it outright).
+    """
+    guide = _watering_guide_of(species, cultivar)
+
+    if species is None or not species.family_key:
+        return CareInputs(watering_guide=guide)
+
+    family_key = species.family_key
+    family_name = resolve_family_name(family_key)
+    if family_name is None:
+        family_name = None if family_key.strip().isdigit() else family_key
+        logger.info(
+            "care_profile_family_key_unresolved",
+            family_key=family_key,
+            species_key=species.key,
+            used_verbatim=family_name is not None,
+        )
+    return CareInputs(family_name=family_name, watering_guide=guide)
+
+
+def _watering_guide_of(species: Species | None, cultivar: Cultivar | None) -> WateringGuide | None:
+    """The guide that governs this plant — the cultivar's override first (#1481).
+
+    The precedence is ``WateringService.get_volume_suggestion``'s
+    (``watering_service.py:321-325``), not a new one: ``cultivar_seed`` fills
+    ``watering_guide_override`` from the plant-info YAML, and two services
+    disagreeing about which guide governs one plant is the class this group closes.
+    """
+    if cultivar is not None and cultivar.watering_guide_override is not None:
+        return cultivar.watering_guide_override
+    return species.watering_guide if species is not None else None
 
 
 def _is_due(due_date: datetime | None) -> bool:
@@ -279,6 +356,7 @@ class CareReminderService:
         overwintering_template_repo: IOverwinteringProfileTemplateRepository | None = None,
         recurrence: RecurrenceEngine | None = None,
         notification_propagation: NotificationPropagationService | None = None,
+        family_name_resolver: Callable[[str], str | None] | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
@@ -296,12 +374,69 @@ class CareReminderService:
         self._nutrient_plan_repo = nutrient_plan_repo
         self._overwintering_repo = overwintering_repo
         self._overwintering_template_repo = overwintering_template_repo
+        #: ``botanical_families._key`` → name. A callable rather than a repository
+        #: because the same lookup serves the AI context builder
+        #: (``dependencies.get_family_name_resolver``) and the v0050 migration, which
+        #: reads its families in one batched AQL pass.
+        self._family_name_resolver = family_name_resolver
+        self._family_name_cache: dict[str, str | None] = {}
+        #: Species read back during ONE service lifetime (the service is built per
+        #: request). The tenant dashboard resolved a species for its own listing and
+        #: the preset resolution then read the same document again per unprofiled
+        #: plant — two reads of one row inside one call (#1489 review, SCR-009).
+        self._species_cache: dict[str, Species | None] = {}
+
+    # ── the care inputs (#1489/#1481) ────────────────────────────────────────
+
+    def _family_name(self, family_key: str) -> str | None:
+        """``botanical_families._key`` → name, memoised for this service instance.
+
+        The catalogue is small and static, the service is built per request
+        (``dependencies.get_care_reminder_service`` constructs a new one), and the
+        dashboard generates presets for every unprofiled plant of the tenant in a
+        single call — so the memo bounds that to one read per distinct family.
+        """
+        if self._family_name_resolver is None:
+            # Not silent. The parameter is optional because 30-odd tests construct
+            # this service directly, but a *production* instance without it resolves
+            # no family and hands the engine `None` — which is #1489's outcome
+            # wearing a different cause. `tests/unit/guards/
+            # test_care_profile_resolver_is_wired.py` requires the injection in
+            # `dependencies.py`; this log is what an installation that got past the
+            # guard would show.
+            logger.warning(
+                "care_family_resolver_missing",
+                family_key=family_key,
+                consequence="care presets fall back to TROPICAL",
+            )
+            return None
+        if family_key not in self._family_name_cache:
+            self._family_name_cache[family_key] = self._family_name_resolver(family_key)
+        return self._family_name_cache[family_key]
+
+    def care_inputs_for_plant(self, plant_key: str) -> CareInputs:
+        """The care inputs of a plant, resolved here rather than taken from a caller.
+
+        Taken from the caller is what drifted (#1489): the creation bootstrap passed
+        ``species.family_key`` — a numeric document key against a name-keyed map —
+        the tenant dashboard passed a hard-coded ``None``, and the four internal
+        ``may_create=True`` call sites passed nothing at all. Four callers, four
+        answers, one of them right. Resolving from the plant is the only shape in
+        which they cannot disagree.
+        """
+        species = None
+        cultivar = None
+        if self._plant_repo is not None and self._species_repo is not None:
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant is not None:
+                species = self._resolve_species(plant.species_key, self._species_cache)
+                if plant.cultivar_key:
+                    cultivar = self._species_repo.get_cultivar_by_key(plant.cultivar_key)
+        return resolve_care_inputs(species, cultivar, resolve_family_name=self._family_name)
 
     def get_or_create_profile(
         self,
         plant_key: str,
-        species_name: str | None = None,
-        botanical_family: str | None = None,
         *,
         may_create: bool,
     ) -> CareProfile:
@@ -319,15 +454,21 @@ class CareReminderService:
         for *every* plant of the tenant, on a plain read, by any member including a
         viewer. A read that writes is the defect; refusing the write while still
         answering with the presets keeps the UI working and leaves the database alone.
+
+        **The presets are resolved here, not passed in** (#1489/#1481) — see
+        :meth:`care_inputs_for_plant`. The resolution costs two reads and is reached
+        only when a profile has to be generated, which after the v0048 backfill and
+        the creation bootstrap is the exception rather than the rule.
         """
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is not None:
             return profile
 
+        inputs = self.care_inputs_for_plant(plant_key)
         new_profile = self._engine.auto_generate_profile(
-            species_name=species_name,
-            botanical_family=botanical_family,
+            botanical_family=inputs.family_name,
             plant_key=plant_key,
+            watering_guide=inputs.watering_guide,
         )
         if not may_create:
             # Generated, not stored. The caller is reading.
@@ -432,6 +573,21 @@ class CareReminderService:
 
         data = profile.model_dump()
         data.update(updates)
+
+        # A profile a user edited is no longer auto-generated (#1489 review, SCR-007).
+        # `auto_generated` used to survive every edit, which made it useless as
+        # provenance — the v0050 repair migration therefore cannot use it as more
+        # than a necessary condition and falls back to comparing values, so a user
+        # who happens to set exactly the fallback values would have their edit
+        # overwritten. This marks edits from here on; it does not rewrite history,
+        # which is why v0050's criterion stays value-based.
+        #
+        # Only a change flips it: a PATCH that sets a field to the value it already
+        # holds is not an edit, and the round-trip the frontend's care dialog makes
+        # (load the profile, save it back untouched) must not silently re-label
+        # every profile in the installation.
+        if any(field in data and data[field] != getattr(profile, field) for field in updates):
+            data["auto_generated"] = False
 
         # An explicit interval edit takes precedence over the adaptive-learned
         # value: reset the learned interval (unless the caller set it in the same
@@ -1158,8 +1314,13 @@ class CareReminderService:
         """Build care dashboard from plant data.
 
         plant_data: list of dicts with keys: plant_key, plant_name, species_name,
-                    botanical_family, current_phase, has_nutrient_plan,
-                    frost_sensitivity, cultivar_traits
+                    current_phase, has_nutrient_plan, frost_sensitivity,
+                    cultivar_traits
+
+        ``botanical_family`` used to be one of them and both builders filled it with
+        a hard-coded ``None`` (#1489) — a caller-supplied preset input that no caller
+        supplied. The presets are resolved from the plant now, so the key is gone
+        rather than kept as a slot nobody fills.
         """
         entries: list[CareDashboardEntry] = []
 
@@ -1171,12 +1332,7 @@ class CareReminderService:
             # and it thereby also pre-empted the narrower route's refusal by making the
             # profile exist. The generated presets are what the dashboard needs; storing
             # them was never part of that.
-            profile = self.get_or_create_profile(
-                plant_key,
-                species_name=plant.get("species_name"),
-                botanical_family=plant.get("botanical_family"),
-                may_create=False,
-            )
+            profile = self.get_or_create_profile(plant_key, may_create=False)
 
             # REQ-022 §3.2 — the winter-protection reminder types are gated by the
             # plant's OverwinteringProfile + frost sensitivity; without these the
@@ -1249,8 +1405,8 @@ class CareReminderService:
         """Assemble ``plant_data`` dicts for the tenant's active plants.
 
         Each dict carries the fields :meth:`get_care_dashboard` consumes:
-        ``plant_key``, ``plant_name``, ``species_name``, ``botanical_family``,
-        ``current_phase`` and ``has_nutrient_plan``. Missing context resolves to
+        ``plant_key``, ``plant_name``, ``species_name``, ``current_phase`` and
+        ``has_nutrient_plan``. Missing context resolves to
         ``None``/``False`` so a single broken record never aborts the dashboard.
         """
         if self._plant_repo is None:
@@ -1259,7 +1415,9 @@ class CareReminderService:
         plants, _total = self._plant_repo.get_all(offset=0, limit=500, tenant_key=tenant_key)
         active_plants = [p for p in plants if p.removed_on is None]
 
-        species_cache: dict[str, Species | None] = {}
+        # The service's own cache, not a local one: the preset resolution reads the
+        # same species again for every unprofiled plant in this listing (SCR-009).
+        species_cache = self._species_cache
         cultivar_traits_cache: dict[str, list[str]] = {}
         plant_data: list[dict] = []
 
@@ -1274,7 +1432,6 @@ class CareReminderService:
                     "plant_key": plant_key,
                     "plant_name": plant.plant_name or plant.instance_id or "",
                     "species_name": (species.common_names[0] if species and species.common_names else None),
-                    "botanical_family": None,
                     "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
                     "has_nutrient_plan": self._has_nutrient_plan(plant_key, plant.tenant_key),
                     # REQ-022 §3.2 winter-reminder gating context (B1).
@@ -1333,7 +1490,7 @@ class CareReminderService:
             plant_key, may_create=True
         )
         overwintering_profile = self._resolve_overwintering_profile(plant_key)
-        species = self._resolve_species(plant.species_key, {})
+        species = self._resolve_species(plant.species_key, self._species_cache)
         frost_sensitivity = species.frost_sensitivity if species else None
         cultivar_traits = self._resolve_cultivar_traits(plant.cultivar_key, {})
 
@@ -1412,13 +1569,15 @@ class CareReminderService:
             return False
         return self._nutrient_plan_repo.get_plant_plan(plant_key, tenant_key=tenant_key) is not None
 
-    def reset_profile(
-        self,
-        plant_key: str,
-        species_name: str | None = None,
-        botanical_family: str | None = None,
-    ) -> CareProfile:
-        """Reset profile to species/family defaults."""
+    def reset_profile(self, plant_key: str) -> CareProfile:
+        """Reset the profile to the species/family defaults, resolved from the plant.
+
+        The two client-supplied values this used to take (``species_name``,
+        ``botanical_family``) are gone: measured 2026-09-17, the frontend's
+        ``resetProfile`` sends neither, so this route re-seeded every profile from
+        the ``TROPICAL`` fallback — the creation bootstrap's defect again, on the
+        one path a user reaches *because* the presets looked wrong (#1489).
+        """
         # Bootstrap rather than refuse. `GET .../profile` stopped materialising a
         # profile in #1422 round 2 — reads do not write — so a plant that has never
         # been confirmed or snoozed has no stored profile, and this path used to
@@ -1428,10 +1587,11 @@ class CareReminderService:
         if profile is None:
             profile = self.get_or_create_profile(plant_key, may_create=True)
 
+        inputs = self.care_inputs_for_plant(plant_key)
         new_profile = self._engine.auto_generate_profile(
-            species_name=species_name,
-            botanical_family=botanical_family,
+            botanical_family=inputs.family_name,
             plant_key=plant_key,
+            watering_guide=inputs.watering_guide,
         )
         new_data = new_profile.model_dump(exclude={"key", "created_at", "updated_at"})
         reset = CareProfile(**{**profile.model_dump(), **new_data})
