@@ -48,7 +48,7 @@ from app.domain.models.auth import (
     SessionInfo,
     TokenPair,
 )
-from app.domain.models.user import User, UserProfile
+from app.domain.models.user import User, UserProfile, is_tombstone_email
 from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
@@ -209,6 +209,15 @@ class AuthService:
         Raises:
             ValidationError: If the password violates the policy.
         """
+        # The soft-delete tombstone domain is reserved (#1525 SCR-014). `users.email`
+        # is uniquely indexed, so an account registered at
+        # `deleted_<key>@deleted.example.com` would make the eventual soft-delete of
+        # the account whose key it names collide — a caller could pick an address that
+        # blocks somebody else's Art. 17 erasure. Checked before the duplicate lookup
+        # and independently of any stored state, so it is no enumeration oracle.
+        if is_tombstone_email(email):
+            raise ValidationError("This email domain is reserved and cannot be registered.")
+
         # Check password policy
         errors = self._password_engine.validate_password_policy(password)
         if errors:
@@ -330,9 +339,17 @@ class AuthService:
             user.failed_login_attempts += 1
             user.locked_until = self._throttle_engine.calculate_lockout(user.failed_login_attempts)
             if user.key:
-                # Partial update: a full-document write would clobber any
-                # concurrent change to the user (e.g. a profile edit) with
-                # this request's stale read — classic lost update.
+                # Named fields, not a full-model write-back: this request's stale
+                # snapshot never reaches the document, so a profile edit saved in
+                # between is not carried away by it.
+                #
+                # It is **not** the base class's commuting partial update (#1525
+                # SCR-003). `ArangoUserRepository` overrides `update_fields` into a
+                # read-modify-write of the whole model (#1018), so two concurrent
+                # calls touching *disjoint* fields still serialise on the full
+                # document — the window is one repository call wide instead of one
+                # request wide, not zero. This comment claimed the stronger property
+                # the override stopped providing.
                 self._user_repo.update_fields(
                     user.key,
                     {
@@ -351,9 +368,12 @@ class AuthService:
         user.locked_until = None
         user.last_login_at = datetime.now(UTC)
         if user.key:
-            # Partial update (lost-update guard): a concurrent login used to
-            # write its stale full user snapshot back and silently revert
-            # e.g. a display-name change saved moments earlier.
+            # Named fields (see the failure branch above): a concurrent login used to
+            # write its stale full user snapshot back and silently revert e.g. a
+            # display-name change saved moments earlier. Same caveat — this is not the
+            # base class's commuting partial update, because `ArangoUserRepository`
+            # overrides `update_fields` into a full-model read-modify-write (#1018,
+            # #1525 SCR-003).
             self._user_repo.update_fields(
                 user.key,
                 {

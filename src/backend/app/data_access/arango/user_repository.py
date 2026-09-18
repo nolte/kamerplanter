@@ -31,23 +31,37 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     #:   full hour, and ``verify_email`` likewise could not burn its token.
     #:
     #: **Why the flag and not a per-call ``update_fields``.** No writer of ``users``
-    #: can lose a field it never mentioned, because every one of them starts from
-    #: the *stored* model (measured 2026-09-18 over every call site; the grep is
-    #: ``user_repo.update`` / ``update_fields`` plus the check that nothing writes
-    #: ``col.USERS`` through the driver):
+    #: can lose a field it never mentioned, because every one of them goes through
+    #: :meth:`update_fields`, which re-reads the stored user inside the call and
+    #: applies ``model_copy(update=fields)`` to it (re-measured 2026-09-18 over every
+    #: call site; the grep is ``user_repo.update`` / ``update_fields`` plus the check
+    #: that nothing writes ``col.USERS`` through the driver). ``fields`` is an
+    #: explicit allow-list everywhere, so a ``None`` in it is an intended clear:
     #:
-    #: * ``UserService.update_profile`` / ``delete_account`` — ``get_or_raise`` then
-    #:   attribute assignment
-    #: * ``PrivacyService.confirm_email_change`` / ``request_erasure`` — likewise
-    #: * ``UserService.admin_update_user`` and the seven ``AuthService`` sites —
-    #:   :meth:`update_fields`, which reads the stored user and applies
-    #:   ``model_copy(update=fields)``; ``fields`` is an explicit allow-list, so a
-    #:   ``None`` in it is an intended clear
+    #: * ``UserService.update_profile`` / ``delete_account`` / ``admin_update_user``
+    #: * ``PrivacyService.confirm_email_change`` / ``request_erasure``
+    #: * the seven ``AuthService`` sites (login success/failure, verify_email,
+    #:   request/reset password, change_password, OAuth login)
+    #:
+    #: Those first four used to hand over a **full model** read at the top of their
+    #: method. #1525 SCR-003 narrowed them, because full-replace makes that shape
+    #: strictly worse than it was: a stale snapshot no longer merely *loses* a field a
+    #: parallel request set in between, it **removes** the attribute — and the field
+    #: in question is typically ``password_reset_token`` or ``locked_until``.
     #:
     #: The alternative — routing those clears through a second
     #: ``update_fields(..., keep_none=True)`` write at each call site — is the #948
     #: class: a guard opted into per call site, which the next writer does not opt
     #: into. This flag is a property of the collection.
+    #:
+    #: **Residual risk, stated rather than implied.** :meth:`update_fields` is itself
+    #: read-modify-write (#1018), so it is *not* the base class's commuting partial
+    #: update: two concurrent calls naming disjoint fields still serialise on the full
+    #: document and the loser's field can be lost. Narrowing shrank the window from
+    #: "one request, across a bcrypt verify" to "one repository call"; it did not
+    #: close it. A genuinely commuting write for ``users`` needs a partial AQL
+    #: ``UPDATE ... WITH`` that keeps the model re-validation #1018 came for — filed
+    #: as its own issue rather than smuggled in here.
     #:
     #: Full-replace is still a *merge* at the storage level: an attribute the model
     #: does not declare (``tenant_key`` from the backfill, legacy attributes) keeps

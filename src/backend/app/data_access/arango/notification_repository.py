@@ -25,11 +25,21 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
     #: changed re-surfaces in the badge (#769). In the inherited merge mode both
     #: were dropped and the row stayed read — the re-surfacing never happened.
     #:
-    #: **The only full-model writer is that one**, and it starts from the stored
-    #: notification (``_safe_lookup`` → attribute assignment), so it cannot lose a
-    #: field it never mentioned. ``mark_read``/``mark_acted`` are hand-written AQL
-    #: ``UPDATE ... WITH`` statements and set their field explicitly; the engine
-    #: only ever ``create``s.
+    #: **Both full-model writers start from the stored notification**, so neither can
+    #: lose a field it never mentioned (re-measured 2026-09-18 over every ``update``
+    #: on this repository — the first draft of this table said "the only full-model
+    #: writer is ``_update_single``" and missed the second, which is the shape a
+    #: writer table rots into):
+    #:
+    #: * ``NotificationPropagationService._update_single`` — ``_safe_lookup`` then
+    #:   attribute assignment on the loaded row.
+    #: * ``NotificationEngine.escalate_overdue`` — iterates
+    #:   ``find_overdue_watering``'s rows and writes ``notif.escalation_level`` back
+    #:   onto the very model it read.
+    #:
+    #: ``mark_read``/``mark_acted`` are hand-written AQL ``UPDATE ... WITH``
+    #: statements and set their field explicitly; every other engine path only
+    #: ``create``s.
     _update_is_full_replace = True
 
     def __init__(self, db: StandardDatabase) -> None:

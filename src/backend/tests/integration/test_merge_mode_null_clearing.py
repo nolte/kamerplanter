@@ -82,6 +82,21 @@ def _raw(db, collection: str, key: str) -> dict:
     return doc
 
 
+def _assert_cleared(stored: dict, field: str, message: str) -> None:
+    """The attribute is **gone from the document**, not merely holding ``null``.
+
+    ``.get(field) is None`` was the first spelling here and it cashes in only half of
+    the docstring above it: it is satisfied by a stored ``null`` as well as by an
+    absent attribute, and full-replace mode's whole claim is that ``keepNull=false``
+    *removes* the attribute. Under the merge-mode defect the field was present with
+    its old value, so both spellings went red — which is exactly why the weaker one
+    looked sufficient. It is not: a future write path that stored an explicit ``null``
+    instead of removing the attribute would keep the weaker assertion green while the
+    document grew a null-valued credential field.
+    """
+    assert field not in stored, message
+
+
 @pytest.fixture
 def db():
     """A bootstrapped test database, dropped afterwards."""
@@ -196,7 +211,7 @@ class TestTheSoftDeleteRemovesTheCredential:
 
         _user_service(db).delete_account(user_key)
 
-        assert _raw(db, col.USERS, user_key).get(field) is None, f"a deleted account kept its {field}"
+        _assert_cleared(_raw(db, col.USERS, user_key), field, f"a deleted account kept its {field}")
 
     def test_delete_account_still_writes_the_fields_that_always_landed(self, db, user_key):
         """The three fields that *did* land are what made the record read as deleted.
@@ -229,7 +244,7 @@ class TestTheSoftDeleteRemovesTheCredential:
         _privacy_service(db).request_erasure(user_key, password)
 
         stored = _raw(db, col.USERS, user_key)
-        assert stored.get("password_hash") is None, "an account awaiting erasure kept its credential"
+        _assert_cleared(stored, "password_hash", "an account awaiting erasure kept its credential")
         assert stored["is_active"] is False
 
     def test_update_fields_clears_a_used_reset_token(self, db, user_key):
@@ -250,7 +265,7 @@ class TestTheSoftDeleteRemovesTheCredential:
         )
 
         stored = _raw(db, col.USERS, user_key)
-        assert stored.get("password_reset_token") is None, "a used password-reset token survived the reset"
+        _assert_cleared(stored, "password_reset_token", "a used password-reset token survived the reset")
         assert stored["password_hash"] == "$2b$12$new"
 
     def test_an_attribute_the_user_model_does_not_declare_survives(self, db, user_key):
@@ -283,6 +298,88 @@ class TestTheSoftDeleteRemovesTheCredential:
         assert stored["created_at"] == _STORED_USER["created_at"], "full-replace mode must not rewrite created_at"
 
 
+def _auth_service(db):
+    """A real ``AuthService`` on real repositories — the token paths, unfaked."""
+    from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
+    from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
+    from app.domain.engines.login_throttle_engine import LoginThrottleEngine
+    from app.domain.engines.password_engine import PasswordEngine
+    from app.domain.engines.token_engine import TokenEngine
+    from app.domain.services.auth_service import AuthService
+
+    class _CapturingEmailService:
+        """Captures the token the service mails out — the only place it is readable.
+
+        ``request_password_reset`` generates the token, stores it and hands it to the
+        mail service; it returns ``None``. Reading it back out of the stored document
+        would make the test assert against the very write it is measuring, so it is
+        taken from the outbound side instead.
+        """
+
+        def __init__(self) -> None:
+            self.reset_token: str | None = None
+
+        def send_password_reset_email(self, *, token: str, **kwargs) -> None:
+            self.reset_token = token
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    mail = _CapturingEmailService()
+    service = AuthService(
+        _user_repo(db),
+        ArangoAuthProviderRepository(db),
+        ArangoRefreshTokenRepository(db),
+        PasswordEngine(),
+        TokenEngine(secret_key="integration-test-secret-not-a-credential"),
+        LoginThrottleEngine(),
+        mail,
+        "http://localhost:5173",
+    )
+    return service, mail
+
+
+class TestASingleUseTokenIsSingleUse:
+    """SCR-005 — the consequence, measured through the auth path rather than the primitive.
+
+    ``test_update_fields_clears_a_used_reset_token`` above drives
+    ``ArangoUserRepository.update_fields`` directly. That measures the repository's
+    null semantics, which is the mechanism — but it is not the claim anybody cares
+    about, and a future ``reset_password`` that stopped sending the ``None`` at all
+    would leave it green. These two drive the public flow end to end and assert what
+    an attacker would observe: the token does not work twice.
+    """
+
+    def test_a_used_password_reset_token_is_refused(self, db, user_key):
+        """Red before #1525: the second reset succeeded, so a leaked token stayed live.
+
+        That is the window the owner rotates the password to close — whoever holds
+        the reset mail keeps the account for the token's full hour.
+        """
+        from app.common.exceptions import InvalidTokenError
+
+        service, mail = _auth_service(db)
+        service.request_password_reset(_STORED_USER["email"])
+        token = mail.reset_token
+        assert token, "the service did not issue a reset token; nothing to measure"
+
+        service.reset_password(token, "First-Rotation-2026!")
+
+        with pytest.raises(InvalidTokenError):
+            service.reset_password(token, "Second-Rotation-2026!")
+
+    def test_a_used_email_verification_token_is_refused(self, db, user_key):
+        """Same shape on `verify_email`, which clears its token through the same method."""
+        from app.common.exceptions import InvalidTokenError
+
+        service, _ = _auth_service(db)
+
+        service.verify_email(_STORED_USER["email_verification_token"])
+
+        with pytest.raises(InvalidTokenError):
+            service.verify_email(_STORED_USER["email_verification_token"])
+
+
 # ── consent_records (#1516) ──────────────────────────────────────────────────
 
 
@@ -308,11 +405,11 @@ class TestARegrantedConsentDropsItsRevocation:
 
         stored = _raw(db, col.CONSENT_RECORDS, meta["_key"])
         assert stored["granted"] is True
-        assert stored.get("revoked_at") is None, "a re-granted consent still carried its revocation"
+        _assert_cleared(stored, "revoked_at", "a re-granted consent still carried its revocation")
         # The new grant supplied no IP/agent, so the previous grant's must not be
         # re-attributed to it (REQ-025: the record documents *this* declaration).
-        assert stored.get("ip_address") is None
-        assert stored.get("user_agent") is None
+        _assert_cleared(stored, "ip_address", "the previous grant's IP was re-attributed to the new one")
+        _assert_cleared(stored, "user_agent", "the previous grant's user agent was re-attributed")
         assert stored["legacy_attr"] == _UNDECLARED["legacy_attr"]
 
 
@@ -360,7 +457,7 @@ class TestAReopenedTaskDropsItsCompletionRecord:
 
         self._service(db).reopen_task(task_key, tenant_key=_TENANT_KEY)
 
-        assert _raw(db, col.TASKS, task_key).get(field) is None, f"a reopened task kept its {field}"
+        _assert_cleared(_raw(db, col.TASKS, task_key), field, f"a reopened task kept its {field}")
 
     def test_reopen_task_keeps_what_it_does_not_clear(self, db, task_key):
         """``photo_refs`` and the reopen markers are the other half of the same write."""
@@ -443,8 +540,10 @@ class TestDeletingTheOpenPhaseReopensThePreviousOne:
 
         self._service(db).delete_phase_history(self._PLANT_KEY, current_key)
 
-        assert _raw(db, col.PHASE_HISTORIES, previous_key).get(field) is None, (
-            f"the reopened phase kept its {field} and is still closed"
+        _assert_cleared(
+            _raw(db, col.PHASE_HISTORIES, previous_key),
+            field,
+            f"the reopened phase kept its {field} and is still closed",
         )
 
     def test_the_reopened_phase_keeps_everything_else(self, db, history_keys):
@@ -531,8 +630,10 @@ class TestAWizardResetForgetsThePreviousRun:
 
         self._service(db).reset_wizard(_USER_KEY)
 
-        assert _raw(db, col.ONBOARDING_STATES, state_key).get(field) is None, (
-            f"the reset wizard reopens on the previous run's {field}"
+        _assert_cleared(
+            _raw(db, col.ONBOARDING_STATES, state_key),
+            field,
+            f"the reset wizard reopens on the previous run's {field}",
         )
 
     def test_reset_wizard_keeps_the_identity_of_the_state(self, db, state_key):
@@ -596,5 +697,5 @@ class TestAResurfacedNotificationIsUnreadAgain:
         )
 
         stored = _raw(db, col.NOTIFICATIONS, notification_key)
-        assert stored.get(field) is None, f"a re-surfaced notification kept its {field} and stays out of the badge"
+        _assert_cleared(stored, field, f"a re-surfaced notification kept its {field} and stays out of the badge")
         assert stored["legacy_attr"] == _UNDECLARED["legacy_attr"]

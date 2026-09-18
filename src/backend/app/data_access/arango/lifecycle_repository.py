@@ -42,10 +42,19 @@ class _PhaseHistoryRepository(BaseArangoRepository[PhaseHistory]):
     stored one — which is what #1516 changed them to. They used to re-list ten
     fields into a fresh :class:`PhaseHistory`, and that list had already drifted:
     ``performance_score`` was missing from it, so under full-replace closing a
-    phase would have erased it.
+    phase would have erased it — measured per field, against the engine's own call,
+    in ``tests/unit/domain/engines/test_phase_history_close_carries_the_whole_entry.py``.
+
+    Shaped like every other repository in this package (#1525 SCR-013): bound model on
+    the class, collection name in ``__init__``, so a caller cannot construct it
+    against the wrong collection.
     """
 
+    _model_cls = PhaseHistory
     _update_is_full_replace = True
+
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.PHASE_HISTORIES)
 
 
 class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRepository):
@@ -61,7 +70,7 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         self._transition_rules = BaseArangoRepository[PhaseTransitionRule](
             db, col.PHASE_TRANSITION_RULES, PhaseTransitionRule
         )
-        self._phase_histories = _PhaseHistoryRepository(db, col.PHASE_HISTORIES, PhaseHistory)
+        self._phase_histories = _PhaseHistoryRepository(db)
 
     # ── Lifecycle CRUD ────────────────────────────────────────────────
 

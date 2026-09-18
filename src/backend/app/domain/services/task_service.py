@@ -988,6 +988,22 @@ class TaskService:
         ``created_at`` and its ``(source, external_ref)`` identity. That way a
         re-post never resurrects a task the user already completed or silently
         re-homes it onto another entity.
+
+        **A re-post can set the three nullable fields, never clear them** (#1525
+        SCR-004). ``due_date``, ``scheduled_time`` and ``source_run_ref`` were copied
+        unconditionally, and a producer that omits them gets ``None`` from the model
+        default — so a re-post without a due date meant "clear the due date". That
+        never *did* anything, because ``tasks`` merged every ``None`` away and the
+        stored value survived; making the repository honest (#1516) would have turned
+        a dormant line into data loss on the documented idempotent-upsert path
+        (#1082 AC-3). Preserving the observed contract is the conservative reading,
+        and a producer that genuinely wants to unset a due date has ``PUT``.
+
+        ``model_fields_set`` is **not** the discriminator here, measured rather than
+        assumed: the POST handler builds the model from
+        ``body.model_dump(exclude=...)``, a *full* dump, so every field counts as set
+        whether the client sent it or not. Reading it would have been a rule that
+        looks precise and answers the same for every request.
         """
         existing.name = incoming.name
         existing.name_de = incoming.name_de
@@ -995,10 +1011,11 @@ class TaskService:
         existing.instruction_de = incoming.instruction_de
         existing.category = incoming.category
         existing.priority = incoming.priority
-        existing.due_date = incoming.due_date
-        existing.scheduled_time = incoming.scheduled_time
         existing.tags = incoming.tags
-        existing.source_run_ref = incoming.source_run_ref
+        for field in ("due_date", "scheduled_time", "source_run_ref"):
+            value = getattr(incoming, field)
+            if value is not None:
+                setattr(existing, field, value)
         return existing
 
     def update_task(self, key: str, task: Task, *, previous: Task | None = None, actor_user_key: str = "") -> Task:

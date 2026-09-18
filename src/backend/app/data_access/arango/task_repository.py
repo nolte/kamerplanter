@@ -56,6 +56,13 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     #: * ``CareReminderService`` (×2) — ``find_open_care_task`` then attribute
     #:   assignment
     #:
+    #: One of those writers had to change with the flag: ``create_or_refresh_task``'s
+    #: ``_apply_freestyle_refresh`` copied ``due_date``/``scheduled_time``/
+    #: ``source_run_ref`` from the incoming model unconditionally, and a producer that
+    #: omits them yields ``None`` from the model default. Dormant under merge mode;
+    #: data loss on the #1082 AC-3 upsert path under this flag. It now only *sets*
+    #: those three, never clears them (#1525 SCR-004).
+    #:
     #: The scope is this collection only: the workflow-template, phase,
     #: task-template, execution and comment updaters below drive
     #: ``collection.update`` themselves with ``self._to_doc(...)``'s default

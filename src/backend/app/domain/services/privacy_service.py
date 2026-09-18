@@ -52,7 +52,7 @@ from app.domain.models.privacy import (
     RetentionCategoryInfo,
     RightInfo,
 )
-from app.domain.models.user import User
+from app.domain.models.user import User, is_tombstone_email
 
 if TYPE_CHECKING:
     from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
@@ -244,6 +244,11 @@ class PrivacyService:
         user = self._user_repo.get_or_raise(user_key)
         if user.email == new_email:
             raise ValidationError("New email must differ from the current address.")
+        # Same reserved domain as on the registration path (#1525 SCR-014): moving an
+        # account into it would occupy the address a future soft-delete needs, and
+        # `users.email` is uniquely indexed.
+        if is_tombstone_email(new_email):
+            raise ValidationError("This email domain is reserved and cannot be used.")
 
         if self._user_repo.get_by_email(new_email) is not None:
             return self._suppress_taken_email_change(user_key, user, new_email)
@@ -390,11 +395,15 @@ class PrivacyService:
         user = self._user_repo.get_or_raise(change.user_key)
 
         old_email = user.email
-        user.email = change.new_email
-        user.email_verified = True
+        # Narrow write (#1525 SCR-003): the token lookup and validation sit between
+        # the read and the write, and a full-model write-back would remove whatever a
+        # parallel request set in between now that the repository is full-replace.
         if user.key:
-            self._user_repo.update(user.key, user)
+            user = self._user_repo.update_fields(user.key, {"email": change.new_email, "email_verified": True})
             self._refresh_token_repo.revoke_all_for_user(user.key)
+        else:  # pragma: no cover - a user read through get_or_raise always carries a key
+            user.email = change.new_email
+            user.email_verified = True
 
         change.status = "confirmed"
         change.confirmed_at = datetime.now(UTC)
@@ -455,10 +464,16 @@ class PrivacyService:
         created = self._erasure_repo.create(erasure)
 
         # Immediate effects: soft-delete the user and revoke all sessions.
+        #
+        # A *narrow* write (#1525 SCR-003). The full-model form read the user at the
+        # top of this method, verified a bcrypt hash and created the erasure record
+        # before writing — hundreds of milliseconds during which a parallel
+        # `request_password_reset` could set `password_reset_token`. Since
+        # `ArangoUserRepository` became full-replace, writing the stale model back
+        # would not just lose that value, it would **remove** the attribute.
+        # `update_fields` re-reads the stored user inside the call.
         if user.key:
-            user.is_active = False
-            user.password_hash = None
-            self._user_repo.update(user.key, user)
+            self._user_repo.update_fields(user.key, {"is_active": False, "password_hash": None})
             self._refresh_token_repo.revoke_all_for_user(user.key)
 
         logger.info(

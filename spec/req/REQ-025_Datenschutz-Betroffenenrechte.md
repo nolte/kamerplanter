@@ -101,6 +101,23 @@ Payload, und beide Felder überlebten den Löschvorgang. `ArangoUserRepository` 
 seitdem im Full-Replace-Modus; der Nachweis gegen eine echte ArangoDB liegt in
 `src/backend/tests/integration/test_merge_mode_null_clearing.py`.
 
+Die Tombstone-Adresse lautet `deleted_<user_key>@deleted.example.com`
+(RFC 2606). Registrierung und E-Mail-Wechsel **weisen diese Domain zurück**:
+`users.email` ist eindeutig indiziert, ein fremd registriertes
+`deleted_<key>@deleted.example.com` würde die spätere Löschung genau des Kontos
+blockieren, dessen Schlüssel es nennt.
+
+**Bestandsdaten.** Von den beiden Soft-Delete-Pfaden kann nur der Löschauftrag
+(`request_erasure`) Altbestand hinterlassen haben — die Kontolöschung
+(`delete_account`) schrieb wegen der abgelehnten Adresse überhaupt nichts, also
+auch keine Zeile. Gemessen am 2026-09-18 auf der kind-Installation: 0 inaktive
+Konten, 0 überlebende Hashes, 0 Löschaufträge. Für Installationen, auf denen
+Art. 17 ausgeübt wurde, entfernt die Migration **v0053** `password_hash` und
+`avatar_url` auf genau dieser Menge — inaktiv **und** durch einen Löschauftrag
+oder eine Tombstone-Adresse nachweislich gelöscht. Eine rein
+`is_active == false`-Auswahl wäre falsch: eine administrative Deaktivierung ist
+umkehrbar und darf ihr Passwort nicht verlieren.
+
 **Szenario 4: Einwilligungsverwaltung**
 ```
 1. Nutzer navigiert zu /settings/privacy → Tab "Einwilligungen"

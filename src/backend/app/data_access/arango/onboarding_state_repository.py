@@ -37,8 +37,12 @@ class ArangoOnboardingStateRepository(BaseArangoRepository):
     split changed *when* the row appears, not the shape of the model handed to
     ``update``.
 
-    Raw mode is kept (FR-002 A3): the service wraps the returned ``dict`` into
-    :class:`~app.domain.models.onboarding.OnboardingState` itself.
+    Shaped like the package's other repositories (#1525 SCR-013): the collection name
+    lives in ``__init__``, so no caller can point it elsewhere. The one deliberate
+    difference is that it declares **no** ``_model_cls`` and no type parameter: raw
+    mode is kept (FR-002 A3) because :class:`OnboardingService` wraps the returned
+    ``dict`` into :class:`~app.domain.models.onboarding.OnboardingState` itself, and a
+    binding here would annotate a return type the methods do not produce.
     """
 
     _update_is_full_replace = True

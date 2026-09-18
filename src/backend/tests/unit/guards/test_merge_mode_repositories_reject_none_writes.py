@@ -47,6 +47,18 @@ the entries below (``dormancy_care_activator.activate`` and
 ``care_reminder_service.confirm_reminder``) are visible at all only because the
 scan resolves locals bound to ``None`` — the first draft missed ``activate``
 entirely, which is what that resolution was added for.
+
+**Two #1525 sites left this inventory rather than being repaired in it.**
+``user_service.delete_account`` and ``privacy_service.request_erasure`` were the
+credential pair. Both now write through ``update_fields`` with a named field dict
+(#1525 SCR-003 — full-replace makes a stale full-model write-back *remove* a field a
+parallel request set, not merely lose it), and ``update_fields`` is excluded from
+this scan, so they no longer match and their entries had to go with them: a verdict
+about code the scan cannot see is the stale-entry failure this file's second
+assertion exists to catch. What protects them instead is
+:class:`TestTheUpdateFieldsExclusionIsSound` below — because the exclusion's premise
+(``update_fields`` writes ``keep_none=True``) is **false** for every repository that
+overrides the method, which ``ArangoUserRepository`` does.
 """
 
 from __future__ import annotations
@@ -55,6 +67,7 @@ import ast
 from importlib import import_module
 from pathlib import Path
 
+from app.data_access.arango.base_repository import BaseArangoRepository
 from tests.support.execution_guards import find_project_root
 
 _APP = find_project_root(Path(__file__)) / "app"
@@ -145,15 +158,6 @@ _REVIEWED: dict[str, str] = {
     # writer×fields table on the flag itself (the shape #1506 used for
     # care_profiles) plus a red-first pass against a real ArangoDB in
     # `tests/integration/test_merge_mode_null_clearing.py`.
-    "user_service::delete_account": (
-        "REPAIRED (#1525) — the soft-delete nulls User.password_hash and avatar_url; "
-        "ArangoUserRepository is full-replace, so the stored bcrypt hash is removed with the "
-        "same write that sets is_active/email/display_name."
-    ),
-    "privacy_service::request_erasure": (
-        "REPAIRED (#1525) — the same soft-delete on the DSGVO Art. 17 path; the credential no "
-        "longer survives the 90 days until the hard delete runs."
-    ),
     "privacy_service::grant_consent": (
         "REPAIRED (#1516) — re-granting a revoked consent clears revoked_at (and the previous "
         "grant's ip_address/user_agent when the new one supplies none); ArangoConsentRepository "
@@ -203,6 +207,24 @@ _REVIEWED: dict[str, str] = {
 #: back to merge mode while a site still claims ``REPAIRED`` fails; leaving a site
 #: at ``DEFECT`` after its repository became full-replace fails too — the direction
 #: an inventory of "known problems" normally rots in.
+#:
+#: **Where the derivation stops**, stated so the next reader does not mistake it for
+#: more than it is:
+#:
+#: * The mapping itself is **hand-declared**. If a service is re-pointed at a
+#:   different repository, nothing here notices; the line keeps naming the old one and
+#:   the flag it reads is then the wrong flag. Only the *value* of the verdict is
+#:   machine-checked, never the arrow.
+#: * It reads the flag, not the write. A repository that overrode :meth:`update` (or
+#:   ``update_*``) to bypass ``_update_doc`` altogether would carry
+#:   ``_update_is_full_replace = True`` and ignore it, and every assertion here would
+#:   still be green. Today none does — ``ArangoTaskRepository``'s hand-written
+#:   sub-collection updaters are separate methods on other collections, not overrides
+#:   of this path.
+#: * It says nothing about *which* fields reach the store. That is the integration
+#:   tier's job (``tests/integration/test_merge_mode_null_clearing.py``), against a
+#:   real server, because null handling is a driver/server contract no double may
+#:   invent.
 _SITE_REPOSITORY: dict[str, str | None] = {
     "care_reminder_service::update_profile": "care_reminder_repository.ArangoCareReminderRepository",
     "dormancy_care_activator::activate": "care_reminder_repository.ArangoCareReminderRepository",
@@ -214,8 +236,6 @@ _SITE_REPOSITORY: dict[str, str | None] = {
     "favorites_service::_add_one": None,
     "import_service::confirm": None,
     "plant_photo_service::assess_photo": None,
-    "user_service::delete_account": "user_repository.ArangoUserRepository",
-    "privacy_service::request_erasure": "user_repository.ArangoUserRepository",
     "privacy_service::grant_consent": "consent_repository.ArangoConsentRepository",
     "task_service::reopen_task": "task_repository.ArangoTaskRepository",
     "phase_service::delete_phase_history": "lifecycle_repository._PhaseHistoryRepository",
@@ -229,11 +249,23 @@ _SITE_REPOSITORY: dict[str, str | None] = {
 }
 
 
-def _is_full_replace(dotted: str) -> bool:
-    """``_update_is_full_replace`` as the class actually declares it."""
+def _repository_class(dotted: str) -> type:
     module_name, class_name = dotted.split(".")
-    module = import_module(f"app.data_access.arango.{module_name}")
-    return bool(getattr(module, class_name)._update_is_full_replace)
+    return getattr(import_module(f"app.data_access.arango.{module_name}"), class_name)
+
+
+def _flag_of(repository: type) -> bool:
+    """``_update_is_full_replace`` as the class actually declares it.
+
+    The whole derivation goes through this one expression, so the falsification below
+    can drive it with a class written for that purpose rather than borrowing a
+    production repository whose mode is somebody else's decision to change.
+    """
+    return bool(repository._update_is_full_replace)
+
+
+def _is_full_replace(dotted: str) -> bool:
+    return _flag_of(_repository_class(dotted))
 
 
 # ── the scanner ──────────────────────────────────────────────────────────────
@@ -463,9 +495,171 @@ class TestEveryVerdictMatchesTheRepositoryItNames:
         """Falsification: the derivation must be able to *see* merge mode.
 
         Every repository in ``_SITE_REPOSITORY`` is full-replace today, so the three
-        assertions above would all hold against a ``_is_full_replace`` that returned
-        ``True`` unconditionally — vacuously. This pins it against a repository that
-        is deliberately still in merge mode.
+        assertions above would all hold against a derivation that answered ``True``
+        unconditionally — vacuously.
+
+        Both poles are throwaway classes declared right here, not production
+        repositories (SCR-011). Borrowing one — this was anchored on
+        ``ArangoMembershipRepository`` — makes the falsification depend on a mode
+        somebody else owns: the day that repository is legitimately flipped, this
+        assertion fails for a reason that has nothing to do with what it measures, and
+        the obvious repair is to delete it. A guard that punishes an unrelated correct
+        change is a guard that gets removed.
         """
-        assert _is_full_replace("task_repository.ArangoTaskRepository") is True
-        assert _is_full_replace("membership_repository.ArangoMembershipRepository") is False
+
+        class _MergeModeRepository(BaseArangoRepository):
+            pass
+
+        class _FullReplaceRepository(BaseArangoRepository):
+            _update_is_full_replace = True
+
+        assert _flag_of(_MergeModeRepository) is False, (
+            "the default is merge mode; if this is True the whole class of defects is gone and "
+            "this guard has nothing left to watch"
+        )
+        assert _flag_of(_FullReplaceRepository) is True
+
+
+# ── the exclusion's premise ──────────────────────────────────────────────────
+
+#: Every repository that **overrides** ``update_fields``, with the verdict measured
+#: for it.
+#:
+#: :data:`_KEEP_NONE_METHODS` excludes ``update_fields`` from the scan above on one
+#: stated ground: the base class routes it to ``_update_doc_fields``, which passes
+#: ``keep_none=True``, so a ``None`` in ``fields`` is the *supported* way to clear a
+#: field. That ground does not hold for a subclass that overrides the method into a
+#: full-model read-modify-write — and five do. ``ArangoUserRepository`` is the one
+#: whose callers actually pass ``None`` (``AuthService.reset_password`` /
+#: ``change_password`` / ``verify_email``), and for months those clears were dropped
+#: while a comment in ``auth_service`` said they were relied upon. That is a hole in
+#: this guard's *premise*, not in its pattern, which is the harder kind to notice.
+_UPDATE_FIELDS_OVERRIDES: dict[str, str] = {
+    "user_repository.ArangoUserRepository": (
+        "FULL-REPLACE (#1525) — read-modify-write through the full-model update; callers do pass "
+        "None (reset/verification tokens), so the flag is what makes those clears land."
+    ),
+    "invitation_repository.ArangoInvitationRepository": (
+        "MERGE — read-modify-write like the above, so a None in `fields` would be dropped. "
+        "Measured 2026-09-18: no caller passes one (tenant_service writes status / "
+        "accepted_by_user_key / accepted_at, all non-null)."
+    ),
+    "location_assignment_repository.ArangoLocationAssignmentRepository": (
+        "MERGE — same shape; measured 2026-09-18: no production caller at all."
+    ),
+    "membership_repository.ArangoMembershipRepository": (
+        "MERGE — same shape; measured 2026-09-18: callers write role / admin_scopes / is_active, all non-null."
+    ),
+    "tenant_repository.ArangoTenantRepository": (
+        "MERGE — same shape; measured 2026-09-18: the two routers reaching it build their dict "
+        "with `model_dump(exclude_none=True)`, so a client `null` never arrives."
+    ),
+}
+
+#: Repositories whose ``update_fields`` does **not** go through the full-model
+#: ``update``, so the base class's null semantics are irrelevant to them.
+_UPDATE_FIELDS_NOT_FULL_MODEL = frozenset(
+    {
+        # Drives `collection.update` itself; python-arango's `keep_none` default is True.
+        "watering_log_repository.ArangoWateringLogRepository",
+        "plant_diary_repository.ArangoPlantDiaryRepository",
+    }
+)
+
+
+def _update_fields_overriders() -> set[str]:
+    """``module.Class`` for every subclass defining ``update_fields``/``update_fields_checked``."""
+    found: set[str] = set()
+    for path in sorted((_APP / "data_access" / "arango").glob("*.py")):
+        if path.stem == "base_repository":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            if any(
+                isinstance(member, ast.FunctionDef | ast.AsyncFunctionDef) and member.name in _KEEP_NONE_METHODS
+                for member in node.body
+            ):
+                found.add(f"{path.stem}.{node.name}")
+    return found
+
+
+def _goes_through_the_full_model_update(dotted: str) -> bool:
+    """Whether the override delegates to the inherited full-model :meth:`update`."""
+    module_name, class_name = dotted.split(".")
+    path = _APP / "data_access" / "arango" / f"{module_name}.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.ClassDef) and node.name == class_name):
+            continue
+        for member in node.body:
+            if not (isinstance(member, ast.FunctionDef | ast.AsyncFunctionDef) and member.name in _KEEP_NONE_METHODS):
+                continue
+            for call in ast.walk(member):
+                if (
+                    isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Attribute)
+                    and call.func.attr == "update"
+                    and isinstance(call.func.value, ast.Call)
+                    and isinstance(call.func.value.func, ast.Name)
+                    and call.func.value.func.id == "super"
+                ):
+                    return True
+    return False
+
+
+class TestTheUpdateFieldsExclusionIsSound:
+    """``update_fields`` is excluded from the scan; this is why that is allowed.
+
+    Without these, the exclusion is an unexamined assumption that happens to hold for
+    the base class — and #1525 showed what it costs when a subclass quietly breaks it:
+    ``AuthService.reset_password`` could not burn the reset token it had just spent,
+    while the comment above the call said it relied on exactly that.
+    """
+
+    def test_every_override_is_recorded(self):
+        measured = _update_fields_overriders()
+        recorded = set(_UPDATE_FIELDS_OVERRIDES) | _UPDATE_FIELDS_NOT_FULL_MODEL
+        unrecorded = sorted(measured - recorded)
+        stale = sorted(recorded - measured)
+
+        assert unrecorded == [], (
+            "these repositories override update_fields, which this guard excludes from its scan "
+            "on the grounds that it writes keep_none=True. Measure whether the override still "
+            f"does, and record the verdict in _UPDATE_FIELDS_OVERRIDES: {unrecorded}"
+        )
+        assert stale == [], f"_UPDATE_FIELDS_OVERRIDES names overrides that no longer exist: {stale}"
+
+    def test_a_full_model_override_is_classified_by_its_actual_shape(self):
+        """The two lists must match what the code does, not what the comment says."""
+        misfiled = sorted(
+            dotted for dotted in _UPDATE_FIELDS_NOT_FULL_MODEL if _goes_through_the_full_model_update(dotted)
+        )
+
+        assert misfiled == [], (
+            "these are recorded as not routing through the full-model update, but they call "
+            f"super().update(): {misfiled}"
+        )
+
+    def test_an_override_whose_callers_clear_fields_is_full_replace(self):
+        """A ``FULL-REPLACE`` verdict has to be the flag, not the sentence."""
+        merge_mode = sorted(
+            dotted
+            for dotted, verdict in _UPDATE_FIELDS_OVERRIDES.items()
+            if verdict.startswith("FULL-REPLACE") and not _is_full_replace(dotted)
+        )
+
+        assert merge_mode == [], (
+            "these overrides are recorded as full-replace, so a None in `fields` is expected to "
+            f"clear the stored attribute — but the repository still merges: {merge_mode}"
+        )
+
+    def test_the_shape_detector_can_answer_true(self):
+        """Falsification: the AST check must actually find a ``super().update()``.
+
+        A detector that returned ``False`` for everything would make
+        ``test_a_full_model_override_is_classified_by_its_actual_shape`` vacuous.
+        """
+        assert _goes_through_the_full_model_update("user_repository.ArangoUserRepository") is True
+        assert _goes_through_the_full_model_update("watering_log_repository.ArangoWateringLogRepository") is False

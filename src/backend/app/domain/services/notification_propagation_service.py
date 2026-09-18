@@ -37,6 +37,7 @@ from datetime import UTC, datetime
 import structlog
 
 from app.common.enums import ReminderType
+from app.common.exceptions import NotFoundError, WriteConflictError
 from app.domain.interfaces.notification_repository import INotificationRepository
 from app.domain.models.notification import (
     Notification,
@@ -414,6 +415,29 @@ class NotificationPropagationService:
 
         Keeping only the newest row (the list is sorted newest-first) enforces the
         "exactly one" idempotency guarantee even if a stray duplicate slipped in.
+
+        **The write is inline, deliberately.** Extracting it into a helper reads
+        better and costs reach: the #1516 guard
+        (``tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py``)
+        scans **per function** for "clears a field and then writes a full model", so a
+        clear here plus a write one method over is invisible to it — the blind spot
+        that file names in its own docstring, with v0050 as the live example. The
+        ``read_at``/``acted_at`` clear below is one of the sites it watches, so the
+        two stay in the same function.
+
+        **The write retries once, and does not swallow what it cannot handle.** It sat
+        in a bare ``except Exception: logger.warning(...)``, and #1515 then mapped
+        ArangoDB's 1200 onto :class:`WriteConflictError` in exactly this path — so the
+        broad clause silently began absorbing a *retryable* loss. A refresh that loses
+        the race is not "logged and forgotten": the row keeps the previous
+        occurrence's title, body and — under ``reset_read`` — its read state, which is
+        the single-entry guarantee this class exists to give (#769).
+
+        One retry, not a loop: the contending writer is another propagation of the
+        same group, so a second conflict means sustained contention on one row and the
+        answer is a warning with the attempt count, not a spin. Anything other than the
+        two expected failures propagates — a propagation that fails for a reason
+        nobody anticipated has to surface.
         """
         if not existing:
             return
@@ -432,10 +456,20 @@ class NotificationPropagationService:
         if reset_read:
             keep.read_at = None
             keep.acted_at = None
-        try:
-            self._repo.update(keep.key, keep)
-        except Exception:
-            logger.warning("notification_propagation_update_failed", key=keep.key)
+
+        for attempt in (1, 2):
+            try:
+                self._repo.update(keep.key, keep)
+                return
+            except WriteConflictError:
+                if attempt == 1:
+                    continue
+                logger.warning("notification_propagation_update_conflict", key=keep.key, attempts=attempt)
+            except NotFoundError:
+                # The row was deleted between the lookup and this write (a concurrent
+                # `on_task_deleted` / group prune). Nothing to refresh, and nothing wrong.
+                logger.info("notification_propagation_update_vanished", key=keep.key)
+                return
 
     def _mark_group_done(self, notifications: list[Notification]) -> None:
         """Stamp ``read_at`` + ``acted_at`` so the group drops out of the badge."""
