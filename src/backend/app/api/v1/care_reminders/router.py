@@ -17,6 +17,7 @@ from app.common.openapi_responses import (
     FORBIDDEN_RESPONSE,
     NOT_FOUND_RESPONSE,
     UNAUTHORIZED_RESPONSE,
+    VALIDATION_RESPONSE,
 )
 from app.common.plant_ownership import require_owned_plant
 from app.domain.models.plant_instance import PlantInstance
@@ -98,7 +99,7 @@ def get_or_create_profile(
     "/plants/{plant_key}/profile",
     response_model=CareProfileResponse,
     dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
-    responses=FORBIDDEN_RESPONSE,
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
 )
 def update_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
@@ -106,7 +107,18 @@ def update_profile(
     user: User = Depends(get_current_user),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
-    """Update the plant's care profile with the supplied fields."""
+    """Update the plant's care profile with the supplied fields.
+
+    **A field the body omits is left unchanged; a field the body sends as `null` is
+    cleared** (#1506). The two are different requests, and only `notes` and
+    `water_quality_hint` may be cleared — they are the profile's only nullable
+    fields. `null` for any other field is answered with `422`, because the profile
+    has no `null` to store for it; omit the field instead.
+
+    Editing a watering, fertilising, pest-check, humidity or repotting interval also
+    reschedules the plant's matching **pending** care task and resets the matching
+    adaptive-learned interval (#622).
+    """
     # `exclude_unset`, not `exclude_none` (#1506). Every field of `CareProfileUpdate`
     # defaults to `None` for "not supplied", so `exclude_none` collapsed the two cases
     # a PATCH has to distinguish: a field the body omitted and a field the body sent as

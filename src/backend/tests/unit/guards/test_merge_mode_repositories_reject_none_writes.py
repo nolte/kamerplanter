@@ -12,7 +12,8 @@ the winter watering regime — and it is now full-replace. The *class* is wider 
 the one repository, so this guard exists to make every remaining instance a
 deliberate, written-down decision rather than a discovery.
 
-**What it measures.** Every function under ``app/domain/services`` that both
+**What it measures.** Every function under :data:`_SCAN_ROOTS` —
+``app/domain/services``, ``app/migrations/versions`` and ``app/tasks`` — that both
 
 1. writes a ``None`` into something that looks like a persisted model — an
    attribute assignment ``obj.field = None``, a subscript ``data["field"] = None``,
@@ -32,14 +33,20 @@ lying about what was checked.
 verdict itself. The verdict is the measurement, recorded here; the guard's job is
 to notice that a *new* one needs making.
 
-**A spelling it does not match** (stated rather than discovered later): a clear
-routed through a helper (``self._clear(entry)`` writing the ``None`` in another
-function), a ``setattr(obj, name, None)``, or a ``None`` that arrives as a
-parameter's default and is never written literally in the body. The first is the
-realistic one; ``_REVIEWED`` is therefore a floor on the class, not a proof of its
-size. Two of the entries below (``dormancy_care_activator.activate`` and
-``care_reminder_service.confirm_reminder``) are only visible at all because the
-scan resolves locals bound to ``None``.
+**A spelling it does not match**, stated with its live example rather than
+discovered later: the scan is **per function**, so a clear and the write that
+carries it must sit in the same one. They do not in the v0050 repair migration —
+``_merge`` nulls the two learned intervals, ``_process_batch`` calls
+``update_profile`` — and that pair is precisely the write that *measured* the #1506
+defect. It is in the scan's roots and still invisible to it. The same hole covers
+any clear routed through a helper, a ``setattr(obj, name, None)``, and a ``None``
+that only ever arrives as a parameter default.
+
+``_REVIEWED`` is therefore a floor on the class, not a proof of its size. Two of
+the entries below (``dormancy_care_activator.activate`` and
+``care_reminder_service.confirm_reminder``) are visible at all only because the
+scan resolves locals bound to ``None`` — the first draft missed ``activate``
+entirely, which is what that resolution was added for.
 """
 
 from __future__ import annotations
@@ -49,7 +56,25 @@ from pathlib import Path
 
 from tests.support.execution_guards import find_project_root
 
-_SERVICES = find_project_root(Path(__file__)) / "app" / "domain" / "services"
+_APP = find_project_root(Path(__file__)) / "app"
+
+#: Where a field-clearing writer can live.
+#:
+#: ``domain/services`` is where the class was first measured; the other two were
+#: added in the #1506 review (SCR-009) because both hold writers of exactly this
+#: shape, and a scan that stopped at the services would have been complete-looking
+#: and blind to them:
+#:
+#: * ``migrations/versions`` — v0050's ``_merge`` nulls the two learned intervals and
+#:   hands the full model to ``update_profile``; it is the very write that measured
+#:   the defect, and it was outside the first draft's reach.
+#: * ``tasks`` — the Celery beat tasks (retention, care generation, actuator loop)
+#:   drive services *and* repositories directly.
+_SCAN_ROOTS = (
+    _APP / "domain" / "services",
+    _APP / "migrations" / "versions",
+    _APP / "tasks",
+)
 
 #: Field-clearing writes reaching these are *not* dropped: they end in
 #: ``_update_doc_fields``, which passes ``keep_none=True``.
@@ -113,11 +138,18 @@ _REVIEWED: dict[str, str] = {
     # writer×fields table and the red-first pass #1506 did for care_profiles. They
     # are listed individually rather than as one line so a fix can retire its own
     # entry without touching the others.
+    # Split out of #1516 in the #1506 review (SCR-004): same mechanism, a
+    # credential-/DSGVO-relevant consequence rather than a data-quality one.
     "user_service::delete_account": (
-        "DEFECT #1516 — the soft-delete nulls User.password_hash and avatar_url; the merge-mode "
-        "update keeps the credential hash on an account meant to have none."
+        "DEFECT #1525 (security) — the soft-delete nulls User.password_hash and avatar_url while "
+        "is_active/email/display_name are written, so the account reads as deleted and the stored "
+        "bcrypt hash survives. ArangoUserRepository is merge-mode."
     ),
-    "privacy_service::request_erasure": ("DEFECT #1516 — the same soft-delete on the DSGVO erasure path."),
+    "privacy_service::request_erasure": (
+        "DEFECT #1525 (security) — the same soft-delete on the DSGVO Art. 17 erasure path; the "
+        "credential of an account whose erasure was requested is kept for the 90 days until the "
+        "hard delete runs."
+    ),
     "privacy_service::grant_consent": (
         "DEFECT #1516 — re-granting a revoked consent nulls revoked_at and writes through "
         "ArangoConsentRepository.update (merge mode): the record still carries its revocation."
@@ -236,7 +268,7 @@ def _full_model_update_calls(fn: ast.AST) -> set[str]:
 def _measured() -> dict[str, set[str]]:
     """``module::function`` → the fields it clears, for every candidate."""
     found: dict[str, set[str]] = {}
-    for path in sorted(_SERVICES.rglob("*.py")):
+    for path in sorted(p for root in _SCAN_ROOTS for p in root.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):

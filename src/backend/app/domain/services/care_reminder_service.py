@@ -31,7 +31,12 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
-from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
+from app.domain.models.care_reminder import (
+    SEASON_STATE_FIELDS,
+    CareConfirmation,
+    CareDashboardEntry,
+    CareProfile,
+)
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.species import Cultivar, Species, WateringGuide
@@ -1631,6 +1636,20 @@ class CareReminderService:
         ``resetProfile`` sends neither, so this route re-seeded every profile from
         the ``TROPICAL`` fallback — the creation bootstrap's defect again, on the
         one path a user reaches *because* the presets looked wrong (#1489).
+
+        **The REQ-047 season state is not reset** (``SEASON_STATE_FIELDS``, #1506
+        review SCR-001). ``dormancy_care_mode`` / ``dormancy_watering`` /
+        ``dormancy_check_interval_days`` are toggled by the season state machine on
+        the ``winter_dormancy`` and ``pre_spring`` transitions; a recomputation of
+        the family presets knows nothing about the season and may not answer for it.
+        The v0050 repair migration already carried them over for the same reason
+        (``_PRESERVED_FIELDS``, which is this set plus the profile's identity).
+
+        Before #1506 two of the three were already being overwritten here — a live
+        winter state became "not dormant, 30-day control" on any reset — while
+        ``dormancy_watering`` survived only by accident, because the merge-mode
+        repository dropped the ``None``. Making the repository honest would have made
+        the overwrite complete; excluding the set makes all three deliberate.
         """
         # Bootstrap rather than refuse. `GET .../profile` stopped materialising a
         # profile in #1422 round 2 — reads do not write — so a plant that has never
@@ -1647,7 +1666,7 @@ class CareReminderService:
             plant_key=plant_key,
             watering_guide=inputs.watering_guide,
         )
-        new_data = new_profile.model_dump(exclude={"key", "created_at", "updated_at"})
+        new_data = new_profile.model_dump(exclude={"key", "created_at", "updated_at"} | SEASON_STATE_FIELDS)
         reset = CareProfile(**{**profile.model_dump(), **new_data})
         return self._repo.update_profile(profile.key or "", reset)
 

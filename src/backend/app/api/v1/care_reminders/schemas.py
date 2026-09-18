@@ -8,29 +8,14 @@ from app.common.enums import CareStyleType, ConfirmAction, ReminderType, Waterin
 from app.domain.models.care_reminder import CareProfile
 
 
-def _clearable_profile_fields() -> frozenset[str]:
-    """The profile fields a ``PATCH`` may send as ``null`` to clear (#1506).
-
-    **Derived from the domain model, never listed here.** A field is clearable iff
-    ``CareProfile`` admits ``None`` for it — today ``notes`` and
-    ``water_quality_hint``. Hand-listing the two would be a second statement of the
-    same fact, and the one that goes stale: making a further field nullable on
-    ``CareProfile`` would leave its ``null`` rejected here with no test failing.
-
-    Everything else on :class:`CareProfileUpdate` is ``T | None`` only because the
-    *schema* uses ``None`` as "not supplied"; the domain model has a non-optional
-    type for it, so an explicit ``null`` is a malformed request rather than a clear.
-    """
-    clearable = set()
+def _nullable_on_the_profile() -> frozenset[str]:
+    """Every field :class:`CareProfile` admits ``None`` for, read off its annotations."""
+    nullable = set()
     for name, field in CareProfile.model_fields.items():
         annotation = field.annotation
         if get_origin(annotation) in (Union, UnionType) and type(None) in get_args(annotation):
-            clearable.add(name)
-    return frozenset(clearable)
-
-
-#: Evaluated once at import: :class:`CareProfile` is a static declaration.
-CLEARABLE_PROFILE_FIELDS: frozenset[str] = _clearable_profile_fields()
+            nullable.add(name)
+    return frozenset(nullable)
 
 
 class CareProfileResponse(BaseModel):
@@ -102,12 +87,30 @@ class CareProfileUpdate(BaseModel):
             if getattr(self, name, None) is None and name not in CLEARABLE_PROFILE_FIELDS
         )
         if offenders:
-            clearable = ", ".join(sorted(CLEARABLE_PROFILE_FIELDS & set(type(self).model_fields)))
             raise ValueError(
                 f"null is not a value for {', '.join(offenders)}; omit the field to leave it "
-                f"unchanged. Only {clearable} may be cleared."
+                f"unchanged. Only {', '.join(sorted(CLEARABLE_PROFILE_FIELDS))} may be cleared."
             )
         return self
+
+
+#: The fields a ``PATCH`` body may send as ``null`` to clear — today ``notes`` and
+#: ``water_quality_hint`` (#1506).
+#:
+#: **The intersection, not either side alone** (#1506 review, SCR-006). A field is
+#: clearable only if *both* are true: :class:`CareProfile` admits ``None`` for it
+#: (otherwise there is no ``null`` to store), **and** :class:`CareProfileUpdate`
+#: exposes it (otherwise no request can name it anyway). Taking the model's nullable
+#: set alone answered with eight names — ``key``, ``created_at``, ``updated_at``, the
+#: two ``*_learned`` intervals and ``dormancy_watering`` among them — none of which a
+#: client can send, which made the constant read as a far wider promise than the
+#: schema keeps.
+#:
+#: Derived rather than listed, so making a further exposed field nullable on
+#: ``CareProfile`` widens both sides at once instead of leaving its ``null`` rejected
+#: with nothing failing. Defined after the class because it reads its fields; the
+#: validator above resolves it at call time.
+CLEARABLE_PROFILE_FIELDS: frozenset[str] = _nullable_on_the_profile() & frozenset(CareProfileUpdate.model_fields)
 
 
 class FeedingDetailSchema(BaseModel):

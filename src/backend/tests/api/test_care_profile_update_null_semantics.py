@@ -153,21 +153,33 @@ def test_a_null_for_a_non_nullable_field_is_refused_at_the_boundary(
 # ── the clearable set is derived, not listed ─────────────────────────────────
 
 
-def test_the_clearable_fields_are_exactly_the_nullable_ones_of_the_domain_model():
-    """What the schema admits as a clear is what ``CareProfile`` can actually hold.
+def test_the_clearable_fields_are_the_exposed_nullable_ones_and_nothing_else():
+    """Every clearable field is nullable on the model **and** sendable by a client.
 
-    Pinned as an equality against a recomputed set rather than against a literal:
-    a literal would be the second copy of the fact that goes stale. Making a further
-    ``CareProfileUpdate`` field nullable on ``CareProfile`` widens both sides at once,
-    which is correct; the assertion below catches the opposite drift — a field the
-    schema would let a client null that the model cannot hold.
+    Deliberately *not* the production expression re-derived and compared against
+    itself: that assertion holds however wrong the expression is. The first draft of
+    this file did exactly that and stayed green while the constant claimed eight
+    fields — ``key``, ``created_at``, ``dormancy_watering``, the learned intervals —
+    that no request can name (#1506 review, SCR-006/SCR-007).
+
+    What is asserted here is the consequence: the two names a client may null, and
+    representatives of the two reasons a name is excluded.
     """
+    assert {"notes", "water_quality_hint"} == CLEARABLE_PROFILE_FIELDS
+
+    # Reason one — exposed by the update schema, but not nullable on the domain
+    # model: there is no `None` for the profile to hold.
+    assert "care_style" in CareProfileUpdate.model_fields
+    assert "care_style" not in CLEARABLE_PROFILE_FIELDS
+    assert "watering_interval_days" not in CLEARABLE_PROFILE_FIELDS
+
+    # Reason two — nullable on the domain model, but not exposed: no request can
+    # name it, so calling it clearable would overstate the contract.
     nullable_on_the_model = {
         name
         for name, field in CareProfile.model_fields.items()
         if type(None) in getattr(field.annotation, "__args__", ())
     }
-
-    assert nullable_on_the_model == CLEARABLE_PROFILE_FIELDS
-    # …and of those, the ones this schema actually exposes:
-    assert CLEARABLE_PROFILE_FIELDS & set(CareProfileUpdate.model_fields) == {"notes", "water_quality_hint"}
+    assert "watering_interval_learned" in nullable_on_the_model
+    assert "watering_interval_learned" not in CareProfileUpdate.model_fields
+    assert "watering_interval_learned" not in CLEARABLE_PROFILE_FIELDS

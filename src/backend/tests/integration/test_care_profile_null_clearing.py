@@ -66,6 +66,21 @@ _STORED_NULLABLES = {
     "dormancy_watering": "minimal",
 }
 
+#: The nullables a **reset** is supposed to drop: everything the presets replace.
+#: ``dormancy_watering`` is not among them — it belongs to the REQ-047 season state
+#: machine, which a preset recomputation may not speak for (``SEASON_STATE_FIELDS``).
+_RESET_CLEARS = sorted(set(_STORED_NULLABLES) - {"dormancy_watering"})
+
+#: Attributes the stored document carries that :class:`CareProfile` does not declare.
+#:
+#: ``tenant_key`` is the real one — ``app/migrations/backfill_tenant_key.py`` stamps
+#: it onto documents whose model has no such field — and it is the reason
+#: full-replace mode is safe here at all: ``collection.update`` **merges**, so an
+#: attribute absent from the payload keeps its stored value; only an attribute
+#: explicitly sent as ``null`` is removed. That claim carries the whole design
+#: decision in #1506, so it is measured rather than asserted in a comment.
+_UNDECLARED_ATTRIBUTES = {"tenant_key": _TENANT_KEY, "legacy_attr": "written-by-an-older-schema"}
+
 
 def _settings():
     from app.config.settings import Settings
@@ -176,9 +191,14 @@ def profile_key(db) -> str:
             "care_style": "calathea",
             "watering_interval_days": 5,
             "dormancy_care_mode": True,
+            # Deliberately not the model default (30): a reset that overwrote the
+            # season state with a freshly generated profile would write 30 here, and
+            # a seed holding the default could not tell that apart from preservation.
+            "dormancy_check_interval_days": 21,
             "auto_generated": True,
             "created_at": "2026-01-01T00:00:00+00:00",
             **_STORED_NULLABLES,
+            **_UNDECLARED_ATTRIBUTES,
         }
     )
     return str(meta["_key"])
@@ -187,15 +207,15 @@ def profile_key(db) -> str:
 # ── reset_profile ────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("field", sorted(_STORED_NULLABLES))
-def test_reset_profile_clears_every_nullable_field_the_presets_do_not_set(db, profile_key, field):
+@pytest.mark.parametrize("field", _RESET_CLEARS)
+def test_reset_profile_clears_every_nullable_field_the_presets_replace(db, profile_key, field):
     """A reset to the ``Lamiaceae``/``HERB_TROPICAL`` presets leaves nothing behind.
 
-    The presets set none of :data:`_STORED_NULLABLES` — ``HERB_TROPICAL`` has no
+    The presets set none of :data:`_RESET_CLEARS` — ``HERB_TROPICAL`` has no
     ``water_quality_hint``, the plant has no ``WateringGuide`` so
     ``auto_generate_profile`` produces ``notes=None``, and a freshly generated
-    profile has no learned intervals and no dormancy regime. So every one of them
-    is a value the reset means to drop.
+    profile has no learned intervals. So every one of them is a value the reset
+    means to drop.
 
     Against the merge-mode repository each assertion here failed with the stored
     value still in place — the defect #1506 reports.
@@ -206,6 +226,51 @@ def test_reset_profile_clears_every_nullable_field_the_presets_do_not_set(db, pr
 
     assert getattr(returned, field) is None, f"reset answered with the replaced {field}"
     assert _stored_profile(db).get(field) is None, f"the replaced {field} survived the reset in storage"
+
+
+def test_reset_profile_leaves_the_season_state_to_the_season_state_machine(db, profile_key):
+    """The REQ-047 dormancy fields survive a reset of the care presets.
+
+    ``SEASON_STATE_FIELDS`` is owned by ``DormancyCareActivator``, driven by the
+    ``winter_dormancy`` / ``pre_spring`` transitions. A recomputation from the family
+    presets knows nothing about the season, so it may not answer for it — the rule
+    v0050 already follows with ``_PRESERVED_FIELDS``.
+
+    This is the half #1506 could have broken while fixing the other one: before the
+    repository became full-replace, ``dormancy_watering`` was preserved *by accident*
+    (the ``None`` was dropped) while ``dormancy_care_mode=False`` and
+    ``dormancy_check_interval_days=30`` from the freshly generated profile were
+    already being written over a live winter state. The exclusion makes all three
+    deliberate.
+    """
+    service = _make_service(db)
+
+    returned = service.reset_profile(_PLANT_KEY)
+
+    stored = _stored_profile(db)
+    assert returned.dormancy_watering == _STORED_NULLABLES["dormancy_watering"]
+    assert stored["dormancy_watering"] == _STORED_NULLABLES["dormancy_watering"]
+    assert returned.dormancy_care_mode is True
+    assert stored["dormancy_care_mode"] is True
+    assert stored["dormancy_check_interval_days"] == 21
+
+
+def test_reset_profile_keeps_an_attribute_the_model_does_not_declare(db, profile_key):
+    """Full-replace removes an explicit ``null``; it does not replace the document.
+
+    ``collection.update`` merges either way, so ``tenant_key`` — stamped onto stored
+    documents by ``app/migrations/backfill_tenant_key.py``, and absent from
+    :class:`CareProfile` — survives a write that never mentions it. The whole reason
+    flipping the flag is safe for this collection rests on that, so it is measured
+    here rather than argued in a comment.
+    """
+    service = _make_service(db)
+
+    service.reset_profile(_PLANT_KEY)
+
+    stored = _stored_profile(db)
+    for attribute, value in _UNDECLARED_ATTRIBUTES.items():
+        assert stored.get(attribute) == value, f"the full-replace write dropped the undeclared {attribute}"
 
 
 def test_reset_profile_keeps_writing_the_values_the_presets_do_set(db, profile_key):
@@ -237,7 +302,7 @@ def test_update_profile_with_an_explicit_none_clears_the_stored_note(db, profile
 
     This is the service half of the ``PATCH .../profile`` contract; the router half
     (an explicit ``null`` in the JSON body reaching the service at all) is pinned in
-    ``tests/api/test_care_reminders_router.py``.
+    ``tests/api/test_care_profile_update_null_semantics.py``.
     """
     service = _make_service(db)
 
