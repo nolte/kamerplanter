@@ -69,10 +69,29 @@ run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
    Git-Historie ab, welche Modellfelder seit dem Framework-Baseline-Commit
    verschwunden sind, und verlangt für jedes eine Migration — die das alte Feld im
    **Code** nennen muss, eine Erwähnung im Docstring zählt nicht — oder einen
-   belegten Grund, warum kein Bestandsdokument betroffen sein kann. Anlass war
-   #1174: Modell und Seed-YAML wurden umbenannt, die gespeicherten Dokumente nicht,
-   und die CEC des gesamten Substratkatalogs las sich monatelang als `None`
-   (v0051 repariert das). Wer ein Feld umbenennt, trägt die Migration dort ein.
+   belegten Grund (Commit-SHA, Issue oder Migration), warum kein Bestandsdokument
+   betroffen sein kann. Anlass war #1174: Modell und Seed-YAML wurden umbenannt,
+   die gespeicherten Dokumente nicht, und die CEC des gesamten Substratkatalogs
+   las sich monatelang als `None` (v0051 repariert das). Wer ein Feld umbenennt,
+   trägt die Migration dort ein.
+
+   Reichweite des Gates, damit niemand mehr hineinliest, als es misst:
+
+   - Die Population ist auf `(Datei, Klasse, Feld)` geschlüsselt — `substrate.py`
+     deklariert `tenant_key` in `Substrate` **und** in `SubstrateBatch`, und eine
+     Umbenennung in nur einer der beiden Klassen bliebe pro Datei unsichtbar.
+     Folge: eine **Klassen**-Umbenennung lässt alle ihre Felder als verschwunden
+     gelten — laut statt still, aber sie braucht dann Einträge.
+   - Erfasst werden annotierte Klassenfelder **und** ihre `Field(alias=…)`-Namen
+     (der Alias ist der gespeicherte Schlüssel). **Nicht** erfasst: umbenannte
+     Enum-*Werte* und umbenannte Collections — M-9 gilt dort genauso, sie
+     brauchen eine eigene Ableitung.
+   - Die Ableitung braucht volle Git-Historie. Der Pflicht-Check
+     `Write-route and tree guards` checkt deshalb mit `fetch-depth: 0` aus und
+     läuft mit `--max-skipped 0`; auf einem flachen Checkout (z. B. der
+     Coverage-Lane, deren Checkout einem fremden Repo gehört) überspringt der
+     Test, statt vakuös grün zu sein. Dass diese Lane-Voraussetzung bestehen
+     bleibt, prüft derselbe Test ohne Historie mit.
 
 5. **Bestehende Logik wiederverwenden:** Große Transformationen dürfen als reine
    Funktion in einem eigenen Modul liegen; der Version-Wrapper ruft sie nur auf

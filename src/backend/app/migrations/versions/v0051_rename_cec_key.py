@@ -62,7 +62,15 @@ case on the dev cluster: zero.
 
 Idempotent (M-3): the rename is chosen by ``HAS(old) AND NOT HAS(new)``, which is
 false for every document a previous run converted, so a re-run reports
-``changed == 0`` and every converted record under ``already_correct``.
+``changed == 0`` and every converted record under ``already_correct`` — except one
+that stored ``cec_meq_per_100g: null``, which had no value to move and re-reads as
+``no_cec_stored``, the thing it always was.
+
+No document can abort the run (M-4): the scan and the writes are separate round
+trips, so a record deleted in between would raise out of ``up`` and take the whole
+startup with it. Each write is isolated and a failure is reported under
+``write_failed`` with the record named; ``changed`` counts writes that succeeded,
+never writes that were planned.
 
 Not reversible (M-6). The inverse is not "rename back": after this runs, a
 document carrying ``cec_meq_per_100cm3`` may be one this migration converted, one
@@ -80,6 +88,7 @@ from typing import Any
 
 import structlog
 from arango.database import StandardDatabase
+from arango.exceptions import ArangoError
 
 from app.data_access.arango import collections as col
 from app.migrations.framework.base import Migration
@@ -96,20 +105,37 @@ NEW_KEY = "cec_meq_per_100cm3"
 #: truncated count.
 _REPORT_SAMPLE_LIMIT = 500
 
-#: Documents per write batch. The base catalogue is 28 rows, but tenant-owned mixes
-#: are in scope and this runs under the startup migration lock.
-_BATCH_SIZE = 500
+#: Rows the **scan cursor** fetches per round trip — nothing else. Named for what
+#: it is after a review read the earlier ``_BATCH_SIZE`` as a write batch: the
+#: writes below are one PATCH per document, because the population is a 28-row
+#: catalogue plus whatever mixes tenants own, and a per-document round trip is what
+#: lets a single failing document be reported instead of taking its batch with it.
+_SCAN_BATCH_SIZE = 500
 
 #: Exclusive categories: every scanned document lands in exactly one.
 #:
 #: ``no_cec_stored`` is not an error — a nutrient solution has no exchange capacity
 #: to declare, and the catalogue's own ``Hydrokultur`` record carries neither key.
+#:
+#: ``old_key_dropped_without_value`` is its own category rather than part of
+#: ``renamed`` because nothing is renamed there: a stored ``cec_meq_per_100g: null``
+#: says "no CEC", the model reads an absent ``cec_meq_per_100cm3`` as the same
+#: ``None``, and all the write does is remove the abandoned attribute. Counting it
+#: as a rename would report a value moving that never existed — and the re-run then
+#: files the record under ``no_cec_stored``, which is what it has always been.
 _CATEGORIES: tuple[str, ...] = (
     "renamed",
+    "old_key_dropped_without_value",
     "both_keys_present",
     "already_correct",
     "no_cec_stored",
 )
+
+#: Not a category: a document can only land here **after** being classified
+#: ``renamed`` or ``old_key_dropped_without_value``, so it is reported beside the
+#: exclusive set rather than inside it (v0050 reports ``family_unresolved`` the same
+#: way). See :meth:`RenameCecKeyMigration._write`.
+_WRITE_FAILED = "write_failed"
 
 
 @dataclass
@@ -119,8 +145,11 @@ class _Plan:
     scanned: int = 0
     totals: dict[str, int] = field(default_factory=lambda: dict.fromkeys(_CATEGORIES, 0))
     rows: dict[str, list[str]] = field(default_factory=lambda: {name: [] for name in _CATEGORIES})
-    #: ``(_key, stored value)`` per document to convert.
-    writes: list[tuple[str, Any]] = field(default_factory=list)
+    #: ``(_key, stored value, label)`` per document to convert. The label travels
+    #: with the write so a failure can name the record without a second read.
+    writes: list[tuple[str, Any, str]] = field(default_factory=list)
+    #: Documents the write could not reach — see :data:`_WRITE_FAILED`.
+    write_failed: list[str] = field(default_factory=list)
 
     def count(self, category: str, row: str) -> None:
         """Count one document exactly, and itemise it up to the sample limit.
@@ -185,7 +214,7 @@ class RenameCecKeyMigration(Migration):
         cursor = db.aql.execute(
             self._SCAN_QUERY,
             bind_vars={"old": OLD_KEY, "new": NEW_KEY},
-            batch_size=_BATCH_SIZE,
+            batch_size=_SCAN_BATCH_SIZE,
         )
         for doc in cursor:
             plan.scanned += 1
@@ -207,20 +236,24 @@ class RenameCecKeyMigration(Migration):
                 continue
 
             value = doc.get("old_value")
-            plan.count("renamed", f"{label}: {value!r}")
-            plan.writes.append((str(doc["_key"]), value))
+            if value is None:
+                plan.count("old_key_dropped_without_value", label)
+            else:
+                plan.count("renamed", f"{label}: {value!r}")
+            plan.writes.append((str(doc["_key"]), value, label))
 
         return plan
 
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
         plan = self._plan(db)
-        if not dry_run:
-            self._write(db, plan)
+        written = 0 if dry_run else self._write(db, plan)
 
         logger.info(
             "rename_cec_key",
             scanned=plan.scanned,
+            changed=written,
             dry_run=dry_run,
+            write_failed_total=len(plan.write_failed),
             **{f"{category}_total": plan.totals[category] for category in _CATEGORIES},
         )
 
@@ -228,17 +261,23 @@ class RenameCecKeyMigration(Migration):
         for category in _CATEGORIES:
             payload[category] = list(plan.rows[category])
             payload[f"{category}_total"] = plan.totals[category]
+        # Named, not counted: a document the write could not reach keeps the old key
+        # and needs a human to look at it, and they cannot look at a row nobody names.
+        payload[_WRITE_FAILED] = plan.write_failed[:_REPORT_SAMPLE_LIMIT]
+        payload[f"{_WRITE_FAILED}_total"] = len(plan.write_failed)
         return MigrationReport(
             version=self.version,
             name=self.name,
             scanned=plan.scanned,
-            changed=0 if dry_run else len(plan.writes),
+            # Successful writes, not planned ones: a report that counted intentions
+            # would say the data moved while a document still holds the old key.
+            changed=written,
             dry_run=dry_run,
             details=payload,
         )
 
     @staticmethod
-    def _write(db: StandardDatabase, plan: _Plan) -> None:
+    def _write(db: StandardDatabase, plan: _Plan) -> int:
         """Move the value and drop the old attribute, one document at a time.
 
         ``keep_none=False`` is what removes ``cec_meq_per_100g``: python-arango
@@ -256,16 +295,35 @@ class RenameCecKeyMigration(Migration):
         ``merge=False`` matches v0047/v0049: neither attribute is object-valued, and
         keeping the flag means a later field added here cannot inherit a
         server-default merge nobody chose.
+
+        **No document can abort the run** (M-4, the formulation v0050 uses). The
+        scan and the writes are separate round trips, so a mix a tenant deletes in
+        between raises ``DocumentUpdateError`` here — and an exception out of ``up``
+        is a *fatal startup*, the whole application down because one substrate went
+        away. Each document is written on its own and a failure is recorded under
+        ``write_failed`` instead; the record keeps the old key and is named for an
+        operator, which is a problem about one row rather than about the install.
+
+        Returns:
+            The number of documents actually written.
         """
         if not plan.writes:
-            return
+            return 0
         substrates = db.collection(col.SUBSTRATES)
-        for key, value in plan.writes:
-            substrates.update(
-                {"_key": key, NEW_KEY: value, OLD_KEY: None},
-                keep_none=False,
-                merge=False,
-            )
+        written = 0
+        for key, value, label in plan.writes:
+            try:
+                substrates.update(
+                    {"_key": key, NEW_KEY: value, OLD_KEY: None},
+                    keep_none=False,
+                    merge=False,
+                )
+            except ArangoError as exc:
+                plan.write_failed.append(f"{label}: {type(exc).__name__}: {exc}")
+                logger.warning("rename_cec_key_write_failed", key=key, error=str(exc))
+                continue
+            written += 1
+        return written
 
 
 #: Module-level instance the discovery loader binds (framework contract).

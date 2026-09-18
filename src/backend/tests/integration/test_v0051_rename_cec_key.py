@@ -32,6 +32,7 @@ import pytest
 from app.data_access.arango import collections as col
 from app.domain.models.substrate import Substrate
 from app.migrations.versions.v0051_rename_cec_key import (
+    _CATEGORIES,
     NEW_KEY,
     OLD_KEY,
     RenameCecKeyMigration,
@@ -60,6 +61,11 @@ def _connect():
 
     conn = ArangoConnection(Settings(arangodb_database=_DB_NAME))
     return conn, conn.connect()
+
+
+def _close(connection) -> None:
+    """Close the client ``ArangoConnection`` opened — it owns one of its own."""
+    connection.close()
 
 
 def _substrate(key: str, **extra: Any) -> dict[str, Any]:
@@ -96,10 +102,15 @@ def db():
     if system.has_database(_DB_NAME):
         system.delete_database(_DB_NAME)
 
-    _conn, handle = _connect()
+    connection, handle = _connect()
     ensure_collections(handle)
     yield handle
 
+    # Two clients are open here: the probe client above and the one
+    # ``ArangoConnection`` created. Both are closed, in that order — a leaked
+    # session per test module is the sort of thing that only shows up as an
+    # exhausted connection pool in a long run.
+    _close(connection)
     system.delete_database(_DB_NAME)
     client.close()
 
@@ -221,13 +232,17 @@ class TestTheReport:
     def test_every_scanned_document_lands_in_exactly_one_category(self, population):
         report = RenameCecKeyMigration().up(population)
 
-        totals = {
-            category: report.details[f"{category}_total"]
-            for category in ("renamed", "both_keys_present", "already_correct", "no_cec_stored")
+        totals = {category: report.details[f"{category}_total"] for category in _CATEGORIES}
+        assert totals == {
+            "renamed": 2,
+            "old_key_dropped_without_value": 1,
+            "both_keys_present": 1,
+            "already_correct": 1,
+            "no_cec_stored": 1,
         }
-        assert totals == {"renamed": 3, "both_keys_present": 1, "already_correct": 1, "no_cec_stored": 1}
         assert sum(totals.values()) == report.scanned == 6
         assert report.changed == 3
+        assert report.details["write_failed_total"] == 0
 
     def test_a_dry_run_reports_the_same_plan_and_writes_nothing(self, population):
         revisions = {key: _stored(population, key)["_rev"] for key in (_SEEDED_OLD, _TENANT_MIX_OLD, _OLD_NULL)}
@@ -236,7 +251,8 @@ class TestTheReport:
 
         assert report.dry_run is True
         assert report.changed == 0
-        assert report.details["renamed_total"] == 3
+        assert report.details["renamed_total"] == 2
+        assert report.details["old_key_dropped_without_value_total"] == 1
         assert {key: _stored(population, key)["_rev"] for key in revisions} == revisions
         assert _has_attribute(population, _SEEDED_OLD, OLD_KEY)
 
@@ -251,10 +267,11 @@ class TestIdempotence:
         assert second.changed == 0
         assert second.noop is True
         assert second.details["renamed_total"] == 0
+        assert second.details["old_key_dropped_without_value_total"] == 0
         # The two documents that carried a number, plus the one that already had
-        # the new key. The third conversion was a stored ``null``: it lost the old
-        # attribute and gained no new one, which is ``no_cec_stored`` — the same
-        # thing the model reads as ``None`` either way.
+        # the new key. The third write was a stored ``null``: it lost the old
+        # attribute and gained no new one, so it re-reads as ``no_cec_stored`` —
+        # the same thing the model reads as ``None`` either way.
         assert second.details["already_correct_total"] == 3
         assert second.details["no_cec_stored_total"] == 2
         assert second.details["both_keys_present_total"] == 1

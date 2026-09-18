@@ -46,12 +46,14 @@ M-9 covers those too and they would need their own derivation.
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
 import pytest
+import yaml
 
 import app
 
@@ -85,16 +87,22 @@ class _NoStoredDocuments:
 #: Add an entry when this test names a field you removed. ``_MigratedBy`` is the
 #: normal answer; ``_NoStoredDocuments`` needs evidence that no persisted document
 #: can be affected, and "I don't think anyone used it" is not evidence.
-_CLASSIFIED: dict[tuple[str, str], _MigratedBy | _NoStoredDocuments] = {
-    ("substrate.py", "cec_meq_per_100g"): _MigratedBy("0051"),
-    ("actuator.py", "state"): _NoStoredDocuments(
+_CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
+    ("substrate.py", "Substrate", "cec_meq_per_100g"): _MigratedBy("0051"),
+    ("actuator.py", "Actuator", "state"): _NoStoredDocuments(
         "Renamed to current_state in 426be8b4e (#561), the same commit whose v0015 "
         "CREATES the actuators collection — no actuator document can predate it."
     ),
-    ("actuator.py", "last_changed_at"): _NoStoredDocuments(
+    ("actuator.py", "Actuator", "last_changed_at"): _NoStoredDocuments(
         "Renamed to last_state_change in 426be8b4e (#561), same commit and same reason as `state` above."
     ),
 }
+
+
+#: What makes an excuse re-checkable: a commit SHA (>= 7 hex), an issue (``#1234``)
+#: or a migration version (``v0015``). Anchored to word boundaries so a number
+#: inside a word cannot pass for one.
+_EVIDENCE = re.compile(r"\b(?:[0-9a-f]{7,40}|#\d+|v\d{4})\b")
 
 
 def _git(*args: str) -> str:
@@ -114,10 +122,15 @@ def _git(*args: str) -> str:
 _ALIAS_KEYWORDS = frozenset({"alias", "serialization_alias", "validation_alias"})
 
 
-def _annotated_field_names(source: str) -> set[str]:
-    """Every name a Pydantic model can persist an attribute under.
+def _annotated_field_names(source: str) -> set[tuple[str, str]]:
+    """``(class name, stored name)`` for every field a model can persist.
 
-    Two things, because either one moving is a rename of the stored key:
+    **Per class, not per module.** ``substrate.py`` declares ``tenant_key`` on both
+    ``Substrate`` and ``SubstrateBatch``: pooled per file, dropping it from one of
+    them leaves the name present and the rename invisible — the population would
+    have covered the file and decided nothing about either model.
+
+    Two kinds of name, because either one moving renames the stored key:
 
     * class-level **annotated** attribute names (a bare ``x = 1`` is not a
       Pydantic field, and a module-level constant is not one either), and
@@ -127,14 +140,14 @@ def _annotated_field_names(source: str) -> set[str]:
         tree = ast.parse(source)
     except SyntaxError:  # pragma: no cover - a historical revision that did not parse
         return set()
-    names: set[str] = set()
+    names: set[tuple[str, str]] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
             continue
         for stmt in node.body:
             if not isinstance(stmt, ast.AnnAssign) or not isinstance(stmt.target, ast.Name):
                 continue
-            names.add(stmt.target.id)
+            names.add((node.name, stmt.target.id))
             if isinstance(stmt.value, ast.Call):
                 for keyword in stmt.value.keywords:
                     if (
@@ -142,20 +155,21 @@ def _annotated_field_names(source: str) -> set[str]:
                         and isinstance(keyword.value, ast.Constant)
                         and isinstance(keyword.value.value, str)
                     ):
-                        names.add(keyword.value.value)
+                        names.add((node.name, keyword.value.value))
     return names
 
 
 @cache
-def _vanished_fields() -> dict[tuple[str, str], None]:
-    """``(file name, field name)`` for every field a model lost since the baseline.
+def _vanished_fields() -> dict[tuple[str, str, str], None]:
+    """``(file, class, field)`` for every field a model lost since the baseline.
 
-    Cached: the derivation runs a few hundred ``git show`` calls and every test in
-    this module asks for the same answer.
+    Cached: the derivation shells out to git a few hundred times — measured 4.9 s
+    on this tree at 54 revisions (2026-09-18), and every test in this module asks
+    for the same answer, so it is paid once per session.
     """
     revisions = _git("log", "--format=%H", f"{_BASELINE_COMMIT}..HEAD", "--", _MODELS_DIR).split()
 
-    historical: dict[str, set[str]] = {}
+    historical: dict[str, set[tuple[str, str]]] = {}
     for revision in revisions:
         touched = [
             path
@@ -170,12 +184,12 @@ def _vanished_fields() -> dict[tuple[str, str], None]:
                 if source:
                     historical.setdefault(path, set()).update(_annotated_field_names(source))
 
-    vanished: dict[tuple[str, str], None] = {}
+    vanished: dict[tuple[str, str, str], None] = {}
     for path, names in historical.items():
         current_file = _REPO_ROOT / path
         current = _annotated_field_names(current_file.read_text(encoding="utf-8")) if current_file.exists() else set()
-        for name in sorted(names - current):
-            vanished[(Path(path).name, name)] = None
+        for class_name, field_name in sorted(names - current):
+            vanished[(Path(path).name, class_name, field_name)] = None
     return vanished
 
 
@@ -213,6 +227,31 @@ def _code_identifiers(path: Path) -> set[str]:
     return found
 
 
+#: Why a run cannot decide anything about renames, said once.
+_SHALLOW_REASON = (
+    "this checkout is shallow, so no field rename is visible in it — the run would "
+    "measure nothing and report green. The `Write-route and tree guards` lane checks "
+    "out full history and runs this file with --max-skipped 0; that is where the "
+    "population is measured."
+)
+
+
+@cache
+def _history_is_available() -> bool:
+    """Whether this checkout can show a rename at all."""
+    return (
+        _git("rev-parse", "--is-shallow-repository").strip() == "false"
+        and _git("cat-file", "-t", _BASELINE_COMMIT).strip() == "commit"
+    )
+
+
+@pytest.fixture
+def history():
+    """Skip a history-dependent test on a checkout that has none."""
+    if not _history_is_available():
+        pytest.skip(_SHALLOW_REASON)
+
+
 def _migration_module(version: str) -> Path:
     matches = sorted(_VERSIONS_DIR.glob(f"v{version}_*.py"))
     assert len(matches) == 1, f"expected exactly one migration module for version {version}, found {matches}"
@@ -223,26 +262,35 @@ class TestTheDerivationItself:
     """A guard whose measurement is broken reports green forever (NFR-018 §1)."""
 
     def test_the_history_this_derivation_needs_is_present(self):
-        """A shallow checkout cannot see a rename, and would pass vacuously.
+        """Either the history is here, or this run is not the one that measures.
 
-        A failure, not a skip: the backend workflow checks out with
-        ``fetch-depth: 0`` on purpose, and a skip here reports like a pass.
+        Measured on PR #1523: **three** lanes execute this file, and only two of
+        them can be given a checkout depth. `Write-route and tree guards`
+        (required) and `lint-test` both set ``fetch-depth: 0``; the `Coverage`
+        lane runs the whole suite through ``nolte/gh-plumbing``'s reusable
+        workflow, whose checkout step belongs to another repository.
+
+        So the shallow case skips *here* and is caught *there*: the guards lane
+        runs with ``--max-skipped 0``, which turns a skip in it — the only way its
+        checkout could go shallow — into a red run.
+        ``TestTheLaneThatRunsThisUnshallow`` below keeps that lane's
+        ``fetch-depth: 0`` from being dropped, and needs no history itself.
         """
-        assert _git("rev-parse", "--is-shallow-repository").strip() == "false", (
-            "this checkout is shallow, so no field rename is visible in it. "
-            "Unshallow it (`git fetch --unshallow`) — CI checks out full history for exactly this reason."
-        )
+        if not _history_is_available():
+            pytest.skip(_SHALLOW_REASON)
+
         assert _git("cat-file", "-t", _BASELINE_COMMIT).strip() == "commit", (
             f"the baseline commit {_BASELINE_COMMIT} is not in this checkout"
         )
 
+    @pytest.mark.usefixtures("history")
     def test_it_still_sees_the_rename_it_was_built_for(self):
         """The self-test: #1468's own rename must appear in the derived population.
 
         History is append-only, so this fact cannot expire; if it stops showing
         up, the derivation broke and everything else here went quiet with it.
         """
-        assert ("substrate.py", "cec_meq_per_100g") in _vanished_fields()
+        assert ("substrate.py", "Substrate", "cec_meq_per_100g") in _vanished_fields()
 
     def test_prose_about_a_field_is_not_coverage(self):
         """The false positive this guard had to be built around.
@@ -266,13 +314,30 @@ class TestTheDerivationItself:
         substrate = _REPO_ROOT / _MODELS_DIR / "substrate.py"
         names = _annotated_field_names(substrate.read_text(encoding="utf-8"))
 
-        assert {"key", "_key"} <= names
+        assert {("Substrate", "key"), ("Substrate", "_key")} <= names
 
     def test_only_annotated_assignments_count_as_fields(self):
         """A class constant is not a persisted field and must not enter the population."""
         source = "class M(BaseModel):\n    field: str = Field(alias='stored_name')\n    NOT_A_FIELD = 3\n"
 
-        assert _annotated_field_names(source) == {"field", "stored_name"}
+        assert _annotated_field_names(source) == {("M", "field"), ("M", "stored_name")}
+
+    def test_two_classes_in_one_file_are_held_apart(self):
+        """The spelling SCR-004 found: ``substrate.py`` declares ``tenant_key`` on
+        ``Substrate`` **and** on ``SubstrateBatch``. Pooled per file, dropping it
+        from one leaves the name present and the rename invisible."""
+        before = "class A(BaseModel):\n    tenant_key: str\n\n\nclass B(BaseModel):\n    tenant_key: str\n"
+        after = "class A(BaseModel):\n    owner_key: str\n\n\nclass B(BaseModel):\n    tenant_key: str\n"
+
+        gone = _annotated_field_names(before) - _annotated_field_names(after)
+
+        assert gone == {("A", "tenant_key")}
+
+    def test_the_real_model_is_the_case_this_protects(self):
+        substrate = _REPO_ROOT / _MODELS_DIR / "substrate.py"
+        names = _annotated_field_names(substrate.read_text(encoding="utf-8"))
+
+        assert {("Substrate", "tenant_key"), ("SubstrateBatch", "tenant_key")} <= names
 
     def test_a_field_named_in_code_is_coverage(self):
         """The other direction, so the check is not simply always-false."""
@@ -280,6 +345,7 @@ class TestTheDerivationItself:
 
 
 class TestEveryVanishedFieldIsAccountedFor:
+    @pytest.mark.usefixtures("history")
     def test_no_model_lost_a_field_without_a_verdict(self):
         unclassified = sorted(key for key in _vanished_fields() if key not in _CLASSIFIED)
 
@@ -295,18 +361,19 @@ class TestEveryVanishedFieldIsAccountedFor:
 
     def test_every_recorded_migration_touches_the_field_it_claims(self):
         offenders = []
-        for (file_name, field_name), verdict in sorted(_CLASSIFIED.items()):
+        for (file_name, class_name, field_name), verdict in sorted(_CLASSIFIED.items()):
             if not isinstance(verdict, _MigratedBy):
                 continue
             module = _migration_module(verdict.migration)
             if field_name not in _code_identifiers(module):
-                offenders.append(f"{file_name}:{field_name} claims v{verdict.migration} ({module.name})")
+                offenders.append(f"{file_name}:{class_name}.{field_name} claims v{verdict.migration} ({module.name})")
 
         assert offenders == [], (
             "A migration is recorded as handling a renamed field but never names it in its code "
             f"(a docstring mention does not count): {offenders}"
         )
 
+    @pytest.mark.usefixtures("history")
     def test_the_table_carries_no_stale_entry(self):
         """A classification for a field that is back — or was never gone — hides
         the next one behind a line nobody re-reads."""
@@ -323,5 +390,67 @@ class TestEveryVanishedFieldIsAccountedFor:
         sorted((key, verdict) for key, verdict in _CLASSIFIED.items() if isinstance(verdict, _NoStoredDocuments)),
     )
     def test_a_no_documents_verdict_states_its_evidence(self, key, verdict):
-        """An excuse has to name the commit or the mechanism that makes it true."""
-        assert len(verdict.reason) > 40, f"{key}: an excuse without evidence is not a verdict"
+        """An excuse has to point at something checkable.
+
+        Length was the first criterion here and it decided nothing — a long
+        sentence of belief passed it. What makes an excuse re-checkable is a
+        **commit** somebody can read, an **issue** somebody can open, or the
+        **migration** that created the collection; so that is what is required,
+        and the reason still has to say something beside the reference.
+        """
+        references = _EVIDENCE.findall(verdict.reason)
+
+        assert references, (
+            f"{key}: the reason names no commit SHA, issue number or migration version, "
+            f"so nobody can re-check it: {verdict.reason!r}"
+        )
+        assert len(verdict.reason) > len("".join(references)) + 40, (
+            f"{key}: a reference on its own is not a reason — say what it shows: {verdict.reason!r}"
+        )
+
+
+class TestTheLaneThatRunsThisUnshallow:
+    """The half of the enforcement that a shallow checkout cannot silence.
+
+    Everything above needs history; this needs only the workflow file, so it runs
+    in every lane — including the one whose checkout is a shallow default.
+    """
+
+    _WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "backend-guards.yml"
+
+    def _guards_job(self) -> dict:
+        workflow = yaml.safe_load(self._WORKFLOW.read_text(encoding="utf-8"))
+        jobs = [
+            job
+            for job in workflow["jobs"].values()
+            if any("tests/unit/guards" in str(step.get("run", "")) for step in job.get("steps", []))
+        ]
+        assert len(jobs) == 1, f"expected exactly one job running tests/unit/guards, found {len(jobs)}"
+        return jobs[0]
+
+    def test_the_guards_job_checks_out_full_history(self):
+        """Without it, every history-dependent test here skips — and a skip in
+        that lane is red only because the lane also declares ``--max-skipped 0``,
+        which the test below holds in place."""
+        checkouts = [step for step in self._guards_job()["steps"] if "actions/checkout" in str(step.get("uses", ""))]
+
+        assert checkouts, "the guards job has no checkout step"
+        for step in checkouts:
+            assert step.get("with", {}).get("fetch-depth") == 0, (
+                "the guards lane must check out full history: "
+                "tests/unit/guards/test_model_field_renames_have_migrations.py derives the vanished "
+                "model fields from it, and on a shallow checkout it can only skip (#1468)."
+            )
+
+    def test_the_guards_job_still_reddens_on_a_skip(self):
+        """``--max-skipped 0`` is what makes the skip above an alarm rather than a
+        quiet pass (#1434)."""
+        runs = [
+            str(step.get("run", ""))
+            for step in self._guards_job()["steps"]
+            if "tests/unit/guards" in str(step.get("run", ""))
+        ]
+
+        assert runs
+        for run in runs:
+            assert "--max-skipped 0" in run

@@ -23,8 +23,10 @@ import re
 from typing import Any
 
 import pytest
+from arango.exceptions import DocumentUpdateError
 
 from app.migrations.versions.v0051_rename_cec_key import (
+    _CATEGORIES,
     NEW_KEY,
     OLD_KEY,
     RenameCecKeyMigration,
@@ -34,10 +36,38 @@ _SUBSTRATES = "substrates"
 _ABSENT = object()
 
 
+class _FakeResponse:
+    """The attributes ``DocumentUpdateError`` reads off a response.
+
+    Built from the driver's own constructor rather than guessed: it reads
+    ``status_code``, ``headers``, ``error_code``, ``error_message``, ``status_text``,
+    ``url``, ``method`` and ``body``. Raising the real exception type — instead of a
+    stand-in — is what makes the migration's ``except ArangoError`` the thing under
+    test rather than a hopeful clause.
+    """
+
+    headers: dict[str, str] = {}
+    status_code = 404
+    error_code = 1202
+    error_message = "document not found"
+    status_text = "Not Found"
+    url = "http://localhost:8529/_api/document/substrates"
+    method = "patch"
+    body = {"errorNum": 1202, "errorMessage": "document not found"}
+
+
+class _FakeRequest:
+    method = "patch"
+    endpoint = "/_api/document/substrates"
+
+
 class _Collection:
-    def __init__(self, docs: dict[str, dict[str, Any]]) -> None:
+    def __init__(self, docs: dict[str, dict[str, Any]], *, failing_keys: frozenset[str] = frozenset()) -> None:
         self.docs = docs
         self.updates: list[tuple[dict[str, Any], bool, bool]] = []
+        #: Keys whose update raises, modelling a document deleted between the scan
+        #: and the write — the real driver raises ``DocumentUpdateError`` there.
+        self.failing_keys = failing_keys
 
     def update(self, patch: dict[str, Any], keep_none: bool = True, merge: bool = True) -> None:
         """Model ArangoDB's PATCH, including the ``keepNull`` semantics this rename rests on.
@@ -46,6 +76,8 @@ class _Collection:
         ``keepNull`` — ``keep_null`` raises ``TypeError`` on the real driver), so a
         migration calling the wrong one fails here too and not only live.
         """
+        if patch["_key"] in self.failing_keys:
+            raise DocumentUpdateError(_FakeResponse(), _FakeRequest())
         self.updates.append((dict(patch), keep_none, merge))
         doc = self.docs[patch["_key"]]
         for name, value in patch.items():
@@ -94,8 +126,8 @@ class _Aql:
 
 
 class _Db:
-    def __init__(self, docs: dict[str, dict[str, Any]]) -> None:
-        self._col = _Collection(docs)
+    def __init__(self, docs: dict[str, dict[str, Any]], *, failing_keys: frozenset[str] = frozenset()) -> None:
+        self._col = _Collection(docs, failing_keys=failing_keys)
         self.aql = _Aql(self._col)
 
     def has_collection(self, name: str) -> bool:
@@ -141,6 +173,7 @@ def db() -> _Db:
             "conflict": _doc("Beides", old=99.0, new=12.0),
             "current": _doc("Schon korrekt", new=8.5),
             "no_cec": _doc("Hydrokultur (kein Substrat)"),
+            "old_null": _doc("Alter Schlüssel ohne Wert", old=None),
         }
     )
 
@@ -168,7 +201,7 @@ class TestTheRename:
         later edit cannot drop one and stay green in this tier."""
         migration.up(db)
 
-        assert [(keep_none, merge) for _patch, keep_none, merge in db.updates] == [(False, False)] * 2
+        assert [(keep_none, merge) for _patch, keep_none, merge in db.updates] == [(False, False)] * 3
 
     def test_only_the_two_cec_attributes_are_written(self, migration, db):
         migration.up(db)
@@ -182,7 +215,7 @@ class TestTheConflictCase:
     def test_a_document_with_both_keys_is_not_written(self, migration, db):
         migration.up(db)
 
-        assert [patch["_key"] for patch, _k, _m in db.updates] == ["seeded", "tenant_mix"]
+        assert [patch["_key"] for patch, _k, _m in db.updates] == ["seeded", "tenant_mix", "old_null"]
 
     def test_the_new_key_keeps_its_value(self, migration, db):
         """``cm3`` wins by not being touched: it is what the model reads today, and
@@ -206,13 +239,16 @@ class TestTheReport:
     def test_every_scanned_document_lands_in_exactly_one_category(self, migration, db):
         report = migration.up(db)
 
-        totals = {
-            category: report.details[f"{category}_total"]
-            for category in ("renamed", "both_keys_present", "already_correct", "no_cec_stored")
+        totals = {category: report.details[f"{category}_total"] for category in _CATEGORIES}
+        assert totals == {
+            "renamed": 2,
+            "old_key_dropped_without_value": 1,
+            "both_keys_present": 1,
+            "already_correct": 1,
+            "no_cec_stored": 1,
         }
-        assert totals == {"renamed": 2, "both_keys_present": 1, "already_correct": 1, "no_cec_stored": 1}
-        assert sum(totals.values()) == report.scanned == 5
-        assert report.changed == 2
+        assert sum(totals.values()) == report.scanned == 6
+        assert report.changed == 3
 
     def test_a_record_is_named_by_owner_so_an_operator_can_find_it(self, migration, db):
         report = migration.up(db)
@@ -246,7 +282,7 @@ class TestDryRun:
         assert dry.details["renamed"] == wet.details["renamed"]
         assert dry.scanned == wet.scanned
         assert dry.changed == 0
-        assert wet.changed == 2
+        assert wet.changed == 3
 
 
 class TestIdempotence:
@@ -257,7 +293,7 @@ class TestIdempotence:
 
         assert second.changed == 0
         assert second.noop is True
-        assert len(db.updates) == 2
+        assert len(db.updates) == 3
 
     def test_the_converted_records_report_as_already_correct(self, migration, db):
         migration.up(db)
@@ -266,6 +302,10 @@ class TestIdempotence:
 
         assert second.details["renamed_total"] == 0
         assert second.details["already_correct_total"] == 3
+        # The record that stored a null had no value to move: it is back where it
+        # always belonged rather than "already correct".
+        assert second.details["old_key_dropped_without_value_total"] == 0
+        assert second.details["no_cec_stored_total"] == 2
 
 
 class TestAnUnbootstrappedDatabase:
@@ -278,3 +318,69 @@ class TestAnUnbootstrappedDatabase:
 
         assert report.scanned == 0
         assert report.changed == 0
+
+
+class TestAStoredNullUnderTheOldKey:
+    """It is a removal, not a rename — and reported as one."""
+
+    def test_the_old_attribute_goes_and_no_new_one_appears(self, migration, db):
+        migration.up(db)
+
+        assert OLD_KEY not in db.docs("old_null")
+        assert NEW_KEY not in db.docs("old_null")
+
+    def test_it_is_reported_under_its_own_category(self, migration, db):
+        report = migration.up(db)
+
+        assert report.details["old_key_dropped_without_value_total"] == 1
+        assert "Alter Schlüssel ohne Wert" in report.details["old_key_dropped_without_value"][0]
+        assert all("Alter Schlüssel" not in row for row in report.details["renamed"])
+
+
+class TestADocumentTheWriteCannotReach:
+    """A record deleted between the scan and the write must not end the startup.
+
+    An exception out of ``up`` is fatal to the migration runner (M-4): the whole
+    application stays down because one substrate went away.
+    """
+
+    @pytest.fixture
+    def db_with_a_deleted_mix(self) -> _Db:
+        return _Db(
+            {
+                "seeded": _doc("Universalerde", old=15.0),
+                "gone": _doc("Gelöschter Mix", tenant="mein-garten", old=6.0),
+            },
+            failing_keys=frozenset({"gone"}),
+        )
+
+    def test_the_run_finishes(self, migration, db_with_a_deleted_mix):
+        report = migration.up(db_with_a_deleted_mix)
+
+        assert report.scanned == 2
+
+    def test_the_other_document_is_still_written(self, migration, db_with_a_deleted_mix):
+        migration.up(db_with_a_deleted_mix)
+
+        assert db_with_a_deleted_mix.docs("seeded")[NEW_KEY] == 15.0
+
+    def test_changed_counts_successful_writes_only(self, migration, db_with_a_deleted_mix):
+        """Counting planned writes would report data as moved while a document
+        still holds the old key."""
+        report = migration.up(db_with_a_deleted_mix)
+
+        assert report.changed == 1
+
+    def test_the_failure_is_named_for_an_operator(self, migration, db_with_a_deleted_mix):
+        report = migration.up(db_with_a_deleted_mix)
+
+        assert report.details["write_failed_total"] == 1
+        row = report.details["write_failed"][0]
+        assert "Gelöschter Mix" in row
+        assert "DocumentUpdateError" in row
+
+    def test_a_clean_run_reports_no_failures(self, migration, db):
+        report = migration.up(db)
+
+        assert report.details["write_failed"] == []
+        assert report.details["write_failed_total"] == 0
