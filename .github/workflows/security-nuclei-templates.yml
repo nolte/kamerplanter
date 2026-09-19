@@ -116,11 +116,25 @@ jobs:
         # it and report success. The returned `sha` is compared against the pin as
         # well, so the check cannot pass on a response about some other object.
         #
+        # WHAT THIS DOES NOT PROVE, said plainly because the retired assertion did
+        # prove it. GitHub shares one object database across a fork network, so
+        # this endpoint answers 200 for a commit that exists only in some fork and
+        # never carried an upstream tag — the very property that makes
+        # `git fetch origin "$COMMIT"` work in the scan lanes at all. The old
+        # `ls-remote` assertion tied the pin to an upstream TAG; this check ties it
+        # to an object being fetchable. That is a deliberate trade, not a strictly
+        # better question: it answers what the scan lanes need (can this be
+        # fetched?) and drops what they no longer consume (does a tag point here?).
+        # A wrong-but-fetchable digest is caught by review of the Renovate pull
+        # request, which is where the value comes from in the first place.
+        #
         # This step reaches the network, so it can go red for a reason outside the
-        # diff (the #1311 shape). Accepted here: the lane is advisory —
-        # `.github/settings.yml` requires only `static / Static CI Tests` and
-        # `lint-test-build (22)` — and a pin check that refuses to ask upstream
-        # cannot check anything at all. A rate-limited or unreachable API is a
+        # diff (the #1311 shape). Accepted here: this lane appears in NEITHER
+        # required-check list in `.github/settings.yml` (the ruleset's and the
+        # branch-protection block's — GitHub takes their union), so it reports
+        # rather than blocks; and a pin check that refuses to ask upstream cannot
+        # check anything at all. The lists are not copied here on purpose: an
+        # earlier copy of one of them in this comment was already stale. A rate-limited or unreachable API is a
         # distinct message from a missing commit, so the two are not confused.
         env:
           UPSTREAM_API: https://api.github.com/repos/projectdiscovery/nuclei-templates/git/commits
@@ -138,9 +152,12 @@ jobs:
             echo "::error::nuclei_templates_commit is '$commit', which is not a 40-character lowercase commit digest." >&2
             exit 1
           fi
+          # The label is echoed into an annotation below, and on a pull request
+          # from a fork this file's content is attacker-controlled — so it is
+          # shape-checked like the digest rather than passed through.
           version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
-          if [[ -z "$version" || "$version" == "null" ]]; then
-            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
+          if [[ ! "$version" =~ ^v[0-9][0-9a-zA-Z.-]*$ ]]; then
+            echo "::error::nuclei_templates_version is not a plain version label (expected vN…)." >&2
             exit 1
           fi
 
@@ -148,11 +165,23 @@ jobs:
           # YAML files under tests/security/nuclei-templates, and a stray
           # artefact in the working tree is how such a count starts lying.
           body="$RUNNER_TEMP/nuclei-templates-commit.json"
+          # A stale body from an earlier step would be printed as if it were
+          # this request's answer, so the file starts absent.
+          rm -f "$body"
+          # `|| echo 000` rather than letting `set -e` kill the step: a DNS or
+          # TLS failure would otherwise end the run with curl's bare stderr and
+          # no `::error::` annotation, which reads at triage like the pin being
+          # wrong rather than the network being down.
           status=$(curl -sS --retry 2 --max-time 30 \
             -o "$body" -w '%{http_code}' \
             -H 'Accept: application/vnd.github+json' \
             -H "Authorization: Bearer $GH_TOKEN" \
-            "$UPSTREAM_API/$commit")
+            "$UPSTREAM_API/$commit" || echo "000")
+          # `-w` writes one code PER ATTEMPT, so `--retry 2` on an unreachable
+          # host yields `000000` and the `|| echo` above can append another.
+          # Measured, not assumed — the first draft of this step reported
+          # "HTTP 000000". Only the last attempt's verdict is the verdict.
+          status="${status: -3}"
 
           if [[ "$status" == "404" ]]; then
             echo "::error::nuclei_templates_commit $commit does not exist in projectdiscovery/nuclei-templates ($version)." >&2
@@ -160,8 +189,10 @@ jobs:
             exit 1
           fi
           if [[ "$status" != "200" ]]; then
-            echo "::error::Could not check $commit upstream: the GitHub API answered HTTP $status." >&2
-            sed -n '1,20p' "$body" >&2
+            echo "::error::Could not check $commit upstream: the GitHub API answered HTTP $status (000 = the request never completed)." >&2
+            if [[ -s "$body" ]]; then
+              sed -n '1,20p' "$body" >&2
+            fi
             exit 1
           fi
 

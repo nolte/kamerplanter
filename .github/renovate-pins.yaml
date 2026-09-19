@@ -35,6 +35,17 @@
 # commit) and #1454 (caught before the merge). The pair is gone; there is one
 # value to move, and Renovate moves it.
 #
+# THE LABEL IS BOUND TO NOTHING, and that is worth knowing before you trust it.
+# Nothing verifies that `nuclei_templates_version` is the tag `nuclei_templates_commit`
+# actually carries: the scan lanes only check that the label is present, and the
+# guard only that it looks like a version. Renovate keeps the two honest as long
+# as IT does the moving — it writes both in one match — but a human who bumps the
+# digest alone leaves the log saying "labelled v10.4.9" forever, and the log is
+# the label's only purpose (NFR-014 §3.3). Move both lines together, or move
+# neither. A dereferencing check was considered and rejected: it would put a tag
+# lookup back into the one lane this change removed it from, for a value no scan
+# consumes.
+#
 # KEEP THE TWO KEYS ADJACENT, and keep prose out from between them and the
 # comment above: the custom manager matches the `# renovate:` comment followed by
 # the digest line followed by the label line, so anything inserted in the middle

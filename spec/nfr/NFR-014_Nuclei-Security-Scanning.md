@@ -258,6 +258,17 @@ http:
 
 **MUSS**: Ein Pull Request, der `.github/renovate-pins.yaml` ändert, prüft vor dem Merge, ob der gepinnte Digest upstream überhaupt existiert (`security-nuclei-templates.yml`, ein API-Roundtrip auf `…/git/commits/<sha>`, kein Arbeitsbaum). Ein Tippfehler im Pin bricht sonst jede Scan-Lane erst nach dem Merge — die Form, die #1312 bereits einmal gekostet hat.
 
+> **Was diese Prüfung NICHT leistet.** GitHub teilt eine Objektdatenbank über das
+> Fork-Netzwerk, also antwortet `…/git/commits/<sha>` auch für ein Commit, das nur
+> in einem Fork existiert und nie ein Upstream-Tag trug — dieselbe Eigenschaft,
+> die `git fetch origin "$COMMIT"` in den Scan-Lanes überhaupt funktionieren
+> lässt. Die zurückgezogene `ls-remote`-Zusicherung band den Pin an ein
+> Upstream-Tag; diese Prüfung bindet ihn an die Holbarkeit eines Objekts. Das ist
+> ein bewusster Tausch und keine strikt bessere Frage: sie beantwortet, was die
+> Lanes brauchen (ist das holbar?), und lässt fallen, was sie nicht mehr
+> konsumieren (zeigt ein Tag dorthin?). Ein falscher, aber holbarer Digest wird im
+> Review des Renovate-PRs gefangen — dort entsteht der Wert.
+
 **SOLL**: Alle eigenen Templates werden vor dem Merge mit `nuclei -validate -t tests/security/nuclei-templates/` syntaktisch geprüft (Pre-Commit-Hook + CI-Schritt).
 
 ---
@@ -618,7 +629,7 @@ suppressions:
 - [ ] **Template-Setup**
     - [ ] `tests/security/nuclei-templates/` enthält die in §3.2 gelisteten Pflicht-Templates
     - [ ] Alle eigenen Templates validieren mit `nuclei -validate`
-    - [ ] `NUCLEI_TEMPLATES_SHA` ist in CI auf einen Commit-SHA gepinnt
+    - [ ] `nuclei_templates_commit` in `.github/renovate-pins.yaml` ist auf einen Commit-SHA gepinnt und wird von jeder Scan-Lane direkt geholt (kein Tag wird zur Scan-Zeit aufgelöst)
 - [ ] **CI-Integration**
     - [ ] `.github/workflows/security-nuclei-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1)
     - [ ] Die Lane erreicht ihr Urteil: über die letzten 20 Läufe ist **kein** Lauf mit `cancelled` beendet (`gh run list --workflow security-nuclei-postmerge.yml --limit 20 --json conclusion`)

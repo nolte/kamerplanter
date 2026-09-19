@@ -146,6 +146,10 @@ jobs:
       - name: Read the pinned community-template commit
         id: pin
         run: |
+          # Pre-existing gap, closed here because the step was being rewritten
+          # anyway: without it a failing `yq` left the step green with an empty
+          # output, and the nightly sibling has always had it.
+          set -euo pipefail
           commit=$(yq e '.nuclei_templates_commit' .github/renovate-pins.yaml)
           if [[ -z "$commit" || "$commit" == "null" ]]; then
             echo "::error::nuclei_templates_commit missing in .github/renovate-pins.yaml" >&2
