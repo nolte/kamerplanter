@@ -30,7 +30,14 @@ def generate_tank_maintenance_tasks() -> dict:
 
     schedules = tank_repo.get_active_auto_create_schedules()
     created_count = 0
+    #: Suppressed because the tenant already has this task open — the normal,
+    #: healthy outcome of a beat run.
     skipped_count = 0
+    #: Suppressed because the schedule could not be resolved to a tenant at all
+    #: (unknown tank, or a tank without a tenant). Maintenance for these tanks
+    #: never materialises, so it must not share a counter with "already there"
+    #: (#1573 review SCR-004).
+    skipped_unresolved_count = 0
     now = datetime.now(UTC)
 
     for schedule in schedules:
@@ -47,26 +54,42 @@ def generate_tank_maintenance_tasks() -> dict:
                 continue
         # No last log means never performed — create task
 
-        # Idempotency: check if pending/in_progress task already exists
-        task_name = f"maintenance:{schedule.maintenance_type}:{tank_key}"
-        existing, _ = task_repo.get_all_tasks(
-            0,
-            200,
-            {
-                "category": TaskCategory.MAINTENANCE.value,
-            },
-        )
-        already_exists = any(
-            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) for t in existing
-        )
-        if already_exists:
-            skipped_count += 1
+        # Resolve tank name and tenant BEFORE the idempotency question: that
+        # question belongs to one tenant, and the tenant is what answers it (#1533).
+        tank = tank_repo.get_by_key(tank_key)
+        if tank is None:
+            # An orphaned schedule: the tank it maintains is gone. Reported on its
+            # own event and counter rather than folded into "tenantless" — the two
+            # need different repairs (delete the schedule vs. stamp the tank), and
+            # a log line naming the wrong one sends the operator hunting the wrong
+            # thing (#1573 review SCR-004).
+            logger.warning("tank_maintenance_skipped_unknown_tank", tank_key=tank_key)
+            skipped_unresolved_count += 1
+            continue
+        tank_label = tank.name
+        tank_tenant_key = getattr(tank, "tenant_key", "")
+        if not tank_tenant_key:
+            # Fail closed, exactly as ``check_runoff_trends`` does for a tenantless
+            # plant: a tank without a tenant would force an unscoped idempotency
+            # read and stamp a tenantless task no tenant-scoped listing can show.
+            # Reachable: ``Tank.tenant_key`` defaults to `""` with no `min_length`.
+            logger.warning("tank_maintenance_skipped_tenantless_tank", tank_key=tank_key)
+            skipped_unresolved_count += 1
             continue
 
-        # Resolve tank name and tenant for instruction
-        tank = tank_repo.get_by_key(tank_key)
-        tank_label = tank.name if tank else tank_key
-        tank_tenant_key = tank.tenant_key if tank and hasattr(tank, "tenant_key") else ""
+        # Idempotency: is one of THIS tenant's tasks with this name still open?
+        #
+        # This used to be ``get_all_tasks(0, 200, {"category": MAINTENANCE})``
+        # narrowed by name and status in Python (#1533). That page carried no
+        # tenant (``get_all_tasks`` filtered by tenant only when given one), so one
+        # tenant's idempotency was decided from every tenant's rows; and the
+        # narrowing sat behind a 200-row cap, so past 200 maintenance tasks the
+        # match sorted out of the page and every beat run created a duplicate —
+        # the #1503 class one layer down. The whole predicate is in the query now.
+        task_name = f"maintenance:{schedule.maintenance_type}:{tank_key}"
+        if task_repo.find_open_task_by_name(task_name, tenant_key=tank_tenant_key) is not None:
+            skipped_count += 1
+            continue
 
         due_date = now
         if last_log and last_log.performed_at:
@@ -93,9 +116,14 @@ def generate_tank_maintenance_tasks() -> dict:
         "tank_maintenance_tasks_generated",
         created=created_count,
         skipped=skipped_count,
+        skipped_unresolved=skipped_unresolved_count,
         schedules_checked=len(schedules),
     )
-    return {"created": created_count, "skipped": skipped_count}
+    return {
+        "created": created_count,
+        "skipped": skipped_count,
+        "skipped_unresolved": skipped_unresolved_count,
+    }
 
 
 @celery_app.task(name="app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha")
@@ -306,19 +334,12 @@ def check_runoff_trends() -> dict:
         if high_ratio_count < 3:
             continue
 
-        # Idempotency: check if flush task already exists
+        # Idempotency: is one of THIS plant's tenant's flush tasks still open?
+        # Same repair as in ``generate_tank_maintenance_tasks`` above (#1533): the
+        # tenant-less, 200-row page narrowed in Python is replaced by the predicate
+        # the query carries.
         task_name = f"flush:runoff_trend:{plant_key}"
-        existing, _ = task_repo.get_all_tasks(
-            0,
-            200,
-            {
-                "category": TaskCategory.MAINTENANCE.value,
-            },
-        )
-        already_exists = any(
-            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) for t in existing
-        )
-        if already_exists:
+        if task_repo.find_open_task_by_name(task_name, tenant_key=plant_tenant_key) is not None:
             skipped += 1
             continue
 
