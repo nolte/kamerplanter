@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Nuclei (ProjectDiscovery), GitHub Actions, SARIF, OpenAPI
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.1
+Version: 1.2
 Autor: QA / Security Engineering
 Datum: 2026-04-28
 Tags: [security, dast, nuclei, vulnerability-scanning, cve, misconfiguration, exposures, ci-gate, sarif]
@@ -19,6 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-09-19 | §3.3 auf den Ist-Zustand gebracht (#1543): Der operative Pin ist der Commit-Digest `nuclei_templates_commit` in `.github/renovate-pins.yaml`, das Tag `nuclei_templates_version` ist nur noch sein Label; der Renovate-Custom-Manager fängt beide in einem Match. Die Tag-Auflösungs-Zusicherung entfällt in allen drei Scan-Lanes (unter einem Digest-Pin nur noch Fehlalarm) und wird auf der Pull-Request-Lane durch die Existenzprüfung des Digests ersetzt. Die frühere Beschreibung über eine Repository-Variable `vars.NUCLEI_TEMPLATES_SHA` entsprach der Implementierung nie. |
 | 1.1 | 2026-04-28 | Spec-Followup nach PR-#115-Review: Pinning-Logik in §3.3 auf `git clone` + `git checkout SHA` korrigiert (vorher bestand das `.git`-Verzeichnis bei `-update-templates` nicht zuverlässig). Nightly-Cron in §4.2 von `0 1 * * *` auf `0 0 * * *` vorgezogen, damit das schnellere Tool zuerst gegen Staging läuft (ZAP folgt 60 Min später). Frontend-Storage-Check in `kamerplanter-jwt-leak.yaml` (§3.2) ergänzt. |
 | 1.0 | 2026-04-28 | Erstversion — Template-basiertes Security-Scanning für Frontend, Backend und exponierte Infrastruktur. Pflicht-Template-Sets, CI-Gate, SARIF-Reporting, Triage-Workflow und Akzeptanzkriterien definiert. |
 
@@ -215,24 +216,47 @@ http:
 
 ### 3.3 Template-Versionierung & Reproduzierbarkeit
 
-**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest`. Der Pfad MUSS ein Git-Klon sein, da `nuclei -update-templates` einen Tarball-Sync durchführt und kein `.git`-Verzeichnis erzeugt:
+**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest` und nicht auf ein Tag. Der Pfad MUSS ein Git-Klon sein, da `nuclei -update-templates` einen Tarball-Sync durchführt und kein `.git`-Verzeichnis erzeugt:
 
 ```yaml
-- name: Pin Nuclei Templates
-  env:
-    NUCLEI_TEMPLATES_SHA: ${{ vars.NUCLEI_TEMPLATES_SHA }}
+- name: Read the pinned community-template commit
+  id: pin
   run: |
-    git clone --filter=blob:none \
+    commit=$(yq e '.nuclei_templates_commit' .github/renovate-pins.yaml)
+    echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+- name: Clone & checkout pinned community templates
+  env:
+    COMMIT: ${{ steps.pin.outputs.commit }}
+  run: |
+    git clone --filter=blob:none --no-checkout \
       https://github.com/projectdiscovery/nuclei-templates.git \
       ./nuclei-templates
-    git -C ./nuclei-templates checkout "$NUCLEI_TEMPLATES_SHA"
+    git -C ./nuclei-templates fetch --depth=1 origin "$COMMIT"
+    git -C ./nuclei-templates checkout FETCH_HEAD
 
 - name: Run Nuclei against pinned templates
   run: |
     nuclei -t ./nuclei-templates -tags "${TAGS}" -severity "${SEVERITY}" ...
 ```
 
-**MUSS**: `NUCLEI_TEMPLATES_SHA` ist als Repository-Variable hinterlegt und wird wöchentlich automatisch via Renovate aktualisiert (vgl. NFR-009). Renovate-Custom-Manager pinnt den SHA in einer dedizierten Config-Datei (`.github/renovate-pins.yaml`), damit der Update-PR nur diese Variable berührt.
+**MUSS**: Der SHA steht als `nuclei_templates_commit` in `.github/renovate-pins.yaml` und wird von einem Renovate-Custom-Manager aktualisiert (vgl. NFR-009), damit der Update-PR nur diese Datei berührt. Der Manager fängt den Digest **und** das unmittelbar darunter stehende Tag-Label `nuclei_templates_version` in *einem* Match, sodass Renovate beide Zeilen in demselben Pull Request bewegt.
+
+**MUSS**: Das Tag ist ausschließlich Beschriftung — es dient dem Log und dem menschlichen Leser. Keine Lane löst zur Scan-Zeit ein Tag auf.
+
+> **Warum kein Tag-Pin mit Zusicherung (#1543).** Bis zum 2026-09-19 pinnte die
+> Implementierung das Tag und sicherte im Scan zu, dass es noch auf einen von
+> Hand eingetragenen Commit zeigt. Renovate konnte nur die Tag-Hälfte bewegen —
+> der Commit stand über dreißig Zeilen Prosa unterhalb des Datasource-Kommentars
+> und war damit konstruktionsbedingt unverwaltet. Jede Anhebung lieferte also ein
+> Paar, dessen Hälften auseinanderlagen: #1280 (gemergt; der Nightly-Scan startete
+> daraufhin zwei Nächte lang nicht, repariert erst durch #1312) und #1454 (vor dem
+> Merge gefangen). Unter einem Digest-Pin ist das Risiko, das die Zusicherung
+> abdeckte — ein verschobenes Upstream-Tag — strukturell abwesend und nicht bloß
+> unzugesichert: Der Scan liest kein Tag. Die Zusicherung entfällt deshalb in
+> allen drei Lanes; sie könnte dort nur noch Fehlalarm erzeugen.
+
+**MUSS**: Ein Pull Request, der `.github/renovate-pins.yaml` ändert, prüft vor dem Merge, ob der gepinnte Digest upstream überhaupt existiert (`security-nuclei-templates.yml`, ein API-Roundtrip auf `…/git/commits/<sha>`, kein Arbeitsbaum). Ein Tippfehler im Pin bricht sonst jede Scan-Lane erst nach dem Merge — die Form, die #1312 bereits einmal gekostet hat.
 
 **SOLL**: Alle eigenen Templates werden vor dem Merge mit `nuclei -validate -t tests/security/nuclei-templates/` syntaktisch geprüft (Pre-Commit-Hook + CI-Schritt).
 

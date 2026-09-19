@@ -143,47 +143,55 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Read pinned NUCLEI_TEMPLATES_VERSION
+      - name: Read the pinned community-template commit
         id: pin
         run: |
-          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
-          if [[ -z "$version" || "$version" == "null" ]]; then
-            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
-            exit 1
-          fi
           commit=$(yq e '.nuclei_templates_commit' .github/renovate-pins.yaml)
           if [[ -z "$commit" || "$commit" == "null" ]]; then
             echo "::error::nuclei_templates_commit missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          # The tag is a LABEL (#1543): it is read for the log line only, so a
+          # reader of this run knows which release the digest belongs to. It is
+          # never fetched and never resolved. Still required to be present, so a
+          # digest bump that drops its label is noticed here rather than by the
+          # next human trying to tell which template set ran.
+          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
             exit 1
           fi
           {
             echo "version=$version"
             echo "commit=$commit"
           } >> "$GITHUB_OUTPUT"
-          echo "Pinned templates version: $version"
+          echo "Pinned templates commit: $commit (labelled $version)"
 
       - name: Clone & checkout pinned community templates
         env:
           VERSION: ${{ steps.pin.outputs.version }}
-          EXPECTED_COMMIT: ${{ steps.pin.outputs.commit }}
+          COMMIT: ${{ steps.pin.outputs.commit }}
         run: |
           set -euo pipefail
-          git clone --filter=blob:none \
+          # THE COMMIT IS FETCHED DIRECTLY — no tag is resolved here (#1543,
+          # NFR-014 §3.3). GitHub serves an unadvertised object to `fetch`, so a
+          # commit SHA is a valid refspec even though it is not a ref.
+          git clone --filter=blob:none --no-checkout \
             https://github.com/projectdiscovery/nuclei-templates.git \
             ./nuclei-templates
-          git -C ./nuclei-templates fetch --depth=1 origin "$VERSION"
+          git -C ./nuclei-templates fetch --depth=1 origin "$COMMIT"
           git -C ./nuclei-templates checkout FETCH_HEAD
 
-          # A tag can be moved. Assert it still points where it did when it was
-          # reviewed, so a replaced template set fails the run loudly instead of
-          # quietly changing what the scan covers.
-          actual="$(git -C ./nuclei-templates rev-parse HEAD)"
-          if [[ "$actual" != "$EXPECTED_COMMIT" ]]; then
-            echo "::error::$VERSION resolves to $actual, but .github/renovate-pins.yaml records $EXPECTED_COMMIT." >&2
-            echo "         The upstream tag moved. Review the change and update nuclei_templates_commit in the same pull request." >&2
-            exit 1
-          fi
-          echo "Templates at $VERSION = $actual (matches the recorded commit)."
+          # THERE IS DELIBERATELY NO TAG-RESOLUTION ASSERTION HERE. Until #1543
+          # this step fetched the TAG and then asserted it still resolved to the
+          # recorded commit. Under a digest pin that assertion can only produce a
+          # false alarm: an upstream tag move no longer affects one byte of what
+          # this scan reads, because nothing here reads a tag. The risk it
+          # covered is structurally absent, not merely unasserted — please do not
+          # put it back. What CAN go wrong is a digest that does not exist
+          # upstream, and `security-nuclei-templates.yml` asks exactly that on the
+          # pull request that edits the pin, before this lane ever runs.
+          echo "Templates at $(git -C ./nuclei-templates rev-parse HEAD) (labelled $VERSION)."
 
       - name: Build suppression flags
         id: suppress
