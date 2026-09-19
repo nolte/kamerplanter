@@ -3823,6 +3823,24 @@ export interface TaskTemplateUpdate {
 /** REQ-006 FreeStyle task origin (#1082). Orthogonal to `TaskCategory`. */
 export type TaskOrigin = 'user' | 'system' | 'pipeline';
 
+/**
+ * The origins a *machine* produced — the "machine-generated" half of the task
+ * queue's provenance filter, which the server is asked for as a repeated
+ * `origin` parameter (#1503).
+ *
+ * `satisfies` rather than a plain annotation on purpose: every entry has to be a
+ * non-user origin, so a typo or a `'user'` slipping in is a compile error. That
+ * the list is also *complete* — the direction that matters when a fourth origin
+ * is added to {@link TaskOrigin} and the machine filter silently stops returning
+ * it — cannot be expressed in the same `satisfies`, and is asserted instead by
+ * `src/test/guards/queueScopeIsAskedOfTheServer.test.ts`, which reads the union
+ * members out of this file.
+ */
+export const MACHINE_TASK_ORIGINS = ['system', 'pipeline'] as const satisfies readonly Exclude<
+  TaskOrigin,
+  'user'
+>[];
+
 export interface TaskItem {
   key: string;
   name: string;
@@ -4261,6 +4279,24 @@ export type CareStyleType =
   | 'mediterranean'
   | 'fern'
   | 'cactus'
+  // REQ-022 v2.5 outdoor presets (§3.1). The union carried only the nine
+  // houseplant styles until #1505, so a profile the backend generated as
+  // `outdoor_annual_veg` was not assignable here and the form's Select had no
+  // option to show it. Kept in sync with the backend enum by
+  // tests/contracts/test_plant_property_enum_sync.py.
+  | 'outdoor_annual_veg'
+  | 'outdoor_annual_ornamental'
+  | 'outdoor_perennial'
+  | 'fruit_tree'
+  | 'berry_shrub'
+  | 'rose'
+  | 'frost_tender_tuber'
+  | 'frost_tender_container'
+  | 'winter_vegetable'
+  | 'spring_bulb'
+  // #1505 — the two seeded families no other preset fits
+  | 'bromeliad'
+  | 'aquatic'
   | 'custom';
 export type ReminderType =
   | 'watering'

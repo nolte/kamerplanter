@@ -32,6 +32,7 @@ import pytest
 import yaml
 
 from app.common.enums import (
+    CareStyleType,
     ClimactericClass,
     CycleType,
     DtmReference,
@@ -46,6 +47,7 @@ from app.common.enums import (
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DEFS_SCHEMA = _REPO_ROOT / "src" / "backend" / "app" / "migrations" / "seed_data" / "schemas" / "_defs.schema.yaml"
 _TYPES_TS = _REPO_ROOT / "src" / "frontend" / "src" / "api" / "types.ts"
+_CARE_PROFILE_FORM = _REPO_ROOT / "src" / "frontend" / "src" / "pages" / "pflege" / "components" / "CareProfileForm.tsx"
 _LOCALES = _REPO_ROOT / "src" / "frontend" / "src" / "i18n" / "locales"
 
 # (python enum, _defs.schema.yaml def key, types.ts type name) — every entry is
@@ -58,8 +60,20 @@ _ENUM_SYNC: list[tuple[type[StrEnum], str, str]] = [
     (CycleType, "cycle_type", "CycleType"),
 ]
 
+# (python enum, types.ts type name) — enums that exist in Python and TypeScript but
+# have no seed-data schema def, so the 3-way gate above has nothing to compare them
+# against. ``CareStyleType`` is here because it drifted exactly this way: the
+# backend grew ten outdoor presets in REQ-022 v2.5 and the union kept the original
+# nine houseplant styles, so a profile the backend generated as
+# ``outdoor_annual_veg`` was not assignable in the frontend and the care-profile
+# form's Select rendered empty for it (#1505).
+_TS_ONLY_ENUM_SYNC: list[tuple[type[StrEnum], str]] = [
+    (CareStyleType, "CareStyleType"),
+]
+
 # (python enum, enums.* i18n key) — every value must resolve in de AND en.
 _I18N_ENUMS: list[tuple[type[StrEnum], str]] = [
+    (CareStyleType, "careStyle"),
     (SeedType, "seedType"),
     (GrowthHabit, "growthHabit"),
     (FloweringStrategy, "floweringStrategy"),
@@ -82,15 +96,26 @@ def _schema_enum_values(defs_key: str) -> set[str]:
     return set(defs[defs_key]["enum"])
 
 
+#: ``//`` line comments and ``/* … */`` blocks, stripped before the members are read.
+_TS_COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
+
+
 def _ts_union_values(type_name: str) -> set[str]:
     """Parse ``export type <type_name> = 'a' | 'b' | …;`` from types.ts.
 
     The declaration may span multiple lines and is terminated by ``;``.
+
+    Comments are removed first, because the member regex pairs single quotes and an
+    apostrophe in a comment shifts every pair after it — the union then reads as a
+    handful of garbage strings and the drift report becomes unreadable. That was
+    measured on this very gate while #1505 was being written; the first fix was a
+    note asking future comments to avoid apostrophes, which is a rule nobody can
+    enforce (review finding SCR-009).
     """
     text = _TYPES_TS.read_text(encoding="utf-8")
     match = re.search(rf"export type {re.escape(type_name)}\s*=\s*(.*?);", text, re.DOTALL)
     assert match is not None, f"types.ts has no 'export type {type_name}'"
-    return set(re.findall(r"'([^']+)'", match.group(1)))
+    return set(re.findall(r"'([^']+)'", _TS_COMMENT.sub("", match.group(1))))
 
 
 def _locale_enum_block(locale: str, i18n_key: str) -> dict[str, str]:
@@ -131,6 +156,37 @@ class TestPlantPropertyEnumSync:
         drifted_ts = py | {"ghost_value"}
         with pytest.raises(AssertionError):
             assert py == drifted_ts, "injected types.ts drift must fail the gate"
+
+
+class TestTypeScriptOnlyEnumSync:
+    """Enums with no seed-data schema def — Python against types.ts alone."""
+
+    @pytest.mark.parametrize("enum,ts_type", _TS_ONLY_ENUM_SYNC, ids=lambda v: getattr(v, "__name__", v))
+    def test_enum_matches_types_ts(self, enum: type[StrEnum], ts_type: str) -> None:
+        py = _enum_values(enum)
+        ts = _ts_union_values(ts_type)
+        assert py == ts, (
+            f"{enum.__name__} drift enums.py vs types.ts['{ts_type}']: "
+            f"only-in-python={sorted(py - ts)} only-in-types={sorted(ts - py)}"
+        )
+
+    def test_the_care_style_select_offers_every_style(self) -> None:
+        """The rendering surface, not just the type.
+
+        A style can be in the union and still be unreachable: ``CareProfileForm``
+        builds its MUI ``Select`` from a hand-written ``CARE_STYLES`` array, and a
+        stored value that matches no ``MenuItem`` renders as an empty field —
+        saving the form then replaces the style the backend chose.
+        """
+        text = _CARE_PROFILE_FORM.read_text(encoding="utf-8")
+        match = re.search(r"const CARE_STYLES: CareStyleType\[\]\s*=\s*\[(.*?)\];", text, re.DOTALL)
+        assert match is not None, "CareProfileForm.tsx has no 'const CARE_STYLES: CareStyleType[]' array"
+        offered = set(re.findall(r"'([^']+)'", _TS_COMMENT.sub("", match.group(1))))
+        py = _enum_values(CareStyleType)
+        assert py == offered, (
+            "CareProfileForm CARE_STYLES drift: "
+            f"not-offered={sorted(py - offered)} offered-but-unknown={sorted(offered - py)}"
+        )
 
 
 class TestPlantPropertyEnumI18n:

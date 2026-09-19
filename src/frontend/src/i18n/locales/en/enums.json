@@ -891,6 +891,18 @@
       "mediterranean": "Mediterranean",
       "fern": "Fern",
       "cactus": "Cactus",
+      "outdoor_annual_veg": "Outdoor Vegetable (annual)",
+      "outdoor_annual_ornamental": "Outdoor Ornamental (annual)",
+      "outdoor_perennial": "Outdoor Perennial",
+      "fruit_tree": "Fruit Tree",
+      "berry_shrub": "Berry Shrub",
+      "rose": "Rose",
+      "frost_tender_tuber": "Frost-tender Tuber",
+      "frost_tender_container": "Frost-tender Container Plant",
+      "winter_vegetable": "Winter Vegetable",
+      "spring_bulb": "Spring Bulb",
+      "bromeliad": "Bromeliad",
+      "aquatic": "Aquatic Plant",
       "custom": "Custom"
     },
     "reminderType": {
