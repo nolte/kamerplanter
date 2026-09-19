@@ -230,6 +230,14 @@ class TestDiseaseListPage:
 # -- TC-REQ-010-021 to TC-REQ-010-023: Disease Create Dialog ------------------
 
 
+# #1501 — the IPM catalogue is installation-wide (no ``tenant_key`` on Pest,
+# Disease or Treatment), so its writes carry ``require_platform_admin`` and the
+# list pages offer the create control only to a platform admin. The demo user is
+# deliberately an ordinary member — a large part of this suite asserts what an
+# ordinary member is refused — so every case that reaches the create dialog runs
+# as the seeded admin instead. No-op in light mode, where the sole operator
+# already is one (REQ-027).
+@pytest.mark.platform_admin
 class TestDiseaseCreateDialog:
     """Disease create dialog operations (Spec: TC-010-016, TC-010-017)."""
 
