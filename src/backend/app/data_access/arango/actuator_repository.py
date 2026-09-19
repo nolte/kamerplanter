@@ -35,7 +35,6 @@ class ArangoActuatorRepository(BaseArangoRepository[Actuator]):
 
     is_tenant_scoped = True
     _model_cls = Actuator
-    _entity_name = "Actuator"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.ACTUATORS)

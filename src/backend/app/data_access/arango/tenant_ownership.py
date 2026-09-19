@@ -30,6 +30,7 @@ from arango.database import StandardDatabase
 
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 
 #: Allowlist of collections whose documents may be ownership-verified as a
 #: caller-supplied foreign reference on a write path. Constraining the handle set
@@ -81,7 +82,9 @@ def verify_entity_ownership(
         tenant_key: The caller's tenant. Must be non-empty (a scoped write
             without a tenant cannot be ownership-verified — SEC-B4).
         entity_name: Optional human-readable name for the raised
-            :class:`NotFoundError` (defaults to ``collection``).
+            :class:`NotFoundError`. Defaults to the collection's registered
+            entity name (:func:`entity_name_for_collection`), never to the
+            collection name itself.
 
     Raises:
         ValueError: ``tenant_key`` is empty (programming/scoping error, mirrors
@@ -94,7 +97,9 @@ def verify_entity_ownership(
         raise ValueError(
             "verify_entity_ownership is tenant-scoped and requires a non-empty tenant_key (SEC-B4 tenant isolation)."
         )
-    name = entity_name or collection
+    # Never the collection name: it is a plural storage detail and, for the
+    # InvenTree link guard, caller-supplied (#1465).
+    name = entity_name or entity_name_for_collection(collection)
     if collection not in OWNERSHIP_VERIFIABLE_COLLECTIONS:
         # Never dial an off-allowlist collection handle.
         raise NotFoundError(name, key)

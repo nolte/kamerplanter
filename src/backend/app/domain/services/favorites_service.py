@@ -365,6 +365,15 @@ class FavoritesService:
         caller's **active** tenant; refuses a **foreign** tenant's row with
         :class:`NotFoundError` (404, not 403) so cross-tenant existence cannot be
         probed — mirroring ``app/common/tenant_guard.py:verify_tenant_read_access``.
+
+        **The refusal names ``favorite target``, never the catalogue it found.**
+        The unresolvable arm in :meth:`add_favorite` cannot name a catalogue — it
+        failed to resolve one — so naming the model here would make the two arms
+        distinguishable in ``details[0].entity``: ``nutrient_plan`` would mean
+        "this key exists in some tenant", ``favorite_target`` would mean "it does
+        not exist at all". That is precisely the cross-tenant existence oracle
+        SEC-002 collapsed in the *message*, reopened in the machine-readable
+        field the client is now told to branch on (#1465).
         Purely global catalogues (species, botanical families) carry no
         ``tenant_key`` and are skipped entirely, so this never hides them (#324).
         """
@@ -373,11 +382,11 @@ class FavoritesService:
 
         doc = self._db.collection(target_collection).get(target_key)
         if doc is None:
-            raise NotFoundError(target_collection, target_key)
+            raise NotFoundError("favorite target", target_key)
 
         row_tenant = doc.get("tenant_key") or ""
         if row_tenant not in ("", tenant_key):
-            raise NotFoundError(target_collection, target_key)
+            raise NotFoundError("favorite target", target_key)
 
     def _resolve_collection(self, key: str) -> str | None:
         """Resolve which document collection a key belongs to."""

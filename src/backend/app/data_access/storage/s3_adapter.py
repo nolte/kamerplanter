@@ -124,7 +124,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
         try:
             response = client.get_object(Bucket=self._bucket, Key=key)
         except client.exceptions.NoSuchKey as exc:
-            raise NotFoundError("object", key) from exc
+            raise NotFoundError("storage object", key) from exc
         return response["Body"].read()
 
     def _head_sync(self, key: str) -> ObjectMetadata:
@@ -136,7 +136,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code")
             if code in ("404", "NoSuchKey", "NotFound"):
-                raise NotFoundError("object", key) from exc
+                raise NotFoundError("storage object", key) from exc
             raise
         last_modified = response.get("LastModified")
         return ObjectMetadata(

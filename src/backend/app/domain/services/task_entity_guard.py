@@ -43,6 +43,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.common.exceptions import NotFoundError
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
 
 
@@ -104,4 +105,4 @@ class TaskEntityGuard:
             # Fail closed: the repository *will* write an edge for it, and nobody
             # has said whose entity it is. Not marked unreachable — it is one map
             # entry away, and a test drives it precisely so this stays honest.
-            raise NotFoundError(entity_type, entity_key)
+            raise NotFoundError(entity_name_for_collection(ENTITY_TYPE_TO_COLLECTION[entity_type]), entity_key)

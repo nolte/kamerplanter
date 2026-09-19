@@ -123,7 +123,7 @@ class NutrientPlanService:
         if existing.plan_key != plan_key:
             # Same 404 a foreign entry gets: naming plan A while editing an entry
             # of plan B must not be distinguishable from the entry not existing.
-            raise NotFoundError("nutrient plan phase entry", key)
+            raise NotFoundError("NutrientPlanPhaseEntry", key)
         allowed_fields = {
             "phase_name",
             "sequence_order",
@@ -158,7 +158,7 @@ class NutrientPlanService:
         """Delete one phase entry, ownership-checked like :meth:`update_phase_entry`."""
         existing = self._owned_phase_entry_or_raise(key, tenant_key)
         if existing.plan_key != plan_key:
-            raise NotFoundError("nutrient plan phase entry", key)
+            raise NotFoundError("NutrientPlanPhaseEntry", key)
         return self._repo.delete_phase_entry(key)
 
     # ── Channel fertilizer assignment ─────────────────────────────────

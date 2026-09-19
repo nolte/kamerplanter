@@ -460,7 +460,7 @@ class PlantDiaryService:
             plants = self._run_repo.get_run_plants(run_key, include_detached=False)
             plant_keys = {p.get("_key", "") for p in plants}
             if plant_key not in plant_keys:
-                raise NotFoundError("PlantInstance in Run", plant_key)
+                raise NotFoundError("PlantingRunEntry", plant_key)
 
         self._require_attachable_photos(
             entry.photo_refs,

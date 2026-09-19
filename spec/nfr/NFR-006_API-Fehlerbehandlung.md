@@ -153,6 +153,76 @@ bei **jedem** 404 aus der Liste. War die *Aufgabe* verschwunden, wurde nichts
 gelöscht, der Eintrag verschwand trotzdem, und das Attachment verwaiste. Der
 Client de-staged jetzt nur noch bei `entity === "attachment"`.
 
+#### Geschlossenes Vokabular (#1465)
+
+Normalisieren faltet die *Schreibweise*, nicht die *Bedeutung*. Gemessen über
+`app/` ein Issue nach #1437: 146 Aufrufstellen mit Literal schrieben **59**
+verschiedene Namen — Prosa (`"LifecycleConfig for species"`), Plurale
+(`"tenants"`, `"memberships"`) und Groß-/Kleinschreibungsvarianten — dazu 17
+Stellen, die zur Laufzeit einen *Collection*-Namen durchreichten. Ein Client, der
+auf `entity === "tenant"` verzweigte, verfehlte sechs Raiser.
+
+**Die Regel, einmal formuliert:** ein veröffentlichter Wert ist der Klassenname
+eines Domänenmodells unter `app/domain/models/`, über `normalise_entity_name()`
+nach `snake_case` gefaltet — plus die Ausnahmen unten. Nie ein Collection-Name,
+nie ein Plural, nie Prosa.
+
+Die Menge ist eine **Obermenge**: der Lauf über das Modellpaket erfasst auch
+Request-/Response-Projektionen, die nie ein 404 benennen. Zugesichert ist die
+andere Richtung — außerhalb der Menge wird nichts veröffentlicht. Ein Client
+vergleicht deshalb exakt und behandelt einen unbekannten Wert wie „keine
+Angabe"; eine zweite, handgepflegte Liste „tatsächlich vorkommender" Namen wäre
+genau die Kopie, die hier abgeschafft wurde.
+
+Die Menge wird **abgeleitet, nicht gepflegt**: `app/domain/entity_names.py`
+(`entity_names()`) liest die Modellklassen; eine Liste von Namen wäre die 60.
+Kopie einer Tatsache, die die Klassen bereits tragen, und würde genauso lautlos
+driften. Durchgesetzt wird sie von `tests/unit/guards/test_entity_name_vocabulary.py`
+über jede Aufrufstelle, jeden Entitätsnamen-Parameter der geteilten Guards, jedes
+`_entity_name`-Klassenattribut und jede `NotFoundError`-Unterklasse.
+
+Die Ausnahmen — die einzigen handgeschriebenen Entitätsnamen im Code (der
+Test `test_spec_lists_exactly_the_non_model_exceptions` hält diese Tabelle und
+`NON_MODEL_ENTITY_NAMES` aneinander):
+
+| `entity` | Warum kein Modell |
+|---|---|
+| `favorite_target` | Favoriten-Ziel, dessen Key sich in keinem Katalog auflösen lässt; es gibt kein Modell, **weil** die Auflösung fehlschlug (SEC-002: unauflösbar und fremd-mandantig antworten gleich). |
+| `inven_tree_part` | Teil in der entfernten InvenTree-Instanz (REQ-016), hier nicht persistiert. Gefaltet wie die Geschwistermodelle `InvenTreeConnection` / `InvenTreeReference`. |
+| `mcp_server` | Der MCP-Endpunkt selbst, der bei abgeschaltetem Feature 404 antwortet (REQ-033) — kein Dokument. |
+| `mcp_tool` | Ein dem Dispatcher unbekannter Tool-Name (REQ-033). `McpToolSpec` beschreibt ein *registriertes* Tool, nicht das erfragte. |
+| `plant_photo` | `Attachment` in der Galerie-Kategorie (NFR-013). Bewusst von `attachment` getrennt: dieser Wert de-staged im Client ein *Aufgaben*-Foto (#1437). |
+| `reference_image` | Referenzbild-Datensatz der Admin-Oberfläche; die Modelle in `reference_image.py` beschreiben den Beschaffungs-*Job*. |
+| `resource` | Fail-closed-Rückfall, wenn eine Laufzeit-Collection auf kein Modell zeigt. Bewusst nichtssagend: den Collection-Namen zu spiegeln hieße, Speicherdetails (und bei aufrufergesteuerter Collection: Eingaben) zu veröffentlichen. |
+| `session` | Anmeldesitzung, wie `GET /auth/sessions` sie zeigt. Gespeichert als `RefreshToken` (Mechanismus), gelesen als `SessionInfo` (Projektion). |
+| `storage_object` | Blob im Objektspeicher (S3/Dateisystem) — unterhalb der Dokumentebene, Key in einem Bucket statt Modell. |
+
+**Additivität.** `error_code` und Status bleiben unverändert; ein Client, der auf
+`ENTITY_NOT_FOUND` matcht, bricht nicht. Die *Werte* sind es nicht — neun
+veröffentlichte Werte haben sich geändert:
+
+| alt | neu |
+|---|---|
+| `tenants` | `tenant` |
+| `memberships` | `membership` |
+| `invitations` | `invitation` |
+| `location_assignments` | `location_assignment` |
+| `object` | `storage_object` |
+| `lifecycle_config_for_species` | `lifecycle_config` |
+| `nutrient_profile_for_phase` | `nutrient_profile` |
+| `requirement_profile_for_phase` | `requirement_profile` |
+| `plant_instance_in_run` | `planting_run_entry` |
+
+Dazu die Collection-Namen, die die generischen Guards zur Laufzeit durchreichten
+(`plant_instances`, `cultivars`, …) — sie sind jetzt der Modellname. Nicht
+betroffen sind Raiser, deren Prosa bereits auf denselben Wert faltete
+(`"nutrient plan phase entry"` → `nutrient_plan_phase_entry`); dort änderte sich
+nur die englische `message`.
+
+Gemessen statt angenommen: der einzige Konsument des Feldes im Repository ist
+`PhotoUpload.tsx` mit `attachment` und `task` — beide unverändert; unter
+`tests/e2e/` prüft keine Zusicherung das Feld.
+
 ---
 
 ### 2.3 Error-ID-Format

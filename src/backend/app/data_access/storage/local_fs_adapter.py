@@ -221,7 +221,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
 
     def _copy_sync(self, src: Path, dst: Path) -> None:
         if not src.exists():
-            raise NotFoundError("object", str(src))
+            raise NotFoundError("storage object", str(src))
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
         src_meta = self._meta_path_for(src)
@@ -249,7 +249,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
     async def get_object(self, key: str) -> AsyncIterator[bytes]:
         path = self._path_for(key)
         if not await asyncio.to_thread(path.exists):
-            raise NotFoundError("object", key)
+            raise NotFoundError("storage object", key)
         data = await asyncio.to_thread(self._read_sync, path)
 
         async def _iter() -> AsyncIterator[bytes]:
@@ -283,7 +283,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
     async def head_object(self, key: str) -> ObjectMetadata:
         path = self._path_for(key)
         if not await asyncio.to_thread(path.exists):
-            raise NotFoundError("object", key)
+            raise NotFoundError("storage object", key)
         stat = await asyncio.to_thread(path.stat)
         meta = await asyncio.to_thread(self._read_meta_sync, path)
         return ObjectMetadata(
