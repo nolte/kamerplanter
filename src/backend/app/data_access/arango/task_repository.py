@@ -343,11 +343,19 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
-        tenant_key: str | None = None,
         *,
+        tenant_key: str,
         origins: Sequence[str] | None = None,
     ) -> tuple[list[Task], int]:
         """Page the tenant's tasks, narrowed by every predicate given.
+
+        ``tenant_key`` is **keyword-only and has no default** (#1533). It used to
+        be ``tenant_key: str | None = None`` with an ``if tenant_key:`` predicate,
+        which made "page of one tenant" and "page of the whole installation" the
+        same call with one argument dropped — and the two tank beat tasks dropped
+        it. A signature that cannot be called unscoped closes that class at the
+        surface rather than at each call site; the empty-string sentinel is
+        rejected as well, since it is the same silence spelled differently.
 
         ``origins`` is a *set* membership rather than another entry in
         ``filters`` because the UI's provenance filter is a partition, not a
@@ -360,13 +368,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         through as such: silently treating it as "no filter" would widen the
         answer to every origin, the #324 direction of this class of bug.
         """
+        self._require_tenant_key(tenant_key, "get_all_tasks")
         query = f"FOR doc IN {col.TASKS}"
-        bind_vars: dict = {}
-        filter_clauses: list[str] = []
-
-        if tenant_key:
-            bind_vars["tenant_key"] = tenant_key
-            filter_clauses.append("doc.tenant_key == @tenant_key")
+        bind_vars: dict = {"tenant_key": tenant_key}
+        filter_clauses: list[str] = ["doc.tenant_key == @tenant_key"]
 
         if filters:
             for i, (field, value) in enumerate(filters.items()):
@@ -603,7 +608,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         filters: dict[str, str] = {"status": "pending"}
         if category:
             filters["category"] = category
-        return self.get_all_tasks(offset, limit, filters, tenant_key, origins=origins)
+        return self.get_all_tasks(offset, limit, filters, tenant_key=tenant_key, origins=origins)
 
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]:
         """Overdue tasks **of one tenant** (#927, found alongside the five).
@@ -623,8 +628,23 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         cursor = self._db.aql.execute(query, bind_vars={"now": now, "tenant_key": tenant_key})
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
-    #: Statuses under which a care-reminder task still blocks re-creation.
-    _CARE_OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+    #: Statuses under which a task still counts as "already there": the dedup
+    #: predicates (care reminders, task names), the dashboard's "open" tiles.
+    #:
+    #: ONE definition for the class (#1573 review SCR-003). There were two class
+    #: attributes with this value before — ``_CARE_OPEN_STATUSES`` here and
+    #: ``_OPEN_STATUSES`` at the dashboard-counts section — and #1533 was about to
+    #: add a third, which would have been *shadowed* by the later one anyway since
+    #: both live in the same class body. A third copy is also how the set silently
+    #: diverges: a future open status added in one place leaves the other predicate
+    #: answering the old question. ``collections.CARE_TASK_OPEN_STATUSES`` (the
+    #: unique index behind care-task dedup) is held equal to this by
+    #: ``tests/unit/data_access/test_care_task_dedup_index.py`` — index and lookup
+    #: must agree on "open" or one of them is inert.
+    _OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+
+    #: Care-reminder spelling of the same set — an alias, not a copy.
+    _CARE_OPEN_STATUSES = _OPEN_STATUSES
 
     def find_open_care_task(
         self,
@@ -700,6 +720,50 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             "today": datetime.now(UTC).date().isoformat(),
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        doc = next(cursor, None)
+        return Task(**self._from_doc(doc)) if doc is not None else None
+
+    def find_open_task_by_name(self, name: str, *, tenant_key: str) -> Task | None:
+        """The single tenant-scoped "is this task already there?" lookup (#1533).
+
+        Returns the tenant's newest still-open (``pending``/``in_progress``) task
+        with exactly this ``name``, or ``None``. Task names of the generators that
+        use this are deterministic keys (``maintenance:<type>:<tank_key>``,
+        ``flush:runoff_trend:<plant_key>``), so name equality *is* the idempotency
+        question — the shape :meth:`find_open_care_task` already answers for care
+        reminders.
+
+        Both properties matter and neither was true of what this replaces
+        (``get_all_tasks(0, 200, {"category": ...})`` narrowed in Python):
+
+        * **Tenant-scoped in the store.** ``get_all_tasks`` filters by tenant only
+          when it is given one, and the two beat tasks gave it none, so one
+          tenant's idempotency was decided from every tenant's rows.
+        * **No cap to fall off.** A client-side narrowing over a 200-row page stops
+          seeing the match once the installation holds more maintenance tasks than
+          the page, and the beat run then creates a duplicate on every pass — the
+          #1503 class one layer down. The predicate sits in front of the
+          ``LIMIT 1`` here, so the answer does not depend on a page size.
+        """
+        self._require_tenant_key(tenant_key, "find_open_task_by_name")
+        query = """
+        FOR doc IN @@col
+            FILTER doc.tenant_key == @tenant_key
+            FILTER doc.name == @name
+            FILTER doc.status IN @open_statuses
+            SORT doc.due_date DESC, doc.created_at DESC
+            LIMIT 1
+            RETURN doc
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@col": self._collection_name,
+                "tenant_key": tenant_key,
+                "name": name,
+                "open_statuses": self._OPEN_STATUSES,
+            },
+        )
         doc = next(cursor, None)
         return Task(**self._from_doc(doc)) if doc is not None else None
 
@@ -1075,9 +1139,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     # ── Dashboard counts (REQ-009) ──
 
-    #: A task is "open" for the dashboard while it is still actionable, i.e. it
-    #: has neither been completed nor skipped/failed/dormant.
-    _OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+    # The dashboard's "open" (still actionable: neither completed nor
+    # skipped/failed/dormant) is the same set as the dedup predicates', and is
+    # ``_OPEN_STATUSES`` above — it used to be re-declared here, in the same class
+    # body, which made the earlier declaration dead (#1573 review SCR-003).
 
     #: Care reminders are persisted as ``category == "care_reminder"`` tasks and
     #: already own the dedicated ``care_reminders_due`` tile (REQ-009 §1.4, fed by
