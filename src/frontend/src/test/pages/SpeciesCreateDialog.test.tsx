@@ -46,17 +46,11 @@ describe('SpeciesCreateDialog', () => {
     expect(screen.queryByTestId('show-all-fields-toggle')).toBeNull();
   });
 
-  it('loads families into the family select when opened', async () => {
-    renderWithProviders(<SpeciesCreateDialog open onClose={() => {}} onCreated={() => {}} />, {
-      store: createStoreWithExpertise('expert'),
-    });
-    // Family options come from the mocked /botanical-families endpoint
-    await waitFor(() => {
-      expect(screen.getByTestId('form-field-family_key')).toBeTruthy();
-    });
-  });
-
   it('offers the families past the reader default, not just its first page', async () => {
+    // This replaces a case that only waited for `form-field-family_key` to
+    // exist: the field renders with zero options, so it was satisfied by a
+    // catalogue that never arrived. What follows asserts the options.
+    //
     // Found by the #1530 class sweep, and live rather than latent: 57 botanical
     // families are seeded (`check_seed_catalogue_page_size.py`), and this dialog
     // fetched them with `listBotanicalFamilies()` — no arguments, so the

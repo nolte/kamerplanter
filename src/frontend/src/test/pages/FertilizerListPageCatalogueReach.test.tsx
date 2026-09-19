@@ -27,12 +27,25 @@
  */
 import { waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import FertilizerListPage from '@/pages/duengung/FertilizerListPage';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+// One budget for every asynchronous step, shared with the sibling
+// catalogue-reach files and checked against the configured `testTimeout` in
+// `waitBudget.test.ts`.
+//
+// This file is why it exists (#1531): 2–4 of its cases failed per loaded
+// full-suite run, a different subset each time, never in isolation. Reproduced
+// against 16 busy loops on 8 cores — three cases failed after 8575–9953 ms with
+// `Unable to find an element with the text: pH Perfect Sensi Grow A`, i.e. with
+// the message this file exists to report when a product really is missing. The
+// budget that expired was 5 s (the explicit `{ timeout: 5000 }` these waits
+// used to carry, and the suite-wide `asyncUtilTimeout` for those that carried
+// none), not the case timeout, which the durations never came near.
+import { WAIT_BUDGET } from '../waitBudget';
 
 /**
  * A catalogue of 53 products whose last three by name are the ones #956 reported
@@ -179,35 +192,6 @@ async function search(
 }
 
 /**
- * Budget for every asynchronous step in this file (#1531).
- *
- * These cases fail 2–4 at a time, a different subset each run, only inside a
- * loaded full-suite run — and never in isolation. Reproduced by running the file
- * against 16 busy loops on 8 cores: three cases failed with
- * `Unable to find an element with the text: pH Perfect Sensi Grow A` after
- * 8575–9953 ms, which is the failure this file exists to report and therefore
- * the worst possible way for it to flake.
- *
- * What bound was not the case timeout — the reported durations sit well under
- * the 20 s the cases used to allow themselves and the 30 s `vitest.config.ts`
- * grants by default. It was the *sub*-budget: a hard-coded `{ timeout: 5000 }`
- * on the post-search wait, and React Testing Library's silent 1000 ms default on
- * the waits that had none, against steps measured at ~0.4 s and ~1 s idle. One
- * named budget for all of them, comfortably past the ~10x dilation observed
- * under contention, leaves the case timeout as the single thing that decides a
- * run — which is what the `testTimeout` note in `vitest.config.ts` asks for.
- *
- * Raising a budget is only honest because the cost underneath it was measured
- * and is not reducible here: see the table on `CATALOGUE`.
- *
- * 12 s and not more: a case runs at most two of these waits in sequence, so the
- * pair has to stay inside the 30 s `testTimeout`. Otherwise a genuinely broken
- * catalogue would report "test timed out" instead of naming the product it
- * could not find, and the file would lose the diagnosis it exists to give.
- */
-const WAIT_BUDGET = 12000;
-
-/**
  * Waits until the first page of the catalogue is on screen.
  *
  * `Base Nutrient 00` sorts first, so its arrival means the fetch resolved and
@@ -225,20 +209,35 @@ async function waitForCatalogueLoaded(page: ScopedQueries): Promise<void> {
 /**
  * Asserts the product is *not* on screen yet, before anything is searched.
  *
- * The guard that keeps this file from certifying nothing. Every positive case
- * below asserts that a product becomes findable after a search; that assertion
- * is vacuous if the product was rendered all along, which is exactly what a
- * shrunken fixture produces (measured: 7 ms to "find" the row at 5 rows, versus
- * ~1 s at 53). This fails the moment the catalogue no longer overflows
- * `TABLE_PAGE_SIZE`, and it fails naming the reason rather than leaving a green
- * run behind.
+ * Half of the guard that keeps this file from certifying nothing: every
+ * positive case below asserts that a product becomes findable after a search,
+ * and that assertion is vacuous if the product was rendered all along —
+ * measured at 7 ms to "find" the row with a 5-row catalogue, versus ~1 s at 53.
+ * The other half is the size check in `beforeAll`, which states the same
+ * requirement about the fixture instead of about one render, and therefore also
+ * covers the case that never calls this function.
  */
 function expectNotRenderedBeforeSearch(page: ScopedQueries, productName: string): void {
-  expect(CATALOGUE.length).toBeGreaterThan(TABLE_PAGE_SIZE);
   expect(page.queryByText(productName)).toBeNull();
 }
 
 describe('FertilizerListPage — the whole catalogue is reachable by search (#995)', () => {
+  beforeAll(() => {
+    // The fixture is bound from below by *two* different page sizes, and both
+    // bounds are asserted here rather than described in prose, because
+    // shrinking the filler is precisely the change the comment on `CATALOGUE`
+    // invites and neither bound announces itself when it is crossed.
+    //
+    // Falsifiability: at or below the reader's own default the capped reader
+    // returns the catalogue whole, so every positive case would pass against
+    // the defect. (A filler of 30 clears `TABLE_PAGE_SIZE` and fails here —
+    // which is the point: the smaller bound alone would have let it through.)
+    expect(CATALOGUE.length).toBeGreaterThan(API_DEFAULT_PAGE_SIZE);
+    // Non-vacuity: at or below the table's page size the searched product is
+    // rendered before anything is typed, and the search box is never exercised.
+    expect(CATALOGUE.length).toBeGreaterThan(TABLE_PAGE_SIZE);
+  });
+
   beforeEach(() => {
     i18n.changeLanguage('de');
   });

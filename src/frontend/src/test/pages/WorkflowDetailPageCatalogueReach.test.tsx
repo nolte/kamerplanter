@@ -23,13 +23,17 @@
  * question only the composed page can answer — can a user pick the last
  * activity in the catalogue?
  */
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
+import { CATALOGUE_PAGE_SIZE } from '@/api/paginate';
 import { server } from '../mocks/server';
+// The one budget for every asynchronous step, checked against the configured
+// `testTimeout` in `waitBudget.test.ts` (#1531).
+import { WAIT_BUDGET } from '../waitBudget';
 import type { Activity, WorkflowTemplate } from '@/api/types';
 
 vi.mock('react-router-dom', async (orig) => {
@@ -68,14 +72,6 @@ const CATALOGUE_SIZE = API_DEFAULT_PAGE_SIZE + 1;
 const LAST_KEY = `act-${CATALOGUE_SIZE - 1}`;
 const LAST_NAME_DE = `Letzte Aktivität ${CATALOGUE_SIZE - 1}`;
 
-/**
- * Budget for the page's asynchronous steps — see `WAIT_BUDGET` in the sibling
- * file `FertilizerListPageCatalogueReach.test.tsx` (#1531) for the measurement
- * behind the number, and for why two of them in sequence must still fit inside
- * the 30 s `testTimeout`.
- */
-const WAIT_BUDGET = 12000;
-
 function makeActivity(index: number): Activity {
   const isLast = index === CATALOGUE_SIZE - 1;
   return {
@@ -107,6 +103,19 @@ function makeActivity(index: number): Activity {
 const CATALOGUE: Activity[] = Array.from({ length: CATALOGUE_SIZE }, (_v, index) =>
   makeActivity(index),
 );
+
+/**
+ * A catalogue that does not fit in one request, for the loading case below.
+ *
+ * Bound to the production page size rather than to a literal: `fetchAllPages`
+ * asks for `CATALOGUE_PAGE_SIZE` rows and continues only while a *full* page
+ * comes back, so the boundary this case is about exists at exactly one size.
+ */
+const PAGED_CATALOGUE: Activity[] = Array.from(
+  { length: CATALOGUE_PAGE_SIZE + 3 },
+  (_v, index) => makeActivity(index),
+);
+const PAGED_LAST_KEY = `act-${PAGED_CATALOGUE.length - 1}`;
 
 function makeWorkflow(): WorkflowTemplate {
   return {
@@ -231,38 +240,69 @@ describe('WorkflowDetailPage — the activity picker offers the whole catalogue 
     expect(requests.every((request) => request.limit > API_DEFAULT_PAGE_SIZE)).toBe(true);
   });
 
-  it('keeps the dialog in its loading state until the catalogue has arrived', async () => {
-    // Paging is sequential, so the dialog is in flight for as long as the whole
-    // catalogue takes — not just its first page. The spinner has to cover that
-    // window, otherwise the dialog shows an empty list that looks like an answer.
-    // Held open by a gate rather than a delay: a fixed delay races the clicks
-    // that open the dialog, and a race that resolves early turns this case into
-    // a green run that asserted nothing about the loading state.
-    let releaseCatalogue!: () => void;
-    const catalogueArrives = new Promise<void>((resolve) => {
-      releaseCatalogue = resolve;
+  it('stays in its loading state across a page boundary, not just the first page', async () => {
+    // What makes this worth its own case: `fetchAllPages` is *sequential*, so
+    // the dialog is in flight for as long as the whole catalogue takes. If the
+    // loading flag were cleared when the first page arrived, the dialog would
+    // present a list that is neither complete nor marked as loading — an answer
+    // that happens to be wrong, which is the failure mode of the whole class.
+    //
+    // So the catalogue here is deliberately larger than one request: the first
+    // page is served in full (a full page is what tells the loop to continue),
+    // and the second is held on a gate. A fixture at or below `PAGE_SIZE` would
+    // make this case green whatever the page did after page one, because there
+    // would be no page two.
+    let releaseSecondPage!: () => void;
+    const secondPageArrives = new Promise<void>((resolve) => {
+      releaseSecondPage = resolve;
     });
-    serveWorkflow(async () => {
-      await catalogueArrives;
-      return HttpResponse.json(CATALOGUE);
+    let resolveFirstPageServed!: () => void;
+    const firstPageServed = new Promise<void>((resolve) => {
+      resolveFirstPageServed = resolve;
+    });
+
+    // Gated rather than delayed: a fixed delay races the clicks that open the
+    // dialog, and a race that resolves early turns this into a green run that
+    // asserted nothing about the loading state.
+    serveWorkflow(async ({ request }) => {
+      const url = new URL(request.url);
+      const offset = Number(url.searchParams.get('offset') ?? '0');
+      const limit = Number(url.searchParams.get('limit') ?? String(API_DEFAULT_PAGE_SIZE));
+      if (offset === 0) {
+        resolveFirstPageServed();
+        return HttpResponse.json(PAGED_CATALOGUE.slice(0, limit));
+      }
+      await secondPageArrives;
+      return HttpResponse.json(PAGED_CATALOGUE.slice(offset, offset + limit));
     });
     const user = userEvent.setup();
     renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
 
     const dialog = await openCatalogueDialog(user);
+    await firstPageServed;
+    // Let React flush whatever the first page could have triggered, so the
+    // assertion below cannot pass merely by running before a re-render.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
 
+    // A full first page has arrived and the catalogue is still incomplete:
+    // spinner up, nothing offered.
     expect(within(dialog).getByRole('progressbar')).toBeTruthy();
     expect(within(dialog).queryByTestId('activity-row-act-0')).toBeNull();
 
-    releaseCatalogue();
+    releaseSecondPage();
 
     await waitFor(
       () => {
-        expect(within(dialog).getByTestId(`activity-row-${LAST_KEY}`)).toBeTruthy();
+        expect(within(dialog).getByTestId(`activity-row-${PAGED_LAST_KEY}`)).toBeTruthy();
       },
       { timeout: WAIT_BUDGET },
     );
     expect(within(dialog).queryByRole('progressbar')).toBeNull();
+    // The row that only exists on the second page is the one asserted above, so
+    // this case also fails if the loop stops at the page boundary.
+    expect(PAGED_CATALOGUE.length).toBeGreaterThan(CATALOGUE_PAGE_SIZE);
   });
 
   it('reports a failed catalogue load instead of leaving the dialog spinning', async () => {
