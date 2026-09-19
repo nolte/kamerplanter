@@ -921,16 +921,22 @@ class TaskService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
-        tenant_key: str = "",
         *,
+        tenant_key: str,
         origins: Sequence[str] | None = None,
     ) -> tuple[list[Task], int]:
         """The tenant's tasks, paged and narrowed.
+
+        ``tenant_key`` is keyword-only and required, mirroring the repository
+        signature it delegates to (#1533). It carried ``= ""`` — the sentinel the
+        repository reads as "no tenant predicate" — so the listing could be widened
+        to the whole installation by leaving one argument out.
 
         ``origins`` is separate from ``filters`` for the reason spelled out on
         :meth:`ITaskRepository.get_all_tasks`: the provenance filter is a
         partition over several values, not one equality (#1503).
         """
+        self._require_tenant_key(tenant_key, "list_tasks")
         return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key, origins=origins)
 
     @staticmethod
