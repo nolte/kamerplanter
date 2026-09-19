@@ -196,7 +196,7 @@ class TestSubstrateTarget:
         """Substrates are favouritable in the UI and were not a server-side target."""
         db = _FakeDb({col.SUBSTRATES: {"biobizz-lightmix"}})
 
-        assert _service(db)._resolve_collection("biobizz-lightmix") == col.SUBSTRATES
+        assert _service(db)._resolve_collection("biobizz-lightmix", tenant_key="") == col.SUBSTRATES
 
     def test_substrates_are_a_tenant_owned_catalogue(self) -> None:
         """`Substrate` carries a `tenant_key`, so it needs the same predicate as
