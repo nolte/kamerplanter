@@ -29,6 +29,11 @@ on:
       - "src/frontend/Dockerfile*"
       - "src/inference-service/**"
       - ".github/workflows/skaffold-verify.yml"
+      # The render and both assertions live in this script, so a change to it
+      # is the change most able to break this job. Without this entry the one
+      # edit that most needs the gate would be the one edit that never runs it
+      # (#1313).
+      - "scripts/ci/skaffold_render_verify.sh"
 
 permissions:
   contents: read
@@ -85,7 +90,7 @@ jobs:
       - name: Skaffold diagnose
         run: skaffold diagnose
 
-      - name: Skaffold render
+      - name: Skaffold render and assert the manifests
         # `--digest-source=none` and `--offline=true` are what make this step
         # capable of passing at all.
         #
@@ -105,29 +110,16 @@ jobs:
         # `--offline=true` drops the Kubernetes API lookup, which this runner
         # also does not have.
         #
-        # Verified locally against this commit: 2465 lines, 40 resources.
-        run: |
-          skaffold render \
-            --offline=true \
-            --digest-source=none \
-            --output rendered-manifests.yaml
-
-      - name: Assert the render produced manifests
-        # `--output` writing an empty or near-empty file would otherwise pass
-        # silently, which is the same vacuous-success shape this pull request
-        # exists to remove.
-        run: |
-          set -euo pipefail
-          # gate-integrity-ok: the guard IS this count, and grep -c exits 1 when
-          # it counts zero. Under `set -e` that would abort before the threshold
-          # is compared — the swallowed status is what lets the assertion below
-          # fail loudly on an empty render instead of never running.
-          kinds=$(grep -c '^kind:' rendered-manifests.yaml || true)
-          if [[ "$kinds" -lt 10 ]]; then
-            echo "::error::Render produced only $kinds resources — expected the full chart." >&2
-            exit 1
-          fi
-          echo "Rendered $kinds resources."
+        # The render, the `--images` flags that keep it honest, and both
+        # assertions live in scripts/ci/skaffold_render_verify.sh, so this job
+        # and the `verify:skaffold` task cannot drift. Read that script's header
+        # for why image references have to be supplied: without them every
+        # `setValueTemplates` entry renders to Go's literal `<no value>`, which
+        # bjw-s common 5.2.0 turned into `image: null` for ELEVEN of the fifteen
+        # containers while this step reported "Rendered 40 resources" — and
+        # which common 5.2.1 turns into invalid YAML, which is how the masking
+        # was finally noticed.
+        run: scripts/ci/skaffold_render_verify.sh rendered-manifests.yaml
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
