@@ -225,6 +225,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Happy Path
 **Preconditions**:
 - Nutzer ist eingeloggt auf `/t/{tenant-slug}/pflanzenschutz/pests`
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer klickt den Button "Schädling erstellen"
@@ -258,6 +259,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Formvalidierung
 **Preconditions**:
 - Erstell-Dialog für Schädlinge ist geöffnet
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer lässt das Feld "Wissenschaftlicher Name" leer
@@ -283,6 +285,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Formvalidierung
 **Preconditions**:
 - Erstell-Dialog für Schädlinge ist geöffnet
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer füllt das Feld "Wissenschaftlicher Name" aus: "Tetranychus urticae"
@@ -308,6 +311,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Dialog
 **Preconditions**:
 - Erstell-Dialog für Schädlinge ist geöffnet mit bereits eingegebenen Daten
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer gibt im Feld "Wissenschaftlicher Name" ein: "TestOrganism"
@@ -332,6 +336,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Formvalidierung
 **Preconditions**:
 - Erstell-Dialog für Schädlinge ist geöffnet
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer füllt "Wissenschaftlicher Name": "Frankliniella occidentalis"
@@ -435,6 +440,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Happy Path
 **Preconditions**:
 - Nutzer ist eingeloggt auf `/t/{tenant-slug}/pflanzenschutz/diseases`
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer klickt "Krankheit erstellen"
@@ -468,6 +474,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Formvalidierung
 **Preconditions**:
 - Erstell-Dialog für Krankheiten ist geöffnet
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer lässt "Wissenschaftlicher Name" und "Gebräuchlicher Name" leer
@@ -619,6 +626,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Happy Path
 **Preconditions**:
 - Nutzer ist eingeloggt auf `/t/{tenant-slug}/pflanzenschutz/treatments`
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer klickt "Behandlung erstellen"
@@ -649,6 +657,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Happy Path
 **Preconditions**:
 - Erstell-Dialog für Behandlungen ist geöffnet
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer gibt "Bezeichnung" ein: "Pyrethrin-Spray"
@@ -681,6 +690,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 **Category**: Formvalidierung
 **Preconditions**:
 - Erstell-Dialog für Behandlungen ist geöffnet
+- Nutzer ist als **Plattform-Administrator** eingeloggt (#1501): Schädlinge, Krankheiten und Behandlungsmittel sind ein installationsweiter Katalog ohne `tenant_key`, ihre Schreibrouten verlangen seit #1501 `require_platform_admin`, und die Listenseiten blenden den Anlegen-Knopf für alle anderen aus. Ein gewöhnliches Mitglied sieht die Liste, aber keinen Anlegen-Knopf — im Light-Modus ist der einzige Bediener ohnehin Plattform-Administrator (REQ-027).
 
 **Testschritte**:
 1. Nutzer lässt das Feld "Bezeichnung" leer
