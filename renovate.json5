@@ -26,7 +26,8 @@
   // `:ignoreModulesAndTests`, whose `ignorePaths` includes `**/tests/**`. That
   // rule is written for a repository whose `tests/` holds fixtures and sample
   // projects; here it also swallows `tests/e2e/`, which is a real, shipped
-  // artefact — `tests/e2e/requirements.txt` (selenium, pytest-bdd, pytest-xdist),
+  // artefact — `tests/e2e/pyproject.toml` + `uv.lock` (selenium, pytest-bdd,
+  // pytest-xdist; a `requirements.txt` until #1509 locked that tree),
   // `tests/e2e/package.json` (axe-core) and `tests/e2e/Dockerfile` (the image the
   // nightly matrix and the `E2E smoke` lane build). None of them was Renovate-
   // managed: measured with `task renovate:dry-run` on 2026-09-17 before this
@@ -144,25 +145,26 @@
       ],
       enabled: false,
     },
-    // The uv toolchain is referenced in three KINDS of place, 23 times in total
-    // as of #1464 — RE-COUNTED, not adjusted, and the previous number was
-    // already wrong before this change: it said "17 … as of #1383" with "seven
-    // workflow steps", while develop @ 9f2d9552a carried TEN of those steps and
-    // 20 references in all. A count in a comment ages silently; the guard named
-    // below is what does not.
+    // The uv toolchain is referenced in three KINDS of place, 25 times in total
+    // as of #1509 — RE-COUNTED, not adjusted, twice now. Before #1464 it said
+    // "17 … as of #1383" with "seven workflow steps" while develop carried TEN;
+    // #1464 wrote 23 and #1509 moved it again by locking tests/e2e. A count in a
+    // comment ages silently; the guard named below is what does not, which is
+    // why the LIST is authoritative here and the number is decoration.
     //
-    // Measured with the commands the count is made of:
-    //   grep -rn 'required-version = "==' --include=pyproject.toml .   -> 7
-    //   grep -rln ghcr.io/astral-sh/uv --include=Dockerfile .          -> 5
+    // Measured with the commands the count is made of (2026-09-19):
+    //   grep -rn 'required-version = "==' --include=pyproject.toml .   -> 8
+    //   grep -rln ghcr.io/astral-sh/uv --include=Dockerfile .          -> 6
     //   grep -rc 'astral-sh/setup-uv@' .github/workflows/*.y*ml        -> 11
     //
-    //   * `[tool.uv].required-version` in seven pyproject.toml — the backend,
-    //     the four side services (#1374) and the two shared libraries (#1464).
-    //     This is what Renovate itself relocks with (its pep621 uv processor
-    //     falls back to it when `constraints.uv` is unset), read via the custom
-    //     regex manager below — whose file list is held to exactly these seven
-    //     by src/backend/tests/unit/guards/test_uv_pin_manager_covers_every_pin.py.
-    //   * `ghcr.io/astral-sh/uv` in five Dockerfiles (dockerfile manager). The
+    //   * `[tool.uv].required-version` in eight pyproject.toml — the backend,
+    //     the four side services (#1374), the two shared libraries (#1464) and
+    //     the E2E suite (#1509). This is what Renovate itself relocks with (its
+    //     pep621 uv processor falls back to it when `constraints.uv` is unset),
+    //     read via the custom regex manager below — whose file list is held to
+    //     exactly these eight by
+    //     src/backend/tests/unit/guards/test_uv_pin_manager_covers_every_pin.py.
+    //   * `ghcr.io/astral-sh/uv` in six Dockerfiles (dockerfile manager). The
     //     two libraries ship no image, so they contribute no entry here.
     //   * `astral-sh/setup-uv` in eleven workflow steps (github-actions manager).
     //
@@ -336,6 +338,16 @@
     // The axe-core line retires the "NOT MEASURED" caveat #1464 left behind: it
     // is now an observation, not a reading of rule order.
     //
+    // TWO ROWS OF THAT TABLE NAME FILES THAT NO LONGER EXIST, and the table is
+    // deliberately left as the record of what was measured on the day rather
+    // than edited into agreement with today's tree. #1509 landed immediately
+    // after: `tests/e2e/requirements.txt` became a `pyproject.toml` + `uv.lock`
+    // (that tree is `pep621` now, not `pip_requirements`) and
+    // `docs/requirements.txt` is compiled with `--generate-hashes`, i.e. exact
+    // pins instead of ranges. Group membership is unchanged — both managers are
+    // in the list above — and was RE-MEASURED after that change by forcing a
+    // candidate in each: see the paragraph on what this group does not reach.
+    //
     // THE jsdom HOLD WAS RE-MEASURED after the consolidation, because it is now
     // the only npm hold left AND the worked example the escape-hatch paragraph
     // above leans on — and it had been read from rule order, which is the
@@ -381,28 +393,39 @@
     //     `react-dom`, `fastapi` and `typescript` — all four are in this group
     //     now, where before they sat in `frontend react` / `frontend typescript`
     //     / `python fastapi-stack`;
-    //   * the selenium ceiling in tests/e2e/requirements.txt exists because
+    //   * the selenium ceiling in tests/e2e/pyproject.toml exists because
     //     `pages/_element_proxy.py` reads Selenium internals, and a green E2E
     //     run is exactly what a bump there has to be judged on.
     //
-    // WHAT THIS GROUP DOES NOT REACH, and it is not reasoned about but
-    // measured. `rangeStrategy` below applies to `pep621` only. The three
-    // `pip_requirements` files carry OPEN ranges and have no lock beside them
-    // (`selenium>=4.25.0,<5`, `pytest-xdist>=3.5.0`, `mkdocs>=1.6,<2.0`, …), so
-    // with the default `replace` strategy an IN-RANGE release proposes nothing:
-    // measured 2026-09-19, the baseline run had zero `pip_requirements` updates
-    // while the selenium docker IMAGE moved 4.48 -> 4.49 in the same run, and
-    // every pip_requirements entry in this change's measurement table had to be
-    // forced with an exact pin. Concretely: `selenium` 4.26 -> 4.49 inside
-    // `>=4.25.0,<5` never arrives.
+    // WHAT THIS GROUP DOES NOT REACH — and the answer SHRANK when #1509 landed,
+    // which is why this paragraph is rewritten rather than annotated.
     //
-    // NOT repaired here with `rangeStrategy: 'bump'`, deliberately. #1509 is the
-    // open decision on exactly these three files — lock them, hash-pin them, or
-    // record them as out of scope — and its leading candidate gives tests/e2e a
-    // `pyproject.toml` + `uv.lock`, which would move that tree under `pep621`
-    // and make a `bump` rule added today dead code tomorrow. One decision, one
-    // place. What must not happen is the state this comment replaced: a claim
-    // that the group "reaches every tree at once" with the limitation nowhere.
+    // The state #1550 measured: `rangeStrategy` below applies to `pep621` only,
+    // the three `pip_requirements` files carried OPEN ranges with no lock beside
+    // them, and with the default `replace` strategy an in-range release proposed
+    // nothing — `selenium` 4.26 -> 4.49 inside `>=4.25.0,<5` never arrived. That
+    // was correct on 2026-09-19, and #1550 deliberately did not repair it with
+    // `rangeStrategy: 'bump'` because #1509 was the open decision on exactly
+    // those three files: a bump rule added that day would have been dead code
+    // the next.
+    //
+    // #1509 then took that decision and two of the three left the category:
+    //   * `tests/e2e/` is a `pyproject.toml` + `uv.lock` now, so it is `pep621`
+    //     and `rangeStrategy: update-lockfile` DOES reach it — an in-range
+    //     selenium release moves the lock;
+    //   * `docs/requirements.txt` is compiled with `--generate-hashes`, so every
+    //     entry is an EXACT pin: there is no "in range" left to fall inside, and
+    //     Renovate bumps the pin, rewriting its hashes through `hashin` (its
+    //     pip_requirements artifact updater runs it per updated dep);
+    //   * `tools/rag-eval/requirements.txt` still carries open ranges and still
+    //     proposes nothing in-range. It is the one file #1509 argued out of
+    //     scope — no image, no lane, no delivered artefact installs it — so the
+    //     limitation survives exactly there and nowhere else.
+    //
+    // MEASURED after the change rather than inferred from the rule list, both
+    // forced the way the table above forces: `pytest-xdist` in
+    // tests/e2e/pyproject.toml and `babel` in docs/requirements.txt each
+    // resolved to `renovate/application-dependencies` (#1567).
     {
       groupName: 'application dependencies',
       matchManagers: [
@@ -618,6 +641,11 @@
         // now holds this list to every pyproject that carries the pin.
         '/^src/libs/kp_vectordb/pyproject\\.toml$/',
         '/^src/libs/kp_errortracking/pyproject\\.toml$/',
+        // The E2E suite (#1509) pins the same uv: `tests/e2e/Dockerfile` copies
+        // `ghcr.io/astral-sh/uv:<pin>` and runs `uv sync --locked` where it used
+        // to run `pip install -r requirements.txt`. Added WITH the pin it reads,
+        // and held there by `test_uv_pin_manager_covers_every_pin.py`.
+        '/^tests/e2e/pyproject\\.toml$/',
       ],
       matchStrings: [
         'required-version = "==(?<currentValue>[0-9][^"]*)"',

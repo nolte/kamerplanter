@@ -1,9 +1,13 @@
-"""#1464 — the permanent falsifier for "the shared libraries install hash-verified".
+"""#1464/#1509 — the permanent falsifier for the locks outside ``src/backend``.
 
 **What this is.** ``test_lock_hash_verification.py`` beside this file does for
-``src/backend/uv.lock`` what this one does for the two shared libraries,
-``src/libs/kp_vectordb`` and ``src/libs/kp_errortracking``. Read that module
-first: it carries the full argument, including the two measured facts this file
+``src/backend/uv.lock`` what this one does for every OTHER lock nothing else
+falsifies: the two shared libraries ``src/libs/kp_vectordb`` and
+``src/libs/kp_errortracking`` (#1464), and ``tests/e2e`` since #1509 — not a
+library, but the identical property, since its Dockerfile now installs the suite
+with ``uv sync --locked`` where a ``pip install -r requirements.txt`` stood. The
+module name kept its #1464 spelling; :data:`_LIBRARIES` is the authoritative
+list. Read that module first: it carries the full argument, including the two measured facts this file
 depends on and does not re-derive at length —
 
 * ``uv lock --check`` verifies **no hashes at all**; only ``uv sync --locked``
@@ -22,8 +26,8 @@ a lock". That is true about images and false about installs: the CI job installs
 these packages on a runner exactly like the four service images #1374 locked, so
 NFR-009 §2.3 applies to it in the same words.
 
-**A lock that is never verified is a file, not a gate.** Adding two ``uv.lock``
-would satisfy every check in this repository — the health check counts managers
+**A lock that is never verified is a file, not a gate.** Adding a ``uv.lock``
+satisfies every check in this repository — the health check counts managers
 and the presence of a lock beside a pyproject, not whether its hashes bind. This
 file is what makes the new locks load-bearing: it tampers with a copy and
 requires the install to refuse it, per library, naming the library in the
@@ -69,22 +73,45 @@ class Library:
     #: dependencies on purpose (it degrades to a no-op without sentry-sdk), so
     #: its target can only come from the dev extra — which is what CI installs.
     declared_in: str
+    #: The EXACT `uv` invocation whose hash verification is under test, minus the
+    #: project itself (a copied tree has no package to build). It is per tree and
+    #: not a module constant since #1509: the two libraries are installed by CI
+    #: with `--extra dev` — for `kp_errortracking` that extra is the only
+    #: dependency set there is — while the E2E suite has no extras at all, and
+    #: `uv sync --extra dev` against a project that defines none fails on the
+    #: extra rather than on a hash. A falsifier that cannot reach the hash line
+    #: is the failure mode this whole file exists against.
+    sync: tuple[str, ...]
 
     def __str__(self) -> str:  # pragma: no cover — pytest ids only
         return self.directory
 
 
-_LIBRARIES = (
-    Library(directory="src/libs/kp_vectordb", target="structlog", declared_in="dependencies"),
-    Library(directory="src/libs/kp_errortracking", target="sentry-sdk", declared_in="dev"),
-)
+#: What `task deps:sync:kp-*` and side-services.yml run for the libraries.
+#: `--extra dev` is not decoration: it is the dependency set CI installs, and for
+#: kp_errortracking it is the ONLY one — `[project].dependencies` is empty, so
+#: without it `uv sync` would install nothing and any tamper would be unreachable.
+_SYNC_WITH_DEV = ("sync", "--locked", "--no-install-project", "--extra", "dev")
 
-#: What `task deps:sync:kp-*` and side-services.yml run, minus the project itself
-#: (a copied tree has no package to build). `--extra dev` is not decoration: it
-#: is the dependency set CI installs, and for kp_errortracking it is the ONLY
-#: one — `[project].dependencies` is empty, so without it `uv sync` would install
-#: nothing and any tamper would be unreachable.
-_SYNC = ["sync", "--locked", "--no-install-project", "--extra", "dev"]
+#: What `tests/e2e/Dockerfile` runs, minus the project itself. The suite declares
+#: no extras, so there is nothing to add — and adding one anyway would make
+#: `uv sync` fail on the extra instead of on the hash.
+_SYNC_PLAIN = ("sync", "--locked", "--no-install-project")
+
+_LIBRARIES = (
+    Library(directory="src/libs/kp_vectordb", target="structlog", declared_in="dependencies", sync=_SYNC_WITH_DEV),
+    Library(directory="src/libs/kp_errortracking", target="sentry-sdk", declared_in="dev", sync=_SYNC_WITH_DEV),
+    # #1509: the E2E suite is not a shared library, but it is the same property
+    # in the same shape — a tree whose uv.lock nothing else falsifies, installed
+    # by `uv sync --locked` in `tests/e2e/Dockerfile` where a `pip install -r
+    # requirements.txt` used to stand. Adding a lock and asserting strings about
+    # the Dockerfile would leave "the hash verification in the image is armed" an
+    # assumption; this makes it a measurement. `selenium` is the target because
+    # the suite declares it, it is installed by that exact command, and it has
+    # exactly one marker-free wheel in the lock — the three properties the
+    # positive control below asserts rather than trusts.
+    Library(directory="tests/e2e", target="selenium", declared_in="dependencies", sync=_SYNC_PLAIN),
+)
 
 
 def _uv_version() -> str | None:
@@ -113,8 +140,8 @@ def _required_uv_version(library: Library) -> str | None:
 def _why_the_falsifier_cannot_run() -> str | None:
     """The skip reason, or None when the falsifier can actually measure something.
 
-    The two libraries pin the same uv as the backend and the four service images
-    — one toolchain, now eight readers — so a single check covers both. The
+    Every tree here pins the same uv as the backend and the four service images
+    — one toolchain, now nine readers — so a single check covers them all. The
     ``TestEveryLibraryPinsTheSameUv`` case below is what keeps that true.
     """
     installed = _uv_version()
@@ -200,7 +227,7 @@ def positive_control(library: Library, tmp_path_factory: pytest.TempPathFactory)
         pytest.skip(_SKIP_REASON)
     directory = tmp_path_factory.mktemp(f"uv-lock-control-{Path(library.directory).name}")
     _copy_lock_into(library, directory)
-    return _uv(_SYNC, directory)
+    return _uv(list(library.sync), directory)
 
 
 class TestEveryLibraryIsLockedAtAll:
@@ -247,7 +274,7 @@ class TestEveryLibraryPinsTheSameUv:
         )
 
     def test_the_libraries_pin_the_same_uv_as_the_backend(self) -> None:
-        """One toolchain, eight readers — a second pin is the #1296 class."""
+        """One toolchain, nine readers — a second pin is the #1296 class."""
         backend = tomllib.loads((_REPO_ROOT / "src" / "backend" / "pyproject.toml").read_text())
         expected = backend["tool"]["uv"]["required-version"]
         divergent = {
@@ -288,7 +315,7 @@ class TestThePositiveControlReachesTheTamperedWheel:
             f"wheel is installed' is unverifiable.\nstderr:\n{positive_control.stderr}"
         )
         assert library.target in installed, (
-            f"{library.target} is NOT among the {len(installed)} packages `{' '.join(_SYNC)}` installs in "
+            f"{library.target} is NOT among the {len(installed)} packages `{' '.join(library.sync)}` installs in "
             f"{library.directory}, so altering its hash would falsify nothing — exactly the defect that "
             "made the first hash-tamper test in #1377 vacuous. Pick a package that is installed."
         )
@@ -319,7 +346,7 @@ class TestUvSyncLockedRejectsATamperedWheelHash:
         lock = _copy_lock_into(library, tmp_path)
         original = _tamper(library, lock)
 
-        result = _uv(_SYNC, tmp_path)
+        result = _uv(list(library.sync), tmp_path)
 
         assert result.returncode != 0, (
             f"`uv sync --locked` INSTALLED a {library.directory} lock whose wheel hash had been replaced by "

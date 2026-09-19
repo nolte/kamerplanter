@@ -1,0 +1,40 @@
+# Packaging source for the E2E suite (#1509). This is a test suite, not a
+# distributable library: the image COPYs the tree and runs `pytest` from the
+# working directory, so `[tool.uv].package = false` keeps uv from ever building
+# a wheel of it. The file exists so the one Python install left in a BUILT image
+# comes from a uv.lock with hash verification (NFR-009 §2.3); before it,
+# `tests/e2e/Dockerfile` ran `pip install -r requirements.txt` and resolved
+# whatever PyPI served that minute.
+[project]
+name = "kamerplanter-e2e-tests"
+version = "1.0.0"
+description = "Kamerplanter Selenium E2E test suite (image kamerplanter-e2e-tests)"
+requires-python = ">=3.14"
+# Carried over unchanged from the requirements.txt this file replaces; Renovate
+# ages them from here through the lock (`rangeStrategy: update-lockfile`), and
+# `tests/e2e/**` is one `e2e test suite` pull request (renovate.json5).
+#
+# selenium is upper-bounded because `pages/_element_proxy.py` depends on
+# Selenium internals that are not public API: `WebElement._execute` and the
+# private `_id` attribute it reads (`remote/webelement.py:507`), plus
+# `WebDriver._wrap_value`'s element-detection contract
+# (`remote/webdriver.py:410-416`). A major release is free to rename either, and
+# the re-resolving element reference would stop healing. `<5` keeps that upgrade
+# a reviewed decision instead of a silent one.
+dependencies = [
+    "selenium>=4.25.0,<5",
+    "webdriver-manager>=4.0.0",
+    "pytest>=8.3.0",
+    "pytest-bdd>=8.1.0",
+    "pytest-xdist>=3.5.0",
+]
+
+[tool.uv]
+# The lock toolchain (NFR-009 §2.3), pinned EXACT to the same value as
+# src/backend/pyproject.toml: Renovate's pep621 processor resolves the uv it
+# relocks with from here, the Dockerfile copies `ghcr.io/astral-sh/uv:<same>`
+# and CI installs `uv==<same>`. renovate.json5 groups all references into one
+# `uv toolchain` pull request, so the reading and the relocking side never age
+# apart (#1296 class).
+required-version = "==0.12.15"
+package = false

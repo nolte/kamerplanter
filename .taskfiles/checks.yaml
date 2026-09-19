@@ -46,6 +46,20 @@ tasks:
       is not the one CI uses, which defeats the purpose. Masking changes only
       what the container can see.
 
+      `.venv-docs` and `site` joined that list in #1509, measured rather than
+      guessed, and they are TWO separate local artefacts of one command
+      (`task docs:build`): the venv made the dry-run report an `html` manager
+      with two package files that do not exist in a clean checkout (MkDocs' own
+      site-packages), and the built site made it report `pip_requirements`
+      fileCount 3 instead of 2, because MkDocs copies every non-Markdown file
+      under `docs/` — `docs/requirements.txt` included — into `site/`.
+      CI never sees either, so both were pure local noise in the one output this
+      target exists to be read from — and the second one contradicted the
+      dashboard fixture derived from it. `_SWEEP_EXCLUDED` in
+      scripts/ci/check_renovate_dashboard.py excludes the same two directories;
+      a fix in one instrument and not the other leaves the disagreement in
+      place, which is what the #1509 review caught.
+
       GITHUB_TOKEN is passed through when set. Without it the datasource lookups
       run anonymously and hit the rate limit quickly — the manager inventory is
       still correct, the "would propose" half is not.
@@ -65,6 +79,8 @@ tasks:
         docker run --rm \
           -v "$PWD:/repo" \
           -v /repo/src/backend/.venv \
+          -v /repo/.venv-docs \
+          -v /repo/site \
           -v /repo/src/frontend/node_modules \
           -v /repo/node_modules \
           -w /repo \
