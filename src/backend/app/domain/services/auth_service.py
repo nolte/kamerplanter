@@ -61,6 +61,29 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
 
 _API_KEY_PREFIX = "kp_"
 
+#: The single refusal message for an account whose ``is_active`` is ``False``
+#: (#1528). All six raise sites **in this module** use it — the five entry points
+#: plus the backstop in ``_create_tokens`` — so they cannot drift into answers
+#: that are distinguishable from one another.
+#:
+#: **It is not, however, repository-wide, and this note says so (SCR-001).** Two
+#: raise sites outside this module answer the same condition in their own words:
+#: ``full_auth_provider.resolve_user`` ("User not found or inactive.") and
+#: ``mcp_server.auth.McpAuth.authenticate`` ("Account not found or inactive.").
+#: All three are 401 and all three sit after an accepted credential, so the three
+#: wordings cost nothing an attacker can use; unifying them would change two API
+#: contracts this issue is not about. The constant stays module-local rather than
+#: moving to ``app/common/``, and this note exists so the next reader measures the
+#: other two instead of trusting a "the one place" claim that was not true.
+#:
+#: Deliberately **not** the message a wrong password gets: the check that uses it
+#: runs only *after* the credential has been accepted, so the caller who sees it
+#: already holds the account's credential and learns nothing they could not
+#: confirm otherwise. Seeing "inactive" is the diagnostic a suspended owner needs
+#: in order to contact an administrator instead of resetting a password that was
+#: never wrong.
+_INACTIVE_ACCOUNT_MESSAGE = "User account is inactive."
+
 #: Entropy of one QR pairing code, in bytes handed to ``secrets.token_urlsafe``
 #: (#1118). 32 bytes = 256 bit, the same budget as an API key and a refresh
 #: token, which is what makes the 60–120 s guessing window a non-event.
@@ -359,6 +382,36 @@ class AuthService:
                 )
             raise UnauthorizedError("Invalid email or password.")
 
+        # Check the account is not deactivated — #1528.
+        #
+        # **After the password, not before it.** The issue proposed placing this
+        # right after the lookup. That would answer "User account is inactive."
+        # to an anonymous caller who supplies nothing but an address and any
+        # password, which is precisely the account-enumeration oracle
+        # `_reject_unknown_account` (SEC-H-010) was built to close: today an
+        # address with no account, an address with a wrong password and an
+        # address belonging to a suspended account are one answer, and a check
+        # ahead of the hash comparison would split the third one out.
+        #
+        # The four paths this gate is copied from all sit *after* their
+        # credential has been accepted — `refresh_tokens` after the stored
+        # refresh token matched, OAuth after the code exchange, the API key after
+        # its hash matched, the pairing redeem after the code matched. Here that
+        # is this position, and not the one the issue suggested.
+        #
+        # Also before the success write-back below: a refused login must not
+        # reset the lockout counter or move `last_login_at`.
+        if not user.is_active:
+            # Logged, because this branch is otherwise silent (SCR-004): the
+            # password was CORRECT, so no lockout counter moves and no failure
+            # line is written, and whoever holds the credential of a suspended
+            # account can repeat this indefinitely without leaving a trace. The
+            # weaker case — an address with no account — is already logged.
+            # Digest, never the address: the caller is unauthenticated and the
+            # address may belong to a third party (NFR-011).
+            logger.info("login_refused_inactive_account", email_sha256=email_digest(email))
+            raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
+
         # Check email verification (only when required)
         if self._require_email_verification and not user.email_verified:
             raise EmailNotVerifiedError()
@@ -471,7 +524,7 @@ class AuthService:
         # Load user
         user = self._user_repo.get_by_key(stored.user_key)
         if user is None or not user.is_active:
-            raise UnauthorizedError("User account is inactive.")
+            raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
 
         return self._create_tokens(
             user,
@@ -801,7 +854,7 @@ class AuthService:
             # Existing link — login
             user = self._user_repo.get_by_key(existing_provider.user_key)
             if user is None or not user.is_active:
-                raise UnauthorizedError("User account is inactive.")
+                raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
             # Update last_used_at on provider
             existing_provider.last_used_at = datetime.now(UTC)
             if existing_provider.key:
@@ -814,6 +867,22 @@ class AuthService:
                 # provider said nothing — refuses, by the operator decision
                 # recorded on `should_auto_link`.
                 if self._oauth_engine.should_auto_link(existing_user.email_verified, oauth_user.email_verified):
+                    # The sibling branch above carries this check; this one never
+                    # did (#1528 class sweep). A suspended account whose address
+                    # a provider asserts as verified could therefore be logged
+                    # into — and, worse, acquire a *new* provider link on the way
+                    # in, so the refusal added here also has to run before
+                    # `_create_oauth_provider`.
+                    if not existing_user.is_active:
+                        # Same silent-branch argument as in `login_local`
+                        # (SCR-004); here the accepted credential is the
+                        # provider's rather than a password.
+                        logger.info(
+                            "oauth_refused_inactive_account",
+                            provider=provider_slug,
+                            email_sha256=email_digest(oauth_user.email),
+                        )
+                        raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
                     user = existing_user
                     # Create provider link
                     self._create_oauth_provider(user.key or "", oauth_user, token_response)
@@ -1140,7 +1209,7 @@ class AuthService:
         # cross-check it against.
         user = self._user_repo.get_by_key(record.user_key)
         if user is None or not user.is_active:
-            raise UnauthorizedError("User account is inactive.")
+            raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
 
         logger.info(
             "device_pairing_redeemed",
@@ -1207,7 +1276,39 @@ class AuthService:
         no label — the paired-device flow is the only caller that supplies one,
         and rotation (``refresh_tokens``) carries it over rather than dropping
         it (#1118).
+
+        **A backstop against a caller that forgets its own check (#1528).** Four
+        methods mint a pair; three of them (``refresh_tokens``, ``complete_oauth``,
+        ``redeem_device_pairing``) carried their own ``is_active`` check and
+        ``login_local`` carried none. That is the shape that drifts: the check is
+        opt-in at the call site, so a fifth entry point — or a second branch
+        inside an existing one, which is exactly how the OAuth auto-link slipped
+        through — is ungated by default. Minting is the one thing all of them do,
+        so the invariant is asserted here as well.
+
+        **What this does NOT guarantee (SCR-003).** It reads the ``User`` it was
+        handed. Every current caller hands it one the repository just returned, so
+        for them the flag is the stored one — but a future caller that builds a
+        ``User`` from a token payload rather than reading the account gets
+        ``is_active`` from the model default (``True``, ``models/user.py``) and
+        walks through. Making that impossible means re-reading the account here,
+        one document read per minting on every login, refresh and rotation, to
+        defend against a caller that does not exist; the cheaper and more honest
+        move is to say plainly what the check covers. It is a backstop against a
+        forgotten check, not against a fabricated principal.
+
+        The per-path checks stay where they are: each of them refuses *before*
+        its own side effects (the lockout write-back, the provider-link
+        creation), which this one cannot do, and each returns the answer its
+        caller's contract expects. This is the backstop, not the replacement.
+
+        Raises:
+            UnauthorizedError: The account is deactivated. Reached only when a
+                caller forgot its own check — every current path refuses earlier.
         """
+        if not user.is_active:
+            raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
+
         # Determine platform admin status from membership in "platform" tenant
         is_platform_admin = False
         if self._tenant_service and user.key:
