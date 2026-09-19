@@ -123,7 +123,7 @@ target-version = ["py314"]
 # five pyproject files, five Dockerfiles, seven workflow steps — into one
 # `uv toolchain` pull request. Contributors: `uv self update`, or run the
 # Taskfile targets through `uvx --from 'uv==<this version>' uv …`.
-required-version = "==0.12.15"
+required-version = "==0.12.17"
 # Two runtime dependencies ship as sdists only (aquacropeto, http-ece via
 # pywebpush), so `uv sync` builds them. Without this their `[build-system]`
 # requires would be fetched unpinned at every image build — the floating input
