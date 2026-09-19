@@ -168,3 +168,28 @@ def test_favorite_unresolvable_key_is_a_404_not_a_500() -> None:
         service.add_favorite("user-1", "does-not-exist-anywhere", tenant_key=CALLER_TENANT)
 
     assert db.inserted_edges == []
+
+
+def test_a_foreign_row_and_an_unknown_key_publish_the_same_entity() -> None:
+    """The two refusals must be indistinguishable in ``details[0].entity`` (#1465).
+
+    SEC-002 collapsed them in the *message*; #1437 then made ``entity`` the field
+    a client is told to branch on, and #1465 made its values stable. Naming the
+    resolved catalogue here would hand that oracle straight back: ``nutrient_plan``
+    would mean "this key exists in some tenant", ``favorite_target`` would mean "it
+    exists nowhere". ``_resolve_collection`` is tenant-blind, so the difference is
+    reachable with nothing but a foreign key.
+    """
+    foreign, _ = _service(
+        {col.NUTRIENT_PLANS: {"plan-foreign": {"_key": "plan-foreign", "tenant_key": FOREIGN_TENANT}}}
+    )
+    unknown, _ = _service({})
+
+    with pytest.raises(NotFoundError) as foreign_error:
+        foreign.add_favorite("user-1", "plan-foreign", tenant_key=CALLER_TENANT)
+    with pytest.raises(NotFoundError) as unknown_error:
+        unknown.add_favorite("user-1", "plan-foreign", tenant_key=CALLER_TENANT)
+
+    assert foreign_error.value.details[0]["entity"] == "favorite_target"
+    assert unknown_error.value.details[0]["entity"] == "favorite_target"
+    assert foreign_error.value.details[0] == unknown_error.value.details[0]

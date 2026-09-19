@@ -30,7 +30,7 @@ from arango.database import StandardDatabase
 
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
-from app.data_access.arango.entity_names import entity_name_for_collection
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 
 #: Allowlist of collections whose documents may be ownership-verified as a
 #: caller-supplied foreign reference on a write path. Constraining the handle set

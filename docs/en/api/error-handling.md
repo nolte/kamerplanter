@@ -43,7 +43,7 @@ All API errors follow a consistent JSON format. Every error response contains a 
     A route that resolves a parent and then a child answers `ENTITY_NOT_FOUND` with HTTP 404 in both cases. What separates them is `details[0].entity` — not `message`, which is English prose and free to be reworded. A client that does not know the field behaves exactly as before: `error_code` and status are unchanged.
 
 !!! info "`entity` is a closed vocabulary"
-    The value always names **one** kind of resource: one name per model, always singular (`tenant`, never `tenants`; `plant_instance`, never `plant_instances`). It is never a storage/collection name and never free text. Besides the model names there are nine named exceptions for things that are not models — among them `storage_object` (a file in object storage), `session` (a login session), `mcp_tool` and `resource` (the fallback used when the server must not name the kind). Compare the value exactly, and treat an unknown value as "not stated".
+    The value always names **one** kind of resource: one name per model, always singular (`tenant`, never `tenants`; `plant_instance`, never `plant_instances`). It is never a storage/collection name and never free text. Besides the model names there are named exceptions for things that are not models — among them `storage_object` (a file in object storage), `session` (a login session), `mcp_tool` and `resource` (the fallback used when the server must not name the kind). Compare the value exactly, and treat an unknown value as "not stated".
 
 !!! tip "Use error_id for support"
     The `error_id` is logged on the server. Always include this ID when debugging or raising support requests — it allows the error to be traced precisely on the server side.

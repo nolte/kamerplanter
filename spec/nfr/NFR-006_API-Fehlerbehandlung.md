@@ -164,8 +164,15 @@ auf `entity === "tenant"` verzweigte, verfehlte sechs Raiser.
 
 **Die Regel, einmal formuliert:** ein veröffentlichter Wert ist der Klassenname
 eines Domänenmodells unter `app/domain/models/`, über `normalise_entity_name()`
-nach `snake_case` gefaltet — plus die neun Ausnahmen unten. Nie ein
-Collection-Name, nie ein Plural, nie Prosa.
+nach `snake_case` gefaltet — plus die Ausnahmen unten. Nie ein Collection-Name,
+nie ein Plural, nie Prosa.
+
+Die Menge ist eine **Obermenge**: der Lauf über das Modellpaket erfasst auch
+Request-/Response-Projektionen, die nie ein 404 benennen. Zugesichert ist die
+andere Richtung — außerhalb der Menge wird nichts veröffentlicht. Ein Client
+vergleicht deshalb exakt und behandelt einen unbekannten Wert wie „keine
+Angabe"; eine zweite, handgepflegte Liste „tatsächlich vorkommender" Namen wäre
+genau die Kopie, die hier abgeschafft wurde.
 
 Die Menge wird **abgeleitet, nicht gepflegt**: `app/domain/entity_names.py`
 (`entity_names()`) liest die Modellklassen; eine Liste von Namen wäre die 60.
@@ -174,7 +181,9 @@ driften. Durchgesetzt wird sie von `tests/unit/guards/test_entity_name_vocabular
 über jede Aufrufstelle, jeden Entitätsnamen-Parameter der geteilten Guards, jedes
 `_entity_name`-Klassenattribut und jede `NotFoundError`-Unterklasse.
 
-Die Ausnahmen — die einzigen handgeschriebenen Entitätsnamen im Code:
+Die Ausnahmen — die einzigen handgeschriebenen Entitätsnamen im Code (der
+Test `test_spec_lists_exactly_the_non_model_exceptions` hält diese Tabelle und
+`NON_MODEL_ENTITY_NAMES` aneinander):
 
 | `entity` | Warum kein Modell |
 |---|---|

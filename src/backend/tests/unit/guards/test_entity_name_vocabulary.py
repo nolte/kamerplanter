@@ -61,7 +61,7 @@ ENTITY_NAME_ARGUMENTS: dict[str, tuple[int | None, str | None]] = {
     "require_owned_site": (3, "entity_name"),
     "verify_entity_ownership": (None, "entity_name"),
     "verify_entities_ownership": (None, "entity_name"),
-    "get_or_raise_named": (None, "entity_name"),
+    "get_or_raise_by": (1, "entity_name"),
     "_authorize_tenant_owned_write": (None, "entity"),
     "_require_owned_site": (2, "entity_name"),
 }
@@ -112,13 +112,26 @@ DERIVED_ENTITY_SITES: dict[str, str] = {
 
 
 def _module_aliases(tree: ast.Module) -> dict[str, str]:
-    """Map every local name bound to a checked callable back to its real name."""
+    """Map every local name bound to a checked callable back to its real name.
+
+    Two bindings, not one: ``from … import NotFoundError as NFE`` **and** a plain
+    ``E = NotFoundError`` at module level. Reading only the import form leaves the
+    assignment as a silent bypass — the guard would see a call to ``E`` and have
+    no opinion about it.
+    """
     aliases: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             for alias in node.names:
                 if alias.name in ENTITY_NAME_ARGUMENTS:
                     aliases[alias.asname or alias.name] = alias.name
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name):
+            real = aliases.get(node.value.id, node.value.id)
+            if real in ENTITY_NAME_ARGUMENTS:
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        aliases[target.id] = real
     return aliases
 
 
@@ -133,20 +146,33 @@ def _module_string_constants(tree: ast.Module) -> dict[str, str]:
     return constants
 
 
+def _base_name(base: ast.expr) -> str:
+    """The trailing name of a base expression — ``exc.NotFoundError`` included.
+
+    A module-qualified base is the same class as a bare one, and reading only
+    ``ast.Name`` would let ``class FooNotFoundError(exc.NotFoundError)`` hard-code
+    an entity name the guard never sees.
+    """
+    if isinstance(base, ast.Name):
+        return base.id
+    if isinstance(base, ast.Attribute):
+        return base.attr
+    return ""
+
+
 def _not_found_subclasses(tree: ast.Module) -> set[str]:
     return {
         node.name
         for node in ast.walk(tree)
-        if isinstance(node, ast.ClassDef)
-        and any(isinstance(base, ast.Name) and base.id.endswith("NotFoundError") for base in node.bases)
+        if isinstance(node, ast.ClassDef) and any(_base_name(base).endswith("NotFoundError") for base in node.bases)
     }
 
 
-def _entity_arguments(tree: ast.Module) -> list[tuple[int, ast.expr]]:
+def _entity_arguments(tree: ast.Module) -> list[tuple[int, ast.expr | None]]:
     """Every expression that reaches ``details[0].entity`` in this module."""
     aliases = _module_aliases(tree)
     subclasses = _not_found_subclasses(tree)
-    found: list[tuple[int, ast.expr]] = []
+    found: list[tuple[int, ast.expr | None]] = []
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
@@ -188,13 +214,56 @@ def _entity_arguments(tree: ast.Module) -> list[tuple[int, ast.expr]]:
         if spec is None:
             continue
         index, keyword = spec
-        if index is not None and len(node.args) > index:
+        if index is not None and len(node.args) > index and not _has_spread(node):
             found.append((node.lineno, node.args[index]))
             continue
-        for kw in node.keywords:
-            if keyword is not None and kw.arg == keyword:
-                found.append((node.lineno, kw.value))
+        named = [kw.value for kw in node.keywords if keyword is not None and kw.arg == keyword]
+        if named:
+            found.append((node.lineno, named[0]))
+            continue
+        if _has_spread(node):
+            # ``NotFoundError(**payload)`` / ``NotFoundError(*args)``: the entity
+            # name is in there somewhere and nothing here can see it. Reported as
+            # ``None`` — a shape the guard cannot check is not a shape it may pass.
+            found.append((node.lineno, None))
     return found
+
+
+def _has_spread(call: ast.Call) -> bool:
+    return any(isinstance(arg, ast.Starred) for arg in call.args) or any(kw.arg is None for kw in call.keywords)
+
+
+def _enclosing_function(tree: ast.Module, target: ast.AST) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    innermost: ast.FunctionDef | ast.AsyncFunctionDef | None = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and any(
+            child is target for child in ast.walk(node)
+        ):
+            innermost = node if innermost is None or node.lineno > innermost.lineno else innermost
+    return innermost
+
+
+def _parameter_is_registered(function: ast.FunctionDef | ast.AsyncFunctionDef, parameter: str) -> bool:
+    """Is forwarding ``parameter`` out of ``function`` covered by a call-site check?
+
+    A bare parameter name at a raiser is only as checked as the *callers* of the
+    function holding it. Requiring an explicit reason ("call sites are checked")
+    would be a sentence anyone can write; this measures the claim: the function
+    must be registered in :data:`ENTITY_NAME_ARGUMENTS`, **and** the registration
+    must point at this very parameter. Otherwise a new local wrapper
+    (``def _missing(name, key): raise NotFoundError(name, key)``) becomes a
+    laundering route that reads as declared.
+    """
+    spec = ENTITY_NAME_ARGUMENTS.get(function.name)
+    if spec is None:
+        return False
+    index, keyword = spec
+    positional = [arg.arg for arg in function.args.args]
+    if positional and positional[0] in {"self", "cls"}:
+        positional = positional[1:]
+    if index is not None and index < len(positional) and positional[index] == parameter:
+        return True
+    return keyword == parameter and parameter in {arg.arg for arg in function.args.kwonlyargs} | set(positional)
 
 
 def _is_super_call(call: ast.Call) -> bool:
@@ -216,6 +285,12 @@ def collect_violations(root: Path) -> list[str]:
         constants = _module_string_constants(tree)
         relative = path.relative_to(root.parent).as_posix()
         for lineno, expr in _entity_arguments(tree):
+            if expr is None:
+                violations.append(
+                    f"{relative}:{lineno}: the entity name arrives through *args/**kwargs, so nothing can "
+                    f"check it — pass it explicitly"
+                )
+                continue
             literal: str | None = None
             if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
                 literal = expr.value
@@ -232,6 +307,25 @@ def collect_violations(root: Path) -> list[str]:
                 continue
 
             source = ast.unparse(expr)
+
+            # A forwarded *parameter* is checked before the declaration is even
+            # read: a wrapper that is not registered has unchecked callers, and
+            # a DERIVED_ENTITY_SITES entry claiming otherwise is the laundering
+            # route this arm exists to close.
+            function = _enclosing_function(tree, expr) if isinstance(expr, ast.Name) else None
+            if (
+                isinstance(expr, ast.Name)
+                and function is not None
+                and expr.id in _function_parameters(function)
+                and not _parameter_is_registered(function, expr.id)
+            ):
+                violations.append(
+                    f"{relative}:{lineno}: {source!r} is a parameter of {function.name}(), which is not "
+                    f"registered in ENTITY_NAME_ARGUMENTS — its callers are therefore unchecked, whatever "
+                    f"the DERIVED_ENTITY_SITES entry says"
+                )
+                continue
+
             if f"{relative}::{source}" not in DERIVED_ENTITY_SITES:
                 violations.append(
                     f"{relative}:{lineno}: entity name is the non-literal {source!r} with no entry in "
@@ -240,53 +334,80 @@ def collect_violations(root: Path) -> list[str]:
     return violations
 
 
+def _function_parameters(function: ast.FunctionDef | ast.AsyncFunctionDef | None) -> set[str]:
+    if function is None:
+        return set()
+    args = function.args
+    return {arg.arg for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]}
+
+
 def test_every_entity_name_site_is_vocabulary_or_declared_derivation() -> None:
     assert collect_violations(APP_ROOT) == []
 
 
 def test_guard_sees_the_spellings_it_claims_to_see(tmp_path: Path) -> None:
-    """The predicate is not vacuous: each spelling is actually reached.
+    """The predicate is not vacuous: every spelling it claims is actually reached.
 
-    Written against the shapes the tree held **before** this change — a plural,
-    prose, a keyword raiser, an alias, a subclass, a class attribute, a module
-    constant and a bare run-time expression. All eight must be reported; if one
-    stops being, the guard has silently narrowed.
+    Eleven shapes — the eight the tree held before this change (plural, prose, a
+    keyword raiser, an aliased import, a class attribute, a module constant, a
+    subclass ``super().__init__``, a bare run-time expression) and the three a
+    review named as silent bypasses: a ``**kwargs`` spread, a *locally* bound
+    alias (``E = NotFoundError``, which no import statement mentions) and a
+    subclass whose base is module-qualified (``exc.NotFoundError``). Every one
+    must be reported; if a shape stops being, the guard has narrowed without
+    saying so.
     """
     (tmp_path / "app").mkdir()
     (tmp_path / "app" / "sample.py").write_text(
+        "from app.common import exceptions as exc\n"
         "from app.common.exceptions import NotFoundError as NFE\n"
+        "E = NFE\n"
         '_ENTITY = "membership records"\n'
         "def a(key):\n"
         '    raise NFE("tenants", key)\n'
         "def b(key):\n"
         '    raise NFE(entity="LifecycleConfig for species", key=key)\n'
-        "def c(key, collection):\n"
+        "def c(key, row):\n"
+        "    collection = row.collection\n"
         "    raise NFE(collection, key)\n"
         "def d(key):\n"
         "    raise NFE(_ENTITY, key)\n"
         "def e(resource, tenant_key):\n"
         '    verify_tenant_ownership(resource, tenant_key, "memberships")\n'
+        "def f(payload):\n"
+        "    raise NFE(**payload)\n"
+        "def g(key):\n"
+        '    raise E("invitations", key)\n'
+        "def h(name, key):\n"
+        "    raise NFE(name, key)\n"
         "class Repo:\n"
         '    _entity_name = "tenants"\n'
         "class ThingNotFoundError(NotFoundError):\n"
         "    def __init__(self, key):\n"
-        '        super().__init__("thing records", key)\n',
+        '        super().__init__("thing records", key)\n'
+        "class OtherNotFoundError(exc.NotFoundError):\n"
+        "    def __init__(self, key):\n"
+        '        super().__init__("other records", key)\n',
         encoding="utf-8",
     )
 
     violations = collect_violations(tmp_path / "app")
     reported = " ".join(violations)
 
-    assert len(violations) == 7, violations
     for expected in (
-        "'tenants'",
-        "'LifecycleConfig for species'",
-        "'membership records'",
-        "'memberships'",
-        "'thing records'",
+        "'tenants'",  # a plural of a model, and again as a _entity_name attribute
+        "'LifecycleConfig for species'",  # prose, through the keyword form
+        "'membership records'",  # a module constant, resolved
+        "'memberships'",  # a shared guard's entity-name parameter
+        "'thing records'",  # a subclass hard-coding its own name
+        "'other records'",  # …with a module-qualified base
+        "'invitations'",  # reached only through the locally bound alias
+        "non-literal 'collection'",  # a local bound at run time
+        "*args/**kwargs",  # a spread the guard cannot see into
+        "is a parameter of h()",  # an unregistered local wrapper laundering a name
     ):
         assert expected in reported, (expected, violations)
-    assert "non-literal 'collection'" in reported
+    assert len(violations) == 11, violations
 
 
 def test_vocabulary_is_snake_case_and_idempotent() -> None:
@@ -374,24 +495,187 @@ def test_spec_lists_exactly_the_non_model_exceptions() -> None:
     assert listed == set(NON_MODEL_ENTITY_NAMES)
 
 
-def test_the_collection_table_only_ever_yields_vocabulary() -> None:
-    """The two fallbacks the AST guard cannot see, measured instead.
-
-    ``BaseArangoRepository._require_entity_name()`` and
-    ``tenant_ownership.verify_entity_ownership`` used to fall back to the
-    *collection* name, and both are waved through the guard as derivations — an
-    expression the guard trusts is exactly where an unchecked value hides. This
-    states the property the trust rests on: every collection, mapped or not,
-    yields a published name.
-    """
+def _collection_constant_values() -> dict[str, str]:
+    """``collections.py``'s module-level ``NAME = "value"`` constants."""
     from app.data_access.arango import collections as col
-    from app.data_access.arango.entity_names import COLLECTION_ENTITY_MODELS, entity_name_for_collection
 
-    every_collection = {
-        value for name, value in vars(col).items() if not name.startswith("_") and isinstance(value, str)
-    }
+    return {name: value for name, value in vars(col).items() if not name.startswith("_") and isinstance(value, str)}
+
+
+def _collections_reaching_the_fallback() -> dict[str, set[str]]:
+    """Every collection that can reach ``entity_name_for_collection`` at run time.
+
+    Four routes, swept from the code rather than remembered:
+
+    * a ``raw=True`` repository construction — a model-less repository, whose
+      ``_require_entity_name()`` has nothing but its collection to go on;
+    * :data:`OWNERSHIP_VERIFIABLE_COLLECTIONS`, the shared write-path guard's
+      allowlist, whose callers may omit ``entity_name``;
+    * ``_owned_reference_fields`` targets, the declarative variant of the same
+      guard, which never passes a name;
+    * ``ENTITY_TYPE_TO_COLLECTION``, the task entity binding.
+    """
+    constants = _collection_constant_values()
+    routes: dict[str, set[str]] = {"raw repository": set()}
+
+    def resolve(node: ast.expr | None) -> str | None:
+        if isinstance(node, ast.Attribute) and node.attr in constants:
+            return constants[node.attr]
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        return None
+
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            called = func.id if isinstance(func, ast.Name) else (func.attr if isinstance(func, ast.Attribute) else "")
+            qualifier = func.value.id if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) else ""
+            constructed = qualifier if called == "__init__" else called
+            if "Repository" not in constructed:
+                continue
+            raw = any(kw.arg == "raw" and isinstance(kw.value, ast.Constant) and kw.value.value for kw in node.keywords)
+            if not raw:
+                continue
+            # ``Repo.__init__(self, db, collection, …)`` carries ``self``; the
+            # constructor form does not.
+            collection = resolve(node.args[2] if called == "__init__" else node.args[1] if len(node.args) > 1 else None)
+            if collection is not None:
+                routes["raw repository"].add(collection)
+
+    from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
+    from app.data_access.arango.tenant_ownership import OWNERSHIP_VERIFIABLE_COLLECTIONS
+
+    routes["ownership allowlist"] = set(OWNERSHIP_VERIFIABLE_COLLECTIONS)
+    routes["task entity binding"] = set(ENTITY_TYPE_TO_COLLECTION.values())
+
+    declared: set[str] = set()
+    for path in sorted((APP_ROOT / "data_access").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        for node in ast.walk(tree):
+            targets = node.targets if isinstance(node, ast.Assign) else []
+            if not any(isinstance(t, ast.Name) and t.id == "_owned_reference_fields" for t in targets):
+                continue
+            if isinstance(node.value, ast.Dict):
+                declared.update(filter(None, (resolve(value) for value in node.value.values)))
+    routes["declared owned reference"] = declared
+    return routes
+
+
+def test_the_collection_table_covers_every_collection_that_reaches_it() -> None:
+    """The fallback must be unreachable in practice, and that is measured.
+
+    ``outside <= {"resource"}`` — the first shape of this test — is true of an
+    *empty* table: it asserts the fallback returns the fallback. What matters is
+    that nothing real lands on it, so this sweeps the four routes into
+    ``entity_name_for_collection`` and requires each collection to be a key. It
+    is the test that found ``onboarding_states``, ``user_preferences``,
+    ``phase_definitions`` and ``starter_kits`` publishing ``resource`` while
+    their models sat one import away.
+    """
+    from app.data_access.arango.collection_entity_names import COLLECTION_ENTITY_MODELS
+
+    routes = _collections_reaching_the_fallback()
+    for route, collections in routes.items():
+        assert collections, f"the sweep for {route!r} found nothing — the shape it looks for changed"
+
+    reaching = set().union(*routes.values())
+    unmapped = sorted(reaching - set(COLLECTION_ENTITY_MODELS))
+    assert unmapped == [], f"these reach entity_name_for_collection and fold to 'resource': {unmapped}"
+
+
+def test_the_collection_table_only_ever_yields_vocabulary() -> None:
+    """Whatever the table answers is a published name, mapped or not.
+
+    The complement of the sweep above: that one says nothing *real* reaches the
+    fallback, this one says the fallback — and every mapped answer — is still a
+    value a client may receive.
+    """
+    from app.data_access.arango.collection_entity_names import COLLECTION_ENTITY_MODELS, entity_name_for_collection
+
+    every_collection = set(_collection_constant_values().values())
     assert COLLECTION_ENTITY_MODELS.keys() <= every_collection, "the table names something that is not a collection"
-
-    outside = {entity_name_for_collection(name) for name in every_collection - set(COLLECTION_ENTITY_MODELS)}
-    assert outside <= {"resource"}
     assert {entity_name_for_collection(name) for name in every_collection} <= entity_names()
+
+
+#: Entity names a *test* may spell that production may not, with the reason. A
+#: test-local model exists to exercise the machinery and has no place in a
+#: published vocabulary; anything else here would be a double inventing a shape
+#: production cannot emit.
+TEST_LOCAL_ENTITY_NAMES: dict[str, str] = {
+    "gadget": (
+        "``NamedRepo._entity_name`` in tests/unit/data_access/arango/"
+        "test_base_repository.py — a synthetic repository over the synthetic "
+        "``Widget`` model, proving that an explicit name wins over the bound "
+        "class. Both are test-local by design."
+    ),
+}
+
+
+def test_test_doubles_spell_entity_names_the_way_production_does() -> None:
+    """A double that raises a retired spelling certifies a shape nothing emits.
+
+    Seventeen doubles mimicking a changed raiser were corrected by hand for
+    #1465 — by hand, which is exactly the method that produced the 59 spellings.
+    Literals only: a double legitimately holds run-time expressions and
+    test-local models, and demanding a `DERIVED_ENTITY_SITES` entry for each
+    would make this a nuisance instead of a check.
+    """
+
+    def is_test_local(line: str) -> bool:
+        return any(f"to {name!r}" in line for name in TEST_LOCAL_ENTITY_NAMES)
+
+    violations = [
+        line
+        for line in collect_violations(APP_ROOT.parent / "tests")
+        if "normalises to" in line and not is_test_local(line)
+    ]
+    assert violations == []
+
+
+def test_spec_additivity_table_names_values_that_really_changed() -> None:
+    """NFR-006 §2.2a tables nine old → new values; both halves are checked.
+
+    A migration note is the one place a wrong value is *invisible*: nothing reads
+    it, so nothing contradicts it. An entry whose "old" value is still published
+    would be a false alarm for every integrator, and one whose "new" value is not
+    in the vocabulary would send them to a value they will never receive.
+    """
+    root = _repo_root()
+    if root is None:  # pragma: no cover — only outside a full checkout
+        pytest.skip("checkout root not found; spec/ is unreachable from here")
+
+    spec = (root / "spec" / "nfr" / "NFR-006_API-Fehlerbehandlung.md").read_text(encoding="utf-8")
+    section = spec.split("**Additivität.**", 1)[1].split("Dazu die Collection-Namen", 1)[0]
+    rows = re.findall(r"^\|\s*`([a-z_]+)`\s*\|\s*`([a-z_]+)`\s*\|", section, flags=re.MULTILINE)
+
+    assert len(rows) >= 9, rows
+    assert [old for old, _ in rows if old in entity_names()] == []
+    assert [new for _, new in rows if new not in entity_names()] == []
+
+
+def test_no_repository_restates_its_own_model_name() -> None:
+    """``_entity_name`` exists to *differ* from the bound model, never to repeat it.
+
+    Five repositories declared ``_model_cls = Actuator`` and
+    ``_entity_name = "Actuator"`` next to each other. Harmless until the model is
+    renamed, at which point the derivation follows and the string does not — a
+    second spelling of one fact, which is the whole defect class #1465 closes.
+    """
+    restated: list[str] = []
+    for path in sorted((APP_ROOT / "data_access").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            declared: dict[str, ast.expr] = {}
+            for stmt in node.body:
+                if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
+                    declared[stmt.targets[0].id] = stmt.value
+            model = declared.get("_model_cls")
+            name = declared.get("_entity_name")
+            if isinstance(model, ast.Name) and isinstance(name, ast.Constant) and name.value == model.id:
+                restated.append(f"{path.name}:{node.name} declares _entity_name = {name.value!r} = _model_cls.__name__")
+    assert restated == []

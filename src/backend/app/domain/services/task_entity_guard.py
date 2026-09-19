@@ -43,7 +43,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.common.exceptions import NotFoundError
-from app.data_access.arango.entity_names import entity_name_for_collection
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
 
 

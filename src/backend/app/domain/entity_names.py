@@ -10,8 +10,16 @@ names, plus 17 sites passing a run-time *collection* name.
 
 **The rule, stated once.** A published entity name is the name of a domain model
 class under ``app.domain.models``, folded to ``snake_case`` by
-:func:`normalise_entity_name` — plus the nine names in
+:func:`normalise_entity_name` — plus the names in
 :data:`NON_MODEL_ENTITY_NAMES`, which are not models and say why.
+
+**It is a superset, and says so.** The walk finds every Pydantic class under
+that package, request/response projections included, so a name being *in* the
+set does not mean some route emits it; what the set guarantees is the other
+direction — nothing outside it is ever published. That is the property a client
+needs (compare exactly, treat an unknown value as "not stated"), and it is the
+only one that can be stated without a second, hand-kept list of "names actually
+raised" going stale the day someone adds a route.
 
 **Why it is discovered rather than listed.** A hand-kept list would be the 60th
 copy of a fact the model classes already hold, and it would drift exactly as the
@@ -29,7 +37,7 @@ lands in :func:`entity_names` — enforced over every raiser site, every entity
 
 Nothing in the request path needs the whole set: production derives a single name
 through :func:`entity_name` or the collection table in
-``app.data_access.arango.entity_names``. :func:`entity_names` therefore walks the
+``app.data_access.arango.collection_entity_names``. :func:`entity_names` therefore walks the
 model package lazily, and caches.
 """
 
@@ -83,7 +91,7 @@ NON_MODEL_ENTITY_NAMES: Final[dict[str, str]] = {
     ),
     "resource": (
         "The fail-closed fallback when a run-time collection maps to no model "
-        "(``app.data_access.arango.entity_names``). Deliberately uninformative: "
+        "(``app.data_access.arango.collection_entity_names``). Deliberately uninformative: "
         "echoing the collection name would publish storage detail and, on a "
         "caller-supplied collection, reflect caller input."
     ),
@@ -130,5 +138,8 @@ def domain_model_classes() -> frozenset[type[BaseModel]]:
 
 @lru_cache(maxsize=1)
 def entity_names() -> frozenset[str]:
-    """The closed vocabulary: one snake_case name per model, plus the exceptions."""
+    """The closed vocabulary: one snake_case name per model, plus the exceptions.
+
+    A superset of what is emitted, never a subset — see the module docstring.
+    """
     return frozenset(entity_name(model) for model in domain_model_classes()) | frozenset(NON_MODEL_ENTITY_NAMES)

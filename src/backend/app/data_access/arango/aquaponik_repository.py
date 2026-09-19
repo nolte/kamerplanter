@@ -32,7 +32,6 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
 
     is_tenant_scoped = True
     _model_cls = AquaponicSystem
-    _entity_name = "AquaponicSystem"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.AQUAPONIC_SYSTEMS)

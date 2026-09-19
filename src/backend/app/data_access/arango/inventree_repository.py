@@ -19,7 +19,7 @@ from app.common.enums import LinkableEntityCollection
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.data_access.arango.entity_names import entity_name_for_collection
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.domain.models.inventree import (
     Equipment,
     InvenTreeConnection,
@@ -38,7 +38,6 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
 
     is_tenant_scoped = True
     _model_cls = InvenTreeConnection
-    _entity_name = "InvenTreeConnection"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.INVENTREE_CONNECTIONS)

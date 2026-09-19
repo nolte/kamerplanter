@@ -17,8 +17,18 @@ from caller input.
 
 Unmapped collections fold to :data:`FALLBACK_ENTITY_NAME` rather than raising:
 turning a 404 into a 500 because a collection is new is the worse failure, and
-echoing the collection name is what this module exists to stop. The guard test
-pins the table against the collections these sites can actually reach.
+echoing the collection name is what this module exists to stop.
+
+The fallback must stay unreachable in practice, and that is measured rather than
+hoped for: ``test_the_collection_table_covers_every_collection_that_reaches_it``
+sweeps the four routes into it — every ``raw=True`` repository construction (the
+model-less repositories, whose own ``_require_entity_name`` lands here), the
+ownership-verifiable allowlist, the task entity-type map and every declared
+``_owned_reference_fields`` target — and requires each collection to be a key
+below. The first version of this table was hand-picked and missed four of them:
+``onboarding_states``, ``user_preferences``, ``phase_definitions`` and
+``starter_kits`` would have published ``resource`` where a model name was right
+there.
 """
 
 from __future__ import annotations
@@ -35,12 +45,16 @@ from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.harvest import HarvestObservation
 from app.domain.models.inventree import Equipment
 from app.domain.models.nutrient_plan import NutrientPlan
+from app.domain.models.onboarding import OnboardingState
+from app.domain.models.phase_sequence import PhaseDefinition
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_run import PlantingRun
 from app.domain.models.site import Location
 from app.domain.models.species import Cultivar, Species
+from app.domain.models.starter_kit import StarterKit
 from app.domain.models.substrate import Substrate
 from app.domain.models.tank import Tank
+from app.domain.models.user_preference import UserPreference
 
 #: What a collection with no model in the table publishes. In the vocabulary
 #: (``NON_MODEL_ENTITY_NAMES["resource"]``) and deliberately uninformative.
@@ -56,11 +70,15 @@ COLLECTION_ENTITY_MODELS: Final[dict[str, type[BaseModel]]] = {
     col.HARVEST_OBSERVATIONS: HarvestObservation,
     col.LOCATIONS: Location,
     col.NUTRIENT_PLANS: NutrientPlan,
+    col.ONBOARDING_STATES: OnboardingState,
+    col.PHASE_DEFINITIONS: PhaseDefinition,
     col.PLANT_INSTANCES: PlantInstance,
     col.PLANTING_RUNS: PlantingRun,
     col.SPECIES: Species,
+    col.STARTER_KITS: StarterKit,
     col.SUBSTRATES: Substrate,
     col.TANKS: Tank,
+    col.USER_PREFERENCES: UserPreference,
 }
 
 

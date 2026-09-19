@@ -11,7 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango import tenant_ownership
-from app.data_access.arango.entity_names import entity_name_for_collection
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.data_access.arango.query_builder import AQLBuilder
 
 logger = structlog.get_logger(__name__)

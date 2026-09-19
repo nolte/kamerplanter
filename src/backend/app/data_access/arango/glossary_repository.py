@@ -21,7 +21,6 @@ class ArangoGlossaryTermRepository(BaseArangoRepository[GlossaryTerm]):
     """``glossary_terms`` — the curated term skeleton (§2.1)."""
 
     _model_cls = GlossaryTerm
-    _entity_name = "GlossaryTerm"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.GLOSSARY_TERMS)
@@ -149,7 +148,6 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
     """``glossary_term_cache`` — cached RAG answers per term/language/level (§2.2)."""
 
     _model_cls = GlossaryTermCacheEntry
-    _entity_name = "GlossaryTermCacheEntry"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.GLOSSARY_TERM_CACHE)
