@@ -187,7 +187,7 @@ Test `test_spec_lists_exactly_the_non_model_exceptions` hält diese Tabelle und
 
 | `entity` | Warum kein Modell |
 |---|---|
-| `favorite_target` | Favoriten-Ziel, dessen Key sich in keinem Katalog auflösen lässt; es gibt kein Modell, **weil** die Auflösung fehlschlug (SEC-002: unauflösbar und fremd-mandantig antworten gleich). |
+| `favorite_target` | Favoriten-Ziel, dessen Key sich in keinem Katalog auflösen lässt; es gibt kein Modell, **weil** die Auflösung fehlschlug (SEC-002: unauflösbar und fremd-mandantig antworten gleich). Seit #1538 sind beide nicht nur gleich *beantwortet*, sondern derselbe Zweig: die Auflösung trägt das Mandantenprädikat, eine für den Aufrufer unsichtbare Zeile löst gar nicht erst auf. |
 | `inven_tree_part` | Teil in der entfernten InvenTree-Instanz (REQ-016), hier nicht persistiert. Gefaltet wie die Geschwistermodelle `InvenTreeConnection` / `InvenTreeReference`. |
 | `mcp_server` | Der MCP-Endpunkt selbst, der bei abgeschaltetem Feature 404 antwortet (REQ-033) — kein Dokument. |
 | `mcp_tool` | Ein dem Dispatcher unbekannter Tool-Name (REQ-033). `McpToolSpec` beschreibt ein *registriertes* Tool, nicht das erfragte. |
