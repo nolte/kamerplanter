@@ -267,12 +267,27 @@
     // `python kp_vectordb`, `python kp_errortracking`, `frontend eslint`,
     // `frontend mui`, `frontend react`, `frontend typescript`,
     // `frontend minor/patch`, plus the dependency half of `e2e test suite`.
-    // Each of those carried a real cohesion argument — fastapi/starlette/
-    // pydantic move together, @mui/* move together, react and its types move
-    // together, the E2E suite's selenium/pytest-bdd move together. Every one of
-    // those arguments is SUBSUMED, not refuted: a single group ships all of
-    // them in the same branch, which is strictly stronger than "these four
-    // together, those three together".
+    // Most of those carried a COHESION argument — fastapi/starlette/pydantic
+    // move together, @mui/* move together, react and its types move together,
+    // the E2E suite's selenium/pytest-bdd move together. Every cohesion
+    // argument is SUBSUMED, not refuted: a single group ships all of them in
+    // the same branch, which is strictly stronger than "these four together,
+    // those three together".
+    //
+    // TWO OF THE FOURTEEN WERE NOT COHESION ARGUMENTS BUT SEPARATION
+    // ARGUMENTS, and this group OVERRULES them rather than subsuming them.
+    // Saying otherwise would hide the only thing that was actually given up:
+    //   * `python embedding-service` / `python reranker-service` et al. existed
+    //     so "a bump to the embedding service must not drag the reranker
+    //     image's rebuild into the same pull request". It now does.
+    //   * `python kp_vectordb` / `python kp_errortracking` existed because
+    //     `sync.py` vendors both libraries into the backend and both Python
+    //     services, so "a bump lands in several trees at review time and must
+    //     not arrive mixed with an unrelated library's". It now arrives mixed.
+    // Both are SUSPENDED BY DIRECT OPERATOR INSTRUCTION (#1550), not refuted by
+    // a measurement — which is a legitimate reason and a different one. If
+    // either bites, the repair is a narrow rule BELOW this one, and this
+    // paragraph is what tells the next reader the cost was known.
     //
     // WHAT THE SPLIT COST, measured on 2026-09-19 (#1550): ten `renovate/`
     // branches open at once for one routine week. `required_status_checks.strict`
@@ -321,6 +336,17 @@
     // The axe-core line retires the "NOT MEASURED" caveat #1464 left behind: it
     // is now an observation, not a reading of rule order.
     //
+    // THE jsdom HOLD WAS RE-MEASURED after the consolidation, because it is now
+    // the only npm hold left AND the worked example the escape-hatch paragraph
+    // above leans on — and it had been read from rule order, which is the
+    // distinction #1491 already paid for once. Forced with `jsdom` lowered to
+    // 29.0.1 in src/frontend/package-lock.json, so that a 29.x minor AND the 30
+    // major were both computed. Observed:
+    //   `Filtered out 1 disabled update(s)`, `jsdom` appears exactly once in the
+    //   flattened list, no jsdom branch exists, and the surviving
+    //   `jsdom minor ^29.0.1` sits in `renovate/application-dependencies`.
+    // The hold still holds and the minors still flow, inside the group.
+    //
     // STILL NOT MEASURED, and named as such: the two shared libraries'
     // kp_errortracking tree and `src/backend`'s remaining 100-odd dependencies
     // were not individually forced — they are the same manager and the same
@@ -343,11 +369,40 @@
     // `matchPackageNames` on a temporary rule BELOW this one (the jsdom hold is
     // the worked example), not a new permanent per-tree group.
     //
-    // NOT automerged, deliberately: the branch now carries backend runtime,
-    // frontend runtime and the E2E suite at once — including the selenium
-    // ceiling in tests/e2e/requirements.txt, which exists because
-    // `pages/_element_proxy.py` reads Selenium internals, and a green E2E run is
-    // exactly what a bump there has to be judged on.
+    // `automerge: false` IS WRITTEN OUT, not inherited. The commons config this
+    // file extends does not automerge these managers today, but nothing here
+    // reads that config, and the risk this group concentrates is new: before
+    // #1550 it was spread over `frontend minor/patch` and `python minor/patch`,
+    // and now ONE branch carries backend runtime, frontend runtime and the E2E
+    // suite at once. `uv toolchain` above spells the same flag out for the same
+    // reason. Two named requirements land inside this group and neither may
+    // depend on an inherited default:
+    //   * NFR-009 §3.4 forbids auto-merge for MINOR updates of `react`,
+    //     `react-dom`, `fastapi` and `typescript` — all four are in this group
+    //     now, where before they sat in `frontend react` / `frontend typescript`
+    //     / `python fastapi-stack`;
+    //   * the selenium ceiling in tests/e2e/requirements.txt exists because
+    //     `pages/_element_proxy.py` reads Selenium internals, and a green E2E
+    //     run is exactly what a bump there has to be judged on.
+    //
+    // WHAT THIS GROUP DOES NOT REACH, and it is not reasoned about but
+    // measured. `rangeStrategy` below applies to `pep621` only. The three
+    // `pip_requirements` files carry OPEN ranges and have no lock beside them
+    // (`selenium>=4.25.0,<5`, `pytest-xdist>=3.5.0`, `mkdocs>=1.6,<2.0`, …), so
+    // with the default `replace` strategy an IN-RANGE release proposes nothing:
+    // measured 2026-09-19, the baseline run had zero `pip_requirements` updates
+    // while the selenium docker IMAGE moved 4.48 -> 4.49 in the same run, and
+    // every pip_requirements entry in this change's measurement table had to be
+    // forced with an exact pin. Concretely: `selenium` 4.26 -> 4.49 inside
+    // `>=4.25.0,<5` never arrives.
+    //
+    // NOT repaired here with `rangeStrategy: 'bump'`, deliberately. #1509 is the
+    // open decision on exactly these three files — lock them, hash-pin them, or
+    // record them as out of scope — and its leading candidate gives tests/e2e a
+    // `pyproject.toml` + `uv.lock`, which would move that tree under `pep621`
+    // and make a `bump` rule added today dead code tomorrow. One decision, one
+    // place. What must not happen is the state this comment replaced: a claim
+    // that the group "reaches every tree at once" with the limitation nowhere.
     {
       groupName: 'application dependencies',
       matchManagers: [
@@ -355,6 +410,7 @@
         'npm',
         'pip_requirements',
       ],
+      automerge: false,
     },
     // ── jsdom held at 29 until Testing Library catches up (#827) ─────────────
     // jsdom 30 reimplemented its CSS engine, and the new `getComputedStyle`
@@ -422,16 +478,34 @@
     // merged days apart, leaving CI and the dev cluster on different databases.
     // Grouping on package identity alone puts every reference in one branch.
     //
-    // #1550 went one step further: the group name was `{{depName}} image`, i.e.
-    // one branch PER IMAGE, and on 2026-09-19 that was five of the sixteen open
-    // branches at once (`python-image`, `node-image`, `major-node-image`,
+    // #1550 went one step further, but only for HALF the update types. The
+    // group name was `{{depName}} image`, i.e. one branch PER IMAGE, and on
+    // 2026-09-19 that was five of the sixteen open branches at once
+    // (`python-image`, `node-image`, `major-node-image`,
     // `postgres-18-bookworm`, `ollamaollama-image`) — four of them digest-only
-    // rebuilds. A static group name collapses them to two
-    // (`renovate/third-party-images` and `renovate/major-third-party-images`,
-    // the split coming from `separateMajorMinor` at the top of this file). The
-    // #1359/#1369 guarantee is not weakened by this, it is subsumed: one
-    // upstream release still cannot be split across managers, because the branch
-    // is now shared by MORE references, not fewer.
+    // rebuilds of the SAME upstream release. Those four collapse into one
+    // `renovate/third-party-images`. The #1359/#1369 guarantee is not weakened
+    // by that, it is subsumed: one upstream release still cannot be split
+    // across managers, because the branch is now shared by MORE references,
+    // not fewer.
+    //
+    // MAJORS KEEP THEIR PER-IMAGE NAME, and the conditional below is what does
+    // it. The first version of this change let `separateMajorMinor` produce a
+    // single `renovate/major-third-party-images`, which would have put a node
+    // 22 -> 24, a python 3.14 -> 3.15, a postgres 18 -> 19 and an arangodb 3 ->
+    // 4 in ONE branch — four rebuilds of four different stacks, each judged on
+    // its own evidence, any one of which blocks the other three. That is the
+    // exact coupling the selenium rule below refuses, and the review of #1550
+    // caught that this file was arguing both sides one rule apart. There is no
+    // routine-stream saving to trade for it either: base-image majors are rare,
+    // and on 2026-09-19 there was exactly one (node, from tests/e2e/Dockerfile),
+    // so the conditional costs zero branches today — MEASURED, not assumed.
+    //
+    // Written as a handlebars conditional on ONE rule rather than a second rule
+    // with `matchUpdateTypes: ['major']`, because a second rule would have to
+    // repeat the package list below — and an enumerated list that exists twice
+    // is the drift this very list already cost us once (`postgres` was in no
+    // group at all until #1550 measured it).
     //
     // `matchDatasources: ['docker']` is not decoration: the github-actions
     // manager also extracts `python 3.14` (setup-python) and the asdf manager
@@ -462,9 +536,11 @@
     //     branch of its own, `renovate/postgres-18-bookworm`, in the 2026-09-19
     //     baseline run. It is a third-party database base image like the others
     //     and had simply never been listed.
-    //   * `busybox` (docker/vectordb/Dockerfile init container) — NOT MEASURED:
-    //     it has no pending update, so its assignment is read from rule order,
-    //     not observed.
+    //   * `busybox` (docker/knowledge/Dockerfile:1, `FROM busybox:1.38.0@…`) —
+    //     NOT MEASURED: it has no pending update, so its assignment is read from
+    //     rule order, not observed. The first version of this comment sourced it
+    //     to docker/vectordb/Dockerfile, which carries `postgres` and no
+    //     busybox; the review of #1550 measured the line.
     // Deliberately NOT added: `renovate/renovate` and `ghcr.io/hadolint/hadolint`.
     // Those are TOOL pins, not application images — a floating or stale tool
     // silently changes what a check MEANS (#1177), which is judged on different
@@ -477,7 +553,7 @@
     // browser the E2E suite drives; a green run is necessary but the merge
     // stays a decision.
     {
-      groupName: 'third-party images',
+      groupName: '{{#if (equals updateType "major")}}{{depName}} image{{else}}third-party images{{/if}}',
       matchDatasources: [
         'docker',
       ],
