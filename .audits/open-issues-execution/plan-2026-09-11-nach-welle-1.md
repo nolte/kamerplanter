@@ -867,3 +867,35 @@ beschränkten Vorposten, kein Bündel.
 
 - `e2e-nightly` 17.09. (`ca602ad36`): `test_req001_core_lifecycle_journey.py::test_edit_plant_name_persists` (TC-REQ-001-J081) — erstmalig in 10 Nächten. Ein Fehlschlag ist ein Messwert, keine Reparatur; wird zum Posten, wenn er wiederkehrt.
 - Die 5 lokalen Skips in `test_lock_hash_verification.py` (uv 0.11.33 auf PATH statt 0.12.15) sind ein Umgebungsbefund, kein Defekt; in CI läuft die gepinnte Version.
+
+### Abschluss Welle 9 (2026-09-19)
+
+Alle 22 Welle-9-PRs sind gemergt (`develop` bei `8e2688749` plus dem E2E-Nachtrag
+#1539); 27 Issues geschlossen, Migrationen v0049–v0054, Release **v0.4.1** am 18.09.
+veröffentlicht. Drei Zahlen, die den Durchlauf beschreiben:
+
+| | |
+|---|---|
+| PRs gemergt / Issues geschlossen | 22 / 27 |
+| unabhängige Read-only-Reviews (jeder PR) | 15 — **jeder** fand mindestens eine Warnung, sechs einen Critical |
+| neue Issues aus Messungen | 12 (#1528 #1530 #1531 #1533 #1534 #1535 #1536 #1538 #1509 #1497✓ #1503✓ #1520✓ …) |
+
+Was der Durchlauf über die Methode sagt:
+
+- **Der Review ist kein Schmuck.** Die eigenen Kontexte lieferten grüne Gates; die
+  Reviewer fanden darunter u. a. einen fail-open-Mandantenfilter bei leerem
+  `tenant_key` (#1518), drei verschluckte Fehlerpfade im Frontend (G-A), einen
+  Engine-Test, der die Engine nie aufrief (#1532), und einen Guard, der die
+  Schreibweise nicht traf, gegen die er geschrieben war (#1527, #1529). Regel für
+  Welle 10: Review über einen exportierten Patch, bevor der PR in den Zug kommt.
+- **Cross-Gruppen-Drift bleibt der teuerste Reibungspunkt** (4×): der Rename-Guard aus
+  #1523 rötete #1522, die Obsoleszenz-Regel aus G-A rötete #1518, #1521 editierte die
+  Klasse einer angewandten Migration (#1536), und die Migrationsnummer wurde dreimal
+  vergeben. Migrationsnummern sind nicht reservierbar; wer zweiter landet, benennt um.
+- **Ein Nachtlauf ist ein Messwert:** #1518 hatte vier Fälle markiert und drei
+  Dialog-Klassen übersehen — der erste Full-Mode-Nachtlauf danach zeigte es (#1539).
+
+Bewusst offen (Betreiberentscheidungen): #1509 (drei `requirements.txt` ohne Hashes),
+#1480 (Renovate legt den `transformers`-v5-PR trotz gesetzter Checkbox nicht an),
+#1517 (Release-Lag nach v0.4.1), #1456 (wartet auf claude-shared#637). Die zwölf neuen
+Messungs-Issues sind der Bestand für Welle 10.
