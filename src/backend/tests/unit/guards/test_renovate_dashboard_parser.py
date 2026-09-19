@@ -36,10 +36,27 @@ total 80 -> 83. Since #1509 it is a DRIFT fixture, and
 ``renovate_dashboard_expected_after_1509.md`` is the healthy state today, derived
 the same mechanical way: ``tests/e2e/requirements.txt`` became
 ``tests/e2e/pyproject.toml`` + ``uv.lock``, so it moved from ``pip_requirements``
-to ``pep621`` (eight trees), and ``docs/requirements.txt`` is compiled with
-``--generate-hashes``. Measured with ``task renovate:dry-run`` (Renovate
-44.103.2, 2026-09-19) before and after: ``pep621`` 7 -> 8 files,
-``pip_requirements`` 3 -> 2.
+to ``pep621`` (eight trees); ``docs/requirements.txt`` is compiled with
+``--generate-hashes``; and the ``tests/e2e/Dockerfile`` block gained the
+``ghcr.io/astral-sh/uv`` layer that replaced its ``pip install``.
+
+WHAT THAT DRY-RUN MEASURED, AND WHAT IT DID NOT — the #1509 review found the
+first version of this paragraph claiming more than the run covered. Measured
+with ``task renovate:dry-run`` (Renovate 44.103.2, 2026-09-19), each number read
+from the run rather than reasoned about: ``pep621`` 7 -> 8 files,
+``pip_requirements`` 3 -> 2 (``depCount`` 20 -> 56, the compiled docs list), and
+the three ``tests/e2e/Dockerfile`` dependencies with their digests, taken
+verbatim from the run's ``packageFile`` dump.
+
+NOT re-measured, deliberately: the image digests in the OTHER ``dockerfile``
+blocks, which this body inherits from its #1464 ancestor and which age with
+every Renovate digest bump on develop. Nothing in :func:`check.build_report`
+reads them — the ``dockerfile`` manager is asserted by FILE, not by dependency —
+so pinning them to today's tree would buy nothing and cost a fixture edit per
+digest bump. The one dependency that IS asserted here is the uv layer, because
+it is what this change introduced;
+:meth:`TestTheFixturesAreTheRealThing.test_the_e2e_dockerfile_block_shows_the_uv_layer`
+holds it.
 
 **Two measurements corrected the plan, in this order.** The #1383 analysis said
 ``poetry`` read "exactly the two side-service pyproject.toml". The real body
@@ -167,6 +184,24 @@ class TestTheFixturesAreTheRealThing:
                 "checkout — the fixture describes a repository that is not this one"
             )
 
+    def test_the_e2e_dockerfile_block_shows_the_uv_layer(self, healthy_body: str) -> None:
+        """The fixture must not describe the image #1509 replaced.
+
+        Its first version was a byte copy of the #1464 body: two base images, no
+        `ghcr.io/astral-sh/uv`, while `tests/e2e/Dockerfile` had just been
+        changed to copy that binary and `uv sync --locked` with it. A fixture
+        that contradicts the change it was written for certifies nothing. Asserted
+        by dependency NAME and not by digest, so a Renovate digest bump on
+        develop does not make this red.
+        """
+        section = healthy_body[healthy_body.index("<summary>tests/e2e/Dockerfile") :]
+        section = section[: section.index("</details>")]
+
+        assert "ghcr.io/astral-sh/uv" in section, (
+            "the fixture's tests/e2e/Dockerfile block predates #1509 — it still describes the image that "
+            "installed with pip. Re-derive it from `task renovate:dry-run`."
+        )
+
     def test_the_expected_locked_trees_all_carry_a_lock_on_disk(self) -> None:
         for package_file in check.EXPECTED_PEP621_FILES:
             assert (_REPO_ROOT / package_file).is_file(), f"{package_file} does not exist"
@@ -279,6 +314,46 @@ class TestUnhashedInstallsAreAFindingNow:
 
         assert check.unhashed_requirements_installs(tmp_path) == []
 
+    def test_the_continuation_form_generate_hashes_emits_is_understood(self, tmp_path: Path) -> None:
+        """`--generate-hashes` puts the hashes BELOW the entry, behind a backslash."""
+        (tmp_path / "requirements.txt").write_text(
+            "babel==2.18.0 \\\n    --hash=sha256:" + "a" * 64 + " \\\n    --hash=sha256:" + "b" * 64 + "\n"
+        )
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+    def test_one_hashed_entry_does_not_certify_the_rest(self, tmp_path: Path) -> None:
+        """The review's S2: `"--hash=" in text` is a FILE test, not an ENTRY test.
+
+        A list with one hashed entry and forty unhashed ones read as hashed. pip
+        refuses such a file outright — hash-checking mode is all-or-nothing — so
+        the damage was bounded, but the check claimed more than it measured.
+        """
+        (tmp_path / "requirements.txt").write_text(
+            "fastapi==0.115.0 --hash=sha256:" + "a" * 64 + "\nstarlette==0.40.0\n"
+        )
+
+        assert check.unhashed_requirements_installs(tmp_path) == ["requirements.txt"]
+
+    def test_an_option_line_is_not_mistaken_for_an_unhashed_entry(self, tmp_path: Path) -> None:
+        """`-r`, `-c` and `--index-url` name no distribution and carry no hash."""
+        (tmp_path / "requirements.txt").write_text(
+            "--index-url https://example.invalid/simple\n-c constraints.txt\n"
+            "fastapi==0.115.0 --hash=sha256:" + "a" * 64 + "\n"
+        )
+
+        assert check.unhashed_requirements_installs(tmp_path) == []
+
+    def test_the_exception_is_per_file_and_not_per_directory(self, healthy_body: str, tmp_path: Path) -> None:
+        """A second list beside the argued one is not covered by its argument."""
+        (tmp_path / "tools" / "rag-eval").mkdir(parents=True)
+        (tmp_path / "tools" / "rag-eval" / "requirements.txt").write_text("httpx>=0.28.0\n")
+        (tmp_path / "tools" / "rag-eval" / "extra-requirements.txt").write_text("psycopg>=3.2.0\n")
+
+        report = check.build_report(healthy_body, repo_root=tmp_path)
+
+        assert report["undecided_unhashed_requirements"] == ["tools/rag-eval/extra-requirements.txt"]
+
     def test_a_list_beside_a_uv_lock_is_still_reported(self, tmp_path: Path) -> None:
         """The exemption this used to assert was removed by #1509's own red-first run.
 
@@ -312,6 +387,11 @@ class TestUnhashedInstallsAreAFindingNow:
             "requirements.pip",
             "requirements/dev.txt",
             "constraints.txt",
+            # The review's correction: the word comes SECOND in these two, so a
+            # `requirements*` prefix glob never saw them.
+            "dev-requirements.txt",
+            "test-requirements.txt",
+            "deep/nested/requirements/dev.txt",
         ],
     )
     def test_every_list_spelling_is_swept(self, tmp_path: Path, spelling: str) -> None:
@@ -349,6 +429,18 @@ class TestUnhashedInstallsAreAFindingNow:
 
         assert check.unhashed_requirements_installs(tmp_path) == []
 
+    def test_only_the_root_level_site_is_excluded(self, tmp_path: Path) -> None:
+        """`.gitignore` says `site/`, anchored — so the exclusion is anchored too.
+
+        Excluding the bare name at any depth would hide a real
+        `docs/site/requirements.txt` somebody adds one day: a sweep quietly
+        shrinking rather than a rule (#1509 review, S3).
+        """
+        (tmp_path / "docs" / "site").mkdir(parents=True)
+        (tmp_path / "docs" / "site" / "requirements.txt").write_text("mkdocs>=1.6\n")
+
+        assert check.unhashed_requirements_installs(tmp_path) == ["docs/site/requirements.txt"]
+
 
 class TestDockerfilesMustNotInstallPythonOutsideALock:
     """The #1509 class sweep: the spelling a `requirements*.txt` sweep cannot see.
@@ -384,6 +476,16 @@ class TestDockerfilesMustNotInstallPythonOutsideALock:
             "RUN python3.14 -m pip install --user selenium",
             "RUN uv pip install selenium",
             "RUN apt-get update && pip install selenium",
+            # Found by the #1509 review: a GLOBAL OPTION sits between the program
+            # and the subcommand, which the first pattern forbade.
+            "RUN pip --no-cache-dir install selenium",
+            "RUN python -m pip -q install selenium",
+            # `uv pip sync` installs an environment from a list exactly as
+            # `install` does, and the JSON exec form is the same instruction
+            # with different punctuation.
+            "RUN uv pip sync requirements.txt",
+            'RUN ["pip", "install", "selenium"]',
+            "RUN pipx install pre-commit",
         ],
     )
     def test_every_spelling_is_caught(self, tmp_path: Path, instruction: str) -> None:
@@ -407,8 +509,19 @@ class TestDockerfilesMustNotInstallPythonOutsideALock:
 
         assert check.dockerfile_python_installs(tmp_path) == ["Dockerfile.e2e:2"]
 
-    def test_a_locked_sync_is_not_reported(self, tmp_path: Path) -> None:
-        (tmp_path / "Dockerfile").write_text("FROM python:3.14-slim\nRUN uv sync --locked --no-dev\n")
+    @pytest.mark.parametrize(
+        "instruction",
+        [
+            "RUN uv sync --locked --no-dev",
+            # A lock-reading subcommand, not an index resolve. Matching these
+            # would make the sweep report the locked form it exists to demand.
+            "RUN poetry install --no-root",
+            "RUN pdm install --frozen-lockfile",
+            "COPY --from=ghcr.io/astral-sh/uv:0.12.15 /uv /bin/uv",
+        ],
+    )
+    def test_a_locked_or_unrelated_instruction_is_not_reported(self, tmp_path: Path, instruction: str) -> None:
+        (tmp_path / "Dockerfile").write_text(f"FROM python:3.14-slim\n{instruction}\n")
 
         assert check.dockerfile_python_installs(tmp_path) == []
 

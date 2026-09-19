@@ -142,10 +142,11 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
 </details>
 
-<details><summary>tests/e2e/Dockerfile (2)</summary>
+<details><summary>tests/e2e/Dockerfile (3)</summary>
 
- - `node 22-slim`
- - `python 3.14-slim`
+ - `node 22-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9`
+ - `python 3.14-slim@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2`
+ - `ghcr.io/astral-sh/uv 0.12.15@sha256:62f8c047d0a0e9ece6b53fc63df902585a67a47a7f318ddec4a37db586edc8e3`
 
 </details>
 

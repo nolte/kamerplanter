@@ -221,8 +221,9 @@ jobs:
         # `tools/rag-eval/requirements.txt` is the one argued exception (a local
         # analysis tool no lane installs). The sweep in
         # scripts/ci/check_renovate_dashboard.py reddens on anything else.
-        # Until then this was the ONE `pip install -e` left, and
-        # the reason given was that a shared library has no image and therefore
+        #
+        # Until #1464 this step was the ONE `pip install -e` left here, and the
+        # reason given was that a shared library has no image and therefore
         # no lock to sync from — true about images, not about hashes: NFR-009 §2.3
         # is a property of the INSTALL, and this one runs on a runner exactly like
         # the four that were locked in #1374. `src/libs/kp_vectordb/uv.lock` now

@@ -63,14 +63,31 @@ WHAT IT CHECKS
    one fact is read from the checkout on disk instead — and the report says so,
    rather than implying the dashboard proved it.
 
-4. **Every Python install goes through hashes** (#1509), also read from disk,
-   in the two spellings that exist here: a ``requirements*.txt`` whose entries
-   carry no ``--hash=`` (:func:`unhashed_requirements_installs`) and a
-   ``Dockerfile`` that pip-installs inline, with no requirement list at all for
-   the first sweep to find (:func:`dockerfile_python_installs`). Both were
-   report-only or absent before; the decision per file — lock, hash-pin in
-   place, argued exception — is what turned them into findings, with
+4. **Every Python install THAT IS A REQUIREMENT LIST OR A DOCKERFILE goes
+   through hashes** (#1509), read from disk. The scope is in the sentence on
+   purpose, because the sweep behind it reads exactly those two shapes: a
+   ``requirements*.txt`` whose entries carry no ``--hash=``
+   (:func:`unhashed_requirements_installs`) and a ``Dockerfile`` that
+   pip-installs inline, with no requirement list at all for the first sweep to
+   find (:func:`dockerfile_python_installs`). Both were report-only or absent
+   before; the decision per file — lock, hash-pin in place, argued exception —
+   is what turned them into findings, with
    :data:`KNOWN_UNHASHED_REQUIREMENTS` holding the one argued exception.
+
+   WHAT NEITHER SWEEP SEES, named rather than implied — the #1509 review asked
+   for the spelling that gets past them and found one that matters:
+
+   * ``additional_dependencies:`` in ``.pre-commit-config.yaml``. The E2E
+     self-test hook installs ``selenium`` and ``pytest`` from RANGES, unhashed,
+     inside the REQUIRED ``static`` lane, and Renovate's pre-commit manager
+     maintains ``rev:`` only — so that install is neither hashed nor version-
+     managed nor visible here. Tracked as **#1572**;
+   * ``pip install`` in a workflow ``run:`` step or a Taskfile — six sites, all
+     ``==``-pinned runner tools (``pip-audit``, ``pip-licenses``, ``PyYAML``,
+     and the ``uv==`` bootstrap) whose output is a report rather than an
+     artefact. Inventory, not finding;
+   * ``%pip install`` in a notebook (``tools/rag-eval/rag_eval.ipynb``), inside
+     the tree that is already the argued exception.
 
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
@@ -307,26 +324,30 @@ def _lock_beside(package_file: str, repo_root: Path) -> bool:
 #: Directories the pyproject sweep never descends into. Build and environment
 #: artefacts, not source: a virtualenv contains other projects' pyproject.toml by
 #: the hundred, and reporting those would drown the finding this check exists for.
-#: ``site`` is the MkDocs build output (``.gitignore:55``), and it is on this
-#: list because of a measurement during #1509, not on principle: after a local
-#: ``task docs:build`` the tree carries ``site/requirements.txt`` — MkDocs copies
-#: every non-Markdown file under ``docs/`` into the built site — and the dry-run
-#: duly reported ``pip_requirements fileCount 3`` where a clean checkout has 2.
-#: CI checks out clean and never saw it; a developer running the check after a
-#: docs build would have got a finding about a build artefact.
 _SWEEP_EXCLUDED = frozenset(
-    {
-        ".git",
-        ".venv",
-        ".venv-docs",
-        "node_modules",
-        "site",
-        "site-packages",
-        "__pycache__",
-        ".mypy_cache",
-        ".ruff_cache",
-    }
+    {".git", ".venv", ".venv-docs", "node_modules", "site-packages", "__pycache__", ".mypy_cache", ".ruff_cache"}
 )
+
+#: Excluded only as the FIRST path segment, not wherever the name appears.
+#: ``site`` is the MkDocs build output, and ``.gitignore:55`` spells it ``site/``
+#: — anchored at the root. Excluding the bare name at any depth would also hide
+#: a real ``docs/site/requirements.txt`` somebody adds one day, which is a sweep
+#: quietly shrinking rather than a rule.
+#:
+#: It is on the list because of a measurement during #1509, not on principle:
+#: after a local ``task docs:build`` the tree carries ``site/requirements.txt``
+#: — MkDocs copies every non-Markdown file under ``docs/`` into the built site —
+#: and the dry-run duly reported ``pip_requirements fileCount 3`` where a clean
+#: checkout has 2. CI checks out clean and never saw it; a developer running the
+#: check after a docs build would have got a finding about a build artefact.
+#: ``.taskfiles/checks.yaml`` masks the same two directories from the dry-run,
+#: because fixing one instrument and not the other leaves them disagreeing.
+_SWEEP_EXCLUDED_ROOTS = frozenset({"site"})
+
+
+def _outside_the_sweep(relative: Path) -> bool:
+    """True when *relative* lives in a build or environment artefact."""
+    return bool(_SWEEP_EXCLUDED.intersection(relative.parts)) or relative.parts[0] in _SWEEP_EXCLUDED_ROOTS
 
 
 #: The shapes a pip requirement list takes here, and the two the #1509 class
@@ -337,13 +358,29 @@ _SWEEP_EXCLUDED = frozenset(
 #: does not start with the word. ``constraints*.txt`` is a list pip installs from
 #: with ``-c`` in exactly the same way.
 #:
+#: The leading ``*`` is the review's correction: ``requirements*.txt`` reads the
+#: word as a PREFIX and therefore misses ``dev-requirements.txt`` and
+#: ``test-requirements.txt``, the layout where the word comes second.
+#: ``requirements/*.txt`` is matched through :meth:`Path.rglob`, so it finds that
+#: directory at any depth rather than only at the root.
+#:
+#: NOT swept, and this is a decision rather than an omission:
+#: ``requirements*.in``. A ``.in`` is the compile SOURCE — it holds ranges by
+#: construction and a hash in it would be meaningless; the artefact that gets
+#: installed is the compiled ``.txt`` beside it, which this sweep does read.
+#: The limit that leaves: somebody running ``pip install -r requirements.in``
+#: directly is invisible here. No consumer in this repository does
+#: (``docs/requirements.in`` is read by ``task docs:lock`` and by nothing else),
+#: and reporting every ``.in`` would make the file that fixed #1509 its own
+#: first finding.
+#:
 #: Measured on 2026-09-19: widening the sweep from one pattern to four changes
 #: nothing about this checkout (still the single argued exception) — which is the
 #: point. A pattern added the day a matching file appears is a pattern added too
 #: late.
 _REQUIREMENT_LIST_PATTERNS: tuple[str, ...] = (
-    "requirements*.txt",
-    "requirements*.pip",
+    "*requirements*.txt",
+    "*requirements*.pip",
     "requirements/*.txt",
     "constraints*.txt",
 )
@@ -377,6 +414,42 @@ _REQUIREMENT_LIST_PATTERNS: tuple[str, ...] = (
 #:   claim that nothing DELIVERED depends on the list — if a lane ever installs
 #:   it, the entry is wrong and must go, not grow a second friend.
 KNOWN_UNHASHED_REQUIREMENTS: tuple[str, ...] = ("tools/rag-eval/requirements.txt",)
+
+
+#: A line that configures pip rather than naming a requirement: `-r other.txt`,
+#: `--index-url …`, `-c constraints.txt`, and the bare markers `--require-hashes`
+#: or `--no-binary`. They carry no distribution and therefore no hash.
+_PIP_OPTION_LINE = re.compile(r"^-")
+
+
+def _every_entry_is_hashed(text: str) -> bool:
+    """True when EVERY requirement line in *text* carries at least one ``--hash=``.
+
+    A substring test on the whole file was the first version, and it claims more
+    than it measures (#1509 review): a list with one hashed entry and forty
+    unhashed ones reads as hashed. pip happens to refuse such a file outright —
+    hash-checking mode is all-or-nothing — so the practical damage is bounded,
+    but a check whose sentence is wider than its instrument is the NFR-018 §1
+    shape this whole script exists against.
+
+    Continuation lines are joined first, because ``--generate-hashes`` output
+    puts the hashes of one entry on the lines BELOW it behind a trailing
+    backslash. Comment and option lines are skipped: they name no distribution.
+
+    Args:
+        text: The contents of a requirement list.
+
+    Returns:
+        True when the file has at least one requirement and all of them are
+        hashed. An EMPTY list returns False: a file that pins nothing proves
+        nothing, and reporting it is cheaper than explaining it later.
+    """
+    entries = [
+        line.strip()
+        for line in text.replace("\\\n", " ").splitlines()
+        if line.strip() and not line.strip().startswith("#") and not _PIP_OPTION_LINE.match(line.strip())
+    ]
+    return bool(entries) and all("--hash=" in entry for entry in entries)
 
 
 def unhashed_requirements_installs(repo_root: Path) -> list[str]:
@@ -415,18 +488,15 @@ def unhashed_requirements_installs(repo_root: Path) -> list[str]:
     for pattern in _REQUIREMENT_LIST_PATTERNS:
         for requirements in repo_root.rglob(pattern):
             relative = requirements.relative_to(repo_root)
-            if _SWEEP_EXCLUDED.intersection(relative.parts):
+            if _outside_the_sweep(relative):
                 continue
-            if "--hash=" in requirements.read_text(encoding="utf-8", errors="replace"):
+            if _every_entry_is_hashed(requirements.read_text(encoding="utf-8", errors="replace")):
                 continue
             found.append(relative.as_posix())
     return sorted(set(found))
 
 
-#: A Python package install inside a Dockerfile, in every spelling this
-#: repository could plausibly use: ``pip install``, ``pip3 install``,
-#: ``python -m pip install``, ``python3.14 -m pip install`` and ``uv pip
-#: install``. NOT ``uv sync``, which is the locked form and the point.
+#: A Python package install inside a Dockerfile.
 #:
 #: The class sweep behind #1509 asked the question this pattern exists for:
 #: name a spelling of "installs Python without a hash-bearing lock" that a
@@ -434,10 +504,35 @@ def unhashed_requirements_installs(repo_root: Path) -> list[str]:
 #: packages INLINE is one — it has no requirement list at all, so
 #: :func:`unhashed_requirements_installs` is blind to it by construction, and
 #: an image is the artefact NFR-009 §2.3 is most about.
+#:
+#: Asked again in the review of that sweep, which found three more: a GLOBAL
+#: OPTION between the program and the subcommand (``pip --no-cache-dir install
+#: x``, ``python -m pip -q install x``) slipped past the first version, which
+#: demanded ``install`` immediately; so did ``uv pip sync``, which installs an
+#: environment from a list exactly as ``install`` does; and so did the JSON exec
+#: form ``RUN ["pip", "install", "x"]``, handled by
+#: :func:`dockerfile_python_installs` normalising the punctuation away before
+#: matching.
+#:
+#: NOT matched, deliberately: ``uv sync``, which is the locked form and the
+#: point of all this, and ``poetry install`` / ``pdm install``, whose subcommand
+#: reads a hash-bearing lock rather than the index. ``pipx install`` IS matched —
+#: it resolves from the index with no lock at all.
 _DOCKERFILE_PIP_INSTALL = re.compile(
-    r"(?<![\w.-])(?:(?:python[\d.]*\s+-m\s+)?pip[\d.]*|uv\s+pip)\s+install\b",
-    re.IGNORECASE,
+    r"""(?<![\w.-])(?:
+            (?:python[\d.]*\s+-m\s+)?pip[\d.]*    # pip / pip3 / python3.14 -m pip
+          | uv\s+pip                                # uv's pip interface
+          | pipx                                    # no lock, straight from the index
+        )
+        (?:\s+-{1,2}[\w-]+(?:[=\s]\S+)?)*            # global options before the subcommand
+        \s+(?:install|sync)\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
+
+#: Punctuation of the JSON exec form, mapped to whitespace so one pattern reads
+#: both ``RUN pip install x`` and ``RUN ["pip", "install", "x"]``.
+_EXEC_FORM_PUNCTUATION = str.maketrans({'"': " ", "'": " ", ",": " ", "[": " ", "]": " "})
 
 
 def dockerfile_python_installs(repo_root: Path) -> list[str]:
@@ -460,12 +555,12 @@ def dockerfile_python_installs(repo_root: Path) -> list[str]:
     found = []
     for dockerfile in repo_root.rglob("Dockerfile*"):
         relative = dockerfile.relative_to(repo_root)
-        if _SWEEP_EXCLUDED.intersection(relative.parts) or not dockerfile.is_file():
+        if _outside_the_sweep(relative) or not dockerfile.is_file():
             continue
         for number, line in enumerate(dockerfile.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
             if line.lstrip().startswith("#"):
                 continue
-            if _DOCKERFILE_PIP_INSTALL.search(line):
+            if _DOCKERFILE_PIP_INSTALL.search(line.translate(_EXEC_FORM_PUNCTUATION)):
                 found.append(f"{relative.as_posix()}:{number}")
     return sorted(found)
 
@@ -489,7 +584,7 @@ def lockless_python_trees(repo_root: Path) -> list[str]:
     found = []
     for pyproject in repo_root.rglob("pyproject.toml"):
         relative = pyproject.relative_to(repo_root)
-        if _SWEEP_EXCLUDED.intersection(relative.parts):
+        if _outside_the_sweep(relative):
             continue
         if not pyproject.with_name("uv.lock").is_file():
             found.append(relative.as_posix())

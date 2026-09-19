@@ -145,25 +145,26 @@
       ],
       enabled: false,
     },
-    // The uv toolchain is referenced in three KINDS of place, 23 times in total
-    // as of #1464 — RE-COUNTED, not adjusted, and the previous number was
-    // already wrong before this change: it said "17 … as of #1383" with "seven
-    // workflow steps", while develop @ 9f2d9552a carried TEN of those steps and
-    // 20 references in all. A count in a comment ages silently; the guard named
-    // below is what does not.
+    // The uv toolchain is referenced in three KINDS of place, 25 times in total
+    // as of #1509 — RE-COUNTED, not adjusted, twice now. Before #1464 it said
+    // "17 … as of #1383" with "seven workflow steps" while develop carried TEN;
+    // #1464 wrote 23 and #1509 moved it again by locking tests/e2e. A count in a
+    // comment ages silently; the guard named below is what does not, and it is
+    // the reason the LIST is authoritative here and the number is decoration.
     //
-    // Measured with the commands the count is made of:
-    //   grep -rn 'required-version = "==' --include=pyproject.toml .   -> 7
-    //   grep -rln ghcr.io/astral-sh/uv --include=Dockerfile .          -> 5
+    // Measured with the commands the count is made of (2026-09-19):
+    //   grep -rn 'required-version = "==' --include=pyproject.toml .   -> 8
+    //   grep -rln ghcr.io/astral-sh/uv --include=Dockerfile .          -> 6
     //   grep -rc 'astral-sh/setup-uv@' .github/workflows/*.y*ml        -> 11
     //
-    //   * `[tool.uv].required-version` in seven pyproject.toml — the backend,
-    //     the four side services (#1374) and the two shared libraries (#1464).
-    //     This is what Renovate itself relocks with (its pep621 uv processor
-    //     falls back to it when `constraints.uv` is unset), read via the custom
-    //     regex manager below — whose file list is held to exactly these seven
-    //     by src/backend/tests/unit/guards/test_uv_pin_manager_covers_every_pin.py.
-    //   * `ghcr.io/astral-sh/uv` in five Dockerfiles (dockerfile manager). The
+    //   * `[tool.uv].required-version` in eight pyproject.toml — the backend,
+    //     the four side services (#1374), the two shared libraries (#1464) and
+    //     the E2E suite (#1509). This is what Renovate itself relocks with (its
+    //     pep621 uv processor falls back to it when `constraints.uv` is unset),
+    //     read via the custom regex manager below — whose file list is held to
+    //     exactly these eight by
+    //     src/backend/tests/unit/guards/test_uv_pin_manager_covers_every_pin.py.
+    //   * `ghcr.io/astral-sh/uv` in six Dockerfiles (dockerfile manager). The
     //     two libraries ship no image, so they contribute no entry here.
     //   * `astral-sh/setup-uv` in eleven workflow steps (github-actions manager).
     //
@@ -510,6 +511,33 @@
     //     Pulling this Dockerfile's `python` into a suite group would re-split
     //     exactly what that group was created to join.
     //
+    //   * NOT the uv toolchain, and this exclusion is the whole reason
+    //     `matchPackageNames` exists on this rule (#1509 review). Locking
+    //     `tests/e2e` added TWO uv references inside `tests/e2e/**` — the
+    //     `[tool.uv].required-version` pin read by the custom manager and
+    //     `ghcr.io/astral-sh/uv` in the Dockerfile — and this rule is LATER in
+    //     the array than `uv toolchain`, so by last-match-wins it claimed both.
+    //     MEASURED before the exclusion (`task renovate:dry-run`, 44.103.2,
+    //     2026-09-19, against the real pending 0.12.15 -> 0.12.17): the pin in
+    //     `tests/e2e/pyproject.toml` resolved to `renovate/e2e-test-suite`
+    //     while the same pin in all seven other trees resolved to
+    //     `renovate/uv-toolchain`. That is the uv bump arriving in TWO pull
+    //     requests — precisely the split the uv group was written against, and
+    //     worse than cosmetic: `test_library_lock_hash_verification.py` holds
+    //     every pin equal to the backend's, so merging the halves at different
+    //     times reddens a required lane for a Renovate pull request doing
+    //     exactly what it was configured to do. The same class as the #1491
+    //     review's finding about this rule's POSITION, one array entry later.
+    //
+    //     MEASURED AFTER, both halves, because an exclusion can also take too
+    //     much: `renovate/e2e-test-suite` went to 0 upgrades and
+    //     `renovate/uv-toolchain` from 19 to 22, i.e. both uv references moved
+    //     and nothing else did (total flattened updates 38 before and after).
+    //     That the group still claims its own subjects was measured the way
+    //     #1491 measured it — forcing `pytest-xdist==3.0.0` into
+    //     tests/e2e/pyproject.toml and reading the resolved branch:
+    //     `renovate/e2e-test-suite`. Restored afterwards.
+    //
     // NOT automerged, deliberately: the selenium ceiling in
     // tests/e2e/pyproject.toml exists because `pages/_element_proxy.py` reads
     // Selenium internals, and a green E2E run is exactly what a bump here has to
@@ -518,6 +546,14 @@
       groupName: 'e2e test suite',
       matchFileNames: [
         'tests/e2e/**',
+      ],
+      // Negative-only patterns: everything in those files EXCEPT the uv
+      // toolchain, which keeps its own group above. Both spellings are needed —
+      // the pypi dep is `uv` (custom manager) and the image is
+      // `ghcr.io/astral-sh/uv` (dockerfile manager).
+      matchPackageNames: [
+        '!uv',
+        '!ghcr.io/astral-sh/uv',
       ],
     },
     // ── The MkDocs toolchain as one group (#1509) ────────────────────────────
