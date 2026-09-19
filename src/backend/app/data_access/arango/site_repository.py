@@ -259,7 +259,14 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     def _delete_slot_internal(self, key: SlotKey) -> bool:
         slot_id = f"{col.SLOTS}/{key}"
-        self.delete_edges(col.HAS_SLOT, from_id=f"{col.LOCATIONS}/%", to_id=slot_id)
+        # The `has_slot` edge points *at* the slot (location → slot), so the end to
+        # detach is the inbound one — the repair #1525 made for `phase_history_edge`.
+        # It used to be spelled `from_id=f"{col.LOCATIONS}/%", to_id=slot_id` (#1535):
+        # `delete_edges` binds the vertex and compares it with `==`, never `LIKE`, so
+        # the `%` was a literal character and `locations/%` is not an id any edge
+        # carries. The call matched nothing, every time, and every slot ever deleted
+        # left its incoming edge behind for a traversal to walk.
+        self.delete_edges(col.HAS_SLOT, vertex_id=slot_id, direction="inbound")
         self.delete_edges(col.ADJACENT_TO, from_id=slot_id)
         self.delete_edges(col.FILLED_WITH, from_id=slot_id)
         return self._slots.delete(key)
