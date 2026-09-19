@@ -62,9 +62,19 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
 _API_KEY_PREFIX = "kp_"
 
 #: The single refusal message for an account whose ``is_active`` is ``False``
-#: (#1528). Every authentication path that raises rather than returning ``None``
-#: uses this one constant, so the paths cannot drift into answers that are
-#: distinguishable from one another.
+#: (#1528). All six raise sites **in this module** use it — the five entry points
+#: plus the backstop in ``_create_tokens`` — so they cannot drift into answers
+#: that are distinguishable from one another.
+#:
+#: **It is not, however, repository-wide, and this note says so (SCR-001).** Two
+#: raise sites outside this module answer the same condition in their own words:
+#: ``full_auth_provider.resolve_user`` ("User not found or inactive.") and
+#: ``mcp_server.auth.McpAuth.authenticate`` ("Account not found or inactive.").
+#: All three are 401 and all three sit after an accepted credential, so the three
+#: wordings cost nothing an attacker can use; unifying them would change two API
+#: contracts this issue is not about. The constant stays module-local rather than
+#: moving to ``app/common/``, and this note exists so the next reader measures the
+#: other two instead of trusting a "the one place" claim that was not true.
 #:
 #: Deliberately **not** the message a wrong password gets: the check that uses it
 #: runs only *after* the credential has been accepted, so the caller who sees it
@@ -392,6 +402,14 @@ class AuthService:
         # Also before the success write-back below: a refused login must not
         # reset the lockout counter or move `last_login_at`.
         if not user.is_active:
+            # Logged, because this branch is otherwise silent (SCR-004): the
+            # password was CORRECT, so no lockout counter moves and no failure
+            # line is written, and whoever holds the credential of a suspended
+            # account can repeat this indefinitely without leaving a trace. The
+            # weaker case — an address with no account — is already logged.
+            # Digest, never the address: the caller is unauthenticated and the
+            # address may belong to a third party (NFR-011).
+            logger.info("login_refused_inactive_account", email_sha256=email_digest(email))
             raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
 
         # Check email verification (only when required)
@@ -856,6 +874,14 @@ class AuthService:
                     # in, so the refusal added here also has to run before
                     # `_create_oauth_provider`.
                     if not existing_user.is_active:
+                        # Same silent-branch argument as in `login_local`
+                        # (SCR-004); here the accepted credential is the
+                        # provider's rather than a password.
+                        logger.info(
+                            "oauth_refused_inactive_account",
+                            provider=provider_slug,
+                            email_sha256=email_digest(oauth_user.email),
+                        )
                         raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
                     user = existing_user
                     # Create provider link
@@ -1251,14 +1277,25 @@ class AuthService:
         and rotation (``refresh_tokens``) carries it over rather than dropping
         it (#1118).
 
-        **The one place a deactivated account cannot get past (#1528).** Four
+        **A backstop against a caller that forgets its own check (#1528).** Four
         methods mint a pair; three of them (``refresh_tokens``, ``complete_oauth``,
         ``redeem_device_pairing``) carried their own ``is_active`` check and
         ``login_local`` carried none. That is the shape that drifts: the check is
         opt-in at the call site, so a fifth entry point — or a second branch
         inside an existing one, which is exactly how the OAuth auto-link slipped
         through — is ungated by default. Minting is the one thing all of them do,
-        so the invariant lives here as well.
+        so the invariant is asserted here as well.
+
+        **What this does NOT guarantee (SCR-003).** It reads the ``User`` it was
+        handed. Every current caller hands it one the repository just returned, so
+        for them the flag is the stored one — but a future caller that builds a
+        ``User`` from a token payload rather than reading the account gets
+        ``is_active`` from the model default (``True``, ``models/user.py``) and
+        walks through. Making that impossible means re-reading the account here,
+        one document read per minting on every login, refresh and rotation, to
+        defend against a caller that does not exist; the cheaper and more honest
+        move is to say plainly what the check covers. It is a backstop against a
+        forgotten check, not against a fabricated principal.
 
         The per-path checks stay where they are: each of them refuses *before*
         its own side effects (the lockout write-back, the provider-link

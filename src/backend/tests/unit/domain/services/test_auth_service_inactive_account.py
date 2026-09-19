@@ -33,6 +33,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+import structlog
 
 from app.common.enums import AuthProviderType
 from app.common.exceptions import UnauthorizedError
@@ -63,7 +64,7 @@ def _user(*, is_active: bool) -> User:
     )
 
 
-def _service(user: User) -> tuple[AuthService, MagicMock]:
+def _service(user: User, *, require_email_verification: bool = False) -> tuple[AuthService, MagicMock]:
     """Real password/token/throttle engines; only the repositories are doubles.
 
     The engines are real on purpose: a doubled ``PasswordEngine`` would make the
@@ -87,14 +88,49 @@ def _service(user: User) -> tuple[AuthService, MagicMock]:
         throttle_engine=LoginThrottleEngine(),
         email_service=MagicMock(),
         frontend_url="http://localhost:5173",
+        require_email_verification=require_email_verification,
     )
     return service, user_repo
 
 
+def _spy_on_minting(service: AuthService) -> MagicMock:
+    """Wrap ``_create_tokens`` so a test can ask whether the pair was minted.
+
+    ``wraps`` and not a stub: the real method still runs, so the positive
+    controls keep asserting a real token pair rather than a mock's stand-in.
+    """
+    spy = MagicMock(wraps=service._create_tokens)
+    service._create_tokens = spy  # type: ignore[method-assign]
+    return spy
+
+
+def _written_fields(call) -> dict:  # noqa: ANN001 — a unittest.mock.Call
+    """The field dict of an ``update_fields`` call, positional or keyword.
+
+    Reading ``call.args[1]`` alone breaks the day someone writes
+    ``update_fields(key, fields={...})`` — and breaks it by raising, in a test
+    whose assertion is a negative, which is the least useful place to be
+    brittle.
+    """
+    if len(call.args) > 1:
+        return call.args[1]
+    return call.kwargs.get("fields", {})
+
+
 class TestLocalLoginGatesTheDeactivatedAccount:
     def test_a_deactivated_account_with_the_correct_password_is_refused(self) -> None:
-        """RED against the pre-#1528 service, which returned a token pair here."""
+        """RED against the pre-#1528 service, which returned a token pair here.
+
+        **Asserts the gate in ``login_local``, not merely that something on the
+        path refuses (SCR-005).** The exception alone does not distinguish the
+        two: delete the gate and the backstop in ``_create_tokens`` raises the
+        same class, the same message and the same status code, so a test that
+        reads only the exception stays green while the check it is named after is
+        gone. ``_create_tokens`` must never be *reached*, which is the same
+        expression the rule is about — the gate sits ahead of the minting.
+        """
         service, _ = _service(_user(is_active=False))
+        minting = _spy_on_minting(service)
 
         with pytest.raises(UnauthorizedError) as excinfo:
             service.login_local(EMAIL, PASSWORD)
@@ -102,30 +138,84 @@ class TestLocalLoginGatesTheDeactivatedAccount:
         assert excinfo.value.status_code == 401
         assert excinfo.value.error_code == "UNAUTHORIZED"
         assert excinfo.value.message == INACTIVE_MESSAGE
+        minting.assert_not_called()
 
     def test_an_active_account_still_logs_in(self) -> None:
         """The control. An inverted or misplaced gate locks everybody out and
-        would pass the test above on its own."""
+        would pass the test above on its own.
+
+        It also anchors the ``assert_not_called`` above: a spy that was never
+        wired, or a ``_create_tokens`` that has been renamed, is "not called" in
+        every test — here the same spy has to fire exactly once.
+        """
         service, _ = _service(_user(is_active=True))
+        minting = _spy_on_minting(service)
 
         token_pair, raw_refresh, is_persistent = service.login_local(EMAIL, PASSWORD)
 
         assert token_pair.access_token
         assert raw_refresh
         assert is_persistent is False
+        minting.assert_called_once()
 
-    def test_a_refused_login_does_not_write_the_success_state_back(self) -> None:
+    def test_a_refused_login_writes_nothing_back(self) -> None:
         """The gate sits before the write-back, so a suspended account's
-        ``last_login_at`` does not move and its lockout counter is not reset."""
+        ``last_login_at`` does not move and its lockout counter is not reset.
+
+        A positive ``assert_not_called`` rather than a scan for ``last_login_at``
+        over the recorded calls (SCR-006): in the refusal case that list is
+        **empty**, and ``assert not any(...)`` over an empty list is true no
+        matter what the production code does. The control below shows the same
+        reader is not empty when a write does happen.
+        """
         service, user_repo = _service(_user(is_active=False))
 
         with pytest.raises(UnauthorizedError):
             service.login_local(EMAIL, PASSWORD)
 
-        written = [call.args[1] for call in user_repo.update_fields.call_args_list]
-        assert not any("last_login_at" in fields for fields in written), (
-            f"a refused login wrote success state back to the account: {written}"
-        )
+        user_repo.update_fields.assert_not_called()
+
+    def test_the_same_reader_records_the_write_of_a_successful_login(self) -> None:
+        """The control for the assertion above — it is watching a live channel."""
+        service, user_repo = _service(_user(is_active=True))
+
+        service.login_local(EMAIL, PASSWORD)
+
+        user_repo.update_fields.assert_called_once()
+        assert "last_login_at" in _written_fields(user_repo.update_fields.call_args)
+
+    def test_a_suspended_unverified_account_answers_suspended_not_unverified(self) -> None:
+        """The gate runs ahead of the ``email_verified`` check, so this account's
+        answer changed from 403 EMAIL_NOT_VERIFIED to 401 inactive (SCR-012).
+
+        Deliberate, and this test is why it is not accidental: the suspension is
+        the administrative fact and the actionable one, and telling a suspended
+        user to go and verify their address sends them down a road that ends in
+        the same refusal.
+        """
+        user = _user(is_active=False)
+        user.email_verified = False
+        service, _ = _service(user, require_email_verification=True)
+
+        with pytest.raises(UnauthorizedError) as excinfo:
+            service.login_local(EMAIL, PASSWORD)
+
+        assert excinfo.value.message == INACTIVE_MESSAGE
+        assert excinfo.value.status_code == 401
+
+    def test_the_refusal_leaves_an_audit_line_with_a_digest_not_the_address(self) -> None:
+        """SCR-004. The password was correct, so nothing else on this path writes
+        a line or moves a counter — without this the branch is repeatable and
+        entirely silent."""
+        service, _ = _service(_user(is_active=False))
+
+        with structlog.testing.capture_logs() as logs, pytest.raises(UnauthorizedError):
+            service.login_local(EMAIL, PASSWORD)
+
+        events = [entry for entry in logs if entry["event"] == "login_refused_inactive_account"]
+        assert len(events) == 1
+        assert EMAIL not in str(events[0])
+        assert events[0]["email_sha256"]
 
 
 class TestTheGateDoesNotBecomeAnEnumerationOracle:
@@ -292,7 +382,6 @@ class TestOAuthAutoLinkGatesTheDeactivatedAccount:
         """No local account at all: the registration branch still runs, so the
         backstop in ``_create_tokens`` does not refuse a freshly created user."""
         service, auth_provider_repo, user_repo = _oauth_service(None)
-        service._tenant_service = None
 
         token_pair, _, _ = service.complete_oauth("acme", "code", "state")
 
