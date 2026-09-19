@@ -376,22 +376,22 @@ npm ci --ignore-scripts
 
 ### 3.3 Gruppierungsregeln
 
-**MUSS**: Zusammengehörige Pakete werden in einem PR gruppiert, um atomare Updates zu gewährleisten:
+**MUSS**: Zusammengehörige Pakete werden in einem PR gruppiert, um atomare Updates zu gewährleisten.
 
-| Gruppe | Pakete | Begründung |
+Die Forderung ist **Atomarität**, nicht eine bestimmte Anzahl Gruppen. Sie wird seit #1550 dadurch erfüllt, dass *alle* Applikations-Abhängigkeiten in **einer** Gruppe liegen — das ist strikt stärker als die frühere Aufzählung „diese vier zusammen, jene drei zusammen", denn jede dort genannte Kohäsion ist darin enthalten.
+
+| Gruppe | Umfang | Begründung |
 |---|---|---|
-| **MUI** | `@mui/material`, `@mui/icons-material`, `@mui/x-date-pickers` | Gemeinsames Design-System, Versionen müssen kompatibel sein |
-| **React** | `react`, `react-dom`, `@types/react`, `@types/react-dom` | React-Kern — separate Updates können Type-Fehler verursachen |
-| **Redux** | `@reduxjs/toolkit`, `react-redux` | Eng gekoppelt, gemeinsame Breaking Changes |
-| **i18n** | `i18next`, `react-i18next`, `i18next-browser-languagedetector` | Plugin-Kompatibilität erfordert gemeinsames Update |
-| **ESLint** | `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-*` | Config-Kompatibilität zwischen Plugins |
-| **Frontend Testing** | `vitest`, `@vitest/*`, `@testing-library/*` | Test-Runner und Assertions müssen zusammenpassen |
-| **Pydantic** | `pydantic`, `pydantic-settings` | Gemeinsames Typsystem, Schema-Kompatibilität |
-| **Python Linting** | `ruff`, `black`, `mypy` | Formatting-Konsistenz |
-| **Python Testing** | `pytest`, `pytest-asyncio`, `pytest-cov` | Test-Runner-Ökosystem |
-| **Container Images** | `python:*`, `node:*`, `nginx:*` | Dockerfile-Base-Images |
-| **GitHub Actions** | `actions/*`, `docker/*` | CI-Workflow-Stabilität |
-| **Helm Charts** | Alle `Chart.yaml`-Dependencies | Deployment-Konsistenz |
+| **Application dependencies** | Alle Abhängigkeiten der Manager `pep621`, `npm`, `pip_requirements` — Backend, die vier Side-Services, die zwei geteilten Bibliotheken, Frontend, `tests/e2e`, `docs/`, `tools/rag-eval` | Ein Betreiberauftrag (#1550): Applikations-Abhängigkeiten kommen als **ein** prüfbarer Bump an. Enthält die früheren Kohäsionsgruppen MUI, React, Redux, i18n, ESLint, Frontend Testing, Pydantic, Python Linting, Python Testing vollständig. Majors gehen über `separateMajorMinor` automatisch in einen eigenen Branch, damit ein festgehaltener Major den Routinestrom nicht blockiert. Kein Auto-Merge (§3.4). |
+| **Container base images** | `matchDatasources: ['docker']` über eine gepflegte Paketliste, managerübergreifend (`dockerfile`, `docker-compose`, `helm-values`, Workflow-Service-Container) | Ein Upstream-Release darf nicht je Manager in einen eigenen PR zerfallen (#1359/#1369). Minor/Patch/Digest teilen sich einen Branch; **Majors behalten je Image einen eigenen Branch**, weil vier Basis-Image-Majors vier verschiedene Stacks neu bauen und jeder für sich zu beurteilen ist. |
+| **Selenium images** | `selenium/hub`, `selenium/node-chrome` | Versionieren unabhängig, müssen zur Laufzeit zusammenpassen; `separateMajorMinor: false` hält Hub-Minor und Node-„Major" in einem PR (#1367/#1370). |
+| **uv toolchain** | `[tool.uv].required-version` in sieben `pyproject.toml`, `ghcr.io/astral-sh/uv` in fünf Dockerfiles, `astral-sh/setup-uv` in den Workflows | Nicht die Abhängigkeit einer Anwendung, sondern der **Resolver**, der sieben Lockfiles erzeugt. Wird an anderer Evidenz beurteilt („jedes Lock relockt identisch") und bleibt deshalb außerhalb der Applikationsgruppe (#1296, #1383). |
+| **GitHub Actions** | `actions/*`, `docker/*` | CI-Workflow-Stabilität; Minor/Patch/Digest mit Auto-Merge, Majors getrennt. |
+| **Helm Charts** | Alle `Chart.yaml`-Dependencies | Deployment-Konsistenz. |
+
+> **Warum eine statt vierzehn Gruppen (#1550, gemessen am 2026-09-19):** `required_status_checks.strict: true` entwertet bei jedem Merge alle anderen offenen PRs, also kosten N Dependency-Bumps N volle CI-Zyklen. Mit dem ererbten `prConcurrentLimit: 10` wurde die Warteschlange zur faktischen Policy: bei sechzehn offenen `renovate/`-Branches hielt Renovate den CVE-tragenden `transformers`-Bump (#1480) als „Rate-Limited" zurück — keine Regel verbot ihn, die Schlange war voll. Gemessen mit `task renovate:dry-run` vorher/nachher: 16 → 8 Branches für denselben Bestand, Manager-Inventur unverändert.
+>
+> **Der bewusst gewählte Tausch:** Ein defektes Paket blockiert jetzt den Branch der ganzen Gruppe. Der Ausweg ist eine schmale `matchPackageNames`-Regel **unterhalb** der Gruppe (der jsdom-Major-Halt ist das ausgearbeitete Beispiel), nicht eine neue dauerhafte Gruppe je Baum.
 
 ### 3.4 Auto-Merge-Regeln
 
@@ -691,25 +691,35 @@ dependencies = [
 // renovate.json5 — Python-spezifisch (in packageRules)
 {
   // Repository-weit, nicht pro Pfad: seit #1374 gibt es keine Datei mehr,
-  // die einer dieser Manager legitim lesen dürfte.
-  matchManagers: ['poetry', 'pip_requirements', 'pip-compile'],
+  // die `poetry` legitim lesen dürfte. `pip-compile` ist seit der
+  // uv-Migration gegenstandslos. `pip_requirements` bleibt AKTIV — es liest
+  // die drei Requirement-Listen ausserhalb der sieben PEP-621-Bäume
+  // (`docs/`, `tools/rag-eval/`, `tests/e2e/`), über die #1509 entscheidet.
+  matchManagers: ['poetry'],
   enabled: false,
 },
 {
+  // Ungescoped, nicht pro Baum (#1550). Deckt dieselben sieben Bäume, die
+  // `pep621` extrahiert, und zusätzlich einen achten am Tag seiner Anlage.
+  // Eine Pfadliste ist genau das, was #1374 und #1464 jeweils einen Baum
+  // ohne rangeStrategy hinzufügen liess.
   matchManagers: ['pep621'],
-  matchFileNames: ['src/backend/**'],
   rangeStrategy: 'update-lockfile',
 },
-// Je Side-Service eine eigene Gruppe (vier Regeln nach diesem Muster),
-// damit ein Update nicht den Rebuild aller vier Images in dieselbe
-// Pull Request zieht.
+// EINE Gruppe für alle Applikations-Abhängigkeiten, über alle Bäume und
+// beide Ökosysteme (#1550). Über den MANAGER gematcht, nicht über Pfade:
+// so wird jeder Baum ohne Aufzählung erreicht, und ein Container-Image
+// kann nie hineinfallen, weil `dockerfile`/`docker-compose`/`helm-values`
+// nicht in der Liste stehen. Majors trennt `separateMajorMinor` von selbst
+// nach `renovate/major-application-dependencies` ab.
 {
-  groupName: 'python embedding-service',
-  matchManagers: ['pep621'],
-  matchFileNames: ['docker/embedding-service/**'],
-  rangeStrategy: 'update-lockfile',
+  groupName: 'application dependencies',
+  matchManagers: ['pep621', 'npm', 'pip_requirements'],
+  automerge: false,  // §3.4: react/react-dom/fastapi/typescript liegen hier
 }
 ```
+
+> **Einschränkung, gemessen statt behauptet:** `rangeStrategy: 'update-lockfile'` gilt nur für `pep621`. Die drei `requirements.txt` tragen offene Ranges ohne Lock, sodass ein In-Range-Release dort mit der Default-Strategie gar kein Update erzeugt (`selenium` 4.26 → 4.49 innerhalb `>=4.25.0,<5` kommt nie an). Das wird nicht hier repariert, sondern gehört zu #1509 — dessen führender Vorschlag `tests/e2e` ein `pyproject.toml` + `uv.lock` gibt und den Baum damit unter `pep621` zöge.
 
 > **Warum uv und nicht mehr pip-tools (2026-09-10):** Renovates `pip-compile`-Manager akzeptiert nur eine feste Liste von Header-Optionen; die hier nötigen `--no-strip-extras` und `--no-build-isolation` gehörten nicht dazu, sodass der Manager ab 2026-08-02 still nichts extrahierte und die Locks sechs Wochen nicht regeneriert wurden. Zudem ließ sich die Toolchain des Renovate-Sidecars (pip, click) nicht auf die Versionen festhalten, die pip-tools überlebte. uv ist eine statische Binary mit einer Version, die alle drei Konsumenten (Dockerfile, CI, Renovate) aus `[tool.uv].required-version` lesen.
 
