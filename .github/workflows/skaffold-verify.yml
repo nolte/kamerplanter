@@ -29,6 +29,12 @@ on:
       - "src/frontend/Dockerfile*"
       - "src/inference-service/**"
       - ".github/workflows/skaffold-verify.yml"
+      # The render and both assertions live in this script, so a change to it
+      # is the change most able to break this job. Without this entry the one
+      # edit that most needs the gate would be the one edit that never runs it
+      # (#1313).
+      - "scripts/ci/skaffold_render_verify.sh"
+      - "scripts/ci/assert_rendered_manifests.sh"
 
 permissions:
   contents: read
@@ -61,12 +67,28 @@ jobs:
           df -h /
 
       - name: Setup Helm
+        # No `version:` input, so this installs helm `latest` — v4.3.0 as of
+        # 2026-09-19. That floating version is coupled to the skaffold pin
+        # below; see the note there. No Renovate manager covers either, so
+        # neither moves on a reviewed bump.
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
       - name: Setup Skaffold
         uses: hiberbee/github-action-skaffold@e3f5dd5659610cb792c6cf32daaa797ea6d89842 # 1.27.0
         with:
-          skaffold-version: 2.17.2
+          # 2.17.2 CANNOT drive helm 4. Supplying `--images` (see the render
+          # step) makes skaffold install itself as a helm post-renderer plugin,
+          # and helm 4 validates the plugin manifest:
+          #
+          #   Error: plugin is installed but unusable: failed to load plugin
+          #   ".../skaffold-render1772333544": invalid plugin `version` "0.1":
+          #   must be valid semver
+          #
+          # Measured against helm v4.3.0: 2.17.2 fails, 2.19.0 and 2.24.0 both
+          # render 40 resources. This pin was stale rather than deliberate — it
+          # carried no rationale, and nothing tracks it — so it silently fell
+          # behind when `setup-helm`'s `latest` moved to 4.x.
+          skaffold-version: 2.24.0
 
       - name: Build chart dependencies
         run: |
@@ -85,7 +107,7 @@ jobs:
       - name: Skaffold diagnose
         run: skaffold diagnose
 
-      - name: Skaffold render
+      - name: Skaffold render and assert the manifests
         # `--digest-source=none` and `--offline=true` are what make this step
         # capable of passing at all.
         #
@@ -105,29 +127,16 @@ jobs:
         # `--offline=true` drops the Kubernetes API lookup, which this runner
         # also does not have.
         #
-        # Verified locally against this commit: 2465 lines, 40 resources.
-        run: |
-          skaffold render \
-            --offline=true \
-            --digest-source=none \
-            --output rendered-manifests.yaml
-
-      - name: Assert the render produced manifests
-        # `--output` writing an empty or near-empty file would otherwise pass
-        # silently, which is the same vacuous-success shape this pull request
-        # exists to remove.
-        run: |
-          set -euo pipefail
-          # gate-integrity-ok: the guard IS this count, and grep -c exits 1 when
-          # it counts zero. Under `set -e` that would abort before the threshold
-          # is compared — the swallowed status is what lets the assertion below
-          # fail loudly on an empty render instead of never running.
-          kinds=$(grep -c '^kind:' rendered-manifests.yaml || true)
-          if [[ "$kinds" -lt 10 ]]; then
-            echo "::error::Render produced only $kinds resources — expected the full chart." >&2
-            exit 1
-          fi
-          echo "Rendered $kinds resources."
+        # The render, the `--images` flags that keep it honest, and both
+        # assertions live in scripts/ci/skaffold_render_verify.sh, so this job
+        # and the `verify:skaffold` task cannot drift. Read that script's header
+        # for why image references have to be supplied: without them every
+        # `setValueTemplates` entry renders to Go's literal `<no value>`, which
+        # bjw-s common 5.2.0 turned into `image: null` for ELEVEN of the fifteen
+        # containers while this step reported "Rendered 40 resources" — and
+        # which common 5.2.1 turns into invalid YAML, which is how the masking
+        # was finally noticed.
+        run: scripts/ci/skaffold_render_verify.sh rendered-manifests.yaml
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
