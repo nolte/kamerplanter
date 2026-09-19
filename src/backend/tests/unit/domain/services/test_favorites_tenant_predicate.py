@@ -7,14 +7,18 @@ the #324-safe direction — the global catalogue must stay favouritable, so a
 strict ``tenant_key == caller`` filter that hides global rows is the regression
 we guard against.
 
-The predicate applies only to tenant-owned catalogues
-(``nutrient_plans``, ``fertilizers``, ``activities``); purely global collections
-(``species``, ``botanical_families``) carry no ``tenant_key`` and are unaffected.
+The predicate applies to tenant-owned catalogues (``species`` since #1538,
+``nutrient_plans``, ``fertilizers``, ``activities``, ``substrates``);
+``botanical_families`` carries no ownership field and is unaffected. Since #1538
+the predicate lives inside ``_resolve_collection`` — a row the caller may not see
+does not resolve — so these tests exercise one code path, not two with equal
+output. The three-arm visibility union (own ∪ global ∪ granted) has its own
+suite in ``test_favorites_resolver_tenant_scope.py``.
 
-Uses a capturing fake db (no live ArangoDB): ``collection(name).has(key)``
-drives ``_resolve_collection``; ``collection(name).get(key)`` returns the stored
-row (with its ``tenant_key``) for the predicate; inserted favourite edges are
-captured so a *refused* favourite can be proven to write **no** edge.
+Uses a capturing fake db (no live ArangoDB): ``collection(name).get(key)``
+returns the stored row (with its ``tenant_key``) and drives both resolution and
+the predicate; inserted favourite edges are captured so a *refused* favourite can
+be proven to write **no** edge.
 """
 
 from __future__ import annotations
@@ -123,39 +127,16 @@ def test_favorite_foreign_tenant_activity_is_refused() -> None:
 
 
 def test_favorite_global_species_still_works() -> None:
-    # species carry no tenant_key at all → predicate is skipped, non-hybrid path
-    # is unaffected.
+    # A seeded species row carries no tenant_key field (or an empty one) → the
+    # global arm of the union admits it. Species became tenant-owned in #808 and
+    # joined the guarded set in #1538; the seeded catalogue must stay favouritable
+    # (#324), which is what this asserts.
     service, db = _service({col.SPECIES: {"tomato": {"_key": "tomato"}}})
 
     edge = service.add_favorite("user-1", "tomato", tenant_key=CALLER_TENANT)
 
     assert edge["_to"] == f"{col.SPECIES}/tomato"
     assert len(db.inserted_edges) == 1
-
-
-def test_favorite_hybrid_entry_missing_row_is_refused() -> None:
-    # _resolve_collection matched via has(), but the row cannot be re-read →
-    # NotFoundError rather than a silent write against a phantom target.
-    class _MissingRowCollection(_FakeCollection):
-        def has(self, key: str) -> bool:  # noqa: ARG002 — force resolution to this collection
-            return True
-
-        def get(self, key: str) -> dict | None:  # noqa: ARG002
-            return None
-
-    class _MissingRowDb(_FakeDb):
-        def collection(self, name: str) -> _FakeCollection:
-            if name == col.NUTRIENT_PLANS:
-                return _MissingRowCollection(name, {}, self.inserted_edges)
-            return _FakeCollection(name, {}, self.inserted_edges)
-
-    db = _MissingRowDb({})
-    service = FavoritesService(db)  # type: ignore[arg-type]
-
-    with pytest.raises(NotFoundError):
-        service.add_favorite("user-1", "ghost-plan", tenant_key=CALLER_TENANT)
-
-    assert db.inserted_edges == []
 
 
 def test_favorite_unresolvable_key_is_a_404_not_a_500() -> None:
@@ -177,8 +158,12 @@ def test_a_foreign_row_and_an_unknown_key_publish_the_same_entity() -> None:
     a client is told to branch on, and #1465 made its values stable. Naming the
     resolved catalogue here would hand that oracle straight back: ``nutrient_plan``
     would mean "this key exists in some tenant", ``favorite_target`` would mean "it
-    exists nowhere". ``_resolve_collection`` is tenant-blind, so the difference is
-    reachable with nothing but a foreign key.
+    exists nowhere".
+
+    Since #1538 the two arms are the same code path — ``_resolve_collection``
+    carries the tenant predicate, so a foreign row resolves to nothing exactly as
+    an unknown key does. This test stays as the guard on the *published* field:
+    it is what a future resolver change would have to keep true.
     """
     foreign, _ = _service(
         {col.NUTRIENT_PLANS: {"plan-foreign": {"_key": "plan-foreign", "tenant_key": FOREIGN_TENANT}}}
