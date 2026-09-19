@@ -1,6 +1,6 @@
 {
   extends: [
-    'github>nolte/gh-plumbing//renovate-configs/common#v2.1.0',
+    'github>nolte/gh-plumbing//renovate-configs/common#v2.2.0',
     'helpers:pinGitHubActionDigests',
   ],
   mode: 'full',
