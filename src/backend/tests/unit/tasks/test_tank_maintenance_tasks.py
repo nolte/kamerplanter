@@ -61,7 +61,7 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 0}
+        assert result == {"created": 0, "skipped": 0, "skipped_unresolved": 0}
 
     def test_creates_task_when_never_performed(self, _mock_dependencies):
         tank_repo = MagicMock()
@@ -71,14 +71,16 @@ class TestGenerateTankMaintenanceTasks:
         _mock_dependencies.get_tank_repo.return_value = tank_repo
 
         task_repo = MagicMock()
-        task_repo.get_all_tasks.return_value = ([], 0)
+        # No open task of this tenant carries the name (#1533: the idempotency
+        # question is now one tenant-scoped lookup, not a page narrowed in Python).
+        task_repo.find_open_task_by_name.return_value = None
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 1, "skipped": 0}
+        assert result == {"created": 1, "skipped": 0, "skipped_unresolved": 0}
         task_repo.create_task.assert_called_once()
         created = task_repo.create_task.call_args.args[0]
         assert created.name == "maintenance:water_change:tank_1"
@@ -94,7 +96,7 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 0}
+        assert result == {"created": 0, "skipped": 0, "skipped_unresolved": 0}
         tank_repo.get_last_maintenance_by_type.assert_not_called()
 
     def test_skips_when_not_yet_due(self, _mock_dependencies):
@@ -109,10 +111,10 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 0}
+        assert result == {"created": 0, "skipped": 0, "skipped_unresolved": 0}
 
     def test_idempotent_skip_when_task_exists(self, _mock_dependencies):
-        from app.common.enums import TaskCategory, TaskStatus
+        from app.common.enums import TaskStatus
 
         existing_task = SimpleNamespace(
             name="maintenance:water_change:tank_1",
@@ -121,21 +123,24 @@ class TestGenerateTankMaintenanceTasks:
         tank_repo = MagicMock()
         tank_repo.get_active_auto_create_schedules.return_value = [_schedule()]
         tank_repo.get_last_maintenance_by_type.return_value = None
+        tank_repo.get_by_key.return_value = SimpleNamespace(name="Res 1", tenant_key="tenant_1")
         _mock_dependencies.get_tank_repo.return_value = tank_repo
 
         task_repo = MagicMock()
-        task_repo.get_all_tasks.return_value = ([existing_task], 1)
+        task_repo.find_open_task_by_name.return_value = existing_task
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 1}
+        assert result == {"created": 0, "skipped": 1, "skipped_unresolved": 0}
         task_repo.create_task.assert_not_called()
-        # The existing-task lookup must be scoped to the MAINTENANCE category,
-        # otherwise unrelated tasks could suppress maintenance creation.
-        assert task_repo.get_all_tasks.call_args.args[2]["category"] == TaskCategory.MAINTENANCE.value
+        # The lookup asks for this tank's task name inside the tank's own tenant
+        # (#1533). It used to page 200 MAINTENANCE tasks of every tenant and narrow
+        # them in Python, which is both a cross-tenant read and a cap-then-filter.
+        assert task_repo.find_open_task_by_name.call_args.args[0] == "maintenance:water_change:tank_1"
+        assert task_repo.find_open_task_by_name.call_args.kwargs["tenant_key"] == "tenant_1"
 
 
 class TestSyncTankStatesFromHa:
@@ -299,7 +304,7 @@ class TestCheckRunoffTrends:
         _mock_dependencies.get_feeding_repo.return_value = self._feeding_repo_with_high_runoff(3)
 
         task_repo = MagicMock()
-        task_repo.get_all_tasks.return_value = ([], 0)
+        task_repo.find_open_task_by_name.return_value = None
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.tank_maintenance_tasks import check_runoff_trends
