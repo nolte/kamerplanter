@@ -10,6 +10,67 @@ from app.domain.models.user import User
 class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     _model_cls = User
 
+    #: Full-replace null semantics for ``users`` (#1525, the #1516 class).
+    #:
+    #: **What it repairs.** In the inherited merge mode a field a writer set to
+    #: ``None`` is dropped from the payload and the stored value survives. Three
+    #: consequences, all of them credential-bearing:
+    #:
+    #: * ``UserService.delete_account`` nulls ``password_hash`` and ``avatar_url``
+    #:   while ``is_active``/``email``/``display_name`` *are* written — the record
+    #:   reads as deleted and keeps the bcrypt hash.
+    #: * ``PrivacyService.request_erasure`` nulls ``password_hash`` on the DSGVO
+    #:   Art. 17 path, 90 days before the hard delete runs (NFR-011 R-01).
+    #: * :meth:`update_fields` is **not** a ``keep_none=True`` path here — the
+    #:   override below re-materialises a full ``User`` and goes through
+    #:   :meth:`BaseArangoRepository.update`, so every ``None`` in ``fields`` was
+    #:   dropped too. That silently defeated ``AuthService.reset_password`` and
+    #:   ``change_password``, which clear ``password_reset_token`` /
+    #:   ``password_reset_expires`` and say in a comment that they rely on the
+    #:   explicit ``None`` being persisted: a used reset token stayed valid for its
+    #:   full hour, and ``verify_email`` likewise could not burn its token.
+    #:
+    #: **Why the flag and not a per-call ``update_fields``.** No writer of ``users``
+    #: can lose a field it never mentioned, because every one of them goes through
+    #: :meth:`update_fields`, which re-reads the stored user inside the call and
+    #: applies ``model_copy(update=fields)`` to it (re-measured 2026-09-18 over every
+    #: call site; the grep is ``user_repo.update`` / ``update_fields`` plus the check
+    #: that nothing writes ``col.USERS`` through the driver). ``fields`` is an
+    #: explicit allow-list everywhere, so a ``None`` in it is an intended clear:
+    #:
+    #: * ``UserService.update_profile`` / ``delete_account`` / ``admin_update_user``
+    #: * ``PrivacyService.confirm_email_change`` / ``request_erasure``
+    #: * the seven ``AuthService`` sites (login success/failure, verify_email,
+    #:   request/reset password, change_password, OAuth login)
+    #:
+    #: Those first four used to hand over a **full model** read at the top of their
+    #: method. #1525 SCR-003 narrowed them, because full-replace makes that shape
+    #: strictly worse than it was: a stale snapshot no longer merely *loses* a field a
+    #: parallel request set in between, it **removes** the attribute — and the field
+    #: in question is typically ``password_reset_token`` or ``locked_until``.
+    #:
+    #: The alternative — routing those clears through a second
+    #: ``update_fields(..., keep_none=True)`` write at each call site — is the #948
+    #: class: a guard opted into per call site, which the next writer does not opt
+    #: into. This flag is a property of the collection.
+    #:
+    #: **Residual risk, stated rather than implied.** :meth:`update_fields` is itself
+    #: read-modify-write (#1018), so it is *not* the base class's commuting partial
+    #: update: two concurrent calls naming disjoint fields still serialise on the full
+    #: document and the loser's field can be lost. Narrowing shrank the window from
+    #: "one request, across a bcrypt verify" to "one repository call"; it did not
+    #: close it. A genuinely commuting write for ``users`` needs a partial AQL
+    #: ``UPDATE ... WITH`` that keeps the model re-validation #1018 came for — filed
+    #: as its own issue rather than smuggled in here.
+    #:
+    #: Full-replace is still a *merge* at the storage level: an attribute the model
+    #: does not declare (``tenant_key`` from the backfill, legacy attributes) keeps
+    #: its stored value. Only an explicit ``None`` removes its attribute.
+    #:
+    #: ``tests/integration/test_merge_mode_null_clearing.py`` measures this against a
+    #: real server.
+    _update_is_full_replace = True
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.USERS)
 
@@ -27,6 +88,14 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         **Caller obligation.** ``fields`` is applied key-by-key, so it must be
         built from named fields or a validated schema's ``model_dump()`` — never
         from a raw request body.
+
+        **A ``None`` in ``fields`` clears the stored attribute.** Because this
+        override goes through the full-model :meth:`update`, the base class's
+        ``keep_none=True`` merge does *not* apply here; the null semantics are the
+        ones :attr:`_update_is_full_replace` declares. Until #1525 that flag was
+        ``False``, so an explicit ``None`` was dropped and the clears in
+        ``AuthService.reset_password`` / ``change_password`` / ``verify_email``
+        never reached the store.
 
         Deliberately not the base class's dict-merge :meth:`update_fields`, which
         writes the dict straight through unchecked; materialising a full ``User``

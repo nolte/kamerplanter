@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
@@ -32,6 +33,43 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     # system Celery tasks that must opt in via all_tenants=True.
     is_tenant_scoped = True
     _model_cls = Task
+
+    #: Full-replace null semantics for ``tasks`` (#1516).
+    #:
+    #: ``TaskService.reopen_task`` nulls the whole completion record —
+    #: ``completed_at``, ``actual_duration_minutes``, ``completion_notes``,
+    #: ``difficulty_rating``, ``quality_rating`` — and in the inherited merge mode
+    #: all five survived: a task back in ``pending`` still carried the completion
+    #: it was reopened out of, and the next completion overwrote only the fields it
+    #: happened to set.
+    #:
+    #: **Every writer starts from the stored task**, so none can lose a field it
+    #: never mentioned (measured 2026-09-18 over all eleven ``update_task`` call
+    #: sites):
+    #:
+    #: * ``TaskService`` — ``start_task``, ``complete_task``, ``skip_task``,
+    #:   ``reopen_task``, ``_reschedule_dependents``, ``batch_assign``,
+    #:   ``activate_phase_tasks``, ``create_or_refresh_task`` all load through
+    #:   ``get_task`` / ``get_task_by_key`` and mutate attributes
+    #: * ``TaskService.update_task`` — the router loads the task, deep-copies it for
+    #:   ``previous`` and ``setattr``s a ``TaskUpdate.model_dump(exclude_none=True)``
+    #:   onto it
+    #: * ``CareReminderService`` (×2) — ``find_open_care_task`` then attribute
+    #:   assignment
+    #:
+    #: One of those writers had to change with the flag: ``create_or_refresh_task``'s
+    #: ``_apply_freestyle_refresh`` copied ``due_date``/``scheduled_time``/
+    #: ``source_run_ref`` from the incoming model unconditionally, and a producer that
+    #: omits them yields ``None`` from the model default. Dormant under merge mode;
+    #: data loss on the #1082 AC-3 upsert path under this flag. It now only *sets*
+    #: those three, never clears them (#1525 SCR-004).
+    #:
+    #: The scope is this collection only: the workflow-template, phase,
+    #: task-template, execution and comment updaters below drive
+    #: ``collection.update`` themselves with ``self._to_doc(...)``'s default
+    #: ``exclude_none=True``, so they keep merge semantics and are untouched by
+    #: this flag.
+    _update_is_full_replace = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.TASKS)
@@ -306,7 +344,22 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         limit: int = 50,
         filters: dict | None = None,
         tenant_key: str | None = None,
+        *,
+        origins: Sequence[str] | None = None,
     ) -> tuple[list[Task], int]:
+        """Page the tenant's tasks, narrowed by every predicate given.
+
+        ``origins`` is a *set* membership rather than another entry in
+        ``filters`` because the UI's provenance filter is a partition, not a
+        single value: "machine-generated" is ``system`` **and** ``pipeline``
+        (REQ-006 §FreeStyle). Expressing it as one ``IN`` predicate keeps the
+        narrowing in front of the ``LIMIT``, which is the whole point of #1503 —
+        a client filter over a capped page cannot see what the cap dropped.
+
+        An **empty** sequence is a predicate nothing satisfies, and is passed
+        through as such: silently treating it as "no filter" would widen the
+        answer to every origin, the #324 direction of this class of bug.
+        """
         query = f"FOR doc IN {col.TASKS}"
         bind_vars: dict = {}
         filter_clauses: list[str] = []
@@ -319,6 +372,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
                 filter_clauses.append(f"doc.{field} == @val{i}")
+
+        if origins is not None:
+            bind_vars["origins"] = list(origins)
+            filter_clauses.append("doc.origin IN @origins")
 
         if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
@@ -435,7 +492,15 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             self.delete_edges(edge_col, task_id, direction="inbound")
         return super().delete(key)
 
-    def get_tasks_for_plant(self, plant_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+    def get_tasks_for_plant(
+        self,
+        plant_key: str,
+        status: str | None = None,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
         """A plant's tasks **inside one tenant** (#927).
 
         This method selected on ``entity_key`` alone while its tenant-aware twin
@@ -448,7 +513,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         second copy of the same AQL: one predicate, one place to get it wrong.
         """
         self._require_tenant_key(tenant_key, "get_tasks_for_plant")
-        return self.get_tasks_for_entity("plant_instance", plant_key, tenant_key, status)
+        return self.get_tasks_for_entity(
+            "plant_instance", plant_key, tenant_key, status, category=category, origins=origins
+        )
 
     def get_tasks_for_run(self, run_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
         """A run's tasks **inside one tenant** (#952).
@@ -477,6 +544,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         entity_key: str,
         tenant_key: str,
         status: str | None = None,
+        *,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
     ) -> list[Task]:
         """The single tenant-scoped "tasks of an entity" predicate (#927).
 
@@ -499,11 +569,28 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         if status:
             query += " FILTER doc.status == @status"
             bind_vars["status"] = status
+        # The same two optional narrowings the capped queue branch takes (#1503),
+        # so a filter the page offers holds on both branches rather than on
+        # whichever one the current scope happens to select.
+        if category:
+            query += " FILTER doc.category == @category"
+            bind_vars["category"] = category
+        if origins is not None:
+            query += " FILTER doc.origin IN @origins"
+            bind_vars["origins"] = list(origins)
         query += " SORT doc.due_date ASC RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
-    def get_pending_tasks(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> tuple[list[Task], int]:
+    def get_pending_tasks(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> tuple[list[Task], int]:
         """Pending tasks **of one tenant** (#927, found alongside the five).
 
         Not one of the reported five: this one needed no foreign key at all.
@@ -513,7 +600,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         queue never gave it one.
         """
         self._require_tenant_key(tenant_key, "get_pending_tasks")
-        return self.get_all_tasks(offset, limit, {"status": "pending"}, tenant_key)
+        filters: dict[str, str] = {"status": "pending"}
+        if category:
+            filters["category"] = category
+        return self.get_all_tasks(offset, limit, filters, tenant_key, origins=origins)
 
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]:
         """Overdue tasks **of one tenant** (#927, found alongside the five).

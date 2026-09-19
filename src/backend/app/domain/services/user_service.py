@@ -5,7 +5,7 @@ from app.common.types import UserKey
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
-from app.domain.models.user import User, UserProfile, UserProfileUpdate
+from app.domain.models.user import User, UserProfile, UserProfileUpdate, tombstone_email
 
 logger = structlog.get_logger()
 
@@ -30,16 +30,33 @@ class UserService:
         return self._to_profile(user)
 
     def update_profile(self, user_key: UserKey, update: UserProfileUpdate) -> UserProfile:
-        user = self._user_repo.get_or_raise(user_key)
+        """Apply the three profile fields a user may edit themselves.
 
-        if update.display_name is not None:
-            user.display_name = update.display_name
-        if update.avatar_url is not None:
-            user.avatar_url = update.avatar_url
-        if update.locale is not None:
-            user.locale = update.locale
+        A narrow write (#1525 SCR-003): only the supplied fields are named, so a
+        concurrent change to anything else — a password reset requested from another
+        device, a login stamping ``last_login_at`` — is not carried away by this
+        request's stale snapshot. ``timezone`` is deliberately still not applied;
+        :class:`UserProfileUpdate` carries it and this method never did, and quietly
+        starting to write it here would be a behaviour change smuggled into a
+        null-semantics fix.
+        """
+        self._user_repo.get_or_raise(user_key)
 
-        updated = self._user_repo.update(user_key, user)
+        fields = {
+            name: value
+            for name, value in (
+                ("display_name", update.display_name),
+                ("avatar_url", update.avatar_url),
+                ("locale", update.locale),
+            )
+            if value is not None
+        }
+        if not fields:
+            return self._to_profile(self._user_repo.get_or_raise(user_key))
+
+        updated = self._user_repo.update_fields(user_key, fields)
+        if updated is None:  # pragma: no cover - get_or_raise above already proved it exists
+            raise NotFoundError("User", user_key)
         return self._to_profile(updated)
 
     def get_user(self, user_key: UserKey) -> User:
@@ -116,18 +133,29 @@ class UserService:
         logger.info("account_hard_deleted", user_key=user_key)
 
     def delete_account(self, user_key: UserKey) -> None:
-        user = self._user_repo.get_or_raise(user_key)
+        self._user_repo.get_or_raise(user_key)
 
         # Revoke all sessions
         self._refresh_token_repo.revoke_all_for_user(user_key)
 
-        # Soft-delete: deactivate
-        user.is_active = False
-        user.email = f"deleted_{user_key}@deleted.local"
-        user.display_name = "Deleted User"
-        user.password_hash = None
-        user.avatar_url = None
-        self._user_repo.update(user_key, user)
+        # A *narrow* write, not a full-model one (#1525 SCR-003). Since
+        # `ArangoUserRepository` became full-replace, a full model read before the
+        # session revocation and written after it does not merely lose a concurrent
+        # change — it **removes** the attribute, because the stale model carries
+        # `None` for a `password_reset_token` a parallel request set in between.
+        # `update_fields` re-reads the stored user inside the call, so the window
+        # shrinks to that call. It does not vanish: see
+        # `ArangoUserRepository.update_fields`, which is itself read-modify-write.
+        self._user_repo.update_fields(
+            user_key,
+            {
+                "is_active": False,
+                "email": tombstone_email(user_key),
+                "display_name": "Deleted User",
+                "password_hash": None,
+                "avatar_url": None,
+            },
+        )
         logger.info("account_deleted", user_key=user_key)
 
     @staticmethod

@@ -70,7 +70,7 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 
 | # | Datenkategorie | Collection(s) | Frist | Aktion nach Frist | Rechtsgrundlage | Referenz |
 |---|---------------|---------------|-------|-------------------|----------------|----------|
-| R-01 | Soft-Deleted User-Accounts | `users` (status: `deleted`) | 90 Tage nach Soft-Delete | Hard-Delete: Account-Daten endgültig entfernen, E-Mail-Hash für Duplikatprüfung behalten | Art. 17 DSGVO, Art. 5(1)(e) | REQ-023 §2, REQ-025 |
+| R-01 | Soft-Deleted User-Accounts | `users` (status: `deleted`) | 90 Tage nach Soft-Delete | Hard-Delete: Account-Daten endgültig entfernen, E-Mail-Hash für Duplikatprüfung behalten. **Der Soft-Delete selbst entfernt bereits `password_hash` und `avatar_url`** — die Frist darf kein Authentifizierungsgeheimnis überdauern (REQ-025 Szenario 3, #1525) | Art. 17 DSGVO, Art. 5(1)(e) | REQ-023 §2, REQ-025 |
 | R-02 | Unbestätigte Accounts | `users` (status: `unverified`) | 7 Tage nach Erstellung | Hard-Delete: Account und zugehörige Auth-Provider entfernen | Art. 5(1)(e), Zweckentfall | REQ-023 §3.5 |
 | R-03 | IP-Adressen in Sessions | `refresh_tokens` (Feld: `ip_address`) | 7 Tage nach Speicherung | Anonymisierung: IPv4 letztes Oktett → `0`, IPv6 → `/48`-Präfix behalten | Art. 6(1)(f) berechtigtes Interesse, Art. 5(1)(c) Datenminimierung | REQ-023 §2 |
 | R-04 | Consent Records | `consent_records` | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht | REQ-025 |

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
 from app.common.enums import ReminderType
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
@@ -90,7 +91,18 @@ class ITaskRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
-    ) -> tuple[list[Task], int]: ...
+        tenant_key: str | None = None,
+        *,
+        origins: Sequence[str] | None = None,
+    ) -> tuple[list[Task], int]:
+        """Page the tenant's tasks, narrowed by every predicate given (#1503).
+
+        ``origins`` is a set membership, not another ``filters`` entry: the
+        provenance filter is a partition ("machine-generated" is ``system`` and
+        ``pipeline``), and an empty sequence means "nothing matches" rather than
+        "no filter".
+        """
+        ...
 
     @abstractmethod
     def get_task_by_key(self, key: TaskKey) -> Task | None: ...
@@ -119,11 +131,22 @@ class ITaskRepository(ABC):
     def delete_task(self, key: TaskKey) -> bool: ...
 
     @abstractmethod
-    def get_tasks_for_plant(self, plant_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+    def get_tasks_for_plant(
+        self,
+        plant_key: str,
+        status: str | None = None,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
         """Return a plant's tasks inside ``tenant_key`` (#927).
 
         ``tenant_key`` is required and keyword-only; ``plant_key`` alone selects
-        across every tenant and arrives from the URL.
+        across every tenant and arrives from the URL. ``category``/``origins``
+        are the queue's optional narrowings (#1503) — declared on this branch as
+        well as on :meth:`get_pending_tasks` so a filter the page offers holds
+        whichever branch the active scope selects.
         """
         ...
 
@@ -139,10 +162,21 @@ class ITaskRepository(ABC):
         entity_key: str,
         tenant_key: str,
         status: str | None = None,
+        *,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
     ) -> list[Task]: ...
 
     @abstractmethod
-    def get_pending_tasks(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> tuple[list[Task], int]: ...
+    def get_pending_tasks(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> tuple[list[Task], int]: ...
 
     @abstractmethod
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]: ...

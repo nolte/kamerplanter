@@ -3823,6 +3823,24 @@ export interface TaskTemplateUpdate {
 /** REQ-006 FreeStyle task origin (#1082). Orthogonal to `TaskCategory`. */
 export type TaskOrigin = 'user' | 'system' | 'pipeline';
 
+/**
+ * The origins a *machine* produced — the "machine-generated" half of the task
+ * queue's provenance filter, which the server is asked for as a repeated
+ * `origin` parameter (#1503).
+ *
+ * `satisfies` rather than a plain annotation on purpose: every entry has to be a
+ * non-user origin, so a typo or a `'user'` slipping in is a compile error. That
+ * the list is also *complete* — the direction that matters when a fourth origin
+ * is added to {@link TaskOrigin} and the machine filter silently stops returning
+ * it — cannot be expressed in the same `satisfies`, and is asserted instead by
+ * `src/test/guards/queueScopeIsAskedOfTheServer.test.ts`, which reads the union
+ * members out of this file.
+ */
+export const MACHINE_TASK_ORIGINS = ['system', 'pipeline'] as const satisfies readonly Exclude<
+  TaskOrigin,
+  'user'
+>[];
+
 export interface TaskItem {
   key: string;
   name: string;

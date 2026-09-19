@@ -142,6 +142,21 @@ def user_repo(user):
     repo.get_by_key.return_value = user
     repo.get_by_email.return_value = None
     repo.update.side_effect = lambda _k, u: u
+
+    def _update_fields(_key, fields):
+        """Mirror ``ArangoUserRepository.update_fields``: read, merge, return.
+
+        The production override is a read-modify-write over the full model, and
+        since #1525 the repository is full-replace so a ``None`` in ``fields`` is a
+        real clear. Modelling that here — rather than leaving a bare ``MagicMock``
+        whose ``.email`` is another mock — is what keeps these tests measuring the
+        service instead of the double.
+        """
+        for name, value in fields.items():
+            setattr(user, name, value)
+        return user
+
+    repo.update_fields.side_effect = _update_fields
     wire_get_or_raise(repo, "User")
     return repo
 
@@ -349,12 +364,14 @@ class TestErasure:
         assert erasure.soft_deleted_at is not None
         assert erasure.hard_delete_scheduled_at is not None
         assert erasure.anonymized_collections  # not empty
-        # Soft-delete: user.is_active flipped to False
-        update_call = user_repo.update.call_args
-        assert update_call is not None
-        updated_user = update_call[0][1]
-        assert updated_user.is_active is False
-        assert updated_user.password_hash is None
+        # Soft-delete: written as a *named* field dict, not a full-model write-back
+        # (#1525 SCR-003) — the stale snapshot read before the bcrypt verify would
+        # otherwise remove whatever a parallel request set in the meantime, now that
+        # the repository is full-replace.
+        update_call = user_repo.update_fields.call_args
+        assert update_call is not None, "the erasure no longer writes through update_fields"
+        assert update_call[0][1] == {"is_active": False, "password_hash": None}
+        user_repo.update.assert_not_called()
         # Sessions revoked
         refresh_token_repo.revoke_all_for_user.assert_called_once_with(USER_KEY)
         erasure_repo.create.assert_called_once()

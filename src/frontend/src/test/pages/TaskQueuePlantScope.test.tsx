@@ -1,9 +1,9 @@
 /**
  * The task queue's plant filter is a server-side scope (#1484).
  *
- * `GET /tasks/queue` answers at most 200 rows (`TaskService.get_task_queue`
- * takes the `get_pending_tasks(0, 200)` branch when no `plant_key` is given;
- * with one it takes the unbounded `get_tasks_for_plant` branch). The page used
+ * `GET /tasks/queue` answers at most `TaskService.QUEUE_LIMIT` rows: it takes
+ * the `get_pending_tasks(0, QUEUE_LIMIT)` branch when no `plant_key` is given,
+ * and with one the unbounded `get_tasks_for_plant` branch. The page used
  * to ask without the parameter and narrow the answer afterwards, so a plant
  * whose tasks sat past the cut was reported as having no work at all.
  *
@@ -30,8 +30,23 @@ const TASKS = '/api/v1/t/:tenant/tasks';
 const CARE = '/api/v1/t/:tenant/care-reminders';
 const PLANTS = '/api/v1/t/:tenant/plant-instances';
 
-/** The cap the queue endpoint applies when it is asked without a plant scope. */
-const QUEUE_CAP = 200;
+/**
+ * The row count the handler below caps its unscoped answer at.
+ *
+ * The real server caps at 200 (`TaskService.QUEUE_LIMIT`). What this file tests
+ * is that the page *asks the server* instead of narrowing a capped answer, and
+ * the page holds no copy of that number — so the property is "the answer is
+ * capped and the target sorts past the cut", which any cap exhibits. The number
+ * is modelled small on purpose (#1526).
+ *
+ * Measured on this file, isolated, by varying this constant: 1.5 s at 5 rows,
+ * 1.9 s at 20, 2.3 s at 50, 3.5 s at 100, 4.9 s at 200 — a ~1.5 s fixed cost
+ * plus ~17 ms per rendered task card. At 200 the case therefore rendered 200
+ * cards, and under full-suite contention that grew past the 30 s test timeout
+ * (`× shows a plant whose task sits past the 200-row cap 32945ms`). The cost was
+ * the fixture, not a poll or a retry budget, so the repair is the fixture.
+ */
+const QUEUE_CAP = 12;
 
 const TARGET_PLANT_KEY = 'plant-beyond-the-cap';
 const TARGET_TASK_NAME = 'Repot the fig';
@@ -117,7 +132,7 @@ function makePlant(key: string, name: string): PlantInstance {
   };
 }
 
-/** 200 unrelated pending tasks plus one for the plant under test, in that order. */
+/** `QUEUE_CAP` unrelated pending tasks plus one for the plant under test, in that order. */
 const FILLER_TASKS: TaskItem[] = Array.from({ length: QUEUE_CAP }, (_, i) =>
   makeTask({
     key: `filler-${i}`,
@@ -136,7 +151,7 @@ const TARGET_TASK = makeTask({
 });
 const ALL_QUEUE_TASKS = [...FILLER_TASKS, TARGET_TASK];
 
-/** The same two branches, but cheap: only the cap test needs 201 rendered cards. */
+/** The same two branches, but with a single filler row. */
 const SMALL_QUEUE_TASKS = [FILLER_TASKS[0], TARGET_TASK];
 
 const PLANTS_FIXTURE = [
@@ -206,7 +221,7 @@ describe('TaskQueuePage — the plant filter is a server-side scope (#1484)', ()
   });
   afterEach(cleanup);
 
-  it('shows a plant whose task sits past the 200-row cap', async () => {
+  it("shows a plant whose task sits past the queue's row cap", async () => {
     seed(ALL_QUEUE_TASKS);
     renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
 
