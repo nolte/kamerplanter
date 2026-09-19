@@ -3,8 +3,11 @@
 ``ArangoUserRepository`` ran in merge mode until #1525, so ``password_hash = None``
 never reached the store. ``PrivacyService.request_erasure`` wrote ``is_active = False``
 and kept the bcrypt hash of an account whose erasure the user had requested, for the
-90 days until the hard delete (NFR-011 R-01) — and ``login_local`` does not gate on
-``is_active`` (#1528), so the hash was usable, not merely present.
+90 days until the hard delete (NFR-011 R-01) — and at the time this migration was
+written ``login_local`` did **not** gate on ``is_active`` (#1528), so the hash was
+usable, not merely present. It gates since #1551, which is why this paragraph is in
+the past tense: the rows this migration cleans up are no longer reachable through
+the local login even before it runs.
 
 #1525 fixes the write. This migration deals with the rows written before it.
 
