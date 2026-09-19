@@ -52,7 +52,7 @@ ignore_missing_imports = true
 # into one `uv toolchain` pull request, so the reading and the relocking side
 # never age apart (#1296 class). This library ships no image of its own, so the
 # Dockerfile leg the four service pins have is simply absent here (#1464).
-required-version = "==0.12.15"
+required-version = "==0.12.17"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
