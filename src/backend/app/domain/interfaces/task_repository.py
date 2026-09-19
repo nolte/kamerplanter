@@ -91,11 +91,15 @@ class ITaskRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
-        tenant_key: str | None = None,
         *,
+        tenant_key: str,
         origins: Sequence[str] | None = None,
     ) -> tuple[list[Task], int]:
         """Page the tenant's tasks, narrowed by every predicate given (#1503).
+
+        ``tenant_key`` is keyword-only and required (#1533): an omitted one used
+        to mean "every tenant", which is one dropped argument away from a
+        cross-tenant read, and two Celery beat tasks made exactly that drop.
 
         ``origins`` is a set membership, not another ``filters`` entry: the
         provenance filter is a partition ("machine-generated" is ``system`` and
@@ -180,6 +184,16 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]: ...
+
+    @abstractmethod
+    def find_open_task_by_name(self, name: str, *, tenant_key: str) -> Task | None:
+        """The tenant's newest still-open task with exactly this ``name`` (#1533).
+
+        The idempotency question of the generators whose task names are
+        deterministic keys, answered in the store: tenant-scoped and with no page
+        cap for the match to fall off. See the ArangoDB implementation.
+        """
+        ...
 
     @abstractmethod
     def find_open_care_task(
