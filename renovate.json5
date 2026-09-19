@@ -81,7 +81,7 @@
     // deployment consumed and rebased itself into a loop on every publish
     // (#1326), so it was removed on 2026-09-10. The one genuine third-party pin
     // in these files, `timescale/timescaledb`, is likewise not matched and is
-    // tracked for version/CVE bumps in its own cross-manager group below.
+    // tracked for version/CVE bumps in the cross-manager image group below.
     {
       matchManagers: [
         'helm-values',
@@ -112,9 +112,9 @@
         'major',
       ],
     },
-    // ── Python backend dependency management (NFR-009 §6.1) ──────────────────
-    // `src/backend/pyproject.toml` is the single source of truth and
-    // `src/backend/uv.lock` its hash-bearing lock. The built-in `pep621` manager
+    // ── Python dependency management (NFR-009 §6.1) ──────────────────────────
+    // Each Python tree's `pyproject.toml` is the single source of truth and the
+    // `uv.lock` beside it the hash-bearing lock. The built-in `pep621` manager
     // owns both: it bumps the range in pyproject.toml when a release leaves it
     // and runs `uv lock --upgrade-package` in the SAME pull request, so source
     // and lock always move together. Renovate pins the uv it runs to
@@ -169,6 +169,13 @@
     // They are only meaningful together: a relock by a newer uv than the readers
     // is the #1296 class. One pull request moves all of them.
     //
+    // THIS GROUP IS DELIBERATELY NOT MERGED INTO `application dependencies`
+    // below (#1550). uv is not a dependency of any application here — it is the
+    // RESOLVER that produces seven lock files, and the evidence for accepting a
+    // bump is "every lock relocks identically and every image still builds",
+    // not "the test suite is green". The application group is judged on the
+    // second kind of evidence, so the two must not share a branch.
+    //
     // The ACTION joins this group rather than sitting in the generic
     // `github-actions` one so that both halves of the resolver path are READ
     // TOGETHER — not because either half silently changes the other. What is
@@ -204,6 +211,13 @@
     // The build backend uv is constrained to for the two sdist-only backend
     // dependencies (`[tool.uv].build-constraint-dependencies`), read by the
     // regex manager below. Grouped so setuptools and wheel move together.
+    //
+    // Position is load-bearing and UNCHANGED by #1550: this rule sits ABOVE
+    // `application dependencies`, so if `pep621` ever extracted a dependency
+    // literally named setuptools or wheel from src/backend/pyproject.toml, the
+    // later application rule would claim it — exactly as the `python
+    // minor/patch` group did before. Only the regex-manager build constraint,
+    // which the application rule does not match, stays here.
     {
       groupName: 'python build backend',
       matchDatasources: [
@@ -217,158 +231,186 @@
         'wheel',
       ],
     },
-    // In-range releases (a minor or patch inside `>=x,<y`) never leave the
-    // range, so with the default strategy Renovate would propose nothing and
-    // the lock would only ever move on a major. `update-lockfile` keeps the
-    // pyproject range untouched and moves uv.lock for every release, which is
-    // what makes the minor/patch group below fire at all — it could not
-    // before, and a rule that cannot fire is not a policy.
-    {
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'src/backend/**',
-      ],
-      rangeStrategy: 'update-lockfile',
-    },
-    {
-      groupName: 'python minor/patch',
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'src/backend/**',
-      ],
-      matchUpdateTypes: [
-        'minor',
-        'patch',
-      ],
-      matchPackageNames: [
-        '!starlette',
-        '!fastapi',
-        '!pydantic',
-        '!pydantic-core',
-      ],
-    },
-    {
-      groupName: 'python fastapi-stack',
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'src/backend/**',
-      ],
-      matchPackageNames: [
-        'fastapi',
-        'starlette',
-        'pydantic',
-        'pydantic-core',
-      ],
-    },
-    {
-      groupName: 'python major',
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'src/backend/**',
-      ],
-      matchUpdateTypes: [
-        'major',
-      ],
-    },
-    // ── Python side services (#1374) ────────────────────────────────────────
-    // The four service images used to install from a plain `requirements.txt`
-    // (two of them beside a pyproject.toml that only `poetry` read and nothing
-    // consumed). Each is now a PEP 621 project with its own hash-bearing
-    // uv.lock — one lock per service, deliberately not a workspace lock over
-    // all five trees, which would couple five release cycles.
+    // In-range releases (a minor or patch inside `>=x,<y`, or anywhere above a
+    // bare `>=x` floor) never leave the range, so with the default strategy
+    // Renovate would propose nothing and the lock would only ever move on a
+    // major. `update-lockfile` keeps the pyproject range untouched and moves
+    // uv.lock for every release, which is what makes the application group
+    // below fire at all for Python — it could not before, and a rule that
+    // cannot fire is not a policy.
     //
-    // One group per image, as the backend groups are per tree: a bump to the
-    // embedding service must not drag the reranker image's rebuild into the
-    // same pull request. `update-lockfile` is what makes these rules fire at
-    // all — the service ranges are open (`>=x`, no upper bound), so every
-    // release is in range and the default strategy would propose nothing while
-    // the lock aged.
+    // This used to be SEVEN statements: one standalone rule for `src/backend/**`
+    // and one `rangeStrategy` carried inside each of the six per-tree group
+    // rules (`python inference-service`, `python knowledge-service`,
+    // `python embedding-service`, `python reranker-service`,
+    // `python kp_vectordb`, `python kp_errortracking`). #1550 dissolved those
+    // six groups into one application group; the strategy did NOT dissolve with
+    // them — it is restated here once, unscoped, which covers the same seven
+    // trees (`pep621` extracts exactly `EXPECTED_PEP621_FILES` in
+    // scripts/ci/check_renovate_dashboard.py and nothing else) and additionally
+    // covers an eighth tree the day someone adds one. A per-tree file filter is
+    // what let a tree be added without the strategy before.
     {
-      groupName: 'python inference-service',
-      // DINOv2 ONNX runtime plus the torch/onnx export toolchain in the `build` dependency group.
       matchManagers: [
         'pep621',
       ],
-      matchFileNames: [
-        'src/inference-service/**',
-      ],
       rangeStrategy: 'update-lockfile',
     },
-    {
-      groupName: 'python knowledge-service',
-      // RAG assistant runtime plus the watchfiles reloader in the `dev` dependency group.
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'src/knowledge-service/**',
-      ],
-      rangeStrategy: 'update-lockfile',
-    },
-    {
-      groupName: 'python embedding-service',
-      // embedding runtime plus the huggingface-hub download toolchain in the `build` dependency group.
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'docker/embedding-service/**',
-      ],
-      rangeStrategy: 'update-lockfile',
-    },
-    {
-      groupName: 'python reranker-service',
-      // reranker runtime plus the optimum export toolchain in the `build` dependency group.
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'docker/reranker-service/**',
-      ],
-      rangeStrategy: 'update-lockfile',
-    },
-    // ── Shared libraries (#1464) ────────────────────────────────────────────
-    // `src/libs/kp_vectordb` and `src/libs/kp_errortracking` are PEP 621 trees
-    // with a hash-bearing uv.lock since #1464. Before that they had no lock, so
-    // `poetry` extracted them (measured: `poetry fileCount 2`) and opened
-    // source-only pull requests with nothing to relock; after it, `pep621` reads
-    // all seven trees and `poetry` is absent from the inventory entirely
-    // (`task renovate:dry-run`, 2026-09-17: `pep621 fileCount 7`, no `poetry`).
+    // ── ONE group for every application dependency (#1550) ───────────────────
+    // Direct operator instruction: application dependencies arrive as ONE
+    // reviewable bump, whatever the service, whatever the ecosystem.
     //
-    // One group per tree, like the four service images above, and for the same
-    // reason: `sync.py` vendors these packages into the backend and both Python
-    // services, so a bump lands in several trees at review time and must not
-    // arrive mixed with an unrelated library's. `update-lockfile` is again what
-    // makes the rule fire at all — both libraries declare open ranges (`>=x`,
-    // no upper bound), so every release is in range and the default strategy
-    // would propose nothing while the lock aged.
+    // WHAT THIS REPLACED — fourteen groups, most of them one per tree:
+    // `python minor/patch`, `python fastapi-stack`, `python major`,
+    // `python inference-service`, `python knowledge-service`,
+    // `python embedding-service`, `python reranker-service`,
+    // `python kp_vectordb`, `python kp_errortracking`, `frontend eslint`,
+    // `frontend mui`, `frontend react`, `frontend typescript`,
+    // `frontend minor/patch`, plus the dependency half of `e2e test suite`.
+    // Most of those carried a COHESION argument — fastapi/starlette/pydantic
+    // move together, @mui/* move together, react and its types move together,
+    // the E2E suite's selenium/pytest-bdd move together. Every cohesion
+    // argument is SUBSUMED, not refuted: a single group ships all of them in
+    // the same branch, which is strictly stronger than "these four together,
+    // those three together".
+    //
+    // TWO OF THE FOURTEEN WERE NOT COHESION ARGUMENTS BUT SEPARATION
+    // ARGUMENTS, and this group OVERRULES them rather than subsuming them.
+    // Saying otherwise would hide the only thing that was actually given up:
+    //   * `python embedding-service` / `python reranker-service` et al. existed
+    //     so "a bump to the embedding service must not drag the reranker
+    //     image's rebuild into the same pull request". It now does.
+    //   * `python kp_vectordb` / `python kp_errortracking` existed because
+    //     `sync.py` vendors both libraries into the backend and both Python
+    //     services, so "a bump lands in several trees at review time and must
+    //     not arrive mixed with an unrelated library's". It now arrives mixed.
+    // Both are SUSPENDED BY DIRECT OPERATOR INSTRUCTION (#1550), not refuted by
+    // a measurement — which is a legitimate reason and a different one. If
+    // either bites, the repair is a narrow rule BELOW this one, and this
+    // paragraph is what tells the next reader the cost was known.
+    //
+    // WHAT THE SPLIT COST, measured on 2026-09-19 (#1550): ten `renovate/`
+    // branches open at once for one routine week. `required_status_checks.strict`
+    // is true, so N bumps cost N full CI cycles; and the inherited
+    // `prConcurrentLimit: 10` then became the policy — the CVE-bearing
+    // `transformers` v5 bump (#1480) sat "Rate-Limited" because the queue was
+    // full, not because any rule held it.
+    //
+    // MATCHED BY MANAGER, NOT BY PATH, and that is the whole design:
+    //   * it reaches every tree at once — src/backend, the four service images,
+    //     the two shared libraries, src/frontend, tests/e2e, docs/ and
+    //     tools/rag-eval — without an enumerated path list that a new tree can
+    //     be added outside of (the failure this file has paid for twice: #1374
+    //     and #1464 both added trees that no rule knew about);
+    //   * it CANNOT claim a container image. `dockerfile`, `docker-compose`,
+    //     `helm-values` and `helmv3` are not in this list, so the base images of
+    //     `tests/e2e/Dockerfile` stay with the image group below — the second
+    //     assertion of the retired `e2e test suite` block (#1464/#1491), which
+    //     used to rest on rule ORDER alone and now rests on the manager filter
+    //     as well. MEASURED after this change: `node 22-slim -> 24-slim` in
+    //     tests/e2e/Dockerfile still resolves to a third-party image branch, not
+    //     to an application branch.
+    //
+    // WHAT WAS MEASURED, 2026-09-19, `LOG_LEVEL=debug task renovate:dry-run`
+    // against this working tree, reading the RESOLVED branch of each pending
+    // update rather than arguing from rule order (#1491 is the review that had
+    // to correct exactly that mistake). Updates the repository had no candidate
+    // for were FORCED in a throw-away state — an exact pin below the current
+    // release, or a lowered `version` in uv.lock / package-lock.json, because
+    // Renovate resolves pep621 and npm against the LOCKED version and a lowered
+    // manifest range alone yields `updates: []` (the #1464 finding, confirmed
+    // again here on axe-core). Observed, all of them, in
+    // `renovate/application-dependencies`:
+    //
+    //   pep621   fastapi, structlog        src/backend/pyproject.toml   (forced)
+    //   pep621   psycopg, psycopg-pool     inference-, knowledge-service,
+    //                                      kp_vectordb                  (real)
+    //   npm      @mui/x-*, eslint, knip,
+    //            prettier                  src/frontend/package.json    (real)
+    //   npm      typescript                src/frontend/package.json    (forced)
+    //   npm      axe-core                  tests/e2e/package.json       (forced)
+    //   pip_req  selenium, pytest-xdist    tests/e2e/requirements.txt   (forced)
+    //   pip_req  mkdocs-redirects          docs/requirements.txt        (forced)
+    //   pip_req  httpx                     tools/rag-eval/requirements.txt (forced)
+    //
+    // The axe-core line retires the "NOT MEASURED" caveat #1464 left behind: it
+    // is now an observation, not a reading of rule order.
+    //
+    // THE jsdom HOLD WAS RE-MEASURED after the consolidation, because it is now
+    // the only npm hold left AND the worked example the escape-hatch paragraph
+    // above leans on — and it had been read from rule order, which is the
+    // distinction #1491 already paid for once. Forced with `jsdom` lowered to
+    // 29.0.1 in src/frontend/package-lock.json, so that a 29.x minor AND the 30
+    // major were both computed. Observed:
+    //   `Filtered out 1 disabled update(s)`, `jsdom` appears exactly once in the
+    //   flattened list, no jsdom branch exists, and the surviving
+    //   `jsdom minor ^29.0.1` sits in `renovate/application-dependencies`.
+    // The hold still holds and the minors still flow, inside the group.
+    //
+    // STILL NOT MEASURED, and named as such: the two shared libraries'
+    // kp_errortracking tree and `src/backend`'s remaining 100-odd dependencies
+    // were not individually forced — they are the same manager and the same
+    // rule as the entries above, but that is an inference. And the
+    // `embedding-service` / `kp_errortracking` trees produced no candidate at
+    // all today.
+    //
+    // MAJORS SPLIT OFF BY THEMSELVES. `separateMajorMinor: true` at the top of
+    // this file gives the group two branches without a second rule:
+    // `renovate/application-dependencies` and
+    // `renovate/major-application-dependencies`. A held major therefore cannot
+    // stall the routine stream — MEASURED: the `transformers` major resolves to
+    // the second branch while psycopg/psycopg-pool/@mui/eslint/knip/prettier
+    // resolve to the first.
+    //
+    // THE TRADE, stated rather than discovered later: one broken package now
+    // blocks the whole group's branch. That is deliberate. The alternative was
+    // measured and is worse — a queue that silently drops a CVE fix on the
+    // floor. When one member does block the branch, the escape is
+    // `matchPackageNames` on a temporary rule BELOW this one (the jsdom hold is
+    // the worked example), not a new permanent per-tree group.
+    //
+    // `automerge: false` IS WRITTEN OUT, not inherited. The commons config this
+    // file extends does not automerge these managers today, but nothing here
+    // reads that config, and the risk this group concentrates is new: before
+    // #1550 it was spread over `frontend minor/patch` and `python minor/patch`,
+    // and now ONE branch carries backend runtime, frontend runtime and the E2E
+    // suite at once. `uv toolchain` above spells the same flag out for the same
+    // reason. Two named requirements land inside this group and neither may
+    // depend on an inherited default:
+    //   * NFR-009 §3.4 forbids auto-merge for MINOR updates of `react`,
+    //     `react-dom`, `fastapi` and `typescript` — all four are in this group
+    //     now, where before they sat in `frontend react` / `frontend typescript`
+    //     / `python fastapi-stack`;
+    //   * the selenium ceiling in tests/e2e/requirements.txt exists because
+    //     `pages/_element_proxy.py` reads Selenium internals, and a green E2E
+    //     run is exactly what a bump there has to be judged on.
+    //
+    // WHAT THIS GROUP DOES NOT REACH, and it is not reasoned about but
+    // measured. `rangeStrategy` below applies to `pep621` only. The three
+    // `pip_requirements` files carry OPEN ranges and have no lock beside them
+    // (`selenium>=4.25.0,<5`, `pytest-xdist>=3.5.0`, `mkdocs>=1.6,<2.0`, …), so
+    // with the default `replace` strategy an IN-RANGE release proposes nothing:
+    // measured 2026-09-19, the baseline run had zero `pip_requirements` updates
+    // while the selenium docker IMAGE moved 4.48 -> 4.49 in the same run, and
+    // every pip_requirements entry in this change's measurement table had to be
+    // forced with an exact pin. Concretely: `selenium` 4.26 -> 4.49 inside
+    // `>=4.25.0,<5` never arrives.
+    //
+    // NOT repaired here with `rangeStrategy: 'bump'`, deliberately. #1509 is the
+    // open decision on exactly these three files — lock them, hash-pin them, or
+    // record them as out of scope — and its leading candidate gives tests/e2e a
+    // `pyproject.toml` + `uv.lock`, which would move that tree under `pep621`
+    // and make a `bump` rule added today dead code tomorrow. One decision, one
+    // place. What must not happen is the state this comment replaced: a claim
+    // that the group "reaches every tree at once" with the limitation nowhere.
     {
-      groupName: 'python kp_vectordb',
+      groupName: 'application dependencies',
       matchManagers: [
         'pep621',
+        'npm',
+        'pip_requirements',
       ],
-      matchFileNames: [
-        'src/libs/kp_vectordb/**',
-      ],
-      rangeStrategy: 'update-lockfile',
-    },
-    {
-      groupName: 'python kp_errortracking',
-      matchManagers: [
-        'pep621',
-      ],
-      matchFileNames: [
-        'src/libs/kp_errortracking/**',
-      ],
-      rangeStrategy: 'update-lockfile',
+      automerge: false,
     },
     // ── jsdom held at 29 until Testing Library catches up (#827) ─────────────
     // jsdom 30 reimplemented its CSS engine, and the new `getComputedStyle`
@@ -388,6 +430,11 @@
     // So majors are held and minors/patches keep flowing. Revisit when
     // `@testing-library/dom` ships a release naming jsdom 30, then drop this
     // rule and let the bump run — do not simply raise the pin.
+    //
+    // BELOW the application group since #1550, and it has to be: this is the
+    // worked example of the escape hatch that group's comment names. A held
+    // package is removed from the branch by a narrower rule further down, never
+    // by giving its tree a group of its own again.
     {
       matchManagers: [
         'npm',
@@ -401,122 +448,27 @@
       ],
       enabled: false,
     },
+    // Hold TypeScript below 7.0 until typescript-eslint ships a release
+    // supporting the native TS 7 compiler. Its peer range is currently
+    // "typescript >=4.8.4 <6.1.0", so TS 7 fails `npm ci` (ERESOLVE) and
+    // crashes eslint. tsc/vitest already pass under TS 7 (see PR #425).
+    // Remove this cap once typescript-eslint declares TS 7 support.
+    //
+    // The `frontend typescript` group this cap used to hang on is gone (#1550);
+    // the cap is not. It carries no `groupName`, so TypeScript stays in the
+    // application group above — a later rule without a `groupName` refines the
+    // match, it does not reset the group.
     {
-      groupName: 'frontend eslint',
-      matchManagers: [
-        'npm',
-      ],
-      matchPackageNames: [
-        '/eslint/',
-      ],
-    },
-    {
-      groupName: 'frontend mui',
-      matchManagers: [
-        'npm',
-      ],
-      matchPackageNames: [
-        '/^@mui//',
-      ],
-    },
-    {
-      groupName: 'frontend react',
-      matchManagers: [
-        'npm',
-      ],
-      matchPackageNames: [
-        'react',
-        'react-dom',
-        '@types/react',
-        '@types/react-dom',
-      ],
-    },
-    {
-      groupName: 'frontend typescript',
       matchManagers: [
         'npm',
       ],
       matchPackageNames: [
         'typescript',
       ],
-      // Hold TypeScript below 7.0 until typescript-eslint ships a release
-      // supporting the native TS 7 compiler. Its peer range is currently
-      // "typescript >=4.8.4 <6.1.0", so TS 7 fails `npm ci` (ERESOLVE) and
-      // crashes eslint. tsc/vitest already pass under TS 7 (see PR #425).
-      // Remove this cap once typescript-eslint declares TS 7 support.
       allowedVersions: '<7.0.0',
     },
-    {
-      groupName: 'frontend minor/patch',
-      matchManagers: [
-        'npm',
-      ],
-      matchUpdateTypes: [
-        'minor',
-        'patch',
-      ],
-      matchPackageNames: [
-        '!/eslint/',
-        '!/^@mui//',
-        '!react',
-        '!react-dom',
-        '!@types/react',
-        '!@types/react-dom',
-        '!typescript',
-      ],
-    },
-    // ── The E2E suite's own dependencies as one group (#1464) ────────────────
-    // Lifting `**/tests/**` out of `ignorePaths` above admits three manifests at
-    // once — `requirements.txt` (pip_requirements), `package.json` (npm) and the
-    // suite image's `Dockerfile` (dockerfile). Measured with
-    // `task renovate:dry-run` on 2026-09-17, before and after: `pip_requirements`
-    // 2 -> 3 files, `npm` 1 -> 2, `dockerfile` 8 -> 9, and nothing else changed.
-    //
-    // POSITION IS THE WHOLE RULE, and the first version of it got this wrong
-    // (#1491 review). Renovate resolves `groupName` by LAST MATCHING rule, and
-    // this block originally sat above `frontend minor/patch` and the
-    // `{{depName}} image` group, so it won nothing it was written for. Measured
-    // rather than argued: with the block in its old place, the base images of
-    // `tests/e2e/Dockerfile` resolved to `renovate/depname-image` and
-    // `renovate/major-node-image`, i.e. the image group, while the comment here
-    // claimed "the base image" was part of the suite group.
-    //
-    // WHAT IT NOW COVERS, AND WHAT IT DELIBERATELY DOES NOT — the first item is
-    // MEASURED, the second is a reading of rule order and is labelled as one:
-    //
-    //   * selenium, webdriver-manager, pytest-bdd, pytest-xdist
-    //     (`pip_requirements`) — nothing else groups them, so they arrive as one
-    //     reviewable suite bump instead of four pull requests. MEASURED by
-    //     forcing an out-of-range pin (`pytest-xdist==3.0.0`) in a scratch tree
-    //     and reading the resolved branch: `renovate/e2e-test-suite`.
-    //   * axe-core (`npm`) — this rule is now BELOW `frontend minor/patch`,
-    //     which matches every npm dependency, so the E2E bundle should no longer
-    //     arrive inside a frontend pull request it has nothing to do with. NOT
-    //     MEASURED: axe-core has no pending update and cannot be given one from
-    //     the manifest alone — Renovate resolves npm against `lockedVersion`,
-    //     which already holds the newest release, so a lowered range yields
-    //     `updates: []`. This item is therefore a reading of rule order, not an
-    //     observation; the first real axe-core bump is what confirms it.
-    //   * NOT the `node` / `python` base images. `{{depName}} image` below is
-    //     later and therefore wins — MEASURED, `renovate/major-node-image` and
-    //     `renovate/depname-image` — and that is CORRECT rather than a leak:
-    //     that group exists so one upstream release of a shared base image
-    //     becomes one pull request across compose, the Helm values and every
-    //     Dockerfile (#1359 / #1369 were the same release split in two).
-    //     Pulling this Dockerfile's `python` into a suite group would re-split
-    //     exactly what that group was created to join.
-    //
-    // NOT automerged, deliberately: the selenium ceiling in
-    // tests/e2e/requirements.txt exists because `pages/_element_proxy.py` reads
-    // Selenium internals, and a green E2E run is exactly what a bump here has to
-    // be judged on.
-    {
-      groupName: 'e2e test suite',
-      matchFileNames: [
-        'tests/e2e/**',
-      ],
-    },
-    // ── Third-party images: one pull request per image, whatever the file ────
+    // ── Third-party images: ONE pull request, whatever the image, whatever
+    //    the file (#1359/#1369, widened by #1550) ──────────────────────────────
     // The same image is referenced from docker-compose*.yml (docker-compose
     // manager), helm/kamerplanter/values*.yaml (helm-values), the Dockerfiles
     // (dockerfile) and workflow `env:` values (the regex manager below). Until
@@ -526,10 +478,39 @@
     // merged days apart, leaving CI and the dev cluster on different databases.
     // Grouping on package identity alone puts every reference in one branch.
     //
-    // `matchDatasources: ['docker']` on the base images is not decoration: the
-    // github-actions manager also extracts `python 3.14` (setup-python) and the
-    // asdf manager `node`, and without the datasource filter those would be
-    // pulled into the image group.
+    // #1550 went one step further, but only for HALF the update types. The
+    // group name was `{{depName}} image`, i.e. one branch PER IMAGE, and on
+    // 2026-09-19 that was five of the sixteen open branches at once
+    // (`python-image`, `node-image`, `major-node-image`,
+    // `postgres-18-bookworm`, `ollamaollama-image`) — four of them digest-only
+    // rebuilds of the SAME upstream release. Those four collapse into one
+    // `renovate/third-party-images`. The #1359/#1369 guarantee is not weakened
+    // by that, it is subsumed: one upstream release still cannot be split
+    // across managers, because the branch is now shared by MORE references,
+    // not fewer.
+    //
+    // MAJORS KEEP THEIR PER-IMAGE NAME, and the conditional below is what does
+    // it. The first version of this change let `separateMajorMinor` produce a
+    // single `renovate/major-third-party-images`, which would have put a node
+    // 22 -> 24, a python 3.14 -> 3.15, a postgres 18 -> 19 and an arangodb 3 ->
+    // 4 in ONE branch — four rebuilds of four different stacks, each judged on
+    // its own evidence, any one of which blocks the other three. That is the
+    // exact coupling the selenium rule below refuses, and the review of #1550
+    // caught that this file was arguing both sides one rule apart. There is no
+    // routine-stream saving to trade for it either: base-image majors are rare,
+    // and on 2026-09-19 there was exactly one (node, from tests/e2e/Dockerfile),
+    // so the conditional costs zero branches today — MEASURED, not assumed.
+    //
+    // Written as a handlebars conditional on ONE rule rather than a second rule
+    // with `matchUpdateTypes: ['major']`, because a second rule would have to
+    // repeat the package list below — and an enumerated list that exists twice
+    // is the drift this very list already cost us once (`postgres` was in no
+    // group at all until #1550 measured it).
+    //
+    // `matchDatasources: ['docker']` is not decoration: the github-actions
+    // manager also extracts `python 3.14` (setup-python) and the asdf manager
+    // `node`, and without the datasource filter those would be pulled into the
+    // image group.
     //
     // Workflow SERVICE containers are in here for the same reason: the
     // github-actions manager extracts `jobs.<id>.services.<id>.image` as an
@@ -540,11 +521,39 @@
     // drifted from the compose digest would mean CI and the dev stack measure
     // against different servers (#1432).
     //
+    // This rule stays BELOW the application group above. The application group
+    // matches by manager and can never claim a docker dependency, so the order
+    // is no longer what carries the separation — but the base images of
+    // `tests/e2e/Dockerfile` reaching THIS group rather than an application one
+    // is the assertion the retired `e2e test suite` block existed for
+    // (#1464/#1491, where an earlier edit got the order wrong and the block won
+    // nothing it was written for), and it is measured again for #1550.
+    //
+    // TWO NAMES WERE ADDED TO THE LIST BY #1550, because the list is
+    // enumerated and they had fallen outside it — which is the standing
+    // weakness of matching images by name rather than by datasource:
+    //   * `postgres` (docker/vectordb/Dockerfile) — MEASURED as an ungrouped
+    //     branch of its own, `renovate/postgres-18-bookworm`, in the 2026-09-19
+    //     baseline run. It is a third-party database base image like the others
+    //     and had simply never been listed.
+    //   * `busybox` (docker/knowledge/Dockerfile:1, `FROM busybox:1.38.0@…`) —
+    //     NOT MEASURED: it has no pending update, so its assignment is read from
+    //     rule order, not observed. The first version of this comment sourced it
+    //     to docker/vectordb/Dockerfile, which carries `postgres` and no
+    //     busybox; the review of #1550 measured the line.
+    // Deliberately NOT added: `renovate/renovate` and `ghcr.io/hadolint/hadolint`.
+    // Those are TOOL pins, not application images — a floating or stale tool
+    // silently changes what a check MEANS (#1177), which is judged on different
+    // evidence from "the stack still starts". Also not added: `huggingface_hub`
+    // and `optimum.onnxruntime`, which the dockerfile manager extracts as docker
+    // dependencies from the side-service images although they are PyPI packages;
+    // grouping a mis-extraction would only make it harder to see.
+    //
     // No automerge. These are the databases the tests run against and the
     // browser the E2E suite drives; a green run is necessary but the merge
     // stays a decision.
     {
-      groupName: '{{depName}} image',
+      groupName: '{{#if (equals updateType "major")}}{{depName}} image{{else}}third-party images{{/if}}',
       matchDatasources: [
         'docker',
       ],
@@ -556,12 +565,22 @@
         'nginxinc/nginx-unprivileged',
         'python',
         'node',
+        'postgres',
+        'busybox',
       ],
     },
     // selenium/hub and selenium/node-chrome version independently (4.x vs the
     // Chrome major) but must match each other at runtime, so a hub minor and a
     // node "major" belong in the same pull request — #1367 and #1370 were the
     // same upstream release split by `separateMajorMinor`.
+    //
+    // Kept OUT of `third-party images` above, and this is the one place #1550
+    // did not consolidate. `separateMajorMinor: false` is what pairs the two
+    // selenium images; applied to the whole image group it would also pair a
+    // node MAJOR (22 -> 24, a rebuild of every frontend image) with a routine
+    // postgres digest, which is the opposite of the "a held major must not stall
+    // the routine stream" half of this issue. One group keeps its own identity
+    // so the other can keep the split.
     {
       groupName: 'selenium images',
       matchDatasources: [
