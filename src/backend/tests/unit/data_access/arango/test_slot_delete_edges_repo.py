@@ -79,16 +79,37 @@ def test_delete_slot_removes_the_incoming_has_slot_edge() -> None:
     assert not any("%" in v for v in call["bind_vars"].values() if isinstance(v, str))
 
 
-def test_delete_slot_still_detaches_its_outbound_edges() -> None:
-    """The two edges that start *at* the slot keep their outbound anchor."""
+def test_delete_slot_detaches_adjacency_on_both_ends() -> None:
+    """Adjacency is written both ways, so one anchor is not enough (SCR-001).
+
+    ``GraphRepository.set_adjacent_slots`` creates ``a → b`` *and* ``b → a``. An
+    outbound-only delete left ``neighbour → deleted slot`` behind — the same dangling
+    state the ``has_slot`` repair above removes, two lines further down.
+    """
     db = _CapturingDb()
     repo = ArangoSiteRepository(db)  # type: ignore[arg-type]
 
     repo.delete_slot("slot-1")
-    slot_id = f"{col.SLOTS}/slot-1"
 
-    for edge in (col.ADJACENT_TO, col.FILLED_WITH):
-        calls = _edge_calls(db, edge)
-        assert len(calls) == 1, edge
-        assert calls[0]["bind_vars"]["vertex"] == slot_id
-        assert "e._from == @vertex" in calls[0]["query"]
+    calls = _edge_calls(db, col.ADJACENT_TO)
+    assert len(calls) == 1
+    assert calls[0]["bind_vars"]["vertex"] == f"{col.SLOTS}/slot-1"
+    assert "(e._from == @vertex OR e._to == @vertex)" in calls[0]["query"]
+
+
+def test_delete_slot_detaches_its_substrate_edge_outbound() -> None:
+    """``filled_with`` really is slot → batch (``assign_batch_to_slot``).
+
+    Asserted separately from adjacency rather than in one loop over both: the two
+    edges have different shapes, and a shared assertion is what made the wrong one
+    look deliberate.
+    """
+    db = _CapturingDb()
+    repo = ArangoSiteRepository(db)  # type: ignore[arg-type]
+
+    repo.delete_slot("slot-1")
+
+    calls = _edge_calls(db, col.FILLED_WITH)
+    assert len(calls) == 1
+    assert calls[0]["bind_vars"]["vertex"] == f"{col.SLOTS}/slot-1"
+    assert "e._from == @vertex" in calls[0]["query"]

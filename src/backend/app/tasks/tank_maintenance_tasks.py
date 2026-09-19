@@ -30,7 +30,14 @@ def generate_tank_maintenance_tasks() -> dict:
 
     schedules = tank_repo.get_active_auto_create_schedules()
     created_count = 0
+    #: Suppressed because the tenant already has this task open — the normal,
+    #: healthy outcome of a beat run.
     skipped_count = 0
+    #: Suppressed because the schedule could not be resolved to a tenant at all
+    #: (unknown tank, or a tank without a tenant). Maintenance for these tanks
+    #: never materialises, so it must not share a counter with "already there"
+    #: (#1573 review SCR-004).
+    skipped_unresolved_count = 0
     now = datetime.now(UTC)
 
     for schedule in schedules:
@@ -50,14 +57,24 @@ def generate_tank_maintenance_tasks() -> dict:
         # Resolve tank name and tenant BEFORE the idempotency question: that
         # question belongs to one tenant, and the tenant is what answers it (#1533).
         tank = tank_repo.get_by_key(tank_key)
-        tank_label = tank.name if tank else tank_key
-        tank_tenant_key = tank.tenant_key if tank and hasattr(tank, "tenant_key") else ""
+        if tank is None:
+            # An orphaned schedule: the tank it maintains is gone. Reported on its
+            # own event and counter rather than folded into "tenantless" — the two
+            # need different repairs (delete the schedule vs. stamp the tank), and
+            # a log line naming the wrong one sends the operator hunting the wrong
+            # thing (#1573 review SCR-004).
+            logger.warning("tank_maintenance_skipped_unknown_tank", tank_key=tank_key)
+            skipped_unresolved_count += 1
+            continue
+        tank_label = tank.name
+        tank_tenant_key = getattr(tank, "tenant_key", "")
         if not tank_tenant_key:
             # Fail closed, exactly as ``check_runoff_trends`` does for a tenantless
             # plant: a tank without a tenant would force an unscoped idempotency
             # read and stamp a tenantless task no tenant-scoped listing can show.
+            # Reachable: ``Tank.tenant_key`` defaults to `""` with no `min_length`.
             logger.warning("tank_maintenance_skipped_tenantless_tank", tank_key=tank_key)
-            skipped_count += 1
+            skipped_unresolved_count += 1
             continue
 
         # Idempotency: is one of THIS tenant's tasks with this name still open?
@@ -99,9 +116,14 @@ def generate_tank_maintenance_tasks() -> dict:
         "tank_maintenance_tasks_generated",
         created=created_count,
         skipped=skipped_count,
+        skipped_unresolved=skipped_unresolved_count,
         schedules_checked=len(schedules),
     )
-    return {"created": created_count, "skipped": skipped_count}
+    return {
+        "created": created_count,
+        "skipped": skipped_count,
+        "skipped_unresolved": skipped_unresolved_count,
+    }
 
 
 @celery_app.task(name="app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha")

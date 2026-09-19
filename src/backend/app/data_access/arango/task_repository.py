@@ -628,8 +628,23 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         cursor = self._db.aql.execute(query, bind_vars={"now": now, "tenant_key": tenant_key})
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
-    #: Statuses under which a care-reminder task still blocks re-creation.
-    _CARE_OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+    #: Statuses under which a task still counts as "already there": the dedup
+    #: predicates (care reminders, task names), the dashboard's "open" tiles.
+    #:
+    #: ONE definition for the class (#1573 review SCR-003). There were two class
+    #: attributes with this value before — ``_CARE_OPEN_STATUSES`` here and
+    #: ``_OPEN_STATUSES`` at the dashboard-counts section — and #1533 was about to
+    #: add a third, which would have been *shadowed* by the later one anyway since
+    #: both live in the same class body. A third copy is also how the set silently
+    #: diverges: a future open status added in one place leaves the other predicate
+    #: answering the old question. ``collections.CARE_TASK_OPEN_STATUSES`` (the
+    #: unique index behind care-task dedup) is held equal to this by
+    #: ``tests/unit/data_access/test_care_task_dedup_index.py`` — index and lookup
+    #: must agree on "open" or one of them is inert.
+    _OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+
+    #: Care-reminder spelling of the same set — an alias, not a copy.
+    _CARE_OPEN_STATUSES = _OPEN_STATUSES
 
     def find_open_care_task(
         self,
@@ -707,9 +722,6 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         doc = next(cursor, None)
         return Task(**self._from_doc(doc)) if doc is not None else None
-
-    #: Statuses under which a task still blocks re-creation of the same name.
-    _OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
 
     def find_open_task_by_name(self, name: str, *, tenant_key: str) -> Task | None:
         """The single tenant-scoped "is this task already there?" lookup (#1533).
@@ -1127,9 +1139,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     # ── Dashboard counts (REQ-009) ──
 
-    #: A task is "open" for the dashboard while it is still actionable, i.e. it
-    #: has neither been completed nor skipped/failed/dormant.
-    _OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+    # The dashboard's "open" (still actionable: neither completed nor
+    # skipped/failed/dormant) is the same set as the dedup predicates', and is
+    # ``_OPEN_STATUSES`` above — it used to be re-declared here, in the same class
+    # body, which made the earlier declaration dead (#1573 review SCR-003).
 
     #: Care reminders are persisted as ``category == "care_reminder"`` tasks and
     #: already own the dedicated ``care_reminders_due`` tile (REQ-009 §1.4, fed by

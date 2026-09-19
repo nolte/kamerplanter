@@ -61,7 +61,7 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 0}
+        assert result == {"created": 0, "skipped": 0, "skipped_unresolved": 0}
 
     def test_creates_task_when_never_performed(self, _mock_dependencies):
         tank_repo = MagicMock()
@@ -80,7 +80,7 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 1, "skipped": 0}
+        assert result == {"created": 1, "skipped": 0, "skipped_unresolved": 0}
         task_repo.create_task.assert_called_once()
         created = task_repo.create_task.call_args.args[0]
         assert created.name == "maintenance:water_change:tank_1"
@@ -96,7 +96,7 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 0}
+        assert result == {"created": 0, "skipped": 0, "skipped_unresolved": 0}
         tank_repo.get_last_maintenance_by_type.assert_not_called()
 
     def test_skips_when_not_yet_due(self, _mock_dependencies):
@@ -111,7 +111,7 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 0}
+        assert result == {"created": 0, "skipped": 0, "skipped_unresolved": 0}
 
     def test_idempotent_skip_when_task_exists(self, _mock_dependencies):
         from app.common.enums import TaskStatus
@@ -134,7 +134,7 @@ class TestGenerateTankMaintenanceTasks:
 
         result = generate_tank_maintenance_tasks()
 
-        assert result == {"created": 0, "skipped": 1}
+        assert result == {"created": 0, "skipped": 1, "skipped_unresolved": 0}
         task_repo.create_task.assert_not_called()
         # The lookup asks for this tank's task name inside the tank's own tenant
         # (#1533). It used to page 200 MAINTENANCE tasks of every tenant and narrow

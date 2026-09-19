@@ -31,24 +31,40 @@ pytestmark = pytest.mark.usefixtures("arango_db")
 
 #: Document collections the repository touches, and the edge collections a slot
 #: can carry. ``has_slot`` points *at* the slot; the other two start at it.
-_DOCUMENT_COLLECTIONS = [col.SITES, col.LOCATIONS, col.SLOTS]
+_DOCUMENT_COLLECTIONS = [col.SITES, col.LOCATIONS, col.SLOTS, col.SUBSTRATE_BATCHES]
 _EDGE_COLLECTIONS = [col.HAS_SLOT, col.ADJACENT_TO, col.FILLED_WITH]
 
 
-@pytest.fixture
-def db():
+@pytest.fixture(scope="module")
+def _database():
+    """One database and one client for the module; the client is closed again.
+
+    Creating (and dropping) the database per test case cost about a second of server
+    work each and leaked a client per case (#1573 review SCR-011). Per-test isolation
+    is the truncate below.
+    """
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
-    if system.has_database(TEST_DATABASE):
+    try:
+        system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+        if system.has_database(TEST_DATABASE):
+            system.delete_database(TEST_DATABASE)
+        system.create_database(TEST_DATABASE)
+        database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+        for name in _DOCUMENT_COLLECTIONS:
+            database.create_collection(name)
+        for name in _EDGE_COLLECTIONS:
+            database.create_collection(name, edge=True)
+        yield database
         system.delete_database(TEST_DATABASE)
-    system.create_database(TEST_DATABASE)
-    database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
-    for name in _DOCUMENT_COLLECTIONS:
-        database.create_collection(name)
-    for name in _EDGE_COLLECTIONS:
-        database.create_collection(name, edge=True)
-    yield database
-    system.delete_database(TEST_DATABASE)
+    finally:
+        client.close()
+
+
+@pytest.fixture
+def db(_database):
+    for name in (*_DOCUMENT_COLLECTIONS, *_EDGE_COLLECTIONS):
+        _database.collection(name).truncate()
+    return _database
 
 
 @pytest.fixture
@@ -97,3 +113,47 @@ def test_no_has_slot_edge_survives_its_target(db, repo) -> None:
     # location's whole fan-out.
     surviving = list(db.aql.execute(f"FOR e IN {col.HAS_SLOT} RETURN e._to"))
     assert surviving == [f"{col.SLOTS}/slot-2"]
+
+
+def test_delete_slot_detaches_adjacency_in_both_directions(db, repo) -> None:
+    """#1573 review SCR-001 — adjacency is written both ways, so it must be cut both ways.
+
+    ``GraphRepository.set_adjacent_slots`` writes ``a → b`` **and** ``b → a`` ("Adjacency
+    is bidirectional — create edges in both directions"). Deleting only the outbound half
+    leaves ``neighbour → deleted slot`` behind: the same dangling-edge state this file
+    exists to forbid, two lines below the line #1535 repaired.
+    """
+    _seed_location_with_slot(db)
+    db.collection(col.SLOTS).insert({"_key": "slot-2", "name": "Slot 2", "location_key": "loc-1"})
+    db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-1", "_to": f"{col.SLOTS}/slot-2"})
+    db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-2", "_to": f"{col.SLOTS}/slot-1"})
+
+    repo.delete_slot("slot-1")
+
+    assert db.collection(col.ADJACENT_TO).count() == 0
+
+
+def test_no_edge_of_any_collection_survives_its_endpoint(db, repo) -> None:
+    """The dangling question asked of every edge collection a slot can carry.
+
+    Asking it only for ``has_slot`` is what let the adjacency half stay broken while the
+    suite was green.
+    """
+    _seed_location_with_slot(db)
+    db.collection(col.SLOTS).insert({"_key": "slot-2", "name": "Slot 2", "location_key": "loc-1"})
+    db.collection(col.SUBSTRATE_BATCHES).insert({"_key": "batch-1", "name": "Coco A"})
+    db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-1", "_to": f"{col.SLOTS}/slot-2"})
+    db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-2", "_to": f"{col.SLOTS}/slot-1"})
+    db.collection(col.HAS_SLOT).insert({"_from": f"{col.LOCATIONS}/loc-1", "_to": f"{col.SLOTS}/slot-2"})
+    db.collection(col.FILLED_WITH).insert({"_from": f"{col.SLOTS}/slot-1", "_to": f"{col.SUBSTRATE_BATCHES}/batch-1"})
+
+    repo.delete_slot("slot-1")
+
+    for edge in _EDGE_COLLECTIONS:
+        dangling = list(
+            db.aql.execute(
+                "FOR e IN @@edge FILTER DOCUMENT(e._from) == null OR DOCUMENT(e._to) == null RETURN e",
+                bind_vars={"@edge": edge},
+            )
+        )
+        assert dangling == [], edge

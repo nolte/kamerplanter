@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from arango import ArangoClient
 
+from app.common.enums import TaskStatus
 from app.data_access.arango import collections as col
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
@@ -27,20 +28,40 @@ TENANT = "tenant-a"
 OTHER_TENANT = "tenant-b"
 NAME = "maintenance:water_change:tank_1"
 
+#: Every status that is NOT open, derived from the predicate under test rather than
+#: listed (#1573 review SCR-005). A literal list is correct exactly until someone adds
+#: a status, and then it is silently incomplete while its docstring claims otherwise.
+CLOSED_STATUSES = [s.value for s in TaskStatus if s.value not in ArangoTaskRepository._OPEN_STATUSES]
+
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 
-@pytest.fixture
-def db():
+@pytest.fixture(scope="module")
+def _database():
+    """One database and one client for the module; the client is closed again.
+
+    Per-function creation cost ~1 s of server work per case and leaked a client each
+    time (#1573 review SCR-011). Isolation comes from truncating below, which is the
+    cheap half of what the old fixture bought.
+    """
     client = ArangoClient(hosts=ARANGO_URL)
-    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
-    if system.has_database(TEST_DATABASE):
+    try:
+        system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+        if system.has_database(TEST_DATABASE):
+            system.delete_database(TEST_DATABASE)
+        system.create_database(TEST_DATABASE)
+        database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+        database.create_collection(col.TASKS)
+        yield database
         system.delete_database(TEST_DATABASE)
-    system.create_database(TEST_DATABASE)
-    database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
-    database.create_collection(col.TASKS)
-    yield database
-    system.delete_database(TEST_DATABASE)
+    finally:
+        client.close()
+
+
+@pytest.fixture
+def db(_database):
+    _database.collection(col.TASKS).truncate()
+    return _database
 
 
 @pytest.fixture
@@ -48,19 +69,21 @@ def repo(db):
     return ArangoTaskRepository(db)
 
 
-def _insert(db, *, key: str, name: str = NAME, tenant: str = TENANT, status: str = "pending", due_days: int = 0):
-    db.collection(col.TASKS).insert(
-        {
-            "_key": key,
-            "name": name,
-            "instruction": "seeded",
-            "category": "maintenance",
-            "tenant_key": tenant,
-            "status": status,
-            "due_date": (datetime.now(UTC) + timedelta(days=due_days)).isoformat(),
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-    )
+def _task_doc(*, key: str, name: str = NAME, tenant: str = TENANT, status: str = "pending", due_days: int = 0):
+    return {
+        "_key": key,
+        "name": name,
+        "instruction": "seeded",
+        "category": "maintenance",
+        "tenant_key": tenant,
+        "status": status,
+        "due_date": (datetime.now(UTC) + timedelta(days=due_days)).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def _insert(db, **kwargs):
+    db.collection(col.TASKS).insert(_task_doc(**kwargs))
 
 
 def test_an_open_task_of_the_tenant_is_found(db, repo) -> None:
@@ -79,13 +102,14 @@ def test_a_foreign_tenants_task_is_invisible(db, repo) -> None:
     assert repo.find_open_task_by_name(NAME, tenant_key=TENANT) is None
 
 
-@pytest.mark.parametrize("status", ["completed", "skipped", "failed", "dormant"])
+@pytest.mark.parametrize("status", CLOSED_STATUSES)
 def test_a_closed_task_does_not_answer_the_idempotency_question(db, repo, status: str) -> None:
-    """Every ``TaskStatus`` that is not pending/in_progress, spelled from the enum.
+    """Every ``TaskStatus`` that is not open, *derived* from the enum and the predicate.
 
-    The values are the real ones (``app.common.enums.TaskStatus``) rather than
-    plausible-looking strings: a status the store can never hold would make this a
-    case that certifies nothing.
+    Not a literal list: the parametrisation is `TaskStatus` minus
+    ``ArangoTaskRepository._OPEN_STATUSES`, so a new status joins this case
+    automatically instead of sitting uncovered behind a docstring that claims
+    otherwise (#1573 review SCR-005).
     """
     _insert(db, key="t1", status=status)
 
@@ -112,8 +136,9 @@ def test_the_match_is_found_behind_hundreds_of_other_tasks(db, repo) -> None:
     was exactly what fell off the page — and the beat run then created a duplicate
     on every pass.
     """
-    for i in range(250):
-        _insert(db, key=f"filler-{i}", name=f"maintenance:other:{i}", due_days=i)
+    db.collection(col.TASKS).insert_many(
+        [_task_doc(key=f"filler-{i}", name=f"maintenance:other:{i}", due_days=i) for i in range(250)]
+    )
     _insert(db, key="match", due_days=999)
 
     found = repo.find_open_task_by_name(NAME, tenant_key=TENANT)

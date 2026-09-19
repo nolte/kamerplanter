@@ -141,7 +141,7 @@ class TestMaintenanceScheduleIdempotency:
 
         from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
 
-        assert generate_tank_maintenance_tasks() == {"created": 1, "skipped": 0}
+        assert generate_tank_maintenance_tasks() == {"created": 1, "skipped": 0, "skipped_unresolved": 0}
         assert [t.tenant_key for t in task_repo.created] == ["tenant_1"]
 
     def test_the_tenants_own_open_task_still_suppresses_creation(self, _mock_dependencies):
@@ -151,7 +151,7 @@ class TestMaintenanceScheduleIdempotency:
 
         from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
 
-        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 1}
+        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 1, "skipped_unresolved": 0}
         assert task_repo.created == []
 
     def test_a_match_past_the_old_200_row_cap_still_suppresses_creation(self, _mock_dependencies):
@@ -165,11 +165,16 @@ class TestMaintenanceScheduleIdempotency:
 
         from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
 
-        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 1}
+        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 1, "skipped_unresolved": 0}
         assert task_repo.created == []
 
     def test_a_tenantless_tank_is_skipped_instead_of_read_unscoped(self, _mock_dependencies):
-        """Fail closed, exactly as the runoff sweep does for a tenantless plant."""
+        """Fail closed, exactly as the runoff sweep does for a tenantless plant.
+
+        Counted as *unresolved*, not as *skipped*: "the tenant already has this task"
+        and "this tank will never get maintenance" are different operational facts and
+        must not share a number (#1573 review SCR-004).
+        """
         tank_repo = _tank_repo("")
         _mock_dependencies.get_tank_repo.return_value = tank_repo
         task_repo = _TaskRepoDouble([])
@@ -177,7 +182,20 @@ class TestMaintenanceScheduleIdempotency:
 
         from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
 
-        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 1}
+        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 0, "skipped_unresolved": 1}
+        assert task_repo.created == []
+
+    def test_an_unknown_tank_is_reported_apart_from_a_tenantless_one(self, _mock_dependencies):
+        """An orphaned schedule needs a different repair than an unstamped tank."""
+        tank_repo = _tank_repo("tenant_1")
+        tank_repo.get_by_key.return_value = None
+        _mock_dependencies.get_tank_repo.return_value = tank_repo
+        task_repo = _TaskRepoDouble([])
+        _mock_dependencies.get_task_repo.return_value = task_repo
+
+        from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
+
+        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 0, "skipped_unresolved": 1}
         assert task_repo.created == []
 
 
