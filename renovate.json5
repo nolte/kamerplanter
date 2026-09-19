@@ -634,7 +634,22 @@
         '/^\\.github/renovate-pins\\.yaml$/',
       ],
       matchStrings: [
+        // A single version key under a bare `# datasource=… depName=…` comment.
+        // Anchored on a `#` followed by `datasource` with nothing but optional
+        // whitespace in between, so it does NOT also match the
+        // `# renovate: datasource=…` form below. Were it to match both, the
+        // nuclei template set would be extracted twice — once as a version-only
+        // dependency, once as the digest pin — and Renovate would raise two
+        // updates for the same thing.
         '#\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n[a-z0-9_]+:\\s*(?<currentValue>\\S+)',
+        // A digest pin with its human-readable label on the NEXT line (#1543).
+        // The digest is the operative value — the scan lanes fetch exactly it —
+        // and the tag is prose, but both must move in one pull request, so one
+        // match carries `currentDigest` AND `currentValue`. Same shape as the
+        // `uses:` pins in this repository. Before it, the commit sat below
+        // thirty lines of prose, matched no manager, and was moved by hand or
+        // not at all — not at all in #1280 and #1454, repaired late in #1312.
+        '#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n[a-z0-9_]+:\\s*(?<currentDigest>[0-9a-f]{40})\\s*\\n[a-z0-9_]+:\\s*(?<currentValue>\\S+)',
       ],
       versioningTemplate: 'semver',
     },
