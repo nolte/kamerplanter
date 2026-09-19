@@ -125,7 +125,13 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
     def delete_phase(self, key: PhaseKey) -> bool:
         phase_id = f"{col.GROWTH_PHASES}/{key}"
         self.delete_edges(col.CONSISTS_OF, phase_id, direction="inbound")
-        self.delete_edges(col.NEXT_PHASE, from_id=phase_id)
+        # `next_phase` is a chain (`create_transition_rule` writes
+        # from_phase → to_phase), so a phase in the middle carries one edge on each
+        # end. Detaching only the outbound half left the predecessor's edge pointing
+        # at a deleted document — the #1535 defect, found here by the R5 rule of
+        # `tests/unit/guards/test_arango_call_surface_scoping.py` (#1573 review
+        # SCR-001).
+        self.delete_edges(col.NEXT_PHASE, vertex_id=phase_id, direction="any")
         self.delete_edges(col.REQUIRES_PROFILE, from_id=phase_id)
         self.delete_edges(col.USES_NUTRIENTS, from_id=phase_id)
         self.delete_edges(col.GOVERNED_BY, from_id=phase_id)
