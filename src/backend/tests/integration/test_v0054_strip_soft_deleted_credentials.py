@@ -1,4 +1,4 @@
-"""Integration test for migration v0053 — the credential left on soft-deleted accounts.
+"""Integration test for migration v0054 — the credential left on soft-deleted accounts.
 
 Everything this migration turns on is a property of ArangoDB itself, so a double
 could only restate my belief about it:
@@ -22,7 +22,7 @@ Run with::
 
     docker run -d --rm --name kp-it-1525 -p 8529:8529 \\
       -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
-    pytest tests/integration/test_v0053_strip_soft_deleted_credentials.py -v
+    pytest tests/integration/test_v0054_strip_soft_deleted_credentials.py -v
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ import pytest
 from arango import ArangoClient
 
 from app.data_access.arango import collections as col
-from app.migrations.versions.v0053_strip_credentials_from_soft_deleted_accounts import (
+from app.migrations.versions.v0054_strip_credentials_from_soft_deleted_accounts import (
     StripCredentialsFromSoftDeletedAccountsMigration,
 )
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
@@ -41,7 +41,7 @@ pytestmark = [
     pytest.mark.allow_db_connection("keepNull removal and the LIKE-escaped join are the SUT"),
 ]
 
-_DB_NAME = "kamerplanter_v0053_migration_test"
+_DB_NAME = "kamerplanter_v0054_migration_test"
 
 _HASH = "$2b$12$abcdefghijklmnopqrstuv0123456789ABCDEFGHIJKLMNOPQRSTU"
 _AVATAR = "https://cdn.example.org/avatars/erika.png"

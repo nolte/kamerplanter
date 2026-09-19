@@ -1,4 +1,4 @@
-"""v0053 — remove the credential left on accounts soft-deleted before #1525.
+"""v0054 — remove the credential left on accounts soft-deleted before #1525.
 
 ``ArangoUserRepository`` ran in merge mode until #1525, so ``password_hash = None``
 never reached the store. ``PrivacyService.request_erasure`` wrote ``is_active = False``
@@ -43,12 +43,19 @@ so a second run reports ``changed == 0``. The write removes the attributes rathe
 setting them to ``null`` (``keep_none=False``), matching what #1525's repository now
 does, so a re-run cannot find its own output.
 
-**On the version number.** ``0053`` follows ``0052`` (#1501) gaplessly, which
-``discovery.validate_sequence`` enforces from ``0001`` (M-1) on the application's
-startup path. If another branch lands ``0053`` first, this module is renumbered before
-the merge — module file, ``version`` string, unit-test module and its imports, all at
-once — per ``app/migrations/README.md``. Safe while it has been applied nowhere; M-7
-pins an *applied* migration to its number and checksum.
+**On the version number.** This module was written as ``0053`` and renumbered to
+``0054`` when #1505 (``v0053_recompute_care_profiles_newly_mapped_families``) landed on
+``develop`` first — the collision ``app/migrations/README.md`` describes, resolved the
+way it prescribes: whoever lands second rebases and renames *before* the merge, all of
+it at once (module file, ``version`` string, integration-test module and its imports).
+Safe because it has been applied nowhere: M-7 pins an *applied* migration to its number
+and its checksum, and renumbering after that is the thing M-7 forbids.
+
+``discovery.validate_sequence`` enforces gapless numbering from ``0001`` (M-1) and that
+check sits on the application's startup path, so a number cannot be reserved ahead of a
+branch that has not landed — which is why the collision is resolved after the fact
+rather than avoided in advance. v0047, v0049 and v0052 record the same collision and
+the same resolution. **#1524 therefore takes ``0055``**, not ``0054``.
 """
 
 from __future__ import annotations
@@ -67,7 +74,7 @@ _CREDENTIAL_FIELDS = ("password_hash", "avatar_url")
 
 
 class StripCredentialsFromSoftDeletedAccountsMigration(Migration):
-    version = "0053"
+    version = "0054"
     name = "strip_credentials_from_soft_deleted_accounts"
     description = "Remove password_hash/avatar_url left on accounts soft-deleted before #1525."
     reversible = False
