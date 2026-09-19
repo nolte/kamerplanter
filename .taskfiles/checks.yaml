@@ -46,6 +46,12 @@ tasks:
       is not the one CI uses, which defeats the purpose. Masking changes only
       what the container can see.
 
+      `.venv-docs` joined that list in #1509, measured rather than guessed: on a
+      machine that has run `task docs:venv` the dry-run reported an `html`
+      manager with two package files that do not exist in a clean checkout —
+      MkDocs' own site-packages. CI never sees it, so the difference was pure
+      local noise in the one output this target exists to be read from.
+
       GITHUB_TOKEN is passed through when set. Without it the datasource lookups
       run anonymously and hit the rate limit quickly — the manager inventory is
       still correct, the "would propose" half is not.
@@ -65,6 +71,7 @@ tasks:
         docker run --rm \
           -v "$PWD:/repo" \
           -v /repo/src/backend/.venv \
+          -v /repo/.venv-docs \
           -v /repo/src/frontend/node_modules \
           -v /repo/node_modules \
           -w /repo \

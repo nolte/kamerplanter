@@ -215,11 +215,12 @@ jobs:
         #
         # From the hash-verified lock (#1464), like every other PEP 621 tree in
         # this repository — the boundary is named rather than rounded up to "every
-        # Python install" (#1491 review): `tests/e2e/requirements.txt`,
-        # `docs/requirements.txt` and `tools/rag-eval/requirements.txt` are plain
-        # requirement lists with no lock and no hashes, and the sweep in
-        # scripts/ci/check_renovate_dashboard.py reports them as such. What to do
-        # about those three is #1509.
+        # Python install" (#1491 review). #1509 then decided the three requirement
+        # lists that sat outside it: `tests/e2e/` was locked the same way,
+        # `docs/requirements.txt` is compiled with `--generate-hashes`, and
+        # `tools/rag-eval/requirements.txt` is the one argued exception (a local
+        # analysis tool no lane installs). The sweep in
+        # scripts/ci/check_renovate_dashboard.py reddens on anything else.
         # Until then this was the ONE `pip install -e` left, and
         # the reason given was that a shared library has no image and therefore
         # no lock to sync from — true about images, not about hashes: NFR-009 §2.3

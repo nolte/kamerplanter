@@ -26,7 +26,8 @@
   // `:ignoreModulesAndTests`, whose `ignorePaths` includes `**/tests/**`. That
   // rule is written for a repository whose `tests/` holds fixtures and sample
   // projects; here it also swallows `tests/e2e/`, which is a real, shipped
-  // artefact — `tests/e2e/requirements.txt` (selenium, pytest-bdd, pytest-xdist),
+  // artefact — `tests/e2e/pyproject.toml` + `uv.lock` (selenium, pytest-bdd,
+  // pytest-xdist; a `requirements.txt` until #1509 locked it),
   // `tests/e2e/package.json` (axe-core) and `tests/e2e/Dockerfile` (the image the
   // nightly matrix and the `E2E smoke` lane build). None of them was Renovate-
   // managed: measured with `task renovate:dry-run` on 2026-09-17 before this
@@ -484,11 +485,14 @@
     // WHAT IT NOW COVERS, AND WHAT IT DELIBERATELY DOES NOT — the first item is
     // MEASURED, the second is a reading of rule order and is labelled as one:
     //
-    //   * selenium, webdriver-manager, pytest-bdd, pytest-xdist
-    //     (`pip_requirements`) — nothing else groups them, so they arrive as one
-    //     reviewable suite bump instead of four pull requests. MEASURED by
-    //     forcing an out-of-range pin (`pytest-xdist==3.0.0`) in a scratch tree
-    //     and reading the resolved branch: `renovate/e2e-test-suite`.
+    //   * selenium, webdriver-manager, pytest-bdd, pytest-xdist — read from
+    //     `tests/e2e/pyproject.toml` by `pep621` since #1509 (it was
+    //     `pip_requirements` over a `requirements.txt` before, and the group
+    //     matches on file name, not on manager, so the move changed nothing
+    //     here). Nothing else groups them, so they arrive as one reviewable
+    //     suite bump instead of four pull requests. MEASURED by forcing an
+    //     out-of-range pin (`pytest-xdist==3.0.0`) in a scratch tree and reading
+    //     the resolved branch: `renovate/e2e-test-suite`.
     //   * axe-core (`npm`) — this rule is now BELOW `frontend minor/patch`,
     //     which matches every npm dependency, so the E2E bundle should no longer
     //     arrive inside a frontend pull request it has nothing to do with. NOT
@@ -507,13 +511,41 @@
     //     exactly what that group was created to join.
     //
     // NOT automerged, deliberately: the selenium ceiling in
-    // tests/e2e/requirements.txt exists because `pages/_element_proxy.py` reads
+    // tests/e2e/pyproject.toml exists because `pages/_element_proxy.py` reads
     // Selenium internals, and a green E2E run is exactly what a bump here has to
     // be judged on.
     {
       groupName: 'e2e test suite',
       matchFileNames: [
         'tests/e2e/**',
+      ],
+    },
+    // ── The MkDocs toolchain as one group (#1509) ────────────────────────────
+    // `docs/requirements.txt` is compiled with `--generate-hashes` since #1509,
+    // so `pip_requirements` no longer extracts 12 ranges from it but 53 pinned
+    // distributions — direct AND transitive (MEASURED, `task renovate:dry-run`
+    // 2026-09-19: `pip_requirements` depCount 20 -> 56, of which 53 are this
+    // file). Ungrouped, one MkDocs release would arrive as a handful of separate
+    // pull requests for Jinja2, Markdown, Pygments and friends, none of which
+    // means anything on its own.
+    //
+    // Renovate MAINTAINS the hashes here rather than stranding them: its
+    // `pip_requirements` artifact updater runs `hashin <dep==version> -r <file>`
+    // for every updated dep that is followed by `--hash=`
+    // (lib/modules/manager/pip_requirements/artifacts.ts), and hashin without
+    // `--python-version` writes the hashes of EVERY distribution of that
+    // release, including the musllinux wheels the Alpine deploy container needs.
+    // Read from the source rather than assumed, because a bumped pin beside a
+    // stale hash would fail the release lane and nothing before it.
+    //
+    // `docs/requirements.in` is matched too: it carries the ranges a major bump
+    // has to move, and a group that covered only the compiled file would split
+    // that pair across two pull requests.
+    {
+      groupName: 'docs toolchain',
+      matchFileNames: [
+        'docs/requirements.txt',
+        'docs/requirements.in',
       ],
     },
     // ── Third-party images: one pull request per image, whatever the file ────
@@ -599,6 +631,12 @@
         // now holds this list to every pyproject that carries the pin.
         '/^src/libs/kp_vectordb/pyproject\\.toml$/',
         '/^src/libs/kp_errortracking/pyproject\\.toml$/',
+        // The E2E suite (#1509) pins the same uv: `tests/e2e/Dockerfile` copies
+        // `ghcr.io/astral-sh/uv:<pin>` and runs `uv sync --locked` where it used
+        // to run `pip install -r requirements.txt`. Added WITH the pin it reads,
+        // which is the lesson of the round above, and held there by
+        // `test_uv_pin_manager_covers_every_pin.py`.
+        '/^tests/e2e/pyproject\\.toml$/',
       ],
       matchStrings: [
         'required-version = "==(?<currentValue>[0-9][^"]*)"',
