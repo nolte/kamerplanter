@@ -21,7 +21,7 @@ version: "3.8"
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12@sha256:39bbca489179ea03f2b24b7ea4e4c4cb5258f6474f8c1c4d9bd65f7cd6d211a5
+    image: arangodb:3.12@sha256:3ce7aa54ac9b0942a2b201cd47a397cb89c3d5ff5a087d701f3c785109d0dfb7
     environment:
       ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
     ports:
