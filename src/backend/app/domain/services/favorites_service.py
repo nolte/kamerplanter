@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import structlog
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentGetError, DocumentInsertError, DocumentParseError
+from arango.exceptions import DocumentGetError, DocumentInsertError
 
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
@@ -56,14 +56,34 @@ _TENANT_OWNED_CATALOG_COLLECTIONS = frozenset(
     }
 )
 
-#: Collections whose rows an owner can share with another tenant (#1092) — the
-#: ``to_vertex_collections`` of ``tenant_has_access`` in
-#: :data:`~app.data_access.arango.collections.GRAPH_EDGE_DEFINITIONS`, minus the
-#: ones that are not favouritable (cultivars). A grant is the **third** way a row
-#: becomes visible, after own-tenant and global; leaving it out would make a
-#: shared species readable via ``GET /species/{key}`` yet unfavouritable, which
-#: is the #324 over-strictness class one step further in.
-_GRANTABLE_COLLECTIONS = frozenset({col.SPECIES})
+
+def _grantable_collections() -> frozenset[str]:
+    """Favouritable collections whose rows an owner can share across tenants (#1092).
+
+    **Derived, not listed.** The authority is the ``tenant_has_access`` edge
+    definition in
+    :data:`~app.data_access.arango.collections.GRAPH_EDGE_DEFINITIONS`, whose own
+    comment calls widening ``to_vertex_collections`` "a deliberate widening of
+    what may be granted, not a formality" — so this set follows it automatically,
+    intersected with what is favouritable at all (cultivars are grantable but not
+    a favourite target).
+
+    Writing the members out by hand would have rebuilt exactly the defect this
+    change repairs, only mirrored: ``_TENANT_OWNED_CATALOG_COLLECTIONS`` drifted
+    away from the models and *leaked*; a hand-listed grant set drifting away from
+    the graph would make a shared row readable via ``GET /species/{key}`` yet
+    unfavouritable — the #324 over-strictness class (review finding SCR-002).
+    """
+    granted: frozenset[str] = frozenset()
+    for definition in col.GRAPH_EDGE_DEFINITIONS:
+        if definition["edge_collection"] == col.TENANT_HAS_ACCESS:
+            granted = frozenset(definition["to_vertex_collections"])
+            break
+    return granted & frozenset(_FAVOURITABLE_COLLECTIONS)
+
+
+#: A grant is the **third** way a row becomes visible, after own-tenant and global.
+_GRANTABLE_COLLECTIONS = _grantable_collections()
 
 #: Favouriting one of these cascades to the fertilizers it uses (REQ-020 §1).
 #: A frozenset rather than an ``==`` so the rule reads as a property of the
@@ -235,30 +255,46 @@ class FavoritesService:
         would instead *trap* any edge that leaked before the #965 fix, blocking
         the user from cleaning it up. Removal therefore stays permissive.
 
-        ``tenant_key=None`` is that decision spelled out at the call site (#1538)
-        rather than inherited from a default: the resolver takes the argument
-        keyword-only and without a default, so a future caller has to state which
-        view of the catalogue it means.
+        **Removal does not resolve the key at all** (#1538, review finding
+        SCR-001). It used to, and once :meth:`_resolve_collection` became
+        tenant-aware the two sides began answering *different* questions about
+        the same key: the add path deliberately walks past a row the caller
+        cannot see and lands on the next visible one, while a tenant-blind
+        removal stops at the first catalogue that merely *holds* the key. With
+        the same key in ``species`` (foreign) and ``substrates`` (global), the
+        add wrote ``substrates/K`` and the removal addressed ``species/K`` —
+        the user could not delete the favourite they had just created, and
+        ``cascade_cleanup`` fired on the wrong condition. Before this PR both
+        sides were equally blind and therefore agreed; the asymmetry was
+        introduced here, so it is closed here.
+
+        The stored edge is the authoritative record of which catalogue a
+        favourite points at — ``_to`` was built from the collection the add path
+        resolved. Reading it back is both strictly permissive (no predicate can
+        trap an edge) and symmetric with the add by construction, without
+        importing the add-path predicate.
+
+        :meth:`_cleanup_cascade` now runs unconditionally when ``cascade_cleanup``
+        is set, rather than behind a nutrient-plan check. It only ever matches
+        edges whose ``source == "cascade"`` **and** ``cascade_from_key ==
+        target_key``, which nothing but a plan favourite can produce — so the
+        collection check it used to hide behind bought nothing and cost the
+        resolution. It also preserves the pre-existing ability to clean up
+        cascade edges orphaned by an already-removed plan edge.
         """
-        target_collection = self._resolve_collection(target_key, tenant_key=None)
-        if not target_collection:
-            return False
-
         from_id = f"{col.USERS}/{user_key}"
-        to_id = f"{target_collection}/{target_key}"
 
-        # If removing a nutrient plan, clean up cascaded fertilizer favorites
-        if cascade_cleanup and target_collection == col.NUTRIENT_PLANS:
+        if cascade_cleanup:
             self._cleanup_cascade(user_key, target_key)
 
         cursor = self._db.aql.execute(
             """
             FOR e IN user_favorites
-                FILTER e._from == @from_id AND e._to == @to_id
+                FILTER e._from == @from_id AND PARSE_IDENTIFIER(e._to).key == @target_key
                 REMOVE e IN user_favorites
                 RETURN OLD
             """,
-            bind_vars={"from_id": from_id, "to_id": to_id},
+            bind_vars={"from_id": from_id, "target_key": target_key},
         )
         return len(list(cursor)) > 0
 
@@ -402,10 +438,18 @@ class FavoritesService:
         ``collection(name).has(key)`` — a question about the collection, not
         about the caller — so a foreign tenant's row resolved and was refused one
         step later. Two code paths with equal output are not one path: anything
-        that later distinguishes them (a log line, a timing difference, an added
-        detail field) reopens the cross-tenant existence oracle SEC-002 closed in
-        the *message* only. A row the caller may not see now resolves to nothing,
-        so "foreign" and "unknown" are the same answer by construction.
+        that later distinguishes them (a log line, an added detail field) reopens
+        the cross-tenant existence oracle SEC-002 closed in the *message* only. A
+        row the caller may not see now resolves to nothing, so "foreign" and
+        "unknown" are the same answer by construction.
+
+        **This does not make the two arms indistinguishable in *time*, and the
+        same change that collapses the code paths introduces the difference**
+        (review finding SCR-007): an existing foreign species costs the transfer
+        of a full document plus the grant probe, while an unknown key costs six
+        empty gets. Measured in round-trips that is noise, and no attempt is made
+        to equalise it — said here so the next reader measures rather than trusts
+        a comment that claimed the difference away.
 
         Visibility is the hybrid-catalogue union — own ∪ global ∪ granted — the
         same three arms
@@ -426,13 +470,27 @@ class FavoritesService:
         otherwise a shadowing foreign row would make it unfavouritable, which is
         over-strictness by control flow instead of by predicate.
 
+        A key containing ``/`` is refused up front (review finding SCR-005). It
+        is not a document key but a document *handle*, and python-arango accepts
+        one whose prefix happens to match the collection it is asked
+        (``_prep_from_doc`` -> ``_validate_id``, `arango/collection.py`): measured
+        against a live ArangoDB, ``collection("species").get("species/tomato")``
+        returns the real row, ``_add_one`` then builds
+        ``_to = "species/species/tomato"``, and the edge insert fails with
+        ``[HTTP 400][ERR 1233] expecting both `_from` and `_to` … to have the
+        format <collectionName>/<vertexKey>`` — a 500 for what is a malformed
+        client input. Pre-existing (``has()`` behaved the same way), refused here
+        because this is the one place both verbs pass through.
+
         Datastore errors are no longer swallowed. Only
         :data:`_ERR_DATA_SOURCE_NOT_FOUND` (the catalogue itself is absent — a
-        deployment defect, logged here) and an unparseable key mean "not this
-        collection"; a connection loss, an auth failure or a server error
-        propagates and becomes a 5xx, because a 404 that means "the database is
-        down" is a lie to the client.
+        deployment defect, logged here) means "not this collection"; a connection
+        loss, an auth failure or a server error propagates and becomes a 5xx,
+        because a 404 that means "the database is down" is a lie to the client.
         """
+        if "/" in key:
+            return None
+
         for collection_name in _FAVOURITABLE_COLLECTIONS:
             try:
                 doc = self._db.collection(collection_name).get(key)
@@ -444,12 +502,6 @@ class FavoritesService:
                     collection=collection_name,
                     error_code=exc.error_code,
                 )
-                continue
-            except DocumentParseError:
-                # The key cannot name a document in this collection at all (e.g.
-                # a caller-supplied "other_collection/key"). A client-input
-                # problem, not a datastore failure: it stays a 404 via the
-                # unresolved arm rather than becoming a 500.
                 continue
 
             if doc is None:

@@ -18,10 +18,15 @@ seed (``tenant_key == ""``), an own-tenant row, and a row explicitly **granted**
 to the caller (#1092) must all stay favouritable. A strict
 ``tenant_key == caller`` filter passes the leak tests and fails these.
 
-A capturing fake db stands in for ArangoDB. It answers ``has`` *and* ``get``
-because the pre-#1538 code used both, so the same double measures old and new
-behaviour; its ``get`` returns the real row shape (including ``tenant_key``), and
-the grant edge is only reported for a genuinely stored grant.
+A capturing fake db stands in for ArangoDB. Its ``get`` returns the real row
+shape (including ``tenant_key``); the grant edge is only reported for a genuinely
+stored grant; the favourite edges it holds are real edge documents, so a removal
+has to address the same ``_to`` the creation wrote. It deliberately does **not**
+answer ``has``: the production code no longer calls it, and a double that answers
+a method nothing calls invites a test to pass through a path the product does not
+take. The red-first run quoted in the PR used a ``has``-capable variant of this
+same double against the pre-fix code; it is not needed to keep the suite honest
+going forward (review finding SCR-009).
 """
 
 from __future__ import annotations
@@ -47,9 +52,6 @@ class _FakeCollection:
         self._rows = rows
         self._inserted = inserted
 
-    def has(self, key: str) -> bool:
-        return key in self._rows
-
     def get(self, key: str) -> dict | None:
         return self._rows.get(key)
 
@@ -65,7 +67,10 @@ class _FakeAql:
     """Answers the grant probe and the favourite-edge queries, nothing else.
 
     An unanticipated query raises, so a test cannot pass on a query the double
-    never modelled.
+    never modelled. The removal query is matched the way the product writes it —
+    on the **key parsed out of the stored** ``_to`` — so a removal that addressed
+    a different collection than the creation wrote would return nothing here,
+    exactly as it would against ArangoDB (review finding SCR-001).
     """
 
     def __init__(self, grants: set[tuple[str, str]], edges: list[dict]) -> None:
@@ -76,9 +81,22 @@ class _FakeAql:
         bind_vars = bind_vars or {}
         if col.TENANT_HAS_ACCESS in query:
             return iter([1] if (bind_vars.get("f"), bind_vars.get("t")) in self._grants else [])
+        if "user_favorites" in query and "cascade_from_key" in query:
+            removed = [
+                e
+                for e in self._edges
+                if e["_from"] == bind_vars.get("from_id")
+                and e.get("source") == "cascade"
+                and e.get("cascade_from_key") == bind_vars.get("plan_key")
+            ]
+            for edge in removed:
+                self._edges.remove(edge)
+            return iter(removed)
         if "user_favorites" in query and "REMOVE" in query:
             removed = [
-                e for e in self._edges if e["_from"] == bind_vars.get("from_id") and e["_to"] == bind_vars.get("to_id")
+                e
+                for e in self._edges
+                if e["_from"] == bind_vars.get("from_id") and e["_to"].split("/", 1)[-1] == bind_vars.get("target_key")
             ]
             for edge in removed:
                 self._edges.remove(edge)
@@ -101,8 +119,12 @@ class _FakeDb:
         edges: list[dict] | None = None,
     ) -> None:
         self._rows = rows_by_collection
-        self.inserted_edges: list[dict] = []
-        self.aql = _FakeAql(grants or set(), edges if edges is not None else [])
+        # One list, shared with the AQL double on purpose: an edge the service
+        # inserts is immediately visible to the queries that read and remove
+        # edges, so an add-then-remove test measures the real round trip instead
+        # of two disconnected fakes (review finding SCR-001).
+        self.inserted_edges: list[dict] = edges if edges is not None else []
+        self.aql = _FakeAql(grants or set(), self.inserted_edges)
 
     def collection(self, name: str) -> _FakeCollection:
         return _FakeCollection(name, self._rows.get(name, {}), self.inserted_edges)
@@ -407,3 +429,133 @@ def test_the_system_context_resolves_a_foreign_row() -> None:
 
     assert service._resolve_collection("sp-foreign", tenant_key=CALLER_TENANT) is None
     assert service._resolve_collection("sp-foreign", tenant_key=None) == col.SPECIES
+
+
+# ── Review findings SCR-001 / SCR-005 / SCR-006 ──────────────────────────────
+
+
+def test_add_and_remove_address_the_same_edge_when_a_key_exists_twice() -> None:
+    """SCR-001: the two verbs must not answer different questions about one key.
+
+    The add path deliberately walks past a row the caller cannot see and lands on
+    the next visible one (``test_resolution_continues_past_a_foreign_row_into_a_visible_one``).
+    A removal that re-resolved the key tenant-blind stopped at the *first*
+    catalogue merely holding it — here the foreign species — and addressed
+    ``species/shared-key`` while the creation had written
+    ``substrates/shared-key``. The user could not remove the favourite they had
+    just created. Removal now reads the stored edge instead of resolving.
+    """
+    service, db = _service(
+        {
+            col.SPECIES: {"shared-key": {"_key": "shared-key", "tenant_key": FOREIGN_TENANT}},
+            col.SUBSTRATES: {"shared-key": {"_key": "shared-key", "tenant_key": ""}},
+        }
+    )
+
+    edge = service.add_favorite("user-1", "shared-key", tenant_key=CALLER_TENANT)
+    assert edge["_to"] == f"{col.SUBSTRATES}/shared-key"
+
+    assert service.remove_favorite("user-1", "shared-key") is True
+    assert db.inserted_edges == []
+
+
+def test_removal_reports_false_when_no_edge_exists() -> None:
+    """The permissive removal still distinguishes "removed" from "nothing there"."""
+    service, _ = _service({col.SUBSTRATES: {"coco": {"_key": "coco", "tenant_key": ""}}})
+
+    assert service.remove_favorite("user-1", "coco") is False
+
+
+def test_a_grant_on_a_non_grantable_collection_does_not_admit_the_caller() -> None:
+    """SCR-006a: ``_GRANTABLE_COLLECTIONS`` is a rule, so it needs a falsifier.
+
+    ``tenant_has_access`` points only at species and cultivars; a grant edge
+    aimed at a nutrient plan is not a thing the graph can hold. If the resolver
+    probed grants for *every* tenant-owned catalogue, this stored grant would
+    admit the caller to a foreign plan — and every other test would stay green.
+    """
+    service, db = _service(
+        {col.NUTRIENT_PLANS: {"plan-foreign": {"_key": "plan-foreign", "tenant_key": FOREIGN_TENANT}}},
+        grants={(f"{col.TENANTS}/{CALLER_TENANT}", f"{col.NUTRIENT_PLANS}/plan-foreign")},
+    )
+
+    with pytest.raises(NotFoundError):
+        service.add_favorite("user-1", "plan-foreign", tenant_key=CALLER_TENANT)
+
+    assert db.inserted_edges == []
+
+
+def test_the_grantable_set_follows_the_graph_definition() -> None:
+    """SCR-002: the set is derived from ``tenant_has_access``, not hand-listed."""
+    from app.domain.services.favorites_service import (
+        _FAVOURITABLE_COLLECTIONS,
+        _GRANTABLE_COLLECTIONS,
+    )
+
+    definitions = [d for d in col.GRAPH_EDGE_DEFINITIONS if d["edge_collection"] == col.TENANT_HAS_ACCESS]
+    assert len(definitions) == 1, "tenant_has_access must have exactly one edge definition to derive from"
+    to_vertices = frozenset(definitions[0]["to_vertex_collections"])
+
+    assert frozenset(to_vertices) & frozenset(_FAVOURITABLE_COLLECTIONS) == _GRANTABLE_COLLECTIONS
+    assert col.SPECIES in _GRANTABLE_COLLECTIONS
+    assert col.CULTIVARS in to_vertices and col.CULTIVARS not in _GRANTABLE_COLLECTIONS
+
+
+def test_a_missing_catalogue_does_not_swallow_a_row_in_another_one() -> None:
+    """SCR-006c: the 1203 skip is per-catalogue, not a verdict on the key.
+
+    An absent collection must not end the walk, and it must not make a key that
+    only *it* could have held resolve to something else. Both halves are asserted
+    on the same db so the skip cannot be green for the wrong reason.
+    """
+
+    class _AbsentCollection(_FakeCollection):
+        def get(self, key: str) -> dict | None:
+            raise _document_get_error(1203, 404, "collection or view not found")
+
+    class _PartialDb(_FakeDb):
+        def collection(self, name: str) -> _FakeCollection:
+            if name == col.SPECIES:
+                return _AbsentCollection(name, {}, self.inserted_edges)
+            return super().collection(name)
+
+    db = _PartialDb({col.SUBSTRATES: {"coco": {"_key": "coco", "tenant_key": ""}}})
+    service = FavoritesService(db)  # type: ignore[arg-type]
+
+    assert service._resolve_collection("coco", tenant_key=CALLER_TENANT) == col.SUBSTRATES
+    assert service._resolve_collection("only-in-the-absent-one", tenant_key=CALLER_TENANT) is None
+
+
+def test_a_document_handle_is_not_a_key_and_does_not_resolve() -> None:
+    """SCR-005: ``species/tomato`` is a handle, and the driver accepts it.
+
+    ``collection("species").get("species/tomato")`` returns the real row — the
+    prefix matches, so ``_validate_id`` passes it — and ``_add_one`` then builds
+    ``_to = "species/species/tomato"``, which ArangoDB rejects with
+    ``[HTTP 400][ERR 1233]``: a 500 for malformed client input. Measured against a
+    live ArangoDB; pre-existing (``has()`` behaved the same), refused here because
+    this is the one place both verbs pass through.
+    """
+
+    class _HandleTolerantCollection(_FakeCollection):
+        def get(self, key: str) -> dict | None:
+            # The driver's behaviour, not a convenience: a handle whose prefix is
+            # this collection resolves to the row.
+            return self._rows.get(key.split("/", 1)[-1] if key.startswith(f"{self._name}/") else key)
+
+    class _HandleTolerantDb(_FakeDb):
+        def collection(self, name: str) -> _FakeCollection:
+            return _HandleTolerantCollection(name, self._rows.get(name, {}), self.inserted_edges)
+
+    db = _HandleTolerantDb({col.SPECIES: {"tomato": {"_key": "tomato", "tenant_key": ""}}})
+    service = FavoritesService(db)  # type: ignore[arg-type]
+
+    # The double proves it would have resolved without the guard …
+    assert db.collection(col.SPECIES).get("species/tomato") is not None
+    # … and the guard is what stops it.
+    assert service._resolve_collection("species/tomato", tenant_key=CALLER_TENANT) is None
+
+    with pytest.raises(NotFoundError):
+        service.add_favorite("user-1", "species/tomato", tenant_key=CALLER_TENANT)
+
+    assert db.inserted_edges == []
