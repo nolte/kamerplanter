@@ -170,6 +170,41 @@ class TestServiceAccountCreate:
         assert second.json()["name"] == "Blattschaden pruefen (aktualisiert)"
         assert len(tasks.inserted) == 1  # still exactly one row
 
+    def test_ac3_a_repost_without_a_due_date_keeps_the_stored_one(self) -> None:
+        """A re-post may set the nullable producer fields, never clear them (#1525 SCR-004).
+
+        ``_apply_freestyle_refresh`` copied ``due_date``/``scheduled_time``/
+        ``source_run_ref`` unconditionally, and a body that omits them yields ``None``
+        from the model default — so an omission read as "clear it". That was inert
+        while ``tasks`` merged every ``None`` away; once the repository became
+        full-replace (#1516) the same line would have deleted the stored due date of a
+        task the producer only meant to re-title. Red against the unconditional copy.
+        """
+        client, tasks = _build("service")
+
+        first = client.post(_url(), json=_freestyle_body())
+        assert first.status_code == 201, first.text
+
+        body = _freestyle_body(name="Blattschaden pruefen (aktualisiert)")
+        del body["due_date"]
+        del body["source_run_ref"]
+        second = client.post(_url(), json=body)
+
+        assert second.status_code == 200, second.text
+        assert second.json()["name"] == "Blattschaden pruefen (aktualisiert)"
+        assert second.json()["due_date"] == "2026-08-12T00:00:00Z", "the re-post cleared the stored due date"
+        assert second.json()["source_run_ref"] == "run-42", "the re-post cleared the stored run reference"
+
+    def test_ac3_a_repost_with_a_new_due_date_still_moves_it(self) -> None:
+        """The other half: "never clear" must not turn into "never change"."""
+        client, tasks = _build("service")
+
+        client.post(_url(), json=_freestyle_body())
+        second = client.post(_url(), json=_freestyle_body(due_date="2026-09-01T00:00:00+00:00"))
+
+        assert second.status_code == 200, second.text
+        assert second.json()["due_date"] == "2026-09-01T00:00:00Z"
+
     def test_ac5_producer_recurrence_rule_is_rejected(self) -> None:
         """AC-5: a producer path is one-off — a real recurrence rule is refused (422)."""
         client, tasks = _build("service")

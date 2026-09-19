@@ -8,7 +8,7 @@ import structlog
 from app.common.datetimes import today_utc
 from app.common.enums import SiteType
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
-from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
 from app.domain.engines.onboarding_engine import OnboardingEngine
 from app.domain.models.onboarding import OnboardingState, PlantConfig
 from app.domain.models.plant_instance import PlantInstance
@@ -21,11 +21,12 @@ logger = structlog.get_logger()
 
 class OnboardingService:
     def __init__(self, db, starter_kit_service: StarterKitService) -> None:
-        from app.data_access.arango import collections as col
-
-        # Service-embedded dict view: methods below wrap the raw dict into
-        # OnboardingState themselves, so opt into raw mode (FR-002 A3).
-        self._repo = BaseArangoRepository(db, col.ONBOARDING_STATES, raw=True)
+        # Service-embedded dict view: the methods below wrap the raw dict into
+        # OnboardingState themselves, so the repository stays in raw mode
+        # (FR-002 A3). It is a named class since #1516 — ``onboarding_states``
+        # needs full-replace null semantics or ``reset_wizard`` cannot clear the
+        # previous run's selections.
+        self._repo = ArangoOnboardingStateRepository(db)
         self._db = db
         self._kit_service = starter_kit_service
         self._engine = OnboardingEngine()

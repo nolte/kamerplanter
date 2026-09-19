@@ -81,11 +81,42 @@ Kamerplanter verarbeitet personenbezogene Daten (E-Mail, Name, IP-Adressen, Nutz
 1. Nutzer navigiert zu /settings/privacy → Tab "Account löschen"
 2. Bestätigt mit Passwort (oder OAuth Re-Auth)
 3. System erstellt Löschauftrag (status: scheduled)
-4. Sofort: Soft-Delete (status: deleted), alle Sessions invalidiert
+4. Sofort: Soft-Delete (status: deleted), alle Sessions invalidiert,
+   **Zugangsdaten entfernt** (siehe unten)
 5. Erntedaten/Behandlungen: User-Referenz anonymisiert, Daten bleiben (CanG/PflSchG)
 6. Nach 90 Tagen (NFR-011 R-01): Hard-Delete aller verbleibenden Daten
 7. Erasure-Audit-Log wird für 1 Jahr aufbewahrt (NFR-011 R-06)
 ```
+
+**Was der Soft-Delete sofort entfernt (verbindlich).** Der Soft-Delete ist kein
+reines Statusfeld: `password_hash` und `avatar_url` werden mit demselben Schreibvorgang
+aus dem gespeicherten Dokument **entfernt**, nicht nur im Modell auf `None` gesetzt.
+
+Begründung: Zwischen Soft-Delete und Hard-Delete liegen 90 Tage (NFR-011 R-01). Ein
+bcrypt-Hash, der in dieser Zeit stehen bleibt, ist ein weiterhin gespeichertes
+Authentifizierungsgeheimnis eines Kontos, dem die Löschung zugesagt wurde — und der
+lokale Login prüft `is_active` heute nicht, der Hash war also nutzbar. Gemessen am
+2026-09-18 (#1525): das Repository lief im Merge-Modus, jedes `None` fiel aus der
+Payload, und beide Felder überlebten den Löschvorgang. `ArangoUserRepository` schreibt
+seitdem im Full-Replace-Modus; der Nachweis gegen eine echte ArangoDB liegt in
+`src/backend/tests/integration/test_merge_mode_null_clearing.py`.
+
+Die Tombstone-Adresse lautet `deleted_<user_key>@deleted.example.com`
+(RFC 2606). Registrierung und E-Mail-Wechsel **weisen diese Domain zurück**:
+`users.email` ist eindeutig indiziert, ein fremd registriertes
+`deleted_<key>@deleted.example.com` würde die spätere Löschung genau des Kontos
+blockieren, dessen Schlüssel es nennt.
+
+**Bestandsdaten.** Von den beiden Soft-Delete-Pfaden kann nur der Löschauftrag
+(`request_erasure`) Altbestand hinterlassen haben — die Kontolöschung
+(`delete_account`) schrieb wegen der abgelehnten Adresse überhaupt nichts, also
+auch keine Zeile. Gemessen am 2026-09-18 auf der kind-Installation: 0 inaktive
+Konten, 0 überlebende Hashes, 0 Löschaufträge. Für Installationen, auf denen
+Art. 17 ausgeübt wurde, entfernt die Migration **v0054** `password_hash` und
+`avatar_url` auf genau dieser Menge — inaktiv **und** durch einen Löschauftrag
+oder eine Tombstone-Adresse nachweislich gelöscht. Eine rein
+`is_active == false`-Auswahl wäre falsch: eine administrative Deaktivierung ist
+umkehrbar und darf ihr Passwort nicht verlieren.
 
 **Szenario 4: Einwilligungsverwaltung**
 ```
@@ -1307,6 +1338,7 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-05 | Nach E-Mail-Änderung werden alle Sessions invalidiert | 16 | Integration |
 | AK-06 | Info-E-Mail wird an die alte Adresse gesendet | 16 | Integration |
 | AK-07 | Kontolöschung setzt User sofort auf status: deleted (Soft-Delete) | 17 | Integration |
+| AK-07a | Kontolöschung und Löschauftrag entfernen `password_hash` (und die Kontolöschung zusätzlich `avatar_url`) aus dem gespeicherten Dokument | 17 | Integration |
 | AK-08 | Erntedaten und Behandlungsanwendungen werden anonymisiert, nicht gelöscht | 17 | Integration |
 | AK-08a | Löschbestätigung unterscheidet zwischen `fully_deleted_categories` und `anonymized_categories` und zeigt beide Listen transparent an | 17 | E2E |
 | AK-09 | Hard-Delete erfolgt 90 Tage nach Soft-Delete (NFR-011 R-01) | 17 | Integration |

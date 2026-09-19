@@ -13,6 +13,50 @@ from app.domain.models.phase import (
 )
 
 
+class _PhaseHistoryRepository(BaseArangoRepository[PhaseHistory]):
+    """The ``phase_histories`` collection, with full-replace null semantics (#1516).
+
+    A dedicated class rather than a bare ``BaseArangoRepository`` instance because
+    :attr:`BaseArangoRepository._update_is_full_replace` is a ``ClassVar`` — the
+    null semantics belong to the collection, not to one call site.
+
+    **What it repairs.** In the inherited merge mode a ``None`` never reached the
+    store, so:
+
+    * ``PhaseService.delete_phase_history`` reopens the previous phase by nulling
+      ``exited_at`` and ``actual_duration_days`` — the reopened phase stayed
+      closed, while its sibling clears on the ``PlantInstance``
+      (``current_phase_key`` / ``current_phase_started_at``) *did* land because
+      ``ArangoPlantInstanceRepository`` is already full-replace. That is why the
+      function looked half-correct.
+    * ``PhaseService.update_phase_history_dates`` and
+      ``PlantingRunService.batch_update_phase_dates`` null
+      ``actual_duration_days`` when the exit date is removed — the duration
+      computed from the deleted exit date stayed.
+
+    **Every writer starts from the stored entry**, so none can lose a field it
+    never mentioned (measured 2026-09-18 over all five ``update_phase_history``
+    call sites): the three above load through ``get_phase_history`` and mutate
+    attributes, and the two in ``PhaseTransitionEngine`` (``transition`` and
+    ``terminate``) derive their model with ``model_copy(update=...)`` off the
+    stored one — which is what #1516 changed them to. They used to re-list ten
+    fields into a fresh :class:`PhaseHistory`, and that list had already drifted:
+    ``performance_score`` was missing from it, so under full-replace closing a
+    phase would have erased it — measured per field, against the engine's own call,
+    in ``tests/unit/domain/engines/test_phase_history_close_carries_the_whole_entry.py``.
+
+    Shaped like every other repository in this package (#1525 SCR-013): bound model on
+    the class, collection name in ``__init__``, so a caller cannot construct it
+    against the wrong collection.
+    """
+
+    _model_cls = PhaseHistory
+    _update_is_full_replace = True
+
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.PHASE_HISTORIES)
+
+
 class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRepository):
     _model_cls = LifecycleConfig
 
@@ -26,7 +70,7 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         self._transition_rules = BaseArangoRepository[PhaseTransitionRule](
             db, col.PHASE_TRANSITION_RULES, PhaseTransitionRule
         )
-        self._phase_histories = BaseArangoRepository[PhaseHistory](db, col.PHASE_HISTORIES, PhaseHistory)
+        self._phase_histories = _PhaseHistoryRepository(db)
 
     # ── Lifecycle CRUD ────────────────────────────────────────────────
 
@@ -177,5 +221,12 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
 
     def delete_phase_history(self, key: str) -> bool:
         history_id = f"{col.PHASE_HISTORIES}/{key}"
-        self.delete_edges(col.PHASE_HISTORY_EDGE, to_id=history_id)
+        # The edge points *at* the history entry (plant → history), so the vertex to
+        # detach is the inbound end. Spelled `to_id=` alone since #346, which is the
+        # one combination `delete_edges` rejects outright ("requires from_id or
+        # vertex_id") — so this method raised `ValueError` before it ever deleted
+        # anything, and with it every `DELETE .../phase-history/{key}`. Measured
+        # 2026-09-18 against a real ArangoDB: it is the write path #1516's
+        # `phase_service.delete_phase_history` entry names, and it could not run.
+        self.delete_edges(col.PHASE_HISTORY_EDGE, vertex_id=history_id, direction="inbound")
         return self._phase_histories.delete(key)

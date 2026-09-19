@@ -12,6 +12,25 @@ class ArangoConsentRepository(BaseArangoRepository[ConsentRecord], IConsentRepos
 
     _model_cls = ConsentRecord
 
+    #: Full-replace null semantics for ``consent_records`` (#1516).
+    #:
+    #: ``PrivacyService.grant_consent`` re-grants a revoked consent by nulling
+    #: ``revoked_at`` (and by writing the request's ``ip_address``/``user_agent``,
+    #: which are ``None`` when the caller has none). In the inherited merge mode
+    #: all three were dropped, so the record kept the timestamp of its revocation
+    #: next to ``granted=True`` and kept the IP of the *previous* grant — a
+    #: personal datum the new grant did not supply (REQ-025).
+    #:
+    #: **Every writer starts from the stored record**, so none can lose a field it
+    #: never mentioned (measured 2026-09-18 over all four call sites; nothing else
+    #: writes ``consent_records`` — the retention/anonymisation beat task touches
+    #: ``refresh_tokens`` only):
+    #:
+    #: * ``grant_consent`` / ``revoke_consent`` — ``get_by_user_and_purpose`` then
+    #:   attribute assignment on the loaded :class:`ConsentRecord`
+    #: * their two ``create`` branches — inserts, not updates
+    _update_is_full_replace = True
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.CONSENT_RECORDS)
 
