@@ -66,12 +66,28 @@ jobs:
           df -h /
 
       - name: Setup Helm
+        # No `version:` input, so this installs helm `latest` — v4.3.0 as of
+        # 2026-09-19. That floating version is coupled to the skaffold pin
+        # below; see the note there. No Renovate manager covers either, so
+        # neither moves on a reviewed bump.
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
       - name: Setup Skaffold
         uses: hiberbee/github-action-skaffold@e3f5dd5659610cb792c6cf32daaa797ea6d89842 # 1.27.0
         with:
-          skaffold-version: 2.17.2
+          # 2.17.2 CANNOT drive helm 4. Supplying `--images` (see the render
+          # step) makes skaffold install itself as a helm post-renderer plugin,
+          # and helm 4 validates the plugin manifest:
+          #
+          #   Error: plugin is installed but unusable: failed to load plugin
+          #   ".../skaffold-render1772333544": invalid plugin `version` "0.1":
+          #   must be valid semver
+          #
+          # Measured against helm v4.3.0: 2.17.2 fails, 2.19.0 and 2.24.0 both
+          # render 40 resources. This pin was stale rather than deliberate — it
+          # carried no rationale, and nothing tracks it — so it silently fell
+          # behind when `setup-helm`'s `latest` moved to 4.x.
+          skaffold-version: 2.24.0
 
       - name: Build chart dependencies
         run: |
