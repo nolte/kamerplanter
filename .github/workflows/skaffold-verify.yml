@@ -34,6 +34,7 @@ on:
       # edit that most needs the gate would be the one edit that never runs it
       # (#1313).
       - "scripts/ci/skaffold_render_verify.sh"
+      - "scripts/ci/assert_rendered_manifests.sh"
 
 permissions:
   contents: read
