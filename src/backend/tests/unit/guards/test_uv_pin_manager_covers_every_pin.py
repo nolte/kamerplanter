@@ -47,6 +47,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.renovate_config import array_value, strip_comments
 from tests.support.repo_scripts import find_repo_root
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
@@ -84,6 +85,13 @@ def python_trees_with_a_uv_pin() -> list[str]:
     return sorted(found)
 
 
+# `strip_comments` and `array_value` used to live here. They moved to
+# `tests.support.renovate_config` when #1543's guard needed the same two readers:
+# a second copy of a reader whose failure mode is "silently returns nothing" is
+# how one copy gets fixed while the other keeps lying. The reasons they are
+# written the way they are moved with them.
+
+
 def _custom_managers_section(text: str) -> str:
     """The ``customManagers:`` array, textually. Raises rather than returning ''."""
     start = text.find("customManagers:")
@@ -93,50 +101,6 @@ def _custom_managers_section(text: str) -> str:
         "moved. Silently reading nothing is the one outcome this must not have."
     )
     return text[start:]
-
-
-def strip_comments(text: str) -> str:
-    """Drop whole-line ``//`` comments.
-
-    NOT cosmetic, and the reason is a defect this file had in its first draft.
-    The custom manager for workflow ``run:`` pins carries a COMMENT in its
-    ``matchStrings`` explaining that ``[tool.uv].required-version`` replaced the
-    literal ``uv==`` it used to match. A predicate reading the raw block text for
-    that phrase therefore classified that manager as a pin reader and lent its
-    ``.github/workflows/**`` pattern to the coverage check — prose answering for
-    configuration, which is this repository's most expensive measurement bug.
-
-    Only whole-line comments are dropped: a ``//`` inside a string (``https://``,
-    and every ``managerFilePatterns`` regex begins with ``/``) must survive, so a
-    trailing-comment form is deliberately left unhandled rather than handled
-    wrongly. :class:`TestTheExtractionIsNotVacuous` asserts the patterns really
-    came through.
-    """
-    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
-
-
-def _array_value(text: str, key: str) -> str | None:
-    """The ``[...]`` value of *key*, by bracket matching rather than by slicing.
-
-    Slicing from one key to the next assumes an order the file does not promise;
-    a block that put ``matchStrings`` first would have yielded an empty slice and
-    a silently empty pattern list.
-    """
-    start = text.find(f"{key}:")
-    if start == -1:
-        return None
-    opening = text.find("[", start)
-    if opening == -1:
-        return None
-    depth = 0
-    for index in range(opening, len(text)):
-        if text[index] == "[":
-            depth += 1
-        elif text[index] == "]":
-            depth -= 1
-            if depth == 0:
-                return text[opening : index + 1]
-    return None
 
 
 def pin_reading_patterns(text: str) -> list[str]:
@@ -150,10 +114,10 @@ def pin_reading_patterns(text: str) -> list[str]:
     blocks = strip_comments(_custom_managers_section(text)).split("customType:")
     patterns: list[str] = []
     for block in blocks[1:]:
-        match_strings = _array_value(block, "matchStrings")
+        match_strings = array_value(block, "matchStrings")
         if match_strings is None or _PIN_KEY not in match_strings:
             continue
-        file_list = _array_value(block, "managerFilePatterns") or ""
+        file_list = array_value(block, "managerFilePatterns") or ""
         patterns.extend(
             # `\\.` in the JSON5 source is an escaped backslash: the string
             # Renovate receives carries a single one. Reading the raw file means
