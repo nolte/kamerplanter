@@ -37,10 +37,15 @@ tasks:
       Verify the Helm chart and the Skaffold deploy configuration wire together
       — the skaffold-verify CI job's check sequence: chart dependency build,
       helm lint, template render, skaffold diagnose, and an offline skaffold
-      render that must produce the full chart (>= 10 resources; an empty render
-      passing silently is the vacuous green that job exists to prevent). Needs
-      helm and skaffold, no cluster and no registry (--offline,
-      --digest-source=none).
+      render that must produce the full chart (>= 10 resources, every container
+      carrying a real image reference; an empty render — or one whose containers
+      have no image at all — passing silently is the vacuous green that job
+      exists to prevent). Needs helm and skaffold, no cluster and no registry
+      (--offline, --digest-source=none).
+
+      The render step calls the SAME script the CI job calls, so the two cannot
+      drift; see scripts/ci/skaffold_render_verify.sh for why the image
+      references must be supplied explicitly.
     cmds:
       - helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/ --force-update
       - helm repo add ollama https://otwld.github.io/ollama-helm/ --force-update
@@ -52,13 +57,7 @@ tasks:
         set -euo pipefail
         out=$(mktemp)
         trap 'rm -f "$out"' EXIT
-        skaffold render --offline=true --digest-source=none --output "$out"
-        kinds=$(grep -c '^kind:' "$out" || true)
-        if [ "$kinds" -lt 10 ]; then
-          echo "verify:skaffold: render produced only $kinds resources — expected the full chart." >&2
-          exit 1
-        fi
-        echo "verify:skaffold: render produced $kinds resources."
+        ./scripts/ci/skaffold_render_verify.sh "$out"
 
   security:nuclei:validate:
     desc: |
