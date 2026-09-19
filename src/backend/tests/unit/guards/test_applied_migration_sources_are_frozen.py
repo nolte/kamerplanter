@@ -50,9 +50,14 @@ candidate measurements, taken on 2026-09-19:
   the ``:latest`` images built from ``develop``, so an installation tracking it has
   applied all 54.
 
-The second is the stricter of the two and it contains the first, so it is the one
-used: **merged to ``develop`` is shipped.** ``_PINNED_THROUGH`` is therefore the
-highest version present when this guard landed.
+The second is used: **merged to ``develop`` is shipped.** Its version SET contains
+the tag's — every version v0.4.1 shipped is also on ``develop`` — so no version the
+tag measurement would pin is left unpinned. That containment is about versions only,
+and one pin makes the difference visible (SCR-009): v0050's row records ``develop``'s
+value, **not** the one v0.4.1 shipped. It cannot record both, the drift between them
+is the accepted one recorded in ``runner._warn_checksum_drift``, and pinning the
+shipped value would mean this guard demanded a source nobody has. ``_PINNED_THROUGH``
+is therefore the highest version present when this guard landed.
 
 A NEW MIGRATION FEEDS NOTHING
 =============================
@@ -83,25 +88,44 @@ suite's job (``tests/unit/migrations/support/``), not this module's.
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import re
+import sys
 from pathlib import Path
 
+from arango.database import StandardDatabase
+
 from app.migrations import versions as versions_pkg
+from app.migrations.framework.base import Migration
 from app.migrations.framework.discovery import load_migrations
+from app.migrations.framework.report import MigrationReport
 
 _VERSIONS_DIR = Path(next(iter(versions_pkg.__path__)))
 
-# Same loose glob as `tests/unit/migrations/framework/test_discovery.py` and for the
-# same reason (#1469): everything named `v*` in the package is meant to be a
-# migration, and an entry the strict pattern rejects — or a migration authored as a
-# sub-PACKAGE, which `load_migrations` skips outright — has to surface as a
-# mismatch here instead of vanishing from both sides of the comparison.
-_VERSION_ENTRY_GLOB = "v*"
+# Same LOOSE glob as `tests/unit/migrations/framework/test_discovery.py` and for the
+# same reason (#1469): everything named like a version entry in the package is meant
+# to be a migration, and an entry the strict pattern rejects — or a migration
+# authored as a sub-PACKAGE, which `load_migrations` skips outright — has to surface
+# as an offender here instead of vanishing from both sides of the comparison.
+#
+# The character class is this module's own, not test_discovery's `v*`: that glob is
+# case-sensitive, so `V0049_Slug.py` is invisible to it. Named rather than silently
+# widened, because test_discovery still carries the narrow form.
+_VERSION_ENTRY_GLOB = "[vV]*"
 _VERSION_FILENAME_RE = re.compile(r"^v(?P<number>\d{4})_[a-z0-9_]+$")
 
 #: The highest version that had reached an installation when this guard landed.
 #: See the module docstring for how the boundary is measured. Raise it (together
 #: with the rows and the count floor) when a release is cut; never lower it.
+#:
+#: NOTHING MEASURES THAT IT KEEPS UP — #1562, deliberately out of scope here. Every
+#: expectation below is derived FROM this constant, so a boundary left behind a
+#: release is green: the versions above it count as "new", stay unpinned, and can be
+#: edited years later without a red run — the #1521 → #1536 sequence one number
+#: higher. #1562 proposes measuring it against the highest version in the most recent
+#: release tag, which the lane can read (`fetch-depth: 0`, as
+#: `test_model_field_renames_have_migrations.py` already does).
 _PINNED_THROUGH = "0054"
 
 #: A RATCHET over the size of the table below, independent of `_PINNED_THROUGH`.
@@ -181,21 +205,114 @@ _PINNED_CLASS_CHECKSUMS: dict[str, str] = {
 
 
 def _version_entries() -> list[str]:
-    """Every ``v*`` entry stem in ``versions/``, ascending — files and directories."""
+    """Every version-shaped entry stem in ``versions/``, ascending — files and directories."""
     return sorted(path.name if path.is_dir() else path.stem for path in _VERSIONS_DIR.glob(_VERSION_ENTRY_GLOB))
 
 
-def _versions_on_disk() -> list[str]:
-    """The version numbers the *filenames* claim, ascending.
+def _classify_entries() -> tuple[list[str], list[str]]:
+    """Split ``versions/`` into (version numbers, offending stems), each ascending.
 
-    A stem that does not parse contributes the stem itself, so a comparison it
-    breaks names the offending file rather than dropping it.
+    A stem the filename pattern rejects gets its **own** bucket rather than standing
+    in for a version number, and this is the correction #1552's review forced (SCR-003).
+    The earlier shape let a non-parsing stem represent itself among the numbers, on
+    the theory that a comparison it breaks would then name the offending file. It
+    breaks no comparison: every stem here starts with ``v`` or ``V``, and
+    ``"v49_slug" > "0054"`` is true for any four-digit boundary (0x76 > 0x30), so a
+    non-parsing entry sorted silently into "newer than the boundary" — the bucket
+    that means "correctly unpinned". Exactly the entry the loose glob exists to
+    surface was the one it swallowed.
     """
     numbers: list[str] = []
+    offenders: list[str] = []
     for stem in _version_entries():
         match = _VERSION_FILENAME_RE.match(stem)
-        numbers.append(match.group("number") if match else stem)
-    return sorted(numbers)
+        if match is None:
+            offenders.append(stem)
+        else:
+            numbers.append(match.group("number"))
+    return sorted(numbers), sorted(offenders)
+
+
+def _versions_on_disk() -> list[str]:
+    """The version numbers the filenames claim, ascending — offenders excluded."""
+    numbers, _ = _classify_entries()
+    return numbers
+
+
+class _ProbeMigration(Migration):
+    """A throwaway migration used to pin what ``checksum()`` hashes. Never discovered.
+
+    It lives outside ``app/migrations/versions/``, so ``load_migrations`` never sees
+    it and it takes part in no sequence.
+    """
+
+    version = "9998"
+    name = "probe_for_the_checksum_expression"
+    description = "not a real migration"
+    reversible = False
+
+    def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
+        return MigrationReport(version=self.version, name=self.name, changed=0, noop=True, dry_run=dry_run)
+
+
+class _OtherProbeMigration(Migration):
+    """A second throwaway with a DIFFERENT class body, in the SAME module as the first."""
+
+    version = "9999"
+    name = "second_probe_for_the_checksum_expression"
+    description = "not a real migration either, and deliberately worded differently"
+    reversible = False
+
+    def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
+        return MigrationReport(version=self.version, name=self.name, changed=1, noop=False, dry_run=dry_run)
+
+
+class TestChecksumHashesTheClassSource:
+    """What ``checksum()`` hashes, pinned independently of any version (SCR-002, #1552).
+
+    The 54 pins above are compared through ``migration.checksum()`` on purpose — a
+    re-derived comparison would be green through exactly the edit it guards. That
+    leaves a second question unasked, and until #1552 the deleted
+    ``test_v0050_source_is_frozen.py`` was the only place in the repository that
+    asked it: *what expression is that?* Nothing else pins it —
+    ``framework/test_tracking.py`` and ``framework/conftest.py`` pass a
+    ``checksum_override``, ``framework/test_runner.py`` drives a fake.
+
+    Without this class, changing ``Migration.checksum()`` to hash the MODULE source
+    (or ``up`` alone) and regenerating all 54 pins in the same pull request is green
+    here — while every installation reports drift for every applied migration from
+    the next boot, which is the largest possible form of the damage this module
+    exists to prevent.
+    """
+
+    def test_checksum_is_the_sha256_of_the_class_source(self) -> None:
+        expected = hashlib.sha256(inspect.getsource(_ProbeMigration).encode("utf-8")).hexdigest()
+
+        assert _ProbeMigration().checksum() == expected, (
+            "Migration.checksum() no longer returns sha256(inspect.getsource(type(self))). "
+            "The stored values in schema_migrations were computed with the old expression, so "
+            "every installation will report migration_checksum_drift for every applied "
+            "migration from the next boot. Regenerating the pins above does not undo that."
+        )
+
+    def test_it_is_not_the_module_source(self) -> None:
+        """The falsifier for the most plausible substitution.
+
+        ``inspect.getsource(module)`` is a one-word edit away from
+        ``inspect.getsource(type(self))`` and would still hash "the migration".
+        """
+        module_source = inspect.getsource(sys.modules[__name__])
+        module_digest = hashlib.sha256(module_source.encode("utf-8")).hexdigest()
+
+        assert _ProbeMigration().checksum() != module_digest
+
+    def test_two_classes_in_one_module_hash_differently(self) -> None:
+        """Per-class, not per-module — otherwise the pins would not be per-version.
+
+        Both probes are defined in this file. A checksum over anything the two share
+        (the module, the file path, the base class) returns one value for both.
+        """
+        assert _ProbeMigration().checksum() != _OtherProbeMigration().checksum()
 
 
 class TestShippedSourcesAreFrozen:
@@ -231,6 +348,16 @@ class TestShippedSourcesAreFrozen:
         *above* the boundary claims a version has shipped when it has not, which would
         make the next migration branch edit this file — the friction the boundary
         exists to avoid.
+
+        The two sides are keyed differently and the bridge is worth naming (SCR-005):
+        the expectation comes from FILENAMES, the pin rows are matched against
+        ``migration.version`` in the checksum loop. What keeps the two from diverging
+        inside this lane is ``validate_sequence``, which ``load_migrations`` runs on
+        every call — a module whose declared version disagreed with its filename would
+        duplicate another version or open a gap and raise there, in
+        ``test_discovery_sees_every_pinned_version`` below. The stricter
+        filename-declares-its-version check exists in ``test_discovery.py`` but runs in
+        the advisory lane only.
         """
         on_disk = set(_versions_on_disk())
         expected = {version for version in on_disk if version <= _PINNED_THROUGH}
@@ -258,25 +385,38 @@ class TestShippedSourcesAreFrozen:
             "floor in the same change."
         )
 
-    def test_every_version_module_is_classified(self) -> None:
-        """The pin table's size is tied to the directory's, with no third bucket.
-
-        Each entry in ``versions/`` is either pinned or above the boundary. An entry
-        that is neither — a stem the filename pattern rejects, or a migration authored
-        as a sub-package, both of which ``load_migrations`` walks straight past — would
-        otherwise be unpinned *and* unaccounted for.
-        """
+        # The same floor on the other side of the comparison, so the table's size is
+        # tied to the *directory's* and not only to itself. Set equality above already
+        # goes red on a deleted module (its pin outlives the file), but it is derived
+        # from `_PINNED_THROUGH`; this is not.
         on_disk = _versions_on_disk()
-        pinned = [version for version in on_disk if version in _PINNED_CLASS_CHECKSUMS]
-        newer = [version for version in on_disk if version > _PINNED_THROUGH]
-        unclassified = sorted(set(on_disk) - set(pinned) - set(newer))
-
-        assert unclassified == [], (
-            f"versions/ holds entries that are neither pinned nor above the boundary {_PINNED_THROUGH}: {unclassified}"
+        assert len(on_disk) >= _PINNED_COUNT_FLOOR, (
+            f"versions/ holds {len(on_disk)} version modules, below the recorded floor "
+            f"{_PINNED_COUNT_FLOOR} — a migration module was removed. Migrations are append-only."
         )
-        assert len(on_disk) == len(pinned) + len(newer), (
-            f"versions/ holds {len(on_disk)} entries, but {len(pinned)} are pinned and "
-            f"{len(newer)} are above the boundary"
+
+    def test_every_version_entry_carries_a_parsable_version_number(self) -> None:
+        """An entry that does not parse is an offender, not a version above the boundary.
+
+        Without its own bucket the entry is worse than unguarded, it is *silently*
+        unguardable: every stem the loose glob returns starts with ``v`` or ``V``, and
+        ``"v49_slug" > "0054"`` holds for any four-digit boundary, so a non-parsing
+        stem compares as "newer" — the bucket that means "correctly unpinned". The
+        strict half exists in ``test_discovery.py`` (``test_every_version_file_follows_the_naming_rule``)
+        and runs only in the path-filtered, advisory lane, which is precisely the gap
+        this module was added to close, so it is measured here too.
+
+        ``load_migrations`` walks past both shapes an offender can take — a stem the
+        pattern rejects (``v0049-slug.py``, ``v49_slug.py``, ``V0049_Slug.py``) and a
+        migration authored as a sub-package — so neither would ever reach the checksum
+        loop to be missed there.
+        """
+        _, offenders = _classify_entries()
+
+        assert offenders == [], (
+            f"versions/ holds entries that are not named vNNNN_lower_snake: {offenders}. "
+            "Discovery walks past them, so they are neither applied nor pinnable — and they "
+            "sort as 'newer than the pin boundary', which reads as 'correctly unpinned'."
         )
 
     def test_discovery_sees_every_pinned_version(self) -> None:

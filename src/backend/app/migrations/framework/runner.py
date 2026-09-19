@@ -82,10 +82,15 @@ class MigrationRunner:
         applied v0050 before ``c5c5438a9`` therefore logs ``migration_checksum_drift``
         for version ``0050`` on every boot, permanently. That is accepted as known: no
         migration re-stamps a stored checksum, because rewriting stored evidence of
-        what ran is worse than a known-noisy log line. A drift report for **0050 with
-        stored ``892c3c60…``** is this and nothing else; drift for any other version,
-        or for 0050 with a different stored value, is not accounted for and should be
-        treated as a real tamper.
+        what ran is worse than a known-noisy log line.
+
+        What is accepted is the PAIR, not the stored value alone, and the log line
+        carries both: version ``0050`` **with stored ``892c3c60…`` and current
+        ``b70783de…``**. A report for 0050 whose ``current_checksum`` is anything else
+        means the deployed v0050 is neither what v0.4.1 shipped nor what ``develop``
+        carries — a tampered or unknown image, not this. Any other version, any other
+        stored value, any other current value: not accounted for, treat as a real
+        tamper.
         """
         for migration in self._migrations:
             if migration.version not in applied:
