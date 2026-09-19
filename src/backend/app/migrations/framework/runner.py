@@ -64,7 +64,34 @@ class MigrationRunner:
                 seen_pending = True
 
     def _warn_checksum_drift(self, db: StandardDatabase, applied: set[str]) -> None:
-        """Log a warning for any applied migration whose source changed (M-7)."""
+        """Log a warning for any applied migration whose source changed (M-7).
+
+        This only warns, and cannot do otherwise: refusing to boot an installation
+        over a refactor that has already landed helps nobody. The half that *can*
+        refuse is ``tests/unit/guards/test_applied_migration_sources_are_frozen.py``
+        (#1536), which pins the class checksum of every shipped version and goes red
+        in the required guards lane the moment such an edit is proposed.
+
+        KNOWN, ACCEPTED DRIFT — v0050, recorded 2026-09-19 (#1536).
+        ``v0050_repair_care_profiles_family_and_guide`` was edited on ``develop`` by
+        #1521 after it had shipped in v0.4.1: the ``_PRESERVED_FIELDS`` literal became
+        the shared ``SEASON_STATE_FIELDS`` and the docstring was rewritten. The edit
+        is behaviour-preserving — ``tests/unit/migrations/support/`` matches the
+        support module against v0050 field for field — but the source hash moved from
+        ``892c3c60…`` (as v0.4.1 shipped it) to ``b70783de…``. Every installation that
+        applied v0050 before ``c5c5438a9`` therefore logs ``migration_checksum_drift``
+        for version ``0050`` on every boot, permanently. That is accepted as known: no
+        migration re-stamps a stored checksum, because rewriting stored evidence of
+        what ran is worse than a known-noisy log line.
+
+        What is accepted is the PAIR, not the stored value alone, and the log line
+        carries both: version ``0050`` **with stored ``892c3c60…`` and current
+        ``b70783de…``**. A report for 0050 whose ``current_checksum`` is anything else
+        means the deployed v0050 is neither what v0.4.1 shipped nor what ``develop``
+        carries — a tampered or unknown image, not this. Any other version, any other
+        stored value, any other current value: not accounted for, treat as a real
+        tamper.
+        """
         for migration in self._migrations:
             if migration.version not in applied:
                 continue
