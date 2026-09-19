@@ -449,8 +449,8 @@ npm ci --ignore-scripts
 
 | Werkzeug | Ökosystem | Integration |
 |---|---|---|
-| `npm audit` (via `scripts/security/npm_audit_gate.py`) | Node.js (Frontend) | `frontend.yml`, Jobs `npm-audit` (ausgeliefert, pro PR) und `npm-audit-dev` (wöchentlich) |
-| `pip-audit` | Python (Backend) | `backend.yml`, Job `pip-audit` (ausgeliefert pro PR, dev wöchentlich) |
+| `npm audit` (via `scripts/security/npm_audit_gate.py`) | Node.js (Frontend) | `frontend.yml`, Jobs `dependency-gates` (ausgeliefert, pro PR) und `npm-audit-dev` (wöchentlich) |
+| `pip-audit` | Python (Backend) | `backend.yml`, Job `dependency-gates` (ausgeliefert pro PR, dev wöchentlich) |
 | **GitHub Security Advisories** | Alle | Automatisch (GitHub Dependabot Alerts) |
 | **Renovate vulnerabilityAlerts** | Alle | Renovate-Bot-Konfiguration |
 
@@ -561,12 +561,12 @@ jobs:
 **MUSS**: Lizenz-Prüfung in der CI-Pipeline:
 
 ```bash
-# Frontend: Lizenz-Check (frontend.yml, Job `npm-licenses`)
+# Frontend: Lizenz-Check (frontend.yml, Job `dependency-gates`, Schritt „Enforce license allowlist")
 npx --yes license-checker-rseidelsohn@4.4.2 --production \
   --excludePackages 'kamerplanter-frontend@0.1.0' \
   --onlyAllow 'MIT;ISC;BSD-3-Clause;BSD-2-Clause;Apache-2.0;0BSD;CC0-1.0;Unlicense;MIT AND ISC'
 
-# Backend: Lizenz-Check (backend.yml, Job `pip-licenses`)
+# Backend: Lizenz-Check (backend.yml, Job `dependency-gates`, Schritt „License allowlist gate — enforce license allowlist")
 pip-licenses --from=mixed --allow-only='…'   # vollständige Liste im Workflow
 ```
 
