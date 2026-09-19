@@ -18,8 +18,9 @@ v0050's class changes v0050's class source, so every installation that had alrea
 applied v0050 would log ``migration_checksum_drift`` forever: applied migrations
 are immutable (M-7), and a correction ships as a new version, never as an edit.
 
-So v0050's source is frozen exactly as it shipped — ``tests/unit/migrations/
-versions/test_v0050_source_is_frozen.py`` pins its class checksum — and this
+So v0050's source is frozen exactly as it shipped — ``tests/unit/guards/
+test_applied_migration_sources_are_frozen.py`` pins its class checksum, together
+with every other shipped version's (#1536) — and this
 module carries the machinery for everything that comes after it. It is therefore
 a **copy** of v0050's logic, which is the thing this project distrusts most: a
 copy is free to disagree with its original. That is why
