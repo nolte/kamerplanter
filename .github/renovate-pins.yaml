@@ -47,7 +47,7 @@ nuclei_templates_version: v10.4.9
 # `scripts/check_workflow_gate_integrity.py` keeps the wiring honest: a workflow
 # that reads this file while its `paths:` filter excludes it fails the required
 # `static` lane (#1313).
-nuclei_templates_commit: e5f19e6144135e107962bb943231413796fd7fe7
+nuclei_templates_commit: 893122ffce8ebf8e264f15d2cd3960cb1dd36d6c
 
 # The nuclei BINARY, pinned for the validator and every scan lane alike (#1177).
 #
