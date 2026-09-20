@@ -10,19 +10,37 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.common.exceptions import KarenzViolationError
+from app.common.exceptions import KarenzViolationError, NotFoundError
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.models.harvest import HarvestBatch
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
 
+#: The tenant every batch in this module belongs to. The Karenz gate is now
+#: plant-ownership-scoped (#1619), so a batch with no tenant is refused before
+#: the gate runs — which is the point, not an inconvenience.
+TENANT_KEY = "tenant-a"
+
 
 class _FakeIpmRepo:
-    """Minimal IPM repository returning a single active karenz period."""
+    """Minimal IPM repository returning a single active karenz period.
+
+    ``verify_plant_ownership`` mirrors the real contract rather than no-opping:
+    ``ValueError`` for an unscoped call, ``NotFoundError`` for a plant this
+    tenant does not own. A permissive double would certify calls the real
+    repository rejects.
+    """
 
     def __init__(self, karenz_periods: list[dict]) -> None:
         self._karenz_periods = karenz_periods
+        self._plants = {"plant-1": TENANT_KEY}
+
+    def verify_plant_ownership(self, plant_key: str, tenant_key: str) -> None:
+        if not tenant_key:
+            raise ValueError("verify_plant_ownership requires a non-empty tenant_key")
+        if self._plants.get(plant_key) != tenant_key:
+            raise NotFoundError("PlantInstance", plant_key)
 
     def get_active_karenz_periods(self, plant_key: str) -> list[dict]:
         return self._karenz_periods
@@ -74,7 +92,7 @@ def test_create_harvest_batch_blocked_by_active_karenz_raises_422():
     service, harvest_repo = _build_harvest_service(karenz_periods)
 
     # harvest_date omitted -> service default (formerly naive datetime.now()).
-    batch = HarvestBatch(plant_key="plant-1")
+    batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY)
 
     with pytest.raises(KarenzViolationError) as exc_info:
         service.create_harvest_batch("plant-1", batch)
@@ -94,7 +112,7 @@ def test_create_harvest_batch_allowed_when_karenz_expired():
         }
     ]
     service, harvest_repo = _build_harvest_service(karenz_periods)
-    batch = HarvestBatch(plant_key="plant-1")
+    batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY)
 
     result = service.create_harvest_batch("plant-1", batch)
 
@@ -106,7 +124,7 @@ def test_blank_batch_id_is_generated_deterministically():
     """Issue #744: a blank batch_id is auto-filled with a stable base identifier."""
     service, _ = _build_harvest_service([])
     harvest_date = datetime(2026, 7, 24, 10, 0, tzinfo=UTC)
-    batch = HarvestBatch(plant_key="plant-1", harvest_date=harvest_date)
+    batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
 
     result = service.create_harvest_batch("plant-1", batch)
 
@@ -118,9 +136,15 @@ def test_second_blank_batch_same_plant_same_day_gets_suffix():
     service, _ = _build_harvest_service([])
     harvest_date = datetime(2026, 7, 24, 10, 0, tzinfo=UTC)
 
-    first = service.create_harvest_batch("plant-1", HarvestBatch(plant_key="plant-1", harvest_date=harvest_date))
-    second = service.create_harvest_batch("plant-1", HarvestBatch(plant_key="plant-1", harvest_date=harvest_date))
-    third = service.create_harvest_batch("plant-1", HarvestBatch(plant_key="plant-1", harvest_date=harvest_date))
+    first = service.create_harvest_batch(
+        "plant-1", HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
+    )
+    second = service.create_harvest_batch(
+        "plant-1", HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
+    )
+    third = service.create_harvest_batch(
+        "plant-1", HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
+    )
 
     assert first.batch_id == "HARVEST-20260724-plant-1"
     assert second.batch_id == "HARVEST-20260724-plant-1-2"
@@ -130,7 +154,7 @@ def test_second_blank_batch_same_plant_same_day_gets_suffix():
 def test_explicit_batch_id_is_never_overwritten():
     """A user-provided batch_id is used verbatim -- no generation kicks in."""
     service, _ = _build_harvest_service([])
-    batch = HarvestBatch(plant_key="plant-1", batch_id="HARVEST-2026-001")
+    batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, batch_id="HARVEST-2026-001")
 
     result = service.create_harvest_batch("plant-1", batch)
 

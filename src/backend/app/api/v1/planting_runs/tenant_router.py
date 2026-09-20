@@ -352,7 +352,7 @@ def detach_plant(
 ):
     """Detach a plant instance from a planting run."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.detach_plant(key, plant_key, body.reason)
+    result = service.detach_plant(key, plant_key, body.reason, tenant_key=ctx.tenant_key)
     return DetachPlantResponse(**result)
 
 
@@ -539,6 +539,10 @@ def list_plant_diary_entries(
     return [_diary_response(e, diary_service, ctx) for e in entries]
 
 
+# tenant-scope-ok: the run is tenant-verified on the line below, and
+# PlantDiaryService.create_entry refuses a plant_key that is not a member of
+# that run — so the plant inherits the run's ownership rather than being
+# resolved from the path.
 @router.post(
     "/{key}/plants/{plant_key}/diary",
     response_model=DiaryEntryResponse,
