@@ -331,10 +331,54 @@ jobs:
       # An ALLOW list rather than a deny list, so the default for anything not
       # named is "irrelevant"; the counter-proofs in #1578's pull request run
       # both directions against it.
+      #
+      # WHAT THE MEASUREMENT CANNOT SEE, stated so "every one of them under
+      # `src/backend/`" is read as what it is. The audit hook observes `open` in
+      # the pytest PROCESS; a file read by a SUBPROCESS is invisible to it. This
+      # tier has one: `test_v0048_backfill_missing_care_profiles.py:149` runs
+      # `[sys.executable, "scripts/audit_care_profiles.py", "--json"]` with
+      # `cwd=_BACKEND_ROOT`. Resolved by hand — the only way to resolve it —
+      # that argv is `src/backend/scripts/audit_care_profiles.py`, which is
+      # inside the allow list and whose imports are stdlib, `arango` and `app.*`
+      # only, so it opens nothing beyond this package. No hole today; the blind
+      # spot is written down because the next subprocess added here will not
+      # announce itself in the numbers.
       - name: Detect whether this diff can reach the integration tier
         id: relevance
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
+          # THE REFERENCE THE VERDICT IS TAKEN AGAINST, SPELLED OUT.
+          #
+          # Omitting `base:` makes the action inherit the REPOSITORY DEFAULT
+          # BRANCH, and that value is not reviewable from this checkout: this
+          # repository's `.github/settings.yml` does not set `default_branch`, it
+          # inherits it through `_extends` from a file that does not live here.
+          # An unversioned input deciding what a REQUIRED gate compares against
+          # is the same defect class as an unversioned pin — an upstream change
+          # or a branch rename would move the verdict's baseline silently. The
+          # literal is therefore written here, where a diff can review it.
+          #
+          # It must stay equal to the branch pull requests target; the sibling
+          # guard `test_required_contexts_are_unfiltered.py` already hard-codes
+          # that same branch as `_TARGET_BRANCH`.
+          base: develop
+          # DEPTH. The checkout above is shallow (`fetch-depth: 1`), so the
+          # action deepens the history itself to find the merge base
+          # (`initial-fetch-depth: 100`, its default, doubling until it
+          # succeeds). On a long-lived branch that is slow, and if it cannot
+          # reach the merge base the step FAILS — which reds this lane rather
+          # than skipping it, so the direction is fail-safe. Named rather than
+          # pre-empted: `guards` above sets `fetch-depth: 0` for an unrelated
+          # reason (a guard that reads `git log`), and paying a full clone here
+          # to avoid a deepening that has not yet been observed to hurt would be
+          # trading a measured cost for an imagined one. Raise
+          # `initial-fetch-depth` here the first time a run reports the deepening
+          # as the slow step.
+          #
+          # Raising the CHECKOUT's depth instead is the one change that is not
+          # equivalent: it re-opens the dispatch hole the freeze step below
+          # closes. That is measured and written out there; read it first.
+          #
           # No `predicate-quantifier` here, deliberately, and it is not the
           # omission `e2e-smoke.yml` warns about: that warning is about a DENY
           # list, where the default `some` ORs a leading `'**'` against the
@@ -369,6 +413,41 @@ jobs:
       # green having run no tests at all — fail-open by omission. The step has no
       # `continue-on-error`, so a failing detection reds the lane today; the
       # clause is what keeps that true if one is ever added.
+      #
+      # AND `workflow_dispatch` IS EXEMPT, WHICH IS NOT A CONVENIENCE.
+      #
+      # A `workflow_dispatch` payload carries no `before`, so the action cannot
+      # diff at all when its `base` resolves to the ref being dispatched — which
+      # is the case this workflow's own header reserves the trigger for ("a job
+      # that has never run on a runner may not be made a required check on the
+      # strength of a local green — the operator dispatches it three times
+      # first"), because that dispatch happens on `develop`. It then falls back
+      # to `git log --format= --no-renames --name-status -z -n 1`, i.e. to
+      # WHATEVER THE LAST COMMIT HAPPENED TO TOUCH. A manual verification run
+      # judged by the contents of the previous merge commit is not a
+      # verification run.
+      #
+      # MEASURED 2026-09-20, because the mechanism is not what it looks like and
+      # the answer flips on a setting three lines up. Under the shallow checkout
+      # this job uses, that `git log` runs on a commit with no parent in the
+      # local repository and therefore lists the ENTIRE TREE as added — measured
+      # on a `--depth 1` clone of `develop`: 4508 paths, every one reported `A`.
+      # Every filter is true, the tier runs, and a dispatch is accidentally safe.
+      # Give the checkout a full history — which the sibling `guards` job above
+      # already has, and which the `initial-fetch-depth` note below could
+      # plausibly tempt someone into — and the fallback becomes a real
+      # single-commit diff. Proven on a real dispatch, both directions, same
+      # filter verdict, opposite outcome (#1578's pull request):
+      #
+      #   fetch-depth: 0, no override  -> Filter integration = false
+      #                                -> "Integration tier SKIPPED", job green in 29 s
+      #   fetch-depth: 0, with override-> Filter integration = false
+      #                                -> "Integration tier RUNS", tier executed, 2m54s
+      #
+      # So the clause below is what makes the dispatch path correct BY ITSELF
+      # rather than by coincidence of the clone depth. Do not remove it because
+      # "a dispatch runs the tier anyway today"; that sentence is true and is a
+      # property of `fetch-depth: 1`, not of this lane.
       - name: Freeze the run/skip decision
         env:
           DETECTION: ${{ steps.relevance.outcome }}
@@ -378,9 +457,15 @@ jobs:
           if [ "$DETECTION" = "success" ] && [ "$RELEVANT" = "false" ]; then
             RUN=false
           fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # An operator asked for this run by hand. See the block above: the
+            # filter has no diff to judge on a dispatch — its verdict there is
+            # about the last commit, never about what the operator asked for.
+            RUN=true
+          fi
           echo "RUN_INTEGRATION=$RUN" >> "$GITHUB_ENV"
           if [ "$RUN" = "true" ]; then
-            echo "::notice::Integration tier RUNS (detection outcome=$DETECTION, relevant=$RELEVANT)."
+            echo "::notice::Integration tier RUNS (event=$GITHUB_EVENT_NAME, detection outcome=$DETECTION, relevant=$RELEVANT)."
           else
             echo "::notice::Integration tier SKIPPED: no file in this diff can reach it."
           fi
