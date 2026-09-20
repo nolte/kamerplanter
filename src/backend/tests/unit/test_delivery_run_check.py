@@ -1479,3 +1479,181 @@ class TestInvariants:
         report = judge(run, jobs, now="2026-08-19T14:00:00Z")
 
         assert json.loads(json.dumps(report)) == report
+
+
+# --------------------------------------------------------------------------- #
+# #1223 — the abort condition of a deferred decision, and both of its directions.
+#
+# #1223 records a deliberate NON-decision (do not build a counter-check against
+# `docker-publish.yml`'s `changes` job) bounded by one condition: "one observed
+# `changes` job with conclusion `failure` or `cancelled` on a `develop` push".
+# Three sweeps re-derived that condition by hand. The report field
+# `decision_triggers` is that count, done by the observer.
+#
+# THE TWO DIRECTIONS ARE BOTH TESTED, AND BOTH ARE REQUIRED. A detector that
+# never fires and a detector that always fires are indistinguishable from a
+# passing suite that only checks one of them — which is the shape #1223 is
+# itself about. So: every RECORDED payload must produce an EMPTY list
+# (`TestTodaysRealityProducesNoTrigger`), and an induced failure/cancellation
+# must produce exactly one (`TestTheAbortConditionIsDetected`).
+#
+# The induced fixtures replace exactly two things on a recorded payload — the
+# run conclusion and the `changes` job's conclusion — because no such run
+# exists to record: across the 300 runs GitHub still retains for this workflow
+# (2026-08-01 .. 2026-09-20), `changes` concluded `success` 298x and `skipped`
+# 2x (the two tag runs) and `failure`/`cancelled` 0x.
+# --------------------------------------------------------------------------- #
+
+#: The issue whose abort condition this is.
+DECISION_ISSUE = 1223
+
+#: The job the condition is about, under the name the jobs endpoint reports.
+CHANGES_JOB = "changes"
+
+
+def with_job_conclusion(page: dict[str, Any], name: str, conclusion: str) -> dict[str, Any]:
+    """A deep copy of a jobs *page* with one job's conclusion replaced.
+
+    Raises rather than returning an unchanged page when *name* is not on it: a
+    fixture builder that silently no-ops would hand every assertion below a
+    payload in which nothing was induced, and they would all still pass.
+    """
+    copy = deepcopy(page)
+    matched = [entry for entry in copy["jobs"] if entry["name"] == name]
+    if not matched:
+        raise AssertionError(f"no job named {name!r} on this page: {[e['name'] for e in copy['jobs']]}")
+    for entry in matched:
+        entry["conclusion"] = conclusion
+    return copy
+
+
+#: `changes` FAILS on a develop push. The run reddens through the job's own
+#: conclusion — measured on run 32146552770, whose eight builds were all skipped
+#: and whose run conclusion is `failure` — so the run conclusion moves with it.
+RUN_DEVELOP_CHANGES_FAILED = replacing(RUN_DEVELOP_GREEN_CHART_SKIPPED, conclusion="failure")
+RUN_DEVELOP_CHANGES_FAILED_JOBS = with_job_conclusion(RUN_DEVELOP_GREEN_CHART_SKIPPED_JOBS, CHANGES_JOB, "failure")
+
+#: `changes` is CANCELLED on a develop push — a `gh run cancel`, or the
+#: concurrency eviction the observer's own header documents. The run concludes
+#: `cancelled`, which is INCONCLUSIVE: the observer touches no alert issue on it.
+#: That is precisely why the trigger may not be derived from the verdict.
+RUN_DEVELOP_CHANGES_CANCELLED = replacing(RUN_DEVELOP_GREEN_CHART_SKIPPED, conclusion="cancelled")
+RUN_DEVELOP_CHANGES_CANCELLED_JOBS = with_job_conclusion(RUN_DEVELOP_GREEN_CHART_SKIPPED_JOBS, CHANGES_JOB, "cancelled")
+
+#: The same failure on a dispatch against a feature branch: `lane_ref` is null,
+#: the branch is not the lane, and the condition is not about it.
+RUN_FEATURE_CHANGES_FAILED = replacing(
+    RUN_DEVELOP_GREEN_CHART_SKIPPED,
+    conclusion="failure",
+    event="workflow_dispatch",
+    head_branch="fix/some-branch",
+)
+
+
+class TestTheAbortConditionIsDetected:
+    """Induced `failure` and `cancelled` must each produce exactly one trigger."""
+
+    def test_a_failed_changes_job_on_develop_trips_the_condition(self) -> None:
+        report = judge(RUN_DEVELOP_CHANGES_FAILED, RUN_DEVELOP_CHANGES_FAILED_JOBS)
+
+        assert report["decision_triggers"] == [
+            {
+                "issue": DECISION_ISSUE,
+                "job": CHANGES_JOB,
+                "base_name": CHANGES_JOB,
+                "conclusion": "failure",
+                "url": "https://github.com/nolte/kamerplanter/actions/runs/32157445903/job/95777961209",
+                "lane_ref": "develop",
+                "event": "push",
+                "head_branch": "develop",
+            }
+        ]
+
+    def test_a_cancelled_changes_job_trips_it_although_the_verdict_is_inconclusive(self) -> None:
+        """The other half of the condition, and the one the verdict cannot carry.
+
+        A cancelled run is `inconclusive` by the taxonomy above, and the
+        observer's `inconclusive` branch returns without touching anything. If
+        the trigger were derived from the verdict — or evaluated behind that
+        branch — this half would never be observed, and the detector would
+        report on failures only while reading as if it covered both.
+        """
+        report = judge(RUN_DEVELOP_CHANGES_CANCELLED, RUN_DEVELOP_CHANGES_CANCELLED_JOBS)
+
+        assert report["verdict"] == "inconclusive"
+        assert report["alert"] is False
+        assert report["resolved"] is False
+        assert [(t["job"], t["conclusion"], t["issue"]) for t in report["decision_triggers"]] == [
+            (CHANGES_JOB, "cancelled", DECISION_ISSUE)
+        ]
+
+    def test_the_log_line_names_the_issue_and_the_conclusion(self) -> None:
+        """A reader of the job log must not have to open the JSON for this."""
+        rendered = checker._render(judge(RUN_DEVELOP_CHANGES_FAILED, RUN_DEVELOP_CHANGES_FAILED_JOBS))
+
+        assert f"ABORT CONDITION TRIPPED for issue #{DECISION_ISSUE}" in rendered
+        assert "concluded failure on the develop half" in rendered
+
+
+class TestTodaysRealityProducesNoTrigger:
+    """The silence direction: every recorded payload, and the near misses."""
+
+    @pytest.mark.parametrize(
+        ("run", "jobs"),
+        [(run, jobs) for _, run, jobs in ALL_FIXTURES],
+        ids=[name for name, _, _ in ALL_FIXTURES],
+    )
+    def test_no_recorded_run_trips_the_condition(self, run: dict[str, Any], jobs: dict[str, Any]) -> None:
+        """Red runs included — those failed on the chart job, not on `changes`.
+
+        Seven of these nine fixtures are RED. A detector keyed on the run's
+        colour rather than on the job would fire on all seven and look like it
+        works.
+        """
+        assert judge(run, jobs)["decision_triggers"] == []
+
+    def test_a_tag_run_trips_nothing_although_changes_is_skipped_there(self) -> None:
+        """Two independent reasons apply here, and only one of them is the lane half.
+
+        On a tag run `changes` skips by its own `if: github.ref_type ==
+        'branch'`, AND the run is on the tag half. Measured which one carries
+        the assertion: widening the breaking set to include `skipped` leaves
+        this test GREEN, because the lane-half guard returns first. So it is
+        named for the reason that actually decides it, and the conclusion set is
+        pinned separately below rather than through this fixture.
+        """
+        report = judge(RUN_V0_2_0_RED, RUN_V0_2_0_RED_JOBS)
+
+        assert report["lane_ref"] == "tag"
+        assert CHANGES_JOB in report["skipped_jobs"]
+        assert report["decision_triggers"] == []
+
+    def test_a_skipped_job_is_not_a_breakage(self) -> None:
+        """Pinned on the rule's own expression, for want of a payload that reaches it.
+
+        `changes` carries `if: github.ref_type == 'branch'`, so on the develop
+        half it always runs — no recorded run has it skipped there, and across
+        the 300 retained runs the only two skips are the two tag runs. A fixture
+        for this would therefore have to invent a shape production cannot
+        produce today, and every assertion on it would certify that invention.
+        The set IS the rule, so the set is what is asserted.
+        """
+        assert (
+            frozenset({"failure", "timed_out", "startup_failure", "cancelled"}) == checker.DECISION_BREAKING_CONCLUSIONS
+        )
+        assert "skipped" not in checker.DECISION_BREAKING_CONCLUSIONS
+        assert "success" not in checker.DECISION_BREAKING_CONCLUSIONS
+        # The failing set is a SUBSET, never the same object: a cancelled job
+        # does not make the lane broken, and merging the two would alert on it.
+        assert checker.FAILING_JOB_CONCLUSIONS < checker.DECISION_BREAKING_CONCLUSIONS
+
+    def test_the_same_failure_on_a_feature_branch_dispatch_trips_nothing(self) -> None:
+        """`lane_ref` is null there: the run is on neither half of the lane."""
+        report = judge(RUN_FEATURE_CHANGES_FAILED, RUN_DEVELOP_CHANGES_FAILED_JOBS)
+
+        assert report["lane_ref"] is None
+        assert CHANGES_JOB in report["failed_jobs"]
+        assert report["decision_triggers"] == []
+
+    def test_the_log_line_is_absent_when_nothing_tripped(self) -> None:
+        assert "ABORT CONDITION" not in checker._render(judge(RUN_DEVELOP_RED_FIRST, RUN_DEVELOP_RED_FIRST_JOBS))

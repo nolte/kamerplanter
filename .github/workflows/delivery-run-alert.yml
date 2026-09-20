@@ -292,6 +292,93 @@ jobs:
               return;
             }
 
+            // ---------------------------------------------------------------
+            // #1223 — the abort condition of a deliberate NON-decision, made
+            // machine-readable.
+            //
+            // #1223 decided NOT to build a counter-check against
+            // `docker-publish.yml`'s `changes` job: its wrong answer (a false
+            // positive that reddens the delivery lane for everyone) would be
+            // worse than the failure it guards against, and that failure has
+            // never been observed. The decision is bounded by ONE condition,
+            // quoted from the issue: "one observed `changes` job with conclusion
+            // `failure` or `cancelled` on a `develop` push".
+            //
+            // Three sweeps in a row re-derived that condition BY HAND — 30 runs,
+            // then 60, then 300 — and each time wrote "still 0" into a comment.
+            // A condition that depends on somebody remembering to count is a
+            // condition that stops being checked. This block is the counting.
+            //
+            // PLACED BEFORE EVERY VERDICT BRANCH BELOW, AND THAT IS
+            // LOAD-BEARING. A cancelled run is `inconclusive`: the branch below
+            // returns early and touches nothing, deliberately. But a cancelled
+            // `changes` job is HALF of the condition. Behind that return this
+            // block would see failures only, report nothing on the other half,
+            // and read exactly as if it had observed both — the failure class
+            // #1223 is itself about.
+            //
+            // PLACED AFTER the `is_expected_workflow` guard, equally on purpose:
+            // a dispatch can hand this observer any run id, and another
+            // workflow's job called `changes` is not this lane's filter.
+            //
+            // It DETECTS; it does not decide. The comment supplies the evidence
+            // the issue says it is missing. Whether to build the counter-check
+            // remains the operator's call, and this block never reopens, closes
+            // or relabels anything.
+            if (!Array.isArray(report.decision_triggers)) {
+              // A missing field would make this block silently observe nothing
+              // on every run. Red, therefore, rather than absent.
+              throw new Error(
+                'delivery-run-report.json carries no `decision_triggers` array — ' +
+                'scripts/ci/check_delivery_run.py and this workflow have drifted apart'
+              );
+            }
+            for (const trigger of report.decision_triggers) {
+              // One comment per (issue, run, job). A re-dispatch of the same run
+              // id, or a re-run of this observer, must not comment twice; a LATER
+              // delivery run tripping the same condition is a new fact and gets
+              // its own comment.
+              const evidence = `<!-- kp:decision-trigger:${trigger.issue}:${report.run_id}:${trigger.base_name} -->`;
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                ...issueRef, issue_number: trigger.issue, per_page: 100,
+              });
+              if (comments.some(c => (c.body || '').includes(evidence))) {
+                core.notice(
+                  `Abort condition for #${trigger.issue} already recorded for run ${report.run_id} ` +
+                  `(job \`${trigger.job}\` → ${trigger.conclusion}); not commenting twice.`
+                );
+                continue;
+              }
+              await github.rest.issues.createComment({
+                ...issueRef,
+                issue_number: trigger.issue,
+                body: [
+                  `**The abort condition stated in this issue has occurred.** Job \`${trigger.job}\` of the ` +
+                  `delivery lane concluded **${trigger.conclusion}** on the ${trigger.lane_ref} half.`,
+                  '',
+                  `- Job: ${trigger.url}`,
+                  `- Delivery run: ${report.html_url} (\`${trigger.event}\` on \`${trigger.head_branch}\`, ` +
+                  `run conclusion **${report.conclusion}**, started ${report.run_started_at})`,
+                  `- Observer run: ${runUrl}`,
+                  '',
+                  'This comment is evidence, not a decision: nothing here reopens, closes or relabels the issue, ' +
+                  'and no repair has been made. The decision recorded above was deferred on the measured grounds ' +
+                  'that this had never happened; it now has, once, and the grounds are worth re-reading against ' +
+                  'this run before anything is built.',
+                  '',
+                  'Posted automatically by `.github/workflows/delivery-run-alert.yml` (#1225), which watches this ' +
+                  'condition so that nobody has to count runs by hand.',
+                  '',
+                  evidence,
+                ].join('\n'),
+              });
+              core.warning(
+                `Abort condition for #${trigger.issue} TRIPPED: job \`${trigger.job}\` concluded ` +
+                `${trigger.conclusion} on the ${trigger.lane_ref} half of run ${report.run_id}. ` +
+                `Recorded as a comment on #${trigger.issue}.`
+              );
+            }
+
             // Dedup anchor: the single open issue carrying our label. A good
             // alerting job updates one issue; it does not open a new one per run.
             const open = (await github.rest.issues.listForRepo({
