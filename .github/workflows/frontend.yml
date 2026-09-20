@@ -443,4 +443,3 @@ jobs:
         run: python3 -m pip install --user 'PyYAML==6.0.3'
       - name: Audit the full dependency tree
         run: python3 ../../scripts/security/npm_audit_gate.py
-
