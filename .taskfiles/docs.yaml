@@ -40,6 +40,13 @@ tasks:
 
       uv is pinned to [tool.uv].required-version of the backend, the same value
       every other lock in this repository is produced with.
+
+      WHAT CHECKS THIS BEFORE A RELEASE (#1571). `docs-requirements.yml` — a
+      path-filtered, ADVISORY pull-request lane — installs the compiled file
+      (`docs:venv`, hash-verified) and then re-runs this task and diffs the
+      result, so an edit to docs/requirements.in that was never compiled is red
+      on the pull request rather than in `release-cd-deliver-docs.yml`, which
+      triggers on `release: published` and was the only consumer before.
     vars:
       UV_SPEC:
         sh: python3 -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("src/backend/pyproject.toml").read_text())["tool"]["uv"]["required-version"])'
