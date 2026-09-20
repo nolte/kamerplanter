@@ -18,6 +18,7 @@ import { server } from '../mocks/server';
 import { WAIT_BUDGET } from '../waitBudget';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import botanicalFamiliesReducer from '@/store/slices/botanicalFamiliesSlice';
+import activitiesReducer, { fetchActivities } from '@/store/slices/activitiesSlice';
 
 const FAMILIES_URL = '/api/v1/botanical-families';
 
@@ -33,9 +34,39 @@ function makeFamily(index: number) {
   };
 }
 
+function makeActivityRow(index: number) {
+  return {
+    key: `act-${index}`,
+    tenant_key: 't',
+    name: `Activity ${index}`,
+    name_de: `Aktivität ${index}`,
+    description: '',
+    description_de: '',
+    category: 'pruning',
+    stress_level: 'medium',
+    skill_level: 'beginner',
+    recovery_days_default: 0,
+    recovery_days_by_species: {},
+    forbidden_phases: [],
+    restricted_sub_phases: [],
+    tools_required: [],
+    estimated_duration_minutes: 1,
+    requires_photo: false,
+    species_compatible: [],
+    is_system: false,
+    sort_order: index,
+    tags: [],
+    created_at: null,
+    updated_at: null,
+  };
+}
+
 function makeWrapper() {
   const store = configureStore({
-    reducer: combineReducers({ botanicalFamilies: botanicalFamiliesReducer }),
+    reducer: combineReducers({
+      botanicalFamilies: botanicalFamiliesReducer,
+      activities: activitiesReducer,
+    }),
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Provider store={store}>{children}</Provider>
@@ -157,6 +188,45 @@ describe('useCatalogue', () => {
     // it room to do so and assert it did not.
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(requests).toBe(2);
+  });
+
+  it('does not serve a filtered subset another consumer left in the slice', async () => {
+    // Found reviewing this hook's own diff, not by the issue. `ActivityListPage`
+    // dispatches `fetchActivities({category, scope, species})` into the same
+    // slice a picker reads. A cache predicate of "the slice holds rows" would
+    // then hand the picker that filtered subset and call it the catalogue —
+    // which is the defect this hook exists to close, reintroduced through its
+    // own cache. The completeness mark is on the array reference, so the
+    // filtered dispatch's replacement array loses it.
+    const requested: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/activities', ({ request }) => {
+        const category = new URL(request.url).searchParams.get('category');
+        requested.push(category);
+        const rows = [
+          { ...makeActivityRow(0), category: 'pruning' },
+          { ...makeActivityRow(1), category: 'watering' },
+        ];
+        return HttpResponse.json(
+          category ? rows.filter((row) => row.category === category) : rows,
+        );
+      }),
+    );
+    const { store, wrapper } = makeWrapper();
+
+    // A list view narrows the slice to one category, exactly as the real page does.
+    await store.dispatch(fetchActivities({ category: 'pruning' }));
+    expect(store.getState().activities.items).toHaveLength(1);
+
+    const picker = renderHook(() => useCatalogue('activities'), { wrapper });
+    await waitFor(() => expect(picker.result.current.status).toBe('ready'), {
+      timeout: WAIT_BUDGET,
+    });
+
+    // The assertion that carries the finding: the picker holds both rows, and it
+    // reached the server without a filter to get them.
+    expect(picker.result.current.items).toHaveLength(2);
+    expect(requested).toEqual(['pruning', null]);
   });
 
   it('does not request while disabled, and does not claim the catalogue is empty', async () => {

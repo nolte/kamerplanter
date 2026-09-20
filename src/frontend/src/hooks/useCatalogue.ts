@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Activity, BotanicalFamily, Fertilizer, NutrientPlan, Species, Substrate } from '@/api/types';
+import { useStore } from 'react-redux';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { AppDispatch, RootState } from '@/store/store';
 import { fetchActivities } from '@/store/slices/activitiesSlice';
@@ -43,13 +44,27 @@ import { fetchSubstrates } from '@/store/slices/substratesSlice';
  * - `ready` — the complete catalogue arrived. `items` may still be `[]`, and that
  *   is then a *genuine* empty catalogue, which is a different sentence.
  *
- * **Caching.** The rows live in the store slice, so the second picker to ask for
- * the same catalogue in a session renders from cache with no request. The cache
- * predicate is deliberately "the slice holds no rows" rather than a module-level
- * "already fetched" flag: that flag would survive a tenant switch, and these
- * catalogues are a global/tenant union (#324). An empty catalogue therefore
- * re-requests on the next mount, which is the harmless direction — and a *failed*
- * load leaves the slice empty too, so the next open retries by itself.
+ * **Caching, and why it is not "the slice holds rows".** The rows live in the
+ * store slice, so the second picker to ask for the same catalogue in a session
+ * renders from cache with no request. But holding rows is not the same as
+ * holding the *catalogue*: several list views dispatch the same thunk with
+ * **filters** — `ActivityListPage` sends `{category, scope, species}`,
+ * `FertilizerListPage` its filter bar — and that replaces the slice's rows with a
+ * subset. A picker mounting afterwards would then read a filtered list, find it
+ * non-empty, and offer it as the whole catalogue: the very defect this hook
+ * exists to close, reintroduced through its own cache.
+ *
+ * So completeness is recorded against the **array reference** a complete load
+ * produced, in a `WeakMap`. Redux Toolkit replaces that array on every fulfilled
+ * list action, so a filtered dispatch is indistinguishable from any other
+ * overwrite: the reference changes, the mark does not follow it, and the next
+ * consumer reloads. Nothing is keyed by catalogue name, which is what keeps this
+ * honest across a tenant switch (these catalogues are a global/tenant union,
+ * #324) — a `WeakMap` on the array cannot outlive the state that held it.
+ *
+ * An empty catalogue re-requests on the next mount, which is the harmless
+ * direction, and a *failed* load leaves the slice empty too, so the next open
+ * retries by itself.
  *
  * **Status is per-consumer, not read off the slice.** `slice.loading` is also
  * toggled by the slice's single-entity fetch (`fetchSubstrate`, …), so a detail
@@ -153,6 +168,17 @@ const CATALOGUES: {
 const inFlight = new Map<CatalogueName, Promise<unknown>>();
 
 /**
+ * Row arrays known to hold a **complete** catalogue, because this hook's own
+ * unfiltered load produced them.
+ *
+ * Keyed by the array itself rather than by catalogue name, so a later filtered
+ * dispatch — which replaces the array — silently loses the mark instead of
+ * inheriting it. See the caching note in this module's header for why that
+ * distinction is the whole cache.
+ */
+const completeRows = new WeakMap<object, true>();
+
+/**
  * Joins the load already running for this catalogue, or starts one.
  *
  * @param name The catalogue.
@@ -212,14 +238,17 @@ export function useCatalogue<K extends CatalogueName>(
 ): CatalogueReader<CatalogueItem<K>> {
   const enabled = options?.enabled ?? true;
   const dispatch = useAppDispatch();
+  const store = useStore();
   const items = useAppSelector(CATALOGUES[name].select) as CatalogueItem<K>[];
-  const hasItems = items.length > 0;
+  // Not `items.length > 0`: rows a *filtered* dispatch put there are rows, and
+  // they are not the catalogue.
+  const isComplete = completeRows.has(items);
 
   // Bumped by `reload`; re-runs the effect even when nothing else changed, which
   // is the only way a retry after a failure reaches the network again.
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{ status: CatalogueStatus; error: string | null }>(() => ({
-    status: hasItems ? 'ready' : 'loading',
+    status: isComplete ? 'ready' : 'loading',
     error: null,
   }));
 
@@ -239,13 +268,18 @@ export function useCatalogue<K extends CatalogueName>(
     const run = async () => {
       // Cached: the slice already holds the complete catalogue, and no retry
       // asked for a fresh one.
-      if (hasItems && !forced) {
+      if (isComplete && !forced) {
         setState({ status: 'ready', error: null });
         return;
       }
       setState({ status: 'loading', error: null });
       try {
         await joinOrStart(name, () => CATALOGUES[name].fetch(dispatch), forced);
+        // `unwrap()` resolves after the fulfilled action has been reduced, so the
+        // array in the store right now is the one this load produced. Marking it
+        // here — rather than trusting the payload — keeps the mark on whatever
+        // the reducer actually stored.
+        completeRows.set(CATALOGUES[name].select(store.getState() as RootState), true);
         if (!ignore) setState({ status: 'ready', error: null });
       } catch (error) {
         // The ignore guard is the half that was missing at every call site: a
@@ -258,7 +292,7 @@ export function useCatalogue<K extends CatalogueName>(
     return () => {
       ignore = true;
     };
-  }, [name, enabled, hasItems, attempt, dispatch]);
+  }, [name, enabled, isComplete, attempt, dispatch, store]);
 
   const reload = useCallback(() => {
     setAttempt((previous) => previous + 1);
