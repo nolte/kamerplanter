@@ -26,9 +26,11 @@ The rules below are the mechanical part of closing that class over ``app/``:
 ``R4`` an edge call whose vertex sits on an end the edge is not declared to have.
       This is the failure mode grep cannot find: ``direction`` defaults to
       ``outbound``, so a call on an edge whose vertex is the ``_to`` end deletes
-      nothing while looking correct. **It runs with an allowlist**; see
-      :data:`_DECLARATION_DISAGREEMENTS` for why, which is the honest form of a
-      rule whose oracle is known to be wrong in two named places.
+      nothing while looking correct. **It runs over every edge, with no allowlist**
+      (#1574). Until the membership declarations were corrected, two edges were
+      exempt because R4's own oracle — ``GRAPH_EDGE_DEFINITIONS`` — was wrong for
+      them; :class:`TestR4JudgesEveryDeclaredEdge` now pins that no edge can be
+      exempted again, by enumerating the whole table rather than those two names.
 
 ``R5`` a vertex-wide ``delete_edges`` on a **symmetric** edge collection (one whose
       declared ``from`` and ``to`` sets are the same) that does not use
@@ -119,29 +121,6 @@ _CREATE_EDGE_POSITIONAL = ("edge_collection", "from_id", "to_id")
 #: The declared ends of every edge in the named graph, by collection name.
 _DECLARED_ENDS = {d["edge_collection"]: d for d in col.GRAPH_EDGE_DEFINITIONS}
 
-#: Edges whose **declaration** is wrong, so R4's oracle cannot judge them (#1574).
-#:
-#: ``membership_repository`` writes ``users → memberships`` for ``has_membership``
-#: and ``memberships → tenants`` for ``membership_in``; ``collections.py`` declares
-#: ``tenants → memberships`` and ``users → memberships`` respectively. The code is
-#: right and consistent with its own deletes — the table is wrong, for both edges.
-#:
-#: The exemption is per-edge and not per-call on purpose: it keeps R4 live for the
-#: other ~70 edges, so a *third* declaration of this kind goes red here instead of
-#: being found by accident, which is how these two were found. Correcting the table
-#: is a live named-graph change (``collections.py`` calls
-#: ``graph.replace_edge_definition`` on bootstrap *when* the declared vertex sets
-#: differ from the graph's — not unconditionally) and has its own issue. The wrong
-#: declaration is **latent rather than effective**: ``create_edge`` inserts straight
-#: into the edge collection (``base_repository``), which bypasses the graph's from/to
-#: validation, so the edges are written and traversed as the code intends. When #1574
-#: lands, these entries must go with it — :class:`TestTheAllowlistIsNotStale` fails
-#: once they become unnecessary.
-_DECLARATION_DISAGREEMENTS = {
-    col.HAS_MEMBERSHIP: "declared tenants→memberships, written users→memberships (#1574)",
-    col.MEMBERSHIP_IN: "declared users→memberships, written memberships→tenants (#1574)",
-}
-
 
 @dataclass
 class _Violation:
@@ -157,11 +136,6 @@ class _Violation:
 class _Findings:
     """What one scan saw — returned, never accumulated in a module global."""
 
-    #: Edge collections whose declaration R4 must not judge by (see
-    #: :data:`_DECLARATION_DISAGREEMENTS`). Carried here rather than read from a
-    #: module global so a scan's inputs are all in one place — the staleness test
-    #: runs a scan *without* the exemptions.
-    exempt_edges: frozenset[str] = frozenset()
     violations: list[_Violation] = field(default_factory=list)
     #: ``get_all_tasks(**kwargs)`` calls that do not *also* name ``tenant_key``.
     unreadable_calls: list[str] = field(default_factory=list)
@@ -281,8 +255,6 @@ def _check_declared_ends(
     if edge is None or edge not in _DECLARED_ENDS:
         return
     findings.note_subject("edge_call_with_known_declaration")
-    if edge in findings.exempt_edges:
-        return
     declared = _DECLARED_ENDS[edge]
     for prefix, end in ends:
         if prefix is None:
@@ -506,15 +478,13 @@ def _scan_source(source: str, location: str, findings: _Findings) -> None:
 
 
 @cache
-def _scan_application(exempt: frozenset[str] | None = None) -> _Findings:
-    """Scan ``app/`` once per exemption set.
+def _scan_application() -> _Findings:
+    """Scan ``app/`` once.
 
     Cached: six test cases ask the same question, and re-parsing the whole tree for
     each of them made this guard the slowest module in the tier.
     """
-    findings = _Findings(
-        exempt_edges=frozenset(_DECLARATION_DISAGREEMENTS) if exempt is None else exempt,
-    )
+    findings = _Findings()
     for path in sorted(_APP.rglob("*.py")):
         findings.files_scanned += 1
         _scan_source(path.read_text(encoding="utf-8"), str(path.relative_to(_APP.parent)), findings)
@@ -562,17 +532,73 @@ class TestTheApplicationIsClean:
         )
 
 
-class TestTheAllowlistIsNotStale:
-    """An exemption that is no longer needed is an inventory that has started lying."""
+#: A collection name that is in no edge definition, used to synthesise a wrong end.
+_NOT_A_VERTEX = "zzz_no_such_vertex"
 
-    @pytest.mark.parametrize("edge", sorted(_DECLARATION_DISAGREEMENTS))
-    def test_each_exempt_edge_still_disagrees_with_its_declaration(self, edge: str) -> None:
-        """When #1574 corrects the table, this fails and the entry must be removed."""
-        without_exemptions = _scan_application(frozenset())
-        violations = [v for v in without_exemptions.violations if f"'{edge}'" in v.detail]
-        assert violations, (
-            f"{edge!r} no longer disagrees with its declaration — remove it from "
-            "_DECLARATION_DISAGREEMENTS (the #1574 repair has landed)"
+
+class TestR4JudgesEveryDeclaredEdge:
+    """R4's oracle must cover the **class**, not the two edges #1574 happened to fix.
+
+    Before #1574, ``has_membership`` and ``membership_in`` were exempt from R4 —
+    ``GRAPH_EDGE_DEFINITIONS`` declared them against the direction
+    ``ArangoMembershipRepository`` writes, so the rule's own oracle was wrong and
+    the rule had to be silenced there. Silencing it meant a genuinely inert
+    ``delete_edges(col.HAS_MEMBERSHIP, membership_id)`` — the default ``outbound``
+    on an edge whose vertex is the ``_to`` end, removing nothing — passed this
+    guard without a word. That is the shape this repository keeps paying for: a
+    guard that exists and is inert.
+
+    The repair is not "remove those two entries"; it is "make an entry
+    impossible". These two cases run over **every** edge in the table, so an edge
+    added tomorrow is judged on the day it is declared, and a future attempt to
+    re-introduce a per-edge escape hatch fails here rather than going unnoticed:
+
+    * the positive case proves R4 accepts each edge's *declared* direction, so the
+      rule is reading the real table and not a constant ``True``;
+    * the negative case proves R4 rejects a vertex on an end the edge does not
+      have, for that same edge — the falsification of the exact expression the
+      positive case asserts.
+    """
+
+    @staticmethod
+    def _r4_details(source: str) -> list[str]:
+        findings = _Findings()
+        _scan_source(source, "<inline>", findings)
+        _apply_r5(findings)
+        return [v.detail for v in _dedupe(findings.violations) if v.rule == "R4"]
+
+    def test_the_synthetic_wrong_end_is_really_absent_from_every_declaration(self) -> None:
+        """Without this, the negative case below could be passing for the wrong reason."""
+        declared = {
+            name
+            for definition in col.GRAPH_EDGE_DEFINITIONS
+            for name in (*definition["from_vertex_collections"], *definition["to_vertex_collections"])
+        }
+        assert _NOT_A_VERTEX not in declared
+
+    @pytest.mark.parametrize("edge", sorted(_DECLARED_ENDS))
+    def test_the_declared_direction_is_accepted(self, edge: str) -> None:
+        declared = _DECLARED_ENDS[edge]
+        source = (
+            "def f(self):\n"
+            f'    self.create_edge("{edge}", '
+            f'from_id="{declared["from_vertex_collections"][0]}/a", '
+            f'to_id="{declared["to_vertex_collections"][0]}/b")\n'
+        )
+        assert self._r4_details(source) == [], f"R4 rejects the declared direction of {edge!r}"
+
+    @pytest.mark.parametrize("edge", sorted(_DECLARED_ENDS))
+    def test_a_vertex_on_an_end_the_edge_does_not_have_is_rejected(self, edge: str) -> None:
+        declared = _DECLARED_ENDS[edge]
+        source = (
+            "def f(self):\n"
+            f'    self.create_edge("{edge}", '
+            f'from_id="{_NOT_A_VERTEX}/a", '
+            f'to_id="{declared["to_vertex_collections"][0]}/b")\n'
+        )
+        assert self._r4_details(source), (
+            f"R4 is inert for {edge!r} — a vertex from an undeclared collection was accepted "
+            "on its 'from' end. No edge may be exempt from R4 (#1574)."
         )
 
 
@@ -585,7 +611,7 @@ class TestTheRulesFire:
 
     @staticmethod
     def _rules(source: str) -> set[str]:
-        findings = _Findings(exempt_edges=frozenset(_DECLARATION_DISAGREEMENTS))
+        findings = _Findings()
         _scan_source(source, "<inline>", findings)
         _apply_r5(findings)
         return {v.rule for v in _dedupe(findings.violations)}
@@ -665,10 +691,36 @@ class TestTheRulesFire:
         )
         assert self._rules(source) == set()
 
-    def test_r4_stays_silent_on_an_exempt_edge(self) -> None:
-        """``membership_in``'s declaration is the wrong end of the comparison (#1574)."""
-        source = 'def delete(self, key):\n    self.delete_edges(col.MEMBERSHIP_IN, f"{col.MEMBERSHIPS}/{key}")\n'
+    def test_r4_clears_the_membership_deletes_against_the_corrected_table(self) -> None:
+        """The #1574 subject, judged rather than exempted.
+
+        ``ArangoMembershipRepository.delete`` detaches the membership from both
+        edges: inbound on ``has_membership`` (the membership is its ``_to`` end)
+        and outbound on ``membership_in`` (its ``_from`` end). Both spellings were
+        already correct; what changed is that R4 now reads a table that agrees
+        with them, so it clears them on their merits instead of skipping them.
+        """
+        source = (
+            "def delete(self, key):\n"
+            '    membership_id = f"{col.MEMBERSHIPS}/{key}"\n'
+            '    self.delete_edges(col.HAS_MEMBERSHIP, membership_id, direction="inbound")\n'
+            "    self.delete_edges(col.MEMBERSHIP_IN, membership_id)\n"
+        )
         assert self._rules(source) == set()
+
+    def test_r4_catches_the_inert_membership_delete_the_allowlist_used_to_hide(self) -> None:
+        """The deletion R4 is *supposed* to refuse, and did not while #1574 stood.
+
+        ``memberships`` is the ``_to`` end of ``has_membership``, so an outbound
+        (default) detach anchored on it removes nothing and raises nothing. With
+        the old allowlist this call passed the guard in silence.
+        """
+        source = (
+            "def delete(self, key):\n"
+            '    membership_id = f"{col.MEMBERSHIPS}/{key}"\n'
+            "    self.delete_edges(col.HAS_MEMBERSHIP, membership_id)\n"
+        )
+        assert "R4" in self._rules(source)
 
     def test_the_repaired_spellings_pass(self) -> None:
         source = (

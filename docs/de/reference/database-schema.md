@@ -294,8 +294,8 @@ planned → active → harvesting → completed
 
 | Kante | Von | Nach | Bedeutung |
 |-------|-----|------|----------|
-| `has_membership` | `tenants` | `memberships` | Mandant hat Mitgliedschaften |
-| `membership_in` | `users` | `memberships` | Nutzer hat Mitgliedschaft |
+| `has_membership` | `users` | `memberships` | Nutzer hat Mitgliedschaften |
+| `membership_in` | `memberships` | `tenants` | Mitgliedschaft gehört zu Mandant |
 | `belongs_to_tenant` | `sites`, `plant_instances`, `planting_runs`, `tanks`, `fertilizers`, `nutrient_plans`, `tasks` | `tenants` | Ressource gehört zu Mandant |
 | `assigned_to_location` | `location_assignments` | `locations` | Zuweisungsbasierter Standortzugriff |
 

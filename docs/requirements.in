@@ -18,16 +18,34 @@
 # needs (verified against PyPI's file list for charset-normalizer 3.5.1: all 60
 # musllinux hashes are present), and `--python-version 3.11` keeps the resolve
 # inside the older of the two interpreters.
+# EVERY ENTRY CARRIES A FLOOR AND A CEILING (#1601). NFR-009 §2.3.1 decides that
+# §2.1 binds the COMPILE SOURCE of a class (a) list as well as the compiled
+# output: the hashes below in docs/requirements.txt bind the bytes installed
+# TODAY, and only the ranges here bind what the NEXT `task docs:lock` may
+# choose. Without a ceiling that next run can pull a MAJOR of eight plugins at
+# once, and the diff showing it is tens of kilobytes of hash lines nobody reads
+# line by line. `src/backend/tests/unit/guards/test_docs_requirements_source_bounds.py`
+# holds it.
+#
+# The ceilings added in #1601 are the CURRENTLY RESOLVED major of each package,
+# so they describe the set already installed rather than moving it: recompiling
+# after adding them left docs/requirements.txt byte-identical (measured
+# 2026-09-20). Raising one is a reviewed decision, which is the whole point.
+# The floors are left exactly as they were — this change adds ceilings, it does
+# not re-resolve anything. Two of them are therefore far below what resolves
+# today (mkdocstrings >=0.24.0 resolves to 1.0.6, pymdown-extensions >=10.5 to
+# 12.0.1); raising a floor changes nothing about what uv picks (it always picks
+# the newest allowed) and would have made this a version bump in disguise.
 
 mkdocs>=1.6,<2.0
 mkdocs-material>=9.7,<10.0
-mkdocs-static-i18n>=1.2.0
-mkdocstrings[python]>=0.24.0
-mkdocs-git-revision-date-localized-plugin>=1.2.0
-mkdocs-awesome-pages-plugin>=2.9.0
-mkdocs-minify-plugin>=0.7.0
-mkdocs-redirects>=1.2.0
-pymdown-extensions>=10.5
-mike>=2.0.0
+mkdocs-static-i18n>=1.2.0,<2.0.0  # resolves to 1.3.1
+mkdocstrings[python]>=0.24.0,<2.0.0  # resolves to 1.0.6
+mkdocs-git-revision-date-localized-plugin>=1.2.0,<2.0.0  # resolves to 1.6.0
+mkdocs-awesome-pages-plugin>=2.9.0,<3.0.0  # resolves to 2.10.1
+mkdocs-minify-plugin>=0.7.0,<1.0.0  # resolves to 0.8.0
+mkdocs-redirects>=1.2.0,<2.0.0  # resolves to 1.2.3
+pymdown-extensions>=10.5,<13.0.0  # resolves to 12.0.1
+mike>=2.0.0,<3.0.0  # resolves to 2.2.0
 mkdocs-literate-nav>=0.6,<1.0
 pyyaml>=6.0,<7.0
