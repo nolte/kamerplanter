@@ -1,0 +1,162 @@
+name: Docs Requirements
+
+# THE PRE-MERGE CONSUMER OF `docs/requirements.txt` (#1571).
+#
+# Before this file, `grep -rn 'docs/requirements.txt' .github/workflows/` found
+# exactly ONE consumer: `release-cd-deliver-docs.yml:14`, and that workflow
+# triggers on `release: published`. Nothing installed the file on a pull
+# request. That was survivable while the file held ranges — a bad range is a
+# resolution problem — and stopped being survivable in #1509, which compiled it
+# with `--generate-hashes`: pip switches into hash-checking mode as soon as ONE
+# `--hash=` is present and then rejects the WHOLE file on any inconsistency, be
+# it an orphaned hash, a missing transitive entry or a hand edit. The first
+# place that showed up was the delivery lane, which runs AFTER the release is
+# published. This lane moves that verdict to where it can still be fixed.
+#
+# THE SECOND GAP IT CLOSES. Every uv tree in this repository has
+# `uv sync --locked` inside an image build holding the lock against its source.
+# The `docs/requirements.in` / `docs/requirements.txt` pair had no equivalent —
+# no `uv pip compile` check, no pre-commit hook, no guard test — so editing the
+# `.in` without running `task docs:lock` was invisible until the next release.
+# The `Lock drift` step below is that clamp, in the shape the uv trees already
+# use: recompile, compare, red on difference.
+#
+# ADVISORY, AND IT MUST STAY ADVISORY WHILE IT IS PATH-FILTERED.
+# `develop` requires `static / Static CI Tests` and `lint-test-build (22)` and
+# nothing else. This lane is NOT to be promoted to a required context as long as
+# it carries a `paths:` filter: a path-filtered required check never reports on
+# a change it filters out, and GitHub treats a check that never reports as
+# satisfied — the full argument is in `backend-guards.yml`, which had to become
+# its own unfiltered workflow for exactly that reason. Promoting this one would
+# mean dropping the filter first, and the filter is the point: the inputs are
+# four files that change a few times a quarter, so the job's cost is near zero
+# per pull request. Keeping it narrow is what makes it affordable at all under
+# `strict: true`, where every required check is re-paid once per merge.
+#
+# WHY THE ORDER OF THE TWO STEPS IS LOAD-BEARING. `Hashed install` runs FIRST,
+# against the file as committed. `Lock drift` rewrites `docs/requirements.txt`
+# in place (that is how `task docs:lock` works), so running it first would leave
+# the install testing a freshly recompiled file and the committed one unmeasured
+# — a lane that reports on content no consumer ever sees.
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      # The pair itself.
+      - 'docs/requirements.in'
+      - 'docs/requirements.txt'
+      # The invocation. `task docs:lock` and `task docs:venv` hold the compile
+      # flags (`--universal --python-version 3.11 --generate-hashes`) and the
+      # install command; a change to either moves what this lane measures, and a
+      # gate that does not watch its own definition is the #1296 shape.
+      - '.taskfiles/docs.yaml'
+      - 'Taskfile.yaml'
+      # The uv pin. `docs:lock` resolves `[tool.uv].required-version` from here
+      # to choose the compiler, so this file decides the bytes the drift step
+      # compares against. #1296 is literally this: `backend.yml` pinned its
+      # lock-compiling toolchain and watched every input except the pin.
+      - 'src/backend/pyproject.toml'
+      - '.github/workflows/docs-requirements.yml'
+  # Re-measurement without a pull request, e.g. after a uv bump.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-requirements-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  requirements:
+    name: Docs requirement list (install + drift)
+    runs-on: ubuntu-latest
+    # A resolve plus two installs. The default is 360 minutes, which on a hung
+    # index would hold a runner for six hours to report nothing;
+    # `backend-guards.yml` bounds itself at 10 for the same reason.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        # 3.14, matching the runner-side half of the release install: the
+        # compiled file is `--universal`, and `reusable-mkdocs.yaml` installs it
+        # once on the runner and once inside
+        # `squidfunk/mkdocs-material:9.0.6` (Alpine, CPython 3.11.0). This lane
+        # measures the runner half; the musllinux hashes the container half
+        # needs are in the same file and are covered by the drift step, which
+        # recompiles with `--python-version 3.11`.
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Setup Task
+        # Version pinned to the same value as `backend-guards.yml:248-251`.
+        # Without it the action resolves the newest Task release of the day, and
+        # this job's verdict depends on how Task resolves `vars: sh:`, `status:`
+        # and templates — the two halves of the same mechanism must not age
+        # apart.
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        # One pin, read from `[tool.uv].required-version` — `task docs:lock`
+        # re-reads the same field and runs `uvx --from 'uv==<that>'`, so this
+        # step only has to put a `uvx` on PATH.
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version-file: src/backend/pyproject.toml
+
+      - name: Hashed install
+        # The pre-merge consumer. `task docs:venv` is the repository's own
+        # install spelling (`pip install -r docs/requirements.txt` into an
+        # isolated venv) rather than a second one written here, so this step
+        # cannot drift away from what a developer and the release lane run.
+        # A missing or orphaned entry, or a package whose hashes ALL fail, makes
+        # pip refuse the whole file, which is what turns this step red.
+        #
+        # MEASURED, because the obvious counter-check is vacuous: altering ONE
+        # `--hash=` line of a package that lists several leaves the install
+        # GREEN — pip accepts a distribution if ANY listed hash matches. The
+        # first falsification run for #1571 did exactly that and exited 0.
+        # Zeroing BOTH of babel's hashes exits 1 with "THESE PACKAGES DO NOT
+        # MATCH THE HASHES FROM THE REQUIREMENTS FILE". What this step therefore
+        # catches is a wrong, stale or orphaned SET — which is the shape a
+        # hand edit and a half-applied Renovate artifact update both take.
+        #
+        # THE `rm -rf` AND THE POST-CONDITION ARE NOT TIDINESS. `docs:venv`
+        # carries `status: test -x .venv-docs/bin/mkdocs` and is skipped when
+        # that holds. Today it runs because the runner is fresh — which makes
+        # the step's non-vacuity a property of the ENVIRONMENT, not of the gate.
+        # A cache on `.venv-docs` added later would turn this into a silent
+        # no-op reporting success. The removal makes the install unconditional,
+        # and the post-condition measures that something was actually installed
+        # rather than trusting the exit code of a skipped task.
+        run: |
+          set -euo pipefail
+          rm -rf .venv-docs
+          task docs:venv
+          test -x .venv-docs/bin/mkdocs
+          .venv-docs/bin/mkdocs --version
+
+
+      - name: Lock drift
+        # The clamp between the `.in` and the `.txt`. `task docs:lock`
+        # recompiles in place; `uv pip compile` prefers the pins already in the
+        # output file, so an unrelated upstream release does not move it — only
+        # an edit to `docs/requirements.in` that was never compiled does.
+        # Verified byte-reproducible against the committed file on 2026-09-20
+        # (uv 0.12.15): recompiling reproduced all 43 kB unchanged.
+        run: |
+          set -euo pipefail
+          task docs:lock
+          if ! git diff --quiet -- docs/requirements.txt; then
+            echo "::error file=docs/requirements.txt::docs/requirements.txt is not the compilation of docs/requirements.in. Run 'task docs:lock' and commit the result."
+            git --no-pager diff -- docs/requirements.txt
+            exit 1
+          fi
+          echo "docs/requirements.txt matches docs/requirements.in."

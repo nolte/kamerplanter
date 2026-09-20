@@ -40,6 +40,13 @@ tasks:
 
       uv is pinned to [tool.uv].required-version of the backend, the same value
       every other lock in this repository is produced with.
+
+      WHAT CHECKS THIS BEFORE A RELEASE (#1571). `docs-requirements.yml` — a
+      path-filtered, ADVISORY pull-request lane — installs the compiled file
+      (`docs:venv`, hash-verified) and then re-runs this task and diffs the
+      result, so an edit to docs/requirements.in that was never compiled is red
+      on the pull request rather than in `release-cd-deliver-docs.yml`, which
+      triggers on `release: published` and was the only consumer before.
     vars:
       UV_SPEC:
         sh: python3 -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("src/backend/pyproject.toml").read_text())["tool"]["uv"]["required-version"])'
@@ -60,11 +67,21 @@ tasks:
       for every distribution (#1509), which puts pip into hash-checking mode by
       itself. Edit docs/requirements.in and run `task docs:lock` to change the
       set — editing the .txt by hand produces an install that refuses itself.
+
+      pip ITSELF IS BOUNDED (#1572). It used to be `--upgrade pip`, unbounded —
+      and it is the tool that then performs the hash verification, on every run
+      of the docs-requirements lane. Under NFR-009 §2.3.1 that install is class
+      (b) (runner-only, no delivered artefact), so it needs no hashes but it does
+      need a bound, and "it verifies the hashes" is the strongest possible reason
+      not to let it float. The ceiling is the current major; raising it is a
+      reviewed decision, which is the whole point of having one. Note the
+      consequence, so it is not a surprise: if a future venv ships a pip ABOVE
+      the ceiling, `--upgrade` with this range downgrades it.
     vars:
       DOCS_PYTHON: '{{.DOCS_PYTHON | default "python3"}}'
     cmds:
       - '{{.DOCS_PYTHON}} -m venv .venv-docs'
-      - .venv-docs/bin/pip install -q --upgrade pip
+      - .venv-docs/bin/pip install -q --upgrade 'pip>=25.0,<27.0'
       - .venv-docs/bin/pip install -q -r docs/requirements.txt
     status:
       - test -x .venv-docs/bin/mkdocs
