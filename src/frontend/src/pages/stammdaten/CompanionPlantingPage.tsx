@@ -105,11 +105,12 @@ export default function CompanionPlantingPage() {
   const [reason, setReason] = useState('');
 
   const relationsPending = selectedKey !== '' && selectedKey !== loadedKey;
-  const loading =
-    catalogLoading
-    || speciesCatalogue.status === 'loading'
-    || relationsLoading
-    || relationsPending;
+  // Two different questions, deliberately not one flag (#1560). The dropdown
+  // asks "are the *species* here yet" — answering it with the relations' state
+  // would show "loading" over a list that is already complete, for a request
+  // about the species the user just picked from it.
+  const catalogueLoading = catalogLoading || speciesCatalogue.status === 'loading';
+  const loading = catalogueLoading || relationsLoading || relationsPending;
 
   useEffect(() => {
     let cancelled = false;
@@ -190,12 +191,14 @@ export default function CompanionPlantingPage() {
         onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
         getOptionLabel={speciesOptionLabel}
         isOptionEqualToValue={(option, value) => option.key === value.key}
-        loading={loading}
+        loading={catalogueLoading}
         // "Keine Art gefunden" is a false statement while the catalogue request
         // is still in flight — and indistinguishable, to a user and to a test,
         // from a genuinely empty catalogue.
         noOptionsText={
-          loading ? t('common.loading') : t('pages.companionPlanting.noSpeciesFound')
+          catalogueLoading
+            ? t('common.loading')
+            : t('pages.companionPlanting.noSpeciesFound')
         }
         sx={{ maxWidth: 480, mb: 1 }}
         renderOption={({ key: optionKey, ...optionProps }, option) => {

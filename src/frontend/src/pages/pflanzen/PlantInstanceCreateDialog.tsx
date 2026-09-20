@@ -234,17 +234,12 @@ export default function PlantInstanceCreateDialog({
   }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom]);
 
   // The instance-id prefix for a preselected species used to be derived inside
-  // the species request's `.then`. With the catalogue shared it arrives on its
-  // own schedule, so the derivation keys off the loaded rows instead — same
-  // condition, same result, and idempotent if the rows change.
-  useEffect(() => {
-    if (!open || !effectiveSpeciesKey) return;
-    const species = speciesCatalogue.items.find((s) => s.key === effectiveSpeciesKey);
-    if (species) {
-      setValue('instance_id', generateInstanceId(species.scientific_name));
-    }
-  }, [open, effectiveSpeciesKey, speciesCatalogue.items, setValue]);
-
+  // the species request's `.then`. It is not derived here at all now: the effect
+  // below already keys off `speciesKey` — which `reset()` has just set to the
+  // preselected species — and off the loaded rows, so it fires exactly once the
+  // catalogue arrives. It also carries the `PLANT-` guard the inline version
+  // lacked, so a prefix the user typed over is no longer overwritten when the
+  // rows change. Adding a second effect for the same field would have raced it.
   useEffect(() => {
     if (speciesKey) {
       const currentId = getValues('instance_id');
