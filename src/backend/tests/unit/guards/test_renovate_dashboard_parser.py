@@ -103,6 +103,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -886,7 +887,6 @@ class TestEveryImagePinIsReadBySomeManager:
         was there, so this changes which manager reads the pin and nothing
         about which image runs.
         """
-        digest = "sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2"
         for workflow, uses in (
             (".github/workflows/security-zap-postmerge.yml", 2),
             (".github/workflows/security-zap-nightly.yml", 1),
@@ -896,11 +896,16 @@ class TestEveryImagePinIsReadBySomeManager:
             assert "# renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy\n      ZAP_IMAGE: " in text, (
                 f"{workflow} no longer carries the marker the regex manager matches on"
             )
-            assert f"ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@{digest}" in text, (
-                f"{workflow} no longer pins the measured digest under its measured tag"
+            # The FORM, not the value. Pinning the literal digest here made this
+            # guard reject the very ageing the pin was made readable for (#1563):
+            # the first Renovate bump (20260629-stable -> 20260807-stable) turned
+            # it red, so the guard blocked the update it exists to enable. That is
+            # `defect-class-guards` G3 — enumerate the class, do not check the site.
+            assert re.search(r"ZAP_IMAGE: ghcr\.io/zaproxy/zaproxy:\S+@sha256:[0-9a-f]{64}\n", text), (
+                f"{workflow} no longer pins the image as tag@digest under the marker"
             )
             assert text.count('"$ZAP_IMAGE" \\\n') == uses, f"{workflow} does not run {uses} scan(s) off the pin"
-            assert f"ghcr.io/zaproxy/zaproxy@{digest}" not in text, (
+            assert "ghcr.io/zaproxy/zaproxy@sha256:" not in text, (
                 f"{workflow} has a bare digest back in a run: block, which no manager reads"
             )
 
