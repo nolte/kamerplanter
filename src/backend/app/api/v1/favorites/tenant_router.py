@@ -81,6 +81,19 @@ def get_matching_nutrient_plans(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FavoritesService = Depends(get_favorites_service),
 ):
-    """List favorited nutrient plans matching the supplied species keys."""
+    """List the template nutrient plans visible to the active tenant.
+
+    The previous wording ("favorited nutrient plans matching the supplied
+    species keys") described none of the three things the endpoint does: the
+    rows are not favourites, they were never species-matched, and until #1561
+    they were not tenant-scoped either — ``ctx.tenant_key`` was simply not passed
+    on, so the service's predicate had nothing to filter with and every tenant's
+    template plans were served to every caller.
+
+    ``species_keys`` stays in the contract because the wizard's step is defined
+    by the selection, but it filters nothing today: no species↔plan relation
+    exists in the data model. See
+    :meth:`FavoritesService.get_matching_nutrient_plans` for the measurement.
+    """
     keys = [k.strip() for k in species_keys.split(",") if k.strip()]
-    return service.get_matching_nutrient_plans(keys)
+    return service.get_matching_nutrient_plans(keys, tenant_key=ctx.tenant_key)
