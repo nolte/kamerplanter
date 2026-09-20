@@ -73,6 +73,13 @@ dev = [
     # `uv sync --locked --extra dev` that CI, `task deps:sync` and the dev image
     # already run installs it, with no second selector to keep in step.
     "debugpy>=1.8.0,<2.0.0",
+    # `tests/unit/guards/test_pre_commit_dependency_bounds.py` parses PEP 440
+    # requirement specifiers with it (#1572). It was already in the lock, but
+    # only TRANSITIVELY through pytest — an undeclared import whose presence is a
+    # property of somebody else's dependency tree. A pytest that stopped
+    # depending on it would break a guard that has nothing to do with pytest.
+    # Declared here so the tree that imports it is the tree that asks for it.
+    "packaging>=24.0,<27.0",
 ]
 
 [tool.ruff]

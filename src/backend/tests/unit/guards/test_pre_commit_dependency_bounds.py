@@ -27,7 +27,10 @@ documented scope — so an open upper bound here is an unreviewed major upgrade
 applied to every contributor and to the required gate at once, with no manager
 watching and no lock to fall back on. Measured at HEAD before this file: of the
 twenty requirement strings across seventeen hooks, NINETEEN had a floor and no
-ceiling — every one but ``selenium>=4.25.0,<5``.
+ceiling — every one but ``selenium>=4.25.0,<5``. Those numbers are a dated
+MEASUREMENT, not the rule: the rule is "every entry the file carries", and the
+guard enumerates rather than counts, so an eighteenth hook is covered without
+anybody editing a sentence.
 
 **Why it enumerates instead of listing.** #1572's own text names ONE entry, the
 ``e2e-selftest`` hook. Measured against the file, there are **seventeen**
@@ -59,9 +62,11 @@ only as complete as the spelling it matches:
   sweep in this repository reads it. It is inventory, not a finding: that tree
   ships nothing and is already ``check_renovate_dashboard``'s argued exception;
 * ``pip install`` inside a workflow ``run:`` block — six sites, all ``==``-pinned
-  runner tools. Class (b) and already satisfied, so inventory, not a finding.
-  A NEW unpinned one would get past every sweep in this repository, including
-  this one. Named, not fixed (#1572 scope).
+  runner tools. Class (b) and already satisfied, so inventory, not a finding
+  TODAY. A NEW unpinned one would get past every sweep in this repository,
+  including this one, which leaves one half of class (b) enforced and the other
+  half only described — the asymmetry that let the entries this file now guards
+  drift for years. Tracked as **#1602**, deliberately out of #1572's scope.
 
 Traces to #1572 (no TC-ID: a dependency gate is not a user-facing case).
 """
@@ -117,7 +122,10 @@ class Binding:
     why: str
 
 
-#: The seventeen entries, each decided individually (#1572). Per package:
+#: One binding per ``additional_dependencies`` requirement in the file —
+#: seventeen hooks / twenty strings when this was written, and the enumeration
+#: above is what keeps that true rather than this comment. Each was decided
+#: individually (#1572). Per package:
 #:
 #: * ``ruff`` — floor 0.15.0 kept (the hooks need a ruff that understands the
 #:   current ``ruff.toml``; that is TIGHTER than the tree and allowed), ceiling
@@ -139,12 +147,19 @@ class Binding:
 #:   ``tests/e2e/pyproject.toml`` declares, upper bound included, with the reason
 #:   for ``<5`` written out there (the suite reads Selenium internals). Left
 #:   untouched: it is the one entry that was correct before this issue;
-#: * ``pytest`` — the E2E tree declares it WITHOUT a ceiling, so this is the one
-#:   binding that is deliberately tighter than its source. ``<10.0.0`` is the
+#: * ``pytest`` — the E2E tree declares it WITHOUT a ceiling, so this binding is
+#:   deliberately tighter than its source. ``<10.0.0`` is the
 #:   backend's ceiling for the same package, and the hook is a pytest RUN
 #:   (``python -m pytest tests/e2e_selftest``) inside the required lane: a major
 #:   pytest arriving unannounced breaks the gate for everyone at once. Tighter
 #:   than the source is a subset, so the clamp below still holds.
+#:
+#: FIVE bindings are tighter than their declaring tree, not one: ``pytest``
+#: above, and the four ``mypy`` bindings, whose library and service trees all
+#: declare a bare ``mypy>=1.13.0``. Tighter is a subset and therefore passes the
+#: clamp by design — it is recorded here because this file is the document that
+#: carries the boundary, and a document that miscounts its own exceptions is the
+#: thing that gets believed later.
 #:
 #: No entry was found to be deliberately open. Every ``additional_dependencies``
 #: line was read together with the comment block above its hook; none records an
@@ -532,10 +547,17 @@ class TestTheClampReachesARealDeclaration:
 class TestLooseningAnEntryIsRed:
     """The permanent falsifier (#1572's "red-first" acceptance condition).
 
-    Each case mutates a COPY of the real, checked-in document — not a
-    hand-written fixture — and asserts the SAME function the production
+    The first two cases mutate a COPY of the real, checked-in document — not a
+    hand-written fixture — and assert that the SAME function the production
     assertions above call reports the mutation. A falsification test that checks
     a neighbouring expression is green while the rule is inert.
+
+    The last two construct an ``Entry``/``Binding`` pair by hand, because the
+    condition they falsify — a binding that escapes or cannot read its declaring
+    tree — cannot be produced by editing ``.pre-commit-config.yaml`` alone; it
+    needs a binding pointing somewhere else. They are still not fixtures in the
+    dangerous sense: they call the real production function against the real
+    checkout, so the pyproject files they clamp against are the ones on disk.
     """
 
     @staticmethod

@@ -72,6 +72,10 @@ jobs:
   requirements:
     name: Docs requirement list (install + drift)
     runs-on: ubuntu-latest
+    # A resolve plus two installs. The default is 360 minutes, which on a hung
+    # index would hold a runner for six hours to report nothing;
+    # `backend-guards.yml` bounds itself at 10 for the same reason.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -89,8 +93,14 @@ jobs:
           allow-prereleases: true
 
       - name: Setup Task
+        # Version pinned to the same value as `backend-guards.yml:248-251`.
+        # Without it the action resolves the newest Task release of the day, and
+        # this job's verdict depends on how Task resolves `vars: sh:`, `status:`
+        # and templates — the two halves of the same mechanism must not age
+        # apart.
         uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
+          version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
@@ -117,7 +127,22 @@ jobs:
         # MATCH THE HASHES FROM THE REQUIREMENTS FILE". What this step therefore
         # catches is a wrong, stale or orphaned SET — which is the shape a
         # hand edit and a half-applied Renovate artifact update both take.
-        run: task docs:venv
+        #
+        # THE `rm -rf` AND THE POST-CONDITION ARE NOT TIDINESS. `docs:venv`
+        # carries `status: test -x .venv-docs/bin/mkdocs` and is skipped when
+        # that holds. Today it runs because the runner is fresh — which makes
+        # the step's non-vacuity a property of the ENVIRONMENT, not of the gate.
+        # A cache on `.venv-docs` added later would turn this into a silent
+        # no-op reporting success. The removal makes the install unconditional,
+        # and the post-condition measures that something was actually installed
+        # rather than trusting the exit code of a skipped task.
+        run: |
+          set -euo pipefail
+          rm -rf .venv-docs
+          task docs:venv
+          test -x .venv-docs/bin/mkdocs
+          .venv-docs/bin/mkdocs --version
+
 
       - name: Lock drift
         # The clamp between the `.in` and the `.txt`. `task docs:lock`
