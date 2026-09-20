@@ -165,8 +165,8 @@ watered_plant        WateringEvent ──→ PlantInstance
 
 ```
 belongs_to_tenant    <any resource> ──→ Tenant
-has_membership       Tenant ──→ Membership
-membership_in        Membership ──→ User
+has_membership       User ──→ Membership
+membership_in        Membership ──→ Tenant
 ```
 
 ### Graph Query Examples
