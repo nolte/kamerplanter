@@ -398,6 +398,44 @@ repos:
         files: ^(src/backend/app/api/.*\.py|scripts/check_tenant_body_field\.py)$
         pass_filenames: false
 
+  # ── Plant-scoped route tenant verification (#1619) ─────────────────────
+  # Five tenant-scoped IPM reads took `plant_key` from the path and handed it
+  # to a by-key lookup; three of them did not read `ctx` at all. A member of one
+  # tenant read another's active substance, treatment name, Karenz window and
+  # inspection notes with an HTTP 200. The WRITE routes beside them were already
+  # correct (they verify the plant at the repository, #517) — that asymmetry is
+  # what made the read half invisible in review.
+  #
+  # So the hook does not check those five routes. It enumerates the CLASS: every
+  # route whose URL carries a NON-TERMINAL path parameter naming a tenant-ownable
+  # entity must reach it through a call that also carries a tenant argument, or
+  # sit behind an ownership dependency, or carry a `# tenant-scope-ok: <reason>`
+  # marker. "Tenant-ownable" is derived from OWNERSHIP_VERIFIABLE_COLLECTIONS —
+  # the same allowlist verify_entity_ownership gates on — so a new tenant-owned
+  # entity puts every route taking its key in class automatically.
+  #
+  # Both positive branches are read off the AST, where comments do not exist: a
+  # handler whose only mention of the tenant is `# scoped via ctx.tenant_key` is
+  # as red as one with no comment at all. That is the vacuum trap PR #1545,
+  # #1608 and #1610 each walked into, and it is asserted from
+  # src/backend/tests/unit/test_plant_scoped_route_tenant_check.py rather than
+  # claimed here.
+  #
+  # Measured on the tree: 46 in-class sites — 6 covered by a router dependency,
+  # 20 passing an explicit tenant kwarg, 16 passing it positionally or nested
+  # (the residue the static read cannot follow into the callee), 4 marker-exempt.
+  #
+  # stdlib only, no application import; always_run because DELETING a scoped
+  # call moves the answer exactly as much as adding an unscoped route.
+  - repo: local
+    hooks:
+      - id: plant-scoped-route-tenant
+        name: a route's parent key is verified against the caller's tenant (#1619)
+        entry: python3 scripts/check_plant_scoped_route_tenant.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── API → data-access layer boundary (P1.3) ────────────────────────────
   # Refuses a NEW `app.data_access` import under src/backend/app/api. NFR-001's
   # layer order says a router reaches persistence through a service; when it
