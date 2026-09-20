@@ -216,7 +216,13 @@ _BINDINGS: tuple[Binding, ...] = (
         hook="workflow-documented-invocation",
         requirement="PyYAML>=6.0,<7.0.0",
         declared_in=_BACKEND,
-        why="scripts/check_workflow_documented_invocation.py parses workflow YAML to read `on.workflow_dispatch.inputs`; like its sibling above it has no tree of its own, and the backend is the only tree in this repository that declares pyyaml (the knowledge-service declares `pyyaml>=6.0` with no ceiling, so it cannot bound anything)",
+        why=(
+            "scripts/check_workflow_documented_invocation.py parses workflow YAML to "
+            "read `on.workflow_dispatch.inputs`; like its sibling above it has no tree "
+            "of its own, and the backend is the only tree here that declares pyyaml "
+            "WITH a ceiling — the knowledge-service declares `pyyaml>=6.0` open-ended, "
+            "so it could not bound anything"
+        ),
     ),
     Binding(
         hook="attest-registry-credentials",
