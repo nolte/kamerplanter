@@ -9,3 +9,5 @@ dist
 build
 .env
 .env.local
+
+# scratch: counter-proof for #1577 — a backend-only diff must still run the smoke suite.
