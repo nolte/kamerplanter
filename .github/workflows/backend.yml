@@ -275,8 +275,36 @@ jobs:
         # carries the full tier map.
         run: task test:backend:api
 
-  lock-staleness:
-    name: Lock staleness
+  dependency-gates:
+    name: Lock, CVE and licence gates
+    # ONE JOB, THREE GATES — `lock-staleness`, `pip-audit` and `pip-licenses`
+    # until #1583.
+    #
+    # WHY. Measured 2026-09-19 over the last 300 pull-request runs: the three
+    # ran 18 s, 37 s and 12 s and each waited a MEDIAN OF 21–23 MINUTES for a
+    # runner slot. The concurrent-job allotment is account-wide across every
+    # repository of the account, so a *job* — not a CPU-second — is what is
+    # scarce here: 66 % of this repository's jobs finish under a minute and
+    # carry 7 % of its total job-seconds. Three jobs also paid the identical
+    # checkout + Python + uv preamble three times, and `uv sync --locked` twice.
+    #
+    # THE TRADE, STATED: what ran in parallel now runs in sequence, so the wall
+    # clock of the work itself goes from max(18, 37, 12) to their sum. That is a
+    # bad trade on an idle pool and an overwhelming win at a 21-minute queue. If
+    # the pool ever stops being the constraint, re-measure — do not re-split by
+    # reflex.
+    #
+    # WHY THESE THREE AND NOT THE ADVISORY LANES: all three are gates that are
+    # GREEN when the repository is healthy. A permanently-red lane must never be
+    # merged into a gate — it would carry its red into the gate's verdict and
+    # destroy the signal. `frontend.yml`'s `deadcode` is exactly that case and
+    # is deliberately left standing alone.
+    #
+    # Every step carries `if: ${{ !cancelled() }}`: a failing gate must not hide
+    # the two behind it, which is the one thing three separate jobs did give.
+    # The step names keep the old check names so `NFR-009` §4.1/§4.3 and
+    # `project/requirements/renovate-config-rework.md` R1/R7 still name
+    # something that exists.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -303,7 +331,8 @@ jobs:
           version-file: src/backend/pyproject.toml
           enable-cache: true
           cache-dependency-glob: src/backend/uv.lock
-      - name: Check the lock against pyproject.toml
+      - name: Lock staleness — check the lock against pyproject.toml
+        if: ${{ !cancelled() }}
         # `task deps:check` is the first half of this gate: `uv lock --check`
         # fails when src/backend/uv.lock does not satisfy pyproject.toml,
         # without touching the file. The Taskfile is the only copy of the
@@ -319,7 +348,8 @@ jobs:
             echo "::error::src/backend/uv.lock is stale. Run 'task deps:compile' and commit the result." >&2
             exit 1
           fi
-      - name: Verify every artifact hash the lock records
+      - name: Lock staleness — verify every artifact hash the lock records
+        if: ${{ !cancelled() }}
         # The second half. `uv lock --check` compares the lock against
         # pyproject.toml and nothing else — measured with uv 0.12.12: a lock
         # with every hash line altered still passes it. The old gate diffed a
@@ -329,7 +359,8 @@ jobs:
         # image ships, and `--locked` refuses to re-resolve.
         run: uv sync --locked --no-install-project
 
-      - name: Falsify the hash claim this job just made
+      - name: Lock staleness — falsify the hash claim this job just made
+        if: ${{ !cancelled() }}
         # The step above verifies THIS lock. It cannot tell you whether the
         # verification works at all — a `uv sync` that stopped checking hashes
         # would keep exiting 0 here forever, and the first hash-tamper test
@@ -360,34 +391,15 @@ jobs:
         # (`task deps:verify`) cannot drift apart.
         run: task deps:verify
 
-  pip-audit:
-    name: Dependency CVE audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-          allow-prereleases: true
-
-      - name: Install uv
-        # One pin, read from `[tool.uv].required-version` — see the long note on
-        # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          version-file: src/backend/pyproject.toml
-          enable-cache: true
-          cache-dependency-glob: src/backend/uv.lock
-
-      - name: Install pip-audit
+      - name: Dependency CVE audit — install pip-audit
+        if: ${{ !cancelled() }}
         # Pinned. An unpinned scanner is a floating input: the same commit can
         # pass today and fail tomorrow because the tool changed, which makes a
         # red run unattributable (continuous-integration §C). uv is pinned the
         # same way, one step above, via the version file.
         run: python -m pip install 'pip-audit==2.10.1'
-      - name: Export the locks in the format pip-audit reads
+      - name: Dependency CVE audit — export the locks in the format pip-audit reads
+        if: ${{ !cancelled() }}
         # pip-audit has no uv.lock reader, so the lock is exported — versions and
         # hashes verbatim, the project itself omitted — into requirements files
         # that exist only for the length of this job. `--locked` refuses to
@@ -396,7 +408,8 @@ jobs:
           uv export --locked --no-emit-project --format requirements.txt -o /tmp/requirements.txt
           uv export --locked --no-emit-project --extra dev --format requirements.txt -o /tmp/requirements-dev.txt
 
-      - name: Audit pinned dependencies for known CVEs
+      - name: Dependency CVE audit — audit pinned dependencies for known CVEs
+        if: ${{ !cancelled() }}
         # Audits the exact committed lock that ships (NFR-009 §4.1). Runs on every
         # PR, every push to develop, and weekly via the schedule trigger above.
         # --strict fails (instead of silently skipping) if any package cannot be
@@ -405,38 +418,20 @@ jobs:
         # from PyPI, so the audit matches what the image ships. PR-blocking.
         run: pip-audit --strict --desc --no-deps --requirement /tmp/requirements.txt
 
-      - name: Audit dev-tool dependencies for known CVEs (weekly)
+      - name: Dependency CVE audit — audit dev-tool dependencies for known CVEs (weekly)
+        # `!cancelled()` composed with the step's own schedule gate — two `if:`
+        # keys on one step is a duplicate mapping key, not two conditions.
+        if: ${{ !cancelled() && github.event_name == 'schedule' }}
         # Dev tooling (pytest/mypy/moto/black/ruff and their transitive deps) is
         # never shipped but should still be scanned. This runs only on the weekly
         # schedule, so it never blocks a PR merge while still surfacing dev-tool
         # CVEs on the nightly/weekly signal (NFR-009 §4.1). No continue-on-error:
         # a scheduled run is not a PR check, so a real finding fails the scheduled
         # workflow (visible) without gating any pull request.
-        if: github.event_name == 'schedule'
         run: pip-audit --strict --desc --no-deps --requirement /tmp/requirements-dev.txt
 
-  pip-licenses:
-    name: License allowlist gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-          allow-prereleases: true
-
-      - name: Install uv
-        # One pin, read from `[tool.uv].required-version` — see the long note on
-        # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          version-file: src/backend/pyproject.toml
-          enable-cache: true
-          cache-dependency-glob: src/backend/uv.lock
-
-      - name: Install dependencies and pip-licenses
+      - name: License allowlist gate — install dependencies and pip-licenses
+        if: ${{ !cancelled() }}
         # The license scanner reads installed package metadata, so the pinned set
         # must be installed first (NFR-009 §4.3).
         run: |
@@ -444,7 +439,8 @@ jobs:
           uv pip install 'pip-licenses==5.5.5'
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Enforce license allowlist
+      - name: License allowlist gate — enforce license allowlist
+        if: ${{ !cancelled() }}
         # Fail the build on any dependency whose license is outside the allowlist
         # (NFR-009 §4.3). The allowlist enumerates the license strings actually
         # present in the current lock — all permissive or weak-copyleft (LGPL/MPL),
