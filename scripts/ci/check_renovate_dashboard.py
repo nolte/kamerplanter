@@ -101,14 +101,21 @@ WHAT IT CHECKS
    upper-case ``FROM`` inside a shell string and the continued ``copy --from=``
    are covered too — they are the same defect in a different language.
 
-6. **Every workflow image pin is read by some manager** (#1563), read from
-   disk. The mirror image of point 5, one layer out: not a phantom Renovate
-   reports, but a real dependency it never sees. Three ``docker run`` steps
-   pinned the ZAP scanner by bare digest and two more pinned
-   ``curlimages/curl`` with a tag and a digest; ``grep -c zaproxy`` over a full
-   debug dry-run was 0 for all of them. :func:`unmanaged_workflow_images`
-   measures the property that matters — whether a manager reads the line —
-   rather than the issue's symptom, the missing tag.
+6. **Every image pin is read by some manager** (#1563), read from disk. The
+   mirror image of point 5, one layer out: not a phantom Renovate reports, but
+   a real dependency it never sees. Three ``docker run`` steps pinned the ZAP
+   scanner by bare digest and two more pinned ``curlimages/curl`` with a tag
+   and a digest; ``grep -c zaproxy`` over a full debug dry-run was 0 for all of
+   them. :func:`unmanaged_image_pins` decides "is this read" by running the
+   custom manager's OWN ``matchStrings`` — taken from ``renovate.json5``, not
+   restated — over the file, because a marker-presence check would have passed
+   three spellings the manager rejects, one of them #1563's own defect with a
+   marker added.
+
+   The corpus is every file a pin can hide in, not only the ones the issue
+   named: ``.github/workflows/``, ``.github/actions/**/action.yml`` (which no
+   manager reads at all) and ``.taskfiles/`` plus ``Taskfile.yaml``, which the
+   custom manager's ``managerFilePatterns`` explicitly cover.
 
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
@@ -594,7 +601,17 @@ _DOCKERFILE_IMAGE_INSTRUCTION = re.compile(r"^(?:from\b|copy\s+--from=)", re.IGN
 #: A heredoc opener in a ``RUN`` instruction — ``<<EOF``, ``<<-'PY'``,
 #: ``<<"SH"``. The body that follows is shell input, not Dockerfile syntax, and
 #: Renovate reads it as Dockerfile syntax anyway.
-_HEREDOC_OPENER = re.compile(r"""<<(?!<)-?\s*["']?(?P<terminator>[A-Za-z_][A-Za-z0-9_]*)["']?""")
+#:
+#: THE BOUNDARIES ARE PART OF THE PATTERN, because a false opener is the worse
+#: failure: it arms a terminator that never arrives, swallows the rest of the
+#: file and turns every real ``FROM`` after it into a finding. So the ``<<``
+#: must follow whitespace (``RUN echo "a<<b"`` is a string, not a heredoc —
+#: the case a test made, S4 of the #1563 review) and the word must end the
+#: token (``<<<`` is a herestring). ``'PY'`` and ``"SH"`` are quoted forms of
+#: the same word.
+_HEREDOC_OPENER = re.compile(
+    r"""(?<=\s)<<-?\s*(?:'(?P<quoted>[A-Za-z_]\w*)'|"(?P<double>[A-Za-z_]\w*)"|(?P<plain>[A-Za-z_]\w*))(?=\s|$)"""
+)
 
 
 def dockerfile_phantom_stage_lines(repo_root: Path) -> list[str]:
@@ -635,7 +652,18 @@ def dockerfile_phantom_stage_lines(repo_root: Path) -> list[str]:
     ``copy --from=phantom_e /a /b``                   yes
     ``# from phantom_f import q`` (comment)           no
     ``import phantom_g; phantom_g.run()``             no
+    ``from phantom_h …`` after a COMMENT LINE         yes
+    inside the continuation
     ===============================================  =========
+
+    Spelling (h) was found by the review of this guard and measured afterwards,
+    because the first version of the sweep let a comment line END a
+    continuation and would have called such a block clean. Renovate's
+    ``lineContinuationRegex`` is ``\\[ \\t]*$|^[ \\t]*#`` — a comment line
+    CONTINUES the instruction — and a probe against 44.103.2 extracted both
+    ``phantom_h`` (comment between two continued lines) and ``phantom_i``
+    (comment before the final line). Docker itself strips such comments before
+    assembling the instruction, so the spelling is valid and invisible at once.
 
     So the rule is positional, not lexical: ANY line that is not the start of a
     real instruction — because a continuation or a heredoc body precedes it —
@@ -664,7 +692,8 @@ def dockerfile_phantom_stage_lines(repo_root: Path) -> list[str]:
             comment = stripped.startswith("#")
             if heredoc_terminator is not None:
                 # Inside a heredoc body: everything is shell input, and the only
-                # line that ends it is the terminator on its own.
+                # line that ends it is the terminator on its own. A `#` line is
+                # shell input too, but Renovate skips it, so the sweep does.
                 if not comment and _DOCKERFILE_IMAGE_INSTRUCTION.match(stripped):
                     found.append(f"{relative.as_posix()}:{number}")
                 if stripped == heredoc_terminator:
@@ -672,7 +701,18 @@ def dockerfile_phantom_stage_lines(repo_root: Path) -> list[str]:
                 continue
             if continued and not comment and _DOCKERFILE_IMAGE_INSTRUCTION.match(stripped):
                 found.append(f"{relative.as_posix()}:{number}")
-            instruction_start = not continued and not comment and stripped
+            if comment:
+                # A COMMENT NEITHER STARTS NOR ENDS AN INSTRUCTION, and that is
+                # measured, not tidiness. Renovate's `lineContinuationRegex` is
+                # `\\[ \\t]*$|^[ \\t]*#`, so a comment line KEEPS a continued
+                # instruction open; a probe against 44.103.2 confirmed both a
+                # comment between two continued lines and a comment before the
+                # last one still yield the phantom (spelling (h) in the table).
+                # Leaving `continued` untouched — rather than setting it True —
+                # is what keeps a real `FROM` under a section comment out of the
+                # findings, which is how every Dockerfile here is written.
+                continue
+            instruction_start = not continued and bool(stripped)
             if instruction_start:
                 instruction = stripped.split(None, 1)[0].upper()
             # A heredoc is a RUN/COPY feature; reading `<<` on any other line
@@ -680,32 +720,144 @@ def dockerfile_phantom_stage_lines(repo_root: Path) -> list[str]:
             # file and turn real `FROM` lines into findings.
             opener = (
                 _HEREDOC_OPENER.search(line)
-                if not comment and (continued or instruction_start) and instruction in {"RUN", "COPY"}
+                if (continued or instruction_start) and instruction in {"RUN", "COPY"}
                 else None
             )
-            continued = not comment and line.rstrip().endswith("\\")
+            continued = line.rstrip().endswith("\\")
             if opener is not None:
-                heredoc_terminator = opener.group("terminator")
+                heredoc_terminator = opener.group("quoted") or opener.group("double") or opener.group("plain")
     return sorted(found)
 
 
 #: A digest-pinned image reference, the only image shape this sweep can read
 #: without guessing. ``foo:bar`` in a shell line is not distinguishable from a
 #: host:port or a YAML mapping; ``@sha256:<64 hex>`` is.
-_WORKFLOW_IMAGE_DIGEST = re.compile(r"@sha256:[a-f0-9]{64}")
+_IMAGE_DIGEST = re.compile(r"@sha256:[a-f0-9]{64}")
 
 #: The two spellings a Renovate manager already reads without help: ``uses:``
 #: and ``container:``/``services:`` ``image:`` are the built-in github-actions
 #: manager's, measured on ``backend-guards.yml`` (``depName: arangodb,
 #: depType: service``).
-_MANAGED_BY_GITHUB_ACTIONS = re.compile(r"^-?\s*(?:uses|image):", re.IGNORECASE)
+#:
+#: CASE-SENSITIVE, and that is a correction a test made rather than a style
+#: choice: with ``re.IGNORECASE`` a Taskfile variable spelled ``IMAGE:`` read
+#: as GitHub's ``image:`` key and its unmarked pin came back covered. The
+#: workflow schema's keys are lower-case; an upper-case ``IMAGE:`` is an
+#: environment value, which is exactly the thing that needs a marker.
+_MANAGED_BY_GITHUB_ACTIONS = re.compile(r"^-?\s*(?:uses|image):")
 
-#: The marker the custom regex manager in renovate.json5 matches on (#898).
-_RENOVATE_MARKER = re.compile(r"#\s*renovate:\s*datasource=")
+#: A single-quoted JSON5 string literal, honouring ``\'``.
+_JSON5_LITERAL = re.compile(r"'(?P<body>(?:[^'\\]|\\.)*)'")
+
+#: Where the files this sweep reads live. Wider than the issue, and measured
+#: against renovate.json5's own ``managerFilePatterns`` (#1563 review, S3): the
+#: custom manager reads ``.taskfiles/*.yaml`` too, and a composite action is a
+#: ``run:`` block like any other. A pin outside a path the manager reads is a
+#: finding wherever it sits — that is the whole point of the check.
+_PIN_FILE_GLOBS = (
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml",
+    ".github/actions/*/action.yml",
+    ".github/actions/*/action.yaml",
+    ".taskfiles/*.yml",
+    ".taskfiles/*.yaml",
+    "Taskfile.yml",
+    "Taskfile.yaml",
+)
 
 
-def unmanaged_workflow_images(repo_root: Path) -> list[str]:
-    """Every workflow image pin no Renovate manager reads (#1563).
+def _strip_line_comments(text: str) -> str:
+    """Drop whole-line ``//`` comments from JSON5 text.
+
+    Same reader, and the same reason, as ``tests.support.renovate_config`` —
+    which this script cannot import, being a standalone entry point outside the
+    backend package. The duplication is deliberate and BOUNDED BY A TEST rather
+    than by trust: ``TestTheManagerPatternIsTheRealOne`` asserts that the
+    pattern extracted here is literally the one in renovate.json5, so the two
+    readers cannot drift into disagreeing about what the manager matches.
+
+    Only whole-line comments go: a ``//`` inside a string (every
+    ``managerFilePatterns`` regex begins with ``/``) has to survive.
+    """
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
+
+
+def _array_value(text: str, key: str) -> str | None:
+    """The ``[...]`` value of *key*, by bracket matching rather than by slicing."""
+    start = text.find(f"{key}:")
+    if start == -1:
+        return None
+    opening = text.find("[", start)
+    if opening == -1:
+        return None
+    depth = 0
+    for index in range(opening, len(text)):
+        if text[index] == "[":
+            depth += 1
+        elif text[index] == "]":
+            depth -= 1
+            if depth == 0:
+                return text[opening : index + 1]
+    return None
+
+
+def docker_pin_patterns(config_text: str) -> list[re.Pattern[str]]:
+    """The custom managers' OWN ``matchStrings`` for docker pins, compiled.
+
+    THIS IS THE CORRECTION THE #1563 REVIEW ASKED FOR (W1). The first version
+    of :func:`unmanaged_image_pins` looked for the PRESENCE of a
+    ``# renovate: datasource=`` marker in the comment block above a pin. That
+    is not what the manager does, and the gap was not theoretical: three
+    spellings would have satisfied the marker check while Renovate read
+    nothing — a comment line between the marker and the value (the manager's
+    ``\\s*\\n\\s*`` admits whitespace only), a lower-case key (it demands
+    ``[A-Z_]+``), and **a marker above a bare digest**, which is the #1563
+    defect itself with a comment added. A guard that cannot redden on the
+    defect it is named after is the most expensive shape in this class.
+
+    So the pattern is not re-stated here. It is read from ``renovate.json5``
+    and translated: JSON5 doubles its backslashes, and JavaScript spells a
+    named group ``(?<name>`` where Python spells it ``(?P<name>``.
+
+    Args:
+        config_text: The raw text of ``renovate.json5``.
+
+    Returns:
+        One compiled pattern per docker ``matchStrings`` entry.
+
+    Raises:
+        DashboardError: No docker custom manager was found. An empty pattern
+            list would make every pin below look covered by nothing and every
+            pin look unread — or, with the test corpus empty, make the whole
+            sweep vacuously green. Neither is a measurement.
+    """
+    section = config_text.find("customManagers:")
+    if section == -1:
+        raise DashboardError(
+            "renovate.json5 has no `customManagers:` key, so the pattern this sweep measures pins "
+            "against could not be read. Nothing was measured — see NFR-018 §2."
+        )
+    patterns: list[re.Pattern[str]] = []
+    for block in _strip_line_comments(config_text[section:]).split("customType:")[1:]:
+        if "datasourceTemplate: 'docker'" not in block:
+            continue
+        match_strings = _array_value(block, "matchStrings")
+        if match_strings is None:
+            continue
+        for literal in _JSON5_LITERAL.finditer(match_strings):
+            body = literal.group("body").replace("\\\\", "\\").replace("\\'", "'")
+            patterns.append(re.compile(body.replace("(?<", "(?P<"), re.MULTILINE))
+    if not patterns:
+        raise DashboardError(
+            "no docker `matchStrings` could be read out of renovate.json5's customManagers. The custom "
+            "manager that ages image pins in workflow `env:` values (#898) is how this sweep decides "
+            "whether a pin is read at all; without it the answer would be guessed."
+        )
+    return patterns
+
+
+def unmanaged_image_pins(repo_root: Path) -> list[str]:
+    """Every image pin no Renovate manager reads (#1563).
 
     THE DEFECT THIS MEASURES. Three steps ran the ZAP scanner as
     ``ghcr.io/zaproxy/zaproxy@sha256:8d387b1a…`` — a BARE DIGEST inside a
@@ -721,52 +873,74 @@ def unmanaged_workflow_images(repo_root: Path) -> list[str]:
     It lands on the DAST scanner, which makes it the #1177 class at its worst:
     ZAP ships new passive and active rules with every release, so a frozen
     image keeps the nightly full scan reporting green against an ageing rule
-    set, with no commit here to show for the change in meaning.
+    set, with no commit here to show for the change in meaning. After the
+    repair the same command reports the pin AND resolves a successor, which is
+    the property the issue actually asked for::
+
+        .github/workflows/security-zap-nightly.yml   deps=1 → ['ghcr.io/zaproxy/zaproxy']
+        .github/workflows/security-zap-postmerge.yml deps=2 → ['ghcr.io/zaproxy/zaproxy',
+                                                               'curlimages/curl']
+        ghcr.io/zaproxy/zaproxy 20260629-stable -> 20260807-stable
+        branchName: renovate/ghcr.io-zaproxy-zaproxy-20260807.x
 
     THE PREDICATE IS WIDER THAN THE ISSUE'S, and measured. #1563 described the
     defect as "a bare digest with no tag". The missing tag is not what hides
     the pin — the missing MARKER is. Two ``curlimages/curl:8.21.0@sha256:…``
     references in the same file carry a tag *and* a digest and were equally
     unread (``grep -c curlimages`` over the same log: 0). So the rule is "no
-    manager reads it", not "it has no tag".
+    manager reads it", not "it has no tag" — and "reads it" is decided by
+    running the manager's own pattern (:func:`docker_pin_patterns`) over the
+    file, not by looking for a marker the manager would still reject.
 
     WHAT THIS DOES NOT SEE, said rather than implied: an image referenced by
-    TAG ONLY inside a ``run:`` block. ``ubuntu:24.04`` in shell text is not
-    distinguishable from a host:port or a YAML key by any pattern that would
-    not also report half the file, so the sweep reads digest-pinned references
-    only. The repository has none of the other kind today (measured with
-    ``grep -nE '(docker|podman) +(run|pull)' .github/workflows/``, 2026-09-20);
-    a reviewer adding one is the case this docstring exists to name.
+    TAG ONLY. ``ubuntu:24.04`` in shell text is not distinguishable from a
+    host:port or a YAML key by any pattern that would not also report half the
+    file, so the sweep reads digest-pinned references only. The repository has
+    none of the other kind today — measured over every ``docker``/``podman``
+    ``run``/``pull`` line in the swept files, 2026-09-20 — and a reviewer
+    adding one is the case this paragraph exists to name.
 
     Args:
         repo_root: Checkout root to sweep.
 
     Returns:
         ``path:line`` for each unread pin, sorted.
+
+    Raises:
+        DashboardError: There are pins to judge but no manager pattern to judge
+            them with.
     """
-    workflows = repo_root / ".github" / "workflows"
+    candidates = sorted(
+        {path for glob in _PIN_FILE_GLOBS for path in repo_root.glob(glob) if path.is_file()},
+        key=lambda path: path.as_posix(),
+    )
+    config = repo_root / "renovate.json5"
+    patterns: list[re.Pattern[str]] | None = None
     found = []
-    for workflow in sorted(workflows.glob("*.y*ml")) if workflows.is_dir() else []:
-        lines = workflow.read_text(encoding="utf-8", errors="replace").splitlines()
-        relative = workflow.relative_to(repo_root).as_posix()
-        for index, line in enumerate(lines):
-            if not _WORKFLOW_IMAGE_DIGEST.search(line):
+    for candidate in candidates:
+        text = candidate.read_text(encoding="utf-8", errors="replace")
+        if not _IMAGE_DIGEST.search(text):
+            continue
+        if patterns is None:
+            if not config.is_file():
+                raise DashboardError(
+                    f"{candidate.relative_to(repo_root).as_posix()} carries a digest-pinned image, but "
+                    "there is no renovate.json5 to read the manager's own pattern from. Whether that pin "
+                    "is read by anything is undetermined, which is not the same as fine."
+                )
+            patterns = docker_pin_patterns(config.read_text(encoding="utf-8"))
+        covered = [span for pattern in patterns for span in (match.span() for match in pattern.finditer(text))]
+        relative = candidate.relative_to(repo_root).as_posix()
+        for match in _IMAGE_DIGEST.finditer(text):
+            line_start = text.rfind("\n", 0, match.start()) + 1
+            line_end = text.find("\n", match.start())
+            line = text[line_start : line_end if line_end != -1 else len(text)].strip()
+            if line.startswith("#") or _MANAGED_BY_GITHUB_ACTIONS.match(line):
                 continue
-            stripped = line.strip()
-            if stripped.startswith("#") or _MANAGED_BY_GITHUB_ACTIONS.match(stripped):
+            if any(start <= match.start() < end for start, end in covered):
                 continue
-            # Walk up through the comment block directly above: that is where
-            # the regex manager's marker has to sit for it to match.
-            marked = False
-            for previous in reversed(lines[:index]):
-                if not previous.strip().startswith("#"):
-                    break
-                if _RENOVATE_MARKER.search(previous):
-                    marked = True
-                    break
-            if not marked:
-                found.append(f"{relative}:{index + 1}")
-    return sorted(found)
+            found.append(f"{relative}:{text.count(chr(10), 0, match.start()) + 1}")
+    return sorted(set(found))
 
 
 def lockless_python_trees(repo_root: Path) -> list[str]:
@@ -959,10 +1133,10 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
     # (#1563). Read from disk, because an inventory check can only judge what
     # Renovate extracted — a pin it never saw is invisible there by
     # construction, which is exactly what made these three age unattended.
-    unmanaged_images = unmanaged_workflow_images(repo_root)
+    unmanaged_images = unmanaged_image_pins(repo_root)
     if unmanaged_images:
         findings.append(
-            "Workflow image pin no manager reads: "
+            "Image pin no manager reads: "
             + ", ".join(unmanaged_images)
             + ". An image string a `run:` step hands to `docker run` is read neither by the "
             "github-actions manager (`uses:`/`image:`) nor by the regex manager, which needs a "
@@ -988,7 +1162,7 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         "undecided_unhashed_requirements": undecided,
         "dockerfile_python_installs": dockerfile_installs,
         "dockerfile_phantom_stage_lines": phantom_stages,
-        "unmanaged_workflow_images": unmanaged_images,
+        "unmanaged_image_pins": unmanaged_images,
         "observed_files": {manager: inventory.get(manager, []) for manager in EXPECTED_OBSERVED_FILES},
     }
 

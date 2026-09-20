@@ -62,12 +62,23 @@ name: Security — ZAP Post-Merge Scans
 ##
 ## The deviation is recorded in NFR-015 §4.1 rather than left implicit.
 ##
-## The ZAP image is pinned by digest (NFR-018 §3). sha256:8d387b1a… is the
-## `stable` tag as of 2026-08-01. Keep that note HERE and never on the `docker
-## run` line: inside a `run:` block a `#` is shell, not YAML, so an inline
-## comment swallows the rest of the line INCLUDING its trailing backslash — the
-## continuation is lost and the next line runs as its own command. That exact
-## mistake produced `zap-baseline.py: command not found` on the first real run.
+## The ZAP image is pinned by digest (NFR-018 §3), and since #1563 the pin
+## lives ONCE in the job's `env:` as `ZAP_IMAGE`, with the `# renovate:` marker
+## the custom manager reads; the `docker run` lines below reference `$ZAP_IMAGE`.
+## The tag on it is `20260629-stable`, measured against the GHCR manifest list
+## as the tag that digest actually carries — an earlier note here called it "the
+## `stable` tag as of 2026-08-01", which was the same image described by a tag
+## that has since moved on to a different digest. That is why the tag now sits
+## in the value rather than in prose: a note ages without anything noticing, a
+## pin a manager reads does not.
+##
+## The note stays HERE and never on the `docker run` line: inside a `run:` block
+## a `#` is shell, not YAML, so an inline comment swallows the rest of the line
+## INCLUDING its trailing backslash — the continuation is lost and the next line
+## runs as its own command. That exact mistake produced
+## `zap-baseline.py: command not found` on the first real run. The `env:`
+## indirection is what makes both true at once: the marker comment sits in YAML,
+## where a `#` is a comment, and the execution line carries only `$ZAP_IMAGE`.
 ##
 ## Both scans run with `-I` (do not fail on warnings). The verdict belongs to
 ## `scripts/security/zap_gate.py`, which implements the §5.1 severity matrix and

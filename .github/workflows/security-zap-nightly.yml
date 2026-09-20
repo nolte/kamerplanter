@@ -19,6 +19,13 @@ name: Security — ZAP Nightly Full Scan
 ##   * **Auth-bypass two-pass** (§4.2) — every route OpenAPI declares as
 ##     protected is probed with and without a token.
 ##
+## The scanner image is pinned ONCE in the job's `env:` as `ZAP_IMAGE`, with the
+## `# renovate:` marker the custom manager reads (#1563); the `docker run` line
+## below references `$ZAP_IMAGE`. The marker has to sit in YAML, because inside
+## a `run:` block a `#` is shell and would swallow the line's trailing
+## backslash — the indirection is what lets the pin be both readable by a
+## manager and safe on the execution line.
+##
 ## Credentials are generated per run (§3.1). The identities live only for the
 ## duration of this job because the stack does, so a long-lived repository
 ## secret for a throw-away account would be attack surface without benefit.
