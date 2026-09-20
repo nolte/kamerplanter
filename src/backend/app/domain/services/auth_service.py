@@ -11,6 +11,7 @@ from app.common.enums import AuthProviderType, TenantRole
 from app.common.exceptions import (
     AccountLockedError,
     EmailNotVerifiedError,
+    ForbiddenError,
     InvalidTokenError,
     NotFoundError,
     OAuthAutoLinkRefusedError,
@@ -48,7 +49,7 @@ from app.domain.models.auth import (
     SessionInfo,
     TokenPair,
 )
-from app.domain.models.user import User, UserProfile, is_tombstone_email
+from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
 from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
@@ -84,6 +85,26 @@ _API_KEY_PREFIX = "kp_"
 #: never wrong.
 _INACTIVE_ACCOUNT_MESSAGE = "User account is inactive."
 
+#: Answer to a service account that tries to acquire an interactive credential (#1559).
+#:
+#: 403 and not 401: the caller *is* authenticated — it presented a valid API key —
+#: and what refuses it is the kind of account it is, which no credential changes.
+#: The account type is stated outright because the caller already knows which
+#: account its own key belongs to; there is no third party to leak it to.
+_SERVICE_ACCOUNT_CREDENTIAL_MESSAGE = (
+    "A service account authenticates with API keys only and cannot hold a password (REQ-023)."
+)
+
+#: Answer to an interactive session minted for a service account (#1559).
+#:
+#: Reached only once a credential has been accepted, like the inactive-account
+#: message above, so it discloses nothing to an anonymous caller. Since the
+#: credential gate keeps a service account from ever holding a password, the
+#: local-login path can no longer reach this at all; a hash planted by a
+#: migration, a fixture or an account converted from ``user`` still can.
+_SERVICE_ACCOUNT_LOGIN_MESSAGE = "A service account cannot log in interactively (REQ-023)."
+
+
 #: Entropy of one QR pairing code, in bytes handed to ``secrets.token_urlsafe``
 #: (#1118). 32 bytes = 256 bit, the same budget as an API key and a refresh
 #: token, which is what makes the 60–120 s guessing window a non-event.
@@ -116,6 +137,23 @@ def _decoy_password_hash(password_engine: PasswordEngine) -> str:
     if _DECOY_PASSWORD_HASH is None:
         _DECOY_PASSWORD_HASH = password_engine.hash_password(secrets.token_urlsafe(32))
     return _DECOY_PASSWORD_HASH
+
+
+def _refuse_interactive_credential(user: User) -> None:
+    """Refuse to grant ``user`` a password it is not allowed to hold (#1559).
+
+    One helper for both write paths (``change_password``, ``reset_password``)
+    rather than the same ``if`` twice, so the two cannot answer differently. The
+    predicate itself is :func:`~app.domain.models.user.allows_interactive_auth`;
+    nothing here decides what a service account is.
+
+    Raises:
+        ForbiddenError: 403, the account is a service account.
+    """
+    if allows_interactive_auth(user):
+        return
+    logger.warning("service_account_interactive_credential_refused", user_key=user.key)
+    raise ForbiddenError(_SERVICE_ACCOUNT_CREDENTIAL_MESSAGE)
 
 
 def _code_fingerprint(code: str) -> str:
@@ -585,6 +623,15 @@ class AuthService:
         if user is None:
             return  # Silent fail to prevent enumeration
 
+        # A service account has no interactive credential to reset (#1559), and
+        # minting a token for one would write reset state onto a machine identity
+        # and mail a link to whatever address it carries. Refused the same way the
+        # unknown address is — silently — because a distinct answer here would tell
+        # an anonymous caller which addresses belong to machine accounts, the
+        # enumeration oracle SEC-H-009/SEC-H-010 exist to close.
+        if not allows_interactive_auth(user):
+            return
+
         token = secrets.token_urlsafe(32)
         user.password_reset_token = token
         user.password_reset_expires = datetime.now(UTC) + timedelta(hours=1)
@@ -628,6 +675,13 @@ class AuthService:
 
         if user.password_reset_expires and user.password_reset_expires < datetime.now(UTC):
             raise InvalidTokenError("reset token")
+
+        # The issuance path above can no longer hand a service account a token, so
+        # reaching this needs one planted by a migration, a fixture, or an account
+        # converted to ``service`` while a token was outstanding. This is the second
+        # door into the same write and is gated on its own rather than on the
+        # unreachability of the first (#1559).
+        _refuse_interactive_credential(user)
 
         user.password_hash = self._password_engine.hash_password(new_password)
         user.password_reset_token = None
@@ -723,6 +777,15 @@ class AuthService:
         new_password: str,
     ) -> None:
         user = self._user_repo.get_or_raise(user_key)
+
+        # REQ-023: a service account is API-key-only (#1559). It reaches this method
+        # because ``FullAuthProvider.resolve_user`` resolves a ``kp_`` bearer through
+        # ``authenticate_api_key`` and ``POST /users/me/password`` depends on
+        # ``get_current_user`` alone — and it then walks straight through the SSO
+        # branch below, which waives ``current_password`` for any account with no
+        # hash. Refused before the policy check, so a service account cannot even
+        # probe the password policy from here.
+        _refuse_interactive_credential(user)
 
         # SSO-only users (no password_hash) can set initial password without current_password
         if user.password_hash and (
@@ -1308,6 +1371,19 @@ class AuthService:
         """
         if not user.is_active:
             raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
+
+        # And the account type is not one that logs in at all (#1559). REQ-023 makes
+        # ``service`` an M2M identity: API keys only, no interactive session, with an
+        # IP allowlist and a per-account rate limit that a minted token pair carries
+        # none of. This sits here for the reason the ``is_active`` check above sits
+        # here: minting is the one step all four session paths share (``login_local``,
+        # ``complete_oauth``, ``refresh_tokens``, ``redeem_device_pairing``), so a
+        # fifth one — or a new branch inside an existing one — inherits the refusal
+        # instead of having to remember it. The same SCR-003 caveat applies: it reads
+        # the ``User`` it was handed, which every current caller takes from the
+        # repository.
+        if not allows_interactive_auth(user):
+            raise UnauthorizedError(_SERVICE_ACCOUNT_LOGIN_MESSAGE)
 
         # Determine platform admin status from membership in "platform" tenant
         is_platform_admin = False
