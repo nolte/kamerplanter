@@ -74,45 +74,21 @@ WHAT IT CHECKS
    is what turned them into findings, with
    :data:`KNOWN_UNHASHED_REQUIREMENTS` holding the one argued exception.
 
-   THE BOUNDARY, SET NORMATIVELY (#1572). What each sweep reads was written
-   down; the RULE that decides which install belongs in which scope was not,
-   anywhere — it was re-derived per file, per pull request, which is why #1572
-   could ask "and which installs must be hashed?" and find no answer to point
-   at. It is two classes, and the test is what the install can REACH.
-
-   (a) **Reaches a delivered artefact → HASH-BEARING.** An install whose result
-       ships — baked into a published image, installed into the published
-       documentation site, or run against production data — must come from a
-       lock or a ``--generate-hashes`` requirement list AND be verified at
-       install time: ``uv sync --locked``, or ``pip install -r`` on a file where
-       every entry carries ``--hash=`` (one hash puts pip into hash-checking
-       mode for the whole file). A pin alone does not qualify here, because a
-       pin names a version and a version is not a byte sequence — that is the
-       NFR-009 §2.3 property, and it is what both sweeps in this module measure.
-       Members today: the eight locked PEP 621 trees, ``tests/e2e/uv.lock``,
-       ``docs/requirements.txt``.
-
-   (b) **Runner-only, and its output is a verdict → EXACT PIN OR BOUNDED RANGE,
-       NO HASHES.** An install that exists to produce a report, a lint verdict
-       or a gate decision on a runner or a developer machine, and that no
-       delivered artefact contains, needs reproducibility of BEHAVIOUR, not of
-       bytes. Requiring hashes here would mean a lock file per pre-commit hook
-       and per ``pip install`` in a ``run:`` step, closing no threat the shipped
-       artefact does not already close — the wheel is never shipped. Members
-       today: the six ``==``-pinned workflow tools, and the seventeen
-       ``additional_dependencies:`` entries in ``.pre-commit-config.yaml``.
-
-   What class (b) is NOT is *unbounded*. An open upper bound inside the REQUIRED
-   ``static`` lane is an unreviewed upgrade applied to every contributor at once,
-   and Renovate's ``pre-commit`` manager maintains ``rev:`` only — it never reads
-   ``additional_dependencies``, so those ranges age unattended. That is the #1303
-   shape (a manager silently reading nothing) with no manager at all. Since #1572
-   every one of the seventeen entries carries a floor AND a ceiling, each held
-   against the tree that already declares the same package, by
-   ``src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py``. That
-   guard — not this module — is the enforcement, because it runs in
-   ``backend-guards.yml``, which is unfiltered and required, where this alert is
-   nightly and advisory.
+   THE BOUNDARY LIVES IN THE SPEC, NOT HERE (#1572). Which Python install must
+   carry hashes and which only needs a bounded range is **NFR-009 §2.3.1**,
+   where it is normative and where somebody asking the question will look. It
+   was written there rather than in this docstring for a measured reason: the
+   answer used to be in neither place, and a rule that lives only in the
+   docstring of a nightly ADVISORY script is a rule the next reader does not
+   find. In one line, so this module is readable without a second file open:
+   **a Python install that reaches a delivered artefact must be hash-bearing; an
+   install that is runner-only and whose output is a verdict needs a bounded
+   range, not hashes.** Both sweeps below implement the first half. The second
+   half is enforced by
+   ``src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py`` in the
+   unfiltered, required ``backend-guards.yml`` lane — not here, where the verdict
+   is nightly and advisory. Anything that reads like a decision and is not in
+   NFR-009 §2.3.1 is a summary of it; the spec wins.
 
    WHAT NEITHER SWEEP HERE SEES, named rather than implied — the #1509 review
    asked for the spelling that gets past them, and the #1572 sweep re-asked it:
@@ -125,11 +101,20 @@ WHAT IT CHECKS
    * ``pip install`` in a workflow ``run:`` step or a Taskfile — six sites, all
      ``==``-pinned runner tools (``pip-audit``, ``pip-licenses``, ``PyYAML``,
      and the ``uv==`` bootstrap) whose output is a report rather than an
-     artefact. Class (b), satisfied. Inventory, not finding;
+     artefact, plus pip's own upgrade in ``.taskfiles/docs.yaml`` (unbounded
+     until #1572 — and it is the tool that then verifies the hashes). Class (b),
+     satisfied. Inventory, not finding. A NEW, unpinned one would get past every
+     sweep in this repository; that half of class (b) is described and not
+     enforced, which NFR-009 §2.3.1 says out loud and #1602 tracks;
    * ``%pip install`` in a notebook (``tools/rag-eval/rag_eval.ipynb``), inside
      the tree that is already the argued exception. A notebook magic is not a
      ``run:`` step and not a requirement list, so no sweep in this repository
-     reads it; it stays inventory because ``tools/rag-eval`` ships nothing.
+     reads it. "Ships nothing" is why it is class (b) and therefore exempt from
+     HASHES — it is NOT why it may stay unbounded, which is the circular reading
+     NFR-009 §2.3.1 now forbids in as many words. The list beside it
+     (``tools/rag-eval/requirements.txt``) was bounded in #1572; the magic's
+     five packages are unbounded and unreached, and that is a gap, not a
+     decision.
 
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
