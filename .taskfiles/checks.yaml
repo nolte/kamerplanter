@@ -71,18 +71,48 @@ tasks:
       scripts/ci/check_renovate_dashboard.py before merging a renovate.json5
       edit, instead of after the next Renovate run.
 
+      THE MASKED PATHS ARE PRE-CREATED, AND WHY (#1600). An anonymous volume
+      needs its mount point to exist inside the container; `$PWD` is bind-mounted
+      at /repo, so a mount point Docker has to create lands on the HOST — created
+      by the daemon, hence root-owned. A fresh worktree was left with five
+      root-owned empty directories, and `src/backend/.venv` among them made the
+      documented backend setup fail with `failed to open file
+      .../src/backend/.venv/CACHEDIR.TAG: Permission denied`, pointing nowhere
+      near the dry-run that caused it. `--user "$(id -u):$(id -g)"` does NOT fix
+      this — measured: the daemon creates the mount point before the container's
+      user applies, so it is root-owned either way. Creating the paths here, as
+      the invoking user, does: Docker then finds them and creates nothing. The
+      masking `-v` flags are derived from that same list, so what the run
+      pre-creates and what it masks cannot drift apart. The EXIT trap removes
+      again only what this run created and what stayed empty, so a real venv or
+      node_modules is never touched. Should the trap be missed (an interrupt the
+      task shell does not route through EXIT), the residue is user-owned and
+      empty — annoying, but it breaks nothing.
+
       Requires Docker.
     cmds:
       - |
         set -euo pipefail
         printf 'renovate dry-run using %s\n\n' '{{.RENOVATE_IMAGE}}'
+        masked='src/backend/.venv .venv-docs site src/frontend/node_modules node_modules'
+        created=''
+        mask_args=''
+        for p in $masked; do
+          if [ ! -e "$p" ]; then
+            mkdir -p "$p"
+            created="$created $p"
+          fi
+          mask_args="$mask_args -v /repo/$p"
+        done
+        cleanup() {
+          for p in $created; do
+            rmdir --ignore-fail-on-non-empty "$p" 2>/dev/null || true
+          done
+        }
+        trap cleanup EXIT
         docker run --rm \
           -v "$PWD:/repo" \
-          -v /repo/src/backend/.venv \
-          -v /repo/.venv-docs \
-          -v /repo/site \
-          -v /repo/src/frontend/node_modules \
-          -v /repo/node_modules \
+          $mask_args \
           -w /repo \
           -e LOG_LEVEL="${LOG_LEVEL:-info}" \
           -e RENOVATE_CONFIG_FILE=/repo/renovate.json5 \
