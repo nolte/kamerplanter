@@ -161,17 +161,14 @@ branches:
           # `.github/workflows/backend-guards.yml`.
           #
           # MEASURED BEFORE PROMOTION, because `strict: true` multiplies every
-          # required check across the merge train:
-          #
-          #   the guard lane in CI on ce9f116ce        41 s
-          #   `tests/unit/api/` locally, 271 tests     15 s
-          #   the whole unit suite locally, 8345       240 s
-          #
-          # 41 s is why the lane runs a DIRECTORY and not the suite. The
-          # expensive full backend suite stays in `backend.yml`, path-filtered
-          # and advisory; #836, the midnight-UTC flake named above as the blocker
-          # for promoting *that* lane, is closed (2026-07-28) but its lane is
-          # still four minutes and is a separate decision.
+          # required check across the merge train. The promotion cited "41 s in
+          # CI on ce9f116ce" plus two local figures (`tests/unit/api/` 271 tests
+          # 15 s, the whole unit suite 8345 tests 240 s). All three are retired
+          # by the re-measurement below; the local ones because a workstation
+          # figure never described this lane, the 41 s because it no longer
+          # describes it either. The argument they supported — the lane runs two
+          # DIRECTORIES and not the suite — is unchanged, and the expensive full
+          # backend suite stays in `backend.yml`, path-filtered and advisory.
           #
           # STABILITY, measured over the last 40 runs of each on 2026-09-12:
           #   `Backend CI`        33 success, 0 failure, 7 cancelled
@@ -180,9 +177,75 @@ branches:
           # one already required. Cancellations are the merge train, not
           # instability: `strict: true` supersedes in-flight runs.
           #
-          # TAKEN BACK IF: the lane exceeds two minutes on a median run, or it
-          # reports a failure that does not trace to a real ungated route. Either
-          # is a measurement, not a judgement call.
+          # ── THE ROLLBACK TRIGGER MOVED ON 2026-09-20 (#1597). ──────────────
+          #
+          # It read "the lane exceeds two minutes on a median run", and #1597
+          # established by measurement that it was MET: the lane had drifted to
+          # a median well past two minutes while this file still promised to take
+          # it back at that mark. The choice was to make the lane cheap again, to
+          # move the trigger, or to return the context to advisory. Moving the
+          # trigger was chosen, and this is the argument — an unargued bigger
+          # number would be the same NFR-018 §1 failure with more headroom.
+          #
+          # RE-MEASURED 2026-09-20, successful jobs only, window
+          # 2026-09-19T18:16Z → 2026-09-20T16:37Z (22.4 h; the workflow fires on
+          # every push to every branch, so the sample is dense rather than long).
+          # Method: `gh api repos/nolte/kamerplanter/actions/workflows/
+          # backend-guards.yml/runs?status=completed` → per-run `/jobs` →
+          # `completed_at - started_at`, grouped by job name.
+          #
+          #   context                        n    median  p10   p90   p99   max
+          #   Write-route and tree guards   248    166 s  141 s 187 s 201 s 204 s
+          #   Integration tests (ArangoDB)  271    188 s  156 s 197 s 214 s 235 s
+          #
+          # WHAT IT COSTS PER MERGE. `strict: true` re-runs every open pull
+          # request's required checks after any other merge, so this context is
+          # paid once per open pull request per merge, not once per pull request.
+          # But it is paid IN PARALLEL with `Integration tests (ArangoDB)` in the
+          # same workflow, whose median is 22 s HIGHER. The guard lane therefore
+          # adds nothing to the merge train's wall clock at today's numbers: the
+          # lane's cost is the slower job either way. Two minutes was the right
+          # trigger when this context was the only job in `backend-guards.yml`
+          # and cost 41 s; since #1432 it shares the workflow with a job that
+          # dominates it, and a trigger that fires while the lane is not on the
+          # critical path measures the wrong thing.
+          #
+          # WHAT IT BUYS. The mechanical write-route gate sweep over this
+          # repository's largest defect class — 23 closed issues naming a
+          # predecessor in their own title — plus the guards over CI
+          # configuration that no other enforced lane runs. Returning it to
+          # advisory restores the state in which that sweep could not block a
+          # merge, which is the state #1404 existed to end.
+          #
+          # TAKEN BACK IF, from 2026-09-20:
+          #   (a) the median exceeds 200 s, or
+          #   (b) the median exceeds that of `Integration tests (ArangoDB)`
+          #       measured over the same window, or
+          #   (c) it reports a failure that does not trace to a real ungated
+          #       route.
+          # Each is a measurement, not a judgement call.
+          #
+          # WHERE 200 s COMES FROM, so it is not a round number picked to be
+          # safely above today's: it is this window's p99 (201 s), floored. A
+          # MEDIAN that reaches today's p99 means half of all runs are now slower
+          # than today's slowest — a wholesale shift of the distribution, not
+          # runner noise. The observed spread (p10 141 s → p90 187 s, ±14 % about
+          # the median) is what the 34 s of headroom over today's 166 s absorbs.
+          # Clause (b) exists because (a) alone would keep firing on absolute
+          # seconds after the lane has stopped being the one that costs anything;
+          # it makes the trigger relative to the job the lane actually waits for.
+          #
+          # HOW THIS GETS RE-MEASURED, honestly: NOTHING MECHANICAL ENFORCES IT.
+          # No guard under `src/backend/tests/unit/guards/` reads these numbers,
+          # and none is added here — a lane cannot measure its own wall clock
+          # from inside itself, and a scheduled job that opens an issue on drift
+          # is a separate piece of work, not a comment. The commitment is
+          # procedural: re-measure with the command above whenever this context's
+          # entry is touched for any reason, and whenever a job is added to or
+          # removed from `backend-guards.yml` (that changes which job dominates,
+          # which is what clause (b) reads). A reader who finds these numbers
+          # older than the lane's last structural change should treat them as
+          # unverified rather than current.
           - Write-route and tree guards
           #
           # #1432 — the repository and AQL tier against a real ArangoDB. It is
@@ -215,9 +278,14 @@ branches:
           # holds every context in this list to an unfiltered workflow, and
           # cross-checks this block against its fixture copy of the live state.
           #
-          # COST: ~2–3 minutes with a service container, against the 41 s of the
-          # guard lane it now shares a workflow with. Accepted because the
-          # alternative is not a cheaper lane but an unmeasured data layer.
+          # COST: median 188 s with a service container, measured 2026-09-20 over
+          # the same window and by the same method as the table above (n = 271;
+          # p90 197 s, max 235 s). The "against the 41 s of the guard lane it now
+          # shares a workflow with" that stood here used the figure #1597
+          # retired: that lane's median is 166 s, so this job is the slower of
+          # the two by about 22 s and it, not `guards`, sets the workflow's wall
+          # clock. Accepted because the alternative is not a cheaper lane but an
+          # unmeasured data layer.
           #
           # TAKEN BACK IF: it reports a failure that does not trace to a real
           # repository or AQL defect, or the ArangoDB service container becomes a
