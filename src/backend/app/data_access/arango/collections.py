@@ -1248,15 +1248,21 @@ GRAPH_EDGE_DEFINITIONS = [
         "to_vertex_collections": [API_KEYS],
     },
     # REQ-024 Tenants
+    # Both ends follow ``ArangoMembershipRepository``, which writes the chain
+    # ``user -> membership -> tenant`` (#1574). The table previously declared
+    # ``tenants -> memberships`` and ``users -> memberships``; the second of those
+    # does not even name the collection its own edge is called after. No stored
+    # edge had to move: ``create_edge`` inserts straight into the edge collection,
+    # so the documents have always had the shape declared here.
     {
         "edge_collection": HAS_MEMBERSHIP,
-        "from_vertex_collections": [TENANTS],
+        "from_vertex_collections": [USERS],
         "to_vertex_collections": [MEMBERSHIPS],
     },
     {
         "edge_collection": MEMBERSHIP_IN,
-        "from_vertex_collections": [USERS],
-        "to_vertex_collections": [MEMBERSHIPS],
+        "from_vertex_collections": [MEMBERSHIPS],
+        "to_vertex_collections": [TENANTS],
     },
     {
         "edge_collection": HAS_INVITATION,
