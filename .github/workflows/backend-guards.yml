@@ -92,6 +92,50 @@ defaults:
     working-directory: src/backend
 
 jobs:
+  # WHY THIS JOB HAS NO RELEVANCE GATE, AND WHY THE ANSWER IS A MEASUREMENT
+  # RATHER THAN A PREFERENCE (#1578).
+  #
+  # #1578 asks for a detection step here, the way `integration` below now has
+  # one, because two minutes spent on a two-line Helm chart bump measure nothing
+  # the diff could have changed. The premise is right for `integration` and
+  # WRONG for this job, and the difference is the input set.
+  #
+  # MEASURED 2026-09-20 on this tree, by recording every file the tier opens
+  # (a `sys.addaudithook` over `open`, around `pytest tests/unit/api
+  # tests/unit/guards`). Outside `src/backend/` it opens, among others:
+  #
+  #   * 57 files under `src/frontend/src/api/endpoints/` — via
+  #     `tests/unit/api/test_frontend_endpoints_are_served.py` and
+  #     `scripts/check_frontend_calls_served.py`;
+  #   * EVERY `.github/workflows/*.yml`, plus `.github/settings.yml`,
+  #     `.github/renovate-pins.yaml` and `.github/actions/ephemeral-stack/action.yml`;
+  #   * `renovate.json5` and `.pre-commit-config.yaml`;
+  #   * eight `pyproject.toml`/`uv.lock` pairs outside this package —
+  #     `docker/embedding-service/`, `docker/reranker-service/`,
+  #     `src/libs/kp_vectordb/`, `src/libs/kp_errortracking/`,
+  #     `src/knowledge-service/`, `src/inference-service/`, `tests/e2e/` —
+  #     reached through `_REPO_ROOT.rglob("pyproject.toml")` in
+  #     `test_uv_pin_manager_covers_every_pin.py`, which also means a NEW
+  #     `pyproject.toml` anywhere in the tree changes this tier's verdict;
+  #   * `docs/requirements.txt`, `tools/rag-eval/requirements.txt`,
+  #     `tests/security/zap-*.tsv`, `tests/security/zap-setup/zap_hooks.py`,
+  #     `scripts/check_frontend_calls_served.py`, `scripts/ci/check_renovate_dashboard.py`,
+  #     `scripts/ci/assert_rendered_manifests.sh`, `scripts/security/zap_gate.py`;
+  #   * `spec/nfr/NFR-006_API-Fehlerbehandlung.md`.
+  #
+  # And `test_model_field_renames_have_migrations.py` derives its population from
+  # `git log` — its input is the HISTORY, which no path filter can express at all
+  # (hence `fetch-depth: 0` below).
+  #
+  # So the narrowest exclusion the sibling lane uses — `!docs/**`, `!spec/**`,
+  # `!.github/**` in `e2e-smoke.yml` — would be wrong here on all three counts,
+  # and an allow list of `src/backend/**` would miss the frontend endpoint sweep
+  # outright. A filter over this input set is the whole checkout with extra
+  # steps, and the failure mode of getting it wrong is not a wasted run: it is a
+  # REQUIRED gate reporting green over a change it never looked at.
+  #
+  # "No" is the finding, not a deferral. Re-open it only with a new measurement
+  # of the input set, not with a new opinion about it.
   guards:
     name: Write-route and tree guards
     runs-on: ubuntu-latest
@@ -100,8 +144,19 @@ jobs:
     # under `strict: true` a wedged run on a REQUIRED lane blocks every open pull
     # request for GitHub's 360-minute default, and the stall has to be noticed by
     # a human watching the merge train. Ten minutes is loose enough that a slow
-    # runner or a cold `uv` cache never trips it — the measured run is 41 s — and
-    # tight enough that a hang costs one lane rather than an afternoon.
+    # runner or a cold `uv` cache never trips it and tight enough that a hang
+    # costs one lane rather than an afternoon.
+    #
+    # "The measured run is 41 s" stood here until #1578 and is FOUR TIMES WRONG.
+    # Re-measured over the 134 successful `Write-route and tree guards` jobs
+    # between 2026-09-19T21:17Z and 2026-09-20T13:14Z (16 h, every push to every
+    # branch): median 175 s, p10 140 s, p90 185 s, max 199 s. Ten minutes is
+    # still the right ceiling. What changed is that `.github/settings.yml`'s
+    # stated rollback trigger for this required context — "the lane exceeds two
+    # minutes on a median run" — is now MET. Naming it here rather than acting on
+    # it: dropping a required context is a branch-protection decision, taken in a
+    # pull request against `.github/settings.yml`, not a side effect of a
+    # workflow edit.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -238,19 +293,199 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # RELEVANCE, EXPRESSED AS A STEP AND NOT AS A JOB (#1578).
+      #
+      # #1578 proposes the shape `frontend.yml` and `e2e-smoke.yml` use: a
+      # separate `changes` job, and the expensive job gated on it through
+      # `needs.<job>.result`. That shape is NOT used here, and the reason is the
+      # measurement #1583 landed on 2026-09-19 (PR #1587, over the last 300
+      # pull-request runs / 556 jobs): the median job in this repository runs
+      # 32 s and waits 20–26 MINUTES for a runner slot, because the
+      # concurrent-job allotment is account-wide and the account peaked at 46
+      # simultaneous jobs. A JOB, not a CPU-second, is what CI is short of.
+      #
+      # A `needs:`-linked detection job would therefore cost this REQUIRED lane a
+      # second full slot wait — 20-odd minutes of queue to save 3 minutes of
+      # runtime — which is precisely the cost #1587 removed by folding `hadolint`
+      # into `changes` instead of adding a job. Detecting inside the job keeps
+      # the lane at one slot and one queue wait.
+      #
+      # The checkout above is needed anyway and `dorny/paths-filter` requires it
+      # on a `push` event; on a feature branch the action's `base` defaults to
+      # the repository default branch (`develop`, verified), which is the diff a
+      # pull request is judged on.
+      #
+      # WHAT THE ALLOW LIST IS, AND HOW IT WAS ARRIVED AT. Measured 2026-09-20 by
+      # recording every file this tier opens (a `sys.addaudithook` over `open`,
+      # around `pytest tests/integration`, 245 passed / 0 skipped against a real
+      # ArangoDB): 1454 paths, EVERY ONE of them under `src/backend/`. Nothing
+      # else in the checkout is read. The two entries beyond it are reasoned, not
+      # measured, and are named as such — the audit hook cannot see them because
+      # they are consumed by `task` outside the Python process:
+      #   * `Taskfile.yaml` / `.taskfiles/**` — the invocation itself. The steps
+      #     below run `task deps:sync` and `task test:backend:integration`, so a
+      #     change to either definition changes what this job does, including the
+      #     `--max-skipped 0` floor.
+      #   * this workflow file — the job definition, the pinned ArangoDB digest
+      #     and the service's health command.
+      # An ALLOW list rather than a deny list, so the default for anything not
+      # named is "irrelevant"; the counter-proofs in #1578's pull request run
+      # both directions against it.
+      #
+      # WHAT THE MEASUREMENT CANNOT SEE, stated so "every one of them under
+      # `src/backend/`" is read as what it is. The audit hook observes `open` in
+      # the pytest PROCESS; a file read by a SUBPROCESS is invisible to it. This
+      # tier has one: `test_v0048_backfill_missing_care_profiles.py:149` runs
+      # `[sys.executable, "scripts/audit_care_profiles.py", "--json"]` with
+      # `cwd=_BACKEND_ROOT`. Resolved by hand — the only way to resolve it —
+      # that argv is `src/backend/scripts/audit_care_profiles.py`, which is
+      # inside the allow list and whose imports are stdlib, `arango` and `app.*`
+      # only, so it opens nothing beyond this package. No hole today; the blind
+      # spot is written down because the next subprocess added here will not
+      # announce itself in the numbers.
+      - name: Detect whether this diff can reach the integration tier
+        id: relevance
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          # THE REFERENCE THE VERDICT IS TAKEN AGAINST, SPELLED OUT.
+          #
+          # Omitting `base:` makes the action inherit the REPOSITORY DEFAULT
+          # BRANCH, and that value is not reviewable from this checkout: this
+          # repository's `.github/settings.yml` does not set `default_branch`, it
+          # inherits it through `_extends` from a file that does not live here.
+          # An unversioned input deciding what a REQUIRED gate compares against
+          # is the same defect class as an unversioned pin — an upstream change
+          # or a branch rename would move the verdict's baseline silently. The
+          # literal is therefore written here, where a diff can review it.
+          #
+          # It must stay equal to the branch pull requests target; the sibling
+          # guard `test_required_contexts_are_unfiltered.py` already hard-codes
+          # that same branch as `_TARGET_BRANCH`.
+          base: develop
+          # DEPTH. The checkout above is shallow (`fetch-depth: 1`), so the
+          # action deepens the history itself to find the merge base
+          # (`initial-fetch-depth: 100`, its default, doubling until it
+          # succeeds). On a long-lived branch that is slow, and if it cannot
+          # reach the merge base the step FAILS — which reds this lane rather
+          # than skipping it, so the direction is fail-safe. Named rather than
+          # pre-empted: `guards` above sets `fetch-depth: 0` for an unrelated
+          # reason (a guard that reads `git log`), and paying a full clone here
+          # to avoid a deepening that has not yet been observed to hurt would be
+          # trading a measured cost for an imagined one. Raise
+          # `initial-fetch-depth` here the first time a run reports the deepening
+          # as the slow step.
+          #
+          # Raising the CHECKOUT's depth instead is the one change that is not
+          # equivalent: it re-opens the dispatch hole the freeze step below
+          # closes. That is measured and written out there; read it first.
+          #
+          # No `predicate-quantifier` here, deliberately, and it is not the
+          # omission `e2e-smoke.yml` warns about: that warning is about a DENY
+          # list, where the default `some` ORs a leading `'**'` against the
+          # exclusions and makes the filter permanently true. This is an allow
+          # list with no negation, and `some` — a file matches if it matches ANY
+          # entry — is the intended reading. `every` would require a file to be
+          # under `src/backend/**` AND be `Taskfile.yaml`, which nothing is.
+          # `tests/unit/guards/test_paths_filter_quantifier.py` encodes exactly
+          # that distinction, so this step is swept and passes on its merits.
+          filters: |
+            integration:
+              - 'src/backend/**'
+              - 'Taskfile.yaml'
+              - '.taskfiles/**'
+              - '.github/workflows/backend-guards.yml'
+
+      # THE FAIL-SAFE, WRITTEN OUT ONCE SO NO STEP BELOW RESTATES IT.
+      #
+      # This job carries NO job-level `if:`. That is load-bearing and not an
+      # oversight: `Integration tests (ArangoDB)` is a REQUIRED context, the job
+      # must therefore always produce a check run, and the construction proven in
+      # this repository under a required context is `frontend.yml`'s — the job
+      # runs, only its steps are conditional. A job whose steps are all skipped
+      # reports Success, which is what branch protection needs.
+      #
+      # `RUN_INTEGRATION` defaults to `true` and is narrowed to `false` only when
+      # the detection step BOTH succeeded AND reported the diff as inert. That is
+      # the same predicate `needs.changes.result != 'success' || …` expresses one
+      # job over, evaluated here against `steps.relevance.outcome`. Without the
+      # outcome clause a detection that returned an empty output would compare
+      # false everywhere, every step would skip, and the required check would go
+      # green having run no tests at all — fail-open by omission. The step has no
+      # `continue-on-error`, so a failing detection reds the lane today; the
+      # clause is what keeps that true if one is ever added.
+      #
+      # AND `workflow_dispatch` IS EXEMPT, WHICH IS NOT A CONVENIENCE.
+      #
+      # A `workflow_dispatch` payload carries no `before`, so the action cannot
+      # diff at all when its `base` resolves to the ref being dispatched — which
+      # is the case this workflow's own header reserves the trigger for ("a job
+      # that has never run on a runner may not be made a required check on the
+      # strength of a local green — the operator dispatches it three times
+      # first"), because that dispatch happens on `develop`. It then falls back
+      # to `git log --format= --no-renames --name-status -z -n 1`, i.e. to
+      # WHATEVER THE LAST COMMIT HAPPENED TO TOUCH. A manual verification run
+      # judged by the contents of the previous merge commit is not a
+      # verification run.
+      #
+      # MEASURED 2026-09-20, because the mechanism is not what it looks like and
+      # the answer flips on a setting three lines up. Under the shallow checkout
+      # this job uses, that `git log` runs on a commit with no parent in the
+      # local repository and therefore lists the ENTIRE TREE as added — measured
+      # on a `--depth 1` clone of `develop`: 4508 paths, every one reported `A`.
+      # Every filter is true, the tier runs, and a dispatch is accidentally safe.
+      # Give the checkout a full history — which the sibling `guards` job above
+      # already has, and which the `initial-fetch-depth` note below could
+      # plausibly tempt someone into — and the fallback becomes a real
+      # single-commit diff. Proven on a real dispatch, both directions, same
+      # filter verdict, opposite outcome (#1578's pull request):
+      #
+      #   fetch-depth: 0, no override  -> Filter integration = false
+      #                                -> "Integration tier SKIPPED", job green in 29 s
+      #   fetch-depth: 0, with override-> Filter integration = false
+      #                                -> "Integration tier RUNS", tier executed, 2m54s
+      #
+      # So the clause below is what makes the dispatch path correct BY ITSELF
+      # rather than by coincidence of the clone depth. Do not remove it because
+      # "a dispatch runs the tier anyway today"; that sentence is true and is a
+      # property of `fetch-depth: 1`, not of this lane.
+      - name: Freeze the run/skip decision
+        env:
+          DETECTION: ${{ steps.relevance.outcome }}
+          RELEVANT: ${{ steps.relevance.outputs.integration }}
+        run: |
+          RUN=true
+          if [ "$DETECTION" = "success" ] && [ "$RELEVANT" = "false" ]; then
+            RUN=false
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # An operator asked for this run by hand. See the block above: the
+            # filter has no diff to judge on a dispatch — its verdict there is
+            # about the last commit, never about what the operator asked for.
+            RUN=true
+          fi
+          echo "RUN_INTEGRATION=$RUN" >> "$GITHUB_ENV"
+          if [ "$RUN" = "true" ]; then
+            echo "::notice::Integration tier RUNS (event=$GITHUB_EVENT_NAME, detection outcome=$DETECTION, relevant=$RELEVANT)."
+          else
+            echo "::notice::Integration tier SKIPPED: no file in this diff can reach it."
+          fi
+
       - name: Setup Python
+        if: env.RUN_INTEGRATION == 'true'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
           allow-prereleases: true
 
       - name: Set up Task
+        if: env.RUN_INTEGRATION == 'true'
         uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
+        if: env.RUN_INTEGRATION == 'true'
         # THE uv pin (#1383). `version-file` makes the action read
         # `[tool.uv].required-version` out of src/backend/pyproject.toml, so the
         # uv this job runs cannot differ from the uv Renovate relocks with or the
@@ -273,6 +508,7 @@ jobs:
           cache-dependency-glob: src/backend/uv.lock
 
       - name: Install dependencies
+        if: env.RUN_INTEGRATION == 'true'
         # Through the Taskfile, like every other command in this job (#1383).
         # `task deps:sync` is `uv sync --locked --extra dev` and nothing else, so
         # this is not indirection for its own sake: the invocation now exists
@@ -294,6 +530,7 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Wait for ArangoDB
+        if: env.RUN_INTEGRATION == 'true'
         # The service healthcheck already gates the steps, so this normally
         # returns on the first poll. It exists to make the OTHER outcome legible:
         # if the container is up but not answering, the failure names that,
@@ -314,6 +551,7 @@ jobs:
           exit 1
 
       - name: Integration tests
+        if: env.RUN_INTEGRATION == 'true'
         # Invoked through the Taskfile so the pipeline and a contributor run the
         # identical thing, including the `--max-skipped 0` floor (#1434).
         run: task test:backend:integration
