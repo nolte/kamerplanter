@@ -1,4 +1,5 @@
 import client from '../client';
+import { invalidateCatalogue } from '../catalogueRevision';
 import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   Substrate,
@@ -35,16 +36,19 @@ export async function getSubstrate(key: string): Promise<Substrate> {
 
 export async function createSubstrate(payload: SubstrateCreate): Promise<Substrate> {
   const { data } = await client.post<Substrate>(BASE, payload);
+  invalidateCatalogue('substrates');
   return data;
 }
 
 export async function updateSubstrate(key: string, payload: SubstrateCreate): Promise<Substrate> {
   const { data } = await client.put<Substrate>(`${BASE}/${key}`, payload);
+  invalidateCatalogue('substrates');
   return data;
 }
 
 export async function deleteSubstrate(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+  invalidateCatalogue('substrates');
 }
 
 export async function listBatches(substrateKey: string): Promise<Batch[]> {
@@ -80,6 +84,7 @@ export async function checkReusability(batchKey: string): Promise<ReusabilityRes
 
 export async function createSubstrateMix(payload: SubstrateMixRequest): Promise<Substrate> {
   const { data } = await client.post<Substrate>(`${BASE}/mix`, payload);
+  invalidateCatalogue('substrates');
   return data;
 }
 

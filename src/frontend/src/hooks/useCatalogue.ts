@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Activity, BotanicalFamily, Fertilizer, NutrientPlan, Species, Substrate } from '@/api/types';
 import { useStore } from 'react-redux';
+import { catalogueRevision } from '@/api/catalogueRevision';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { AppDispatch, RootState } from '@/store/store';
 import { fetchActivities } from '@/store/slices/activitiesSlice';
@@ -28,6 +29,15 @@ import { fetchSubstrates } from '@/store/slices/substratesSlice';
  *    "nothing found" message, and the user creates the record without the field.
  *
  * Both follow from the same cause: the loader was duplicated instead of shared.
+ *
+ * **What is closed and what is not.** This hook *makes the three states
+ * available*; it does not make a consumer render them. Measured over the tree:
+ * **two of sixteen** call sites render a failure distinctly — the two #1568
+ * named. Fourteen still show a failed load as an empty list, which is no worse
+ * than the `.catch(() => {})` they replaced and no better either; four of those
+ * back a mandatory field, where "empty" actively misleads. Enumerated in #1628.
+ * Until that lands, treat defect 2 above as closed *at the two sites #1568
+ * named*, and as merely reachable everywhere else.
  * So does a third, which is why this went unseen for two milestones —
  * `scripts/check_seed_catalogue_page_size.py` binds **one** owning module per
  * catalogue (the slice), and a picker in a different module is invisible to it.
@@ -58,9 +68,19 @@ import { fetchSubstrates } from '@/store/slices/substratesSlice';
  * produced, in a `WeakMap`. Redux Toolkit replaces that array on every fulfilled
  * list action, so a filtered dispatch is indistinguishable from any other
  * overwrite: the reference changes, the mark does not follow it, and the next
- * consumer reloads. Nothing is keyed by catalogue name, which is what keeps this
- * honest across a tenant switch (these catalogues are a global/tenant union,
- * #324) — a `WeakMap` on the array cannot outlive the state that held it.
+ * consumer reloads.
+ *
+ * **Tenant switches.** `TenantSwitcher` reloads the document, which discards
+ * this map with the rest of the heap — but that is not the only way the active
+ * tenant changes. The stale-slug recovery path in `store.ts` does **not** reload:
+ * it clears the active tenant, reloads the memberships, and
+ * `loadMyTenants.fulfilled` re-picks a *different* tenant and persists it, all in
+ * place. It fires when the backend refuses the persisted tenant, which is what an
+ * admin revoking a membership while the tab is open produces — reachable, not
+ * theoretical. Since these catalogues are a global/tenant union (#324), a mark
+ * taken under the old tenant would otherwise carry its rows across the boundary.
+ * `setActiveTenantSlug` therefore invalidates every catalogue on an actual slug
+ * change; see `api/catalogueRevision.ts`.
  *
  * An empty catalogue re-requests on the next mount, which is the harmless
  * direction, and a *failed* load leaves the slice empty too, so the next open
@@ -89,6 +109,25 @@ interface CatalogueItems {
 
 /** Name of a catalogue this hook can read. */
 export type CatalogueName = keyof CatalogueItems;
+
+/**
+ * Every catalogue this hook can read, as a value rather than only as a type.
+ *
+ * Exists so a test can assert that the application store — and every test store
+ * — actually mounts a reducer for each of them. A missing one does not fail
+ * where it is missing: the selector reads `undefined.items` and the page dies
+ * with an unrelated render error. `nutrientPlans` was missing from the test
+ * store exactly this way while this hook was being built, and it surfaced as
+ * nine failing SpeciesDetailPage cases.
+ */
+export const CATALOGUE_NAMES = [
+  'activities',
+  'botanicalFamilies',
+  'fertilizers',
+  'nutrientPlans',
+  'species',
+  'substrates',
+] as const satisfies readonly CatalogueName[];
 
 /** Row type of one catalogue. */
 export type CatalogueItem<K extends CatalogueName> = CatalogueItems[K];
@@ -168,15 +207,25 @@ const CATALOGUES: {
 const inFlight = new Map<CatalogueName, Promise<unknown>>();
 
 /**
- * Row arrays known to hold a **complete** catalogue, because this hook's own
- * unfiltered load produced them.
+ * Row arrays known to hold a **complete** catalogue, mapped to the catalogue
+ * revision the load that produced them observed.
  *
- * Keyed by the array itself rather than by catalogue name, so a later filtered
- * dispatch — which replaces the array — silently loses the mark instead of
- * inheriting it. See the caching note in this module's header for why that
- * distinction is the whole cache.
+ * Two independent ways to go stale, and the mark has to survive neither:
+ *
+ * * **Replaced** — a *filtered* dispatch (`ActivityListPage` sends
+ *   `{category, scope, species}`) writes a different array. Keying by the array
+ *   rather than by catalogue name means the replacement simply has no mark.
+ * * **Rewritten** — a create/update/delete changes what the catalogue *contains*
+ *   without touching this array at all, because none of the six detail pages
+ *   refreshes its list slice after a write. The stored revision is compared
+ *   against {@link catalogueRevision}, which the endpoint layer bumps, so a mark
+ *   taken before the write no longer matches.
+ *
+ * Storing the revision rather than clearing the map also makes a concurrent load
+ * safe: a load that began before a write marks the revision it *started* under,
+ * so its already-stale answer cannot present itself as current.
  */
-const completeRows = new WeakMap<object, true>();
+const completeRows = new WeakMap<object, number>();
 
 /**
  * Joins the load already running for this catalogue, or starts one.
@@ -240,9 +289,14 @@ export function useCatalogue<K extends CatalogueName>(
   const dispatch = useAppDispatch();
   const store = useStore();
   const items = useAppSelector(CATALOGUES[name].select) as CatalogueItem<K>[];
+  // Read every render so a write that happened since the last one is seen the
+  // next time this consumer renders — which, for a picker, is when it mounts or
+  // its dialog opens. That is the moment the staleness mattered.
+  const revision = catalogueRevision(name);
   // Not `items.length > 0`: rows a *filtered* dispatch put there are rows, and
-  // they are not the catalogue.
-  const isComplete = completeRows.has(items);
+  // they are not the catalogue; and rows loaded before a write are the wrong
+  // rows however complete they were.
+  const isComplete = completeRows.get(items) === revision;
 
   // Bumped by `reload`; re-runs the effect even when nothing else changed, which
   // is the only way a retry after a failure reaches the network again.
@@ -273,13 +327,17 @@ export function useCatalogue<K extends CatalogueName>(
         return;
       }
       setState({ status: 'loading', error: null });
+      // Captured *before* the request, not after: a write that lands while this
+      // load is in flight must invalidate its answer, and it does exactly that
+      // by making the stored value trail the current revision.
+      const loadedAt = catalogueRevision(name);
       try {
         await joinOrStart(name, () => CATALOGUES[name].fetch(dispatch), forced);
         // `unwrap()` resolves after the fulfilled action has been reduced, so the
         // array in the store right now is the one this load produced. Marking it
         // here — rather than trusting the payload — keeps the mark on whatever
         // the reducer actually stored.
-        completeRows.set(CATALOGUES[name].select(store.getState() as RootState), true);
+        completeRows.set(CATALOGUES[name].select(store.getState() as RootState), loadedAt);
         if (!ignore) setState({ status: 'ready', error: null });
       } catch (error) {
         // The ignore guard is the half that was missing at every call site: a
@@ -292,20 +350,31 @@ export function useCatalogue<K extends CatalogueName>(
     return () => {
       ignore = true;
     };
-  }, [name, enabled, isComplete, attempt, dispatch, store]);
+  }, [name, enabled, isComplete, revision, attempt, dispatch, store]);
 
   const reload = useCallback(() => {
     setAttempt((previous) => previous + 1);
   }, []);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    // `items` comes from the store and `state` from this hook, so the two could
+    // disagree within a single render: a filtered dispatch replaces the array
+    // while a consumer is mounted, and the internal state still says `ready`.
+    // That pair — `ready` over rows that are not the catalogue — is precisely
+    // what this reader's contract rules out, so the returned status is derived
+    // from the same fact as the rows rather than reported independently.
+    //
+    // Only `ready` is coerced. `failed` must survive: a load that rejected has
+    // no marked array either, and reporting it as still loading would restore
+    // the "failure looks like something else" defect from the other side.
+    const status: CatalogueStatus =
+      state.status === 'ready' && !isComplete ? 'loading' : state.status;
+    return {
       items,
-      status: state.status,
+      status,
       error: state.error,
-      isEmpty: state.status === 'ready' && items.length === 0,
+      isEmpty: status === 'ready' && items.length === 0,
       reload,
-    }),
-    [items, state.status, state.error, reload],
-  );
+    };
+  }, [items, isComplete, state.status, state.error, reload]);
 }
