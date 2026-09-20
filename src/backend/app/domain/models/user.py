@@ -64,6 +64,25 @@ class User(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+def allows_interactive_auth(user: User) -> bool:
+    """Whether this account may hold a password and be handed a browser session.
+
+    The REQ-023 boundary in one predicate, on the *state* rather than on a route
+    (#1559). A ``service`` account is an M2M identity — Home Assistant, Grafana,
+    CI/CD — that authenticates with API keys under an IP allowlist and a
+    per-account rate limit; an interactive session carries none of those, and a
+    stored password hash is a second credential the account type says must not
+    exist.
+
+    Kept here, next to :data:`AccountType`, so that the rule reads off the model
+    every layer already imports instead of being restated as ``account_type ==
+    "service"`` at each call site, which is the shape that drifts between
+    siblings. Call sites today: the credential gates and the session-minting
+    backstop in :class:`~app.domain.services.auth_service.AuthService`.
+    """
+    return user.account_type != "service"
+
+
 class UserProfile(BaseModel):
     key: str
     email: str

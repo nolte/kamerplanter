@@ -31,18 +31,23 @@ name: Backend Guards
 # `tests/unit/` before, which meant only `backend.yml` ran them — path-filtered
 # and advisory — so a pull request that added an expired suppression, or put `-c`
 # back on the API scan (which silently swaps `API-Minimal` for the full active
-# rule set), turned Backend CI red and merged regardless. Measured 0.4 s.
+# rule set), turned Backend CI red and merged regardless.
 #
-# WHY NOT THE WHOLE UNIT SUITE. Measured 2026-09-12 on this tree:
+# WHY NOT THE WHOLE UNIT SUITE. The local per-directory figures that stood here
+# — `tests/unit/api/` 271 tests 15 s, `tests/unit` 8345 tests 240 s, and "0.4 s"
+# for the guards directory, all taken 2026-09-12 on a workstation — are removed
+# rather than refreshed. They were contradicted by what the lane costs on a
+# runner (#1597: on run 35447987294 the single `Mechanical guards` step took
+# 2m29s of a 2m46s job), and a local figure for a lane that only ever runs in CI
+# is the wrong instrument. The job-level measurement below is the one that binds.
 #
-#   tests/unit/api/          271 tests    15 s
-#   tests/unit                8345 tests   240 s
-#
-# `strict: true` on `develop` invalidates every open pull request's green after
-# any other merges, so a required check's runtime is paid once per pull request
-# per merge, not once per pull request. Four minutes does not fit that; fifteen
-# seconds does. The expensive full suite stays in `backend.yml`, path-filtered
-# and advisory.
+# The argument those figures made still holds, and it is an ORDERING argument
+# rather than an absolute one: `strict: true` on `develop` invalidates every open
+# pull request's green after any other merges, so a required check's runtime is
+# paid once per pull request per merge, not once per pull request. The full
+# backend unit suite is an order of magnitude more work than these two
+# directories and that gap has not closed, so it stays in `backend.yml`,
+# path-filtered and advisory.
 #
 # THE MODE IS SET EXPLICITLY. `test_write_route_gates.py:225` asserts
 # `settings.kamerplanter_mode == "full"` and says why: under `light` the auth,
@@ -139,24 +144,32 @@ jobs:
   guards:
     name: Write-route and tree guards
     runs-on: ubuntu-latest
-    # `.github/settings.yml` states the rollback trigger for this required check
-    # as "the lane exceeds two minutes on a median run". Nothing enforced that:
-    # under `strict: true` a wedged run on a REQUIRED lane blocks every open pull
+    # `timeout-minutes` is a HANG CEILING, not the expected runtime. Under
+    # `strict: true` a wedged run on a REQUIRED lane blocks every open pull
     # request for GitHub's 360-minute default, and the stall has to be noticed by
     # a human watching the merge train. Ten minutes is loose enough that a slow
     # runner or a cold `uv` cache never trips it and tight enough that a hang
-    # costs one lane rather than an afternoon.
+    # costs one lane rather than an afternoon. It is deliberately NOT the
+    # rollback trigger — that lives in `.github/settings.yml` beside the context
+    # it can take back, and is stated as a median, not as a per-run ceiling.
     #
-    # "The measured run is 41 s" stood here until #1578 and is FOUR TIMES WRONG.
-    # Re-measured over the 134 successful `Write-route and tree guards` jobs
-    # between 2026-09-19T21:17Z and 2026-09-20T13:14Z (16 h, every push to every
-    # branch): median 175 s, p10 140 s, p90 185 s, max 199 s. Ten minutes is
-    # still the right ceiling. What changed is that `.github/settings.yml`'s
-    # stated rollback trigger for this required context — "the lane exceeds two
-    # minutes on a median run" — is now MET. Naming it here rather than acting on
-    # it: dropping a required context is a branch-protection decision, taken in a
-    # pull request against `.github/settings.yml`, not a side effect of a
-    # workflow edit.
+    # WHAT THE LANE ACTUALLY COSTS. "The measured run is 41 s" stood here until
+    # #1578 and was four times wrong; #1597 re-measured it and this line carries
+    # the third measurement, taken 2026-09-20 for the threshold move in that
+    # issue. Successful `Write-route and tree guards` jobs, window
+    # 2026-09-19T18:16Z → 2026-09-20T16:37Z (22.4 h, n = 248 — the workflow fires
+    # on every push to every branch, so the sample is dense rather than long):
+    #
+    #   median 166 s   p10 141 s   p90 187 s   p99 201 s   min 122 s   max 204 s
+    #
+    # Reproduce with:
+    #   gh api repos/nolte/kamerplanter/actions/workflows/backend-guards.yml/runs\
+    #     ?status=completed → per-run /jobs → completed_at - started_at,
+    #   successful jobs only, grouped by job name.
+    #
+    # The window and n are part of the claim: a rate measured over a day is not a
+    # property of the pipeline. If a future reader's own measurement disagrees
+    # with the numbers above, theirs wins and this comment is the defect.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -223,11 +236,15 @@ jobs:
   #
   # THE COST IS REAL AND ACCEPTED. The header above argues this lane stays
   # cheap because `strict: true` makes a required check's runtime a per-merge
-  # cost, and it is why the full unit suite stays out. This job runs 2–3
-  # minutes against a real ArangoDB, so the lane's wall clock is now that job,
-  # not the 41 s of `guards`. The two run in PARALLEL — they are separate jobs
-  # with no `needs:` between them — so `guards` still reports in well under a
-  # minute and the lane's total is the slower of the two rather than their sum.
+  # cost, and it is why the full unit suite stays out. Measured the same way and
+  # over the same window as `guards` above (2026-09-19T18:16Z →
+  # 2026-09-20T16:37Z, successful jobs only, n = 271): median 188 s, p10 156 s,
+  # p90 197 s, p99 214 s, max 235 s. The "guards reports in well under a minute"
+  # that stood here was the 41 s figure #1597 retired; `guards` now has a median
+  # of 166 s, so the two jobs cost roughly the same. They run in PARALLEL — they
+  # are separate jobs with no `needs:` between them — so the lane's wall clock is
+  # the slower of the two rather than their sum, which is why adding the data
+  # tier cost the merge train about twenty seconds, not three minutes.
   # The alternative is not "a cheaper lane": it is a required check that does
   # not report, which blocks every pull request outside `src/backend` outright.
   #
