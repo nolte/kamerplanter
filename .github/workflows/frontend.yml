@@ -183,7 +183,7 @@ jobs:
       && (github.event_name != 'pull_request'
           || needs.changes.result != 'success'
           || needs.changes.outputs.frontend == 'true')
-    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@3fccbb333146cd2a65902afd7394db870ae6a978 # v2.1.0
+    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@80cb5ebb91a3b49126729de31b1037f11c34b5cd # v2.2.0
     with:
       node-version: '22'
       working-directory: src/frontend
