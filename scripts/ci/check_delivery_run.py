@@ -104,6 +104,37 @@ an alert on such a run: an alert recorded against no half of the lane could neve
 be proven, and "the delivery lane went red" would be a claim about `develop` and
 the release tags that the run does not support.
 
+A DEFERRED DECISION'S ABORT CONDITION, MADE MACHINE-READABLE (#1223)
+-------------------------------------------------------------------
+Issue #1223 records a deliberate NON-decision: a counter-check against
+`docker-publish.yml`'s `changes` job is not built, because its wrong answer
+would be worse than the failure it guards against. That decision is bounded by
+one abort condition, stated in the issue: **one observed `changes` job
+concluding `failure` or `cancelled` on the `develop` half of the lane.**
+
+Until now that condition was checked by counting runs by hand, which is how a
+condition stops being checked at all. So the report carries
+``decision_triggers``: one entry per job whose BASE NAME is in
+:data:`DECISION_REOPENING_JOBS` and whose conclusion is in
+:data:`DECISION_BREAKING_CONCLUSIONS`, on a run whose ``lane_ref`` is
+``develop``. It is computed from the jobs list INDEPENDENTLY of the verdict,
+and that independence is the point: a `cancelled` run is `inconclusive` and the
+observer deliberately touches no alert issue on it, yet a cancelled `changes`
+job is half of the abort condition. Reading the trigger off the verdict would
+therefore have observed only the other half.
+
+``lane_ref == "develop"`` is one event wider than the issue's wording ("on a
+`develop` push"): a `workflow_dispatch` on `develop` lands here too. That is
+deliberate — the filter then runs against the same base ref on the same branch,
+so its breakage is the same evidence — and the entry carries the run's ``event``
+so a reader is never left guessing which of the two it was. A dispatch on a
+feature branch has ``lane_ref: null`` and produces no trigger.
+
+An empty list is the normal, measured state: across the 300 runs GitHub still
+retains for this workflow (2026-08-01 … 2026-09-20), `changes` concluded
+`success` 298x and `skipped` 2x (the two tag runs, where its own `if:` excludes
+it) and `failure`/`cancelled` 0x.
+
 A RUN CAN CARRY ZERO JOBS, AND THAT IS NOT A FAILURE OF THIS CHECK
 ------------------------------------------------------------------
 A run that dies before any job starts — an invalid ``if:`` expression, a YAML
@@ -217,6 +248,20 @@ KNOWN_CONCLUSIONS = ALERTING_CONCLUSIONS | RESOLVING_CONCLUSIONS | INCONCLUSIVE_
 #: the jobs endpoint reports `failure` and `timed_out`, and `startup_failure` is
 #: included so a run-level shape can never appear here unclassified.
 FAILING_JOB_CONCLUSIONS = frozenset({"failure", "timed_out", "startup_failure"})
+
+#: Deferred decisions whose stated abort condition is "this job of the delivery
+#: lane broke". Base job name -> the issue that records the decision. See "A
+#: DEFERRED DECISION'S ABORT CONDITION" above. The base name is the key because
+#: a job that is skipped is reported under it while a matrix leg is not; neither
+#: entry here is a matrix job today, and keying on the base name means a matrix
+#: added later still matches rather than silently stopping to.
+DECISION_REOPENING_JOBS: dict[str, int] = {"changes": 1223}
+
+#: What "broke" means for such a job: the failing set, plus `cancelled`, which
+#: #1223 names explicitly. `cancelled` is NOT in FAILING_JOB_CONCLUSIONS on
+#: purpose — a cancelled job does not make the lane broken — so the two sets are
+#: kept apart rather than one widened into the other.
+DECISION_BREAKING_CONCLUSIONS = FAILING_JOB_CONCLUSIONS | frozenset({"cancelled"})
 
 VERDICT_ALERT = "alert"
 VERDICT_RESOLVED = "resolved"
@@ -611,6 +656,42 @@ def classify(conclusion: str, *, run_id: int) -> str:
     )
 
 
+def decision_triggers(run: Run, jobs: list[Job]) -> list[dict[str, Any]]:
+    """The abort conditions of deferred decisions that this run has tripped.
+
+    See "A DEFERRED DECISION'S ABORT CONDITION" in the module docstring. One
+    entry per job that is watched by :data:`DECISION_REOPENING_JOBS` and that
+    broke, on the ``develop`` half of the lane. Normally — and across every run
+    measured so far — the list is empty.
+
+    Args:
+        run: The judged run; only its ``lane_ref`` and its prose fields are read.
+        jobs: Every job of that run, as the jobs endpoint reported it.
+
+    Returns:
+        A list of JSON-serialisable entries, each naming the job, the conclusion
+        that tripped the condition and the issue that records the decision.
+        Sorted by job name so two runs with the same trigger render identically.
+    """
+    if run.lane_ref != LANE_REF_DEVELOP:
+        return []
+    tripped = [
+        {
+            "issue": DECISION_REOPENING_JOBS[job.base_name],
+            "job": job.name,
+            "base_name": job.base_name,
+            "conclusion": job.conclusion,
+            "url": job.url,
+            "lane_ref": run.lane_ref,
+            "event": run.event,
+            "head_branch": run.head_branch,
+        }
+        for job in jobs
+        if job.base_name in DECISION_REOPENING_JOBS and job.conclusion in DECISION_BREAKING_CONCLUSIONS
+    ]
+    return sorted(tripped, key=lambda entry: (entry["issue"], entry["job"]))
+
+
 def build_report(
     fetch: Callable[[str], Any],
     *,
@@ -730,6 +811,11 @@ def build_report(
         "skipped_jobs": [job.name for job in skipped],
         "cancelled_jobs": [job.name for job in cancelled],
         "other_jobs": [{"name": job.name, "conclusion": job.conclusion} for job in other],
+        # The abort conditions of deferred decisions this run tripped (#1223).
+        # Derived from the JOBS, never from the verdict: a cancelled run is
+        # `inconclusive`, and half of #1223's condition is a cancelled job.
+        # Empty on every run measured so far, which is the state it reports.
+        "decision_triggers": decision_triggers(run, jobs),
     }
 
 
@@ -842,6 +928,13 @@ def _render(report: dict[str, Any]) -> str:
     lines.append(f"Ran and succeeded: {', '.join(report['succeeded_jobs']) if report['succeeded_jobs'] else 'none'}.")
     for entry in report["other_jobs"]:
         lines.append(f"Job {entry['name']} concluded {entry['conclusion']}.")
+
+    for trigger in report["decision_triggers"]:
+        lines.append(
+            f"ABORT CONDITION TRIPPED for issue #{trigger['issue']}: job {trigger['job']} concluded "
+            f"{trigger['conclusion']} on the {trigger['lane_ref']} half ({trigger['event']} on "
+            f"{trigger['head_branch']}). {trigger['url']}"
+        )
 
     if report["alert"]:
         named = ", ".join(report["failed_jobs"]) if report["failed_jobs"] else "no job reports a failing conclusion"

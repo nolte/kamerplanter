@@ -44,9 +44,13 @@ from typing import Any
 import pytest
 import yaml
 
-from tests.support.repo_scripts import find_repo_root
+from tests.support.repo_scripts import find_repo_root, load_repo_script
 from tests.unit.test_delivery_run_check import (
     DELIVERY_WORKFLOW,
+    RUN_DEVELOP_CHANGES_CANCELLED,
+    RUN_DEVELOP_CHANGES_CANCELLED_JOBS,
+    RUN_DEVELOP_CHANGES_FAILED,
+    RUN_DEVELOP_CHANGES_FAILED_JOBS,
     RUN_DEVELOP_GREEN_CHART_RAN,
     RUN_DEVELOP_GREEN_CHART_RAN_JOBS,
     RUN_DEVELOP_GREEN_CHART_SKIPPED,
@@ -102,15 +106,23 @@ NODE_HARNESS = """
 const fs = require('fs');
 const calls = [];
 const openIssues = JSON.parse(process.env.OPEN_ISSUES);
+const issueComments = JSON.parse(process.env.ISSUE_COMMENTS);
 const github = {
   rest: {
     issues: {
       listForRepo: async (args) => { calls.push(['listForRepo', args]); return { data: openIssues }; },
+      listComments: async (args) => { calls.push(['listComments', args]); return { data: issueComments }; },
       createComment: async (args) => { calls.push(['createComment', args]); },
       update: async (args) => { calls.push(['update', args]); },
       create: async (args) => { calls.push(['create', args]); return { data: { number: 4242 } }; },
     },
   },
+  // One page. The real `paginate` walks `Link` headers; the shipped script
+  // passes `per_page: 100` and #1223 carries a handful of comments, so the
+  // difference cannot change any assertion below — and a fake that returned a
+  // nested `{data: ...}` would make the script's `.some()` throw, which the
+  // dedup test would catch.
+  paginate: async (method, args) => (await method(args)).data,
 };
 const context = { repo: { owner: 'nolte', repo: 'kamerplanter' } };
 const core = {
@@ -132,8 +144,21 @@ def run_alert_script(
     report: dict[str, Any],
     *,
     open_issues: list[dict[str, Any]] | None = None,
+    issue_comments: list[dict[str, Any]] | None = None,
+    expect_throw: bool = False,
 ) -> list[list[Any]]:
-    """Execute the shipped script against *report* and return the calls it made."""
+    """Execute the shipped script against *report* and return the calls it made.
+
+    Args:
+        tmp_path: Scratch directory for the harness, the report and the calls.
+        report: The report the observer's first step writes.
+        open_issues: What `listForRepo` answers with.
+        issue_comments: What `listComments` answers with — the dedup surface of
+            the #1223 evidence comment.
+        expect_throw: Whether the script is expected to REJECT. The harness
+            exits 3 and records ``['threw', ...]`` then; the default asserts
+            exit 0, so a script that throws can never pass as a quiet one.
+    """
     node = shutil.which("node")
     if node is None:  # pragma: no cover — only on a runner without Node
         pytest.skip("node is not on PATH; the shipped github-script body cannot be executed")
@@ -151,13 +176,15 @@ def run_alert_script(
             **os.environ,
             "RUN_URL": "https://github.com/nolte/kamerplanter/actions/runs/1",
             "OPEN_ISSUES": json.dumps(open_issues or []),
+            "ISSUE_COMMENTS": json.dumps(issue_comments or []),
         },
         capture_output=True,
         text=True,
         timeout=60,
         check=False,
     )
-    assert completed.returncode == 0, f"node exited {completed.returncode}: {completed.stderr}"
+    expected_code = 3 if expect_throw else 0
+    assert completed.returncode == expected_code, f"node exited {completed.returncode}: {completed.stderr}"
     return json.loads((tmp_path / "calls.json").read_text(encoding="utf-8"))
 
 
@@ -973,6 +1000,39 @@ class TestTheCouplingToTheObservedWorkflow:
         assert chart["strategy"]["matrix"]["chart"] == ["kamerplanter"]
         assert f"{CHART_BASE} ({chart['strategy']['matrix']['chart'][0]})" == CHART_JOB_RAN
 
+    def test_every_watched_job_still_exists_in_the_observed_workflow(self) -> None:
+        """The one way the #1223 watch (R9) can go silent without anything noticing.
+
+        `DECISION_REOPENING_JOBS` keys on a job NAME. Rename `changes` in
+        `docker-publish.yml` — a two-character edit in an unrelated refactor —
+        and the watch matches nothing, on every run, for ever, while this
+        observer keeps reporting a determined verdict. No API error, no red run:
+        the detector would simply have stopped detecting, which is the class it
+        exists to record.
+
+        So the name is asserted against its source. This fails on the rename
+        itself, not on the first occurrence nobody was told about.
+        """
+        jobs = self.observed()["jobs"]
+        script = load_repo_script("ci/check_delivery_run")
+
+        assert set(script.DECISION_REOPENING_JOBS) == {"changes"}
+        for watched in script.DECISION_REOPENING_JOBS:
+            assert watched in jobs, (
+                f"{watched!r} is watched for #{script.DECISION_REOPENING_JOBS[watched]} but no job of that name "
+                f"exists in docker-publish.yml — the watch is silently disarmed. Jobs: {sorted(jobs)}"
+            )
+
+    def test_the_watched_job_can_still_run_on_the_develop_half(self) -> None:
+        """A second way to disarm it: gate `changes` so it never runs on develop.
+
+        #1223's condition is about a `changes` job that BROKE on `develop`. Its
+        `if:` excludes tag runs and nothing else; a paths filter or a
+        `github.event_name` gate added here would make the watched job skip on
+        develop pushes, and `skipped` is deliberately not a breakage.
+        """
+        assert self.observed()["jobs"]["changes"]["if"] == "github.ref_type == 'branch'"
+
 
 class TestTheWorkflowContract:
     """Static properties of the shipped YAML the script half depends on."""
@@ -1058,3 +1118,185 @@ class TestTheWorkflowContract:
             "scripts/ci/check_release_assets.py",
         ):
             assert "delivery-run-alert.yml" in (root / path).read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# #1223 — the abort condition of a deferred decision, at the level of the
+# shipped script.
+#
+# `test_delivery_run_check.py` proves the DETECTION (the `decision_triggers`
+# field). This file proves what the observer DOES with it, and the two
+# directions are tested against each other on purpose:
+#
+#   FIRE:    an induced failure and an induced cancellation each produce exactly
+#            one comment on #1223.
+#   SILENCE: every RECORDED report — seven of them RED, all measured — produces
+#            no comment on #1223 at all.
+#
+# An observer that reports green having observed nothing is worthless, and it is
+# the very class #1223 is about; so is one that fires on everything. Neither
+# direction alone distinguishes the two.
+# --------------------------------------------------------------------------- #
+
+DECISION_ISSUE = 1223
+
+#: The report the observer's first step writes when `changes` failed on develop.
+CHANGES_FAILED_REPORT = judge(RUN_DEVELOP_CHANGES_FAILED, RUN_DEVELOP_CHANGES_FAILED_JOBS)
+
+#: …and when it was cancelled — a run the observer judges `inconclusive`.
+CHANGES_CANCELLED_REPORT = judge(RUN_DEVELOP_CHANGES_CANCELLED, RUN_DEVELOP_CHANGES_CANCELLED_JOBS)
+
+
+def comments_on(calls: list[list[Any]], issue_number: int) -> list[dict[str, Any]]:
+    """Every `createComment` addressed to *issue_number*."""
+    return [args for name, args in calls if name == "createComment" and args["issue_number"] == issue_number]
+
+
+class TestTheAbortConditionIsRecorded:
+    """The firing direction: the condition occurs and lands on #1223."""
+
+    def test_a_failed_changes_job_comments_on_the_issue_that_records_the_decision(self, tmp_path: Path) -> None:
+        calls = run_alert_script(tmp_path, CHANGES_FAILED_REPORT)
+
+        posted = comments_on(calls, DECISION_ISSUE)
+        assert len(posted) == 1, f"expected one comment on #{DECISION_ISSUE}, got {names(calls)}"
+        body = posted[0]["body"]
+        assert "abort condition stated in this issue has occurred" in body
+        assert "`changes`" in body
+        assert "**failure**" in body
+        assert f"<!-- kp:decision-trigger:{DECISION_ISSUE}:{CHANGES_FAILED_REPORT['run_id']}:changes -->" in body
+        # Evidence, not a decision: the issue is neither closed nor relabelled.
+        assert not [args for name, args in calls if name == "update" and args.get("issue_number") == DECISION_ISSUE]
+        assert f"#{DECISION_ISSUE}" in messages(calls, "warning")
+
+    def test_a_cancelled_changes_job_is_recorded_although_the_run_is_inconclusive(self, tmp_path: Path) -> None:
+        """The half the verdict cannot carry, at the level that would lose it.
+
+        A cancelled run is `inconclusive`, and the observer's inconclusive
+        branch returns early without touching anything — deliberately. The
+        trigger block therefore sits BEFORE that return. Move it after, and this
+        test goes red while the failure half stays green: the detector would
+        then cover one half of #1223's condition and read as if it covered both.
+        """
+        calls = run_alert_script(tmp_path, CHANGES_CANCELLED_REPORT)
+
+        assert CHANGES_CANCELLED_REPORT["verdict"] == "inconclusive"
+        posted = comments_on(calls, DECISION_ISSUE)
+        assert len(posted) == 1
+        assert "**cancelled**" in posted[0]["body"]
+        # Still inconclusive for the alert issue itself: nothing else happened.
+        assert "create" not in names(calls)
+        assert "inconclusive" in messages(calls, "notice") or "neither a lane failure" in messages(calls, "notice")
+
+    def test_the_alert_issue_flow_still_runs_for_the_same_red_run(self, tmp_path: Path) -> None:
+        """The block records and falls through; it does not swallow the run."""
+        calls = run_alert_script(tmp_path, CHANGES_FAILED_REPORT)
+
+        created = only(calls, "create")
+        assert LABEL in created["labels"]
+        assert "`changes`" in created["body"]
+
+    def test_the_same_run_is_not_commented_twice(self, tmp_path: Path) -> None:
+        """A re-dispatch of the same run id, or a re-run of the observer."""
+        marker_comment = {
+            "body": "…already recorded… "
+            f"<!-- kp:decision-trigger:{DECISION_ISSUE}:{CHANGES_FAILED_REPORT['run_id']}:changes -->"
+        }
+        calls = run_alert_script(tmp_path, CHANGES_FAILED_REPORT, issue_comments=[marker_comment])
+
+        assert comments_on(calls, DECISION_ISSUE) == []
+        assert "not commenting twice" in messages(calls, "notice")
+
+    def test_a_marker_from_a_different_run_does_not_suppress_this_one(self, tmp_path: Path) -> None:
+        """A LATER occurrence is a new fact and gets its own comment.
+
+        Without the run id in the marker the first occurrence would silence
+        every later one — an observer that goes quiet exactly as the evidence
+        accumulates.
+        """
+        older = {"body": f"<!-- kp:decision-trigger:{DECISION_ISSUE}:1:changes -->"}
+        calls = run_alert_script(tmp_path, CHANGES_FAILED_REPORT, issue_comments=[older])
+
+        assert len(comments_on(calls, DECISION_ISSUE)) == 1
+
+
+class TestTheObserverStaysSilentOnEveryMeasuredRun:
+    """The silence direction, over the payloads that were actually recorded."""
+
+    @pytest.mark.parametrize(
+        "report",
+        [
+            RED_TAG_REPORT,
+            GREEN_CHART_RAN_REPORT,
+            GREEN_CHART_SKIPPED_REPORT,
+            INCONCLUSIVE_REPORT,
+            RED_WITHOUT_A_FAILING_JOB_REPORT,
+            FOREIGN_REPORT,
+            judge(RUN_DEVELOP_RED_FIRST, RUN_DEVELOP_RED_FIRST_JOBS),
+            judge(RUN_DEVELOP_RED_SECOND, RUN_DEVELOP_RED_SECOND_JOBS),
+        ],
+        ids=[
+            "red-tag-v0.2.0",
+            "green-tag-chart-ran",
+            "green-develop-chart-skipped",
+            "cancelled-develop",
+            "red-without-a-failing-job",
+            "foreign-workflow",
+            "red-develop-15:16",
+            "red-develop-15:25",
+        ],
+    )
+    def test_no_measured_report_comments_on_the_decision_issue(self, tmp_path: Path, report: dict[str, Any]) -> None:
+        """Five of these eight are RED — and none of them is #1223's condition.
+
+        They failed on `publish-helm-charts`. An observer keyed on the run's
+        colour would comment on all five and still pass a suite that only
+        checked the firing direction.
+        """
+        calls = run_alert_script(tmp_path, report, open_issues=[issue(77, body=marker())])
+
+        assert comments_on(calls, DECISION_ISSUE) == []
+        assert "Abort condition" not in messages(calls, "warning")
+
+    def test_a_foreign_runs_own_changes_job_is_not_this_lanes_evidence(self, tmp_path: Path) -> None:
+        """Another workflow may have a job called `changes`; #1223 is not about it.
+
+        The trigger block sits AFTER the `is_expected_workflow` guard for this
+        reason. A `workflow_dispatch` can hand the observer any run id, and a
+        comment claiming the delivery lane's filter broke because an unrelated
+        workflow's `changes` job failed would be evidence for a decision it does
+        not describe.
+        """
+        foreign = judge(
+            replacing(RUN_DEVELOP_CHANGES_FAILED, name="Security — Nuclei (post-merge)"),
+            RUN_DEVELOP_CHANGES_FAILED_JOBS,
+        )
+
+        assert foreign["is_expected_workflow"] is False
+        assert foreign["decision_triggers"] != [], "the trigger is detected; only acting on it is withheld"
+
+        calls = run_alert_script(tmp_path, foreign)
+
+        assert comments_on(calls, DECISION_ISSUE) == []
+        assert "not to the observed" in messages(calls, "warning")
+
+
+class TestTheObserverCannotGoQuietByDrifting:
+    """A report without the field must be LOUD, never an empty observation."""
+
+    def test_a_report_without_decision_triggers_makes_the_observer_red(self, tmp_path: Path) -> None:
+        """The shape a half-deployed change produces: new workflow, old script.
+
+        `for (const t of undefined)` would throw anyway; the explicit check is
+        what makes the message name the drift instead of reading
+        `undefined is not iterable`. What is asserted here is the DIRECTION: a
+        script and a check that disagree must stop the observer, not silently
+        make it observe nothing on every run.
+        """
+        stale = {key: value for key, value in CHANGES_FAILED_REPORT.items() if key != "decision_triggers"}
+
+        calls = run_alert_script(tmp_path, stale, expect_throw=True)
+
+        assert names(calls) == ["threw"]
+        assert "decision_triggers" in str(calls[0][1])
+        assert "drifted apart" in str(calls[0][1])
