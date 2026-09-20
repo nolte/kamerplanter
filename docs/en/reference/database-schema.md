@@ -294,8 +294,8 @@ planned → active → harvesting → completed
 
 | Edge | From | To | Meaning |
 |------|------|----|---------|
-| `has_membership` | `tenants` | `memberships` | Tenant has memberships |
-| `membership_in` | `users` | `memberships` | User has membership |
+| `has_membership` | `users` | `memberships` | User has memberships |
+| `membership_in` | `memberships` | `tenants` | Membership belongs to tenant |
 | `belongs_to_tenant` | `sites`, `plant_instances`, `planting_runs`, `tanks`, `fertilizers`, `nutrient_plans`, `tasks` | `tenants` | Resource belongs to tenant |
 | `assigned_to_location` | `location_assignments` | `locations` | Assignment-based location access |
 
