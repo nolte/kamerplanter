@@ -31,6 +31,43 @@ concurrency:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    # THE DOCKERFILE LINT LIVES HERE, NOT IN A JOB OF ITS OWN (#1583).
+    # It used to be `hadolint`, a separate job that ran 14 seconds and sat in
+    # `needs:` ahead of all eight `build-*` jobs — which already need `changes`
+    # anyway. Measured 2026-09-19 over the last 300 pull-request runs: a
+    # dependency-free job in this repository waits a MEDIAN OF 21 MINUTES for a
+    # runner slot, because the concurrent-job allotment is account-wide and this
+    # portfolio sits on its ceiling. So the split cost one slot plus a second
+    # full queue wait for every build job, to save nothing.
+    #
+    # Semantics are unchanged: the lint still runs on every pull request that
+    # starts this workflow, independent of which filter matched, and a lint
+    # failure still fails this job and therefore skips every build — exactly
+    # what `needs: [changes, hadolint]` did.
+    env:
+      # The LINTER is pinned here, not just the action that wrapped it (#898).
+      #
+      # `hadolint/hadolint-action` was already SHA-pinned, which looked exact and
+      # was not: that action's own Dockerfile does
+      # `FROM ghcr.io/hadolint/hadolint:v2.15.0-debian`, so the binary floated
+      # independently of the pin. When 2.15.0 shipped, DL3025 began flagging
+      # shell-form `HEALTHCHECK … CMD`; this job turned red on every branch
+      # without a single repository change, and because it is a `needs:`
+      # predecessor of all eight `build-*` jobs, nothing built at all. That is
+      # the NFR-018 §1 failure class — a check that looks pinned but is not.
+      #
+      # Run against the mounted file rather than through stdin: with `-` on
+      # stdin hadolint reports every finding against a file named `-`, which is
+      # useless the moment this job is red across several Dockerfiles.
+      #
+      # Pulled by DIGEST, so the reference is immutable whatever the tag does.
+      # The tag stays for humans and as Renovate's handle: the custom manager in
+      # renovate.json5 reads tag and digest together, so an upgrade arrives as a
+      # reviewable pull request carrying its new findings instead of as a
+      # surprise red job on unrelated branches.
+      #
+      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -83,67 +120,44 @@ jobs:
             inference-service:
               - 'src/inference-service/**'
               - '.github/workflows/docker-lint-build.yml'
-
-  hadolint:
-    runs-on: ubuntu-latest
-    env:
-      # The LINTER is pinned here, not just the action that wrapped it (#898).
-      #
-      # `hadolint/hadolint-action` was already SHA-pinned, which looked exact and
-      # was not: that action's own Dockerfile does
-      # `FROM ghcr.io/hadolint/hadolint:v2.15.0-debian`, so the binary floated
-      # independently of the pin. When 2.15.0 shipped, DL3025 began flagging
-      # shell-form `HEALTHCHECK … CMD`; this job turned red on every branch
-      # without a single repository change, and because it is a `needs:`
-      # predecessor of all eight `build-*` jobs, nothing built at all. That is
-      # the NFR-018 §1 failure class — a check that looks pinned but is not.
-      #
-      # Run against the mounted file rather than through stdin: with `-` on
-      # stdin hadolint reports every finding against a file named `-`, which is
-      # useless the moment this job is red across several Dockerfiles.
-      #
-      # Pulled by DIGEST, so the reference is immutable whatever the tag does.
-      # The tag stays for humans and as Renovate's handle: the custom manager in
-      # renovate.json5 reads tag and digest together, so an upgrade arrives as a
-      # reviewable pull request carrying its new findings instead of as a
-      # surprise red job on unrelated branches.
-      #
-      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
-      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - name: Lint backend Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/backend/Dockerfile
 
       - name: Lint frontend Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/frontend/Dockerfile
 
       - name: Lint vectordb Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/vectordb/Dockerfile
 
       - name: Lint knowledge Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/knowledge/Dockerfile
 
       - name: Lint embedding-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/embedding-service/Dockerfile
 
       - name: Lint reranker-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/reranker-service/Dockerfile
 
       - name: Lint knowledge-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/knowledge-service/Dockerfile
@@ -154,12 +168,13 @@ jobs:
       # below closes that; `tests/unit/guards/test_docker_lint_build_coverage.py`
       # keeps lint and build enumerating the same set of Dockerfiles.
       - name: Lint inference-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/inference-service/Dockerfile
 
   build-backend:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -178,7 +193,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-frontend:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -197,7 +212,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-vectordb:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.vectordb == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -216,7 +231,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-knowledge:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.knowledge == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -235,7 +250,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-embedding-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.embedding-service == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -254,7 +269,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-reranker-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.reranker-service == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -274,7 +289,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-knowledge-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.knowledge-service == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -298,7 +313,7 @@ jobs:
   # ships `prod` as its last stage and `docker-publish.yml` names none either;
   # naming one here would let the published stage break while this stayed green.
   build-inference-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.inference-service == 'true'
     runs-on: ubuntu-latest
     steps:
