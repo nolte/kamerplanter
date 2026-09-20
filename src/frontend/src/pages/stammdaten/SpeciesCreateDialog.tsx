@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -6,6 +6,8 @@ import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,10 +26,11 @@ import { useAppDispatch } from '@/store/hooks';
 import { resetShowAllFields } from '@/store/slices/uiSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useCatalogue } from '@/hooks/useCatalogue';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { speciesFieldConfig } from '@/config/fieldConfigs';
 import * as speciesApi from '@/api/endpoints/species';
-import * as familiesApi from '@/api/endpoints/botanicalFamilies';
-import type { BotanicalFamily, GrowthHabit, PhotosynthesisType } from '@/api/types';
+import type { GrowthHabit, PhotosynthesisType } from '@/api/types';
 
 /** growth_habit enum values — mirrors GrowthHabit in api/types.ts (SSOT: backend GrowthHabit). */
 const GROWTH_HABITS = [
@@ -93,7 +96,14 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const { handleError } = useApiError();
   const dispatch = useAppDispatch();
   const [saving, setSaving] = useState(false);
-  const [families, setFamilies] = useState<BotanicalFamily[]>([]);
+  // The botanical-family catalogue comes from the shared reader (#1568). What it
+  // replaced was `listAllBotanicalFamilies().then(setFamilies).catch(() => {})`:
+  // on a failed load the mandatory "Familie" field showed nothing but its
+  // placeholder — no message, no retry — and the user created a species without
+  // a family, believing none applied. There was no in-flight state either, and
+  // no ignore guard, so closing and reopening the dialog started a second
+  // sequence whose late answer could overwrite the live one.
+  const families = useCatalogue('botanicalFamilies', { enabled: open });
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
   const handleClose = useCallback(() => {
@@ -132,15 +142,6 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
     },
   });
 
-  useEffect(() => {
-    if (open) {
-      // The complete catalogue, not its first page: 57 families are seeded
-      // against this reader's own `limit = 50` default, so the dropdown was
-      // missing seven of them (#1530 class sweep; the loader exists for exactly
-      // this reason, #550).
-      familiesApi.listAllBotanicalFamilies().then(setFamilies).catch(() => {});
-    }
-  }, [open]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -196,16 +197,40 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
             />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.family_key.level}>
+            {/*
+              A failed family load is now its own state with its own retry, not
+              an empty dropdown (#1568). The field stays disabled while the
+              catalogue is in flight or unreachable, so the dialog cannot be
+              submitted with "no family" that the user never actually chose.
+            */}
             <FormSelectField
               name="family_key"
               control={control}
               label={t('pages.species.family')}
-              helperText={t('pages.species.familyHelper')}
+              helperText={
+                families.status === 'loading'
+                  ? t('pages.species.familyLoading')
+                  : t('pages.species.familyHelper')
+              }
+              disabled={families.status !== 'ready'}
               options={[
                 { value: '', label: '—' },
-                ...families.map((f) => ({ value: f.key, label: f.name })),
+                ...families.items.map((f) => ({ value: f.key, label: f.name })),
               ]}
             />
+            {families.status === 'failed' && (
+              <Box data-testid="family-catalogue-error">
+                <ErrorDisplay
+                  error={families.error ?? 'errors.loadFailed'}
+                  onRetry={families.reload}
+                />
+              </Box>
+            )}
+            {families.isEmpty && (
+              <Alert severity="info" sx={{ mb: 1.5 }} data-testid="family-catalogue-empty">
+                {t('pages.species.familyCatalogueEmpty')}
+              </Alert>
+            )}
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.genus.level}>
             <FormTextField
