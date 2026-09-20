@@ -433,10 +433,16 @@ End-to-end tests verify complete user workflows through a real browser. They use
 ### Prerequisites
 
 ```bash
-pip install -r tests/e2e/requirements.txt
+uv sync --locked --directory tests/e2e
 ```
 
-Dependencies: `selenium>=4.25.0`, `webdriver-manager>=4.0.0`, `pytest>=8.3.0`.
+This creates `tests/e2e/.venv` from the hash-verified `tests/e2e/uv.lock` — the
+same install the E2E image performs (`tests/e2e/Dockerfile`). Put it on PATH
+(`export PATH="$PWD/tests/e2e/.venv/bin:$PATH"`) or prefix the commands below
+with `tests/e2e/.venv/bin/python -m`.
+
+Dependencies: `selenium>=4.25.0,<5`, `webdriver-manager>=4.0.0`, `pytest>=8.3.0`
+— declared in `tests/e2e/pyproject.toml`.
 
 ### Running Locally
 

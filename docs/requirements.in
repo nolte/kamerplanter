@@ -1,0 +1,33 @@
+# Source ranges for the MkDocs toolchain. The file that is INSTALLED is the
+# compiled docs/requirements.txt beside it, which pins every direct and
+# transitive distribution by version AND by hash (#1509); this one only says
+# what the site is allowed to be built with.
+#
+# Regenerate after every edit here:
+#
+#     task docs:lock
+#
+# which is `uv pip compile docs/requirements.in --universal
+# --python-version 3.11 --generate-hashes -o docs/requirements.txt`. The two
+# flags are measured, not stylistic: the release lane installs this set TWICE,
+# once on the runner (Python 3.14, `reusable-mkdocs.yaml` pre-build) and once
+# inside `mhausenblas/mkdocs-deploy-gh-pages`, whose image is
+# `squidfunk/mkdocs-material:9.0.6` — Alpine, CPython 3.11.0, measured with
+# `docker run --entrypoint sh ... -c 'python -V'`. `--universal` emits one file
+# valid for both, including the musllinux wheel hashes that musl container
+# needs (verified against PyPI's file list for charset-normalizer 3.5.1: all 60
+# musllinux hashes are present), and `--python-version 3.11` keeps the resolve
+# inside the older of the two interpreters.
+
+mkdocs>=1.6,<2.0
+mkdocs-material>=9.7,<10.0
+mkdocs-static-i18n>=1.2.0
+mkdocstrings[python]>=0.24.0
+mkdocs-git-revision-date-localized-plugin>=1.2.0
+mkdocs-awesome-pages-plugin>=2.9.0
+mkdocs-minify-plugin>=0.7.0
+mkdocs-redirects>=1.2.0
+pymdown-extensions>=10.5
+mike>=2.0.0
+mkdocs-literate-nav>=0.6,<1.0
+pyyaml>=6.0,<7.0
