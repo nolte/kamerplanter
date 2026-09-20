@@ -87,7 +87,13 @@ export default function SubstrateDetailPage() {
   // explicit page of 200 was under the 28 seeded rows today and is the same
   // spelling that lost seven species at 207 — and this lookup is client-side, so
   // a row that never arrived renders as an unresolved key.
-  const substrateCatalogue = useCatalogue('substrates');
+  //
+  // `enabled` keeps the request where it was: the old code fetched only for a
+  // mix, because only a mix resolves component keys to names. Dropping the
+  // condition would have cost every substrate page a request it has no use for.
+  const substrateCatalogue = useCatalogue('substrates', {
+    enabled: Boolean(substrate?.is_mix && substrate.mix_components?.length),
+  });
   const { isFavorite, toggleFavorite } = useSubstrateFavorites();
   const batchTableState = useTableLocalState({ defaultSort: { column: 'mixedOn', direction: 'desc' } });
 
@@ -134,8 +140,7 @@ export default function SubstrateDetailPage() {
       });
       setBatches(await api.listBatches(key));
       // The mix components used to trigger a bounded substrate fetch here; the
-      // shared reader loads the catalogue on its own (#1560), so nothing is left
-      // to do on this branch.
+      // shared reader does it now, gated on the same condition (#1560).
     } catch (err) {
       setError(String(err));
     } finally {
