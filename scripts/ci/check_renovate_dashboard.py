@@ -74,20 +74,62 @@ WHAT IT CHECKS
    is what turned them into findings, with
    :data:`KNOWN_UNHASHED_REQUIREMENTS` holding the one argued exception.
 
-   WHAT NEITHER SWEEP SEES, named rather than implied — the #1509 review asked
-   for the spelling that gets past them and found one that matters:
+   THE BOUNDARY, SET NORMATIVELY (#1572). What each sweep reads was written
+   down; the RULE that decides which install belongs in which scope was not,
+   anywhere — it was re-derived per file, per pull request, which is why #1572
+   could ask "and which installs must be hashed?" and find no answer to point
+   at. It is two classes, and the test is what the install can REACH.
 
-   * ``additional_dependencies:`` in ``.pre-commit-config.yaml``. The E2E
-     self-test hook installs ``selenium`` and ``pytest`` from RANGES, unhashed,
-     inside the REQUIRED ``static`` lane, and Renovate's pre-commit manager
-     maintains ``rev:`` only — so that install is neither hashed nor version-
-     managed nor visible here. Tracked as **#1572**;
+   (a) **Reaches a delivered artefact → HASH-BEARING.** An install whose result
+       ships — baked into a published image, installed into the published
+       documentation site, or run against production data — must come from a
+       lock or a ``--generate-hashes`` requirement list AND be verified at
+       install time: ``uv sync --locked``, or ``pip install -r`` on a file where
+       every entry carries ``--hash=`` (one hash puts pip into hash-checking
+       mode for the whole file). A pin alone does not qualify here, because a
+       pin names a version and a version is not a byte sequence — that is the
+       NFR-009 §2.3 property, and it is what both sweeps in this module measure.
+       Members today: the eight locked PEP 621 trees, ``tests/e2e/uv.lock``,
+       ``docs/requirements.txt``.
+
+   (b) **Runner-only, and its output is a verdict → EXACT PIN OR BOUNDED RANGE,
+       NO HASHES.** An install that exists to produce a report, a lint verdict
+       or a gate decision on a runner or a developer machine, and that no
+       delivered artefact contains, needs reproducibility of BEHAVIOUR, not of
+       bytes. Requiring hashes here would mean a lock file per pre-commit hook
+       and per ``pip install`` in a ``run:`` step, closing no threat the shipped
+       artefact does not already close — the wheel is never shipped. Members
+       today: the six ``==``-pinned workflow tools, and the seventeen
+       ``additional_dependencies:`` entries in ``.pre-commit-config.yaml``.
+
+   What class (b) is NOT is *unbounded*. An open upper bound inside the REQUIRED
+   ``static`` lane is an unreviewed upgrade applied to every contributor at once,
+   and Renovate's ``pre-commit`` manager maintains ``rev:`` only — it never reads
+   ``additional_dependencies``, so those ranges age unattended. That is the #1303
+   shape (a manager silently reading nothing) with no manager at all. Since #1572
+   every one of the seventeen entries carries a floor AND a ceiling, each held
+   against the tree that already declares the same package, by
+   ``src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py``. That
+   guard — not this module — is the enforcement, because it runs in
+   ``backend-guards.yml``, which is unfiltered and required, where this alert is
+   nightly and advisory.
+
+   WHAT NEITHER SWEEP HERE SEES, named rather than implied — the #1509 review
+   asked for the spelling that gets past them, and the #1572 sweep re-asked it:
+
+   * ``additional_dependencies:`` in ``.pre-commit-config.yaml``. Still read by
+     neither sweep, now deliberately: it is neither a requirement list nor a
+     Dockerfile, and under the boundary above it is class (b), so it does not
+     belong in a HASH sweep at all. It is enumerated instead by the bounds guard
+     named above, which reads the YAML rather than a list of hook ids (#1572);
    * ``pip install`` in a workflow ``run:`` step or a Taskfile — six sites, all
      ``==``-pinned runner tools (``pip-audit``, ``pip-licenses``, ``PyYAML``,
      and the ``uv==`` bootstrap) whose output is a report rather than an
-     artefact. Inventory, not finding;
+     artefact. Class (b), satisfied. Inventory, not finding;
    * ``%pip install`` in a notebook (``tools/rag-eval/rag_eval.ipynb``), inside
-     the tree that is already the argued exception.
+     the tree that is already the argued exception. A notebook magic is not a
+     ``run:`` step and not a requirement list, so no sweep in this repository
+     reads it; it stays inventory because ``tools/rag-eval`` ships nothing.
 
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
