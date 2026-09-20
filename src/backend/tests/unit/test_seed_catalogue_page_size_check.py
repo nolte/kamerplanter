@@ -324,7 +324,10 @@ class TestCounting:
         tree.seed_file("a.yaml", "widgets:\n  - name: shared\n  - name: only-a\n")
         tree.seed_file("b.yaml", "widgets:\n  - name: shared\n  - name: only-b\n")
         tree.seeder(["a.yaml", "b.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        # A *call*, because that is what a real owner contains. This fixture
+        # used to be the bare name, which only passed while the `complete`
+        # contract was a raw substring test (#1568 review, SCR-005).
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         assert tree.measure(_complete())[0].rows == 3
 
@@ -341,7 +344,10 @@ class TestCounting:
             """,
         )
         tree.seeder(["a.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        # A *call*, because that is what a real owner contains. This fixture
+        # used to be the bare name, which only passed while the `complete`
+        # contract was a raw substring test (#1568 review, SCR-005).
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         catalogue = checker.Catalogue(
             name="widgets",
@@ -357,7 +363,10 @@ class TestCounting:
         """`families` and `new_families` are one collection, counted together."""
         tree.seed_file("a.yaml", "widgets:\n  - name: one\nnew_widgets:\n  - name: two\n")
         tree.seeder(["a.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        # A *call*, because that is what a real owner contains. This fixture
+        # used to be the bare name, which only passed while the `complete`
+        # contract was a raw substring test (#1568 review, SCR-005).
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         catalogue = checker.Catalogue(
             name="widgets",
@@ -374,7 +383,10 @@ class TestCounting:
         tree.seed_file("plant_info_1.yaml", _widgets(2, prefix="a"))
         tree.seed_file("plant_info_2.yaml", _widgets(2, prefix="b"))
         tree.seeder(["plant_info*.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        # A *call*, because that is what a real owner contains. This fixture
+        # used to be the bare name, which only passed while the `complete`
+        # contract was a raw substring test (#1568 review, SCR-005).
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         results = tree.measure(_complete())
 
@@ -386,7 +398,10 @@ class TestCounting:
         tree.seed_file("widgets.yaml", _widgets(3))
         tree.seed_file("schemas/widgets.schema.yaml", "widgets:\n  - name: not-a-row\n")
         tree.seeder(["widgets.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        # A *call*, because that is what a real owner contains. This fixture
+        # used to be the bare name, which only passed while the `complete`
+        # contract was a raw substring test (#1568 review, SCR-005).
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         results = tree.measure(_complete())
 
@@ -398,7 +413,10 @@ class TestCounting:
         tree.seed_file("widgets.yaml", _widgets(5))
         tree.seed_file("fertilizers_supplement.yaml", "widgets:\n  - name: deferred\n")
         tree.seeder(["widgets.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        # A *call*, because that is what a real owner contains. This fixture
+        # used to be the bare name, which only passed while the `complete`
+        # contract was a raw substring test (#1568 review, SCR-005).
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         results = tree.measure(_complete())
 
@@ -601,6 +619,109 @@ class TestEveryReadingModuleIsSeen:
 
         assert not result.failed
 
+    def test_an_aliased_named_import_is_red(self, tree: Tree) -> None:
+        """The spelling the docstring claimed to catch and did not.
+
+        `import { listWidgets as loadWidgets }` matched the clause, after which
+        the scan searched for `listWidgets(` — but the call is `loadWidgets(`, so
+        the module came back clean. Text and code disagreed, and a comment
+        describing a guarantee the code does not give is how #1393 spent four
+        rounds not looking. The finding now hangs on the binding.
+        """
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import { listWidgets as loadWidgets } from '@/api/endpoints/widgets';\n"
+            "export const load = () => loadWidgets(0, 200);\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+        assert [module for module, _line in result.capped_readers] == [
+            "pages/Picker.tsx",
+            "pages/Picker.tsx",
+        ]
+
+    def test_a_re_export_is_red(self, tree: Tree) -> None:
+        """`export { listWidgets } from …` puts it in a second public surface.
+
+        It carries no `import` keyword, so the import-only pattern never saw it.
+        """
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/reexport.ts",
+            "export { listWidgets } from '@/api/endpoints/widgets';\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+
+    def test_a_dynamic_import_is_red(self, tree: Tree) -> None:
+        """`const { listWidgets } = await import(…)` has no static import at all."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Lazy.tsx",
+            "export const load = async () => {\n"
+            "  const { listWidgets } = await import('@/api/endpoints/widgets');\n"
+            "  return listWidgets(0, 200);\n"
+            "};\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+
+    def test_a_wrapper_under_api_is_red(self, tree: Tree) -> None:
+        """`api/` was excluded wholesale, hiding a wrapper twice over.
+
+        Only the catalogue's own endpoint module is exempt now — it defines the
+        capped reader and its complete loader legitimately calls it.
+        """
+        self._seeded(tree)
+        tree.frontend_module(
+            "api/wrappers/widgets.ts",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "export const loadPage = () => widgetApi.listWidgets(0, 200);\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+        assert [module for module, _line in result.capped_readers] == ["api/wrappers/widgets.ts"]
+
+    def test_the_endpoint_module_itself_stays_exempt(self, tree: Tree) -> None:
+        """The counterpart to widening the scan: the definition is not a defect."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "api/endpoints/widgets.ts",
+            "export async function listWidgets(offset = 0, limit = 50) { return []; }\n"
+            "export async function listAllWidgets() { return listWidgets(0, 200); }\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert not result.failed
+
+    def test_a_bound_reference_without_a_call_is_red(self, tree: Tree) -> None:
+        """`const read = widgetApi.listWidgets` — bound now, called later.
+
+        The namespace branch required a `(`, so the assignment slipped past and
+        the call through `read(` carried no trace of the module it came from.
+        """
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "const read = widgetApi.listWidgets;\n"
+            "export const load = () => read(0, 200);\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+
     def test_an_allowlisted_module_is_not_red(self, tree: Tree, monkeypatch: pytest.MonkeyPatch) -> None:
         """A caller that genuinely wants one page is a reason, not a silence."""
         self._seeded(tree)
@@ -632,6 +753,167 @@ class TestEveryReadingModuleIsSeen:
 
         assert not result.failed
         assert result.capped_readers == []
+
+
+class TestTheCompleteContractNeedsACall:
+    """The ``complete`` half must not be satisfiable by prose (#1568 review, SCR-005).
+
+    It was. The check read the owner's **unstripped** source and asked whether the
+    loader's name appeared anywhere in it, while the reader scan next to it
+    stripped comments properly. Two owners name their loader in a comment head
+    (``fertilizersSlice.ts:4``, ``activitiesSlice.ts:5``), so removing the real
+    call and leaving the comment kept the gate green — measured at exit 0 by
+    replacing ``api.listAllActivities(arg)`` with a hand-rolled bounded
+    ``fetch()``. That is the vacuum class from PR #1545.
+    """
+
+    def _tree(self, tree: Tree, owner_body: str) -> None:
+        tree.seed_file("widgets.yaml", _widgets(3))
+        tree.seeder(["widgets.yaml"])
+        tree.frontend_module("slice.ts", owner_body)
+
+    def test_the_loader_named_only_in_a_comment_is_red(self, tree: Tree) -> None:
+        """A line comment naming the loader is prose about it, not a call to it."""
+        self._tree(
+            tree,
+            "// This slice loads the complete catalogue via listAllWidgets().\n"
+            "export const load = () => fetch('/api/v1/widgets?limit=50');\n",
+        )
+
+        (result,) = tree.measure(_complete())
+
+        assert result.missing_loader
+        assert result.failed
+
+    def test_the_loader_named_only_in_a_block_comment_is_red(self, tree: Tree) -> None:
+        """The same through the other comment syntax, which the owners actually use."""
+        self._tree(
+            tree,
+            "/**\n * The complete catalogue, via listAllWidgets().\n */\n"
+            "export const load = () => fetch('/api/v1/widgets?limit=50');\n",
+        )
+
+        (result,) = tree.measure(_complete())
+
+        assert result.missing_loader
+
+    def test_a_real_call_is_green_even_with_the_comment_present(self, tree: Tree) -> None:
+        """The counterpart: the repair must not be red just because prose exists.
+
+        Both real owners carry exactly this shape — a comment head naming the
+        loader *and* the call — so a fix that only looked outside comments in the
+        wrong direction would have turned the tree red.
+        """
+        self._tree(
+            tree,
+            "// The complete catalogue, via listAllWidgets().\nexport const load = () => listAllWidgets();\n",
+        )
+
+        (result,) = tree.measure(_complete())
+
+        assert not result.missing_loader
+        assert not result.failed
+
+    def test_the_bare_name_without_a_call_is_red(self, tree: Tree) -> None:
+        """Mentioning the symbol in code is not calling it either."""
+        self._tree(tree, "export const loaderName = 'listAllWidgets';\n")
+
+        (result,) = tree.measure(_complete())
+
+        assert result.missing_loader
+
+
+class TestEveryCatalogueEndpointIsRegistered:
+    """The registry must not be a list somebody has to remember (#1568 review, SCR-003).
+
+    Every check runs *per registered catalogue*, so a new
+    ``api/endpoints/<x>.ts`` exporting ``listAll<X>``, with a picker reading
+    ``list<X>(0, 200)``, was green — the scan never looked at that catalogue.
+    That is #1560's blind spot one level up, and the existing meta-test only
+    asserts the opposite direction.
+    """
+
+    def _endpoints(self, tree: Tree, filename: str, body: str) -> None:
+        tree.frontend_module(f"api/endpoints/{filename}", body)
+
+    def test_an_unregistered_module_with_a_complete_loader_is_red(self, tree: Tree) -> None:
+        """The production shape of the gap, reduced."""
+        self._endpoints(
+            tree,
+            "widgets.ts",
+            "export async function listWidgets(offset = 0, limit = 50) { return []; }\n"
+            "export async function listAllWidgets() { return listWidgets(0, 200); }\n",
+        )
+
+        findings = checker.unregistered_catalogue_modules(tree.frontend_src, ())
+
+        assert findings == [("endpoints/widgets", "listAllWidgets")]
+
+    def test_a_registered_module_is_not_a_finding(self, tree: Tree) -> None:
+        """The counterpart, so the check is not simply always red."""
+        self._endpoints(
+            tree,
+            "widgets.ts",
+            "export async function listAllWidgets() { return []; }\n",
+        )
+
+        findings = checker.unregistered_catalogue_modules(tree.frontend_src, (_with_reader_scan(),))
+
+        assert findings == []
+
+    def test_the_fetch_all_spelling_counts_too(self, tree: Tree) -> None:
+        """Half the real loaders are `fetchAll*`, not `listAll*`."""
+        self._endpoints(
+            tree,
+            "widgets.ts",
+            "export async function fetchAllWidgets() { return []; }\n",
+        )
+
+        findings = checker.unregistered_catalogue_modules(tree.frontend_src, ())
+
+        assert findings == [("endpoints/widgets", "fetchAllWidgets")]
+
+    def test_a_module_without_a_complete_loader_is_not_a_catalogue(self, tree: Tree) -> None:
+        """Most endpoint modules are not catalogues and must stay silent."""
+        self._endpoints(
+            tree,
+            "widgets.ts",
+            "export async function getWidget(key: string) { return { key }; }\n",
+        )
+
+        findings = checker.unregistered_catalogue_modules(tree.frontend_src, ())
+
+        assert findings == []
+
+    def test_a_recorded_module_is_not_a_finding(self, tree: Tree, monkeypatch) -> None:
+        """The escape hatch carries a reason, like every other one here."""
+        self._endpoints(
+            tree,
+            "widgets.ts",
+            "export async function listAllWidgets() { return []; }\n",
+        )
+        monkeypatch.setitem(
+            checker.KNOWN_UNREGISTERED_LOADERS,
+            "endpoints/widgets",
+            "tenant-owned collection, starts empty; a seed count says nothing about it",
+        )
+
+        findings = checker.unregistered_catalogue_modules(tree.frontend_src, ())
+
+        assert findings == []
+
+    def test_a_comment_mentioning_a_loader_does_not_invent_a_catalogue(self, tree: Tree) -> None:
+        """The same vacuum from the other side: prose must not create a finding."""
+        self._endpoints(
+            tree,
+            "widgets.ts",
+            "// One day this will export listAllWidgets().\n"
+            "export async function getWidget(key: string) { return { key }; }\n",
+        )
+
+        findings = checker.unregistered_catalogue_modules(tree.frontend_src, ())
+
+        assert findings == []
 
 
 class TestEveryRegisteredCatalogueDeclaresItsReader:

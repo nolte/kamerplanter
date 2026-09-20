@@ -115,7 +115,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -173,6 +173,25 @@ KNOWN_UNLOADED_SEED_FILES: dict[str, str] = {
 #: Empty as of #1560: all twenty-two sites the sweep found were pickers, and all
 #: twenty-two moved to the complete loader or to `useCatalogue`.
 KNOWN_CAPPED_READERS: dict[str, str] = {}
+
+#: Endpoint modules that expose a complete-catalogue loader and deliberately have
+#: **no** registry entry, each with the reason.
+#:
+#: Without this register the registry is a hand-maintained name list, and the
+#: reader scan only ever runs over catalogues somebody remembered to add: a new
+#: ``api/endpoints/<x>.ts`` with ``listAll<X>`` plus a picker reading
+#: ``list<X>(0, 200)`` would be green, which is #1560's blind spot one catalogue
+#: at a time. :func:`unregistered_catalogue_modules` derives the class from the
+#: tree instead, and an entry here is the only way out.
+KNOWN_UNREGISTERED_LOADERS: dict[str, str] = {
+    "endpoints/plantInstances": (
+        "Plant instances are tenant-owned data, not seeded reference data: the "
+        "collection starts empty, so a seed row count says nothing about it and a "
+        "page-size verdict derived from one would be fiction. `listAllPlantInstances` "
+        "exists for the same client-side-search reason (#995), which is why it looks "
+        "like a catalogue loader from here. See the CATALOGUES docstring."
+    ),
+}
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
@@ -436,16 +455,24 @@ def iter_seed_files(seed_dir: Path) -> list[Path]:
 
 # ── Finding every module that reads a catalogue ──────────────────────────────
 
-#: An ES import statement, split into its clause and its module specifier.
-_IMPORT = re.compile(r"import\s+(?P<clause>[^;]*?)\s+from\s+['\"](?P<module>[^'\"]+)['\"]", re.S)
+#: A static ``import`` **or** a re-``export`` carrying a clause and a module
+#: specifier. ``export { listSpecies } from '…'`` puts the capped reader in a
+#: second module's public surface without ever calling it, and the import-only
+#: form did not see it.
+_IMPORT = re.compile(
+    r"(?:import|export)\s+(?P<clause>[^;]*?)\s+from\s+['\"](?P<module>[^'\"]+)['\"]",
+    re.S,
+)
 
 #: ``import * as speciesApi from '…'`` — the namespace form.
 _NAMESPACE = re.compile(r"^\*\s+as\s+(\w+)$")
 
-#: Frontend subtrees that define or wrap the readers rather than consume them.
-#: ``api/`` holds both the capped reader and the complete loader that calls it,
-#: so scanning it would flag the repair itself.
-_SCAN_EXCLUDED_PREFIXES = ("api/",)
+#: ``const { listSpecies } = await import('…')`` — the dynamic form, which
+#: carries no static import for :data:`_IMPORT` to bind to.
+_DYNAMIC_IMPORT = re.compile(
+    r"(?P<clause>\{[^}]*\})\s*=\s*(?:await\s+)?import\s*\(\s*['\"](?P<module>[^'\"]+)['\"]",
+    re.S,
+)
 
 
 def _strip_comments(source: str) -> str:
@@ -475,12 +502,74 @@ def iter_frontend_modules(frontend_src: Path) -> list[Path]:
     modules: list[Path] = []
     for path in sorted(frontend_src.rglob("*.ts")) + sorted(frontend_src.rglob("*.tsx")):
         relative = path.relative_to(frontend_src)
-        if str(relative).startswith(_SCAN_EXCLUDED_PREFIXES):
-            continue
         if _is_test_module(relative):
             continue
         modules.append(path)
     return sorted(modules)
+
+
+#: ``export async function listAllSpecies`` / ``fetchAllFertilizers`` — the
+#: complete-catalogue loader, whose presence is what makes a module a catalogue
+#: endpoint from this check's point of view.
+_COMPLETE_LOADER = re.compile(r"^export\s+(?:async\s+)?function\s+((?:listAll|fetchAll)\w+)", re.M)
+
+
+def unregistered_catalogue_modules(
+    frontend_src: Path,
+    catalogues: tuple[Catalogue, ...] = CATALOGUES,
+) -> list[tuple[str, str]]:
+    """Find endpoint modules that look like a catalogue and are not registered.
+
+    **Why this exists.** :data:`CATALOGUES` is hand-maintained, and the reader
+    scan only covers what it lists. So the scan's completeness rests on somebody
+    remembering to add a row — which is exactly the property #1560 was filed
+    about, one level up: a new ``api/endpoints/<x>.ts`` exporting ``listAll<X>``,
+    with a picker reading ``list<X>(0, 200)``, is green because the check never
+    looks at that catalogue at all. The existing meta-test only asserts the
+    opposite direction (every registered catalogue declares its reader).
+
+    The class is derived from the tree: a module under ``api/endpoints`` that
+    exports a ``listAll*``/``fetchAll*`` function is a catalogue endpoint, and
+    must be named by some registry entry's ``endpoint_module``. Exceptions go in
+    :data:`KNOWN_UNREGISTERED_LOADERS` with a reason, the same mechanism as
+    :data:`KNOWN_CAPPED_READERS`.
+
+    Args:
+        frontend_src: ``src/frontend/src``.
+        catalogues: The registry (injectable for the check's own tests).
+
+    Returns:
+        ``(module fragment, loader name)`` per unregistered module, sorted.
+
+    Raises:
+        SeedCatalogueError: If the endpoints directory is missing or unreadable.
+    """
+    endpoints = frontend_src / "api" / "endpoints"
+    if not endpoints.is_dir():
+        raise SeedCatalogueError(f"endpoints directory does not exist: {endpoints}")
+
+    registered = {
+        catalogue.endpoint_module
+        for catalogue in catalogues
+        if catalogue.endpoint_module is not None
+    }
+
+    findings: list[tuple[str, str]] = []
+    for path in sorted(endpoints.glob("*.ts")):
+        if _is_test_module(path.relative_to(frontend_src)):
+            continue
+        try:
+            source = _strip_comments(path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise SeedCatalogueError(f"cannot read {path}: {exc}") from exc
+        loaders = _COMPLETE_LOADER.findall(source)
+        if not loaders:
+            continue
+        fragment = f"endpoints/{path.stem}"
+        if fragment in registered or fragment in KNOWN_UNREGISTERED_LOADERS:
+            continue
+        findings.append((fragment, loaders[0]))
+    return sorted(findings)
 
 
 def find_capped_readers(frontend_src: Path, catalogue: Catalogue) -> list[tuple[str, int]]:
@@ -500,9 +589,32 @@ def find_capped_readers(frontend_src: Path, catalogue: Catalogue) -> list[tuple[
     Binding the name to the module it was imported *from* settles both: the thunk
     comes from ``store/slices/…``, the capped reader from ``api/endpoints/…``, and
     a namespace import is matched through its own local alias with whitespace
-    allowed. Importing the capped reader at all is the finding — a caller that has
-    it in scope is one edit away from a bounded read, and there is no legitimate
-    consumer of it outside ``api/``.
+    allowed.
+
+    **The finding hangs on the binding, not on the call.** An earlier version said
+    "importing the capped reader at all is the finding" and did not implement it:
+    it searched for ``capped(``, so ``import { listSpecies as loadSpecies }``
+    matched the clause and then found nothing, because the call is
+    ``loadSpecies(``. The text was the wrong half — and a comment that describes a
+    guarantee the code does not give is how #1393 spent four rounds not looking.
+    Four further spellings were measured invisible at the same time, all five
+    returning exit 0:
+
+    * ``import { listSpecies as loadSpecies } from …`` then ``loadSpecies(0, 200)``
+    * ``export { listSpecies } from …`` — a re-export, no ``import`` keyword
+    * ``const { listSpecies } = await import(…)`` — no static import at all
+    * a wrapper under ``api/``, which the old ``api/`` exclusion hid twice over
+    * ``const read = speciesApi.listSpecies; read(0, 200)`` — bound, then called
+
+    So: a **named** binding (aliased or not, static or dynamic, import or
+    re-export) is reported at the binding itself, because there is no legitimate
+    reason to name the capped reader outside its own endpoint module. A
+    **namespace** binding is reported wherever ``ns.capped`` is *referenced* —
+    without requiring the ``(`` — which is what catches the assignment form.
+
+    The exclusion is now the catalogue's own endpoint module rather than all of
+    ``api/``: that module defines the capped reader and its complete loader calls
+    it, which is legitimate and the only such case.
 
     Args:
         frontend_src: ``src/frontend/src``.
@@ -523,32 +635,57 @@ def find_capped_readers(frontend_src: Path, catalogue: Catalogue) -> list[tuple[
     hits: set[tuple[str, int]] = set()
     for path in iter_frontend_modules(frontend_src):
         relative = str(path.relative_to(frontend_src))
+        # The module that defines the capped reader; its complete loader calls it.
+        if PurePosixPath(relative).with_suffix("").as_posix().endswith(module_fragment):
+            continue
         try:
             source = _strip_comments(path.read_text(encoding="utf-8"))
         except OSError as exc:
             raise SeedCatalogueError(f"cannot read {path}: {exc}") from exc
         if capped not in source:
             continue
-        lines = source.splitlines()
-        for match in _IMPORT.finditer(source):
-            if not match.group("module").endswith(module_fragment):
-                continue
-            clause = match.group("clause").strip()
+
+        def _line_of(offset: int, text: str = source) -> int:
+            return text[:offset].count("\n") + 1
+
+        bindings = [
+            (match, match.group("clause").strip())
+            for match in _IMPORT.finditer(source)
+            if match.group("module").endswith(module_fragment)
+        ]
+        bindings += [
+            (match, match.group("clause").strip())
+            for match in _DYNAMIC_IMPORT.finditer(source)
+            if match.group("module").endswith(module_fragment)
+        ]
+
+        for match, clause in bindings:
             namespace = _NAMESPACE.match(clause)
             if namespace:
-                # `ns  .  capped(` — whitespace and newlines allowed between the
-                # receiver and the method, which is how six sites hid from the
-                # first sweep.
-                pattern = rf"\b{re.escape(namespace.group(1))}\s*\.\s*{re.escape(capped)}\s*\("
-            elif re.search(rf"[{{,]\s*{re.escape(capped)}\s*(,|}}|\sas\s|$)", clause):
-                # Named import, alias or not: having it in scope is the finding.
-                pattern = rf"\b{re.escape(capped)}\s*\("
-            else:
-                continue
-            for reference in re.finditer(pattern, source):
-                line = source[: reference.start()].count("\n") + 1
-                if line <= len(lines):
-                    hits.add((relative, line))
+                # Any *reference* to `ns.capped`, not only a call: the `(` was
+                # what let `const read = speciesApi.listSpecies` through.
+                # Whitespace and newlines are allowed between the receiver and
+                # the method, which is how six of the twenty-two sites hid from
+                # the first sweep.
+                reference_pattern = (
+                    rf"\b{re.escape(namespace.group(1))}\s*\.\s*{re.escape(capped)}\b"
+                )
+                found = False
+                for reference in re.finditer(reference_pattern, source):
+                    hits.add((relative, _line_of(reference.start())))
+                    found = True
+                if not found:
+                    continue
+            elif re.search(rf"[{{,]\s*{re.escape(capped)}\s*(,|\}}|\sas\s|$)", clause):
+                # A named binding is the finding in itself — reported at the
+                # binding, so an alias cannot make it vanish.
+                hits.add((relative, _line_of(match.start())))
+                local = capped
+                alias = re.search(rf"\b{re.escape(capped)}\s+as\s+(\w+)", clause)
+                if alias:
+                    local = alias.group(1)
+                for reference in re.finditer(rf"\b{re.escape(local)}\s*\(", source):
+                    hits.add((relative, _line_of(reference.start())))
     return sorted(hits)
 
 
@@ -644,7 +781,19 @@ def measure(
             owner = frontend_src / catalogue.owner
             if not owner.is_file():
                 raise SeedCatalogueError(f"owner module does not exist: {owner}")
-            result.missing_loader = catalogue.loader not in owner.read_text(encoding="utf-8")
+            # A *call*, in code — not the loader's name anywhere in the file.
+            # This was a raw substring test against the unstripped source, which
+            # a comment satisfies, and two owners name their loader in exactly
+            # such a comment (`fertilizersSlice.ts:4`, `activitiesSlice.ts:5`).
+            # Measured before repairing: replacing `api.listAllActivities(arg)`
+            # with a hand-rolled `fetch('/api/v1/activities?limit=50')` and
+            # leaving the comment head alone returned exit 0. That is the vacuum
+            # class from PR #1545 — a check whose positive is satisfied by prose
+            # about the thing rather than by the thing.
+            owner_code = _strip_comments(owner.read_text(encoding="utf-8"))
+            result.missing_loader = not re.search(
+                rf"\b{re.escape(catalogue.loader)}\s*\(", owner_code
+            )
 
         # The half the owner contract could not see (#1560). Binding one owning
         # module per catalogue was green while eight pickers in other modules
@@ -675,13 +824,22 @@ def _contract(catalogue: Catalogue) -> str:
     return f"bounded ({catalogue.page_size})"
 
 
-def report(results: list[CatalogueResult], list_sources: bool, page_size: int) -> int:
+def report(
+    results: list[CatalogueResult],
+    list_sources: bool,
+    page_size: int,
+    unregistered: list[tuple[str, str]] | None = None,
+) -> int:
     """Print the measurement and return the process exit code.
 
     Args:
         results: One entry per catalogue.
         list_sources: Whether to name every seed file counted.
         page_size: Page size assumed when costing a complete load.
+        unregistered: Endpoint modules that expose a complete loader and are not
+            in the registry, from :func:`unregistered_catalogue_modules`. These
+            fail on their own, because a catalogue the registry does not name is
+            a catalogue nothing above was measured against.
 
     Returns:
         ``EXIT_OK`` when every catalogue holds its contract, ``EXIT_DEFECTS`` otherwise.
@@ -732,8 +890,20 @@ def report(results: list[CatalogueResult], list_sources: bool, page_size: int) -
         )
         print()
 
+    unregistered = unregistered or []
+    if unregistered:
+        print("Endpoint modules that look like a catalogue and are not registered:")
+        for fragment, loader in unregistered:
+            print(f"  src/frontend/src/api/{fragment}.ts  (exports {loader}())")
+        print(
+            "  Every check above runs per *registered* catalogue, so these were not\n"
+            "  measured at all — including the reader scan, which is how a new picker\n"
+            "  reading a bounded page stays green. Add a CATALOGUES entry, or record\n"
+            "  the module in KNOWN_UNREGISTERED_LOADERS with a reason.\n"
+        )
+
     failures = [result for result in results if result.failed]
-    if not failures:
+    if not failures and not unregistered:
         print("OK — every seeded catalogue is fully reachable from its list view.")
         print(
             "  A green result is about the *seeded* rows. Tenant-created rows are "
@@ -741,6 +911,9 @@ def report(results: list[CatalogueResult], list_sources: bool, page_size: int) -
             "contract rather than a bound this check would have to trust."
         )
         return EXIT_OK
+
+    if not failures:
+        return EXIT_DEFECTS
 
     print(f"FAILED — {len(failures)} catalogue(s):\n")
     for result in failures:
@@ -853,11 +1026,13 @@ def main(argv: list[str] | None = None) -> int:
         return path if path.is_absolute() else REPO_ROOT / path
 
     try:
+        frontend_src = resolve(args.frontend_src, FRONTEND_SRC)
         results = measure(
             resolve(args.seed_dir, SEED_DATA_DIR),
             resolve(args.migrations_dir, MIGRATIONS_DIR),
-            resolve(args.frontend_src, FRONTEND_SRC),
+            frontend_src,
         )
+        unregistered = unregistered_catalogue_modules(frontend_src)
     except SeedCatalogueError as exc:
         print(f"check_seed_catalogue_page_size: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -890,6 +1065,10 @@ def main(argv: list[str] | None = None) -> int:
                         }
                         for result in results
                     ],
+                    "unregistered_modules": [
+                        {"module": fragment, "loader": loader}
+                        for fragment, loader in unregistered
+                    ],
                     "failed": sum(1 for result in results if result.failed),
                 },
                 indent=2,
@@ -897,9 +1076,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         # Same rule as the human report, derived from the same predicate, so the
         # two modes cannot disagree about one tree.
-        return EXIT_DEFECTS if any(result.failed for result in results) else EXIT_OK
+        return (
+            EXIT_DEFECTS
+            if any(result.failed for result in results) or unregistered
+            else EXIT_OK
+        )
 
-    return report(results, args.list_sources, args.page_size)
+    return report(results, args.list_sources, args.page_size, unregistered)
 
 
 if __name__ == "__main__":
