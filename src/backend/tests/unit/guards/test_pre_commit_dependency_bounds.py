@@ -33,10 +33,12 @@ guard enumerates rather than counts, so an eighteenth hook is covered without
 anybody editing a sentence.
 
 **Why it enumerates instead of listing.** #1572's own text names ONE entry, the
-``e2e-selftest`` hook. Measured against the file, there are **seventeen**
-(``ruff`` 4×, ``PyYAML`` 8×, ``mypy`` 4×, plus ``selenium``/``pytest`` and
-``jsonschema``/``referencing``), which is the "the issue's site list is too
-short until you measure it as a class" shape. A guard bound to the one hook the
+``e2e-selftest`` hook. Measured against the file at that time, there were
+**seventeen** (``ruff`` 4×, ``PyYAML`` 8×, ``mypy`` 4×, plus
+``selenium``/``pytest`` and ``jsonschema``/``referencing``), which is the "the
+issue's site list is too short until you measure it as a class" shape. #1607
+added the eighteenth without anybody editing that sentence — which is the
+enumeration working, and the reason the count is dated rather than asserted. A guard bound to the one hook the
 issue named would be exactly the opt-in list this repository keeps rediscovering
 as a defect class (#1402, #1406, ``backend-guards.yml``'s directory-not-list
 argument). So the entries are read out of the YAML: a hook added tomorrow with a
@@ -124,8 +126,8 @@ class Binding:
 
 
 #: One binding per ``additional_dependencies`` requirement in the file —
-#: seventeen hooks / twenty strings when this was written, and the enumeration
-#: above is what keeps that true rather than this comment. Each was decided
+#: seventeen hooks / twenty strings at #1572, eighteen / twenty-one since #1607,
+#: and the enumeration above is what keeps that true rather than this comment. Each was decided
 #: individually (#1572). Per package:
 #:
 #: * ``ruff`` — floor 0.15.0 kept (the hooks need a ruff that understands the
@@ -138,7 +140,8 @@ class Binding:
 #:   to the backend, because that is where each one's mypy configuration and dev
 #:   extra live. Ceiling ``<3.0.0`` from the backend's declaration; mypy majors
 #:   change defaults;
-#: * ``PyYAML`` — eight hooks, all repo-local scripts under ``scripts/`` that have
+#: * ``PyYAML`` — nine hooks (eight at #1572, plus ``workflow-documented-invocation``
+#:   from #1607), all repo-local scripts under ``scripts/`` that have
 #:   no pyproject of their own. The backend is the ONLY tree in this repository
 #:   that declares pyyaml, so it is the one source there is; ``<7.0.0`` is its
 #:   bound, carried over unchanged;
@@ -208,6 +211,12 @@ _BINDINGS: tuple[Binding, ...] = (
         requirement="PyYAML>=6.0,<7.0.0",
         declared_in=_BACKEND,
         why="scripts/check_workflow_gate_integrity.py parses workflow YAML; no tree of its own",
+    ),
+    Binding(
+        hook="workflow-documented-invocation",
+        requirement="PyYAML>=6.0,<7.0.0",
+        declared_in=_BACKEND,
+        why="scripts/check_workflow_documented_invocation.py parses workflow YAML to read `on.workflow_dispatch.inputs`; like its sibling above it has no tree of its own, and the backend is the only tree in this repository that declares pyyaml (the knowledge-service declares `pyyaml>=6.0` with no ceiling, so it cannot bound anything)",
     ),
     Binding(
         hook="attest-registry-credentials",
