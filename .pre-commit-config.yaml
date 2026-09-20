@@ -64,14 +64,14 @@ repos:
         name: ruff check (E2E suite + harness self-tests)
         entry: ruff check --fix
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^tests/(e2e|e2e_selftest)/.*\.py$
         types: [python]
       - id: ruff-format-e2e
         name: ruff format (E2E suite + harness self-tests)
         entry: ruff format
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^tests/(e2e|e2e_selftest)/.*\.py$
         types: [python]
 
@@ -126,7 +126,7 @@ repos:
         entry: python -m pytest tests/e2e_selftest -q -p no:cacheprovider
         language: python
         language_version: python3.14
-        additional_dependencies: ['selenium>=4.25.0,<5', 'pytest>=8.3.0']
+        additional_dependencies: ['selenium>=4.25.0,<5', 'pytest>=8.3.0,<10.0.0']
         # `e2e/.*\.py` and not just `e2e/pages/`: the selftests now also read the
         # scenario modules (see test_set_returning_helper_comparisons.py), and a
         # guard the hook never runs on the files it inspects is decoration.
@@ -222,7 +222,7 @@ repos:
         name: seeded catalogues fit the page their list view fetches (#995)
         entry: python scripts/check_seed_catalogue_page_size.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -320,7 +320,7 @@ repos:
         name: seed harvest & month facts are consumable (#1002, #1008)
         entry: python scripts/check_seed_harvest_integrity.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -483,7 +483,7 @@ repos:
         name: no CI gate that cannot fail, or cannot run on the change (NFR-018 §2, #1313)
         entry: python3 scripts/check_workflow_gate_integrity.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -623,7 +623,7 @@ repos:
         name: an attesting job carries a Docker-store login (#1218)
         entry: python3 scripts/check_attest_registry_credentials.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -665,7 +665,7 @@ repos:
         name: the develop tree's chart version is a -dev pre-release (#1222)
         entry: python3 scripts/check_chart_develop_version.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -710,7 +710,7 @@ repos:
         name: seed YAML matches the schema it declares (#1406)
         entry: python scripts/check_seed_schema.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0', 'jsonschema>=4.23.0', 'referencing>=0.35.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0', 'jsonschema>=4.23.0,<5.0.0', 'referencing>=0.35.0,<1.0.0']
         files: ^src/backend/app/migrations/seed_data/[^/]+\.ya?ml$
 
   # ── Nuclei binary pin (#1177) ────────────────────────────────────────────
@@ -736,14 +736,14 @@ repos:
         name: ruff check (backend)
         entry: bash -c 'cd src/backend && ruff check --fix "${@/#src\/backend\//}"' --
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^src/backend/.*\.py$
         types: [python]
       - id: ruff-format
         name: ruff format (backend)
         entry: bash -c 'cd src/backend && ruff format "${@/#src\/backend\//}"' --
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^src/backend/.*\.py$
         types: [python]
 
@@ -762,28 +762,28 @@ repos:
         name: mypy (kp_vectordb)
         entry: bash -c 'cd src/libs/kp_vectordb && mypy kp_vectordb'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/libs/kp_vectordb/kp_vectordb/.*\.py$
         pass_filenames: false
       - id: mypy-kp-errortracking
         name: mypy (kp_errortracking)
         entry: bash -c 'cd src/libs/kp_errortracking && mypy kp_errortracking'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/libs/kp_errortracking/kp_errortracking/.*\.py$
         pass_filenames: false
       - id: mypy-knowledge-service
         name: mypy (knowledge-service)
         entry: bash -c 'cd src/knowledge-service && mypy app'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/knowledge-service/app/.*\.py$
         pass_filenames: false
       - id: mypy-inference-service
         name: mypy (inference-service)
         entry: bash -c 'cd src/inference-service && mypy app'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/inference-service/app/.*\.py$
         pass_filenames: false
 
@@ -826,7 +826,7 @@ repos:
         name: Steckbrief ↔ seed consistency (#680)
         entry: python src/backend/app/migrations/seed_steckbrief_consistency.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -901,6 +901,6 @@ repos:
         name: no local skill/agent shadowing a portfolio plugin (#1405)
         entry: python3 scripts/check_skill_plugin_shadowing.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
