@@ -59,17 +59,18 @@ Traces to #1601 (no TC-ID: a dependency gate is not a user-facing case).
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 from tests.support.repo_scripts import find_repo_root
+from tests.support.version_bounds import missing_bound
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -87,7 +88,11 @@ _SKIPPED_DIRECTORIES = frozenset(
 #: a glob that suddenly finds nothing fails here rather than passing vacuously.
 _MINIMUM_SOURCES = 1
 
-#: Same reasoning one level down: twelve entries in ``docs/requirements.in``.
+#: Same reasoning one level down, and deliberately NOT the twelve entries
+#: ``docs/requirements.in`` carries today: a floor equal to the inventory turns
+#: the legitimate removal of a plugin into a red required lane. One entry is what
+#: distinguishes "this parser reads the file" from "this parser reads nothing",
+#: which is the only thing this floor is for.
 _MINIMUM_ENTRIES_PER_SOURCE = 1
 
 #: A line that configures pip rather than naming a distribution.
@@ -111,14 +116,53 @@ class SourceEntry:
         return f"{self.source}: {self.requirement}"
 
 
+def is_a_compile_source(candidate: Path) -> bool:
+    """True when *candidate* is a requirement list, not just a file named ``*.in``.
+
+    The MUSS the sweep enforces says "the compile source of a class (a) list",
+    and ``*.in`` is a SUFFIX, not that property. Autoconf templates
+    (``Makefile.in``, ``setup.cfg.in``) share the suffix and contain no
+    requirements; today the two sets coincide because this checkout has exactly
+    one ``*.in``, and a guard that is only correct while that holds is one
+    vendored dependency away from red.
+
+    The test is the one that matches what the rule is about: a compiled list
+    sits beside it (``requirements.in`` → ``requirements.txt``), OR every
+    non-comment line parses as a PEP 508 requirement. An EMPTY file is not a
+    source — it would otherwise pass the second test vacuously.
+    """
+    if candidate.with_suffix(".txt").is_file():
+        return True
+    lines = [
+        line.strip()
+        for line in candidate.read_text(encoding="utf-8", errors="replace").splitlines()
+        if line.strip() and not line.strip().startswith("#") and not _OPTION_LINE.match(line.strip())
+    ]
+    if not lines:
+        return False
+    for line in lines:
+        try:
+            Requirement(_INLINE_COMMENT.sub("", line).strip())
+        except InvalidRequirement:
+            return False
+    return True
+
+
 def compile_sources(repo_root: Path) -> tuple[Path, ...]:
-    """Every ``*.in`` requirement source in the checkout, sorted, discovered."""
+    """Every requirement compile source in the checkout, sorted, discovered.
+
+    Walks with PRUNING rather than globbing the whole checkout and filtering
+    afterwards: this runs in the unfiltered, required guards lane, and
+    descending into ``.git``/``node_modules``/``.venv`` to throw the result away
+    is runtime that lane cannot spend.
+    """
     found: list[Path] = []
-    for candidate in repo_root.rglob("*.in"):
-        if any(part in _SKIPPED_DIRECTORIES for part in candidate.relative_to(repo_root).parts):
-            continue
-        if candidate.is_file():
-            found.append(candidate)
+    for directory, subdirectories, filenames in os.walk(repo_root):
+        subdirectories[:] = [name for name in subdirectories if name not in _SKIPPED_DIRECTORIES]
+        for filename in filenames:
+            candidate = Path(directory) / filename
+            if candidate.suffix == ".in" and is_a_compile_source(candidate):
+                found.append(candidate)
     return tuple(sorted(found))
 
 
@@ -137,19 +181,6 @@ def source_entries(source: str, text: str) -> tuple[SourceEntry, ...]:
     return tuple(entries)
 
 
-def _bounds(specifier: SpecifierSet) -> tuple[bool, bool]:
-    """``(has_floor, has_ceiling)`` for a specifier set.
-
-    Deliberately identical to ``test_pre_commit_dependency_bounds._bounds``:
-    the two halves of the same §2.1 duty must not read "bounded" differently.
-    ``==``/``===``/``~=`` count as both, since each closes the range on both
-    sides by itself.
-    """
-    has_floor = any(clause.operator in (">=", ">", "==", "===", "~=") for clause in specifier)
-    has_ceiling = any(clause.operator in ("<=", "<", "==", "===", "~=") for clause in specifier)
-    return has_floor, has_ceiling
-
-
 def unbounded_entries(entries: tuple[SourceEntry, ...]) -> list[str]:
     """Entries missing a floor or a ceiling, with the missing side named.
 
@@ -166,10 +197,9 @@ def unbounded_entries(entries: tuple[SourceEntry, ...]) -> list[str]:
         if requirement.url is not None:
             offenders.append(f"{entry} (pinned by URL; ranges do not apply — decide it explicitly)")
             continue
-        has_floor, has_ceiling = _bounds(requirement.specifier)
-        if not (has_floor and has_ceiling):
-            missing = "floor" if not has_floor else "ceiling"
-            offenders.append(f"{entry} (no {missing})")
+        missing = missing_bound(requirement.specifier)
+        if missing is not None:
+            offenders.append(f"{entry} ({missing})")
     return offenders
 
 
@@ -208,6 +238,54 @@ def entries_excluding_what_is_installed(entries: tuple[SourceEntry, ...], compil
         if not requirement.specifier.contains(installed, prereleases=True):
             offenders.append(f"{entry} excludes the pinned {name}=={installed}; recompiling would MOVE the set")
     return offenders
+
+
+def loosen_the_first_ceiling(text: str) -> tuple[str, str]:
+    """Drop the ceiling of the first bounded entry in *text*.
+
+    Pattern-driven, like the sibling guard's :func:`loosen_the_first_pin`: an
+    earlier version named the literal ``mike>=2.0.0,<3.0.0``. Every version in
+    this file is a maintained value — a reviewed ceiling bump is an EXPECTED
+    change — so a falsifier keyed to one of them goes red on a correct edit,
+    in a required lane, with a message pointing at the wrong thing.
+
+    Returns:
+        ``(mutated text, package name)``.
+
+    Raises:
+        AssertionError: when nothing could be mutated, so the falsifier fails
+            loudly instead of passing over an unchanged file.
+    """
+    for entry in source_entries("", text):
+        requirement = Requirement(entry.requirement)
+        floor = [str(clause) for clause in requirement.specifier if clause.operator in (">=", ">")]
+        if not floor or missing_bound(requirement.specifier) is not None:
+            continue
+        mutated = text.replace(entry.requirement, f"{requirement.name}{floor[0]}", 1)
+        assert mutated != text, f"the mutation of {entry.requirement} did not apply"
+        return mutated, requirement.name
+    raise AssertionError("no bounded entry found to loosen; this falsifier would pass vacuously")
+
+
+def tighten_the_first_ceiling_below_what_is_installed(text: str, compiled: dict[str, Version]) -> tuple[str, str]:
+    """Move the first entry's ceiling BELOW the version the compiled list pins.
+
+    The shape that is not a bound but an unannounced downgrade. Pattern-driven
+    for the same reason as above.
+
+    Returns:
+        ``(mutated text, package name)``.
+    """
+    for entry in source_entries("", text):
+        requirement = Requirement(entry.requirement)
+        installed = compiled.get(canonicalize_name(requirement.name))
+        floor = [str(clause) for clause in requirement.specifier if clause.operator in (">=", ">")]
+        if installed is None or not floor:
+            continue
+        mutated = text.replace(entry.requirement, f"{requirement.name}{floor[0]},<{installed}", 1)
+        assert mutated != text, f"the mutation of {entry.requirement} did not apply"
+        return mutated, requirement.name
+    raise AssertionError("no entry found to tighten; this falsifier would pass vacuously")
 
 
 @pytest.fixture(scope="module")
@@ -295,10 +373,9 @@ class TestTheGuardCanFail:
         return (_REPO_ROOT / "docs" / "requirements.in").read_text(encoding="utf-8")
 
     def test_dropping_a_ceiling_is_reported(self, real_source: str) -> None:
-        mutated = real_source.replace("mike>=2.0.0,<3.0.0", "mike>=2.0.0", 1)
-        assert mutated != real_source, "the mutation did not apply; this test would pass vacuously"
+        mutated, name = loosen_the_first_ceiling(real_source)
         offenders = unbounded_entries(source_entries("docs/requirements.in", mutated))
-        assert any("mike" in offender and "no ceiling" in offender for offender in offenders), offenders
+        assert any(name in offender and "no ceiling" in offender for offender in offenders), offenders
 
     def test_the_unmutated_file_is_clean(self, real_source: str) -> None:
         """The other half of the falsifier: the real file is GREEN, so the test
@@ -306,16 +383,22 @@ class TestTheGuardCanFail:
         assert not unbounded_entries(source_entries("docs/requirements.in", real_source))
 
     def test_a_ceiling_below_what_is_installed_is_reported(self, real_source: str) -> None:
-        mutated = real_source.replace("mike>=2.0.0,<3.0.0", "mike>=2.0.0,<2.1.0", 1)
-        assert mutated != real_source, "the mutation did not apply; this test would pass vacuously"
         compiled = compiled_versions((_REPO_ROOT / "docs" / "requirements.txt").read_text(encoding="utf-8"))
+        mutated, name = tighten_the_first_ceiling_below_what_is_installed(real_source, compiled)
         offenders = entries_excluding_what_is_installed(source_entries("docs/requirements.in", mutated), compiled)
-        assert any("mike" in offender and "MOVE" in offender for offender in offenders), offenders
+        assert any(name in offender and "MOVE" in offender for offender in offenders), offenders
 
-    def test_the_compiled_list_is_read_at_all(self) -> None:
-        """Positive control for the clamp: the parse above must actually find
-        the packages, or :func:`entries_excluding_what_is_installed` would
-        report everything (and the test above would pass for the wrong reason)."""
+    def test_the_compiled_list_is_read_at_all(self, real_source: str) -> None:
+        """Positive control for the clamp: the parse must actually find the
+        packages, or :func:`entries_excluding_what_is_installed` would report
+        everything and the test above would pass for the wrong reason. Phrased
+        over the entries the source declares rather than over a package name,
+        so removing a plugin is not a failure here."""
         compiled = compiled_versions((_REPO_ROOT / "docs" / "requirements.txt").read_text(encoding="utf-8"))
-        assert compiled.get(canonicalize_name("mike")) is not None
-        assert len(compiled) >= 12, f"only {len(compiled)} pinned distributions parsed out of docs/requirements.txt"
+        declared = {canonicalize_name(Requirement(entry.requirement).name) for entry in source_entries("", real_source)}
+        assert declared, "the source parsed to no entries at all"
+        assert declared <= set(compiled), (
+            "the compiled list does not pin everything the source declares: "
+            f"{sorted(declared - set(compiled))}. Either the parse of docs/requirements.txt broke or the "
+            "compiled file is stale (`task docs:lock`)."
+        )

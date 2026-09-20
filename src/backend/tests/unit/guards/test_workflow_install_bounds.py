@@ -10,6 +10,13 @@ Class (b) has two halves, and until this file only one of them was enforced:
 * ``pip install`` inside a ``run:``/``cmds:`` block — free-form shell, held by
   **nothing** until #1602.
 
+NFR-009 §2.3.1's member list names a THIRD form of class (b) that neither guard
+holds: ``tools/rag-eval/requirements.txt``. It carries floors and ceilings today
+(#1572 put them there), and that is a property of its last editor, not of the
+repository — the same sentence this file's next paragraph uses about the six
+install sites. It is out of #1602's scope (it is a requirement LIST, not a
+command block) and named in the residual set below rather than implied.
+
 The six sites that existed when this was written were all ``==``-pinned, so
 nothing was broken. That is precisely the argument for the guard rather than
 against it: their compliance was a property of who last edited them, not of the
@@ -56,13 +63,37 @@ request, because a sweep is only as complete as the spelling it matches:
   guard's named gap, repeated here so the two halves describe the same hole;
 * **an install in a container image referenced by a step** (``container:``,
   ``uses:`` of a third-party action). That is the image's Dockerfile, i.e.
-  ``check_renovate_dashboard.dockerfile_python_installs``.
+  ``check_renovate_dashboard.dockerfile_python_installs``;
+* **``uvx --from '<package><specifier>'``** — and this one EXISTS in the tree
+  already: ``.taskfiles/docs.yaml`` runs ``uvx --from 'uv{{.UV_SPEC}}' uv pip
+  compile …``. It is a runner-only tool install by any reading of §2.3.1, and
+  this file does not see it. It is named rather than matched on purpose: the one
+  existing instance spells its version as a go-task template, so matching it
+  would immediately require a register entry for a templated string — a parser
+  entry, which is what :data:`_EXEMPTIONS` must not fill up with. The version it
+  templates is ``[tool.uv].required-version``, already guarded three times over
+  (``test_uv_pin_is_single.py``). A ``uvx --from 'black==24.1.0'`` added
+  tomorrow would be unseen; that is the cost, stated rather than discovered;
+* **``uv tool install`` and ``pipx install``** — same class, no lock, straight
+  from the index. ``pipx`` is deliberately NOT matched here: the only occurrence
+  in these trees is inside a ``printf`` that tells a contributor how to install
+  pre-commit, so matching the word would report help text (see
+  ``test_a_mention_inside_a_quoted_string_is_not_a_site``, which is the general
+  defence, and the sister sweep's ``_DOCKERFILE_PIP_INSTALL``, which does match
+  ``pipx`` because a Dockerfile has no help text);
+* **the file behind ``-r``/``-c``** — a ``-r list.txt`` delegates to the hash
+  sweeps, but only ``requirements*.txt``/``constraints*.txt`` names are in their
+  patterns (``check_renovate_dashboard._REQUIREMENT_LIST_PATTERNS``); ``-r
+  deps/base.pip`` would be delegated by this file to a sweep that does not read
+  it. A ``-c constraints.txt`` is skipped here as a flag value and is not
+  checked for bounds at all — the sister sweep names the same gap.
 
 Traces to #1602 (no TC-ID: a dependency gate is not a user-facing case).
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
 from dataclasses import dataclass
@@ -72,9 +103,9 @@ from typing import Any
 import pytest
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
 
 from tests.support.repo_scripts import find_repo_root
+from tests.support.version_bounds import missing_bound
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -86,6 +117,10 @@ if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
 #: reach depend on where somebody chose to put a step.
 _SCANNED: tuple[str, ...] = (".github/workflows", ".github/actions", ".taskfiles", "Taskfile.yaml")
 
+#: Directories the walk does not descend into. Build output and dependency trees
+#: carry YAML nobody in this repository edits.
+_SKIPPED_DIRECTORIES = frozenset({".git", ".venv", "node_modules", "__pycache__", "dist", "build"})
+
 #: Keys whose value is a command (or a list of commands). Everything below such
 #: a key is shell text; everything else in these files is configuration or prose.
 #: `install-command:` is go-task/`setup-python`-style tooling input — `backend.yml`
@@ -95,9 +130,30 @@ _COMMAND_KEYS = frozenset({"run", "cmd", "cmds", "install-command", "install_com
 #: An install invocation: an optional path or `%` magic, `pip`/`pip3`/`uv pip`,
 #: then `install`. Also matches `python -m pip install` (the `pip install` tail
 #: is what the pattern anchors on).
-_INSTALL = re.compile(r"(?:^|[\s;&|(])%?(?:[\w./\\-]*/)?(?:pip[0-9.]*|uv\s+pip)\s+install\b")
+#:
+#: THE OPTION PART IS NOT DECORATION. A first version demanded that `install`
+#: follow `pip` IMMEDIATELY, and `pip --no-cache-dir install foo` / `pip -q
+#: install foo` / `python -m pip --quiet install foo` were then invisible rather
+#: than red — a spelling of the very thing the rule forbids, which is the
+#: vacuity class NFR-018 §1 is about. The sister sweep in
+#: `scripts/ci/check_renovate_dashboard.py` (`_DOCKERFILE_PIP_INSTALL`) had
+#: already met the same form and documents it; the sub-expression below is taken
+#: from there verbatim so the two readings cannot drift.
+_INSTALL = re.compile(
+    r"""(?:^|[\s;&|(])%?(?:[\w./\\-]*/)?
+        (?:pip[0-9.]*|uv\s+pip)
+        (?:\s+-{1,2}[\w-]+(?:[=\s]\S+)?)*   # global options before the subcommand
+        \s+install\b
+    """,
+    re.VERBOSE,
+)
 
-#: Shell operators that end one command and start the next.
+#: Shell operators that end one command and start the next. Line continuations
+#: are joined BEFORE this splits (:func:`install_sites`): a correct multi-line
+#: `pip install \` + continuation would otherwise be torn in half and reported as
+#: a finding for a pure formatting change — and the only way out would be a
+#: register entry for a line break, i.e. exactly the furniture this file's
+#: header refuses.
 _SEGMENT_SEPARATOR = re.compile(r"&&|\|\||;|\n|(?<![|])\|(?![|])")
 
 #: pip flags that consume the NEXT token, so that token is not a requirement.
@@ -220,15 +276,28 @@ def command_strings(document: Any) -> list[str]:
 
 
 def scanned_files(repo_root: Path) -> tuple[Path, ...]:
-    """Every YAML file in the scanned trees, sorted."""
+    """Every YAML file in the scanned trees, sorted.
+
+    Walks with PRUNING rather than globbing everything and filtering afterwards:
+    this file runs in `backend-guards.yml`, which is unfiltered and required, and
+    that lane's whole argument is its fifteen-second runtime. None of the scanned
+    trees contains a `node_modules` today — the point is that the cost of one
+    appearing is not paid here.
+    """
     found: list[Path] = []
     for entry in _SCANNED:
         root = repo_root / entry
         if root.is_file():
             found.append(root)
-        elif root.is_dir():
-            found.extend(path for path in root.rglob("*") if path.suffix in (".yml", ".yaml") and path.is_file())
+            continue
+        for directory, subdirectories, filenames in os.walk(root):
+            subdirectories[:] = [name for name in subdirectories if name not in _SKIPPED_DIRECTORIES]
+            found.extend(Path(directory) / filename for filename in filenames if filename.endswith((".yml", ".yaml")))
     return tuple(sorted(found))
+
+
+class _NotAnInstallError(Exception):
+    """The pattern matched inside a quoted string; there is no install here."""
 
 
 def _requirement_tokens(segment: str) -> tuple[list[str], bool]:
@@ -240,11 +309,18 @@ def _requirement_tokens(segment: str) -> tuple[list[str], bool]:
             than as "nothing to see": see the module docstring.
     """
     tokens = shlex.split(segment, posix=True)
-    # drop everything up to and including the `install` verb
+    # Drop everything up to and including the `install` VERB. It must be a token
+    # of its own: `printf 'install first: pipx install foo'` matches the pattern
+    # inside a quoted string and is a MENTION, not an install (`.taskfiles/
+    # checks.yaml` has one). No `install` token means no site — reported by
+    # raising, so the caller decides rather than this helper silently returning
+    # an empty list that looks like "installs nothing".
     for index, token in enumerate(tokens):
         if token == "install":
             tokens = tokens[index + 1 :]
             break
+    else:
+        raise _NotAnInstallError(segment)
     requirements: list[str] = []
     delegates = False
     skip_next = False
@@ -272,12 +348,14 @@ def install_sites(file: str, text: str) -> tuple[InstallSite, ...]:
     document = yaml.safe_load(text)
     sites: list[InstallSite] = []
     for command in command_strings(document):
-        for segment in _SEGMENT_SEPARATOR.split(command):
+        for segment in _SEGMENT_SEPARATOR.split(command.replace("\\\n", " ")):
             if not _INSTALL.search(segment):
                 continue
             collapsed = " ".join(segment.split())
             try:
                 requirements, delegates = _requirement_tokens(segment)
+            except _NotAnInstallError:
+                continue
             except ValueError:
                 sites.append(InstallSite(file=file, command=collapsed, spec=collapsed))
                 continue
@@ -291,15 +369,61 @@ def install_sites(file: str, text: str) -> tuple[InstallSite, ...]:
     return tuple(sites)
 
 
-def _bounds(specifier: SpecifierSet) -> tuple[bool, bool]:
-    """``(has_floor, has_ceiling)``; identical to the declarative half's reading."""
-    has_floor = any(clause.operator in (">=", ">", "==", "===", "~=") for clause in specifier)
-    has_ceiling = any(clause.operator in ("<=", "<", "==", "===", "~=") for clause in specifier)
-    return has_floor, has_ceiling
-
-
 def _is_exempt(site: InstallSite, exemptions: tuple[Exemption, ...]) -> bool:
     return any(exemption.file == site.file and exemption.spec == site.spec for exemption in exemptions)
+
+
+def _parsed(spec: str) -> Requirement | None:
+    """The requirement *spec* denotes, or ``None`` when it is not PEP 508."""
+    try:
+        return Requirement(spec)
+    except InvalidRequirement:
+        return None
+
+
+def loosen_the_first_pin(file: str, text: str, *, keep_floor: bool) -> tuple[str, str]:
+    """Rewrite the first ``==``-pinned install in *text* so the rule must report it.
+
+    THE MUTATION IS DRIVEN BY THE PATTERN, NOT BY A LITERAL. An earlier version
+    of the falsifiers below mutated the string ``'pip-audit==2.10.1'``. That
+    exact literal is what `renovate.json5`'s custom manager bumps automatically,
+    with patch auto-merge on — so the next release of pip-audit would have made
+    `replace()` a no-op, both falsifiers red, and this file's home lane
+    (`backend-guards.yml`, unfiltered and REQUIRED) would have blocked the merge
+    train over a version number. #1608 had to repair exactly this shape in the
+    ZAP pin guard the same day: a guard that checks the VALUE where it means the
+    FORM.
+
+    Args:
+        file: Repository-relative path, used to read the sites back.
+        text: The file's contents.
+        keep_floor: ``True`` rewrites ``name==X`` to ``name>=X`` (a floor is not
+            a bound); ``False`` drops the specifier entirely.
+
+    Returns:
+        ``(mutated text, package name)``.
+
+    Raises:
+        AssertionError: when the file carries no ``==``-pinned install, or the
+            substitution does not apply — either way the falsifier would pass
+            vacuously and must fail loudly instead.
+    """
+    pinned = next(
+        (
+            site
+            for site in install_sites(file, text)
+            if site.spec is not None and (parsed := _parsed(site.spec)) is not None and "==" in str(parsed.specifier)
+        ),
+        None,
+    )
+    assert pinned is not None and pinned.spec is not None, f"{file} carries no `==`-pinned install to mutate"
+    requirement = Requirement(pinned.spec)
+    version = str(requirement.specifier).removeprefix("==")
+    replacement = f"{requirement.name}>={version}" if keep_floor else requirement.name
+    pattern = re.compile(rf"{re.escape(requirement.name)}\s*==\s*[0-9][\w.*+!-]*")
+    mutated, applied = pattern.subn(replacement, text, count=1)
+    assert applied == 1 and mutated != text, f"the mutation of {requirement.name} did not apply to {file}"
+    return mutated, requirement.name
 
 
 def unbounded_sites(sites: tuple[InstallSite, ...], exemptions: tuple[Exemption, ...] = _EXEMPTIONS) -> list[str]:
@@ -319,12 +443,8 @@ def unbounded_sites(sites: tuple[InstallSite, ...], exemptions: tuple[Exemption,
         if requirement.url is not None:
             offenders.append(f"{site} — installed from a URL; neither a pin nor a range applies. Decide it in review.")
             continue
-        has_floor, has_ceiling = _bounds(requirement.specifier)
-        if not (has_floor and has_ceiling):
-            if not requirement.specifier:
-                missing = "no version bound at all"
-            else:
-                missing = "no ceiling" if has_floor else "no floor"
+        missing = missing_bound(requirement.specifier)
+        if missing is not None:
             offenders.append(f"{site} — {missing}")
     return offenders
 
@@ -340,17 +460,25 @@ def stale_exemptions(sites: tuple[InstallSite, ...], exemptions: tuple[Exemption
     return [f"{e.file}: {e.spec}" for e in exemptions if (e.file, e.spec) not in present]
 
 
-#: Anti-vacuity floors, measured on 2026-09-20 against c5aec86c5:
-#: eight install invocations in command blocks — six naming a bounded
-#: requirement (`PyYAML==6.0.3` three times, `pip-audit==2.10.1`,
-#: `pip-licenses==5.5.5`, `pip>=25.0,<27.0`), one naming a shell variable
-#: (registered), one delegating to a requirements list. FLOORS, not equalities.
-_MINIMUM_SITES = 8
-_MINIMUM_BOUNDED_SITES = 6
-#: The green control (#1602's second counter-test): `.taskfiles/docs.yaml`
-#: already carries a bounded, non-`==` install. If the sweep flagged everything,
-#: this one would be a finding too — it must stay clean.
-_GREEN_CONTROL = (".taskfiles/docs.yaml", "pip>=25.0,<27.0")
+#: Anti-vacuity floors. Measured on 2026-09-20 against c5aec86c5: EIGHT install
+#: invocations in command blocks — six naming a bounded requirement
+#: (`PyYAML==6.0.3` three times, `pip-audit==2.10.1`, `pip-licenses==5.5.5`,
+#: `pip>=25.0,<27.0`), one naming a shell variable (registered), one delegating
+#: to a requirements list.
+#:
+#: THE FLOORS SIT DELIBERATELY BELOW THAT. A floor equal to the inventory turns
+#: every legitimate consolidation — dropping one of the two identical PyYAML
+#: steps in `frontend.yml`, moving `pip-audit` to `uv tool` — into a red
+#: required lane with no defect behind it, and at the floor "the inventory
+#: shrank" is indistinguishable from "the parser collapsed". These numbers exist
+#: to catch the SECOND thing: a parser that suddenly reads two sites, or none,
+#: fails here instead of passing every check below vacuously.
+_MINIMUM_SITES = 6
+_MINIMUM_BOUNDED_SITES = 4
+
+#: The file the falsifiers mutate. It is named once, as a PATH — the versions
+#: inside it are found by pattern (:func:`loosen_the_first_pin`).
+_BACKEND_WORKFLOW = ".github/workflows/backend.yml"
 
 
 @pytest.fixture(scope="module")
@@ -377,24 +505,37 @@ class TestTheSweepReachesTheFiles:
             "the shape the files use — the instrument having the gap, not the repository."
         )
 
-    def test_the_green_control_is_seen_and_clean(self, sites: tuple[InstallSite, ...]) -> None:
-        """`.taskfiles/docs.yaml`'s bounded pip install proves the sweep
-        distinguishes rather than reports everything: it must be FOUND (so the
-        sweep reaches it) and NOT a finding (so the rule reads a range, not only
-        an `==`)."""
-        file, spec = _GREEN_CONTROL
-        matching = [site for site in sites if site.file == file and site.spec == spec]
-        assert matching, f"the sweep no longer reaches {file}'s `{spec}` install — the green control is gone"
-        assert not unbounded_sites(tuple(matching)), unbounded_sites(tuple(matching))
+    def test_a_bounded_non_pin_is_seen_and_not_reported(self, sites: tuple[InstallSite, ...]) -> None:
+        """#1602's green counter-test, phrased as a CLASS rather than a value.
 
-    def test_a_requirements_list_install_is_recognised_as_delegating(self, sites: tuple[InstallSite, ...]) -> None:
-        """`pip install -r <list>` names no version; it is held by the hash
-        sweeps instead. If this branch were never taken, a `-r` install would be
-        read as an unparseable requirement and the delegation would be untested."""
-        assert any(site.spec is None for site in sites), (
-            "no `-r` install found in any command block; the delegation branch of this sweep is untested "
-            "(.taskfiles/docs.yaml carried one on 2026-09-20)."
+        The tree carries at least one install that is bounded WITHOUT being an
+        `==` pin — `.taskfiles/docs.yaml`'s `pip>=25.0,<27.0` on 2026-09-20. It
+        must be FOUND (so the sweep reaches a `cmds:` list) and NOT reported (so
+        the rule reads a range and does not simply flag everything that is not a
+        pin). Asserting the literal `pip>=25.0,<27.0` would have been a third
+        pinned value in a guard about pinned values: that file says itself that
+        raising the ceiling is "a reviewed decision", i.e. an EXPECTED change,
+        and it would have turned red here with a message pointing the wrong way.
+        """
+        ranged = [
+            site
+            for site in sites
+            if site.spec is not None
+            # A BOUNDED, NON-PIN range — not merely "no `==` in the string". Read
+            # that way, this control swept up a requirement with NO specifier at
+            # all, and it went red together with the rule during the red
+            # counter-test: the control then reports the defect a second time
+            # instead of staying green and proving the sweep distinguishes.
+            and (parsed := _parsed(site.spec)) is not None
+            and str(parsed.specifier)
+            and "==" not in str(parsed.specifier)
+        ]
+        assert ranged, (
+            "no bounded non-`==` install found anywhere in the scanned trees; the green control of this "
+            "sweep is gone, so `test_no_command_block_installs_an_unbounded_requirement` can no longer "
+            "distinguish 'bounded' from 'pinned' (.taskfiles/docs.yaml carried one on 2026-09-20)."
         )
+        assert not unbounded_sites(tuple(ranged)), unbounded_sites(tuple(ranged))
 
 
 class TestEveryInstallIsBounded:
@@ -441,25 +582,70 @@ class TestTheGuardCanFail:
 
     @pytest.fixture
     def backend_workflow(self) -> str:
-        return (_REPO_ROOT / ".github" / "workflows" / "backend.yml").read_text(encoding="utf-8")
+        return (_REPO_ROOT / _BACKEND_WORKFLOW).read_text(encoding="utf-8")
 
     def test_dropping_a_pin_is_reported(self, backend_workflow: str) -> None:
-        mutated = backend_workflow.replace("'pip-audit==2.10.1'", "'pip-audit'", 1)
-        assert mutated != backend_workflow, "the mutation did not apply; this test would pass vacuously"
-        offenders = unbounded_sites(install_sites(".github/workflows/backend.yml", mutated))
-        assert any("pip-audit" in offender for offender in offenders), offenders
+        mutated, name = loosen_the_first_pin(_BACKEND_WORKFLOW, backend_workflow, keep_floor=False)
+        offenders = unbounded_sites(install_sites(_BACKEND_WORKFLOW, mutated))
+        assert any(name in offender for offender in offenders), offenders
 
     def test_the_unmutated_workflow_is_clean(self, backend_workflow: str) -> None:
         """The other half: the real file is green, so the test above measures
         the mutation and not a sweep that reports everything it sees."""
-        assert not unbounded_sites(install_sites(".github/workflows/backend.yml", backend_workflow))
+        assert not unbounded_sites(install_sites(_BACKEND_WORKFLOW, backend_workflow))
 
     def test_loosening_a_pin_to_a_floor_is_reported(self, backend_workflow: str) -> None:
         """The subtler half of the same rule: a floor is not a bound."""
-        mutated = backend_workflow.replace("'pip-audit==2.10.1'", "'pip-audit>=2.10.1'", 1)
-        assert mutated != backend_workflow, "the mutation did not apply; this test would pass vacuously"
-        offenders = unbounded_sites(install_sites(".github/workflows/backend.yml", mutated))
-        assert any("pip-audit" in offender and "ceiling" in offender for offender in offenders), offenders
+        mutated, name = loosen_the_first_pin(_BACKEND_WORKFLOW, backend_workflow, keep_floor=True)
+        offenders = unbounded_sites(install_sites(_BACKEND_WORKFLOW, mutated))
+        assert any(name in offender and "ceiling" in offender for offender in offenders), offenders
+
+    def test_a_global_option_before_the_subcommand_is_still_seen(self, backend_workflow: str) -> None:
+        """`pip --no-cache-dir install x` is the same install with a flag in
+        the middle. The first version of `_INSTALL` demanded `install`
+        immediately and read this as nothing at all — invisible, not red."""
+        mutated, name = loosen_the_first_pin(_BACKEND_WORKFLOW, backend_workflow, keep_floor=False)
+        with_option = mutated.replace("-m pip install", "-m pip --no-cache-dir install", 1)
+        assert with_option != mutated, "the option was not inserted; this test would pass vacuously"
+        offenders = unbounded_sites(install_sites(_BACKEND_WORKFLOW, with_option))
+        assert any(name in offender for offender in offenders), offenders
+
+    def test_a_line_continuation_does_not_split_an_install(self) -> None:
+        """A correct multi-line install must stay ONE site. Without joining
+        `\\\n` first, the tail lands in its own segment and the head looks like
+        an install naming nothing — a finding produced by a formatting change."""
+        document = (
+            "version: '3'\ntasks:\n  demo:\n    cmds:\n      - |\n"
+            "        python3 -m pip install \\\n"
+            "          'some-tool==1.2.3'\n"
+        )
+        sites = install_sites("fixture.yaml", document)
+        assert [site.spec for site in sites] == ["some-tool==1.2.3"], sites
+        assert not unbounded_sites(sites)
+
+    def test_a_requirements_list_install_delegates(self) -> None:
+        """`pip install -r <list>` names no version; the list it points at is
+        class (a) and is held by the hash sweeps. The branch is exercised here
+        rather than through whatever the tree happens to contain today."""
+        document = "version: '3'\ntasks:\n  demo:\n    cmds:\n      - pip install -q -r docs/requirements.txt\n"
+        sites = install_sites("fixture.yaml", document)
+        assert [site.spec for site in sites] == [None], sites
+        assert not unbounded_sites(sites)
+
+    def test_a_mention_inside_a_quoted_string_is_not_a_site(self) -> None:
+        """`.taskfiles/checks.yaml` prints installation advice from a `cmds:`
+        block. The install VERB must be a token of its own, or that help text
+        would be a finding — and the only way to silence it a register entry
+        for a `printf`."""
+        document = (
+            "version: '3'\n"
+            "tasks:\n"
+            "  demo:\n"
+            "    cmds:\n"
+            "      - |\n"
+            "        printf 'Install first:  pip install pre-commit' >&2\n"
+        )
+        assert install_sites("fixture.yaml", document) == ()
 
     def test_a_mention_in_prose_is_not_a_site(self) -> None:
         """The structural claim the module docstring makes: a `pip install`

@@ -86,6 +86,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 from tests.support.repo_scripts import find_repo_root
+from tests.support.version_bounds import missing_bound
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -345,21 +346,18 @@ def stale_bindings(entries: tuple[Entry, ...], bindings: tuple[Binding, ...] = _
     return [f"{b.hook}: {b.requirement}" for b in bindings if (b.hook, b.requirement) not in present]
 
 
-def _bounds(specifier: SpecifierSet) -> tuple[bool, bool]:
-    """``(has_floor, has_ceiling)`` for a specifier set."""
-    has_floor = any(s.operator in (">=", ">", "==", "===", "~=") for s in specifier)
-    has_ceiling = any(s.operator in ("<=", "<", "==", "===", "~=") for s in specifier)
-    return has_floor, has_ceiling
-
-
 def unbounded_requirements(entries: tuple[Entry, ...]) -> list[str]:
-    """Entries missing a floor or a ceiling."""
+    """Entries missing a floor or a ceiling.
+
+    The reading of "bounded" lives in ``tests.support.version_bounds`` and is
+    shared with the other two guards of the same §2.1 duty (#1602 review): a
+    rule written three times is a rule with three futures.
+    """
     offenders: list[str] = []
     for entry in entries:
-        has_floor, has_ceiling = _bounds(Requirement(entry.requirement).specifier)
-        if not (has_floor and has_ceiling):
-            missing = "floor" if not has_floor else "ceiling"
-            offenders.append(f"{entry} (no {missing})")
+        missing = missing_bound(Requirement(entry.requirement).specifier)
+        if missing is not None:
+            offenders.append(f"{entry} ({missing})")
     return offenders
 
 
