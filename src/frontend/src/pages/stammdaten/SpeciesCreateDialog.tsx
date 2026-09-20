@@ -134,7 +134,11 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
 
   useEffect(() => {
     if (open) {
-      familiesApi.listBotanicalFamilies().then(setFamilies).catch(() => {});
+      // The complete catalogue, not its first page: 57 families are seeded
+      // against this reader's own `limit = 50` default, so the dropdown was
+      // missing seven of them (#1530 class sweep; the loader exists for exactly
+      // this reason, #550).
+      familiesApi.listAllBotanicalFamilies().then(setFamilies).catch(() => {});
     }
   }, [open]);
 

@@ -381,7 +381,15 @@ export default function WorkflowDetailPage() {
     setActivitiesLoading(true);
     try {
       const [list, favs] = await Promise.all([
-        activityApi.listActivities(),
+        // The complete catalogue, not its first page (#1530). Every filter in
+        // this dialog — favourites, species-compatible, the search box — runs
+        // client-side over `allActivities`, so a bounded fetch does not shorten
+        // the list, it makes the dialog deny that an activity exists. The
+        // seeded catalogue already overflows the reader's default page size of
+        // 50 at 51 rows, before any tenant adds one. `listAllActivities` pages
+        // until a short page comes back and keeps `activitiesLoading` true for
+        // the whole sequence; a failure on any page lands in the catch below.
+        activityApi.listAllActivities(),
         favApi.listFavorites('activities').catch(() => []),
       ]);
       setAllActivities(list);
@@ -1150,6 +1158,7 @@ export default function WorkflowDetailPage() {
               placeholder={t('pages.tasks.searchActivities')}
               value={activityFilter}
               onChange={(e) => setActivityFilter(e.target.value)}
+              data-testid="activity-catalogue-search"
               slotProps={{ input: {
                 startAdornment: (
                   <InputAdornment position="start">
@@ -1174,6 +1183,7 @@ export default function WorkflowDetailPage() {
                   return (
                     <Box
                       key={act.key}
+                      data-testid={`activity-row-${act.key}`}
                       sx={{
                         p: 1.5,
                         mb: 0.5,
