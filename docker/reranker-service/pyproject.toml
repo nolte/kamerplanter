@@ -15,6 +15,31 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "onnxruntime>=1.20.0",
+    # transformers sits on the 4.57.x line, and NOT because this range is open
+    # (#1480). `optimum-onnx` — pulled in by the `build` group below, and since
+    # optimum 2.0 the package that *is* the ONNX exporter — declares
+    # `transformers>=4.36,<4.58` in every release it has published (0.0.1 …
+    # 0.1.0, read from PyPI on 2026-09-20). The ceiling is the exporter's, not
+    # ours, and the sibling docker/embedding-service resolves this identical
+    # range to transformers 5.17.0 precisely because it has no exporter beside
+    # it.
+    #
+    # Widening this to `>=5.10,<6` does not fail, which is the trap: uv (0.12.17,
+    # measured 2026-09-20) satisfies it by walking optimum back to 1.17.1, a
+    # 2024-02-18 release with no transformers ceiling at all. The lock then looks
+    # healthy and the export stage dies five seconds in, on
+    # `from transformers.utils import is_tf_available` — removed in transformers
+    # 5. The build log is in #1480;
+    # src/backend/tests/unit/guards/test_onnx_export_toolchain_floor.py keeps that
+    # downgrade from ever arriving silently.
+    #
+    # The price of staying here is four CVEs open against 4.57.6: CVE-2026-9856,
+    # CVE-2026-4372, CVE-2026-5241 (HIGH) and CVE-2026-1839 (MEDIUM). All four
+    # are code-execution classes reached through loading an untrusted model,
+    # checkpoint or chat template; this service loads exactly one model, exported
+    # into the image at build time, and never takes a model name from a request.
+    # Revisit the moment optimum-onnx accepts transformers >= 4.58 — #1480 stays
+    # open until then.
     "transformers>=4.46.0",
     "numpy",
     "sentencepiece",
