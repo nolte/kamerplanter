@@ -154,7 +154,7 @@ jobs:
       # issue: a tag AND a digest look managed, but the marker is what the
       # regex manager matches on, so `grep -c curlimages <log>` was 0 too.
       # renovate: datasource=docker depName=curlimages/curl
-      CURL_IMAGE: curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13
+      CURL_IMAGE: curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
