@@ -1,3 +1,24 @@
+# DELIBERATELY NOT HASH-PINNED, and this is the argument rather than an
+# omission (#1509).
+#
+# The three unhashed requirement lists in this repository were decided one by
+# one: `tests/e2e/` became a pyproject.toml + uv.lock because a BUILT image
+# installs it, `docs/requirements.txt` is compiled with `--generate-hashes`
+# because a DELIVERY lane installs it — and this one is installed by neither.
+# No Dockerfile copies it, no workflow runs `pip install -r` on it, nothing it
+# fetches reaches a released artefact; `tools/rag-eval/README.md` and
+# `rag_eval.ipynb` are a local analysis notebook for the RAG benchmark, run by
+# hand against a checkout. NFR-009 §2.3 is a property of what an install can
+# put into something delivered, and this install cannot put anything anywhere.
+#
+# THE CONDITION, so the exception cannot outlive its reason: the moment any
+# lane, image or task installs this list, the argument is void — pin it with
+# `--generate-hashes` like docs/, or give it a uv.lock. The register entry in
+# `KNOWN_UNHASHED_REQUIREMENTS` (scripts/ci/check_renovate_dashboard.py) is
+# what the Renovate-health check reads; removing this file's exception means
+# removing that entry too, and the check reddens for every other list on its
+# own.
+
 httpx>=0.28.0
 psycopg[binary]>=3.2.0
 pyyaml>=6.0
