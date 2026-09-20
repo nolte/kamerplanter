@@ -34,9 +34,36 @@ name: Security — ZAP Post-Merge Scans
 ## they now surface AFTER the merge (one squash commit each, plus an auto-opened
 ## issue on the push lane). A deliberate, recorded reduction in pull-request
 ## coverage per NFR-018 §4 — see NFR-015 §4.1 — not a repair; the check was never
-## required and a cancelled run blocked nothing. Pre-merge scanning stays on
-## demand: label a pull request `security-scan` (that lane carries no `paths:`
-## filter — the label is the selection).
+## required and a cancelled run blocked nothing.
+##
+## PRE-MERGE SCANNING STAYS ON DEMAND — THROUGH `workflow_dispatch`, NOT A LABEL
+## (#1607, 2026-09-20). This paragraph used to read "label a pull request
+## `security-scan`". Two things were wrong with that sentence at once, which is
+## why it is the NFR-018 §1 shape rather than a typo:
+##
+##   1. The label did not exist. `gh label list` returned 30 labels and not one
+##      of them matched `scan`, so anyone following the instruction invoked
+##      nothing — the lane had never run.
+##   2. `pull_request: types: [labeled]` cannot be filtered by label NAME at the
+##      `on:` level, so the selection had to sit in the job's `if:` — which is
+##      evaluated AFTER the run is queued. Every label on every pull request
+##      therefore queued a run here that immediately skipped. Measured over
+##      2026-09-13T05:54Z .. 2026-09-20T16:39Z: 300 `pull_request` runs of this
+##      workflow, 278 skipped + 22 cancelled, 0 executed. The cost unit is the
+##      one fe8714e38 (#1583) was about — a job, not a CPU-second.
+##
+## The trigger is now a `workflow_dispatch` carrying the pull-request number. It
+## costs zero runs per label and still scans the pre-merge code, because the
+## checkout step below resolves `refs/pull/<n>/merge`:
+##
+##     gh workflow run security-zap-postmerge.yml --ref develop \
+##       -f pull_request=<number>
+##
+## The `security-scan` label now exists and is declared in `.github/settings.yml`,
+## but it is a TRIAGE MARKER ONLY: it records that a pull request was scanned or
+## wants scanning, and it triggers nothing. Deliberately so — applying a label
+## needs only triage permission, while this job checks out pull-request code, so
+## the invocation belongs behind `actions: write` (see #1607's closing note).
 ##
 ## PRECONDITION (as for the Nuclei lane): a push to `develop` must trigger
 ## workflows. A GITHUB_TOKEN-authored squash-merge does NOT; `automerge.yaml`
@@ -98,28 +125,37 @@ on:
       - "scripts/security/zap_gate.py"
       - ".github/actions/ephemeral-stack/**"
       - ".github/workflows/security-zap-postmerge.yml"
-  # On-demand pre-merge scan. No `paths:` — see the header.
-  pull_request:
-    types: [labeled]
+  # On-demand pre-merge scan. No `paths:` filter — the dispatch IS the
+  # selection. See the header for why this is not a `labeled` trigger.
   workflow_dispatch:
+    inputs:
+      pull_request:
+        description: >-
+          Pull-request number to scan before it merges. Leave empty to scan the
+          ref this dispatch was started from.
+        required: false
+        type: string
 
 # Read-only floor; the job declares what it actually needs.
 permissions:
   contents: read
 
 concurrency:
-  # Keyed per merged commit, or per pull request for the label lane. NEVER
-  # cancel-in-progress: superseding is one of the two causes this move fixes.
-  group: security-zap-${{ github.event.pull_request.number || github.sha }}
+  # Keyed per merged commit, or per pull request when a dispatch names one.
+  # NEVER cancel-in-progress: superseding is one of the two causes this move
+  # fixes. Read through `github.event.inputs.*` rather than the `inputs`
+  # context: `github` is available in every workflow key, `inputs` is documented
+  # for `jobs.*`, and a workflow-level key is not the place to find that out.
+  group: security-zap-${{ github.event.inputs.pull_request || github.sha }}
   cancel-in-progress: false
 
 jobs:
   zap-scan:
     name: ZAP Scan (baseline + API)
-    # `labeled` fires for ANY label; the selection has to be made here.
-    if: >-
-      github.event_name != 'pull_request'
-      || github.event.label.name == 'security-scan'
+    # No `if:` any more. It existed to undo `types: [labeled]` firing for ANY
+    # label; with the trigger gone every remaining event — a push to `develop`
+    # or an explicit dispatch — is one this job should run for, and a condition
+    # that can never be false is a gate that cannot fail (NFR-018 §2).
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -157,6 +193,25 @@ jobs:
       CURL_IMAGE: curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A dispatch that names a pull request scans THAT pull request's merge
+          # result, not the ref the dispatch was started from. Without this the
+          # input would be accepted and silently ignored — #1607's own shape,
+          # one level down. `''` is checkout's own default for `ref`.
+          ref: ${{ github.event.inputs.pull_request && format('refs/pull/{0}/merge', github.event.inputs.pull_request) || '' }}
+
+      - name: Record the scan target
+        id: target
+        env:
+          PR_NUMBER: ${{ github.event.inputs.pull_request }}
+        # The artefact used to be named after `github.sha`, which on a dispatch
+        # is the tip of the ref the dispatch started from — NOT the commit that
+        # was scanned. Resolve it from the checkout instead.
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          echo "label=${PR_NUMBER:+pr${PR_NUMBER}-}${sha}" >> "$GITHUB_OUTPUT"
+          echo "Scanning ${PR_NUMBER:+pull request #${PR_NUMBER} at }${sha}"
 
       - name: Bring up ephemeral stack
         uses: ./.github/actions/ephemeral-stack
@@ -286,7 +341,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: zap-scan-reports-${{ github.sha }}
+          name: zap-scan-reports-${{ steps.target.outputs.label }}
           path: |
             zapwork/*-report.json
             zapwork/*-report.html

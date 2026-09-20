@@ -345,8 +345,26 @@ löst einen Baseline-Scan (passiv + AjaxSpider) gegen die Frontend-URL des
 ephemeren Stacks aus (`.github/workflows/security-zap-postmerge.yml`, Trigger
 `push`); zusammen mit dem API-Scan aus §4.2 im selben Job.
 
-**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem er das Label
-`security-scan` erhält.
+**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem der Workflow per
+`workflow_dispatch` mit der Pull-Request-Nummer gestartet wird — der
+Checkout-Schritt löst daraus `refs/pull/<n>/merge` auf, gescannt wird also der
+Pre-Merge-Stand:
+
+```bash
+gh workflow run security-zap-postmerge.yml --ref develop -f pull_request=<nummer>
+```
+
+> **Warum kein Label-Trigger mehr (2026-09-20, Issue #1607).** Bis dahin stand
+> hier „Label `security-scan`". Das Label existierte in diesem Repository
+> **nicht** — die dokumentierte Aufrufform rief nichts auf, die Lane war nie
+> vor einem Merge gelaufen. Und weil GitHub `pull_request: types: [labeled]`
+> nicht nach Label-*Namen* filtern kann, lag die Auswahl im `if:` des Jobs,
+> also *nach* dem Einreihen des Laufs: jedes beliebige Label an jedem
+> beliebigen Pull Request reihte hier einen Lauf ein, der sofort übersprang.
+> Gemessen über 2026-09-13T05:54Z .. 2026-09-20T16:39Z: **300 `pull_request`-Läufe,
+> 278 übersprungen + 22 abgebrochen, 0 ausgeführt.** Das Label
+> `security-scan` existiert seit #1607 und ist in `.github/settings.yml`
+> deklariert, ist aber ein reiner **Triage-Marker** und löst nichts aus.
 
 > **Warum nicht mehr pro Push auf jedem Pull Request (2026-08-08, Issue #1013).**
 > Bis dahin lief diese Lane per `pull_request`. Über die 100 jüngsten Läufe
@@ -442,7 +460,7 @@ jobs:
 
 ### 4.2 API-Scan (Merge-Scan, OpenAPI-getrieben)
 
-**MUSS**: Im selben Merge-Scan-Job wie §4.1 (Trigger `push` auf `develop`; per Label `security-scan` on demand auch vor dem Merge) läuft ein OpenAPI-getriebener API-Scan gegen die laufende Backend-Spec. Er ist die **einzige** systematische Abdeckung jeder in OpenAPI deklarierten Route — die Nightly (§4.3) spidert das Frontend und deckt ihn nicht ab; das Restfenster ist einen Merge breit. Referenz-Entwurf:
+**MUSS**: Im selben Merge-Scan-Job wie §4.1 (Trigger `push` auf `develop`; on demand auch vor dem Merge per `workflow_dispatch` mit Pull-Request-Nummer, siehe §4.1) läuft ein OpenAPI-getriebener API-Scan gegen die laufende Backend-Spec. Er ist die **einzige** systematische Abdeckung jeder in OpenAPI deklarierten Route — die Nightly (§4.3) spidert das Frontend und deckt ihn nicht ab; das Restfenster ist einen Merge breit. Referenz-Entwurf:
 
 ```yaml
 - name: Generate OpenAPI from running API
@@ -725,7 +743,7 @@ Durchgesetzt von `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` (
 ### Definition of Done
 
 - [ ] **Profile**
-    - [ ] `.github/workflows/security-zap-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1), und on demand per Label `security-scan`
+    - [ ] `.github/workflows/security-zap-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1), und on demand per `workflow_dispatch -f pull_request=<nummer>`
     - [ ] `.github/workflows/security-zap-api.yml` läuft auf jedem PR
     - [ ] `.github/workflows/security-zap-nightly.yml` läuft täglich gegen Staging
     - [ ] Pre-Release-Workflow startet Full-Scan zusätzlich on-demand
