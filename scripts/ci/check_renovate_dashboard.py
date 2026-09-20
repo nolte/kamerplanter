@@ -89,6 +89,18 @@ WHAT IT CHECKS
    * ``%pip install`` in a notebook (``tools/rag-eval/rag_eval.ipynb``), inside
      the tree that is already the argued exception.
 
+5. **No line is read as a container image that is not one** (#1554), read
+   from disk. The four checks above ask whether Renovate still reads what it
+   should; this one asks the opposite half of the same question — whether it
+   reads something that is not there. ``docker/embedding-service/Dockerfile``
+   and ``docker/reranker-service/Dockerfile`` had six ``RUN python -c`` body
+   lines beginning with ``from``, each extracted as an image stage with
+   ``datasource: docker`` and each resolved against Docker Hub on every scan.
+   :func:`dockerfile_phantom_stage_lines` measures the positional property
+   Renovate actually uses, so the heredoc, the indented continuation, the
+   upper-case ``FROM`` inside a shell string and the continued ``copy --from=``
+   are covered too — they are the same defect in a different language.
+
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
 An empty body, a missing ``## Detected Dependencies`` section, or an unparseable
@@ -565,6 +577,109 @@ def dockerfile_python_installs(repo_root: Path) -> list[str]:
     return sorted(found)
 
 
+#: A line Renovate's ``dockerfile`` manager reads as an image reference: a
+#: ``FROM`` stage or a ``COPY --from=`` source. Case-insensitive, because the
+#: manager is.
+_DOCKERFILE_IMAGE_INSTRUCTION = re.compile(r"^(?:from\b|copy\s+--from=)", re.IGNORECASE)
+
+#: A heredoc opener in a ``RUN`` instruction — ``<<EOF``, ``<<-'PY'``,
+#: ``<<"SH"``. The body that follows is shell input, not Dockerfile syntax, and
+#: Renovate reads it as Dockerfile syntax anyway.
+_HEREDOC_OPENER = re.compile(r"""<<(?!<)-?\s*["']?(?P<terminator>[A-Za-z_][A-Za-z0-9_]*)["']?""")
+
+
+def dockerfile_phantom_stage_lines(repo_root: Path) -> list[str]:
+    """Every Dockerfile line Renovate reads as an image that is not one (#1554).
+
+    THE DEFECT THIS MEASURES. Renovate's ``dockerfile`` manager decides what an
+    instruction is per LINE, not per logical instruction. A ``RUN python -c``
+    body continued with backslashes, or a heredoc body, is therefore searched
+    for ``FROM``/``COPY`` exactly like top-level Dockerfile text — so
+
+        RUN python -c "\\
+        from huggingface_hub import snapshot_download; \\
+        snapshot_download(...)"
+
+    yielded a dependency ``huggingface_hub`` with ``datasource: docker``, and a
+    real ``getDigest(index.docker.io, library/huggingface_hub)`` lookup on every
+    scan. Four of them in ``docker/embedding-service/Dockerfile``, one typed
+    ``final`` — Renovate believed the image's FINAL STAGE was a Python package.
+    It is wasted lookups until someone publishes that name on Docker Hub, at
+    which point Renovate proposes a "version bump" that rewrites a Python import
+    statement inside a build step.
+
+    THE PREDICATE, AND WHY IT IS WIDER THAN THE ISSUE'S. #1554 named two lines
+    and the spelling ``from x import y``. Both were too narrow. The tree held
+    SIX such lines (the manager's ``depCount`` counts each one; only the
+    dashboard deduplicates by ``depName``, which is where "two" came from), and
+    the spelling is not the Python one. Measured against Renovate 44.103.2 with
+    a probe Dockerfile carrying one candidate per spelling — five of seven were
+    extracted:
+
+    ===============================================  =========
+    line inside a ``RUN`` body                       extracted
+    ===============================================  =========
+    ``from phantom_a import x; \\``                    yes
+    heredoc body line ``from phantom_b import y``     yes
+    ``FROM phantom_c" > /q.sql`` (shell string)       yes
+    ``  from phantom_d import z; \\`` (indented)       yes
+    ``copy --from=phantom_e /a /b``                   yes
+    ``# from phantom_f import q`` (comment)           no
+    ``import phantom_g; phantom_g.run()``             no
+    ===============================================  =========
+
+    So the rule is positional, not lexical: ANY line that is not the start of a
+    real instruction — because a continuation or a heredoc body precedes it —
+    and that begins with ``from`` or ``copy``. Writing it as "a Python import
+    inside a RUN" would have missed the shell string and the ``copy --from=``,
+    which are the same defect spelled by a different language.
+
+    Args:
+        repo_root: Checkout root to sweep.
+
+    Returns:
+        ``path:line`` for each offending line, sorted. Empty is the state #1554
+        established: no continuation and no heredoc body starts with a word the
+        dockerfile manager reads as an image.
+    """
+    found = []
+    for dockerfile in repo_root.rglob("Dockerfile*"):
+        relative = dockerfile.relative_to(repo_root)
+        if _outside_the_sweep(relative) or not dockerfile.is_file():
+            continue
+        continued = False
+        instruction = ""
+        heredoc_terminator: str | None = None
+        for number, line in enumerate(dockerfile.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            stripped = line.strip()
+            comment = stripped.startswith("#")
+            if heredoc_terminator is not None:
+                # Inside a heredoc body: everything is shell input, and the only
+                # line that ends it is the terminator on its own.
+                if not comment and _DOCKERFILE_IMAGE_INSTRUCTION.match(stripped):
+                    found.append(f"{relative.as_posix()}:{number}")
+                if stripped == heredoc_terminator:
+                    heredoc_terminator = None
+                continue
+            if continued and not comment and _DOCKERFILE_IMAGE_INSTRUCTION.match(stripped):
+                found.append(f"{relative.as_posix()}:{number}")
+            instruction_start = not continued and not comment and stripped
+            if instruction_start:
+                instruction = stripped.split(None, 1)[0].upper()
+            # A heredoc is a RUN/COPY feature; reading `<<` on any other line
+            # would let a shell redirection in a LABEL swallow the rest of the
+            # file and turn real `FROM` lines into findings.
+            opener = (
+                _HEREDOC_OPENER.search(line)
+                if not comment and (continued or instruction_start) and instruction in {"RUN", "COPY"}
+                else None
+            )
+            continued = not comment and line.rstrip().endswith("\\")
+            if opener is not None:
+                heredoc_terminator = opener.group("terminator")
+    return sorted(found)
+
+
 def lockless_python_trees(repo_root: Path) -> list[str]:
     """Every ``pyproject.toml`` in the checkout with no ``uv.lock`` beside it.
 
@@ -733,6 +848,23 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
             "that build (NFR-009 §2.3)."
         )
 
+    # The OTHER direction of the same question (#1554): not a dependency
+    # installed outside the rules, but a dependency Renovate reports that does
+    # not exist. Read from disk for the same reason as the sweeps above — the
+    # dashboard deduplicates by `depName`, so six mis-read lines appear there as
+    # two entries and a repaired file cancels a newly introduced one.
+    phantom_stages = dockerfile_phantom_stage_lines(repo_root)
+    if phantom_stages:
+        findings.append(
+            "Renovate reads a container image where there is none: "
+            + ", ".join(phantom_stages)
+            + ". A continued or heredoc line starting with `from` / `copy --from=` is extracted as an "
+            "image stage with `datasource: docker`, so every scan resolves a package name against Docker "
+            "Hub — and a bump would rewrite that line inside a RUN step (#1554). Write the import "
+            "qualified (`import x` + `x.f(...)`) so no continued line begins with a word the manager "
+            "reads as an instruction."
+        )
+
     return {
         "alert": bool(findings),
         "findings": findings,
@@ -750,6 +882,7 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         "unhashed_requirements_installs": unhashed,
         "undecided_unhashed_requirements": undecided,
         "dockerfile_python_installs": dockerfile_installs,
+        "dockerfile_phantom_stage_lines": phantom_stages,
         "observed_files": {manager: inventory.get(manager, []) for manager in EXPECTED_OBSERVED_FILES},
     }
 

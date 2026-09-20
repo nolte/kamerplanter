@@ -38,21 +38,38 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --only-group build
 
 # ── Download stages (cached independently) ───────────────────────────
+#
+# THE IMPORTS BELOW ARE QUALIFIED (`import x` + `x.f(...)`) RATHER THAN
+# `from x import f`, AND THAT IS NOT STYLE (#1554). Renovate's dockerfile
+# manager reads a CONTINUED line beginning with `from` as a `FROM`
+# instruction, so every
+# `from optimum.onnxruntime import ORTModelForSequenceClassification; \`
+# in these `RUN python -c` bodies was extracted as an image stage: two
+# phantom `optimum.onnxruntime` dependencies, each issuing a real
+# `getDigest(index.docker.io, library/optimum.onnxruntime)` lookup on every
+# scan. Harmless only until someone publishes that name: Renovate would then
+# propose a "version bump" that rewrites a Python import statement inside a
+# RUN step.
+#
+# Measured with Renovate 44.103.2: the same mis-read covers a heredoc body
+# line, an indented continuation, an upper-case `FROM` inside a shell string
+# and a continued `copy --from=`. `dockerfile_phantom_stage_lines` in
+# scripts/ci/check_renovate_dashboard.py keeps all five spellings out.
 
 FROM dl-base AS dl-bge-reranker-v2-m3
 # BAAI/bge-reranker-v2-m3 — multilingual, 568M params, Apache-2.0
 # Export to ONNX via optimum
 RUN python -c "\
-from optimum.onnxruntime import ORTModelForSequenceClassification; \
-model = ORTModelForSequenceClassification.from_pretrained('BAAI/bge-reranker-v2-m3', export=True); \
+import optimum.onnxruntime; \
+model = optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained('BAAI/bge-reranker-v2-m3', export=True); \
 model.save_pretrained('/model')" && \
     rm -rf /root/.cache
 
 FROM dl-base AS dl-ms-marco-minilm
 # cross-encoder/ms-marco-MiniLM-L-12-v2 — English-focused, 33M params, Apache-2.0
 RUN python -c "\
-from optimum.onnxruntime import ORTModelForSequenceClassification; \
-model = ORTModelForSequenceClassification.from_pretrained('cross-encoder/ms-marco-MiniLM-L-12-v2', export=True); \
+import optimum.onnxruntime; \
+model = optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained('cross-encoder/ms-marco-MiniLM-L-12-v2', export=True); \
 model.save_pretrained('/model')" && \
     rm -rf /root/.cache
 

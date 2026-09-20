@@ -526,6 +526,127 @@ class TestDockerfilesMustNotInstallPythonOutsideALock:
         assert check.dockerfile_python_installs(tmp_path) == []
 
 
+class TestNoLineIsReadAsAnImageThatIsNotOne:
+    """#1554, the other direction: a dependency Renovate reports that is not one.
+
+    The issue named two lines and the spelling `from x import y`. Both were too
+    narrow, and the measurement is what says so. `git grep -n "^from " --
+    docker/*/Dockerfile` finds SIX lines (embedding-service 47/58/69/81,
+    reranker-service 46/54); the manager's `depCount` counts each of them, and
+    only the dashboard deduplicates by `depName` — which is where the issue's
+    "two" came from.
+
+    The spellings below are not invented either. They were measured against
+    Renovate 44.103.2 (`--platform=local` over a probe Dockerfile carrying one
+    candidate per spelling): a, b, c, d and e were extracted as `datasource:
+    docker` dependencies, f and g were not.
+    """
+
+    def test_no_dockerfile_in_this_checkout_is_mis_read(self) -> None:
+        assert check.dockerfile_phantom_stage_lines(_REPO_ROOT) == [], (
+            "a continued or heredoc line starting with `from` / `copy --from=` is extracted as an image "
+            "stage, so Renovate resolves a Python package name against Docker Hub on every scan"
+        )
+
+    def test_the_two_model_images_import_qualified(self) -> None:
+        """The subject of #1554, asserted at the artefact rather than at the sweep."""
+        for dockerfile, module, call in (
+            ("docker/embedding-service/Dockerfile", "huggingface_hub", "huggingface_hub.snapshot_download("),
+            (
+                "docker/reranker-service/Dockerfile",
+                "optimum.onnxruntime",
+                "optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained(",
+            ),
+        ):
+            text = (_REPO_ROOT / dockerfile).read_text()
+            # COMMENTS ARE STRIPPED FIRST, for the reason the sweep above strips
+            # them: both files now carry prose QUOTING the repaired line, and a
+            # raw-text assertion read that explanation as the defect (it did,
+            # on the first run of this test).
+            instructions = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+
+            assert f"import {module}; \\\n" in instructions, f"{dockerfile} no longer imports {module} qualified"
+            assert call in instructions, f"{dockerfile} no longer calls through the module object"
+            assert f"from {module} import" not in instructions, (
+                f"{dockerfile} is back to `from {module} import …`, the line Renovate reads as a FROM stage"
+            )
+
+    @pytest.mark.parametrize(
+        ("name", "body"),
+        [
+            # (a) the spelling the issue named.
+            ("a", 'RUN python -c "\\\nfrom phantom import x; \\\nx()"\n'),
+            # (b) a heredoc body — no backslash continuation anywhere, so a
+            # continuation-only rule would call this file clean.
+            ("b", "RUN python - <<'PY'\nfrom phantom import y\ny()\nPY\n"),
+            # (c) not Python at all: an upper-case FROM inside a shell string.
+            ("c", 'RUN echo "SELECT 1 \\\nFROM phantom" > /q.sql\n'),
+            # (d) indented — `^ *FROM` tolerates leading whitespace, so does this.
+            ("d", 'RUN python -c "\\\n  from phantom import z; \\\nz()"\n'),
+            # (e) the OTHER instruction the dockerfile manager reads as an image.
+            ("e", 'RUN sh -c "cp x y; \\\ncopy --from=phantom /a /b"\n'),
+        ],
+    )
+    def test_every_measured_spelling_is_caught(self, tmp_path: Path, name: str, body: str) -> None:
+        (tmp_path / "Dockerfile").write_text("FROM alpine:3.22 AS base\n" + body)
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path), f"spelling ({name}) got past the sweep"
+
+    @pytest.mark.parametrize(
+        ("name", "content"),
+        [
+            # (f) prose explaining the defect is not the defect — the failure
+            # class this repository has paid for before.
+            ("f", "FROM alpine:3.22\n# from phantom import q — this is what it used to say\n"),
+            # (g) the repaired form, which is what the two images now use.
+            ("g", 'FROM alpine:3.22\nRUN python -c "\\\nimport phantom; \\\nphantom.run()"\n'),
+            # A real multi-stage build: both instructions start a line, which is
+            # precisely what makes them real.
+            (
+                "multi-stage",
+                "FROM alpine:3.22 AS base\nFROM base AS final\nCOPY --from=ghcr.io/astral-sh/uv:0.12.15 /uv /bin/uv\n",
+            ),
+            # The heredoc terminator ends the body: the FROM after it is an
+            # instruction again, not a finding.
+            ("heredoc-closed", "FROM alpine:3.22 AS base\nRUN cat <<'SH'\necho hi\nSH\nFROM base AS final\n"),
+        ],
+    )
+    def test_a_correct_file_is_not_reported(self, tmp_path: Path, name: str, content: str) -> None:
+        (tmp_path / "Dockerfile").write_text(content)
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == [], f"false positive on ({name})"
+
+    def test_the_line_numbers_are_the_offending_lines(self, tmp_path: Path) -> None:
+        """`path:line`, so the finding names the line to repair."""
+        (tmp_path / "Dockerfile").write_text(
+            'FROM alpine:3.22 AS base\nRUN python -c "\\\nfrom phantom import x; \\\nx()"\n'
+        )
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == ["Dockerfile:3"]
+
+    def test_a_suffixed_dockerfile_is_swept_too(self, tmp_path: Path) -> None:
+        (tmp_path / "Dockerfile.e2e").write_text('FROM alpine:3.22\nRUN python -c "\\\nfrom phantom import x"\n')
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == ["Dockerfile.e2e:3"]
+
+    def test_the_report_reddens_and_carries_the_sites(self, healthy_body: str, tmp_path: Path) -> None:
+        """The finding reaches `build_report`, not just the helper."""
+        (tmp_path / "Dockerfile").write_text(
+            'FROM alpine:3.22 AS base\nRUN python -c "\\\nfrom phantom import x; \\\nx()"\n'
+        )
+
+        report = check.build_report(healthy_body, repo_root=tmp_path)
+
+        assert report["alert"] is True
+        assert report["dockerfile_phantom_stage_lines"] == ["Dockerfile:3"]
+        assert any("Renovate reads a container image where there is none" in f for f in report["findings"])
+
+    def test_this_checkout_reports_no_phantom_in_the_json(self, healthy_body: str) -> None:
+        report = check.build_report(healthy_body, repo_root=_REPO_ROOT)
+
+        assert report["dockerfile_phantom_stage_lines"] == []
+
+
 class TestTheClaimsAreNoWiderThanTheMeasurement:
     """#1491 review, W3: a claim wider than its instrument is invisible."""
 
