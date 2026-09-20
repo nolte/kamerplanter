@@ -162,6 +162,8 @@ def _recognition_image_response(view: PestRecognitionImageView, pest_key: str) -
     )
 
 
+# tenant-scope-ok: the plant is verified in ArangoIpmRepository.create_inspection
+# (verify_entity_ownership on plant_instances, #517) before the edge is wired.
 @router.post("/plants/{plant_key}/inspections", response_model=InspectionResponse, status_code=201)
 def create_inspection(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
@@ -183,10 +185,13 @@ def list_inspections(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List a plant's IPM inspections (paginated)."""
-    inspections, _ = service.get_inspections(plant_key, pagination.offset, pagination.limit)
+    inspections, _ = service.get_inspections(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_inspection_response(i) for i in inspections]
 
 
+# tenant-scope-ok: the plant is verified in
+# ArangoIpmRepository.create_treatment_application (verify_entity_ownership on
+# plant_instances, #517) before the applied-to edge is wired.
 @router.post(
     "/plants/{plant_key}/treatment-applications",
     response_model=TreatmentApplicationResponse,
@@ -212,7 +217,7 @@ def list_treatment_applications(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List a plant's treatment applications (paginated)."""
-    apps, _ = service.get_applications(plant_key, pagination.offset, pagination.limit)
+    apps, _ = service.get_applications(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_application_response(a) for a in apps]
 
 
@@ -223,7 +228,7 @@ def get_karenz_periods(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List active Karenz (pre-harvest waiting) periods for a plant."""
-    return service.get_karenz_periods(plant_key)
+    return service.get_karenz_periods(plant_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/plants/{plant_key}/harvest-safety", response_model=HarvestSafetyResponse)
@@ -235,7 +240,7 @@ def check_harvest_safety(
 ):
     """Check whether a plant may be harvested given active Karenz periods."""
     pd = datetime.fromisoformat(planned_date) if planned_date else None
-    can_harvest, blocking = service.check_harvest_safety(plant_key, pd)
+    can_harvest, blocking = service.check_harvest_safety(plant_key, pd, tenant_key=ctx.tenant_key)
     return HarvestSafetyResponse(can_harvest=can_harvest, blocking_treatments=blocking)
 
 
@@ -248,7 +253,7 @@ def get_inspection_schedule(
     service: IpmService = Depends(get_ipm_service),
 ):
     """Return the recommended inspection schedule for a plant."""
-    return service.get_inspection_schedule(plant_key, current_phase, pressure_level)
+    return service.get_inspection_schedule(plant_key, current_phase, pressure_level, tenant_key=ctx.tenant_key)
 
 
 # ── REQ-010 User-contributed pest reference images (tenant-private gallery) ──

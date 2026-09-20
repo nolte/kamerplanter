@@ -53,8 +53,20 @@ class IpmService:
     it. That marker is precisely why these creates looked tenant-local.
 
     The **tenant-scoped** half below (inspections, treatment applications, pest
-    images) is unaffected: those models do carry ``tenant_key`` and their routes
-    are gated on ``require_permission`` / ``require_attachment_permission``.
+    images) carries a ``tenant_key`` on its models, and its routes are gated on
+    ``require_permission`` / ``require_attachment_permission`` — but that gate
+    only answers *may this caller write in their own tenant*, never *is this
+    plant theirs*. Until #1619 nothing asked the second question on the read
+    side: ``GET .../plants/{plant_key}/karenz``, ``/harvest-safety``,
+    ``/treatment-applications``, ``/inspections`` and ``/inspection-schedule``
+    took the key from the path and answered 200 with another tenant's active
+    ingredient, treatment name, Karenz window and inspection notes. The write
+    half beside them was already correct (``create_inspection`` /
+    ``create_treatment_application`` verify the plant at the repository, #517),
+    and that asymmetry is exactly what made the read half easy to miss.
+
+    Every plant-scoped method below therefore takes ``tenant_key`` **keyword-only
+    and without a default** and runs :meth:`_require_own_plant` first.
     """
 
     #: The catalogue entity each refusal names. One map, so a 403 cannot name the
@@ -258,11 +270,31 @@ class IpmService:
 
     # ── Inspection ──
 
+    def _require_own_plant(self, plant_key: str, tenant_key: str) -> None:
+        """The one predicate every plant-scoped operation below runs (#1619).
+
+        One private method rather than a check per public method: the six
+        callers cannot drift apart, and a seventh added later either calls it or
+        has no ``tenant_key`` to pass, because the parameter is keyword-only
+        **without a default** on every signature. That is what makes an unscoped
+        call unwritable instead of merely discouraged — the #948 failure this
+        repository has paid for repeatedly is a guard each call site opts into.
+        """
+        self._repo.verify_plant_ownership(plant_key, tenant_key)
+
     def create_inspection(self, plant_key: str, inspection: Inspection) -> Inspection:
         inspection.plant_key = plant_key
         return self._repo.create_inspection(inspection)
 
-    def get_inspections(self, plant_key: str, offset: int = 0, limit: int = 50) -> tuple[list[Inspection], int]:
+    def get_inspections(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> tuple[list[Inspection], int]:
+        self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_inspections_for_plant(plant_key, offset, limit)
 
     # ── Treatment Application ──
@@ -295,13 +327,29 @@ class IpmService:
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> tuple[list[TreatmentApplication], int]:
+        self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_applications_for_plant(plant_key, offset, limit)
 
     # ── Karenz-Gate API ──
 
-    def check_harvest_safety(self, plant_key: str, planned_date: datetime | None = None) -> tuple[bool, list[dict]]:
-        """Check if harvest is safe for a plant (Karenz-Gate)."""
+    def check_harvest_safety(
+        self,
+        plant_key: str,
+        planned_date: datetime | None = None,
+        *,
+        tenant_key: str,
+    ) -> tuple[bool, list[dict]]:
+        """Check if harvest is safe for a plant (Karenz-Gate).
+
+        A foreign plant now raises rather than answering ``(True, [])``: an
+        unscoped Karenz check is not merely a leak of the other tenant's active
+        ingredient, it is also a gate that says *yes* about a plant whose
+        treatment history the caller cannot see.
+        """
+        self._require_own_plant(plant_key, tenant_key)
         karenz_periods = self._repo.get_active_karenz_periods(plant_key)
         if not karenz_periods:
             return True, []
@@ -309,12 +357,14 @@ class IpmService:
             planned_date = now_utc()
         return self._safety.can_harvest(karenz_periods, planned_date)
 
-    def get_karenz_periods(self, plant_key: str) -> list[dict]:
+    def get_karenz_periods(self, plant_key: str, *, tenant_key: str) -> list[dict]:
+        self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_active_karenz_periods(plant_key)
 
     # ── Recommendations ──
 
-    def get_treatment_recommendations(self, plant_key: str, pest_key: str) -> list[dict]:
+    def get_treatment_recommendations(self, plant_key: str, pest_key: str, *, tenant_key: str) -> list[dict]:
+        self._require_own_plant(plant_key, tenant_key)
         treatments = self._repo.get_treatments_for_pest(pest_key)
         recent = self._repo.get_recent_applications(plant_key)
         available = [
@@ -325,7 +375,15 @@ class IpmService:
 
     # ── Inspection Schedule ──
 
-    def get_inspection_schedule(self, plant_key: str, current_phase: str, pressure_level: str) -> dict:
+    def get_inspection_schedule(
+        self,
+        plant_key: str,
+        current_phase: str,
+        pressure_level: str,
+        *,
+        tenant_key: str,
+    ) -> dict:
+        self._require_own_plant(plant_key, tenant_key)
         inspections, _ = self._repo.get_inspections_for_plant(plant_key, 0, 1)
         last_at = inspections[0].inspected_at if inspections else None
         next_date = self._scheduler.next_inspection_date(last_at, current_phase, pressure_level)
