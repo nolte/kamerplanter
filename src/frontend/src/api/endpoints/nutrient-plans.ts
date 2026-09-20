@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { invalidateCatalogue } from '../catalogueRevision';
 import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   NutrientPlan,
@@ -56,6 +57,7 @@ export async function createNutrientPlan(
   payload: NutrientPlanCreate,
 ): Promise<NutrientPlan> {
   const { data } = await client.post<NutrientPlan>(BASE, payload);
+  invalidateCatalogue('nutrientPlans');
   return data;
 }
 
@@ -64,11 +66,13 @@ export async function updateNutrientPlan(
   payload: NutrientPlanUpdate,
 ): Promise<NutrientPlan> {
   const { data } = await client.put<NutrientPlan>(`${BASE}/${key}`, payload);
+  invalidateCatalogue('nutrientPlans');
   return data;
 }
 
 export async function deleteNutrientPlan(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+  invalidateCatalogue('nutrientPlans');
 }
 
 // ── Clone & Validate ──────────────────────────────────────────────────

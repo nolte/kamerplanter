@@ -199,9 +199,18 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
           <ExpertiseFieldWrapper minLevel={fc.family_key.level}>
             {/*
               A failed family load is now its own state with its own retry, not
-              an empty dropdown (#1568). The field stays disabled while the
-              catalogue is in flight or unreachable, so the dialog cannot be
-              submitted with "no family" that the user never actually chose.
+              an empty dropdown (#1568), and the field is not operable while the
+              catalogue is in flight or unreachable.
+
+              What that does **not** do, stated because an earlier version of
+              this comment claimed it: it does not stop the species being created
+              without a family. `family_key` is nullable in the schema (see the
+              zod object above), defaults to `null`, and `FormActions` is not
+              coupled to `families.status` — so on a failed load the user still
+              submits, the field is merely unusable rather than merely silent.
+              Making the claim true means either blocking submit or making
+              `family_key` required, which is a behaviour change for the operator
+              to decide, not a review fix.
             */}
             <FormSelectField
               name="family_key"
