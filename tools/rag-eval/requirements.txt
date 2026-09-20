@@ -18,7 +18,15 @@
 # what the Renovate-health check reads; removing this file's exception means
 # removing that entry too, and the check reddens for every other list on its
 # own.
+#
+# WHAT THE EXCEPTION DOES *NOT* COVER (#1572). "Reaches no delivered artefact"
+# is why this list is class (b) of NFR-009 §2.3.1 and therefore exempt from
+# HASHES. It is NOT a reason to leave the ranges open: §2.1 wants an upper bound
+# on every Python requirement, and class (b)'s own requirement is exactly that
+# bound. Using the same fact twice — once to assign the class, once to excuse
+# the class's requirement — is circular, and it is why these three entries had
+# no ceiling until #1572. The bounds below are the current major of each.
 
-httpx>=0.28.0
-psycopg[binary]>=3.2.0
-pyyaml>=6.0
+httpx>=0.28.0,<1.0.0
+psycopg[binary]>=3.2.0,<4.0.0
+pyyaml>=6.0,<7.0.0

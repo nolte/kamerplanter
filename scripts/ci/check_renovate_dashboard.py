@@ -74,20 +74,47 @@ WHAT IT CHECKS
    is what turned them into findings, with
    :data:`KNOWN_UNHASHED_REQUIREMENTS` holding the one argued exception.
 
-   WHAT NEITHER SWEEP SEES, named rather than implied — the #1509 review asked
-   for the spelling that gets past them and found one that matters:
+   THE BOUNDARY LIVES IN THE SPEC, NOT HERE (#1572). Which Python install must
+   carry hashes and which only needs a bounded range is **NFR-009 §2.3.1**,
+   where it is normative and where somebody asking the question will look. It
+   was written there rather than in this docstring for a measured reason: the
+   answer used to be in neither place, and a rule that lives only in the
+   docstring of a nightly ADVISORY script is a rule the next reader does not
+   find. In one line, so this module is readable without a second file open:
+   **a Python install that reaches a delivered artefact must be hash-bearing; an
+   install that is runner-only and whose output is a verdict needs a bounded
+   range, not hashes.** Both sweeps below implement the first half. The second
+   half is enforced by
+   ``src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py`` in the
+   unfiltered, required ``backend-guards.yml`` lane — not here, where the verdict
+   is nightly and advisory. Anything that reads like a decision and is not in
+   NFR-009 §2.3.1 is a summary of it; the spec wins.
 
-   * ``additional_dependencies:`` in ``.pre-commit-config.yaml``. The E2E
-     self-test hook installs ``selenium`` and ``pytest`` from RANGES, unhashed,
-     inside the REQUIRED ``static`` lane, and Renovate's pre-commit manager
-     maintains ``rev:`` only — so that install is neither hashed nor version-
-     managed nor visible here. Tracked as **#1572**;
+   WHAT NEITHER SWEEP HERE SEES, named rather than implied — the #1509 review
+   asked for the spelling that gets past them, and the #1572 sweep re-asked it:
+
+   * ``additional_dependencies:`` in ``.pre-commit-config.yaml``. Still read by
+     neither sweep, now deliberately: it is neither a requirement list nor a
+     Dockerfile, and under the boundary above it is class (b), so it does not
+     belong in a HASH sweep at all. It is enumerated instead by the bounds guard
+     named above, which reads the YAML rather than a list of hook ids (#1572);
    * ``pip install`` in a workflow ``run:`` step or a Taskfile — six sites, all
      ``==``-pinned runner tools (``pip-audit``, ``pip-licenses``, ``PyYAML``,
      and the ``uv==`` bootstrap) whose output is a report rather than an
-     artefact. Inventory, not finding;
+     artefact, plus pip's own upgrade in ``.taskfiles/docs.yaml`` (unbounded
+     until #1572 — and it is the tool that then verifies the hashes). Class (b),
+     satisfied. Inventory, not finding. A NEW, unpinned one would get past every
+     sweep in this repository; that half of class (b) is described and not
+     enforced, which NFR-009 §2.3.1 says out loud and #1602 tracks;
    * ``%pip install`` in a notebook (``tools/rag-eval/rag_eval.ipynb``), inside
-     the tree that is already the argued exception.
+     the tree that is already the argued exception. A notebook magic is not a
+     ``run:`` step and not a requirement list, so no sweep in this repository
+     reads it. "Ships nothing" is why it is class (b) and therefore exempt from
+     HASHES — it is NOT why it may stay unbounded, which is the circular reading
+     NFR-009 §2.3.1 now forbids in as many words. The list beside it
+     (``tools/rag-eval/requirements.txt``) was bounded in #1572; the magic's
+     five packages are unbounded and unreached, and that is a gap, not a
+     decision.
 
 5. **No line is read as a container image that is not one** (#1554), read
    from disk. The four checks above ask whether Renovate still reads what it
