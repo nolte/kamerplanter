@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.domain.models.auth import ApiKey
-from app.domain.models.user import User
+from app.domain.models.user import User, allows_interactive_auth
 
 
 class TestUserAccountType:
@@ -25,6 +25,23 @@ class TestUserAccountType:
     def test_unknown_account_type_is_rejected(self):
         with pytest.raises(ValidationError):
             User(email="x@example.com", display_name="X", account_type="bot")  # type: ignore[arg-type]
+
+
+class TestAllowsInteractiveAuth:
+    """The REQ-023 boundary as a predicate on the state — #1559.
+
+    Read by the credential gates and the session-minting backstop in
+    ``AuthService``, so an account type that answers ``False`` here can neither
+    acquire a password nor be handed a token pair.
+    """
+
+    def test_a_service_account_is_refused(self):
+        u = User(email="bot@example.com", display_name="Bot", account_type="service")
+        assert allows_interactive_auth(u) is False
+
+    def test_an_interactive_account_is_allowed(self):
+        u = User(email="alice@example.com", display_name="Alice")
+        assert allows_interactive_auth(u) is True
 
 
 class TestApiKeyHardening:
