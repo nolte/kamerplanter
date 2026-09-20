@@ -375,6 +375,10 @@ jobs:
           # `initial-fetch-depth` here the first time a run reports the deepening
           # as the slow step.
           #
+          # Raising the CHECKOUT's depth instead is the one change that is not
+          # equivalent: it re-opens the dispatch hole the freeze step below
+          # closes. That is measured and written out there; read it first.
+          #
           # No `predicate-quantifier` here, deliberately, and it is not the
           # omission `e2e-smoke.yml` warns about: that warning is about a DENY
           # list, where the default `some` ORs a leading `'**'` against the
@@ -411,16 +415,39 @@ jobs:
       # clause is what keeps that true if one is ever added.
       #
       # AND `workflow_dispatch` IS EXEMPT, WHICH IS NOT A CONVENIENCE.
-      # `dorny/paths-filter` has no diff of its own to read on a dispatch, so it
-      # compares `base` against the dispatched ref. Dispatched ON `develop` —
-      # which is the case this workflow's own header reserves the trigger for
-      # ("a job that has never run on a runner may not be made a required check
-      # on the strength of a local green — the operator dispatches it three
-      # times first") — that comparison is EMPTY, every filter is false, and the
-      # tier would report green having executed nothing. A manual verification
-      # run that certifies a success it never measured is worse than no manual
-      # run at all, so the event name overrides the filter outright. Proven with
-      # a real dispatch in #1578's pull request, in both directions.
+      #
+      # A `workflow_dispatch` payload carries no `before`, so the action cannot
+      # diff at all when its `base` resolves to the ref being dispatched — which
+      # is the case this workflow's own header reserves the trigger for ("a job
+      # that has never run on a runner may not be made a required check on the
+      # strength of a local green — the operator dispatches it three times
+      # first"), because that dispatch happens on `develop`. It then falls back
+      # to `git log --format= --no-renames --name-status -z -n 1`, i.e. to
+      # WHATEVER THE LAST COMMIT HAPPENED TO TOUCH. A manual verification run
+      # judged by the contents of the previous merge commit is not a
+      # verification run.
+      #
+      # MEASURED 2026-09-20, because the mechanism is not what it looks like and
+      # the answer flips on a setting three lines up. Under the shallow checkout
+      # this job uses, that `git log` runs on a commit with no parent in the
+      # local repository and therefore lists the ENTIRE TREE as added — measured
+      # on a `--depth 1` clone of `develop`: 4508 paths, every one reported `A`.
+      # Every filter is true, the tier runs, and a dispatch is accidentally safe.
+      # Give the checkout a full history — which the sibling `guards` job above
+      # already has, and which the `initial-fetch-depth` note below could
+      # plausibly tempt someone into — and the fallback becomes a real
+      # single-commit diff. Proven on a real dispatch, both directions, same
+      # filter verdict, opposite outcome (#1578's pull request):
+      #
+      #   fetch-depth: 0, no override  -> Filter integration = false
+      #                                -> "Integration tier SKIPPED", job green in 29 s
+      #   fetch-depth: 0, with override-> Filter integration = false
+      #                                -> "Integration tier RUNS", tier executed, 2m54s
+      #
+      # So the clause below is what makes the dispatch path correct BY ITSELF
+      # rather than by coincidence of the clone depth. Do not remove it because
+      # "a dispatch runs the tier anyway today"; that sentence is true and is a
+      # property of `fetch-depth: 1`, not of this lane.
       - name: Freeze the run/skip decision
         env:
           DETECTION: ${{ steps.relevance.outcome }}
@@ -432,8 +459,8 @@ jobs:
           fi
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             # An operator asked for this run by hand. See the block above: the
-            # filter has no diff to judge on a dispatch, so its verdict here
-            # means "nothing changed", never "nothing is relevant".
+            # filter has no diff to judge on a dispatch — its verdict there is
+            # about the last commit, never about what the operator asked for.
             RUN=true
           fi
           echo "RUN_INTEGRATION=$RUN" >> "$GITHUB_ENV"
