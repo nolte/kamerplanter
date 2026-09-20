@@ -19,8 +19,32 @@ LABEL org.opencontainers.image.title="kamerplanter-e2e-tests" \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# uv is the lock toolchain (NFR-009 section 2.3), exactly as in
+# src/backend/Dockerfile: one static binary, copied from its own digest-pinned
+# image so Renovate's dockerfile manager ages it together with
+# `[tool.uv].required-version` in pyproject.toml. Until #1509 this stage ran
+# `pip install --no-cache-dir -r requirements.txt` against unpinned ranges, so
+# the only Python install left in a BUILT image here resolved whatever PyPI
+# served that minute and verified no hash. The environment pins uv to the
+# interpreter this image ships (no managed-Python download, no cache layer) and
+# puts the project environment on PATH, so the ENTRYPOINT resolves `pytest`
+# without an activation step. It lives in /opt/venv, OUTSIDE /app, because the
+# stage below chowns /app to UID 1000 and a venv inside it would end up
+# writable by the test user.
+COPY --from=ghcr.io/astral-sh/uv:0.12.15@sha256:62f8c047d0a0e9ece6b53fc63df902585a67a47a7f318ddec4a37db586edc8e3 /uv /bin/uv
+ENV UV_PYTHON=/usr/local/bin/python3 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_NO_CACHE=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+# The lock is the single source of truth for what gets installed; `--locked`
+# verifies every artifact against its recorded hash and refuses a lock that no
+# longer matches pyproject.toml.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked
 
 COPY . .
 
