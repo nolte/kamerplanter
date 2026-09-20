@@ -828,7 +828,7 @@ The following updates have all been created. To force a retry/rebase of any, cli
 </blockquote>
 </details>
 
-<details><summary>regex (9)</summary>
+<details><summary>regex (11)</summary>
 <blockquote>
 
 <details><summary>.github/renovate-pins.yaml (2)</summary>
@@ -872,6 +872,19 @@ The following updates have all been created. To force a retry/rebase of any, cli
 <details><summary>.github/workflows/release-publish.yml (1)</summary>
 
  - `uv 0.12.15`
+
+</details>
+
+<details><summary>.github/workflows/security-zap-nightly.yml (1)</summary>
+
+ - `ghcr.io/zaproxy/zaproxy 20260629-stable@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2` → [Updates: `20260807-stable`]
+
+</details>
+
+<details><summary>.github/workflows/security-zap-postmerge.yml (2)</summary>
+
+ - `ghcr.io/zaproxy/zaproxy 20260629-stable@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2` → [Updates: `20260807-stable`]
+ - `curlimages/curl 8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13`
 
 </details>
 

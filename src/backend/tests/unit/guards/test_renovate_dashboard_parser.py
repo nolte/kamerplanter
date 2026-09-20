@@ -33,6 +33,16 @@ after that override on 2026-09-17 — ``pep621`` 5 -> 7 files, ``poetry``
 total 80 -> 83. Since #1509 it is a DRIFT fixture, and
 ``TestThePre1509BodyIsNowCorrectlyRed`` is the red-first proof for that change.
 
+#1563 added two entries to its ``regex`` block — the two ZAP workflows, whose
+image pins no manager read before — and moved the summary count from 9 to 11.
+
+READ THAT NUMBER AS FILES, NOT AS THE DRY-RUN'S ``fileCount``, and this is the
+place that trap gets recorded: ``task renovate:dry-run`` prints EVERY custom
+manager package file TWICE (measured on the 2026-09-20 before-run as well —
+all 15 regex entries appear twice for ``fileCount 30``), so the same three new
+extractions read as ``depCount`` +6 there and as two more files here. A reader
+comparing the two numbers would otherwise see drift where there is none.
+
 ``renovate_dashboard_expected_after_1509.md`` is the healthy state today, derived
 the same mechanical way: ``tests/e2e/requirements.txt`` became
 ``tests/e2e/pyproject.toml`` + ``uv.lock``, so it moved from ``pip_requirements``
@@ -524,6 +534,472 @@ class TestDockerfilesMustNotInstallPythonOutsideALock:
         (tmp_path / "Dockerfile").write_text(f"FROM python:3.14-slim\n{instruction}\n")
 
         assert check.dockerfile_python_installs(tmp_path) == []
+
+
+class TestNoLineIsReadAsAnImageThatIsNotOne:
+    """#1554, the other direction: a dependency Renovate reports that is not one.
+
+    The issue named two lines and the spelling `from x import y`. Both were too
+    narrow, and the measurement is what says so. `git grep -n "^from " --
+    docker/*/Dockerfile` finds SIX lines (embedding-service 47/58/69/81,
+    reranker-service 46/54); the manager's `depCount` counts each of them, and
+    only the dashboard deduplicates by `depName` — which is where the issue's
+    "two" came from.
+
+    The spellings below are not invented either. They were measured against
+    Renovate 44.103.2 (`--platform=local` over a probe Dockerfile carrying one
+    candidate per spelling): a, b, c, d and e were extracted as `datasource:
+    docker` dependencies, f and g were not.
+    """
+
+    def test_the_sweep_reads_a_corpus_that_is_not_empty(self) -> None:
+        """W3 of the review: a repo-wide assertion over nothing is green.
+
+        Same shape as `test_docker_lint_build_coverage.py:314` — a floor, not
+        a pin, so adding a Dockerfile is not a test change.
+        """
+        dockerfiles = [
+            path.relative_to(_REPO_ROOT).as_posix()
+            for path in _REPO_ROOT.rglob("Dockerfile*")
+            if path.is_file() and not check._outside_the_sweep(path.relative_to(_REPO_ROOT))
+        ]
+
+        assert len(dockerfiles) >= 8, (
+            f"only {dockerfiles} were swept — has the corpus stopped being read? The assertion below "
+            "would then be green over nothing."
+        )
+        for expected in ("docker/embedding-service/Dockerfile", "docker/reranker-service/Dockerfile"):
+            assert expected in dockerfiles, f"{expected}, the subject of #1554, is no longer swept"
+
+    def test_no_dockerfile_in_this_checkout_is_mis_read(self) -> None:
+        assert check.dockerfile_phantom_stage_lines(_REPO_ROOT) == [], (
+            "a continued or heredoc line starting with `from` / `copy --from=` is extracted as an image "
+            "stage, so Renovate resolves a Python package name against Docker Hub on every scan"
+        )
+
+    def test_the_two_model_images_import_qualified(self) -> None:
+        """The subject of #1554, asserted at the artefact rather than at the sweep."""
+        for dockerfile, module, call in (
+            ("docker/embedding-service/Dockerfile", "huggingface_hub", "huggingface_hub.snapshot_download("),
+            (
+                "docker/reranker-service/Dockerfile",
+                "optimum.onnxruntime",
+                "optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained(",
+            ),
+        ):
+            text = (_REPO_ROOT / dockerfile).read_text()
+            # COMMENTS ARE STRIPPED FIRST, for the reason the sweep above strips
+            # them: both files now carry prose QUOTING the repaired line, and a
+            # raw-text assertion read that explanation as the defect (it did,
+            # on the first run of this test).
+            instructions = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+
+            assert f"import {module}; \\\n" in instructions, f"{dockerfile} no longer imports {module} qualified"
+            assert call in instructions, f"{dockerfile} no longer calls through the module object"
+            assert f"from {module} import" not in instructions, (
+                f"{dockerfile} is back to `from {module} import …`, the line Renovate reads as a FROM stage"
+            )
+
+    @pytest.mark.parametrize(
+        ("name", "body"),
+        [
+            # (a) the spelling the issue named.
+            ("a", 'RUN python -c "\\\nfrom phantom import x; \\\nx()"\n'),
+            # (b) a heredoc body — no backslash continuation anywhere, so a
+            # continuation-only rule would call this file clean.
+            ("b", "RUN python - <<'PY'\nfrom phantom import y\ny()\nPY\n"),
+            # (c) not Python at all: an upper-case FROM inside a shell string.
+            ("c", 'RUN echo "SELECT 1 \\\nFROM phantom" > /q.sql\n'),
+            # (d) indented — `^ *FROM` tolerates leading whitespace, so does this.
+            ("d", 'RUN python -c "\\\n  from phantom import z; \\\nz()"\n'),
+            # (e) the OTHER instruction the dockerfile manager reads as an image.
+            ("e", 'RUN sh -c "cp x y; \\\ncopy --from=phantom /a /b"\n'),
+        ],
+    )
+    def test_every_measured_spelling_is_caught(self, tmp_path: Path, name: str, body: str) -> None:
+        (tmp_path / "Dockerfile").write_text("FROM alpine:3.22 AS base\n" + body)
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path), f"spelling ({name}) got past the sweep"
+
+    @pytest.mark.parametrize(
+        ("name", "content"),
+        [
+            # (f) prose explaining the defect is not the defect — the failure
+            # class this repository has paid for before.
+            ("f", "FROM alpine:3.22\n# from phantom import q — this is what it used to say\n"),
+            # (g) the repaired form, which is what the two images now use.
+            ("g", 'FROM alpine:3.22\nRUN python -c "\\\nimport phantom; \\\nphantom.run()"\n'),
+            # A real multi-stage build: both instructions start a line, which is
+            # precisely what makes them real.
+            (
+                "multi-stage",
+                "FROM alpine:3.22 AS base\nFROM base AS final\nCOPY --from=ghcr.io/astral-sh/uv:0.12.15 /uv /bin/uv\n",
+            ),
+            # The heredoc terminator ends the body: the FROM after it is an
+            # instruction again, not a finding.
+            ("heredoc-closed", "FROM alpine:3.22 AS base\nRUN cat <<'SH'\necho hi\nSH\nFROM base AS final\n"),
+        ],
+    )
+    def test_a_correct_file_is_not_reported(self, tmp_path: Path, name: str, content: str) -> None:
+        (tmp_path / "Dockerfile").write_text(content)
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == [], f"false positive on ({name})"
+
+    @pytest.mark.parametrize(
+        ("name", "body"),
+        [
+            # (h) A COMMENT LINE INSIDE THE CONTINUATION. Found by the review
+            # of this guard and then measured: Renovate's
+            # `lineContinuationRegex` is `\\[ \\t]*$|^[ \\t]*#`, so a comment
+            # CONTINUES the instruction. Probed against 44.103.2 — both cases
+            # below were extracted as `datasource: docker` dependencies, while
+            # the first version of this sweep called the file clean.
+            (
+                "comment between two continued lines",
+                'RUN python -c "\\\n  import os; \\\n# a note\nfrom phantom import x; \\\nx()"\n',
+            ),
+            (
+                "comment before the last line",
+                'RUN python -c "\\\n  import os; \\\n# a note\nfrom phantom import y"\n',
+            ),
+        ],
+    )
+    def test_a_comment_does_not_end_a_continuation(self, tmp_path: Path, name: str, body: str) -> None:
+        (tmp_path / "Dockerfile").write_text("FROM alpine:3.22 AS base\n" + body)
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path), f"spelling ({name}) got past the sweep"
+
+    def test_a_real_stage_under_a_section_comment_is_not_a_finding(self, tmp_path: Path) -> None:
+        """The other half of the same rule, and the one every file here uses.
+
+        A comment must not TURN ON a continuation either — every `FROM` in
+        this repository sits under a comment block, and treating a comment as
+        "the instruction continues" would report all of them.
+        """
+        (tmp_path / "Dockerfile").write_text(
+            "FROM alpine:3.22 AS base\n\n# ── Download stages ──\n# explanation\nFROM python:3.14-slim AS dl\n"
+        )
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == []
+
+    def test_a_shell_string_does_not_arm_the_heredoc_reader(self, tmp_path: Path) -> None:
+        """S4 of the review: `<<` inside a quoted string is not a heredoc.
+
+        It does not occur in this tree today. It is a case because the failure
+        would be silent in the worse direction: a bogus terminator swallows the
+        rest of the file, and a real `FROM` after it becomes a finding.
+        """
+        (tmp_path / "Dockerfile").write_text(
+            'FROM alpine:3.22 AS base\nRUN echo "a<<b" > /x\nFROM base AS final\nCOPY --from=base /x /y\n'
+        )
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == []
+
+    def test_the_line_numbers_are_the_offending_lines(self, tmp_path: Path) -> None:
+        """`path:line`, so the finding names the line to repair."""
+        (tmp_path / "Dockerfile").write_text(
+            'FROM alpine:3.22 AS base\nRUN python -c "\\\nfrom phantom import x; \\\nx()"\n'
+        )
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == ["Dockerfile:3"]
+
+    def test_a_suffixed_dockerfile_is_swept_too(self, tmp_path: Path) -> None:
+        (tmp_path / "Dockerfile.e2e").write_text('FROM alpine:3.22\nRUN python -c "\\\nfrom phantom import x"\n')
+
+        assert check.dockerfile_phantom_stage_lines(tmp_path) == ["Dockerfile.e2e:3"]
+
+    def test_the_report_reddens_and_carries_the_sites(self, healthy_body: str, tmp_path: Path) -> None:
+        """The finding reaches `build_report`, not just the helper."""
+        (tmp_path / "Dockerfile").write_text(
+            'FROM alpine:3.22 AS base\nRUN python -c "\\\nfrom phantom import x; \\\nx()"\n'
+        )
+
+        report = check.build_report(healthy_body, repo_root=tmp_path)
+
+        assert report["alert"] is True
+        assert report["dockerfile_phantom_stage_lines"] == ["Dockerfile:3"]
+        assert any("Renovate reads a container image where there is none" in f for f in report["findings"])
+
+    def test_this_checkout_reports_no_phantom_in_the_json(self, healthy_body: str) -> None:
+        report = check.build_report(healthy_body, repo_root=_REPO_ROOT)
+
+        assert report["dockerfile_phantom_stage_lines"] == []
+
+
+def _corpus(tmp_path: Path, workflow: str) -> Path:
+    """A checkout stub carrying the REAL renovate.json5 and one workflow.
+
+    The config is copied rather than faked: the sweep decides "is this pin
+    read" by running the manager's own `matchStrings` over the file, so a
+    hand-written stand-in would prove something about the stand-in.
+    """
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True, exist_ok=True)
+    (workflows / "scan.yml").write_text(workflow)
+    (tmp_path / "renovate.json5").write_text((_REPO_ROOT / "renovate.json5").read_text())
+    return tmp_path
+
+
+class TestTheManagerPatternIsTheRealOne:
+    """W1 of the #1563 review: measure against the manager, not against a marker.
+
+    The first version of the sweep asked whether a `# renovate: datasource=`
+    marker sat in the comment block above a pin. That is not the manager's
+    rule, and the gap was not theoretical — three spellings satisfy the marker
+    check while Renovate reads nothing, one of them being #1563's own defect
+    with a comment added. The sweep now runs `renovate.json5`'s own
+    `matchStrings`, and these cases are the proof that it does.
+    """
+
+    def test_the_pattern_comes_out_of_the_config(self) -> None:
+        patterns = check.docker_pin_patterns((_REPO_ROOT / "renovate.json5").read_text())
+
+        assert len(patterns) == 1, f"expected exactly one docker matchString, read {len(patterns)}"
+        # The literal from renovate.json5, with JSON5's doubled backslashes
+        # undone and JavaScript's named-group syntax translated. Asserted, so a
+        # reader that quietly extracted something else cannot pass.
+        assert patterns[0].pattern == (
+            "renovate: datasource=docker depName=(?P<depName>\\S+)\\s*\\n\\s*"
+            "[A-Z_]+:\\s*\\S+:(?P<currentValue>[^@\\s]+)@(?P<currentDigest>sha256:[a-f0-9]+)"
+        )
+
+    def test_a_config_without_a_docker_manager_is_loud(self, tmp_path: Path) -> None:
+        """Never "everything is read" because nothing could be measured."""
+        with pytest.raises(check.DashboardError, match="matchStrings"):
+            check.docker_pin_patterns("{ customManagers: [ { customType: 'regex' } ] }")
+
+        with pytest.raises(check.DashboardError, match="customManagers"):
+            check.docker_pin_patterns("{ extends: ['config:recommended'] }")
+
+    def test_a_pin_without_a_config_to_judge_it_is_loud(self, tmp_path: Path) -> None:
+        workflows = tmp_path / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "scan.yml").write_text(
+            "jobs:\n  s:\n    steps:\n      - run: docker run x@sha256:" + "8" * 64 + "\n"
+        )
+
+        with pytest.raises(check.DashboardError, match="undetermined|renovate.json5"):
+            check.unmanaged_image_pins(tmp_path)
+
+    @pytest.mark.parametrize(
+        ("name", "value_block"),
+        [
+            # (1) A comment between marker and value. The manager's pattern
+            # admits `\s*\n\s*` — whitespace, not prose.
+            (
+                "comment between marker and value",
+                "      # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy\n"
+                "      # why this pin is what it is\n"
+                "      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@sha256:" + "8" * 64 + "\n",
+            ),
+            # (2) A lower-case key. The manager demands `[A-Z_]+`.
+            (
+                "lower-case key",
+                "      # renovate: datasource=docker depName=curlimages/curl\n"
+                "      curl_image: curlimages/curl:8.21.0@sha256:" + "7" * 64 + "\n",
+            ),
+            # (3) A marker above a BARE DIGEST — #1563's own defect, with a
+            # marker added. The manager needs `\S+:TAG@sha256:`.
+            (
+                "marker above a bare digest",
+                "      # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy\n"
+                "      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy@sha256:" + "8" * 64 + "\n",
+            ),
+        ],
+    )
+    def test_a_marker_the_manager_would_reject_is_still_a_finding(
+        self, tmp_path: Path, name: str, value_block: str
+    ) -> None:
+        root = _corpus(tmp_path, "jobs:\n  s:\n    env:\n" + value_block)
+
+        assert check.unmanaged_image_pins(root), (
+            f"({name}) satisfies a marker-presence check while Renovate reads nothing — the sweep must "
+            "measure the manager's pattern, not the marker's existence"
+        )
+
+    def test_the_shape_the_manager_accepts_is_not_a_finding(self, tmp_path: Path) -> None:
+        """The positive control, without which the three cases above prove nothing."""
+        root = _corpus(
+            tmp_path,
+            "jobs:\n  s:\n    env:\n"
+            "      # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy\n"
+            "      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@sha256:" + "8" * 64 + "\n",
+        )
+
+        assert check.unmanaged_image_pins(root) == []
+
+
+class TestEveryImagePinIsReadBySomeManager:
+    """#1563, the mirror of the class above: a real dependency nobody reads.
+
+    Three `docker run` steps pinned the ZAP scanner by BARE DIGEST, which
+    `pinDigests: true` makes look more careful than a floating tag while it
+    ages just as silently. Measured on 2026-09-19 with `LOG_LEVEL=debug task
+    renovate:dry-run`: `grep -c zaproxy` over the whole debug log was 0; after
+    the repair it is 49, with `20260629-stable -> 20260807-stable` proposed.
+
+    The issue called the defect "a bare digest with no tag". The class sweep
+    measured otherwise: two `curlimages/curl:8.21.0@sha256:…` references in
+    the same file carry a tag AND a digest and were equally unread
+    (`grep -c curlimages`: 0). What hides a pin is the missing MARKER — and
+    whether the marker is in the shape the manager accepts, which is what
+    `TestTheManagerPatternIsTheRealOne` above covers.
+    """
+
+    def test_the_sweep_reads_a_corpus_that_is_not_empty(self) -> None:
+        """W3: a repo-wide assertion over nothing is green and worthless.
+
+        Same shape as `test_docker_lint_build_coverage.py:314` and
+        `test_uv_pin_manager_covers_every_pin.py:182` — the count is a floor,
+        not a pin, so adding a workflow is not a test change.
+        """
+        pinning_files = [
+            path.relative_to(_REPO_ROOT).as_posix()
+            for glob in check._PIN_FILE_GLOBS
+            for path in _REPO_ROOT.glob(glob)
+            if path.is_file() and "@sha256:" in path.read_text()
+        ]
+
+        assert len(pinning_files) >= 5, (
+            f"only {pinning_files} carry a digest-pinned image — has the corpus stopped being read? "
+            "The assertion below would then be green over nothing."
+        )
+        for expected in (
+            ".github/workflows/security-zap-postmerge.yml",
+            ".github/workflows/security-zap-nightly.yml",
+            ".taskfiles/checks.yaml",
+        ):
+            assert expected in pinning_files, f"{expected} is no longer in the swept corpus"
+
+    def test_no_pin_in_this_checkout_goes_unread(self) -> None:
+        assert check.unmanaged_image_pins(_REPO_ROOT) == [], (
+            "an image string a `run:` step hands to `docker run` is read by no manager unless it matches "
+            "the custom manager's own pattern: a `# renovate: datasource=docker depName=…` marker on the "
+            "line directly above a `KEY: image:TAG@sha256:` value"
+        )
+
+    def test_the_three_zap_sites_read_one_marked_pin_per_workflow(self) -> None:
+        """The subject of #1563, asserted at the artefact.
+
+        One `env:` value per workflow rather than one per step, so the two
+        post-merge scans cannot drift apart — and the digest is the one that
+        was there, so this changes which manager reads the pin and nothing
+        about which image runs.
+        """
+        digest = "sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2"
+        for workflow, uses in (
+            (".github/workflows/security-zap-postmerge.yml", 2),
+            (".github/workflows/security-zap-nightly.yml", 1),
+        ):
+            text = (_REPO_ROOT / workflow).read_text()
+
+            assert "# renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy\n      ZAP_IMAGE: " in text, (
+                f"{workflow} no longer carries the marker the regex manager matches on"
+            )
+            assert f"ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@{digest}" in text, (
+                f"{workflow} no longer pins the measured digest under its measured tag"
+            )
+            assert text.count('"$ZAP_IMAGE" \\\n') == uses, f"{workflow} does not run {uses} scan(s) off the pin"
+            assert f"ghcr.io/zaproxy/zaproxy@{digest}" not in text, (
+                f"{workflow} has a bare digest back in a run: block, which no manager reads"
+            )
+
+    def test_the_curl_probe_reads_the_same_kind_of_pin(self) -> None:
+        """Found by the class sweep, not by the issue: tagged AND unread."""
+        text = (_REPO_ROOT / ".github/workflows/security-zap-postmerge.yml").read_text()
+
+        assert "# renovate: datasource=docker depName=curlimages/curl\n      CURL_IMAGE: " in text
+        assert text.count('"$CURL_IMAGE" \\\n') == 2
+
+    def test_a_bare_digest_in_a_run_block_is_caught(self, tmp_path: Path) -> None:
+        root = _corpus(
+            tmp_path,
+            "jobs:\n  s:\n    steps:\n      - run: |\n          docker run --rm ghcr.io/zaproxy/zaproxy@sha256:"
+            + "8" * 64
+            + "\n",
+        )
+
+        assert check.unmanaged_image_pins(root) == [".github/workflows/scan.yml:5"]
+
+    def test_a_tagged_digest_without_a_marker_is_caught_too(self, tmp_path: Path) -> None:
+        """The spelling the issue's wording would have missed."""
+        root = _corpus(
+            tmp_path,
+            "jobs:\n  s:\n    steps:\n      - run: docker run curlimages/curl:8.21.0@sha256:" + "7" * 64 + "\n",
+        )
+
+        assert check.unmanaged_image_pins(root) == [".github/workflows/scan.yml:4"]
+
+    @pytest.mark.parametrize(
+        ("name", "content"),
+        [
+            # Read by the built-in github-actions manager, both spellings,
+            # measured on backend-guards.yml and every `uses:` in the tree.
+            ("uses", "jobs:\n  s:\n    steps:\n      - uses: actions/checkout@sha256:" + "a" * 64 + "\n"),
+            (
+                "service image",
+                "jobs:\n  s:\n    services:\n      db:\n        image: arangodb:3.12@sha256:" + "b" * 64 + "\n",
+            ),
+            # Read by the custom regex manager (#898) — marker plus TAG@digest.
+            (
+                "marked env value",
+                "jobs:\n  s:\n    env:\n      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint\n"
+                "      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:" + "c" * 64 + "\n",
+            ),
+            # Prose quoting a pin is not a pin. The failure class this
+            # repository has paid for: the explanation read as the defect.
+            ("comment", "jobs:\n  s:\n    steps:\n      # it used to say zaproxy@sha256:" + "d" * 64 + "\n"),
+        ],
+    )
+    def test_a_managed_or_quoted_reference_is_not_reported(self, tmp_path: Path, name: str, content: str) -> None:
+        root = _corpus(tmp_path, content)
+
+        assert check.unmanaged_image_pins(root) == [], f"false positive on ({name})"
+
+    def test_a_marker_for_a_different_value_does_not_cover_this_one(self, tmp_path: Path) -> None:
+        """The marker must sit on the line directly above the value."""
+        root = _corpus(
+            tmp_path,
+            "jobs:\n  s:\n    env:\n      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint\n"
+            "      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:" + "c" * 64 + "\n"
+            "      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:2.16.1@sha256:" + "8" * 64 + "\n",
+        )
+
+        assert check.unmanaged_image_pins(root) == [".github/workflows/scan.yml:6"]
+
+    def test_the_taskfiles_are_in_the_corpus_too(self, tmp_path: Path) -> None:
+        """S3 of the review: the manager reads `.taskfiles/`, so the sweep does.
+
+        The real `.taskfiles/checks.yaml` pin is covered, which is what makes
+        this case a measurement rather than a claim about globs.
+        """
+        taskfiles = tmp_path / ".taskfiles"
+        taskfiles.mkdir()
+        (taskfiles / "checks.yaml").write_text("vars:\n  IMAGE: renovate/renovate:44.103.2@sha256:" + "e" * 64 + "\n")
+        (tmp_path / "renovate.json5").write_text((_REPO_ROOT / "renovate.json5").read_text())
+
+        assert check.unmanaged_image_pins(tmp_path) == [".taskfiles/checks.yaml:2"]
+
+    def test_a_composite_action_is_in_the_corpus_too(self, tmp_path: Path) -> None:
+        """No manager reads `.github/actions/**` at all, so a pin there is worse."""
+        action = tmp_path / ".github" / "actions" / "stack"
+        action.mkdir(parents=True)
+        (action / "action.yml").write_text("runs:\n  steps:\n    - run: docker run x:1@sha256:" + "f" * 64 + "\n")
+        (tmp_path / "renovate.json5").write_text((_REPO_ROOT / "renovate.json5").read_text())
+
+        assert check.unmanaged_image_pins(tmp_path) == [".github/actions/stack/action.yml:3"]
+
+    def test_the_report_reddens_and_carries_the_sites(self, healthy_body: str, tmp_path: Path) -> None:
+        root = _corpus(
+            tmp_path,
+            "jobs:\n  s:\n    steps:\n      - run: docker run ghcr.io/zaproxy/zaproxy@sha256:" + "8" * 64 + "\n",
+        )
+
+        report = check.build_report(healthy_body, repo_root=root)
+
+        assert report["alert"] is True
+        assert report["unmanaged_image_pins"] == [".github/workflows/scan.yml:4"]
+        assert any("Image pin no manager reads" in finding for finding in report["findings"])
 
 
 class TestTheClaimsAreNoWiderThanTheMeasurement:

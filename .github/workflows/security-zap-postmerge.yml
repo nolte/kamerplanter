@@ -62,12 +62,23 @@ name: Security — ZAP Post-Merge Scans
 ##
 ## The deviation is recorded in NFR-015 §4.1 rather than left implicit.
 ##
-## The ZAP image is pinned by digest (NFR-018 §3). sha256:8d387b1a… is the
-## `stable` tag as of 2026-08-01. Keep that note HERE and never on the `docker
-## run` line: inside a `run:` block a `#` is shell, not YAML, so an inline
-## comment swallows the rest of the line INCLUDING its trailing backslash — the
-## continuation is lost and the next line runs as its own command. That exact
-## mistake produced `zap-baseline.py: command not found` on the first real run.
+## The ZAP image is pinned by digest (NFR-018 §3), and since #1563 the pin
+## lives ONCE in the job's `env:` as `ZAP_IMAGE`, with the `# renovate:` marker
+## the custom manager reads; the `docker run` lines below reference `$ZAP_IMAGE`.
+## The tag on it is `20260629-stable`, measured against the GHCR manifest list
+## as the tag that digest actually carries — an earlier note here called it "the
+## `stable` tag as of 2026-08-01", which was the same image described by a tag
+## that has since moved on to a different digest. That is why the tag now sits
+## in the value rather than in prose: a note ages without anything noticing, a
+## pin a manager reads does not.
+##
+## The note stays HERE and never on the `docker run` line: inside a `run:` block
+## a `#` is shell, not YAML, so an inline comment swallows the rest of the line
+## INCLUDING its trailing backslash — the continuation is lost and the next line
+## runs as its own command. That exact mistake produced
+## `zap-baseline.py: command not found` on the first real run. The `env:`
+## indirection is what makes both true at once: the marker comment sits in YAML,
+## where a `#` is a comment, and the execution line carries only `$ZAP_IMAGE`.
 ##
 ## Both scans run with `-I` (do not fail on warnings). The verdict belongs to
 ## `scripts/security/zap_gate.py`, which implements the §5.1 severity matrix and
@@ -118,6 +129,32 @@ jobs:
     # timeout wrapping the ephemeral-stack build + BOTH scans — a distinct ceiling
     # that protects the runner, not the per-scan budget.
     timeout-minutes: 45
+    env:
+      # THE SCANNER IS A DEPENDENCY, AND UNTIL #1563 NO MANAGER READ IT.
+      # These pins used to sit inline in the `run:` blocks below as a BARE
+      # DIGEST with no tag. That looks more correct than a floating tag and
+      # ages just as silently: the built-in github-actions manager reads
+      # `uses:` and `container:`, not an image string a step hands to
+      # `docker run`, and the custom regex manager in renovate.json5 (#898)
+      # needs both a `# renovate:` marker and a `TAG@sha256:` shape. Measured
+      # on 2026-09-19 with `LOG_LEVEL=debug task renovate:dry-run`:
+      # `grep -c zaproxy <log>` was 0 — not one extraction, not one lookup.
+      #
+      # That matters most here of all places. ZAP ships new passive and active
+      # rules with every release, so a frozen scanner keeps reporting green
+      # against an ageing rule set and nobody sees the gate's meaning change
+      # (the #1177 class, NFR-014/NFR-015).
+      #
+      # The tag is the one the digest actually carries — measured against the
+      # GHCR manifest list, not guessed — so this commit changes which manager
+      # reads the pin and nothing about which image runs.
+      # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2
+      # Same class, found by the class sweep of #1563 rather than by the
+      # issue: a tag AND a digest look managed, but the marker is what the
+      # regex manager matches on, so `grep -c curlimages <log>` was 0 too.
+      # renovate: datasource=docker depName=curlimages/curl
+      CURL_IMAGE: curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -151,9 +188,9 @@ jobs:
         # have, before the scanner runs.
         run: |
           set -euo pipefail
-          docker run --rm --network "$NET" curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13 \
+          docker run --rm --network "$NET" "$CURL_IMAGE" \
             -fsS -o /dev/null http://backend:8000/api/v1/health/live
-          docker run --rm --network "$NET" curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13 \
+          docker run --rm --network "$NET" "$CURL_IMAGE" \
             -fsS -o /dev/null http://frontend:8080/
           echo "Both targets answer from inside $NET."
 
@@ -197,7 +234,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network "$NET" \
             -v "$PWD/zapwork:/zap/wrk:rw" \
-            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
+            "$ZAP_IMAGE" \
             zap-baseline.py \
               -t http://frontend:8080 \
               -J baseline-report.json \
@@ -221,7 +258,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network "$NET" \
             -v "$PWD/zapwork:/zap/wrk:rw" \
-            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
+            "$ZAP_IMAGE" \
             zap-api-scan.py \
               -t openapi.json \
               -f openapi \

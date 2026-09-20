@@ -114,12 +114,30 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 | Node.js (Frontend) | `package-lock.json` | `npm install` |
 | Python (Backend, inkl. Dev-Extra) | `uv.lock` (mit Hashes) | `uv lock` |
 | Python (Side-Services: inference, knowledge, embedding, reranker) | `uv.lock` (mit Hashes) | `uv lock` |
+| Python (geteilte Bibliotheken: `kp_vectordb`, `kp_errortracking`) | `uv.lock` (mit Hashes) | `uv lock` (#1464) |
+| Python (E2E-Suite `tests/e2e/`) | `uv.lock` (mit Hashes) | `uv lock` (#1509) |
+| Python (Dokumentations-Toolchain) | `docs/requirements.txt`, je Distribution `--hash=` | `uv pip compile --generate-hashes` — `task docs:lock` (#1509) |
 
 **MUSS**: `package-lock.json` wird bei jedem Dependency-Update mit aktualisiert.
-**MUSS**: Es gibt keine Ausnahme von dieser Pflicht — jeder Python-Baum im Repository ist ein PEP-621-Projekt mit eigenem `uv.lock` daneben. Bis #1374 installierten die vier Side-Service-Images aus einer `requirements.txt` ohne Hashes (zwei davon neben einer `pyproject.toml`, die nur der `poetry`-Manager las und die kein Image konsumierte), und fünf weitere `pip install`-Zeilen in Build-Stufen (ONNX-/Optimum-Modellexport, `watchfiles`) liefen ganz ohne Lock. Diese Dateien sind gelöscht; die Build-Stufen installieren aus demselben Lock über PEP-735-Dependency-Gruppen (`build`, `dev`). Je Service ein Lock — bewusst keine Workspace-Lock über alle fünf Bäume, die fünf Release-Zyklen aneinanderkoppeln würde.
+**MUSS**: Jeder Python-Baum, der in ein ausgeliefertes Artefakt installiert wird, ist ein PEP-621-Projekt mit eigenem `uv.lock` daneben. Bis #1374 installierten die vier Side-Service-Images aus einer `requirements.txt` ohne Hashes (zwei davon neben einer `pyproject.toml`, die nur der `poetry`-Manager las und die kein Image konsumierte), und fünf weitere `pip install`-Zeilen in Build-Stufen (ONNX-/Optimum-Modellexport, `watchfiles`) liefen ganz ohne Lock. Diese Dateien sind gelöscht; die Build-Stufen installieren aus demselben Lock über PEP-735-Dependency-Gruppen (`build`, `dev`). Je Service ein Lock — bewusst keine Workspace-Lock über alle fünf Bäume, die fünf Release-Zyklen aneinanderkoppeln würde.
+
+Dieser Satz stand bis #1572 als Absolutsatz hier („Es gibt keine Ausnahme von dieser Pflicht — **jeder** Python-Baum …"). Er war seit #1509 falsch: die Dokumentations-Toolchain ist hash-gepinnt **ohne** `uv.lock`, und `tools/rag-eval/` hat begründet keinen Lock. Ein Absolutsatz, den der Bestand widerlegt, ist die Fehlerklasse aus NFR-018 §1 — er beschreibt einen Zielzustand in der Gegenwartsform und nimmt dem Leser die Frage ab, die er eigentlich stellen wollte. Welcher Install was braucht, steht deshalb jetzt in §2.3.1.
 **MUSS**: `uv.lock` wird über `uv lock` aus `pyproject.toml` generiert — manuelle Bearbeitung ist nicht erlaubt. Die Version von uv ist in `[tool.uv].required-version` verankert; Dockerfile, CI und Renovate lesen dieselbe Untergrenze.
 **MUSS**: CI prüft die Integrität der Lockfiles (`npm ci` statt `npm install`; für Python beides: `uv lock --check` gegen `pyproject.toml` UND `uv sync --locked`, das jedes Artefakt gegen den im Lock hinterlegten Hash verifiziert — `uv lock --check` allein erkennt einen von Hand geänderten Hash nicht).
-**MUSS**: Die Aussage „hash-verifiziert" trägt einen dauerhaften Falsifizierer: `src/backend/tests/unit/guards/test_lock_hash_verification.py` kopiert `pyproject.toml` + `uv.lock` in ein temporäres Verzeichnis, ersetzt den sha256 eines Wheels und verlangt, dass `uv sync --locked --no-install-project` mit einem Hash-Verdikt abbricht (#1383). Eine Behauptung über ein Sicherheitsmerkmal ohne einen Test, der sie widerlegen *könnte*, ist keine Prüfung (NFR-018 §1).
+**MUSS**: Die Aussage „hash-verifiziert" trägt **je Installationsmechanismus** einen dauerhaften Falsifizierer. Eine Behauptung über ein Sicherheitsmerkmal ohne einen Test, der sie widerlegen *könnte*, ist keine Prüfung (NFR-018 §1); und „je Mechanismus" ist nicht Pedanterie, sondern die Konsequenz daraus, dass der Falsifizierer den Befehl nachbildet, der in der Lieferkette wirklich läuft:
+
+| Mechanismus | Falsifizierer | Was manipuliert wird |
+|---|---|---|
+| `uv sync --locked` gegen `src/backend/uv.lock` | `src/backend/tests/unit/guards/test_lock_hash_verification.py` (#1383) | sha256 **eines Wheels** |
+| `uv sync --locked` gegen die übrigen Locks (zwei Bibliotheken, E2E-Suite) | `src/backend/tests/unit/guards/test_library_lock_hash_verification.py` (#1464/#1509) | dito, je Baum |
+| `pip install -r docs/requirements.txt` | `src/backend/tests/unit/guards/test_docs_requirements_hash_verification.py` (#1571) | **alle** `--hash=`-Zeilen genau eines Pakets |
+
+**MUSS**: Ein Hash-Falsifizierer muss die Zeile erreichen, die der Install wirklich liest, und das ist zu *messen* statt anzunehmen. Zwei Vakuositäten sind in diesem Repository real aufgetreten und stehen hier, damit der nächste Falsifizierer sie nicht wiederholt:
+
+1. **sdist statt Wheel** (#1377). Der erste Hash-Tamper-Test änderte den sdist-Hash eines Pakets, das aus dem **Wheel** installiert wird. Er lief grün und hat nie eine konsumierte Zeile berührt. Deshalb verlangt jeder Falsifizierer oben eine Positivkontrolle, die das manipulierte Paket in der *Installationsliste* des unmanipulierten Laufs nachweist.
+2. **Ein Hash von mehreren** (#1571). `pip` akzeptiert eine Distribution, sobald **irgendeine** der gelisteten `--hash=`-Zeilen passt. Eine von zwei Zeilen zu verfälschen lässt den Install mit **Exit 0** durchlaufen — gemessen am 2026-09-20 gegen `docs/requirements.txt` (babel, zwei Hashes). Ein `pip`-Falsifizierer muss deshalb **alle** Hashes genau eines Pakets nullen. Was `pip`s Hash-Modus absichert, ist demnach ein falscher, veralteter oder verwaister Hash-**Satz** — und genau diese Form haben eine Handbearbeitung und ein halb angewandtes Renovate-Artefakt-Update.
+
+**MUSS**: Auch `uv lock --check` allein genügt nicht — es prüft **keine** Hashes, sondern den Lock gegen `pyproject.toml`. Das Gate ist immer zwei Befehle (§2.3, oben).
 
 ```bash
 # Python: Lockfile generieren bzw. prüfen
@@ -130,6 +148,32 @@ uv sync --locked --extra dev   # task deps:sync — lokale Umgebung aus dem Lock
 # Node.js: Lockfile-Integrität prüfen (CI)
 npm ci --ignore-scripts
 ```
+
+### 2.3.1 Die Grenze: welcher Python-Install trägt Hashes
+
+Bis #1572 war diese Frage nirgends beantwortet. Jeder Sweep hielt fest, *was er liest*; die Regel, die entscheidet, in welchen Geltungsbereich ein Install gehört, wurde je Datei und je Pull Request neu hergeleitet. Der Prüfstein ist nicht der Dateityp, sondern **was der Install erreichen kann**.
+
+**MUSS**: Jeder Python-Install im Repository gehört zu genau einer der beiden Klassen:
+
+| Klasse | Kriterium | Anforderung |
+|---|---|---|
+| **(a) ausliefernd** | Das Ergebnis geht in ein ausgeliefertes Artefakt: in ein veröffentlichtes Image gebacken, in die veröffentlichte Dokumentationsseite installiert, gegen Produktionsdaten ausgeführt | **hash-tragend**: ein `uv.lock` oder eine mit `--generate-hashes` kompilierte Liste, **beim Installieren verifiziert** (`uv sync --locked`, oder `pip install -r` auf eine Datei, in der jeder Eintrag `--hash=` trägt). Ein Pin genügt hier **nicht**: ein Pin nennt eine Version, und eine Version ist keine Bytefolge |
+
+**Offen** (#1601): ob §2.1 zusätzlich für die **Kompilierquelle** einer Klasse-(a)-Liste gilt (`docs/requirements.in` hat acht von zwölf Einträgen ohne Obergrenze), ist mit den Kriterien oben nicht entscheidbar. Hashes binden die kompilierte Ausgabe; was der nächste Neukompilierlauf wählen darf, binden nur Ranges.
+| **(b) nur auf dem Runner** | Der Install läuft ausschließlich auf einem Runner oder einer Entwicklermaschine, seine Ausgabe ist ein Urteil (ein Lint-Ergebnis, eine Gate-Entscheidung, ein Bericht), und kein ausgeliefertes Artefakt enthält ihn | **exakter `==`-Pin oder beidseitig begrenzte Range nach §2.1**, keine Hashes. Reproduzierbarkeit des *Verhaltens*, nicht der Bytes. Hashes würden hier ein Lockfile je pre-commit-Hook bedeuten und schließen kein Risiko, das das ausgelieferte Artefakt nicht schon schließt — das Wheel wird nie ausgeliefert |
+
+**Mitglieder, Stand 2026-09-20** (die Liste ist eine Momentaufnahme; verbindlich sind die Kriterien und die Wächter, nicht die Aufzählung):
+
+- **(a)**: die acht gelockten PEP-621-Bäume — Backend, die vier Service-Images, die zwei geteilten Bibliotheken und die E2E-Suite — sowie `docs/requirements.txt`.
+- **(b)**: die `additional_dependencies:` in `.pre-commit-config.yaml`; die `pip install`-Zeilen in Workflow-`run:`-Blöcken (`pip-audit`, `pip-licenses`, `PyYAML`, der `uv==`-Bootstrap); `tools/rag-eval/requirements.txt`; das `pip`-Selbst-Upgrade in `.taskfiles/docs.yaml`.
+
+**MUSS**: Klasse (b) ist von der Hash-Pflicht befreit, **nicht** von §2.1. Jeder Eintrag trägt Untergrenze **und** Obergrenze. „Erreicht kein ausgeliefertes Artefakt" begründet die **Mitgliedschaft** in (b) und niemals eine Ausnahme von (b)s eigener Anforderung — dieselbe Tatsache zweimal zu verwenden, einmal als Zuordnung und einmal als Befreiung, ist ein Zirkelschluss und hat bis #1572 drei Einträge in `tools/rag-eval/requirements.txt` und das `pip`-Upgrade in `.taskfiles/docs.yaml` ohne Obergrenze gelassen.
+
+**MUSS**: Eine offene Obergrenze in einer **Pflicht**-Lane ist ein nicht reviewtes Upgrade, das alle Mitwirkenden gleichzeitig trifft. Renovates `pre-commit`-Manager pflegt ausschließlich `rev:` und liest `additional_dependencies` nie — diese Ranges altern also unbeobachtet, ohne Manager und ohne Lock als Rückfallebene.
+
+**MUSS**: Die deklarative Hälfte von (b) wird maschinell durchgesetzt: `src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py` (#1572) liest die Einträge **aus der YAML** — nicht aus einer Hook-Liste, weil eine Opt-in-Liste den nächsten Hook unsichtbar aufnimmt — verlangt je Eintrag Unter- und Obergrenze und klammert jede Range gegen einen Baum, der dasselbe Paket bereits deklariert (enger erlaubt, weiter rot).
+
+**Bekannte Lücke, benannt statt impliziert** (#1602): die nicht-deklarative Hälfte von (b) — ein `pip install` in einem Workflow-`run:`-Block — ist beschrieben, aber **nicht** erzwungen. Ein neuer, ungepinnter Eintrag dieser Form käme an jedem Sweep dieses Repositories vorbei, auch am Wächter oben. Ebenso unerreicht: ein `%pip install`-Magic in einem Notebook (`tools/rag-eval/rag_eval.ipynb`) und ein Hook, der über sein eigenes `entry:` installiert.
 
 ---
 

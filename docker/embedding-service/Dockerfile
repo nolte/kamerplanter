@@ -40,12 +40,28 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --only-group build
 
 # ── Download stages (cached independently) ───────────────────────────
+#
+# THE IMPORTS BELOW ARE QUALIFIED (`import x` + `x.f(...)`) RATHER THAN
+# `from x import f`, AND THAT IS NOT STYLE (#1554). Renovate's dockerfile
+# manager reads a CONTINUED line beginning with `from` as a `FROM`
+# instruction, so every `from huggingface_hub import snapshot_download; \`
+# in these `RUN python -c` bodies was extracted as an image stage: four
+# phantom `huggingface_hub` dependencies — one of them typed `final` — each
+# issuing a real `getDigest(index.docker.io, library/huggingface_hub)`
+# lookup on every scan. Harmless only until someone publishes that name:
+# Renovate would then propose a "version bump" that rewrites a Python import
+# statement inside a RUN step.
+#
+# Measured with Renovate 44.103.2: the same mis-read covers a heredoc body
+# line, an indented continuation, an upper-case `FROM` inside a shell string
+# and a continued `copy --from=`. `dockerfile_phantom_stage_lines` in
+# scripts/ci/check_renovate_dashboard.py keeps all five spellings out.
 
 FROM dl-base AS dl-e5-small
 # intfloat/multilingual-e5-small — 384 dim, 118M params, MIT
 RUN python -c "\
-from huggingface_hub import snapshot_download; \
-snapshot_download('intfloat/multilingual-e5-small', \
+import huggingface_hub; \
+huggingface_hub.snapshot_download('intfloat/multilingual-e5-small', \
     local_dir='/model', \
     allow_patterns=['onnx/model.onnx', 'tokenizer*', 'special_tokens*', \
                     'sentencepiece*', 'config.json'])" && \
@@ -55,8 +71,8 @@ snapshot_download('intfloat/multilingual-e5-small', \
 FROM dl-base AS dl-e5-base
 # intfloat/multilingual-e5-base — 768 dim, 278M params, MIT
 RUN python -c "\
-from huggingface_hub import snapshot_download; \
-snapshot_download('intfloat/multilingual-e5-base', \
+import huggingface_hub; \
+huggingface_hub.snapshot_download('intfloat/multilingual-e5-base', \
     local_dir='/model', \
     allow_patterns=['onnx/model.onnx', 'tokenizer*', 'special_tokens*', \
                     'sentencepiece*', 'config.json'])" && \
@@ -66,8 +82,8 @@ snapshot_download('intfloat/multilingual-e5-base', \
 FROM dl-base AS dl-e5-large
 # intfloat/multilingual-e5-large — 1024 dim, 560M params, MIT
 RUN python -c "\
-from huggingface_hub import snapshot_download; \
-snapshot_download('intfloat/multilingual-e5-large', \
+import huggingface_hub; \
+huggingface_hub.snapshot_download('intfloat/multilingual-e5-large', \
     local_dir='/model', \
     allow_patterns=['onnx/model.onnx', 'onnx/model.onnx_data', 'tokenizer*', 'special_tokens*', \
                     'sentencepiece*', 'config.json'])" && \
@@ -78,8 +94,8 @@ snapshot_download('intfloat/multilingual-e5-large', \
 FROM dl-base AS dl-minilm
 # Xenova/paraphrase-multilingual-MiniLM-L12-v2 — 384 dim, 118M params, Apache-2.0
 RUN python -c "\
-from huggingface_hub import snapshot_download; \
-snapshot_download('Xenova/paraphrase-multilingual-MiniLM-L12-v2', \
+import huggingface_hub; \
+huggingface_hub.snapshot_download('Xenova/paraphrase-multilingual-MiniLM-L12-v2', \
     local_dir='/model', \
     allow_patterns=['onnx/model.onnx', 'tokenizer*', 'special_tokens*', \
                     'sentencepiece*', 'config.json'])" && \
