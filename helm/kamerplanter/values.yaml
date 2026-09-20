@@ -1764,3 +1764,5 @@ valkey:
 # -- Ollama subchart (optional — local LLM inference, disabled by default)
 ollama:
   enabled: false
+
+# scratch: counter-proof for #1577 — a Helm-only diff must skip the smoke suite.
