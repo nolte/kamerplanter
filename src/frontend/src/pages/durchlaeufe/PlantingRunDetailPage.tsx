@@ -293,7 +293,9 @@ export default function PlantingRunDetailPage() {
         if (planKey) {
           const [fetchedEntries, ferts] = await Promise.all([
             planApi.fetchPhaseEntries(planKey),
-            fertApi.fetchFertilizers(0, 200),
+            // The complete catalogue (#1560); one leg of an imperative sequence
+            // whose surrounding loading and error state already covers it.
+            fertApi.fetchAllFertilizers(),
           ]);
           setPlanEntries(fetchedEntries);
           setFertilizers(ferts);

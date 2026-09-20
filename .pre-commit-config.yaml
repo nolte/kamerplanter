@@ -213,7 +213,11 @@ repos:
   # always_run rather than a `files:` filter, for the reason the hooks below give:
   # pre-commit hands a path-filtered hook only added/modified files, and a commit
   # that *deletes* a seed file moves the count exactly as much as one that adds
-  # rows. Also asserted from
+  # rows. Since #1560 the check also scans `src/frontend/src` for modules reading
+  # a catalogue through its capped reader, which makes always_run load-bearing in
+  # a second way: the defect it now catches arrives in a frontend-only commit,
+  # and `static / Static CI Tests` — the required lane, unfiltered on every push —
+  # is where that commit meets this hook. Also asserted from
   # src/backend/tests/unit/test_seed_catalogue_page_size_check.py, so a
   # backend-only change goes red in the backend suite too, not only here.
   - repo: local

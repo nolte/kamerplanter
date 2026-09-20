@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -82,7 +83,11 @@ export default function SubstrateDetailPage() {
   const [deletingBatch, setDeletingBatch] = useState(false);
   const [batchCreateOpen, setBatchCreateOpen] = useState(false);
   const [reusability, setReusability] = useState<Record<string, ReusabilityResponse>>({});
-  const [allSubstrates, setAllSubstrates] = useState<Substrate[]>([]);
+  // The complete substrate catalogue through the shared reader (#1560). The
+  // explicit page of 200 was under the 28 seeded rows today and is the same
+  // spelling that lost seven species at 207 — and this lookup is client-side, so
+  // a row that never arrived renders as an unresolved key.
+  const substrateCatalogue = useCatalogue('substrates');
   const { isFavorite, toggleFavorite } = useSubstrateFavorites();
   const batchTableState = useTableLocalState({ defaultSort: { column: 'mixedOn', direction: 'desc' } });
 
@@ -128,9 +133,9 @@ export default function SubstrateDetailPage() {
         max_reuse_cycles: s.max_reuse_cycles,
       });
       setBatches(await api.listBatches(key));
-      if (s.is_mix && s.mix_components?.length) {
-        api.listSubstrates(0, 200).then(setAllSubstrates).catch(() => {});
-      }
+      // The mix components used to trigger a bounded substrate fetch here; the
+      // shared reader loads the catalogue on its own (#1560), so nothing is left
+      // to do on this branch.
     } catch (err) {
       setError(String(err));
     } finally {
@@ -259,7 +264,7 @@ export default function SubstrateDetailPage() {
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {substrate.mix_components.map((comp) => {
-              const compSub = allSubstrates.find((s) => s.key === comp.substrate_key);
+              const compSub = substrateCatalogue.items.find((s) => s.key === comp.substrate_key);
               const label = compSub
                 ? (i18n.language?.startsWith('en') ? compSub.name_en : compSub.name_de) || `${t(`enums.substrateType.${compSub.type}`)} ${compSub.brand ?? ''}`
                 : comp.substrate_key;
