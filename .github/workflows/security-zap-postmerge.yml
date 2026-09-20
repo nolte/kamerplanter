@@ -149,7 +149,7 @@ jobs:
       # GHCR manifest list, not guessed — so this commit changes which manager
       # reads the pin and nothing about which image runs.
       # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy
-      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260807-stable@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef
       # Same class, found by the class sweep of #1563 rather than by the
       # issue: a tag AND a digest look managed, but the marker is what the
       # regex manager matches on, so `grep -c curlimages <log>` was 0 too.
