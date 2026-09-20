@@ -564,13 +564,21 @@
     //     rule order, not observed. The first version of this comment sourced it
     //     to docker/vectordb/Dockerfile, which carries `postgres` and no
     //     busybox; the review of #1550 measured the line.
-    // Deliberately NOT added: `renovate/renovate` and `ghcr.io/hadolint/hadolint`.
-    // Those are TOOL pins, not application images — a floating or stale tool
-    // silently changes what a check MEANS (#1177), which is judged on different
-    // evidence from "the stack still starts". Also not added: `huggingface_hub`
-    // and `optimum.onnxruntime`, which the dockerfile manager extracts as docker
-    // dependencies from the side-service images although they are PyPI packages;
-    // grouping a mis-extraction would only make it harder to see.
+    // Deliberately NOT added: `renovate/renovate`, `ghcr.io/hadolint/hadolint`,
+    // `ghcr.io/zaproxy/zaproxy` and `curlimages/curl`. Those are TOOL pins, not
+    // application images — a floating or stale tool silently changes what a
+    // check MEANS (#1177), which is judged on different evidence from "the
+    // stack still starts". The last two joined that list in #1563, which is
+    // when any manager started reading them at all: they had sat in `run:`
+    // blocks as strings nothing extracted. The ZAP one is the DAST scanner, so
+    // its bump is a change to what the security gate measures and belongs in a
+    // pull request of its own rather than inside a batch.
+    //
+    // `huggingface_hub` and `optimum.onnxruntime` USED to be named here as
+    // mis-extractions the grouping deliberately left alone. #1554 removed the
+    // mis-extraction instead: the `RUN python -c` bodies in the two side-service
+    // images import qualified, so the dockerfile manager no longer reads those
+    // Python imports as image stages and there is nothing left to group.
     //
     // No automerge. These are the databases the tests run against and the
     // browser the E2E suite drives; a green run is necessary but the merge
