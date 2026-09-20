@@ -281,10 +281,29 @@ http:
 löst einen Nuclei-Scan mit dem schnellen Profil aus
 (`.github/workflows/security-nuclei-postmerge.yml`, Trigger `push`).
 
-**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem er das Label
-`security-scan` erhält. Das ist der vorgesehene Weg für Änderungen an genau der
-Oberfläche, die die eigenen Templates aus §3.2 beobachten: Security-Header,
-CORS, Fehlerkörper, Debug-Endpunkte, Frontend-Bundle.
+**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem der Workflow per
+`workflow_dispatch` mit der Pull-Request-Nummer gestartet wird — der
+Checkout-Schritt löst daraus `refs/pull/<n>/merge` auf:
+
+```bash
+gh workflow run security-nuclei-postmerge.yml --ref develop -f pull_request=<nummer>
+```
+
+Das ist der vorgesehene Weg für Änderungen an genau der Oberfläche, die die
+eigenen Templates aus §3.2 beobachten: Security-Header, CORS, Fehlerkörper,
+Debug-Endpunkte, Frontend-Bundle.
+
+> **Warum kein Label-Trigger mehr (2026-09-20, Issue #1607).** Bis dahin stand
+> hier „Label `security-scan`". Das Label existierte in diesem Repository
+> **nicht** — die dokumentierte Aufrufform rief nichts auf, die Lane war nie
+> vor einem Merge gelaufen. Und weil GitHub `pull_request: types: [labeled]`
+> nicht nach Label-*Namen* filtern kann, lag die Auswahl im `if:` des Jobs,
+> also *nach* dem Einreihen des Laufs: jedes beliebige Label an jedem
+> beliebigen Pull Request reihte hier einen Lauf ein, der sofort übersprang.
+> Gemessen über 2026-09-13T05:54Z .. 2026-09-20T16:39Z: **300 `pull_request`-Läufe,
+> 277 übersprungen + 23 abgebrochen, 0 ausgeführt.** Das Label
+> `security-scan` existiert seit #1607 und ist in `.github/settings.yml`
+> deklariert, ist aber ein reiner **Triage-Marker** und löst nichts aus.
 
 > **Warum kein Scan bei jedem Push auf jedem Pull Request.** Bis zum 2026-08-07
 > forderte dieser Abschnitt genau das, und der Workflow tat es auch — er kam nur
@@ -327,9 +346,12 @@ name: Security — Nuclei Post-Merge Scan
 on:
   push:
     branches: [develop]
-  pull_request:
-    types: [labeled]        # on demand, via the `security-scan` label
+  # on demand, pre-merge: the dispatch IS the selection (#1607)
   workflow_dispatch:
+    inputs:
+      pull_request:
+        required: false
+        type: string
 
 jobs:
   nuclei-scan:

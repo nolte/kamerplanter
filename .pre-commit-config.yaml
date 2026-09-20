@@ -525,6 +525,36 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Documented invocation paths (#1607, NFR-018 §1) ────────────────────
+  # Two security workflows told their own reader to "label a pull request
+  # `security-scan`" for a pre-merge scan. The label did not exist, so the
+  # documented path invoked nothing — and because `types: [labeled]` cannot be
+  # filtered by label name at the `on:` level, every OTHER label queued a run
+  # that immediately skipped (300 per workflow in the week to 2026-09-20, none
+  # executed).
+  #
+  # The hook does not look for that label, or for those two workflows. It
+  # checks the CLASS, over every workflow in the tree: an input an expression
+  # reads must be declared, a declared input must be read by something, and a
+  # `gh workflow run` example in a comment must name a workflow that exists,
+  # dispatches, and declares every `-f` key the example passes. `--list` names
+  # the sites so a green run is distinguishable from a vacuous one.
+  #
+  # What it deliberately cannot check: whether a LABEL named in prose exists.
+  # That lives in GitHub, and `.github/settings.yml` declares only the labels
+  # this repository adds on top of the commons — so the tree does not hold the
+  # answer. This is why the on-demand lane moved to a dispatch at all: the
+  # dispatch form is the one a local gate can keep honest.
+  - repo: local
+    hooks:
+      - id: workflow-documented-invocation
+        name: a documented way to invoke a workflow must exist (NFR-018 §1, #1607)
+        entry: python3 scripts/check_workflow_documented_invocation.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
+        always_run: true
+        pass_filenames: false
+
   # ── Workflow + shell linting (#1295) ───────────────────────────────────
   # Three workflows already *reasoned about* shellcheck in their comments —
   # `e2e-smoke.yml:191`, `e2e-nightly.yml:106`,

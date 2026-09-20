@@ -322,3 +322,26 @@ branches:
       #   gh api repos/nolte/kamerplanter/branches/develop/protection \
       #     --jq '.required_status_checks.contexts'
       restrictions: null
+
+# Repository-local labels, appended to the ones the commons declare (#1607).
+#
+# The Probot Settings App merges arrays of named objects by `name` and PUSHES
+# every entry it does not find — `mergeArrayByName.js` in
+# `repository-settings/app`, the same mechanism the `develop` block above relies
+# on. So this block ADDS to the commons' 28 labels; it does not replace them.
+# Measured before writing it, not assumed: the live label set was the commons
+# set plus `deployment` and `release-lag`, both of which exist only because a
+# `issues.create({labels: […]})` call in a workflow created them as a side
+# effect. Those two stay undeclared on purpose — this block is not the place to
+# retro-fit them, and doing so silently would change their colour.
+#
+# The App syncs from the DEFAULT branch, so this label appears only once this
+# change is on `develop`. Verify with:
+#   gh label list --limit 200 | grep security-scan
+labels:
+  - name: security-scan
+    color: "#b60205"
+    description: >-
+      Triage marker: this pull request was scanned pre-merge, or wants to be.
+      Triggers nothing — run the scan with `gh workflow run
+      security-zap-postmerge.yml --ref develop -f pull_request=<number>`.
