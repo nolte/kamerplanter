@@ -140,6 +140,9 @@ def list_batches(
     return [_batch_response(b) for b in batches]
 
 
+# tenant-scope-ok: HarvestService.create_harvest_batch runs the Karenz gate
+# through IpmService.check_harvest_safety(..., tenant_key=batch.tenant_key),
+# which refuses a foreign plant with 404 before anything is persisted (#1619).
 @router.post("/plants/{plant_key}/batches", response_model=HarvestBatchResponse, status_code=201)
 def create_batch(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],

@@ -149,10 +149,13 @@ class _IpmService:
         self.created.append(stored)
         return stored
 
-    def get_inspections(self, plant_key, offset=0, limit=50):
+    # Mirrors IpmService's keyword-only, default-less ``tenant_key`` (#1619):
+    # a double that accepts an unscoped call certifies a call the real
+    # service would reject.
+    def get_inspections(self, plant_key, offset=0, limit=50, *, tenant_key):
         return list(self._inspections), len(self._inspections)
 
-    def check_harvest_safety(self, plant_key, planned_date=None):
+    def check_harvest_safety(self, plant_key, planned_date=None, *, tenant_key):
         return self._harvest_ok, list(self._karenz)
 
 

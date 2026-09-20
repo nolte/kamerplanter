@@ -28,6 +28,18 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             db, col.TREATMENT_APPLICATIONS, TreatmentApplication
         )
 
+    # ── Plant ownership ──
+
+    def verify_plant_ownership(self, plant_key: str, tenant_key: str) -> None:
+        """Delegate to the very guard the #517 write path already uses.
+
+        ``create_inspection`` / ``create_treatment_application`` below call
+        ``verify_entity_ownership(col.PLANT_INSTANCES, …)`` before wiring an
+        edge. Reads routing through the same call means the read half and the
+        write half of this repository cannot drift on *who owns a plant*.
+        """
+        self.verify_entity_ownership(col.PLANT_INSTANCES, plant_key, tenant_key, entity_name="PlantInstance")
+
     # ── Pest CRUD ──
 
     def get_all_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]:
