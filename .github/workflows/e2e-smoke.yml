@@ -101,6 +101,28 @@ jobs:
               - '!Taskfile.yaml'
               - '!.taskfiles/**'
               - '!.pre-commit-config.yaml'
+              # The Kubernetes deployment surface, excluded for a STRUCTURAL
+              # reason rather than a judgement call (#1577): this suite brings up
+              # a COMPOSE stack — `scripts/run-e2e.sh` runs
+              # `docker compose -f docker-compose.e2e.yml` plus the
+              # `E2E_COMPOSE_OVERLAYS` overlay and nothing else. It never renders
+              # or installs the chart, so a change under `helm/**` cannot alter
+              # what this job measures. Measured 2026-09-20 on this tree:
+              # `git grep -in 'helm\|skaffold' -- docker-compose.e2e*.yml
+              # scripts/run-e2e.sh` returns ONE hit, a prose comment; the compose
+              # build contexts are `src/backend`, `src/frontend` and `tests/e2e`.
+              # The chart's `values*.yaml` all live under `helm/` (measured: no
+              # `values*.y*ml` is tracked outside it), so they need no entry of
+              # their own. `skaffold.yaml` is the same argument — it drives the
+              # kind/Helm dev loop; the two Dockerfiles mention it only in prose.
+              #
+              # `kind-config.yaml` is equally inert and deliberately NOT listed:
+              # it carries no pinned image and changed twice this year, so it
+              # produces no traffic to save, and every entry in a fail-open deny
+              # list is a liability. `helm/**` by contrast saw 54 commits since
+              # 2026-06-01, most of them Renovate chart bumps (#1547).
+              - '!helm/**'
+              - '!skaffold.yaml'
             e2e_infra:
               - '.github/workflows/e2e-*.yml'
 
