@@ -235,7 +235,9 @@ export default function WorkflowDetailPage() {
     if (!workflow) return;
     setSpeciesLoading(true);
     Promise.all([
-      speciesApi.listSpecies(0, 500),
+      // The complete catalogue (#1560); one leg of an imperative sequence whose
+      // surrounding loading state already covers it.
+      speciesApi.listAllSpecies(),
       favApi.listFavorites('species').catch(() => []),
     ])
       .then(([res, favs]) => {

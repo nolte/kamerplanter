@@ -47,7 +47,13 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
   const lang = i18n.language?.startsWith('en') ? 'en' : 'de';
 
   // AP-12 (FE-L3): load substrates with explicit error state instead of a silent catch.
-  const loadSubstrates = useCallback(() => api.listSubstrates(0, 200), []);
+  //
+  // Kept on `useAsyncOptions` rather than moved to `useCatalogue` (#1560): this
+  // site already reports a failed load separately from an empty result, which is
+  // the contract the shared reader exists to give the sites that did not. What it
+  // did not have is reach — `listSubstrates(0, 200)` is one explicit page — so
+  // only the reader changes here.
+  const loadSubstrates = useCallback(() => api.listAllSubstrates(), []);
   const { options: substrates, error: substratesError } = useAsyncOptions(loadSubstrates, {
     enabled: open,
   });

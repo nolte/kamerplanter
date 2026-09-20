@@ -112,6 +112,7 @@ import argparse
 import ast
 import fnmatch
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -160,6 +161,19 @@ KNOWN_UNLOADED_SEED_FILES: dict[str, str] = {
     ),
 }
 
+#: Modules that may read a catalogue through its **capped** reader, each with the
+#: reason. Keyed by ``"<catalogue>:<module path relative to src/frontend/src>"``.
+#:
+#: The escape hatch is a reason rather than a count, following
+#: ``check_utc_calendar_day.py``'s ``# local-clock:`` sites: a reviewer can argue
+#: with a reason. An entry here says "this caller genuinely wants one page" —
+#: a search-as-you-type box, an infinite scroll — which no picker does, because
+#: every picker filters client-side over what it already has.
+#:
+#: Empty as of #1560: all twenty-two sites the sweep found were pickers, and all
+#: twenty-two moved to the complete loader or to `useCatalogue`.
+KNOWN_CAPPED_READERS: dict[str, str] = {}
+
 EXIT_OK = 0
 EXIT_DEFECTS = 1
 EXIT_USAGE = 2
@@ -194,6 +208,16 @@ class Catalogue:
         means the owner fetches a bounded page and ``page_size`` applies.
     page_size:
         The bound, when ``loader`` is ``None``. Rows beyond it are unreachable.
+    endpoint_module:
+        Path fragment of the frontend API module that defines this catalogue's
+        readers, e.g. ``endpoints/species``. Matched against the *end* of an
+        import specifier, so ``@/api/endpoints/species`` and
+        ``../../api/endpoints/species`` both resolve.
+    capped_reader:
+        Name of the single-page reader exported by that module. Any module
+        outside ``api/`` that imports this name is reading a bound page of a
+        catalogue the user is offered as a whole, which is the defect class of
+        #1560. ``None`` disables the reader scan for this catalogue.
     """
 
     name: str
@@ -202,6 +226,8 @@ class Catalogue:
     owner: str
     loader: str | None = None
     page_size: int | None = None
+    endpoint_module: str | None = None
+    capped_reader: str | None = None
 
     def __post_init__(self) -> None:
         """Reject a registry entry that declares neither contract."""
@@ -225,6 +251,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("product_name", "brand"),
         owner="store/slices/fertilizersSlice.ts",
         loader="fetchAllFertilizers",
+        endpoint_module="endpoints/fertilizers",
+        capped_reader="fetchFertilizers",
     ),
     Catalogue(
         name="nutrient_plans",
@@ -232,6 +260,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("name",),
         owner="store/slices/nutrientPlansSlice.ts",
         loader="fetchAllNutrientPlans",
+        endpoint_module="endpoints/nutrient-plans",
+        capped_reader="fetchNutrientPlans",
     ),
     Catalogue(
         name="botanical_families",
@@ -239,6 +269,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("name",),
         owner="store/slices/botanicalFamiliesSlice.ts",
         loader="listAllBotanicalFamilies",
+        endpoint_module="endpoints/botanicalFamilies",
+        capped_reader="listBotanicalFamilies",
     ),
     Catalogue(
         name="species",
@@ -246,6 +278,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("scientific_name",),
         owner="store/slices/speciesSlice.ts",
         loader="listAllSpecies",
+        endpoint_module="endpoints/species",
+        capped_reader="listSpecies",
     ),
     Catalogue(
         name="substrates",
@@ -253,6 +287,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("name_de", "brand"),
         owner="store/slices/substratesSlice.ts",
         loader="listAllSubstrates",
+        endpoint_module="endpoints/substrates",
+        capped_reader="listSubstrates",
     ),
     Catalogue(
         name="activities",
@@ -260,6 +296,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("name",),
         owner="store/slices/activitiesSlice.ts",
         loader="listAllActivities",
+        endpoint_module="endpoints/activities",
+        capped_reader="listActivities",
     ),
     Catalogue(
         name="ipm_pests",
@@ -267,6 +305,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("common_name", "name"),
         owner="store/slices/ipmSlice.ts",
         loader="listAllPests",
+        endpoint_module="endpoints/ipm",
+        capped_reader="listPests",
     ),
     Catalogue(
         name="ipm_diseases",
@@ -274,6 +314,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("common_name", "name"),
         owner="store/slices/ipmSlice.ts",
         loader="listAllDiseases",
+        endpoint_module="endpoints/ipm",
+        capped_reader="listDiseases",
     ),
     Catalogue(
         name="ipm_treatments",
@@ -281,6 +323,8 @@ CATALOGUES: tuple[Catalogue, ...] = (
         identity=("name",),
         owner="store/slices/ipmSlice.ts",
         loader="listAllTreatments",
+        endpoint_module="endpoints/ipm",
+        capped_reader="listTreatments",
     ),
 )
 
@@ -300,6 +344,9 @@ class CatalogueResult:
     known_unloaded: list[tuple[str, int]] = field(default_factory=list)
     #: Set when the ``complete`` contract is declared but the owner does not honour it.
     missing_loader: bool = False
+    #: Modules outside ``api/`` that import this catalogue's capped reader, with
+    #: the line it is referenced on. Not allowlisted; these fail.
+    capped_readers: list[tuple[str, int]] = field(default_factory=list)
 
     @property
     def orphan_rows(self) -> int:
@@ -314,7 +361,7 @@ class CatalogueResult:
     @property
     def failed(self) -> bool:
         """Whether this catalogue fails the check."""
-        if self.missing_loader or self.orphans:
+        if self.missing_loader or self.orphans or self.capped_readers:
             return True
         return self.catalogue.page_size is not None and self.rows > self.catalogue.page_size
 
@@ -385,6 +432,124 @@ def iter_seed_files(seed_dir: Path) -> list[Path]:
         for path in seed_dir.rglob("*.yaml")
         if not any(part in NON_SEED_SUBDIRS for part in path.relative_to(seed_dir).parts[:-1])
     )
+
+
+# ── Finding every module that reads a catalogue ──────────────────────────────
+
+#: An ES import statement, split into its clause and its module specifier.
+_IMPORT = re.compile(r"import\s+(?P<clause>[^;]*?)\s+from\s+['\"](?P<module>[^'\"]+)['\"]", re.S)
+
+#: ``import * as speciesApi from '…'`` — the namespace form.
+_NAMESPACE = re.compile(r"^\*\s+as\s+(\w+)$")
+
+#: Frontend subtrees that define or wrap the readers rather than consume them.
+#: ``api/`` holds both the capped reader and the complete loader that calls it,
+#: so scanning it would flag the repair itself.
+_SCAN_EXCLUDED_PREFIXES = ("api/",)
+
+
+def _strip_comments(source: str) -> str:
+    """Blank out comments, preserving line numbering.
+
+    Without this the check reads prose about a capped reader as a call to one.
+    ``fertilizersSlice.ts`` carries exactly that: a comment naming
+    ``api.fetchFertilizers()`` as the thing callers should *not* reach for.
+    """
+    source = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), source, flags=re.S)
+    return re.sub(r"^(\s*)//.*$", r"\1", source, flags=re.M)
+
+
+def _is_test_module(relative: Path) -> bool:
+    """Whether a module is test code rather than product code."""
+    return ".test." in relative.name or ".spec." in relative.name or "test" in relative.parts
+
+
+def iter_frontend_modules(frontend_src: Path) -> list[Path]:
+    """List the frontend product modules the reader scan covers.
+
+    Raises:
+        SeedCatalogueError: If the frontend source root is missing.
+    """
+    if not frontend_src.is_dir():
+        raise SeedCatalogueError(f"frontend source root does not exist: {frontend_src}")
+    modules: list[Path] = []
+    for path in sorted(frontend_src.rglob("*.ts")) + sorted(frontend_src.rglob("*.tsx")):
+        relative = path.relative_to(frontend_src)
+        if str(relative).startswith(_SCAN_EXCLUDED_PREFIXES):
+            continue
+        if _is_test_module(relative):
+            continue
+        modules.append(path)
+    return sorted(modules)
+
+
+def find_capped_readers(frontend_src: Path, catalogue: Catalogue) -> list[tuple[str, int]]:
+    """Find every product module that reads this catalogue through its capped reader.
+
+    **Why an import scan rather than a call-shape scan.** The review of #1560
+    proposed grepping for the reader name. Two spellings defeat that from
+    opposite sides, and both are live in this tree:
+
+    * ``dispatch(fetchFertilizers({}))`` is the *slice thunk*, which loads the
+      complete catalogue. A name grep calls it a defect. It is the repair.
+    * ``speciesApi\n  .listSpecies(0, 200)`` splits the receiver from the method
+      across a newline. A ``speciesApi.listSpecies`` grep misses it — six of the
+      twenty-two sites #1560 found are written this way, and the first version of
+      the sweep that found them reported sixteen.
+
+    Binding the name to the module it was imported *from* settles both: the thunk
+    comes from ``store/slices/…``, the capped reader from ``api/endpoints/…``, and
+    a namespace import is matched through its own local alias with whitespace
+    allowed. Importing the capped reader at all is the finding — a caller that has
+    it in scope is one edit away from a bounded read, and there is no legitimate
+    consumer of it outside ``api/``.
+
+    Args:
+        frontend_src: ``src/frontend/src``.
+        catalogue: The catalogue, which must declare ``endpoint_module`` and
+            ``capped_reader``.
+
+    Returns:
+        ``(module path relative to frontend_src, line)`` per reference, sorted.
+
+    Raises:
+        SeedCatalogueError: If a module cannot be read.
+    """
+    module_fragment = catalogue.endpoint_module
+    capped = catalogue.capped_reader
+    if module_fragment is None or capped is None:
+        return []
+
+    hits: set[tuple[str, int]] = set()
+    for path in iter_frontend_modules(frontend_src):
+        relative = str(path.relative_to(frontend_src))
+        try:
+            source = _strip_comments(path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise SeedCatalogueError(f"cannot read {path}: {exc}") from exc
+        if capped not in source:
+            continue
+        lines = source.splitlines()
+        for match in _IMPORT.finditer(source):
+            if not match.group("module").endswith(module_fragment):
+                continue
+            clause = match.group("clause").strip()
+            namespace = _NAMESPACE.match(clause)
+            if namespace:
+                # `ns  .  capped(` — whitespace and newlines allowed between the
+                # receiver and the method, which is how six sites hid from the
+                # first sweep.
+                pattern = rf"\b{re.escape(namespace.group(1))}\s*\.\s*{re.escape(capped)}\s*\("
+            elif re.search(rf"[{{,]\s*{re.escape(capped)}\s*(,|}}|\sas\s|$)", clause):
+                # Named import, alias or not: having it in scope is the finding.
+                pattern = rf"\b{re.escape(capped)}\s*\("
+            else:
+                continue
+            for reference in re.finditer(pattern, source):
+                line = source[: reference.start()].count("\n") + 1
+                if line <= len(lines):
+                    hits.add((relative, line))
+    return sorted(hits)
 
 
 # ── Counting rows ────────────────────────────────────────────────────────────
@@ -481,6 +646,16 @@ def measure(
                 raise SeedCatalogueError(f"owner module does not exist: {owner}")
             result.missing_loader = catalogue.loader not in owner.read_text(encoding="utf-8")
 
+        # The half the owner contract could not see (#1560). Binding one owning
+        # module per catalogue was green while eight pickers in other modules
+        # read `listSpecies(0, 200)` against 207 seeded species — correct on its
+        # own terms, and blind to the defect it is named for.
+        result.capped_readers = [
+            (module, line)
+            for module, line in find_capped_readers(frontend_src, catalogue)
+            if f"{catalogue.name}:{module}" not in KNOWN_CAPPED_READERS
+        ]
+
         results.append(result)
     return results
 
@@ -518,6 +693,11 @@ def report(results: list[CatalogueResult], list_sources: bool, page_size: int) -
         catalogue = result.catalogue
         if result.missing_loader:
             verdict = f"FAIL — {catalogue.owner} does not use {catalogue.loader}()"
+        elif result.capped_readers:
+            verdict = (
+                f"FAIL — {len(result.capped_readers)} module(s) read the capped "
+                f"{catalogue.capped_reader}()"
+            )
         elif result.orphans:
             verdict = f"FAIL — {result.orphan_rows} row(s) in an unloaded seed file"
         elif catalogue.page_size is None:
@@ -574,6 +754,22 @@ def report(results: list[CatalogueResult], list_sources: bool, page_size: int) -
                 "into\n    app/migrations/seeds/registry.py, or delete it — leaving it "
                 "in seed_data/\n    makes every count taken from that directory wrong, "
                 "this one included."
+            )
+        if result.capped_readers:
+            print(
+                f"  {catalogue.name}: {len(result.capped_readers)} module(s) read "
+                f"{catalogue.capped_reader}() instead of the complete catalogue"
+            )
+            for module, line in result.capped_readers:
+                print(f"    src/frontend/src/{module}:{line}")
+            print(
+                f"    These offer the user a catalogue of {result.rows} seeded row(s) and "
+                "fetch a\n    bounded page of it. They do not paginate: they filter what "
+                "they already\n    hold, client-side, so a row past the page is answered "
+                'as "no such row".\n    Read it through @/hooks/useCatalogue, or call '
+                f"{catalogue.loader}() directly\n    where the caller is not a component. "
+                "A caller that genuinely wants one page\n    belongs in "
+                "KNOWN_CAPPED_READERS with its reason."
             )
         if result.missing_loader:
             print(f"  {catalogue.name}: {catalogue.owner} must load the complete catalogue")
@@ -678,6 +874,10 @@ def main(argv: list[str] | None = None) -> int:
                             "page_size": result.catalogue.page_size,
                             "owner": result.catalogue.owner,
                             "missing_loader": result.missing_loader,
+                            "capped_readers": [
+                                {"module": module, "line": line}
+                                for module, line in result.capped_readers
+                            ],
                             "orphan_files": [
                                 {"path": path, "rows": count} for path, count in result.orphans
                             ],

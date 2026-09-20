@@ -126,7 +126,13 @@ export const fetchMatchingNutrientPlans = createAsyncThunk(
 export const fetchAllSpecies = createAsyncThunk(
   'onboarding/fetchAllSpecies',
   async () => {
-    const result = await speciesApi.listSpecies(0, 500);
+    // The complete catalogue (#1560). `listSpecies(0, 500)` was legal only
+    // because the species route caps at `le=1000` rather than the shared
+    // `le=200` — the same literal against any other catalogue is a 422 (#614) —
+    // and it is a bound on a tenant-extensible catalogue either way. A thunk is
+    // not a component, so this calls the complete loader directly rather than
+    // going through `useCatalogue`.
+    const result = await speciesApi.listAllSpecies();
     return result.items;
   },
 );

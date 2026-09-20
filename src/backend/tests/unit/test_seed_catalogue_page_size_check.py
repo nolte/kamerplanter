@@ -173,6 +173,23 @@ def _complete(loader: str = "listAllWidgets", owner: str = "slice.ts") -> object
     )
 
 
+def _with_reader_scan(owner: str = "slice.ts") -> object:
+    """A ``complete`` registry entry that also declares its capped reader.
+
+    ``endpoint_module`` is matched against the end of an import specifier, so a
+    constructed module can import from ``@/api/endpoints/widgets`` and resolve.
+    """
+    return checker.Catalogue(
+        name="widgets",
+        seed_keys=("widgets",),
+        identity=("name",),
+        owner=owner,
+        loader="listAllWidgets",
+        endpoint_module="endpoints/widgets",
+        capped_reader="listWidgets",
+    )
+
+
 # ── The red paths ────────────────────────────────────────────────────────────
 
 
@@ -423,6 +440,213 @@ class TestTheRegistryIsWellFormed:
 
 
 # ── The real tree ────────────────────────────────────────────────────────────
+
+
+class TestEveryReadingModuleIsSeen:
+    """#1560: the gate binds every module that reads the catalogue, not one owner.
+
+    **What made this necessary.** The check bound a single ``owner`` module per
+    catalogue and asserted it referenced the complete loader. ``speciesSlice.ts``
+    did, so the gate was green — while eight pickers in eight other modules read
+    ``listSpecies(0, 200)`` against 207 seeded species. Seven species were
+    unpickable in production and this check returned 0. A gate that cannot go red
+    against the defect it is named for is the measurement gap this repository pays
+    for most often, so the cases below exist as much to watch it fail as to watch
+    it pass.
+    """
+
+    def _seeded(self, tree: Tree) -> None:
+        """A small, loaded catalogue plus an owner that honours the contract."""
+        tree.seed_file("widgets.yaml", _widgets(3))
+        tree.seeder(["widgets.yaml"])
+        tree.frontend_module("slice.ts", "export const load = () => listAllWidgets();\n")
+
+    def test_a_picker_reading_the_capped_reader_is_red(self, tree: Tree) -> None:
+        """The production shape, reduced: a namespace import and a bounded call."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "export const load = () => widgetApi.listWidgets(0, 200);\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+        assert [module for module, _line in result.capped_readers] == ["pages/Picker.tsx"]
+
+    def test_the_report_names_the_module_and_the_line(self, tree: Tree, capsys: pytest.CaptureFixture[str]) -> None:
+        """A finding a reader cannot locate is a finding that gets suppressed."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "\n"
+            "export const load = () => widgetApi.listWidgets(0, 200);\n",
+        )
+
+        results = tree.measure(_with_reader_scan())
+        assert checker.report(results, False, 200) == checker.EXIT_DEFECTS
+
+        output = capsys.readouterr().out
+        assert "pages/Picker.tsx:3" in output
+        assert "listAllWidgets()" in output
+
+    def test_the_receiver_may_be_split_from_the_method_by_a_newline(self, tree: Tree) -> None:
+        """The spelling that defeated the first sweep.
+
+        Six of the twenty-two sites #1560 found are written this way, and a
+        ``widgetApi.listWidgets`` grep reports none of them. The first version of
+        the sweep found sixteen and looked complete.
+        """
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "export const load = () =>\n"
+            "  widgetApi\n"
+            "    .listWidgets(0, 200)\n"
+            "    .then((r) => r.items);\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+        assert [module for module, _line in result.capped_readers] == ["pages/Picker.tsx"]
+
+    def test_a_named_import_of_the_capped_reader_is_red(self, tree: Tree) -> None:
+        """``import { listWidgets } from …`` — the other half of the class."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import { listWidgets, listCultivars } from '@/api/endpoints/widgets';\n"
+            "export const load = () => listWidgets(0, 500);\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+
+    def test_a_relative_import_specifier_resolves_too(self, tree: Tree) -> None:
+        """Not every module imports through the ``@/`` alias."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/deep/Picker.tsx",
+            "import * as widgetApi from '../../api/endpoints/widgets';\n"
+            "export const load = () => widgetApi.listWidgets(0, 200);\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert result.failed
+
+    def test_a_same_named_export_from_a_different_module_is_not_a_finding(self, tree: Tree) -> None:
+        """The false positive that decided the predicate's shape.
+
+        ``dispatch(fetchFertilizers({}))`` is the *slice thunk*, which loads the
+        complete catalogue. It shares its name with the capped reader, so a name
+        grep calls the repair a defect — and a check with false positives gets
+        suppressed, which is worse than the gap it closes.
+        """
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import { listWidgets } from '@/store/slices/widgetsSlice';\n"
+            "export const load = (dispatch) => dispatch(listWidgets({}));\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert not result.failed
+        assert result.capped_readers == []
+
+    def test_a_comment_naming_the_capped_reader_is_not_a_finding(self, tree: Tree) -> None:
+        """``fertilizersSlice.ts`` carries exactly this comment, warning callers off it."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "// Do not call widgetApi.listWidgets(0, 200) here — it is bounded.\n"
+            "/* widgetApi.listWidgets(0, 200) is the wrong reader. */\n"
+            "export const load = () => widgetApi.listAllWidgets();\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert not result.failed
+
+    def test_the_endpoint_module_itself_is_not_a_finding(self, tree: Tree) -> None:
+        """The complete loader is defined next to the capped one and calls it."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "api/endpoints/widgets.ts",
+            "export async function listWidgets(offset = 0, limit = 50) { return []; }\n"
+            "export async function listAllWidgets() { return listWidgets(0, 200); }\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert not result.failed
+
+    def test_test_modules_are_not_findings(self, tree: Tree) -> None:
+        """A test asserting the capped reader's own behaviour must stay legal."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.test.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "it('pages', () => widgetApi.listWidgets(0, 200));\n",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert not result.failed
+
+    def test_an_allowlisted_module_is_not_red(self, tree: Tree, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A caller that genuinely wants one page is a reason, not a silence."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "export const load = () => widgetApi.listWidgets(0, 200);\n",
+        )
+        monkeypatch.setitem(
+            checker.KNOWN_CAPPED_READERS,
+            "widgets:pages/Picker.tsx",
+            "search-as-you-type; the user never sees the whole catalogue here",
+        )
+
+        (result,) = tree.measure(_with_reader_scan())
+
+        assert not result.failed
+
+    def test_a_catalogue_without_a_declared_reader_is_not_scanned(self, tree: Tree) -> None:
+        """The scan is opt-in per catalogue, so an entry can be added incrementally."""
+        self._seeded(tree)
+        tree.frontend_module(
+            "pages/Picker.tsx",
+            "import * as widgetApi from '@/api/endpoints/widgets';\n"
+            "export const load = () => widgetApi.listWidgets(0, 200);\n",
+        )
+
+        (result,) = tree.measure(_complete())
+
+        assert not result.failed
+        assert result.capped_readers == []
+
+
+class TestEveryRegisteredCatalogueDeclaresItsReader:
+    """The scan is opt-in per catalogue, so absence of an entry must be visible.
+
+    Without this, adding a catalogue to the registry and forgetting its
+    ``capped_reader`` would reproduce #1560's blind spot one catalogue at a time,
+    silently and with a green gate.
+    """
+
+    @pytest.mark.parametrize("catalogue", checker.CATALOGUES, ids=lambda c: str(getattr(c, "name", c)))
+    def test_the_reader_scan_is_declared(self, catalogue: object) -> None:
+        """Every registered catalogue names the module and reader to scan for."""
+        assert catalogue.endpoint_module is not None
+        assert catalogue.capped_reader is not None
 
 
 class TestTheRealTreeIsClean:

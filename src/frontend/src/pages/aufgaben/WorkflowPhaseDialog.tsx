@@ -116,7 +116,9 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
       setSpeciesLoading(true);
       setSuggestionsLoading(true);
       try {
-        const res = await speciesApi.listSpecies(0, 500);
+        // The complete catalogue (#1560); one leg of an imperative sequence
+        // whose surrounding loading state already covers it.
+        const res = await speciesApi.listAllSpecies();
         if (!cancelled) {
           setSpeciesOptions(
             res.items.map((s) => ({

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -34,10 +35,8 @@ import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as successionApi from '@/api/endpoints/successionPlans';
-import * as speciesApi from '@/api/endpoints/species';
 import type {
   GenerateRunsResponse,
-  Species,
   SuccessionPlan,
   SuccessionPlanStatus,
 } from '@/api/types';
@@ -75,23 +74,23 @@ export default function SuccessionPlanListPage() {
   const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
   const [generatedResult, setGeneratedResult] = useState<GenerateRunsResponse | null>(null);
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  // The complete species catalogue through the shared reader (#1560). This site
+  // asked for one page of 200 against 207 seeded species, so seven of them were
+  // absent — and because the lookup below is client-side, absent reads as
+  // "unknown species", not as "still loading".
+  const speciesCatalogue = useCatalogue('species');
 
   useEffect(() => {
     dispatch(fetchSuccessionPlans({}));
-    speciesApi
-      .listSpecies(0, 200)
-      .then((r) => setSpeciesList(r.items))
-      .catch(() => {});
   }, [dispatch]);
 
   const speciesNameByKey = useMemo(() => {
     const map = new Map<string, string>();
-    for (const sp of speciesList) {
+    for (const sp of speciesCatalogue.items) {
       map.set(sp.key, sp.common_names?.[0] ?? sp.scientific_name);
     }
     return map;
-  }, [speciesList]);
+  }, [speciesCatalogue.items]);
 
   // Defensive ordering for the "generated runs" preview: always show the staggered
   // batches in chronological/sequence order regardless of API response order, so the
