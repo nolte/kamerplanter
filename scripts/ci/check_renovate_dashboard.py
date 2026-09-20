@@ -101,6 +101,15 @@ WHAT IT CHECKS
    upper-case ``FROM`` inside a shell string and the continued ``copy --from=``
    are covered too — they are the same defect in a different language.
 
+6. **Every workflow image pin is read by some manager** (#1563), read from
+   disk. The mirror image of point 5, one layer out: not a phantom Renovate
+   reports, but a real dependency it never sees. Three ``docker run`` steps
+   pinned the ZAP scanner by bare digest and two more pinned
+   ``curlimages/curl`` with a tag and a digest; ``grep -c zaproxy`` over a full
+   debug dry-run was 0 for all of them. :func:`unmanaged_workflow_images`
+   measures the property that matters — whether a manager reads the line —
+   rather than the issue's symptom, the missing tag.
+
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
 An empty body, a missing ``## Detected Dependencies`` section, or an unparseable
@@ -680,6 +689,86 @@ def dockerfile_phantom_stage_lines(repo_root: Path) -> list[str]:
     return sorted(found)
 
 
+#: A digest-pinned image reference, the only image shape this sweep can read
+#: without guessing. ``foo:bar`` in a shell line is not distinguishable from a
+#: host:port or a YAML mapping; ``@sha256:<64 hex>`` is.
+_WORKFLOW_IMAGE_DIGEST = re.compile(r"@sha256:[a-f0-9]{64}")
+
+#: The two spellings a Renovate manager already reads without help: ``uses:``
+#: and ``container:``/``services:`` ``image:`` are the built-in github-actions
+#: manager's, measured on ``backend-guards.yml`` (``depName: arangodb,
+#: depType: service``).
+_MANAGED_BY_GITHUB_ACTIONS = re.compile(r"^-?\s*(?:uses|image):", re.IGNORECASE)
+
+#: The marker the custom regex manager in renovate.json5 matches on (#898).
+_RENOVATE_MARKER = re.compile(r"#\s*renovate:\s*datasource=")
+
+
+def unmanaged_workflow_images(repo_root: Path) -> list[str]:
+    """Every workflow image pin no Renovate manager reads (#1563).
+
+    THE DEFECT THIS MEASURES. Three steps ran the ZAP scanner as
+    ``ghcr.io/zaproxy/zaproxy@sha256:8d387b1a…`` — a BARE DIGEST inside a
+    ``run:`` block. ``pinDigests: true`` is set for the docker category, so
+    that reads as *more* careful than a floating tag while ageing just as
+    silently: the built-in ``github-actions`` manager reads ``uses:`` and
+    ``container:``/``services:`` ``image:``, not an image string a step hands
+    to ``docker run``, and the custom regex manager needs a ``# renovate:``
+    marker AND a ``TAG@sha256:`` shape. Measured on 2026-09-19 with
+    ``LOG_LEVEL=debug task renovate:dry-run``: ``grep -c zaproxy`` over the
+    whole debug log was **0**. Not one extraction, not one lookup.
+
+    It lands on the DAST scanner, which makes it the #1177 class at its worst:
+    ZAP ships new passive and active rules with every release, so a frozen
+    image keeps the nightly full scan reporting green against an ageing rule
+    set, with no commit here to show for the change in meaning.
+
+    THE PREDICATE IS WIDER THAN THE ISSUE'S, and measured. #1563 described the
+    defect as "a bare digest with no tag". The missing tag is not what hides
+    the pin — the missing MARKER is. Two ``curlimages/curl:8.21.0@sha256:…``
+    references in the same file carry a tag *and* a digest and were equally
+    unread (``grep -c curlimages`` over the same log: 0). So the rule is "no
+    manager reads it", not "it has no tag".
+
+    WHAT THIS DOES NOT SEE, said rather than implied: an image referenced by
+    TAG ONLY inside a ``run:`` block. ``ubuntu:24.04`` in shell text is not
+    distinguishable from a host:port or a YAML key by any pattern that would
+    not also report half the file, so the sweep reads digest-pinned references
+    only. The repository has none of the other kind today (measured with
+    ``grep -nE '(docker|podman) +(run|pull)' .github/workflows/``, 2026-09-20);
+    a reviewer adding one is the case this docstring exists to name.
+
+    Args:
+        repo_root: Checkout root to sweep.
+
+    Returns:
+        ``path:line`` for each unread pin, sorted.
+    """
+    workflows = repo_root / ".github" / "workflows"
+    found = []
+    for workflow in sorted(workflows.glob("*.y*ml")) if workflows.is_dir() else []:
+        lines = workflow.read_text(encoding="utf-8", errors="replace").splitlines()
+        relative = workflow.relative_to(repo_root).as_posix()
+        for index, line in enumerate(lines):
+            if not _WORKFLOW_IMAGE_DIGEST.search(line):
+                continue
+            stripped = line.strip()
+            if stripped.startswith("#") or _MANAGED_BY_GITHUB_ACTIONS.match(stripped):
+                continue
+            # Walk up through the comment block directly above: that is where
+            # the regex manager's marker has to sit for it to match.
+            marked = False
+            for previous in reversed(lines[:index]):
+                if not previous.strip().startswith("#"):
+                    break
+                if _RENOVATE_MARKER.search(previous):
+                    marked = True
+                    break
+            if not marked:
+                found.append(f"{relative}:{index + 1}")
+    return sorted(found)
+
+
 def lockless_python_trees(repo_root: Path) -> list[str]:
     """Every ``pyproject.toml`` in the checkout with no ``uv.lock`` beside it.
 
@@ -865,6 +954,22 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
             "reads as an instruction."
         )
 
+    # The same question as the phantom sweep above, asked in the other
+    # direction and one layer out: a real dependency NO manager reports
+    # (#1563). Read from disk, because an inventory check can only judge what
+    # Renovate extracted — a pin it never saw is invisible there by
+    # construction, which is exactly what made these three age unattended.
+    unmanaged_images = unmanaged_workflow_images(repo_root)
+    if unmanaged_images:
+        findings.append(
+            "Workflow image pin no manager reads: "
+            + ", ".join(unmanaged_images)
+            + ". An image string a `run:` step hands to `docker run` is read neither by the "
+            "github-actions manager (`uses:`/`image:`) nor by the regex manager, which needs a "
+            "`# renovate: datasource=docker depName=…` marker above a `KEY: image:TAG@sha256:` value "
+            "(#898, #1563). A pinned-and-unread tool silently changes what a check MEANS (#1177)."
+        )
+
     return {
         "alert": bool(findings),
         "findings": findings,
@@ -883,6 +988,7 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         "undecided_unhashed_requirements": undecided,
         "dockerfile_python_installs": dockerfile_installs,
         "dockerfile_phantom_stage_lines": phantom_stages,
+        "unmanaged_workflow_images": unmanaged_images,
         "observed_files": {manager: inventory.get(manager, []) for manager in EXPECTED_OBSERVED_FILES},
     }
 

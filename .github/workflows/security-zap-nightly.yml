@@ -42,6 +42,27 @@ jobs:
     runs-on: ubuntu-latest
     # §5.3 allows the full profile 1–6 h. 240 min is a ceiling, not a target.
     timeout-minutes: 240
+    env:
+      # THE SCANNER IS A DEPENDENCY, AND UNTIL #1563 NO MANAGER READ IT.
+      # These pins used to sit inline in the `run:` blocks below as a BARE
+      # DIGEST with no tag. That looks more correct than a floating tag and
+      # ages just as silently: the built-in github-actions manager reads
+      # `uses:` and `container:`, not an image string a step hands to
+      # `docker run`, and the custom regex manager in renovate.json5 (#898)
+      # needs both a `# renovate:` marker and a `TAG@sha256:` shape. Measured
+      # on 2026-09-19 with `LOG_LEVEL=debug task renovate:dry-run`:
+      # `grep -c zaproxy <log>` was 0 — not one extraction, not one lookup.
+      #
+      # That matters most here of all places. ZAP ships new passive and active
+      # rules with every release, so a frozen scanner keeps reporting green
+      # against an ageing rule set and nobody sees the gate's meaning change
+      # (the #1177 class, NFR-014/NFR-015).
+      #
+      # The tag is the one the digest actually carries — measured against the
+      # GHCR manifest list, not guessed — so this commit changes which manager
+      # reads the pin and nothing about which image runs.
+      # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -153,7 +174,7 @@ jobs:
             -e KP_ZAP_TOKEN="$TOKEN_B" \
             -e KP_ZAP_LOGIN_URL="http://backend:8000/api/v1/auth/login" \
             -e KP_ZAP_LOGIN_BODY="$login_body" \
-            ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 \
+            "$ZAP_IMAGE" \
             zap-full-scan.py \
               -t http://frontend:8080 \
               -J full-report.json \

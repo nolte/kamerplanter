@@ -647,6 +647,134 @@ class TestNoLineIsReadAsAnImageThatIsNotOne:
         assert report["dockerfile_phantom_stage_lines"] == []
 
 
+class TestEveryWorkflowImagePinIsReadBySomeManager:
+    """#1563, the mirror of the class above: a real dependency nobody reads.
+
+    Three `docker run` steps pinned the ZAP scanner by BARE DIGEST, which
+    `pinDigests: true` makes look more careful than a floating tag while it
+    ages just as silently. Measured on 2026-09-19 with `LOG_LEVEL=debug task
+    renovate:dry-run`: `grep -c zaproxy` over the whole debug log was 0.
+
+    The issue called the defect "a bare digest with no tag". The class sweep
+    measured otherwise: two `curlimages/curl:8.21.0@sha256:…` references in
+    the same file carry a tag AND a digest and were equally unread
+    (`grep -c curlimages`: 0). What hides a pin is the missing MARKER.
+    """
+
+    def test_no_workflow_in_this_checkout_pins_an_unread_image(self) -> None:
+        assert check.unmanaged_workflow_images(_REPO_ROOT) == [], (
+            "an image string a `run:` step hands to `docker run` is read by no manager unless it carries "
+            "a `# renovate: datasource=docker depName=…` marker above a `KEY: image:TAG@sha256:` value"
+        )
+
+    def test_the_three_zap_sites_read_one_marked_pin_per_workflow(self) -> None:
+        """The subject of #1563, asserted at the artefact.
+
+        One `env:` value per workflow rather than one per step, so the two
+        post-merge scans cannot drift apart — and the digest is the one that
+        was there, so this changes which manager reads the pin and nothing
+        about which image runs.
+        """
+        digest = "sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2"
+        for workflow, uses in (
+            (".github/workflows/security-zap-postmerge.yml", 2),
+            (".github/workflows/security-zap-nightly.yml", 1),
+        ):
+            text = (_REPO_ROOT / workflow).read_text()
+
+            assert "# renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy\n      ZAP_IMAGE: " in text, (
+                f"{workflow} no longer carries the marker the regex manager matches on"
+            )
+            assert f"ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20260629-stable@{digest}" in text, (
+                f"{workflow} no longer pins the measured digest under its measured tag"
+            )
+            assert text.count('"$ZAP_IMAGE" \\\n') == uses, f"{workflow} does not run {uses} scan(s) off the pin"
+            assert f"ghcr.io/zaproxy/zaproxy@{digest}" not in text, (
+                f"{workflow} has a bare digest back in a run: block, which no manager reads"
+            )
+
+    def test_the_curl_probe_reads_the_same_kind_of_pin(self) -> None:
+        """Found by the class sweep, not by the issue: tagged AND unread."""
+        text = (_REPO_ROOT / ".github/workflows/security-zap-postmerge.yml").read_text()
+
+        assert "# renovate: datasource=docker depName=curlimages/curl\n      CURL_IMAGE: " in text
+        assert text.count('"$CURL_IMAGE" \\\n') == 2
+
+    def test_a_bare_digest_in_a_run_block_is_caught(self, tmp_path: Path) -> None:
+        workflows = tmp_path / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "scan.yml").write_text(
+            "jobs:\n  s:\n    steps:\n      - run: |\n          docker run --rm ghcr.io/zaproxy/zaproxy@sha256:"
+            + "8" * 64
+            + "\n"
+        )
+
+        assert check.unmanaged_workflow_images(tmp_path) == [".github/workflows/scan.yml:5"]
+
+    def test_a_tagged_digest_without_a_marker_is_caught_too(self, tmp_path: Path) -> None:
+        """The spelling the issue's wording would have missed."""
+        workflows = tmp_path / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "scan.yml").write_text(
+            "jobs:\n  s:\n    steps:\n      - run: docker run curlimages/curl:8.21.0@sha256:" + "7" * 64 + "\n"
+        )
+
+        assert check.unmanaged_workflow_images(tmp_path) == [".github/workflows/scan.yml:4"]
+
+    @pytest.mark.parametrize(
+        ("name", "content"),
+        [
+            # Read by the built-in github-actions manager, both spellings,
+            # measured on backend-guards.yml and every `uses:` in the tree.
+            ("uses", "jobs:\n  s:\n    steps:\n      - uses: actions/checkout@sha256:" + "a" * 64 + "\n"),
+            (
+                "service image",
+                "jobs:\n  s:\n    services:\n      db:\n        image: arangodb:3.12@sha256:" + "b" * 64 + "\n",
+            ),
+            # Read by the custom regex manager (#898) — marker plus TAG@digest.
+            (
+                "marked env value",
+                "jobs:\n  s:\n    env:\n      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint\n"
+                "      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:" + "c" * 64 + "\n",
+            ),
+            # Prose quoting a pin is not a pin. The failure class this
+            # repository has paid for: the explanation read as the defect.
+            ("comment", "jobs:\n  s:\n    steps:\n      # it used to say zaproxy@sha256:" + "d" * 64 + "\n"),
+        ],
+    )
+    def test_a_managed_or_quoted_reference_is_not_reported(self, tmp_path: Path, name: str, content: str) -> None:
+        workflows = tmp_path / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "scan.yml").write_text(content)
+
+        assert check.unmanaged_workflow_images(tmp_path) == [], f"false positive on ({name})"
+
+    def test_a_marker_for_a_different_value_does_not_cover_this_one(self, tmp_path: Path) -> None:
+        """The marker must sit in the comment block directly above the value."""
+        workflows = tmp_path / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "scan.yml").write_text(
+            "jobs:\n  s:\n    env:\n      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint\n"
+            "      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:" + "c" * 64 + "\n"
+            "      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy@sha256:" + "8" * 64 + "\n"
+        )
+
+        assert check.unmanaged_workflow_images(tmp_path) == [".github/workflows/scan.yml:6"]
+
+    def test_the_report_reddens_and_carries_the_sites(self, healthy_body: str, tmp_path: Path) -> None:
+        workflows = tmp_path / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "scan.yml").write_text(
+            "jobs:\n  s:\n    steps:\n      - run: docker run ghcr.io/zaproxy/zaproxy@sha256:" + "8" * 64 + "\n"
+        )
+
+        report = check.build_report(healthy_body, repo_root=tmp_path)
+
+        assert report["alert"] is True
+        assert report["unmanaged_workflow_images"] == [".github/workflows/scan.yml:4"]
+        assert any("Workflow image pin no manager reads" in finding for finding in report["findings"])
+
+
 class TestTheClaimsAreNoWiderThanTheMeasurement:
     """#1491 review, W3: a claim wider than its instrument is invisible."""
 
