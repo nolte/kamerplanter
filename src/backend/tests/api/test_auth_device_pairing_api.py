@@ -61,6 +61,16 @@ _UNSETTABLE_TTL = 42
 #: information about the code that was sent.
 _VOLATILE_BODY_FIELDS = frozenset({"error_id", "timestamp"})
 
+#: Markers whose presence in a redemption response would mean a credential other
+#: than the two tokens rode along. ``kp_`` is ``auth_service._API_KEY_PREFIX``.
+_CREDENTIAL_MARKERS = ("password", "api_key", "kp_", "csrf")
+
+#: Stand-in for the account's stored password hash. Not a real hash and not a
+#: real secret: a distinctive constant whose only job is to be findable, so that
+#: "no user record rides along" can be asserted against an exact value rather
+#: than against the *word* "password".
+_PASSWORD_HASH_SENTINEL = "not-a-real-hash-PASSWORD-HASH-SENTINEL-1575"
+
 
 class _FakeCodeStore(IDevicePairingCodeStore):
     """In-memory stand-in for the Redis code store.
@@ -142,6 +152,10 @@ def _harness(ttl_seconds: int = 90) -> Iterator[_Harness]:
         email="owner@example.org",
         display_name="Code Owner",
         is_active=True,
+        # Gives the redemption response something real to leak: without a stored
+        # hash, "the user record does not ride along" is only ever asserted
+        # against a value that is ``None`` anyway.
+        password_hash=_PASSWORD_HASH_SENTINEL,
     )
     code_store = _FakeCodeStore(ttl_seconds)
     user_repo = MagicMock()
@@ -332,9 +346,41 @@ class TestRedemption:
         # The body is the transport for the refresh token here (native clients
         # have no cookie jar) — but for that token only. No password hash, no
         # API key, no session id, no user record rides along.
-        serialised = json.dumps(body)
-        for leaked in ("password", "api_key", "kp_", "csrf"):
-            assert leaked not in serialised.lower()
+        #
+        # That rule used to be one grep over ``json.dumps(body)``, which was both
+        # a lottery and blind (#1575). A lottery, because the two token values are
+        # high-entropy base64url: across the 41 + 84 three-character windows they
+        # contribute, a lower-cased haystack spells ``kp_`` with probability
+        # (2/64)·(2/64)·(1/64) per window, so roughly **one body in 500** failed
+        # for nothing (measured: 590 hits in 300 000 generated pairs). Blind,
+        # because anything smuggled into the access token's *payload* is already
+        # base64 by the time a grep over the serialisation sees it.
+        #
+        # The rule is unchanged; only the haystacks are. The same markers are
+        # grepped over the whole response text with the two token values redacted
+        # out, and over the access token's **decoded** claims — whose only
+        # per-run-variable member is a UUID4 ``jti``, in an alphabet (hex plus
+        # ``-``) that cannot spell any marker at all. Redacting the two values is
+        # safe because each is separately pinned below: the refresh token by
+        # identity, the access token by those very claims.
+        redacted = response.text.replace(body["access_token"], "<access-token>").replace(
+            body["refresh_token"], "<refresh-token>"
+        )
+        for haystack in (redacted, json.dumps(_jwt_claims(body["access_token"]))):
+            for leaked in _CREDENTIAL_MARKERS:
+                assert leaked not in haystack.lower(), f"{leaked!r} rode along in {haystack!r}"
+
+        # Identity, not a grep: the refresh token must be exactly the credential
+        # that was persisted for this session, so nothing can be appended to it
+        # or substituted for it inside that field.
+        (stored,) = harness.created_refresh_tokens
+        assert TokenEngine.hash_token(body["refresh_token"]) == stored.token_hash, (
+            "the refresh token in the body is not the credential that was stored"
+        )
+        # And the one credential this account actually holds appears nowhere in
+        # the raw response — an exact 43-character value, so no coincidence over
+        # 129 random base64url characters is possible (64**-43).
+        assert _PASSWORD_HASH_SENTINEL not in response.text, "the account's password hash rode along"
 
     def test_the_access_token_names_the_account_the_code_was_issued_for(self, harness: _Harness) -> None:
         code = harness.issue_code()
