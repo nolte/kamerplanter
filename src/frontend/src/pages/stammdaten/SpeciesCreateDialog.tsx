@@ -117,6 +117,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const { attachRegion: attachFamilyRegion, beginRetry: beginFamilyRetry } = useRetryFocus(
     families.status,
     "[data-testid='form-field-family_key'] [role='combobox']",
+    { enabled: open },
   );
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 

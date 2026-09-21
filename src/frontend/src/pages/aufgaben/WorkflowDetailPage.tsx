@@ -159,6 +159,7 @@ export default function WorkflowDetailPage() {
   const { attachRegion: attachActivityRegion, beginRetry: beginActivityRetry } = useRetryFocus(
     activityCatalogue.status,
     "[data-testid='activity-catalogue-search'] input",
+    { enabled: addDialogOpen },
   );
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [addDayOffset, setAddDayOffset] = useState(0);
@@ -1189,7 +1190,7 @@ export default function WorkflowDetailPage() {
               on exactly the `failed → loading → ready` path a retry takes.
             */}
             <LoadingStatus
-              label={t('common.loading')}
+              label={t('pages.tasks.activityCatalogueLoading')}
               active={activityCatalogue.status === 'loading'}
               data-testid="activity-catalogue-loading-status"
             />

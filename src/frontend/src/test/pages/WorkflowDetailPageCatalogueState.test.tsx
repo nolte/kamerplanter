@@ -289,7 +289,7 @@ describe('WorkflowDetailPage — the activity catalogue is perceivable (#1568 UI
       expect(status.getAttribute('role')).toBe('status');
       expect(status.getAttribute('aria-live')).toBe('polite');
       // A named region with no content announces nothing, so the text matters.
-      expect(status.textContent).toBe(i18n.t('common.loading'));
+      expect(status.textContent).toBe(i18n.t('pages.tasks.activityCatalogueLoading'));
       // The spinner is the R-020 half and is invisible to a screen reader.
       expect(within(dialog).getByTestId('activity-catalogue-loading')).toBeTruthy();
     } finally {
@@ -379,5 +379,100 @@ describe('WorkflowDetailPage — the activity catalogue is perceivable (#1568 UI
       { timeout: WAIT_BUDGET },
     );
     expect(within(dialog).queryByTestId('activity-catalogue-empty-cta')).toBeNull();
+  });
+});
+
+/**
+ * The activity CTA's warning is wired to this page's form (#1568 second UI
+ * review, warning 2).
+ *
+ * **Why this exists.** The CTA navigates away, and the only thing standing
+ * between the user and a lost edit is `<UnsavedChangesGuard dirty={isDirty} />`
+ * at the page level — `isDirty` belongs to the *workflow* form, not to the
+ * activity dialog, which has no form of its own. That is structurally plausible
+ * and was entirely **unasserted**: a grep for `isDirty|UnsavedChangesGuard|
+ * useBlocker` over both `WorkflowDetailPage` test files returned nothing, while
+ * the commit message claimed "both sides are tested". It was true of
+ * `SpeciesCreateDialog` and of nothing here.
+ *
+ * Both sides, because a warning that always fires is noise and a warning that
+ * never fires is decoration:
+ *
+ * | case | red against |
+ * |---|---|
+ * | untouched page leaves without a prompt | `dirty` forced true |
+ * | edited page is stopped and can stay | `UnsavedChangesGuard` removed |
+ */
+describe('WorkflowDetailPage — the activity CTA is guarded by the page form', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  /** Opens the catalogue dialog on an empty catalogue, so the CTA is rendered. */
+  async function openEmptyCatalogue(user: ReturnType<typeof userEvent.setup>) {
+    serveWorkflow(() => HttpResponse.json([]));
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+    return openCatalogueDialog(user);
+  }
+
+  it('lets an untouched page follow the call to action without a prompt', async () => {
+    const user = userEvent.setup();
+    const dialog = await openEmptyCatalogue(user);
+
+    await user.click(await within(dialog).findByTestId('activity-catalogue-empty-cta'));
+
+    // Nothing edited, nothing to lose.
+    expect(screen.queryByTestId('confirm-dialog')).toBeNull();
+  });
+
+  it('stops an edited page at the call to action and lets the user stay', async () => {
+    const user = userEvent.setup();
+    // Dirty the page's own form *before* opening the dialog: an open MUI dialog
+    // marks the rest of the app `aria-hidden`, so the tabs are unreachable by
+    // role from inside it.
+    serveWorkflow(() => HttpResponse.json([]));
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+    await screen.findByTestId('workflow-detail-page');
+
+    await user.click(screen.getByRole('tab', { name: i18n.t('common.edit') }));
+    const name = within(await screen.findByTestId('form-field-name')).getByRole('textbox');
+    await user.type(name, ' geändert');
+
+    // Measured while writing this: the tabs are URL-driven (`useTabUrl` calls
+    // `navigate`), so a dirty form already blocks *every* tab change on this
+    // page. The guard is therefore live well before the CTA — which is the
+    // first half of what warning 2 asked to see proven — and reaching the CTA
+    // means passing it once here.
+    await user.click(screen.getByRole('tab', { name: i18n.t('pages.tasks.taskTemplates') }));
+    await screen.findByTestId('confirm-dialog');
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    await user.click(await screen.findByTestId('add-activity-from-catalog-button'));
+    const dialogs = await screen.findAllByRole('dialog');
+    const dialog = dialogs[dialogs.length - 1];
+    await user.click(await within(dialog).findByTestId('activity-catalogue-empty-cta'));
+
+    // The assertion that carries warning 2.
+    await screen.findByTestId('confirm-dialog');
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+
+    // Two MUI dialogs are open at once here — the activity picker and the
+    // alertdialog on top of it. The reviewer flagged that pairing as an
+    // unchecked focus-trap conflict, so this asserts the outer trap does not
+    // hold focus away from the confirmation: cancel is focused, which is also
+    // what makes staying the lighter path.
+    expect(document.activeElement).toBe(screen.getByTestId('confirm-dialog-cancel'));
+
+    // Staying keeps the user on the page rather than following the CTA. The
+    // *closing* of the prompt is already asserted on the SpeciesCreateDialog
+    // surface; what matters here is that the way out exists and that the page
+    // did not navigate.
+    await user.click(screen.getByTestId('confirm-dialog-cancel'));
+    expect(await screen.findByTestId('workflow-detail-page')).toBeTruthy();
   });
 });
