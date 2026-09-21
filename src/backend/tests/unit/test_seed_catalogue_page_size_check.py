@@ -281,6 +281,28 @@ class TestItPasses:
         assert results[0].rows == 500
         assert results[0].failed is False
 
+    def test_a_loader_named_only_in_a_comment_is_not_a_loader(self, tree: Tree) -> None:
+        """The falsification of the `complete` contract (#1456).
+
+        The check used to ask whether the owner module's TEXT contained the
+        loader name. Both real slices explain their loader in a comment head —
+        ``// `fetchAllFertilizers` returns a plain array`` — so deleting the call
+        and paginating instead left this gate green over exactly the defect it
+        was built for (#1610, #1624). The contract is a CALL, and the difference
+        between the two is asserted here rather than assumed.
+        """
+        tree.seed_file("widgets.yaml", _widgets(5))
+        tree.seeder(["widgets.yaml"])
+        tree.frontend_module(
+            "slice.ts",
+            "// listAllWidgets returns the complete catalogue.\nexport const list = () => listWidgets(0, 50);\n",
+        )
+
+        results = tree.measure(_complete())
+
+        assert results[0].missing_loader is True
+        assert results[0].failed is True
+
     def test_the_green_report_prints_the_cost_of_loading_completely(
         self, tree: Tree, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -307,7 +329,7 @@ class TestCounting:
         tree.seed_file("a.yaml", "widgets:\n  - name: shared\n  - name: only-a\n")
         tree.seed_file("b.yaml", "widgets:\n  - name: shared\n  - name: only-b\n")
         tree.seeder(["a.yaml", "b.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         assert tree.measure(_complete())[0].rows == 3
 
@@ -324,7 +346,7 @@ class TestCounting:
             """,
         )
         tree.seeder(["a.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         catalogue = checker.Catalogue(
             name="widgets",
@@ -340,7 +362,7 @@ class TestCounting:
         """`families` and `new_families` are one collection, counted together."""
         tree.seed_file("a.yaml", "widgets:\n  - name: one\nnew_widgets:\n  - name: two\n")
         tree.seeder(["a.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         catalogue = checker.Catalogue(
             name="widgets",
@@ -357,7 +379,7 @@ class TestCounting:
         tree.seed_file("plant_info_1.yaml", _widgets(2, prefix="a"))
         tree.seed_file("plant_info_2.yaml", _widgets(2, prefix="b"))
         tree.seeder(["plant_info*.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         results = tree.measure(_complete())
 
@@ -369,7 +391,7 @@ class TestCounting:
         tree.seed_file("widgets.yaml", _widgets(3))
         tree.seed_file("schemas/widgets.schema.yaml", "widgets:\n  - name: not-a-row\n")
         tree.seeder(["widgets.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         results = tree.measure(_complete())
 
@@ -381,7 +403,7 @@ class TestCounting:
         tree.seed_file("widgets.yaml", _widgets(5))
         tree.seed_file("fertilizers_supplement.yaml", "widgets:\n  - name: deferred\n")
         tree.seeder(["widgets.yaml"])
-        tree.frontend_module("slice.ts", "listAllWidgets")
+        tree.frontend_module("slice.ts", "export const list = () => listAllWidgets();")
 
         results = tree.measure(_complete())
 

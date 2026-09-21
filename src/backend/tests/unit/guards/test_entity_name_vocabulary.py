@@ -490,6 +490,8 @@ def test_spec_lists_exactly_the_non_model_exceptions() -> None:
     # After the header separator, so the ``| `entity` |`` column title is not
     # mistaken for a vocabulary entry.
     rows = section.split("|---|---|", 1)[1]
+    # prose-permeable: the subject is a Markdown table in NFR-006 — the spec prose is exactly what is being compared
+    # with the code
     listed = set(re.findall(r"^\|\s*`([a-z_]+)`\s*\|", rows, flags=re.MULTILINE))
 
     assert listed == set(NON_MODEL_ENTITY_NAMES)
@@ -649,6 +651,8 @@ def test_spec_additivity_table_names_values_that_really_changed() -> None:
 
     spec = (root / "spec" / "nfr" / "NFR-006_API-Fehlerbehandlung.md").read_text(encoding="utf-8")
     section = spec.split("**Additivität.**", 1)[1].split("Dazu die Collection-Namen", 1)[0]
+    # prose-permeable: the subject is a Markdown table in NFR-006 — the spec prose is exactly what is being compared
+    # with the code
     rows = re.findall(r"^\|\s*`([a-z_]+)`\s*\|\s*`([a-z_]+)`\s*\|", section, flags=re.MULTILINE)
 
     assert len(rows) >= 9, rows

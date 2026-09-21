@@ -737,6 +737,7 @@ class TestTheAnchorIsTheRightStep:
         root = build_workflows(publish=self.TWO_ATTEST_STEPS)
         (finding,) = checker.collect(root)
         source = finding.path.read_text(encoding="utf-8").splitlines()
+        # prose-permeable: asserts the reported line number points at the intended step of this test's own fixture
         assert "Attest WITH pushing" in source[finding.line - 1]
 
     def test_a_reason_on_the_pushing_step_still_exempts_it(self, build_workflows: Callable[..., Path]) -> None:

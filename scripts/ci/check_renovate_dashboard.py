@@ -360,6 +360,7 @@ def manager_inventory(body: str) -> dict[str, list[str]]:
                 inventory.setdefault(current, [])
             elif depth == 1 and current is not None:
                 inventory[current].append(label)
+        # prose-permeable: the subject is the dashboard issue's rendered Markdown body; it has no code half
         depth += line.count("<details>") - line.count("</details>")
         if depth < 0:  # pragma: no cover — malformed HTML from upstream
             raise DashboardError(f"unbalanced <details> nesting in the dashboard near: {line.strip()!r}")
@@ -966,6 +967,7 @@ def unmanaged_image_pins(repo_root: Path) -> list[str]:
                 continue
             if any(start <= match.start() < end for start, end in covered):
                 continue
+            # prose-permeable: newline arithmetic to turn a match offset into a line number, not a claim about content
             found.append(f"{relative}:{text.count(chr(10), 0, match.start()) + 1}")
     return sorted(set(found))
 
