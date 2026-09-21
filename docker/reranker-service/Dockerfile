@@ -59,18 +59,36 @@ RUN uv sync --locked --only-group build
 FROM dl-base AS dl-bge-reranker-v2-m3
 # BAAI/bge-reranker-v2-m3 — multilingual, 568M params, Apache-2.0
 # Export to ONNX via optimum
+# THE TOKENIZER IS SAVED BESIDE THE GRAPH, AND THAT IS THE WHOLE POINT (#1609).
+#
+# `ORTModelForSequenceClassification.save_pretrained()` writes `config.json`,
+# `model.onnx` and `model.onnx_data` — the graph and its config, and nothing
+# else. It does NOT write a tokenizer. `main.py` then calls
+# `AutoTokenizer.from_pretrained()` on that directory, transformers finds no
+# vocabulary, falls back to converting a slow tokenizer whose `vocab_file` is
+# `None`, and dies with `AttributeError: 'NoneType' object has no attribute
+# 'endswith'`. In a DAEMON thread: the process survives, `/health` keeps
+# answering 200, and `/ready` is a permanent 503. The image built green for
+# weeks in exactly that state.
+#
+# Both saves must target the same `/model`, and both must live in this one RUN:
+# the runtime stage copies that directory wholesale.
 RUN python -c "\
 import optimum.onnxruntime; \
+import transformers; \
 model = optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained('BAAI/bge-reranker-v2-m3', export=True); \
-model.save_pretrained('/model')" && \
+model.save_pretrained('/model'); \
+transformers.AutoTokenizer.from_pretrained('BAAI/bge-reranker-v2-m3').save_pretrained('/model')" && \
     rm -rf /root/.cache
 
 FROM dl-base AS dl-ms-marco-minilm
 # cross-encoder/ms-marco-MiniLM-L-12-v2 — English-focused, 33M params, Apache-2.0
 RUN python -c "\
 import optimum.onnxruntime; \
+import transformers; \
 model = optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained('cross-encoder/ms-marco-MiniLM-L-12-v2', export=True); \
-model.save_pretrained('/model')" && \
+model.save_pretrained('/model'); \
+transformers.AutoTokenizer.from_pretrained('cross-encoder/ms-marco-MiniLM-L-12-v2').save_pretrained('/model')" && \
     rm -rf /root/.cache
 
 # ── Runtime base (shared across all final targets) ───────────────────
@@ -95,8 +113,25 @@ COPY main.py .
 RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
     && chown -R 1000:1000 /app
 EXPOSE 8081
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD ["python", "-c", "import socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(s.connect_ex(('127.0.0.1',8081)))"]
+# THE HEALTHCHECK ASSERTS READINESS, NOT A SOCKET (#1609).
+#
+# It used to open a TCP connection to the uvicorn port, which succeeds the
+# instant the server binds — long before, and quite independently of, the model
+# loading. That is how an image that could never serve a request reported
+# healthy for weeks. Docker has no liveness/readiness split: this is the only
+# signal `docker ps`, `docker-compose --wait` and `depends_on:
+# condition: service_healthy` have, so it must assert the thing that
+# distinguishes a usable service from an open port.
+#
+# `--start-period` is generous because the model load is: a failing probe inside
+# it does not count against `--retries`. Kubernetes ignores this instruction
+# entirely and uses the chart's probes (helm/kamerplanter/values-dev-ki.yaml),
+# which already point at this same `/ready`.
+#
+# `urlopen` raises on a 503, so the non-200 case exits non-zero through the
+# exception rather than through the comparison.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
+    CMD ["python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8081/ready', timeout=8).status == 200 else 1)"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
 
 # ── Final images (one per model, select via --target) ────────────────
