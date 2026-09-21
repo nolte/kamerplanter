@@ -189,7 +189,7 @@ class TestTheResetPathIsTheSameSurface:
         account.password_reset_expires = datetime.now(UTC) + timedelta(hours=1)
         service, user_repo = _service(account)
 
-        service._user_repo._db = _db_returning(account)  # type: ignore[attr-defined]
+        user_repo.get_by_password_reset_token.return_value = account
 
         with pytest.raises(ForbiddenError):
             service.reset_password("planted-token", NEW_PASSWORD)
@@ -220,12 +220,3 @@ class TestTheMintingBackstop:
 
         assert pair.access_token
         assert raw_refresh
-
-
-def _db_returning(user: User) -> MagicMock:
-    """A ``_db`` double for ``reset_password``'s hand-written AQL lookup."""
-    db = MagicMock()
-    doc = user.model_dump(by_alias=True)
-    doc["_key"] = user.key
-    db.aql.execute.return_value = iter([doc])
-    return db
