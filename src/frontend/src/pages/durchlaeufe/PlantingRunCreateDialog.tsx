@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -207,7 +208,10 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  // The complete species catalogue through the shared reader (#1560): this site
+  // asked for one page of 200 against 207 seeded species, and the picker filters
+  // client-side, so the seven that never arrived read as "no such species".
+  const speciesCatalogue = useCatalogue('species', { enabled: open });
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [adoptMode, setAdoptMode] = useState(false);
   const [availablePlants, setAvailablePlants] = useState<PlantInstance[]>([]);
@@ -259,7 +263,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       setSelectedPlants(new Set());
       setPlantSearch('');
       setPlantsError(null);
-      speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
       sitesApi.listSites(0, 200).then(setSitesList).catch(() => {});
     }
   }, [open, reset]);
@@ -554,7 +557,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                   index={index}
                   control={control}
                   setValue={setValue}
-                  speciesList={speciesList}
+                  speciesList={speciesCatalogue.items}
                   onRemove={() => remove(index)}
                   canRemove={fields.length > 1}
                 />

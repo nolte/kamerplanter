@@ -95,6 +95,28 @@ RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin
     && chown -R 1000:1000 /app
 USER 1000
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-    CMD ["python", "-c", "import socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(s.connect_ex(('127.0.0.1',8000)))"]
+# THE HEALTHCHECK ASSERTS READINESS, NOT A SOCKET (#1609).
+#
+# It used to open a TCP connection to the uvicorn port, which succeeds the
+# instant the server binds — long before, and quite independently of, the model
+# loading. That is how an image that could never serve a request reported
+# healthy for weeks. Docker has no liveness/readiness split: this is the only
+# signal `docker ps`, `docker-compose --wait` and `depends_on:
+# condition: service_healthy` have, so it must assert the thing that
+# distinguishes a usable service from an open port.
+#
+# `--start-period` is generous because the model load is: a failing probe inside
+# it does not count against `--retries`. Kubernetes ignores this instruction
+# entirely and uses the chart's probes (helm/kamerplanter/values.yaml, the
+# `inference-service` controller), which point at `/ready` for the deployed
+# case, where the database is there.
+#
+# This service is probed on `/health` rather than `/ready`, because its
+# `/ready` also requires the pgvector database and would report the DB's
+# absence as this container's fault. `/health` answers 200 whatever the model
+# did — which is the #1609 lie exactly — so the body is what is asserted:
+# `model_loaded` must be true. The smoke step in docker-lint-build.yml
+# requires the same fact.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
+    CMD ["python", "-c", "import json,sys,urllib.request; sys.exit(0 if json.load(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=8)).get('model_loaded') else 1)"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

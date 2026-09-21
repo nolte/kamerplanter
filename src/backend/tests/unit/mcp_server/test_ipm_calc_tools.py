@@ -121,7 +121,10 @@ class _IpmService:
     def get_treatment(self, key):
         return _Treatment(key, "Neem oil", karenz=3)
 
-    def get_inspections(self, plant_key, offset=0, limit=50):
+    # Mirrors IpmService's keyword-only, default-less ``tenant_key`` (#1619):
+    # a double that accepts an unscoped call certifies a call the real
+    # service would reject.
+    def get_inspections(self, plant_key, offset=0, limit=50, *, tenant_key):
         return self._inspections, len(self._inspections)
 
 

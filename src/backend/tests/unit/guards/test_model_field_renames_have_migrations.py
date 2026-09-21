@@ -369,6 +369,8 @@ class TestTheDerivationItself:
         """
         v0047 = _migration_module("0047")
 
+        # prose-permeable: this IS the falsification test for #1456's class — the naive form must be shown to be
+        # satisfied by the docstring on the next line
         assert "cec_meq_per_100g" in v0047.read_text(encoding="utf-8"), "precondition: v0047 mentions the old key"
         assert "cec_meq_per_100g" not in _code_identifiers(v0047)
 

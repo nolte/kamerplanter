@@ -27,8 +27,10 @@ vi.mock('@/api/endpoints/nutrient-plans', () => ({
   deleteNutrientPlan: vi.fn(),
   updateNutrientPlan: vi.fn(),
 }));
+// The hook reads the complete catalogue (#1560), so the double must carry it.
 vi.mock('@/api/endpoints/fertilizers', () => ({
   fetchFertilizers: vi.fn(),
+  fetchAllFertilizers: vi.fn(),
 }));
 
 import * as planApi from '@/api/endpoints/nutrient-plans';
@@ -143,7 +145,11 @@ describe('useNutrientPlanData', () => {
     expect(result.current.plan?.name).toBe('Veg Plan');
     expect(result.current.error).toBeNull();
     expect(planApi.fetchNutrientPlan).toHaveBeenCalledWith('np-1');
-    expect(fertApi.fetchFertilizers).toHaveBeenCalledWith(0, 200);
+    // Was `fetchFertilizers(0, 200)` — one explicit page. That assertion pinned
+    // the defect: the dosage table resolves fertilizer keys client-side, so a
+    // product past the page renders as an unresolved key (#1560).
+    expect(fertApi.fetchAllFertilizers).toHaveBeenCalled();
+    expect(fertApi.fetchFertilizers).not.toHaveBeenCalled();
   });
 
   it('captures a load error', async () => {

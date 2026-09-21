@@ -338,7 +338,9 @@ class GetPlantDiagnostics(ToolBase):
 
     @staticmethod
     def _inspections(ctx: ToolContext, plant_key: str, cutoff: datetime) -> list[dict[str, Any]]:
-        inspections, _total = ctx.ipm_service.get_inspections(plant_key, offset=0, limit=_MAX_ITEMS)
+        inspections, _total = ctx.ipm_service.get_inspections(
+            plant_key, offset=0, limit=_MAX_ITEMS, tenant_key=ctx.tenant_key
+        )
         return [
             {
                 "inspected_at": _iso(i.inspected_at),
@@ -372,7 +374,7 @@ class GetPlantDiagnostics(ToolBase):
         into a function of how the caller happened to size ``window_days``.
         """
 
-        can_harvest, blockers = ctx.ipm_service.check_harvest_safety(plant_key)
+        can_harvest, blockers = ctx.ipm_service.check_harvest_safety(plant_key, tenant_key=ctx.tenant_key)
         return {
             "harvest_allowed": bool(can_harvest),
             "active_periods": [

@@ -1040,6 +1040,8 @@ class PlantingRunService:
         plant_key: PlantID,
         reason: str,
         category: str = "other",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Detach a plant from the run, making it standalone.
 
@@ -1058,12 +1060,22 @@ class PlantingRunService:
         only populated when the run already has a CareProfile attached
         via the standalone-plant code path.
         """
-        run = self.get_run(run_key)
+        run = self.get_run(run_key, tenant_key=tenant_key)
         self._repo.detach_plant(run_key, plant_key, reason)
 
-        # Copy run's current phase to the standalone plant
+        # Copy run's current phase to the standalone plant.
+        #
+        # #1619 — ``plant_key`` is a second caller-supplied key and the edge
+        # update above silently no-ops for a plant that is not in the run, so
+        # until this guard a grower could name a FOREIGN plant, reach this
+        # branch and overwrite its ``current_phase_key`` /
+        # ``current_phase_started_at`` and append a ``PhaseHistory`` row to it.
+        # Verifying the run was never enough: the write below is aimed at the
+        # plant, so the predicate belongs on the plant.
         copied_phase = None
         plant = self._plant_repo.get_by_key(plant_key)
+        if plant is not None:
+            verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         if plant and run.current_phase_key:
             plant.current_phase_key = run.current_phase_key
             plant.current_phase_started_at = run.current_phase_started_at

@@ -33,10 +33,12 @@ guard enumerates rather than counts, so an eighteenth hook is covered without
 anybody editing a sentence.
 
 **Why it enumerates instead of listing.** #1572's own text names ONE entry, the
-``e2e-selftest`` hook. Measured against the file, there are **seventeen**
-(``ruff`` 4×, ``PyYAML`` 8×, ``mypy`` 4×, plus ``selenium``/``pytest`` and
-``jsonschema``/``referencing``), which is the "the issue's site list is too
-short until you measure it as a class" shape. A guard bound to the one hook the
+``e2e-selftest`` hook. Measured against the file at that time, there were
+**seventeen** (``ruff`` 4×, ``PyYAML`` 8×, ``mypy`` 4×, plus
+``selenium``/``pytest`` and ``jsonschema``/``referencing``), which is the "the
+issue's site list is too short until you measure it as a class" shape. #1607
+added the eighteenth without anybody editing that sentence — which is the
+enumeration working, and the reason the count is dated rather than asserted. A guard bound to the one hook the
 issue named would be exactly the opt-in list this repository keeps rediscovering
 as a defect class (#1402, #1406, ``backend-guards.yml``'s directory-not-list
 argument). So the entries are read out of the YAML: a hook added tomorrow with a
@@ -86,6 +88,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 from tests.support.repo_scripts import find_repo_root
+from tests.support.version_bounds import missing_bound
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -123,8 +126,8 @@ class Binding:
 
 
 #: One binding per ``additional_dependencies`` requirement in the file —
-#: seventeen hooks / twenty strings when this was written, and the enumeration
-#: above is what keeps that true rather than this comment. Each was decided
+#: seventeen hooks / twenty strings at #1572, eighteen / twenty-one since #1607,
+#: and the enumeration above is what keeps that true rather than this comment. Each was decided
 #: individually (#1572). Per package:
 #:
 #: * ``ruff`` — floor 0.15.0 kept (the hooks need a ruff that understands the
@@ -137,7 +140,8 @@ class Binding:
 #:   to the backend, because that is where each one's mypy configuration and dev
 #:   extra live. Ceiling ``<3.0.0`` from the backend's declaration; mypy majors
 #:   change defaults;
-#: * ``PyYAML`` — eight hooks, all repo-local scripts under ``scripts/`` that have
+#: * ``PyYAML`` — nine hooks (eight at #1572, plus ``workflow-documented-invocation``
+#:   from #1607), all repo-local scripts under ``scripts/`` that have
 #:   no pyproject of their own. The backend is the ONLY tree in this repository
 #:   that declares pyyaml, so it is the one source there is; ``<7.0.0`` is its
 #:   bound, carried over unchanged;
@@ -207,6 +211,18 @@ _BINDINGS: tuple[Binding, ...] = (
         requirement="PyYAML>=6.0,<7.0.0",
         declared_in=_BACKEND,
         why="scripts/check_workflow_gate_integrity.py parses workflow YAML; no tree of its own",
+    ),
+    Binding(
+        hook="workflow-documented-invocation",
+        requirement="PyYAML>=6.0,<7.0.0",
+        declared_in=_BACKEND,
+        why=(
+            "scripts/check_workflow_documented_invocation.py parses workflow YAML to "
+            "read `on.workflow_dispatch.inputs`; like its sibling above it has no tree "
+            "of its own, and the backend is the only tree here that declares pyyaml "
+            "WITH a ceiling — the knowledge-service declares `pyyaml>=6.0` open-ended, "
+            "so it could not bound anything"
+        ),
     ),
     Binding(
         hook="attest-registry-credentials",
@@ -345,21 +361,18 @@ def stale_bindings(entries: tuple[Entry, ...], bindings: tuple[Binding, ...] = _
     return [f"{b.hook}: {b.requirement}" for b in bindings if (b.hook, b.requirement) not in present]
 
 
-def _bounds(specifier: SpecifierSet) -> tuple[bool, bool]:
-    """``(has_floor, has_ceiling)`` for a specifier set."""
-    has_floor = any(s.operator in (">=", ">", "==", "===", "~=") for s in specifier)
-    has_ceiling = any(s.operator in ("<=", "<", "==", "===", "~=") for s in specifier)
-    return has_floor, has_ceiling
-
-
 def unbounded_requirements(entries: tuple[Entry, ...]) -> list[str]:
-    """Entries missing a floor or a ceiling."""
+    """Entries missing a floor or a ceiling.
+
+    The reading of "bounded" lives in ``tests.support.version_bounds`` and is
+    shared with the other two guards of the same §2.1 duty (#1602 review): a
+    rule written three times is a rule with three futures.
+    """
     offenders: list[str] = []
     for entry in entries:
-        has_floor, has_ceiling = _bounds(Requirement(entry.requirement).specifier)
-        if not (has_floor and has_ceiling):
-            missing = "floor" if not has_floor else "ceiling"
-            offenders.append(f"{entry} (no {missing})")
+        missing = missing_bound(Requirement(entry.requirement).specifier)
+        if missing is not None:
+            offenders.append(f"{entry} ({missing})")
     return offenders
 
 

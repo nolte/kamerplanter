@@ -60,7 +60,9 @@ export default function NutrientPlanAssignDialog({
     const loadData = async () => {
       setLoading(true);
       try {
-        const planList = await planApi.fetchNutrientPlans(0, 200);
+        // The complete catalogue (#1560); one leg of an imperative sequence whose
+      // surrounding loading and error state already covers it.
+      const planList = await planApi.fetchAllNutrientPlans();
         if (cancelled) return;
         setPlans(planList);
       } catch {

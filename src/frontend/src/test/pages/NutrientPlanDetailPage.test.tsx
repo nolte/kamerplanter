@@ -28,8 +28,13 @@ vi.mock('@/api/endpoints/nutrient-plans', () => ({
 }));
 
 const fetchFertilizers = vi.fn();
+// The page reads the *complete* catalogue (#1560). A double that only carries
+// the capped reader certifies nothing about the page under test — it fails
+// loudly here, which is the good direction, but the same shape silently passing
+// is the "double invents an impossible module" class.
 vi.mock('@/api/endpoints/fertilizers', () => ({
   fetchFertilizers: (...args: unknown[]) => fetchFertilizers(...args),
+  fetchAllFertilizers: (...args: unknown[]) => fetchFertilizers(...args),
 }));
 
 const downloadNutrientPlanPdf = vi.fn();

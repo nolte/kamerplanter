@@ -150,7 +150,7 @@ class HarvestService:
         harvest_date = ensure_aware_utc(batch.harvest_date) or now_utc()
 
         # KARENZ-GATE: check safety intervals
-        can_harvest, blocking = self._ipm.check_harvest_safety(plant_key, harvest_date)
+        can_harvest, blocking = self._ipm.check_harvest_safety(plant_key, harvest_date, tenant_key=batch.tenant_key)
         if not can_harvest:
             first_blocker = blocking[0]
             raise KarenzViolationError(

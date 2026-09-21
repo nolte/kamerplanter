@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -23,8 +23,7 @@ import HelpTooltip from '@/components/common/HelpTooltip';
 import { useApiError } from '@/hooks/useApiError';
 import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
 import * as api from '@/api/endpoints/propagation';
-import * as speciesApi from '@/api/endpoints/species';
-import type { PropagationEventMethod, Species } from '@/api/types';
+import type { PropagationEventMethod } from '@/api/types';
 
 const methods: PropagationEventMethod[] = [
   'seed',
@@ -69,8 +68,10 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { handleError } = useApiError();
 
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
-  const [speciesLoading, setSpeciesLoading] = useState(false);
+  // The complete species catalogue through the shared reader (#1560): this site
+  // asked for one page of 200 against 207 seeded species, and the picker filters
+  // client-side, so the seven that never arrived read as "no such species".
+  const speciesCatalogue = useCatalogue('species', { enabled: open });
   const { instances: plantInstances, loading: plantsLoading } = usePlantInstanceOptions(open);
 
   const defaults: FormData = {
@@ -93,31 +94,6 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
   const isGraft = method === 'graft';
   const isCutting = method === 'cutting';
 
-  // Species options are fetched once per dialog opening — small, global reference
-  // data that changes rarely, so a single page is a pragmatic MVP fetch (mirrors
-  // PlantInstanceCreateDialog's pattern). The async loader is declared *inside*
-  // the effect body (mirroring `useAquaponicSystems`), so `setState` is never
-  // called synchronously at the top level of the effect callback — this keeps
-  // `react-hooks/set-state-in-effect` clean without adding an eslint-disable.
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    const load = async () => {
-      setSpeciesLoading(true);
-      try {
-        const r = await speciesApi.listSpecies(0, 200);
-        if (!cancelled) setSpeciesList(r.items);
-      } catch {
-        if (!cancelled) setSpeciesList([]);
-      } finally {
-        if (!cancelled) setSpeciesLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -186,10 +162,10 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
             name="species_key"
             control={control}
             label={t('pages.propagation.fields.speciesKey')}
-            species={speciesList}
-            disabled={speciesLoading}
+            species={speciesCatalogue.items}
+            disabled={speciesCatalogue.status !== 'ready'}
             helperText={
-              speciesLoading
+              speciesCatalogue.status === 'loading'
                 ? t('pages.propagation.fields.speciesLoading')
                 : t('pages.propagation.fields.speciesKeyHelper')
             }
