@@ -34,11 +34,15 @@ on:
       - ".github/workflows/e2e-smoke.yml"
   workflow_dispatch:
 
+# WORKFLOW-LEVEL FLOOR IS READ-ONLY, AND THE WRITE IS DECLARED WHERE IT IS
+# USED (#1614). `checks: write` used to sit here, which handed it to BOTH jobs
+# — including `changes`, which only runs a paths filter and writes nothing.
+# Every job below checks out pull-request code, so an inherited write scope is
+# a write scope sharing a runner with untrusted code for no reason anyone
+# wrote down. `scripts/check_untrusted_checkout_permissions.py` enumerates the
+# class.
 permissions:
   contents: read
-  # dorny/test-reporter publishes the parsed JUnit XML as a check run.
-  # No `pull-requests: write` is needed — the action does not post PR comments.
-  checks: write
 
 concurrency:
   group: e2e-smoke-${{ github.ref }}
@@ -65,6 +69,9 @@ jobs:
     name: Detect runtime-relevant changes
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # Reads a diff, writes nothing.
+    permissions:
+      contents: read
     outputs:
       runtime: ${{ steps.filter.outputs.runtime }}
       e2e_infra: ${{ steps.filter.outputs.e2e_infra }}
@@ -147,6 +154,16 @@ jobs:
           || needs.changes.outputs.runtime == 'true'
           || needs.changes.outputs.e2e_infra == 'true')
     runs-on: ubuntu-latest
+    # dorny/test-reporter publishes the parsed JUnit XML as a check run.
+    # No `pull-requests: write` is needed — the action does not post PR
+    # comments. This job DOES check out pull-request code, so it is the one
+    # remaining member of the #1614 class; it is carried as a named exception
+    # in `scripts/check_untrusted_checkout_permissions.py`; #1644 carries the
+    # split, which is an artefact-routing change to this lane, not a permission
+    # move.
+    permissions:
+      contents: read
+      checks: write
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
