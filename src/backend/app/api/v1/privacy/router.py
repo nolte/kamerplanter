@@ -61,6 +61,7 @@ def _to_export_response(export: DataExportRequest) -> DataExportResponse:
         expires_at=export.expires_at,
         file_size_bytes=export.file_size_bytes,
         download_count=export.download_count,
+        error_message=export.error_message,
     )
 
 
