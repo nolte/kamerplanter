@@ -436,6 +436,32 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── A gate may not decide about code by matching raw source text ───────
+  # #1456. A gate that searches a file's text for a name answers about whichever
+  # half it hits first, and both halves are wrong in a different direction: a
+  # comment head naming a loader SATISFIES a presence test (#1610 in
+  # fertilizersSlice.ts and activitiesSlice.ts, #1624 in the catalogue registry),
+  # and a docstring explaining a field FALSIFIES an absence test. Four such sites
+  # were repaired by hand in one week, which is the #948 bet — two of four routes
+  # fixed, the rest open for months. This enumerates the class instead: every
+  # membership, regex and occurrence test in every gate file, found through the
+  # parse tree, where comments are not nodes and therefore cannot answer.
+  #
+  # Measured on the tree: 99 gate files, 36 in-class sites, all of them carrying
+  # a `# prose-permeable:` reason (a waiver annotates a site the parser already
+  # found — it cannot create one, and one that excuses nothing is red).
+  #
+  # stdlib only, no application import; always_run because DELETING a reduction
+  # moves the answer exactly as much as adding a raw match.
+  - repo: local
+    hooks:
+      - id: gate-text-assertions
+        name: no gate decides about code by matching raw source text (#1456)
+        entry: python3 scripts/check_gate_text_assertions.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── API → data-access layer boundary (P1.3) ────────────────────────────
   # Refuses a NEW `app.data_access` import under src/backend/app/api. NFR-001's
   # layer order says a router reaches persistence through a service; when it

@@ -69,8 +69,10 @@ the tree instead:
   literals (``load_yaml("x.yaml")`` and ``YAML_FILES = [...]`` alike), treated as
   ``fnmatch`` patterns so ``seed_steckbrief_consistency.py``'s
   ``glob("plant_info*.yaml")`` resolves too;
-* the **complete-loader contract** by checking the frontend module for the loader
-  symbol.
+* the **complete-loader contract** by checking whether the frontend module
+  **calls** the loader. Not by searching its text for the name: ``fertilizersSlice.ts``
+  and ``activitiesSlice.ts`` each name their loader in a comment head, so a
+  substring test stayed green with the real call deleted (#1610, #1624).
 
 What *is* declared is structure, not quantity: which seed keys belong to which
 catalogue, which field identifies a row, and which frontend module owns the load.
@@ -119,6 +121,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from source_text import (  # noqa: E402 — after the sys.path bootstrap above
+    executable_source,
+    is_called,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -223,7 +232,7 @@ class Catalogue:
         Frontend module, relative to ``src/frontend/src``, that loads the
         catalogue for its list view.
     loader:
-        Symbol the owner must reference for the ``complete`` contract. ``None``
+        Symbol the owner must **call** for the ``complete`` contract. ``None``
         means the owner fetches a bounded page and ``page_size`` applies.
     page_size:
         The bound, when ``loader`` is ``None``. Rows beyond it are unreachable.
@@ -475,17 +484,6 @@ _DYNAMIC_IMPORT = re.compile(
 )
 
 
-def _strip_comments(source: str) -> str:
-    """Blank out comments, preserving line numbering.
-
-    Without this the check reads prose about a capped reader as a call to one.
-    ``fertilizersSlice.ts`` carries exactly that: a comment naming
-    ``api.fetchFertilizers()`` as the thing callers should *not* reach for.
-    """
-    source = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), source, flags=re.S)
-    return re.sub(r"^(\s*)//.*$", r"\1", source, flags=re.M)
-
-
 def _is_test_module(relative: Path) -> bool:
     """Whether a module is test code rather than product code."""
     return ".test." in relative.name or ".spec." in relative.name or "test" in relative.parts
@@ -559,7 +557,7 @@ def unregistered_catalogue_modules(
         if _is_test_module(path.relative_to(frontend_src)):
             continue
         try:
-            source = _strip_comments(path.read_text(encoding="utf-8"))
+            source = executable_source(path.read_text(encoding="utf-8"), language="typescript")
         except OSError as exc:
             raise SeedCatalogueError(f"cannot read {path}: {exc}") from exc
         loaders = _COMPLETE_LOADER.findall(source)
@@ -639,7 +637,7 @@ def find_capped_readers(frontend_src: Path, catalogue: Catalogue) -> list[tuple[
         if PurePosixPath(relative).with_suffix("").as_posix().endswith(module_fragment):
             continue
         try:
-            source = _strip_comments(path.read_text(encoding="utf-8"))
+            source = executable_source(path.read_text(encoding="utf-8"), language="typescript")
         except OSError as exc:
             raise SeedCatalogueError(f"cannot read {path}: {exc}") from exc
         if capped not in source:
@@ -788,11 +786,12 @@ def measure(
             # Measured before repairing: replacing `api.listAllActivities(arg)`
             # with a hand-rolled `fetch('/api/v1/activities?limit=50')` and
             # leaving the comment head alone returned exit 0. That is the vacuum
-            # class from PR #1545 — a check whose positive is satisfied by prose
-            # about the thing rather than by the thing.
-            owner_code = _strip_comments(owner.read_text(encoding="utf-8"))
-            result.missing_loader = not re.search(
-                rf"\b{re.escape(catalogue.loader)}\s*\(", owner_code
+            # class from PR #1545.
+            #
+            # #1456 reached the same line independently and shipped the shared
+            # reducer this now uses. Same predicate, one implementation.
+            result.missing_loader = not is_called(
+                catalogue.loader, owner.read_text(encoding="utf-8"), language="typescript"
             )
 
         # The half the owner contract could not see (#1560). Binding one owning
@@ -850,7 +849,7 @@ def report(
     for result in results:
         catalogue = result.catalogue
         if result.missing_loader:
-            verdict = f"FAIL — {catalogue.owner} does not use {catalogue.loader}()"
+            verdict = f"FAIL — {catalogue.owner} does not call {catalogue.loader}()"
         elif result.capped_readers:
             verdict = (
                 f"FAIL — {len(result.capped_readers)} module(s) read the capped "
