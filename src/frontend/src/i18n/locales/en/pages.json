@@ -1408,7 +1408,10 @@
           "actionError": "Action failed. Please try again.",
           "lowCoverageWarning": "Only {{count}} active reference images left (minimum {{min}}). Below this threshold the species may no longer be recognizable."
         }
-      }
+      },
+      "familyLoading": "Loading botanical families …",
+      "familyCatalogueEmpty": "No botanical family exists yet. You can save the species without one and assign it later.",
+      "familyCatalogueEmptyCta": "Manage botanical families"
     },
     "cultivars": {
       "title": "Cultivars",
@@ -3331,7 +3334,10 @@
       },
       "instantiateError": "Workflow instantiation failed for all plants.",
       "instantiatePartial": "{{success}} succeeded, {{failed}} failed.",
-      "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue."
+      "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue.",
+      "activityCatalogueEmpty": "The activity catalogue is empty. Create an activity first.",
+      "activityCatalogueEmptyCta": "Manage activities",
+      "activityCatalogueLoading": "Loading activities …"
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",

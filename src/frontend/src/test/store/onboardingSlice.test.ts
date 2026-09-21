@@ -249,11 +249,19 @@ describe('onboardingSlice thunks', () => {
     expect(store.getState().onboarding.matchingNutrientPlans).toEqual([{ key: 'np1' }]);
   });
 
-  it('fetchAllSpecies extracts the items from the paged response', async () => {
-    vi.mocked(speciesApi.listSpecies).mockResolvedValue({ items: [{ key: 'sp1' }], total: 1 } as never);
+  it('fetchAllSpecies reads the complete catalogue, not one explicit page', async () => {
+    // Was `expect(listSpecies).toHaveBeenCalledWith(0, 500)`. That pinned the
+    // defect: `listSpecies(0, 500)` is one page, legal only because the species
+    // route caps at `le=1000` rather than the shared `le=200`, and the onboarding
+    // wizard offers the catalogue as a whole (#1560).
+    vi.mocked(speciesApi.listAllSpecies).mockResolvedValue({
+      items: [{ key: 'sp1' }],
+      total: 1,
+    } as never);
     const store = makeOnboardingStore();
     await store.dispatch(fetchAllSpecies());
-    expect(speciesApi.listSpecies).toHaveBeenCalledWith(0, 500);
+    expect(speciesApi.listAllSpecies).toHaveBeenCalled();
+    expect(speciesApi.listSpecies).not.toHaveBeenCalled();
     expect(store.getState().onboarding.allSpecies).toEqual([{ key: 'sp1' }]);
   });
 

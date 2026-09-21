@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -29,7 +30,6 @@ import * as sitesApi from '@/api/endpoints/sites';
 import type {
   Cultivar,
   Site,
-  Species,
   SuccessionPlan,
 } from '@/api/types';
 
@@ -96,7 +96,10 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  // The complete species catalogue through the shared reader (#1560): this site
+  // asked for one page of 200 against 207 seeded species, and the picker filters
+  // client-side, so the seven that never arrived read as "no such species".
+  const speciesCatalogue = useCatalogue('species', { enabled: open });
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
 
@@ -131,10 +134,6 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
     if (open) {
       skipLocationReset.current = true;
       reset(defaultsFor(plan));
-      speciesApi
-        .listSpecies(0, 200)
-        .then((r) => setSpeciesList(r.items))
-        .catch(() => {});
       sitesApi
         .listSites(0, 200)
         .then(setSitesList)
@@ -255,7 +254,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             name="species_key"
             control={control}
             label={t('entities.species')}
-            species={speciesList}
+            species={speciesCatalogue.items}
             required
             disabled={isEdit}
             helperText={

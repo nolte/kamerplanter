@@ -1408,7 +1408,10 @@
           "actionError": "Aktion fehlgeschlagen. Bitte erneut versuchen.",
           "lowCoverageWarning": "Nur noch {{count}} aktive Referenzbilder (Minimum {{min}}). Unterhalb dieser Schwelle ist die Art möglicherweise nicht mehr erkennbar."
         }
-      }
+      },
+      "familyLoading": "Botanische Familien werden geladen …",
+      "familyCatalogueEmpty": "Es ist noch keine Botanische Familie angelegt. Du kannst die Art ohne Familie speichern und sie später zuordnen.",
+      "familyCatalogueEmptyCta": "Botanische Familien verwalten"
     },
     "cultivars": {
       "title": "Sorten",
@@ -3331,7 +3334,10 @@
       },
       "instantiateError": "Workflow-Instanziierung für alle Pflanzen fehlgeschlagen.",
       "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen.",
-      "cannotDeleteReopened": "Diese Aufgabe war abgeschlossen und wurde wiedereröffnet. Sie trägt die Fotos und den Nachweis dieses Abschlusses und lässt sich deshalb nicht löschen — überspringe sie, um sie aus der Liste zu nehmen."
+      "cannotDeleteReopened": "Diese Aufgabe war abgeschlossen und wurde wiedereröffnet. Sie trägt die Fotos und den Nachweis dieses Abschlusses und lässt sich deshalb nicht löschen — überspringe sie, um sie aus der Liste zu nehmen.",
+      "activityCatalogueEmpty": "Der Tätigkeitskatalog ist leer. Lege zuerst eine Tätigkeit an.",
+      "activityCatalogueEmptyCta": "Tätigkeiten verwalten",
+      "activityCatalogueLoading": "Tätigkeiten werden geladen …"
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -26,9 +27,8 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import * as api from '@/api/endpoints/species';
 import * as companionApi from '@/api/endpoints/companionPlanting';
-import type { CompatibleSpecies, IncompatibleSpecies, Species } from '@/api/types';
+import type { CompatibleSpecies, IncompatibleSpecies } from '@/api/types';
 import { getPrimaryCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
@@ -52,7 +52,10 @@ export default function SpeciesCompanionTab({
   const notification = useNotification();
   const { handleError } = useApiError();
 
-  const [companionSpeciesList, setCompanionSpeciesList] = useState<Species[]>([]);
+  // The complete species catalogue through the shared reader (#1560): this site
+  // asked for one page of 200 against 207 seeded species, and every filter here
+  // runs client-side, so the seven that never arrived read as "no such species".
+  const speciesCatalogue = useCatalogue('species');
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
   const [incompatible, setIncompatible] = useState<IncompatibleSpecies[]>([]);
   const [companionLoading, setCompanionLoading] = useState(false);
@@ -66,10 +69,6 @@ export default function SpeciesCompanionTab({
   useEffect(() => {
     if (speciesKey) {
       setCompanionLoading(true);
-      api
-        .listSpecies(0, 200)
-        .then((r) => setCompanionSpeciesList(r.items))
-        .catch(() => {});
       Promise.all([
         companionApi.getCompatibleSpecies(speciesKey),
         companionApi.getIncompatibleSpecies(speciesKey),
@@ -331,7 +330,7 @@ export default function SpeciesCompanionTab({
             sx={{ mt: 1, mb: 2 }}
             data-testid="target-species-select"
           >
-            {companionSpeciesList
+            {speciesCatalogue.items
               .filter((s) => s.key !== speciesKey)
               .map((s) => (
                 <MenuItem key={s.key} value={s.key}>

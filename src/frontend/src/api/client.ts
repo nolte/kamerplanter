@@ -2,6 +2,7 @@ import axios, { AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import { ApiError } from './errors';
 import type { ApiErrorResponse } from './types';
 import { isLightMode } from '@/config/mode';
+import { invalidateAllCatalogues } from './catalogueRevision';
 
 const LIGHT_MODE_SLUG = 'mein-garten';
 
@@ -42,6 +43,15 @@ export const ACTIVE_TENANT_DENIED_MESSAGE = 'You do not have access to the reque
 let _activeTenantSlug: string | null = null;
 
 export function setActiveTenantSlug(slug: string | null) {
+  // A tenant change invalidates every cached catalogue: they are a global/tenant
+  // union (#324), so rows fetched under the previous tenant are not this one's.
+  // Hung here rather than on any caller because this is the single choke point
+  // every change passes through — `tenantSlice` sets it on restore, on clear and
+  // on the stale-slug re-pick, and the rejection path clears it. Only an actual
+  // change bumps, so repeated sets of the same slug cost nothing.
+  if (_activeTenantSlug !== slug) {
+    invalidateAllCatalogues();
+  }
   _activeTenantSlug = slug;
 }
 

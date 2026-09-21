@@ -322,12 +322,19 @@ describe('WorkflowDetailPage — the activity picker offers the whole catalogue 
       { timeout: WAIT_BUDGET },
     );
     expect(within(dialog).queryByTestId('activity-row-act-0')).toBeNull();
-    // The toast the 500 produces, asserted by its text: notistack renders the
-    // message, and a role-based assertion would pass on any alert the page
-    // happens to carry.
+    // This used to assert the `errors.server` toast, because a toast was the
+    // only thing distinguishing a failed load from an empty catalogue — and it
+    // dismisses itself, after which the dialog claimed the catalogue was empty.
+    // #1568 moved the distinction into the list, where it persists: the failure
+    // now has its own region and its own retry. The toast is gone on purpose,
+    // so asserting it here would pin the defect rather than the repair.
+    // `WorkflowDetailPageCatalogueState.test.tsx` owns the three-state contract;
+    // what this case still guards is the reach half — a rejection anywhere in
+    // the paging sequence must not present the pages that did arrive as the
+    // catalogue.
     await waitFor(
       () => {
-        expect(screen.getAllByText(i18n.t('errors.server')).length).toBeGreaterThan(0);
+        expect(within(dialog).getByTestId('activity-catalogue-error')).toBeTruthy();
       },
       { timeout: WAIT_BUDGET },
     );

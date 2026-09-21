@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -32,7 +33,6 @@ import EmptyState from '@/components/common/EmptyState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as companionApi from '@/api/endpoints/companionPlanting';
-import * as speciesApi from '@/api/endpoints/species';
 import type {
   Species,
   CompatibleSpecies,
@@ -75,7 +75,10 @@ export default function CompanionPlantingPage() {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  // The complete species catalogue through the shared reader (#1560): this site
+  // asked for one page of 200 against 207 seeded species, and every filter here
+  // runs client-side, so the seven that never arrived read as "no such species".
+  const speciesCatalogue = useCatalogue('species');
   const [companionCounts, setCompanionCounts] = useState<CompanionCountsMap>({});
   const [selectedKey, setSelectedKey] = useState('');
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
@@ -102,24 +105,25 @@ export default function CompanionPlantingPage() {
   const [reason, setReason] = useState('');
 
   const relationsPending = selectedKey !== '' && selectedKey !== loadedKey;
-  const loading = catalogLoading || relationsLoading || relationsPending;
+  // Two different questions, deliberately not one flag (#1560). The dropdown
+  // asks "are the *species* here yet" — answering it with the relations' state
+  // would show "loading" over a list that is already complete, for a request
+  // about the species the user just picked from it.
+  const catalogueLoading = catalogLoading || speciesCatalogue.status === 'loading';
+  const loading = catalogueLoading || relationsLoading || relationsPending;
 
   useEffect(() => {
     let cancelled = false;
     // Whole-catalogue companion counts in one aggregate request (no N+1) so the
-    // dropdown can badge every option before the user selects anything. Both
-    // requests sit under `catalogLoading` because both feed what this page
-    // renders.
-    Promise.all([
-      speciesApi
-        .listSpecies(0, 200)
-        .then((r) => { if (!cancelled) setSpeciesList(r.items); })
-        .catch(() => {}),
-      companionApi
-        .getCompanionCounts()
-        .then((c) => { if (!cancelled) setCompanionCounts(c); })
-        .catch(() => {}),
-    ]).finally(() => { if (!cancelled) setCatalogLoading(false); });
+    // dropdown can badge every option before the user selects anything. The
+    // species catalogue itself is no longer fetched here — it comes from the
+    // shared reader, whose own status is folded into `loading` below, so the
+    // dropdown still stays in its loading state for the whole sequence.
+    companionApi
+      .getCompanionCounts()
+      .then((c) => { if (!cancelled) setCompanionCounts(c); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setCatalogLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
@@ -127,8 +131,8 @@ export default function CompanionPlantingPage() {
   // Autocomplete option renderer and the selected value derive from the same
   // reference (custom-object convention, FRONTEND.md).
   const selectedSpecies = useMemo(
-    () => speciesList.find((s) => s.key === selectedKey) ?? null,
-    [speciesList, selectedKey],
+    () => speciesCatalogue.items.find((s) => s.key === selectedKey) ?? null,
+    [speciesCatalogue.items, selectedKey],
   );
 
   const loadRelations = async (key: string) => {
@@ -182,17 +186,19 @@ export default function CompanionPlantingPage() {
 
       <Autocomplete
         fullWidth
-        options={speciesList}
+        options={speciesCatalogue.items}
         value={selectedSpecies}
         onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
         getOptionLabel={speciesOptionLabel}
         isOptionEqualToValue={(option, value) => option.key === value.key}
-        loading={catalogLoading}
+        loading={catalogueLoading}
         // "Keine Art gefunden" is a false statement while the catalogue request
         // is still in flight — and indistinguishable, to a user and to a test,
         // from a genuinely empty catalogue.
         noOptionsText={
-          catalogLoading ? t('common.loading') : t('pages.companionPlanting.noSpeciesFound')
+          catalogueLoading
+            ? t('common.loading')
+            : t('pages.companionPlanting.noSpeciesFound')
         }
         sx={{ maxWidth: 480, mb: 1 }}
         renderOption={({ key: optionKey, ...optionProps }, option) => {
@@ -516,7 +522,7 @@ export default function CompanionPlantingPage() {
             sx={{ mt: 1, mb: 2 }}
             data-testid="target-species-select"
           >
-            {speciesList.filter((s) => s.key !== selectedKey).map((s) => (
+            {speciesCatalogue.items.filter((s) => s.key !== selectedKey).map((s) => (
               <MenuItem key={s.key} value={s.key}>{speciesOptionLabel(s)}</MenuItem>
             ))}
           </TextField>

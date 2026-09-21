@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -23,13 +24,11 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
 import * as api from '@/api/endpoints/propagation';
-import * as speciesApi from '@/api/endpoints/species';
 import type {
   DescendantsResponse,
   GraftCompatibilityLevel,
   GraftCompatibilityResponse,
   LineageResponse,
-  Species,
 } from '@/api/types';
 
 const levelColor: Record<GraftCompatibilityLevel, ChipProps['color']> = {
@@ -56,31 +55,20 @@ export default function LineagePanel(): ReactElement {
 
   // Species reference data resolves raw `*_species_key` values (e.g. in the
   // graft result) to human-readable names so no raw key ever reaches the user.
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const r = await speciesApi.listSpecies(0, 200);
-        if (!cancelled) setSpeciesList(r.items);
-      } catch {
-        if (!cancelled) setSpeciesList([]);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // The complete species catalogue through the shared reader (#1560). This site
+  // asked for one page of 200 against 207 seeded species, so seven of them were
+  // absent — and because the lookup below is client-side, absent reads as
+  // "unknown species", not as "still loading".
+  const speciesCatalogue = useCatalogue('species');
 
   const speciesNameByKey = useMemo(() => {
     const map = new Map<string, string>();
-    for (const s of speciesList) {
+    for (const s of speciesCatalogue.items) {
       const common = s.common_names?.[0];
       map.set(s.key, common ? `${common} (${s.scientific_name})` : s.scientific_name);
     }
     return map;
-  }, [speciesList]);
+  }, [speciesCatalogue.items]);
 
   const resolveSpeciesName = useCallback(
     (key: string | null | undefined): string =>

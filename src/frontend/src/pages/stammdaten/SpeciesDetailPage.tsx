@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -47,10 +48,7 @@ import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSpecies, clearCurrent } from '@/store/slices/speciesSlice';
 import * as api from '@/api/endpoints/species';
-import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
-import * as planApi from '@/api/endpoints/nutrient-plans';
-import type { BotanicalFamily, NutrientPlan } from '@/api/types';
 
 export default function SpeciesDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -106,8 +104,13 @@ export default function SpeciesDetailPage() {
   const companionIdx = slugIndex('companion-planting');
   const cropRotationIdx = slugIndex('crop-rotation');
   const editIdx = slugIndex('edit');
-  const [families, setFamilies] = useState<BotanicalFamily[]>([]);
-  const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
+  // Both catalogues through the shared reader (#1560). Neither was in the issue's
+  // list — they were found by re-measuring the class rather than by reading it —
+  // and both were the same spelling: one explicit page of 200, against 57
+  // families and 38 plans. Correct today, unreachable at the size species
+  // already reached.
+  const familyCatalogue = useCatalogue('botanicalFamilies');
+  const nutrientPlanCatalogue = useCatalogue('nutrientPlans');
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
   const { toggleFavorite, isFavorite } = useSowingFavorites();
   const speciesOrigin = resolveOrigin(current);
@@ -133,14 +136,6 @@ export default function SpeciesDetailPage() {
         .then((seq) => setPhaseSequenceKey(seq?.key ?? null))
         .catch(() => setPhaseSequenceKey(null));
     }
-    familiesApi
-      .listBotanicalFamilies(0, 200)
-      .then(setFamilies)
-      .catch(() => {});
-    planApi
-      .fetchNutrientPlans(0, 200)
-      .then(setNutrientPlans)
-      .catch(() => {});
     return () => {
       dispatch(clearCurrent());
     };
@@ -305,8 +300,8 @@ export default function SpeciesDetailPage() {
         <SpeciesEditTab
           control={control}
           onSubmit={handleSubmit(onSubmit)}
-          families={families}
-          nutrientPlans={nutrientPlans}
+          families={familyCatalogue.items}
+          nutrientPlans={nutrientPlanCatalogue.items}
           isReadOnly={isReadOnly}
           saving={saving}
           phaseSequenceKey={phaseSequenceKey}
