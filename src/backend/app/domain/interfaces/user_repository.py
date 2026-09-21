@@ -15,6 +15,28 @@ class IUserRepository(ABC):
     def get_by_email(self, email: str) -> User | None: ...
 
     @abstractmethod
+    def get_by_email_verification_token(self, token: str) -> User | None:
+        """The user carrying this email-verification token, or ``None`` (#1556).
+
+        A lookup, not a check: expiry is a domain decision and stays in
+        ``AuthService.verify_email``. Existed only as hand-written AQL inside the
+        service until #1556, which is why ``IUserRepository`` was not the seam it
+        claimed to be — a test substituting this interface could not drive the
+        verification path at all without also faking an AQL cursor.
+
+        Not indexed on the token attribute, so this is a collection scan (a
+        property of user count, not of the caller).
+        """
+
+    @abstractmethod
+    def get_by_password_reset_token(self, token: str) -> User | None:
+        """The user carrying this password-reset token, or ``None`` (#1556).
+
+        The reset-path twin of :meth:`get_by_email_verification_token`; expiry and
+        the service-account refusal stay in ``AuthService.reset_password``.
+        """
+
+    @abstractmethod
     def create(self, user: User) -> User: ...
 
     @abstractmethod
