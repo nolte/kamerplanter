@@ -6,6 +6,7 @@ from arango.exceptions import DocumentGetError, DocumentInsertError
 
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
+from app.data_access.arango.tenant_scope import tenant_union_predicate
 
 logger = structlog.get_logger()
 
@@ -329,20 +330,78 @@ class FavoritesService:
     def get_matching_nutrient_plans(
         self,
         species_keys: list[str],
-        tenant_key: str | None = None,
+        *,
+        tenant_key: str,
     ) -> list[dict]:
-        """Find template nutrient plans matching the given species."""
+        """Template nutrient plans the calling tenant may see (#1561).
+
+        **What this returns, stated once so the next reader does not have to
+        infer it from three disagreeing sources.** The name, the route docstring
+        and the body each used to pick a different reading — favourited plans,
+        species-matched plans, template plans. It returns *template* plans, and
+        only those visible to ``tenant_key``.
+
+        ``tenant_key`` reached nothing before this change: the AQL ran **without**
+        ``bind_vars`` and its only filter was ``is_template == true OR
+        origin == "system"``. Every row any tenant flagged as a template was
+        served to any authenticated caller of any tenant, together with the
+        product name and brand of every fertilizer it uses — a cross-tenant
+        read, not an existence oracle. The parameter existed and read like a
+        filter at the call site, which is why nothing looked wrong; the router
+        did not pass it either.
+
+        The predicate is the hybrid-catalogue union
+        :func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`
+        builds — own ∪ global — the **same** one
+        :class:`~app.data_access.arango.nutrient_plan_repository.ArangoNutrientPlanRepository.list_all`
+        applies to this collection, so the two reads of ``nutrient_plans`` answer
+        one visibility question instead of two. A strict
+        ``tenant_key == @tenant_key`` filter would hide the seeded catalogue and
+        empty the onboarding step — the #324 regression.
+
+        Deliberately **not** the ``…_with_grants`` variant: ``tenant_has_access``
+        is declared only ``tenants -> species | cultivars``
+        (``col.GRAPH_EDGE_DEFINITIONS``), so a plan cannot carry a grant. The
+        grant arm would be a correlated subquery per candidate row that can
+        never match.
+
+        ``tenant_key`` is keyword-only and has no default (#948, the drift class
+        this endpoint is an instance of): an omitted predicate must not be
+        spellable at a call site. An empty string is the anonymous / light-mode
+        context and collapses the union to global-only, exactly as
+        :meth:`_is_visible` does.
+
+        **``species_keys`` is not a filter, and this is measured, not assumed.**
+        There is no species↔plan relation in the graph: ``NutrientPlan`` carries
+        no species field, ``GRAPH_EDGE_DEFINITIONS`` declares no edge between the
+        two, and the one candidate — ``Species.default_nutrient_plan_key`` — is
+        set by **zero** of the seeded species (``grep -c default_nutrient_plan_key
+        app/migrations/seed_data/*.yaml`` → 0). Filtering on it would return an
+        empty list for every fresh installation, which is the #324
+        over-strictness class wearing the other mask. The parameter therefore
+        still only guards the empty-selection early return, which is an honest
+        short-circuit but not a filter, and the route says so. Giving it teeth
+        needs a relation in the data model, which is a separate change; tracked
+        in the follow-up issue linked from #1561.
+        """
         if not species_keys:
             return []
 
-        # Find plans that reference any of the given species via phase entries.
+        predicate, bind_vars = tenant_union_predicate(tenant_key, doc_var="plan")
+
+        # The body below is a plain string spliced once through `.replace`, not an
+        # f-string: it holds AQL object literals (`{ plan_key: ... }`) whose braces
+        # an f-string would read as fields. Only the *predicate* is spliced; the
+        # tenant itself travels as a bind var and never enters the query text.
+        #
         # Collect fertilizer keys from both graph edges AND embedded
         # delivery_channels[].fertilizer_dosages[] to handle plans where
         # edges may not be fully materialised (e.g. seed data).
         cursor = self._db.aql.execute(
             """
             FOR plan IN nutrient_plans
-                FILTER plan.is_template == true OR plan.origin == "system"
+                FILTER (plan.is_template == true OR plan.origin == "system")
+                    AND __TENANT_PREDICATE__
                 LET phase_entries = (
                     FOR pe IN nutrient_plan_phase_entries
                         FILTER pe.plan_key == plan._key
@@ -375,7 +434,8 @@ class FavoritesService:
                     fertilizer_count: LENGTH(fertilizer_keys),
                     fertilizers: fertilizers
                 }
-            """,
+            """.replace("__TENANT_PREDICATE__", predicate),
+            bind_vars=bind_vars,
         )
         return list(cursor)
 

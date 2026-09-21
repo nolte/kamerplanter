@@ -280,7 +280,9 @@ class GetPlantInspections(ToolBase):
         # get_inspections takes no tenant, so ownership is established on the
         # plant first — the same fetch-then-use guard the care log applies.
         plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
-        inspections, total = ctx.ipm_service.get_inspections(plant.key, offset=0, limit=args.limit)
+        inspections, total = ctx.ipm_service.get_inspections(
+            plant.key, offset=0, limit=args.limit, tenant_key=ctx.tenant_key
+        )
 
         items = [
             {

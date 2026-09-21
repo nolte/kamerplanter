@@ -141,6 +141,47 @@ Die geltende Bauform:
 Hergeleitet aus #973. Die Lektion stand bis dahin nur als Kommentar im
 `Taskfile.yaml` — also genau dort, wo sie niemand liest, der ein neues Gate baut.
 
+### 2.3 Ein Gate entscheidet über Code nicht anhand von Prosa
+
+**MUSS**: Ein Gate, das eine Aussage über den Quellbaum aus einem Dateitext
+ableitet, MUSS den Text vorher auf seinen ausführbaren Anteil reduzieren —
+Kommentare und Docstrings entfernen (`scripts/source_text.py`) oder ihn parsen
+(`ast.parse`, `yaml.safe_load`, `json.loads`, `tomllib.loads`).
+
+Der Grund ist, dass ein Dateitext zwei Inhalte trägt, den Code und die Prosa
+daneben, und eine Suche, die beide nicht trennt, über den jeweils zuerst
+getroffenen entscheidet. Beide Richtungen sind gemessen:
+
+- **Vorhandensein.** `"fetchAllFertilizers" in slice_source` ist durch einen
+  Kommentarkopf erfüllt, der den Loader nennt. Wird der echte Aufruf gelöscht,
+  bleibt das Gate grün — zweimal in einer Woche (`fertilizersSlice.ts` und
+  `activitiesSlice.ts`, #1610; die Katalogregistratur, #1624), dazu der eigene
+  Kommentarkopf eines Guards in PR #1545.
+- **Abwesenheit.** `"cec_meq_per_100g" not in migration_source` wird durch einen
+  Docstring widerlegt, der festhält, dass das Feld absichtlich **nicht**
+  migriert wird: rot wegen eines Satzes, grün über dem Defekt. Ein `grep` dieses
+  Repositories meldete einmal einen behobenen Defekt als offen, weil die
+  Erklärung der Reparatur den Namen weiterhin nannte.
+
+**MUSS**: Ist die Prosa der Prüfgegenstand — dass ein `# renovate:`-Marker über
+einer Pin-Zeile steht, dass eine Begründung im Artefakt selbst geschrieben steht,
+oder dass die naive Form nachweislich hereinfällt —, dann trägt die Stelle eine
+Begründung: `# prose-permeable: <Grund>`. Diese Marke verbirgt nichts: Die Stelle
+wird weiterhin über den Parse-Baum gefunden, weiterhin gezählt und bei jedem Lauf
+ausgegeben; eine Marke, die keine gefundene Stelle begründet, ist rot.
+
+**MUSS**: Die Durchsetzung selbst DARF NICHT textuell sein.
+`scripts/check_gate_text_assertions.py` findet die Stellen über den AST, in dem
+Kommentare keine Knoten sind — kein Kommentar kann also eine Stelle erzeugen oder
+entfernen. `src/backend/tests/unit/test_gate_text_assertions_check.py` weist beide
+Richtungen nach: eine Datei, deren einziges Vorkommen des Musters Kommentar und
+Docstring ist, ergibt keinen Befund; eine Datei mit echtem Prädikat ergibt einen,
+den keine Prosa beseitigt.
+
+Hergeleitet aus #1456. Die portable Fassung der Regel gehört in
+`spec/project/defect-class-guards/` (claude-shared, EN-kanonisch, nolte/claude-shared#637);
+hier steht die Lane.
+
 ### 2.2 Eine überwiegend abgebrochene Lane existiert nicht
 
 **MUSS**: Für jede gatende **oder** berichtende Lane MUSS die Abbruchrate

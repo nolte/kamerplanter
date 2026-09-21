@@ -398,6 +398,70 @@ repos:
         files: ^(src/backend/app/api/.*\.py|scripts/check_tenant_body_field\.py)$
         pass_filenames: false
 
+  # ── Plant-scoped route tenant verification (#1619) ─────────────────────
+  # Five tenant-scoped IPM reads took `plant_key` from the path and handed it
+  # to a by-key lookup; three of them did not read `ctx` at all. A member of one
+  # tenant read another's active substance, treatment name, Karenz window and
+  # inspection notes with an HTTP 200. The WRITE routes beside them were already
+  # correct (they verify the plant at the repository, #517) — that asymmetry is
+  # what made the read half invisible in review.
+  #
+  # So the hook does not check those five routes. It enumerates the CLASS: every
+  # route whose URL carries a NON-TERMINAL path parameter naming a tenant-ownable
+  # entity must reach it through a call that also carries a tenant argument, or
+  # sit behind an ownership dependency, or carry a `# tenant-scope-ok: <reason>`
+  # marker. "Tenant-ownable" is derived from OWNERSHIP_VERIFIABLE_COLLECTIONS —
+  # the same allowlist verify_entity_ownership gates on — so a new tenant-owned
+  # entity puts every route taking its key in class automatically.
+  #
+  # Both positive branches are read off the AST, where comments do not exist: a
+  # handler whose only mention of the tenant is `# scoped via ctx.tenant_key` is
+  # as red as one with no comment at all. That is the vacuum trap PR #1545,
+  # #1608 and #1610 each walked into, and it is asserted from
+  # src/backend/tests/unit/test_plant_scoped_route_tenant_check.py rather than
+  # claimed here.
+  #
+  # Measured on the tree: 46 in-class sites — 6 covered by a router dependency,
+  # 20 passing an explicit tenant kwarg, 16 passing it positionally or nested
+  # (the residue the static read cannot follow into the callee), 4 marker-exempt.
+  #
+  # stdlib only, no application import; always_run because DELETING a scoped
+  # call moves the answer exactly as much as adding an unscoped route.
+  - repo: local
+    hooks:
+      - id: plant-scoped-route-tenant
+        name: a route's parent key is verified against the caller's tenant (#1619)
+        entry: python3 scripts/check_plant_scoped_route_tenant.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
+  # ── A gate may not decide about code by matching raw source text ───────
+  # #1456. A gate that searches a file's text for a name answers about whichever
+  # half it hits first, and both halves are wrong in a different direction: a
+  # comment head naming a loader SATISFIES a presence test (#1610 in
+  # fertilizersSlice.ts and activitiesSlice.ts, #1624 in the catalogue registry),
+  # and a docstring explaining a field FALSIFIES an absence test. Four such sites
+  # were repaired by hand in one week, which is the #948 bet — two of four routes
+  # fixed, the rest open for months. This enumerates the class instead: every
+  # membership, regex and occurrence test in every gate file, found through the
+  # parse tree, where comments are not nodes and therefore cannot answer.
+  #
+  # Measured on the tree: 99 gate files, 36 in-class sites, all of them carrying
+  # a `# prose-permeable:` reason (a waiver annotates a site the parser already
+  # found — it cannot create one, and one that excuses nothing is red).
+  #
+  # stdlib only, no application import; always_run because DELETING a reduction
+  # moves the answer exactly as much as adding a raw match.
+  - repo: local
+    hooks:
+      - id: gate-text-assertions
+        name: no gate decides about code by matching raw source text (#1456)
+        entry: python3 scripts/check_gate_text_assertions.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── API → data-access layer boundary (P1.3) ────────────────────────────
   # Refuses a NEW `app.data_access` import under src/backend/app/api. NFR-001's
   # layer order says a router reaches persistence through a service; when it
@@ -416,10 +480,22 @@ repos:
   # always_run rather than a `files:` filter: DELETING the last import of an
   # allowlisted module moves the answer exactly as much as adding one, and a
   # path-filtered hook never sees a deletion.
+  #
+  # The same script carries a SECOND rule since #1556: no module under
+  # src/backend/app/domain holds or reaches a persistence handle. #1556 measured
+  # `_repo._db`, found two sites in auth_service.py and called them "the only
+  # two left"; that grep sees only the reach-THROUGH-a-repository spelling and is
+  # blind to the four modules that are simply handed a StandardDatabase. A guard
+  # written to those two literal call sites would have certified the tree clean —
+  # the #948 class. So rule 2 detects the class — an `arango` import, or a handle
+  # detected three ways (an attribute named `_db`, the string "_db" behind a
+  # getattr, a reach for `.aql` under any other name), reported as ONE finding so
+  # changing spelling does not clear it — and carries its own ALLOWED_HANDLES
+  # allowlist for the four modules that still cross.
   - repo: local
     hooks:
       - id: layer-imports
-        name: the API layer does not import data_access (NFR-001)
+        name: the API and business-logic layer boundaries hold (NFR-001)
         entry: python3 scripts/check_layer_imports.py
         language: system
         always_run: true
@@ -486,6 +562,36 @@ repos:
       - id: workflow-gate-integrity
         name: no CI gate that cannot fail, or cannot run on the change (NFR-018 §2, #1313)
         entry: python3 scripts/check_workflow_gate_integrity.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
+        always_run: true
+        pass_filenames: false
+
+  # ── Documented invocation paths (#1607, NFR-018 §1) ────────────────────
+  # Two security workflows told their own reader to "label a pull request
+  # `security-scan`" for a pre-merge scan. The label did not exist, so the
+  # documented path invoked nothing — and because `types: [labeled]` cannot be
+  # filtered by label name at the `on:` level, every OTHER label queued a run
+  # that immediately skipped (300 per workflow in the week to 2026-09-20, none
+  # executed).
+  #
+  # The hook does not look for that label, or for those two workflows. It
+  # checks the CLASS, over every workflow in the tree: an input an expression
+  # reads must be declared, a declared input must be read by something, and a
+  # `gh workflow run` example in a comment must name a workflow that exists,
+  # dispatches, and declares every `-f` key the example passes. `--list` names
+  # the sites so a green run is distinguishable from a vacuous one.
+  #
+  # What it deliberately cannot check: whether a LABEL named in prose exists.
+  # That lives in GitHub, and `.github/settings.yml` declares only the labels
+  # this repository adds on top of the commons — so the tree does not hold the
+  # answer. This is why the on-demand lane moved to a dispatch at all: the
+  # dispatch form is the one a local gate can keep honest.
+  - repo: local
+    hooks:
+      - id: workflow-documented-invocation
+        name: a documented way to invoke a workflow must exist (NFR-018 §1, #1607)
+        entry: python3 scripts/check_workflow_documented_invocation.py
         language: python
         additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true

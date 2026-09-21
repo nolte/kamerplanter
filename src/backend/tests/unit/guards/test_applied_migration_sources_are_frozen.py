@@ -69,10 +69,18 @@ branches open at once cannot conflict in it — the same reason
 ``test_discovery._HIGHEST_VERSION_FLOOR`` is a floor and not a list (#1469).
 
 Raising ``_PINNED_THROUGH`` (plus ``_PINNED_COUNT_FLOOR`` and the new rows) is a
-separate, deliberate act, best paid at release time: it is a one-line-per-version
-change to one file that no feature branch touches. Until it is paid, the versions
-above the boundary carry the runner's warning and nothing more — the window is
-deliberate, and it is the price of the ratchet never blocking a migration.
+separate, deliberate act, paid at release time: it is a one-line-per-version change
+to one file that no feature branch touches. Until it is paid, the versions above the
+boundary carry the runner's warning and nothing more — the window is deliberate, and
+it is the price of the ratchet never blocking a migration.
+
+Since #1562 the payment is *enforced* rather than advised, which is the half #1552
+left open: ``TestTheBoundaryKeepsUpWithReleases`` below compares this boundary
+against the migration inventory of every ``vX.Y.Z`` tag, so the window closes at the
+moment a version enters a release and not whenever someone remembers. The sentence
+this replaced called the raise "best paid at release time", which was prose with no
+lane behind it — the failure class NFR-018 §1 catalogues, in a module that argues
+against it elsewhere.
 
 WHAT THIS PIN DOES *NOT* SEE
 ============================
@@ -91,17 +99,24 @@ from __future__ import annotations
 import hashlib
 import inspect
 import re
+import subprocess
 import sys
-from pathlib import Path
+from collections.abc import Iterable
+from functools import cache
+from pathlib import Path, PurePosixPath
 
+import pytest
 from arango.database import StandardDatabase
 
+import app
 from app.migrations import versions as versions_pkg
 from app.migrations.framework.base import Migration
 from app.migrations.framework.discovery import load_migrations
 from app.migrations.framework.report import MigrationReport
 
 _VERSIONS_DIR = Path(next(iter(versions_pkg.__path__)))
+_BACKEND_ROOT = Path(app.__file__).resolve().parents[1]
+_REPO_ROOT = _BACKEND_ROOT.parents[1]
 
 # Same LOOSE glob as `tests/unit/migrations/framework/test_discovery.py` and for the
 # same reason (#1469): everything named like a version entry in the package is meant
@@ -119,13 +134,13 @@ _VERSION_FILENAME_RE = re.compile(r"^v(?P<number>\d{4})_[a-z0-9_]+$")
 #: See the module docstring for how the boundary is measured. Raise it (together
 #: with the rows and the count floor) when a release is cut; never lower it.
 #:
-#: NOTHING MEASURES THAT IT KEEPS UP — #1562, deliberately out of scope here. Every
-#: expectation below is derived FROM this constant, so a boundary left behind a
-#: release is green: the versions above it count as "new", stay unpinned, and can be
-#: edited years later without a red run — the #1521 → #1536 sequence one number
-#: higher. #1562 proposes measuring it against the highest version in the most recent
-#: release tag, which the lane can read (`fetch-depth: 0`, as
-#: `test_model_field_renames_have_migrations.py` already does).
+#: WHAT MEASURES THAT IT KEEPS UP — `TestTheBoundaryKeepsUpWithReleases` (#1562).
+#: Every other expectation below is derived FROM this constant, so on its own a
+#: boundary left behind a release was green: the versions above it counted as "new",
+#: stayed unpinned, and could be edited years later without a red run — the
+#: #1521 → #1536 sequence one number higher. That class is the one statement that is
+#: NOT derived from it: it reads each release tag's own `versions/` tree out of git
+#: and refuses a boundary that sits below what a release shipped.
 _PINNED_THROUGH = "0054"
 
 #: A RATCHET over the size of the table below, independent of `_PINNED_THROUGH`.
@@ -431,3 +446,266 @@ class TestShippedSourcesAreFrozen:
         assert set(_PINNED_CLASS_CHECKSUMS) <= discovered, (
             f"Pinned versions that discovery does not load: {sorted(set(_PINNED_CLASS_CHECKSUMS) - discovered)}"
         )
+
+
+#: The path ``versions/`` occupies in the repository tree, used to read a release
+#: tag's inventory out of git. Deliberately a literal and not derived from
+#: ``_VERSIONS_DIR``: older tags keep whatever path they were cut with, so a move
+#: of the package has to be a considered edit here. Deriving it would make the
+#: ``ls-tree`` below return nothing after such a move, and an empty release
+#: inventory is a comparison that passes while measuring nothing (NFR-018 §1) —
+#: which is why the floor further down exists as well.
+_VERSIONS_TREE_PATH = "src/backend/app/migrations/versions"
+
+#: A release tag as this repository cuts them (``v0.4.1``), anchored at both ends.
+#: Without the anchors a migration-shaped ref (``v0050_slug``) or a pre-release
+#: suffix would pass for a release and decide the boundary.
+_RELEASE_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
+#: Anti-vacuity floor for the RELEASE side of the comparison, and deliberately
+#: BELOW the current inventory. Measured 2026-09-21: ``v0.4.1`` — the newest tag —
+#: carries 50 migration modules, ``v0.4.0`` 45, ``v0.2.0`` 38.
+#:
+#: 40, not 50. A floor equal to today's count cannot tell "the newest release tag
+#: carries one migration fewer than the last one did" from "the parse collapsed",
+#: and the first is a thing a release can legitimately do: this floor is applied to
+#: whichever tag sorts newest, and a hotfix cut from an older base is newest without
+#: being largest. A floor that goes red on legitimate work gets lowered unread —
+#: the correction PR #1610 had to make. 40 sits ten versions below and still
+#: separates the case the floor is for: an ``ls-tree`` returning nothing or almost
+#: nothing because the package moved, the tag convention changed, or the filename
+#: pattern stopped matching. Mutating ``_VERSIONS_TREE_PATH`` turns it red with the
+#: path in the message (measured).
+_RELEASED_VERSION_FLOOR = 40
+
+#: Said once, for the two places that skip on it.
+_NO_RELEASE_TAG_REASON = (
+    "this checkout carries no vX.Y.Z tag, so there is no release to compare the pin "
+    "boundary against and this run would measure nothing. The `Write-route and tree "
+    "guards` lane checks out with `fetch-depth: 0`, whose refspec includes "
+    "`+refs/tags/*:refs/tags/*` (measured in actions/checkout v7.0.1, "
+    "`ref-helper.getRefSpecForAllHistory`), and runs this file with `--max-skipped 0`; "
+    "that is where the comparison is made."
+)
+
+
+def _git(*args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(_REPO_ROOT), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout
+
+
+@cache
+def _release_tags() -> tuple[str, ...]:
+    """Every release tag in this checkout, newest first."""
+    return tuple(tag for tag in _git("tag", "--list", "--sort=-v:refname").split() if _RELEASE_TAG_RE.match(tag))
+
+
+@cache
+def _versions_in_release(tag: str) -> tuple[str, ...]:
+    """The migration version numbers ``tag``'s tree carries, ascending.
+
+    Read from the tag's tree rather than from any working file: what a release
+    shipped is a property of the release, and no edit on ``develop`` can change it.
+    """
+    numbers = [
+        match.group("number")
+        for entry in _git("ls-tree", "--name-only", tag, f"{_VERSIONS_TREE_PATH}/").split()
+        if (match := _VERSION_FILENAME_RE.match(PurePosixPath(entry).stem)) is not None
+    ]
+    return tuple(sorted(numbers))
+
+
+def _released_above(boundary: str, released: Iterable[str]) -> list[str]:
+    """The rule itself: versions a release shipped that ``boundary`` leaves unpinned.
+
+    A relation between two measured quantities — never a literal version number.
+    Both the assertion below and its falsifier call *this*, so the guard cannot be
+    green while the rule is inert.
+    """
+    return sorted(version for version in released if version > boundary)
+
+
+def _assert_the_inventory_is_real(tag: str, versions: tuple[str, ...]) -> None:
+    """The measuring tool before the measurement (NFR-018 §1).
+
+    Every assertion in the class below is over a set read out of ``git ls-tree``, and
+    an empty or near-empty set makes all of them pass — a moved package path, a
+    changed tag convention, a filename pattern that stopped matching. Size AND shape
+    are checked: gapless from ``0001`` is what the runner itself requires
+    (``validate_sequence``), so a parse that dropped entries surfaces as a gap rather
+    than as a smaller, plausible number.
+
+    Applied to the NEWEST release only, never to the whole tag list: measured
+    2026-09-21, ``v0.0.2`` predates the migration framework and its tree carries no
+    ``versions/`` at all, while ``v0.2.0`` carries 38. An empty older tag contributes
+    nothing to the comparison and is not a broken measurement.
+    """
+    assert len(versions) >= _RELEASED_VERSION_FLOOR, (
+        f"Release {tag} appears to carry only {len(versions)} migration modules, below the "
+        f"recorded floor {_RELEASED_VERSION_FLOOR}. Releases only ever gain migrations, so this "
+        f"is a broken measurement, not a small release: check {_VERSIONS_TREE_PATH!r} still names "
+        "the package in that tag's tree, and that _VERSION_FILENAME_RE still matches its files."
+    )
+
+    expected = tuple(f"{number:04d}" for number in range(1, len(versions) + 1))
+    assert versions == expected, (
+        f"The version numbers read out of release {tag} are not gapless from 0001: "
+        f"{[v for v in expected if v not in versions]} missing, "
+        f"{[v for v in versions if v not in expected]} unexpected. The runner requires a gapless "
+        "sequence, so this is the parse dropping entries, not the release."
+    )
+
+
+@pytest.fixture
+def latest_release() -> tuple[str, tuple[str, ...]]:
+    """``(tag, versions)`` for the newest release, or a skip on a checkout without one.
+
+    The inventory is validated here rather than only in its own test, so a collapsed
+    measurement cannot reach an assertion as an empty set and be green — or, worse,
+    crash it with an ``IndexError`` whose message says nothing. Measured: mutating
+    ``_VERSIONS_TREE_PATH`` did exactly that before the check moved here.
+    """
+    tags = _release_tags()
+    if not tags:
+        pytest.skip(_NO_RELEASE_TAG_REASON)
+    tag = tags[0]
+    versions = _versions_in_release(tag)
+    _assert_the_inventory_is_real(tag, versions)
+    return tag, versions
+
+
+class TestTheBoundaryKeepsUpWithReleases:
+    """``_PINNED_THROUGH`` must not fall behind what a release has shipped (#1562).
+
+    THE HALF #1552 LEFT OPEN
+    ========================
+
+    Every other expectation in this module is derived FROM ``_PINNED_THROUGH``:
+    ``test_pins_cover_exactly_the_shipped_versions`` builds its expectation out of
+    the boundary, and a version above it is filed as "newer, correctly unpinned".
+    So a boundary that is never raised again is green for good, and the versions
+    above it are in exactly the state ``v0050`` was in when #1521 edited it:
+    shipped, applied on every installation, and guarded by nothing. That is #1536,
+    one number higher.
+
+    Measured on this tree on 2026-09-21 rather than argued: lowering
+    ``_PINNED_THROUGH`` to ``0049`` and dropping the rows above it reproduces #1536's
+    own precondition — ``v0050`` ships in tag ``v0.4.1`` and carries no pin — and this
+    module reported ``8 passed`` on it. That is the whole population: no file outside
+    this one reads ``_PINNED_THROUGH``, ``_PINNED_CLASS_CHECKSUMS`` or
+    ``_PINNED_COUNT_FLOOR`` (grepped, same date), so nothing anywhere could have gone
+    red. With the class below in place the same tree reports the two failures named in
+    ``test_the_pin_boundary_covers_every_release`` and
+    ``test_every_migration_a_release_shipped_carries_a_pin``.
+
+    WHAT IS COMPARED, AND WHY IT IS A RELATION
+    ==========================================
+
+    The highest migration version in each **release tag's tree** against
+    ``_PINNED_THROUGH``. Neither side is written down: the release side comes from
+    ``git ls-tree``, the boundary side from the constant the pin table is keyed by.
+    A guard that asserted today's numbers (``_PINNED_THROUGH == "0054"``, or
+    ``"0050" in _PINNED_CLASS_CHECKSUMS``) would go red on the next legitimate
+    release and teach everyone to edit it without reading it.
+
+    The window this does NOT close is the deliberate one the module docstring
+    describes: a migration merged to ``develop`` and not yet in any tag stays
+    unpinned, so a migration pull request still never touches this file. The moment
+    it enters a release, the remedy — raise ``_PINNED_THROUGH``, add the rows, raise
+    ``_PINNED_COUNT_FLOOR`` — becomes enforced rather than prose.
+
+    EVERY RELEASE, NOT ONLY THE NEWEST
+    ==================================
+
+    ``test_the_pin_boundary_covers_every_release`` reads every ``vX.Y.Z`` tag rather
+    than assuming the newest carries the highest version. That assumption holds
+    today only because migrations are append-only, which is a *different* guard's
+    statement (``_PINNED_COUNT_FLOOR``, ``test_discovery._HIGHEST_VERSION_FLOOR``);
+    resting this comparison on it would make a hole in one a hole in both.
+    """
+
+    def test_the_release_inventory_is_actually_read(self, latest_release) -> None:
+        """The anti-vacuity statement, named where a reader looks for it.
+
+        The check itself lives in :func:`_assert_the_inventory_is_real`, which the
+        fixture runs before any comparison sees the set; this makes it a test of its
+        own so that "the measurement is checked" is a line in the report rather than
+        an implementation detail of a fixture.
+        """
+        tag, versions = latest_release
+
+        _assert_the_inventory_is_real(tag, versions)
+
+    def test_the_pin_boundary_covers_every_release(self) -> None:
+        """The statement this class exists for.
+
+        Skips rather than passes on a checkout with no tags — see
+        ``_NO_RELEASE_TAG_REASON`` for the lane that cannot skip.
+        """
+        tags = _release_tags()
+        if not tags:
+            pytest.skip(_NO_RELEASE_TAG_REASON)
+
+        lagging = {tag: _released_above(_PINNED_THROUGH, _versions_in_release(tag)) for tag in tags}
+        offenders = {tag: versions for tag, versions in lagging.items() if versions}
+
+        assert offenders == {}, (
+            f"The pin boundary _PINNED_THROUGH={_PINNED_THROUGH} is behind a shipped release: "
+            + "; ".join(f"{tag} shipped {versions}" for tag, versions in sorted(offenders.items()))
+            + ". Those migrations have been applied on every installation of that release and their "
+            "class source is guarded by nothing — the state v0050 was in when #1521 edited it (#1536). "
+            "Raise _PINNED_THROUGH to the highest released version, add a row per newly covered "
+            "version to _PINNED_CLASS_CHECKSUMS, and raise _PINNED_COUNT_FLOOR to the new row count."
+        )
+
+    def test_every_migration_a_release_shipped_carries_a_pin(self, latest_release) -> None:
+        """The same end state, reached without going through ``_PINNED_THROUGH``.
+
+        This is not the test above stated a second time. That one relates the release
+        to the *constant*; this one relates it to the *table*, and the two only add up to
+        "a released migration is pinned" while ``test_pins_cover_exactly_the_shipped_versions``
+        keeps the constant and the table in step. If that link is ever rewired —
+        the boundary made a range, the table split in two — this assertion still
+        says the thing that matters, which is the point of stating it on the other
+        side of the derivation (the same reason ``_PINNED_COUNT_FLOOR`` is asserted
+        against the directory as well as against the table).
+        """
+        tag, versions = latest_release
+        unpinned = sorted(set(versions) - set(_PINNED_CLASS_CHECKSUMS))
+
+        assert unpinned == [], f"Release {tag} shipped migrations with no row in _PINNED_CLASS_CHECKSUMS: {unpinned}."
+
+    def test_a_boundary_one_version_behind_a_release_is_red(self, latest_release) -> None:
+        """Red-first, over the SAME expression the assertion above evaluates.
+
+        The boundary is derived from the release, not written down, so this keeps
+        falsifying after the next release raises both. It reconstructs #1536's own
+        precondition: the release's highest version shipped, the boundary one below it.
+        """
+        _, versions = latest_release
+        highest = versions[-1]
+        lagging_boundary = f"{int(highest) - 1:04d}"
+
+        assert _released_above(lagging_boundary, versions) == [highest], (
+            "The rule no longer reports a boundary that sits one version behind the release — "
+            "which is the only state it exists to report."
+        )
+
+    def test_the_rule_is_a_relation_and_not_todays_numbers(self) -> None:
+        """The predicate over versions that have nothing to do with this repository.
+
+        A guard written against today's inventory goes red on the next release and
+        gets edited unread; this pins the *shape* instead, so the table below keeps
+        holding after ``_PINNED_THROUGH`` and the tags have both moved on.
+        """
+        released = ("0001", "0002", "0003")
+
+        assert _released_above("0003", released) == []
+        assert _released_above("0004", released) == []
+        assert _released_above("0002", released) == ["0003"]
+        assert _released_above("0000", released) == ["0001", "0002", "0003"]

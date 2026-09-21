@@ -24,7 +24,9 @@ from types import ModuleType
 
 import pytest
 
-from tests.support.repo_scripts import find_repo_root
+from tests.support.repo_scripts import find_repo_root, load_repo_script
+
+_source_text = load_repo_script("source_text")
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -152,7 +154,10 @@ def _flag_minutes(command_lines: list[str], flag: str) -> int:
 
 
 def test_the_budgets_fit_under_the_job_timeout(hook: ModuleType) -> None:
-    text = _WORKFLOW.read_text()
+    # Reduced to the executable YAML first (#1456): a commented-out
+    # `timeout-minutes:` — or a commented-out `-m` — is not a budget, and the
+    # raw text would hand this test whichever came first in the file.
+    text = _source_text.executable_source(_WORKFLOW.read_text(), language="yaml")
     timeout = int(re.search(r"^\s+timeout-minutes:\s*(\d+)", text, re.MULTILINE).group(1))
     command = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
     spider_minutes = _flag_minutes(command, "-m")

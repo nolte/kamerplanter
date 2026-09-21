@@ -79,6 +79,26 @@ class IIpmRepository(ABC):
     @abstractmethod
     def delete_treatment(self, key: TreatmentKey) -> bool: ...
 
+    # ── Plant ownership (the anchor every plant-scoped read hangs on) ──
+    @abstractmethod
+    def verify_plant_ownership(self, plant_key: str, tenant_key: str) -> None:
+        """Fail closed (404) unless ``plant_key`` names a plant of ``tenant_key``.
+
+        The anchor is ``PlantInstance.tenant_key``, not the observation records:
+        an ``Inspection`` or ``TreatmentApplication`` is only ever created after
+        the write path has verified the same ownership (#517), so the plant is
+        the one document that decides. Unlike ``Location`` and ``Slot`` (#1397),
+        every ``PlantInstance`` carries a real ``tenant_key``, so hanging the
+        predicate here is not a proxy for something else.
+
+        Raises:
+            ValueError: ``tenant_key`` is empty — an unscoped caller cannot be
+                ownership-verified and must not be waved through.
+            NotFoundError: the plant is absent or belongs to another tenant.
+                404, never 403, so a foreign key's existence is not disclosed.
+        """
+        ...
+
     # ── Inspection CRUD ──
     @abstractmethod
     def create_inspection(self, inspection: Inspection) -> Inspection: ...

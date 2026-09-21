@@ -47,7 +47,9 @@ from pathlib import Path
 import pytest
 
 from tests.support.renovate_config import array_value, strip_comments
-from tests.support.repo_scripts import find_repo_root
+from tests.support.repo_scripts import find_repo_root, load_repo_script
+
+_source_text = load_repo_script("source_text")
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -186,7 +188,10 @@ class TestTheDigestPinIsManaged:
         match = _digest_pattern().search(pins)
         assert match is not None
         digest = match.group("currentDigest")
-        assert f"nuclei_templates_commit: {digest}" in pins
+        # Over the executable YAML, not the file: `renovate-pins.yaml` explains
+        # every pin in a `#` comment directly above it, so a comment quoting the
+        # key and the digest would satisfy the raw-text form (#1456).
+        assert f"nuclei_templates_commit: {digest}" in _source_text.executable_source(pins, language="yaml")
         for lane in ("nightly", "postmerge", "templates"):
             # Comment-stripped: every one of these lanes explains the pin in
             # prose directly above the step that reads it (W-2).

@@ -177,6 +177,7 @@ def _tamper(lock: Path) -> str:
     """Replace the sha256 of *one wheel* of the target package. Returns the old hash."""
     text = lock.read_text()
 
+    # prose-permeable: tamper helper over a generated uv.lock: it must locate the exact bytes it writes back
     entry = re.search(
         rf'^\[\[package\]\]\nname = "{re.escape(_TAMPER_TARGET)}"\n(?P<body>(?:.*\n)*?)\n\[\[package\]\]',
         text,
@@ -201,6 +202,7 @@ def _tamper(lock: Path) -> str:
     assert old_hash is not None, f"{_TAMPER_TARGET}'s wheel entry carries no sha256 — nothing to falsify"
 
     tampered_line = wheel_lines[0].replace(old_hash.group(1), _ZEROED_HASH)
+    # prose-permeable: same helper: the count proves the replacement is unambiguous before writing
     assert text.count(wheel_lines[0]) == 1
     lock.write_text(text.replace(wheel_lines[0], tampered_line))
     return old_hash.group(1)
