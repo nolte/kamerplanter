@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import { useRetryFocus } from '@/hooks/useRetryFocus';
+import LoadingStatus from '@/components/common/LoadingStatus';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -152,6 +154,12 @@ export default function WorkflowDetailPage() {
   // user the catalogue never arrived was a message that disappears by itself.
   // `enabled` is the dialog's own open flag, so a closed dialog costs nothing.
   const activityCatalogue = useCatalogue('activities', { enabled: addDialogOpen });
+  // After a retry succeeds, focus returns to the search box — the control that
+  // stays mounted across all three states and the one the user reaches for next.
+  const { attachRegion: attachActivityRegion, beginRetry: beginActivityRetry } = useRetryFocus(
+    activityCatalogue.status,
+    "[data-testid='activity-catalogue-search'] input",
+  );
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [addDayOffset, setAddDayOffset] = useState(0);
   const [activityFilter, setActivityFilter] = useState('');
@@ -235,7 +243,9 @@ export default function WorkflowDetailPage() {
     if (!workflow) return;
     setSpeciesLoading(true);
     Promise.all([
-      speciesApi.listSpecies(0, 500),
+      // The complete catalogue (#1560); one leg of an imperative sequence whose
+      // surrounding loading state already covers it.
+      speciesApi.listAllSpecies(),
       favApi.listFavorites('species').catch(() => []),
     ])
       .then(([res, favs]) => {
@@ -1112,7 +1122,7 @@ export default function WorkflowDetailPage() {
           {t('pages.tasks.addActivityToPhase', { phase: addTargetPhaseDisplay })}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <Box ref={attachActivityRegion} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             {/* Filter chips */}
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               <Chip
@@ -1167,6 +1177,22 @@ export default function WorkflowDetailPage() {
               the server successfully, and the toast that said otherwise had
               already gone.
             */}
+            {/*
+              The announcement half (UI-NFR-002 §2.3 R-011, WCAG 2.2 AA 4.1.3).
+              The spinner below satisfies R-020 visually and says nothing to a
+              screen reader; of the three transitions only `→ failed` announced
+              itself, via the native `role="alert"` inside `ErrorDisplay`.
+
+              Mounted unconditionally: a live region must exist *before* its
+              content changes for the change to be announced (`LoadingStatus`
+              property 4), so rendering it only while loading would stay silent
+              on exactly the `failed → loading → ready` path a retry takes.
+            */}
+            <LoadingStatus
+              label={t('common.loading')}
+              active={activityCatalogue.status === 'loading'}
+              data-testid="activity-catalogue-loading-status"
+            />
             {activityCatalogue.status === 'loading' ? (
               <Box
                 sx={{ display: 'flex', justifyContent: 'center', py: 3 }}
@@ -1178,7 +1204,12 @@ export default function WorkflowDetailPage() {
               <Box data-testid="activity-catalogue-error">
                 <ErrorDisplay
                   error={activityCatalogue.error ?? 'errors.loadFailed'}
-                  onRetry={activityCatalogue.reload}
+                  onRetry={() => {
+                    // Armed before the state flips: the button this click landed
+                    // on is about to unmount with the whole `failed` branch.
+                    beginActivityRetry();
+                    activityCatalogue.reload();
+                  }}
                 />
               </Box>
             ) : (
@@ -1255,21 +1286,44 @@ export default function WorkflowDetailPage() {
                   );
                 })}
                 {filteredActivities.length === 0 && (
-                  <Typography
-                    color="text.secondary"
-                    sx={{ py: 2, textAlign: 'center' }}
-                    data-testid="activity-catalogue-empty"
-                  >
+                  <Box sx={{ py: 2, textAlign: 'center' }} data-testid="activity-catalogue-empty">
                     {/*
                       Reached only when the catalogue loaded. An empty
                       *catalogue* and an empty *filter result* are still one
                       message, and correctly so: both mean "nothing here to
                       pick", and the user can see the search box they typed in.
+
+                      Only the empty *catalogue* gets the call to action (R-012 +
+                      R-014, UI-NFR-004 §3.2): "no activity exists yet" has a
+                      way out, "your search matched nothing" does not — the way
+                      out there is the search box the user is already looking at.
                     */}
-                    {activityCatalogue.isEmpty
-                      ? t('pages.tasks.activityCatalogueEmpty')
-                      : t('pages.tasks.noActivitiesFound')}
-                  </Typography>
+                    <Typography color="text.secondary">
+                      {activityCatalogue.isEmpty
+                        ? t('pages.tasks.activityCatalogueEmpty')
+                        : t('pages.tasks.noActivitiesFound')}
+                    </Typography>
+                    {activityCatalogue.isEmpty && (
+                      /*
+                        Operator decision, taken against the UI reviewer's
+                        advice: the reviewer objected that navigating away pulls
+                        the user out of the task. Answered rather than overruled
+                        — `UnsavedChangesGuard` on this page (below the tabs)
+                        blocks the route change whenever the workflow form
+                        actually holds unsaved input, and its `ConfirmDialog`
+                        autofocuses "cancel", so staying is the default.
+                      */
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        sx={{ mt: 1.5 }}
+                        onClick={() => navigate('/stammdaten/activities')}
+                        data-testid="activity-catalogue-empty-cta"
+                      >
+                        {t('pages.tasks.activityCatalogueEmptyCta')}
+                      </Button>
+                    )}
+                  </Box>
                 )}
               </Box>
             )}
