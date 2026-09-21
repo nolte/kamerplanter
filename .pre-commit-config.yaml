@@ -450,10 +450,22 @@ repos:
   # always_run rather than a `files:` filter: DELETING the last import of an
   # allowlisted module moves the answer exactly as much as adding one, and a
   # path-filtered hook never sees a deletion.
+  #
+  # The same script carries a SECOND rule since #1556: no module under
+  # src/backend/app/domain holds or reaches a persistence handle. #1556 measured
+  # `_repo._db`, found two sites in auth_service.py and called them "the only
+  # two left"; that grep sees only the reach-THROUGH-a-repository spelling and is
+  # blind to the four modules that are simply handed a StandardDatabase. A guard
+  # written to those two literal call sites would have certified the tree clean —
+  # the #948 class. So rule 2 detects the class — an `arango` import, or a handle
+  # detected three ways (an attribute named `_db`, the string "_db" behind a
+  # getattr, a reach for `.aql` under any other name), reported as ONE finding so
+  # changing spelling does not clear it — and carries its own ALLOWED_HANDLES
+  # allowlist for the four modules that still cross.
   - repo: local
     hooks:
       - id: layer-imports
-        name: the API layer does not import data_access (NFR-001)
+        name: the API and business-logic layer boundaries hold (NFR-001)
         entry: python3 scripts/check_layer_imports.py
         language: system
         always_run: true
