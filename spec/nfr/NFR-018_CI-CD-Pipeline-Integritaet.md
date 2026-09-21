@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: GitHub Actions, pre-commit, Docker, Helm, SLSA-Provenance
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.1
+Version: 1.2
 Autor: nolte
 Datum: 2026-08-08
 Tags: [ci, cd, pipeline, gate-integrity, reproducibility, provenance, supply-chain, vacuous-success]
@@ -20,6 +20,7 @@ Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-09-21 | §2.3 (ein Gate entscheidet nicht anhand von Prosa) kam mit #1642 und wird hier im Changelog nachgetragen; §2.4 (Skip-Obergrenze je Tier, #1434), §2.5 (ein Ausnahmeregister muss altern können), §4.1 (ein required Check darf nicht pfadgefiltert sein, #1432/#1578) und §4.2 (was eine advisory Lane dem Default-Branch schuldet, #1547/#1617) ergänzt. Alle fünf Regeln standen zuvor nur als Kommentar in einer Workflow-, Taskfile- oder Guard-Datei oder in einem Pull-Request-Body (#1581). |
 | 1.1 | 2026-08-08 | §2.1 (Ratchet-Baselines werden berechnet, nicht versioniert — Herleitung #973, bis dahin nur ein `Taskfile.yaml`-Kommentar) und §2.2 (eine überwiegend abgebrochene Lane existiert nicht — Verallgemeinerung der Analyse aus NFR-014 §4.1, #993/#1013) ergänzt. Beide aus der Issue-Muster-Analyse vom 2026-08-08, Maßnahmen P5.6/P5.3. |
 | 1.0 | 2026-08-01 | Erstversion. Entstanden aus dem CI/CD-Audit vom 2026-08-01, das 21 Befunde ergab — von denen die Mehrzahl derselben Fehlerklasse angehörte. Diese NFR hält die Klasse und die daraus abgeleiteten Regeln fest, damit sie nicht bei jedem Audit neu entdeckt werden muss. |
 
@@ -212,6 +213,79 @@ ZAP-Lane (44 %) — der Beleg dafür, dass die Erkenntnis pro Lane angewandt sta
 als Regel gehoben worden war. Eine bewusste Verringerung der Abdeckung durch
 Umplatzierung ist nach §4 zu benennen, nicht als Reparatur auszugeben.
 
+### 2.4 Skips sind der Messwert, nicht Grün
+
+**MUSS**: Jede Test-Lane MUSS die Zahl der Fälle deklarieren, die sie
+überspringen darf, und rot werden, sobald sie diese Zahl überschreitet. Der
+Exit-Code eines Test-Runners behandelt einen übersprungenen Fall wie einen
+bestandenen — eine Lane, deren Fälle still aufgehört haben zu laufen, meldet
+daher Erfolg. Das ist §1 in der Test-Schicht: Erfolg ohne Messung.
+
+**MUSS**: Die deklarierte Zahl ist **gemessen**, nicht geschätzt, und jeder
+zugelassene Skip ist im selben Register benannt. Die Erhöhung der Zahl gehört in
+denselben Commit wie der neue Skip, der sie nötig macht; der Fehlschlag listet
+jede Skip-Begründung auf, damit die neue identifizierbar ist.
+
+Die geltende Bauform ist `--max-skipped N` (#1434): `src/backend/tests/conftest.py`
+registriert die Option, `tests/support/execution_guards.py::skip_floor_violation`
+entscheidet, und die Zahl steht am Tier-Target selbst, nicht in einer Datei
+daneben. Nachmessen:
+
+```bash
+grep -n 'max-skipped' .taskfiles/backend.yaml
+```
+
+Die vier Backend-Tiers tragen heute `1 / 0 / 0 / 0` (unit / contracts / api /
+integration). Der eine zugelassene Skip ist eine parametrisierte Allowlist und
+damit von Bauart permanent; die Null am Integrations-Tier ist die eigentliche
+Aussage, weil derselbe Lauf ohne Datenbank 136 Skips hat (gemessen 2026-09-16)
+und vorher lautlos grün war. Die Prosa „480 passed, 0 skipped" stand am
+API-Tier monatelang, ohne dass irgendetwas sie prüfte.
+
+**Bekannte Lücke.** `frontend` und `e2e` tragen keine Skip-Obergrenze
+(`grep -c 'max-skipped' .taskfiles/frontend.yaml .taskfiles/e2e.yaml` → je `0`).
+Das ist keine Ausnahme von der Regel, sondern eine unerfüllte Stelle: die
+E2E-Matrix meldete einmal Grün bei 6 von 23 übersprungenen Fällen.
+
+### 2.5 Ein Ausnahmeregister MUSS altern können
+
+**MUSS**: Jedes Register, das Befunde eines Gates ausnimmt — Allowlist,
+Exemption, Waiver, Suppression —, MUSS einen Mechanismus tragen, durch den ein
+Eintrag **rot** wird, der nichts mehr ausnimmt. Ohne diesen Mechanismus altert
+jede Ausnahme per Default in eine dauerhafte Befreiung, und ein Register, das
+nur berichtet, ist von einer stillschweigenden Absenkung der Schwelle nicht zu
+unterscheiden.
+
+**MUSS**: Welche Form der Alterungsprüfung richtig ist, folgt daraus, **was der
+Eintrag ist** — und nur diese beiden Formen sind zulässig:
+
+| Der Eintrag ist … | Alterungsprüfung | Beleg im Repository |
+|---|---|---|
+| an eine Stelle gebunden (diese Route, dieser Import, dieses Prädikat) | **strukturell**: verschwindet die Stelle, ist der Eintrag rot | `check_layer_imports.py` (obsolete allowlist entry), `check_route_role_guards.py` (`obsolete-decision`), `check_route_consumers.py` (`stale_exemptions`), `check_skill_plugin_shadowing.py`, `check_gate_text_assertions.py` (`StaleWaiver`) |
+| ein aufgeschobener Posten (diese Advisory heute nicht beheben) | **Ablaufdatum**, §6 | — |
+
+Nachmessen, welche Register diese Form tragen:
+
+```bash
+grep -rln 'obsolete\|stale_exemptions\|StaleWaiver\|no longer' scripts/check_*.py
+```
+
+Ein Ablaufdatum an einem stellengebundenen Eintrag wäre falsch, nicht bloß
+überflüssig: Dieser Eintrag hält eine dauerhaft richtige Entscheidung fest und
+nicht einen Aufschub, und ein Datum würde ihn periodisch zur Neuverhandlung
+zwingen, ohne dass sich an der Sache etwas geändert hätte. Entsprechend kennt
+die Grammatik des Markers kein Datumsfeld:
+
+```bash
+grep -n 'WAIVER = ' scripts/check_gate_text_assertions.py
+```
+
+Die erste gebaute Fassung im Repository ist `# prose-permeable: <Grund>` aus
+#1642 (§2.3): Die Marke verbirgt nichts, wird bei jedem Lauf ausgegeben — und
+eine Marke, die keine gefundene Stelle begründet, lässt den Lauf fehlschlagen
+(`StaleWaiver`). Die portable Fassung der Regel gehört nach
+`spec/project/defect-class-guards/` (nolte/claude-shared#637).
+
 ---
 
 ## 3. Reproduzierbarkeit der Werkzeugkette
@@ -277,6 +351,85 @@ Fehlermodus als die Lücke, die er schließen soll. Die Kommentare in
 aus dem required-Set entfernt und die Doku unverändert lässt. Entweder wird die
 Abdeckung nachweislich anderswo erbracht — dann ist das zu benennen — oder die
 Reduktion ist eine bewusste, dokumentierte Verringerung der Abdeckung.
+
+### 4.1 Ein required Check DARF NICHT in einem pfadgefilterten Workflow liegen
+
+**MUSS**: Für jeden required Kontext MUSS mindestens ein diff-getriebener
+Trigger seines Workflows bei **jedem** Pull Request gegen `develop` feuern. Ein
+`pull_request`-Trigger erfüllt das, wenn er keinen `paths:`-Filter trägt und
+sein `branches:`-Filter fehlt oder `develop` nennt; ein `push`-Trigger nur, wenn
+er weder `paths:` noch `branches:` trägt.
+
+Der Grund ist, dass GitHub „nicht gemeldet" nicht als „bestanden" liest, sondern
+als *Expected — waiting for status to be reported*: Der Pull Request hängt
+dauerhaft. `Integration tests (ArangoDB)` wurde zum required Kontext befördert,
+während sein Job in einem auf `src/backend/**` gefilterten Workflow saß; drei
+offene Pull Requests, die keinen dieser Pfade berührten, waren damit unbefristet
+blockiert (#1432, gemessen 2026-09-17 an #1470, #1475, #1410 über
+`gh pr view <n> --json statusCheckRollup`).
+
+Das ist der Zwilling des Fehlers, den §1 von der anderen Seite kennt — ein
+pfadgefilterter Check, der **grün** meldet über eine Änderung, die er nie
+angesehen hat. Dieselbe Ursache, das entgegengesetzte Symptom, und beide sind in
+der Workflow-Datei allein unsichtbar: Der Filter steht dort, die Requiredness
+steht im Branch-Protection-Zustand, und nichts verband die beiden.
+
+**MUSS**: Die Verdrahtung wird maschinell gehalten, nicht als Kommentar.
+`src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py` ist die
+Referenzimplementierung. Der Live-Zustand:
+
+```bash
+gh api repos/nolte/kamerplanter/branches/develop/protection \
+  --jq '.required_status_checks.contexts'
+```
+
+**MUSS**: Auswahl, die ohnehin stattfinden muss, gehört in ein Job-Level-`if:`,
+**nicht** in den Trigger. Ein per `if:` übersprungener Job meldet ein Ergebnis,
+das Branch Protection akzeptiert; ein per `paths:` übersprungener Workflow meldet
+überhaupt nichts. Daraus folgt die Richtung des Fehlverhaltens, die §2 bereits
+für den Fall „alle Schritte übersprungen" verlangt: Ein Erkennungsschritt, der
+fehlschlägt, MUSS den teuren Job **laufen lassen**, nie überspringen — denn
+Überspringen ist hier die grüne Richtung. `frontend.yml` (`RUN_FRONTEND`) und
+`e2e-smoke.yml` sind die geltende Bauform; `backend-guards.yml` trägt aus
+demselben Grund bewusst **kein** Job-Level-`if:`.
+
+### 4.2 Was eine advisory Lane dem Default-Branch schuldet
+
+**MUSS**: „Advisory" beschreibt, dass ein Check **nicht blockiert** — nicht,
+dass er ignoriert werden darf. Ein roter advisory Check MUSS vor dem Merge
+bewertet werden, und die Bewertung MUSS ein Ergebnis hinterlassen: entweder ist
+der Befund behoben, oder er ist ein Issue.
+
+**MUSS**: Das Merge-Kriterium lautet „jeder Check hat **gemeldet** und ist
+grün", nicht „kein Check ist rot". Ein Re-Run setzt einen roten Check auf
+`IN_PROGRESS` zurück; in genau diesem Moment ist „kein Rot" erfüllt und sagt
+nichts aus. Gemessen an #1617: gemergt `2026-09-20T18:53:04Z`, während
+`E2E smoke (compose, light)` erst `2026-09-20T19:00:34Z` abschloss — der Check,
+auf den sich der Merge berief, lief zum Zeitpunkt des Merges noch.
+
+```bash
+gh pr view 1617 --json mergedAt,statusCheckRollup \
+  --jq '.mergedAt, (.statusCheckRollup[] | select(.name|test("E2E smoke")) | .completedAt)'
+```
+
+**MUSS**: Eine Lane, deren einziger Trigger `pull_request` ist, hat auf dem
+Default-Branch **keine Instanz**. Wird ihr roter Befund gemergt, existiert kein
+Lauf, der den Schaden wiederfindet — die Lücke ist dann nicht advisory, sondern
+unbeobachtet. Für jede solche Lane MUSS deshalb entweder ein `push`-Trigger auf
+`develop` bestehen, oder der rote Befund wird vor dem Merge zu einem benannten
+Posten.
+
+Gemessen an `skaffold-verify.yml`: Sein einziger Trigger ist `pull_request`, und
+unter den letzten 100 Läufen liegt **keiner** auf `develop`. #1547 wurde am
+`2026-09-19T14:43:01Z` mit rotem `verify` gemergt; danach gab es nichts, was
+diesen Zustand erneut gemessen hätte.
+
+```bash
+gh run list --workflow skaffold-verify.yml --limit 100 --json headBranch \
+  --jq '[.[]|select(.headBranch=="develop")]|length'
+gh pr view 1547 --json mergedAt,statusCheckRollup \
+  --jq '.mergedAt, (.statusCheckRollup[] | select(.conclusion=="FAILURE") | .name)'
+```
 
 ---
 
@@ -346,6 +499,8 @@ passen, damit eine behobene Abhängigkeit keine Unterdrückung zurücklässt.
     - [ ] Jedes Gate schlägt bei leerem Prüfgegenstand fehl
     - [ ] Jeder CI-Skip ist angekündigt und nennt einen **existierenden** Backstop
     - [ ] Jeder required Check behandelt den Ausfall seiner Vorbedingungen (`needs.<job>.result`)
+    - [ ] Jede Test-Lane deklariert ihre Skip-Obergrenze und wird rot, wenn sie sie überschreitet
+    - [ ] Jedes Ausnahmeregister lässt einen Eintrag rot werden, der nichts mehr ausnimmt
 - [ ] **Reproduzierbarkeit**
     - [ ] Keine bewegliche Referenz in `.github/workflows/` — weder Action-Tag noch Branch noch unbeschränkte Toolversion
     - [ ] Jeder inline gepinnte Wert ist von Renovate erfasst
@@ -353,6 +508,8 @@ passen, damit eine behobene Abhängigkeit keine Unterdrückung zurücklässt.
 - [ ] **Required Checks**
     - [ ] `gh api …/branches/develop/protection` deckt sich mit dem, was CLAUDE.md und die NFRs behaupten
     - [ ] Für jeden required Check existiert eine gemessene Begründung
+    - [ ] Kein required Kontext liegt in einem Workflow, dessen diff-getriebene Trigger sämtlich `paths:`-gefiltert sind
+    - [ ] Jede advisory Lane, deren einziger Trigger `pull_request` ist, hat einen `push`-Trigger auf `develop` — oder jeder rote Befund von ihr ist vor dem Merge ein benannter Posten
 - [ ] **Auslieferung**
     - [ ] Jedes Image und der Helm-Chart tragen signierte Provenance
     - [ ] Die Artefakt-zu-Stage-Matrix ist in `docs/<lang>/deployment/ci-cd.md` gepflegt, inklusive bekannter Lücken
