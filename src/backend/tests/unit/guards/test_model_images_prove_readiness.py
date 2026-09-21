@@ -53,7 +53,9 @@ from typing import Any
 import pytest
 import yaml
 
-from tests.support.repo_scripts import find_repo_root
+from tests.support.repo_scripts import find_repo_root, load_repo_script
+
+_source_text = load_repo_script("source_text")
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -336,12 +338,17 @@ def _serves(dockerfile: str, route: str) -> bool | None:
 
     ``None`` when the context cannot be read (a synthetic document in the tests
     below), so the assertion is skipped rather than invented.
+
+    Over the executable source only (#1456): a module that merely *names* the
+    route in a comment or a docstring — "the readiness probe hits /v1/health" —
+    does not serve it, and reading the raw text would let that sentence answer
+    for the route handler.
     """
     context = _REPO_ROOT / Path(dockerfile).parent
     if not route or not context.is_dir():
         return None
     return any(
-        f'"{route}"' in source.read_text(errors="ignore")
+        f'"{route}"' in _source_text.executable_source(source.read_text(errors="ignore"), language="python")
         for source in context.glob("**/*.py")
         if "node_modules" not in source.parts
     )

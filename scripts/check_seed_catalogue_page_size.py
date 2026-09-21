@@ -69,8 +69,10 @@ the tree instead:
   literals (``load_yaml("x.yaml")`` and ``YAML_FILES = [...]`` alike), treated as
   ``fnmatch`` patterns so ``seed_steckbrief_consistency.py``'s
   ``glob("plant_info*.yaml")`` resolves too;
-* the **complete-loader contract** by checking the frontend module for the loader
-  symbol.
+* the **complete-loader contract** by checking whether the frontend module
+  **calls** the loader. Not by searching its text for the name: ``fertilizersSlice.ts``
+  and ``activitiesSlice.ts`` each name their loader in a comment head, so a
+  substring test stayed green with the real call deleted (#1610, #1624).
 
 What *is* declared is structure, not quantity: which seed keys belong to which
 catalogue, which field identifies a row, and which frontend module owns the load.
@@ -118,6 +120,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from source_text import is_called  # noqa: E402 — after the sys.path bootstrap above
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -190,7 +196,7 @@ class Catalogue:
         Frontend module, relative to ``src/frontend/src``, that loads the
         catalogue for its list view.
     loader:
-        Symbol the owner must reference for the ``complete`` contract. ``None``
+        Symbol the owner must **call** for the ``complete`` contract. ``None``
         means the owner fetches a bounded page and ``page_size`` applies.
     page_size:
         The bound, when ``loader`` is ``None``. Rows beyond it are unreachable.
@@ -479,7 +485,9 @@ def measure(
             owner = frontend_src / catalogue.owner
             if not owner.is_file():
                 raise SeedCatalogueError(f"owner module does not exist: {owner}")
-            result.missing_loader = catalogue.loader not in owner.read_text(encoding="utf-8")
+            result.missing_loader = not is_called(
+                catalogue.loader, owner.read_text(encoding="utf-8"), language="typescript"
+            )
 
         results.append(result)
     return results
@@ -517,7 +525,7 @@ def report(results: list[CatalogueResult], list_sources: bool, page_size: int) -
     for result in results:
         catalogue = result.catalogue
         if result.missing_loader:
-            verdict = f"FAIL — {catalogue.owner} does not use {catalogue.loader}()"
+            verdict = f"FAIL — {catalogue.owner} does not call {catalogue.loader}()"
         elif result.orphans:
             verdict = f"FAIL — {result.orphan_rows} row(s) in an unloaded seed file"
         elif catalogue.page_size is None:

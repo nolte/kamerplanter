@@ -110,7 +110,9 @@ from types import ModuleType
 
 import pytest
 
-from tests.support.repo_scripts import find_repo_root
+from tests.support.repo_scripts import find_repo_root, load_repo_script
+
+_source_text = load_repo_script("source_text")
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
@@ -162,6 +164,8 @@ def _inject(body: str, anchor: str, replacement: str) -> str:
     vacuously GREEN on a fixture it never touched. The anchor is asserted here so
     a drifted fixture reads as a broken test rather than as a passing one.
     """
+    # prose-permeable: the subject is a dashboard Markdown fixture; the anchor check keeps an injection case from
+    # testing nothing
     assert anchor in body, f"the fixture carries no {anchor!r} to inject at — this case would test nothing"
     return body.replace(anchor, replacement, 1)
 
@@ -208,6 +212,7 @@ class TestTheFixturesAreTheRealThing:
         section = healthy_body[healthy_body.index("<summary>tests/e2e/Dockerfile") :]
         section = section[: section.index("</details>")]
 
+        # prose-permeable: the subject is the dashboard issue's Markdown body
         assert "ghcr.io/astral-sh/uv" in section, (
             "the fixture's tests/e2e/Dockerfile block predates #1509 — it still describes the image that "
             "installed with pip. Re-derive it from `task renovate:dry-run`."
@@ -281,6 +286,7 @@ class TestUnhashedInstallsAreAFindingNow:
         """A reason recorded only in a merged PR body is a reason the next reader never sees."""
         for requirements in check.KNOWN_UNHASHED_REQUIREMENTS:
             text = (_REPO_ROOT / requirements).read_text()
+            # prose-permeable: the assertion IS that the argument is written as a comment in the requirements file
             assert "#1509" in text, f"{requirements} carries no written argument for its exception"
 
     def test_the_sweep_finds_exactly_the_register_in_this_checkout(self) -> None:
@@ -470,7 +476,11 @@ class TestDockerfilesMustNotInstallPythonOutsideALock:
 
     def test_the_e2e_image_installs_from_its_lock(self) -> None:
         """The subject of #1509's first outcome, asserted at the artefact."""
-        dockerfile = (_REPO_ROOT / "tests" / "e2e" / "Dockerfile").read_text()
+        # Executable text only (#1456): the Dockerfile explains its install in a
+        # `#` comment, and a comment naming the command is not the command.
+        dockerfile = _source_text.executable_source(
+            (_REPO_ROOT / "tests" / "e2e" / "Dockerfile").read_text(), language="dockerfile"
+        )
 
         assert "uv sync --locked" in dockerfile
         assert (_REPO_ROOT / "tests" / "e2e" / "uv.lock").is_file()
@@ -858,6 +868,8 @@ class TestEveryImagePinIsReadBySomeManager:
             path.relative_to(_REPO_ROOT).as_posix()
             for glob in check._PIN_FILE_GLOBS
             for path in _REPO_ROOT.glob(glob)
+            # prose-permeable: the glob spans YAML and Dockerfiles with no single language; a digest quoted in a comment
+            # over-counts a floor, which is the safe direction
             if path.is_file() and "@sha256:" in path.read_text()
         ]
 
@@ -893,6 +905,7 @@ class TestEveryImagePinIsReadBySomeManager:
         ):
             text = (_REPO_ROOT / workflow).read_text()
 
+            # prose-permeable: the asserted artefact IS the `# renovate:` marker comment above the pin
             assert "# renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy\n      ZAP_IMAGE: " in text, (
                 f"{workflow} no longer carries the marker the regex manager matches on"
             )
@@ -901,10 +914,13 @@ class TestEveryImagePinIsReadBySomeManager:
             # the first Renovate bump (20260629-stable -> 20260807-stable) turned
             # it red, so the guard blocked the update it exists to enable. That is
             # `defect-class-guards` G3 — enumerate the class, do not check the site.
+            # prose-permeable: same block: the marker comment and the pinned value are asserted as one span
             assert re.search(r"ZAP_IMAGE: ghcr\.io/zaproxy/zaproxy:\S+@sha256:[0-9a-f]{64}\n", text), (
                 f"{workflow} no longer pins the image as tag@digest under the marker"
             )
+            # prose-permeable: same block: counts the uses of the pinned variable in the same span
             assert text.count('"$ZAP_IMAGE" \\\n') == uses, f"{workflow} does not run {uses} scan(s) off the pin"
+            # prose-permeable: same block: a floating reference must be absent from the whole file, comments included
             assert "ghcr.io/zaproxy/zaproxy@sha256:" not in text, (
                 f"{workflow} has a bare digest back in a run: block, which no manager reads"
             )
@@ -913,7 +929,9 @@ class TestEveryImagePinIsReadBySomeManager:
         """Found by the class sweep, not by the issue: tagged AND unread."""
         text = (_REPO_ROOT / ".github/workflows/security-zap-postmerge.yml").read_text()
 
+        # prose-permeable: the asserted artefact IS the `# renovate:` marker comment above the pin
         assert "# renovate: datasource=docker depName=curlimages/curl\n      CURL_IMAGE: " in text
+        # prose-permeable: same block: counts the uses of the pinned variable in the same span
         assert text.count('"$CURL_IMAGE" \\\n') == 2
 
     def test_a_bare_digest_in_a_run_block_is_caught(self, tmp_path: Path) -> None:
@@ -1013,7 +1031,10 @@ class TestTheClaimsAreNoWiderThanTheMeasurement:
     def test_the_finding_text_says_pep_621_and_not_every_python_tree(self) -> None:
         source = Path(check.__file__).read_text()
 
+        # prose-permeable: the asserted artefact IS the recorded sentence — a deferral is only recorded if its prose is
+        # there
         assert "Every PEP 621 tree in this repository installs from a hash-bearing lock" in source
+        # prose-permeable: mirror of the line above: the superseded sentence must be gone from the prose
         assert "Every Python tree in this repository installs from a hash-bearing lock" not in source, (
             "the finding claims more than `lockless_python_trees()` measures: it reads pyproject.toml only, "
             "so three requirements.txt are outside it. Narrow the claim or widen the sweep — not neither."
@@ -1391,7 +1412,13 @@ class TestTheBodyArrivesThroughAFile:
         the workflow does not use — the recurring failure class here (a test that
         reaches the rule by a route production never takes).
         """
-        workflow = (_REPO_ROOT / ".github" / "workflows" / "renovate-health.yml").read_text()
+        # Executable YAML only (#1456): the lane documents the `--body-file`
+        # handover in a comment beside it, so the raw text answers yes to both
+        # assertions below whatever the `run:` step actually does.
+        workflow = _source_text.executable_source(
+            (_REPO_ROOT / ".github" / "workflows" / "renovate-health.yml").read_text(),
+            language="yaml",
+        )
         assert "--body-file dashboard-body.md" in workflow, (
             "renovate-health.yml does not hand the body to check_renovate_dashboard.py by file path; the "
             "--body-file tests above would then measure a door nobody walks through"
