@@ -4,6 +4,12 @@
 # SERVE it: start the container and require its readiness signal.
 #
 #   scripts/ci/smoke_model_image.sh <image> <port> <path> [required-substring]
+#   scripts/ci/smoke_model_image.sh <image> model <model-dir> <dim> <input-size>
+#
+# The first form starts the container and requires its readiness endpoint. The
+# second loads the shipped ONNX graph inside the image and runs one inference
+# through it — for a service whose readiness legitimately depends on something
+# that is not standing here (see below).
 #
 # #1609 — the defect this exists against, measured 2026-09-20.
 #
@@ -18,11 +24,18 @@
 #
 # So the signal this script requires is the READINESS one, never `docker ps`'s
 # health column and never a successful build. Two of the three images in this
-# class serve `/ready`, which is 503 until the model is loaded; the inference
-# service's `/ready` additionally requires a database it does not have here, so
-# it is smoke-tested on `/health` WITH a body assertion on `model_loaded` —
-# hence the optional fourth argument. A plain 200 on `/health` would reproduce
-# exactly the lie this file exists to end.
+# class serve `/ready`, which is 503 until the model is loaded, and those are
+# started and probed.
+#
+# The inference service is the exception, and it was MEASURED rather than
+# assumed: its lifespan (`src/inference-service/app/main.py`) connects to
+# pgvector and runs migrations BEFORE `Embedder.start_load()`, so a lone
+# container never serves anything at all — requiring `/ready` there would assert
+# the absence of a database, not the presence of a model. Its `model` mode loads
+# the shipped graph inside the image instead, which is what this class is about.
+# The optional fourth argument of the HTTP form requires a fact in the body, for
+# an endpoint whose 200 alone would reproduce exactly the lie this file exists
+# to end.
 #
 # On failure the container's logs are dumped, because the preload traceback is
 # the only place the real cause appears.
@@ -37,8 +50,26 @@
 
 set -euo pipefail
 
-IMAGE="${1:?usage: smoke_model_image.sh <image> <port> <path> [required-substring]}"
-PORT="${2:?missing container port}"
+IMAGE="${1:?usage: smoke_model_image.sh <image> <port|model> ...}"
+PORT="${2:?missing container port, or the literal \`model\`}"
+
+# ── `model` mode: load the shipped graph inside the image ────────────
+if [ "$PORT" = "model" ]; then
+  MODEL_DIR="${3:?missing model directory}"
+  EXPECTED_DIM="${4:?missing expected embedding dimension}"
+  INPUT_SIZE="${5:?missing model input size}"
+  VERIFIER="$(cd "$(dirname "$0")" && pwd)/verify_onnx_model.py"
+  echo "smoke: $IMAGE -> loading $MODEL_DIR (expecting dimension $EXPECTED_DIM)"
+  # `--entrypoint python` overrides the server CMD; the verifier is mounted
+  # read-only rather than baked in, so the shipped image stays unchanged.
+  if docker run --rm -v "$VERIFIER:/verify_onnx_model.py:ro" --entrypoint python \
+      "$IMAGE" /verify_onnx_model.py "$MODEL_DIR" "$EXPECTED_DIM" "$INPUT_SIZE"; then
+    exit 0
+  fi
+  echo "FAIL: $IMAGE ships a model it cannot load" >&2
+  exit 1
+fi
+
 READY_PATH="${3:?missing readiness path}"
 REQUIRED="${4:-}"
 

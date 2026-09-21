@@ -371,11 +371,12 @@ jobs:
       # A build is not a start (#1609) — see the note in `build-reranker-service`.
       # `load: true` above is what lets this step `docker run` what was built.
       #
-      # This one is probed on `/health` rather than `/ready`, and that is not a
-      # weakening: its `/ready` additionally requires the pgvector database,
-      # which is not standing here, so it could never go green. `/health` alone
-      # WOULD be the #1609 lie — it answers 200 whatever the model did — so the
-      # smoke step requires the body to report a loaded model, and the image's
-      # HEALTHCHECK asserts the same fact.
-      - name: Prove the inference service serves its model
-        run: scripts/ci/smoke_model_image.sh kp-inference-service:pr 8000 /health '"model_loaded":true'
+      # This one is proved by loading the graph inside the image rather than by
+      # starting the server, and that is measured, not a shortcut: the lifespan
+      # in src/inference-service/app/main.py connects to pgvector and runs
+      # migrations BEFORE `Embedder.start_load()`, so a lone container never
+      # answers at all. An HTTP probe here would assert the absence of a
+      # database; this asserts the presence of a usable model, which is the
+      # thing #1609 was about. The dimension comes from MODEL_DIM in the chart.
+      - name: Prove the inference service ships a loadable model
+        run: scripts/ci/smoke_model_image.sh kp-inference-service:pr model /app/models/dinov2 384 224

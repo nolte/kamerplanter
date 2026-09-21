@@ -163,13 +163,37 @@ def _built_file(step: dict[str, Any]) -> str | None:
 
 
 class SmokeCall:
-    """One parsed ``scripts/ci/smoke_model_image.sh`` invocation."""
+    """One parsed ``scripts/ci/smoke_model_image.sh`` invocation.
+
+    Two forms, because the class has two shapes of provable readiness:
+
+    * ``<image> <port> <path> [required]`` — start the container, require the
+      readiness endpoint. The better proof, and the one two of the three images
+      can give.
+    * ``<image> model <dir> <dim> <input-size>`` — load the shipped graph inside
+      the image. For a service whose readiness legitimately depends on something
+      that is not standing in the build job (the inference service's lifespan
+      connects to pgvector before it loads the model), an HTTP probe would
+      assert the absence of that dependency rather than the presence of a model.
+    """
+
+    MODEL = "model"
 
     def __init__(self, argv: list[str]) -> None:
         self.image = argv[1] if len(argv) > 1 else ""
         self.port = argv[2] if len(argv) > 2 else ""
-        self.path = argv[3] if len(argv) > 3 else ""
-        self.required = argv[4] if len(argv) > 4 else ""
+        if self.port == self.MODEL:
+            self.path = ""
+            self.required = ""
+            self.model_dir = argv[3] if len(argv) > 3 else ""
+        else:
+            self.path = argv[3] if len(argv) > 3 else ""
+            self.required = argv[4] if len(argv) > 4 else ""
+            self.model_dir = ""
+
+    @property
+    def loads_the_model_directly(self) -> bool:
+        return self.port == self.MODEL
 
     @property
     def required_key(self) -> str:
@@ -241,7 +265,11 @@ def readiness_gaps(document: dict[str, Any], dockerfiles: dict[str, str]) -> dic
             continue
         call = matching[0]
 
-        if call.port and call.port not in exposed_ports(text):
+        if call.loads_the_model_directly and not call.model_dir:
+            findings[path] = f"job {job_id!r} smoke-tests it in `model` mode without naming a model directory"
+            continue
+
+        if not call.loads_the_model_directly and call.port and call.port not in exposed_ports(text):
             findings[path] = (
                 f"the smoke step probes port {call.port}, which this Dockerfile does not EXPOSE "
                 f"({sorted(exposed_ports(text))}) — `docker run -P` would publish nothing"
@@ -259,6 +287,11 @@ def readiness_gaps(document: dict[str, Any], dockerfiles: dict[str, str]) -> dic
                 f"loaded model. Assert {call.path!r}, the surface the smoke step asserts"
             )
             continue
+        if call.loads_the_model_directly:
+            # No path to tie the HEALTHCHECK to; the socket-only check above is
+            # the assertion that survives, and it is the one #1609 is about.
+            continue
+
         if call.path and call.path not in healthcheck:
             findings[path] = (
                 f"the smoke step proves {call.path!r} but the HEALTHCHECK asserts something else "
@@ -496,6 +529,47 @@ jobs:
         findings = readiness_gaps(self._document(body_checked), self._files())
 
         assert "model_loaded" in findings["docker/thing/Dockerfile"]
+
+    #: The second form: the graph is loaded inside the image instead of served.
+    _MODEL_MODE = _WORKFLOW_YAML.replace(
+        "smoke_model_image.sh kp-thing:pr 9000 /ready",
+        "smoke_model_image.sh kp-thing:pr model /app/models/thing 384 224",
+    )
+
+    def test_the_model_mode_shape_is_not_a_finding(self) -> None:
+        """The positive control for the two properties below."""
+        assert readiness_gaps(self._document(self._MODEL_MODE), self._files()) == {}
+
+    def test_model_mode_without_a_directory_is_a_finding(self) -> None:
+        nameless = self._MODEL_MODE.replace(
+            "smoke_model_image.sh kp-thing:pr model /app/models/thing 384 224",
+            "smoke_model_image.sh kp-thing:pr model",
+        )
+        findings = readiness_gaps(self._document(nameless), self._files())
+
+        assert "without naming a model directory" in findings["docker/thing/Dockerfile"]
+
+    def test_model_mode_does_not_excuse_a_socket_only_healthcheck(self) -> None:
+        """The exemption is the PATH tie-in, never the #1609 assertion itself."""
+        socket_only = self._DOCKERFILE.replace(
+            """HEALTHCHECK --interval=30s CMD ["python", "-c", "import sys,urllib.request; \\
+    sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9000/ready').status == 200 else 1)"]""",
+            """HEALTHCHECK --interval=30s CMD ["python", "-c", "import socket,sys; s=socket.socket(); \\
+    sys.exit(s.connect_ex(('127.0.0.1',9000)))"]""",
+        )
+        findings = readiness_gaps(self._document(self._MODEL_MODE), {"docker/thing/Dockerfile": socket_only})
+
+        assert "opens a TCP socket and nothing more" in findings["docker/thing/Dockerfile"]
+
+    def test_model_mode_ignores_a_port_the_dockerfile_does_not_expose(self) -> None:
+        """`model` is not a port; reading it as one would invent a finding."""
+        moved = self._DOCKERFILE.replace("EXPOSE 9000", "EXPOSE 9100")
+        assert readiness_gaps(self._document(self._MODEL_MODE), {"docker/thing/Dockerfile": moved}) == {}
+
+    def test_the_model_verifier_exists_and_is_readable(self) -> None:
+        """`model` mode mounts this file into the image; a missing one is inert."""
+        verifier = _REPO_ROOT / "scripts" / "ci" / "verify_onnx_model.py"
+        assert verifier.is_file(), f"{verifier} is missing; every `model`-mode smoke step would fail to run"
 
     def test_a_body_requirement_the_healthcheck_honours_is_not_a_finding(self) -> None:
         body_checked = self._WORKFLOW_YAML.replace(
