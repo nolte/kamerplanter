@@ -534,6 +534,54 @@ describe('WorkflowInstantiateDialog', () => {
     ).toBeInTheDocument();
   });
 
+  it('loads its data once per open, not once per render', async () => {
+    // #1564 — the regression this file needed and did not have. The dialog's
+    // load effect listed `targetEntityTypes` among its dependencies while that
+    // prop was a per-render array (a parameter default, and `?? [...]` at the
+    // only production call site), so every render tore the in-flight load down
+    // and started another: 22 template requests within two seconds of a single
+    // mount, measured; this case's own assertion sees 5 of them.
+    // The visible damage is that the cancelled lap never runs the `finally`
+    // that clears `loadingTemplates`, so the preview and the empty state blink
+    // once per lap — which is why `shows the empty-template message …` resolved
+    // or not depending on where its polling query landed.
+    //
+    // The count is read at a point that is *after* any second lap would already
+    // have issued its request: with the defect present, the request for lap two
+    // is fired by the effect that React runs synchronously after the commit
+    // which put this row on screen, and `findByText` only resolves on a later
+    // poll. So this assertion needs no quiet period and no elapsed time — it is
+    // not a slower version of the flake it replaces.
+    let templateRequests = 0;
+    let plantRequests = 0;
+    // A name no other node carries: the default template is called `Watering`
+    // and renders a category chip that reads `Watering` too, so an unscoped
+    // query for it matches twice — the same ambiguity #1564 retires in
+    // `LocationTreeSelect`, and it broke this case's first draft.
+    const template = makeTemplate({ name: 'Single Template' });
+    seed({ plants: [makePlant()], templates: [template] });
+    server.use(
+      http.get(PLANTS_URL, () => {
+        plantRequests += 1;
+        return HttpResponse.json([makePlant()]);
+      }),
+      http.get(TEMPLATES_URL, () => {
+        templateRequests += 1;
+        return HttpResponse.json([template]);
+      }),
+    );
+    renderDialog();
+
+    await screen.findByTestId('workflow-instantiate-dialog');
+    // Re-queried inside `waitFor` for the reason the preview case above states:
+    // `loadPlantData`'s plants -> runs -> run-plants chain lands after the
+    // template fetch and re-renders the list.
+    await waitFor(() => expect(screen.getByText('Single Template')).toBeInTheDocument());
+
+    expect(templateRequests).toBe(1);
+    expect(plantRequests).toBe(1);
+  });
+
   it('renders the option detail rows for a run inside its group', async () => {
     seed({
       runs: [makeRun()],
