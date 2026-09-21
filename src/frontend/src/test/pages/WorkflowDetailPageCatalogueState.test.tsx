@@ -237,3 +237,147 @@ describe('WorkflowDetailPage — failed, empty and loaded are three states (#156
     ).toBeNull();
   });
 });
+
+/**
+ * The perceivable half, and the empty state's way out (#1568 UI review).
+ *
+ * The cases above assert which element is on screen. None asked how a user who
+ * cannot see it learns that the catalogue arrived, and none asked where focus
+ * goes when the retry control unmounts under the click that hit it. Of the three
+ * transitions only `→ failed` announced itself for free, through the native
+ * `role="alert"` inside MUI's `Alert`.
+ *
+ * Which code makes each red, recorded because a case that passes against the
+ * unrepaired version certifies nothing:
+ *
+ * | case | red against |
+ * |---|---|
+ * | announces while loading | removing `<LoadingStatus>` |
+ * | focus after a successful retry | removing `useRetryFocus` |
+ * | CTA on an empty catalogue | removing the button |
+ * | no CTA on a search miss | rendering the button unconditionally |
+ */
+describe('WorkflowDetailPage — the activity catalogue is perceivable (#1568 UI review)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  it('announces the load in a live region alongside the spinner', async () => {
+    // Released in `finally`: a request left hanging keeps its entry in
+    // `useCatalogue`'s module-level in-flight map, and every later case in the
+    // file then joins a dead promise. Measured on the sibling file.
+    let release!: () => void;
+    const arrives = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    serveWorkflow(async () => {
+      await arrives;
+      return HttpResponse.json([makeActivity(0)]);
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+
+    const dialog = await openCatalogueDialog(user);
+
+    try {
+      const status = within(dialog).getByTestId('activity-catalogue-loading-status');
+      expect(status.getAttribute('role')).toBe('status');
+      expect(status.getAttribute('aria-live')).toBe('polite');
+      // A named region with no content announces nothing, so the text matters.
+      expect(status.textContent).toBe(i18n.t('common.loading'));
+      // The spinner is the R-020 half and is invisible to a screen reader.
+      expect(within(dialog).getByTestId('activity-catalogue-loading')).toBeTruthy();
+    } finally {
+      release();
+    }
+
+    await waitFor(
+      () => {
+        expect(
+          within(dialog).getByTestId('activity-catalogue-loading-status').textContent,
+        ).toBe('');
+      },
+      { timeout: WAIT_BUDGET },
+    );
+  });
+
+  it('puts focus on the search box after a retry succeeds', async () => {
+    let attempts = 0;
+    serveWorkflow(() => {
+      attempts += 1;
+      if (attempts === 1) return new HttpResponse(null, { status: 500 });
+      return HttpResponse.json([makeActivity(0)]);
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+
+    const dialog = await openCatalogueDialog(user);
+    await user.click(await within(dialog).findByTestId('error-retry-button'));
+
+    await waitFor(
+      () => {
+        expect(within(dialog).queryByTestId('activity-catalogue-error')).toBeNull();
+      },
+      { timeout: WAIT_BUDGET },
+    );
+
+    // Against the unrepaired version the focused button unmounted with its
+    // branch and the browser fell back to `<body>`.
+    const search = within(within(dialog).getByTestId('activity-catalogue-search')).getByRole(
+      'textbox',
+    );
+    await waitFor(
+      () => {
+        expect(document.activeElement).toBe(search);
+      },
+      { timeout: WAIT_BUDGET },
+    );
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('offers a call to action when the catalogue itself is empty', async () => {
+    serveWorkflow(() => HttpResponse.json([]));
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+
+    const dialog = await openCatalogueDialog(user);
+
+    const cta = await within(dialog).findByTestId('activity-catalogue-empty-cta');
+    // R-014: the label names where it goes, rather than "OK" or "Weiter".
+    expect(cta.textContent).toBe(i18n.t('pages.tasks.activityCatalogueEmptyCta'));
+  });
+
+  it('offers no call to action when only the search matched nothing', async () => {
+    // The counterpart that keeps the case above honest: an unconditional button
+    // would satisfy it. A search miss is not an empty catalogue, and its way out
+    // is the search box the user is already looking at.
+    serveWorkflow(() => HttpResponse.json([makeActivity(0)]));
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+
+    const dialog = await openCatalogueDialog(user);
+    await waitFor(
+      () => {
+        expect(within(dialog).getByTestId('activity-row-act-0')).toBeTruthy();
+      },
+      { timeout: WAIT_BUDGET },
+    );
+
+    const search = within(dialog).getByTestId('activity-catalogue-search');
+    await user.click(within(search).getByRole('textbox'));
+    await user.paste('zzz-kein-treffer');
+
+    await waitFor(
+      () => {
+        expect(within(dialog).getByTestId('activity-catalogue-empty')).toBeTruthy();
+      },
+      { timeout: WAIT_BUDGET },
+    );
+    expect(within(dialog).queryByTestId('activity-catalogue-empty-cta')).toBeNull();
+  });
+});

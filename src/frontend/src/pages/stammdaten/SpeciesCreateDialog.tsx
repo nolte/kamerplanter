@@ -8,6 +8,7 @@ import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
+import LinearProgress from '@mui/material/LinearProgress';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,7 +27,12 @@ import { useAppDispatch } from '@/store/hooks';
 import { resetShowAllFields } from '@/store/slices/uiSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useNavigate } from 'react-router-dom';
+import Button from '@mui/material/Button';
+import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import { useRetryFocus } from '@/hooks/useRetryFocus';
+import LoadingStatus from '@/components/common/LoadingStatus';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { speciesFieldConfig } from '@/config/fieldConfigs';
 import * as speciesApi from '@/api/endpoints/species';
@@ -92,6 +98,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
   const dispatch = useAppDispatch();
@@ -104,6 +111,13 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   // no ignore guard, so closing and reopening the dialog started a second
   // sequence whose late answer could overwrite the live one.
   const families = useCatalogue('botanicalFamilies', { enabled: open });
+  // After a retry succeeds, focus the control the user was trying to reach.
+  // `FormSelectField` documents `[role='combobox']` as the stable trigger
+  // selector, which is also what its own tests address.
+  const { attachRegion: attachFamilyRegion, beginRetry: beginFamilyRetry } = useRetryFocus(
+    families.status,
+    "[data-testid='form-field-family_key'] [role='combobox']",
+  );
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
   const handleClose = useCallback(() => {
@@ -111,7 +125,12 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
     onClose();
   }, [dispatch, onClose]);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isDirty },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       scientific_name: '',
@@ -167,6 +186,21 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const fc = speciesFieldConfig;
 
   return (
+    <>
+    {/*
+      The warning that makes the CTA above acceptable. Hung on the form's real
+      dirty state — `isDirty` — because a loss warning shown over an untouched
+      form is noise, and a warning users have learned to click through is not
+      there for the one time it matters. `&& open` mirrors the established usage
+      in `OverwinteringProfileDialog` and `DiaryEntryDialog`: a closed dialog has
+      nothing to lose.
+
+      This is the project's existing mechanism (30+ call sites), not a second one
+      placed beside it: `useBlocker` intercepts the route change and
+      `ConfirmDialog` — `role="alertdialog"`, cancel `autoFocus` — offers both
+      ways with "stay" as the lighter one.
+    */}
+    <UnsavedChangesGuard dirty={isDirty && open} />
     <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="species-create-dialog"
       aria-labelledby="species-create-dialog-title">
       <DialogTitle id="species-create-dialog-title">{t('pages.species.create')}</DialogTitle>
@@ -212,31 +246,98 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               `family_key` required, which is a behaviour change for the operator
               to decide, not a review fix.
             */}
-            <FormSelectField
-              name="family_key"
-              control={control}
-              label={t('pages.species.family')}
-              helperText={
-                families.status === 'loading'
-                  ? t('pages.species.familyLoading')
-                  : t('pages.species.familyHelper')
-              }
-              disabled={families.status !== 'ready'}
-              options={[
-                { value: '', label: '—' },
-                ...families.items.map((f) => ({ value: f.key, label: f.name })),
-              ]}
-            />
-            {families.status === 'failed' && (
-              <Box data-testid="family-catalogue-error">
-                <ErrorDisplay
-                  error={families.error ?? 'errors.loadFailed'}
-                  onRetry={families.reload}
+            <Box ref={attachFamilyRegion}>
+              <FormSelectField
+                name="family_key"
+                control={control}
+                label={t('pages.species.family')}
+                helperText={
+                  families.status === 'loading'
+                    ? t('pages.species.familyLoading')
+                    : t('pages.species.familyHelper')
+                }
+                disabled={families.status !== 'ready'}
+                options={[
+                  { value: '', label: '—' },
+                  ...families.items.map((f) => ({ value: f.key, label: f.name })),
+                ]}
+              />
+              {/*
+                The announcement half, and it is mounted unconditionally on
+                purpose (UI-NFR-002 §2.3 R-011, WCAG 2.2 AA 4.1.3). A live region
+                has to exist *before* its content changes for the change to be
+                announced — see property 4 in `LoadingStatus`. Rendering it only
+                while loading would insert region and content together on the
+                first load and, worse, announce nothing at all on the
+                `failed → loading → ready` path a retry takes.
+
+                `active` carries the content, so the region is empty and unnamed
+                once the catalogue is there and says nothing to a user who
+                navigates onto it later.
+              */}
+              <LoadingStatus
+                label={t('pages.species.familyLoading')}
+                active={families.status === 'loading'}
+                data-testid="family-catalogue-loading-status"
+              />
+              {/*
+                The *visual* half (UI-NFR-004 §2.5 R-020, which asks for a
+                spinner, progress bar or skeleton — a helper text is none of the
+                three). Without it a sighted first-time user reads the greyed-out
+                dropdown as broken rather than as loading.
+
+                A bar rather than the activity dialog's centred spinner: same
+                vocabulary (an MUI progress indicator), applied at the scale of
+                the surface — one form field here, a whole list region there.
+              */}
+              {families.status === 'loading' && (
+                <LinearProgress
+                  aria-hidden
+                  sx={{ mt: -1, mb: 1.5 }}
+                  data-testid="family-catalogue-loading"
                 />
-              </Box>
-            )}
+              )}
+              {families.status === 'failed' && (
+                <Box data-testid="family-catalogue-error">
+                  <ErrorDisplay
+                    error={families.error ?? 'errors.loadFailed'}
+                    onRetry={() => {
+                      // Arm the focus restore before the state flips, because the
+                      // button this click landed on is about to unmount.
+                      beginFamilyRetry();
+                      families.reload();
+                    }}
+                  />
+                </Box>
+              )}
+            </Box>
             {families.isEmpty && (
-              <Alert severity="info" sx={{ mb: 1.5 }} data-testid="family-catalogue-empty">
+              <Alert
+                severity="info"
+                sx={{ mb: 1.5 }}
+                data-testid="family-catalogue-empty"
+                action={
+                  /*
+                    R-014: an empty state carries a way out, not only a
+                    description (UI-NFR-004 §3.2). Operator decision, taken
+                    against the UI reviewer's advice — the reviewer objected that
+                    navigating away pulls the user out of the task they are in
+                    the middle of. The objection is answered rather than
+                    overruled: `UnsavedChangesGuard` below blocks the navigation
+                    whenever this form actually holds input, and its
+                    `ConfirmDialog` autofocuses "cancel", so staying is the
+                    default and leaving is the deliberate act.
+                  */
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={() => navigate('/stammdaten/botanical-families')}
+                    data-testid="family-catalogue-empty-cta"
+                  >
+                    {t('pages.species.familyCatalogueEmptyCta')}
+                  </Button>
+                }
+              >
                 {t('pages.species.familyCatalogueEmpty')}
               </Alert>
             )}
@@ -488,5 +589,6 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
         </Form>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

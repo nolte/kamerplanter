@@ -1410,7 +1410,8 @@
         }
       },
       "familyLoading": "Loading botanical families …",
-      "familyCatalogueEmpty": "No botanical family exists yet. You can save the species without one and assign it later."
+      "familyCatalogueEmpty": "No botanical family exists yet. You can save the species without one and assign it later.",
+      "familyCatalogueEmptyCta": "Manage botanical families"
     },
     "cultivars": {
       "title": "Cultivars",
@@ -3334,7 +3335,8 @@
       "instantiateError": "Workflow instantiation failed for all plants.",
       "instantiatePartial": "{{success}} succeeded, {{failed}} failed.",
       "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue.",
-      "activityCatalogueEmpty": "The activity catalogue is empty. Create an activity first."
+      "activityCatalogueEmpty": "The activity catalogue is empty. Create an activity first.",
+      "activityCatalogueEmptyCta": "Manage activities"
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",
