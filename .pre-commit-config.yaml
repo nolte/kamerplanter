@@ -492,6 +492,35 @@ repos:
   # getattr, a reach for `.aql` under any other name), reported as ONE finding so
   # changing spelling does not clear it — and carries its own ALLOWED_HANDLES
   # allowlist for the four modules that still cross.
+  # ── One declared personal-data inventory (#1622, REQ-025 / NFR-011) ────
+  # `DataExportEngine.USER_DATA_MANIFEST` and `ErasureEngine.build_erasure_plan`
+  # are the two enumerations an auditor reads to answer "what does this system
+  # hold about me". Neither had a call site. The export and erasure that do run
+  # walked a different enumeration, hand-written at the point of execution:
+  # measured on 2026-09-21 the declared erasure plan named 26 ArangoDB
+  # collections against the cascade's 11, a symmetric difference of 23, and four
+  # collections the cascade removes appeared in no declared inventory at all.
+  #
+  # Repairing those 23 leaves the 24th, added next month, exactly as invisible —
+  # two lists that must agree and are never compared drift, and this pair had.
+  # So the hook enumerates the CLASS: every inventory entry is attributed to an
+  # executor, every collection declared for Art. 15 export appears in the Art. 17
+  # erasure inventory, both inventories are read by executing code, and no
+  # executing path writes a personal-data collection name down again.
+  #
+  # R1/R2/R4 are read off the AST, R3 through `scripts/source_text.py`, so a
+  # comment that names the call satisfies nothing (#1456, #1545, #1610, #1624).
+  # The anti-vacuity floors sit deliberately below today's inventory: they catch
+  # this script's own reader collapsing, not a legitimate change.
+  - repo: local
+    hooks:
+      - id: privacy-inventory
+        name: one declared personal-data inventory, read by the executing path (#1622)
+        entry: python3 scripts/check_privacy_inventory.py
+        language: system
+        files: ^(src/backend/app/.*\.py|scripts/check_privacy_inventory\.py)$
+        pass_filenames: false
+
   - repo: local
     hooks:
       - id: layer-imports
