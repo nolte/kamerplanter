@@ -3336,7 +3336,8 @@
       "instantiatePartial": "{{success}} erfolgreich, {{failed}} fehlgeschlagen.",
       "cannotDeleteReopened": "Diese Aufgabe war abgeschlossen und wurde wiedereröffnet. Sie trägt die Fotos und den Nachweis dieses Abschlusses und lässt sich deshalb nicht löschen — überspringe sie, um sie aus der Liste zu nehmen.",
       "activityCatalogueEmpty": "Der Tätigkeitskatalog ist leer. Lege zuerst eine Tätigkeit an.",
-      "activityCatalogueEmptyCta": "Tätigkeiten verwalten"
+      "activityCatalogueEmptyCta": "Tätigkeiten verwalten",
+      "activityCatalogueLoading": "Tätigkeiten werden geladen …"
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",

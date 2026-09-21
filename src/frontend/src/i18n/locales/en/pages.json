@@ -3336,7 +3336,8 @@
       "instantiatePartial": "{{success}} succeeded, {{failed}} failed.",
       "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue.",
       "activityCatalogueEmpty": "The activity catalogue is empty. Create an activity first.",
-      "activityCatalogueEmptyCta": "Manage activities"
+      "activityCatalogueEmptyCta": "Manage activities",
+      "activityCatalogueLoading": "Loading activities …"
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",

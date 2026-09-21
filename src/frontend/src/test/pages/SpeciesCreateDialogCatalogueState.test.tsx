@@ -380,3 +380,116 @@ describe('SpeciesCreateDialog — the empty family catalogue offers a guarded wa
     expect((name as HTMLInputElement).value).toBe('Ocimum basilicum');
   });
 });
+
+/**
+ * A retry the user walked away from must not come back for their focus
+ * (#1568 second UI review, blocking).
+ *
+ * **The defect.** `pending` is a ref, armed by `beginRetry` and disarmed only in
+ * the acting branch of the effect — which requires a `status !== 'loading'`
+ * transition. Both dialogs survive close-and-reopen as the **same component
+ * instance** (`SpeciesCreateDialog` is rendered unconditionally by
+ * `SpeciesListPage`; `open` only drives MUI), so the ref outlives the dialog.
+ * Close it mid-retry and `useCatalogue` freezes with `ignore = true`: no further
+ * transition ever comes, `pending` stays armed, and the *next* opening — even a
+ * plain cached one — jumped the focus while the user was typing elsewhere.
+ *
+ * It contradicted the hook's own sentence about itself ("It only acts when the
+ * user asked"), which is the same class the family-field comment was corrected
+ * for, this time in the freshly built hook.
+ *
+ * **Which code makes this red:** removing the `enabled`-keyed reset effect from
+ * `useRetryFocus`. Verified — without it the reopened dialog moves focus to the
+ * combobox and the final assertion fails.
+ */
+describe('SpeciesCreateDialog — a retry abandoned by closing the dialog is abandoned', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  it('does not grab focus on the next opening after the dialog closed mid-retry', async () => {
+    // The second request is gated so the dialog can be closed while it is still
+    // in flight — that is the whole situation. Released in `finally` so a
+    // failure here cannot poison later cases through the in-flight map.
+    let release!: () => void;
+    const secondArrives = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let attempts = 0;
+    server.use(
+      http.get(FAMILIES_URL, async () => {
+        attempts += 1;
+        if (attempts === 1) return new HttpResponse(null, { status: 500 });
+        await secondArrives;
+        return HttpResponse.json([makeFamily(0)]);
+      }),
+    );
+
+    const user = userEvent.setup();
+    // A router, because the empty-state CTA calls `useNavigate`. The store is
+    // built once and reused across rerenders so the catalogue cache — and the
+    // hook's refs — survive exactly as they do in the product.
+    const store = createStoreWithExpertise('expert');
+    // A *data* router: `UnsavedChangesGuard` uses `useBlocker`, which the
+    // declarative router does not provide.
+    const tree = (open: boolean) => (
+      <Provider store={store}>
+        <ThemeContextProvider>
+          <SnackbarProvider>
+            <RouterProvider
+              router={createMemoryRouter(
+                [
+                  {
+                    path: '/',
+                    element: (
+                      <SpeciesCreateDialog
+                        open={open}
+                        onClose={() => {}}
+                        onCreated={() => {}}
+                      />
+                    ),
+                  },
+                ],
+                { initialEntries: ['/'] },
+              )}
+            />
+          </SnackbarProvider>
+        </ThemeContextProvider>
+      </Provider>
+    );
+    const view = render(tree(true));
+
+    try {
+      // Arm the retry…
+      await user.click(await screen.findByTestId('error-retry-button'));
+      // …then walk away before it settles. Same instance, `open` only drives MUI.
+      view.rerender(tree(false));
+    } finally {
+      release();
+    }
+
+    // Reopen, with focus wherever the user left it rather than in this dialog.
+    view.rerender(tree(true));
+
+    const combobox = within(await screen.findByTestId('form-field-family_key')).getByRole(
+      'combobox',
+    );
+    // Give the reopened dialog room to settle and to misbehave: an assertion
+    // that runs before the effect could have fired would pass either way.
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('family-catalogue-error')).toBeNull();
+      },
+      { timeout: WAIT_BUDGET },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    // The assertion that carries the finding.
+    expect(document.activeElement).not.toBe(combobox);
+  });
+});

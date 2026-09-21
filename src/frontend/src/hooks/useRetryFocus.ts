@@ -23,9 +23,20 @@ import type { CatalogueStatus } from '@/hooks/useCatalogue';
  * this whole pull request exists to remove — a picker rebuilding shared logic
  * locally, then drifting from its sibling.
  *
- * **Focus is only moved when the user asked for it.** `beginRetry` arms the
- * effect; nothing happens on a first load or on a re-render. Stealing focus when
- * a dialog's catalogue merely finished loading would be its own defect.
+ * **Focus is only moved when the user asked for it, and only while they are
+ * still there.** `beginRetry` arms the effect; nothing happens on a first load
+ * or on a re-render. Stealing focus because a catalogue merely finished loading
+ * would be its own defect.
+ *
+ * The second half of that sentence is load-bearing and was missing. Both dialogs
+ * survive close-and-reopen as the **same component instance** —
+ * `SpeciesCreateDialog` is rendered unconditionally by `SpeciesListPage` and the
+ * activity dialog lives in a page that never unmounts; `open` only drives MUI.
+ * So the refs outlive the dialog. A user who pressed retry and closed the dialog
+ * before the request settled left `pending` armed with no further
+ * `status !== 'loading'` transition to disarm it — and the *next* opening, even a
+ * plain cached one, jumped the focus while they were typing somewhere else.
+ * `enabled` going false is therefore what abandons a retry, not the status.
  */
 
 /** What {@link useRetryFocus} returns. */
@@ -51,6 +62,17 @@ export interface RetryFocus {
   beginRetry: () => void;
 }
 
+/** Options for {@link useRetryFocus}. */
+export interface UseRetryFocusOptions {
+  /**
+   * Whether the surface is on screen — pass the dialog's `open` flag. Going
+   * `false` abandons any retry in flight: the user walked away from it, and
+   * focusing into a closed dialog on the next opening is a defect, not a
+   * courtesy.
+   */
+  enabled?: boolean;
+}
+
 /**
  * Restores focus after a user-initiated catalogue retry settles.
  *
@@ -60,10 +82,16 @@ export interface RetryFocus {
  *   trying to use. Both call sites pass a selector that the component's own
  *   documentation declares stable (`FormSelectField` names its
  *   `[role='combobox']` trigger; the activity dialog uses its search testid).
+ * @param options See {@link UseRetryFocusOptions}.
  * @returns See {@link RetryFocus}; the object is `useMemo`-stabilised
  *   (FRONTEND.md §6.1).
  */
-export function useRetryFocus(status: CatalogueStatus, successSelector: string): RetryFocus {
+export function useRetryFocus(
+  status: CatalogueStatus,
+  successSelector: string,
+  options?: UseRetryFocusOptions,
+): RetryFocus {
+  const enabled = options?.enabled ?? true;
   const pending = useRef(false);
   const region = useRef<HTMLElement | null>(null);
 
@@ -75,10 +103,18 @@ export function useRetryFocus(status: CatalogueStatus, successSelector: string):
     pending.current = true;
   }, []);
 
+  // Abandoning a retry is its own event, and it is *not* a status transition —
+  // a closed dialog's reader freezes wherever it was, so waiting for the next
+  // settle means waiting forever.
+  useEffect(() => {
+    if (enabled) return;
+    pending.current = false;
+  }, [enabled]);
+
   useEffect(() => {
     // `loading` is the middle of the transition, not the end of it: acting here
     // would focus the spinner and then lose it again when the branch swaps.
-    if (!pending.current || status === 'loading') return;
+    if (!enabled || !pending.current || status === 'loading') return;
     pending.current = false;
     const container = region.current;
     if (!container) return;
@@ -90,7 +126,7 @@ export function useRetryFocus(status: CatalogueStatus, successSelector: string):
           container.querySelector<HTMLElement>('[data-testid="error-retry-button"]')
         : container.querySelector<HTMLElement>(successSelector);
     target?.focus();
-  }, [status, successSelector]);
+  }, [status, successSelector, enabled]);
 
   return useMemo(() => ({ attachRegion, beginRetry }), [attachRegion, beginRetry]);
 }
