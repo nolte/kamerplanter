@@ -105,6 +105,13 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 
 **MUSS**: Security-relevante Updates (CVE Critical/High) dürfen nicht durch den Zeitplan verzögert werden. Renovate erstellt diese PRs sofort und unabhängig vom Zeitfenster.
 
+> **Die Spalte „Zeitfenster" ist eine Zielvorgabe, kein gemessener Zustand (#1566).**
+> `renovate.json5` setzt weder `schedule` noch `timezone` — `grep -c "schedule" renovate.json5`
+> liefert 0. Renovate läuft auf der Kadenz der GitHub App, nicht in einem Montagsfenster.
+> Die Frequenzspalte trifft die Sache trotzdem, weil die Warteschlangenlänge (§3.5) den
+> Durchsatz begrenzt. Ob das Fenster nachgezogen oder die Spalte gestrichen wird, ist eine
+> offene Betreiberentscheidung und wird hier nicht vorweggenommen.
+
 ### 2.3 Lockfile-Pflicht
 
 **MUSS**: Lockfiles sind verpflichtend und werden im Repository eingecheckt:
@@ -211,228 +218,84 @@ Daraus folgt die Reichweite der Regel, damit sie nicht erneut je Datei hergeleit
 
 **Entscheidung**: Renovate Bot wird eingesetzt, da die Gruppierungsfähigkeit (z.B. alle MUI-Pakete in einem PR), der fein konfigurierbare Zeitplan und der native Auto-Merge-Support für das Kamerplanter-Projekt entscheidend sind.
 
-### 3.2 renovate.json5 Referenz-Konfiguration
+### 3.2 Was `renovate.json5` entscheidet — und wie man es nachmisst
 
-```json5
-// renovate.json5 — Kamerplanter Dependency-Management
-{
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended",
-    "docker:enableMajor",
-    ":semanticCommits",
-    ":automergePatch",
-    "helpers:pinGitHubActionDigests"
-  ],
+Dieser Abschnitt **beschreibt** die Konfiguration im Repository-Root, er wiederholt sie
+nicht. Bis #1566 stand hier ein 220-zeiliger „Referenz"-Block, der sechs Top-Level-Keys
+nannte, die die Datei nie hatte; zwei davon waren durch beobachtbares Verhalten
+widerlegt. Eine Kopie einer Konfiguration driftet mit der ersten Änderung an ihr, und
+niemand merkt es — genau die Klasse, die NFR-018 §1 katalogisiert. Die Datei trägt ihre
+Begründungen selbst, in Kommentarblöcken mit Issue-Referenzen; wer den Grund für eine
+Regel sucht, liest sie dort und nicht hier.
 
-  // Dependency Dashboard als GitHub Issue
-  "dependencyDashboard": true,
-  "dependencyDashboardTitle": "Dependency Dashboard — Kamerplanter",
+**Die eine Messung, die jede Aussage dieses Abschnitts prüft:**
 
-  // Zeitfenster für PR-Erstellung
-  "schedule": ["before 8am on monday"],
-  "timezone": "Europe/Berlin",
-
-  // Labels für PRs
-  "labels": ["dependencies"],
-  "prHourlyLimit": 5,
-  "prConcurrentLimit": 10,
-
-  // Branch-Präfix
-  "branchPrefix": "deps/",
-
-  // Commit-Message-Format
-  "commitMessagePrefix": "deps:",
-  "commitMessageAction": "update",
-
-  // Lockfile-Wartung
-  "lockFileMaintenance": {
-    "enabled": true,
-    "schedule": ["before 6am on monday"]
-  },
-
-  // Paket-spezifische Regeln
-  "packageRules": [
-    // ── Gruppierung: MUI (Frontend) ───────────────────────
-    {
-      "groupName": "MUI packages",
-      "matchPackagePatterns": ["^@mui/"],
-      "matchFileNames": ["src/frontend/package.json"],
-      "groupSlug": "mui"
-    },
-
-    // ── Gruppierung: React Ökosystem ──────────────────────
-    {
-      "groupName": "React packages",
-      "matchPackageNames": [
-        "react",
-        "react-dom",
-        "@types/react",
-        "@types/react-dom"
-      ],
-      "matchFileNames": ["src/frontend/package.json"],
-      "groupSlug": "react"
-    },
-
-    // ── Gruppierung: Testing (Frontend) ───────────────────
-    {
-      "groupName": "Frontend testing packages",
-      "matchPackagePatterns": [
-        "^@testing-library/",
-        "^vitest",
-        "^@vitest/"
-      ],
-      "matchFileNames": ["src/frontend/package.json"],
-      "groupSlug": "frontend-testing"
-    },
-
-    // ── Gruppierung: ESLint Ökosystem ─────────────────────
-    {
-      "groupName": "ESLint packages",
-      "matchPackagePatterns": [
-        "^eslint",
-        "^@eslint/",
-        "^typescript-eslint"
-      ],
-      "matchFileNames": ["src/frontend/package.json"],
-      "groupSlug": "eslint"
-    },
-
-    // ── Gruppierung: i18n ─────────────────────────────────
-    {
-      "groupName": "i18next packages",
-      "matchPackagePatterns": ["^i18next", "^react-i18next"],
-      "matchFileNames": ["src/frontend/package.json"],
-      "groupSlug": "i18n"
-    },
-
-    // ── Gruppierung: Redux ────────────────────────────────
-    {
-      "groupName": "Redux packages",
-      "matchPackageNames": [
-        "@reduxjs/toolkit",
-        "react-redux"
-      ],
-      "matchFileNames": ["src/frontend/package.json"],
-      "groupSlug": "redux"
-    },
-
-    // ── Gruppierung: Pydantic (Backend) ───────────────────
-    {
-      "groupName": "Pydantic packages",
-      "matchPackagePatterns": ["^pydantic"],
-      "matchFileNames": ["src/backend/pyproject.toml"],
-      "groupSlug": "pydantic"
-    },
-
-    // ── Gruppierung: Python Linting/Formatting ────────────
-    {
-      "groupName": "Python linting packages",
-      "matchPackageNames": ["ruff", "black", "mypy"],
-      "matchFileNames": ["src/backend/pyproject.toml"],
-      "groupSlug": "python-linting"
-    },
-
-    // ── Gruppierung: Python Testing ───────────────────────
-    {
-      "groupName": "Python testing packages",
-      "matchPackagePatterns": ["^pytest"],
-      "matchFileNames": ["src/backend/pyproject.toml"],
-      "groupSlug": "python-testing"
-    },
-
-    // ── Auto-Merge: Patch-Updates ─────────────────────────
-    {
-      "description": "Auto-merge patch updates after CI passes",
-      "matchUpdateTypes": ["patch"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash"
-    },
-
-    // ── Auto-Merge: Minor-Updates (non-major frameworks) ──
-    {
-      "description": "Auto-merge minor updates for non-critical packages",
-      "matchUpdateTypes": ["minor"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash",
-      "excludePackagePatterns": [
-        "^react$",
-        "^react-dom$",
-        "^fastapi$",
-        "^typescript$",
-        "^@mui/material$"
-      ]
-    },
-
-    // ── Kein Auto-Merge: Major-Updates ────────────────────
-    {
-      "description": "Major updates require manual review",
-      "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "labels": ["dependencies", "major-update"],
-      "reviewers": ["team:kamerplanter-maintainers"]
-    },
-
-    // ── Kein Auto-Merge: Kern-Frameworks (auch Minor) ─────
-    {
-      "description": "Core frameworks require manual review even for minor",
-      "matchPackageNames": [
-        "react",
-        "react-dom",
-        "fastapi",
-        "typescript"
-      ],
-      "matchUpdateTypes": ["minor", "major"],
-      "automerge": false,
-      "labels": ["dependencies", "core-framework"],
-      "reviewers": ["team:kamerplanter-maintainers"]
-    },
-
-    // ── Security: Sofortige PRs für CVEs ──────────────────
-    {
-      "description": "Security updates bypass schedule",
-      "matchCategories": ["security"],
-      "schedule": ["at any time"],
-      "automerge": true,
-      "automergeType": "pr",
-      "automergeStrategy": "squash",
-      "prPriority": 10,
-      "labels": ["dependencies", "security"]
-    },
-
-    // ── Container-Images ──────────────────────────────────
-    {
-      "groupName": "Container base images",
-      "matchDatasources": ["docker"],
-      "matchFileNames": [
-        "src/backend/Dockerfile*",
-        "src/frontend/Dockerfile*"
-      ],
-      "groupSlug": "docker-images",
-      "schedule": ["before 8am on monday"]
-    },
-
-    // ── GitHub Actions ────────────────────────────────────
-    {
-      "groupName": "GitHub Actions",
-      "matchManagers": ["github-actions"],
-      "groupSlug": "github-actions",
-      "automerge": true
-    },
-
-    // ── Helm Charts ───────────────────────────────────────
-    {
-      "groupName": "Helm chart dependencies",
-      "matchManagers": ["helmv3"],
-      "matchFileNames": ["helm/**/Chart.yaml"],
-      "groupSlug": "helm-charts",
-      "schedule": ["before 8am on the first day of the month"]
-    }
-  ]
-}
+```bash
+# Renovate gegen diesen Checkout laufen lassen (liest auch uncommittete Änderungen):
+task renovate:dry-run
+# Einzelne Behauptung über einen Key prüfen:
+grep -n "separateMajorMinor\|ignorePaths\|groupName:" renovate.json5
 ```
+
+`task renovate:dry-run` ist der Wächter dieses Abschnitts: er druckt die Manager-Inventur,
+die vorgeschlagenen Updates und jeden Konfigurationsfehler. `renovate-health.yml` prüft
+dieselbe Inventur täglich gegen die Realität der Plattform.
+
+#### Die tragenden Entscheidungen
+
+Tragend heißt: fällt die Entscheidung weg, ändert sich das beobachtbare Verhalten des
+Bots. Alles andere in der Datei ist Ausformulierung dieser fünf Punkte.
+
+| Entscheidung | Form in `renovate.json5` | Warum tragend | Beleg |
+|---|---|---|---|
+| **Geteiltes Portfolio-Preset statt eigener Grundkonfiguration** | `extends: ['github>nolte/gh-plumbing//renovate-configs/common#<tag>', 'helpers:pinGitHubActionDigests']` | Labels, Dashboard, Pre-Commit-Manager, PR-Limits und das Digest-Pinning der Actions kommen von außen und werden zentral gepflegt. Der Tag ist gepinnt, damit eine Preset-Änderung als Bump ankommt und nicht still. | `sed -n '1,6p' renovate.json5`; Preset-Inhalt: `gh api repos/nolte/gh-plumbing/contents/renovate-configs/common.json?ref=<tag>` |
+| **Majors getrennt, Minor und Patch zusammen** | `separateMajorMinor: true`, `separateMinorPatch: false` | Trägt die Gruppenstrategie aus §3.3: ein festgehaltener Major blockiert den Routinestrom nicht, und Minor/Patch kosten einen CI-Zyklus statt zwei. Beide Werte wiederholen Renovates Default — sie stehen trotzdem ausgeschrieben da, weil Regeln weiter unten sich ausdrücklich auf sie berufen und eine (`selenium images`) `separateMajorMinor: false` lokal überschreibt. Ein stiller Default-Wechsel würde die Gruppenstrategie umbauen. | `grep -n "separateM" renovate.json5`; die Berufung: `grep -n "separateMajorMinor" renovate.json5` (sechs Treffer: zwei gesetzte Werte, vier Kommentare, die sich darauf berufen) |
+| **Eine Gruppe für alle Applikations-Abhängigkeiten** | `packageRules` → `groupName: 'application dependencies'`, gematcht über `matchManagers: ['pep621','npm','pip_requirements']` | Betreiberauftrag #1550, ausgeschrieben in §3.3. Über den Manager gematcht, nicht über Pfade — ein neuer Baum wird ohne Aufzählung erreicht. | `grep -n "application dependencies" renovate.json5` |
+| **Reichweite gegen zwei geerbte Ausschlüsse geweitet** | `'helm-values'.managerFilePatterns` (#1027) und `ignorePaths` **ohne** `**/tests/**` (#1464) | Beides sind Dateien, die unbeobachtet alterten: die Dev-Values mit ihrem TimescaleDB-Pin und der gesamte `tests/e2e`-Baum. `ignorePaths` wird ersetzt, nicht gemerged — die geerbte Liste steht deshalb vollständig minus einem Muster in der Datei. | `grep -n "ignorePaths" -A 10 renovate.json5`; Gegenprobe über die Inventur in `task renovate:dry-run` |
+| **Vier `customManagers` für Pins, die kein Manager kennt** | `uv`-`required-version` und Build-Backend, `.github/renovate-pins.yaml`, Werkzeugversionen in `run:`-Schritten, Container-Images in `env:`-Werten und Taskfile-Variablen | Diese Pins sind echte Abhängigkeiten in Dateien ohne Manifest-Format. Ohne die Regex-Manager altern sie unbemerkt — das ist derselbe Defekt, den #1303 sechs Wochen lang trug. | `grep -n "customType: 'regex'" renovate.json5` (vier Treffer) |
+
+`mode: 'full'` steht ebenfalls im Top-Level, ist aber **nicht** tragend: es wiederholt
+Renovates eigenen Default und wurde von Renovates Config-Migration geschrieben, nicht
+entschieden (`git log -S "mode: 'full'" -- renovate.json5` → ein Commit, #23).
+
+Die übrigen `packageRules` sind **nicht tragend, sondern Reparaturen an genau einer
+Beobachtung**: `poetry` repository-weit aus (#1374), die lokalen Skaffold-Images
+(`kamerplanter-*`) aus, weil Renovate sie nicht auflösen kann, der jsdom-Major-Halt und
+die TypeScript-Obergrenze `<7.0.0` als die schmalen Regeln *unterhalb* der Gruppe, die
+§3.3 als Ausweg benennt, sowie die drei Bild- und Werkzeuggruppen (`third-party images`,
+`selenium images`, `uv toolchain`, `github-actions`), die §3.3 in ihrer Tabelle führt.
+Jede trägt in der Datei den Vorfall, der sie ausgelöst hat.
+
+#### Was diese Konfiguration bewusst **nicht** setzt
+
+Sieben Keys, die eine naheliegende Renovate-Konfiguration hätte, kommen in
+`renovate.json5` nicht vor. Die Messung, nachrechenbar in einer Zeile — sie gibt für
+jeden Key **0** aus:
+
+```bash
+for k in branchPrefix schedule timezone commitMessagePrefix \
+         dependencyDashboardTitle lockFileMaintenance prHourlyLimit; do
+  printf '%-26s %s\n' "$k" "$(grep -c "$k" renovate.json5)"
+done
+```
+
+`prConcurrentLimit` ist der einzige Grenzwert, der überhaupt im Text der Datei
+vorkommt — einmal, ausschließlich in einem Kommentar über die geerbte Grenze, nicht als
+gesetzter Key.
+
+| Nicht gesetzt | Was stattdessen gilt | Beobachtbar an |
+|---|---|---|
+| `branchPrefix` | Renovates Default `renovate/` | `git ls-remote --heads origin 'refs/heads/renovate/*'` liefert Branches, `'refs/heads/deps/*'` keine |
+| `commitMessagePrefix` | Semantic Commits aus dem Preset → `chore(deps): …` | `git log origin/develop --format='%s' \| grep -c '^chore(deps)'` |
+| `schedule` / `timezone` | Kein Zeitfenster. Renovate läuft auf der Kadenz der App; die Menge offener PRs wird über die Limits gesteuert, nicht über die Uhrzeit. | Erstellzeitpunkte der `renovate/`-Branches |
+| `prHourlyLimit`, `prConcurrentLimit` | Werte aus dem geteilten Preset, nicht aus diesem Repository | Preset-Inhalt zum gepinnten Tag abrufen (Kommando oben) |
+| `lockFileMaintenance` | Keine geplante Lock-Wartung. Locks werden im selben PR wie die Range regeneriert (§6.1), nicht in einem eigenen Wartungslauf. | `grep -c lockFileMaintenance renovate.json5` → 0 |
+| `dependencyDashboardTitle` | Default-Titel; das Dashboard selbst kommt über `:dependencyDashboard` aus dem Preset | Issue #12 im Repository |
+
+**MUSS**: Wer eine dieser Entscheidungen ändert, führt `task renovate:dry-run` vor dem
+Commit aus und fügt das Ergebnis dem Pull Request bei. Die Datei ist die einzige
+Konfiguration im Repository, die ohne diesen Lauf erst Stunden später auf `develop`
+widerlegt wird.
 
 ### 3.3 Gruppierungsregeln
 
@@ -465,7 +328,7 @@ Die Forderung ist **Atomarität**, nicht eine bestimmte Anzahl Gruppen. Sie wird
           └───────┬───────┘
                   │ Nein
           ┌───────▼───────┐
-          │   Patch?      │──── Ja ──→ Scheduled PR → CI → Auto-Merge
+          │   Patch?      │──── Ja ──→ PR → CI → Auto-Merge
           └───────┬───────┘
                   │ Nein
           ┌───────▼───────┐
@@ -486,18 +349,36 @@ Die Forderung ist **Atomarität**, nicht eine bestimmte Anzahl Gruppen. Sie wird
 - Major-Updates jeglicher Pakete
 - Minor-Updates von Kern-Frameworks (`react`, `react-dom`, `fastapi`, `typescript`)
 
-### 3.5 Schedule & Rate Limiting
+### 3.5 Rate Limiting
 
-**MUSS**: Renovate erstellt PRs nur im definierten Zeitfenster (Ausnahme: Security-Fixes).
-**MUSS**: Maximal 5 PRs pro Stunde und 10 gleichzeitig offene Dependency-PRs.
+Die fünf Parameter, die hier bis #1566 als Tabelle standen, waren die Wiederholung des
+gelöschten §3.2-Blocks und trugen dessen Fehler mit: ein Zeitfenster, das es nicht gibt,
+und zwei Grenzwerte, die dieses Repository nicht selbst setzt.
 
-| Parameter | Wert | Begründung |
-|---|---|---|
-| `schedule` | `before 8am on monday` | PRs stehen zum Wochenbeginn bereit |
-| `timezone` | `Europe/Berlin` | Standort des Entwicklungsteams |
-| `prHourlyLimit` | 5 | CI nicht überlasten |
-| `prConcurrentLimit` | 10 | Übersichtlichkeit wahren |
-| `lockFileMaintenance` | Montag vor 06:00 | Lockfiles aktuell halten |
+**MUSS**: Die Menge gleichzeitig offener Dependency-PRs ist begrenzt. Der Grund ist
+gemessen, nicht angenommen: `required_status_checks.strict` steht auf `true`, also
+entwertet jeder Merge die Prüfläufe aller anderen offenen Branches — N Bumps kosten N
+volle CI-Zyklen (§3.3, #1550).
+
+**MUSS**: Die Grenzen werden **nicht** in `renovate.json5` gesetzt, sondern aus dem
+geteilten Portfolio-Preset geerbt, damit sie portfolioweit an einer Stelle gepflegt
+werden. Nachzulesen im Preset zum gepinnten Tag:
+
+```bash
+gh api repos/nolte/gh-plumbing/contents/renovate-configs/common.json?ref=<tag> \
+  -H "Accept: application/vnd.github.raw" | grep Limit
+```
+
+**MUSS**: Sicherheitsupdates umgehen diese Grenzen. Renovate nimmt
+Vulnerability-Alert-PRs von `prConcurrentLimit`, `prHourlyLimit` und von der
+Gruppierung aus; ein CVE-Fix wird dadurch nie zurückgehalten. Das war nicht immer so
+wirksam, wie es klingt: bei vollem Kontingent hielt Renovate den CVE-tragenden
+`transformers`-Bump (#1480) als „Rate-Limited" zurück, weil er als normaler Bump und
+nicht über einen Alert kam.
+
+**MUSS**: Ein Zeitfenster (`schedule`) gibt es nicht und soll es nicht geben. Die
+Steuergröße ist die Warteschlangenlänge, nicht die Uhrzeit; ein Wochenfenster würde die
+Bumps zusätzlich bündeln, ohne einen CI-Zyklus zu sparen.
 
 ---
 
