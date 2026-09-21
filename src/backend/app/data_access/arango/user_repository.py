@@ -118,6 +118,56 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
             return None
         return User(**self._from_doc(docs[0]))
 
+    def get_by_email_verification_token(self, token: str) -> User | None:
+        """The user carrying this email-verification token, or ``None`` (#1556).
+
+        Was hand-written AQL inside ``AuthService.verify_email``, executed against
+        ``self._user_repo._db`` — NFR-001's Business Logic → Data Access →
+        Persistence with the middle layer skipped, and the
+        ``# type: ignore[attr-defined]`` was the type checker saying so.
+
+        Conversion is ``User(**self._from_doc(doc))``, the same one
+        :meth:`get_by_email` uses. That is *identical* to the ``{**doc, "_key":
+        doc.get("_key", doc.get("_id", "").split("/")[-1])}`` the service spelled
+        out by hand, so this move changes no behaviour — it is a layering repair,
+        not a validation repair.
+        """
+        return self._get_by_token("email_verification_token", token)
+
+    def get_by_password_reset_token(self, token: str) -> User | None:
+        """The user carrying this password-reset token, or ``None`` (#1556).
+
+        The reset-path twin of :meth:`get_by_email_verification_token`.
+        """
+        return self._get_by_token("password_reset_token", token)
+
+    def _get_by_token(self, attribute: str, token: str) -> User | None:
+        """One user by an exact match on a token attribute, or ``None``.
+
+        ``attribute`` is interpolated because AQL cannot bind an attribute name;
+        it is a code constant at both call sites and never a caller value, the
+        same rule :meth:`_remove_docs_for_user` states for its collection name.
+        ``token`` is bound.
+
+        A ``token`` of ``None`` would otherwise match every user that has no such
+        token — the whole collection — and hand the first of them back as if it
+        had presented a credential. The callers type it ``str``, which is not an
+        enforcement, so the empty case is refused here rather than assumed away.
+        """
+        if not token:
+            return None
+        query = f"""
+        FOR doc IN @@collection
+          FILTER doc.{attribute} == @token
+          LIMIT 1
+          RETURN doc
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.USERS, "token": token})
+        docs = list(cursor)
+        if not docs:
+            return None
+        return User(**self._from_doc(docs[0]))
+
     def delete(self, key: UserKey) -> bool:
         """Delete a user and cascade every account-owned artefact (#1019).
 

@@ -19,6 +19,14 @@ silently permitted. The same rule guards
 **Why here.** ``pytest tests/unit/`` from ``src/backend`` is a CI check, and the
 script lives outside the backend package, so it is loaded by path.
 
+**Rule 2 (#1556) is tested the same way**, in :class:`TestBusinessLogicHandles`.
+The rule it must satisfy is stronger than "does it catch the two sites the issue
+named": those two used one spelling (``self._user_repo._db``), and a guard
+written to that spelling would certify the tree clean while four modules holding
+their own ``StandardDatabase`` stood untouched. So the tests drive BOTH spellings
+against constructed trees, and one asserts that a module using the spelling the
+issue's own grep could not see is still caught.
+
 Traces to the 2026-08-08 issue-pattern audit, measure P1.3 (no TC-ID: a
 source-tree gate is not a user-facing case).
 """
@@ -273,12 +281,186 @@ class TestProcessContract:
         assert "does not exist" in capsys.readouterr().err
 
 
+@pytest.fixture
+def build_domain(tmp_path: Path) -> Callable[..., Path]:
+    """Return a helper writing a miniature ``app/domain`` package into ``tmp_path``.
+
+    Returns the scan root (``app/domain``).
+    """
+
+    def _build(*, modules: dict[str, str]) -> Path:
+        domain = tmp_path / "app" / "domain"
+        for relative, source in modules.items():
+            path = domain / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(textwrap.dedent(source).lstrip(), encoding="utf-8")
+        return domain
+
+    return _build
+
+
+class TestBusinessLogicHandles:
+    """Rule 2: no module under ``app/domain`` holds or reaches a persistence handle."""
+
+    def test_the_reach_through_a_repository_spelling_is_caught(self, build_domain: Callable[..., Path]) -> None:
+        """``self._user_repo._db`` — the shape #1556 measured, and the only one it saw."""
+        root = build_domain(
+            modules={
+                "services/auth_service.py": """
+                class AuthService:
+                    def verify_email(self, token):
+                        db = self._user_repo._db  # type: ignore[attr-defined]
+                        return db.aql.execute("FOR d IN users RETURN d")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == ["attr:_db"]
+
+    def test_the_spelling_the_issue_grep_could_not_see_is_caught_too(self, build_domain: Callable[..., Path]) -> None:
+        """A service HANDED a ``StandardDatabase``.
+
+        This is the assertion that makes the guard a guard about the class. It
+        contains no ``_repo._db`` anywhere, so the ``_repo`` + ``_db`` grep — the
+        measurement #1556 concluded "only two" from — reports it as clean.
+        """
+        root = build_domain(
+            modules={
+                "services/favorites_service.py": """
+                from arango.database import StandardDatabase
+
+                class FavoritesService:
+                    def __init__(self, db: StandardDatabase) -> None:
+                        self._db = db
+                """
+            }
+        )
+        markers = sorted(site.marker for site in checker.collect_handles(root))
+        assert markers == ["attr:_db", "import:arango.database"]
+
+    def test_an_engine_is_business_logic_too(self, build_domain: Callable[..., Path]) -> None:
+        """The scan root is ``app/domain``, not ``app/domain/services``.
+
+        NFR-001 puts engines on the business-logic side of the boundary as much
+        as services; scanning only ``services/`` would leave a door open one
+        directory across.
+        """
+        root = build_domain(
+            modules={
+                "engines/calendar_aggregation_engine.py": """
+                class CalendarAggregationEngine:
+                    def __init__(self, db) -> None:
+                        self._db = db
+                """
+            }
+        )
+        assert [site.relative() for site in checker.collect_handles(root)]
+
+    def test_the_plain_driver_import_spelling_is_caught(self, build_domain: Callable[..., Path]) -> None:
+        root = build_domain(modules={"services/s.py": "import arango\n"})
+        assert [site.marker for site in checker.collect_handles(root)] == ["import:arango"]
+
+    def test_a_clean_service_is_not_a_crossing(self, build_domain: Callable[..., Path]) -> None:
+        root = build_domain(
+            modules={
+                "services/clean_service.py": """
+                from app.domain.interfaces.user_repository import IUserRepository
+
+                class CleanService:
+                    def __init__(self, user_repo: IUserRepository) -> None:
+                        self._user_repo = user_repo
+
+                    def verify(self, token):
+                        return self._user_repo.get_by_email_verification_token(token)
+                """
+            }
+        )
+        assert checker.collect_handles(root) == []
+
+    def test_a_similarly_named_attribute_is_not_matched(self, build_domain: Callable[..., Path]) -> None:
+        """``species_in_database`` and ``_dbg`` are not the handle."""
+        root = build_domain(
+            modules={
+                "engines/identification_engine.py": """
+                class IdentificationEngine:
+                    def run(self, m):
+                        self._dbg = m.species_in_database
+                        return self._dbg
+                """
+            }
+        )
+        assert checker.collect_handles(root) == []
+
+    def test_a_crossing_makes_the_process_exit_non_zero(
+        self,
+        build_domain: Callable[..., Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = build_domain(modules={"services/s.py": "class S:\n    def __init__(self, db):\n        self._db = db\n"})
+        assert checker.main(["--handle-scan-root", str(root)]) == checker.EXIT_DEFECTS
+        out = capsys.readouterr().out
+        assert "hold or reach a persistence handle" in out
+        assert "services/s.py" in out
+
+    def test_a_recorded_crossing_is_not_a_violation(
+        self, build_domain: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        root = build_domain(modules={"services/s.py": "class S:\n    def __init__(self, db):\n        self._db = db\n"})
+        sites = checker.collect_handles(root)
+        allow = (
+            checker.AllowedHandle(
+                path=sites[0].relative(),
+                marker="attr:_db",
+                reason="recorded for this test, with a reason long enough to argue with",
+            ),
+        )
+        violations, obsolete = checker.classify_handles(sites, allow)
+        assert violations == []
+        assert obsolete == []
+
+    def test_an_entry_matching_nothing_fails_the_check(self, build_domain: Callable[..., Path]) -> None:
+        """The half that rots — same rule rule 1 carries."""
+        root = build_domain(modules={"services/clean.py": "X = 1\n"})
+        allow = (
+            checker.AllowedHandle(
+                path="src/backend/app/domain/services/gone.py",
+                marker="attr:_db",
+                reason="stale entry, kept after the crossing was removed",
+            ),
+        )
+        violations, obsolete = checker.classify_handles(checker.collect_handles(root), allow)
+        assert violations == []
+        assert [entry.path for entry in obsolete] == ["src/backend/app/domain/services/gone.py"]
+
+    def test_a_missing_handle_root_is_a_usage_error_not_a_pass(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        assert checker.main(["--handle-scan-root", str(tmp_path / "nowhere")]) == checker.EXIT_USAGE
+        assert "does not exist" in capsys.readouterr().err
+
+
 class TestTheRealTree:
     """What the pre-commit hook asserts, asserted here too."""
 
     def test_the_api_layer_carries_no_unrecorded_crossing(self) -> None:
         """Running it from pytest as well means a backend-only change goes red here."""
         assert checker.main([]) == checker.EXIT_OK
+
+    def test_the_business_logic_carries_no_unrecorded_handle(self) -> None:
+        """Rule 2 on the real ``app/domain``; ``main([])`` runs both rules."""
+        assert checker.main([]) == checker.EXIT_OK
+
+    def test_auth_service_is_not_on_the_handle_allowlist(self) -> None:
+        """#1556's two sites are GONE, not recorded.
+
+        An allowlist entry would have satisfied the gate just as well and left
+        the defect in place — this pins which of the two happened.
+        """
+        recorded = [entry.path for entry in checker.ALLOWED_HANDLES]
+        assert "src/backend/app/domain/services/auth_service.py" not in recorded
+
+    def test_every_handle_allowlist_entry_names_a_reason_worth_reading(self) -> None:
+        thin = [f"{entry.path}: {entry.marker}" for entry in checker.ALLOWED_HANDLES if len(entry.reason) < 60]
+        assert not thin, "handle-allowlist entries with a reason too short to argue with:\n" + "\n".join(thin)
 
     def test_every_allowlist_entry_names_a_reason_worth_reading(self) -> None:
         """A one-word reason is a rubber stamp, and the allowlist IS the review.
