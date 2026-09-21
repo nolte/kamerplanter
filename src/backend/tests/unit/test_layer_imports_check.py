@@ -314,7 +314,7 @@ class TestBusinessLogicHandles:
                 """
             }
         )
-        assert [site.marker for site in checker.collect_handles(root)] == ["attr:_db"]
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
 
     def test_the_spelling_the_issue_grep_could_not_see_is_caught_too(self, build_domain: Callable[..., Path]) -> None:
         """A service HANDED a ``StandardDatabase``.
@@ -335,7 +335,7 @@ class TestBusinessLogicHandles:
             }
         )
         markers = sorted(site.marker for site in checker.collect_handles(root))
-        assert markers == ["attr:_db", "import:arango.database"]
+        assert markers == ["handle", "import:arango.database"]
 
     def test_an_engine_is_business_logic_too(self, build_domain: Callable[..., Path]) -> None:
         """The scan root is ``app/domain``, not ``app/domain/services``.
@@ -390,6 +390,56 @@ class TestBusinessLogicHandles:
         )
         assert checker.collect_handles(root) == []
 
+    def test_the_getattr_escape_is_caught(self, build_domain: Callable[..., Path]) -> None:
+        """``getattr(repo, "_db")`` spells the same break without the attribute node."""
+        root = build_domain(
+            modules={
+                "services/s.py": """
+                class S:
+                    def run(self, repo):
+                        return getattr(repo, "_db")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
+
+    def test_a_handle_stored_under_another_name_is_caught_by_its_use(self, build_domain: Callable[..., Path]) -> None:
+        """No ``_db`` anywhere, and no ``arango`` import — but it still runs AQL.
+
+        This is the assertion that stops the rule from being shaped like the
+        offenders that happen to exist today, which is the mistake #1556 made one
+        level up.
+        """
+        root = build_domain(
+            modules={
+                "services/s.py": """
+                class S:
+                    def __init__(self, database):
+                        self.database = database
+
+                    def run(self):
+                        return self.database.aql.execute("FOR d IN users RETURN d")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
+
+    def test_all_three_detections_collapse_into_one_marker(self, build_domain: Callable[..., Path]) -> None:
+        """One finding per module, so a recorded module cannot change spelling and pass."""
+        root = build_domain(
+            modules={
+                "services/s.py": """
+                class S:
+                    def __init__(self, db):
+                        self._db = db
+
+                    def run(self, repo):
+                        return getattr(repo, "_db").aql.execute("FOR d IN users RETURN d")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
+
     def test_a_crossing_makes_the_process_exit_non_zero(
         self,
         build_domain: Callable[..., Path],
@@ -409,7 +459,7 @@ class TestBusinessLogicHandles:
         allow = (
             checker.AllowedHandle(
                 path=sites[0].relative(),
-                marker="attr:_db",
+                marker="handle",
                 reason="recorded for this test, with a reason long enough to argue with",
             ),
         )
@@ -423,7 +473,7 @@ class TestBusinessLogicHandles:
         allow = (
             checker.AllowedHandle(
                 path="src/backend/app/domain/services/gone.py",
-                marker="attr:_db",
+                marker="handle",
                 reason="stale entry, kept after the crossing was removed",
             ),
         )

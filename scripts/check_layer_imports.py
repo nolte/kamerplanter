@@ -93,9 +93,21 @@ DRIVER_PACKAGE = "arango"
 
 #: The private attribute every ``BaseArangoRepository`` stores its handle under.
 #: Business logic naming it is either holding one (``self._db = db``) or reaching
-#: through a repository to borrow one (``self._user_repo._db``) — the two
-#: spellings of the same break, and the second is the one #1556's grep could see.
+#: through a repository to borrow one (``self._user_repo._db``) — two spellings of
+#: the same break, and only the second is the one #1556's grep could see.
 HANDLE_ATTRIBUTE = "_db"
+
+#: The driver's query entry point. Detected *as well as* the handle attribute,
+#: because a module that stored the handle under any other name — ``self.db``,
+#: a local, a ``getattr`` — still has to reach ``.aql`` to use it. Asking only
+#: "is the attribute called ``_db``" would be the #1556 mistake one level down:
+#: a rule shaped like the offenders that happen to exist today.
+QUERY_ATTRIBUTE = "aql"
+
+#: One marker for every way of holding or reaching a handle. Deliberately NOT
+#: one marker per spelling: an allowlist keyed on the spelling would go green
+#: the moment a recorded module switched from ``self._db`` to ``getattr``.
+HANDLE_MARKER = "handle"
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
@@ -325,7 +337,7 @@ class AllowedHandle:
     Attributes:
         path: Repository-relative path of the offending module.
         marker: What was found — ``import:<dotted>`` for a driver import,
-            ``attr:_db`` for holding or borrowing a handle.
+            ``handle`` for holding or reaching one.
         reason: Why it is still there, and what would remove it.
     """
 
@@ -355,7 +367,7 @@ class AllowedHandle:
 ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
     AllowedHandle(
         path="src/backend/app/domain/services/favorites_service.py",
-        marker="attr:_db",
+        marker=HANDLE_MARKER,
         reason=(
             "The largest one: 13 AQL/collection sites driving col.USER_FAVORITES "
             "and the favouritable collections directly. Removed by an "
@@ -367,7 +379,7 @@ ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
         path="src/backend/app/domain/services/favorites_service.py",
         marker="import:arango.database",
         reason=(
-            "Types the handle the ``attr:_db`` entry above holds. Cannot be "
+            "Types the handle the ``handle`` entry above holds. Cannot be "
             "removed on its own — it goes when the repository does, and is listed "
             "separately so removing one spelling does not silently permit the other."
         ),
@@ -383,7 +395,7 @@ ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
     ),
     AllowedHandle(
         path="src/backend/app/domain/services/starter_kit_service.py",
-        marker="attr:_db",
+        marker=HANDLE_MARKER,
         reason=(
             "Keeps the raw handle beside a raw-mode BaseArangoRepository for one "
             "has_collection() probe and one AQL query. Removed by moving both "
@@ -392,7 +404,7 @@ ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
     ),
     AllowedHandle(
         path="src/backend/app/domain/services/onboarding_service.py",
-        marker="attr:_db",
+        marker=HANDLE_MARKER,
         reason=(
             "Does not query through it: stores the handle only to construct "
             "FavoritesService and UserPreferenceService, which take one. The "
@@ -402,7 +414,7 @@ ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
     ),
     AllowedHandle(
         path="src/backend/app/domain/engines/calendar_aggregation_engine.py",
-        marker="attr:_db",
+        marker=HANDLE_MARKER,
         reason=(
             "An ENGINE, one layer deeper than a service, running seven AQL "
             "traversals over lifecycle/phase edges. Removed by a calendar read "
@@ -414,7 +426,7 @@ ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
         path="src/backend/app/domain/engines/calendar_aggregation_engine.py",
         marker="import:arango.database",
         reason=(
-            "Types the handle the engine's ``attr:_db`` entry above holds; removed "
+            "Types the handle the engine's ``handle`` entry above holds; removed "
             "with it, and listed separately for the same reason the favorites "
             "import is."
         ),
@@ -446,6 +458,18 @@ def _is_driver(dotted: str) -> bool:
     return dotted == DRIVER_PACKAGE or dotted.startswith(f"{DRIVER_PACKAGE}.")
 
 
+def _is_handle_node(node: ast.AST) -> bool:
+    """True for any of the three ways business logic reaches a persistence handle.
+
+    ``self._db`` / ``repo._db`` (the attribute), ``getattr(repo, "_db")`` (the
+    string), and ``x.aql`` (the handle stored under some other name and used
+    anyway). One predicate rather than three markers — see :data:`HANDLE_MARKER`.
+    """
+    if isinstance(node, ast.Attribute):
+        return node.attr in {HANDLE_ATTRIBUTE, QUERY_ATTRIBUTE}
+    return isinstance(node, ast.Constant) and node.value == HANDLE_ATTRIBUTE
+
+
 def scan_file_for_handle(path: Path) -> list[HandleSite]:
     """Find every persistence-handle crossing in one business-logic module.
 
@@ -453,11 +477,15 @@ def scan_file_for_handle(path: Path) -> list[HandleSite]:
 
     * an ``arango`` import, in either spelling — the module holds or types a
       handle of its own;
-    * any attribute access or assignment named ``_db`` — the module holds one
-      (``self._db``) or borrows one from a repository (``self._user_repo._db``).
+    * a handle, reported as the single ``handle`` marker and detected three ways:
+      an attribute named ``_db`` (``self._db = db``, ``self._user_repo._db``), the
+      string ``"_db"`` (the ``getattr`` escape), and an attribute named ``aql``
+      (the module stored the handle under some other name and still has to reach
+      the driver's query entry point to use it).
 
     The second is what makes the rule a rule about the CLASS rather than about
-    ``_repo._db``: ``self._db = db`` and ``other._db`` are the same finding.
+    ``_repo._db``. Collapsing its three detections into one marker is deliberate:
+    a per-spelling marker would let a recorded module change spelling and pass.
 
     One site per (module, marker); the earliest line is reported, because the
     question a reviewer asks is "does this module cross at all", not "how often".
@@ -487,8 +515,8 @@ def scan_file_for_handle(path: Path) -> list[HandleSite]:
             # is never the driver and is skipped rather than resolved.
             if not node.level and node.module and _is_driver(node.module):
                 record(f"import:{node.module}", node.lineno)
-        elif isinstance(node, ast.Attribute) and node.attr == HANDLE_ATTRIBUTE:
-            record(f"attr:{HANDLE_ATTRIBUTE}", node.lineno)
+        elif _is_handle_node(node):
+            record(HANDLE_MARKER, node.lineno)
 
     return [HandleSite(path=path, line=line, marker=marker) for marker, line in sorted(earliest.items())]
 
@@ -737,10 +765,11 @@ def report(
             print(f"  {site.relative()}:{site.line}: {site.marker}")
         print(
             "\nNFR-001: Business Logic → Data Access → Persistence. A service or engine\n"
-            "reaches the database THROUGH a repository. Two spellings of the same break are\n"
-            "reported here: importing the `arango` driver (the module holds its own handle),\n"
-            "and naming `_db` (it holds one, or borrows one off a repository — the\n"
-            "`self._user_repo._db  # type: ignore[attr-defined]` shape #1556 removed).\n"
+            "reaches the database THROUGH a repository. `import:<module>` means it imports\n"
+            "the `arango` driver. `handle` means it holds or reaches one — an attribute\n"
+            'named `_db`, the string "_db" behind a getattr, or a reach for `.aql` under\n'
+            "any other name. All three are one finding on purpose, so changing spelling\n"
+            "does not clear it.\n"
             "\n"
             "Move the query behind a repository method reached through the interface the\n"
             "service already depends on, or — if the crossing is deliberate and a reviewer\n"
