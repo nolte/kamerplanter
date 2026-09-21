@@ -30,6 +30,7 @@ import careRemindersReducer from '@/store/slices/careRemindersSlice';
 import wateringLogsReducer from '@/store/slices/wateringLogsSlice';
 import fertilizersReducer from '@/store/slices/fertilizersSlice';
 import activitiesReducer from '@/store/slices/activitiesSlice';
+import nutrientPlansReducer from '@/store/slices/nutrientPlansSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -57,6 +58,11 @@ const rootReducer = combineReducers({
   wateringLogs: wateringLogsReducer,
   fertilizers: fertilizersReducer,
   activities: activitiesReducer,
+  // Every slice `@/hooks/useCatalogue` can read must be mounted here, or a page
+  // that reads a catalogue through it crashes on `state.<slice>` being undefined
+  // — which surfaces as an unrelated render error, not as a missing reducer
+  // (#1560). The registry in `useCatalogue.ts` is the list.
+  nutrientPlans: nutrientPlansReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -35,9 +36,8 @@ import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
 import { contributeReferenceImage } from '@/api/endpoints/identification';
 import * as phaseApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
-import * as substrateApi from '@/api/endpoints/substrates';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Species, Cultivar, Substrate, SubstrateType, Site, Slot } from '@/api/types';
+import type { Cultivar, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
 
 const schema = z.object({
@@ -115,10 +115,14 @@ export default function PlantInstanceCreateDialog({
   const { handleError } = useApiError();
   const { isFavorite, toggleFavorite } = useSowingFavorites();
   const [saving, setSaving] = useState(false);
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  // Both catalogues come from the shared reader (#1560). Each was read as one
+  // explicit page of 200 — live truncation at 207 seeded species — and both
+  // selects filter client-side, so the rows that never arrived were unpickable
+  // rather than merely off-screen.
+  const speciesCatalogue = useCatalogue('species', { enabled: open });
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
-  const [substratesList, setSubstratesList] = useState<Substrate[]>([]);
+  const substrateCatalogue = useCatalogue('substrates', { enabled: open });
   // Normalized start-phase options for the "Current Phase" select. The source
   // (PhaseSequence entries vs LifecycleConfig growth phases) is resolved the
   // same way the backend validates (issue #626), so the stored keys are always
@@ -183,8 +187,8 @@ export default function PlantInstanceCreateDialog({
   // any other species the cycle follows the species default, so the select is
   // hidden and an informative caption explains that.
   const selectedSpecies = useMemo(
-    () => speciesList.find((s) => s.key === speciesKey) ?? null,
-    [speciesList, speciesKey],
+    () => speciesCatalogue.items.find((s) => s.key === speciesKey) ?? null,
+    [speciesCatalogue.items, speciesKey],
   );
   const cultivationFlexible = selectedSpecies?.cultivation_flexible ?? false;
 
@@ -210,17 +214,7 @@ export default function PlantInstanceCreateDialog({
         location_key: null,
         slot_key: null,
       });
-      substrateApi.listSubstrates(0, 200).then(setSubstratesList).catch(() => setSubstratesList([]));
       sitesApi.listSites(0, 200).then(setSitesList).catch(() => setSitesList([]));
-      speciesApi.listSpecies(0, 200).then((r) => {
-        setSpeciesList(r.items);
-        if (effectiveSpeciesKey) {
-          const species = r.items.find((s) => s.key === effectiveSpeciesKey);
-          if (species) {
-            setValue('instance_id', generateInstanceId(species.scientific_name));
-          }
-        }
-      }).catch(() => {});
       // Resolve slot → location → site for duplicate
       if (duplicateFrom?.slot_key) {
         sitesApi.getSlot(duplicateFrom.slot_key).then(async (slot) => {
@@ -239,17 +233,24 @@ export default function PlantInstanceCreateDialog({
     }
   }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom]);
 
+  // The instance-id prefix for a preselected species used to be derived inside
+  // the species request's `.then`. It is not derived here at all now: the effect
+  // below already keys off `speciesKey` — which `reset()` has just set to the
+  // preselected species — and off the loaded rows, so it fires exactly once the
+  // catalogue arrives. It also carries the `PLANT-` guard the inline version
+  // lacked, so a prefix the user typed over is no longer overwritten when the
+  // rows change. Adding a second effect for the same field would have raced it.
   useEffect(() => {
     if (speciesKey) {
       const currentId = getValues('instance_id');
       if (currentId.startsWith('PLANT-')) {
-        const species = speciesList.find((s) => s.key === speciesKey);
+        const species = speciesCatalogue.items.find((s) => s.key === speciesKey);
         if (species) {
           setValue('instance_id', generateInstanceId(species.scientific_name));
         }
       }
     }
-  }, [speciesKey, speciesList, getValues, setValue]);
+  }, [speciesKey, speciesCatalogue.items, getValues, setValue]);
 
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
@@ -377,7 +378,9 @@ export default function PlantInstanceCreateDialog({
       // Type-only fallback keys start with '_type_' — don't send as substrate_key
       const isTypeOnly = rawSubstrateKey?.startsWith('_type_');
       const substrateKey = isTypeOnly ? null : (rawSubstrateKey || null);
-      const selectedSubstrate = substrateKey ? substratesList.find((s) => s.key === substrateKey) : null;
+      const selectedSubstrate = substrateKey
+        ? substrateCatalogue.items.find((s) => s.key === substrateKey)
+        : null;
       const typeOverride = isTypeOnly
         ? rawSubstrateKey!.replace('_type_', '') as SubstrateType
         : (selectedSubstrate?.type ?? null);
@@ -408,7 +411,7 @@ export default function PlantInstanceCreateDialog({
       }
       if (identificationPhoto && allowReferenceContribution && useAsReference) {
         try {
-          const species = speciesList.find((s) => s.key === data.species_key);
+          const species = speciesCatalogue.items.find((s) => s.key === data.species_key);
           await contributeReferenceImage(
             data.species_key,
             species?.scientific_name ?? '',
@@ -443,7 +446,7 @@ export default function PlantInstanceCreateDialog({
                 required
                 autoFocus
                 disabled={!!initialSpeciesKey || !!duplicateFrom}
-                species={speciesList}
+                species={speciesCatalogue.items}
               />
             </Box>
             {/* Mark the selected species as a favorite right here — reuses the
@@ -644,7 +647,7 @@ export default function PlantInstanceCreateDialog({
             control={control}
             label={t('pages.plantInstances.substrate')}
             helperText={t('pages.plantInstances.substrateHelper')}
-            substrates={substratesList}
+            substrates={substrateCatalogue.items}
           />
 
           <LocationAssignmentSection

@@ -1,4 +1,5 @@
 import client from '../client';
+import { invalidateCatalogue } from '../catalogueRevision';
 import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type { BotanicalFamily, BotanicalFamilyCreate, Species } from '../types';
 
@@ -40,6 +41,7 @@ export async function createBotanicalFamily(
   payload: BotanicalFamilyCreate,
 ): Promise<BotanicalFamily> {
   const { data } = await client.post<BotanicalFamily>(BASE, payload);
+  invalidateCatalogue('botanicalFamilies');
   return data;
 }
 
@@ -48,11 +50,13 @@ export async function updateBotanicalFamily(
   payload: BotanicalFamilyCreate,
 ): Promise<BotanicalFamily> {
   const { data } = await client.put<BotanicalFamily>(`${BASE}/${key}`, payload);
+  invalidateCatalogue('botanicalFamilies');
   return data;
 }
 
 export async function deleteBotanicalFamily(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+  invalidateCatalogue('botanicalFamilies');
 }
 
 export async function listSpeciesByFamily(familyKey: string): Promise<Species[]> {

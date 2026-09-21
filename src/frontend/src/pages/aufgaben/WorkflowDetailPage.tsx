@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
+import { useCatalogue } from '@/hooks/useCatalogue';
+import { useRetryFocus } from '@/hooks/useRetryFocus';
+import LoadingStatus from '@/components/common/LoadingStatus';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -67,7 +70,6 @@ import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as taskApi from '@/api/endpoints/tasks';
-import * as activityApi from '@/api/endpoints/activities';
 import * as speciesApi from '@/api/endpoints/species';
 import type { WorkflowTemplate, TaskTemplate, Activity, WorkflowPhase } from '@/api/types';
 import type { WorkflowExecutionEnriched } from '@/api/endpoints/tasks';
@@ -145,8 +147,20 @@ export default function WorkflowDetailPage() {
   const [addTargetPhaseDays, setAddTargetPhaseDays] = useState(0);
   const [addTargetPhaseStress, setAddTargetPhaseStress] = useState('');
   const [addTargetPhaseKey, setAddTargetPhaseKey] = useState<string>('');
-  const [allActivities, setAllActivities] = useState<Activity[]>([]);
-  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  // The activity catalogue is read through the shared reader, not rebuilt here
+  // (#1568). It keeps pending, failed and empty apart — this dialog previously
+  // caught a failed load into a toast and then rendered the same "no matching
+  // activities" line an empty catalogue produces, so the only thing telling the
+  // user the catalogue never arrived was a message that disappears by itself.
+  // `enabled` is the dialog's own open flag, so a closed dialog costs nothing.
+  const activityCatalogue = useCatalogue('activities', { enabled: addDialogOpen });
+  // After a retry succeeds, focus returns to the search box — the control that
+  // stays mounted across all three states and the one the user reaches for next.
+  const { attachRegion: attachActivityRegion, beginRetry: beginActivityRetry } = useRetryFocus(
+    activityCatalogue.status,
+    "[data-testid='activity-catalogue-search'] input",
+    { enabled: addDialogOpen },
+  );
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [addDayOffset, setAddDayOffset] = useState(0);
   const [activityFilter, setActivityFilter] = useState('');
@@ -230,7 +244,9 @@ export default function WorkflowDetailPage() {
     if (!workflow) return;
     setSpeciesLoading(true);
     Promise.all([
-      speciesApi.listSpecies(0, 500),
+      // The complete catalogue (#1560); one leg of an imperative sequence whose
+      // surrounding loading state already covers it.
+      speciesApi.listAllSpecies(),
       favApi.listFavorites('species').catch(() => []),
     ])
       .then(([res, favs]) => {
@@ -376,30 +392,14 @@ export default function WorkflowDetailPage() {
     }
   }, [key, load, handleError, notification, t]);
 
-  const loadActivities = useCallback(async () => {
-    if (allActivities.length > 0) return;
-    setActivitiesLoading(true);
-    try {
-      const [list, favs] = await Promise.all([
-        // The complete catalogue, not its first page (#1530). Every filter in
-        // this dialog — favourites, species-compatible, the search box — runs
-        // client-side over `allActivities`, so a bounded fetch does not shorten
-        // the list, it makes the dialog deny that an activity exists. The
-        // seeded catalogue already overflows the reader's default page size of
-        // 50 at 51 rows, before any tenant adds one. `listAllActivities` pages
-        // until a short page comes back and keeps `activitiesLoading` true for
-        // the whole sequence; a failure on any page lands in the catch below.
-        activityApi.listAllActivities(),
-        favApi.listFavorites('activities').catch(() => []),
-      ]);
-      setAllActivities(list);
-      setActivityFavKeys(new Set(favs.map((f) => f.target_key)));
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setActivitiesLoading(false);
-    }
-  }, [allActivities.length, handleError]);
+  // Favourites are a per-user overlay on the catalogue, not the catalogue: a
+  // missing favourites list narrows nothing and must not block the picker, so it
+  // keeps its own swallowed catch. The catalogue itself does not — that is the
+  // distinction #1568 is about.
+  const loadActivityFavorites = useCallback(async () => {
+    const favs = await favApi.listFavorites('activities').catch(() => []);
+    setActivityFavKeys(new Set(favs.map((f) => f.target_key)));
+  }, []);
 
   const handleMovePhase = useCallback(async (phaseKey: string, direction: number) => {
     const sorted = [...phases].sort((a, b) => a.phase_order - b.phase_order);
@@ -448,8 +448,8 @@ export default function WorkflowDetailPage() {
     setCatalogFilter('all');
     setExpandedDesc(null);
     setAddDialogOpen(true);
-    loadActivities();
-  }, [phases, loadActivities, t]);
+    void loadActivityFavorites();
+  }, [phases, loadActivityFavorites, t]);
 
   const handleAddFromCatalog = useCallback(async () => {
     if (!selectedActivity || !key) return;
@@ -492,7 +492,7 @@ export default function WorkflowDetailPage() {
   const filteredActivities = useMemo(() => {
     const compatSpecies = workflow?.species_compatible ?? [];
 
-    let filtered = allActivities;
+    let filtered = activityCatalogue.items;
 
     // Apply catalog filter
     if (catalogFilter === 'favorites') {
@@ -525,7 +525,7 @@ export default function WorkflowDetailPage() {
     }
 
     return filtered;
-  }, [allActivities, activityFilter, catalogFilter, activityFavKeys, workflow?.species_compatible, i18n.language, t]);
+  }, [activityCatalogue.items, activityFilter, catalogFilter, activityFavKeys, workflow?.species_compatible, i18n.language, t]);
 
   // Group executions: by planting_run if available, otherwise collect standalone plants
   type RunGroup = {
@@ -1123,7 +1123,7 @@ export default function WorkflowDetailPage() {
           {t('pages.tasks.addActivityToPhase', { phase: addTargetPhaseDisplay })}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <Box ref={attachActivityRegion} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             {/* Filter chips */}
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               <Chip
@@ -1169,9 +1169,49 @@ export default function WorkflowDetailPage() {
               autoFocus
             />
 
-            {activitiesLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            {/*
+              Three states, deliberately not two (#1568). The middle branch is
+              the one that did not exist: a failed load left `allActivities`
+              empty and fell through to "no matching activities found" — the
+              sentence for a catalogue that arrived and holds nothing. The user
+              was told the activity does not exist when in fact nobody asked
+              the server successfully, and the toast that said otherwise had
+              already gone.
+            */}
+            {/*
+              The announcement half (UI-NFR-002 §2.3 R-011, WCAG 2.2 AA 4.1.3).
+              The spinner below satisfies R-020 visually and says nothing to a
+              screen reader; of the three transitions only `→ failed` announced
+              itself, via the native `role="alert"` inside `ErrorDisplay`.
+
+              Mounted unconditionally: a live region must exist *before* its
+              content changes for the change to be announced (`LoadingStatus`
+              property 4), so rendering it only while loading would stay silent
+              on exactly the `failed → loading → ready` path a retry takes.
+            */}
+            <LoadingStatus
+              label={t('pages.tasks.activityCatalogueLoading')}
+              active={activityCatalogue.status === 'loading'}
+              data-testid="activity-catalogue-loading-status"
+            />
+            {activityCatalogue.status === 'loading' ? (
+              <Box
+                sx={{ display: 'flex', justifyContent: 'center', py: 3 }}
+                data-testid="activity-catalogue-loading"
+              >
                 <CircularProgress size={24} />
+              </Box>
+            ) : activityCatalogue.status === 'failed' ? (
+              <Box data-testid="activity-catalogue-error">
+                <ErrorDisplay
+                  error={activityCatalogue.error ?? 'errors.loadFailed'}
+                  onRetry={() => {
+                    // Armed before the state flips: the button this click landed
+                    // on is about to unmount with the whole `failed` branch.
+                    beginActivityRetry();
+                    activityCatalogue.reload();
+                  }}
+                />
               </Box>
             ) : (
               <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
@@ -1247,9 +1287,44 @@ export default function WorkflowDetailPage() {
                   );
                 })}
                 {filteredActivities.length === 0 && (
-                  <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                    {t('pages.tasks.noActivitiesFound')}
-                  </Typography>
+                  <Box sx={{ py: 2, textAlign: 'center' }} data-testid="activity-catalogue-empty">
+                    {/*
+                      Reached only when the catalogue loaded. An empty
+                      *catalogue* and an empty *filter result* are still one
+                      message, and correctly so: both mean "nothing here to
+                      pick", and the user can see the search box they typed in.
+
+                      Only the empty *catalogue* gets the call to action (R-012 +
+                      R-014, UI-NFR-004 §3.2): "no activity exists yet" has a
+                      way out, "your search matched nothing" does not — the way
+                      out there is the search box the user is already looking at.
+                    */}
+                    <Typography color="text.secondary">
+                      {activityCatalogue.isEmpty
+                        ? t('pages.tasks.activityCatalogueEmpty')
+                        : t('pages.tasks.noActivitiesFound')}
+                    </Typography>
+                    {activityCatalogue.isEmpty && (
+                      /*
+                        Operator decision, taken against the UI reviewer's
+                        advice: the reviewer objected that navigating away pulls
+                        the user out of the task. Answered rather than overruled
+                        — `UnsavedChangesGuard` on this page (below the tabs)
+                        blocks the route change whenever the workflow form
+                        actually holds unsaved input, and its `ConfirmDialog`
+                        autofocuses "cancel", so staying is the default.
+                      */
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        sx={{ mt: 1.5 }}
+                        onClick={() => navigate('/stammdaten/activities')}
+                        data-testid="activity-catalogue-empty-cta"
+                      >
+                        {t('pages.tasks.activityCatalogueEmptyCta')}
+                      </Button>
+                    )}
+                  </Box>
                 )}
               </Box>
             )}

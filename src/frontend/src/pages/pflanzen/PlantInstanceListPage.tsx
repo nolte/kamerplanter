@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -20,7 +21,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantInstance, Species, Cultivar, Site, Location, Slot } from '@/api/types';
-import { listSpecies, listCultivars } from '@/api/endpoints/species';
+import { listCultivars } from '@/api/endpoints/species';
 import { listSites, listLocations, getSlot } from '@/api/endpoints/sites';
 import { listPlantingRuns, listRunPlants } from '@/api/endpoints/plantingRuns';
 import MobileCard from '@/components/common/MobileCard';
@@ -40,7 +41,17 @@ export default function PlantInstanceListPage() {
   const [duplicateData, setDuplicateData] = useState<PlantInstanceDuplicateData | undefined>();
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [hideRemoved, setHideRemoved] = useState(true);
-  const [speciesMap, setSpeciesMap] = useState<Map<string, Species>>(new Map());
+  // The complete species catalogue through the shared reader (#1560). The
+  // explicit `listSpecies(0, 500)` was legal only because the species route caps
+  // at `le=1000` rather than the shared `le=200`, and it is still a bound on a
+  // tenant-extensible catalogue — one whose rows this page resolves client-side,
+  // so a missing row renders as an unnamed plant rather than as an error.
+  const speciesCatalogue = useCatalogue('species');
+  const speciesMap = useMemo(() => {
+    const map = new Map<string, Species>();
+    for (const s of speciesCatalogue.items) map.set(s.key, s);
+    return map;
+  }, [speciesCatalogue.items]);
   const [cultivarMap, setCultivarMap] = useState<Map<string, Cultivar>>(new Map());
   const [siteMap, setSiteMap] = useState<Map<string, Site>>(new Map());
   const [locationMap, setLocationMap] = useState<Map<string, Location>>(new Map());
@@ -53,11 +64,6 @@ export default function PlantInstanceListPage() {
 
   useEffect(() => {
     dispatch(fetchPlantInstances({}));
-    listSpecies(0, 500).then((res) => {
-      const map = new Map<string, Species>();
-      for (const s of res.items) map.set(s.key, s);
-      setSpeciesMap(map);
-    }).catch(() => {});
     // Load sites + all locations
     listSites(0, 200).then((sites) => {
       const sm = new Map<string, Site>();

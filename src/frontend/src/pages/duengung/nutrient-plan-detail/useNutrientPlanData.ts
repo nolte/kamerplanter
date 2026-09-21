@@ -115,7 +115,9 @@ export function useNutrientPlanData() {
       const [p, e, f] = await Promise.all([
         planApi.fetchNutrientPlan(key),
         planApi.fetchPhaseEntries(key),
-        fertApi.fetchFertilizers(0, 200),
+        // The complete catalogue (#1560); one leg of an imperative sequence
+        // whose surrounding loading and error state already covers it.
+        fertApi.fetchAllFertilizers(),
       ]);
       setPlan(p);
       setEntries(e);
