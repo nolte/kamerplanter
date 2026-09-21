@@ -83,31 +83,31 @@ class TestRemoveAutoProfileForPlant:
         service, repo = _service()
         repo.create_profile(_profile())
 
-        assert service.remove_auto_profile_for_plant("plant-1", TENANT) is True
+        assert service.remove_auto_profile_for_plant("plant-1", tenant_key=TENANT) is True
         assert repo.get_profile_by_plant_key("plant-1") is None
 
     def test_keeps_user_overridden_profile(self) -> None:
         service, repo = _service()
         repo.create_profile(_profile(user_overridden=True))
 
-        assert service.remove_auto_profile_for_plant("plant-1", TENANT) is False
+        assert service.remove_auto_profile_for_plant("plant-1", tenant_key=TENANT) is False
         assert repo.get_profile_by_plant_key("plant-1") is not None
 
     def test_keeps_manually_created_profile(self) -> None:
         service, repo = _service()
         repo.create_profile(_profile(auto_generated=False))
 
-        assert service.remove_auto_profile_for_plant("plant-1", TENANT) is False
+        assert service.remove_auto_profile_for_plant("plant-1", tenant_key=TENANT) is False
         assert repo.get_profile_by_plant_key("plant-1") is not None
 
     def test_no_profile_is_noop(self) -> None:
         service, _ = _service()
 
-        assert service.remove_auto_profile_for_plant("plant-1", TENANT) is False
+        assert service.remove_auto_profile_for_plant("plant-1", tenant_key=TENANT) is False
 
     def test_foreign_tenant_profile_is_never_touched(self) -> None:
         service, repo = _service()
         repo.create_profile(_profile(tenant=FOREIGN))
 
-        assert service.remove_auto_profile_for_plant("plant-1", TENANT) is False
+        assert service.remove_auto_profile_for_plant("plant-1", tenant_key=TENANT) is False
         assert repo.get_profile_by_plant_key("plant-1") is not None
