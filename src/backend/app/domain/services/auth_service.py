@@ -575,25 +575,9 @@ class AuthService:
     # ── Email verification ──────────────────────────────────────────────
 
     def verify_email(self, token: str) -> UserProfile:
-        # Scan for user with this token
-        # (In production, this would be a direct lookup by token hash)
-        # For simplicity, we iterate — acceptable with small user counts
-        from app.data_access.arango import collections as col
-
-        db = self._user_repo._db  # type: ignore[attr-defined]
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.email_verification_token == @token
-          LIMIT 1
-          RETURN doc
-        """
-        cursor = db.aql.execute(query, bind_vars={"@collection": col.USERS, "token": token})
-        docs = list(cursor)
-        if not docs:
+        user = self._user_repo.get_by_email_verification_token(token)
+        if user is None:
             raise InvalidTokenError("verification token")
-
-        doc = docs[0]
-        user = User(**{**doc, "_key": doc.get("_key", doc.get("_id", "").split("/")[-1])})
 
         # Check expiry
         if user.email_verification_expires and user.email_verification_expires < datetime.now(UTC):
@@ -656,22 +640,9 @@ class AuthService:
         if errors:
             raise ValidationError("; ".join(errors))
 
-        from app.data_access.arango import collections as col
-
-        db = self._user_repo._db  # type: ignore[attr-defined]
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.password_reset_token == @token
-          LIMIT 1
-          RETURN doc
-        """
-        cursor = db.aql.execute(query, bind_vars={"@collection": col.USERS, "token": token})
-        docs = list(cursor)
-        if not docs:
+        user = self._user_repo.get_by_password_reset_token(token)
+        if user is None:
             raise InvalidTokenError("reset token")
-
-        doc = docs[0]
-        user = User(**{**doc, "_key": doc.get("_key", doc.get("_id", "").split("/")[-1])})
 
         if user.password_reset_expires and user.password_reset_expires < datetime.now(UTC):
             raise InvalidTokenError("reset token")

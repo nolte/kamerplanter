@@ -185,6 +185,7 @@ def _tamper(library: Library, lock: Path) -> str:
     """Replace the sha256 of *one wheel* of the library's target. Returns the old hash."""
     text = lock.read_text()
 
+    # prose-permeable: tamper helper over a generated uv.lock: it must locate the exact bytes it writes back
     entry = re.search(
         rf'^\[\[package\]\]\nname = "{re.escape(library.target)}"\n(?P<body>(?:.*\n)*?)(?=\n\[\[package\]\]|\Z)',
         text,
@@ -210,6 +211,7 @@ def _tamper(library: Library, lock: Path) -> str:
     assert old_hash is not None, f"{library.target}'s wheel entry carries no sha256 — nothing to falsify"
 
     tampered_line = wheel_lines[0].replace(old_hash.group(1), _ZEROED_HASH)
+    # prose-permeable: same helper: the count proves the replacement is unambiguous before writing
     assert text.count(wheel_lines[0]) == 1
     lock.write_text(text.replace(wheel_lines[0], tampered_line))
     return old_hash.group(1)
@@ -249,7 +251,11 @@ class TestEveryLibraryIsLockedAtAll:
         root_name = tomllib.loads((_REPO_ROOT / candidate.directory / "pyproject.toml").read_text())["project"]["name"]
         hashless = []
         for chunk in lock.split("[[package]]")[1:]:
+            # prose-permeable: uv.lock is generated TOML with no comments; the package name is read from the block it
+            # belongs to
             name = re.search(r'name = "([^"]+)"', chunk)
+            # prose-permeable: same block: a package without a sha256 line is the defect, and the lock has no prose to
+            # confuse it with
             if name and name.group(1) != root_name and 'hash = "sha256:' not in chunk:
                 hashless.append(name.group(1))
         assert hashless == [], (

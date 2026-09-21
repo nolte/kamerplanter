@@ -210,6 +210,7 @@ def compiled_versions(text: str) -> dict[str, Version]:
         line = raw.strip().rstrip("\\").strip()
         if not line or line.startswith("#") or line.startswith("--hash") or _OPTION_LINE.match(line):
             continue
+        # prose-permeable: comment lines are dropped on the line above; what reaches here is already a requirement line
         match = re.match(r"^([A-Za-z0-9._-]+)\s*==\s*([^\s;]+)", line)
         if match:
             versions[canonicalize_name(match.group(1))] = Version(match.group(2))

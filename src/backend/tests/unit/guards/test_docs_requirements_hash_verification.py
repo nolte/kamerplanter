@@ -121,10 +121,12 @@ def _tamper(text: str, package: str, *, how_many: int) -> str:
             inside = True
             out.append(line)
             continue
+        # prose-permeable: tamper helper: it must rewrite the exact bytes of the pinned file it writes back
         if inside and "--hash=sha256:" in line and replaced < how_many:
             out.append(re.sub(r"--hash=sha256:[0-9a-f]{64}", _ZEROED, line))
             replaced += 1
             continue
+        # prose-permeable: same tamper helper: the block boundary is the literal `--hash=` continuation, not a decision
         if inside and "--hash=" not in line:
             inside = False
         out.append(line)
@@ -202,6 +204,8 @@ class TestTheTamperTargetIsUsable:
         there is no 'one of several' to demonstrate, and the vacuity measurement
         would silently become a second copy of the real tamper."""
         block = _package_block(requirements_text, _TAMPER_TARGET)
+        # prose-permeable: counts the hash lines of a pinned requirements file; a `#` comment there carries no
+        # `--hash=`, and the count is the property
         hashes = sum(line.count("--hash=sha256:") for line in block)
         assert hashes > 1, f"{_TAMPER_TARGET} carries {hashes} hash(es); the vacuity control needs at least two"
 
@@ -209,12 +213,14 @@ class TestTheTamperTargetIsUsable:
         """The measuring instrument first. A helper that silently altered zero
         lines would make every assertion below pass over an untouched file."""
         block = _package_block(requirements_text, _TAMPER_TARGET)
+        # prose-permeable: same measurement, one line per pinned distribution
         count = sum(line.count("--hash=sha256:") for line in block)
         tampered = _tamper(requirements_text, _TAMPER_TARGET, how_many=count)
 
         # every hash of the target is zeroed ...
         after = _package_block(tampered, _TAMPER_TARGET)
         assert after, "the tamper destroyed the package entry instead of its hashes"
+        # prose-permeable: tamper helper: it must recognise the exact hash line it rewrites and writes back
         assert all("--hash=sha256:" not in line or _ZEROED in line for line in after)
 
         # ... and NOTHING else moved. Compared line by line and by position, not
@@ -250,6 +256,7 @@ class TestTamperingEveryHashOfOnePackageIsRefused:
 
     def test_pip_aborts_with_a_hash_verdict(self, pip: list[str], tmp_path: Path, requirements_text: str) -> None:
         block = _package_block(requirements_text, _TAMPER_TARGET)
+        # prose-permeable: same measurement over the tampered file, to prove the tamper landed
         count = sum(line.count("--hash=sha256:") for line in block)
         copy = tmp_path / "requirements.txt"
         copy.write_text(_tamper(requirements_text, _TAMPER_TARGET, how_many=count), encoding="utf-8")

@@ -432,6 +432,32 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── A gate may not decide about code by matching raw source text ───────
+  # #1456. A gate that searches a file's text for a name answers about whichever
+  # half it hits first, and both halves are wrong in a different direction: a
+  # comment head naming a loader SATISFIES a presence test (#1610 in
+  # fertilizersSlice.ts and activitiesSlice.ts, #1624 in the catalogue registry),
+  # and a docstring explaining a field FALSIFIES an absence test. Four such sites
+  # were repaired by hand in one week, which is the #948 bet — two of four routes
+  # fixed, the rest open for months. This enumerates the class instead: every
+  # membership, regex and occurrence test in every gate file, found through the
+  # parse tree, where comments are not nodes and therefore cannot answer.
+  #
+  # Measured on the tree: 99 gate files, 36 in-class sites, all of them carrying
+  # a `# prose-permeable:` reason (a waiver annotates a site the parser already
+  # found — it cannot create one, and one that excuses nothing is red).
+  #
+  # stdlib only, no application import; always_run because DELETING a reduction
+  # moves the answer exactly as much as adding a raw match.
+  - repo: local
+    hooks:
+      - id: gate-text-assertions
+        name: no gate decides about code by matching raw source text (#1456)
+        entry: python3 scripts/check_gate_text_assertions.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── API → data-access layer boundary (P1.3) ────────────────────────────
   # Refuses a NEW `app.data_access` import under src/backend/app/api. NFR-001's
   # layer order says a router reaches persistence through a service; when it
@@ -450,10 +476,22 @@ repos:
   # always_run rather than a `files:` filter: DELETING the last import of an
   # allowlisted module moves the answer exactly as much as adding one, and a
   # path-filtered hook never sees a deletion.
+  #
+  # The same script carries a SECOND rule since #1556: no module under
+  # src/backend/app/domain holds or reaches a persistence handle. #1556 measured
+  # `_repo._db`, found two sites in auth_service.py and called them "the only
+  # two left"; that grep sees only the reach-THROUGH-a-repository spelling and is
+  # blind to the four modules that are simply handed a StandardDatabase. A guard
+  # written to those two literal call sites would have certified the tree clean —
+  # the #948 class. So rule 2 detects the class — an `arango` import, or a handle
+  # detected three ways (an attribute named `_db`, the string "_db" behind a
+  # getattr, a reach for `.aql` under any other name), reported as ONE finding so
+  # changing spelling does not clear it — and carries its own ALLOWED_HANDLES
+  # allowlist for the four modules that still cross.
   - repo: local
     hooks:
       - id: layer-imports
-        name: the API layer does not import data_access (NFR-001)
+        name: the API and business-logic layer boundaries hold (NFR-001)
         entry: python3 scripts/check_layer_imports.py
         language: system
         always_run: true

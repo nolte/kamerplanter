@@ -342,6 +342,8 @@ def _continuation(lines: list[str], marker_line: int, stop_before: int) -> str:
     parts: list[str] = []
     for index in range(marker_line + 1, stop_before):
         candidate = lines[index - 1].strip()
+        # prose-permeable: the marker being read IS a comment — this is the register's own reader, not a claim about
+        # code
         if not candidate.startswith("#") or JUSTIFICATION_MARKER in candidate:
             break
         parts.append(candidate.lstrip("#").strip())

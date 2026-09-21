@@ -14,6 +14,10 @@ on:
       - 'src/knowledge-service/**'
       - 'docker/**'
       - 'spec/knowledge/rag/**'
+      # The smoke script the model-image jobs run (#1609). Without it here, the
+      # one change most able to break those jobs — a change to the script that
+      # decides whether they pass — would never start them.
+      - 'scripts/ci/smoke_model_image.sh'
       # This file itself. Without it the lint workflow could be rewritten and
       # merged WITHOUT ever running — which is what happened to the pull request
       # that introduced this line: it changed how linting works and the job did
@@ -111,15 +115,21 @@ jobs:
             embedding-service:
               - 'docker/embedding-service/**'
               - '.github/workflows/docker-lint-build.yml'
+              # This job runs the smoke script; a change to it must run this job.
+              - 'scripts/ci/smoke_model_image.sh'
             reranker-service:
               - 'docker/reranker-service/**'
               - '.github/workflows/docker-lint-build.yml'
+              # This job runs the smoke script; a change to it must run this job.
+              - 'scripts/ci/smoke_model_image.sh'
             knowledge-service:
               - 'src/knowledge-service/**'
               - '.github/workflows/docker-lint-build.yml'
             inference-service:
               - 'src/inference-service/**'
               - '.github/workflows/docker-lint-build.yml'
+              # This job runs the smoke script; a change to it must run this job.
+              - 'scripts/ci/smoke_model_image.sh'
       - name: Lint backend Dockerfile
         if: ${{ !cancelled() }}
         run: |
@@ -265,8 +275,15 @@ jobs:
           context: docker/embedding-service
           file: docker/embedding-service/Dockerfile
           push: false
+          load: true
+          tags: kp-embedding-service:pr
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # A build is not a start (#1609) — see the note in `build-reranker-service`.
+      # `load: true` above is what lets this step `docker run` what was built.
+      - name: Prove the embedding service serves its model
+        run: scripts/ci/smoke_model_image.sh kp-embedding-service:pr 8080 /ready
 
   build-reranker-service:
     needs: changes
@@ -285,8 +302,26 @@ jobs:
           file: docker/reranker-service/Dockerfile
           target: bge-reranker-v2-m3
           push: false
+          load: true
+          tags: kp-reranker-service:pr
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # #1609 — A BUILD IS NOT A START.
+      #
+      # `docker/reranker-service` built green here for weeks while its service
+      # could never become ready: the ONNX export saved no tokenizer, the
+      # preload thread died, and because it is a daemon thread the process
+      # stayed up. `/health` answered 200 and the image's TCP HEALTHCHECK
+      # passed. Every image in this file that ships a model exported at build
+      # time now has to prove it can serve it, not just that it compiled.
+      #
+      # `load: true` above is what makes that possible: without it buildx keeps
+      # the result in its cache and nothing can `docker run` it.
+      # src/backend/tests/unit/guards/test_model_images_prove_readiness.py
+      # asserts the pairing over the whole class.
+      - name: Prove the reranker serves its model
+        run: scripts/ci/smoke_model_image.sh kp-reranker-service:pr 8081 /ready
 
   build-knowledge-service:
     needs: changes
@@ -328,5 +363,20 @@ jobs:
           context: src/inference-service
           file: src/inference-service/Dockerfile
           push: false
+          load: true
+          tags: kp-inference-service:pr
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # A build is not a start (#1609) — see the note in `build-reranker-service`.
+      # `load: true` above is what lets this step `docker run` what was built.
+      #
+      # This one is proved by loading the graph inside the image rather than by
+      # starting the server, and that is measured, not a shortcut: the lifespan
+      # in src/inference-service/app/main.py connects to pgvector and runs
+      # migrations BEFORE `Embedder.start_load()`, so a lone container never
+      # answers at all. An HTTP probe here would assert the absence of a
+      # database; this asserts the presence of a usable model, which is the
+      # thing #1609 was about. The dimension comes from MODEL_DIM in the chart.
+      - name: Prove the inference service ships a loadable model
+        run: scripts/ci/smoke_model_image.sh kp-inference-service:pr model /app/models/dinov2 384 224
