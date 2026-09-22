@@ -191,7 +191,7 @@ jobs:
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -518,7 +518,7 @@ jobs:
         # The cache key is src/backend/uv.lock rather than the action's default
         # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
         # five locks, and four of them have nothing to do with this job.
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
