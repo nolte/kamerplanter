@@ -165,12 +165,14 @@ describe('PrivacySettingsPage', () => {
 
     try {
       // `downloadRequested` flips inside the MSW handler, i.e. when the request
-      // *arrives*; the response still has to travel back through axios and be
-      // read as a Blob before the component reaches `URL.createObjectURL`.
-      // Asserting on the mock synchronously after that flag races the round
-      // trip and loses on a slow runner - so the wait is anchored on the
-      // hand-over itself, which is also the #1645 claim: the bundle bytes,
-      // not just a request, reach the browser.
+      // *arrives*; the response still has to travel back through the MSW XHR
+      // interceptor and axios and be read as a Blob before the component
+      // reaches `URL.createObjectURL`. Asserting on the mock right after that
+      // flag certifies only that a request was sent, so the wait is anchored
+      // on the hand-over itself, which is also the #1645 claim: the bundle
+      // bytes, not just a request, reach the browser. (The CI-only failure of
+      // this test on Node 22 was that the blob response never left the
+      // interceptor at all - see the `Blob.prototype.stream` note in setup.ts.)
       await waitFor(() => {
         expect(anchorClick).toHaveBeenCalledTimes(1);
       });
