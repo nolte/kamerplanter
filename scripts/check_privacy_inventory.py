@@ -49,8 +49,9 @@ satisfies nothing here.
 
 The anti-vacuity floors
 -----------------------
-:data:`MIN_STEPS`, :data:`MIN_EXECUTORS` and :data:`MIN_MANIFEST_SOURCES` sit
-**deliberately below** today's inventory (29 steps / 6 executors / 15 sources),
+:data:`MIN_STEPS`, :data:`MIN_EXECUTORS`, :data:`MIN_MANIFEST_SOURCES` and
+:data:`MIN_FILTERED_STEPS` sit **deliberately below** today's inventory (32 steps /
+6 executors / 16 sources / 27 edge-or-document steps),
 far enough that a legitimate shrink does not trip them. They exist to catch this
 script's own reader collapsing — an AST walk that silently returns nothing would
 otherwise report a green tree with no inventory at all, which is the failure mode
@@ -112,10 +113,17 @@ INVENTORY_READERS = {
 USER_SCOPED_REMOVAL = "_remove_docs_for_user"
 EDGE_REMOVAL = "delete_edges"
 
-# Floors, deliberately below today's 29 / 6 / 15.
+#: Step kinds that filter a collection by the subject and therefore must name
+#: the field they filter on (R5). ``user`` and ``phase`` carry their own rules.
+FILTERED_KINDS = frozenset({"edge", "document"})
+UNFILTERED_KINDS = frozenset({"user", "phase"})
+EDGE_ENDPOINTS = frozenset({"_from", "_to"})
+
+# Floors, deliberately below today's 32 / 6 / 16 / 27.
 MIN_STEPS = 8
 MIN_EXECUTORS = 2
 MIN_MANIFEST_SOURCES = 10
+MIN_FILTERED_STEPS = 6
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:
@@ -240,6 +248,42 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
                         f"ErasureEngine.build_erasure_plan(...).steps."
                     )
 
+    # ── R5: every filtered step and every rule names its user field ──
+    filtered_steps = 0
+    for call in steps:
+        collection = _kwarg(call, "collection") or "<unnamed>"
+        kind = _kwarg(call, "kind")
+        if kind in UNFILTERED_KINDS:
+            continue
+        if kind not in FILTERED_KINDS:
+            violations.append(
+                f"R5 {ERASURE_ENGINE}:{call.lineno} — inventory entry '{collection}' carries no "
+                f"literal kind= from {sorted(FILTERED_KINDS | UNFILTERED_KINDS)}; this script "
+                f"cannot tell whether it must name a user field, so it refuses it."
+            )
+            continue
+        filtered_steps += 1
+        user_field = _kwarg(call, "user_field")
+        if not user_field:
+            violations.append(
+                f"R5 {ERASURE_ENGINE}:{call.lineno} — {kind} entry '{collection}' names no "
+                f"literal user_field=; an executor cannot find the subject's rows without "
+                f"guessing, and a guessed filter deletes somebody else's data."
+            )
+        elif kind == "edge" and user_field not in EDGE_ENDPOINTS:
+            violations.append(
+                f"R5 {ERASURE_ENGINE}:{call.lineno} — edge entry '{collection}' is keyed on "
+                f"'{user_field}'; an edge reaches the subject through one of "
+                f"{sorted(EDGE_ENDPOINTS)}."
+            )
+    for call in (*anon, *pseudo):
+        if not _kwarg(call, "user_field"):
+            collection = _kwarg(call, "collection") or "<unnamed>"
+            violations.append(
+                f"R5 {ERASURE_ENGINE}:{call.lineno} — rule for '{collection}' names no literal "
+                f"user_field=; a rule that cannot say which field it matches is inert."
+            )
+
     # ── Anti-vacuity: the reader above must have found an inventory ──
     if len(steps) < MIN_STEPS:
         violations.append(
@@ -250,6 +294,11 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
         violations.append(
             f"FLOOR {ERASURE_ENGINE} — read {len(executors)} distinct executor(s), expected "
             f"at least {MIN_EXECUTORS}."
+        )
+    if filtered_steps < MIN_FILTERED_STEPS:
+        violations.append(
+            f"FLOOR {ERASURE_ENGINE} — read {filtered_steps} filtered (edge/document) "
+            f"inventory entries, expected at least {MIN_FILTERED_STEPS}; R5 over none is vacuous."
         )
     if len(manifest_names) < MIN_MANIFEST_SOURCES:
         violations.append(

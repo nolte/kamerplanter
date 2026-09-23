@@ -69,6 +69,9 @@ def test_delete_sweeps_api_keys_preferences_and_onboarding_then_the_user():
     edge_binds = {bv.get("@edge") for bv in db.bind_vars}
     assert col.HAS_AUTH_PROVIDER in edge_binds
     assert col.HAS_SESSION in edge_binds
+    # #1663 — ``api_key_repository.create`` writes ``users -> api_keys`` beside
+    # every key; the cascade removed the documents and left these edges behind.
+    assert col.HAS_API_KEY in edge_binds
     # The user document itself is deleted (last).
     assert db.deleted == [USER_KEY]
 
@@ -107,6 +110,7 @@ def test_the_cascade_attribution_still_covers_every_account_owned_artefact():
     assert {s.collection for s in steps} == {
         col.HAS_AUTH_PROVIDER,
         col.HAS_SESSION,
+        col.HAS_API_KEY,
         col.AUTH_PROVIDERS,
         col.REFRESH_TOKENS,
         col.API_KEYS,

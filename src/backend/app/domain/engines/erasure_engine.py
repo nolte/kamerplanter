@@ -215,36 +215,116 @@ class ErasureEngine:
             kind="phase",
             executor="reference_index_cleanup",
         ),
-        ErasureStep(collection="requested_export", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="has_consent", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="has_restriction", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="requested_erasure", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="requested_email_change", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="has_auth_provider", kind="edge", executor="account_cascade"),
-        ErasureStep(collection="has_session", kind="edge", executor="account_cascade"),
-        ErasureStep(collection="membership_in", kind="edge", executor="membership_cascade"),
-        ErasureStep(collection="memberships", kind="document", executor="membership_cascade"),
-        ErasureStep(collection="data_export_requests", kind="document", executor="retention_worker"),
-        ErasureStep(collection="consent_records", kind="document", executor="retention_worker"),
-        ErasureStep(collection="processing_restrictions", kind="document", executor="retention_worker"),
-        ErasureStep(collection="email_change_requests", kind="document", executor="retention_worker"),
-        ErasureStep(collection="auth_providers", kind="document", executor="account_cascade"),
-        ErasureStep(collection="refresh_tokens", kind="document", executor="account_cascade"),
-        ErasureStep(collection="api_keys", kind="document", executor="account_cascade"),
-        ErasureStep(collection="user_preferences", kind="document", executor="account_cascade"),
-        ErasureStep(collection="onboarding_states", kind="document", executor="account_cascade"),
-        ErasureStep(collection="identification_requests", kind="document", executor="retention_worker"),
+        # Every edge below that has no ``via`` runs ``users -> <document>``: the
+        # graph definition in ``collections.py`` declares ``USERS`` as its only
+        # ``from`` collection and each repository inserts it with the user id as
+        # ``_from`` (e.g. ``data_export_repository.py`` ``create_edge(REQUESTED_EXPORT,
+        # user_id, export_id)``). ``test_privacy_engines.py`` pins every endpoint
+        # against the graph definition rather than trusting this comment.
+        ErasureStep(collection="requested_export", kind="edge", executor="retention_worker", user_field="_from"),
+        ErasureStep(collection="has_consent", kind="edge", executor="retention_worker", user_field="_from"),
+        ErasureStep(collection="has_restriction", kind="edge", executor="retention_worker", user_field="_from"),
+        ErasureStep(collection="requested_erasure", kind="edge", executor="retention_worker", user_field="_from"),
+        ErasureStep(
+            collection="requested_email_change",
+            kind="edge",
+            executor="retention_worker",
+            user_field="_from",
+        ),
+        ErasureStep(
+            # #1663 — written by ``FavoritesService`` (``_from`` = the user,
+            # ``_to`` = species / nutrient plan / fertilizer) and named in no
+            # erasure enumeration until now.
+            collection="user_favorites",
+            kind="edge",
+            executor="retention_worker",
+            user_field="_from",
+        ),
+        ErasureStep(collection="has_auth_provider", kind="edge", executor="account_cascade", user_field="_from"),
+        ErasureStep(collection="has_session", kind="edge", executor="account_cascade", user_field="_from"),
+        ErasureStep(
+            # #1663 — ``api_key_repository.create`` writes this edge beside every
+            # key; the cascade removed the ``api_keys`` documents and left the
+            # edges pointing at nothing.
+            collection="has_api_key",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+        ),
+        ErasureStep(
+            # #1663 — ``users -> memberships``; ``delete_all_for_user`` has always
+            # removed it, the inventory never named it.
+            collection="has_membership",
+            kind="edge",
+            executor="membership_cascade",
+            user_field="_from",
+        ),
+        ErasureStep(
+            collection="membership_in",
+            kind="edge",
+            executor="membership_cascade",
+            user_field="_from",
+            via="memberships",
+            note="memberships -> tenants; never touches users (membership_repository.create).",
+        ),
+        ErasureStep(collection="memberships", kind="document", executor="membership_cascade", user_field="user_key"),
+        ErasureStep(
+            collection="data_export_requests",
+            kind="document",
+            executor="retention_worker",
+            user_field="user_key",
+        ),
+        ErasureStep(collection="consent_records", kind="document", executor="retention_worker", user_field="user_key"),
+        ErasureStep(
+            collection="processing_restrictions",
+            kind="document",
+            executor="retention_worker",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            collection="email_change_requests",
+            kind="document",
+            executor="retention_worker",
+            user_field="user_key",
+        ),
+        ErasureStep(collection="auth_providers", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="refresh_tokens", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="api_keys", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="user_preferences", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="onboarding_states", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(
+            collection="identification_requests",
+            kind="document",
+            executor="retention_worker",
+            user_field="user_key",
+        ),
         # REQ-044 §8 — pest detections are deleted (no legal retention basis);
         # edges first, then the document. ``beneficials`` is global reference
-        # data, not personal, and is intentionally left untouched.
-        ErasureStep(collection="pest_detection_of", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="pest_detection_flagged", kind="edge", executor="retention_worker"),
+        # data, not personal, and is intentionally left untouched. The three
+        # edges start at the detection, not at the user, so they are reached
+        # ``via`` the subject's ``pest_detections`` (pest_detection_repository.create).
+        ErasureStep(
+            collection="pest_detection_of",
+            kind="edge",
+            executor="retention_worker",
+            user_field="_from",
+            via="pest_detections",
+        ),
+        ErasureStep(
+            collection="pest_detection_flagged",
+            kind="edge",
+            executor="retention_worker",
+            user_field="_from",
+            via="pest_detections",
+        ),
         ErasureStep(
             collection="pest_detection_suggested_inspection",
             kind="edge",
             executor="retention_worker",
+            user_field="_from",
+            via="pest_detections",
         ),
-        ErasureStep(collection="pest_detections", kind="document", executor="retention_worker"),
+        ErasureStep(collection="pest_detections", kind="document", executor="retention_worker", user_field="user_key"),
         # REQ-010 §8 — user-contributed pest reference images are deleted (no
         # legal retention basis). Their attachment bytes are hard-deleted by the
         # ``user_pest_reference_images`` storage-cleanup rule (Phase 0); this
@@ -254,6 +334,8 @@ class ErasureEngine:
             collection="pest_image_contributions",
             kind="document",
             executor="pest_image_cleanup",
+            user_field="contributed_by",
+            note="Not user_key: the model has none (pest_image_repository.list_for_user).",
         ),
         ErasureStep(
             collection="_anonymize_collections",

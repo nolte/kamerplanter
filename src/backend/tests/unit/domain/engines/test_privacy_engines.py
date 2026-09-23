@@ -5,24 +5,30 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import BaseModel
 
+from app.data_access.arango import collections as col
 from app.domain.engines.consent_engine import DIARY_AI_ANALYSIS, ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
-from app.domain.models.auth import AuthProvider, RefreshToken
+from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
 from app.domain.models.harvest import HarvestBatch
 from app.domain.models.identification import IdentificationRequest
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.membership import Membership
+from app.domain.models.onboarding import OnboardingState
+from app.domain.models.pest_detection import PestDetection
+from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.privacy import (
     ConsentRecord,
     DataExportRequest,
     EmailChangeRequest,
     ErasureRequest,
+    ErasureStep,
     ProcessingRestriction,
 )
 from app.domain.models.task import Task
 from app.domain.models.user import User
+from app.domain.models.user_preference import UserPreference
 
 #: Which domain model backs each collection of the export manifest / the
 #: anonymisation rules. Used to check declared field names against reality —
@@ -43,6 +49,21 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "treatment_applications": TreatmentApplication,
     "plant_diary_entries": PlantDiaryEntry,
     "identification_requests": IdentificationRequest,
+}
+
+
+#: The erasure inventory reaches collections the export manifest does not
+#: declare (account plumbing, pest detections, pest reference images). Built
+#: explicitly rather than derived from a registry: a document step whose
+#: collection is missing here fails the field-existence test by name instead of
+#: being skipped (#1663).
+ERASURE_COLLECTION_MODELS: dict[str, type[BaseModel]] = {
+    **COLLECTION_MODELS,
+    "api_keys": ApiKey,
+    "user_preferences": UserPreference,
+    "onboarding_states": OnboardingState,
+    "pest_detections": PestDetection,
+    "pest_image_contributions": PestImageContribution,
 }
 
 
@@ -338,6 +359,119 @@ class TestErasureEngine:
         assert names.count("plant_diary_entries") == 1
         assert len(names) == len(set(names))
         assert set(names) == {rule.collection for rule in engine.ANONYMIZE_COLLECTIONS}
+
+
+class TestErasureStepUserField:
+    """#1663 — every step that filters a collection says which field it filters on."""
+
+    def test_every_document_step_user_field_exists_on_its_model(self):
+        """A step keyed on a missing field deletes nothing and reports success.
+
+        The collection->model map is explicit (``ERASURE_COLLECTION_MODELS``);
+        a document step whose collection has no entry fails here by name —
+        a ``.get()`` that skipped it would be the vacuum this test exists for.
+        """
+        unmapped: list[str] = []
+        unknown: list[str] = []
+        for step in ErasureEngine.DELETE_STEPS:
+            if step.kind != "document":
+                continue
+            model = ERASURE_COLLECTION_MODELS.get(step.collection)
+            if model is None:
+                unmapped.append(step.collection)
+                continue
+            if step.user_field not in _model_field_names(model):
+                unknown.append(f"{step.collection}.{step.user_field}")
+        assert unmapped == [], "extend ERASURE_COLLECTION_MODELS for these document steps"
+        assert unknown == []
+
+    def test_every_anonymisation_and_pseudonymisation_field_exists_on_its_model(self):
+        """``user_field`` and every ``clear_fields`` entry, for all rules — no skip."""
+        rules = [
+            *((rule.collection, rule.user_field, rule.clear_fields) for rule in ErasureEngine.ANONYMIZE_COLLECTIONS),
+            *((rule.collection, rule.user_field, []) for rule in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS),
+        ]
+        unmapped = [collection for collection, _f, _c in rules if collection not in ERASURE_COLLECTION_MODELS]
+        assert unmapped == []
+        unknown = [
+            f"{collection}.{field}"
+            for collection, user_field, clear_fields in rules
+            for field in (user_field, *clear_fields)
+            if field not in _model_field_names(ERASURE_COLLECTION_MODELS[collection])
+        ]
+        assert unknown == []
+
+    def test_every_edge_endpoint_matches_the_graph_definition(self):
+        """The direction is measured against the named graph, not assumed.
+
+        A prior manifest bug declared ``membership_in`` as if it touched the
+        user; it runs ``memberships -> tenants``. Without ``via`` the declared
+        endpoint must be able to hold ``users/<key>``; with ``via`` it must be
+        able to hold a document of that collection.
+        """
+        definitions = {d["edge_collection"]: d for d in col.GRAPH_EDGE_DEFINITIONS}
+        wrong: list[str] = []
+        for step in ErasureEngine.DELETE_STEPS:
+            if step.kind != "edge":
+                continue
+            definition = definitions.get(step.collection)
+            assert definition is not None, f"edge step '{step.collection}' is not in the named graph"
+            side = "from_vertex_collections" if step.user_field == "_from" else "to_vertex_collections"
+            expected = step.via or col.USERS
+            if expected not in definition[side]:
+                wrong.append(f"{step.collection}.{step.user_field} -> {definition[side]} (expected {expected})")
+        assert wrong == []
+
+    def test_a_via_edge_precedes_the_document_step_that_matches_its_endpoint(self):
+        """The executor resolves a ``via`` edge through its parent documents.
+
+        Removing ``memberships`` first leaves nothing for ``membership_in`` to
+        be matched against — the edges would survive as orphans.
+        """
+        order = ErasureEngine.delete_order()
+        documents = {step.collection: step for step in ErasureEngine.DELETE_STEPS if step.kind == "document"}
+        vias = [step for step in ErasureEngine.DELETE_STEPS if step.kind == "edge" and step.via]
+        assert vias, "guard against a vacuous loop: membership_in and the pest-detection edges use via"
+        for step in vias:
+            assert step.via in documents, f"'{step.collection}' is reached via '{step.via}', which has no document step"
+            assert order.index(step.collection) < order.index(step.via), step.collection
+
+    def test_every_user_keyed_step_runs_before_the_audit_pseudonymisation(self):
+        """#1663 — after ``erasure_requests.user_key`` is hashed, the key is gone.
+
+        Every step that finds its rows by the subject's key — edges, documents
+        and the anonymisation phase — has to have run by then; the user
+        document comes last.
+        """
+        order = ErasureEngine.delete_order()
+        audit = order.index("_pseudonymize_audit_collections")
+        keyed = [step.collection for step in ErasureEngine.DELETE_STEPS if step.kind in ("edge", "document")]
+        assert keyed, "guard against a vacuous loop"
+        late = [name for name in [*keyed, "_anonymize_collections"] if order.index(name) > audit]
+        assert late == []
+        assert order[-1] == "users"
+
+    @pytest.mark.parametrize("kind", ["edge", "document"])
+    def test_a_filtered_step_without_a_user_field_is_refused(self, kind):
+        with pytest.raises(ValueError, match="user_field"):
+            ErasureStep(collection="x", kind=kind, executor="retention_worker")
+
+    @pytest.mark.parametrize("kind", ["user", "phase"])
+    def test_a_user_or_phase_step_takes_no_user_field(self, kind):
+        with pytest.raises(ValueError, match="filters nothing"):
+            ErasureStep(collection="x", kind=kind, executor="retention_worker", user_field="user_key")
+
+    def test_an_edge_keyed_on_a_document_field_is_refused(self):
+        with pytest.raises(ValueError, match="_from or _to"):
+            ErasureStep(collection="has_x", kind="edge", executor="retention_worker", user_field="user_key")
+
+    def test_a_document_keyed_on_an_edge_endpoint_is_refused(self):
+        with pytest.raises(ValueError, match="edge endpoint"):
+            ErasureStep(collection="x", kind="document", executor="retention_worker", user_field="_from")
+
+    def test_via_is_refused_on_a_document(self):
+        with pytest.raises(ValueError, match="via applies to edges only"):
+            ErasureStep(collection="x", kind="document", executor="retention_worker", user_field="user_key", via="y")
 
 
 class TestConsentEngine:

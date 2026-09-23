@@ -1,9 +1,9 @@
 """Domain models for REQ-025 Privacy & GDPR data subject rights."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 # ── Type aliases ───────────────────────────────────────────────────
 
@@ -205,6 +205,10 @@ type ErasureExecutor = Literal[
 ]
 
 
+#: The two endpoint attributes an ArangoDB edge can reach a vertex through.
+_EDGE_ENDPOINTS: frozenset[str] = frozenset({"_from", "_to"})
+
+
 class ErasureStep(BaseModel):
     """One entry of the single declared erasure inventory.
 
@@ -213,12 +217,54 @@ class ErasureStep(BaseModel):
     reference, ``user`` is the user document itself, and ``phase`` is a
     non-collection stage (object storage, reference index, audit hashing)
     whose own rules live in the matching engine constant.
+
+    ``user_field`` is how the executor finds the subject's rows (#1663). It is
+    required for ``edge`` and ``document`` and forbidden for ``user`` and
+    ``phase``. Before #1663 the step had no such field: the one executor that
+    ran hard-coded ``doc.user_key`` / ``e._from`` for its slice, and any other
+    executor would have had to guess — a guessed filter on the wrong field
+    deletes somebody else's rows.
+
+    * ``document`` — the model field carrying the user key (``user_key``,
+      ``contributed_by`` …); the executor matches ``doc.<user_field> == key``.
+    * ``edge`` — the endpoint (``_from`` / ``_to``). Without ``via`` that
+      endpoint *is* ``users/<key>``. With ``via`` it points into the named
+      document collection instead, and the edge belongs to the subject when the
+      document it points at does — as matched by that collection's own
+      ``document`` step, which therefore has to come *after* the edge in the
+      inventory (``membership_in`` runs ``memberships -> tenants`` and never
+      touches ``users``; the pest-detection edges start at ``pest_detections``).
     """
 
     collection: str
     kind: Literal["edge", "document", "user", "phase"]
     executor: ErasureExecutor
+    user_field: str | None = None
+    via: str | None = None
     note: str = ""
+
+    @model_validator(mode="after")
+    def _user_field_matches_kind(self) -> Self:
+        if self.kind in ("user", "phase"):
+            if self.user_field is not None or self.via is not None:
+                msg = f"{self.kind} step '{self.collection}' filters nothing and takes no user_field/via"
+                raise ValueError(msg)
+            return self
+        if not self.user_field:
+            msg = f"{self.kind} step '{self.collection}' must declare the user_field it filters the subject on"
+            raise ValueError(msg)
+        if self.kind == "edge":
+            if self.user_field not in _EDGE_ENDPOINTS:
+                msg = f"edge step '{self.collection}' reaches the subject through _from or _to, not '{self.user_field}'"
+                raise ValueError(msg)
+        else:
+            if self.user_field in _EDGE_ENDPOINTS:
+                msg = f"document step '{self.collection}' cannot be keyed on an edge endpoint"
+                raise ValueError(msg)
+            if self.via is not None:
+                msg = f"document step '{self.collection}' is keyed directly; via applies to edges only"
+                raise ValueError(msg)
+        return self
 
 
 class AnonymizationRule(BaseModel):
