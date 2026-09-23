@@ -67,8 +67,14 @@ on:
       # the lock, #903/#1296), or that rewires the include, triggers no backend
       # job at all: the gate's own definition was the one input the gate did
       # not watch.
-      - '.taskfiles/backend.yaml'
+      # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
+      # (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596): a parse error in any of them fails the lane.
+      - '.taskfiles/**'
       - 'Taskfile.yaml'
+      # `ruff check .` honours the root .gitignore (respect-gitignore is the default), so an
+      # ignore rule decides which files the lint step sees — measured 2026-09-23 with
+      # scripts/ci/lane_inputs.py (#1596): two opens of it per `task lint:backend`.
+      - '.gitignore'
   pull_request:
     branches: [develop]
     paths:
@@ -117,8 +123,14 @@ on:
       # the lock, #903/#1296), or that rewires the include, triggers no backend
       # job at all: the gate's own definition was the one input the gate did
       # not watch.
-      - '.taskfiles/backend.yaml'
+      # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
+      # (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596): a parse error in any of them fails the lane.
+      - '.taskfiles/**'
       - 'Taskfile.yaml'
+      # `ruff check .` honours the root .gitignore (respect-gitignore is the default), so an
+      # ignore rule decides which files the lint step sees — measured 2026-09-23 with
+      # scripts/ci/lane_inputs.py (#1596): two opens of it per `task lint:backend`.
+      - '.gitignore'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.

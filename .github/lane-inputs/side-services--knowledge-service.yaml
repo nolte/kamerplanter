@@ -1,0 +1,84 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: side-services.yml
+job: knowledge-service
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: ef66430751a38d32774c475b4c7ceddf81f44cf438f298a01b5038a881ddb79a
+invocations:
+- command: task deps:sync:knowledge-service
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 192
+- command: task test:knowledge-service
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 1118
+subprocesses:
+- asdf
+- bash
+- ld-linux-x86-64.so.2
+- python
+- task
+- uv
+accepted_gaps: []
+reads:
+- .taskfiles/backend.yaml
+- .taskfiles/checks.yaml
+- .taskfiles/claude.yaml
+- .taskfiles/deploy.yaml
+- .taskfiles/dev.yaml
+- .taskfiles/docs.yaml
+- .taskfiles/e2e.yaml
+- .taskfiles/frontend.yaml
+- .taskfiles/libs.yaml
+- .taskfiles/mcp.yaml
+- Taskfile.yaml
+- src/knowledge-service/
+- src/knowledge-service/app/
+- src/knowledge-service/app/__init__.py
+- src/knowledge-service/app/auth.py
+- src/knowledge-service/app/config.py
+- src/knowledge-service/app/embedding.py
+- src/knowledge-service/app/ingestor.py
+- src/knowledge-service/app/llm/
+- src/knowledge-service/app/llm/__init__.py
+- src/knowledge-service/app/llm/interface.py
+- src/knowledge-service/app/main.py
+- src/knowledge-service/app/observability/
+- src/knowledge-service/app/observability/__init__.py
+- src/knowledge-service/app/observability/error_tracking.py
+- src/knowledge-service/app/prompt_engine.py
+- src/knowledge-service/app/reranker.py
+- src/knowledge-service/app/schemas.py
+- src/knowledge-service/app/service.py
+- src/knowledge-service/app/vectordb/
+- src/knowledge-service/app/vectordb/__init__.py
+- src/knowledge-service/app/vectordb/config.py
+- src/knowledge-service/app/vectordb/connection.py
+- src/knowledge-service/app/vectordb/migrations/
+- src/knowledge-service/app/vectordb/repository.py
+- src/knowledge-service/app/vectordb/schema.py
+- src/knowledge-service/pyproject.toml
+- src/knowledge-service/tests/
+- src/knowledge-service/tests/__init__.py
+- src/knowledge-service/tests/conftest.py
+- src/knowledge-service/tests/test_auth.py
+- src/knowledge-service/tests/test_chunk_response.py
+- src/knowledge-service/tests/test_prompt_engine.py
+- src/knowledge-service/tests/test_reranker.py
+- src/knowledge-service/tests/test_vectordb_sync_guard.py
+- src/knowledge-service/uv.lock
+- src/libs/kp_vectordb/kp_vectordb/config.py
+- src/libs/kp_vectordb/kp_vectordb/connection.py
+- src/libs/kp_vectordb/kp_vectordb/schema.py

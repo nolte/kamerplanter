@@ -32,6 +32,12 @@ on:
       - 'scripts/ci/pin_chart_image_digests.sh'
       - 'scripts/ci/publish_release_asset.sh'
       - 'scripts/check_chart_image_digests.py'
+      # Measured reads outside the list above (scripts/ci/lane_inputs.py, #1596): the knowledge
+      # image builds from context `.`, so the ROOT .dockerignore decides what it copies; the
+      # release-asset job templates docker-compose.release.yml and copies .env.example.
+      - '.dockerignore'
+      - 'docker-compose.release.yml'
+      - '.env.example'
   workflow_dispatch:
 
 env:
@@ -131,6 +137,8 @@ jobs:
             knowledge:
               - 'docker/knowledge/**'
               - 'spec/knowledge/rag/**'
+              # context `.` → the root .dockerignore is part of this build's input (#1596)
+              - '.dockerignore'
             embedding-service:
               - 'docker/embedding-service/**'
             inference-service:
@@ -141,6 +149,12 @@ jobs:
               - 'src/knowledge-service/**'
             helm:
               - 'helm/**'
+              # The chart job runs these scripts (measured 2026-09-23, #1596); the on:-level filter
+              # already named them, this filter did not, so a script-only push published nothing.
+              - 'scripts/ci/determine_chart_version.sh'
+              - 'scripts/ci/pin_chart_image_digests.sh'
+              - 'scripts/ci/publish_release_asset.sh'
+              - 'scripts/check_chart_image_digests.py'
 
   # gate-integrity-ok: a failed or cancelled `changes` reddens the run through
   # its own conclusion and is alerted by `delivery-run-alert.yml` (#1225), so

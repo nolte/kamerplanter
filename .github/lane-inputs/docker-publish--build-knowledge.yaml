@@ -1,0 +1,88 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: docker-publish.yml
+job: build-knowledge
+gate:
+  kind: paths-filter
+  filter: knowledge
+status: derived
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 83dc8a08e7a2b7d5096e50f0bbca8164a024bd3f743a4dde86d5e170ab568fc0
+invocations:
+- command: derive-docker --context . --dockerfile docker/knowledge/Dockerfile
+  cwd: .
+  recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
+    COPY/ADD sources
+  copy_sources:
+  - spec/knowledge/rag/
+  context_files_after_dockerignore: 4429
+subprocesses: []
+accepted_gaps: []
+reads:
+- .dockerignore
+- docker/knowledge/Dockerfile
+- spec/knowledge/rag/allgemein/anfaenger-erste-schritte.yaml
+- spec/knowledge/rag/allgemein/ertragsoptimierung.yaml
+- spec/knowledge/rag/allgemein/fehler-vermeiden.yaml
+- spec/knowledge/rag/bewaesserung/giess-strategien-substrat.yaml
+- spec/knowledge/rag/bewaesserung/hydroponik-systeme.yaml
+- spec/knowledge/rag/bewaesserung/ueberwaesserung-erkennen.yaml
+- spec/knowledge/rag/bewaesserung/wasserqualitaet.yaml
+- spec/knowledge/rag/diagnostik/artspezifische-probleme.yaml
+- spec/knowledge/rag/diagnostik/bakterienkrankheiten.yaml
+- spec/knowledge/rag/diagnostik/freiland-schaedlinge.yaml
+- spec/knowledge/rag/diagnostik/ipm-strategien.yaml
+- spec/knowledge/rag/diagnostik/naehrstoffmangel-symptome.yaml
+- spec/knowledge/rag/diagnostik/ph-ec-abweichungen.yaml
+- spec/knowledge/rag/diagnostik/pilzkrankheiten-erweitert.yaml
+- spec/knowledge/rag/diagnostik/pilzkrankheiten.yaml
+- spec/knowledge/rag/diagnostik/schaedlings-fruehzeichen.yaml
+- spec/knowledge/rag/diagnostik/viruskrankheiten.yaml
+- spec/knowledge/rag/diagnostik/wurzelgesundheit.yaml
+- spec/knowledge/rag/diagnostik/zimmerpflanzen-probleme.yaml
+- spec/knowledge/rag/duengung/calmag-korrektur.yaml
+- spec/knowledge/rag/duengung/ec-management-erde.yaml
+- spec/knowledge/rag/duengung/ec-management-hydroponik.yaml
+- spec/knowledge/rag/duengung/mischsicherheit.yaml
+- spec/knowledge/rag/duengung/organische-duengung-freiland.yaml
+- spec/knowledge/rag/duengung/pk-boost-timing.yaml
+- spec/knowledge/rag/outdoor/balkon/balkon-gemuese.yaml
+- spec/knowledge/rag/outdoor/balkon/balkon-grundlagen.yaml
+- spec/knowledge/rag/outdoor/balkon/balkon-zierpflanzen.yaml
+- spec/knowledge/rag/outdoor/balkon/kuebelpflege-vertieft.yaml
+- spec/knowledge/rag/outdoor/bodenpflege-und-kompost.yaml
+- spec/knowledge/rag/outdoor/fruchtfolge-grundlagen.yaml
+- spec/knowledge/rag/outdoor/mischkultur-praxis.yaml
+- spec/knowledge/rag/outdoor/saisonplanung.yaml
+- spec/knowledge/rag/outdoor/voranzucht-und-abhaerten.yaml
+- spec/knowledge/rag/outdoor/wetter-reaktionen.yaml
+- spec/knowledge/rag/pflege/kraeuter-und-gemuese.yaml
+- spec/knowledge/rag/pflege/microgreens-anbau.yaml
+- spec/knowledge/rag/pflege/orchideen-pflege.yaml
+- spec/knowledge/rag/pflege/vermehrung/absenker-abmoosen.yaml
+- spec/knowledge/rag/pflege/vermehrung/aussaat-grundlagen.yaml
+- spec/knowledge/rag/pflege/vermehrung/stecklinge-grundlagen.yaml
+- spec/knowledge/rag/pflege/vermehrung/teilung-und-ableger.yaml
+- spec/knowledge/rag/pflege/vermehrung/veredelung-grundlagen.yaml
+- spec/knowledge/rag/pflege/zimmerpflanzen-grundpflege.yaml
+- spec/knowledge/rag/phasen/autoflower-vs-photoperiod.yaml
+- spec/knowledge/rag/phasen/bluete-management.yaml
+- spec/knowledge/rag/phasen/ernte-timing.yaml
+- spec/knowledge/rag/phasen/keimung-best-practices.yaml
+- spec/knowledge/rag/phasen/post-harvest-behandlung.yaml
+- spec/knowledge/rag/phasen/training-techniken.yaml
+- spec/knowledge/rag/phasen/ueberwintern-freiland.yaml
+- spec/knowledge/rag/phasen/vegetative-optimierung.yaml
+- spec/knowledge/rag/substrat/substrat-wahl-und-umtopfen.yaml
+- spec/knowledge/rag/umwelt/co2-anreicherung.yaml
+- spec/knowledge/rag/umwelt/gewaechshaus-management.yaml
+- spec/knowledge/rag/umwelt/growzelt-klimasteuerung.yaml
+- spec/knowledge/rag/umwelt/licht-grundlagen.yaml
+- spec/knowledge/rag/umwelt/luftzirkulation.yaml
+- spec/knowledge/rag/umwelt/temperatur-steuerung.yaml
+- spec/knowledge/rag/umwelt/vpd-optimierung.yaml
+- spec/knowledge/rag/vermehrung/vermehrungsmethoden.yaml
