@@ -44,10 +44,12 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
 
+from tests.integration.conftest import drop_databases
 from tests.support import arango_integration as support
 from tests.support.execution_guards import find_project_root
 from tests.support.repo_scripts import load_repo_script
@@ -328,3 +330,61 @@ class TestTheHelperContract:
 
     def test_this_sessions_own_name_is_not_stale(self) -> None:
         assert not support.is_stale_run_database(support.run_database_name("fresh"))
+
+
+class _SystemDatabase:
+    """The two calls of ``StandardDatabase`` the sweep makes, over a fixed listing.
+
+    ``databases()`` answers with names exactly as the server lists them, and
+    ``delete_database`` records what was asked — the double refuses nothing the
+    real one would accept and accepts nothing it would refuse, because the sweep
+    is the thing under test here, not the driver.
+    """
+
+    def __init__(self, names: list[str]) -> None:
+        self._names = list(names)
+        self.deleted: list[str] = []
+
+    def databases(self) -> list[str]:
+        return list(self._names)
+
+    def delete_database(self, name: str, ignore_missing: bool = False) -> bool:
+        assert ignore_missing is True, "the sweep must tolerate a neighbour dropping the same name first"
+        self.deleted.append(name)
+        self._names.remove(name)
+        return True
+
+
+class TestTheSweeps:
+    """What the session fixture drops — and, more importantly, what it never touches."""
+
+    _OUTSIDE = ["_system", "kamerplanter", "kamerplanter_e2e", "kamerplanter_privacy_export_evidence", "kp_it_fixed"]
+
+    def test_the_stale_sweep_drops_only_old_run_databases(self) -> None:
+        stale = f"{support.RUN_DATABASE_PREFIX}old__{1_700_000_000:010d}_abcdef"
+        own = support.run_database_name("own")
+        system = _SystemDatabase([*self._OUTSIDE, stale, own])
+
+        dropped = drop_databases(system, support.is_stale_run_database)
+
+        assert dropped == [stale]
+        assert system.databases() == [*self._OUTSIDE, own]
+
+    def test_the_session_end_sweep_drops_only_this_sessions_databases(self) -> None:
+        stale = f"{support.RUN_DATABASE_PREFIX}old__{1_700_000_000:010d}_abcdef"
+        neighbour = f"{support.RUN_DATABASE_PREFIX}next__{int(time.time()):010d}_000000"
+        own = support.run_database_name("own")
+        system = _SystemDatabase([*self._OUTSIDE, stale, neighbour, own])
+
+        dropped = drop_databases(system, support.belongs_to_this_run)
+
+        assert dropped == [own]
+        assert neighbour in system.databases(), "a live neighbour's database is not this session's to drop"
+        assert stale in system.databases(), "the end-of-session sweep is not the stale sweep"
+
+    def test_nothing_outside_the_namespace_is_ever_reachable(self) -> None:
+        system = _SystemDatabase(self._OUTSIDE)
+
+        assert drop_databases(system, support.is_stale_run_database) == []
+        assert drop_databases(system, support.belongs_to_this_run) == []
+        assert system.deleted == []
