@@ -141,8 +141,20 @@ kein neues Issue.
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
+| #1663 | fullstack-developer (Pakete aus Gruppenanalyse; siehe Deviations) | Guard-Tests Rot-zuerst gegen alten Guard | `8 failed, 13 passed` → mit R5 `21 passed` |
+| #1663 | fullstack-developer | `python3 scripts/check_privacy_inventory.py` vor Modelländerung / danach | 24× `FAIL R5` → `privacy inventory: one enumeration, attributed and read by the executing path.` |
+| #1663 | fullstack-developer | Gegenproben (Router-Stempel entfernt / `via` entfernt / `has_session` hinter Audit-Hash) | `2 failed, 4 passed` / `2 failed, 38 passed` / `1 failed, 39 passed` |
+| #1663 | fullstack-developer | Integration gegen ArangoDB (v0057, v0056, Export-Walk) | `59 passed` (0 skipped) |
+| #1663 | fullstack-developer | `pytest tests/unit tests/api` | `12176 passed, 20 skipped` |
+| #1663 | Orchestrator-Nachprüfung auf `8f40622d6` | `pytest test_privacy_inventory_check.py test_privacy_engines.py test_user_repository_delete_cascade.py` + Guard | `64 passed in 0.67s`; Guard wie oben |
 
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
+| alle | local adaptation | Dispatch direkt an `fullstack-developer` statt über einen `issue-orchestrate`-Lauf je Mitglied: Verständnis, Klassifikation und Zerlegung liegen bereits in dieser freigegebenen Gruppenanalyse; der Spezialist ist derselbe, den `issue-orchestrate` wählen würde. |
+| #1663 | local adaptation | `ErasureStep.via` eingeführt: `membership_in` und zwei Pest-Kanten zeigen nicht auf `users`, nur indirekt über Eltern-Collection filterbar; Test erzwingt Kante vor Elterndokument. |
+| #1663 | local adaptation | Drei Kanten fehlten im Inventar (`has_api_key`, `has_membership`, `user_favorites`); `has_api_key` in `account_cascade` → Admin-Delete entfernt diese Kanten jetzt (Verhaltensänderung, innerhalb der Gruppenänderung). |
+| #1663 | local adaptation | v0057 eigenständig (v0056-Quelltext ist per `test_applied_migration_sources_are_frozen` eingefroren); `quality_assessments` als Art.-15-Quelle mit `attribution_gap` ergänzt. |
+| #1663 | local adaptation | NFR-011 Promotion-Audit-Log R-19 → **R-24** (R-23 in `COMPLIANCE-PLAN.md` belegt); REQ-001-Verweise nachgezogen; `bulletin_*`, `shared_shopping_lists`, `promotion_audit_log` zusätzlich als nicht implementiert markiert. |
+| #1664 | local adaptation (Scope aus #1663-Messung) | `pest_image_cleanup`-Executor hat keinen Laufzeitaufrufer → der gemeinsame Executor muss jeden deklarierten Slice erreichen; NFR-011 R-22 nennt `assigned_to` statt `assigned_to_user_key` → Doku-Spalte #1664. |
