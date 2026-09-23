@@ -431,6 +431,11 @@ class CreateInspection(WriteToolBase):
             # legacy row, and REQ-050's disclosure rule is that a machine-written
             # record says so.
             inspector=args.inspector.strip() or f"mcp:{ctx.principal.account_key}",
+            # The account behind the call, as a key (#1669). ``inspector`` above
+            # is display text — the ``mcp:`` prefix keeps it from ever *equalling*
+            # a key — and this field is what the Art. 15 walk and the Art. 17
+            # anonymisation match on. The tool input has no such field.
+            inspected_by_key=ctx.principal.account_key,
             inspected_at=args.inspected_at,
             pressure_level=args.pressure_level,
             detected_pest_keys=pest_keys,

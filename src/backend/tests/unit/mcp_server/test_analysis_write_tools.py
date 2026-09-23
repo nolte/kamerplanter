@@ -694,6 +694,26 @@ class TestCreateInspection:
             CreateInspection.Input(plant_key="p1"),
         )
         assert ipm.created[0].inspector == "mcp:u-1"
+        # #1669: the *key* beside the display text — what Art. 15 / 17 match on.
+        # ``mcp:u-1`` is prefixed so it can never equal a key; this is the key.
+        assert ipm.created[0].inspected_by_key == "u-1"
+
+    @pytest.mark.asyncio
+    async def test_the_account_key_is_the_principal_whatever_inspector_says(self):
+        """#1669 — the tool input has no key field; the principal is the key.
+
+        A caller naming somebody else in ``inspector`` changes the display
+        text and nothing else: attribution follows the account behind the
+        call, which is the only thing the server can vouch for.
+        """
+        assert "inspected_by_key" not in CreateInspection.Input.model_fields
+        ipm = _IpmService()
+        await CreateInspection().execute(
+            _ctx(plant_instance_service=_PlantService(), ipm_service=ipm),
+            CreateInspection.Input(plant_key="p1", inspector="Maren"),
+        )
+        assert ipm.created[0].inspector == "Maren"
+        assert ipm.created[0].inspected_by_key == "u-1"
 
     @pytest.mark.asyncio
     async def test_get_plant_inspections_surfaces_what_create_inspection_wrote(self):
