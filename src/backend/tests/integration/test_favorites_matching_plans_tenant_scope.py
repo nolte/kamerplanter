@@ -30,12 +30,11 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.domain.services.favorites_service import FavoritesService
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
-TEST_DATABASE = "kamerplanter_favorites_matching_plans_test"
-
+TEST_DATABASE = run_database_name("favorites_matching_plans")
 CALLER_TENANT = "tenant-alice"
 FOREIGN_TENANT = "tenant-bob"
 

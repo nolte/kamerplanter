@@ -21,9 +21,9 @@ from arango import ArangoClient
 from app.common.enums import TaskStatus
 from app.data_access.arango import collections as col
 from app.data_access.arango.task_repository import ArangoTaskRepository
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = "kp_test_open_task_by_name"
+TEST_DATABASE = run_database_name("open_task_by_name")
 TENANT = "tenant-a"
 OTHER_TENANT = "tenant-b"
 NAME = "maintenance:water_change:tank_1"

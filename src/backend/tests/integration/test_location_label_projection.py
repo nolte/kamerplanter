@@ -51,10 +51,9 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = "kamerplanter_location_label_test"
-
+TEST_DATABASE = run_database_name("location_label")
 TENANT = "tenant-a"
 FOREIGN_TENANT = "tenant-b"
 

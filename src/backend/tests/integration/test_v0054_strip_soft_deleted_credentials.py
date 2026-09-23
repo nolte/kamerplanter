@@ -34,15 +34,14 @@ from app.data_access.arango import collections as col
 from app.migrations.versions.v0054_strip_credentials_from_soft_deleted_accounts import (
     StripCredentialsFromSoftDeletedAccountsMigration,
 )
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("keepNull removal and the LIKE-escaped join are the SUT"),
 ]
 
-_DB_NAME = "kamerplanter_v0054_migration_test"
-
+_DB_NAME = run_database_name("v0054_migration")
 _HASH = "$2b$12$abcdefghijklmnopqrstuv0123456789ABCDEFGHIJKLMNOPQRSTU"
 _AVATAR = "https://cdn.example.org/avatars/erika.png"
 

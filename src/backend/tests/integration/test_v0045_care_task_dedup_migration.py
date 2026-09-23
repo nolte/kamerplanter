@@ -25,14 +25,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("v0045 reconciles a real volume; index and computed-value semantics are the SUT"),
 ]
 
-_DB_NAME = "kamerplanter_v0045_migration_test"
+_DB_NAME = run_database_name("v0045_migration")
 _TENANT = "tenant-alpha"
 _PLANT = "plant-basil-1"
 

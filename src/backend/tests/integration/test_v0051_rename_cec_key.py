@@ -37,6 +37,7 @@ from app.migrations.versions.v0051_rename_cec_key import (
     OLD_KEY,
     RenameCecKeyMigration,
 )
+from tests.support.arango_integration import run_database_name
 
 # The server probe lives in tests/integration/conftest.py (``arango_db``).
 pytestmark = [
@@ -44,8 +45,7 @@ pytestmark = [
     pytest.mark.allow_db_connection("ArangoDB's own keepNull semantics and attribute-name bind parameters are the SUT"),
 ]
 
-_DB_NAME = "kamerplanter_v0051_migration_test"
-
+_DB_NAME = run_database_name("v0051_migration")
 #: One document per category the migration reports, by ``_key``.
 _SEEDED_OLD = "seeded_old"
 _TENANT_MIX_OLD = "tenant_mix_old"
