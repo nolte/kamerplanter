@@ -16,7 +16,7 @@ vars:
   # under an unchanged repository. Aged by the Taskfile custom manager in
   # renovate.json5 (added with this target), so the pin cannot rot either.
   # renovate: datasource=docker depName=renovate/renovate
-  RENOVATE_IMAGE: renovate/renovate:44.108.2@sha256:9a02c0e89a1337fed22b40b01a0c9b212e947eff37e8a1bd0d3696bfe5a0b344
+  RENOVATE_IMAGE: renovate/renovate:44.109.0@sha256:1dd9537c7a47d2cbcbd7414afaa2bbe9732981c1a3d2cb4ab95907532d5b99c1
 
 tasks:
   renovate:dry-run:
@@ -380,6 +380,47 @@ tasks:
         done
         exit "$rc"
 
+  # ── The aggregate every report pastes ───────────────────────
+  #
+  # Every report in this repository quotes this command's output as evidence, so
+  # #1641 and #1649 asked the only question that matters about it: can the
+  # verdict be wrong? It was measured rather than reasoned about, and the record
+  # with its numbers is spec/dev-tooling/PRECOMMIT-CONCURRENCY.md. Three results
+  # belong here, next to the command:
+  #
+  #   * **A false green is real, and it is not the shared cache.** 175
+  #     deliberately concurrent runs from two WORKTREES sharing
+  #     ~/.cache/pre-commit — seeded E501, full CPU starvation, store wiped
+  #     before each pair — produced no wrong verdict in either direction. The
+  #     false green came from two WRITERS IN ONE WORKTREE (#1649): a file staged
+  #     45 s into a 9-minute run is not in the list pre-commit enumerated with
+  #     `git ls-files` at the start, and the whole suite reported 0 Failed and
+  #     exit 0 over a tree the very next run called Failed.
+  #   * **pre-commit's own after-check is half a net.** It diffs the working
+  #     tree against the index after each hook, so it notices a content edit to
+  #     a tracked file — and blames whichever hook held the window, which is the
+  #     #1649 false red. A newly *staged* file moves the index, not the diff, so
+  #     it passes unseen.
+  #   * **`--all-files` never touches the patch/stash machinery** (pre-commit
+  #     4.5.0, commands/run.py: `stash = not args.all_files and not
+  #     args.files`), so the `~/.cache/pre-commit/patch*` collision class this
+  #     repository already knows about cannot reach `task precommit`.
+  #
+  # So this target does NOT hand each worktree its own PRE_COMMIT_HOME, which is
+  # what #1641 proposed. Measured, that store is 253 MB and 1:26 of environment
+  # building PER WORKTREE (41 of them on this machine) — and it would not have
+  # prevented the one false green that exists, which happens inside a single
+  # worktree and never touches the store.
+  #
+  # What it does instead is stop "nothing else was running" from being an
+  # assertion. scripts/precommit_sibling_notice.sh names any overlapping sibling
+  # run, and names every path that changed while the suite was in flight. It
+  # never changes the verdict or the exit code. Serialising the runs was
+  # rejected for a reason worth stating: the demonstrated writer is an editor or
+  # a second agent in the same tree, and no lock held by this command can stop
+  # one. The binding rule stays organisational — one writer per worktree,
+  # spec/project/parallel-working-copies/ — and the notice makes a breach of it
+  # visible rather than preventing it.
   precommit:
     desc: |
       Run the full pre-commit hook suite over the whole tree — the local
@@ -388,8 +429,13 @@ tasks:
       hooks also exist as their own check:* / test:e2e:selftest targets; this is
       the aggregate the PR gate actually enforces. Requires pre-commit
       (`pip install pre-commit` or pipx).
+
+      Prints a notice when a sibling run overlapped this one, and when the tree
+      changed while the suite was in flight — the two ways a pasted verdict can
+      describe a tree that no longer exists (#1641, #1649). Both are
+      informational; the verdict and the exit code are unaffected.
     cmds:
-      - pre-commit run --all-files {{.CLI_ARGS}}
+      - ./scripts/precommit_sibling_notice.sh {{.CLI_ARGS}}
 
   # ── Aggregate quality gate ──────────────────────────────────
   #
