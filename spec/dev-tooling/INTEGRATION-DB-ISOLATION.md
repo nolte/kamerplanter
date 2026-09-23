@@ -202,6 +202,17 @@ Nach dem Fix bleibt auf dem Server nichts zurück: nach jedem Paar listet
 `_api/database` nur `_system` und die fremde
 `kamerplanter_privacy_export_evidence`.
 
+**Gemischtes Paar (15:10, `c60d7063e` neben einer Arbeitskopie *ohne* die
+Reparatur, `account-type-human` auf `d8600dff6` mit festen Namen):** A
+**269 passed, 0 errors, 266 s**; B **276 passed, 0 errors, 279 s** (B hat sieben
+Tests mehr aus ihrem eigenen Branch). Das ist der Fall, den ein Entwickler
+tatsächlich erlebt, solange nicht jede Arbeitskopie den Fix trägt: der
+laufgebundene Namensraum `kp_it_*` und die festen `kamerplanter_*_test`-Namen
+überschneiden sich nicht, also stört keine Seite die andere — die
+unreparierte Seite ist nur gegen *eine* weitere unreparierte Seite noch
+verwundbar. Beide Sweeps liefen leer; `_api/database` listete vorher wie
+nachher nur `_system` und die fremde `kamerplanter_privacy_export_evidence`.
+
 Seriell danach: **269 passed, 277 s** — mit einer vorher von Hand angelegten
 verwaisten Datenbank `kp_it_planted_orphan__1700000000_abcdef` auf dem Server.
 Der Lauf meldete in seiner zweiten Zeile
