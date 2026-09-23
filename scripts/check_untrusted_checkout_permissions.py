@@ -109,19 +109,9 @@ _UNTRUSTED_TRIGGERS = ("pull_request", "pull_request_target")
 
 #: Measured exceptions to `untrusted-checkout-write-permission`. NO-GROWTH RATCHET:
 #: an entry is removed when the site is repaired, and a new one needs its own
-#: measurement in review. `(workflow file, job id, scope)`.
-KNOWN_EXCEPTIONS: dict[tuple[str, str, str], str] = {
-    ("e2e-smoke.yml", "smoke", "checks"): (
-        "dorny/test-reporter renders the JUnit XML the suite just produced into a "
-        "check run, and it reads that XML from the workspace this job scanned. "
-        "Splitting it off means routing the reports through an artefact and the "
-        "action's `artifact:` input — a behaviour change to the pre-merge E2E lane, "
-        "not a permission move. `checks: write` can attach a check run to this run's "
-        "own commit and nothing else: it cannot write repository content, file an "
-        "issue, publish a package or touch a security alert. #1644 carries the split; "
-        "this entry is the ratchet, not a dismissal."
-    ),
-}
+#: measurement in review. `(workflow file, job id, scope)`. Empty since #1644 moved
+#: the last member (`e2e-smoke.yml` / `smoke` / `checks`) into a job of its own.
+KNOWN_EXCEPTIONS: dict[tuple[str, str, str], str] = {}
 
 
 class UntrustedCheckoutCheckError(Exception):
