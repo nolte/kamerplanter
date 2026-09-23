@@ -101,7 +101,7 @@ def _client(service: _RecordingTaskService, *, foreign: bool, sites: _SiteServic
     # `account_type` is read by `_resolve_task_provenance`: an interactive user
     # gets origin=USER and cleared producer fields. Both create paths funnel
     # through this one endpoint, so the guard covers the FreeStyle path too.
-    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="user_1", account_type="user")
+    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="user_1", account_type="human")
     app.dependency_overrides[get_task_service] = lambda: service
     app.dependency_overrides[get_task_entity_guard] = lambda: guard
     app.dependency_overrides[auth_mod.get_current_tenant] = lambda: TenantContext(

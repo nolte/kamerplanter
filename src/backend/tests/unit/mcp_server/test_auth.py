@@ -82,7 +82,7 @@ def _personal_user() -> User:
         key="u-1",
         email="gardener@example.org",
         display_name="Gardener",
-        account_type="user",
+        account_type="human",
         is_active=True,
     )
 

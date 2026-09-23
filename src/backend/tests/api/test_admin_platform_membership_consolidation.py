@@ -207,7 +207,7 @@ def _user(key: str, name: str, email: str, *, is_active: bool = True) -> User:
         password_hash="hash",
         email_verified=True,
         is_active=is_active,
-        account_type="user",
+        account_type="human",
         created_at=f"2026-02-0{key[-1]}T00:00:00+00:00",
     )
 

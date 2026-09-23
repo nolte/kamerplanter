@@ -9,7 +9,14 @@ from app.common.validators import DisplayName
 # Grafana, CI/CD). They have no password, can never log in via the
 # web UI, and authenticate exclusively via API keys with optional IP
 # allowlists and per-account rate limits.
-AccountType = Literal["user", "service"]
+#
+# The other value is ``human``, the spelling REQ-023 §Datenmodell declares
+# (``Literal['human', 'service']``, default ``human``). The code carried
+# ``user`` until #1620; ``v0055_rename_account_type_user_to_human`` rewrites the
+# rows that were stored under it. The two spellings are held together by
+# ``tests/unit/guards/test_spec_literal_discriminators_match_models.py``, which
+# reads this literal and the spec's and refuses a third one.
+AccountType = Literal["human", "service"]
 
 #: Domain of the address a soft-deleted account is parked under (REQ-025 Szenario 3).
 #:
@@ -50,8 +57,8 @@ class User(BaseModel):
     password_reset_token: str | None = None
     password_reset_expires: datetime | None = None
     is_active: bool = True
-    # REQ-023 v1.10 service accounts (M2M).
-    account_type: AccountType = "user"
+    # REQ-023 v1.10 service accounts (M2M). ``human`` is the spec's default (#1620).
+    account_type: AccountType = "human"
     failed_login_attempts: int = 0
     locked_until: datetime | None = None
     last_login_at: datetime | None = None
