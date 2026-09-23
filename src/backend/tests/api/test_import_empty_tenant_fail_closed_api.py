@@ -97,7 +97,7 @@ def _client_with_no_resolvable_tenant() -> tuple[TestClient, _FakeJobRepo]:
     app.include_router(imports_router, prefix="/api/v1")
     app.dependency_overrides[get_import_service] = lambda: service
     app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(
-        key="user_without_tenant", account_type="user"
+        key="user_without_tenant", account_type="human"
     )
     app.dependency_overrides[auth_mod.get_tenant_service] = lambda: SimpleNamespace(
         get_personal_tenant=lambda _user_key: None,
@@ -118,7 +118,7 @@ class TestTheResolverReallyProducesTheEmptyKey:
 
     def test_a_user_without_a_personal_tenant_resolves_to_the_empty_key(self) -> None:
         ctx = auth_mod.get_active_tenant_context(
-            user=SimpleNamespace(key="user_without_tenant", account_type="user"),  # type: ignore[arg-type]
+            user=SimpleNamespace(key="user_without_tenant", account_type="human"),  # type: ignore[arg-type]
             tenant_service=SimpleNamespace(  # type: ignore[arg-type]
                 get_personal_tenant=lambda _k: None,
                 get_membership=lambda _u, _t: None,

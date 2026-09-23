@@ -111,7 +111,7 @@ def _user(**overrides) -> User:
         "display_name": "Person",
         "password_hash": "$2b$12$notarealhash",
         "is_active": True,
-        "account_type": "user",
+        "account_type": "human",
     }
     fields.update(overrides)
     return User(**fields)

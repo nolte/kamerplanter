@@ -225,7 +225,7 @@ def _app(role: TenantRole = TenantRole.LEAD) -> TestClient:
 
     phase_service, care_service = _doubled_services()
 
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=_USER, account_type="user")
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=_USER, account_type="human")
     app.dependency_overrides[get_tenant_service] = lambda: _FakeTenantService(role)
     app.dependency_overrides[get_plant_instance_service] = lambda: plant_service
     app.dependency_overrides[get_phase_service] = lambda: phase_service
@@ -312,7 +312,7 @@ class TestACallerWhoseTenantDoesNotResolveIsRefused:
     with a foreign tenant's phase data.
 
     The suite above could not see it — its fake tenant service hands the test user a
-    personal tenant, and the user is `account_type="user"`. Both properties are what
+    personal tenant, and the user is `account_type="human"`. Both properties are what
     this class varies.
     """
 
@@ -344,7 +344,7 @@ class TestACallerWhoseTenantDoesNotResolveIsRefused:
         ("principal", "header", "what"),
         [
             (SimpleNamespace(key=_SERVICE, account_type="service"), False, "a service account with no header"),
-            (SimpleNamespace(key="nobody", account_type="user"), False, "a user with no personal tenant"),
+            (SimpleNamespace(key="nobody", account_type="human"), False, "a user with no personal tenant"),
         ],
     )
     def test_an_unresolvable_tenant_reaches_no_plant(self, principal: SimpleNamespace, header: bool, what: str):
@@ -401,7 +401,7 @@ class TestTheServiceOwnCheckIsReachedOnTheRestPath:
             companion_engine=MagicMock(),
         )
         _, care_service = _doubled_services()
-        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=_USER, account_type="user")
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=_USER, account_type="human")
         app.dependency_overrides[get_tenant_service] = _FakeTenantService
         app.dependency_overrides[get_plant_instance_service] = lambda: plant_service
         app.dependency_overrides[get_care_reminder_service] = lambda: care_service

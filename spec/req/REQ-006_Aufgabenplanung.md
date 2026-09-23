@@ -168,7 +168,7 @@ Die maschinelle Herkunft wird als **orthogonales Feld** modelliert, nicht als we
 **Herkunfts-Vertrauensregel (server-entschieden, #1000):**
 `origin` wird **niemals** aus dem Request-Body übernommen, sondern aus dem authentifizierten Prinzipal abgeleitet (`account_type`, REQ-023):
 
-- **Interaktiver Nutzer** (`account_type == "user"`): `origin` wird auf `user` erzwungen und die Provenienzfelder (`source`/`source_run_ref`/`external_ref`) werden verworfen. Ein Mensch kann so weder eine Pipeline-Herkunft vortäuschen noch in den Idempotenz-Namensraum `(tenant, source, external_ref)` schreiben.
+- **Interaktiver Nutzer** (`account_type == "human"`): `origin` wird auf `user` erzwungen und die Provenienzfelder (`source`/`source_run_ref`/`external_ref`) werden verworfen. Ein Mensch kann so weder eine Pipeline-Herkunft vortäuschen noch in den Idempotenz-Namensraum `(tenant, source, external_ref)` schreiben.
 - **Service Account** (`account_type == "service"`, M2M): maschineller Produzent. Die Body-`origin` wird übernommen, aber auf eine Maschinen-Herkunft (`system`/`pipeline`) eingeschränkt, Default `pipeline`; die Provenienzfelder stammen aus dem Body.
 
 **Idempotente maschinelle Erstellung (HTTP 200 statt Duplikat):**
