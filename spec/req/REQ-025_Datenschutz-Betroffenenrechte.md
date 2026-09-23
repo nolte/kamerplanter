@@ -446,8 +446,14 @@ class ErasureEngine:
     #                     dem Nutzer gehört (die Kante steht deshalb VOR diesem
     #                     Schritt).
     #   kind="user" / "phase" — kein user_field.
-    # executor="retention_worker" ist deklariert, aber (Stand #1663) noch von
-    # keinem Laufzeitpfad ausgeführt — der gemeinsame Executor folgt mit #1664.
+    # Jeder executor hat einen Laufzeitpfad (#1645): Alle ArangoDB-Schritte
+    # führt ArangoErasureExecutor aus, erreicht über PrivacyService.erase_account
+    # — den gemeinsamen Einstieg von Admin-Löschung (#1664) und geplanter
+    # Self-Service-Löschung nach Art. 17 (#1645). "account_erasure" hat keinen
+    # weiteren Leser; "account_cascade" läuft zusätzlich in der Bereinigung
+    # unbestätigter Konten (ArangoUserRepository.delete). Die früheren Werte
+    # "retention_worker" (deklariert, noch nicht ausgeführt) und
+    # "membership_cascade" sind in "account_erasure" aufgegangen.
     # Reihenfolge ist tragend: Phasen → Kanten → Dokumente → Anonymisierung →
     # Audit-Pseudonymisierung → users. Jeder Schritt, der über den
     # Benutzerschlüssel filtert, läuft vor der Audit-Pseudonymisierung.
@@ -458,48 +464,48 @@ class ErasureEngine:
         ErasureStep("_storage_cleanup", kind="phase", executor="storage_cleanup"),
         ErasureStep("_reference_index_cleanup", kind="phase", executor="reference_index_cleanup"),
         # Phase 1: Kanten users -> <Dokument>
-        ErasureStep("requested_export",       kind="edge", user_field="_from", executor="retention_worker"),
-        ErasureStep("has_consent",            kind="edge", user_field="_from", executor="retention_worker"),
-        ErasureStep("has_restriction",        kind="edge", user_field="_from", executor="retention_worker"),
-        ErasureStep("requested_erasure",      kind="edge", user_field="_from", executor="retention_worker"),
-        ErasureStep("requested_email_change", kind="edge", user_field="_from", executor="retention_worker"),
-        ErasureStep("user_favorites",         kind="edge", user_field="_from", executor="retention_worker"),
+        ErasureStep("requested_export",       kind="edge", user_field="_from", executor="account_erasure"),
+        ErasureStep("has_consent",            kind="edge", user_field="_from", executor="account_erasure"),
+        ErasureStep("has_restriction",        kind="edge", user_field="_from", executor="account_erasure"),
+        ErasureStep("requested_erasure",      kind="edge", user_field="_from", executor="account_erasure"),
+        ErasureStep("requested_email_change", kind="edge", user_field="_from", executor="account_erasure"),
+        ErasureStep("user_favorites",         kind="edge", user_field="_from", executor="account_erasure"),
         ErasureStep("has_auth_provider",      kind="edge", user_field="_from", executor="account_cascade"),
         ErasureStep("has_session",            kind="edge", user_field="_from", executor="account_cascade"),
         ErasureStep("has_api_key",            kind="edge", user_field="_from", executor="account_cascade"),
-        ErasureStep("has_membership",         kind="edge", user_field="_from", executor="membership_cascade"),
+        ErasureStep("has_membership",         kind="edge", user_field="_from", executor="account_erasure"),
         # memberships -> tenants: berührt users nie
         ErasureStep("membership_in", kind="edge", user_field="_from", via="memberships",
-                    executor="membership_cascade"),
+                    executor="account_erasure"),
         # Phase 2: Dokumente
-        ErasureStep("memberships",             kind="document", user_field="user_key", executor="membership_cascade"),
-        ErasureStep("data_export_requests",    kind="document", user_field="user_key", executor="retention_worker"),
-        ErasureStep("consent_records",         kind="document", user_field="user_key", executor="retention_worker"),
-        ErasureStep("processing_restrictions", kind="document", user_field="user_key", executor="retention_worker"),
-        ErasureStep("email_change_requests",   kind="document", user_field="user_key", executor="retention_worker"),
+        ErasureStep("memberships",             kind="document", user_field="user_key", executor="account_erasure"),
+        ErasureStep("data_export_requests",    kind="document", user_field="user_key", executor="account_erasure"),
+        ErasureStep("consent_records",         kind="document", user_field="user_key", executor="account_erasure"),
+        ErasureStep("processing_restrictions", kind="document", user_field="user_key", executor="account_erasure"),
+        ErasureStep("email_change_requests",   kind="document", user_field="user_key", executor="account_erasure"),
         ErasureStep("auth_providers",          kind="document", user_field="user_key", executor="account_cascade"),
         ErasureStep("refresh_tokens",          kind="document", user_field="user_key", executor="account_cascade"),
         ErasureStep("api_keys",                kind="document", user_field="user_key", executor="account_cascade"),
         ErasureStep("user_preferences",        kind="document", user_field="user_key", executor="account_cascade"),
         ErasureStep("onboarding_states",       kind="document", user_field="user_key", executor="account_cascade"),
-        ErasureStep("identification_requests", kind="document", user_field="user_key", executor="retention_worker"),
+        ErasureStep("identification_requests", kind="document", user_field="user_key", executor="account_erasure"),
         # REQ-044 §8: Schädlingserkennungen — Kanten starten an der Erkennung
         ErasureStep("pest_detection_of", kind="edge", user_field="_from", via="pest_detections",
-                    executor="retention_worker"),
+                    executor="account_erasure"),
         ErasureStep("pest_detection_flagged", kind="edge", user_field="_from", via="pest_detections",
-                    executor="retention_worker"),
+                    executor="account_erasure"),
         ErasureStep("pest_detection_suggested_inspection", kind="edge", user_field="_from",
-                    via="pest_detections", executor="retention_worker"),
-        ErasureStep("pest_detections", kind="document", user_field="user_key", executor="retention_worker"),
+                    via="pest_detections", executor="account_erasure"),
+        ErasureStep("pest_detections", kind="document", user_field="user_key", executor="account_erasure"),
         # REQ-010 §8: Referenzbild-Beiträge (Modell hat kein user_key)
         ErasureStep("pest_image_contributions", kind="document", user_field="contributed_by",
                     executor="pest_image_cleanup"),
         # Phase 2.4: ANONYMIZE_COLLECTIONS anwenden
-        ErasureStep("_anonymize_collections", kind="phase", executor="retention_worker"),
+        ErasureStep("_anonymize_collections", kind="phase", executor="account_erasure"),
         # Phase 2.5: Audit-Log-Pseudonymisierung (W-002, siehe unten) — die
         # Collections werden NICHT gelöscht, der user_key wird durch einen
         # Tombstone-Hash ersetzt. Danach findet kein Schritt den Nutzer mehr.
-        ErasureStep("_pseudonymize_audit_collections", kind="phase", executor="retention_worker"),
+        ErasureStep("_pseudonymize_audit_collections", kind="phase", executor="account_erasure"),
         # Phase 3: User selbst (zuletzt)
         ErasureStep("users", kind="user", executor="account_cascade"),
     ]

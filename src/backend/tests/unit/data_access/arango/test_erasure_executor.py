@@ -204,7 +204,7 @@ class TestRefusals:
 
     def test_an_unknown_phase_is_refused_before_any_write(self):
         plan = _plan()
-        plan.steps.insert(0, ErasureStep(collection="_mystery_phase", kind="phase", executor="retention_worker"))
+        plan.steps.insert(0, ErasureStep(collection="_mystery_phase", kind="phase", executor="account_erasure"))
         db = _FakeDb()
         with pytest.raises(ErasurePlanError, match="_mystery_phase"):
             _run(db, plan)

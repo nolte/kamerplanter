@@ -192,18 +192,31 @@ class DataSourceDefinition(BaseModel):
 #: Who removes an :class:`ErasureStep` at runtime. Closed on purpose: a step
 #: whose executor is not one of these cannot be attributed, and an inventory of
 #: personal data that cannot say who erases an entry is the documentation half
-#: of the split #1622 measured. ``retention_worker`` is the **declared gap of
-#: the scheduled self-service path**: since #1664 the platform-admin delete
-#: executes every ArangoDB step through ``ArangoErasureExecutor``, but
-#: ``PrivacyService._finalize_erasure`` does not call it yet (#1645) and reads
-#: this slice as what it still leaves undone.
+#: of the split #1622 measured. Every name has a runtime reader (#1645):
+#:
+#: * ``account_erasure`` — ``ArangoErasureExecutor`` as run by
+#:   ``PrivacyService.erase_account``, the one entry both account-deletion paths
+#:   share (platform-admin delete, #1664; scheduled self-service Art. 17,
+#:   #1645). No narrower path runs these steps.
+#: * ``account_cascade`` — the same executor, and additionally the slice
+#:   ``ArangoUserRepository.delete`` runs for the unverified-account cleanup.
+#: * ``pest_image_cleanup`` — ``PrivacyService._run_pest_image_document_cleanup``
+#:   (retracts a promoted image's embedding first); the executor's own pass is
+#:   the safety net.
+#: * ``storage_cleanup`` / ``reference_index_cleanup`` — the object-storage and
+#:   pgvector phases ``erase_account`` runs before the ArangoDB transaction.
+#:
+#: Until #1645 this set also carried ``retention_worker`` ("declared, not yet
+#: executed by the self-service path") and ``membership_cascade`` (a membership
+#: repository cascade #1664 removed). Neither named a runtime executor any
+#: more, so both were folded into ``account_erasure``.
+#: ``scripts/check_privacy_inventory.py`` reads this alias as its closed set.
 type ErasureExecutor = Literal[
     "account_cascade",
-    "membership_cascade",
+    "account_erasure",
     "pest_image_cleanup",
     "storage_cleanup",
     "reference_index_cleanup",
-    "retention_worker",
 ]
 
 
@@ -420,6 +433,17 @@ class AccountErasureReport(BaseModel):
     def affected(self, collection: str) -> int:
         """Rows every phase together removed from the declared step *collection*."""
         return self.arango.affected(collection) + self.delegated_removed.get(collection, 0)
+
+    def unreached(self, declared: list[str]) -> list[str]:
+        """The names of *declared* steps this run neither executed nor delegated (#1645).
+
+        A step the executor ran appears in ``arango.steps`` (``affected`` may be
+        ``0`` — "ran and found nothing" is a finished step); a non-ArangoDB phase
+        appears in ``arango.delegated``. Anything else was not run, and an
+        erasure that skipped a declared step must not be recorded ``completed``.
+        """
+        covered = {step.collection for step in self.arango.steps} | set(self.arango.delegated)
+        return [name for name in declared if name not in covered]
 
 
 # ── Privacy-policy response models ─────────────────────────────────

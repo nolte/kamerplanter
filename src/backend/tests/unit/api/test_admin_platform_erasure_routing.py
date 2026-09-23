@@ -73,7 +73,9 @@ class TestDeleteUserRouting:
         privacy_service.erase_account.assert_called_once_with("u-1")
         # No second, partial erasure beside the shared one (the pre-#1664 shape
         # ran the storage phases and a narrow cascade as two separate calls).
-        privacy_service.run_user_storage_erasure.assert_not_called()
+        # Read off every call the route made, not off one method name: the
+        # storage-only entry it used to call no longer exists (#1645).
+        assert [name for name, _args, _kwargs in privacy_service.method_calls] == ["erase_account"]
 
     def test_the_route_no_longer_reaches_a_separate_cascade(self):
         """The service method the route used to call beside the storage erasure is gone."""

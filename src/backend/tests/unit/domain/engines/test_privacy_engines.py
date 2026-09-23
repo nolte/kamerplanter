@@ -477,24 +477,24 @@ class TestErasureStepUserField:
     @pytest.mark.parametrize("kind", ["edge", "document"])
     def test_a_filtered_step_without_a_user_field_is_refused(self, kind):
         with pytest.raises(ValueError, match="user_field"):
-            ErasureStep(collection="x", kind=kind, executor="retention_worker")
+            ErasureStep(collection="x", kind=kind, executor="account_erasure")
 
     @pytest.mark.parametrize("kind", ["user", "phase"])
     def test_a_user_or_phase_step_takes_no_user_field(self, kind):
         with pytest.raises(ValueError, match="filters nothing"):
-            ErasureStep(collection="x", kind=kind, executor="retention_worker", user_field="user_key")
+            ErasureStep(collection="x", kind=kind, executor="account_erasure", user_field="user_key")
 
     def test_an_edge_keyed_on_a_document_field_is_refused(self):
         with pytest.raises(ValueError, match="_from or _to"):
-            ErasureStep(collection="has_x", kind="edge", executor="retention_worker", user_field="user_key")
+            ErasureStep(collection="has_x", kind="edge", executor="account_erasure", user_field="user_key")
 
     def test_a_document_keyed_on_an_edge_endpoint_is_refused(self):
         with pytest.raises(ValueError, match="edge endpoint"):
-            ErasureStep(collection="x", kind="document", executor="retention_worker", user_field="_from")
+            ErasureStep(collection="x", kind="document", executor="account_erasure", user_field="_from")
 
     def test_via_is_refused_on_a_document(self):
         with pytest.raises(ValueError, match="via applies to edges only"):
-            ErasureStep(collection="x", kind="document", executor="retention_worker", user_field="user_key", via="y")
+            ErasureStep(collection="x", kind="document", executor="account_erasure", user_field="user_key", via="y")
 
 
 class TestErasurePhaseNames:
@@ -588,3 +588,24 @@ class TestConsentEngine:
         assert purpose.required is False
         # optional purpose: blocked without consent, allowed once granted
         assert engine.is_processing_allowed("plant_diagnosis", consent=None) is False
+
+
+class TestErasureConfirmationAndTombstoneShape:
+    """#1645 — helpers the scheduled erasure and its confirmation read."""
+
+    def test_deleted_names_are_the_document_and_user_steps_in_declared_order(self):
+        names = ErasureEngine().deleted_collection_names()
+        expected = [s.collection for s in ErasureEngine.DELETE_STEPS if s.kind in ("document", "user")]
+        assert names == expected
+        assert names[-1] == "users"
+        assert not any(name.startswith("_") for name in names), "a phase is not a category"
+
+    def test_a_computed_tombstone_is_recognised(self):
+        assert ErasureEngine.is_tombstone(ErasureEngine.compute_tombstone_hash("u-1", "s" * 32))
+
+    @pytest.mark.parametrize(
+        "value",
+        ["u-1", "anon_", "anon_0123456789abcdeZ", "anon_0123456789abcdef0", "xanon_0123456789abcdef", ""],
+    )
+    def test_anything_else_is_not(self, value):
+        assert not ErasureEngine.is_tombstone(value)

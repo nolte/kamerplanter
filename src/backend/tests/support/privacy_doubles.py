@@ -109,3 +109,52 @@ class FakeDataExportRepo:
 
     def expire_old(self, now_iso: str) -> list[DataExportRequest]:
         return self.expire_old_result
+
+
+class RecordingErasureExecutor:
+    """In-memory stand-in for :class:`IErasureExecutor` (#1645).
+
+    Returns the report shape ``ArangoErasureExecutor`` produces for a run over
+    the whole plan: one outcome per ArangoDB step (``affected`` may be ``0``),
+    and the non-ArangoDB phases listed as ``delegated``. The delegated set is
+    the real executor's own constant, not a copy, so this double cannot claim a
+    step the real executor would hand off — or the reverse.
+
+    ``fail_with`` makes the run raise instead, as an aborted transaction does —
+    for every subject, or only for those in ``fail_for``. ``drop`` removes
+    named steps from the report, to model a run that did not account for a
+    declared step.
+    """
+
+    def __init__(
+        self,
+        *,
+        fail_with: BaseException | None = None,
+        fail_for: frozenset[str] | None = None,
+        drop: tuple[str, ...] = (),
+    ) -> None:
+        self.runs: list[tuple[str, str | None]] = []
+        self._fail_with = fail_with
+        self._fail_for = fail_for
+        self._drop = drop
+
+    def run_erasure_plan(self, plan, *, tombstone, executors=None):  # type: ignore[no-untyped-def]
+        from app.data_access.arango.erasure_executor import _DELEGATED_PHASE_EXECUTORS
+        from app.domain.models.privacy import ErasureExecutionReport, ErasureStepOutcome
+
+        self.runs.append((plan.user_key, tombstone))
+        if self._fail_with is not None and (self._fail_for is None or plan.user_key in self._fail_for):
+            raise self._fail_with
+        report = ErasureExecutionReport()
+        for step in plan.steps:
+            if executors is not None and step.executor not in executors:
+                continue
+            if step.collection in self._drop:
+                continue
+            if step.kind == "phase" and step.executor in _DELEGATED_PHASE_EXECUTORS:
+                report.delegated.append(step.collection)
+            else:
+                report.steps.append(
+                    ErasureStepOutcome(collection=step.collection, kind=step.kind, executor=step.executor)
+                )
+        return report

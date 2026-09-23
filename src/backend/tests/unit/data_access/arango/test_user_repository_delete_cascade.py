@@ -134,13 +134,15 @@ def test_the_cascade_attribution_still_covers_every_account_owned_artefact():
     compared the swept set against ``steps_for("account_cascade")`` would be a
     tautology: the method reads that very slice, so moving an entry out of the
     slice moves it out of both sides at once and the assertion never fails.
-    Measured — re-attributing ``api_keys`` to ``retention_worker`` left such a
-    comparison green while the collection stopped being swept.
+    Measured — re-attributing ``api_keys`` to ``retention_worker`` (then the
+    "declared, not yet executed" slice) left such a comparison green while the
+    collection stopped being swept.
 
     What is worth pinning is therefore the inventory content: the seven
     account-owned artefacts #1019 established, plus the user document last.
-    Re-attributing any of them to the not-yet-implemented ``retention_worker``
-    silently stops erasing it, and goes red here.
+    Re-attributing any of them to ``account_erasure`` (#1645) would keep it in
+    the full account erasure but silently drop it from the unverified-account
+    cleanup, which runs only this slice — and goes red here.
     """
     from app.domain.engines.erasure_engine import ErasureEngine
 

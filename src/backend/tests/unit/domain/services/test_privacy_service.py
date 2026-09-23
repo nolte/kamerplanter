@@ -379,6 +379,23 @@ class TestErasure:
         refresh_token_repo.revoke_all_for_user.assert_called_once_with(USER_KEY)
         erasure_repo.create.assert_called_once()
 
+    def test_the_confirmation_lists_both_categories_off_the_inventory(self, service):
+        """REQ-025 AK-08a — deleted and anonymised categories, both from the plan the erasure runs.
+
+        ``deleted_collections`` was declared on the model and never filled, so the
+        confirmation named no deleted category at all (#1645).
+        """
+        erasure = service.request_erasure(USER_KEY, password_confirmation=USER_PASSWORD)
+
+        engine = ErasureEngine()
+        assert erasure.deleted_collections == engine.deleted_collection_names()
+        assert erasure.anonymized_collections == engine.anonymized_collection_names()
+        assert "users" in erasure.deleted_collections
+        assert "consent_records" in erasure.deleted_collections
+        # #1663 — quality assessments are retained with the harvest and anonymised.
+        assert "quality_assessments" in erasure.anonymized_collections
+        assert not set(erasure.deleted_collections) & set(erasure.anonymized_collections)
+
     def test_erasure_blocked_when_active_exists(
         self,
         service,

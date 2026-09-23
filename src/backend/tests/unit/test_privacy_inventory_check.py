@@ -11,7 +11,9 @@ test that builds the exact pre-#1622 shape and asserts the check goes red and
 names it: an entry with no executor (R1), a collection declared for export and
 absent from erasure (R2), an inventory method with no caller (R3), and a cascade
 that spells its collections out (R4), and a filtered step that does not say which
-field it filters on (R5, #1663).
+field it filters on (R5, #1663). Since #1645 R1's closed set is read from the
+model's ``ErasureExecutor`` alias; :class:`TestR1ClosedSetComesFromTheModel` pins
+that a name retired there is refused here without a second edit.
 
 **The vacuum direction.** :class:`TestACommentCannotSatisfyIt` writes a module
 whose only mention of ``build_export_manifest`` is a comment that even spells the
@@ -64,13 +66,24 @@ class DataExportEngine:
 #: documents keyed on a model field.
 GOOD_STEPS = "\n".join(
     f'        ErasureStep(collection="c{i}", kind="{"edge" if i < 2 else "document"}", '
-    f'executor="{"account_cascade" if i % 2 else "retention_worker"}", '
+    f'executor="{"account_cascade" if i % 2 else "account_erasure"}", '
     f'user_field="{"_from" if i < 2 else "user_key"}"),'
     for i in range(10)
 )
 
 #: Ten manifest sources that the erasure inventory above declares.
 GOOD_SOURCES = "\n".join(f'        DataSourceDefinition(collection="c{i}", label="L{i}"),' for i in range(10))
+
+#: The closed executor set as ``domain/models/privacy.py`` declares it.
+MODELS_HEAD = """
+from typing import Literal
+
+type ErasureExecutor = Literal[
+{executors}
+]
+"""
+
+GOOD_EXECUTORS = ("account_cascade", "account_erasure", "pest_image_cleanup", "storage_cleanup")
 
 READER = """
 from app.domain.engines.erasure_engine import ErasureEngine
@@ -92,10 +105,18 @@ def _tree(
     steps: str = GOOD_STEPS,
     sources: str = GOOD_SOURCES,
     reader: str = READER,
+    executors: tuple[str, ...] | None = GOOD_EXECUTORS,
 ) -> Path:
     app = tmp_path / "app"
     engines = app / "domain" / "engines"
     engines.mkdir(parents=True)
+    if executors is not None:
+        models = app / "domain" / "models"
+        models.mkdir(parents=True)
+        (models / "privacy.py").write_text(
+            textwrap.dedent(MODELS_HEAD).format(executors="\n".join(f'    "{name}",' for name in executors)),
+            encoding="utf-8",
+        )
     (engines / "erasure_engine.py").write_text(textwrap.dedent(ERASURE_HEAD).format(steps=steps), encoding="utf-8")
     (engines / "data_export_engine.py").write_text(
         textwrap.dedent(EXPORT_HEAD).format(sources=sources), encoding="utf-8"
@@ -124,6 +145,34 @@ class TestR1Attribution:
         steps = GOOD_STEPS + '\n        ErasureStep(collection="odd", kind="document", executor="someone"),'
         violations = checker.check(_tree(tmp_path, steps=steps))
         assert any(v.startswith("R1") and "someone" in v for v in violations)
+
+
+class TestR1ClosedSetComesFromTheModel:
+    """#1645 — the closed set is the model's alias, not a copy kept in the script."""
+
+    def test_a_name_retired_from_the_model_is_refused_in_the_inventory(self, tmp_path: Path) -> None:
+        """``retention_worker`` meant "declared, no executor yet"; once retired it may not linger."""
+        steps = (
+            GOOD_STEPS
+            + '\n        ErasureStep(collection="late", kind="document", executor="retention_worker", '
+            + 'user_field="user_key"),'
+        )
+        violations = checker.check(_tree(tmp_path, steps=steps))
+        assert any(v.startswith("R1") and "retention_worker" in v and "late" in v for v in violations)
+
+    def test_a_name_added_to_the_model_is_accepted_without_editing_the_script(self, tmp_path: Path) -> None:
+        steps = (
+            GOOD_STEPS
+            + '\n        ErasureStep(collection="fresh", kind="document", executor="new_executor", '
+            + 'user_field="user_key"),'
+        )
+        tree = _tree(tmp_path, steps=steps, executors=(*GOOD_EXECUTORS, "new_executor"))
+        assert checker.check(tree) == []
+
+    def test_an_unreadable_closed_set_is_reported_not_treated_as_empty(self, tmp_path: Path) -> None:
+        """No alias to read: every entry would be refused — or, worse, accepted by a default."""
+        violations = checker.check(_tree(tmp_path, executors=None))
+        assert any(v.startswith("R1") and "ErasureExecutor" in v for v in violations)
 
 
 class TestR2Reconciliation:
@@ -234,9 +283,7 @@ class TestR5EveryFilteredStepNamesItsUserField:
     """
 
     def test_a_document_step_without_a_user_field_is_named(self, tmp_path: Path) -> None:
-        steps = (
-            GOOD_STEPS + '\n        ErasureStep(collection="unkeyed", kind="document", executor="retention_worker"),'
-        )
+        steps = GOOD_STEPS + '\n        ErasureStep(collection="unkeyed", kind="document", executor="account_erasure"),'
         violations = checker.check(_tree(tmp_path, steps=steps))
         assert any(v.startswith("R5") and "unkeyed" in v for v in violations)
 
@@ -248,7 +295,7 @@ class TestR5EveryFilteredStepNamesItsUserField:
     def test_an_empty_user_field_is_named(self, tmp_path: Path) -> None:
         steps = (
             GOOD_STEPS
-            + '\n        ErasureStep(collection="blank", kind="document", executor="retention_worker", user_field=""),'
+            + '\n        ErasureStep(collection="blank", kind="document", executor="account_erasure", user_field=""),'
         )
         violations = checker.check(_tree(tmp_path, steps=steps))
         assert any(v.startswith("R5") and "blank" in v for v in violations)
@@ -286,7 +333,7 @@ class TestR5EveryFilteredStepNamesItsUserField:
 
     def test_a_step_whose_kind_the_reader_cannot_see_is_not_waved_through(self, tmp_path: Path) -> None:
         """A non-literal ``kind`` must not read as "phase" and skip R5 silently."""
-        steps = GOOD_STEPS + '\n        ErasureStep(collection="opaque", kind=KIND, executor="retention_worker"),'
+        steps = GOOD_STEPS + '\n        ErasureStep(collection="opaque", kind=KIND, executor="account_erasure"),'
         violations = checker.check(_tree(tmp_path, steps=steps))
         assert any(v.startswith("R5") and "opaque" in v for v in violations)
 
@@ -300,7 +347,7 @@ class TestTheFloorsSitBelowTodaysInventory:
         """R5 over zero edge/document steps is vacuous, so the reader must have found some."""
         steps = (
             "\n".join(
-                f'        ErasureStep(collection="p{i}", kind="phase", executor="retention_worker"),' for i in range(10)
+                f'        ErasureStep(collection="p{i}", kind="phase", executor="account_erasure"),' for i in range(10)
             )
             + '\n        ErasureStep(collection="users", kind="user", executor="account_cascade"),'
         )

@@ -40,10 +40,16 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
         return [ErasureRequest(**self._from_doc(doc)) for doc in cursor]
 
     def find_active_for_user(self, user_key: UserKey) -> ErasureRequest | None:
+        """Return the user's open erasure request, if any.
+
+        ``partially_completed`` counts as open (#1645 operator decision): the
+        daily beat re-selects it and still owes it a run, so a second request
+        for the same account would only schedule a duplicate of that duty.
+        """
         query = """
         FOR doc IN @@collection
           FILTER doc.user_key == @user_key
-            AND doc.status IN ['scheduled', 'in_progress']
+            AND doc.status IN ['scheduled', 'in_progress', 'partially_completed']
           LIMIT 1
           RETURN doc
         """

@@ -17,7 +17,7 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.models.privacy import DataExportRequest, ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import FakeDataExportRepo
+from tests.support.privacy_doubles import FakeDataExportRepo, RecordingErasureExecutor
 
 USER = "u-1"
 
@@ -95,7 +95,7 @@ class TestErasureStatusIsOwnerScoped:
 
 @pytest.mark.asyncio
 class TestCompletedErasureClearsItsReason:
-    async def test_the_completed_write_clears_error_message(self, monkeypatch):
+    async def test_the_completed_write_clears_error_message(self):
         """Pinned on the *write*, because the repository merges (#1506).
 
         A full-model write cannot clear a field; only a named-field write with
@@ -110,9 +110,9 @@ class TestCompletedErasureClearsItsReason:
         )
         erasure_repo = MagicMock()
         erasure_repo.list_due_for_hard_delete.return_value = [erasure]
-        svc = _service(erasure_repo=erasure_repo)
-        # Simulate the retention_worker slice having gained an executor.
-        monkeypatch.setattr(ErasureEngine, "steps_for", classmethod(lambda cls, executor: []))
+        # #1645 — the retry now runs the declared plan through a real executor
+        # entry instead of a patched-away inventory slice.
+        svc = _service(erasure_repo=erasure_repo, erasure_executor=RecordingErasureExecutor(), tombstone_salt="s" * 32)
 
         await svc.execute_scheduled_erasures(datetime.now(UTC))
 

@@ -239,13 +239,22 @@ class TestPestImages:
 
 
 @pytest.mark.asyncio
-async def test_run_user_storage_erasure_keeps_its_contract():
-    """The Phase 0/0.5 entry ``_finalize_erasure`` still calls returns the applied scopes."""
+async def test_the_pre_arango_phases_report_the_applied_scopes():
+    """The Phase 0/0.5 part of ``erase_account`` returns the scopes it applied."""
     calls: list[str] = []
     membership_repo = MagicMock()
     membership_repo.list_by_user.return_value = [Membership(user_key=USER_KEY, tenant_key="t-1", role="grower")]
     service = _service(storage_adapter=_storage(calls), membership_repo=membership_repo, attachment_repo=MagicMock())
 
-    scopes = await service.run_user_storage_erasure(USER_KEY)
+    scopes, _, _ = await service._run_pre_arango_phases(USER_KEY)
 
     assert scopes == [rule.scope for rule in ErasureEngine.STORAGE_CLEANUP_RULES]
+
+
+def test_no_storage_only_erasure_entry_remains():
+    """#1645 — the scheduled path was the last caller of the storage-only entry.
+
+    With both account-deletion paths on ``erase_account``, a public method that
+    runs Phase 0/0.5 and stops is an invitation to a second, partial erasure.
+    """
+    assert not hasattr(PrivacyService, "run_user_storage_erasure")
