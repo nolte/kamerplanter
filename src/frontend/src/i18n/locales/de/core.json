@@ -351,7 +351,20 @@
       "typical": "Typisch"
     },
     "failed": "Fehlgeschlagen",
-    "moreActions": "Weitere Aktionen"
+    "moreActions": "Weitere Aktionen",
+    "catalogue": {
+      "loadFailedTitle": "{{catalogue}} konnte nicht geladen werden",
+      "loadFailedPicker": "Die Auswahl ist gesperrt, bis die Liste geladen ist. Eine leere Auswahl bedeutet hier nicht, dass es keine Einträge gibt. Prüfe deine Verbindung und versuche es erneut.",
+      "loadFailedLookup": "Namen aus dieser Liste können deshalb fehlen oder nur als Kennung erscheinen. Prüfe deine Verbindung und versuche es erneut.",
+      "names": {
+        "activities": "Die Tätigkeitsliste",
+        "botanicalFamilies": "Die Liste der Pflanzenfamilien",
+        "fertilizers": "Die Düngerliste",
+        "nutrientPlans": "Die Liste der Nährstoffpläne",
+        "species": "Die Artenliste",
+        "substrates": "Die Substratliste"
+      }
+    }
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
