@@ -171,8 +171,13 @@ def create_inspection(
     ctx: TenantContext = Depends(require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Record an IPM inspection for a plant."""
-    inspection = Inspection(**body.model_dump(), tenant_key=ctx.tenant_key)
+    """Record an IPM inspection for a plant.
+
+    ``inspected_by_key`` comes from the resolved caller, never from the body
+    (#1669) — ``InspectionCreate`` does not declare it, so a body carrying the
+    field is ignored and the stored value is always the caller's account.
+    """
+    inspection = Inspection(**body.model_dump(), tenant_key=ctx.tenant_key, inspected_by_key=ctx.user_key)
     created = service.create_inspection(plant_key, inspection)
     return _inspection_response(created)
 
@@ -203,8 +208,12 @@ def create_treatment_application(
     ctx: TenantContext = Depends(require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Record a treatment application for a plant."""
-    app = TreatmentApplication(**body.model_dump(), tenant_key=ctx.tenant_key)
+    """Record a treatment application for a plant.
+
+    ``applied_by_key`` comes from the resolved caller, never from the body
+    (#1669); ``TreatmentApplicationCreate`` does not declare it.
+    """
+    app = TreatmentApplication(**body.model_dump(), tenant_key=ctx.tenant_key, applied_by_key=ctx.user_key)
     created = service.create_treatment_application(plant_key, app)
     return _application_response(created)
 

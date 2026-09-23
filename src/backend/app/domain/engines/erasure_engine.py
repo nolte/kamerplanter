@@ -33,22 +33,41 @@ class ErasureEngine:
     # a possibly shared tenant. The user reference is replaced with an anonymous
     # marker; the document itself survives. A collection may appear more than
     # once when it carries several user references (see ``plant_diary_entries``).
+    #
+    # The three retention rules key on the server-set ``*_by_key`` fields
+    # (#1669). Until then they keyed on ``harvester`` / ``applied_by`` /
+    # ``inspector`` — free text typed by the user — and were inert: a rule that
+    # matches "whatever was typed" never finds the account being erased
+    # (measured on #1662, recorded on #1663). Those rules are **replaced**, not
+    # kept beside these, so no reader can mistake the old shape for a second
+    # path. Rows written before #1669 carry ``null`` in the key field and are
+    # not reached by design — guessing an owner from the free text is exactly
+    # the backfill the issue forbids.
     ANONYMIZE_COLLECTIONS: list[AnonymizationRule] = [
         AnonymizationRule(
             collection="harvest_batches",
-            user_field="harvester",
-            anonymized_value="[deleted]",
-            reason="CanG: 5-year retention for harvest documentation.",
+            user_field="harvested_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["harvester"],
+            reason=(
+                "CanG: 5-year retention for harvest documentation. The account key becomes a "
+                "tombstone hash so the erased user's harvests stay linkable to each other for "
+                "the audit; the free-text harvester name is cleared."
+            ),
         ),
         AnonymizationRule(
             # ``applied_by`` — NOT ``applicator``. The model
             # (``domain/models/ipm.py::TreatmentApplication``) has never carried
-            # an ``applicator`` field, so this rule addressed a field that does
-            # not exist and would have left the real user reference in place.
+            # an ``applicator`` field, so an earlier rule addressed a field that
+            # does not exist and would have left the real user reference in place.
             collection="treatment_applications",
-            user_field="applied_by",
-            anonymized_value="[deleted]",
-            reason="PflSchG section 11: 3-year retention for treatment records.",
+            user_field="applied_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["applied_by"],
+            reason=(
+                "PflSchG section 11: 3-year retention for treatment records. Key pseudonymised, "
+                "free-text applicator name cleared."
+            ),
         ),
         AnonymizationRule(
             # #1622 — ``tasks`` was declared personal data by the *export*
@@ -67,9 +86,13 @@ class ErasureEngine:
         ),
         AnonymizationRule(
             collection="inspections",
-            user_field="inspector",
-            anonymized_value="[deleted]",
-            reason="PflSchG section 11: 3-year retention for inspection records.",
+            user_field="inspected_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["inspector"],
+            reason=(
+                "PflSchG section 11: 3-year retention for inspection records. Key pseudonymised, "
+                "free-text inspector name cleared."
+            ),
         ),
         # REQ-050 §7.4 / REQ-025 AK-DA-01 — the diary entry document itself.
         # Until now only the *attachments* of a diary entry were anonymised

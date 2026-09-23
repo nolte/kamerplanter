@@ -150,8 +150,14 @@ def create_batch(
     ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    """Create a harvest batch for a plant."""
-    batch = HarvestBatch(**body.model_dump(), tenant_key=ctx.tenant_key)
+    """Create a harvest batch for a plant.
+
+    ``harvested_by_key`` is the caller's account, taken from the resolved
+    context and never from the body (#1669): ``HarvestBatchCreate`` does not
+    declare the field, so a body carrying it is ignored by the schema and the
+    stored value is always this one.
+    """
+    batch = HarvestBatch(**body.model_dump(), tenant_key=ctx.tenant_key, harvested_by_key=ctx.user_key)
     created = service.create_harvest_batch(plant_key, batch)
     return _batch_response(created)
 

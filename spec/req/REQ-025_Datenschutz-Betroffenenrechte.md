@@ -328,6 +328,21 @@ class DataExportEngine:
         return errors
 ```
 
+> **Zurechnung der aufbewahrungspflichtigen Datensätze (#1669, seit Migration v0056).**
+> Die Freitextfelder `harvest_batches.harvester`, `inspections.inspector` und
+> `treatment_applications.applied_by` sind Anzeigenamen (`"Maren"`, `"mcp:<account>"`)
+> und **keine** Benutzerschlüssel — ein Manifest oder eine Anonymisierungsregel, die
+> darauf schlüsselt, trifft nie das betroffene Konto (gemessen in #1662, #1663).
+> Deshalb tragen die drei Modelle zusätzlich ein serverseitig gesetztes Schlüsselfeld
+> `harvested_by_key` / `inspected_by_key` / `applied_by_key` (`str | None`): jeder
+> Schreibpfad (REST, MCP, die Inspektions-Brücken aus Schädlingserkennung und
+> CV-Diagnose) füllt es aus dem aufgelösten Aufrufer; ein Request-Body kann es nicht
+> setzen (Feld nicht im Schema, `extra="ignore"`). Art. 15 filtert und Art. 17
+> pseudonymisiert auf diesem Feld und leert dabei den Freitext. Vor #1669 geschriebene
+> Zeilen tragen `null` — ohne Rückschluss aus dem Freitext, weil ein Name kein Schlüssel
+> ist — und werden im Export als nicht zuordenbar benannt, nicht verschwiegen. Die
+> Codebeispiele in diesem Abschnitt zeigen den Stand *vor* dieser Änderung.
+
 **`ErasureEngine`** — Orchestrierte Löschreihenfolge (pure Logik):
 
 ```python

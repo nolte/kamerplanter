@@ -141,6 +141,12 @@ class Inspection(BaseModel):
     tenant_key: str = ""
     plant_key: str = ""
     inspector: str = Field(default="", max_length=200)
+    # The account that recorded the inspection (#1669) — server-set on every
+    # create path, never taken from a request body. ``inspector`` remains the
+    # free display text (``"Maren"``, ``"mcp:<account>"``); only this field
+    # says *which user* did it, which is what Art. 15 / Art. 17 key on.
+    # ``None`` marks a pre-#1669 row that cannot be attributed.
+    inspected_by_key: str | None = None
     inspected_at: datetime | None = None
     pressure_level: PestPressureLevel = PestPressureLevel.NONE
     detected_pest_keys: list[str] = Field(default_factory=list)
@@ -170,6 +176,10 @@ class TreatmentApplication(BaseModel):
     water_volume_liters: float | None = Field(default=None, gt=0)
     efficacy_rating: EfficacyRating | None = None
     applied_by: str = Field(default="", max_length=200)
+    # The account that recorded the application (#1669) — server-set, never
+    # from the body; ``applied_by`` stays the free display text. ``None`` marks
+    # a pre-#1669 row that cannot be attributed to any account.
+    applied_by_key: str | None = None
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

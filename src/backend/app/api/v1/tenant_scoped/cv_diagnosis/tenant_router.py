@@ -149,6 +149,7 @@ def confirm_diagnosis(
         request_key,
         tenant_key=ctx.tenant_key,
         plant_key=body.plant_key,
+        user_key=ctx.user_key,
         confirmed_labels=body.confirmed_labels,
     )
     return ConfirmDiagnosisResponse(**result)
