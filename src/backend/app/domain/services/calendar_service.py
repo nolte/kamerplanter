@@ -1,10 +1,12 @@
 import secrets
 from datetime import date, datetime
 
+import structlog
+
 from app.common.datetimes import today_utc
 from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
-from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
+from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine, CalendarSourceRows
 from app.domain.engines.season_overview_engine import (
     SeasonOverview,
     SeasonOverviewEngine,
@@ -20,6 +22,7 @@ from app.domain.engines.sowing_calendar_engine import (
     SpeciesData,
 )
 from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
+from app.domain.interfaces.calendar_source_repository import ICalendarSourceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.calendar import (
@@ -30,12 +33,15 @@ from app.domain.models.calendar import (
 from app.domain.services.ical_generator import ICalGenerator
 from app.domain.services.planting_run_service import PlantingRunService
 
+logger = structlog.get_logger()
+
 
 class CalendarService:
     def __init__(
         self,
         feed_repo: ICalendarFeedRepository,
         aggregation_engine: CalendarAggregationEngine,
+        source_repo: ICalendarSourceRepository,
         species_repo: ISpeciesRepository | None = None,
         site_repo: ISiteRepository | None = None,
         sowing_engine: SowingCalendarEngine | None = None,
@@ -44,6 +50,7 @@ class CalendarService:
     ) -> None:
         self._feed_repo = feed_repo
         self._engine = aggregation_engine
+        self._sources = source_repo
         self._ical = ICalGenerator()
         self._species_repo = species_repo
         self._site_repo = site_repo
@@ -52,7 +59,44 @@ class CalendarService:
         self._run_service = planting_run_service
 
     def get_events(self, query: CalendarEventsQuery) -> list[CalendarEvent]:
-        return self._engine.get_events(query)
+        """Load every event source's rows, then let the stateless engine aggregate them.
+
+        The loading used to happen inside the engine, which held a database
+        handle to do it (#1638). The order of the reads and both degradations
+        are unchanged: the watering forecast is best-effort (a failing read
+        contributes no forecast events instead of failing the calendar), and an
+        unresolvable fertilizer name falls back to its key.
+        """
+        start_dt, end_dt = CalendarAggregationEngine.window(query)
+        start, end = start_dt.isoformat(), end_dt.isoformat()
+
+        tasks = self._sources.list_tasks_due(start, end, tenant_key=query.tenant_key)
+        phase_plants = self._sources.list_phase_timeline_rows()
+        maintenance_logs = self._sources.list_maintenance_logs(start, end)
+        watering_logs = self._sources.list_watering_logs(start, end)
+        try:
+            forecast_plants = self._sources.list_watering_forecast_rows(tenant_key=query.tenant_key)
+        except Exception:  # noqa: BLE001 — the forecast is an optional overlay
+            logger.warning("calendar_watering_forecast_unavailable", exc_info=True)
+            forecast_plants = []
+
+        fertilizer_names: dict[str, str] = {}
+        fertilizer_keys = CalendarAggregationEngine.forecast_fertilizer_keys(forecast_plants)
+        if fertilizer_keys:
+            try:
+                fertilizer_names = self._sources.get_fertilizer_product_names(fertilizer_keys)
+            except Exception:  # noqa: BLE001 — names are a display hint; keys stand in
+                logger.warning("calendar_fertilizer_names_unavailable", exc_info=True)
+
+        rows = CalendarSourceRows(
+            tasks=tasks,
+            phase_plants=phase_plants,
+            maintenance_logs=maintenance_logs,
+            watering_logs=watering_logs,
+            forecast_plants=forecast_plants,
+            fertilizer_names=fertilizer_names,
+        )
+        return self._engine.aggregate(query, rows)
 
     # ── Feed CRUD ────────────────────────────────────────────────────
 
@@ -327,7 +371,7 @@ class CalendarService:
             site_key=feed.filters.site_key,
             tenant_key=feed.tenant_key,
         )
-        events = self._engine.get_events(query)
+        events = self.get_events(query)
         return self._ical.generate(events, feed.name)
 
 

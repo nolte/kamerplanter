@@ -1185,7 +1185,13 @@ def get_calendar_feed_repo():
 def get_calendar_aggregation_engine():
     from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
 
-    return CalendarAggregationEngine(get_db())
+    return CalendarAggregationEngine()
+
+
+def get_calendar_source_repo():
+    from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
+
+    return ArangoCalendarSourceRepository(get_db())
 
 
 def get_calendar_service():
@@ -1194,6 +1200,7 @@ def get_calendar_service():
     return CalendarService(
         get_calendar_feed_repo(),
         get_calendar_aggregation_engine(),
+        get_calendar_source_repo(),
         species_repo=get_species_repo(),
         site_repo=get_site_repo(),
         planting_run_service=get_planting_run_service(),

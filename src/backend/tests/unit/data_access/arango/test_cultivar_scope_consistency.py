@@ -248,8 +248,9 @@ _MODULES_TOUCHING_CULTIVARS: dict[str, str] = {
         "Same write-path reference guard on ``PropagationEvent.cultivar_key`` "
         "(SEC-006, #1112), for the same reason and with the same single-key shape."
     ),
-    "domain/engines/calendar_aggregation_engine.py": (
-        "Same ``DOCUMENT()`` dereference of an already-anchored ``cultivar_key``, system context by the same decision."
+    "data_access/arango/calendar_source_repository.py": (
+        "Same ``DOCUMENT()`` dereference of an already-anchored ``cultivar_key``, system context by the same "
+        "decision. Moved here verbatim from ``domain/engines/calendar_aggregation_engine.py`` (#1638)."
     ),
 }
 

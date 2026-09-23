@@ -68,6 +68,7 @@ class TestFeedExpiry:
         svc = CalendarService(
             feed_repo=feed_repo,
             aggregation_engine=MagicMock(),
+            source_repo=MagicMock(),
         )
 
         with pytest.raises(FeedExpiredError) as exc:
@@ -81,11 +82,12 @@ class TestFeedExpiry:
         feed_repo = MagicMock()
         feed_repo.get_by_token.return_value = feed
         engine = MagicMock()
-        engine.get_events.return_value = []
+        engine.aggregate.return_value = []
 
         svc = CalendarService(
             feed_repo=feed_repo,
             aggregation_engine=engine,
+            source_repo=MagicMock(),
         )
 
         result = svc.generate_ical_for_feed("feed-1", "tkn-abc")
@@ -100,6 +102,7 @@ class TestFeedExpiry:
         svc = CalendarService(
             feed_repo=feed_repo,
             aggregation_engine=MagicMock(),
+            source_repo=MagicMock(),
         )
 
         with pytest.raises(ValidationError):

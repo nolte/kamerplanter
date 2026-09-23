@@ -364,27 +364,7 @@ class AllowedHandle:
 # yet, which is why none of them was folded into #1556: doing so would have put
 # four unrelated data-access designs into one pull request.
 #
-ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
-    AllowedHandle(
-        path="src/backend/app/domain/engines/calendar_aggregation_engine.py",
-        marker=HANDLE_MARKER,
-        reason=(
-            "An ENGINE, one layer deeper than a service, running seven AQL "
-            "traversals over lifecycle/phase edges. Removed by a calendar read "
-            "repository; the pending HAS_PHASE_SEQUENCE migration noted in its "
-            "docstring should land first so the queries move once, not twice."
-        ),
-    ),
-    AllowedHandle(
-        path="src/backend/app/domain/engines/calendar_aggregation_engine.py",
-        marker="import:arango.database",
-        reason=(
-            "Types the handle the engine's ``handle`` entry above holds; removed "
-            "with it, and listed separately so removing one spelling does not "
-            "silently permit the other."
-        ),
-    ),
-)
+ALLOWED_HANDLES: tuple[AllowedHandle, ...] = ()
 
 
 @dataclass(frozen=True)
