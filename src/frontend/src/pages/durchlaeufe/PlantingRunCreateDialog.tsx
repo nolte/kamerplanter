@@ -93,6 +93,13 @@ interface EntryRowProps {
   speciesList: Species[];
   /** Locks the species picker while the catalogue is not ready (#1628). */
   speciesDisabled: boolean;
+  /**
+   * Shows a loading helper text on the picker while the catalogue is in
+   * flight, matching `PropagationEventDialog`'s species field (#1628 UI
+   * review) — a disabled field with no visible reason otherwise reads the
+   * same as a field the form itself decided to lock.
+   */
+  speciesLoading: boolean;
   onRemove: () => void;
   canRemove: boolean;
 }
@@ -107,6 +114,7 @@ function EntryRow({
   setValue,
   speciesList,
   speciesDisabled,
+  speciesLoading,
   onRemove,
   canRemove,
 }: EntryRowProps) {
@@ -164,6 +172,7 @@ function EntryRow({
           required
           species={speciesList}
           disabled={speciesDisabled}
+          helperText={speciesLoading ? t('common.loading') : undefined}
         />
       </Box>
       <Box sx={{ flex: 1, minWidth: 160 }}>
@@ -566,9 +575,14 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
               {/*
                 A failed load is its own state, not an empty species picker in
                 every entry row (#1628); the rows' pickers stay disabled until
-                the catalogue is ready.
+                the catalogue is ready. A successful retry returns focus to
+                the first row's picker — the entry the user was most likely
+                working on when the request failed.
               */}
-              <CatalogueLoadError reader={speciesCatalogue} />
+              <CatalogueLoadError
+                reader={speciesCatalogue}
+                focusSelector="[data-testid='form-field-entries.0.species_key'] input"
+              />
               {fields.map((field, index) => (
                 <EntryRow
                   key={field.id}
@@ -577,6 +591,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                   setValue={setValue}
                   speciesList={speciesCatalogue.items}
                   speciesDisabled={speciesCatalogue.status !== 'ready'}
+                  speciesLoading={speciesCatalogue.status === 'loading'}
                   onRemove={() => remove(index)}
                   canRemove={fields.length > 1}
                 />

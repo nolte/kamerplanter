@@ -261,15 +261,22 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             helperText={
               isEdit
                 ? t('pages.successionPlans.speciesLockedHelper')
-                : undefined
+                : speciesCatalogue.status === 'loading'
+                  ? t('common.loading')
+                  : undefined
             }
           />
           {/*
             A failed load is its own state, not an empty picker (#1628). In edit
             mode the field is locked anyway, so the failure only costs the
-            species' display name there.
+            species' display name there — and there is no picker to return
+            focus to, so `focusSelector` is only wired for the create case.
           */}
-          <CatalogueLoadError reader={speciesCatalogue} impact={isEdit ? 'lookup' : 'picker'} />
+          <CatalogueLoadError
+            reader={speciesCatalogue}
+            impact={isEdit ? 'lookup' : 'picker'}
+            focusSelector={isEdit ? undefined : "[data-testid='form-field-species_key'] input"}
+          />
           <FormSelectField
             name="cultivar_key"
             control={control}

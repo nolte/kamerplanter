@@ -173,7 +173,10 @@ export default function SpeciesEditTab({
                     ]}
                   />
                   {/* A failed load is its own state, not an empty picker (#1628). */}
-                  <CatalogueLoadError reader={familyCatalogue} />
+                  <CatalogueLoadError
+                    reader={familyCatalogue}
+                    focusSelector="[data-testid='form-field-family_key'] [role='combobox']"
+                  />
                   {currentFamilyKey && (
                     <Link
                       component={RouterLink}

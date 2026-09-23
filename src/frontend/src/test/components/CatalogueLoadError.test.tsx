@@ -176,4 +176,92 @@ describe('CatalogueLoadError with the real useCatalogue', () => {
     expect(screen.queryByTestId('catalogue-load-error-botanicalFamilies')).toBeNull();
     expect(attempts).toBeGreaterThan(1);
   });
+
+  /**
+   * #1628 UI review: pressing retry unmounts the `failed` branch (this
+   * component's own `<Alert>`, including the button focus was just on) in the
+   * same tick the status flips. With no explicit focus management the browser
+   * falls back to `<body>`. `focusSelector` wires `CatalogueLoadError` into
+   * the same `useRetryFocus` mechanism `WorkflowDetailPage`/
+   * `SpeciesCreateDialog` use for #1568, resolved against `document` rather
+   * than a caller-supplied container ref (see the prop's own doc comment for
+   * why) — these two cases are the "does it actually move" proof the
+   * call-site suites do not attempt.
+   */
+  function HarnessWithField() {
+    const families = useCatalogue('botanicalFamilies');
+    return (
+      <>
+        <span data-testid="status">{families.status}</span>
+        {/* Stands in for the picker this failure would otherwise be next to. */}
+        <input data-testid="family-field" aria-label="family" />
+        <CatalogueLoadError
+          reader={families}
+          focusSelector="[data-testid='family-field']"
+        />
+      </>
+    );
+  }
+
+  function renderHarnessWithField() {
+    const store = configureStore({
+      reducer: combineReducers({ botanicalFamilies: botanicalFamiliesReducer }),
+    });
+    return render(
+      <Provider store={store}>
+        <ThemeContextProvider>
+          <HarnessWithField />
+        </ThemeContextProvider>
+      </Provider>,
+    );
+  }
+
+  it('returns focus to the unlocked field after a successful retry, not to <body>', async () => {
+    let attempts = 0;
+    server.use(
+      http.get(FAMILIES_URL, () => {
+        attempts += 1;
+        if (attempts === 1) return new HttpResponse(null, { status: 500 });
+        return HttpResponse.json([]);
+      }),
+    );
+    const user = userEvent.setup();
+    renderHarnessWithField();
+
+    const retry = await screen.findByTestId(
+      'catalogue-load-error-botanicalFamilies-retry',
+      {},
+      { timeout: WAIT_BUDGET },
+    );
+    await user.click(retry);
+
+    await waitFor(
+      () => {
+        expect(document.activeElement).toBe(screen.getByTestId('family-field'));
+      },
+      { timeout: WAIT_BUDGET },
+    );
+  });
+
+  it('returns focus to its own retry button when the retry fails again, not to <body>', async () => {
+    server.use(http.get(FAMILIES_URL, () => new HttpResponse(null, { status: 500 })));
+    const user = userEvent.setup();
+    renderHarnessWithField();
+
+    const firstRetry = await screen.findByTestId(
+      'catalogue-load-error-botanicalFamilies-retry',
+      {},
+      { timeout: WAIT_BUDGET },
+    );
+    await user.click(firstRetry);
+
+    await waitFor(
+      () => {
+        expect(document.activeElement).toBe(
+          screen.getByTestId('catalogue-load-error-botanicalFamilies-retry'),
+        );
+      },
+      { timeout: WAIT_BUDGET },
+    );
+  });
 });

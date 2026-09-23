@@ -2786,7 +2786,10 @@ export default function PlantInstanceDetailPage() {
                   />
                 </FormRow>
                 {/* A failed load is its own state, not an empty picker (#1628). */}
-                <CatalogueLoadError reader={substrateCatalogue} />
+                <CatalogueLoadError
+                  reader={substrateCatalogue}
+                  focusSelector="[data-testid='form-field-substrate_key'] input"
+                />
                 <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
               </CardContent>
             </Card>

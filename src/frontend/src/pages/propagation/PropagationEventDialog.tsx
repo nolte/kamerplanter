@@ -171,8 +171,14 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
                 : t('pages.propagation.fields.speciesKeyHelper')
             }
           />
-          {/* A failed load is its own state, not an empty picker (#1628). */}
-          <CatalogueLoadError reader={speciesCatalogue} />
+          {/*
+            A failed load is its own state, not an empty picker (#1628). A
+            successful retry returns focus to the species field.
+          */}
+          <CatalogueLoadError
+            reader={speciesCatalogue}
+            focusSelector="[data-testid='form-field-species_key'] input"
+          />
 
           <Divider sx={{ my: 2 }} />
 

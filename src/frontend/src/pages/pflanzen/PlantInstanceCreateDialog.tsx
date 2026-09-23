@@ -473,11 +473,17 @@ export default function PlantInstanceCreateDialog({
           {/*
             A failed load is its own state, not an empty mandatory picker
             (#1628). With a preset species the field is locked, so the failure
-            only costs the species' display name.
+            only costs the species' display name — no picker to return focus
+            to in that case.
           */}
           <CatalogueLoadError
             reader={speciesCatalogue}
             impact={initialSpeciesKey || duplicateFrom ? 'lookup' : 'picker'}
+            focusSelector={
+              initialSpeciesKey || duplicateFrom
+                ? undefined
+                : "[data-testid='form-field-species_key'] input"
+            }
           />
           <FormRow>
             <FormSelectField
@@ -662,7 +668,10 @@ export default function PlantInstanceCreateDialog({
             substrates={substrateCatalogue.items}
             disabled={substrateCatalogue.status !== 'ready'}
           />
-          <CatalogueLoadError reader={substrateCatalogue} />
+          <CatalogueLoadError
+            reader={substrateCatalogue}
+            focusSelector="[data-testid='form-field-substrate_key'] input"
+          />
 
           <LocationAssignmentSection
             control={control}

@@ -296,7 +296,10 @@ export default function CompanionPlantingPage() {
         add-relation dialog below needs no second element: it opens only for a
         species picked from this list, so it is unreachable while this failed.
       */}
-      <CatalogueLoadError reader={speciesCatalogue} />
+      <CatalogueLoadError
+        reader={speciesCatalogue}
+        focusSelector="[data-testid='species-select'] input"
+      />
 
       {/* Persistent legend (not hover-dependent, so it works on touch too) mapping
           the icon + colour badges rendered in the dropdown to their meaning for

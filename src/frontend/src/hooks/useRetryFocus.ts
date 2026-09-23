@@ -71,6 +71,17 @@ export interface UseRetryFocusOptions {
    * courtesy.
    */
   enabled?: boolean;
+  /**
+   * CSS selector, resolved within the region, for the retry control to focus
+   * when the retry lands back on `failed` (the request failed again).
+   *
+   * Defaults to `ErrorDisplay`'s own documented hook
+   * (`[data-testid="error-retry-button"]`), which is what both original call
+   * sites (`WorkflowDetailPage`, `SpeciesCreateDialog`) render. A consumer
+   * whose failure branch is a different component — `CatalogueLoadError`
+   * (#1628) — passes its own retry button's selector here instead.
+   */
+  failureSelector?: string;
 }
 
 /**
@@ -79,9 +90,10 @@ export interface UseRetryFocusOptions {
  * @param status The reader's current status.
  * @param successSelector CSS selector, resolved within the region, for the
  *   element to focus once the retry succeeds — normally the control the user was
- *   trying to use. Both call sites pass a selector that the component's own
- *   documentation declares stable (`FormSelectField` names its
- *   `[role='combobox']` trigger; the activity dialog uses its search testid).
+ *   trying to use. Callers pass a selector that the target component's own
+ *   documentation declares stable (`FormSelectField`/`SpeciesAutocompleteField`
+ *   name their `data-testid`-scoped trigger; the activity dialog uses its
+ *   search testid).
  * @param options See {@link UseRetryFocusOptions}.
  * @returns See {@link RetryFocus}; the object is `useMemo`-stabilised
  *   (FRONTEND.md §6.1).
@@ -92,6 +104,7 @@ export function useRetryFocus(
   options?: UseRetryFocusOptions,
 ): RetryFocus {
   const enabled = options?.enabled ?? true;
+  const failureSelector = options?.failureSelector ?? '[data-testid="error-retry-button"]';
   const pending = useRef(false);
   const region = useRef<HTMLElement | null>(null);
 
@@ -120,13 +133,12 @@ export function useRetryFocus(
     if (!container) return;
     const target =
       status === 'failed'
-        ? // `ErrorDisplay` re-renders a *new* button for the second failure, so
-          // this is resolved now rather than remembered. The testid is that
-          // component's own documented hook.
-          container.querySelector<HTMLElement>('[data-testid="error-retry-button"]')
+        ? // The failure branch re-renders a *new* button for the second
+          // failure, so this is resolved now rather than remembered.
+          container.querySelector<HTMLElement>(failureSelector)
         : container.querySelector<HTMLElement>(successSelector);
     target?.focus();
-  }, [status, successSelector, enabled]);
+  }, [status, successSelector, failureSelector, enabled]);
 
   return useMemo(() => ({ attachRegion, beginRetry }), [attachRegion, beginRetry]);
 }

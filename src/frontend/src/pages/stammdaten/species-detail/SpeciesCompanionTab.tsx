@@ -341,7 +341,10 @@ export default function SpeciesCompanionTab({
               ))}
           </TextField>
           {/* A failed load is its own state, not an empty picker (#1628). */}
-          <CatalogueLoadError reader={speciesCatalogue} />
+          <CatalogueLoadError
+            reader={speciesCatalogue}
+            focusSelector="[data-testid='target-species-select'] [role='combobox']"
+          />
           {companionDialogType === 'compatible' && (
             <TextField
               type="number"

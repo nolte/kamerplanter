@@ -104,7 +104,10 @@ export default function SpeciesCultivationPanel({
           />
         </FormRow>
         {/* A failed load is its own state, not an empty picker (#1628). */}
-        <CatalogueLoadError reader={nutrientPlanCatalogue} />
+        <CatalogueLoadError
+          reader={nutrientPlanCatalogue}
+          focusSelector="[data-testid='form-field-default_nutrient_plan_key'] [role='combobox']"
+        />
         {/* Phase A harvest properties (REQ-007/008). intermediate: pattern + part;
           expert: climacteric ripening class. Empty select → null on submit. */}
         <FormRow>
