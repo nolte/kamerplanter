@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -256,13 +257,19 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             label={t('entities.species')}
             species={speciesCatalogue.items}
             required
-            disabled={isEdit}
+            disabled={isEdit || speciesCatalogue.status !== 'ready'}
             helperText={
               isEdit
                 ? t('pages.successionPlans.speciesLockedHelper')
                 : undefined
             }
           />
+          {/*
+            A failed load is its own state, not an empty picker (#1628). In edit
+            mode the field is locked anyway, so the failure only costs the
+            species' display name there.
+          */}
+          <CatalogueLoadError reader={speciesCatalogue} impact={isEdit ? 'lookup' : 'picker'} />
           <FormSelectField
             name="cultivar_key"
             control={control}

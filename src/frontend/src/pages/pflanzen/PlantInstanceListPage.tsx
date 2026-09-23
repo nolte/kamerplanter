@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -455,6 +456,8 @@ export default function PlantInstanceListPage() {
         <SurvivalStatsPanel stats={survivalStats} />
       )}
 
+      {/* Lookup only: a failed load leaves plants without their species name (#1628). */}
+      <CatalogueLoadError reader={speciesCatalogue} impact="lookup" />
       <DataTable
         columns={columns}
         rows={filteredItems}

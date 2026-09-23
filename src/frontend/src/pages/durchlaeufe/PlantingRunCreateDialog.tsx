@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -90,6 +91,8 @@ interface EntryRowProps {
   control: Control<FormData>;
   setValue: UseFormSetValue<FormData>;
   speciesList: Species[];
+  /** Locks the species picker while the catalogue is not ready (#1628). */
+  speciesDisabled: boolean;
   onRemove: () => void;
   canRemove: boolean;
 }
@@ -98,7 +101,15 @@ function toPrefix(name: string): string {
   return name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3);
 }
 
-function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }: EntryRowProps) {
+function EntryRow({
+  index,
+  control,
+  setValue,
+  speciesList,
+  speciesDisabled,
+  onRemove,
+  canRemove,
+}: EntryRowProps) {
   const { t } = useTranslation();
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
@@ -152,6 +163,7 @@ function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }
           label={t('entities.species')}
           required
           species={speciesList}
+          disabled={speciesDisabled}
         />
       </Box>
       <Box sx={{ flex: 1, minWidth: 160 }}>
@@ -551,6 +563,12 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                 {t('pages.plantingRuns.entries')}
               </Typography>
 
+              {/*
+                A failed load is its own state, not an empty species picker in
+                every entry row (#1628); the rows' pickers stay disabled until
+                the catalogue is ready.
+              */}
+              <CatalogueLoadError reader={speciesCatalogue} />
               {fields.map((field, index) => (
                 <EntryRow
                   key={field.id}
@@ -558,6 +576,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                   control={control}
                   setValue={setValue}
                   speciesList={speciesCatalogue.items}
+                  speciesDisabled={speciesCatalogue.status !== 'ready'}
                   onRemove={() => remove(index)}
                   canRemove={fields.length > 1}
                 />

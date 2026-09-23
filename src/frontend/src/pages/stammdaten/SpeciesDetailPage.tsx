@@ -300,8 +300,8 @@ export default function SpeciesDetailPage() {
         <SpeciesEditTab
           control={control}
           onSubmit={handleSubmit(onSubmit)}
-          families={familyCatalogue.items}
-          nutrientPlans={nutrientPlanCatalogue.items}
+          familyCatalogue={familyCatalogue}
+          nutrientPlanCatalogue={nutrientPlanCatalogue}
           isReadOnly={isReadOnly}
           saving={saving}
           phaseSequenceKey={phaseSequenceKey}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -274,6 +275,8 @@ export default function SuccessionPlanListPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.successionPlans.listIntro')}
       </Typography>
+      {/* Lookup only: a failed load leaves species as raw keys in the table (#1628). */}
+      <CatalogueLoadError reader={speciesCatalogue} impact="lookup" />
       <DataTable
         columns={columns}
         rows={plans}
