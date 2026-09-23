@@ -120,6 +120,29 @@ class TestRefusals:
         executor.run_erasure_plan.assert_not_called()
         export_repo.list_by_user.assert_not_called()
 
+    @pytest.mark.parametrize("user_key", ["", "   "])
+    async def test_an_empty_user_key_refuses_before_anything_runs(self, user_key):
+        """#1664 — ``""`` would match every unattributed row in the executor's filters."""
+        calls: list[str] = []
+        storage = _storage(calls)
+        executor = _executor(calls)
+        export_repo = MagicMock()
+        membership_repo = MagicMock()
+        service = _service(
+            erasure_executor=executor,
+            storage_adapter=storage,
+            export_repo=export_repo,
+            membership_repo=membership_repo,
+        )
+
+        with pytest.raises(ValueError, match="user key"):
+            await service.erase_account(user_key)
+
+        assert calls == []
+        executor.run_erasure_plan.assert_not_called()
+        export_repo.list_by_user.assert_not_called()
+        membership_repo.list_by_user.assert_not_called()
+
 
 @pytest.mark.asyncio
 class TestSequence:

@@ -1,9 +1,9 @@
 """Domain models for REQ-025 Privacy & GDPR data subject rights."""
 
 from datetime import date, datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, model_validator
 
 # ── Type aliases ───────────────────────────────────────────────────
 
@@ -347,7 +347,10 @@ class ReferenceIndexCleanupRule(BaseModel):
 class ErasurePlan(BaseModel):
     """Aggregated plan that the erasure executor processes step by step."""
 
-    user_key: str
+    #: Never empty (#1664): every executor filter is ``doc[@field] == @user_key``,
+    #: and unattributed rows carry ``""`` (``pest_detections.user_key`` defaults
+    #: to it) — a blank key would erase other users' rows, not nobody's.
+    user_key: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     storage_cleanup: list[StorageCleanupRule] = Field(default_factory=list)
     reference_index_cleanup: list[ReferenceIndexCleanupRule] = Field(default_factory=list)
     anonymize: list[AnonymizationRule] = Field(default_factory=list)

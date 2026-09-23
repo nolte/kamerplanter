@@ -153,6 +153,11 @@ class ArangoErasureExecutor(IErasureExecutor):
     @staticmethod
     def _refuse_unexecutable(plan: ErasurePlan, steps: list[ErasureStep], tombstone: str | None) -> None:
         """Reject a plan this executor would have to guess at, before it writes anything."""
+        if not plan.user_key or not plan.user_key.strip():
+            # #1664 — ``doc[@field] == ""`` matches every unattributed row
+            # (``pest_detections.user_key`` defaults to ``""``): other users' data.
+            msg = "the plan names no user key; an empty key would match every unattributed row"
+            raise ErasurePlanError(msg)
         documents = {step.collection: step for step in plan.steps if step.kind == "document"}
         for step in steps:
             if step.kind == "phase":

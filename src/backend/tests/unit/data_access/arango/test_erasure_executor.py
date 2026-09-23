@@ -245,3 +245,23 @@ class TestSlices:
         assert missing not in db.declared_write
         assert report.absent_collections == [missing]
         assert report.affected(missing) == 0
+
+
+class TestEmptyUserKey:
+    """#1664 — a plan without a user key would match every unattributed row.
+
+    ``FILTER doc[@field] == @user_key`` with ``""`` reaches each
+    ``pest_detections`` row that carries the default ``user_key=""`` and each
+    diary entry with ``created_by=""`` — rows of other users. ``model_copy``
+    bypasses the model's own refusal, which is exactly the path a caller that
+    assembles or mutates a plan would take.
+    """
+
+    @pytest.mark.parametrize("user_key", ["", "   "])
+    def test_a_plan_without_a_user_key_is_refused_before_any_write(self, user_key):
+        db = _FakeDb()
+        plan = _plan().model_copy(update={"user_key": user_key})
+        with pytest.raises(ErasurePlanError, match="user key"):
+            _run(db, plan)
+        assert db.transactions == []
+        assert db.calls == []

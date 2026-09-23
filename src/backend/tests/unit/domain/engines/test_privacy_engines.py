@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.data_access.arango import collections as col
 from app.domain.engines.consent_engine import DIARY_AI_ANALYSIS, ConsentEngine
@@ -22,6 +22,7 @@ from app.domain.models.privacy import (
     ConsentRecord,
     DataExportRequest,
     EmailChangeRequest,
+    ErasurePlan,
     ErasureRequest,
     ErasureStep,
     ProcessingRestriction,
@@ -609,3 +610,25 @@ class TestErasureConfirmationAndTombstoneShape:
     )
     def test_anything_else_is_not(self, value):
         assert not ErasureEngine.is_tombstone(value)
+
+
+class TestErasurePlanUserKey:
+    """#1664 — a plan must name the user it erases.
+
+    Every executor filter is ``doc[@field] == @user_key``; with an empty key it
+    matches each unattributed row (``pest_detections.user_key`` defaults to
+    ``""``) and erases other users' data.
+    """
+
+    @pytest.mark.parametrize("user_key", ["", "   ", "\t\n"])
+    def test_an_empty_or_blank_user_key_is_rejected_by_the_model(self, user_key):
+        with pytest.raises(ValidationError):
+            ErasurePlan(user_key=user_key)
+
+    @pytest.mark.parametrize("user_key", ["", "   "])
+    def test_the_engine_cannot_build_a_plan_without_a_user_key(self, user_key):
+        with pytest.raises(ValidationError):
+            ErasureEngine().build_erasure_plan(user_key)
+
+    def test_surrounding_whitespace_is_stripped(self):
+        assert ErasurePlan(user_key=" u-1 ").user_key == "u-1"

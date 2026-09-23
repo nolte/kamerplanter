@@ -1208,12 +1208,19 @@ class PrivacyService:
         Raises:
             FeatureNotConfiguredError: ``ERASURE_TOMBSTONE_SALT`` is missing or
                 shorter than NFR-011 §4 requires (HTTP 503).
+            ValueError: ``user_key`` is empty or blank (#1664) — raised before
+                any phase runs.
         """
         if self._erasure_executor is None:  # pragma: no cover - guarded by wiring
             raise RuntimeError(
                 "PrivacyService.erase_account requires an erasure_executor; "
                 "construct the service with one (see app.common.dependencies)."
             )
+        if not user_key or not user_key.strip():
+            # #1664 — the plan's filters are ``doc[@field] == @user_key``; a blank
+            # key matches every unattributed row and erases other users' data.
+            msg = "erase_account needs a user key; refusing to erase with an empty one"
+            raise ValueError(msg)
         try:
             tombstone = self._erasure_engine.compute_tombstone_hash(user_key, self._tombstone_salt)
         except ValueError as exc:
