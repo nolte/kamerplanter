@@ -58,8 +58,16 @@ here the reason is architectural and belongs where all of them can be read at
 once. Adding an entry is a visible edit to this file, which is the review that
 the import itself never got.
 
-Both rules share the allowlist discipline described above, and both are reported
-by the same process with the same exit codes.
+**Rule 2 has no allowlist, and that is the point.** It carried one while four
+modules still held a handle (``favorites_service``, ``starter_kit_service``,
+``onboarding_service``, ``calendar_aggregation_engine``); #1638 moved every one of
+them behind a repository and then removed the entry mechanism itself. An empty
+allowlist is still a door: a crossing could be *recorded* instead of *fixed*, and
+the gate would pass. Without the mechanism the only way to satisfy rule 2 is to
+not cross. Reinstating an allowlist is therefore a visible change to this file's
+structure, not a one-entry edit.
+
+Both rules are reported by the same process with the same exit codes.
 
 Standard library only, no application import, no running stack.
 
@@ -105,8 +113,10 @@ HANDLE_ATTRIBUTE = "_db"
 QUERY_ATTRIBUTE = "aql"
 
 #: One marker for every way of holding or reaching a handle. Deliberately NOT
-#: one marker per spelling: an allowlist keyed on the spelling would go green
-#: the moment a recorded module switched from ``self._db`` to ``getattr``.
+#: one marker per spelling: while rule 2 still had an allowlist, one keyed on the
+#: spelling would have gone green the moment a recorded module switched from
+#: ``self._db`` to ``getattr``. Kept as one marker now that the allowlist is gone
+#: (#1638), so a finding reads the same whichever spelling produced it.
 HANDLE_MARKER = "handle"
 
 EXIT_OK = 0
@@ -331,43 +341,6 @@ ALLOWED_IMPORTS: tuple[AllowedImport, ...] = (
 
 
 @dataclass(frozen=True)
-class AllowedHandle:
-    """One recorded, deliberate persistence handle inside the business logic.
-
-    Attributes:
-        path: Repository-relative path of the offending module.
-        marker: What was found — ``import:<dotted>`` for a driver import,
-            ``handle`` for holding or reaching one.
-        reason: Why it is still there, and what would remove it.
-    """
-
-    path: str
-    marker: str
-    reason: str
-
-    @property
-    def identity(self) -> tuple[str, str]:
-        return (self.path, self.marker)
-
-
-# --------------------------------------------------------------------------- #
-# The recorded baseline for rule 2
-# --------------------------------------------------------------------------- #
-#
-# Measured 2026-09-21 on the worktree off 5585c7b89, after #1556 removed the two
-# ``AuthService`` crossings. #1556's own measurement (``grep -rn "_repo\._db"``)
-# found those two and called them "the only two"; it could not see any of the
-# entries below, because none of them reach *through* a repository — each is
-# handed a ``StandardDatabase`` and drives it.
-#
-# Each entry is debt. The fix in every case is a repository that does not exist
-# yet, which is why none of them was folded into #1556: doing so would have put
-# four unrelated data-access designs into one pull request.
-#
-ALLOWED_HANDLES: tuple[AllowedHandle, ...] = ()
-
-
-@dataclass(frozen=True)
 class HandleSite:
     """One persistence-handle crossing found in the business-logic layer."""
 
@@ -586,28 +559,6 @@ def classify(
     return violations, obsolete
 
 
-def classify_handles(
-    sites: list[HandleSite], allowlist: tuple[AllowedHandle, ...] | None = None
-) -> tuple[list[HandleSite], list[AllowedHandle]]:
-    """Split *sites* into new violations, and name the obsolete allowlist entries.
-
-    The same contract :func:`classify` carries for rule 1, including resolving
-    the module constant at call time rather than as a default argument value so
-    a test that substitutes it is judging the substitute.
-    """
-    entries = ALLOWED_HANDLES if allowlist is None else allowlist
-    allowed = {entry.identity: entry for entry in entries}
-    matched: set[tuple[str, str]] = set()
-    violations: list[HandleSite] = []
-    for site in sites:
-        if site.identity in allowed:
-            matched.add(site.identity)
-        else:
-            violations.append(site)
-    obsolete = [entry for entry in entries if entry.identity not in matched]
-    return violations, obsolete
-
-
 def report(
     sites: list[ImportSite],
     violations: list[ImportSite],
@@ -616,13 +567,12 @@ def report(
     list_all: bool,
     as_json: bool,
     handle_sites: list[HandleSite] | None = None,
-    handle_violations: list[HandleSite] | None = None,
-    obsolete_handles: list[AllowedHandle] | None = None,
 ) -> int:
-    """Print the outcome of both rules and return the process exit code."""
-    handle_sites = handle_sites or []
-    handle_violations = handle_violations or []
-    obsolete_handles = obsolete_handles or []
+    """Print the outcome of both rules and return the process exit code.
+
+    Every handle site is a violation: rule 2 has no allowlist (#1638).
+    """
+    handle_violations = handle_sites or []
     if as_json:
         print(
             json.dumps(
@@ -639,19 +589,15 @@ def report(
                         for site in violations
                     ],
                     "obsolete_allowlist": [{"file": entry.path, "module": entry.module} for entry in obsolete],
-                    "handles": len(handle_sites),
                     "handle_violations": [
                         {"file": site.relative(), "line": site.line, "marker": site.marker}
                         for site in handle_violations
-                    ],
-                    "obsolete_handle_allowlist": [
-                        {"file": entry.path, "marker": entry.marker} for entry in obsolete_handles
                     ],
                 },
                 indent=2,
             )
         )
-        bad = violations or obsolete or handle_violations or obsolete_handles
+        bad = violations or obsolete or handle_violations
         return EXIT_DEFECTS if bad else EXIT_OK
 
     exit_code = EXIT_OK
@@ -704,36 +650,20 @@ def report(
             "any other name. All three are one finding on purpose, so changing spelling\n"
             "does not clear it.\n"
             "\n"
-            "Move the query behind a repository method reached through the interface the\n"
-            "service already depends on, or — if the crossing is deliberate and a reviewer\n"
-            "agrees — record it in ALLOWED_HANDLES in scripts/check_layer_imports.py with a\n"
-            "reason naming what would remove it."
-        )
-
-    if obsolete_handles:
-        if exit_code == EXIT_DEFECTS:
-            print()
-        exit_code = EXIT_DEFECTS
-        print(f"check_layer_imports: {len(obsolete_handles)} handle-allowlist entr(y/ies) match nothing any more\n")
-        for entry in obsolete_handles:
-            print(f"  {entry.path}: {entry.marker}")
-        print(
-            "\nThe crossing is gone — delete the entry too, in the same change. An entry that\n"
-            "matches nothing silently re-permits the handle the moment somebody reintroduces\n"
-            "it."
+            "Move the query behind a repository method reached through an interface under\n"
+            "app/domain/interfaces/, and inject the repository via app/common/dependencies.py.\n"
+            "There is no allowlist for this rule (#1638): a crossing cannot be recorded,\n"
+            "only removed."
         )
 
     if exit_code == EXIT_OK:
         print(
             f"check_layer_imports: OK — {len(sites)} recorded data-access import(s) in the API "
-            f"layer and {len(handle_sites)} recorded persistence handle(s) in the business "
-            "logic, no new ones."
+            "layer, no new ones, and no persistence handle in the business logic."
         )
         if list_all:
             for site in sites:
                 print(f"  {site.relative()}:{site.line}: {site.module}")
-            for site in handle_sites:
-                print(f"  {site.relative()}:{site.line}: {site.marker}")
 
     return exit_code
 
@@ -750,8 +680,8 @@ def main(argv: list[str] | None = None) -> int:
         description=(
             "Refuse a new app.data_access import under app/api, and a new persistence "
             "handle under app/domain (NFR-001). The existing crossings are recorded in "
-            "ALLOWED_IMPORTS / ALLOWED_HANDLES; an entry that matches nothing is an error "
-            "too."
+            "ALLOWED_IMPORTS; an entry that matches nothing is an error too. Rule 2 has no "
+            "allowlist."
         ),
     )
     parser.add_argument(
@@ -793,7 +723,6 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
 
     violations, obsolete = classify(sites)
-    handle_violations, obsolete_handles = classify_handles(handle_sites)
     return report(
         sites,
         violations,
@@ -801,8 +730,6 @@ def main(argv: list[str] | None = None) -> int:
         list_all=args.list_all,
         as_json=args.json,
         handle_sites=handle_sites,
-        handle_violations=handle_violations,
-        obsolete_handles=obsolete_handles,
     )
 
 

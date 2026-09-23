@@ -490,8 +490,9 @@ repos:
   # the #948 class. So rule 2 detects the class — an `arango` import, or a handle
   # detected three ways (an attribute named `_db`, the string "_db" behind a
   # getattr, a reach for `.aql` under any other name), reported as ONE finding so
-  # changing spelling does not clear it — and carries its own ALLOWED_HANDLES
-  # allowlist for the four modules that still cross.
+  # changing spelling does not clear it. It has NO allowlist: the four modules
+  # that still crossed were moved behind repositories in #1638 and the entry
+  # mechanism was removed with them, so a crossing can only be fixed, not recorded.
   # ── One declared personal-data inventory (#1622, REQ-025 / NFR-011) ────
   # `DataExportEngine.USER_DATA_MANIFEST` and `ErasureEngine.build_erasure_plan`
   # are the two enumerations an auditor reads to answer "what does this system
