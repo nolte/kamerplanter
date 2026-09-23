@@ -15,3 +15,4 @@ Abgrenzung:
 | ID | Titel | Status |
 |----|-------|--------|
 | [DEVTOOL-001](MCP-SERVERS.md) | MCP-Server-Integration für Claude Code | Verbindlich |
+| [DEVTOOL-002](PRECOMMIT-CONCURRENCY.md) | `task precommit` unter parallelen Arbeitskopien (#1641) | Messbericht |
