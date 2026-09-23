@@ -37,7 +37,7 @@ class TestErasureEnginePlan:
         assert rule.action == "hard_delete"
 
     def test_pest_image_collection_in_delete_order(self):
-        assert "pest_image_contributions" in ErasureEngine().DELETE_ORDER
+        assert "pest_image_contributions" in ErasureEngine.delete_order()
 
 
 def _tenant_service(pest_image_repo=None, ipm_repo=None, pest_inference_client=None):
