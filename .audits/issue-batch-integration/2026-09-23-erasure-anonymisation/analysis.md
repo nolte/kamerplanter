@@ -147,6 +147,10 @@ kein neues Issue.
 | #1663 | fullstack-developer | Integration gegen ArangoDB (v0057, v0056, Export-Walk) | `59 passed` (0 skipped) |
 | #1663 | fullstack-developer | `pytest tests/unit tests/api` | `12176 passed, 20 skipped` |
 | #1663 | Orchestrator-Nachprüfung auf `8f40622d6` | `pytest test_privacy_inventory_check.py test_privacy_engines.py test_user_repository_delete_cascade.py` + Guard | `64 passed in 0.67s`; Guard wie oben |
+| #1664 | fullstack-developer | Reach-Test `tests/integration/test_account_erasure_reach.py` gegen alten Code (`git archive`) | `7 failed, 1 passed` (u. a. `16 survivors, first 'requested_export/user-a-requested-export'`, `'user-a' == 'anon_48099593a3b59952'`) |
+| #1664 | fullstack-developer | Reach-Test neu | `8 passed`; pro Schritt 1 Zeile, `_anonymize_collections` 8, `_pseudonymize_audit_collections` 1; zweiter Lauf überall 0; Gegenprobe ohne Transaktion rot |
+| #1664 | fullstack-developer | `pytest tests/unit tests/api` | `12204 passed, 20 skipped` |
+| #1664 | Orchestrator-Nachprüfung auf `9c9aacf91` | Reach-Test + `tests/unit/domain/services tests/unit/api/test_admin_platform_erasure_routing.py -k "privacy or erasure"` | `8 passed, 1 warning in 1.87s`; `113 passed, 2052 deselected` |
 
 ## Deviations
 
@@ -158,3 +162,7 @@ kein neues Issue.
 | #1663 | local adaptation | v0057 eigenständig (v0056-Quelltext ist per `test_applied_migration_sources_are_frozen` eingefroren); `quality_assessments` als Art.-15-Quelle mit `attribution_gap` ergänzt. |
 | #1663 | local adaptation | NFR-011 Promotion-Audit-Log R-19 → **R-24** (R-23 in `COMPLIANCE-PLAN.md` belegt); REQ-001-Verweise nachgezogen; `bulletin_*`, `shared_shopping_lists`, `promotion_audit_log` zusätzlich als nicht implementiert markiert. |
 | #1664 | local adaptation (Scope aus #1663-Messung) | `pest_image_cleanup`-Executor hat keinen Laufzeitaufrufer → der gemeinsame Executor muss jeden deklarierten Slice erreichen; NFR-011 R-22 nennt `assigned_to` statt `assigned_to_user_key` → Doku-Spalte #1664. |
+| #1664 | local adaptation | Messung widerlegt „`pest_image_cleanup` ohne Aufrufer“: `_run_pest_image_document_cleanup` läuft aus `run_user_storage_erasure`. Echte Lücke: Storage-Regel lief nur über Mitglieds-Tenants → Pest-Foto-Bytes in verlassenen Tenants blieben; geschlossen (`_erasure_tenant_keys`). |
+| #1664 | local adaptation | `erase_account` löscht Art.-15-Export-Dateien vor dem Executor (sonst verwaiste Dateien nach Löschung von `data_export_requests`). `UserService.delete_account_permanently` und `IMembershipRepository.delete_all_for_user` entfernt (eine Ausführung statt Kopie). |
+| #1664 | local adaptation | Stream-Transaktion über alle Collections; ohne gültiges `ERASURE_TOMBSTONE_SALT` → 503 vor jedem Schreibzugriff. Prod: Salt ist bereits Boot-Blocker bei `DEBUG=false`; E2E-Compose setzt es; nur der Dev-Stack (`DEBUG=true`) ohne Salt sieht jetzt 503 statt stiller Nicht-Anonymisierung. |
+| #1664 | out of scope → Folge-Issue | `pest_image_contributions.promoted_by`, `attachments.created_by` nach Byte-Löschung, `location_assignments.user_key`, Unverified-Cleanup ohne Memberships. |
