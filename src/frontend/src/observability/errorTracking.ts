@@ -28,6 +28,34 @@ import { runtimeConfig } from '@/config/runtimeConfig';
 type SentryModule = typeof import('@sentry/react');
 
 /**
+ * The SDK's `dataCollection` contract, derived from `init`'s own parameter
+ * type so it tracks whichever SDK version is installed. (`@sentry/core`
+ * exports the `DataCollection` name only from 11 on; the derivation compiles
+ * on 10.x and 11 alike.)
+ */
+type DataCollection = NonNullable<
+  NonNullable<Parameters<SentryModule['init']>[0]>['dataCollection']
+>;
+
+/**
+ * Every category the SDK can collect, minus the three that are deliberately
+ * not decided here. `Required` is the point: the resolver takes the SDK's
+ * *permissive* default for any category the block does not name, so a minor
+ * SDK bump that adds a category must fail the typecheck rather than start
+ * collecting it in production.
+ *
+ * - `frameContextLines`: source code around a frame, not personal data. Not
+ *   pinned, so it follows the SDK default — 7 under the old `sendDefaultPii`
+ *   bridge, 5 once `dataCollection` is set (the resolver switches its base).
+ * - `queryParams`: the deprecated 10.x alias of `urlQueryParams`; gone in 11.
+ * - `queues`: 11-only, server-side messaging instrumentation with no browser
+ *   reader, and absent from the 10.x typings this must still compile against.
+ */
+type DecidedDataCollection = Required<
+  Omit<DataCollection, 'frameContextLines' | 'queryParams' | 'queues'>
+>;
+
+/**
  * The closed stage vocabulary. Identical to `ENVIRONMENTS` in
  * `src/libs/kp_errortracking/kp_errortracking/error_tracking.py` — alert rules
  * filter on these exact strings across backend, worker and browser.
@@ -199,13 +227,9 @@ export async function initErrorTracking(): Promise<boolean> {
       // `dataCollection`"). Every category is switched off by name, which is
       // stricter than the old `sendDefaultPii: false` bridge (that kept
       // deny-listed headers/cookies/query params and stack-frame variables).
-      // Option names are quoted from `DataCollection` in
-      // `@sentry/core/build/types/types/datacollection.d.ts` (present since
-      // 10.x, so this compiles on develop's current version and on 11).
-      // `queues` (v11-only, server-side messaging instrumentation) is not in
-      // the 10.x typings and has no browser reader, so it is not listed.
-      // `frameContextLines` is source code around a frame, not personal data,
-      // and stays at the SDK default.
+      // Option names are the SDK's own (`DataCollection` in
+      // `@sentry/core/build/types/types/datacollection.d.ts`); the
+      // `satisfies` closes the set — see `DecidedDataCollection`.
       dataCollection: {
         userInfo: false,
         cookies: false,
@@ -216,7 +240,7 @@ export async function initErrorTracking(): Promise<boolean> {
         genAI: { inputs: false, outputs: false },
         databaseQueryData: false,
         stackFrameVariables: false,
-      },
+      } satisfies DecidedDataCollection,
       sampleRate: resolveSampleRate(config.SENTRY_SAMPLE_RATE),
       // Performance tracing stays advisory per the observability spec and is
       // off until someone decides to adopt it.

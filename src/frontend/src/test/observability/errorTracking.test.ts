@@ -42,6 +42,8 @@ describe('errorTracking', () => {
     it('does nothing when no runtime config was served at all', async () => {
       await expect(initErrorTracking()).resolves.toBe(false);
       expect(isErrorTrackingActive()).toBe(false);
+      // The chunk contract: nothing was even imported, let alone initialised.
+      expect(sentryStub.init).not.toHaveBeenCalled();
     });
 
     it('does nothing when the DSN is present but empty', async () => {
@@ -51,6 +53,8 @@ describe('errorTracking', () => {
 
       await expect(initErrorTracking()).resolves.toBe(false);
       expect(isErrorTrackingActive()).toBe(false);
+      // The chunk contract: nothing was even imported, let alone initialised.
+      expect(sentryStub.init).not.toHaveBeenCalled();
     });
   });
 
@@ -78,6 +82,23 @@ describe('errorTracking', () => {
         stackFrameVariables: false,
       });
       expect(options).not.toHaveProperty('sendDefaultPii');
+    });
+
+    it('wires the scrubbing hooks the PII policy relies on', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: 'https://key@tracker.example/1' };
+
+      await expect(initErrorTracking()).resolves.toBe(true);
+
+      const options = sentryStub.init.mock.calls[0]![0] as {
+        beforeSend: (event: Record<string, unknown>) => Record<string, unknown>;
+        beforeBreadcrumb: (crumb: Record<string, unknown>) => Record<string, unknown> | null;
+      };
+      // Driven through the options actually handed to the SDK, not through
+      // `scrubEvent` directly: the wiring is what this case certifies.
+      const sent = options.beforeSend({ request: { cookies: { session: 'x' }, url: '/plants' } });
+      expect((sent.request as Record<string, unknown>).cookies).toBeUndefined();
+      expect((sent.request as Record<string, unknown>).url).toBe('/plants');
+      expect(options.beforeBreadcrumb({ category: 'ui.input' })).toBeNull();
     });
   });
 
