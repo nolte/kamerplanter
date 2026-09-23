@@ -264,20 +264,18 @@ def delete_user(
 
     Cannot delete yourself.
 
-    SEC-003: runs the REQ-025 Phase 0 / 0.5 storage cleanup
-    (``run_user_storage_erasure`` — object storage + contributed reference-index
-    vectors) **before** the account hard-delete. That cleanup resolves the user's
-    tenants via their memberships, so it must run while they still exist —
-    otherwise the user's binary data and contributed embeddings would be
-    orphaned, the same gap the scheduled erasure closes.
+    Runs the declared REQ-025 erasure plan through
+    ``PrivacyService.erase_account`` (#1664) — the one entry both
+    account-deletion paths share: stored export bundles, the Phase 0 / 0.5
+    object-storage and reference-index cleanup, the pest-image documents, and
+    then the ArangoDB plan in one transaction (edges and documents removed,
+    retained harvest / treatment / inspection / quality / task / diary rows
+    anonymised, erasure audit rows pseudonymised, the user document last).
 
-    The ArangoDB cascade routes through ``UserService.delete_account_permanently``
-    (#1019): eight raw-AQL ``REMOVE``s used to run from this router past the
-    service layer (NFR-001). It now removes the user's memberships (+ edges) via
-    the membership repository, then the user document and its remaining
-    single-user artefacts (auth providers, tokens, sessions, API keys,
-    preferences, onboarding state) via the user repository. Membership removal
-    stays after the storage cleanup, preserving the SEC-003 ordering.
+    Until #1664 this route called the storage cleanup and a narrower account
+    cascade separately; neither applied an anonymisation rule, and consents,
+    export requests, restrictions, favourites, identification requests and
+    pest detections of the deleted user were left behind.
     """
     from app.common.async_bridge import run_async
 
@@ -286,10 +284,7 @@ def delete_user(
     if current_user.key == key:
         raise ForbiddenError("You cannot delete your own account from the admin panel.")
 
-    # ── REQ-025 Phase 0 / 0.5 (SEC-003) — must precede membership removal ──
-    run_async(privacy_service.run_user_storage_erasure(key))
-
-    user_service.delete_account_permanently(key)
+    run_async(privacy_service.erase_account(key))
 
 
 # ── Tenant membership management ──────────────────────────────────────

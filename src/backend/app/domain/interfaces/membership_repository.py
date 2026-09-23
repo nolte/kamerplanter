@@ -57,13 +57,3 @@ class IMembershipRepository(ABC):
 
     @abstractmethod
     def delete_all_for_tenant(self, tenant_key: str) -> int: ...
-
-    @abstractmethod
-    def delete_all_for_user(self, user_key: str) -> int:
-        """Delete every membership of one user, with its graph edges (#1019).
-
-        The user-perspective twin of :meth:`delete_all_for_tenant`; the
-        platform-admin ``delete_user`` cascade routes its membership removal
-        through here instead of hand-writing the ``REMOVE`` + edge cleanup in the
-        router. Returns the number of memberships removed.
-        """

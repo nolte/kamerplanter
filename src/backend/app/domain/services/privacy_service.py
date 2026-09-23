@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import secrets
 from collections.abc import AsyncIterator
@@ -13,6 +14,7 @@ import structlog
 from app.common.decoys import decoy_document_key, email_digest
 from app.common.exceptions import (
     DuplicateError,
+    FeatureNotConfiguredError,
     InvalidTokenError,
     NotFoundError,
     UnauthorizedError,
@@ -30,6 +32,7 @@ from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.interfaces.data_export_repository import IDataExportRepository
 from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.erasure_executor import IErasureExecutor
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
@@ -43,6 +46,7 @@ from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.privacy import (
+    AccountErasureReport,
     ConsentRecord,
     ConsentWithPurpose,
     DataControllerInfo,
@@ -143,6 +147,8 @@ class PrivacyService:
         ipm_repo: IIpmRepository | None = None,
         pest_inference_client: PestDetectionInferenceClient | None = None,
         personal_data_repo: IPersonalDataRepository | None = None,
+        erasure_executor: IErasureExecutor | None = None,
+        tombstone_salt: str = "",
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -184,6 +190,12 @@ class PrivacyService:
         # absent an export run fails *visibly* rather than silently delivering
         # nothing, which is the whole point of #1645.
         self._personal_data_repo = personal_data_repo
+        # REQ-025 Art. 17 — the write side of the declared erasure plan (#1664)
+        # and the NFR-011 §4 salt its tombstone hashes are built from. Optional
+        # for the same reason as above; :meth:`erase_account` refuses to start
+        # without either, before it touches anything.
+        self._erasure_executor = erasure_executor
+        self._tombstone_salt = tombstone_salt
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -1145,6 +1157,98 @@ class PrivacyService:
         )
         return True
 
+    async def erase_account(self, user_key: UserKey) -> AccountErasureReport:
+        """Erase one account: every declared phase, then the ArangoDB plan (#1664).
+
+        The single entry both account-deletion paths share. The platform-admin
+        ``DELETE /admin/platform/users/{key}`` calls it today; the scheduled
+        self-service Art. 17 path (:meth:`_finalize_erasure`) is to call it in
+        place of :meth:`run_user_storage_erasure` (#1645).
+
+        Order, and why:
+
+        1. **Refuse before touching anything** when the executor or the NFR-011
+           §4 tombstone salt is missing — a half-run erasure is worse than none.
+        2. **Export bundles** (object storage): the ``data_export_requests``
+           documents are the only pointer to a stored Art. 15 bundle, and step 4
+           removes them.
+        3. **Phase 0 / 0.5 / pest images** (:meth:`run_user_storage_erasure`):
+           they resolve the user's tenants through the memberships step 4 removes.
+        4. **The ArangoDB plan** via :class:`IErasureExecutor`, in one
+           transaction: edges and documents removed, retained rows anonymised,
+           audit rows pseudonymised, the user document last.
+
+        Every phase is idempotent, so a crash anywhere is repaired by running
+        this again; nothing a first run missed is skipped by the second.
+
+        Returns:
+            Per-phase and per-step counts. Logged without the rows' content.
+
+        Raises:
+            FeatureNotConfiguredError: ``ERASURE_TOMBSTONE_SALT`` is missing or
+                shorter than NFR-011 §4 requires (HTTP 503).
+        """
+        if self._erasure_executor is None:  # pragma: no cover - guarded by wiring
+            raise RuntimeError(
+                "PrivacyService.erase_account requires an erasure_executor; "
+                "construct the service with one (see app.common.dependencies)."
+            )
+        try:
+            tombstone = self._erasure_engine.compute_tombstone_hash(user_key, self._tombstone_salt)
+        except ValueError as exc:
+            raise FeatureNotConfiguredError(
+                "account_erasure",
+                "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters.",
+            ) from exc
+        plan = self._erasure_engine.build_erasure_plan(user_key)
+
+        report = AccountErasureReport()
+        report.export_files_removed = await self._run_export_file_cleanup(user_key)
+        scopes, reference_removed, pest_removed = await self._run_pre_arango_phases(user_key)
+        report.storage_cleanup_scopes = scopes
+        report.reference_index_removed = reference_removed
+        # The pest-image cleanup removes the rows of the step attributed to it;
+        # the executor's own pass over that step is the safety net.
+        for step in plan.steps:
+            if step.executor == "pest_image_cleanup":
+                report.delegated_removed[step.collection] = pest_removed
+        report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
+
+        logger.info(
+            "erasure.account_erased",
+            user_key=user_key,
+            export_files_removed=report.export_files_removed,
+            storage_cleanup_scopes=report.storage_cleanup_scopes,
+            reference_index_removed=report.reference_index_removed,
+            delegated_removed=report.delegated_removed,
+            arango_steps={step.collection: step.affected for step in report.arango.steps},
+        )
+        return report
+
+    async def _run_export_file_cleanup(self, user_key: str) -> int:
+        """Delete the stored Art. 15 bundles of *user_key* before their records go.
+
+        ``data_export_requests.file_path`` is the only pointer to a bundle in
+        object storage. The ArangoDB plan removes those documents, so a bundle
+        not deleted here first would sit in storage for good — a complete
+        disclosure of the erased user's data that nothing can find again
+        (NFR-011 R-05 is precisely "delete the file"). A failed delete raises
+        and stops the erasure before the pointer is lost; a re-run retries it.
+        """
+        if self._storage_adapter is None:
+            logger.info(
+                "retention.erasure.export_file_cleanup_skipped",
+                user_key=user_key,
+                reason="storage adapter not wired",
+            )
+            return 0
+        removed = 0
+        for export in self._export_repo.list_by_user(user_key):
+            if export.file_path:
+                await self._storage_adapter.delete_object(export.file_path)
+                removed += 1
+        return removed
+
     async def run_user_storage_erasure(self, user_key: str) -> list[str]:
         """Run Phase 0 + Phase 0.5 storage cleanup for a single user.
 
@@ -1158,10 +1262,19 @@ class PrivacyService:
         memberships are removed — the per-tenant storage walk resolves the
         user's tenants via ``membership_repo`` and would otherwise find none.
         """
-        scopes = await self._run_storage_cleanup(user_key)
-        await self._run_reference_index_cleanup(user_key)
-        self._run_pest_image_document_cleanup(user_key)
+        scopes, _, _ = await self._run_pre_arango_phases(user_key)
         return scopes
+
+    async def _run_pre_arango_phases(self, user_key: str) -> tuple[list[str], int, int]:
+        """Phase 0, Phase 0.5 and the pest-image documents, with their counts.
+
+        Returns ``(storage scopes applied, reference vectors removed, pest-image
+        contributions removed)``.
+        """
+        scopes = await self._run_storage_cleanup(user_key)
+        reference_removed = await self._run_reference_index_cleanup(user_key)
+        pest_removed = self._run_pest_image_document_cleanup(user_key)
+        return scopes, reference_removed, pest_removed
 
     def _run_pest_image_document_cleanup(self, user_key: str) -> int:
         """REQ-010 — drop the user's ``pest_image_contributions`` link documents.
@@ -1226,7 +1339,7 @@ class PrivacyService:
             )
             return []
 
-        tenant_keys = self._user_tenant_keys(user_key)
+        tenant_keys = self._erasure_tenant_keys(user_key)
         applied_scopes: list[str] = []
         for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
             for tenant_key in tenant_keys:
@@ -1304,6 +1417,27 @@ class PrivacyService:
             removed=removed,
         )
         return removed
+
+    def _erasure_tenant_keys(self, user_key: str) -> list[str]:
+        """The tenants whose object storage may hold the user's files.
+
+        The user's member tenants, plus every tenant holding one of their pest
+        reference contributions (#1664). A contribution outlives its author's
+        membership: a user who left a tenant still owns the pest images they
+        uploaded there, and the ``user_pest_reference_images`` rule, walking
+        member tenants only, never reached those bytes — while the pest-image
+        cleanup removed the link documents that pointed at them.
+
+        Deliberately **not** :meth:`_user_tenant_keys`: the Art. 15 export is
+        restricted to member tenants (#1662 SCR-001), erasure must reach
+        further.
+        """
+        keys = self._user_tenant_keys(user_key)
+        if self._pest_image_repo is not None:
+            for contribution in self._pest_image_repo.list_for_user(user_key):
+                if contribution.tenant_key and contribution.tenant_key not in keys:
+                    keys.append(contribution.tenant_key)
+        return keys
 
     def _user_tenant_keys(self, user_key: str) -> list[str]:
         """Return the distinct tenant keys the user is a member of."""
