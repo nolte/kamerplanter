@@ -223,9 +223,15 @@ def create_quality_assessment(
     ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    """Record a quality assessment for a harvest batch."""
+    """Record a quality assessment for a harvest batch.
+
+    ``assessed_by_key`` is the caller's account, taken from the resolved context
+    and never from the body (#1663): ``QualityAssessmentCreate`` does not
+    declare the field, so a body carrying it is ignored by the schema and the
+    stored value is always this one.
+    """
     service.get_batch(batch_key, tenant_key=ctx.tenant_key)
-    assessment = QualityAssessment(**body.model_dump())
+    assessment = QualityAssessment(**body.model_dump(), assessed_by_key=ctx.user_key)
     created = service.create_quality_assessment(batch_key, assessment)
     return _quality_response(created)
 

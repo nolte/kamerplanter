@@ -34,13 +34,14 @@ class ErasureEngine:
     # marker; the document itself survives. A collection may appear more than
     # once when it carries several user references (see ``plant_diary_entries``).
     #
-    # The three retention rules key on the server-set ``*_by_key`` fields
-    # (#1669). Until then they keyed on ``harvester`` / ``applied_by`` /
-    # ``inspector`` — free text typed by the user — and were inert: a rule that
-    # matches "whatever was typed" never finds the account being erased
-    # (measured on #1662, recorded on #1663). Those rules are **replaced**, not
-    # kept beside these, so no reader can mistake the old shape for a second
-    # path. Rows written before #1669 carry ``null`` in the key field and are
+    # The four retention rules key on the server-set ``*_by_key`` fields (#1669;
+    # ``quality_assessments.assessed_by_key`` since #1663). Until then they
+    # keyed on ``harvester`` / ``applied_by`` / ``inspector`` — free text typed
+    # by the user — and were inert: a rule that matches "whatever was typed"
+    # never finds the account being erased (measured on #1662, recorded on
+    # #1663). Those rules are **replaced**, not kept beside these, so no reader
+    # can mistake the old shape for a second path. Rows written before #1669
+    # (#1663 for quality assessments) carry ``null`` in the key field and are
     # not reached by design — guessing an owner from the free text is exactly
     # the backfill the issue forbids.
     ANONYMIZE_COLLECTIONS: list[AnonymizationRule] = [
@@ -53,6 +54,20 @@ class ErasureEngine:
                 "CanG: 5-year retention for harvest documentation. The account key becomes a "
                 "tombstone hash so the erased user's harvests stay linkable to each other for "
                 "the audit; the free-text harvester name is cleared."
+            ),
+        ),
+        AnonymizationRule(
+            # #1663 — the assessment belongs to the harvest record (NFR-011
+            # R-16 lists ``quality_assessments`` beside ``harvest_batches``).
+            # ``yield_metrics`` is R-16 too but carries no user field at all
+            # (``models/harvest.py::YieldMetric``), so it needs no rule.
+            collection="quality_assessments",
+            user_field="assessed_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["assessed_by"],
+            reason=(
+                "NFR-011 R-16 / CanG: 5-year retention for harvest documentation, including the "
+                "quality assessment. Key pseudonymised, free-text assessor name cleared."
             ),
         ),
         AnonymizationRule(

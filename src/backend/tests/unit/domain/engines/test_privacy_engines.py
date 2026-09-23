@@ -10,7 +10,7 @@ from app.domain.engines.consent_engine import DIARY_AI_ANALYSIS, ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
-from app.domain.models.harvest import HarvestBatch
+from app.domain.models.harvest import HarvestBatch, QualityAssessment, YieldMetric
 from app.domain.models.identification import IdentificationRequest
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.membership import Membership
@@ -45,6 +45,7 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "data_export_requests": DataExportRequest,
     "tasks": Task,
     "harvest_batches": HarvestBatch,
+    "quality_assessments": QualityAssessment,
     "inspections": Inspection,
     "treatment_applications": TreatmentApplication,
     "plant_diary_entries": PlantDiaryEntry,
@@ -156,6 +157,7 @@ class TestDataExportEngine:
         by_collection = {e.collection: e for e in engine.build_export_manifest("u1")}
         expected = {
             "harvest_batches": "harvested_by_key",
+            "quality_assessments": "assessed_by_key",
             "inspections": "inspected_by_key",
             "treatment_applications": "applied_by_key",
         }
@@ -164,10 +166,13 @@ class TestDataExportEngine:
             assert entry.filter_field == key_field, collection
             assert entry.disclosure_gap is None, collection
             assert entry.attribution_gap, f"{collection}: the legacy null rows must be stated"
-            assert entry.tenant_scoped is True, collection
+            # ``quality_assessments`` carries no ``tenant_key`` (it hangs off its
+            # batch), so a tenant clause would match nothing (#1663).
+            assert entry.tenant_scoped is (collection != "quality_assessments"), collection
             # The display name is not what the walk keys on, and it is not
             # delivered as if it were an attribution.
-            assert entry.filter_field not in ("harvester", "inspector", "applied_by")
+            assert entry.filter_field not in ("harvester", "inspector", "applied_by", "assessed_by")
+        assert "v0057" in by_collection["quality_assessments"].attribution_gap
         # No production source is undisclosable any more; the mechanism stays
         # (``DataSourceDefinition.disclosure_gap``) for a future category.
         assert not [e.collection for e in by_collection.values() if e.disclosure_gap]
@@ -332,6 +337,7 @@ class TestErasureEngine:
         rules = {rule.collection: rule for rule in pseudonymised}
         expected = {
             "harvest_batches": ("harvested_by_key", "harvester"),
+            "quality_assessments": ("assessed_by_key", "assessed_by"),
             "inspections": ("inspected_by_key", "inspector"),
             "treatment_applications": ("applied_by_key", "applied_by"),
         }
@@ -344,12 +350,29 @@ class TestErasureEngine:
         display_keyed = [
             f"{rule.collection}.{rule.user_field}"
             for rule in engine.ANONYMIZE_COLLECTIONS
-            if rule.user_field in ("harvester", "inspector", "applied_by")
+            if rule.user_field in ("harvester", "inspector", "applied_by", "assessed_by")
         ]
         assert display_keyed == [], "an inert free-text rule survived beside the key rule"
         # Exactly one rule per retained collection: replaced, not duplicated.
         for collection in expected:
             assert sum(1 for rule in engine.ANONYMIZE_COLLECTIONS if rule.collection == collection) == 1
+
+    def test_yield_metrics_carries_no_user_field_and_therefore_no_rule(self):
+        """#1663 — NFR-011 R-16 names ``yield_metrics``, but there is nobody in it.
+
+        Measured: ``YieldMetric`` holds weights, a waste percentage and its
+        batch key. An anonymisation rule needs a field to match the subject on;
+        declaring one here would address a field that does not exist. Should a
+        user reference ever be added to the model, this goes red and the rule
+        has to be written.
+        """
+        user_like = [
+            name
+            for name in YieldMetric.model_fields
+            if name.endswith(("_by", "_by_key", "user_key")) or name in ("created_by", "owner")
+        ]
+        assert user_like == []
+        assert "yield_metrics" not in {rule.collection for rule in ErasureEngine.ANONYMIZE_COLLECTIONS}
 
     def test_anonymized_collection_names_are_reported_once(self):
         """AK-08a — the confirmation lists categories, not rules."""
