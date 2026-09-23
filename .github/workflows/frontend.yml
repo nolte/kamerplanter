@@ -26,7 +26,18 @@ name: Frontend CI
 on:
   push:
     branches: [develop]
-    paths: ['src/frontend/**', '.github/workflows/frontend.yml']
+    paths:
+      - 'src/frontend/**'
+      - '.github/workflows/frontend.yml'
+      # The same inputs the `frontend` paths-filter below names, for the post-merge run on
+      # develop (NFR-018 §4.2): every job runs through `task` (Taskfile.yaml plus every included
+      # Taskfile), knip honours the root .gitignore, and the CVE gate runs the audit script against
+      # its allowlist. Measured 2026-09-23 with scripts/ci/lane_inputs.py (#1596).
+      - 'Taskfile.yaml'
+      - '.taskfiles/**'
+      - '.gitignore'
+      - 'scripts/security/npm_audit_gate.py'
+      - 'tests/security/npm-audit-allowlist.yaml'
   pull_request:
     branches: [develop]
   schedule:
@@ -69,6 +80,17 @@ jobs:
             frontend:
               - 'src/frontend/**'
               - '.github/workflows/frontend.yml'
+              # Every step runs through `task`, which parses Taskfile.yaml and EVERY included
+              # Taskfile (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596). Without
+              # these a Taskfile-only change skipped the required lint-test-build context.
+              - 'Taskfile.yaml'
+              - '.taskfiles/**'
+              # knip (the advisory deadcode job) honours the root .gitignore; the CVE gate runs
+              # scripts/security/npm_audit_gate.py against tests/security/npm-audit-allowlist.yaml.
+              # All three measured 2026-09-23 (#1596); the filter gates every one of these jobs.
+              - '.gitignore'
+              - 'scripts/security/npm_audit_gate.py'
+              - 'tests/security/npm-audit-allowlist.yaml'
 
   # REQUIRED check. The job itself always runs; only its *steps* are conditional.
   #

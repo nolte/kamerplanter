@@ -1,0 +1,41 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: frontend.yml
+job: npm-audit-dev
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 6ef72619fa427d0912e47a28a963eb28e79274e041ed5382b85ae108958b153f
+invocations:
+- command: python3 ../../scripts/security/npm_audit_gate.py
+  cwd: src/frontend
+  recorder: strace -ff -y -z
+  exit_code: 1
+  env: []
+  untracked_reads_dropped: 0
+  allow_failure_reason: 'Exit 1 is the gate''s own verdict, reached after every read: `npm audit --json` on the recording
+    workstation reported high advisories in the dev tree (js-yaml, lighthouse, lodash-es, puppeteer-core, tmp, undici) that
+    tests/security/npm-audit-allowlist.yaml does not accept. The gate reads the allowlist and the audit output before it decides,
+    so the failure path skipped no tracked read; this is the advisory dev-tree lane, and the same verdict is what CI reports
+    for the same tree.'
+subprocesses:
+- asdf
+- basename
+- bash
+- dirname
+- node
+- npm
+- python3
+accepted_gaps: []
+reads:
+- scripts/security/
+- scripts/security/npm_audit_gate.py
+- src/frontend/.tool-versions
+- src/frontend/package-lock.json
+- src/frontend/package.json
+- tests/security/npm-audit-allowlist.yaml
