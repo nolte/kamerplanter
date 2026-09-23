@@ -759,13 +759,22 @@ class PrivacyService:
             )
             return export
 
+        # The Art. 15 scope comes from the declared manifest, read here rather
+        # than restated (#1622). Recording it on the request is what makes the
+        # disclosure auditable: the record says which sources the run took into
+        # scope, and the answer is the manifest itself, not a second list.
+        manifest = self._data_export_engine.build_export_manifest(export.user_key)
+        export.manifest_collections = [source.collection for source in manifest]
+
         logger.info(
             "retention.process_data_export.scaffold",
             export_key=export_key,
+            manifest_sources=len(manifest),
             note="full data-walk and S3 upload pending NFR-013",
         )
         # Scaffolded transition: flip pending → processing so the run is
-        # observable; the worker that lands NFR-013 finishes the flow.
+        # observable; the worker that lands NFR-013 finishes the flow. Until it
+        # does, **no bundle is produced at all** — see #1622.
         export.status = "processing"
         export.processing_started_at = datetime.now(UTC)
         return self._export_repo.update(export_key, export)
