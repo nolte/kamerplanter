@@ -24,10 +24,15 @@ from __future__ import annotations
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, SYSTEM_DATABASE
+from tests.support.arango_integration import (
+    ARANGO_PASSWORD,
+    ARANGO_URL,
+    ARANGO_USERNAME,
+    SYSTEM_DATABASE,
+    run_database_name,
+)
 
-_DB_NAME = "kamerplanter_v0046_migration_test"
-
+_DB_NAME = run_database_name("v0046_migration")
 # The server probe lives in tests/integration/conftest.py (``arango_db``): one
 # probe for the tier, a loud failure under CI, a skip with the address locally.
 # A private ``ARANGO_AVAILABLE`` copy here would be the self-skip #1432 retired.

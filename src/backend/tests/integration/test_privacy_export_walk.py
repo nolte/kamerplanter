@@ -45,9 +45,9 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.personal_data_repository import ArangoPersonalDataRepository
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = "kamerplanter_privacy_export_test"
+TEST_DATABASE = run_database_name("privacy_export")
 
 SUBJECT = "subject-user"
 OTHER = "other-user"

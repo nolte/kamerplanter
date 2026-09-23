@@ -1,0 +1,34 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: docker-publish.yml
+job: build-embedding-service
+gate:
+  kind: paths-filter
+  filter: embedding-service
+status: derived
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 3ee2d90be459b202f480cf6515cf0315061b728a91dedeb4a0bb1dd3e8434365
+invocations:
+- command: derive-docker --context docker/embedding-service --dockerfile docker/embedding-service/Dockerfile
+  cwd: .
+  recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
+    COPY/ADD sources
+  copy_sources:
+  - pyproject.toml
+  - uv.lock
+  - pyproject.toml
+  - uv.lock
+  - main.py
+  context_files_after_dockerignore: 6
+subprocesses: []
+accepted_gaps: []
+reads:
+- docker/embedding-service/.dockerignore
+- docker/embedding-service/Dockerfile
+- docker/embedding-service/main.py
+- docker/embedding-service/pyproject.toml
+- docker/embedding-service/uv.lock

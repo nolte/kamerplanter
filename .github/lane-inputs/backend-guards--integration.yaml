@@ -1,0 +1,146 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: backend-guards.yml
+job: integration
+gate:
+  kind: paths-filter
+  filter: integration
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: 19ead787396ebaec745dadc74a2877043fa722a9
+job_spec_sha256: 136415bd26161fe3211678d279bb9b8b5aaa11bd7c7fe5b076f78e474516d025
+invocations:
+- command: task test:backend:integration
+  cwd: src/backend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env:
+  - ARANGODB_HOST=localhost
+  - ARANGODB_PASSWORD=rootpassword
+  - ARANGODB_PORT=8529
+  - ARANGODB_USERNAME=root
+  untracked_reads_dropped: 2080
+- command: task deps:sync
+  cwd: src/backend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 139
+subprocesses:
+- asdf
+- bash
+- collect2
+- gcc
+- ld
+- ldconfig
+- ldconfig.real
+- python
+- task
+- uv
+accepted_gaps: []
+reads:
+- .taskfiles/backend.yaml
+- .taskfiles/checks.yaml
+- .taskfiles/claude.yaml
+- .taskfiles/deploy.yaml
+- .taskfiles/dev.yaml
+- .taskfiles/docs.yaml
+- .taskfiles/e2e.yaml
+- .taskfiles/frontend.yaml
+- .taskfiles/libs.yaml
+- .taskfiles/mcp.yaml
+- Taskfile.yaml
+- src/backend/
+- src/backend/app/
+- src/backend/app/api/
+- src/backend/app/api/v1/
+- src/backend/app/api/v1/activity_plans/
+- src/backend/app/api/v1/actuators/
+- src/backend/app/api/v1/aquaponik/
+- src/backend/app/api/v1/attachments/
+- src/backend/app/api/v1/auth/
+- src/backend/app/api/v1/calendar/
+- src/backend/app/api/v1/care_reminders/
+- src/backend/app/api/v1/dashboard/
+- src/backend/app/api/v1/diagnose/
+- src/backend/app/api/v1/diary/
+- src/backend/app/api/v1/equipment/
+- src/backend/app/api/v1/favorites/
+- src/backend/app/api/v1/feeding_events/
+- src/backend/app/api/v1/fertilizers/
+- src/backend/app/api/v1/glossar/
+- src/backend/app/api/v1/ha_publish/
+- src/backend/app/api/v1/hardiness_zones/
+- src/backend/app/api/v1/harvest/
+- src/backend/app/api/v1/inventree/
+- src/backend/app/api/v1/ipm/
+- src/backend/app/api/v1/ki_assistent/
+- src/backend/app/api/v1/locations/
+- src/backend/app/api/v1/mcp/
+- src/backend/app/api/v1/notifications/
+- src/backend/app/api/v1/nutrient_calculations/
+- src/backend/app/api/v1/nutrient_plans/
+- src/backend/app/api/v1/observations/
+- src/backend/app/api/v1/onboarding/
+- src/backend/app/api/v1/overwintering_profiles/
+- src/backend/app/api/v1/pest_detection/
+- src/backend/app/api/v1/plant_instances/
+- src/backend/app/api/v1/planting_runs/
+- src/backend/app/api/v1/planting_runs/tenant_router.py
+- src/backend/app/api/v1/post_harvest/
+- src/backend/app/api/v1/print/
+- src/backend/app/api/v1/propagation/
+- src/backend/app/api/v1/propagation/tenant_router.py
+- src/backend/app/api/v1/recognition/
+- src/backend/app/api/v1/season/
+- src/backend/app/api/v1/season/tenant_router.py
+- src/backend/app/api/v1/sites/
+- src/backend/app/api/v1/slots/
+- src/backend/app/api/v1/starter_kits/
+- src/backend/app/api/v1/succession_plans/
+- src/backend/app/api/v1/tanks/
+- src/backend/app/api/v1/tasks/
+- src/backend/app/api/v1/tenant_scoped/
+- src/backend/app/api/v1/tenant_scoped/cv_diagnosis/
+- src/backend/app/api/v1/tenant_scoped/weather/
+- src/backend/app/api/v1/user_preferences/
+- src/backend/app/api/v1/watering_events/
+- src/backend/app/api/v1/watering_logs/
+- src/backend/app/common/
+- src/backend/app/config/
+- src/backend/app/core/
+- src/backend/app/data_access/
+- src/backend/app/data_access/arango/
+- src/backend/app/data_access/arango/care_reminder_repository.py
+- src/backend/app/data_access/arango/collections.py
+- src/backend/app/data_access/external/
+- src/backend/app/data_access/repositories/
+- src/backend/app/data_access/storage/
+- src/backend/app/domain/
+- src/backend/app/domain/calculators/
+- src/backend/app/domain/engines/
+- src/backend/app/domain/engines/storage/
+- src/backend/app/domain/engines/token_engine.py
+- src/backend/app/domain/guards/
+- src/backend/app/domain/interfaces/
+- src/backend/app/domain/models/
+- src/backend/app/domain/services/
+- src/backend/app/mcp_server/
+- src/backend/app/migrations/
+- src/backend/app/migrations/framework/
+- src/backend/app/migrations/versions/
+- src/backend/app/migrations/versions/v0045_dedup_open_care_tasks_unique_index.py
+- src/backend/app/migrations/versions/v0048_backfill_missing_care_profiles.py
+- src/backend/app/observability/
+- src/backend/app/tasks/
+- src/backend/pyproject.toml
+- src/backend/scripts/
+- src/backend/scripts/audit_care_profiles.py
+- src/backend/tests/
+- src/backend/tests/integration/
+- src/backend/tests/integration/test_v0045_care_task_dedup_migration.py
+- src/backend/tests/support/
+- src/backend/uv.lock
