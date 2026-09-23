@@ -775,10 +775,17 @@ class PrivacyService:
 
     # ── NFR-011 retention pipeline (Celery-driven) ─────────────────
     # The four hooks below are called by ``app.tasks.retention_tasks``.
-    # They scaffold the retention pipeline so the schedulers wire end
-    # to end; the actual data walk + object-storage cleanup land with
-    # NFR-013 (S3 adapter) — until then these methods short-circuit on
-    # the repository and log the work that *would* happen.
+    # This comment used to say that all four merely "log the work that
+    # *would* happen". That stopped being true for one of them and kept
+    # being true for another — the ambiguity #1645 is about. Precisely:
+    #
+    # * ``process_data_export`` **runs**: it walks the declared Art. 15
+    #   manifest, stores the bundle and serves it (#1645).
+    # * ``execute_scheduled_erasures`` runs Phase 0 / 0.5 only. The
+    #   ArangoDB phases have no executor, so an erasure is recorded
+    #   ``partially_completed`` and stays queued for retry — it does not
+    #   claim to have deleted anything.
+    # * ``expire_email_change_requests`` and ``expire_data_exports`` run.
 
     async def process_data_export(self, export_key: str) -> DataExportRequest | None:
         """Build the export bundle and flip the request to a **terminal** state.

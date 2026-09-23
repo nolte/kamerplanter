@@ -116,6 +116,34 @@ class TestRetentionPipeline:
         assert result.manifest_collections == [source.collection for source in DataExportEngine.USER_DATA_MANIFEST]
         assert result.manifest_collections
 
+    async def test_process_data_export_records_the_manifest_it_read(self):
+        """#1622 — the Art. 15 scope on the record IS the declared manifest.
+
+        Before #1622 ``USER_DATA_MANIFEST`` had no caller at all and the run
+        recorded nothing about its scope. The assertion compares the recorded
+        list against the engine rather than against a written-down expectation,
+        so a manifest entry added later is covered without editing this test —
+        and a run that stopped reading the manifest goes red.
+        """
+        from app.domain.engines.data_export_engine import DataExportEngine
+        from app.domain.models.privacy import DataExportRequest
+
+        export = DataExportRequest(
+            key="x",
+            user_key="u-1",
+            status="pending",
+            requested_at=datetime.now(UTC),
+        )
+        export_repo = MagicMock()
+        export_repo.get_by_key.return_value = export
+        export_repo.update.side_effect = lambda k, e: e
+        svc = _make_service(export_repo=export_repo)
+
+        result = await svc.process_data_export("x")
+
+        assert result.manifest_collections == [source.collection for source in DataExportEngine.USER_DATA_MANIFEST]
+        assert result.manifest_collections
+
     async def test_execute_scheduled_erasures_returns_zero_when_empty(self):
         erasure_repo = MagicMock()
         erasure_repo.list_due_for_hard_delete.return_value = []

@@ -225,6 +225,17 @@ _BINDINGS: tuple[Binding, ...] = (
         ),
     ),
     Binding(
+        hook="untrusted-checkout-permissions",
+        requirement="PyYAML>=6.0,<7.0.0",
+        declared_in=_BACKEND,
+        why=(
+            "scripts/check_untrusted_checkout_permissions.py parses workflow YAML and "
+            "local composite-action YAML to resolve each job's effective permissions; "
+            "same reasoning as its two siblings above — no tree of its own, and the "
+            "backend is the only tree declaring pyyaml with a ceiling"
+        ),
+    ),
+    Binding(
         hook="attest-registry-credentials",
         requirement="PyYAML>=6.0,<7.0.0",
         declared_in=_BACKEND,
