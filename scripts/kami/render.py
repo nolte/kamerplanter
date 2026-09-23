@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """KAMI image render + review driver.
 
-Drives the nolte-media ``image-generate`` script (FLUX.1-schnell via Cloudflare
-by default) over the job manifest ``spec/design/_generation-manifest.yaml`` and
+Drives the nolte-media ``image-generate`` script (Cloudflare FLUX by default)
+over the job manifest ``spec/design/_generation-manifest.yaml`` and
 tracks per-job state so a Claude-vision reviewer can gate every generated PNG
 against ``spec/design/KAMI-CHARACTER-REFERENCE.md`` and rejected jobs are
 regenerated with a fresh seed.
@@ -24,9 +24,14 @@ Prompt source per job (manifest): either an inline ``prompt:`` (a self-contained
 FLUX prompt) or ``from_doc:`` + ``motif_heading:`` (the first fenced block after
 that heading in the prompt document is extracted). Inline wins if both are set.
 
-Provider/model: the default provider is ``cloudflare`` (FLUX.1-schnell,
-``@cf/black-forest-labs/flux-1-schnell`` — free tier, no watermark). Override
-per-run with ``--provider`` or per-job with ``provider:`` in the manifest.
+Provider/model: the default provider is ``cloudflare`` (free tier, no
+watermark). Override per-run with ``--provider`` or per-job with ``provider:`` in
+the manifest. The Cloudflare model is chosen the same way — ``--model`` per run,
+``defaults.model`` in the manifest, or ``model:`` per job (a job's own value
+wins). Unset, no ``--model`` is passed and the tool default ``flux-1-schnell``
+applies, which ignores ``width``/``height`` and always renders 1024x1024;
+``flux-2-klein-4b`` honours ``width``/``height``. The model is passed on only for
+the ``cloudflare`` provider — the other providers do not accept ``--model``.
 
 The nolte-media ``image_generate.py`` path is resolved from, in order:
 ``$NOLTE_MEDIA_ROOT``, ``$CLAUDE_PLUGIN_ROOT``, then the dogfooding default
@@ -232,9 +237,19 @@ def image_out_path(render_dir: Path, jid: str, ext: str = "png") -> Path:
     return render_dir / f"{safe}.{ext}"
 
 
+def resolve_model(cli_model: str | None, defaults: dict, job: dict) -> str | None:
+    """Resolve the Cloudflare FLUX model exactly like the provider is resolved.
+
+    The run-wide value is ``--model`` falling back to the manifest's
+    ``defaults.model``; a job's own ``model:`` overrides it. ``None`` means "let
+    image_generate.py apply its own default".
+    """
+    return job.get("model") or cli_model or defaults.get("model") or None
+
+
 def generate_one(
     engine: Path, job: dict, prompt: str, out: Path, provider: str, seed: int,
-    width: int, height: int, dry_run: bool,
+    width: int, height: int, dry_run: bool, model: str | None = None,
 ) -> None:
     cmd = [
         sys.executable, str(engine),
@@ -246,10 +261,15 @@ def generate_one(
         "--height", str(height),
         "--force",  # our state machine owns overwrite semantics per attempt
     ]
+    # image_generate.py accepts --model for the cloudflare provider only and
+    # rejects it for every other provider.
+    if model and provider == "cloudflare":
+        cmd += ["--model", model]
     if dry_run:
         preview = prompt.replace("\n", " ")
         preview = preview[:97] + "..." if len(preview) > 100 else preview
-        print(f"  DRY-RUN {job['id']}: provider={provider} seed={seed} -> {out}")
+        model_note = f" model={model}" if model and provider == "cloudflare" else ""
+        print(f"  DRY-RUN {job['id']}: provider={provider}{model_note} seed={seed} -> {out}")
         print(f"          prompt: {preview}")
         return
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -300,6 +320,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         jid = job["id"]
         js = job_state(state, jid)
         provider = job.get("provider") or provider_default
+        model = resolve_model(args.model, defaults, job)
         ext = "jpg" if provider == "pollinations" else "png"
         out = image_out_path(render_dir, jid, ext)
         seed = base_seed + js["attempts"]  # fresh seed each attempt -> real variety on regen
@@ -308,6 +329,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             generate_one(
                 engine, job, prompt, out, provider, seed,
                 int(job.get("width", 1024)), int(job.get("height", 1024)), args.dry_run,
+                model=model,
             )
         except RenderError as exc:
             print(f"  ERROR {jid}: {exc}", file=sys.stderr)
@@ -428,6 +450,12 @@ def build_parser() -> argparse.ArgumentParser:
     g = sub.add_parser("generate", help="generate every pending/rejected job")
     g.add_argument("--only", help="regex; only jobs whose id matches are generated")
     g.add_argument("--provider", choices=["cloudflare", "pollinations", "gemini"], help="override provider")
+    g.add_argument(
+        "--model",
+        choices=["flux-1-schnell", "flux-2-klein-4b"],
+        help="cloudflare FLUX model (default: the tool's flux-1-schnell); "
+        "flux-2-klein-4b honours width/height",
+    )
     g.add_argument("--max-attempts", type=int, help="override max regen attempts")
     g.add_argument("--dry-run", action="store_true", help="print what would be generated, call nothing")
     g.add_argument("--force", action="store_true", help="regenerate even approved/generated/blocked jobs")
