@@ -1,0 +1,53 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: frontend.yml
+job: dependency-gates
+gate:
+  kind: paths-filter
+  filter: frontend
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 94f86ae058c416572a5fad6867d67abffefa2c343efe9d1aee6b6aa71881ec1f
+invocations:
+- command: python3 ../../scripts/security/npm_audit_gate.py --omit-dev
+  cwd: src/frontend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 0
+- command: npx --yes license-checker-rseidelsohn@4.4.2 --production --excludePackages kamerplanter-frontend@0.1.0 --onlyAllow
+    'MIT;ISC;BSD-3-Clause;BSD-2-Clause;Apache-2.0;0BSD;CC0-1.0;Unlicense;MIT AND ISC' --summary
+  cwd: src/frontend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 1513
+subprocesses:
+- asdf
+- basename
+- bash
+- dirname
+- license-checker-rseidelsohn
+- node
+- npm
+- npx
+- python3
+- sh
+accepted_gaps:
+- pattern: scripts/security/
+  reason: Python enumerates the directory of the script it runs (scripts/security/npm_audit_gate.py) once, to resolve imports;
+    the script itself and the allowlist it reads are in the filter. A new module dropped into scripts/security/ could shadow
+    a stdlib import, which is the exposure every script in this repository shares and not a frontend input.
+reads:
+- scripts/security/
+- scripts/security/npm_audit_gate.py
+- src/frontend/
+- src/frontend/.tool-versions
+- src/frontend/README.md
+- src/frontend/package-lock.json
+- src/frontend/package.json
+- tests/security/npm-audit-allowlist.yaml

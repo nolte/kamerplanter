@@ -1,0 +1,19 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: docker-publish.yml
+job: changes
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 0ffb8d74a73756aae162e7e53407ea729cef6da9885890f5c3a95a0b40a0517d
+invocations: []
+subprocesses: []
+accepted_gaps: []
+reads: []
+empty_reads_reason: its steps are actions/checkout and dorny/paths-filter only; the filter reads the pull request's file list
+  from the GitHub API (or the push range from git history) and nothing from the tree
