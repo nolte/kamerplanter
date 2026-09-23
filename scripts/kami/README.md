@@ -24,11 +24,42 @@ manifest ──> render.py generate ──> images (.render/kami/) ──> kami-
 
 The generator is nolte-media `skills/image-generate/scripts/image_generate.py`. Providers:
 
-| Provider | Model | Cost | Notes |
-|----------|-------|------|-------|
-| **`cloudflare`** (default) | `@cf/black-forest-labs/flux-1-schnell` (FLUX.1-schnell) | **Free** (10k neurons/day, no card) | Apache-2.0, no watermark, no feed. **Ignores width/height → always ~1024² square.** |
-| `gemini` | `gemini-2.5-flash-image` | **Billing required** (free quota = 0) | Best mascot fidelity, embeds a SynthID watermark. |
+| Provider | Model (`--model`) | Cost | Notes |
+|----------|-------------------|------|-------|
+| **`cloudflare`** (default) | **`flux-1-schnell`** (default) — `@cf/black-forest-labs/flux-1-schnell` | **Free** (10k neurons/day, no card) | Apache-2.0 weights, no watermark, no feed. **Ignores width/height → always 1024² square**; the tool warns on stderr when a job asks for another size. |
+| `cloudflare` | `flux-2-klein-4b` — `@cf/black-forest-labs/flux-2-klein-4b` | **Free** (same 10k neurons/day budget, no card) | Apache-2.0 weights, no watermark, no feed. **Honours width/height**; accepts up to four `--ref-image` inputs. |
+| `gemini` | `gemini-3.1-flash-image` | **Billing required** (free quota = 0) | Best mascot fidelity, embeds a SynthID watermark. Replaces `gemini-2.5-flash-image`, which shuts down 2026-10-02. |
 | `pollinations` | FLUX | Free, auth-free | Output licence unsettled; honours width/height. |
+
+The licence is a property of the **model ID**, not of the `cloudflare` provider:
+nolte-media offers exactly the two Apache-2.0 FLUX models above.
+
+### Choosing the FLUX model
+
+The Cloudflare model is resolved like the provider — a job's own `model:` wins over
+the run-wide value, which is `--model` or else the manifest's `defaults.model`:
+
+```yaml
+defaults:
+  model: flux-2-klein-4b     # optional; unset = the tool default flux-1-schnell
+jobs:
+  - id: hero-4x3
+    model: flux-2-klein-4b   # optional per-job override
+    width: 1024
+    height: 768
+```
+
+```bash
+python3 scripts/kami/render.py generate --model flux-2-klein-4b --only 'hero'
+```
+
+With no model set anywhere, `render.py` passes no `--model` and the tool default
+`flux-1-schnell` applies (unchanged behaviour). The model is passed on only for the
+`cloudflare` provider; `gemini`/`pollinations` jobs ignore it. A job's
+`width`/`height` only take effect under `flux-2-klein-4b` (or `pollinations`) —
+under `flux-1-schnell` the render is 1024² and non-square targets are cropped in
+post-processing. The manifest's `size:` field is the final asset target for the
+reviewer's legibility judgement, not a generation parameter.
 
 **FLUX has no negative-prompt channel.** The prompt-docs were authored for Gemini
 with a trailing `Avoid: text, numbers …` clause — under FLUX that clause makes text
@@ -52,7 +83,7 @@ export CLOUDFLARE_API_TOKEN=...      # scope: Workers AI — https://dash.cloudf
 export CLOUDFLARE_ACCOUNT_ID=...
 
 # Only if you render with `--provider gemini` (best mascot fidelity, but BILLING
-# required — the free-tier quota for gemini-2.5-flash-image is 0):
+# required — the free-tier quota for gemini-3.1-flash-image is 0):
 export GEMINI_API_KEY=...            # https://aistudio.google.com/apikey
 
 # Point at your nolte-media plugin checkout (only if not the dogfooding default
