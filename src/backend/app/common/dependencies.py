@@ -909,6 +909,13 @@ def get_tenant_service() -> TenantService:
     )
 
 
+def get_personal_data_repo():
+    """REQ-025 Art. 15 — read side of the declared personal-data manifest."""
+    from app.data_access.arango.personal_data_repository import ArangoPersonalDataRepository
+
+    return ArangoPersonalDataRepository(get_db())
+
+
 # ── REQ-033 MCP server dependencies ────────────────────────────────
 
 
@@ -1626,6 +1633,7 @@ def get_privacy_service():
         pest_image_repo=get_pest_image_repo(),
         ipm_repo=get_ipm_repo(),
         pest_inference_client=get_pest_inference_client(),
+        personal_data_repo=get_personal_data_repo(),
     )
 
 

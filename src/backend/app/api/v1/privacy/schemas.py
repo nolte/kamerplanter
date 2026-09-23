@@ -16,6 +16,10 @@ class DataExportResponse(BaseModel):
     expires_at: datetime | None = None
     file_size_bytes: int | None = None
     download_count: int = 0
+    #: #1645 - why a ``failed`` run did not deliver. Without it the requester
+    #: sees a status name and no way to learn what happened to a statutory
+    #: request, which is the failure mode that made the scaffold invisible.
+    error_message: str | None = None
 
 
 # ── Email change (Art. 16) ─────────────────────────────────────────

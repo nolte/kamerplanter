@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import UserKey
 from app.domain.models.privacy import ErasureRequest, ErasureRequestKey
@@ -16,6 +17,17 @@ class IErasureRepository(ABC):
 
     @abstractmethod
     def update(self, key: ErasureRequestKey, erasure: ErasureRequest) -> ErasureRequest: ...
+
+    @abstractmethod
+    def update_fields(self, key: ErasureRequestKey, fields: dict[str, Any]) -> ErasureRequest:
+        """Merge exactly ``fields``, preserving ``None`` (``keep_none=True``).
+
+        The status transitions write through this: the repository merges, so a
+        full-model write can never clear ``error_message``, and a record that
+        reached ``completed`` would keep saying the erasure did not run (#1662
+        SCR-003).
+        """
+        ...
 
     @abstractmethod
     def list_by_user(self, user_key: UserKey) -> list[ErasureRequest]: ...

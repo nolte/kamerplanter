@@ -35,6 +35,29 @@ configure({ asyncUtilTimeout: 5000 });
   URL.revokeObjectURL = () => undefined;
 }
 
+// jsdom's Blob has no `stream()` (only slice/text/arrayBuffer/bytes). The MSW
+// XMLHttpRequest interceptor wraps every mocked response in a fetch `Response`,
+// and for an axios request with `responseType: 'blob'` that body is a jsdom
+// Blob. Node 22's bundled undici 6 duck-types the body as Blob-like and calls
+// `.stream()` on it -> `TypeError: object.stream is not a function` as an
+// unhandled rejection inside the interceptor, before the XHR `load` event
+// fires -> the axios promise never settles and the component under test never
+// reaches its download hand-over. Node 25's undici 7 takes a different path,
+// so the failure is CI-only (#1645, PR #1662). Browsers implement
+// `Blob.prototype.stream`; giving jsdom's the same shape removes the Node
+// dependency without touching the component.
+if (typeof Blob.prototype.stream !== 'function') {
+  Blob.prototype.stream = function stream(this: Blob): ReadableStream<Uint8Array<ArrayBuffer>> {
+    const bytes = this.arrayBuffer();
+    return new ReadableStream<Uint8Array<ArrayBuffer>>({
+      async pull(controller) {
+        controller.enqueue(new Uint8Array(await bytes));
+        controller.close();
+      },
+    });
+  };
+}
+
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'warn' });
 });
