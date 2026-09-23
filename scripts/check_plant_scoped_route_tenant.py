@@ -26,8 +26,9 @@ CLASS:
 and requires, for each such parameter, one of:
 
   (a) the handler reaches the parameter through at least one call expression
-      that ALSO carries a tenant argument (``tenant_key=…``, a positional
-      ``ctx.tenant_key``, …) — measured on the AST's call arguments;
+      that names the tenant as its OWN keyword argument (``tenant_key=…``) —
+      measured on the AST's call arguments. A tenant that merely *travels*
+      positionally or nested inside another argument is NOT accepted (#1627);
   (b) the route, or the ``APIRouter`` it is declared on, carries an
       ownership-verifying dependency (:data:`VERIFYING_DEPENDENCIES`);
   (c) an explicit ``# tenant-scope-ok: <reason>`` marker in the contiguous
@@ -47,20 +48,37 @@ is flagged exactly as if the comment were absent — the vacuum trap of PR #1545
 #1608 and #1610. Only the deliberate ``# tenant-scope-ok: <reason>`` escape
 hatch is read from source text, and it must name a reason.
 
+Why the keyword form is required (#1627)
+----------------------------------------
+Until #1627 a tenant token anywhere in the call arguments counted. That left
+**16 sites** whose tenant travelled positionally or nested — a form this reader
+cannot tie to a parameter, so it could neither confirm nor refuse them. All 16
+were then measured through the real route against a real ArangoDB with a foreign
+tenant's key (``tests/integration/test_plant_scoped_route_residue_tenant_scope.py``),
+and all 16 were in fact scoped. Rather than record sixteen exemptions nobody can
+re-check, the call sites were changed to the keyword form and the callees' own
+``tenant_key`` made keyword-only **without a default**, so an unscoped call does
+not type-check and this reader can see the binding. The residue is therefore 0
+by construction, and the rule that keeps it there is this one: a tenant that
+travels without naming its parameter is reported, not trusted.
+
+``--list`` prints the whole in-class inventory with each site's category, so the
+residue is a number anyone can reproduce instead of a claim in a pull request.
+
 Known blind spots (the honest residue)
 --------------------------------------
 This is a static, single-file reader. It CANNOT resolve:
 
 * a handler that delegates to a module-level helper which does the scoping
-  (``_load(plant_key, ctx)`` reads as scoped only because ``ctx`` is an
-  argument; ``_load(plant_key)`` reads as unscoped and is reported);
+  (``_load(plant_key, tenant_key=ctx.tenant_key)`` reads as scoped because the
+  keyword is there; ``_load(plant_key)`` reads as unscoped and is reported) —
+  whether the helper *uses* what it was handed is still outside this reader;
 * a service method whose ``tenant_key`` has a default filled in elsewhere;
 * a router mounted with ``include_router(..., dependencies=[...])`` in another
   module;
-* whether a tenant token nested inside an argument expression is actually used
-  for the lookup — ``service.create(plant_key, Model(tenant_key=ctx.tenant_key))``
-  counts as carrying the tenant, because it does travel, but the callee might
-  still look the plant up by key alone.
+* a call that spells the keyword ``tenant_key=`` and then ignores it in the
+  callee. Keyword-only-without-default narrows this — the argument cannot be
+  omitted — but it cannot make the callee read it.
 
 Spellings of the same thing it does NOT match, stated rather than assumed: a
 tenant resolved inside the callee from a default; a parameter renamed between
@@ -137,18 +155,80 @@ def _non_terminal_params(url: str) -> list[str]:
     ]
 
 
-def _call_carries_tenant(call: ast.Call) -> bool:
+def _call_carries_tenant_keyword(call: ast.Call) -> bool:
+    """Whether the call names the tenant as its OWN keyword argument.
+
+    This is the only form a single-file reader can tie to a parameter: the
+    argument's name is the callee's parameter name, so ``tenant_key=…`` reaches
+    a parameter that is called ``tenant_key``. ``**kwargs`` is unresolvable in
+    either direction and is never claimed as unsafe.
+    """
     for keyword in call.keywords:
         if keyword.arg is None:
             return True  # ``**kwargs`` — unresolvable, never claimed as unsafe
         if "tenant" in keyword.arg:
             return True
-    return any("tenant" in ast.dump(arg).lower() for arg in call.args)
+    return False
+
+
+def _call_carries_tenant_positionally(call: ast.Call) -> bool:
+    """Whether a tenant token merely *travels* in the call, unbound to a name.
+
+    ``service.get_lineage(plant_key, ctx.tenant_key)`` and
+    ``service.create(plant_key, Model(tenant_key=ctx.tenant_key))`` both carry a
+    tenant, and neither says which parameter it lands on — the callee may bind
+    it to ``tenant_key`` and filter, or bind it to something else and ignore it.
+    Resolving that needs the call graph this guard deliberately does not have
+    (#1627), so the form is reported rather than trusted.
+    """
+    return any("tenant" in ast.dump(arg).lower() for arg in call.args) or any(
+        keyword.arg is not None
+        and "tenant" not in keyword.arg
+        and "tenant" in ast.dump(keyword.value).lower()
+        for keyword in call.keywords
+    )
 
 
 def _uses_name(node: ast.AST, name: str) -> bool:
     return any(
         isinstance(child, ast.Name) and child.id == name for child in ast.walk(node)
+    )
+
+
+def _passes_directly(call: ast.Call, name: str) -> bool:
+    """Whether ``name`` is an argument of THIS call, not of one nested inside it.
+
+    Without this, a wrapper swallows the question::
+
+        MotherResponse(**service.designate_mother(plant_key, ctx.tenant_key))
+
+    ``MotherResponse(**…)`` has a ``**`` argument, which is unresolvable and
+    therefore never claimed as unsafe — and ``plant_key`` *is* somewhere inside
+    it. So the wrapper reads as "scoped", and the positional inner call, which is
+    the one that actually resolves the plant, is never examined. Three of the
+    sixteen #1627 sites were invisible for exactly this reason, and they were
+    invisible to the guard **before** this change too: the old predicate had the
+    same ``**kwargs`` rule.
+
+    The walk therefore stops at the first nested :class:`ast.Call`: an argument
+    that is itself a call is that call's business, and it gets its own turn in
+    the loop.
+    """
+
+    def reaches(node: ast.AST) -> bool:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.Call):
+                continue  # the inner call is examined on its own
+            if isinstance(child, ast.Name) and child.id == name:
+                return True
+            if reaches(child):
+                return True
+        return False
+
+    return any(
+        (isinstance(argument, ast.Name) and argument.id == name)
+        or (not isinstance(argument, ast.Call) and reaches(argument))
+        for argument in [*call.args, *(kw.value for kw in call.keywords)]
     )
 
 
@@ -204,9 +284,16 @@ def _marker_for(
     return None
 
 
-def check(root: pathlib.Path) -> tuple[list[str], list[str]]:
+def check(root: pathlib.Path) -> tuple[list[str], list[str], list[str]]:
+    """Classify every in-class site.
+
+    Returns:
+        ``(violations, exempted, inventory)``. ``inventory`` carries one line per
+        in-class site with its category, for ``--list``.
+    """
     violations: list[str] = []
     exempted: list[str] = []
+    inventory: list[str] = []
 
     for path in sorted(root.rglob("*.py")):
         source = path.read_text(encoding="utf-8")
@@ -232,21 +319,32 @@ def check(root: pathlib.Path) -> tuple[list[str], list[str]]:
                         continue
                     site = f"{path}:{fn.lineno} {method} {url} — parent '{param}'"
                     if covered_by_dependency:
+                        inventory.append(f"dependency  {site}")
                         continue
-                    scoped = any(
-                        isinstance(node, ast.Call)
-                        and _uses_name(node, param)
-                        and _call_carries_tenant(node)
+                    # Only calls that take the parameter as their OWN argument
+                    # decide. A call that merely contains it, somewhere below a
+                    # nested call, is a wrapper — and a wrapper must not answer
+                    # for what it wraps.
+                    calls = [
+                        node
                         for node in ast.walk(fn)
-                    )
-                    if scoped:
+                        if isinstance(node, ast.Call) and _passes_directly(node, param)
+                    ]
+                    if any(_call_carries_tenant_keyword(call) for call in calls):
+                        inventory.append(f"keyword     {site}")
                         continue
                     if marker:
                         exempted.append(f"{site} [exempt: {marker}]")
+                        inventory.append(f"exempt      {site} [{marker}]")
                         continue
+                    if any(_call_carries_tenant_positionally(call) for call in calls):
+                        inventory.append(f"POSITIONAL  {site}")
+                        violations.append(f"{site} [tenant travels positionally or nested]")
+                        continue
+                    inventory.append(f"UNSCOPED    {site}")
                     violations.append(site)
 
-    return violations, exempted
+    return violations, exempted, inventory
 
 
 def main() -> int:
@@ -257,15 +355,28 @@ def main() -> int:
         )
         return 2
 
-    violations, exempted = check(API_ROOT)
+    violations, exempted, inventory = check(API_ROOT)
+
+    if "--list" in sys.argv[1:]:
+        for line in inventory:
+            print(line)
+        print(f"\n{len(inventory)} in-class site(s).")
+        for category in ("dependency", "keyword", "exempt", "POSITIONAL", "UNSCOPED"):
+            count = sum(1 for line in inventory if line.startswith(category))
+            print(f"  {category:<11} {count}")
+        return 0
+
     for site in exempted:
         print(f"  ok   {site}")
     if violations:
         print(
             "\nA route takes a tenant-ownable key from its path and never verifies it\n"
-            "against the caller's tenant (#1619). Pass the tenant into the lookup, mount\n"
-            "an ownership dependency, or record why the site is safe with a\n"
-            "`# tenant-scope-ok: <reason>` marker above the route decorator.\n",
+            "against the caller's tenant (#1619), or verifies it in a form this guard\n"
+            "cannot follow (#1627). Pass the tenant as an explicit KEYWORD argument\n"
+            "(``tenant_key=ctx.tenant_key``) and make the callee's ``tenant_key``\n"
+            "keyword-only without a default, mount an ownership dependency, or record\n"
+            "why the site is safe with a `# tenant-scope-ok: <reason>` marker above the\n"
+            "route decorator.\n",
             file=sys.stderr,
         )
         for site in violations:
