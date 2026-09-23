@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request
+from fastapi.responses import StreamingResponse
 
 from app.api.v1.auth.router import limiter
 from app.api.v1.privacy.schemas import (
@@ -61,6 +62,7 @@ def _to_export_response(export: DataExportRequest) -> DataExportResponse:
         expires_at=export.expires_at,
         file_size_bytes=export.file_size_bytes,
         download_count=export.download_count,
+        error_message=export.error_message,
     )
 
 
@@ -145,20 +147,34 @@ def get_export_status(
     return _to_export_response(export)
 
 
-@router.get("/export/{export_key}/download", response_model=DataExportResponse)
-def download_export(
+@router.get(
+    "/export/{export_key}/download",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {"application/json": {}},
+            "description": "The Art. 15 export bundle as a JSON file attachment.",
+        }
+    },
+)
+async def download_export(
     export_key: Annotated[str, Path(description="Document key of the data-export job.")],
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Mark an export as downloaded and return its metadata.
+    """Stream the Art. 15 export bundle and record the download.
 
-    Streaming the actual file is delegated to a future Celery/FileResponse
-    integration. Returning the metadata is enough to validate the contract
-    and record the download.
+    #1645 — this used to answer with the request's *metadata* and no file, so
+    even a ``completed`` export delivered no personal data to the data subject.
+    Ownership, status and expiry are enforced in the service.
     """
-    export = service.prepare_export_download(current_user.key or "", export_key)
-    return _to_export_response(export)
+    export, stream = await service.open_export_bundle(current_user.key or "", export_key)
+    filename = f"kamerplanter-export-{export.key}.json"
+    return StreamingResponse(
+        stream,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Art. 16: email change ─────────────────────────────────────────
@@ -228,8 +244,8 @@ def get_erasure_status(
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Return status of an erasure request."""
-    erasure = service.get_erasure_status(erasure_key)
+    """Return status of an erasure request (ownership-checked)."""
+    erasure = service.get_erasure_status(current_user.key or "", erasure_key)
     return _to_erasure_response(erasure)
 
 

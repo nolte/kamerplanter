@@ -78,7 +78,10 @@ class TestErasurePhase0:
 
         finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
 
-        assert finalised == 1
+        # #1645 - Phase 0 succeeding does not finish the erasure: the ArangoDB
+        # phases have no executor, so nothing is counted as finalised. What this
+        # test pins is the Phase 0 *effect*, below.
+        assert finalised == 0
         # Two hard-delete scopes run per tenant: personal attachments and
         # REQ-010 pest reference images (both have no retention obligation).
         hard_delete_scopes = {c.kwargs["scope"] for c in storage.delete_for_user.await_args_list}
@@ -90,7 +93,7 @@ class TestErasurePhase0:
         storage.strip_exif_for_user.assert_awaited_once_with(
             tenant_key="t-1", user_key="u-1", scope="user_diary_attachments"
         )
-        assert erasure.status == "completed"
+        assert erasure.status == "partially_completed"
         assert "user_personal" in erasure.storage_cleanup_scopes
         assert "user_diary_attachments" in erasure.storage_cleanup_scopes
         assert "user_pest_reference_images" in erasure.storage_cleanup_scopes
@@ -118,7 +121,9 @@ class TestErasurePhase0:
 
         finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
 
-        assert finalised == 1
+        # The subject of this test is the Phase 0.5 call, not a terminal status
+        # (#1645: the ArangoDB phases have no executor, so nothing finalises).
+        assert finalised == 0
         ref_store.delete_user_contributions.assert_awaited_once_with(tenant_key=None, user_key="u-2")
 
     async def test_phase05_noop_store_completes_cleanly(self):
@@ -146,8 +151,12 @@ class TestErasurePhase0:
 
         finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
 
-        assert finalised == 1
-        assert erasure.status == "completed"
+        # A no-op reference index must not *fail* the run. Phase 0.5 completing
+        # cleanly is read off the recorded storage scopes and the absence of a
+        # Phase-0/0.5 error, not off a terminal status the ArangoDB gap owns.
+        assert finalised == 0
+        assert erasure.storage_cleanup_scopes
+        assert "pre_delete" not in (erasure.error_message or "")
 
     async def test_phase0_failure_marks_partially_completed_and_skips_delete(self):
         """AK-OS-04 — Phase 0 failure ⇒ partially_completed, no ArangoDB delete."""
@@ -213,10 +222,17 @@ class TestErasurePhase0:
         finalised_run1 = await svc.execute_scheduled_erasures(datetime.now(UTC))
         assert finalised_run1 == 0
         assert erasure.status == "partially_completed"
+        assert "S3 down" in (erasure.error_message or "")
 
+        # Run 2: storage is healthy, so Phase 0 runs to the end — which is what
+        # this test is about. The request stays open, but for a different and
+        # now correctly named reason (#1645): the ArangoDB phases, not S3.
         finalised_run2 = await svc.execute_scheduled_erasures(datetime.now(UTC))
-        assert finalised_run2 == 1
-        assert erasure.status == "completed"
+        assert finalised_run2 == 0
+        assert erasure.status == "partially_completed"
+        assert "S3 down" not in (erasure.error_message or "")
+        assert "ArangoDB erasure did not run" in (erasure.error_message or "")
+        assert erasure.storage_cleanup_scopes
         # Run 1 aborts on the first scope (1 call); run 2 completes both
         # hard-delete scopes (2 calls) ⇒ 3 total.
         assert storage.delete_for_user.await_count == 3

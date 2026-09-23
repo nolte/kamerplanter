@@ -321,7 +321,8 @@ _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
 #: by mutation on 2026-09-18 — an added, detector-resolvable
 #: ``self._export_repo.create(...)`` inside the service each route reaches:
 #:
-#: * ``privacy.download_export`` excuses **one** sink (``_update_doc``). The
+#: * ``privacy.download_export`` excuses **one** sink (the atomic
+#:   ``increment_download_count`` query since #1662; ``_update_doc`` before). The
 #:   mutation adds ``_insert_doc``, which is not in the set, and the sweep goes
 #:   **red**. `test_a_second_write_in_an_intentional_read_is_reported` pins that,
 #:   so the claim is checked and not believed.
@@ -377,9 +378,16 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
     "privacy.router.download_export": (
         "REQ-025 §4.2a — PrivacyService.prepare_export_download increments download_count on the "
         "DataExportRequest. The Art.-15 evidence IS the collection of the export, so moving the "
-        "write to another request would record a different event. One sink, measured.",
+        "write to another request would record a different event. One sink, measured. Since #1662 "
+        "SCR-005 that sink is an atomic AQL increment rather than a full-model write-back, which "
+        "could resurrect a record that expiry had just cleared.",
         frozenset(
-            {"self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc"}
+            {
+                (
+                    "raw query write in app.data_access.arango.data_export_repository"
+                    "::ArangoDataExportRepository.increment_download_count"
+                )
+            }
         ),
     ),
 }
@@ -2637,7 +2645,10 @@ class TestPersistingReadsAreSweptLikeWrites:
         """
         excused = _INTENTIONAL_PERSISTING_READS["privacy.router.download_export"][1]
         measured_today = {
-            "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc"
+            (
+                "raw query write in app.data_access.arango.data_export_repository"
+                "::ArangoDataExportRepository.increment_download_count"
+            )
         }
         assert set(excused) == measured_today, (
             "the download_export witness is no longer the single sink this test reasons about"

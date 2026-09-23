@@ -157,13 +157,28 @@ class ConsentWithPurpose(BaseModel):
 
 
 class DataSourceDefinition(BaseModel):
-    """Manifest entry: declares one user-related data source for export."""
+    """Manifest entry: declares one user-related data source for export.
+
+    ``tenant_scoped`` marks a source whose documents carry ``tenant_key`` and
+    are reached by a user-reference field rather than by ownership: the walk
+    restricts those to the subject's own tenants, so a writer elsewhere cannot
+    plant a document into another subject's disclosure by naming their key
+    (#1662 SCR-001).
+
+    ``disclosure_gap`` is the honest form of a source that **cannot** be
+    disclosed by subject today: the manifest still names the category (Art.
+    15(1) is a right to know which categories exist), the bundle carries the
+    reason, and the walk never queries it — an empty result would read exactly
+    like "no data here", which is the silence #1645 removes.
+    """
 
     collection: str
     label: str
     fields: list[str] = Field(default_factory=list)
     filter_field: str | None = None
     edge_collection: str | None = None
+    tenant_scoped: bool = False
+    disclosure_gap: str | None = None
 
 
 #: Who removes an :class:`ErasureStep` at runtime. Closed on purpose: a step

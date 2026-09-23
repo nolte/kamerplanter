@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import UserKey
 from app.domain.models.privacy import DataExportRequest, DataExportRequestKey
@@ -18,6 +19,29 @@ class IDataExportRepository(ABC):
     def update(self, key: DataExportRequestKey, export_request: DataExportRequest) -> DataExportRequest: ...
 
     @abstractmethod
+    def update_fields(self, key: DataExportRequestKey, fields: dict[str, Any]) -> DataExportRequest:
+        """Merge exactly ``fields`` into the record, preserving ``None`` values.
+
+        The export pipeline writes through this rather than through
+        :meth:`update`: the repository merges, so a field set to ``None`` on a
+        full model never reaches the payload and a clear that was meant to
+        happen silently does not (#1506). It is also the lost-update-safe write
+        for a record whose read and write are separated by a collection walk and
+        an object-storage upload (#1525).
+        """
+        ...
+
+    @abstractmethod
+    def increment_download_count(self, key: DataExportRequestKey) -> DataExportRequest:
+        """Atomically bump ``download_count`` by one and return the record.
+
+        Not a full-model write-back: if ``expire_data_exports`` ran between the
+        read and the write, that would resurrect ``completed`` and a
+        ``file_path`` that no longer exists (#1662 SCR-005).
+        """
+        ...
+
+    @abstractmethod
     def list_by_user(self, user_key: UserKey) -> list[DataExportRequest]: ...
 
     @abstractmethod
@@ -27,7 +51,14 @@ class IDataExportRepository(ABC):
     def delete(self, key: DataExportRequestKey) -> bool: ...
 
     @abstractmethod
-    def expire_old(self, now_iso: str) -> int: ...
+    def expire_old(self, now_iso: str) -> list[DataExportRequest]:
+        """Flip every expired export to ``expired`` and return the changed records.
+
+        Returns the records rather than a count so the caller can delete each
+        bundle's object (NFR-011 R-05 is "delete the file *and* set the
+        status"; a count cannot say which files).
+        """
+        ...
 
     @abstractmethod
     def list_stale_pending(self, cutoff_iso: str) -> list[DataExportRequest]:
