@@ -50,7 +50,7 @@ class _OnboardingService:
 def client() -> TestClient:
     app = FastAPI()
     app.include_router(onboarding_router, prefix="/api/v1/t/{tenant_slug}")
-    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="u1", account_type="user")
+    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="u1", account_type="human")
     app.dependency_overrides[get_onboarding_service] = _OnboardingService
     app.dependency_overrides[auth_mod.get_current_tenant] = lambda: TenantContext(
         tenant_key=TENANT, tenant_slug=TENANT, user_key="u1", role=TenantRole.LEAD, admin_scopes=[]

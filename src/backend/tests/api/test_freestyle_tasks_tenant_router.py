@@ -219,7 +219,7 @@ class TestServiceAccountCreate:
 class TestOriginTrust:
     def test_ac4_interactive_user_defaults_to_user_origin(self) -> None:
         """AC-4: an ordinary interactive create is user-authored, keeping existing clients working."""
-        client, tasks = _build("user")
+        client, tasks = _build("human")
 
         resp = client.post(_url(), json={"name": "Giessen", "instruction": "Giess die Pflanze."})
 
@@ -228,7 +228,7 @@ class TestOriginTrust:
 
     def test_interactive_user_cannot_spoof_pipeline_origin_or_dedup_key(self) -> None:
         """#1000: a normal user body claiming pipeline provenance is overridden server-side."""
-        client, tasks = _build("user")
+        client, tasks = _build("human")
 
         resp = client.post(
             _url(),
