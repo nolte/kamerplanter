@@ -29,7 +29,11 @@ USER = "u-42"
 FIXTURE_ROWS: dict[str, list[dict[str, Any]]] = {
     "users": [{"email": "subject@example.invalid", "display_name": "Test Subject", "locale": "de"}],
     "auth_providers": [{"provider": "github", "provider_email": "subject@example.invalid"}],
-    "harvest_batches": [{"batch_id": "HB-0001", "quality_grade": "A", "notes": "fixture harvest"}],
+    # Distinctive values on purpose: this row must be asserted *absent*, and a
+    # one-letter grade like "A" is a substring of any JSON document.
+    "harvest_batches": [
+        {"batch_id": "HB-fixture-0001", "quality_grade": "grade-fixture", "notes": "fixture harvest note"}
+    ],
     "plant_diary_entries": [{"title": "fixture diary", "text": "the plant looked fine"}],
 }
 
@@ -45,7 +49,7 @@ class _FakePersonalDataRepo(IPersonalDataRepository):
     def __init__(self) -> None:
         self.asked_for: list[str] = []
 
-    def collect_for_user(self, source: DataSourceDefinition, user_key: str) -> list[dict[str, Any]]:
+    def collect_for_user(self, source: DataSourceDefinition, user_key: str, tenant_keys) -> list[dict[str, Any]]:
         assert user_key == USER
         self.asked_for.append(source.collection)
         return [dict(row) for row in FIXTURE_ROWS.get(source.collection, [])]
@@ -119,10 +123,18 @@ class TestTheBundleReachesTheUser:
         await svc.process_data_export("exp-1")
         text = await _download_text(svc)
 
-        # The subject's own values, read back out of the delivered file.
-        for row in FIXTURE_ROWS.values():
-            for value in row[0].values():
-                assert value in text
+        # The subject's own values, read back out of the delivered file — for
+        # every source that *can* be disclosed. ``harvest_batches`` is in the
+        # fixture on purpose: its rows must NOT appear, because the walk never
+        # asks for a source with a declared gap (#1662 SCR-001).
+        gaps = {s.collection for s in DataExportEngine.USER_DATA_MANIFEST if s.disclosure_gap}
+        assert "harvest_batches" in gaps, "the fixture's negative case must be a real gap"
+        for collection, rows in FIXTURE_ROWS.items():
+            for value in rows[0].values():
+                if collection in gaps:
+                    assert value not in text, f"{collection} was disclosed although it cannot be attributed"
+                else:
+                    assert value in text
 
     async def test_every_declared_manifest_source_is_a_section_of_the_bundle(self):
         """Art. 15(1) is a right to know which categories are processed.
@@ -157,7 +169,7 @@ class TestTheBundleReachesTheUser:
         """The anti-vacuity guard lives in production, not only in this file."""
 
         class _EmptyRepo(IPersonalDataRepository):
-            def collect_for_user(self, source, user_key):
+            def collect_for_user(self, source, user_key, tenant_keys):
                 return []
 
         storage = _InMemoryStorage()

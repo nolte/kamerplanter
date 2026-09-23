@@ -183,4 +183,10 @@ class TestExportFailsVisiblyRatherThanHanging:
 
         assert result is not None
         assert result.status == "failed"
-        assert "arango down" in (result.error_message or "")
+        # The failure is recorded and reasoned — but the *raw* text is not what
+        # the requester sees (#1662 SCR-008): an internal message may carry an
+        # AQL query, a path or a hostname. The record gets a reference instead;
+        # the original goes to the log.
+        assert result.error_message
+        assert "arango down" not in result.error_message
+        assert "reference" in result.error_message

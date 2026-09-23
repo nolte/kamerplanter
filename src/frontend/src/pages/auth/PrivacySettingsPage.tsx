@@ -408,6 +408,14 @@ export default function PrivacySettingsPage() {
               </Alert>
             )}
 
+            {exportRequest && exportRequest.status === 'expired' && (
+              // #1662 SCR-009 — a terminal state that showed nothing at all: the
+              // panel went blank, which is the opposite of what this page is for.
+              <Alert severity="info" sx={{ mt: 2 }} data-testid="privacy-export-result">
+                {t('pages.privacy.exportExpired')}
+              </Alert>
+            )}
+
             {exportRequest && !TERMINAL_EXPORT_STATES.includes(exportRequest.status) && (
               <Alert severity="info" sx={{ mt: 2 }} data-testid="privacy-export-result">
                 {t('pages.privacy.exportRequested', { status: exportRequest.status })}

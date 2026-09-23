@@ -23,6 +23,21 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
             self.create_edge(col.REQUESTED_EXPORT, user_id, export_id)
         return created
 
+    def increment_download_count(self, key: DataExportRequestKey) -> DataExportRequest:
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+          UPDATE doc WITH { download_count: (doc.download_count || 0) + 1 } IN @@collection
+          RETURN NEW
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.DATA_EXPORT_REQUESTS, "key": key})
+        docs = list(cursor)
+        if not docs:
+            from app.common.exceptions import NotFoundError
+
+            raise NotFoundError("DataExportRequest", key)
+        return DataExportRequest(**self._from_doc(docs[0]))
+
     def list_by_user(self, user_key: UserKey) -> list[DataExportRequest]:
         query = """
         FOR doc IN @@collection

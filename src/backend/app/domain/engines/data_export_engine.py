@@ -5,6 +5,22 @@ from typing import Any
 
 from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
 
+#: Why three legally-retained categories cannot be disclosed per subject today.
+#: ``harvest_batches.harvester``, ``inspections.inspector`` and
+#: ``treatment_applications.applied_by`` are ``str`` fields filled from the
+#: request body (``max_length=200``, freely editable, never overwritten with
+#: ``current_user.key``); the MCP path writes ``mcp:<account_key>``. Nothing in
+#: the model says *which user* did the work, so a walk keyed on the subject
+#: matches nothing — and an empty section is indistinguishable from "no data".
+#: A user-key field on those models is a migration and its own change; until
+#: then the bundle says this instead of being silently empty.
+_FREE_TEXT_ATTRIBUTION_GAP = (
+    "The system records who harvested, inspected or treated as free text (a name "
+    "typed in, or 'mcp:<account>' from an integration), not as your account. These "
+    "records cannot be attributed to you and are not included here. They are retained "
+    "under CanG / PflSchG and the free-text reference is anonymised on erasure."
+)
+
 
 class DataExportEngine:
     """Defines the manifest of all user-related data sources for export.
@@ -108,6 +124,7 @@ class DataExportEngine:
         # manifest against the models for that reason.
         DataSourceDefinition(
             collection="tasks",
+            tenant_scoped=True,
             # ``assigned_to_user_key`` — the model has never had ``assigned_to``,
             # so this source used to match no document at all.
             filter_field="assigned_to_user_key",
@@ -117,6 +134,9 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="harvest_batches",
+            tenant_scoped=True,
+            # #1662 SCR-001 — measured: no write path stores a user key here.
+            disclosure_gap=_FREE_TEXT_ATTRIBUTION_GAP,
             filter_field="harvester",
             label="Harvest records",
             # Previously ["name", "status", "started_at", "completed_at"] — not
@@ -133,6 +153,9 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="inspections",
+            tenant_scoped=True,
+            # #1662 SCR-001 — measured: no write path stores a user key here.
+            disclosure_gap=_FREE_TEXT_ATTRIBUTION_GAP,
             filter_field="inspector",
             label="Inspection records",
             # ``inspected_at`` (not ``performed_at``); the "findings" of an
@@ -148,6 +171,9 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="treatment_applications",
+            tenant_scoped=True,
+            # #1662 SCR-001 — measured: no write path stores a user key here.
+            disclosure_gap=_FREE_TEXT_ATTRIBUTION_GAP,
             # ``applied_by`` — the model has never had ``applicator``.
             filter_field="applied_by",
             label="Treatment applications",
@@ -156,6 +182,7 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="plant_diary_entries",
+            tenant_scoped=True,
             filter_field="created_by",
             label="Plant diary entries",
             # ``text``/``created_at`` (not ``body``/``logged_at``): the export
@@ -177,6 +204,7 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="identification_requests",
+            tenant_scoped=True,
             filter_field="user_key",
             label="Plant identification requests",
             # image_hash is an internal dedup/audit value, not user-facing data.
@@ -214,7 +242,9 @@ class DataExportEngine:
         A section is kept even when it is empty: Art. 15(1) is a right to know
         *which* categories are processed, and a silently omitted category is
         indistinguishable from one the walk never reached. ``record_count``
-        makes that explicit for a reader who is not counting array entries.
+        makes that explicit for a reader who is not counting array entries. A
+        source with a ``disclosure_gap`` appears with ``disclosed: false`` and
+        the reason, so the reader learns *why* rather than seeing an empty list.
         """
         return {
             "format_version": self.BUNDLE_FORMAT_VERSION,
@@ -227,6 +257,8 @@ class DataExportEngine:
                     "collection": source.collection,
                     "label": source.label,
                     "fields": list(source.fields),
+                    "disclosed": source.disclosure_gap is None,
+                    "not_disclosed_reason": source.disclosure_gap,
                     "record_count": len(records),
                     "records": records,
                 }

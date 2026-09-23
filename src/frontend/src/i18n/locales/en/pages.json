@@ -562,6 +562,7 @@
       "exportReady": "Your export is ready to download.",
       "exportFailed": "The export could not be created: {{reason}}",
       "exportFailedUnknown": "The export could not be created. Please contact the operator.",
+      "exportExpired": "The download link has expired (72 hours). You can request a new export at any time.",
       "erasureHeading": "Delete account permanently",
       "erasureWarning": "This action deletes your account and all personal data. Records with legal retention obligations (e.g. harvest data under CanG) are anonymized instead of deleted.",
       "erasureDescription": "Exercise the right to be forgotten (Art. 17 GDPR) here. After confirmation, your account is deactivated immediately; the final deletion happens once retention periods expire.",

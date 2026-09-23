@@ -1,5 +1,6 @@
 """ArangoDB read side of the Art. 15 personal-data manifest (REQ-025)."""
 
+from collections.abc import Sequence
 from typing import Any
 
 from arango.database import StandardDatabase
@@ -21,7 +22,18 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
 
-    def collect_for_user(self, source: DataSourceDefinition, user_key: UserKey) -> list[dict[str, Any]]:
+    def collect_for_user(
+        self,
+        source: DataSourceDefinition,
+        user_key: UserKey,
+        tenant_keys: Sequence[str],
+    ) -> list[dict[str, Any]]:
+        if source.disclosure_gap is not None:
+            # Refused rather than answered: an empty list from a source that
+            # cannot be attributed to the subject reads as "no data", which is
+            # the lie #1645 is about. The service never asks; this is the floor.
+            msg = f"Manifest source '{source.collection}' cannot be disclosed per subject: {source.disclosure_gap}"
+            raise ValueError(msg)
         if not source.fields:
             # ``KEEP(doc, [])`` returns ``{}`` for every row, which would read
             # as "the user has data here but all of it is blank". A source that
@@ -40,25 +52,39 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
         # ``_key`` is a system attribute and cannot be reached through
         # ``doc[@field]`` bind syntax in the same way, so it gets its own query
         # rather than a string-built one.
+        bind_vars: dict[str, Any] = {
+            "@collection": source.collection,
+            "user_key": user_key,
+            "fields": list(source.fields),
+        }
         if field == "_key":
             query = """
             FOR doc IN @@collection
               FILTER doc._key == @user_key
               RETURN KEEP(doc, @fields)
             """
+        elif source.tenant_scoped:
+            # The user-reference field is written by whoever edits the document,
+            # not by the subject. Without this clause anyone with write access
+            # in their own tenant could name a foreign, enumerable user key and
+            # plant rows into that subject's disclosure (#1662 SCR-001). No
+            # membership means no tenant-scoped rows, not all of them.
+            if not tenant_keys:
+                return []
+            query = """
+            FOR doc IN @@collection
+              FILTER doc[@field] == @user_key
+                AND doc.tenant_key IN @tenant_keys
+              RETURN KEEP(doc, @fields)
+            """
+            bind_vars["field"] = field
+            bind_vars["tenant_keys"] = list(tenant_keys)
         else:
             query = """
             FOR doc IN @@collection
               FILTER doc[@field] == @user_key
               RETURN KEEP(doc, @fields)
             """
-
-        bind_vars: dict[str, Any] = {
-            "@collection": source.collection,
-            "user_key": user_key,
-            "fields": list(source.fields),
-        }
-        if field != "_key":
             bind_vars["field"] = field
         return [dict(doc) for doc in self._db.aql.execute(query, bind_vars=bind_vars)]
 

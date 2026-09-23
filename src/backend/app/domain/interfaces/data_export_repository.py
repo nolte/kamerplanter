@@ -32,6 +32,16 @@ class IDataExportRepository(ABC):
         ...
 
     @abstractmethod
+    def increment_download_count(self, key: DataExportRequestKey) -> DataExportRequest:
+        """Atomically bump ``download_count`` by one and return the record.
+
+        Not a full-model write-back: if ``expire_data_exports`` ran between the
+        read and the write, that would resurrect ``completed`` and a
+        ``file_path`` that no longer exists (#1662 SCR-005).
+        """
+        ...
+
+    @abstractmethod
     def list_by_user(self, user_key: UserKey) -> list[DataExportRequest]: ...
 
     @abstractmethod

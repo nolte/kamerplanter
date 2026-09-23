@@ -110,7 +110,6 @@ class PrivacyService:
     EMAIL_CHANGE_TTL_HOURS = 24
     #: NFR-011 R-05 — how long a built Art. 15 bundle stays downloadable.
     EXPORT_TTL_HOURS = 72
-    EXPORT_TTL_HOURS = 72
     HARD_DELETE_DAYS = 90
     # SEC-001 staleness guard: an ``in_progress`` erasure is only re-picked when
     # its last update is older than this window. The erasure beat task runs
@@ -264,9 +263,12 @@ class PrivacyService:
         if not export.file_path:
             raise ValidationError("Export file is not available.")
 
-        export.download_count += 1
+        # An atomic increment, not a full-model write-back: if
+        # ``expire_data_exports`` ran between the read above and this write, a
+        # write-back would resurrect ``completed`` and a ``file_path`` whose
+        # object was just deleted (#1662 SCR-005).
         if export.key:
-            self._export_repo.update(export.key, export)
+            export = self._export_repo.increment_download_count(export.key)
         logger.info(
             "privacy_export_download",
             user_key=user_key,
@@ -528,8 +530,18 @@ class PrivacyService:
         # ``retention.execute_scheduled_erasures`` (app/tasks/__init__.py).
         return created
 
-    def get_erasure_status(self, erasure_key: str) -> ErasureRequest:
+    def get_erasure_status(self, user_key: UserKey, erasure_key: str) -> ErasureRequest:
+        """Return an erasure request, enforcing ownership.
+
+        #1662 SCR-010 — this took only the key, so any authenticated user could
+        read another subject's Art. 17 record (status, timestamps,
+        ``retained_reason``, the deleted-collection lists) by enumerating keys.
+        Foreign ownership reads as *not found*, word for word like the export
+        route, so the response is not an existence oracle either.
+        """
         erasure = self._erasure_repo.get_or_raise(erasure_key)
+        if erasure.user_key != user_key:
+            raise NotFoundError("ErasureRequest", erasure_key)
         return erasure
 
     # ── Art. 18: processing restriction ────────────────────────────
@@ -842,15 +854,17 @@ class PrivacyService:
             ),
         )
 
+        object_key = self._data_export_engine.bundle_object_key(export.user_key, export_key)
         try:
-            return await self._build_export_bundle(export, manifest)
+            return await self._build_export_bundle(export, manifest, object_key)
         except Exception as exc:  # noqa: BLE001 — every failure must be recorded
-            return self._fail_export(export, reason=str(exc))
+            return await self._fail_export(export, exc, object_key=object_key)
 
     async def _build_export_bundle(
         self,
         export: DataExportRequest,
         manifest: list[DataSourceDefinition],
+        object_key: str,
     ) -> DataExportRequest:
         """Produce the Art. 15 bundle and complete the request.
 
@@ -868,9 +882,19 @@ class PrivacyService:
                 "delivered; please contact the operator."
             )
 
-        sections: list[tuple[DataSourceDefinition, list[dict[str, object]]]] = [
-            (source, self._personal_data_repo.collect_for_user(source, export.user_key)) for source in manifest
-        ]
+        # The subject's own tenants bound every tenant-scoped source (#1662
+        # SCR-001): the user-reference fields on those documents are written by
+        # whoever edits them, so without this a writer in any tenant could name
+        # a foreign key and plant rows into that subject's disclosure.
+        tenant_keys = self._user_tenant_keys(export.user_key)
+        sections: list[tuple[DataSourceDefinition, list[dict[str, object]]]] = []
+        for source in manifest:
+            if source.disclosure_gap is not None:
+                # Never queried: the bundle carries the reason instead of an
+                # empty list that would read as "no data here".
+                sections.append((source, []))
+                continue
+            sections.append((source, self._personal_data_repo.collect_for_user(source, export.user_key, tenant_keys)))
 
         # Anti-vacuity, in production rather than only in a test: an export that
         # found *nothing at all* is what a broken walk looks like from the
@@ -894,7 +918,6 @@ class PrivacyService:
         )
         payload = json.dumps(bundle, ensure_ascii=False, indent=2, default=str).encode("utf-8")
 
-        object_key = self._data_export_engine.bundle_object_key(export.user_key, export.key)
         await self._storage_adapter.put_object(
             object_key,
             _single_chunk(payload),
@@ -943,13 +966,47 @@ class PrivacyService:
         stream = await self._storage_adapter.get_object(export.file_path)
         return export, stream
 
-    def _fail_export(self, export: DataExportRequest, *, reason: str) -> DataExportRequest:
+    async def _fail_export(
+        self,
+        export: DataExportRequest,
+        exc: BaseException,
+        *,
+        object_key: str | None = None,
+    ) -> DataExportRequest:
         """End an export run visibly: ``failed`` plus a reason on the record.
 
         ``completed_at`` is deliberately left unset — it is the timestamp of a
         delivered disclosure, and writing one here would reintroduce exactly the
         kind of false claim #1645 is about.
+
+        **What the requester sees (#1662 SCR-008).** Only the text of an
+        :class:`ExportBundleUnavailableError` is written to the record — that
+        class exists to be read by the data subject. Anything else is an
+        internal failure whose message may carry an AQL query, a path or a
+        hostname; it goes to the log under a reference the requester is given,
+        and nothing more.
+
+        **What is left behind (#1662 SCR-006).** If the run failed after the
+        bundle was stored — the completion write, say — a full copy of the
+        account would otherwise sit orphaned in object storage with no record
+        pointing at it. The object is removed best-effort.
         """
+        if isinstance(exc, ExportBundleUnavailableError):
+            reason = str(exc)
+        else:
+            reference = secrets.token_hex(6)
+            reason = (
+                f"The export failed for an internal reason (reference {reference}). "
+                "No data has been delivered; please contact the operator with this reference."
+            )
+            logger.error(
+                "retention.process_data_export.internal_error",
+                export_key=export.key,
+                user_key=export.user_key,
+                reference=reference,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
         export.status = "failed"
         export.error_message = reason
         logger.error(
@@ -958,6 +1015,16 @@ class PrivacyService:
             user_key=export.user_key,
             reason=reason,
         )
+        if object_key and self._storage_adapter is not None:
+            try:
+                await self._storage_adapter.delete_object(object_key)
+            except Exception as cleanup_exc:  # noqa: BLE001 — the failure is already being recorded
+                logger.error(
+                    "retention.process_data_export.orphan_cleanup_failed",
+                    export_key=export.key,
+                    object_key=object_key,
+                    error=str(cleanup_exc),
+                )
         if export.key is None:  # pragma: no cover - persisted records always carry a key
             return export
         return self._export_repo.update_fields(
@@ -1258,17 +1325,30 @@ class PrivacyService:
         error_message: str | None = None,
         storage_cleanup_scopes: list[str] | None = None,
     ) -> None:
-        """Persist an erasure-status transition (in-place update)."""
+        """Persist an erasure-status transition as a named-field write.
+
+        #1662 SCR-003 — this was a full-model ``update``, and the repository
+        merges: a field set to ``None`` never reached the payload. Combined with
+        ``if error_message is not None`` the reason could never be cleared, so
+        the first record to reach ``completed`` would have kept saying
+        "ArangoDB erasure did not run" — the #1645 untruth with the sign
+        flipped. The transition to ``completed`` now names ``error_message:
+        None`` explicitly, and ``update_fields`` (``keep_none=True``) lands it.
+        """
         if erasure.key is None:
             return
-        erasure.status = status  # type: ignore[assignment]
+        fields: dict[str, object] = {"status": status}
         if completed_at is not None:
-            erasure.completed_at = completed_at
+            fields["completed_at"] = completed_at
         if error_message is not None:
-            erasure.error_message = error_message
+            fields["error_message"] = error_message
         if storage_cleanup_scopes is not None:
-            erasure.storage_cleanup_scopes = storage_cleanup_scopes
-        self._erasure_repo.update(erasure.key, erasure)
+            fields["storage_cleanup_scopes"] = storage_cleanup_scopes
+        if status == "completed":
+            fields["error_message"] = None
+        for field, value in fields.items():
+            setattr(erasure, field, value)
+        self._erasure_repo.update_fields(erasure.key, _persistable(fields))
 
     async def expire_email_change_requests(self, now: datetime) -> int:
         """Mark unconfirmed email-change requests older than 24 h as expired."""

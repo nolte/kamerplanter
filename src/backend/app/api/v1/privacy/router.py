@@ -244,8 +244,8 @@ def get_erasure_status(
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Return status of an erasure request."""
-    erasure = service.get_erasure_status(erasure_key)
+    """Return status of an erasure request (ownership-checked)."""
+    erasure = service.get_erasure_status(current_user.key or "", erasure_key)
     return _to_erasure_response(erasure)
 
 

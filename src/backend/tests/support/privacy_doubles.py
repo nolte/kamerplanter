@@ -35,6 +35,9 @@ class FakeDataExportRepo:
     def __init__(self, export: DataExportRequest | None = None) -> None:
         self.stored: dict[str, DataExportRequest] = {}
         self.expire_old_result: list[DataExportRequest] = []
+        #: How often the full-model `update` was used — the write that cannot
+        #: clear a field and can resurrect a record (#1662 SCR-005).
+        self.full_model_updates = 0
         if export is not None and export.key:
             self.stored[export.key] = export
 
@@ -68,6 +71,7 @@ class FakeDataExportRepo:
 
     def update(self, key: str, export: DataExportRequest) -> DataExportRequest:
         """Merge-mode full-model write: every ``None`` is dropped."""
+        self.full_model_updates += 1
         current = self.stored.setdefault(key, export)
         for field in type(export).model_fields:
             value = getattr(export, field)
@@ -93,6 +97,11 @@ class FakeDataExportRepo:
         merged = DataExportRequest.model_validate({**current.model_dump(), **fields})
         for field in type(current).model_fields:
             setattr(current, field, getattr(merged, field))
+        return current
+
+    def increment_download_count(self, key: str) -> DataExportRequest:
+        current = self.stored[key]
+        current.download_count += 1
         return current
 
     def delete(self, key: str) -> bool:

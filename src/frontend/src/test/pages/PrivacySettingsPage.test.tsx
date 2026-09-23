@@ -97,6 +97,25 @@ describe('PrivacySettingsPage', () => {
     expect(screen.queryByTestId('privacy-export-download-btn')).toBeNull();
   });
 
+  it('says why an expired export shows no download (#1662 SCR-009)', async () => {
+    server.use(
+      http.post('/api/v1/privacy/export', () =>
+        HttpResponse.json({ key: 'exp-1', status: 'expired', requested_at: null, completed_at: null }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PrivacySettingsPage />);
+
+    await user.click(await screen.findByTestId('privacy-tab-export'));
+    await user.click(await screen.findByTestId('privacy-export-request-btn'));
+
+    const result = await screen.findByTestId('privacy-export-result');
+    expect(result.textContent).toContain('72');
+    expect(screen.queryByTestId('privacy-export-download-btn')).toBeNull();
+    // The way forward stays available: the request button is still there.
+    expect(screen.getByTestId('privacy-export-request-btn')).toBeTruthy();
+  });
+
   it('hands the completed export bundle to the browser (#1645)', async () => {
     const bundle = JSON.stringify({ sections: [{ collection: 'users', records: [{ email: 'x@example.invalid' }] }] });
     let downloadRequested = false;

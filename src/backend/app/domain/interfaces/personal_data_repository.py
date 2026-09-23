@@ -7,6 +7,7 @@ stays the single reader (#1622) and the executing path cannot drift from it.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import Any
 
 from app.common.types import UserKey
@@ -17,8 +18,19 @@ class IPersonalDataRepository(ABC):
     """Reads the documents one manifest source declares for a user."""
 
     @abstractmethod
-    def collect_for_user(self, source: DataSourceDefinition, user_key: UserKey) -> list[dict[str, Any]]:
+    def collect_for_user(
+        self,
+        source: DataSourceDefinition,
+        user_key: UserKey,
+        tenant_keys: Sequence[str],
+    ) -> list[dict[str, Any]]:
         """Return the declared ``source.fields`` of every document of *user_key*.
+
+        ``tenant_keys`` are the subject's own tenants. A ``tenant_scoped``
+        source is restricted to them, so a document in a tenant the subject is
+        not a member of can never reach their disclosure — whoever wrote the
+        user-reference field (#1662 SCR-001). A source with a
+        ``disclosure_gap`` must be refused, not answered with ``[]``.
 
         Three shapes, all declared by the source itself:
 
