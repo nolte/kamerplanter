@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
+from pydantic import ValidationError
 
 from app.common.enums import (
     AquaponicSystemType,
@@ -19,9 +20,11 @@ from app.domain.engines.aquaponics_engine import (
     BiofilterManager,
     FeedingRateCalculator,
     FishHealthMonitor,
+    HealthAlert,
     NitrogenCycleEngine,
     NutrientDeficiencyAnalyzer,
     StockingDensityCalculator,
+    WaterQualityEvaluation,
 )
 from app.domain.models.aquaponik import (
     AquaponicSystem,
@@ -152,6 +155,21 @@ class TestNitrogenCycleEngine:
         temp = [e for e in alerts if e.parameter == "temperature"]
         assert temp and temp[0].severity == "critical"
         assert any(e.parameter == "dissolved_oxygen" for e in alerts)
+
+    def test_suboptimal_temperature_is_graded_info(self):
+        """#1670 — REQ-026 lists ``info``: temperature between stress and optimal range."""
+        engine = NitrogenCycleEngine()
+        alerts = engine.evaluate_water_quality(_wt(0.1, 0.05, 20, temp=22), _tilapia())
+        temp = [e for e in alerts if e.parameter == "temperature"]
+        assert [e.severity for e in temp] == ["info"]
+
+    def test_in_range_water_yields_no_ok_grade(self):
+        """#1670 — an in-range parameter yields no entry, so ``ok`` is not a grade."""
+        engine = NitrogenCycleEngine()
+        alerts = engine.evaluate_water_quality(_wt(0.1, 0.05, 20, temp=28), _tilapia())
+        assert not [e for e in alerts if e.parameter == "temperature"]
+        with pytest.raises(ValidationError):
+            WaterQualityEvaluation(parameter="ph", value=7.0, limit=8.5, severity="ok", message_de="x", message_en="x")
 
     def test_no_species_only_grades_free_ammonia(self):
         engine = NitrogenCycleEngine()
@@ -375,6 +393,13 @@ class TestBiofilterManager:
         result = mgr.estimate_required_surface_area(67.5, 3, "mbbr", 40)
         assert result.status == "unknown"
 
+    def test_unknown_without_biofilter_volume(self):
+        """#1670 — REQ-026: ``unknown`` when the current surface area cannot be computed."""
+        mgr = BiofilterManager()
+        result = mgr.estimate_required_surface_area(67.5, 26, None, None)
+        assert result.status == "unknown"
+        assert result.current_surface_area_m2 is None
+
     def test_seasonal_reactivation(self):
         mgr = BiofilterManager()
         plan = mgr.seasonal_reactivation_plan(CyclingStatus.DORMANT, 18, 100)
@@ -399,6 +424,18 @@ class TestFishHealthMonitor:
         mon = FishHealthMonitor()
         alerts = mon.evaluate_fish_health(self._stock(mortality=3), [], [], _tilapia())
         assert any(a.alert_type == "mortality_rate" and a.severity == "warning" for a in alerts)
+
+    @pytest.mark.parametrize("severity", ["ok", "info"])
+    def test_health_alert_admits_only_warning_and_critical(self, severity):
+        """#1670 — no alert path emits ``ok``/``info``; the type no longer admits them."""
+        with pytest.raises(ValidationError):
+            HealthAlert(
+                alert_type="mortality_rate",
+                severity=severity,
+                message_de="x",
+                message_en="x",
+                recommended_action="x",
+            )
 
     def test_mortality_rate_critical(self):
         mon = FishHealthMonitor()

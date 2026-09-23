@@ -62,12 +62,8 @@ _APP_DIR = _REPO_ROOT / "src" / "backend" / "app"
 
 #: (model, field) pairs where spec and code are known to disagree, with the reason.
 #: An entry that stops diverging goes red (``test_the_register_holds_only_live_divergences``).
-#: All three are one REQ-026 question, tracked as #1670.
-_KNOWN_DIVERGENT: dict[tuple[str, str], str] = {
-    ("BiofilterDimensioning", "status"): "REQ-026 §Biofilter lists three states; the engine also reports `unknown`.",
-    ("HealthAlert", "severity"): "REQ-026 §Health-Alerts lists three levels; the engine also emits `ok`.",
-    ("WaterQualityEvaluation", "severity"): "REQ-026 §Wasserqualität lists three levels; the engine also emits `info`.",
-}
+#: Empty since #1670 agreed REQ-026 and the aquaponics engine; it only shrinks.
+_KNOWN_DIVERGENT: dict[tuple[str, str], str] = {}
 
 #: Floor on the number of joined pairs. 14 on 2026-09-23; set below that so a
 #: legitimately retired model does not trip it, and high enough that a parser
