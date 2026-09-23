@@ -158,12 +158,18 @@ whether the erased account's records must stay linkable to each other for an aud
     typed-in name. The system does not guess an owner from free text, so account deletion
     does not reach these older records; their name field stays as it was entered.
 
-!!! note "Partially available: deletion path"
-    The full anonymization runs today when a platform admin deletes an account through
-    user management. If you file an erasure request yourself, the scheduled run after the
-    90 days so far only cleans object storage and the reference index. The request then
-    stays open as `partially_completed` and is retried daily until that path runs the
-    anonymization as well.
+### Both deletion paths do the same
+
+It makes no difference whether a platform admin deletes your account through user
+management or you file an erasure request yourself: both paths run the same erasure. It
+cleans object storage and the reference index, deletes your other records, anonymizes the
+ones under a retention obligation as described above, and removes your account last. The
+database part runs as one unit: it is either done completely or not at all.
+
+Your own request is carried out by the daily run once the 90 days have passed. After that
+it reads `completed` and carries the tombstone hash instead of your account key. If a run
+fails, the request stays open as `partially_completed` and the next daily run repeats the
+whole erasure. While a request is open, you cannot file a second one.
 
 ---
 

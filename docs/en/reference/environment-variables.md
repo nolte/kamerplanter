@@ -84,7 +84,9 @@ These variables control the legally mandated deletion/anonymization of personal 
 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | No | Validity of the confirmation link when changing an email address. |
 
 !!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
-    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. For a full list of unconditionally required secrets, see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used.
+
+    With `DEBUG=true` the backend starts without a valid value, for example in the local development stack. Account erasure still refuses every run before it touches anything: when a platform admin deletes an account, the backend answers `503`. An Art. 17 erasure request is still accepted, but the daily run does not carry it out; the request stays open as `partially_completed` until you set a valid salt. For a full list of unconditionally required secrets, see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 ---
 

@@ -84,7 +84,9 @@ Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anony
 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung. |
 
 !!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion"
-    Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden. Details zu allen unbedingt erforderlichen Secrets: [Konfigurationsmatrix — Pflicht-Secrets je aktivierter Funktion](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+    Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden.
+
+    Mit `DEBUG=true` startet das Backend auch ohne gültigen Wert, etwa im lokalen Entwicklungs-Stack. Die Kontolöschung verweigert dann trotzdem jeden Lauf, bevor sie etwas anfasst: Löscht ein Platform-Admin ein Konto, antwortet das Backend mit `503`. Ein Löschantrag nach Art. 17 wird zwar angenommen, der tägliche Lauf führt ihn aber nicht aus. Der Antrag bleibt als `partially_completed` offen, bis du einen gültigen Salt setzt. Details zu allen unbedingt erforderlichen Secrets: [Konfigurationsmatrix — Pflicht-Secrets je aktivierter Funktion](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 ---
 

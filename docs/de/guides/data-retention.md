@@ -163,12 +163,20 @@ untereinander verknüpfbar bleiben müssen:
     aus dem Freitext, deshalb erreicht die Konto-Löschung solche Altdatensätze nicht. Ihr
     Namensfeld bleibt, wie es eingegeben wurde.
 
-!!! note "Teilweise verfügbar: Löschweg"
-    Die vollständige Anonymisierung läuft heute, wenn ein Platform-Admin ein Konto über
-    die Benutzerverwaltung löscht. Stellst du selbst einen Löschantrag, bereinigt der
-    geplante Lauf nach Ablauf der 90 Tage bisher nur Dateispeicher und Referenzindex. Der
-    Antrag bleibt dann als `partially_completed` offen und wird täglich erneut versucht,
-    bis auch dieser Weg die Anonymisierung ausführt.
+### Beide Löschwege tun dasselbe
+
+Es spielt keine Rolle, ob ein Platform-Admin dein Konto über die Benutzerverwaltung
+löscht oder ob du selbst einen Löschantrag stellst: Beide Wege führen dieselbe Löschung
+aus. Sie bereinigt Dateispeicher und Referenzindex, löscht deine übrigen Datensätze,
+anonymisiert die aufbewahrungspflichtigen wie oben beschrieben und entfernt zuletzt dein
+Konto. Der Datenbankteil läuft in einem Stück: Entweder ist er vollständig erledigt oder
+gar nicht.
+
+Deinen eigenen Antrag führt der tägliche Lauf nach Ablauf der 90 Tage aus. Danach steht
+er auf `completed` und trägt statt deiner Kontokennung den Tombstone-Hash. Schlägt ein
+Lauf fehl, bleibt der Antrag als `partially_completed` offen, und der nächste tägliche
+Lauf wiederholt die ganze Löschung. Solange ein Antrag offen ist, kannst du keinen
+zweiten stellen.
 
 ---
 
