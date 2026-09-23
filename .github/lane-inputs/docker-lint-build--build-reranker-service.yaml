@@ -2,7 +2,7 @@
 # filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
 # `invocations` below. The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
-schema: 1
+schema: 2
 workflow: docker-lint-build.yml
 job: build-reranker-service
 gate:
@@ -32,3 +32,8 @@ reads:
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
 - docker/reranker-service/uv.lock
+unrecorded_invocations:
+- command: scripts/ci/smoke_model_image.sh kp-reranker-service:pr 8081 /ready
+  reason: Runs against the image the job just built (`docker run` of a :pr tag that exists only on the runner); on a workstation
+    there is no such image. The script reads nothing from the tree but itself, and scripts/ci/** is in this workflow's on:-level
+    filter; the image's inputs are the derived build context above.

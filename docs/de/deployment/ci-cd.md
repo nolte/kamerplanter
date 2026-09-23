@@ -246,7 +246,7 @@ helm/**         →  publish-helm-charts
 Bei einem `v*`-Tag oder manuellem Auslösen wird das Filtern übersprungen — es werden immer alle Komponenten gebaut.
 
 !!! info "Woran ein Filter gemessen wird"
-    Jeder Pfadfilter — ob an `on:` eines Workflows oder als `dorny/paths-filter`-Schritt — wird nicht an dem geprüft, was der Workflow-Text *erwähnt*, sondern an dem, was der Job tatsächlich *liest*. `scripts/ci/lane_inputs.py` zeichnet die Lesemenge eines Jobs unter `strace` auf (Subprozesse eingeschlossen) und legt sie als Manifest unter `.github/lane-inputs/` ab; der Guard `test_lane_filters_cover_measured_inputs.py` hält jeden Filter dagegen und wird rot, wenn ein gefilterter Job kein Manifest hat, das Manifest älter ist als der Job oder ein gelesener Pfad außerhalb des Filters liegt. Die Regel steht in NFR-018 §4.3.
+    Jeder Pfadfilter — ob an `on:` eines Workflows oder als `dorny/paths-filter`-Schritt — wird nicht an dem geprüft, was der Workflow-Text *erwähnt*, sondern an dem, was der Job tatsächlich *liest*. `scripts/ci/lane_inputs.py` zeichnet die Lesemenge eines Jobs unter `strace` auf (Subprozesse eingeschlossen) und legt sie als Manifest unter `.github/lane-inputs/` ab; der Guard `test_lane_filters_cover_measured_inputs.py` hält jeden Filter dagegen und wird rot, wenn ein gefilterter Job kein Manifest hat, das Manifest älter ist als der Job oder ein gelesener Pfad außerhalb des Filters liegt. Die Regel steht in NFR-018 §4.3. Bis der Recorder in CI läuft (#1683), ist der Guard advisory: Er läuft in `pytest tests/unit/`, nicht in der required Guards-Lane.
 
 ### Backend-Image
 

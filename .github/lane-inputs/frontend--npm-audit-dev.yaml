@@ -2,7 +2,7 @@
 # filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
 # `invocations` below. The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
-schema: 1
+schema: 2
 workflow: frontend.yml
 job: npm-audit-dev
 gate:
@@ -18,6 +18,11 @@ invocations:
   exit_code: 1
   env: []
   untracked_reads_dropped: 0
+  allow_failure_reason: 'Exit 1 is the gate''s own verdict, reached after every read: `npm audit --json` on the recording
+    workstation reported high advisories in the dev tree (js-yaml, lighthouse, lodash-es, puppeteer-core, tmp, undici) that
+    tests/security/npm-audit-allowlist.yaml does not accept. The gate reads the allowlist and the audit output before it decides,
+    so the failure path skipped no tracked read; this is the advisory dev-tree lane, and the same verdict is what CI reports
+    for the same tree.'
 subprocesses:
 - asdf
 - basename

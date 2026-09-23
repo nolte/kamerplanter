@@ -169,6 +169,21 @@ def guard() -> ModuleType:
     return module
 
 
+class TestTheContractIsTheSameInBothFiles:
+    """Schema number and reason floor: the recorder writes under them, the guard reads under them."""
+
+    def test_schema_and_reason_floor(self, guard: ModuleType) -> None:
+        assert recorder.SCHEMA == guard._SCHEMA, "a manifest written by this recorder must be one the guard accepts"
+        assert recorder.MIN_REASON_CHARS == guard._MIN_REASON_CHARS
+
+    def test_a_reason_shorter_than_the_floor_is_refused_at_the_command_line(self) -> None:
+        import argparse
+
+        with pytest.raises(argparse.ArgumentTypeError):
+            recorder._reason("skips")
+        assert recorder._reason("x" * recorder.MIN_REASON_CHARS) == "x" * recorder.MIN_REASON_CHARS
+
+
 class TestTheJobHashIsTheSameFunctionInBothFiles:
     """The recorder writes it, the guard recomputes it; a drift would stale every manifest or none."""
 

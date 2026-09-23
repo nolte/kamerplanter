@@ -106,6 +106,12 @@ markers = [
     # mandatory reason: `grep -rn allow_db_connection tests/` then counts every
     # exception, which a per-test patch never did.
     "allow_db_connection(reason): this test may open a real datastore connection",
+    # #1683 — a guard whose instrument does not run in CI yet. The required
+    # `Write-route and tree guards` lane (backend-guards.yml) deselects it with
+    # `-m 'not advisory'`; `pytest tests/unit/` (task test:backend:unit, the
+    # advisory backend.yml lanes) still runs it. Removing the marker from a file
+    # is how #1683 promotes it. `grep -rn "mark.advisory" tests/` lists them.
+    "advisory: runs in the unit tier but is deselected by the required guards lane until #1683",
 ]
 
 [tool.black]

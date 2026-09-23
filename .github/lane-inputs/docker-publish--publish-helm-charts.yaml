@@ -2,7 +2,7 @@
 # filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
 # `invocations` below. The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
-schema: 1
+schema: 2
 workflow: docker-publish.yml
 job: publish-helm-charts
 gate:
@@ -39,6 +39,11 @@ invocations:
   exit_code: 1
   env: []
   untracked_reads_dropped: 0
+  allow_failure_reason: 'Exits 1 on the develop tree BY DESIGN (#987): helm/kamerplanter/values.yaml carries `latest` tags
+    until the release-time pin step (scripts/ci/pin_chart_image_digests.sh) rewrites it, and the script''s verdict is that
+    no reference is digest-pinned. It reads every helm/kamerplanter/values*.yaml before deciding (CHART_GLOB), so the failure
+    path skipped no read of the tree; the only input it could not see is the rewritten values file, which exists only inside
+    a release run and is the same tracked path.'
 subprocesses:
 - asdf
 - bash
@@ -65,3 +70,11 @@ reads:
 - scripts/
 - scripts/check_chart_image_digests.py
 - scripts/ci/determine_chart_version.sh
+unrecorded_invocations:
+- command: scripts/ci/pin_chart_image_digests.sh "helm/$CHART/values.yaml" "$VERSION"
+  reason: 'Runs only on a release tag: resolves every Kamerplanter image digest from GHCR for that version (network, and a
+    tag that exists) and rewrites the values file it is given in place. What it reads from the tree is that one values file,
+    helm/kamerplanter/values.yaml, which the helm filter selects.'
+- command: scripts/ci/publish_release_asset.sh "$TAG" tar-content "$CHART"-*.tgz
+  reason: Runs only on a release tag against the GitHub release of that tag (gh auth, an existing release). It reads the packaged
+    chart archive from the working directory, not a tracked file; the script itself is in the on:-level filter.

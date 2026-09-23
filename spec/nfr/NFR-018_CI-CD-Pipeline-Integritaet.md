@@ -499,7 +499,24 @@ Momentaufnahme. Beginnt ein Test, eine neue Datei zu lesen, ohne dass sich die
 Job-Definition ändert, altert das Manifest unbemerkt, bis es neu gemessen wird.
 Die Messung läuft lokal, nicht in der Lane; eine Lane, die sich bei jedem
 Lauf selbst misst und bei Drift rot wird, ist die nächste Stufe und ein
-eigener Posten.
+eigener Posten (#1683).
+
+**Übergangszustand, benannt (Review-Runde zu #1682)**: Solange der Recorder
+nicht in CI läuft, ist der Wächter **advisory**: Er trägt den pytest-Marker
+`advisory`, die required Lane `Write-route and tree guards` wählt ihn mit
+`-m 'not advisory'` ab, und `task test:backend:unit` (`pytest tests/unit/`)
+führt ihn weiter aus. Zwei Lücken sind dabei bekannt und stehen als alternde
+Register im Wächter selbst (§2.5): `backend-guards.yml/guards` hat noch kein
+Manifest — die 28 `covered_by`-Delegationen dorthin sind **angenommen, nicht
+gemessen**, und der Wächter sagt das als Befund —, und
+`backend--coverage.yaml` ist `status: partial` (aus einer einzelnen Testdatei
+aufgezeichnet) und bescheinigt dem Filter des Coverage-Jobs nichts. Ein
+Manifest mit einer Invocation, die nicht mit 0 endete, trägt eine
+`allow_failure_reason`, die benennt, welche Lesepfade der Fehlerpfad
+übersprungen haben kann; ein `run:`-Befehl des Jobs, den kein Manifest
+aufgezeichnet hat, ist rot, es sei denn, er steht mit Begründung unter
+`unrecorded_invocations`. #1683 nimmt beide Manifeste in CI auf, löscht die
+Register und den Marker und macht den Wächter damit required.
 
 ---
 

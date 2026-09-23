@@ -70,6 +70,19 @@ Usage::
     # add a second invocation of the same job to its manifest
     python3 scripts/ci/lane_inputs.py record --append ... -- task lint:backend
 
+    # an invocation whose non-zero exit is its verdict, not a crash: say which
+    # reads the failure path may have skipped (the guard refuses a bare failure)
+    python3 scripts/ci/lane_inputs.py record --append \\
+        --allow-failure 'exits 1 on develop by design: … reads it could not make: …' \\
+        ... -- python3 scripts/check_chart_image_digests.py
+
+    # a recording that is knowingly a SUBSET of the job's invocation: the
+    # manifest is marked `status: partial` and the guard holds that against the
+    # job's filter until the full invocation is recorded
+    python3 scripts/ci/lane_inputs.py record \\
+        --partial 'recorded from one test file to bootstrap; the full run is recorded in CI (#1683)' \\
+        ... -- pytest tests/unit/one_file.py
+
     # a docker-built job: what the build context hands the daemon
     python3 scripts/ci/lane_inputs.py derive-docker \\
         --workflow docker-lint-build.yml --job build-backend --filter backend \\
@@ -90,6 +103,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -106,7 +120,13 @@ WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
 #: Manifest schema version. Bump when a field's meaning changes, so the guard
 #: can refuse a manifest written under an older contract instead of misreading it.
-SCHEMA = 1
+#: 2 (review round of #1682): `status: partial` + `partial_reason`,
+#: `invocations[].allow_failure_reason`, `unrecorded_invocations`. The guard's
+#: `_SCHEMA` is the same number and the recorder test pins the two together.
+SCHEMA = 2
+
+#: A reason shorter than this is a label, not a reason (the guard's `_MIN_REASON_CHARS`).
+MIN_REASON_CHARS = 40
 
 #: The syscalls that decide "this file was read". ``openat``/``open`` for files,
 #: ``getdents64`` for directory listings, ``execve`` so the followed subprocesses
@@ -472,8 +492,9 @@ def command_record(args: argparse.Namespace) -> int:
     if trace.returncode != 0 and not args.allow_failure:
         raise LaneInputsError(
             f"the invocation exited {trace.returncode}; a read set recorded from a failed run "
-            "is a read set of the failure path. Fix the run, or pass --allow-failure if the "
-            "exit code is the invocation's verdict rather than a crash."
+            "is a read set of the failure path. Fix the run, or pass --allow-failure REASON if the "
+            "exit code is the invocation's verdict rather than a crash — REASON says which reads "
+            "the failure path may have skipped, and the guard refuses a failed invocation without it."
         )
 
     tracked = tracked_files()
@@ -494,15 +515,23 @@ def command_record(args: argparse.Namespace) -> int:
         manifest = _fresh_manifest(args, document)
 
     invocation = {
-        "command": " ".join(args.command),
+        # `shlex.join`, not `" ".join`: an argument with spaces (`--onlyAllow 'MIT;ISC;MIT AND ISC'`)
+        # must survive as one token, or the guard's rule 5 cannot match it to the job's `run:`.
+        "command": shlex.join(args.command),
         "cwd": cwd.relative_to(REPO_ROOT).as_posix() or ".",
         "recorder": "strace -ff -y -z",
         "exit_code": trace.returncode,
         "env": sorted(args.env),
         "untracked_reads_dropped": dropped_untracked,
     }
+    if trace.returncode != 0:
+        invocation["allow_failure_reason"] = args.allow_failure.strip()
     _merge_into(manifest, invocation=invocation, reads=reads, execs=trace.execs, cwd=cwd)
-    manifest["status"] = "measured"
+    if args.partial is not None:
+        manifest["status"] = "partial"
+        manifest["partial_reason"] = args.partial.strip()
+    elif manifest.get("status") != "partial":
+        manifest["status"] = "measured"
     write_manifest(target, manifest)
     print(
         f"lane-inputs: {len(reads)} tracked path(s) read ({dropped_untracked} untracked dropped), "
@@ -699,6 +728,12 @@ def command_show(args: argparse.Namespace) -> int:
 # -------------------------------------------------------------------------- main
 
 
+def _reason(text: str) -> str:
+    if len(text.strip()) < MIN_REASON_CHARS:
+        raise argparse.ArgumentTypeError(f"a reason has at least {MIN_REASON_CHARS} characters; {text!r} is a label")
+    return text
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     sub = parser.add_subparsers(dest="command_name", required=True)
@@ -717,7 +752,27 @@ def _parser() -> argparse.ArgumentParser:
     lane_arguments(record)
     record.add_argument("--cwd", default=None, help="directory the invocation runs in, repo-relative")
     record.add_argument("--env", action="append", default=[], metavar="KEY=VALUE")
-    record.add_argument("--allow-failure", action="store_true")
+    record.add_argument(
+        "--allow-failure",
+        default=None,
+        metavar="REASON",
+        type=_reason,
+        help=(
+            "accept a non-zero exit as the invocation's verdict; REASON (at least "
+            f"{MIN_REASON_CHARS} characters) says which reads the failure path may have skipped"
+        ),
+    )
+    record.add_argument(
+        "--partial",
+        default=None,
+        metavar="REASON",
+        type=_reason,
+        help=(
+            "mark the manifest `status: partial`: the invocation is knowingly a subset of the job's; "
+            f"REASON (at least {MIN_REASON_CHARS} characters) says which subset, and the guard holds it "
+            "against the filter"
+        ),
+    )
     record.add_argument(
         "--empty-reads-reason",
         default=None,

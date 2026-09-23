@@ -35,6 +35,36 @@ on:
       # (#1313).
       - "scripts/ci/skaffold_render_verify.sh"
       - "scripts/ci/assert_rendered_manifests.sh"
+      # WHAT THIS JOB READS, MEASURED (scripts/ci/lane_inputs.py, #1596; re-recorded
+      # 2026-09-23 on the review round of #1682): 3 641 tracked paths. `skaffold
+      # diagnose` resolves the dependencies of EVERY build artifact, and the
+      # knowledge artifact's context is the checkout root (`context: .`), so the
+      # walk enumerates every top-level directory and hashes what .dockerignore
+      # keeps — 3 348 paths under src/, 100 under spec/, 51 under .github/, 34
+      # under docs/, and a listing of each directory below. The filter above
+      # named skaffold.yaml, helm/ and three Dockerfile globs; everything the job
+      # reads beyond that is listed here, top-level entry by top-level entry, so
+      # the guard (test_lane_filters_cover_measured_inputs.py) holds the filter
+      # against the measurement. Root files the job does NOT read (README.md,
+      # Taskfile.yaml, renovate.json5, the docker-compose files, mkdocs.yml, …)
+      # stay outside on purpose: the list is the measurement, not `**`.
+      - ".dockerignore"
+      - ".gitignore"
+      - ".audits/**"
+      - ".claude/**"
+      - ".github/**"
+      - ".taskfiles/**"
+      - ".vscode/**"
+      - "brand/**"
+      - "docker/**"
+      - "docs/**"
+      - "project/**"
+      - "scripts/**"
+      - "spec/**"
+      - "src/**"
+      - "test-reports/**"
+      - "tests/**"
+      - "tools/**"
 
 permissions:
   contents: read
@@ -105,14 +135,7 @@ jobs:
             -f helm/kamerplanter/values-dev.yaml
 
       - name: Skaffold diagnose
-        # `--yaml-only` prints the resolved configuration, which is what this step is
-        # for. Without the flag `skaffold diagnose` also HASHES every file of every
-        # artifact's build context — 3 083 tracked files across src/backend, src/frontend,
-        # spec/knowledge and more (measured 2026-09-23 with scripts/ci/lane_inputs.py,
-        # #1596) — which made this job's true input set the whole checkout while its
-        # verdict never depended on any of that content. The render step below runs
-        # `skaffold diagnose --yaml-only` itself, so nothing this step validated is lost.
-        run: skaffold diagnose --yaml-only
+        run: skaffold diagnose
 
       - name: Skaffold render and assert the manifests
         # `--digest-source=none` and `--offline=true` are what make this step

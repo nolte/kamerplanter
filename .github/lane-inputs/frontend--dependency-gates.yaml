@@ -2,7 +2,7 @@
 # filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
 # `invocations` below. The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
-schema: 1
+schema: 2
 workflow: frontend.yml
 job: dependency-gates
 gate:
@@ -20,7 +20,7 @@ invocations:
   env: []
   untracked_reads_dropped: 0
 - command: npx --yes license-checker-rseidelsohn@4.4.2 --production --excludePackages kamerplanter-frontend@0.1.0 --onlyAllow
-    MIT;ISC;BSD-3-Clause;BSD-2-Clause;Apache-2.0;0BSD;CC0-1.0;Unlicense;MIT AND ISC --summary
+    'MIT;ISC;BSD-3-Clause;BSD-2-Clause;Apache-2.0;0BSD;CC0-1.0;Unlicense;MIT AND ISC' --summary
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0

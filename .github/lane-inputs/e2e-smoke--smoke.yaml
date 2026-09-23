@@ -2,7 +2,7 @@
 # filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
 # `invocations` below. The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
-schema: 1
+schema: 2
 workflow: e2e-smoke.yml
 job: smoke
 gate:
@@ -3225,3 +3225,8 @@ reads:
 - tests/e2e/test_req036_diagnose.py
 - tests/e2e/test_uinfr002_a11y_journey.py
 - tests/e2e/uv.lock
+unrecorded_invocations:
+- command: ./scripts/run-e2e.sh --smoke
+  reason: Starts the whole docker compose stack and the Selenium suite; the reads inside the containers are the three derived
+    build contexts above, and the compose file it drives is recorded through `docker compose config`. The script is syntax-checked
+    (`bash -n`) in the recording; running it on a workstation would record the stack, not the job.
