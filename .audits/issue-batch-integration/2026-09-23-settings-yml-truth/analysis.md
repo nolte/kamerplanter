@@ -59,3 +59,4 @@
 
 | Member | Kind | What changed |
 |---|---|---|
+| — | local adaptation | `test_lane_filters_cover_measured_inputs.py::test_no_manifest_is_older_than_its_job` rot, **vorbestehend**: `backend-guards--integration.yaml` veraltet gegen `backend-guards.yml` (nicht von diesem Branch berührt); Guard ist advisory; gehört zu #1683. |
