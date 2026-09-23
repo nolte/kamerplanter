@@ -138,6 +138,7 @@ class CvDiagnosisService:
         *,
         tenant_key: str,
         plant_key: str,
+        user_key: str,
         confirmed_labels: list[str] | None = None,
     ) -> dict:
         """Confirm a diagnosis into an IPM inspection suggestion.
@@ -145,6 +146,10 @@ class CvDiagnosisService:
         Cross-tenant fail-closed: an unknown/foreign request raises
         :class:`NotFoundError` (no information-leak oracle). Never creates a
         treatment, so the REQ-010 Karenz gate is not engaged here.
+
+        ``user_key`` is the confirming account and becomes ``inspected_by_key``
+        (#1669) — keyword-only without a default, so no caller can produce an
+        inspection that is attributed to nobody.
         """
         request = self._repo.get(key, tenant_key)
         if request is None:
@@ -169,6 +174,7 @@ class CvDiagnosisService:
             tenant_key=tenant_key,
             plant_key=plant_key,
             inspector="",
+            inspected_by_key=user_key,
             pressure_level=self._pressure_from_confidence(max_conf),
             detected_pest_keys=pest_keys,
             detected_disease_keys=disease_keys,

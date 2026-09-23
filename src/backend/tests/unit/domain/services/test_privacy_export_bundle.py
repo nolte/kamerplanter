@@ -31,11 +31,26 @@ FIXTURE_ROWS: dict[str, list[dict[str, Any]]] = {
     "auth_providers": [{"provider": "github", "provider_email": "subject@example.invalid"}],
     # Distinctive values on purpose: this row must be asserted *absent*, and a
     # one-letter grade like "A" is a substring of any JSON document.
+    # Disclosed by ``harvested_by_key`` since #1669 — asserted *present*.
     "harvest_batches": [
         {"batch_id": "HB-fixture-0001", "quality_grade": "grade-fixture", "notes": "fixture harvest note"}
     ],
     "plant_diary_entries": [{"title": "fixture diary", "text": "the plant looked fine"}],
+    # A source declared with a ``disclosure_gap`` (constructed — no production
+    # source carries one since #1669). Distinctive values on purpose: this row
+    # must be asserted *absent*, and a one-letter value is a substring of any
+    # JSON document.
+    "gapped_fixture": [{"notes": "gapped-fixture-note-must-not-appear"}],
 }
+
+GAPPED_SOURCE = DataSourceDefinition(
+    collection="gapped_fixture",
+    tenant_scoped=True,
+    filter_field="whoever",
+    label="Cannot be attributed",
+    fields=["notes"],
+    disclosure_gap="cannot be attributed in this fixture",
+)
 
 
 class _FakePersonalDataRepo(IPersonalDataRepository):
@@ -116,7 +131,10 @@ async def _download_text(svc: PrivacyService) -> str:
 
 @pytest.mark.asyncio
 class TestTheBundleReachesTheUser:
-    async def test_the_downloaded_bytes_carry_the_users_records(self):
+    async def test_the_downloaded_bytes_carry_the_users_records(self, monkeypatch):
+        monkeypatch.setattr(
+            DataExportEngine, "USER_DATA_MANIFEST", [*DataExportEngine.USER_DATA_MANIFEST, GAPPED_SOURCE]
+        )
         storage = _InMemoryStorage()
         svc = _make_service(_pending(), storage, _FakePersonalDataRepo())
 
@@ -125,10 +143,14 @@ class TestTheBundleReachesTheUser:
 
         # The subject's own values, read back out of the delivered file — for
         # every source that *can* be disclosed. ``harvest_batches`` is in the
-        # fixture on purpose: its rows must NOT appear, because the walk never
-        # asks for a source with a declared gap (#1662 SCR-001).
+        # fixture on purpose: since #1669 it is keyed on the server-set
+        # ``harvested_by_key`` and its row MUST appear (before, the category
+        # carried a gap and the same assertion ran the other way). The
+        # constructed ``gapped_fixture`` keeps the negative: the walk never asks
+        # for a source with a declared gap (#1662 SCR-001).
         gaps = {s.collection for s in DataExportEngine.USER_DATA_MANIFEST if s.disclosure_gap}
-        assert "harvest_batches" in gaps, "the fixture's negative case must be a real gap"
+        assert gaps == {"gapped_fixture"}, "no production source may carry a gap; the fixture's negative must"
+        assert "harvest_batches" not in gaps
         for collection, rows in FIXTURE_ROWS.items():
             for value in rows[0].values():
                 if collection in gaps:

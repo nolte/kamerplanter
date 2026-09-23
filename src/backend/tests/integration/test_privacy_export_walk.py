@@ -22,8 +22,13 @@ Runs in CI against a service container; locally it needs a database of its own
 
 The seeded shape is what production writes (#1662 SCR-002): a user-reference
 field gets the owner's key only where a production write path is measured to
-store one there; the three free-text attribution fields get a name, as they do
-in every real database.
+store one there. Since #1669 the three retained categories carry a server-set
+account key (``harvested_by_key`` / ``inspected_by_key`` / ``applied_by_key``)
+beside their free-text name, and the walk keys on that. Rows written before
+#1669 carry ``null`` in the key field (v0056) and only a name — they are seeded
+too, in the subject's own tenant, and must **not** be delivered, even when the
+name is the subject's key: guessing an owner from free text is the backfill
+#1669 forbids, and the bundle states the gap instead.
 """
 
 from __future__ import annotations
@@ -39,6 +44,7 @@ from arango import ArangoClient
 from app.data_access.arango import collections as col
 from app.data_access.arango.personal_data_repository import ArangoPersonalDataRepository
 from app.domain.engines.data_export_engine import DataExportEngine
+from app.domain.engines.erasure_engine import ErasureEngine
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
 TEST_DATABASE = "kamerplanter_privacy_export_test"
@@ -49,6 +55,12 @@ OTHER = "other-user"
 #: (``harvester``, ``inspector``, ``applied_by``): a name, not a key. The
 #: OpenAPI example for ``inspector`` is literally ``"Maren"``.
 FREE_TEXT_ATTRIBUTION = "Maren"
+#: The free-text display field beside each #1669 key field. Read off the Art. 17
+#: rules rather than written down twice: the rule that pseudonymises the key is
+#: the one that clears the name, so the two cannot drift apart here.
+_DISPLAY_TEXT_FIELD: dict[str, str] = {
+    rule.collection: rule.clear_fields[0] for rule in ErasureEngine.ANONYMIZE_COLLECTIONS if rule.clear_fields
+}
 #: The subject's tenants, and one they are not a member of.
 TENANTS = ("t-a", "t-b")
 FOREIGN_TENANT = "t-foreign"
@@ -79,14 +91,38 @@ def _document(source, owner: str, *, tenant: str = TENANTS[0]) -> dict:
     * a source whose filter field is measured to carry a user key (see
       :func:`_assert_filter_field_is_written_as_a_user_key`) gets the owner's key;
     * a source with a declared ``disclosure_gap`` gets the free text production
-      stores, so the seeded row is exactly as unattributable as a real one.
+      stores, so the seeded row is exactly as unattributable as a real one;
+    * a source with an ``attribution_gap`` (#1669) additionally gets the free-text
+      display name every real row carries beside the key.
     """
     doc = {field: _marker(source.collection, owner) for field in source.fields}
     if source.filter_field and source.filter_field != "_key":
         doc[source.filter_field] = FREE_TEXT_ATTRIBUTION if source.disclosure_gap else owner
+    if source.attribution_gap:
+        doc[_DISPLAY_TEXT_FIELD[source.collection]] = FREE_TEXT_ATTRIBUTION
     if source.tenant_scoped:
         doc["tenant_key"] = tenant
     return doc
+
+
+def _legacy_documents(source, *, tenant: str = TENANTS[0]) -> list[dict]:
+    """Rows of *source* written before #1669, in the subject's own tenant.
+
+    Three shapes, all carrying a marker in a declared field so a walk that
+    matched them would deliver it:
+
+    * the free text names a stranger, the key is the explicit ``null`` v0056 stamps;
+    * the free text is **literally the subject's key** — the row the forbidden
+      backfill would have attributed — key ``null``;
+    * the attribute is absent altogether (a row v0056 has not reached yet).
+    """
+    display = _DISPLAY_TEXT_FIELD[source.collection]
+    base = {field: _marker("legacy", SUBJECT) for field in source.fields}
+    base["tenant_key"] = tenant
+    stamped_stranger = {**base, display: FREE_TEXT_ATTRIBUTION, source.filter_field: None}
+    stamped_named = {**base, display: SUBJECT, source.filter_field: None}
+    unstamped = {**base, display: SUBJECT}
+    return [stamped_stranger, stamped_named, unstamped]
 
 
 def _user_key_writers(field: str) -> list[str]:
@@ -183,6 +219,10 @@ def db():
             planted = _document(source, SUBJECT, tenant=FOREIGN_TENANT)
             planted[source.fields[0]] = _marker("planted", SUBJECT)
             target.insert(planted)
+        if source.attribution_gap:
+            # Pre-#1669 rows in the subject's *own* tenant (see
+            # ``_legacy_documents``): unattributable by design, never delivered.
+            target.insert_many(_legacy_documents(source))
 
     yield database
     system.delete_database(TEST_DATABASE)
@@ -223,7 +263,8 @@ def _profile_source():
 
 
 DISCLOSED = [source for source in DataExportEngine.USER_DATA_MANIFEST if not source.disclosure_gap]
-NOT_DISCLOSED = [source for source in DataExportEngine.USER_DATA_MANIFEST if source.disclosure_gap]
+#: The #1669 sources: disclosed by key, with pre-attribution rows stated as a gap.
+ATTRIBUTED = [source for source in DISCLOSED if source.attribution_gap]
 
 
 @pytest.mark.parametrize("source", DISCLOSED, ids=[source.collection for source in DISCLOSED])
@@ -269,23 +310,66 @@ def test_a_row_planted_in_a_foreign_tenant_is_not_delivered(db, source):
     assert _marker(source.collection, SUBJECT) in values, "precondition: the subject's own row is still delivered"
 
 
-@pytest.mark.parametrize("source", NOT_DISCLOSED, ids=[source.collection for source in NOT_DISCLOSED])
-def test_an_undisclosable_source_is_refused_not_answered_with_nothing(db, source):
-    """An empty list from these would read as "no data" — the #1645 silence."""
+@pytest.mark.parametrize("source", ATTRIBUTED, ids=[source.collection for source in ATTRIBUTED])
+def test_a_legacy_row_is_not_delivered_even_when_its_free_text_names_the_subject(db, source):
+    """#1669 — the rows the forbidden backfill would have attributed.
+
+    Three pre-attribution shapes sit in the subject's own tenant (see
+    ``_legacy_documents``); one of them carries the subject's key as the typed-in
+    name. None reaches the disclosure: the walk keys on the account field and
+    nothing reads the free text.
+    """
+    assert ATTRIBUTED, "guard against a vacuous parametrisation"
+    repo = ArangoPersonalDataRepository(db)
+
+    rows = repo.collect_for_user(source, SUBJECT, TENANTS)
+
+    values = {value for row in rows for value in row.values()}
+    assert _marker("legacy", SUBJECT) not in values
+    assert _marker(source.collection, SUBJECT) in values, "precondition: the subject's keyed row is delivered"
+
+
+def test_an_undisclosable_source_is_refused_not_answered_with_nothing(db):
+    """An empty list from such a source would read as "no data" — the #1645 silence.
+
+    Since #1669 no production source carries a ``disclosure_gap`` any more, so
+    the floor is exercised with a constructed one rather than skipped for lack
+    of a parameter.
+    """
+    from app.domain.models.privacy import DataSourceDefinition
+
+    gapped = DataSourceDefinition(
+        collection="harvest_batches", filter_field="harvester", label="x", fields=["notes"], disclosure_gap="why"
+    )
     repo = ArangoPersonalDataRepository(db)
 
     with pytest.raises(ValueError, match="cannot be disclosed"):
-        repo.collect_for_user(source, SUBJECT, TENANTS)
+        repo.collect_for_user(gapped, SUBJECT, TENANTS)
+
+
+@pytest.mark.parametrize("source", ATTRIBUTED, ids=[source.collection for source in ATTRIBUTED])
+def test_the_guard_accepts_the_key_field_because_a_production_writer_assigns_it(source):
+    """#1669's acceptance, spelled out: the guard names the writers it found.
+
+    Before #1669 this went red for all three (``harvested_by_key`` etc. had no
+    writer). It is green because every create path — REST, MCP, the two
+    inspection bridges — assigns the field from the caller's key; remove one
+    of those assignments and the source it feeds goes red here again.
+    """
+    _assert_filter_field_is_written_as_a_user_key(source)
+    assert _user_key_writers(source.filter_field), "the guard passed without a writer — it has become vacuous"
 
 
 def test_the_guard_refuses_a_fixture_that_invents_a_user_key():
     """The SCR-002 guard itself, against the shape that fooled the first fixture.
 
-    Not parametrised over the manifest: a source declared with a gap is exempt,
-    so this hands the guard a copy of ``harvest_batches`` **without** its gap —
-    the exact declaration the first version of this PR shipped — and expects
-    the refusal. If some writer ever starts storing a user key in ``harvester``
-    this goes green, which is the right moment to drop the gap.
+    Hands the guard ``harvest_batches`` keyed on the free-text ``harvester``,
+    ungated — the declaration the first version of #1662 shipped — and expects
+    the refusal. Still the right shape after #1669: the key lives in
+    ``harvested_by_key``, and ``harvester`` remains a typed-in name that no
+    writer fills from an account. Were this to go green, some path would have
+    started writing keys into the display field, which is a defect, not a
+    reason to key on it.
     """
     from app.domain.models.privacy import DataSourceDefinition
 
@@ -385,16 +469,18 @@ async def test_the_data_subject_receives_a_bundle_carrying_their_records(db, tmp
     missing = [source.collection for source in DISCLOSED if _marker(source.collection, SUBJECT) not in delivered]
     assert not missing, f"the delivered bundle carries no record for: {missing}"
 
-    # The three categories that cannot be attributed (#1662 SCR-001) are in the
-    # file with the reason, not as an empty list — and their seeded rows, which
-    # name "Maren" and not the subject, are not there either.
+    # The three retained categories (#1669): the subject's keyed row is in the
+    # file (asserted above via ``missing``), the section says that rows written
+    # before attribution cannot be, and the legacy rows seeded in the subject's
+    # own tenant — one of them naming the subject in free text — are not there.
     sections = {section["collection"]: section for section in bundle["sections"]}
-    assert NOT_DISCLOSED, "guard against a vacuous loop"
-    for source in NOT_DISCLOSED:
-        assert sections[source.collection]["disclosed"] is False
-        assert sections[source.collection]["not_disclosed_reason"] == source.disclosure_gap
-        assert sections[source.collection]["records"] == []
-        assert _marker(source.collection, SUBJECT) not in delivered
+    assert ATTRIBUTED, "guard against a vacuous loop"
+    for source in ATTRIBUTED:
+        assert sections[source.collection]["disclosed"] is True
+        assert sections[source.collection]["not_disclosed_reason"] is None
+        assert sections[source.collection]["attribution_gap"] == source.attribution_gap
+        assert sections[source.collection]["record_count"] == 1
+    assert _marker("legacy", SUBJECT) not in delivered
 
     # The injection direction, end to end: a row naming the subject in a foreign
     # tenant is in the database and not in the file.
