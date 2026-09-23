@@ -906,7 +906,6 @@ def get_tenant_service() -> TenantService:
         pest_image_repo=get_pest_image_repo(),
         ipm_repo=get_ipm_repo(),
         pest_inference_client=get_pest_inference_client(),
-        personal_data_repo=get_personal_data_repo(),
     )
 
 
@@ -1634,6 +1633,7 @@ def get_privacy_service():
         pest_image_repo=get_pest_image_repo(),
         ipm_repo=get_ipm_repo(),
         pest_inference_client=get_pest_inference_client(),
+        personal_data_repo=get_personal_data_repo(),
     )
 
 

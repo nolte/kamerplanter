@@ -140,12 +140,17 @@ describe('PrivacySettingsPage', () => {
     // jsdom has no object-URL support. Patch the two methods rather than
     // replacing the global `URL`: spreading the class drops its constructor,
     // which breaks every other test in the file that builds a URL.
-    const createObjectURL = vi.fn(() => 'blob:export');
+    const createObjectURL = vi.fn((_blob: Blob) => 'blob:export');
     const urlApi = URL as unknown as Record<string, unknown>;
     const originalCreate = urlApi.createObjectURL;
     const originalRevoke = urlApi.revokeObjectURL;
     urlApi.createObjectURL = createObjectURL;
     urlApi.revokeObjectURL = vi.fn();
+    // jsdom cannot navigate to a blob: URL; the click is the hand-over to the
+    // browser, so it is recorded instead of performed.
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
 
     const user = userEvent.setup();
     renderWithProviders(<PrivacySettingsPage />);
@@ -158,12 +163,30 @@ describe('PrivacySettingsPage', () => {
     await user.click(await screen.findByTestId('privacy-export-refresh-btn'));
     await user.click(await screen.findByTestId('privacy-export-download-btn'));
 
-    await waitFor(() => {
+    try {
+      // `downloadRequested` flips inside the MSW handler, i.e. when the request
+      // *arrives*; the response still has to travel back through axios and be
+      // read as a Blob before the component reaches `URL.createObjectURL`.
+      // Asserting on the mock synchronously after that flag races the round
+      // trip and loses on a slow runner - so the wait is anchored on the
+      // hand-over itself, which is also the #1645 claim: the bundle bytes,
+      // not just a request, reach the browser.
+      await waitFor(() => {
+        expect(anchorClick).toHaveBeenCalledTimes(1);
+      });
       expect(downloadRequested).toBe(true);
-    });
-    expect(createObjectURL).toHaveBeenCalled();
-    urlApi.createObjectURL = originalCreate;
-    urlApi.revokeObjectURL = originalRevoke;
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      const handedOver = createObjectURL.mock.calls[0][0];
+      expect(handedOver).toBeInstanceOf(Blob);
+      expect(await handedOver.text()).toBe(bundle);
+      const anchor = anchorClick.mock.instances[0] as HTMLAnchorElement;
+      expect(anchor.href).toBe('blob:export');
+      expect(anchor.download).toBe('kamerplanter-export-exp-1.json');
+    } finally {
+      anchorClick.mockRestore();
+      urlApi.createObjectURL = originalCreate;
+      urlApi.revokeObjectURL = originalRevoke;
+    }
   });
 
   it('confirms erasure without a password for federated accounts and sends an empty body', async () => {
