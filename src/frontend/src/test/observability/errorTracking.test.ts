@@ -12,6 +12,14 @@ import {
 } from '@/observability/errorTracking';
 
 /**
+ * The SDK is behind a dynamic `import()`; the hoisted factory intercepts it so
+ * `initErrorTracking` can be driven to its `Sentry.init` call without loading
+ * the real chunk. Only the two members this module touches are stubbed.
+ */
+const sentryStub = vi.hoisted(() => ({ init: vi.fn(), captureException: vi.fn() }));
+vi.mock('@sentry/react', () => sentryStub);
+
+/**
  * #777 — the browser half of the error-tracking contract.
  *
  * Two properties matter and both fail silently in production if they break:
@@ -26,6 +34,7 @@ describe('errorTracking', () => {
 
   afterEach(() => {
     delete window.__RUNTIME_CONFIG__;
+    sentryStub.init.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -33,6 +42,8 @@ describe('errorTracking', () => {
     it('does nothing when no runtime config was served at all', async () => {
       await expect(initErrorTracking()).resolves.toBe(false);
       expect(isErrorTrackingActive()).toBe(false);
+      // The chunk contract: nothing was even imported, let alone initialised.
+      expect(sentryStub.init).not.toHaveBeenCalled();
     });
 
     it('does nothing when the DSN is present but empty', async () => {
@@ -42,6 +53,52 @@ describe('errorTracking', () => {
 
       await expect(initErrorTracking()).resolves.toBe(false);
       expect(isErrorTrackingActive()).toBe(false);
+      // The chunk contract: nothing was even imported, let alone initialised.
+      expect(sentryStub.init).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('init options', () => {
+    it('turns every dataCollection category off explicitly (Sentry 11 defaults are permissive)', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: 'https://key@tracker.example/1' };
+
+      await expect(initErrorTracking()).resolves.toBe(true);
+
+      expect(sentryStub.init).toHaveBeenCalledTimes(1);
+      const options = sentryStub.init.mock.calls[0]![0] as Record<string, unknown>;
+      // Restated literally rather than imported from the module: the point is
+      // that a drift in the block (a category dropped, a value flipped to the
+      // SDK's permissive default) fails here. `sendDefaultPii` no longer exists
+      // in v11, so the block below is the only thing keeping default-PII off.
+      expect(options.dataCollection).toEqual({
+        userInfo: false,
+        cookies: false,
+        httpHeaders: { request: false, response: false },
+        httpBodies: [],
+        urlQueryParams: false,
+        graphQL: { document: false, variables: false },
+        genAI: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        stackFrameVariables: false,
+      });
+      expect(options).not.toHaveProperty('sendDefaultPii');
+    });
+
+    it('wires the scrubbing hooks the PII policy relies on', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: 'https://key@tracker.example/1' };
+
+      await expect(initErrorTracking()).resolves.toBe(true);
+
+      const options = sentryStub.init.mock.calls[0]![0] as {
+        beforeSend: (event: Record<string, unknown>) => Record<string, unknown>;
+        beforeBreadcrumb: (crumb: Record<string, unknown>) => Record<string, unknown> | null;
+      };
+      // Driven through the options actually handed to the SDK, not through
+      // `scrubEvent` directly: the wiring is what this case certifies.
+      const sent = options.beforeSend({ request: { cookies: { session: 'x' }, url: '/plants' } });
+      expect((sent.request as Record<string, unknown>).cookies).toBeUndefined();
+      expect((sent.request as Record<string, unknown>).url).toBe('/plants');
+      expect(options.beforeBreadcrumb({ category: 'ui.input' })).toBeNull();
     });
   });
 
