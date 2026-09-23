@@ -8,9 +8,9 @@ from app.domain.models.user import User, allows_interactive_auth
 
 
 class TestUserAccountType:
-    def test_default_account_type_is_user(self):
+    def test_default_account_type_is_human(self):
         u = User(email="alice@example.com", display_name="Alice")
-        assert u.account_type == "user"
+        assert u.account_type == "human"
 
     def test_service_account_type_is_accepted(self):
         u = User(

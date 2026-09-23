@@ -45,7 +45,7 @@ from app.config.settings import settings
 def _user(key: str | None = "user_1") -> SimpleNamespace:
     # ``account_type`` decides the header-less fallback since #1122; the
     # service-account variant has its own file.
-    return SimpleNamespace(key=key, account_type="user")
+    return SimpleNamespace(key=key, account_type="human")
 
 
 def _tenant(key: str, slug: str) -> SimpleNamespace:

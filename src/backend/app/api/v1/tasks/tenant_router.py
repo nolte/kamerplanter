@@ -404,7 +404,7 @@ def _resolve_task_provenance(body: TaskCreate, user: User) -> tuple[TaskOrigin, 
     ``origin`` is NEVER trusted from the request body (#1000-class spoofing); it is
     derived from the caller's ``account_type`` (REQ-023 M2M):
 
-    * **Interactive user** (``account_type == "user"``) → ``origin`` forced to
+    * **Interactive user** (``account_type == "human"``) → ``origin`` forced to
       ``USER`` and the machine-provenance fields (``source`` / ``source_run_ref`` /
       ``external_ref``) cleared. A human's task carries no producer identity, and a
       human must not be able to write into the ``(tenant, source, external_ref)``

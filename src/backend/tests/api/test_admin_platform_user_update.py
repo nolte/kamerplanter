@@ -47,7 +47,7 @@ def _user_doc() -> dict[str, Any]:
         "password_hash": "hash",
         "email_verified": True,
         "is_active": True,
-        "account_type": "user",
+        "account_type": "human",
         "locale": "de",
         "timezone": "Europe/Berlin",
         "last_login_at": None,

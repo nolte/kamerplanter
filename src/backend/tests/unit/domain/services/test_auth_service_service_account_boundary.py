@@ -141,7 +141,7 @@ class TestTheInteractiveAccountIsUnaffected:
     """Positive controls — a gate one ``not`` away from locking everyone out fails here."""
 
     def test_an_sso_user_still_sets_an_initial_password(self) -> None:
-        account = _account(account_type="user", email=USER_EMAIL)
+        account = _account(account_type="human", email=USER_EMAIL)
         service, user_repo = _service(account)
 
         service.change_password("acc-1", None, NEW_PASSWORD)
@@ -150,7 +150,7 @@ class TestTheInteractiveAccountIsUnaffected:
         assert account.password_hash is not None
 
     def test_and_then_logs_in_with_it(self) -> None:
-        account = _account(account_type="user", email=USER_EMAIL)
+        account = _account(account_type="human", email=USER_EMAIL)
         service, _ = _service(account)
 
         service.change_password("acc-1", None, NEW_PASSWORD)
@@ -173,7 +173,7 @@ class TestTheResetPathIsTheSameSurface:
         assert service._email_service.send_password_reset_email.call_count == 0  # type: ignore[attr-defined]
 
     def test_an_interactive_account_still_gets_one(self) -> None:
-        account = _account(account_type="user", email=USER_EMAIL)
+        account = _account(account_type="human", email=USER_EMAIL)
         service, user_repo = _service(account)
 
         service.request_password_reset(USER_EMAIL)
@@ -213,7 +213,7 @@ class TestTheMintingBackstop:
             service._create_tokens(account, None, None)
 
     def test_and_still_mints_for_an_interactive_account(self) -> None:
-        account = _account(account_type="user", email=USER_EMAIL)
+        account = _account(account_type="human", email=USER_EMAIL)
         service, _ = _service(account)
 
         pair, raw_refresh, _ = service._create_tokens(account, None, None)

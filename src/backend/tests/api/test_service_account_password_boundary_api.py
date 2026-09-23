@@ -141,7 +141,7 @@ def test_the_same_key_on_an_interactive_account_still_sets_the_password() -> Non
     Without this, the 403 above is equally consistent with a route that refuses
     every API-key caller for some unrelated reason.
     """
-    client, user_repo = _client("user")
+    client, user_repo = _client("human")
 
     response = client.post(
         "/api/v1/users/me/password",
