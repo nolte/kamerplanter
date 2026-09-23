@@ -34,7 +34,11 @@ dependency none of them may take. The YAML/TOML/shell stripper is quote-aware on
 the same terms.
 
 Python is handled by :mod:`tokenize`, which is the real lexer, plus an
-:mod:`ast` pass for docstrings — so for Python the result is exact.
+:mod:`ast` pass for docstrings — so for Python the result is exact, and it
+parses again whenever the input did: a docstring that is the only statement of
+its class or function body is replaced by ``pass`` rather than by nothing, so no
+block is left empty (#1671). That ``pass`` is the one token the Python result
+contains that the input did not; it names nothing a gate could look for.
 """
 
 from __future__ import annotations
@@ -160,29 +164,54 @@ def _strip_python(text: str) -> str:
     except SyntaxError:
         pass
     lines = text.splitlines(keepends=True)
-    for row, start, end in sorted(drop, reverse=True):
+    for row, start, end, replacement in sorted(drop, reverse=True):
         line = lines[row]
-        lines[row] = line[:start] + line[end:]
+        lines[row] = line[:start] + replacement + line[end:]
     return "".join(lines)
 
 
-def _python_comment_spans(text: str) -> set[tuple[int, int, int]]:
-    """Locate every comment token as ``(row index, start col, end col)``."""
-    spans: set[tuple[int, int, int]] = set()
+#: A removed span as ``(row index, start col, end col, replacement)``. Columns
+#: are *character* offsets into the line; ``replacement`` is ``""`` except where
+#: dropping the span would leave a block with no statement at all.
+_Span = tuple[int, int, int, str]
+
+
+def _python_comment_spans(text: str) -> set[_Span]:
+    """Locate every comment token as a span to drop."""
+    spans: set[_Span] = set()
     for token in tokenize.generate_tokens(io.StringIO(text).readline):
         if token.type == tokenize.COMMENT:
-            spans.add((token.start[0] - 1, token.start[1], token.end[1]))
+            spans.add((token.start[0] - 1, token.start[1], token.end[1], ""))
     return spans
 
 
-def _python_docstring_spans(text: str) -> set[tuple[int, int, int]]:
+def _char_col(line: str, byte_col: int) -> int:
+    """Convert an :mod:`ast` column (a UTF-8 *byte* offset) to a character offset.
+
+    ``ast`` reports ``col_offset``/``end_col_offset`` in bytes, while the
+    stripper slices ``str`` lines by character. On a line with a non-ASCII
+    character before the column the two differ, and slicing by the byte value
+    overshoots — past the end of the docstring and, on its closing line, past
+    the newline, which joins the next line onto it (#1671).
+    """
+    return len(line.encode("utf-8")[:byte_col].decode("utf-8", errors="ignore"))
+
+
+def _python_docstring_spans(text: str) -> set[_Span]:
     """Locate every docstring, as one span per line it occupies.
 
     A docstring is a bare string expression that opens a module, class, or
     function body — the same rule the interpreter uses, so this cannot disagree
     with what is actually documentation and what is a value.
+
+    When the docstring is the *only* statement of a class or function body,
+    removing it would leave an empty block, which does not parse. Its first
+    line is then replaced by ``pass`` instead of by nothing, so the result stays
+    parsable while every line keeps its number (#1671). ``pass`` is a statement
+    that does nothing; it names no identifier and calls nothing, so no presence
+    or absence predicate can be satisfied or falsified by it.
     """
-    spans: set[tuple[int, int, int]] = set()
+    spans: set[_Span] = set()
     lines = text.splitlines()
     tree = ast.parse(text)
     for node in ast.walk(tree):
@@ -198,14 +227,19 @@ def _python_docstring_spans(text: str) -> set[tuple[int, int, int]]:
             continue
         if not isinstance(first.value.value, str):
             continue
-        for row in range(first.lineno - 1, (first.end_lineno or first.lineno)):
-            start = first.col_offset if row == first.lineno - 1 else 0
+        only_statement = len(body) == 1 and not isinstance(node, ast.Module)
+        first_row = first.lineno - 1
+        last_row = (first.end_lineno or first.lineno) - 1
+        for row in range(first_row, last_row + 1):
+            line = lines[row]
+            start = _char_col(line, first.col_offset) if row == first_row else 0
             end = (
-                first.end_col_offset
-                if row == (first.end_lineno or first.lineno) - 1
-                else len(lines[row])
+                _char_col(line, first.end_col_offset or 0)
+                if row == last_row
+                else len(line)
             )
-            spans.add((row, start, end or 0))
+            replacement = "pass" if only_statement and row == first_row else ""
+            spans.add((row, start, end, replacement))
     return spans
 
 

@@ -24,12 +24,13 @@ Traces to #1456 (no TC-ID: a source-tree gate is not a user-facing case).
 
 from __future__ import annotations
 
+import ast
 import textwrap
 from pathlib import Path
 
 import pytest
 
-from tests.support.repo_scripts import load_repo_script
+from tests.support.repo_scripts import find_repo_root, load_repo_script
 
 check = load_repo_script("check_gate_text_assertions")
 source_text = load_repo_script("source_text")
@@ -385,3 +386,65 @@ class TestTheReducerKeepsCodeAndDropsProse:
         """Returning the text unchanged would re-open the class silently."""
         with pytest.raises(source_text.UnknownLanguage):
             source_text.executable_source("x", language="cobol")
+
+
+class TestThePythonReductionStillParses:
+    """A gate that wants to *parse* the reduced text must be able to (#1671).
+
+    Two independent defects broke that: a docstring that is the only statement
+    of its block left the block empty, and ``ast`` columns are UTF-8 *byte*
+    offsets, so a docstring with a non-ASCII character before its closing
+    quotes was sliced past its end — past the newline — joining the next line
+    onto it and shifting every line number below.
+    """
+
+    def test_a_docstring_only_block_reparses_and_keeps_its_line_numbers(self) -> None:
+        text = (
+            "class Boom(Exception):\n"
+            '    """Raised when it goes boom."""\n'
+            "\n"
+            "def f():\n"
+            '    """Only a docstring,\n'
+            '    over two lines."""\n'
+            "\n"
+            'def g(): """inline"""\n'
+            "marker = 1\n"
+        )
+
+        reduced = source_text.executable_source(text, language="python")
+        tree = ast.parse(reduced)
+
+        assert reduced.count("\n") == text.count("\n")
+        assert "docstring" not in reduced
+        assert [n.lineno for n in tree.body] == [1, 4, 8, 9]
+
+    def test_a_non_ascii_docstring_does_not_swallow_the_next_line(self) -> None:
+        text = 'def f():\n    """Probe \u2192 ``reachable=False`` (\u00a7 5)."""\n    return marker()\nother = 2\n'
+
+        reduced = source_text.executable_source(text, language="python")
+        tree = ast.parse(reduced)
+
+        assert reduced.splitlines()[2] == "    return marker()"
+        assert "reachable" not in reduced
+        assert [n.lineno for n in tree.body] == [1, 4]
+
+    def test_every_backend_module_reparses_with_its_line_count(self) -> None:
+        repo_root = find_repo_root(Path(__file__).resolve())
+        assert repo_root is not None
+        modules = sorted((repo_root / "src" / "backend" / "app").rglob("*.py"))
+        # Anti-vacuity: an empty or mis-rooted walk must not pass as "0 failures".
+        assert len(modules) > 100, f"walk found only {len(modules)} modules"
+
+        failures = []
+        for module in modules:
+            text = module.read_text(encoding="utf-8")
+            reduced = source_text.executable_source(text, language="python")
+            if reduced.count("\n") != text.count("\n"):
+                failures.append(f"{module}: line count changed")
+                continue
+            try:
+                ast.parse(reduced)
+            except SyntaxError as exc:
+                failures.append(f"{module}:{exc.lineno}: {exc.msg}")
+
+        assert failures == [], f"{len(failures)} of {len(modules)} modules:\n" + "\n".join(failures[:20])
