@@ -4,7 +4,9 @@ import hashlib
 
 from app.domain.models.privacy import (
     AnonymizationRule,
+    ErasureExecutor,
     ErasurePlan,
+    ErasureStep,
     PseudonymizationRule,
     ReferenceIndexCleanupRule,
     StorageCleanupRule,
@@ -47,6 +49,21 @@ class ErasureEngine:
             user_field="applied_by",
             anonymized_value="[deleted]",
             reason="PflSchG section 11: 3-year retention for treatment records.",
+        ),
+        AnonymizationRule(
+            # #1622 — ``tasks`` was declared personal data by the *export*
+            # manifest (``assigned_to_user_key``) and appeared in no erasure
+            # enumeration at all: neither the plan nor the executing cascade.
+            # The task document belongs to the tenant's plan of work, which may
+            # be a shared garden, so it is retained and the assignee reference
+            # is removed — the same argument as ``plant_diary_entries`` below.
+            collection="tasks",
+            user_field="assigned_to_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-024: the task belongs to the work plan of a possibly shared tenant "
+                "and is retained; only the assignee reference is removed."
+            ),
         ),
         AnonymizationRule(
             collection="inspections",
@@ -149,44 +166,83 @@ class ErasureEngine:
         ),
     ]
 
-    # Deletion order. The list is informational — actual deletion is split
-    # into edge-collections, document-collections and the user-collection step
-    # by the executor. The order encodes the legal/architectural dependency:
-    # delete edges and child documents before the user document so that no
-    # orphan edges remain.
-    DELETE_ORDER: list[str] = [
-        "_storage_cleanup",
-        "_reference_index_cleanup",
-        "requested_export",
-        "has_consent",
-        "has_restriction",
-        "requested_erasure",
-        "requested_email_change",
-        "has_auth_provider",
-        "has_session",
-        "membership_in",
-        "data_export_requests",
-        "consent_records",
-        "processing_restrictions",
-        "email_change_requests",
-        "auth_providers",
-        "refresh_tokens",
-        "identification_requests",
+    # ── The single declared inventory of a user's personal data in ArangoDB ──
+    #
+    # Before #1622 this was ``DELETE_ORDER``, a bare list of names that nothing
+    # read, while :meth:`ArangoUserRepository.delete` hand-wrote its own eight
+    # collections. Measured against each other the two enumerations differed by
+    # 23 entries. Two lists that must agree and are never compared drift, and
+    # these had: four collections the cascade removes (``api_keys``,
+    # ``user_preferences``, ``onboarding_states``, ``memberships``) were named
+    # in neither the plan nor the export manifest, so the documented inventory
+    # understated what the system holds.
+    #
+    # There is now one list, and every entry says who removes it. An entry
+    # carrying ``retention_worker`` is declared but **not executed** — the
+    # NFR-011 ArangoDB deletion worker does not exist yet. That is a statement
+    # about the system, not a placeholder: it is the honest form of a gap that
+    # was previously invisible because the two lists never met.
+    #
+    # Order is load-bearing: phases first, then edges, then documents, then the
+    # user document, so no orphan edge survives its endpoint.
+    DELETE_STEPS: list[ErasureStep] = [
+        ErasureStep(collection="_storage_cleanup", kind="phase", executor="storage_cleanup"),
+        ErasureStep(
+            collection="_reference_index_cleanup",
+            kind="phase",
+            executor="reference_index_cleanup",
+        ),
+        ErasureStep(collection="requested_export", kind="edge", executor="retention_worker"),
+        ErasureStep(collection="has_consent", kind="edge", executor="retention_worker"),
+        ErasureStep(collection="has_restriction", kind="edge", executor="retention_worker"),
+        ErasureStep(collection="requested_erasure", kind="edge", executor="retention_worker"),
+        ErasureStep(collection="requested_email_change", kind="edge", executor="retention_worker"),
+        ErasureStep(collection="has_auth_provider", kind="edge", executor="account_cascade"),
+        ErasureStep(collection="has_session", kind="edge", executor="account_cascade"),
+        ErasureStep(collection="membership_in", kind="edge", executor="membership_cascade"),
+        ErasureStep(collection="memberships", kind="document", executor="membership_cascade"),
+        ErasureStep(collection="data_export_requests", kind="document", executor="retention_worker"),
+        ErasureStep(collection="consent_records", kind="document", executor="retention_worker"),
+        ErasureStep(collection="processing_restrictions", kind="document", executor="retention_worker"),
+        ErasureStep(collection="email_change_requests", kind="document", executor="retention_worker"),
+        ErasureStep(collection="auth_providers", kind="document", executor="account_cascade"),
+        ErasureStep(collection="refresh_tokens", kind="document", executor="account_cascade"),
+        ErasureStep(collection="api_keys", kind="document", executor="account_cascade"),
+        ErasureStep(collection="user_preferences", kind="document", executor="account_cascade"),
+        ErasureStep(collection="onboarding_states", kind="document", executor="account_cascade"),
+        ErasureStep(collection="identification_requests", kind="document", executor="retention_worker"),
         # REQ-044 §8 — pest detections are deleted (no legal retention basis);
         # edges first, then the document. ``beneficials`` is global reference
         # data, not personal, and is intentionally left untouched.
-        "pest_detection_of",
-        "pest_detection_flagged",
-        "pest_detection_suggested_inspection",
-        "pest_detections",
+        ErasureStep(collection="pest_detection_of", kind="edge", executor="retention_worker"),
+        ErasureStep(collection="pest_detection_flagged", kind="edge", executor="retention_worker"),
+        ErasureStep(
+            collection="pest_detection_suggested_inspection",
+            kind="edge",
+            executor="retention_worker",
+        ),
+        ErasureStep(collection="pest_detections", kind="document", executor="retention_worker"),
         # REQ-010 §8 — user-contributed pest reference images are deleted (no
         # legal retention basis). Their attachment bytes are hard-deleted by the
         # ``user_pest_reference_images`` storage-cleanup rule (Phase 0); this
         # removes the link documents. A *promoted* contribution is still deleted
         # on erasure — global visibility does not create a retention basis.
-        "pest_image_contributions",
-        "_pseudonymize_audit_collections",
-        "users",
+        ErasureStep(
+            collection="pest_image_contributions",
+            kind="document",
+            executor="pest_image_cleanup",
+        ),
+        ErasureStep(
+            collection="_anonymize_collections",
+            kind="phase",
+            executor="retention_worker",
+        ),
+        ErasureStep(
+            collection="_pseudonymize_audit_collections",
+            kind="phase",
+            executor="retention_worker",
+        ),
+        ErasureStep(collection="users", kind="user", executor="account_cascade"),
     ]
 
     # Audit-log pseudonymisation (W-002). NFR-011 R-06 requires the erasure
@@ -221,10 +277,31 @@ class ErasureEngine:
             reference_index_cleanup=list(self.REFERENCE_INDEX_CLEANUP_RULES),
             anonymize=list(self.ANONYMIZE_COLLECTIONS),
             pseudonymize_audit=list(self.PSEUDONYMIZE_AUDIT_COLLECTIONS),
-            delete=list(self.DELETE_ORDER),
+            steps=list(self.DELETE_STEPS),
+            delete=self.delete_order(),
             soft_delete_immediate=True,
             hard_delete_after_days=self.HARD_DELETE_AFTER_DAYS,
         )
+
+    @classmethod
+    def delete_order(cls) -> list[str]:
+        """The bare name sequence of :attr:`DELETE_STEPS`, in declared order.
+
+        Derived, never maintained: a reader that only needs the order (the
+        ``ErasurePlan.delete`` field, the REQ-010 wiring test) gets it from the
+        one inventory rather than from a second list beside it.
+        """
+        return [step.collection for step in cls.DELETE_STEPS]
+
+    @classmethod
+    def steps_for(cls, executor: ErasureExecutor) -> list[ErasureStep]:
+        """The inventory entries *executor* is responsible for, in declared order.
+
+        This is how an executing path obtains its collection names. It must not
+        write them down again: a second copy is precisely the split #1622
+        measured, and ``scripts/check_privacy_inventory.py`` refuses one.
+        """
+        return [step for step in cls.DELETE_STEPS if step.executor == executor]
 
     def anonymized_collection_names(self) -> list[str]:
         """Collection names touched by :attr:`ANONYMIZE_COLLECTIONS`, each once.

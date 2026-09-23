@@ -37,6 +37,12 @@ class DataExportRequest(BaseModel):
     status: DataExportStatus = "pending"
     file_path: str | None = None
     file_size_bytes: int | None = None
+    #: Collections of :attr:`DataExportEngine.USER_DATA_MANIFEST` that this run
+    #: took into scope, written by the executor from the manifest it read. The
+    #: Art. 15 record has to be able to say *which* sources were disclosed, and
+    #: the only honest source for that is the manifest the run actually walked
+    #: (#1622) — not a second list written beside it.
+    manifest_collections: list[str] = Field(default_factory=list)
     requested_at: datetime | None = None
     processing_started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -160,6 +166,38 @@ class DataSourceDefinition(BaseModel):
     edge_collection: str | None = None
 
 
+#: Who removes an :class:`ErasureStep` at runtime. Closed on purpose: a step
+#: whose executor is not one of these cannot be attributed, and an inventory of
+#: personal data that cannot say who erases an entry is the documentation half
+#: of the split #1622 measured. ``retention_worker`` is the **declared gap** —
+#: the NFR-011 ArangoDB deletion worker does not exist yet, so a step carrying
+#: it is enumerated but not executed, and says so.
+type ErasureExecutor = Literal[
+    "account_cascade",
+    "membership_cascade",
+    "pest_image_cleanup",
+    "storage_cleanup",
+    "reference_index_cleanup",
+    "retention_worker",
+]
+
+
+class ErasureStep(BaseModel):
+    """One entry of the single declared erasure inventory.
+
+    ``kind`` distinguishes what the executor has to do with the name:
+    ``edge`` and ``document`` are ArangoDB collections filtered by the user
+    reference, ``user`` is the user document itself, and ``phase`` is a
+    non-collection stage (object storage, reference index, audit hashing)
+    whose own rules live in the matching engine constant.
+    """
+
+    collection: str
+    kind: Literal["edge", "document", "user", "phase"]
+    executor: ErasureExecutor
+    note: str = ""
+
+
 class AnonymizationRule(BaseModel):
     """Rule for replacing user references with an anonymous marker."""
 
@@ -212,6 +250,9 @@ class ErasurePlan(BaseModel):
     reference_index_cleanup: list[ReferenceIndexCleanupRule] = Field(default_factory=list)
     anonymize: list[AnonymizationRule] = Field(default_factory=list)
     pseudonymize_audit: list[PseudonymizationRule] = Field(default_factory=list)
+    #: The attributed inventory. ``delete`` below is the bare name sequence
+    #: derived from it and kept for readers that only need the order.
+    steps: list[ErasureStep] = Field(default_factory=list)
     delete: list[str] = Field(default_factory=list)
     soft_delete_immediate: bool = True
     hard_delete_after_days: int = 90
