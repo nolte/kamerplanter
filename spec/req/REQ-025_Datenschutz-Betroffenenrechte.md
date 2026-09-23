@@ -7,7 +7,7 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.6 (REQ-051: Anonymisierung und Auskunft für das Analyse-Archiv)
+Version: 1.7 (#1663: Nutzerfeld je Löschschritt, Qualitätsbewertungen zurechenbar)
 Abhängigkeit: REQ-023 v1.13 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.4 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.7 | 2026-09-23 | **#1663 Nutzerfeld im Löschinventar:** Jeder `edge`-/`document`-Schritt von `ErasureEngine.DELETE_STEPS` nennt das Feld, über das die Zeilen des Nutzers gefunden werden (`user_field`; bei Kanten der Endpunkt `_from`/`_to`, ggf. mit `via` auf die Eltern-Collection), durchgesetzt von Guard-Regel R5 in `scripts/check_privacy_inventory.py`. Gemessen und ergänzt: `has_api_key`, `has_membership` und `user_favorites` fehlten im Inventar; `membership_in` und die drei Schädlingserkennungs-Kanten berühren `users` nicht und werden über `memberships` bzw. `pest_detections` erreicht. `quality_assessments` erhält das serverseitige `assessed_by_key` (Migration v0057, kein Rückschluss aus Freitext) und eine `tombstone_hash`-Regel (NFR-011 R-16); `yield_metrics` trägt kein Nutzerfeld. Die Code-Kopie in §3 ist an den Code angeglichen (vorher Freitextfelder `harvester`/`applicator`/`inspector` und Marker `"[gelöscht]"`). AK-DA-04/05 als nicht implementiert gekennzeichnet — `plant_diary_analyses` existiert im Code nicht. |
 | 1.6 | 2026-08-16 | **REQ-051 Analyse-Archiv:** REQ-051 §5 fuehrt die Collection `plant_diary_analyses`, in der jeder abgeschlossene Analyselauf eines Tagebuch-Eintrags aufbewahrt wird. Damit entstehen zwei personenbezogene Felder ausserhalb des Eintragsdokuments (`requested_by`, `claimed_by`), die die drei Regeln aus v1.5 nicht erfassten — ohne Ergaenzung waere ein geloeschter Nutzer im Archiv weiterhin namentlich zugeordnet, waehrend er am Eintrag selbst bereits anonymisiert ist. Zwei neue `AnonymizationRule`-Eintraege schliessen die Luecke; die Abwaegung ist dieselbe wie beim Eintragsdokument (Anonymisierung statt Hard-Delete, weil der Lauf zum Pflanzen-Datensatz eines womoeglich geteilten Mandanten gehoert). Neue Abnahmekriterien AK-DA-04 (Anonymisierung) und AK-DA-05 (Art.-15-Auskunft umfasst die archivierten Laeufe). |
 | 1.5 | 2026-08-04 | **REQ-050 KI-Analyse von Tagebuch-Einträgen:** Neuer Consent-Purpose `diary_ai_analysis` (Art. 6(1)(a), opt-in **je Eintrag**, nie automatisch). Gleichzeitig **Widerspruch aufgelöst:** Der Zwecktext von `ai_tenant_data_access` sagte pauschal, Tagebuch-Freitexte würden „NIE" übertragen. Diese Zusage gilt für den **serverseitigen** Assistenten (REQ-031) und ist entsprechend präzisiert; sie darf nicht als Verbot der ausdrücklich vom Nutzer ausgelösten Freigabe nach REQ-050 gelesen werden. Beide Wege sind getrennt und einzeln einwilligungspflichtig. |
 | 1.4 | 2026-06-19 | **REQ-034 Pflanzenfoto-Galerie (Security-Review SR-001/SR-003):** Neuer Consent-Purpose `reference_contribution` in `ConsentEngine.PURPOSES` (opt-in Foto-Beitrag zum DINOv2-Index, Art. 6(1)(a), global pro Nutzer). `user_diary_attachments`-Cleanup-Regel um `category 'plant'` erweitert. Neue Erasure-**Phase 0.5** `_reference_index_cleanup` (pgvector): entfernt vom Nutzer beigesteuerte `user_contributed`-Embeddings via Provenienz `contributed_by`/`tenant_key` VOR der ArangoDB-Löschung. Neues Abnahmekriterium AK-OS-05. |
@@ -340,8 +341,12 @@ class DataExportEngine:
 > setzen (Feld nicht im Schema, `extra="ignore"`). Art. 15 filtert und Art. 17
 > pseudonymisiert auf diesem Feld und leert dabei den Freitext. Vor #1669 geschriebene
 > Zeilen tragen `null` — ohne Rückschluss aus dem Freitext, weil ein Name kein Schlüssel
-> ist — und werden im Export als nicht zuordenbar benannt, nicht verschwiegen. Die
-> Codebeispiele in diesem Abschnitt zeigen den Stand *vor* dieser Änderung.
+> ist — und werden im Export als nicht zuordenbar benannt, nicht verschwiegen.
+> Seit #1663 (Migration v0057) gilt dasselbe für `quality_assessments.assessed_by_key`
+> neben dem Freitext `assessed_by` — Qualitätsbewertungen gehören nach NFR-011 R-16 zur
+> Erntedokumentation. `yield_metrics` (ebenfalls R-16) trägt kein Nutzerfeld und braucht
+> deshalb keine Regel. Die Codebeispiele unten geben den Stand des Codes
+> (`src/backend/app/domain/engines/erasure_engine.py`) wieder.
 
 **`ErasureEngine`** — Orchestrierte Löschreihenfolge (pure Logik):
 
@@ -349,106 +354,154 @@ class DataExportEngine:
 class ErasureEngine:
     """Definiert die Löschreihenfolge und Anonymisierungsregeln."""
 
-    # Collections die bei Löschung anonymisiert werden (gesetzl. Aufbewahrungspflicht)
+    # Collections, deren Dokumente erhalten bleiben (gesetzliche Aufbewahrungs-
+    # pflicht oder geteilter Mandanten-Datensatz); nur der Nutzerbezug wird
+    # entfernt. Jede Regel schlüsselt auf ein Feld, das einen Benutzerschlüssel
+    # trägt — nie auf Freitext (#1663, gemessen in #1662).
+    #
+    # replacement_strategy:
+    #   "tombstone_hash" — der Schlüssel wird durch compute_tombstone_hash()
+    #                      ersetzt ('anon_' + 16 Hex-Zeichen); die aufbewahrten
+    #                      Datensätze desselben gelöschten Kontos bleiben
+    #                      untereinander verknüpfbar (CanG-/PflSchG-Prüfung),
+    #                      ohne jemanden zu benennen.
+    #   "marker"         — der Schlüssel wird durch anonymized_value ersetzt
+    #                      (hier "_anonymized", derselbe Wert wie bei Anhängen,
+    #                      AK-OS-02).
+    # clear_fields: Freitext-Anzeigenamen, die im selben Schreibvorgang geleert
+    #               werden — ein Name ist für sich personenbezogen.
     ANONYMIZE_COLLECTIONS: list[AnonymizationRule] = [
         AnonymizationRule(
             collection="harvest_batches",
-            user_field="harvester",
-            anonymized_value="[gelöscht]",
-            reason="CanG: 5 Jahre Aufbewahrungspflicht",
-            min_retention=NFR011.HARVEST_DATA_MIN_RETENTION_YEARS,
+            user_field="harvested_by_key",          # serverseitig gesetzt (#1669)
+            replacement_strategy="tombstone_hash",
+            clear_fields=["harvester"],
+            reason="CanG: 5 Jahre Aufbewahrungspflicht (NFR-011 R-16)",
+        ),
+        AnonymizationRule(
+            collection="quality_assessments",
+            user_field="assessed_by_key",           # serverseitig gesetzt (#1663)
+            replacement_strategy="tombstone_hash",
+            clear_fields=["assessed_by"],
+            reason="CanG: Teil der Erntedokumentation (NFR-011 R-16)",
         ),
         AnonymizationRule(
             collection="treatment_applications",
-            user_field="applicator",
-            anonymized_value="[gelöscht]",
-            reason="PflSchG §11: 3 Jahre Aufbewahrungspflicht",
-            min_retention=NFR011.TREATMENT_MIN_RETENTION_YEARS,
+            user_field="applied_by_key",            # serverseitig gesetzt (#1669)
+            replacement_strategy="tombstone_hash",
+            clear_fields=["applied_by"],
+            reason="PflSchG §11: 3 Jahre Aufbewahrungspflicht (NFR-011 R-17)",
+        ),
+        AnonymizationRule(
+            collection="tasks",
+            user_field="assigned_to_user_key",
+            anonymized_value="_anonymized",
+            reason="REQ-024: Aufgabe gehört zum Arbeitsplan eines evtl. geteilten Mandanten",
         ),
         AnonymizationRule(
             collection="inspections",
-            user_field="inspector",
-            anonymized_value="[gelöscht]",
-            reason="PflSchG §11: 3 Jahre Aufbewahrungspflicht",
-            min_retention=NFR011.INSPECTION_MIN_RETENTION_YEARS,
+            user_field="inspected_by_key",          # serverseitig gesetzt (#1669)
+            replacement_strategy="tombstone_hash",
+            clear_fields=["inspector"],
+            reason="PflSchG §11: 3 Jahre Aufbewahrungspflicht (NFR-011 R-18)",
         ),
-        # REQ-050: Tagebuch-Einträge. Anders als die drei Regeln darüber gibt es
-        # hier KEINE gesetzliche Aufbewahrungspflicht — der Grund ist ein anderer:
-        # Der Eintrag gehört zum Pflanzen-Datensatz eines womöglich geteilten
-        # Mandanten und würde beim Hard-Delete die Historie fremder Mitglieder
-        # zerreissen. Dieselbe Abwägung wie bei den Foto-Anhängen (Scope
-        # `user_diary_attachments`, siehe unten) — dort wird der Anhang
-        # anonymisiert statt gelöscht, das Eintragsdokument selbst blieb bis
-        # REQ-050 versehentlich ungeregelt.
+        # REQ-050: Tagebuch-Einträge. Hier gibt es KEINE gesetzliche
+        # Aufbewahrungspflicht — der Eintrag gehört zum Pflanzen-Datensatz eines
+        # womöglich geteilten Mandanten und würde beim Hard-Delete die Historie
+        # fremder Mitglieder zerreissen. Dieselbe Abwägung wie bei den Foto-
+        # Anhängen (Scope `user_diary_attachments`, siehe unten).
         AnonymizationRule(
             collection="plant_diary_entries",
             user_field="created_by",
             anonymized_value="_anonymized",
-            reason="REQ-050: geteilter Mandanten-Datensatz, keine gesetzliche Frist",
-            min_retention=None,
+            reason="REQ-050 §7.4: geteilter Mandanten-Datensatz",
         ),
         AnonymizationRule(
             collection="plant_diary_entries",
             user_field="analysis_requested_by",
             anonymized_value="_anonymized",
-            reason="REQ-050: wer die KI-Analyse angefordert hat",
-            min_retention=None,
+            reason="REQ-050 §7.3/7.4: wer die KI-Analyse angefordert hat",
         ),
         AnonymizationRule(
             collection="plant_diary_entries",
             user_field="analysis_claimed_by",
             anonymized_value="_anonymized",
-            reason="REQ-050: Kennung des ausführenden Agenten",
-            min_retention=None,
+            reason="REQ-050 §7.3/7.4: Kennung des ausführenden Agenten",
         ),
-        # REQ-051 §5: Das Analyse-Archiv. Die drei Regeln darüber fassen nur das
-        # Eintragsdokument; ein archivierter Lauf liegt in einer eigenen
-        # Collection und trägt dieselben zwei Kennungen noch einmal. Ohne die
-        # beiden Regeln hier wäre ein gelöschter Nutzer am Eintrag anonymisiert
-        # und im Archiv weiterhin namentlich zugeordnet — dieselbe Lücke, die
-        # REQ-050 für das Eintragsdokument geschlossen hat, eine Ebene tiefer.
-        AnonymizationRule(
-            collection="plant_diary_analyses",
-            user_field="requested_by",
-            anonymized_value="_anonymized",
-            reason="REQ-051: wer den archivierten Lauf angefordert hat",
-            min_retention=None,
-        ),
-        AnonymizationRule(
-            collection="plant_diary_analyses",
-            user_field="claimed_by",
-            anonymized_value="_anonymized",
-            reason="REQ-051: Kennung des ausführenden Agenten",
-            min_retention=None,
-        ),
+        # NICHT IMPLEMENTIERT — REQ-051 §5 Analyse-Archiv: Die Collection
+        # `plant_diary_analyses` existiert im Code noch nicht (kein Modell, keine
+        # Collection-Konstante). Sobald sie angelegt wird, braucht sie zwei
+        # Regeln für `requested_by` und `claimed_by` (Marker `_anonymized`,
+        # AK-DA-04). Bis dahin gibt es dort nichts zu anonymisieren, und der
+        # Code führt bewusst keine Platzhalterregel.
     ]
 
-    # Collections die vollständig gelöscht werden (Edges vor Nodes!)
-    DELETE_ORDER: list[str] = [
-        # Phase 0: Object-Storage-Cleanup (W-007, siehe unten) — MUSS vor
-        # Phase 1 laufen, weil danach die attachments-Metadaten weg sind
-        # und der created_by-Filter nicht mehr funktioniert.
-        "_storage_cleanup",
-        # Phase 0.5: Referenz-Index-Cleanup (REQ-034 §5 / SR-003) — MUSS
-        # ebenfalls vor Phase 1 laufen. Entfernt vom Nutzer beigesteuerte
-        # DINOv2-Embeddings (source='user_contributed') aus dem pgvector-
-        # Referenz-Index (REQ-029-A species_embeddings) anhand der Provenienz-
-        # Felder contributed_by/tenant_key. Der Index liegt NICHT in ArangoDB,
-        # daher ein eigener Cleanup-Pfad (siehe REFERENCE_INDEX_CLEANUP_RULES).
-        "_reference_index_cleanup",
-        # Phase 1: Edges
-        "requested_export", "has_consent", "has_restriction",
-        "requested_erasure", "requested_email_change",
-        "has_auth_provider", "has_session", "has_membership",
-        # Phase 2: Nodes (Reihenfolge wichtig)
-        "data_export_requests", "consent_records", "processing_restrictions",
-        "email_change_requests", "auth_providers", "refresh_tokens",
-        # Phase 2.5: Audit-Log-Pseudonymisierung (W-002, siehe unten)
-        # Diese Collections werden NICHT gelöscht — der user_key wird durch
-        # einen Tombstone-Hash ersetzt, bevor Phase 3 ausgeführt wird.
-        "_pseudonymize_audit_collections",
+    # Das einzige deklarierte Inventar personenbezogener Daten in ArangoDB
+    # (#1622). Jeder Eintrag nennt, WER ihn entfernt (executor), und seit #1663,
+    # WIE die Zeilen des Nutzers gefunden werden (user_field):
+    #   kind="document" — Modellfeld mit dem Benutzerschlüssel (doc.<user_field> == key)
+    #   kind="edge"     — Endpunkt "_from" / "_to". Ohne via zeigt er auf
+    #                     users/<key>; mit via auf ein Dokument der genannten
+    #                     Collection, das über deren eigenen document-Schritt
+    #                     dem Nutzer gehört (die Kante steht deshalb VOR diesem
+    #                     Schritt).
+    #   kind="user" / "phase" — kein user_field.
+    # executor="retention_worker" ist deklariert, aber (Stand #1663) noch von
+    # keinem Laufzeitpfad ausgeführt — der gemeinsame Executor folgt mit #1664.
+    # Reihenfolge ist tragend: Phasen → Kanten → Dokumente → Anonymisierung →
+    # Audit-Pseudonymisierung → users. Jeder Schritt, der über den
+    # Benutzerschlüssel filtert, läuft vor der Audit-Pseudonymisierung.
+    DELETE_STEPS: list[ErasureStep] = [
+        # Phase 0 / 0.5: Object Storage (W-007) und pgvector-Referenz-Index
+        # (REQ-034 §5 / SR-003) — vor allen ArangoDB-Operationen, weil danach
+        # die attachments-Metadaten (created_by) weg sind.
+        ErasureStep("_storage_cleanup", kind="phase", executor="storage_cleanup"),
+        ErasureStep("_reference_index_cleanup", kind="phase", executor="reference_index_cleanup"),
+        # Phase 1: Kanten users -> <Dokument>
+        ErasureStep("requested_export",       kind="edge", user_field="_from", executor="retention_worker"),
+        ErasureStep("has_consent",            kind="edge", user_field="_from", executor="retention_worker"),
+        ErasureStep("has_restriction",        kind="edge", user_field="_from", executor="retention_worker"),
+        ErasureStep("requested_erasure",      kind="edge", user_field="_from", executor="retention_worker"),
+        ErasureStep("requested_email_change", kind="edge", user_field="_from", executor="retention_worker"),
+        ErasureStep("user_favorites",         kind="edge", user_field="_from", executor="retention_worker"),
+        ErasureStep("has_auth_provider",      kind="edge", user_field="_from", executor="account_cascade"),
+        ErasureStep("has_session",            kind="edge", user_field="_from", executor="account_cascade"),
+        ErasureStep("has_api_key",            kind="edge", user_field="_from", executor="account_cascade"),
+        ErasureStep("has_membership",         kind="edge", user_field="_from", executor="membership_cascade"),
+        # memberships -> tenants: berührt users nie
+        ErasureStep("membership_in", kind="edge", user_field="_from", via="memberships",
+                    executor="membership_cascade"),
+        # Phase 2: Dokumente
+        ErasureStep("memberships",             kind="document", user_field="user_key", executor="membership_cascade"),
+        ErasureStep("data_export_requests",    kind="document", user_field="user_key", executor="retention_worker"),
+        ErasureStep("consent_records",         kind="document", user_field="user_key", executor="retention_worker"),
+        ErasureStep("processing_restrictions", kind="document", user_field="user_key", executor="retention_worker"),
+        ErasureStep("email_change_requests",   kind="document", user_field="user_key", executor="retention_worker"),
+        ErasureStep("auth_providers",          kind="document", user_field="user_key", executor="account_cascade"),
+        ErasureStep("refresh_tokens",          kind="document", user_field="user_key", executor="account_cascade"),
+        ErasureStep("api_keys",                kind="document", user_field="user_key", executor="account_cascade"),
+        ErasureStep("user_preferences",        kind="document", user_field="user_key", executor="account_cascade"),
+        ErasureStep("onboarding_states",       kind="document", user_field="user_key", executor="account_cascade"),
+        ErasureStep("identification_requests", kind="document", user_field="user_key", executor="retention_worker"),
+        # REQ-044 §8: Schädlingserkennungen — Kanten starten an der Erkennung
+        ErasureStep("pest_detection_of", kind="edge", user_field="_from", via="pest_detections",
+                    executor="retention_worker"),
+        ErasureStep("pest_detection_flagged", kind="edge", user_field="_from", via="pest_detections",
+                    executor="retention_worker"),
+        ErasureStep("pest_detection_suggested_inspection", kind="edge", user_field="_from",
+                    via="pest_detections", executor="retention_worker"),
+        ErasureStep("pest_detections", kind="document", user_field="user_key", executor="retention_worker"),
+        # REQ-010 §8: Referenzbild-Beiträge (Modell hat kein user_key)
+        ErasureStep("pest_image_contributions", kind="document", user_field="contributed_by",
+                    executor="pest_image_cleanup"),
+        # Phase 2.4: ANONYMIZE_COLLECTIONS anwenden
+        ErasureStep("_anonymize_collections", kind="phase", executor="retention_worker"),
+        # Phase 2.5: Audit-Log-Pseudonymisierung (W-002, siehe unten) — die
+        # Collections werden NICHT gelöscht, der user_key wird durch einen
+        # Tombstone-Hash ersetzt. Danach findet kein Schritt den Nutzer mehr.
+        ErasureStep("_pseudonymize_audit_collections", kind="phase", executor="retention_worker"),
         # Phase 3: User selbst (zuletzt)
-        "users",
+        ErasureStep("users", kind="user", executor="account_cascade"),
     ]
 
     # <!-- Quelle: Widerspruchsanalyse W-007 -->
@@ -516,7 +569,8 @@ class ErasureEngine:
         plan.storage_cleanup = self.STORAGE_CLEANUP_RULES                # W-007
         plan.anonymize = self.ANONYMIZE_COLLECTIONS
         plan.pseudonymize_audit = self.PSEUDONYMIZE_AUDIT_COLLECTIONS    # W-002
-        plan.delete = self.DELETE_ORDER
+        plan.steps = self.DELETE_STEPS                                    # #1622 / #1663
+        plan.delete = [step.collection for step in self.DELETE_STEPS]    # abgeleitete Reihenfolge
         plan.soft_delete_immediate = True
         plan.hard_delete_after_days = 90  # NFR-011 R-01
         return plan
@@ -1382,8 +1436,8 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-DA-01 | **Tagebuch-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_entries` die Felder `created_by`, `analysis_requested_by` und `analysis_claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Das Eintragsdokument selbst — Freitext, Tags, Messwerte, `photo_refs` und ein vorhandenes `analysis`-Ergebnis — bleibt vollstaendig erhalten. Dies schliesst die Luecke, dass bislang nur die **Anhaenge** (AK-OS-02), nicht aber das Eintragsdokument geregelt waren. | 17 | Integration |
 | AK-DA-02 | **Auskunft umfasst Tagebuch:** Der Datenexport nach Art. 15/20 enthaelt die Tagebuch-Eintraege des Nutzers samt vorhandener KI-Analyse-Ergebnisse (REQ-050). | 15/20 | Integration |
 | AK-DA-03 | **Einwilligung `diary_ai_analysis`:** Ohne erteilte Einwilligung lehnt das Markieren eines Tagebuch-Eintrags zur KI-Analyse ab; ein Widerruf verhindert neue Markierungen und laesst bestehende Ergebnisse unberuehrt. Im Light-Modus (REQ-027) entfaellt die Pruefung, weil dort kein Consent erteilt werden kann (REQ-050 §7.5). | 6(1)(a) | Integration |
-| AK-DA-04 | **Archiv-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_analyses` die Felder `requested_by` und `claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Der Lauf selbst — Zusammenfassung, Befunde, Empfehlungen, Herkunftsangabe — bleibt vollstaendig erhalten (REQ-051 §5.4, §11). | 17 | Integration |
-| AK-DA-05 | **Auskunft umfasst das Analyse-Archiv:** Der Datenexport nach Art. 15/20 enthaelt die archivierten Analyselaeufe, nicht nur das juengste Ergebnis am Eintrag (REQ-051 §11). | 15/20 | Integration |
+| AK-DA-04 | **Nicht implementiert** (Stand #1663): Die Collection `plant_diary_analyses` existiert im Code noch nicht, es gibt also nichts zu anonymisieren und keine Regel dafür. Sobald REQ-051 §5 sie anlegt, gilt: **Archiv-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_analyses` die Felder `requested_by` und `claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Der Lauf selbst — Zusammenfassung, Befunde, Empfehlungen, Herkunftsangabe — bleibt vollstaendig erhalten (REQ-051 §5.4, §11). | 17 | Integration |
+| AK-DA-05 | **Nicht implementiert** (Stand #1663, dieselbe Ursache wie AK-DA-04). Sobald REQ-051 §5 umgesetzt ist, gilt: **Auskunft umfasst das Analyse-Archiv:** Der Datenexport nach Art. 15/20 enthaelt die archivierten Analyselaeufe, nicht nur das juengste Ergebnis am Eintrag (REQ-051 §11). | 15/20 | Integration |
 <!-- /Quelle: REQ-050 §7.4 -->
 
 ### Frontend-Kriterien:
