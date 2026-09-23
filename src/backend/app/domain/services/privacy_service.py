@@ -1362,12 +1362,18 @@ class PrivacyService:
                         deleted=deleted,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
-                    anonymised = await self._anonymize_attachment_metadata(
+                    # Strip first: both halves select the photos by
+                    # ``created_by == user_key``, and the anonymisation rewrites
+                    # exactly that field. Run the other way round, the strip
+                    # finds nothing and every photo keeps its GPS EXIF (#1645).
+                    # A crash between the two leaves ``created_by`` intact, so
+                    # a re-run repeats both.
+                    stripped = await self._storage_adapter.strip_exif_for_user(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
                     )
-                    stripped = await self._storage_adapter.strip_exif_for_user(
+                    anonymised = await self._anonymize_attachment_metadata(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
