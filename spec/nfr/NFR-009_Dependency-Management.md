@@ -86,6 +86,11 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 | **Minor** (`x.Y.0`) | `1.2.3` → `1.3.0` | Mittel — neue Features, abwärtskompatibel | Auto-Merge nach grüner CI |
 | **Major** (`X.0.0`) | `1.2.3` → `2.0.0` | Hoch — Breaking Changes möglich | Manuelles Review, Feature-Branch |
 
+> **Die Spalte „Behandlung" beschreibt das Risiko, nicht die Konfiguration (#1566).**
+> Auto-Merge nach grüner CI gilt seit #1550 nur noch für die `github-actions`-Gruppe;
+> Applikations-Abhängigkeiten tragen `automerge: false` und gehen auch als Patch durch
+> manuelles Review. Maßgeblich ist §3.4 mit seiner Messung, nicht diese Zeile.
+
 **MUSS**: Alle Dependencies verwenden Version-Pinning mit Kompatibilitätsbereich:
 - Python (`pyproject.toml`): `>=`-Pinning mit oberer Grenze, z.B. `fastapi>=0.115.0,<1.0.0`
 - Node.js (`package.json`): Caret-Notation `^`, z.B. `"react": "^19.0.0"`
@@ -94,23 +99,26 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 
 ### 2.2 Update-Frequenz
 
-| Kategorie | Frequenz | Zeitfenster |
+| Kategorie | Frequenz | Nachbehandlung |
 |---|---|---|
-| **Patch-Updates** | Wöchentlich | Montag 06:00–08:00 UTC |
-| **Minor-Updates** | Wöchentlich | Montag 06:00–08:00 UTC |
-| **Major-Updates** | Monatlich (erster Montag) | Manuelles Review innerhalb 1 Woche |
-| **Security-Fixes (Critical/High)** | Sofort | Kein Schedule — wird sofort erstellt |
-| **Container-Base-Images** | Wöchentlich | Montag 06:00–08:00 UTC |
-| **Helm Chart Dependencies** | Monatlich | Erster Montag des Monats |
+| **Patch-Updates** | laufend, begrenzt durch die Warteschlange | manuelles Review (§3.4) |
+| **Minor-Updates** | laufend, begrenzt durch die Warteschlange | manuelles Review (§3.4) |
+| **Major-Updates** | eigener Branch je Major (`separateMajorMinor`) | manuelles Review innerhalb 1 Woche |
+| **Security-Fixes (Critical/High)** | sofort, an der Warteschlange vorbei | §4.2 |
+| **Container-Base-Images** | laufend, gebündelt je Upstream-Release | manuelles Review |
+| **`helmv3`-Chart-Dependencies** | laufend | manuelles Review (§6.4) |
 
-**MUSS**: Security-relevante Updates (CVE Critical/High) dürfen nicht durch den Zeitplan verzögert werden. Renovate erstellt diese PRs sofort und unabhängig vom Zeitfenster.
+**MUSS**: Es gibt **kein** Zeitfenster für die PR-Erstellung, und es soll keins geben
+(#1566, Betreiberentscheidung 2026-09-21). `renovate.json5` setzt weder `schedule` noch
+`timezone` — `grep -c "schedule" renovate.json5` liefert 0. Der Grund steht in §3.5: unter
+`required_status_checks.strict: true` ist nicht der Zeitpunkt der Engpass, sondern die
+Warteschlangenlänge. Ein Wochenfenster würde die Bumps nur bündeln und keinen einzigen
+CI-Zyklus sparen. Wer die Spalte wieder einführen will, misst vorher, welchen Zyklus sie
+spart.
 
-> **Die Spalte „Zeitfenster" ist eine Zielvorgabe, kein gemessener Zustand (#1566).**
-> `renovate.json5` setzt weder `schedule` noch `timezone` — `grep -c "schedule" renovate.json5`
-> liefert 0. Renovate läuft auf der Kadenz der GitHub App, nicht in einem Montagsfenster.
-> Die Frequenzspalte trifft die Sache trotzdem, weil die Warteschlangenlänge (§3.5) den
-> Durchsatz begrenzt. Ob das Fenster nachgezogen oder die Spalte gestrichen wird, ist eine
-> offene Betreiberentscheidung und wird hier nicht vorweggenommen.
+**MUSS**: Security-relevante Updates (CVE Critical/High) werden nicht zurückgehalten.
+Renovate nimmt Vulnerability-Alert-PRs von den Warteschlangen-Grenzen und von der
+Gruppierung aus (§3.5).
 
 ### 2.3 Lockfile-Pflicht
 
@@ -216,7 +224,7 @@ Daraus folgt die Reichweite der Regel, damit sie nicht erneut je Datei hergeleit
 | **Lockfile-Handling** | Automatisch (`lockFileMaintenance`) | Grundlegend |
 | **Preis** | Kostenlos (Open Source & GitHub App) | Kostenlos (GitHub-integriert) |
 
-**Entscheidung**: Renovate Bot wird eingesetzt, da die Gruppierungsfähigkeit (z.B. alle MUI-Pakete in einem PR), der fein konfigurierbare Zeitplan und der native Auto-Merge-Support für das Kamerplanter-Projekt entscheidend sind.
+**Entscheidung**: Renovate Bot wird eingesetzt, da die Gruppierungsfähigkeit, die Custom Manager für Pins ohne Manifest-Format und der native Auto-Merge-Support für das Kamerplanter-Projekt entscheidend sind. Der fein konfigurierbare Zeitplan war ein Argument bei der Wahl, wird aber nicht genutzt (§2.2) — er trägt die Entscheidung nicht.
 
 ### 3.2 Was `renovate.json5` entscheidet — und wie man es nachmisst
 
@@ -312,42 +320,60 @@ Die Forderung ist **Atomarität**, nicht eine bestimmte Anzahl Gruppen. Sie wird
 | **GitHub Actions** | `actions/*`, `docker/*` | CI-Workflow-Stabilität; Minor/Patch/Digest mit Auto-Merge, Majors getrennt. |
 | **Helm Charts** | Alle `Chart.yaml`-Dependencies | Deployment-Konsistenz. |
 
-> **Warum eine statt vierzehn Gruppen (#1550, gemessen am 2026-09-19):** `required_status_checks.strict: true` entwertet bei jedem Merge alle anderen offenen PRs, also kosten N Dependency-Bumps N volle CI-Zyklen. Mit dem ererbten `prConcurrentLimit: 10` wurde die Warteschlange zur faktischen Policy: bei sechzehn offenen `renovate/`-Branches hielt Renovate den CVE-tragenden `transformers`-Bump (#1480) als „Rate-Limited" zurück — keine Regel verbot ihn, die Schlange war voll. Gemessen mit `task renovate:dry-run` vorher/nachher: 16 → 8 Branches für denselben Bestand, Manager-Inventur unverändert.
+> **Warum eine statt vierzehn Gruppen (#1550, gemessen am 2026-09-19):** `required_status_checks.strict: true` entwertet bei jedem Merge alle anderen offenen PRs, also kosten N Dependency-Bumps N volle CI-Zyklen. Die damals geltende Obergrenze offener PRs — zu diesem Zeitpunkt Renovates eigener Default, denn das geteilte Preset setzte noch keinen Wert — machte die Warteschlange zur faktischen Policy: bei sechzehn offenen `renovate/`-Branches hielt Renovate den CVE-tragenden `transformers`-Bump (#1480) als „Rate-Limited" zurück — keine Regel verbot ihn, die Schlange war voll. Gemessen mit `task renovate:dry-run` vorher/nachher: 16 → 8 Branches für denselben Bestand, Manager-Inventur unverändert. **Die Obergrenze selbst steht hier bewusst nicht als Zahl** — sie wird im geteilten Preset gepflegt und altert dort als Bump; das Abrufkommando steht in §3.5.
 >
 > **Der bewusst gewählte Tausch:** Ein defektes Paket blockiert jetzt den Branch der ganzen Gruppe. Der Ausweg ist eine schmale `matchPackageNames`-Regel **unterhalb** der Gruppe (der jsdom-Major-Halt ist das ausgearbeitete Beispiel), nicht eine neue dauerhafte Gruppe je Baum.
 
 ### 3.4 Auto-Merge-Regeln
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Update-Typ empfangen                         │
-└─────────────────┬───────────────────────────────────────────────┘
-                  │
-          ┌───────▼───────┐
-          │  Security?    │──── Ja ──→ Sofort PR → CI → Auto-Merge
-          └───────┬───────┘
-                  │ Nein
-          ┌───────▼───────┐
-          │   Patch?      │──── Ja ──→ PR → CI → Auto-Merge
-          └───────┬───────┘
-                  │ Nein
-          ┌───────▼───────┐
-          │   Minor?      │──── Ja ──→ Kern-Framework? ──→ Manuelles Review
-          └───────┬───────┘              │ Nein
-                  │ Nein                 └──→ CI → Auto-Merge
-          ┌───────▼───────┐
-          │   Major?      │──── Ja ──→ Manuelles Review (Feature-Branch)
-          └───────────────┘
+Hier stand bis #1566 ein Flussdiagramm, das Auto-Merge für **jedes** Patch- und für
+nicht-kritische Minor-Updates versprach, sowie eine Bedingung über
+Branch-Protection auf `main`. Beides war falsch: `renovate.json5` schaltet Auto-Merge
+für Applikations-Abhängigkeiten ausdrücklich **ab**, und `main` trägt überhaupt keine
+Branch-Protection.
+
+**MUSS**: Auto-Merge ist die Ausnahme, nicht die Regel. Genau eine Regel in
+`renovate.json5` setzt `automerge: true`. Nachzumessen in einer Zeile:
+
+```bash
+grep -n "automerge" renovate.json5
 ```
 
-**MUSS**: Auto-Merge erfordert:
-1. Alle CI-Jobs grün (Tests, Lint, Build)
-2. Branch-Protection-Rules aktiv auf `main`
-3. Mindestens 1 erfolgreiche CI-Run
+Die gesetzten Werte, die dabei herauskommen — alle übrigen Treffer sind Kommentare, die
+sich darauf berufen:
 
-**MUSS**: Auto-Merge ist deaktiviert für:
-- Major-Updates jeglicher Pakete
-- Minor-Updates von Kern-Frameworks (`react`, `react-dom`, `fastapi`, `typescript`)
+| Regel | Auto-Merge | Warum |
+|---|---|---|
+| `github-actions` (`minor`, `patch`, `digest`) | **ja** | Ein Action-Digest-Bump trägt kein eigenes Changelog; ein Review daran gewinnt nichts. Das Digest-Pinning selbst kommt aus dem geteilten Preset. |
+| `github-actions major` | nein — keine `automerge`-Zeile | Ein Major einer Action ändert ihre Eingaben. |
+| `application dependencies` | **nein**, `automerge: false` ausgeschrieben | Betreiberentscheidung #1550. Der Wert ist absichtlich nicht vererbt: das Preset automergt diese Manager heute nicht, aber „heute nicht" ist keine Zusage. Damit gehen auch Patch und Minor durch manuelles Review — genau das, was das alte Diagramm bestritt. |
+| `uv toolchain` | **nein**, `automerge: false` ausgeschrieben | Der Resolver, der sämtliche Locks erzeugt, wird an anderer Evidenz beurteilt (§3.3). |
+| `third-party images`, `selenium images`, `python build backend` | nein — keine `automerge`-Zeile | Ein Basis-Image-Bump baut einen ganzen Stack neu. |
+| alles, wofür keine Regel greift (u. a. der `helmv3`-Manager) | nein — Renovates Default ist `automerge: false` | Auto-Merge muss angefordert werden, nie abgewählt. |
+
+**MUSS**: Majors werden nie automatisch gemergt. Das gilt ohne eigene Regel, weil
+`separateMajorMinor: true` sie in eigene Branches trennt (§3.2) und keine Major-Regel
+`automerge` setzt.
+
+**MUSS**: Die Branch-Protection, die einen Auto-Merge überhaupt erst gegen rote Checks
+absichert, liegt auf dem Integrationszweig `develop` — **nicht** auf `main`. Gemessen:
+
+```bash
+gh api repos/<owner>/<repo> --jq '.default_branch'
+gh api repos/<owner>/<repo>/branches/main --jq '.protected'
+gh api repos/<owner>/<repo>/branches/develop/protection \
+  --jq '{strict: .required_status_checks.strict, contexts: .required_status_checks.contexts}'
+```
+
+Der zweite Aufruf liefert `false`: `main` ist ein reiner Release-Spiegel ohne Regelwerk,
+ein Auto-Merge findet dort nie statt. Die Liste der Pflicht-Checks steht hier
+**bewusst nicht ausgeschrieben** — sie ändert sich mit jeder neuen Lane, und eine
+abgeschriebene Liste wäre wieder der Defekt, den dieser Abschnitt behebt. NFR-018
+regelt, welche Lanes durchsetzend sein müssen; das Kommando oben sagt, welche es sind.
+
+**MUSS**: `required_status_checks.strict` steht auf `true`. Ein Auto-Merge setzt damit
+nicht nur grüne Checks voraus, sondern auch einen aktuellen Branch — das ist die
+Ursache der Warteschlangen-Ökonomie aus §3.3 und §3.5.
 
 ### 3.5 Rate Limiting
 
@@ -376,9 +402,9 @@ wirksam, wie es klingt: bei vollem Kontingent hielt Renovate den CVE-tragenden
 `transformers`-Bump (#1480) als „Rate-Limited" zurück, weil er als normaler Bump und
 nicht über einen Alert kam.
 
-**MUSS**: Ein Zeitfenster (`schedule`) gibt es nicht und soll es nicht geben. Die
-Steuergröße ist die Warteschlangenlänge, nicht die Uhrzeit; ein Wochenfenster würde die
-Bumps zusätzlich bündeln, ohne einen CI-Zyklus zu sparen.
+**MUSS**: Ein Zeitfenster (`schedule`) gibt es nicht und soll es nicht geben — die
+Entscheidung und ihre Begründung stehen in §2.2. Hier zählt nur die Folge: die
+Steuergröße dieses Abschnitts ist die Warteschlangenlänge, nicht die Uhrzeit.
 
 ---
 
@@ -470,9 +496,9 @@ jobs:
 | **Critical** (9.0–10.0) | 24 Stunden | DevOps / Maintainer | Direkte Benachrichtigung |
 | **High** (7.0–8.9) | 7 Tage | Entwickler via PR-Review | Dependency Dashboard |
 | **Medium** (4.0–6.9) | 30 Tage | Nächster Sprint | Backlog |
-| **Low** (0.1–3.9) | 90 Tage | Reguläres Update-Fenster | — |
+| **Low** (0.1–3.9) | 90 Tage | regulärer Update-Strom | — |
 
-**MUSS**: Critical-CVEs werden außerhalb des regulären Schedules behandelt — Renovate erstellt sofort einen PR.
+**MUSS**: Critical-CVEs werden an der Warteschlange vorbei behandelt — Renovate nimmt Vulnerability-Alert-PRs von den Grenzen aus (§3.5) und erstellt sofort einen PR.
 **MUSS**: GitHub Security Advisories sind aktiviert und senden Benachrichtigungen an das Maintainer-Team.
 **SOLL**: Bei Critical-CVEs wird ein Hotfix-Branch erstellt, wenn der reguläre PR nicht innerhalb von 8 Stunden gemergt werden kann.
 
@@ -850,11 +876,13 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
     - [ ] Renovate Bot ist als GitHub App installiert und für das Repository aktiviert
     - [ ] `renovate.json5` ist im Repository-Root eingecheckt und valide
     - [ ] Dependency Dashboard ist als GitHub Issue sichtbar
-- [ ] **Auto-Merge**
-    - [ ] Patch-Updates werden nach grüner CI automatisch gemergt
-    - [ ] Minor-Updates (nicht Kern-Frameworks) werden nach grüner CI automatisch gemergt
-    - [ ] Major-Updates erfordern manuelles Review
-    - [ ] Kern-Frameworks (`react`, `fastapi`, `typescript`) erfordern immer manuelles Review
+- [ ] **Auto-Merge** — die drei Punkte unten beschreiben einen Zustand, den #1550
+  bewusst verlassen hat; sie bleiben als offene Betreiberentscheidung stehen und sind
+  gegen §3.4 zu lesen, nicht gegen die Konfiguration
+    - [ ] ~~Patch-Updates werden nach grüner CI automatisch gemergt~~ — gilt nur für `github-actions`
+    - [ ] ~~Minor-Updates (nicht Kern-Frameworks) werden nach grüner CI automatisch gemergt~~ — dito
+    - [x] Major-Updates erfordern manuelles Review
+    - [x] Kern-Frameworks (`react`, `fastapi`, `typescript`) erfordern immer manuelles Review — sie liegen in der Applikationsgruppe mit `automerge: false`
 - [ ] **CI-Integration**
     - [ ] Alle Dependency-PRs durchlaufen die vollständige CI-Pipeline (Tests, Lint, Build)
     - [ ] `npm audit` und `pip-audit` sind in der CI-Pipeline integriert
@@ -874,7 +902,7 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
     - [ ] Rollback-Plan ist dokumentiert
 - [ ] **Dokumentation**
     - [ ] Gruppierungsregeln sind vollständig definiert
-    - [ ] Update-Frequenzen und Zeitfenster sind festgelegt
+    - [ ] Update-Frequenzen sind festgelegt, und die Abwesenheit eines Zeitfensters ist begründet (§2.2)
     - [ ] Erlaubte und verbotene Lizenzen sind gelistet
     - [ ] SLAs für Sicherheitsupdates sind definiert
 
@@ -911,7 +939,7 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
 | **Breaking Changes bei verspäteten Major-Updates** | Aufwändige Migration, Feature-Freeze während Upgrade, instabile Zwischenzustände | Hoch | Regelmäßige Minor-Updates verhindern Rückstände, dokumentierter Major-Upgrade-Prozess |
 | **License-Compliance-Verstöße** | Rechtliche Konsequenzen bei Verwendung von Copyleft-Lizenzen in proprietärem Kontext | Mittel | Automatische Lizenz-Prüfung in CI, Allowlist erlaubter Lizenzen |
 | **Dependency-Konflikte durch fehlende Gruppierung** | Inkompatible Paketversionen (z.B. MUI-Komponenten mit unterschiedlichen Versionen) | Mittel | Renovate-Gruppierungsregeln stellen atomare Updates sicher |
-| **CI-Überlastung durch zu viele Dependency-PRs** | Lange Wartezeiten für Feature-PRs, erhöhte GitHub Actions-Kosten | Niedrig | Rate Limiting (5/Stunde, 10 gleichzeitig), wöchentliches Schedule |
+| **CI-Überlastung durch zu viele Dependency-PRs** | Lange Wartezeiten für Feature-PRs, erhöhte GitHub Actions-Kosten | Niedrig | Warteschlangen-Grenzen aus dem geteilten Preset (§3.5), eine Gruppe statt vierzehn (§3.3) |
 | **Lockfile-Drift zwischen Entwicklern** | „Works on my machine“-Probleme, nicht reproduzierbare Builds | Mittel | Lockfile-Pflicht, `npm ci` in CI, `uv lock --check` für Python |
 
 ---
