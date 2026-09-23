@@ -142,7 +142,7 @@ def _client(
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.include_router(substrates_router, prefix="/api/v1")
-    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="u1", account_type="user")
+    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="u1", account_type="human")
     app.dependency_overrides[get_substrate_service] = lambda: SubstrateService(repo)  # type: ignore[arg-type]
     app.dependency_overrides[auth_mod.get_active_tenant_key] = lambda: tenant
     app.dependency_overrides[auth_mod.get_creating_tenant_key] = lambda: tenant

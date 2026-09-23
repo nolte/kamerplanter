@@ -82,7 +82,7 @@ def _service_user() -> User:
 
 
 def _human_user() -> User:
-    return User(key="u-1", email="alice@example.org", display_name="Alice", account_type="user", is_active=True)
+    return User(key="u-1", email="alice@example.org", display_name="Alice", account_type="human", is_active=True)
 
 
 def _authenticator(api_key, user, tenants) -> McpAuthenticator:

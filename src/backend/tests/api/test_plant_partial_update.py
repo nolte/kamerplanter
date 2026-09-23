@@ -88,7 +88,7 @@ def client(service: _Service) -> TestClient:
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.include_router(plants_router, prefix="/api/v1/t/{tenant_slug}")
-    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="u1", account_type="user")
+    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="u1", account_type="human")
     app.dependency_overrides[get_plant_instance_service] = lambda: service
     app.dependency_overrides[auth_mod.get_current_tenant] = lambda: TenantContext(
         tenant_key="t1", tenant_slug="t1", user_key="u1", role=TenantRole.LEAD, admin_scopes=[]

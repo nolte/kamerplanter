@@ -60,7 +60,7 @@ def client(care_service: MagicMock) -> TestClient:
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.include_router(care_router, prefix="/api/v1")
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key="u1", account_type="user")
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key="u1", account_type="human")
     app.dependency_overrides[require_owned_plant] = lambda: None
     app.dependency_overrides[get_active_tenant_context] = lambda: SimpleNamespace(tenant_key="t1", role=TenantRole.LEAD)
     app.dependency_overrides[get_care_reminder_service] = lambda: care_service
