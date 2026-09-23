@@ -895,7 +895,7 @@ class PlantInstanceService:
                     self._overwintering_materializer.materialize(plant, new_site)
             elif self._overwintering_service is not None and plant.key:
                 # Moved indoors / lost its site: drop an auto-generated profile only.
-                self._overwintering_service.remove_auto_profile_for_plant(plant.key, plant.tenant_key)
+                self._overwintering_service.remove_auto_profile_for_plant(plant.key, tenant_key=plant.tenant_key)
         except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
             logger.warning("overwintering_move_sync_failed", plant_key=plant.key, error=str(exc))
 
