@@ -32,11 +32,9 @@ from arango import ArangoClient
 
 from app.data_access.arango.attachment_repository import aql_photo_ref_candidates
 from app.migrations.migrate_photo_refs import normalize_photo_ref
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = "kamerplanter_ref_normalisation_test"
-
-
+TEST_DATABASE = run_database_name("ref_normalisation")
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 #: A ULID-shaped id, because `normalize_photo_ref` returns an already-normalised

@@ -37,6 +37,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.arango_integration import run_database_name
+
 # The server probe lives in tests/integration/conftest.py (``arango_db``): one probe
 # for the tier, a loud failure under CI, a skip with the address locally. A private
 # ``ARANGO_AVAILABLE`` copy here would be the self-skip #1432 retired.
@@ -47,7 +49,7 @@ pytestmark = [
     ),
 ]
 
-_DB_NAME = "kamerplanter_v0048_migration_test"
+_DB_NAME = run_database_name("v0048_migration")
 _TENANT = "mein-garten"
 _FAMILY_NAME = "Cactaceae"
 _SCIENTIFIC_NAME = "Opuntia ficus-indica"

@@ -26,14 +26,14 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.migrations.versions.v0056_stamp_attribution_user_keys import ATTRIBUTION_KEY_FIELDS, migration
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("!HAS and keepNull semantics are the SUT"),
 ]
 
-_DB_NAME = "kamerplanter_v0056_migration_test"
+_DB_NAME = run_database_name("v0056_migration")
 
 #: A user that exists — and whose key somebody typed into the free-text field.
 USER = "user-42"

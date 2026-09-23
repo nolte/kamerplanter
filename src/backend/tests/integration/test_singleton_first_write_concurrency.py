@@ -46,15 +46,14 @@ from typing import Any
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("#1458 is a race whose resolution only exists against a real ArangoDB"),
 ]
 
-_DB_NAME = "kamerplanter_singleton_first_write_test"
-
+_DB_NAME = run_database_name("singleton_first_write")
 #: How many callers materialise the same user's singleton at once. Four mirrors
 #: the E2E suite's four xdist workers driving one account.
 _RACERS = 4

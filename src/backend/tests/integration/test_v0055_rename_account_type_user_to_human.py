@@ -24,14 +24,14 @@ from app.migrations.versions.v0055_rename_account_type_user_to_human import (
     OLD_VALUE,
     RenameAccountTypeUserToHumanMigration,
 )
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("the HAS() clause of the scan is the SUT"),
 ]
 
-_DB_NAME = "kamerplanter_v0055_migration_test"
+_DB_NAME = run_database_name("v0055_migration")
 
 _OLD_DEFAULT = "u_stored_as_user"
 _PRE_FIELD = "u_without_attribute"
