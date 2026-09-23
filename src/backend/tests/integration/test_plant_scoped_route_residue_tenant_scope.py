@@ -37,12 +37,11 @@ from __future__ import annotations
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
-_DB_NAME = "kamerplanter_route_residue_test"
-
+_DB_NAME = run_database_name("route_residue")
 TENANT_A = "tenant-a"
 TENANT_B = "tenant-b"
 SLUG = "anna"

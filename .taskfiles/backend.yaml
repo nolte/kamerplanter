@@ -144,7 +144,17 @@ tasks:
       - uv run --locked --extra dev python -m pytest tests/api/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}
 
   test:backend:integration:
-    desc: Backend integration tests (repositories and AQL against a real ArangoDB) — the CI gate's exact invocation
+    desc: |
+      Backend integration tests (repositories and AQL against a real ArangoDB) —
+      the CI gate's exact invocation.
+
+      Safe to run while a sibling worktree runs it against the same server
+      (#1661): every module names its database through
+      tests/support/arango_integration.run_database_name(), so two sessions no
+      longer drop each other's database mid-test — measured before (61–85
+      errors per side) and after (spec/dev-tooling/INTEGRATION-DB-ISOLATION.md).
+      A sibling still slows the run down, so name it when you quote the time:
+      `pgrep -fa "pytest tests/integration"`.
     dir: src/backend
     cmds:
       - uv run --locked --extra dev python -m pytest tests/integration/ -v --tb=short --max-skipped 0 {{.CLI_ARGS}}

@@ -16,3 +16,4 @@ Abgrenzung:
 |----|-------|--------|
 | [DEVTOOL-001](MCP-SERVERS.md) | MCP-Server-Integration für Claude Code | Verbindlich |
 | [DEVTOOL-002](PRECOMMIT-CONCURRENCY.md) | `task precommit` unter parallelen Arbeitskopien (#1641) | Messbericht |
+| [DEVTOOL-003](INTEGRATION-DB-ISOLATION.md) | Integrationstest-Datenbanken unter parallelen Arbeitskopien (#1661) | Messbericht |

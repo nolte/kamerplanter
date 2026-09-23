@@ -55,14 +55,14 @@ from datetime import UTC, datetime
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("#1301 concurrency guarantee is only observable against a real ArangoDB"),
 ]
 
-_DB_NAME = "kamerplanter_care_task_dedup_test"
+_DB_NAME = run_database_name("care_task_dedup")
 _TENANT_KEY = "tenant-alpha"
 _PLANT_KEY = "plant-basil-1"
 

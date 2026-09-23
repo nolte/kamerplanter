@@ -23,10 +23,9 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.site_repository import ArangoSiteRepository
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = "kp_test_slot_edge_cleanup"
-
+TEST_DATABASE = run_database_name("slot_edge_cleanup")
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 #: Document collections the repository touches, and the edge collections a slot

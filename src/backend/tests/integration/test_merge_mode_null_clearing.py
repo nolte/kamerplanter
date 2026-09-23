@@ -50,14 +50,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("#1525/#1516 are a driver/server null-handling contract; no double may answer it"),
 ]
 
-_DB_NAME = "kamerplanter_merge_mode_null_test"
+_DB_NAME = run_database_name("merge_mode_null")
 _TENANT_KEY = "tenant-alpha"
 _USER_KEY = "user-erika"
 

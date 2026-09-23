@@ -69,14 +69,14 @@ import threading
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("#1292 is a race whose resolution only exists against a real ArangoDB"),
 ]
 
-_DB_NAME = "kamerplanter_care_profile_edge_test"
+_DB_NAME = run_database_name("care_profile_edge")
 _TENANT_KEY = "tenant-alpha"
 _PLANT_KEY = "plant-basil-1"
 _SPECIES_KEY = "ocimum-basilicum"
