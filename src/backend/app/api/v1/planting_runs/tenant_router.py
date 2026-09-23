@@ -476,6 +476,7 @@ def _load_entry_in_scope(
     diary_service: PlantDiaryService,
     entry_key: str,
     plant_key: str,
+    *,
     tenant_key: str,
 ) -> PlantDiaryEntry:
     """Load a diary entry, refusing anything outside this tenant *and* this plant.
@@ -597,7 +598,7 @@ def get_plant_diary_entry(
 ):
     """Return a single plant-diary entry by key."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entry = _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    entry = _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     return _diary_response(entry, diary_service, ctx)
 
 
@@ -616,7 +617,7 @@ def update_plant_diary_entry(
 ):
     """Update a plant-diary entry."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = diary_service.update_entry(
         entry_key,
@@ -642,7 +643,7 @@ def delete_plant_diary_entry(
 ):
     """Delete a plant-diary entry."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     diary_service.delete_entry(entry_key)
 
 
@@ -671,7 +672,7 @@ def request_run_diary_entry_analysis(
     409 ``conflict.invalid_state`` (REQ-050 §6, §7.2, §7.5, AK-01/02/03).
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     updated = diary_service.request_analysis(
         entry_key,
         tenant_key=ctx.tenant_key,
@@ -700,7 +701,7 @@ def cancel_run_diary_entry_analysis(
     clicking answers 409 instead of silently doing nothing.
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     updated = diary_service.cancel_analysis_request(
         entry_key,
         tenant_key=ctx.tenant_key,

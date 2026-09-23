@@ -73,6 +73,21 @@ _LIGHT_TO_ACTION: dict[WinterHardinessLight, WinterAction] = {
 
 
 class OverwinteringProfileService:
+    """REQ-047 overwintering profiles: materialisation, override and reset.
+
+    Every method keyed on a ``plant_key`` a route takes from its URL declares
+    ``tenant_key`` **keyword-only and without a default** (#1627). Two reasons,
+    both measured rather than assumed:
+
+    * an unscoped call does not type-check, so the #1626 failure mode — a
+      tenant argument that a caller simply forgets — cannot be written;
+    * the call site then names the parameter, which is the only form
+      ``scripts/check_plant_scoped_route_tenant.py`` can tie to a parameter. A
+      tenant that merely travels positionally leaves a site the guard can
+      neither confirm nor refuse, and sixteen such sites had to be measured by
+      hand through a real database to retire them once.
+    """
+
     def __init__(
         self,
         repo: IOverwinteringProfileRepository,
@@ -153,7 +168,7 @@ class OverwinteringProfileService:
         self.get_profile(key, tenant_key)
         return self._repo.delete_profile(key)
 
-    def remove_auto_profile_for_plant(self, plant_key: str, tenant_key: str) -> bool:
+    def remove_auto_profile_for_plant(self, plant_key: str, *, tenant_key: str) -> bool:
         """REQ-047 §3.4 — drop a plant's *auto-generated* overwintering profile.
 
         Called when a plant is moved off an outdoor/greenhouse site (indoors or no
@@ -175,7 +190,7 @@ class OverwinteringProfileService:
 
     # ── REQ-047 per-plant profile access / override ─────────────────────
 
-    def get_plant_profile(self, plant_key: str, tenant_key: str) -> OverwinteringProfile:
+    def get_plant_profile(self, plant_key: str, *, tenant_key: str) -> OverwinteringProfile:
         """Return the plant's (auto-materialised) overwintering profile.
 
         Raises :class:`NotFoundError` (404) when the plant has no profile yet.
@@ -186,7 +201,7 @@ class OverwinteringProfileService:
         verify_tenant_ownership(profile, tenant_key, _ENTITY)
         return profile
 
-    def get_plant_hardiness_status(self, plant_key: str, tenant_key: str) -> PlantOverwinteringStatus:
+    def get_plant_hardiness_status(self, plant_key: str, *, tenant_key: str) -> PlantOverwinteringStatus:
         """Winter-hardiness status of a plant — three-way, never a bare 404.
 
         Distinguishes a materialised profile from the "no profile yet, but one is
@@ -217,7 +232,7 @@ class OverwinteringProfileService:
                 site_overwinterable=True,
             )
 
-        light, site_overwinterable = self._resolve_plant_hardiness(plant_key, tenant_key)
+        light, site_overwinterable = self._resolve_plant_hardiness(plant_key, tenant_key=tenant_key)
         return PlantOverwinteringStatus(
             has_profile=False,
             hardiness_light=light,
@@ -228,7 +243,7 @@ class OverwinteringProfileService:
             site_overwinterable=site_overwinterable,
         )
 
-    def _resolve_plant_hardiness(self, plant_key: str, tenant_key: str) -> tuple[WinterHardinessLight | None, bool]:
+    def _resolve_plant_hardiness(self, plant_key: str, *, tenant_key: str) -> tuple[WinterHardinessLight | None, bool]:
         """Resolve ``(ampel, site_overwinterable)`` from a single plant+site read.
 
         Mirrors :class:`OverwinteringMaterializer.materialize` exactly for the ampel:
@@ -290,13 +305,13 @@ class OverwinteringProfileService:
             return None
         return location
 
-    def override_plant_profile(self, plant_key: str, tenant_key: str, updates: dict) -> OverwinteringProfile:
+    def override_plant_profile(self, plant_key: str, updates: dict, *, tenant_key: str) -> OverwinteringProfile:
         """Override individual fields of the plant's profile (sets ``user_overridden``).
 
         A contradiction with the hardiness-derived winter path (D5) is rejected
         with 422; an otherwise invalid merge with 422 (never a 500).
         """
-        profile = self.get_plant_profile(plant_key, tenant_key)
+        profile = self.get_plant_profile(plant_key, tenant_key=tenant_key)
         data = profile.model_dump()
         data.update(updates)
         data["tenant_key"] = tenant_key
@@ -344,7 +359,7 @@ class OverwinteringProfileService:
         """
         from datetime import UTC, datetime
 
-        profile = self.get_plant_profile(plant_key, tenant_key)
+        profile = self.get_plant_profile(plant_key, tenant_key=tenant_key)
         light = evaluate_winter_hardiness(frost_sensitivity, species_zone, site_zone)
         rating = _LIGHT_TO_RATING[light]
         action = _LIGHT_TO_ACTION[light]
@@ -382,7 +397,7 @@ class OverwinteringProfileService:
 
     # ── REQ-047 reset orchestration (NFR-001: domain logic out of the router) ──
 
-    def reset_plant_profile(self, plant_key: str, tenant_key: str) -> OverwinteringProfile:
+    def reset_plant_profile(self, plant_key: str, *, tenant_key: str) -> OverwinteringProfile:
         """Reset a plant's profile to the automatic derivation (C1).
 
         Resolves the species / site context the derivation needs (frost
@@ -391,8 +406,8 @@ class OverwinteringProfileService:
         :meth:`rematerialize_plant_profile`. The router only forwards the identifiers.
         """
         # Ensure the profile exists and belongs to the tenant (404 otherwise).
-        self.get_plant_profile(plant_key, tenant_key)
-        plant = self._require_owned_plant(plant_key, tenant_key)
+        self.get_plant_profile(plant_key, tenant_key=tenant_key)
+        plant = self._require_owned_plant(plant_key, tenant_key=tenant_key)
 
         frost_sensitivity, species_zone, is_geophyte = self._resolve_species_context(plant.species_key)
         site_zone = self._resolve_site_zone(plant, tenant_key)
@@ -407,7 +422,7 @@ class OverwinteringProfileService:
             species_key=plant.species_key,
         )
 
-    def _require_owned_plant(self, plant_key: str, tenant_key: str):  # noqa: ANN202 — PlantInstance (avoid import cycle)
+    def _require_owned_plant(self, plant_key: str, *, tenant_key: str):  # noqa: ANN202 — PlantInstance (avoid import cycle)
         if self._plant_repo is None:
             raise NotFoundError("PlantInstance", plant_key)
         plant = self._plant_repo.get_by_key(plant_key)

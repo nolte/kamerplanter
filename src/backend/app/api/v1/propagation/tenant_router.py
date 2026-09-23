@@ -330,7 +330,7 @@ def get_mother(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Return a single mother plant by its plant-instance key."""
-    return MotherResponse(**service.get_mother(plant_key, ctx.tenant_key))
+    return MotherResponse(**service.get_mother(plant_key, tenant_key=ctx.tenant_key))
 
 
 @router.patch("/propagation/mothers/{plant_key}/designate", response_model=MotherResponse)
@@ -341,7 +341,7 @@ def designate_mother(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Designate a plant instance as a mother plant."""
-    return MotherResponse(**service.designate_mother(plant_key, ctx.tenant_key, priority=body.priority))
+    return MotherResponse(**service.designate_mother(plant_key, tenant_key=ctx.tenant_key, priority=body.priority))
 
 
 @router.patch("/propagation/mothers/{plant_key}/retire", response_model=MotherResponse)
@@ -352,7 +352,7 @@ def retire_mother(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Retire a mother plant, recording the reason."""
-    return MotherResponse(**service.retire_mother(plant_key, ctx.tenant_key, reason=body.reason))
+    return MotherResponse(**service.retire_mother(plant_key, tenant_key=ctx.tenant_key, reason=body.reason))
 
 
 @router.patch("/propagation/mothers/{plant_key}/health", response_model=MotherResponse)
@@ -363,7 +363,9 @@ def update_mother_health(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Update the health score of a mother plant."""
-    return MotherResponse(**service.update_mother_health(plant_key, ctx.tenant_key, health_score=body.health_score))
+    return MotherResponse(
+        **service.update_mother_health(plant_key, tenant_key=ctx.tenant_key, health_score=body.health_score)
+    )
 
 
 # ── Lineage ───────────────────────────────────────────────────────────────────
@@ -377,7 +379,7 @@ def get_lineage(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Return a plant instance's ancestor lineage graph."""
-    result = service.get_lineage(plant_key, ctx.tenant_key, max_depth)
+    result = service.get_lineage(plant_key, tenant_key=ctx.tenant_key, max_depth=max_depth)
     return LineageResponse(
         plant_key=result["plant_key"],
         paths=result["paths"],
@@ -395,7 +397,7 @@ def get_descendants(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Return a plant instance's descendant lineage graph."""
-    descendants = service.get_descendants(plant_key, ctx.tenant_key, max_depth)
+    descendants = service.get_descendants(plant_key, tenant_key=ctx.tenant_key, max_depth=max_depth)
     return DescendantsResponse(plant_key=plant_key, descendants=[_lineage_node(p) for p in descendants])
 
 
@@ -433,7 +435,7 @@ def add_phenotype(
 ):
     """Add a phenotype note to a plant instance."""
     note = PhenotypeNote(**body.model_dump(), plant_key=plant_key, tenant_key=ctx.tenant_key)
-    return _phenotype_response(service.add_phenotype(note, ctx.tenant_key))
+    return _phenotype_response(service.add_phenotype(note, tenant_key=ctx.tenant_key))
 
 
 @router.get("/plant-instances/{plant_key}/phenotypes", response_model=list[PhenotypeNoteResponse])
@@ -443,7 +445,7 @@ def list_phenotypes(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """List the phenotype notes recorded for a plant instance."""
-    return [_phenotype_response(n) for n in service.list_phenotypes(plant_key, ctx.tenant_key)]
+    return [_phenotype_response(n) for n in service.list_phenotypes(plant_key, tenant_key=ctx.tenant_key)]
 
 
 @router.delete("/plant-instances/{plant_key}/phenotypes/{note_key}", status_code=204)
@@ -456,7 +458,7 @@ def delete_phenotype(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Delete a phenotype note from a plant instance (admin only)."""
-    service.delete_phenotype(plant_key, note_key, ctx.tenant_key)
+    service.delete_phenotype(plant_key, note_key, tenant_key=ctx.tenant_key)
 
 
 # ── Statistics ────────────────────────────────────────────────────────────────

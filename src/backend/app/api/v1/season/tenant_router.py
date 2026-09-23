@@ -68,7 +68,7 @@ def get_plant_overwintering(
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
     """Read the auto-materialised overwintering profile of a plant instance."""
-    profile = service.get_plant_profile(plant_key, ctx.tenant_key)
+    profile = service.get_plant_profile(plant_key, tenant_key=ctx.tenant_key)
     return _profile_response(profile)
 
 
@@ -86,7 +86,7 @@ def get_plant_overwintering_status(
     materialised later at the ``growing → pre_winter`` transition (ampel
     yellow/red), so a protection-needing plant is never mislabelled as hardy.
     """
-    return service.get_plant_hardiness_status(plant_key, ctx.tenant_key)
+    return service.get_plant_hardiness_status(plant_key, tenant_key=ctx.tenant_key)
 
 
 @router.patch("/plants/{plant_key}/overwintering", response_model=OverwinteringProfileResponse)
@@ -98,7 +98,7 @@ def override_plant_overwintering(
 ) -> OverwinteringProfileResponse:
     """Override individual fields (sets ``user_overridden=True``). 422 on D5 conflict."""
     updates = body.model_dump(exclude_unset=True)
-    updated = service.override_plant_profile(plant_key, ctx.tenant_key, updates)
+    updated = service.override_plant_profile(plant_key, updates, tenant_key=ctx.tenant_key)
     return _profile_response(updated)
 
 
@@ -113,5 +113,5 @@ def reset_plant_overwintering(
     The species/site resolution and geophyte classification live in the service
     (NFR-001: no business logic in the API layer, C1).
     """
-    updated = service.reset_plant_profile(plant_key, ctx.tenant_key)
+    updated = service.reset_plant_profile(plant_key, tenant_key=ctx.tenant_key)
     return _profile_response(updated)

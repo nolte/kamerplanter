@@ -43,7 +43,20 @@ def _now() -> datetime:
 
 
 class PropagationService:
-    """REQ-017 propagation / lineage business logic."""
+    """REQ-017 propagation / lineage business logic.
+
+    Every method keyed on a ``plant_key`` a route takes from its URL declares
+    ``tenant_key`` **keyword-only and without a default** (#1627). Two reasons,
+    both measured rather than assumed:
+
+    * an unscoped call does not type-check, so the #1626 failure mode — a
+      tenant argument that a caller simply forgets — cannot be written;
+    * the call site then names the parameter, which is the only form
+      ``scripts/check_plant_scoped_route_tenant.py`` can tie to a parameter. A
+      tenant that merely travels positionally leaves a site the guard can
+      neither confirm nor refuse, and sixteen such sites had to be measured by
+      hand through a real database to retire them once.
+    """
 
     def __init__(
         self,
@@ -103,7 +116,7 @@ class PropagationService:
 
     # ── Events ────────────────────────────────────────────────────────────────
 
-    def list_for_plant(self, plant_key: str, tenant_key: str = "") -> list[PropagationEvent]:
+    def list_for_plant(self, plant_key: str, *, tenant_key: str) -> list[PropagationEvent]:
         """All propagation events where the plant is a source or a result."""
         prop = self._require_prop()
         if not tenant_key:
@@ -303,13 +316,13 @@ class PropagationService:
     def list_mothers(self, tenant_key: str, offset: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         return self._require_prop().list_mothers(tenant_key, offset, limit)
 
-    def get_mother(self, plant_key: str, tenant_key: str) -> dict[str, Any]:
+    def get_mother(self, plant_key: str, *, tenant_key: str) -> dict[str, Any]:
         doc = self._require_prop().get_plant_raw(plant_key, tenant_key)
         if doc is None:
             raise NotFoundError("PlantInstance", plant_key)
         return doc
 
-    def designate_mother(self, plant_key: str, tenant_key: str, *, priority: str | None = None) -> dict[str, Any]:
+    def designate_mother(self, plant_key: str, *, tenant_key: str, priority: str | None = None) -> dict[str, Any]:
         self._get_plant_or_404(plant_key, tenant_key)
         fields: dict[str, Any] = {
             "is_mother": True,
@@ -320,7 +333,7 @@ class PropagationService:
             fields["mother_priority"] = priority
         return self._require_prop().update_plant_fields(plant_key, fields)
 
-    def retire_mother(self, plant_key: str, tenant_key: str, *, reason: str | None = None) -> dict[str, Any]:
+    def retire_mother(self, plant_key: str, *, tenant_key: str, reason: str | None = None) -> dict[str, Any]:
         self._get_plant_or_404(plant_key, tenant_key)
         fields: dict[str, Any] = {
             "is_mother": False,
@@ -329,7 +342,7 @@ class PropagationService:
         }
         return self._require_prop().update_plant_fields(plant_key, fields)
 
-    def update_mother_health(self, plant_key: str, tenant_key: str, *, health_score: int) -> dict[str, Any]:
+    def update_mother_health(self, plant_key: str, *, tenant_key: str, health_score: int) -> dict[str, Any]:
         if not 0 <= health_score <= 100:
             raise ValidationError("health_score must be between 0 and 100.")
         self._get_plant_or_404(plant_key, tenant_key)
@@ -337,18 +350,18 @@ class PropagationService:
 
     # ── Phenotype notes ────────────────────────────────────────────────────────
 
-    def add_phenotype(self, note: PhenotypeNote, tenant_key: str) -> PhenotypeNote:
+    def add_phenotype(self, note: PhenotypeNote, *, tenant_key: str) -> PhenotypeNote:
         self._get_plant_or_404(note.plant_key, tenant_key)
         note.tenant_key = tenant_key
         if note.observed_at is None:
             note.observed_at = _now()
         return self._require_prop().create_phenotype(note)
 
-    def list_phenotypes(self, plant_key: str, tenant_key: str) -> list[PhenotypeNote]:
+    def list_phenotypes(self, plant_key: str, *, tenant_key: str) -> list[PhenotypeNote]:
         self._get_plant_or_404(plant_key, tenant_key)
         return self._require_prop().list_phenotypes_for_plant(plant_key, tenant_key)
 
-    def delete_phenotype(self, plant_key: str, note_key: str, tenant_key: str) -> None:
+    def delete_phenotype(self, plant_key: str, note_key: str, *, tenant_key: str) -> None:
         note = self._require_prop().get_phenotype(note_key, tenant_key)
         if note is None or note.plant_key != plant_key:
             raise NotFoundError("PhenotypeNote", note_key)
@@ -356,7 +369,7 @@ class PropagationService:
 
     # ── Lineage ────────────────────────────────────────────────────────────────
 
-    def get_lineage(self, plant_key: str, tenant_key: str, max_depth: int = 10) -> dict[str, Any]:
+    def get_lineage(self, plant_key: str, *, tenant_key: str, max_depth: int = 10) -> dict[str, Any]:
         """Ancestor chains + flat ancestor list for a plant (tenant-scoped)."""
         self._get_plant_or_404(plant_key, tenant_key)
         engine = self._require_lineage()
@@ -368,7 +381,7 @@ class PropagationService:
             "ancestors": ancestors,
         }
 
-    def get_descendants(self, plant_key: str, tenant_key: str, max_depth: int = 10) -> list[PlantInstance]:
+    def get_descendants(self, plant_key: str, *, tenant_key: str, max_depth: int = 10) -> list[PlantInstance]:
         """Descendant (clone-tree) list for a plant (tenant-scoped)."""
         self._get_plant_or_404(plant_key, tenant_key)
         return self._require_lineage().trace_descendants(plant_key, tenant_key, max_depth)
