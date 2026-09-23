@@ -435,6 +435,34 @@
       ],
       automerge: false,
     },
+    // ── MAJOR updates of the application group: same path as minor/patch ─────
+    // Operator decision 2026-09-23, taken on #1678 (`@sentry/react` 11): a
+    // major bump of this group is NOT parked, collected, or given a changelog
+    // review of its own. It merges the way a minor does — every required
+    // check green, then the merge train squash-merges it. The pre-merge
+    // `E2E smoke (compose, light)` lane runs on every pull request and is the
+    // net a breaking frontend major is caught in; a review strand per major
+    // costs tokens without adding a verdict the lane does not already give.
+    //
+    // This rule changes nothing Renovate does — `separateMajorMinor` already
+    // puts majors on `renovate/major-application-dependencies`, and
+    // `automerge: false` is inherited from the group rule above. It exists so
+    // the decision lives beside the group it governs, grep-able, instead of in
+    // an operator's merge script. The one thing that still stops a major here
+    // is a guard going red, e.g. `test_onnx_export_toolchain_floor.py` for a
+    // `transformers` bump the ONNX exporter cannot follow (#1480, #1611).
+    {
+      description: 'Majors of the application group merge through the train when green (#1678, 2026-09-23)',
+      matchManagers: [
+        'pep621',
+        'npm',
+        'pip_requirements',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+      automerge: false,
+    },
     // ── jsdom held at 29 until Testing Library catches up (#827) ─────────────
     // jsdom 30 reimplemented its CSS engine, and the new `getComputedStyle`
     // return values make `@testing-library/dom`'s `isInaccessible()` classify
