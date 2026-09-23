@@ -3,6 +3,7 @@ from arango.database import StandardDatabase
 from app.common.types import UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User
 
@@ -169,29 +170,32 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         return User(**self._from_doc(docs[0]))
 
     def delete(self, key: UserKey) -> bool:
-        """Delete a user and cascade every account-owned artefact (#1019).
+        """Delete a user and cascade every account-owned artefact (#1019, #1622).
 
-        Auth-provider docs + edges, refresh tokens and session edges were already
-        removed here; #1019 folded in the API keys, user preferences and
-        onboarding state that the platform-admin ``delete_user`` router used to
-        remove with its own raw AQL, so the full single-user purge now lives in
-        one place. Memberships stay out of this method — they belong to the
-        membership repository and are removed by the account-deletion cascade
-        *before* this call (their per-tenant storage walk needs them alive).
+        The collections are **not** written down here. Until #1622 they were —
+        eight hand-written names beside a declared erasure plan of 26 entries
+        that nothing read, and the two differed by 23. This walks
+        :meth:`ErasureEngine.build_erasure_plan` and executes exactly the steps
+        the plan attributes to ``account_cascade``, so the inventory an auditor
+        reads is the inventory that runs. Adding a collection to the cascade
+        means declaring it; there is no second place to forget.
+
+        Memberships stay attributed to ``membership_cascade`` and are removed by
+        :meth:`UserService.delete_account_permanently` *before* this call (their
+        per-tenant storage walk needs them alive).
         """
         user_id = f"{col.USERS}/{key}"
-        # Delete auth provider edges + docs
-        self.delete_edges(col.HAS_AUTH_PROVIDER, user_id)
-        self._remove_docs_for_user(col.AUTH_PROVIDERS, key)
-        # Delete refresh tokens
-        self._remove_docs_for_user(col.REFRESH_TOKENS, key)
-        # Delete session edges
-        self.delete_edges(col.HAS_SESSION, user_id)
-        # Delete API keys, preferences and onboarding state (#1019)
-        self._remove_docs_for_user(col.API_KEYS, key)
-        self._remove_docs_for_user(col.USER_PREFERENCES, key)
-        self._remove_docs_for_user(col.ONBOARDING_STATES, key)
-        return super().delete(key)
+        deleted = False
+        for step in ErasureEngine().build_erasure_plan(key).steps:
+            if step.executor != "account_cascade":
+                continue
+            if step.kind == "edge":
+                self.delete_edges(step.collection, user_id)
+            elif step.kind == "document":
+                self._remove_docs_for_user(step.collection, key)
+            elif step.kind == "user":
+                deleted = super().delete(key)
+        return deleted
 
     def _remove_docs_for_user(self, collection: str, key: UserKey) -> None:
         """Remove every document in ``collection`` carrying ``user_key == key``.
