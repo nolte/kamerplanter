@@ -1,0 +1,67 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 1
+workflow: docker-publish.yml
+job: publish-helm-charts
+gate:
+  kind: paths-filter
+  filter: helm
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 7ba95ff2de0b51f1c2f9da4f8164a085b95eba5b7aba7449c3f13c948b66375b
+invocations:
+- command: scripts/ci/determine_chart_version.sh
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env:
+  - REF=refs/heads/develop
+  - REF_NAME=develop
+  untracked_reads_dropped: 0
+- command: helm dependency build helm/kamerplanter
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 13
+- command: helm package helm/kamerplanter --destination /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/helm-out
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 6
+- command: python3 scripts/check_chart_image_digests.py
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 1
+  env: []
+  untracked_reads_dropped: 0
+subprocesses:
+- asdf
+- bash
+- helm
+- python3
+- scripts/ci/determine_chart_version.sh
+accepted_gaps:
+- pattern: scripts/
+  reason: Python enumerates the directory of the script it runs (scripts/check_chart_image_digests.py) to resolve imports
+    — the FileFinder lists scripts/ once. The script imports stdlib and PyYAML only; a new module dropped into scripts/ could
+    shadow one of those, which is the same exposure every script in this repository has and is not a chart-publishing input.
+    The script itself is in the filter.
+reads:
+- helm/
+- helm/kamerplanter/
+- helm/kamerplanter/Chart.lock
+- helm/kamerplanter/Chart.yaml
+- helm/kamerplanter/templates/
+- helm/kamerplanter/templates/common.yaml
+- helm/kamerplanter/values-dev-ki.yaml
+- helm/kamerplanter/values-dev-recognition.yaml
+- helm/kamerplanter/values-dev.yaml
+- helm/kamerplanter/values.yaml
+- scripts/
+- scripts/check_chart_image_digests.py
+- scripts/ci/determine_chart_version.sh

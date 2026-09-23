@@ -50,7 +50,9 @@ on:
       # flags (`--universal --python-version 3.11 --generate-hashes`) and the
       # install command; a change to either moves what this lane measures, and a
       # gate that does not watch its own definition is the #1296 shape.
-      - '.taskfiles/docs.yaml'
+      # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
+      # (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596): a parse error in any of them fails the lane.
+      - '.taskfiles/**'
       - 'Taskfile.yaml'
       # The uv pin. `docs:lock` resolves `[tool.uv].required-version` from here
       # to choose the compiler, so this file decides the bytes the drift step

@@ -1,0 +1,86 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 1
+workflow: backend.yml
+job: dependency-gates
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 608382168b3d8e4b1db9d0162bba1c7b8e880aa9f2ef49752c97ba5fee766384
+invocations:
+- command: task deps:check
+  cwd: src/backend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env:
+  - UV_PROJECT_ENVIRONMENT=/tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/depsenv
+  untracked_reads_dropped: 0
+- command: uv sync --locked --no-install-project
+  cwd: src/backend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env:
+  - UV_PROJECT_ENVIRONMENT=/tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/depsenv
+  untracked_reads_dropped: 0
+- command: task deps:verify
+  cwd: src/backend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env:
+  - UV_PROJECT_ENVIRONMENT=/tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/depsenv
+  untracked_reads_dropped: 23
+- command: uv export --locked --no-emit-project --format requirements.txt -o /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/requirements.txt
+  cwd: src/backend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env:
+  - UV_PROJECT_ENVIRONMENT=/tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/depsenv
+  untracked_reads_dropped: 0
+- command: uv export --locked --no-emit-project --extra dev --format requirements.txt -o /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/requirements-dev.txt
+  cwd: src/backend
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env:
+  - UV_PROJECT_ENVIRONMENT=/tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/depsenv
+  untracked_reads_dropped: 0
+subprocesses:
+- asdf
+- bash
+- ld-linux-x86-64.so.2
+- python
+- task
+- uv
+accepted_gaps: []
+reads:
+- .taskfiles/backend.yaml
+- .taskfiles/checks.yaml
+- .taskfiles/claude.yaml
+- .taskfiles/deploy.yaml
+- .taskfiles/dev.yaml
+- .taskfiles/docs.yaml
+- .taskfiles/e2e.yaml
+- .taskfiles/frontend.yaml
+- .taskfiles/libs.yaml
+- .taskfiles/mcp.yaml
+- Taskfile.yaml
+- src/backend/
+- src/backend/app/
+- src/backend/app/common/
+- src/backend/app/config/
+- src/backend/app/data_access/
+- src/backend/app/data_access/arango/
+- src/backend/app/data_access/timescale/
+- src/backend/pyproject.toml
+- src/backend/tests/
+- src/backend/tests/support/
+- src/backend/tests/unit/
+- src/backend/tests/unit/guards/
+- src/backend/uv.lock
+not_measured:
+- pip-audit --strict --desc --no-deps --requirement /tmp/requirements(-dev).txt — reads the exported files under /tmp and
+  the network; nothing tracked
+- uv pip install pip-licenses / pip-licenses --from=mixed … — reads the virtual environment only; nothing tracked

@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: GitHub Actions, pre-commit, Docker, Helm, SLSA-Provenance
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.2
+Version: 1.3
 Autor: nolte
 Datum: 2026-08-08
 Tags: [ci, cd, pipeline, gate-integrity, reproducibility, provenance, supply-chain, vacuous-success]
@@ -20,6 +20,7 @@ Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-09-23 | §4.3 (ein Relevanzfilter wird an dem gemessen, was sein Job liest — nicht an dem, was sein Workflow erwähnt, #1596) ergänzt; die Regel stand zuvor nur als Messung in den Pull-Request-Bodies von #1595 und als Kommentar über dem `guards`-Job in `backend-guards.yml`. |
 | 1.2 | 2026-09-21 | §2.3 (ein Gate entscheidet nicht anhand von Prosa) kam mit #1642 und wird hier im Changelog nachgetragen; §2.4 (Skip-Obergrenze je Tier, #1434), §2.5 (ein Ausnahmeregister muss altern können), §4.1 (ein required Check darf nicht pfadgefiltert sein, #1432/#1578) und §4.2 (was eine advisory Lane dem Default-Branch schuldet, #1547/#1617) ergänzt. Alle fünf Regeln standen zuvor nur als Kommentar in einer Workflow-, Taskfile- oder Guard-Datei oder in einem Pull-Request-Body (#1581). |
 | 1.1 | 2026-08-08 | §2.1 (Ratchet-Baselines werden berechnet, nicht versioniert — Herleitung #973, bis dahin nur ein `Taskfile.yaml`-Kommentar) und §2.2 (eine überwiegend abgebrochene Lane existiert nicht — Verallgemeinerung der Analyse aus NFR-014 §4.1, #993/#1013) ergänzt. Beide aus der Issue-Muster-Analyse vom 2026-08-08, Maßnahmen P5.6/P5.3. |
 | 1.0 | 2026-08-01 | Erstversion. Entstanden aus dem CI/CD-Audit vom 2026-08-01, das 21 Befunde ergab — von denen die Mehrzahl derselben Fehlerklasse angehörte. Diese NFR hält die Klasse und die daraus abgeleiteten Regeln fest, damit sie nicht bei jedem Audit neu entdeckt werden muss. |
@@ -433,6 +434,75 @@ gh pr view 1547 --json mergedAt,statusCheckRollup \
 
 ---
 
+### 4.3 Ein Relevanzfilter wird an dem gemessen, was sein Job LIEST
+
+**MUSS**: Ein Pfadfilter — `on.<event>.paths` eines Workflows oder ein
+`dorny/paths-filter`-Schritt in einem Job — ist die Behauptung, dass keine
+Änderung außerhalb der genannten Pfade das Urteil des Jobs verändern kann.
+Diese Behauptung wird an der **gemessenen Lesemenge** des Jobs geprüft: an den
+versionierten Dateien, die der Aufruf des Jobs tatsächlich öffnet, und an den
+Verzeichnissen, die er auflistet — **nicht** an den Pfaden, die der Workflow-Text
+erwähnt. Die beiden Mengen sind verschieden, und die Differenz ist die Lücke:
+`Write-route and tree guards` sagt `pytest tests/unit/api tests/unit/guards`
+und öffnet 57 Dateien unter `src/frontend/src/api/endpoints/`, jede
+Workflow-Datei, `renovate.json5`, acht `pyproject.toml`/`uv.lock`-Paare
+außerhalb seines Pakets und listet die Wurzel des Checkouts auf (gemessen
+2026-09-20 und 2026-09-23). Nichts davon steht im Text des Workflows.
+
+**MUSS**: Die Messung folgt Subprozessen. Ein `sys.addaudithook` sieht nur den
+Interpreter, in dem er installiert ist; was `git`, `task`, `uv` oder `npx`
+lesen, bleibt ihm verborgen, und ein Wächter, der aus dieser Messung gespeist
+wird, bescheinigt die Klasse als geschlossen, während ein Subprozess außerhalb
+des Filters liest. `scripts/ci/lane_inputs.py` misst darum mit `strace -f` an
+der Syscall-Grenze und hält die gefolgten Subprozesse im Manifest fest. Wo ein
+Job in einem Container liest, den der Daemon startet (`docker build`), wird die
+Lesemenge aus dem Build-Kontext **abgeleitet** — Docker wendet dabei selbst die
+`.dockerignore` an — und das Manifest sagt, dass es abgeleitet ist.
+
+**MUSS**: Je gefiltertem Job liegt ein Manifest unter `.github/lane-inputs/`
+mit dem Aufruf, dem Datum, der Lesemenge und einem Hash der **geparsten**
+Job-Definition. Ein gefilterter Job ohne Manifest ist ein Fehler, keine
+Auslassung — sonst ist das Register eine Opt-in-Liste, die Klasse aus #1402
+und #1406. Weicht der Hash vom Job ab, ist das Manifest älter als der Job und
+wird neu gemessen; ein Kommentar im Job ändert den Hash nicht, weil er den
+Job nicht ändert. Der Hash und nicht ein Commit ist der Anker, weil `develop`
+per Squash gemergt wird und der messende Commit den Merge nicht überlebt.
+
+**MUSS**: Ein Lesepfad, den der Filter nicht auswählt, ist rot — es sei denn,
+er steht als `accepted_gaps`-Eintrag mit Begründung im Manifest. Lautet die
+Begründung „eine andere Lane läuft das ohnehin", nennt der Eintrag diese Lane
+(`covered_by`), und der Wächter prüft die Nennung: Die Lane ist an keinem
+diff-getriebenen Trigger gefiltert, entscheidet ihre Relevanz nicht selbst im
+Job, und — trägt sie ein eigenes Manifest — liest sie die delegierten Pfade
+tatsächlich. Ein Eintrag, der keinen ungedeckten Lesepfad mehr trifft, ist
+veraltet und rot (§2.5).
+
+**MUSS**: Für einen required Kontext, dessen Relevanz **im Job** entschieden
+wird (§4.1, die Bauform von `backend-guards.yml`), hält der Wächter zusätzlich
+die drei Eigenschaften, die die Bauform tragen und bis dahin nur ein Kommentar
+hielt (#1596, W-5): kein Job-Level-`if:` außer `always()`, kein
+`continue-on-error` am Erkennungsschritt, und das Lauf-Flag steht **vor** der
+Erkennung auf „laufen" und wird nur durch eine erfolgreiche, negative
+Erkennung verengt.
+
+Referenzimplementierung:
+`src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py`;
+Messinstrument: `scripts/ci/lane_inputs.py`. Shape 5 von
+`scripts/check_workflow_gate_integrity.py` bleibt daneben bestehen: Es
+beantwortet die Frage „erwähnt der Workflow einen Pfad, den sein Filter
+ausschließt?" in der required `static`-Lane ohne Abhängigkeiten und ohne
+Messung; diese Regel beantwortet die andere Frage. Beide sind billig, und keine
+ersetzt die andere.
+
+**Bekannte Grenze, benannt statt versteckt**: Das Manifest ist eine
+Momentaufnahme. Beginnt ein Test, eine neue Datei zu lesen, ohne dass sich die
+Job-Definition ändert, altert das Manifest unbemerkt, bis es neu gemessen wird.
+Die Messung läuft lokal, nicht in der Lane; eine Lane, die sich bei jedem
+Lauf selbst misst und bei Drift rot wird, ist die nächste Stufe und ein
+eigener Posten.
+
+---
+
 ## 5. Auslieferungsgarantien
 
 **MUSS**: Jedes veröffentlichte Artefakt trägt von der Plattform erzeugte,
@@ -510,6 +580,7 @@ passen, damit eine behobene Abhängigkeit keine Unterdrückung zurücklässt.
     - [ ] Für jeden required Check existiert eine gemessene Begründung
     - [ ] Kein required Kontext liegt in einem Workflow, dessen diff-getriebene Trigger sämtlich `paths:`-gefiltert sind
     - [ ] Jede advisory Lane, deren einziger Trigger `pull_request` ist, hat einen `push`-Trigger auf `develop` — oder jeder rote Befund von ihr ist vor dem Merge ein benannter Posten
+    - [ ] Jeder pfadgefilterte Job hat ein Manifest seiner gemessenen Lesemenge unter `.github/lane-inputs/`, und der Filter deckt sie — oder die Lücke steht mit Begründung im Manifest
 - [ ] **Auslieferung**
     - [ ] Jedes Image und der Helm-Chart tragen signierte Provenance
     - [ ] Die Artefakt-zu-Stage-Matrix ist in `docs/<lang>/deployment/ci-cd.md` gepflegt, inklusive bekannter Lücken

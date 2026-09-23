@@ -1,0 +1,87 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 1
+workflow: side-services.yml
+job: inference-service
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 137b4f7eef240f6c6991914b4a903f5db02104644c26148da545aa02448c04b4
+invocations:
+- command: task deps:sync:inference-service
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 217
+- command: task test:inference-service
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 1259
+subprocesses:
+- asdf
+- bash
+- ld-linux-x86-64.so.2
+- python
+- task
+- uv
+accepted_gaps: []
+reads:
+- .taskfiles/backend.yaml
+- .taskfiles/checks.yaml
+- .taskfiles/claude.yaml
+- .taskfiles/deploy.yaml
+- .taskfiles/dev.yaml
+- .taskfiles/docs.yaml
+- .taskfiles/e2e.yaml
+- .taskfiles/frontend.yaml
+- .taskfiles/libs.yaml
+- .taskfiles/mcp.yaml
+- Taskfile.yaml
+- src/inference-service/
+- src/inference-service/app/
+- src/inference-service/app/__init__.py
+- src/inference-service/app/auth.py
+- src/inference-service/app/confidence.py
+- src/inference-service/app/config.py
+- src/inference-service/app/disease_classifier.py
+- src/inference-service/app/embedder.py
+- src/inference-service/app/main.py
+- src/inference-service/app/observability/
+- src/inference-service/app/observability/__init__.py
+- src/inference-service/app/observability/error_tracking.py
+- src/inference-service/app/phenotype_engine.py
+- src/inference-service/app/preprocessing.py
+- src/inference-service/app/schemas.py
+- src/inference-service/app/vectordb/
+- src/inference-service/app/vectordb/__init__.py
+- src/inference-service/app/vectordb/config.py
+- src/inference-service/app/vectordb/connection.py
+- src/inference-service/app/vectordb/migrations/
+- src/inference-service/app/vectordb/pest_repository.py
+- src/inference-service/app/vectordb/repository.py
+- src/inference-service/app/vectordb/schema.py
+- src/inference-service/pyproject.toml
+- src/inference-service/tests/
+- src/inference-service/tests/__init__.py
+- src/inference-service/tests/conftest.py
+- src/inference-service/tests/test_api.py
+- src/inference-service/tests/test_auth.py
+- src/inference-service/tests/test_confidence.py
+- src/inference-service/tests/test_disease_api.py
+- src/inference-service/tests/test_disease_classifier.py
+- src/inference-service/tests/test_embedder.py
+- src/inference-service/tests/test_pest_api.py
+- src/inference-service/tests/test_preprocessing.py
+- src/inference-service/tests/test_repository.py
+- src/inference-service/tests/test_vectordb_sync_guard.py
+- src/inference-service/uv.lock
+- src/libs/kp_vectordb/kp_vectordb/config.py
+- src/libs/kp_vectordb/kp_vectordb/connection.py
+- src/libs/kp_vectordb/kp_vectordb/schema.py

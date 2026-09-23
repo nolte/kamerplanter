@@ -245,6 +245,9 @@ helm/**         →  publish-helm-charts
 
 On a `v*` tag or manual trigger, the filtering is skipped — all components are always built.
 
+!!! info "What a filter is measured against"
+    Every path filter — at a workflow's `on:` or as a `dorny/paths-filter` step — is checked against what the job actually *reads*, not against what the workflow text *mentions*. `scripts/ci/lane_inputs.py` records a job's read set under `strace` (subprocesses included) and stores it as a manifest under `.github/lane-inputs/`; the guard `test_lane_filters_cover_measured_inputs.py` holds every filter against it and goes red when a filtered job has no manifest, the manifest is older than the job, or a read path lies outside the filter. The rule is NFR-018 §4.3.
+
 ### Backend image
 
 The backend image is based on `python:3.14-slim` and uses a multi-stage Dockerfile with a shared `base` stage plus separate `dev` and `prod` targets (`docker build .` without `--target` builds `prod` by default, since it is the last stage). The `dev` stage runs as root for Skaffold hot-reload; the `prod` stage runs as a non-root user (UID 1000):

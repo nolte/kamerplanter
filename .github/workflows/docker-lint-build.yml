@@ -24,6 +24,9 @@ on:
       # not fire. `src/knowledge-service/**` was missing for the same reason,
       # although its Dockerfile is one of the eight this job lints.
       - '.github/workflows/docker-lint-build.yml'
+      # The knowledge image builds from context `.`; the ROOT .dockerignore decides what it
+      # copies (measured with scripts/ci/lane_inputs.py, #1596).
+      - '.dockerignore'
 
 permissions:
   contents: read
@@ -112,6 +115,8 @@ jobs:
               - 'docker/knowledge/**'
               - 'spec/knowledge/rag/**'
               - '.github/workflows/docker-lint-build.yml'
+              # context `.` → the root .dockerignore is part of this build's input (#1596)
+              - '.dockerignore'
             embedding-service:
               - 'docker/embedding-service/**'
               - '.github/workflows/docker-lint-build.yml'

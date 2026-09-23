@@ -1,0 +1,74 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
+# `invocations` below. The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 1
+workflow: skaffold-verify.yml
+job: verify
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-23'
+measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+job_spec_sha256: 6ecd23a9a04adbcb37b8bedf1897563754e3f4f196ae5683544efc8c89d8b513
+invocations:
+- command: helm dependency build helm/kamerplanter
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 13
+- command: helm lint helm/kamerplanter -f helm/kamerplanter/values-dev.yaml
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 6
+- command: helm template kamerplanter helm/kamerplanter/ -f helm/kamerplanter/values-dev.yaml
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 6
+- command: skaffold diagnose --yaml-only
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 0
+- command: scripts/ci/skaffold_render_verify.sh /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/rendered-manifests.yaml
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 29
+subprocesses:
+- asdf
+- bash
+- dirname
+- docker
+- grep
+- helm
+- kubectl
+- mktemp
+- rm
+- scripts/ci/assert_rendered_manifests.sh
+- scripts/ci/skaffold_render_verify.sh
+- sed
+- skaffold
+- sort
+- tput
+accepted_gaps: []
+reads:
+- helm/kamerplanter/
+- helm/kamerplanter/Chart.lock
+- helm/kamerplanter/Chart.yaml
+- helm/kamerplanter/templates/
+- helm/kamerplanter/templates/common.yaml
+- helm/kamerplanter/values-dev-ki.yaml
+- helm/kamerplanter/values-dev-recognition.yaml
+- helm/kamerplanter/values-dev.yaml
+- helm/kamerplanter/values.yaml
+- scripts/ci/assert_rendered_manifests.sh
+- scripts/ci/skaffold_render_verify.sh
+- skaffold.yaml

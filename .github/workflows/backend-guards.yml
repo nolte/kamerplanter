@@ -105,9 +105,12 @@ jobs:
   # the diff could have changed. The premise is right for `integration` and
   # WRONG for this job, and the difference is the input set.
   #
-  # MEASURED 2026-09-20 on this tree, by recording every file the tier opens
-  # (a `sys.addaudithook` over `open`, around `pytest tests/unit/api
-  # tests/unit/guards`). Outside `src/backend/` it opens, among others:
+  # MEASURED 2026-09-20 on this tree (a `sys.addaudithook` over `open`, around
+  # `pytest tests/unit/api tests/unit/guards`) and RE-MEASURED 2026-09-23 under
+  # `strace -f` — subprocesses included, which the audit hook could not see —
+  # with `scripts/ci/lane_inputs.py`; the full read set is
+  # `.github/lane-inputs/backend-guards--guards.yaml` (#1596). Outside
+  # `src/backend/` it opens, among others:
   #
   #   * 57 files under `src/frontend/src/api/endpoints/` — via
   #     `tests/unit/api/test_frontend_endpoints_are_served.py` and
@@ -141,6 +144,15 @@ jobs:
   #
   # "No" is the finding, not a deferral. Re-open it only with a new measurement
   # of the input set, not with a new opinion about it.
+  #
+  # BECAUSE THIS LANE IS UNFILTERED, OTHER LANES DELEGATE TO IT (#1596).
+  # `backend.yml`'s `lint-test` and `coverage` jobs run the whole unit tier, which
+  # contains the same two directories, and therefore read the same files outside
+  # their own `paths:` filter. Their manifests name them as `accepted_gaps` with
+  # `covered_by: backend-guards.yml/guards`, and
+  # `test_lane_filters_cover_measured_inputs.py` holds that claim against THIS
+  # job's manifest on every run: the delegate must be unfiltered, must not
+  # decide its own relevance, and must really read the delegated paths.
   guards:
     name: Write-route and tree guards
     runs-on: ubuntu-latest
