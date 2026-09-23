@@ -108,6 +108,19 @@ branches:
         # once merged — is now cheap. Revisit only if pull-request volume rises
         # enough that the *drift window*, how long `develop` and the open pull
         # requests disagree, produces real conflicts rather than just reruns.
+        #
+        # Check runtime is only half of what `strict` costs (#1584). Every base
+        # update re-queues *every* workflow of every open pull request, not just
+        # the required ones, and those runs compete for the same runner slots.
+        # On 2026-09-19, with 18 pull requests open, 69 % of pull-request runs
+        # re-verified code that had not changed and three lanes ended cancelled
+        # 71–94 % of the time. Re-measured on 2026-09-20 over 566 runs, with 6
+        # pull requests open and PR #1587 removing four jobs per pull request:
+        # e2e-smoke 27 %, frontend 40 %, docker-lint-build 23 % cancelled. That
+        # is relief from a drained train, not a repaired cause: `strict` and the
+        # fan-out are unchanged. Reopen #1584 when any lane ends cancelled in
+        # the majority of its pull-request runs (spec/project/workflow-health/);
+        # the options then are a merge queue or dropping `strict`.
         strict: true
         contexts:
           - static / Static CI Tests
@@ -338,10 +351,14 @@ branches:
 # The App syncs from the DEFAULT branch, so this label appears only once this
 # change is on `develop`. Verify with:
 #   gh label list --limit 200 | grep security-scan
+#
+# The labels endpoint rejects a description over 100 characters, and the App
+# reports that only in its own log (#1632: the first version of this block
+# carried 193 and the label never appeared). The limit is held by
+# src/backend/tests/unit/guards/test_settings_labels_fit_api.py. The label
+# triggers nothing; the scan it marks is run with
+#   gh workflow run security-zap-postmerge.yml --ref develop -f pull_request=<number>
 labels:
   - name: security-scan
     color: "#b60205"
-    description: >-
-      Triage marker: this pull request was scanned pre-merge, or wants to be.
-      Triggers nothing — run the scan with `gh workflow run
-      security-zap-postmerge.yml --ref develop -f pull_request=<number>`.
+    description: "Triage marker: scanned pre-merge, or wants to be. Triggers nothing."
