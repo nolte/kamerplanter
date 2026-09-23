@@ -344,7 +344,7 @@ class TestOverrideForeignWinterQuarter:
         service = OverwinteringProfileService(repo, site_repo=_ForeignSiteRepoStub())
 
         with pytest.raises(NotFoundError):
-            service.override_plant_profile("p1", TENANT, {"winter_quarter_key": "loc_foreign"})
+            service.override_plant_profile("p1", {"winter_quarter_key": "loc_foreign"}, tenant_key=TENANT)
 
     def test_reset_does_not_retain_foreign_winter_quarter(self) -> None:
         """A foreign reference already stored on the profile is rejected on reset,
@@ -418,7 +418,7 @@ class TestPlantHardinessStatus:
         )
         service = _status_service(profile=profile)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is True
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.will_materialize is False
@@ -431,7 +431,7 @@ class TestPlantHardinessStatus:
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.site_overwinterable is True
@@ -442,7 +442,7 @@ class TestPlantHardinessStatus:
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.GREEN
         assert status.site_overwinterable is True
@@ -456,7 +456,7 @@ class TestPlantHardinessStatus:
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.INDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.site_overwinterable is False
@@ -469,7 +469,7 @@ class TestPlantHardinessStatus:
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.BALCONY)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.site_overwinterable is True
@@ -481,7 +481,7 @@ class TestPlantHardinessStatus:
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=None, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light is None
         assert status.site_overwinterable is True
@@ -492,7 +492,7 @@ class TestPlantHardinessStatus:
         site = SimpleNamespace(tenant_key="other_tenant", climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.hardiness_light is None
         # A foreign site is never treated as eligible (fail-safe tenant guard).
         assert status.site_overwinterable is False
@@ -511,7 +511,7 @@ class TestPlantHardinessStatus:
         )
         service = _status_service(profile=foreign, plant=None, species=None, site=None)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light is None
         assert status.site_overwinterable is False
@@ -519,7 +519,7 @@ class TestPlantHardinessStatus:
 
     def test_missing_repos_is_unknown(self) -> None:
         service = OverwinteringProfileService(FakeOverwinteringRepo())
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light is None
         assert status.site_overwinterable is False
