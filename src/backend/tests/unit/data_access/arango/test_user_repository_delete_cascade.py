@@ -84,3 +84,35 @@ def test_every_user_scoped_remove_binds_the_key_never_interpolates_it():
         if "doc.user_key == @key" in query:
             assert binds.get("key") == USER_KEY
             assert USER_KEY not in query  # the value never lands in the AQL text
+
+
+def test_the_cascade_attribution_still_covers_every_account_owned_artefact():
+    """#1622 — the inventory, not the method, decides what the cascade removes.
+
+    Deliberately asserted on the *engine*, not on the swept queries. A test that
+    compared the swept set against ``steps_for("account_cascade")`` would be a
+    tautology: the method reads that very slice, so moving an entry out of the
+    slice moves it out of both sides at once and the assertion never fails.
+    Measured — re-attributing ``api_keys`` to ``retention_worker`` left such a
+    comparison green while the collection stopped being swept.
+
+    What is worth pinning is therefore the inventory content: the seven
+    account-owned artefacts #1019 established, plus the user document last.
+    Re-attributing any of them to the not-yet-implemented ``retention_worker``
+    silently stops erasing it, and goes red here.
+    """
+    from app.domain.engines.erasure_engine import ErasureEngine
+
+    steps = ErasureEngine.steps_for("account_cascade")
+    assert {s.collection for s in steps} == {
+        col.HAS_AUTH_PROVIDER,
+        col.HAS_SESSION,
+        col.AUTH_PROVIDERS,
+        col.REFRESH_TOKENS,
+        col.API_KEYS,
+        col.USER_PREFERENCES,
+        col.ONBOARDING_STATES,
+        col.USERS,
+    }
+    assert steps[-1].collection == col.USERS
+    assert steps[-1].kind == "user"
