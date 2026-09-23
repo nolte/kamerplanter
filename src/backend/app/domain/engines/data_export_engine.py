@@ -1,5 +1,8 @@
 """Pure logic for REQ-025 data exports (Art. 15 / 20)."""
 
+from datetime import datetime
+from typing import Any
+
 from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
 
 
@@ -41,7 +44,14 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="memberships",
-            edge_collection="membership_in",
+            # #1645 - this declared ``edge_collection="membership_in"``, an edge
+            # the named graph runs ``memberships -> tenants``: it never touches
+            # ``users``, so the declared route reached no document and the
+            # Art. 15 disclosure of a user's tenant memberships was empty
+            # without anything saying so. A membership carries ``user_key``
+            # directly (``ArangoMembershipRepository.list_by_user``), which is
+            # the route that exists.
+            filter_field="user_key",
             label="Tenant memberships",
             fields=["tenant_key", "role", "joined_at", "is_active"],
         ),
@@ -181,9 +191,58 @@ class DataExportEngine:
         ),
     ]
 
+    #: Bumped when the bundle's shape changes, so a downloaded file stays
+    #: interpretable without guessing which version produced it (Art. 20
+    #: portability: the recipient is not necessarily this system).
+    BUNDLE_FORMAT_VERSION = "1.0"
+
     def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
         """Return the full export manifest for the given user."""
         return list(self.USER_DATA_MANIFEST)
+
+    def build_bundle(
+        self,
+        user_key: str,
+        generated_at: datetime,
+        sections: list[tuple[DataSourceDefinition, list[dict[str, Any]]]],
+        *,
+        controller_name: str,
+        controller_email: str,
+    ) -> dict[str, Any]:
+        """Assemble the Art. 15 disclosure document from collected rows.
+
+        A section is kept even when it is empty: Art. 15(1) is a right to know
+        *which* categories are processed, and a silently omitted category is
+        indistinguishable from one the walk never reached. ``record_count``
+        makes that explicit for a reader who is not counting array entries.
+        """
+        return {
+            "format_version": self.BUNDLE_FORMAT_VERSION,
+            "generated_at": generated_at.isoformat(),
+            "user_key": user_key,
+            "data_controller": {"name": controller_name, "contact_email": controller_email},
+            "legal_basis": "GDPR Art. 15 (right of access) and Art. 20 (data portability).",
+            "sections": [
+                {
+                    "collection": source.collection,
+                    "label": source.label,
+                    "fields": list(source.fields),
+                    "record_count": len(records),
+                    "records": records,
+                }
+                for source, records in sections
+            ],
+        }
+
+    @staticmethod
+    def bundle_object_key(user_key: str, export_key: str) -> str:
+        """Storage key of one export bundle.
+
+        Outside the ``t/{tenant}/...`` attachment namespace on purpose: the
+        bundle spans every tenant the user belongs to and belongs to the user,
+        not to any one of them.
+        """
+        return f"privacy/exports/{user_key}/{export_key}.json"
 
     def validate_export_request(
         self,

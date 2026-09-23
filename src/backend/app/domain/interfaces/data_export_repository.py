@@ -27,7 +27,14 @@ class IDataExportRepository(ABC):
     def delete(self, key: DataExportRequestKey) -> bool: ...
 
     @abstractmethod
-    def expire_old(self, now_iso: str) -> int: ...
+    def expire_old(self, now_iso: str) -> list[DataExportRequest]:
+        """Flip every expired export to ``expired`` and return the changed records.
+
+        Returns the records rather than a count so the caller can delete each
+        bundle's object (NFR-011 R-05 is "delete the file *and* set the
+        status"; a count cannot say which files).
+        """
+        ...
 
     @abstractmethod
     def list_stale_pending(self, cutoff_iso: str) -> list[DataExportRequest]:

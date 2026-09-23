@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import secrets
+from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -32,6 +34,7 @@ from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.processing_restriction_repository import (
     IProcessingRestrictionRepository,
@@ -61,6 +64,11 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+async def _single_chunk(payload: bytes) -> AsyncIterator[bytes]:
+    """Adapt a fully-built bundle to the adapter's streaming ``put_object``."""
+    yield payload
+
+
 class ExportBundleUnavailableError(RuntimeError):
     """No Art. 15 bundle could be produced for a request.
 
@@ -87,6 +95,8 @@ class PrivacyService:
     PRIVACY_POLICY_VERSION = "1.0"
     PRIVACY_POLICY_EFFECTIVE_DATE = date(2026, 4, 27)
     EMAIL_CHANGE_TTL_HOURS = 24
+    #: NFR-011 R-05 — how long a built Art. 15 bundle stays downloadable.
+    EXPORT_TTL_HOURS = 72
     EXPORT_TTL_HOURS = 72
     HARD_DELETE_DAYS = 90
     # SEC-001 staleness guard: an ``in_progress`` erasure is only re-picked when
@@ -120,6 +130,7 @@ class PrivacyService:
         pest_image_repo: IPestImageRepository | None = None,
         ipm_repo: IIpmRepository | None = None,
         pest_inference_client: PestDetectionInferenceClient | None = None,
+        personal_data_repo: IPersonalDataRepository | None = None,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -155,6 +166,12 @@ class PrivacyService:
         # callers stay unaffected; the retract is a no-op when either is unwired.
         self._ipm_repo = ipm_repo
         self._pest_inference_client = pest_inference_client
+        # REQ-025 Art. 15 — the read side of the declared export manifest.
+        # Optional so non-export callers (and the many tests that construct a
+        # PrivacyService for one unrelated method) stay unaffected; when it is
+        # absent an export run fails *visibly* rather than silently delivering
+        # nothing, which is the whole point of #1645.
+        self._personal_data_repo = personal_data_repo
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -807,11 +824,82 @@ class PrivacyService:
         downloadable bundle exists, so this method must not return without
         setting ``file_path`` and ``file_size_bytes``.
         """
-        raise ExportBundleUnavailableError(
-            "The Art. 15 export bundle builder is not implemented, so no data can be "
-            "delivered for this request (#1645). Please contact the operator; the "
-            "request has been recorded as failed rather than left pending."
+        if export.key is None:  # pragma: no cover - persisted records always carry a key
+            raise ExportBundleUnavailableError("The export request has no key; nothing can be stored against it.")
+        if self._personal_data_repo is None or self._storage_adapter is None:
+            raise ExportBundleUnavailableError(
+                "This deployment cannot build Art. 15 export bundles: the personal-data "
+                "reader or the object storage is not configured. No data has been "
+                "delivered; please contact the operator."
+            )
+
+        sections: list[tuple[DataSourceDefinition, list[dict[str, object]]]] = [
+            (source, self._personal_data_repo.collect_for_user(source, export.user_key)) for source in manifest
+        ]
+
+        # Anti-vacuity, in production rather than only in a test: an export that
+        # found *nothing at all* is what a broken walk looks like from the
+        # outside, and it is indistinguishable from an empty account. The user
+        # document is the one source that must always answer, so a bundle
+        # without it is a failure, not a delivery.
+        profile_rows = sum(len(rows) for source, rows in sections if source.filter_field == "_key")
+        if profile_rows == 0:
+            raise ExportBundleUnavailableError(
+                f"The export walk found no profile record for user '{export.user_key}'; "
+                "refusing to deliver a bundle that would read as an empty account."
+            )
+
+        now = datetime.now(UTC)
+        bundle = self._data_export_engine.build_bundle(
+            export.user_key,
+            now,
+            sections,
+            controller_name=self._data_controller_name,
+            controller_email=self._data_controller_email,
         )
+        payload = json.dumps(bundle, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+
+        object_key = self._data_export_engine.bundle_object_key(export.user_key, export.key)
+        await self._storage_adapter.put_object(
+            object_key,
+            _single_chunk(payload),
+            "application/json",
+            metadata={"user_key": export.user_key, "export_key": export.key},
+        )
+
+        export.file_path = object_key
+        export.file_size_bytes = len(payload)
+        export.status = "completed"
+        export.completed_at = now
+        export.expires_at = now + timedelta(hours=self.EXPORT_TTL_HOURS)
+        export.error_message = None
+        logger.info(
+            # Distinct from the task-level ``.completed`` in ``retention_tasks``:
+            # this one is the claim that bytes exist, and it carries their size.
+            "retention.process_data_export.delivered",
+            export_key=export.key,
+            user_key=export.user_key,
+            sources=len(sections),
+            records=sum(len(rows) for _source, rows in sections),
+            file_size_bytes=export.file_size_bytes,
+        )
+        return self._export_repo.update(export.key, export)
+
+    async def open_export_bundle(
+        self, user_key: UserKey, export_key: str
+    ) -> tuple[DataExportRequest, AsyncIterator[bytes]]:
+        """Return the export record **and its bytes** for download (Art. 15).
+
+        The endpoint used to answer with metadata only, so even a ``completed``
+        export delivered no data (#1645). Ownership, status and expiry are
+        enforced by :meth:`prepare_export_download`, which also counts the
+        download; this adds the one thing that was missing — the content.
+        """
+        export = self.prepare_export_download(user_key, export_key)
+        if self._storage_adapter is None or not export.file_path:  # pragma: no cover - guarded above
+            raise ValidationError("Export file is not available.")
+        stream = await self._storage_adapter.get_object(export.file_path)
+        return export, stream
 
     def _fail_export(self, export: DataExportRequest, *, reason: str) -> DataExportRequest:
         """End an export run visibly: ``failed`` plus a reason on the record.
@@ -1148,11 +1236,35 @@ class PrivacyService:
         return affected
 
     async def expire_data_exports(self, now: datetime) -> int:
-        """Flip completed exports past their 72-hour expiry to ``expired``."""
-        affected = self._export_repo.expire_old(now.isoformat())
-        if affected:
+        """Expire exports past their 72-hour window **and delete their files**.
+
+        NFR-011 R-05 is "delete the file, set the status to expired" — both
+        halves. Flipping the status alone would leave a full Art. 15 disclosure
+        of a user's personal data sitting in object storage for ever, which is
+        the storage-limitation breach the rule exists to prevent.
+        """
+        expired = self._export_repo.expire_old(now.isoformat())
+        for export in expired:
+            if not export.file_path:
+                continue
+            try:
+                if self._storage_adapter is not None:
+                    await self._storage_adapter.delete_object(export.file_path)
+            except Exception as exc:  # noqa: BLE001 — one bad object must not stall the rest
+                logger.error(
+                    "retention.expire_data_exports.object_delete_failed",
+                    export_key=export.key,
+                    object_key=export.file_path,
+                    error=str(exc),
+                )
+                continue
+            export.file_path = None
+            export.file_size_bytes = None
+            if export.key:
+                self._export_repo.update(export.key, export)
+        if expired:
             logger.info(
                 "retention.expire_data_exports.completed",
-                expired=affected,
+                expired=len(expired),
             )
-        return affected
+        return len(expired)

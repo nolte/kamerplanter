@@ -44,7 +44,19 @@ interface ExportItem {
   status: string;
   requested_at: string | null;
   completed_at: string | null;
+  file_size_bytes?: number | null;
+  /** #1645 - why a failed run delivered nothing. */
+  error_message?: string | null;
 }
+
+/**
+ * Export states from which the request no longer moves on its own.
+ *
+ * #1645 - the run used to stop at `processing` for ever, so the UI had nothing
+ * to wait for and said "success" regardless. Naming the terminal set is what
+ * lets the panel distinguish "still working" from "finished" from "failed".
+ */
+const TERMINAL_EXPORT_STATES = ['completed', 'failed', 'expired'];
 
 interface RestrictionItem {
   key: string;
@@ -153,6 +165,44 @@ export default function PrivacySettingsPage() {
     try {
       const res = await client.post<ExportItem>('/privacy/export');
       setExportRequest(res.data);
+    } catch (err) {
+      setExportError(parseApiError(err));
+    } finally {
+      setExportPending(false);
+    }
+  };
+
+  const handleRefreshExport = async () => {
+    if (!exportRequest) return;
+    setExportPending(true);
+    setExportError('');
+    try {
+      const res = await client.get<ExportItem>(`/privacy/export/${exportRequest.key}`);
+      setExportRequest(res.data);
+    } catch (err) {
+      setExportError(parseApiError(err));
+    } finally {
+      setExportPending(false);
+    }
+  };
+
+  const handleDownloadExport = async () => {
+    if (!exportRequest) return;
+    setExportPending(true);
+    setExportError('');
+    try {
+      // The endpoint is JWT-protected, so a plain anchor href cannot fetch it;
+      // the bytes come through the authenticated client and are handed to the
+      // browser as an object URL (same shape as the print endpoints).
+      const res = await client.get<Blob>(`/privacy/export/${exportRequest.key}/download`, {
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `kamerplanter-export-${exportRequest.key}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       setExportError(parseApiError(err));
     } finally {
@@ -344,10 +394,48 @@ export default function PrivacySettingsPage() {
               {t('pages.privacy.exportRequestButton')}
             </Button>
 
-            {exportRequest && (
+            {exportRequest && exportRequest.status === 'completed' && (
               <Alert severity="success" sx={{ mt: 2 }} data-testid="privacy-export-result">
+                {t('pages.privacy.exportReady')}
+              </Alert>
+            )}
+
+            {exportRequest && exportRequest.status === 'failed' && (
+              <Alert severity="error" sx={{ mt: 2 }} data-testid="privacy-export-result">
+                {exportRequest.error_message
+                  ? t('pages.privacy.exportFailed', { reason: exportRequest.error_message })
+                  : t('pages.privacy.exportFailedUnknown')}
+              </Alert>
+            )}
+
+            {exportRequest && !TERMINAL_EXPORT_STATES.includes(exportRequest.status) && (
+              <Alert severity="info" sx={{ mt: 2 }} data-testid="privacy-export-result">
                 {t('pages.privacy.exportRequested', { status: exportRequest.status })}
               </Alert>
+            )}
+
+            {exportRequest && exportRequest.status === 'completed' && (
+              <Button
+                variant="outlined"
+                sx={{ mt: 2 }}
+                onClick={handleDownloadExport}
+                disabled={exportPending}
+                data-testid="privacy-export-download-btn"
+              >
+                {t('pages.privacy.exportDownload')}
+              </Button>
+            )}
+
+            {exportRequest && !TERMINAL_EXPORT_STATES.includes(exportRequest.status) && (
+              <Button
+                variant="outlined"
+                sx={{ mt: 2 }}
+                onClick={handleRefreshExport}
+                disabled={exportPending}
+                data-testid="privacy-export-refresh-btn"
+              >
+                {t('pages.privacy.exportStatusRefresh')}
+              </Button>
             )}
           </CardContent>
         </Card>

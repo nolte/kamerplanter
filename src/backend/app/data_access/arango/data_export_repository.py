@@ -60,16 +60,18 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
         self._db.aql.execute(query, bind_vars={"export_id": export_id})
         return super().delete(key)
 
-    def expire_old(self, now_iso: str) -> int:
-        """Flip completed exports past their 72-hour expiry to ``status=expired``.
+    def expire_old(self, now_iso: str) -> list[DataExportRequest]:
+        """Flip expired exports to ``status=expired`` and return them.
 
-        NFR-011 R-05 — called by the daily Celery retention task.
+        NFR-011 R-05 — called by the hourly Celery retention task. ``RETURN
+        NEW`` rather than a count because the caller must also delete each
+        bundle from object storage, and a count names no file.
         """
         query = """
         FOR doc IN @@collection
           FILTER doc.status == 'completed' AND doc.expires_at != null AND doc.expires_at < @now
           UPDATE doc WITH { status: 'expired' } IN @@collection
-          RETURN 1
+          RETURN NEW
         """
         cursor = self._db.aql.execute(
             query,
@@ -78,7 +80,7 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
                 "now": now_iso,
             },
         )
-        return sum(1 for _ in cursor)
+        return [DataExportRequest(**self._from_doc(doc)) for doc in cursor]
 
     def list_stale_pending(self, cutoff_iso: str) -> list[DataExportRequest]:
         """Return pending exports requested before ``cutoff_iso``.

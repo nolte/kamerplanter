@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import PrivacySettingsPage from '@/pages/auth/PrivacySettingsPage';
@@ -70,6 +70,81 @@ describe('PrivacySettingsPage', () => {
     await user.click(await screen.findByTestId('privacy-export-request-btn'));
 
     expect(await screen.findByTestId('privacy-export-result')).toBeTruthy();
+  });
+
+  it('tells the user why a failed export delivered nothing (#1645)', async () => {
+    server.use(
+      http.post('/api/v1/privacy/export', () =>
+        HttpResponse.json({
+          key: 'exp-1',
+          status: 'failed',
+          requested_at: '2024-01-01T00:00:00Z',
+          completed_at: null,
+          error_message: 'object storage is not configured',
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PrivacySettingsPage />);
+
+    await user.click(await screen.findByTestId('privacy-tab-export'));
+    await user.click(await screen.findByTestId('privacy-export-request-btn'));
+
+    const result = await screen.findByTestId('privacy-export-result');
+    // The reason, not just a red box: the panel used to render `severity=success`
+    // and the bare status word whatever had happened.
+    expect(result.textContent).toContain('object storage is not configured');
+    expect(screen.queryByTestId('privacy-export-download-btn')).toBeNull();
+  });
+
+  it('hands the completed export bundle to the browser (#1645)', async () => {
+    const bundle = JSON.stringify({ sections: [{ collection: 'users', records: [{ email: 'x@example.invalid' }] }] });
+    let downloadRequested = false;
+    server.use(
+      http.post('/api/v1/privacy/export', () =>
+        HttpResponse.json({ key: 'exp-1', status: 'pending', requested_at: null, completed_at: null }),
+      ),
+      http.get('/api/v1/privacy/export/exp-1', () =>
+        HttpResponse.json({
+          key: 'exp-1',
+          status: 'completed',
+          requested_at: null,
+          completed_at: '2024-01-02T00:00:00Z',
+          file_size_bytes: bundle.length,
+        }),
+      ),
+      http.get('/api/v1/privacy/export/exp-1/download', () => {
+        downloadRequested = true;
+        return new HttpResponse(bundle, { headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+    // jsdom has no object-URL support. Patch the two methods rather than
+    // replacing the global `URL`: spreading the class drops its constructor,
+    // which breaks every other test in the file that builds a URL.
+    const createObjectURL = vi.fn(() => 'blob:export');
+    const urlApi = URL as unknown as Record<string, unknown>;
+    const originalCreate = urlApi.createObjectURL;
+    const originalRevoke = urlApi.revokeObjectURL;
+    urlApi.createObjectURL = createObjectURL;
+    urlApi.revokeObjectURL = vi.fn();
+
+    const user = userEvent.setup();
+    renderWithProviders(<PrivacySettingsPage />);
+
+    await user.click(await screen.findByTestId('privacy-tab-export'));
+    await user.click(await screen.findByTestId('privacy-export-request-btn'));
+    // The request starts `pending`, so the panel offers a refresh rather than
+    // claiming success - the defect being repaired is exactly a surface that
+    // reported success without a payload.
+    await user.click(await screen.findByTestId('privacy-export-refresh-btn'));
+    await user.click(await screen.findByTestId('privacy-export-download-btn'));
+
+    await waitFor(() => {
+      expect(downloadRequested).toBe(true);
+    });
+    expect(createObjectURL).toHaveBeenCalled();
+    urlApi.createObjectURL = originalCreate;
+    urlApi.revokeObjectURL = originalRevoke;
   });
 
   it('confirms erasure without a password for federated accounts and sends an empty body', async () => {
