@@ -148,6 +148,37 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         return self._is_granted(col.SPECIES, species_key, tenant_key)
 
+    def list_visible_keys(self, *, tenant_key: str) -> set[str] | None:
+        """Species keys this tenant can see: global ∪ own ∪ granted (#1178, #1638).
+
+        One query rather than a lookup per key, and deliberately the *same* three
+        arms the species reads use — a fourth notion of "visible" is how two reads
+        would drift into disagreeing about which rows a tenant has. Moved verbatim
+        from ``StarterKitService._visible_species_keys``.
+
+        Returns ``None`` only when the species collection does not exist.
+        """
+        if not self._db.has_collection("species"):
+            return None
+        cursor = self._db.aql.execute(
+            """
+            FOR doc IN species
+                FILTER doc.tenant_key == @tenant_key
+                    OR doc.tenant_key == ""
+                    OR doc.tenant_key == null
+                    OR LENGTH(
+                        FOR edge IN tenant_has_access
+                            FILTER edge._from == CONCAT("tenants/", @tenant_key)
+                            FILTER edge._to == doc._id
+                            LIMIT 1
+                            RETURN 1
+                    ) > 0
+                RETURN doc._key
+            """,
+            bind_vars={"tenant_key": tenant_key},
+        )
+        return set(cursor)
+
     def grant_cultivar_access(self, cultivar_key: str, to_tenant_key: str) -> None:
         """Share one cultivar with another tenant. See :meth:`grant_access`."""
         self._grant(col.CULTIVARS, cultivar_key, to_tenant_key)

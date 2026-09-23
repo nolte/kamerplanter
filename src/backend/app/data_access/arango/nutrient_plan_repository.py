@@ -201,6 +201,91 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         self.delete_edges(col.FOLLOWS_PLAN, plant_id)
         return True
 
+    # ── Onboarding / favourites reads (#1638) ───────────────────────
+
+    def list_template_plan_summaries(self, *, tenant_key: str) -> list[dict]:
+        """Template plans visible to ``tenant_key``, with their fertilizers (#1561).
+
+        Moved verbatim from ``FavoritesService.get_matching_nutrient_plans``
+        (#1638). The predicate is the hybrid-catalogue union
+        :func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`
+        builds — own ∪ global — the **same** one :meth:`get_all` applies, so the
+        two reads of ``nutrient_plans`` answer one visibility question. A strict
+        ``tenant_key == @tenant_key`` filter would hide the seeded catalogue and
+        empty the onboarding step (#324). Deliberately not the ``…_with_grants``
+        variant: ``tenant_has_access`` is declared only ``tenants -> species |
+        cultivars``, so a plan cannot carry a grant.
+
+        This is where a species filter lands once the data model carries a
+        species↔plan relation (#1618).
+        """
+        predicate, bind_vars = tenant_union_predicate(tenant_key, doc_var="plan")
+
+        # The body below is a plain string spliced once through `.replace`, not an
+        # f-string: it holds AQL object literals (`{ plan_key: ... }`) whose braces
+        # an f-string would read as fields. Only the *predicate* is spliced; the
+        # tenant itself travels as a bind var and never enters the query text.
+        #
+        # Collect fertilizer keys from both graph edges AND embedded
+        # delivery_channels[].fertilizer_dosages[] to handle plans where
+        # edges may not be fully materialised (e.g. seed data).
+        cursor = self._db.aql.execute(
+            """
+            FOR plan IN nutrient_plans
+                FILTER (plan.is_template == true OR plan.origin == "system")
+                    AND __TENANT_PREDICATE__
+                LET phase_entries = (
+                    FOR pe IN nutrient_plan_phase_entries
+                        FILTER pe.plan_key == plan._key
+                        RETURN pe
+                )
+                LET edge_fert_keys = (
+                    FOR pe IN phase_entries
+                        FOR edge IN plan_uses_fertilizer
+                            FILTER edge._from == CONCAT("nutrient_plan_phase_entries/", pe._key)
+                            RETURN PARSE_IDENTIFIER(edge._to).key
+                )
+                LET embedded_fert_keys = (
+                    FOR pe IN phase_entries
+                        FOR ch IN (pe.delivery_channels || [])
+                            FOR fd IN (ch.fertilizer_dosages || [])
+                                RETURN fd.fertilizer_key
+                )
+                LET fertilizer_keys = UNIQUE(APPEND(edge_fert_keys, embedded_fert_keys))
+                LET fertilizers = (
+                    FOR fk IN fertilizer_keys
+                        FOR f IN fertilizers
+                            FILTER f._key == fk
+                            RETURN { key: f._key, product_name: f.product_name, brand: f.brand }
+                )
+                RETURN {
+                    plan_key: plan._key,
+                    name: plan.name,
+                    description: plan.description,
+                    substrate_type: plan.substrate_type,
+                    fertilizer_count: LENGTH(fertilizer_keys),
+                    fertilizers: fertilizers
+                }
+            """.replace("__TENANT_PREDICATE__", predicate),
+            bind_vars=bind_vars,
+        )
+        return list(cursor)
+
+    def list_edge_fertilizer_keys(self, plan_key: NutrientPlanKey) -> list[str]:
+        """Plan → phase entries → ``plan_uses_fertilizer`` → distinct fertilizer keys."""
+        cursor = self._db.aql.execute(
+            """
+            FOR pe IN nutrient_plan_phase_entries
+                FILTER pe.plan_key == @plan_key
+                FOR edge IN plan_uses_fertilizer
+                    FILTER edge._from == CONCAT("nutrient_plan_phase_entries/", pe._key)
+                    LET fert_key = PARSE_IDENTIFIER(edge._to).key
+                    RETURN DISTINCT fert_key
+            """,
+            bind_vars={"plan_key": plan_key},
+        )
+        return list(cursor)
+
     # ── Channel fertilizer edges ────────────────────────────────────
 
     def add_fertilizer_to_channel(

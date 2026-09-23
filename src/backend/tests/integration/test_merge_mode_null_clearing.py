@@ -619,10 +619,9 @@ class TestAWizardResetForgetsThePreviousRun:
         return str(meta["_key"])
 
     def _service(self, db):
-        from app.domain.services.onboarding_service import OnboardingService
-        from app.domain.services.starter_kit_service import StarterKitService
+        from tests.support.onboarding_wiring import build_onboarding_service
 
-        return OnboardingService(db, StarterKitService(db))
+        return build_onboarding_service(db)
 
     @pytest.mark.parametrize("field", sorted(_WIZARD_SELECTIONS))
     def test_reset_wizard_clears_it(self, db, state_key, field):

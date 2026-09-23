@@ -31,6 +31,7 @@ from arango import ArangoClient
 from app.data_access.arango import collections as col
 from app.domain.services.favorites_service import FavoritesService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.onboarding_wiring import build_favorites_service
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -95,7 +96,7 @@ def db():
 
 @pytest.fixture
 def service(db) -> FavoritesService:
-    return FavoritesService(db)
+    return build_favorites_service(db)
 
 
 def _plan_keys(rows: list[dict]) -> set[str]:

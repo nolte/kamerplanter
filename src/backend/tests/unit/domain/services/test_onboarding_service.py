@@ -55,10 +55,9 @@ class _MultiDocRepo:
 
 def _service_with(repo: Any) -> OnboardingService:
     """The real service with only its repository doubled (review SCR-011)."""
-    from app.domain.services.starter_kit_service import StarterKitService
+    from tests.support.onboarding_wiring import build_onboarding_service
 
-    db = MagicMock()
-    service = OnboardingService(db, StarterKitService(db))
+    service = build_onboarding_service(MagicMock())
     service._repo = repo  # type: ignore[assignment]
     return service
 

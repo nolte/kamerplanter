@@ -1,19 +1,9 @@
 from datetime import UTC, datetime
 
-import structlog
-from arango.database import StandardDatabase
-from arango.exceptions import DocumentGetError, DocumentInsertError
-
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
-from app.data_access.arango.tenant_scope import tenant_union_predicate
-
-logger = structlog.get_logger()
-
-#: ``ARANGO_DATA_SOURCE_NOT_FOUND`` — the collection itself does not exist.
-#: The one datastore error that legitimately means "no row of this key lives
-#: here"; every other one means the answer is unknown, not "no" (#1538).
-_ERR_DATA_SOURCE_NOT_FOUND = 1203
+from app.domain.interfaces.favorites_repository import IFavoritesRepository
+from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 
 #: Collections a favourite may target, in resolution order. A key is looked up
 #: in each until one holds a row **visible to the caller**.
@@ -93,8 +83,17 @@ _CASCADING_COLLECTIONS = frozenset({col.NUTRIENT_PLANS})
 
 
 class FavoritesService:
-    def __init__(self, db: StandardDatabase) -> None:
-        self._db = db
+    """Favourite a catalogue entry, with cascade and tenant visibility (REQ-020).
+
+    Reaches its data only through repositories (#1638): the favourite edges and
+    the by-key target probes through :class:`IFavoritesRepository`, the plan
+    reads through :class:`INutrientPlanRepository`, which owns
+    ``nutrient_plans``.
+    """
+
+    def __init__(self, favorites_repo: IFavoritesRepository, plan_repo: INutrientPlanRepository) -> None:
+        self._repo = favorites_repo
+        self._plan_repo = plan_repo
 
     def _add_one(
         self,
@@ -153,19 +152,9 @@ class FavoritesService:
         from_id = f"{col.USERS}/{user_key}"
         to_id = f"{target_collection}/{target_key}"
 
-        # Check if edge already exists
-        cursor = self._db.aql.execute(
-            """
-            FOR e IN user_favorites
-                FILTER e._from == @from_id AND e._to == @to_id
-                RETURN e
-            """,
-            bind_vars={"from_id": from_id, "to_id": to_id},
-        )
-        existing = list(cursor)
+        edge = self._repo.find_edge(from_id, to_id)
 
-        if existing:
-            edge = existing[0]
+        if edge is not None:
             # The resolved collection is authoritative, not the stored field: an
             # edge written before `target_type` existed carries none, and the
             # caller decides whether to cascade from this value. `to_id` was
@@ -173,9 +162,7 @@ class FavoritesService:
             edge["target_type"] = target_collection
             # Upgrade cascade→manual if user explicitly favorites
             if source == "manual" and edge.get("source") == "cascade":
-                self._db.collection(col.USER_FAVORITES).update(
-                    {"_key": edge["_key"], "source": "manual", "cascade_from_key": None}
-                )
+                self._repo.promote_to_manual(edge["_key"])
                 edge["source"] = "manual"
                 edge["cascade_from_key"] = None
             return edge
@@ -189,22 +176,11 @@ class FavoritesService:
             "target_type": target_collection,
             "favorited_at": now,
         }
-        try:
-            result = self._db.collection(col.USER_FAVORITES).insert(edge_data, return_new=True)
-            return result.get("new", edge_data)
-        except DocumentInsertError as exc:
-            if exc.http_code == 409:
-                # Concurrent insert race — edge was created between check and insert
-                cursor = self._db.aql.execute(
-                    "FOR e IN user_favorites FILTER e._from == @f AND e._to == @t RETURN e",
-                    bind_vars={"f": from_id, "t": to_id},
-                )
-                rows = list(cursor)
-                if rows:
-                    row = rows[0]
-                    row["target_type"] = target_collection
-                    return row
-            raise
+        # A concurrent insert of the same pair returns the winner's edge; the
+        # resolved collection stays authoritative for it, as on the upsert arm.
+        stored = self._repo.insert_edge(edge_data)
+        stored["target_type"] = target_collection
+        return stored
 
     def add_favorite(
         self,
@@ -288,16 +264,7 @@ class FavoritesService:
         if cascade_cleanup:
             self._cleanup_cascade(user_key, target_key)
 
-        cursor = self._db.aql.execute(
-            """
-            FOR e IN user_favorites
-                FILTER e._from == @from_id AND PARSE_IDENTIFIER(e._to).key == @target_key
-                REMOVE e IN user_favorites
-                RETURN OLD
-            """,
-            bind_vars={"from_id": from_id, "target_key": target_key},
-        )
-        return len(list(cursor)) > 0
+        return self._repo.remove_edges_to_key(from_id, target_key) > 0
 
     def list_favorites(
         self,
@@ -305,27 +272,7 @@ class FavoritesService:
         entity_type: str | None = None,
     ) -> list[dict]:
         """List all favorites for a user, optionally filtered by entity type."""
-        from_id = f"{col.USERS}/{user_key}"
-
-        if entity_type:
-            cursor = self._db.aql.execute(
-                """
-                FOR e IN user_favorites
-                    FILTER e._from == @from_id AND e.target_type == @entity_type
-                    RETURN e
-                """,
-                bind_vars={"from_id": from_id, "entity_type": entity_type},
-            )
-        else:
-            cursor = self._db.aql.execute(
-                """
-                FOR e IN user_favorites
-                    FILTER e._from == @from_id
-                    RETURN e
-                """,
-                bind_vars={"from_id": from_id},
-            )
-        return list(cursor)
+        return self._repo.list_edges(f"{col.USERS}/{user_key}", entity_type)
 
     def get_matching_nutrient_plans(
         self,
@@ -387,57 +334,9 @@ class FavoritesService:
         if not species_keys:
             return []
 
-        predicate, bind_vars = tenant_union_predicate(tenant_key, doc_var="plan")
-
-        # The body below is a plain string spliced once through `.replace`, not an
-        # f-string: it holds AQL object literals (`{ plan_key: ... }`) whose braces
-        # an f-string would read as fields. Only the *predicate* is spliced; the
-        # tenant itself travels as a bind var and never enters the query text.
-        #
-        # Collect fertilizer keys from both graph edges AND embedded
-        # delivery_channels[].fertilizer_dosages[] to handle plans where
-        # edges may not be fully materialised (e.g. seed data).
-        cursor = self._db.aql.execute(
-            """
-            FOR plan IN nutrient_plans
-                FILTER (plan.is_template == true OR plan.origin == "system")
-                    AND __TENANT_PREDICATE__
-                LET phase_entries = (
-                    FOR pe IN nutrient_plan_phase_entries
-                        FILTER pe.plan_key == plan._key
-                        RETURN pe
-                )
-                LET edge_fert_keys = (
-                    FOR pe IN phase_entries
-                        FOR edge IN plan_uses_fertilizer
-                            FILTER edge._from == CONCAT("nutrient_plan_phase_entries/", pe._key)
-                            RETURN PARSE_IDENTIFIER(edge._to).key
-                )
-                LET embedded_fert_keys = (
-                    FOR pe IN phase_entries
-                        FOR ch IN (pe.delivery_channels || [])
-                            FOR fd IN (ch.fertilizer_dosages || [])
-                                RETURN fd.fertilizer_key
-                )
-                LET fertilizer_keys = UNIQUE(APPEND(edge_fert_keys, embedded_fert_keys))
-                LET fertilizers = (
-                    FOR fk IN fertilizer_keys
-                        FOR f IN fertilizers
-                            FILTER f._key == fk
-                            RETURN { key: f._key, product_name: f.product_name, brand: f.brand }
-                )
-                RETURN {
-                    plan_key: plan._key,
-                    name: plan.name,
-                    description: plan.description,
-                    substrate_type: plan.substrate_type,
-                    fertilizer_count: LENGTH(fertilizer_keys),
-                    fertilizers: fertilizers
-                }
-            """.replace("__TENANT_PREDICATE__", predicate),
-            bind_vars=bind_vars,
-        )
-        return list(cursor)
+        # The query lives in the repository that owns ``nutrient_plans`` (#1638),
+        # which is also where #1618's species filter will land.
+        return self._plan_repo.list_template_plan_summaries(tenant_key=tenant_key)
 
     def cascade_fertilizers(self, user_key: str, nutrient_plan_key: str, *, tenant_key: str) -> list[dict]:
         """Traverse plan → entries → fertilizers and create cascade favorite edges.
@@ -446,18 +345,7 @@ class FavoritesService:
         :meth:`add_favorite`, so cascaded fertilizer favourites obey the same
         tenant predicate as an explicit favourite.
         """
-        cursor = self._db.aql.execute(
-            """
-            FOR pe IN nutrient_plan_phase_entries
-                FILTER pe.plan_key == @plan_key
-                FOR edge IN plan_uses_fertilizer
-                    FILTER edge._from == CONCAT("nutrient_plan_phase_entries/", pe._key)
-                    LET fert_key = PARSE_IDENTIFIER(edge._to).key
-                    RETURN DISTINCT fert_key
-            """,
-            bind_vars={"plan_key": nutrient_plan_key},
-        )
-        fertilizer_keys = list(cursor)
+        fertilizer_keys = self._plan_repo.list_edge_fertilizer_keys(nutrient_plan_key)
 
         created = []
         for fert_key in fertilizer_keys:
@@ -476,19 +364,7 @@ class FavoritesService:
 
     def _cleanup_cascade(self, user_key: str, nutrient_plan_key: str) -> int:
         """Remove cascade-only fertilizer favorites originating from a specific plan."""
-        from_id = f"{col.USERS}/{user_key}"
-        cursor = self._db.aql.execute(
-            """
-            FOR e IN user_favorites
-                FILTER e._from == @from_id
-                    AND e.source == "cascade"
-                    AND e.cascade_from_key == @plan_key
-                REMOVE e IN user_favorites
-                RETURN OLD
-            """,
-            bind_vars={"from_id": from_id, "plan_key": nutrient_plan_key},
-        )
-        return len(list(cursor))
+        return self._repo.remove_cascade_edges(f"{col.USERS}/{user_key}", nutrient_plan_key)
 
     def _resolve_collection(self, key: str, *, tenant_key: str | None) -> str | None:
         """Resolve which catalogue holds a key **that the caller may see**.
@@ -542,9 +418,10 @@ class FavoritesService:
         client input. Pre-existing (``has()`` behaved the same way), refused here
         because this is the one place both verbs pass through.
 
-        Datastore errors are no longer swallowed. Only
-        :data:`_ERR_DATA_SOURCE_NOT_FOUND` (the catalogue itself is absent — a
-        deployment defect, logged here) means "not this collection"; a connection
+        Datastore errors are no longer swallowed. Only an absent catalogue (a
+        deployment defect, logged by
+        :meth:`IFavoritesRepository.get_catalogue_row`) means "not this
+        collection"; a connection
         loss, an auth failure or a server error propagates and becomes a 5xx,
         because a 404 that means "the database is down" is a lie to the client.
         """
@@ -552,18 +429,7 @@ class FavoritesService:
             return None
 
         for collection_name in _FAVOURITABLE_COLLECTIONS:
-            try:
-                doc = self._db.collection(collection_name).get(key)
-            except DocumentGetError as exc:
-                if exc.error_code != _ERR_DATA_SOURCE_NOT_FOUND:
-                    raise
-                logger.warning(
-                    "favorite_target_collection_missing",
-                    collection=collection_name,
-                    error_code=exc.error_code,
-                )
-                continue
-
+            doc = self._repo.get_catalogue_row(collection_name, key)
             if doc is None:
                 continue
             if self._is_visible(collection_name, doc, key, tenant_key):
@@ -612,8 +478,4 @@ class FavoritesService:
         after ownership and global have both failed, so the common favourite
         costs no extra query.
         """
-        cursor = self._db.aql.execute(
-            f"FOR g IN {col.TENANT_HAS_ACCESS} FILTER g._from == @f AND g._to == @t LIMIT 1 RETURN 1",
-            bind_vars={"f": f"{col.TENANTS}/{tenant_key}", "t": f"{collection_name}/{key}"},
-        )
-        return bool(list(cursor))
+        return self._repo.is_granted(collection_name, key, tenant_key)

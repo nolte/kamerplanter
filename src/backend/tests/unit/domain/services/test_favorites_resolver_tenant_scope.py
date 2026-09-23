@@ -41,6 +41,7 @@ from arango.response import Response
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.domain.services.favorites_service import FavoritesService
+from tests.support.onboarding_wiring import build_favorites_service
 
 CALLER_TENANT = "tenant-alice"
 FOREIGN_TENANT = "tenant-bob"
@@ -137,7 +138,7 @@ def _service(
     edges: list[dict] | None = None,
 ) -> tuple[FavoritesService, _FakeDb]:
     db = _FakeDb(rows_by_collection, grants=grants, edges=edges)
-    return FavoritesService(db), db  # type: ignore[arg-type]
+    return build_favorites_service(db), db  # type: ignore[arg-type]
 
 
 # ── The leak: a foreign tenant's row must not be favouritable ──────────────────
@@ -311,7 +312,7 @@ def test_connection_failure_propagates_instead_of_becoming_a_404() -> None:
             raise ConnectionAbortedError("Can't connect to host(s) within limit (3)")
 
     db = _UnreachableDb({})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     with pytest.raises(ConnectionAbortedError):
         service.add_favorite("user-1", "tomato", tenant_key=CALLER_TENANT)
@@ -331,7 +332,7 @@ def test_a_server_error_on_one_catalogue_propagates() -> None:
             return super().collection(name)
 
     db = _FailingDb({})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     with pytest.raises(DocumentGetError):
         service.add_favorite("user-1", "tomato", tenant_key=CALLER_TENANT)
@@ -355,7 +356,7 @@ def test_a_missing_catalogue_is_skipped_and_the_walk_continues() -> None:
             return super().collection(name)
 
     db = _PartialDb({col.SUBSTRATES: {"coco": {"_key": "coco", "tenant_key": ""}}})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     edge = service.add_favorite("user-1", "coco", tenant_key=CALLER_TENANT)
 
@@ -520,7 +521,7 @@ def test_a_missing_catalogue_does_not_swallow_a_row_in_another_one() -> None:
             return super().collection(name)
 
     db = _PartialDb({col.SUBSTRATES: {"coco": {"_key": "coco", "tenant_key": ""}}})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     assert service._resolve_collection("coco", tenant_key=CALLER_TENANT) == col.SUBSTRATES
     assert service._resolve_collection("only-in-the-absent-one", tenant_key=CALLER_TENANT) is None
@@ -548,7 +549,7 @@ def test_a_document_handle_is_not_a_key_and_does_not_resolve() -> None:
             return _HandleTolerantCollection(name, self._rows.get(name, {}), self.inserted_edges)
 
     db = _HandleTolerantDb({col.SPECIES: {"tomato": {"_key": "tomato", "tenant_key": ""}}})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     # The double proves it would have resolved without the guard …
     assert db.collection(col.SPECIES).get("species/tomato") is not None

@@ -72,6 +72,27 @@ class INutrientPlanRepository(ABC):
     @abstractmethod
     def remove_plant_plan(self, plant_key: str) -> bool: ...
 
+    # ── Onboarding / favourites reads (#1638) ───────────────────────
+
+    @abstractmethod
+    def list_template_plan_summaries(self, *, tenant_key: str) -> list[dict]:
+        """Template plans visible to ``tenant_key`` (own ∪ global), each with its fertilizers.
+
+        Every row is ``{plan_key, name, description, substrate_type,
+        fertilizer_count, fertilizers: [{key, product_name, brand}]}``. The
+        fertilizer set is the union of the ``plan_uses_fertilizer`` edges and the
+        dosages embedded in the phase entries' delivery channels.
+
+        ``tenant_key`` is keyword-only with no default (#948); an empty string is
+        the anonymous / light-mode context and collapses the union to global-only.
+        """
+        ...
+
+    @abstractmethod
+    def list_edge_fertilizer_keys(self, plan_key: NutrientPlanKey) -> list[str]:
+        """Distinct fertilizer keys a plan reaches through its ``plan_uses_fertilizer`` edges."""
+        ...
+
     # ── Channel fertilizer edges ────────────────────────────────────
 
     @abstractmethod

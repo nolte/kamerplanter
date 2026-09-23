@@ -366,53 +366,6 @@ class AllowedHandle:
 #
 ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
     AllowedHandle(
-        path="src/backend/app/domain/services/favorites_service.py",
-        marker=HANDLE_MARKER,
-        reason=(
-            "The largest one: 13 AQL/collection sites driving col.USER_FAVORITES "
-            "and the favouritable collections directly. Removed by an "
-            "ArangoFavoritesRepository owning the edge writes and the polymorphic "
-            "target reads."
-        ),
-    ),
-    AllowedHandle(
-        path="src/backend/app/domain/services/favorites_service.py",
-        marker="import:arango.database",
-        reason=(
-            "Types the handle the ``handle`` entry above holds. Cannot be "
-            "removed on its own — it goes when the repository does, and is listed "
-            "separately so removing one spelling does not silently permit the other."
-        ),
-    ),
-    AllowedHandle(
-        path="src/backend/app/domain/services/favorites_service.py",
-        marker="import:arango.exceptions",
-        reason=(
-            "Catches DocumentGetError/DocumentInsertError in the service. The "
-            "cheapest crossing here — driver exceptions belong behind the "
-            "repository, which already maps them onto app.common.exceptions."
-        ),
-    ),
-    AllowedHandle(
-        path="src/backend/app/domain/services/starter_kit_service.py",
-        marker=HANDLE_MARKER,
-        reason=(
-            "Keeps the raw handle beside a raw-mode BaseArangoRepository for one "
-            "has_collection() probe and one AQL query. Removed by moving both "
-            "onto a starter-kit repository."
-        ),
-    ),
-    AllowedHandle(
-        path="src/backend/app/domain/services/onboarding_service.py",
-        marker=HANDLE_MARKER,
-        reason=(
-            "Does not query through it: stores the handle only to construct "
-            "FavoritesService and UserPreferenceService, which take one. The "
-            "shallowest crossing, and it disappears when those two stop taking a "
-            "handle — so it is downstream of the favorites entry above."
-        ),
-    ),
-    AllowedHandle(
         path="src/backend/app/domain/engines/calendar_aggregation_engine.py",
         marker=HANDLE_MARKER,
         reason=(
@@ -427,8 +380,8 @@ ALLOWED_HANDLES: tuple[AllowedHandle, ...] = (
         marker="import:arango.database",
         reason=(
             "Types the handle the engine's ``handle`` entry above holds; removed "
-            "with it, and listed separately for the same reason the favorites "
-            "import is."
+            "with it, and listed separately so removing one spelling does not "
+            "silently permit the other."
         ),
     ),
 )

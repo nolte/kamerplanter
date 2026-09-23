@@ -20,6 +20,7 @@ from typing import Any
 
 from app.data_access.arango import collections as col
 from app.domain.services.favorites_service import FavoritesService
+from tests.support.onboarding_wiring import build_favorites_service
 
 
 class _FakeCollection:
@@ -98,7 +99,7 @@ class _FakeDb:
 
 
 def _service(db: _FakeDb) -> FavoritesService:
-    return FavoritesService(db)  # type: ignore[arg-type]
+    return build_favorites_service(db)
 
 
 def _targets(db: _FakeDb) -> list[str]:

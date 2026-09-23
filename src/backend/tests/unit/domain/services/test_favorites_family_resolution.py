@@ -11,7 +11,7 @@ is the one the key belongs to.
 from __future__ import annotations
 
 from app.data_access.arango import collections as col
-from app.domain.services.favorites_service import FavoritesService
+from tests.support.onboarding_wiring import build_favorites_service
 
 
 class _FakeCollection:
@@ -40,7 +40,7 @@ class _FakeDb:
 
 def test_resolves_botanical_family_key() -> None:
     db = _FakeDb({col.BOTANICAL_FAMILIES: {"solanaceae"}})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     assert service._resolve_collection("solanaceae", tenant_key="tenant-alice") == col.BOTANICAL_FAMILIES
 
@@ -49,13 +49,13 @@ def test_species_still_resolves_before_families() -> None:
     # A species key present in the species collection must resolve there — the
     # families entry must not shadow existing resolution order.
     db = _FakeDb({col.SPECIES: {"tomato"}})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     assert service._resolve_collection("tomato", tenant_key="tenant-alice") == col.SPECIES
 
 
 def test_unknown_key_resolves_to_none() -> None:
     db = _FakeDb({})
-    service = FavoritesService(db)  # type: ignore[arg-type]
+    service = build_favorites_service(db)
 
     assert service._resolve_collection("ghost", tenant_key="tenant-alice") is None
