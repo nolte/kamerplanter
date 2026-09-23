@@ -192,5 +192,7 @@ def create_inspection(
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> CreateInspectionResponse:
     """Create a REQ-010 inspection from a detection. Never a treatment (§0)."""
-    result = service.create_inspection(detection_key, tenant_key=ctx.tenant_key, plant_key=plant_key)
+    result = service.create_inspection(
+        detection_key, tenant_key=ctx.tenant_key, plant_key=plant_key, user_key=ctx.user_key
+    )
     return CreateInspectionResponse(**result)

@@ -57,6 +57,13 @@ class HarvestBatch(BaseModel):
     actual_dry_weight_g: float | None = Field(default=None, ge=0)
     quality_grade: QualityGrade | None = None
     harvester: str = Field(default="", max_length=200)
+    # Which *account* recorded the harvest (#1669). ``harvester`` is a display
+    # name typed by the user and stays exactly that; this field is the one
+    # REQ-025 needs — set by the server from the caller's key on every create
+    # path, never from a request body. ``None`` means a row written before
+    # #1669 landed (v0056 stamps it explicitly): such a row cannot be
+    # attributed and the Art. 15 bundle says so instead of staying silent.
+    harvested_by_key: str | None = None
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
