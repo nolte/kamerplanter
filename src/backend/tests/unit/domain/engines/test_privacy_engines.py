@@ -497,6 +497,27 @@ class TestErasureStepUserField:
             ErasureStep(collection="x", kind="document", executor="retention_worker", user_field="user_key", via="y")
 
 
+class TestErasurePhaseNames:
+    """#1664 — the executor recognises the two ArangoDB phases by name."""
+
+    def test_both_phase_constants_name_a_declared_phase_step(self):
+        phases = {s.collection for s in ErasureEngine.DELETE_STEPS if s.kind == "phase"}
+        assert ErasureEngine.ANONYMIZE_PHASE in phases
+        assert ErasureEngine.PSEUDONYMIZE_AUDIT_PHASE in phases
+
+    def test_every_phase_is_either_an_arango_phase_or_owned_by_a_non_arango_executor(self):
+        """A phase the ArangoDB executor neither implements nor delegates would be refused at runtime."""
+        arango = {ErasureEngine.ANONYMIZE_PHASE, ErasureEngine.PSEUDONYMIZE_AUDIT_PHASE}
+        unhandled = [
+            s.collection
+            for s in ErasureEngine.DELETE_STEPS
+            if s.kind == "phase"
+            and s.collection not in arango
+            and s.executor not in ("storage_cleanup", "reference_index_cleanup")
+        ]
+        assert unhandled == []
+
+
 class TestConsentEngine:
     def test_required_purpose_always_allowed(self):
         engine = ConsentEngine()

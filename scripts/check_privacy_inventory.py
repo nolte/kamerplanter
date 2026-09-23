@@ -61,7 +61,10 @@ Known blind spots (the honest residue)
 --------------------------------------
 * R4 knows one user-scoped removal helper, ``_remove_docs_for_user``, plus
   ``delete_edges`` *in a function that also calls it* (the account-cascade
-  shape). A cascade written with raw AQL, with a differently named helper, or
+  shape). Since #1664 no production code calls that helper: every user-scoped
+  removal runs in ``ArangoErasureExecutor``, which binds each collection from
+  the plan (``@@collection``). R4 stays as the tripwire for a copy of the old
+  shape coming back; it does not inspect the executor's bind variables. A cascade written with raw AQL, with a differently named helper, or
   with the edge deletion split into its own function is not seen. Spellings of
   the same thing it does not match, stated rather than assumed:
   ``db.aql.execute("... REMOVE ... users/...")``, ``self._purge(col.API_KEYS, key)``,

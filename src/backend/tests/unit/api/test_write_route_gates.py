@@ -365,8 +365,16 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
                 "raw query write (f-string) in app.data_access.arango.processing_restriction_repository"
                 "::ArangoProcessingRestrictionRepository.delete",
                 "raw query write (f-string) in app.data_access.arango.tank_repository::ArangoTankRepository.delete",
-                "raw query write (f-string) in app.data_access.arango.user_repository"
-                "::ArangoUserRepository._remove_docs_for_user",
+                # #1664 — ``ArangoUserRepository.delete`` runs its cascade through the
+                # shared erasure executor instead of ``_remove_docs_for_user``. The route
+                # reaches it only through the detector's ``.delete`` name fallback, as it
+                # reached the helper before; the sinks moved, the reach did not.
+                "module-level query write _REMOVE_USER in app.data_access.arango.erasure_executor"
+                "::ArangoErasureExecutor._run_step",
+                "module-level query write _REWRITE_REFERENCE in app.data_access.arango.erasure_executor"
+                "::ArangoErasureExecutor._anonymize",
+                "module-level query write _REWRITE_REFERENCE in app.data_access.arango.erasure_executor"
+                "::ArangoErasureExecutor._pseudonymize",
                 "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
                 "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
                 "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",

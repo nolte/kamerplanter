@@ -23,10 +23,18 @@ ANONYMIZED_MARKER = "_anonymized"
 class ErasureEngine:
     """Defines the deletion order, anonymisation rules and storage-cleanup steps.
 
-    Pure-logic engine. No I/O. The Celery task that executes the plan walks
-    the steps in declared order: storage cleanup -> edges -> documents ->
-    audit-log pseudonymisation -> user document.
+    Pure-logic engine. No I/O. ``PrivacyService.erase_account`` executes the
+    plan in declared order: storage cleanup -> edges -> documents ->
+    anonymisation -> audit-log pseudonymisation -> user document. The ArangoDB
+    part runs in ``ArangoErasureExecutor`` (#1664).
     """
+
+    #: Names of the two ArangoDB phase steps in :attr:`DELETE_STEPS`. The
+    #: executor recognises a phase by these names; the inventory spells them as
+    #: literals because ``scripts/check_privacy_inventory.py`` reads it without
+    #: importing it, and ``test_privacy_engines.py`` pins that both agree.
+    ANONYMIZE_PHASE = "_anonymize_collections"
+    PSEUDONYMIZE_AUDIT_PHASE = "_pseudonymize_audit_collections"
 
     # Collections whose user references must be retained — either for legal
     # compliance (CanG, PflSchG) or because the document belongs to a record of
@@ -215,11 +223,16 @@ class ErasureEngine:
     # in neither the plan nor the export manifest, so the documented inventory
     # understated what the system holds.
     #
-    # There is now one list, and every entry says who removes it. An entry
-    # carrying ``retention_worker`` is declared but **not executed** — the
-    # NFR-011 ArangoDB deletion worker does not exist yet. That is a statement
-    # about the system, not a placeholder: it is the honest form of a gap that
-    # was previously invisible because the two lists never met.
+    # There is now one list, and every entry says who removes it. Since #1664
+    # every ArangoDB entry — whatever its attribution — is executed by
+    # ``ArangoErasureExecutor`` whenever ``PrivacyService.erase_account`` runs,
+    # which the platform-admin delete does. The attribution still carries one
+    # distinction: ``retention_worker`` marks the entries the *scheduled
+    # self-service* Art. 17 path (``PrivacyService._finalize_erasure``) does not
+    # execute yet, because it does not call ``erase_account`` (#1645). That path
+    # reads this slice as its own outstanding gap, so re-attributing an entry
+    # away from ``retention_worker`` before #1645 wires the call would make it
+    # report ``completed`` for an erasure that deleted nothing.
     #
     # Order is load-bearing: phases first, then edges, then documents, then the
     # user document, so no orphan edge survives its endpoint.

@@ -192,9 +192,11 @@ class DataSourceDefinition(BaseModel):
 #: Who removes an :class:`ErasureStep` at runtime. Closed on purpose: a step
 #: whose executor is not one of these cannot be attributed, and an inventory of
 #: personal data that cannot say who erases an entry is the documentation half
-#: of the split #1622 measured. ``retention_worker`` is the **declared gap** —
-#: the NFR-011 ArangoDB deletion worker does not exist yet, so a step carrying
-#: it is enumerated but not executed, and says so.
+#: of the split #1622 measured. ``retention_worker`` is the **declared gap of
+#: the scheduled self-service path**: since #1664 the platform-admin delete
+#: executes every ArangoDB step through ``ArangoErasureExecutor``, but
+#: ``PrivacyService._finalize_erasure`` does not call it yet (#1645) and reads
+#: this slice as what it still leaves undone.
 type ErasureExecutor = Literal[
     "account_cascade",
     "membership_cascade",
@@ -343,6 +345,81 @@ class ErasurePlan(BaseModel):
     delete: list[str] = Field(default_factory=list)
     soft_delete_immediate: bool = True
     hard_delete_after_days: int = 90
+
+
+class ErasureStepOutcome(BaseModel):
+    """How many rows one declared :class:`ErasureStep` reached (#1664).
+
+    ``affected`` is what the store reported for the write — removed rows for an
+    ``edge`` / ``document`` / ``user`` step, rewritten rows (summed over the
+    phase's rules) for the two ArangoDB phases. It is a measurement, never a
+    status: a step that ran and matched nothing reports ``0``, and the reach
+    test fails on exactly that.
+    """
+
+    collection: str
+    kind: Literal["edge", "document", "user", "phase"]
+    executor: ErasureExecutor
+    affected: int = 0
+
+
+class ErasureRuleOutcome(BaseModel):
+    """Rows one anonymisation or pseudonymisation rule rewrote (#1664).
+
+    A collection can carry several rules (``plant_diary_entries`` has three user
+    references), so the rule is identified by ``collection`` + ``user_field``.
+    """
+
+    phase: str
+    collection: str
+    user_field: str
+    affected: int = 0
+
+
+class ErasureExecutionReport(BaseModel):
+    """What one run of the ArangoDB erasure executor did, step by step (#1664).
+
+    ``steps`` follows the declared order of :attr:`ErasurePlan.steps` and holds
+    only the steps this executor ran — a phase owned by another executor
+    (object storage, reference index) appears in ``delegated`` instead, so a
+    reader can tell "ran and found nothing" from "not this executor's slice".
+    Carries no user key: it is logged, and the logs must not name the subject
+    beyond what the calling path already logs.
+    """
+
+    steps: list[ErasureStepOutcome] = Field(default_factory=list)
+    rules: list[ErasureRuleOutcome] = Field(default_factory=list)
+    delegated: list[str] = Field(default_factory=list)
+    #: Declared collections the database does not have. They hold no rows, so
+    #: nothing is lost by skipping them; they are listed so the skip is visible.
+    absent_collections: list[str] = Field(default_factory=list)
+
+    def affected(self, collection: str) -> int:
+        """Rows the step named *collection* reached (``0`` when it did not run)."""
+        return sum(step.affected for step in self.steps if step.collection == collection)
+
+
+class AccountErasureReport(BaseModel):
+    """The full account-erasure run: pre-ArangoDB phases plus the executor (#1664).
+
+    Returned by :meth:`PrivacyService.erase_account`, the one entry both
+    account-deletion paths share. ``delegated_removed`` holds, per declared
+    step, the rows an executor *other* than the ArangoDB one removed — today the
+    REQ-010 pest-image cleanup (``pest_image_cleanup``), which drops the link
+    documents itself because it must retract a promoted image's recognition
+    embedding first. The executor's own pass over the same step is the safety
+    net and normally finds nothing left.
+    """
+
+    storage_cleanup_scopes: list[str] = Field(default_factory=list)
+    reference_index_removed: int = 0
+    export_files_removed: int = 0
+    delegated_removed: dict[str, int] = Field(default_factory=dict)
+    arango: ErasureExecutionReport = Field(default_factory=ErasureExecutionReport)
+
+    def affected(self, collection: str) -> int:
+        """Rows every phase together removed from the declared step *collection*."""
+        return self.arango.affected(collection) + self.delegated_removed.get(collection, 0)
 
 
 # ── Privacy-policy response models ─────────────────────────────────
