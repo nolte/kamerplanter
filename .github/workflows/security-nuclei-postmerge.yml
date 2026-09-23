@@ -160,11 +160,21 @@ jobs:
     # or an explicit dispatch — is one this job should run for, and a condition
     # that can never be false is a gate that cannot fail (NFR-018 §2).
     runs-on: ubuntu-latest
+    # NO WRITE SCOPE HERE — AND THAT IS THE POINT (#1614).
+    # This job checks out `refs/pull/<n>/merge` on a dispatch, which is
+    # untrusted code, and it used to hold `security-events: write` AND
+    # `issues: write` while doing so. Nothing reachable escalated through it —
+    # the issue step was gated on `github.event_name == 'push'` — but a single
+    # `if:` on a single step was the whole distance between the untrusted tree
+    # and a writable token. Both writes now live in `report-findings` below,
+    # which checks out this workflow's own trusted ref and never the pull
+    # request's, so the permissions and the tree never share a runner.
     permissions:
       contents: read
-      security-events: write
-      # Only the post-merge lane opens issues; see the last step.
-      issues: write
+    outputs:
+      # The report job downloads this run's artefact by name; the name is
+      # derived from the COMMIT THAT WAS SCANNED, not from `github.sha`.
+      label: ${{ steps.target.outputs.label }}
     # NFR-014 §4.1 used to budget 15 minutes. The measured run is 16-19,
     # dominated by building the backend and frontend images from source rather
     # than by scanning (§3.1 budgets the scan itself at < 5 min). The budget
@@ -180,6 +190,14 @@ jobs:
           # input would be accepted and silently ignored — #1607's own shape,
           # one level down. `''` is checkout's own default for `ref`.
           ref: ${{ github.event.inputs.pull_request && format('refs/pull/{0}/merge', github.event.inputs.pull_request) || '' }}
+          # checkout's default is `true`, which writes the job token into
+          # `.git/config` as an `http.extraheader` — inside the tree this job
+          # then builds and runs as containers. Nothing after this step needs
+          # it: the only `git` calls are `git rev-parse HEAD` and the template
+          # clone below, which targets a PUBLIC repository through a fresh
+          # `git clone` into a new working copy that does not inherit this
+          # repository's local config.
+          persist-credentials: false
 
       - name: Record the scan target
         id: target
@@ -424,26 +442,6 @@ jobs:
             --json-out "$GITHUB_WORKSPACE/nuclei-coverage.json" \
             --write-empty-sarif "$GITHUB_WORKSPACE/results.sarif"
 
-      # The two SARIF categories keep their historic names on purpose, even
-      # though the workflow and the job were renamed. A Code Scanning category
-      # is the key under which alerts are resolved: renaming it would orphan
-      # every existing alert from the old category — they would stay open
-      # forever, unmeasured, looking current. Exactly the failure class
-      # NFR-018 §1 catalogues.
-      - name: Upload SARIF (HTTP scan) to Code Scanning
-        if: always() && hashFiles('results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
-        with:
-          sarif_file: results.sarif
-          category: nuclei-pr-http
-
-      - name: Upload SARIF (OpenAPI scan) to Code Scanning
-        if: always() && hashFiles('openapi-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
-        with:
-          sarif_file: openapi-results.sarif
-          category: nuclei-pr-openapi
-
       - name: Archive raw results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -497,11 +495,84 @@ jobs:
           done
           exit "$fail"
 
+  # ── The writes live here, and nothing untrusted does (#1614) ───────────
+  # This job holds `security-events: write` and `issues: write`. Its only
+  # checkout is this workflow's OWN ref — the branch the push landed on, or
+  # the ref the dispatch was started from — never `refs/pull/<n>/merge`. The
+  # pull-request tree the scan job resolved does not exist on this runner.
+  #
+  # Why it checks out at all: `github/codeql-action/upload-sarif` resolves a
+  # source root from the workspace. The Nuclei SARIF describes URLs on the
+  # ephemeral stack rather than files in this repository, so the source root
+  # only has to be a valid checkout — but an absent one is a warning path
+  # this lane has never exercised, and a scan's only reporting channel is not
+  # the place to find out.
+  #
+  # `continue-on-error` on the download is load-bearing and is NOT a way of
+  # ignoring a failure: the `hashFiles()` guards below and the script's own
+  # missing-file branch distinguish "produced nothing" (a failure) from
+  # "produced an empty result" (a real clean run), and a hard-failing
+  # download would collapse the first into an infrastructure error before
+  # either could say so.
+  #
+  # gate-integrity-ok: the scan's pass/fail verdict stays in `nuclei-scan` — the
+  # "Fail on High/Critical findings" step — and reddens the run on its own. This
+  # job publishes that verdict; it does not re-derive it, and its own failure
+  # modes (a SARIF upload that errors, `core.setFailed` on an absent results
+  # file) still redden it. `needs.nuclei-scan.result` is deliberately absent
+  # from the `if:` — the job must run when the scan failed, because a partial
+  # scan is when a finding most needs its channel.
+  report-findings:
+    name: Publish SARIF and open issues
+    needs: nuclei-scan
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the scan results
+        # gate-integrity-ok: an absent results file is judged by the steps
+        # below, which fail the job for it. Failing here instead would collapse
+        # "the scan produced nothing" into "the download broke".
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: nuclei-scan-results-${{ needs.nuclei-scan.outputs.label }}
+          path: .
+
+      # The two SARIF categories keep their historic names on purpose, even
+      # though the workflow and the job were renamed. A Code Scanning category
+      # is the key under which alerts are resolved: renaming it would orphan
+      # every existing alert from the old category — they would stay open
+      # forever, unmeasured, looking current. Exactly the failure class
+      # NFR-018 §1 catalogues.
+      - name: Upload SARIF (HTTP scan) to Code Scanning
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: results.sarif
+          category: nuclei-pr-http
+
+      - name: Upload SARIF (OpenAPI scan) to Code Scanning
+        if: always() && hashFiles('openapi-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: openapi-results.sarif
+          category: nuclei-pr-openapi
+
       # The consumer of the signal. Without this the only channel for a
       # post-merge finding is a red run in the Actions tab — precisely the alarm
       # that failed unnoticed for the nightly for months (see the header of
-      # `security-nuclei-nightly.yml`). Push lane only: on a labelled pull
-      # request the failing job IS the channel, and an issue would be noise.
+      # `security-nuclei-nightly.yml`). Push lane only: on a dispatched
+      # pre-merge scan the failing job IS the channel, and an issue would be
+      # noise.
       - name: Open issue for new High/Critical findings
         if: always() && github.event_name == 'push'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
