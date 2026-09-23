@@ -192,7 +192,31 @@ export async function initErrorTracking(): Promise<boolean> {
       // It is deliberately not silent: an unattributable release makes
       // regression detection impossible, and `@dev` says so in the tracker.
       release: config.SENTRY_RELEASE || 'kamerplanter-frontend@dev',
-      sendDefaultPii: false,
+      // Explicit because the SDK's own defaults are permissive: Sentry 11
+      // removed `sendDefaultPii` and, with `dataCollection` left unset, now
+      // collects user info (IP), cookies, headers, bodies and query data by
+      // default (MIGRATION.md, "`sendDefaultPii` is replaced by
+      // `dataCollection`"). Every category is switched off by name, which is
+      // stricter than the old `sendDefaultPii: false` bridge (that kept
+      // deny-listed headers/cookies/query params and stack-frame variables).
+      // Option names are quoted from `DataCollection` in
+      // `@sentry/core/build/types/types/datacollection.d.ts` (present since
+      // 10.x, so this compiles on develop's current version and on 11).
+      // `queues` (v11-only, server-side messaging instrumentation) is not in
+      // the 10.x typings and has no browser reader, so it is not listed.
+      // `frameContextLines` is source code around a frame, not personal data,
+      // and stays at the SDK default.
+      dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpHeaders: { request: false, response: false },
+        httpBodies: [],
+        urlQueryParams: false,
+        graphQL: { document: false, variables: false },
+        genAI: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        stackFrameVariables: false,
+      },
       sampleRate: resolveSampleRate(config.SENTRY_SAMPLE_RATE),
       // Performance tracing stays advisory per the observability spec and is
       // off until someone decides to adopt it.
