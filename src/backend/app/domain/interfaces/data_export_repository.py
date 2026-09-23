@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import UserKey
 from app.domain.models.privacy import DataExportRequest, DataExportRequestKey
@@ -16,6 +17,19 @@ class IDataExportRepository(ABC):
 
     @abstractmethod
     def update(self, key: DataExportRequestKey, export_request: DataExportRequest) -> DataExportRequest: ...
+
+    @abstractmethod
+    def update_fields(self, key: DataExportRequestKey, fields: dict[str, Any]) -> DataExportRequest:
+        """Merge exactly ``fields`` into the record, preserving ``None`` values.
+
+        The export pipeline writes through this rather than through
+        :meth:`update`: the repository merges, so a field set to ``None`` on a
+        full model never reaches the payload and a clear that was meant to
+        happen silently does not (#1506). It is also the lost-update-safe write
+        for a record whose read and write are separated by a collection walk and
+        an object-storage upload (#1525).
+        """
+        ...
 
     @abstractmethod
     def list_by_user(self, user_key: UserKey) -> list[DataExportRequest]: ...

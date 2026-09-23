@@ -20,6 +20,7 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
 from app.domain.services.privacy_service import PrivacyService
+from tests.support.privacy_doubles import FakeDataExportRepo
 
 USER = "u-42"
 
@@ -74,10 +75,10 @@ class _InMemoryStorage:
 
 
 def _make_service(export: DataExportRequest, storage, personal_data_repo, **overrides) -> PrivacyService:
-    export_repo = MagicMock()
-    export_repo.get_by_key.return_value = export
-    export_repo.get_or_raise.return_value = export
-    export_repo.update.side_effect = lambda _key, value: value
+    # A faithful double, not a MagicMock: this repository *merges*, so `update`
+    # drops a `None` and `update_fields` keeps it. A MagicMock has neither
+    # behaviour and would green-light a write that cannot land (#1506).
+    export_repo = FakeDataExportRepo(export)
     deps = {
         "export_repo": export_repo,
         "consent_repo": MagicMock(),
@@ -177,7 +178,7 @@ class TestTheBundleReachesTheUser:
         assert storage.objects
 
         export.status = "expired"
-        svc._export_repo.expire_old.return_value = [export]
+        svc._export_repo.expire_old_result = [export]
         await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
 
         assert storage.objects == {}

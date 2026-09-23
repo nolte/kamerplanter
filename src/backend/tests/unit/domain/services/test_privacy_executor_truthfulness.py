@@ -26,6 +26,7 @@ from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import DataExportRequest, ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
+from tests.support.privacy_doubles import FakeDataExportRepo
 
 
 def _make_service(**overrides) -> PrivacyService:
@@ -58,12 +59,9 @@ def _pending_export(key: str = "exp-1", user_key: str = "u-1") -> DataExportRequ
     )
 
 
-def _recording_export_repo(export: DataExportRequest) -> MagicMock:
-    repo = MagicMock()
-    repo.get_by_key.return_value = export
-    repo.get_or_raise.return_value = export
-    repo.update.side_effect = lambda _key, value: value
-    return repo
+def _recording_export_repo(export: DataExportRequest) -> FakeDataExportRepo:
+    """A double that honours the repository's real merge semantics (#1506)."""
+    return FakeDataExportRepo(export)
 
 
 @pytest.mark.asyncio

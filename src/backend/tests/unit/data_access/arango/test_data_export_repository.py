@@ -92,10 +92,18 @@ class TestDelete:
 
 
 class TestExpireOld:
-    def test_counts_expired(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([1])
+    def test_returns_the_expired_records_not_a_count(self, repo, mock_db):
+        """#1645 — the caller has to delete each bundle, and a count names no file.
 
-        assert repo.expire_old("2026-06-14T00:00:00Z") == 1
+        NFR-011 R-05 is "delete the file *and* set the status"; returning `1`
+        made the second half unimplementable, which is why the objects stayed in
+        storage after their request expired.
+        """
+        mock_db.aql.execute.return_value = iter([_doc(), _doc(_key="de2")])
+
+        expired = repo.expire_old("2026-06-14T00:00:00Z")
+
+        assert [export.key for export in expired] == ["de1", "de2"]
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"
 
 

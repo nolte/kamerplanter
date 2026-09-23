@@ -64,6 +64,19 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+def _persistable(fields: dict[str, object]) -> dict[str, object]:
+    """Serialise a named-field write the way the full-model path serialises.
+
+    ``update_fields`` hands its dict to the driver untouched — that is its
+    documented caller obligation — while ``_to_doc`` runs a full model through
+    pydantic. A raw ``datetime`` therefore reaches python-arango and raises
+    ``Object of type datetime is not JSON serializable``; and a value that
+    serialised *differently* would be worse, because the same field would then
+    round-trip as one type when written narrowly and another when written whole.
+    """
+    return {key: (value.isoformat() if isinstance(value, datetime) else value) for key, value in fields.items()}
+
+
 async def _single_chunk(payload: bytes) -> AsyncIterator[bytes]:
     """Adapt a fully-built bundle to the adapter's streaming ``put_object``."""
     yield payload
@@ -803,9 +816,24 @@ class PrivacyService:
         manifest = self._data_export_engine.build_export_manifest(export.user_key)
         export.manifest_collections = [source.collection for source in manifest]
 
+        # Narrow writes throughout this method (#1506 / #1525). A full-model
+        # write-back is wrong here twice over: `ArangoDataExportRepository` is in
+        # **merge** mode, so a field set to ``None`` never reaches the payload and
+        # the stored value survives a clear that meant to happen; and the walk plus
+        # the storage upload below sit between the read and the write, which is
+        # exactly the window in which a full model goes stale.
         export.status = "processing"
         export.processing_started_at = datetime.now(UTC)
-        export = self._export_repo.update(export_key, export)
+        export = self._export_repo.update_fields(
+            export_key,
+            _persistable(
+                {
+                    "status": export.status,
+                    "processing_started_at": export.processing_started_at,
+                    "manifest_collections": export.manifest_collections,
+                }
+            ),
+        )
 
         try:
             return await self._build_export_bundle(export, manifest)
@@ -867,12 +895,19 @@ class PrivacyService:
             metadata={"user_key": export.user_key, "export_key": export.key},
         )
 
-        export.file_path = object_key
-        export.file_size_bytes = len(payload)
-        export.status = "completed"
-        export.completed_at = now
-        export.expires_at = now + timedelta(hours=self.EXPORT_TTL_HOURS)
-        export.error_message = None
+        completion = {
+            "file_path": object_key,
+            "file_size_bytes": len(payload),
+            "status": "completed",
+            "completed_at": now,
+            "expires_at": now + timedelta(hours=self.EXPORT_TTL_HOURS),
+            # A retry after a failed run must not complete while still carrying
+            # the old reason. ``update_fields`` writes ``keep_none=True``, so
+            # this clear actually lands; through ``update`` it would not.
+            "error_message": None,
+        }
+        for field, value in completion.items():
+            setattr(export, field, value)
         logger.info(
             # Distinct from the task-level ``.completed`` in ``retention_tasks``:
             # this one is the claim that bytes exist, and it carries their size.
@@ -883,7 +918,7 @@ class PrivacyService:
             records=sum(len(rows) for _source, rows in sections),
             file_size_bytes=export.file_size_bytes,
         )
-        return self._export_repo.update(export.key, export)
+        return self._export_repo.update_fields(export.key, _persistable(completion))
 
     async def open_export_bundle(
         self, user_key: UserKey, export_key: str
@@ -918,7 +953,10 @@ class PrivacyService:
         )
         if export.key is None:  # pragma: no cover - persisted records always carry a key
             return export
-        return self._export_repo.update(export.key, export)
+        return self._export_repo.update_fields(
+            export.key,
+            {"status": "failed", "error_message": reason},
+        )
 
     async def execute_scheduled_erasures(self, now: datetime) -> int:
         """Hard-delete users whose 90-day soft-delete grace expired.
@@ -1258,10 +1296,17 @@ class PrivacyService:
                     error=str(exc),
                 )
                 continue
+            # ``update_fields`` (``keep_none=True``), not ``update``: this
+            # repository merges, so a ``None`` on a full model never reaches the
+            # payload and the record would keep pointing at an object that has
+            # just been deleted.
+            if export.key:
+                self._export_repo.update_fields(
+                    export.key,
+                    {"file_path": None, "file_size_bytes": None},
+                )
             export.file_path = None
             export.file_size_bytes = None
-            if export.key:
-                self._export_repo.update(export.key, export)
         if expired:
             logger.info(
                 "retention.expire_data_exports.completed",
