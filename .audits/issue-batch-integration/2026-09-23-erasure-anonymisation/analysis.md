@@ -151,6 +151,10 @@ kein neues Issue.
 | #1664 | fullstack-developer | Reach-Test neu | `8 passed`; pro Schritt 1 Zeile, `_anonymize_collections` 8, `_pseudonymize_audit_collections` 1; zweiter Lauf überall 0; Gegenprobe ohne Transaktion rot |
 | #1664 | fullstack-developer | `pytest tests/unit tests/api` | `12204 passed, 20 skipped` |
 | #1664 | Orchestrator-Nachprüfung auf `9c9aacf91` | Reach-Test + `tests/unit/domain/services tests/unit/api/test_admin_platform_erasure_routing.py -k "privacy or erasure"` | `8 passed, 1 warning in 1.87s`; `113 passed, 2052 deselected` |
+| #1645 | fullstack-developer | `tests/integration/test_self_service_erasure_reach.py` gegen alten HEAD | `6 failed, 1 passed` (`27 survivors`, `'user-a' == 'anon_48099593a3b59952'`) |
+| #1645 | fullstack-developer | Guard-Tests gegen altes Skript / Truthfulness gegen alten Service | `5 failed, 19 passed` / `5 failed, 6 passed` |
+| #1645 | fullstack-developer | `pytest tests/unit tests/api` | `12221 passed, 20 skipped` |
+| #1645 | Orchestrator-Nachprüfung auf `5446686c0` | beide Reach-Tests + `check_privacy_inventory.py` | `15 passed, 1 warning in 2.88s`; `privacy inventory: one enumeration, attributed and read by the executing path.` |
 
 ## Deviations
 
@@ -166,3 +170,7 @@ kein neues Issue.
 | #1664 | local adaptation | `erase_account` löscht Art.-15-Export-Dateien vor dem Executor (sonst verwaiste Dateien nach Löschung von `data_export_requests`). `UserService.delete_account_permanently` und `IMembershipRepository.delete_all_for_user` entfernt (eine Ausführung statt Kopie). |
 | #1664 | local adaptation | Stream-Transaktion über alle Collections; ohne gültiges `ERASURE_TOMBSTONE_SALT` → 503 vor jedem Schreibzugriff. Prod: Salt ist bereits Boot-Blocker bei `DEBUG=false`; E2E-Compose setzt es; nur der Dev-Stack (`DEBUG=true`) ohne Salt sieht jetzt 503 statt stiller Nicht-Anonymisierung. |
 | #1664 | out of scope → Folge-Issue | `pest_image_contributions.promoted_by`, `attachments.created_by` nach Byte-Löschung, `location_assignments.user_key`, Unverified-Cleanup ohne Memberships. |
+| #1664 | local adaptation | Folge-Issue angelegt: #1700. |
+| #1645 | local adaptation | `retention_worker` + `membership_cascade` → ein Executor `account_erasure`; `run_user_storage_erasure` entfernt (kein Aufrufer mehr); R1-Menge liest `ErasureExecutor`-Alias statt Kopie. Tombstone-Guard gegen hash(hash) nach verlorenem Status-Write. |
+| #1645 | local adaptation | Plan-Annahme „beide Pfade 503 ohne Salt“ gilt nur für den Admin-Pfad; Beat-Pfad lässt den Antrag `partially_completed`. #1666 Befund 1 schrumpft auf den Dauerfehlerfall (kein Zähler, Error-Log jede Nacht). |
+| #1645 | out of scope | AK-08a: `deleted_collections`/`anonymized_collections` jetzt befüllt, aber das Frontend zeigt keine der Listen → UI-Lücke bleibt; an #1666 bzw. eigenes Issue. |
