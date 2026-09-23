@@ -121,9 +121,49 @@ but not deleted (Art. 17(3)(b)):
 
 !!! danger "Deletion lock"
     Deleting an active harvest or treatment record would violate the CanG (German Cannabis Act) or PflSchG (German Plant Protection Act).
-    The system prevents this technically — on an erasure request, the user reference
-    (`user_key`) is set to `null`; the record itself remains until the statutory
-    period has elapsed.
+    Account deletion therefore does not delete these records; it only removes the
+    personal reference. The record itself remains until the statutory period has elapsed.
+
+### What an anonymized record looks like
+
+The account reference is not set to `null`; it is replaced. Its new form depends on
+whether the erased account's records must stay linkable to each other for an audit:
+
+| Record | Field holding the account reference | Replaced by | Also emptied |
+|--------|-------------------------------------|-------------|--------------|
+| Harvest (HarvestBatch) | `harvested_by_key` | Tombstone hash `anon_…` | `harvester` |
+| Quality assessment (QualityAssessment) | `assessed_by_key` | Tombstone hash `anon_…` | `assessed_by` |
+| Treatment (TreatmentApplication) | `applied_by_key` | Tombstone hash `anon_…` | `applied_by` |
+| Inspection (Inspection) | `inspected_by_key` | Tombstone hash `anon_…` | `inspector` |
+| Task (Task) | `assigned_to_user_key` | Marker `_anonymized` | — |
+| Diary entry (PlantDiaryEntry) | `created_by`, `analysis_requested_by`, `analysis_claimed_by` | Marker `_anonymized` | — |
+| Erasure audit (ErasureRequest) | `user_key` | Tombstone hash `anon_…` | — |
+
+- The **tombstone hash** is `anon_` followed by 16 hex characters. It is derived from the
+  account key and the secret salt `ERASURE_TOMBSTONE_SALT`, cannot be reversed, and is
+  always the same for the same account. The harvests, treatments and inspections of an
+  erased account therefore stay linkable to each other for an audit without naming anyone.
+- The **name fields** (`harvester`, `assessed_by`, `applied_by`, `inspector`) are free
+  text someone typed in when recording. A name is personal data on its own, so they are
+  emptied in the same step.
+- **Quality assessments** are part of the harvest documentation and are now anonymized
+  exactly like the harvest itself. They also appear in your data access report
+  (GDPR Art. 15).
+- **Yield metrics** (YieldMetric) carry no account reference, so there is nothing to
+  anonymize.
+
+!!! warning "Older records without an account reference"
+    Harvests, treatments, inspections and quality assessments carry the account-reference
+    field only since a migration. Records written before it hold `null` there and only the
+    typed-in name. The system does not guess an owner from free text, so account deletion
+    does not reach these older records; their name field stays as it was entered.
+
+!!! note "Partially available: deletion path"
+    The full anonymization runs today when a platform admin deletes an account through
+    user management. If you file an erasure request yourself, the scheduled run after the
+    90 days so far only cleans object storage and the reference index. The request then
+    stays open as `partially_completed` and is retried daily until that path runs the
+    anonymization as well.
 
 ---
 
@@ -217,7 +257,7 @@ procedure applies:
 flowchart TD
     A["Erasure request Art. 17"] --> B{"Statutory retention<br/>obligation?"}
     B -- "No" --> C["Immediately: Hard-delete<br/>or Soft-delete + 90d"]
-    B -- "Yes (CanG, PflSchG)" --> D["Anonymization:<br/>user_key = null<br/>Record remains"]
+    B -- "Yes (CanG, PflSchG)" --> D["Anonymization:<br/>account key → anon_… hash<br/>name fields emptied<br/>Record remains"]
     D --> E["After period elapses:<br/>Automatic hard-delete<br/>via Celery task"]
 ```
 
@@ -226,8 +266,10 @@ flowchart TD
 | User account | Soft-delete → hard-delete after 90 days |
 | Consent records | Delete immediately (on revocation) |
 | Export files | Delete immediately |
-| Harvest data, treatments, inspections | Anonymize, do not delete (Art. 17(3)) |
-| Shared tenant data (pins, shopping lists) | Anonymize user reference, content remains |
+| Harvest data, quality assessments, treatments, inspections | Anonymize (tombstone hash `anon_…`, name fields emptied), do not delete (Art. 17(3)) |
+| Tasks and diary entries in a (possibly shared) garden | Replace the account reference with `_anonymized`, content remains |
+| Erasure audit | Replace the account reference with the tombstone hash, keep for 1 year |
+| Memberships, sessions, API keys, consents, export requests, favorites, pest detections, own pest photos | Delete |
 
 ---
 
