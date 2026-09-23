@@ -170,6 +170,13 @@ class DataSourceDefinition(BaseModel):
     15(1) is a right to know which categories exist), the bundle carries the
     reason, and the walk never queries it — an empty result would read exactly
     like "no data here", which is the silence #1645 removes.
+
+    ``attribution_gap`` is the partial form of the same honesty (#1669): the
+    source *is* disclosed by ``filter_field``, but rows written before that
+    field existed carry ``null`` there and can never be matched to the subject.
+    The bundle states this beside the delivered records, so a subject who knows
+    they harvested in 2025 learns why that harvest is not in the file rather
+    than reading the section as complete.
     """
 
     collection: str
@@ -179,6 +186,7 @@ class DataSourceDefinition(BaseModel):
     edge_collection: str | None = None
     tenant_scoped: bool = False
     disclosure_gap: str | None = None
+    attribution_gap: str | None = None
 
 
 #: Who removes an :class:`ErasureStep` at runtime. Closed on purpose: a step
@@ -214,11 +222,29 @@ class ErasureStep(BaseModel):
 
 
 class AnonymizationRule(BaseModel):
-    """Rule for replacing user references with an anonymous marker."""
+    """Rule for removing a user's identity from a document that is retained.
+
+    ``user_field`` is the field the executor **matches** the subject on and then
+    rewrites; it must therefore carry a user key, never free text — a rule
+    keyed on a typed-in name matches whatever was typed and is inert with
+    respect to the account being erased (#1663, measured on #1662).
+
+    ``replacement_strategy`` says what the key becomes: ``"marker"`` writes
+    ``anonymized_value``; ``"tombstone_hash"`` writes the deterministic
+    :meth:`ErasureEngine.compute_tombstone_hash`, so the erased user's
+    retained records stay linkable to *each other* (CanG / PflSchG audit) while
+    no longer naming anyone.
+
+    ``clear_fields`` are the free-text companions of the key (``harvester``,
+    ``inspector``, ``applied_by``) that are emptied in the same write: a display
+    name is personal data on its own and would otherwise outlive the account.
+    """
 
     collection: str
     user_field: str
     anonymized_value: str = "[deleted]"
+    replacement_strategy: Literal["marker", "tombstone_hash"] = "marker"
+    clear_fields: list[str] = Field(default_factory=list)
     reason: str
 
 

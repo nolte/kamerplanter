@@ -152,7 +152,13 @@ class PestDetectionService:
 
     # ── IPM bridge (§4.1 / REQ-010) — inspection only, never a treatment ──
 
-    def create_inspection(self, detection_key: str, *, tenant_key: str, plant_key: str) -> dict:
+    def create_inspection(self, detection_key: str, *, tenant_key: str, plant_key: str, user_key: str) -> dict:
+        """Turn a confirmed detection into a REQ-010 inspection.
+
+        ``user_key`` is the account that confirmed the detection and becomes
+        ``inspected_by_key`` (#1669) — keyword-only and without a default, so a
+        caller cannot create an inspection nobody is attributed to.
+        """
         detection = self._repo.get(detection_key, tenant_key)
         if detection is None:
             raise NotFoundError("PestDetection", detection_key)
@@ -171,6 +177,7 @@ class PestDetectionService:
             tenant_key=tenant_key,
             plant_key=plant_key,
             inspector="",
+            inspected_by_key=user_key,
             pressure_level=self._pressure_from_confidence(max_conf),
             detected_pest_keys=pest_keys,
             symptoms_observed=symptoms,

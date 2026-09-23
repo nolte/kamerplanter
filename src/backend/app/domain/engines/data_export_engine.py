@@ -5,20 +5,23 @@ from typing import Any
 
 from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
 
-#: Why three legally-retained categories cannot be disclosed per subject today.
-#: ``harvest_batches.harvester``, ``inspections.inspector`` and
-#: ``treatment_applications.applied_by`` are ``str`` fields filled from the
-#: request body (``max_length=200``, freely editable, never overwritten with
-#: ``current_user.key``); the MCP path writes ``mcp:<account_key>``. Nothing in
-#: the model says *which user* did the work, so a walk keyed on the subject
-#: matches nothing — and an empty section is indistinguishable from "no data".
-#: A user-key field on those models is a migration and its own change; until
-#: then the bundle says this instead of being silently empty.
-_FREE_TEXT_ATTRIBUTION_GAP = (
-    "The system records who harvested, inspected or treated as free text (a name "
-    "typed in, or 'mcp:<account>' from an integration), not as your account. These "
-    "records cannot be attributed to you and are not included here. They are retained "
-    "under CanG / PflSchG and the free-text reference is anonymised on erasure."
+#: Why the three legally-retained categories are only *partly* disclosable.
+#: Since #1669 every create path stores the caller's account in
+#: ``harvest_batches.harvested_by_key``, ``inspections.inspected_by_key`` and
+#: ``treatment_applications.applied_by_key``, and the walk keys on those. Rows
+#: written before that field existed carry ``null`` there (stamped by v0056):
+#: their only attribution is the free text (``harvester`` etc. — a typed-in
+#: name, or ``mcp:<account>``), which is deliberately **not** used to guess an
+#: owner. Those rows can never be matched to a subject, so the bundle says so
+#: beside the rows it does deliver rather than presenting the section as
+#: complete. (Before #1669 the whole category carried a ``disclosure_gap``.)
+_LEGACY_ATTRIBUTION_GAP = (
+    "Records of this kind created before the system started storing the acting "
+    "account (migration v0056) carry only a free-text name and are not attributed "
+    "to any account. Such records cannot be matched to you and are not "
+    "included here, even if the free text names you. They are retained under CanG / "
+    "PflSchG; the free-text reference is cleared on erasure only for records that "
+    "carry your account."
 )
 
 
@@ -135,9 +138,10 @@ class DataExportEngine:
         DataSourceDefinition(
             collection="harvest_batches",
             tenant_scoped=True,
-            # #1662 SCR-001 — measured: no write path stores a user key here.
-            disclosure_gap=_FREE_TEXT_ATTRIBUTION_GAP,
-            filter_field="harvester",
+            # #1669 — server-set on every create path (REST + MCP); ``harvester``
+            # is the display name and never a key. Pre-#1669 rows carry ``null``.
+            filter_field="harvested_by_key",
+            attribution_gap=_LEGACY_ATTRIBUTION_GAP,
             label="Harvest records",
             # Previously ["name", "status", "started_at", "completed_at"] — not
             # one of those four exists on HarvestBatch.
@@ -154,9 +158,11 @@ class DataExportEngine:
         DataSourceDefinition(
             collection="inspections",
             tenant_scoped=True,
-            # #1662 SCR-001 — measured: no write path stores a user key here.
-            disclosure_gap=_FREE_TEXT_ATTRIBUTION_GAP,
-            filter_field="inspector",
+            # #1669 — server-set on every create path (REST, MCP, the
+            # pest-detection and CV-diagnosis bridges); ``inspector`` is the
+            # display name. Pre-#1669 rows carry ``null``.
+            filter_field="inspected_by_key",
+            attribution_gap=_LEGACY_ATTRIBUTION_GAP,
             label="Inspection records",
             # ``inspected_at`` (not ``performed_at``); the "findings" of an
             # inspection are ``symptoms_observed`` + the detected keys.
@@ -172,10 +178,11 @@ class DataExportEngine:
         DataSourceDefinition(
             collection="treatment_applications",
             tenant_scoped=True,
-            # #1662 SCR-001 — measured: no write path stores a user key here.
-            disclosure_gap=_FREE_TEXT_ATTRIBUTION_GAP,
-            # ``applied_by`` — the model has never had ``applicator``.
-            filter_field="applied_by",
+            # #1669 — server-set on the one create path (REST); ``applied_by``
+            # is the display name (the model never had ``applicator``).
+            # Pre-#1669 rows carry ``null``.
+            filter_field="applied_by_key",
+            attribution_gap=_LEGACY_ATTRIBUTION_GAP,
             label="Treatment applications",
             # ``dosage`` (not ``dose``).
             fields=["treatment_key", "plant_key", "applied_at", "dosage", "notes"],
@@ -222,7 +229,7 @@ class DataExportEngine:
     #: Bumped when the bundle's shape changes, so a downloaded file stays
     #: interpretable without guessing which version produced it (Art. 20
     #: portability: the recipient is not necessarily this system).
-    BUNDLE_FORMAT_VERSION = "1.0"
+    BUNDLE_FORMAT_VERSION = "1.1"
 
     def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
         """Return the full export manifest for the given user."""
@@ -245,6 +252,8 @@ class DataExportEngine:
         makes that explicit for a reader who is not counting array entries. A
         source with a ``disclosure_gap`` appears with ``disclosed: false`` and
         the reason, so the reader learns *why* rather than seeing an empty list.
+        A source with an ``attribution_gap`` is disclosed, and the section says
+        which of its rows can never be in it (#1669: pre-attribution rows).
         """
         return {
             "format_version": self.BUNDLE_FORMAT_VERSION,
@@ -259,6 +268,7 @@ class DataExportEngine:
                     "fields": list(source.fields),
                     "disclosed": source.disclosure_gap is None,
                     "not_disclosed_reason": source.disclosure_gap,
+                    "attribution_gap": source.attribution_gap,
                     "record_count": len(records),
                     "records": records,
                 }

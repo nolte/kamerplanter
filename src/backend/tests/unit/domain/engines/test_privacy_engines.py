@@ -122,6 +122,53 @@ class TestDataExportEngine:
         assert projected["text"] == "Untere Blätter zeigen braune Flecken."
         assert projected["created_at"] == datetime(2026, 8, 4, 9, 0, tzinfo=UTC)
 
+    def test_the_three_retained_categories_are_keyed_on_the_server_set_account_field(self):
+        """#1669 — disclosed by key, with the pre-attribution rows stated as a gap.
+
+        Before #1669 these three carried a ``disclosure_gap`` and were keyed on
+        the free-text name (``harvester`` …), which no writer fills from an
+        account. The key field is server-set on every create path; the gap
+        that remains is the rows written before it existed, and the manifest
+        must say so rather than presenting the section as complete.
+        """
+        engine = DataExportEngine()
+        by_collection = {e.collection: e for e in engine.build_export_manifest("u1")}
+        expected = {
+            "harvest_batches": "harvested_by_key",
+            "inspections": "inspected_by_key",
+            "treatment_applications": "applied_by_key",
+        }
+        for collection, key_field in expected.items():
+            entry = by_collection[collection]
+            assert entry.filter_field == key_field, collection
+            assert entry.disclosure_gap is None, collection
+            assert entry.attribution_gap, f"{collection}: the legacy null rows must be stated"
+            assert entry.tenant_scoped is True, collection
+            # The display name is not what the walk keys on, and it is not
+            # delivered as if it were an attribution.
+            assert entry.filter_field not in ("harvester", "inspector", "applied_by")
+        # No production source is undisclosable any more; the mechanism stays
+        # (``DataSourceDefinition.disclosure_gap``) for a future category.
+        assert not [e.collection for e in by_collection.values() if e.disclosure_gap]
+
+    def test_the_bundle_states_the_attribution_gap_beside_the_delivered_rows(self):
+        engine = DataExportEngine()
+        source = next(e for e in engine.USER_DATA_MANIFEST if e.collection == "harvest_batches")
+
+        bundle = engine.build_bundle(
+            "u1",
+            datetime(2026, 9, 23, tzinfo=UTC),
+            [(source, [{"batch_id": "HB-1"}])],
+            controller_name="c",
+            controller_email="c@example.invalid",
+        )
+
+        section = bundle["sections"][0]
+        assert section["disclosed"] is True
+        assert section["not_disclosed_reason"] is None
+        assert section["attribution_gap"] == source.attribution_gap
+        assert section["record_count"] == 1
+
     def test_every_manifest_field_exists_on_its_model(self):
         """Guard for the whole manifest, not just the entry REQ-050 touched.
 
@@ -242,11 +289,46 @@ class TestErasureEngine:
         """
         engine = ErasureEngine()
         unknown = [
-            f"{rule.collection}.{rule.user_field}"
+            f"{rule.collection}.{field}"
             for rule in engine.ANONYMIZE_COLLECTIONS
-            if rule.user_field not in _model_field_names(COLLECTION_MODELS[rule.collection])
+            for field in (rule.user_field, *rule.clear_fields)
+            if field not in _model_field_names(COLLECTION_MODELS[rule.collection])
         ]
         assert unknown == []
+
+    def test_the_retention_rules_key_on_the_account_field_and_clear_the_display_name(self):
+        """#1669 / #1663 — the free-text rules were inert and are replaced, not kept.
+
+        A rule keyed on ``harvester`` matched whatever was typed and never the
+        account being erased. The replacement keys on the server-set field,
+        pseudonymises it (the erased user's retained records stay linkable to
+        each other for the CanG / PflSchG audit, without naming anyone) and
+        clears the display name in the same write — a name is personal data on
+        its own. No rule may key on a display field any more.
+        """
+        engine = ErasureEngine()
+        pseudonymised = [rule for rule in engine.ANONYMIZE_COLLECTIONS if rule.replacement_strategy != "marker"]
+        rules = {rule.collection: rule for rule in pseudonymised}
+        expected = {
+            "harvest_batches": ("harvested_by_key", "harvester"),
+            "inspections": ("inspected_by_key", "inspector"),
+            "treatment_applications": ("applied_by_key", "applied_by"),
+        }
+        assert set(rules) == set(expected)
+        for collection, (key_field, display_field) in expected.items():
+            rule = rules[collection]
+            assert rule.user_field == key_field
+            assert rule.replacement_strategy == "tombstone_hash"
+            assert rule.clear_fields == [display_field]
+        display_keyed = [
+            f"{rule.collection}.{rule.user_field}"
+            for rule in engine.ANONYMIZE_COLLECTIONS
+            if rule.user_field in ("harvester", "inspector", "applied_by")
+        ]
+        assert display_keyed == [], "an inert free-text rule survived beside the key rule"
+        # Exactly one rule per retained collection: replaced, not duplicated.
+        for collection in expected:
+            assert sum(1 for rule in engine.ANONYMIZE_COLLECTIONS if rule.collection == collection) == 1
 
     def test_anonymized_collection_names_are_reported_once(self):
         """AK-08a — the confirmation lists categories, not rules."""

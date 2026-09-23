@@ -222,8 +222,24 @@ class TestTheWalkIsBoundToTheSubjectsTenants:
 
 @pytest.mark.asyncio
 class TestUndisclosableCategoriesSaySo:
-    async def test_the_bundle_names_the_reason_instead_of_being_empty(self):
+    async def test_the_bundle_names_the_reason_instead_of_being_empty(self, monkeypatch):
+        """Since #1669 no production source carries a ``disclosure_gap`` (the three
+        retained categories are keyed on their server-set account field), so the
+        mechanism is exercised with a constructed source added to the manifest
+        rather than skipped for lack of one."""
         import json
+
+        from app.domain.models.privacy import DataSourceDefinition
+
+        gapped = DataSourceDefinition(
+            collection="gapped_fixture",
+            tenant_scoped=True,
+            filter_field="whoever",
+            label="x",
+            fields=["notes"],
+            disclosure_gap="cannot be attributed in this fixture",
+        )
+        monkeypatch.setattr(DataExportEngine, "USER_DATA_MANIFEST", [*DataExportEngine.USER_DATA_MANIFEST, gapped])
 
         export = DataExportRequest(key="exp-1", user_key=USER, status="pending")
         repo = FakeDataExportRepo(export)
