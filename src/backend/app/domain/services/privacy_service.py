@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import secrets
+from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -32,6 +34,7 @@ from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.processing_restriction_repository import (
     IProcessingRestrictionRepository,
@@ -44,6 +47,7 @@ from app.domain.models.privacy import (
     ConsentWithPurpose,
     DataControllerInfo,
     DataExportRequest,
+    DataSourceDefinition,
     EmailChangeRequest,
     ErasureRequest,
     PrivacyPolicyInfo,
@@ -58,6 +62,32 @@ if TYPE_CHECKING:
     from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 
 logger = structlog.get_logger()
+
+
+def _persistable(fields: dict[str, object]) -> dict[str, object]:
+    """Serialise a named-field write the way the full-model path serialises.
+
+    ``update_fields`` hands its dict to the driver untouched — that is its
+    documented caller obligation — while ``_to_doc`` runs a full model through
+    pydantic. A raw ``datetime`` therefore reaches python-arango and raises
+    ``Object of type datetime is not JSON serializable``; and a value that
+    serialised *differently* would be worse, because the same field would then
+    round-trip as one type when written narrowly and another when written whole.
+    """
+    return {key: (value.isoformat() if isinstance(value, datetime) else value) for key, value in fields.items()}
+
+
+async def _single_chunk(payload: bytes) -> AsyncIterator[bytes]:
+    """Adapt a fully-built bundle to the adapter's streaming ``put_object``."""
+    yield payload
+
+
+class ExportBundleUnavailableError(RuntimeError):
+    """No Art. 15 bundle could be produced for a request.
+
+    Carried as the ``error_message`` of the ``failed`` record so the requester
+    sees a reason rather than a request that never moves.
+    """
 
 
 # Encryption-engine imported only to keep the dependency-injection signature
@@ -78,6 +108,7 @@ class PrivacyService:
     PRIVACY_POLICY_VERSION = "1.0"
     PRIVACY_POLICY_EFFECTIVE_DATE = date(2026, 4, 27)
     EMAIL_CHANGE_TTL_HOURS = 24
+    #: NFR-011 R-05 — how long a built Art. 15 bundle stays downloadable.
     EXPORT_TTL_HOURS = 72
     HARD_DELETE_DAYS = 90
     # SEC-001 staleness guard: an ``in_progress`` erasure is only re-picked when
@@ -111,6 +142,7 @@ class PrivacyService:
         pest_image_repo: IPestImageRepository | None = None,
         ipm_repo: IIpmRepository | None = None,
         pest_inference_client: PestDetectionInferenceClient | None = None,
+        personal_data_repo: IPersonalDataRepository | None = None,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -146,6 +178,12 @@ class PrivacyService:
         # callers stay unaffected; the retract is a no-op when either is unwired.
         self._ipm_repo = ipm_repo
         self._pest_inference_client = pest_inference_client
+        # REQ-025 Art. 15 — the read side of the declared export manifest.
+        # Optional so non-export callers (and the many tests that construct a
+        # PrivacyService for one unrelated method) stay unaffected; when it is
+        # absent an export run fails *visibly* rather than silently delivering
+        # nothing, which is the whole point of #1645.
+        self._personal_data_repo = personal_data_repo
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -216,15 +254,21 @@ class PrivacyService:
         """Validate an export is downloadable and bump the download counter."""
         export = self.get_export_status(user_key, export_key)
         if export.status != "completed":
-            raise ValidationError(f"Export is not ready for download (status='{export.status}').")
+            # #1645 — a bare status name tells the requester nothing. When the
+            # run recorded why it failed, the refusal carries that reason.
+            detail = f" {export.error_message}" if export.error_message else ""
+            raise ValidationError(f"Export is not ready for download (status='{export.status}').{detail}")
         if export.expires_at and export.expires_at < datetime.now(UTC):
             raise ValidationError("Download link has expired.")
         if not export.file_path:
             raise ValidationError("Export file is not available.")
 
-        export.download_count += 1
+        # An atomic increment, not a full-model write-back: if
+        # ``expire_data_exports`` ran between the read above and this write, a
+        # write-back would resurrect ``completed`` and a ``file_path`` whose
+        # object was just deleted (#1662 SCR-005).
         if export.key:
-            self._export_repo.update(export.key, export)
+            export = self._export_repo.increment_download_count(export.key)
         logger.info(
             "privacy_export_download",
             user_key=user_key,
@@ -486,8 +530,18 @@ class PrivacyService:
         # ``retention.execute_scheduled_erasures`` (app/tasks/__init__.py).
         return created
 
-    def get_erasure_status(self, erasure_key: str) -> ErasureRequest:
+    def get_erasure_status(self, user_key: UserKey, erasure_key: str) -> ErasureRequest:
+        """Return an erasure request, enforcing ownership.
+
+        #1662 SCR-010 — this took only the key, so any authenticated user could
+        read another subject's Art. 17 record (status, timestamps,
+        ``retained_reason``, the deleted-collection lists) by enumerating keys.
+        Foreign ownership reads as *not found*, word for word like the export
+        route, so the response is not an existence oracle either.
+        """
         erasure = self._erasure_repo.get_or_raise(erasure_key)
+        if erasure.user_key != user_key:
+            raise NotFoundError("ErasureRequest", erasure_key)
         return erasure
 
     # ── Art. 18: processing restriction ────────────────────────────
@@ -733,19 +787,34 @@ class PrivacyService:
 
     # ── NFR-011 retention pipeline (Celery-driven) ─────────────────
     # The four hooks below are called by ``app.tasks.retention_tasks``.
-    # They scaffold the retention pipeline so the schedulers wire end
-    # to end; the actual data walk + object-storage cleanup land with
-    # NFR-013 (S3 adapter) — until then these methods short-circuit on
-    # the repository and log the work that *would* happen.
+    # This comment used to say that all four merely "log the work that
+    # *would* happen". That stopped being true for one of them and kept
+    # being true for another — the ambiguity #1645 is about. Precisely:
+    #
+    # * ``process_data_export`` **runs**: it walks the declared Art. 15
+    #   manifest, stores the bundle and serves it (#1645).
+    # * ``execute_scheduled_erasures`` runs Phase 0 / 0.5 only. The
+    #   ArangoDB phases have no executor, so an erasure is recorded
+    #   ``partially_completed`` and stays queued for retry — it does not
+    #   claim to have deleted anything.
+    # * ``expire_email_change_requests`` and ``expire_data_exports`` run.
 
     async def process_data_export(self, export_key: str) -> DataExportRequest | None:
-        """Build the export bundle and flip the request to ``completed``.
+        """Build the export bundle and flip the request to a **terminal** state.
 
-        Pipeline (full implementation depends on NFR-013 object storage):
-        1. Load DataExportRequest
-        2. Walk all user-owned collections → JSON manifest
-        3. Upload to object storage, capture file_path + file_size_bytes
-        4. Set status=completed, expires_at=now+72h (NFR-011 R-05)
+        Pipeline:
+        1. Load the DataExportRequest and take the declared manifest into scope
+        2. Flip ``pending`` → ``processing`` so the run is observable
+        3. Build the bundle and record ``file_path`` / ``file_size_bytes``
+        4. ``completed`` with ``expires_at = now + 72h`` (NFR-011 R-05)
+
+        **#1645 — a run always ends somewhere.** The previous version stopped
+        after step 2 and returned, so an Art. 15 request stayed ``processing``
+        for ever: it neither delivered data nor reported a failure, and nothing
+        on the record or in the API told the requester that the statutory right
+        had not been served. Any failure of step 3/4 now ends the request as
+        ``failed`` with an ``error_message`` the requester reads over
+        ``GET /privacy/export/{key}``.
         """
         export = self._export_repo.get_by_key(export_key)
         if export is None:
@@ -766,18 +835,202 @@ class PrivacyService:
         manifest = self._data_export_engine.build_export_manifest(export.user_key)
         export.manifest_collections = [source.collection for source in manifest]
 
-        logger.info(
-            "retention.process_data_export.scaffold",
-            export_key=export_key,
-            manifest_sources=len(manifest),
-            note="full data-walk and S3 upload pending NFR-013",
-        )
-        # Scaffolded transition: flip pending → processing so the run is
-        # observable; the worker that lands NFR-013 finishes the flow. Until it
-        # does, **no bundle is produced at all** — see #1622.
+        # Narrow writes throughout this method (#1506 / #1525). A full-model
+        # write-back is wrong here twice over: `ArangoDataExportRepository` is in
+        # **merge** mode, so a field set to ``None`` never reaches the payload and
+        # the stored value survives a clear that meant to happen; and the walk plus
+        # the storage upload below sit between the read and the write, which is
+        # exactly the window in which a full model goes stale.
         export.status = "processing"
         export.processing_started_at = datetime.now(UTC)
-        return self._export_repo.update(export_key, export)
+        export = self._export_repo.update_fields(
+            export_key,
+            _persistable(
+                {
+                    "status": export.status,
+                    "processing_started_at": export.processing_started_at,
+                    "manifest_collections": export.manifest_collections,
+                }
+            ),
+        )
+
+        object_key = self._data_export_engine.bundle_object_key(export.user_key, export_key)
+        try:
+            return await self._build_export_bundle(export, manifest, object_key)
+        except Exception as exc:  # noqa: BLE001 — every failure must be recorded
+            return await self._fail_export(export, exc, object_key=object_key)
+
+    async def _build_export_bundle(
+        self,
+        export: DataExportRequest,
+        manifest: list[DataSourceDefinition],
+        object_key: str,
+    ) -> DataExportRequest:
+        """Produce the Art. 15 bundle and complete the request.
+
+        Raises whatever goes wrong; :meth:`process_data_export` turns that into
+        a recorded ``failed`` state. Returning normally is the *claim* that a
+        downloadable bundle exists, so this method must not return without
+        setting ``file_path`` and ``file_size_bytes``.
+        """
+        if export.key is None:  # pragma: no cover - persisted records always carry a key
+            raise ExportBundleUnavailableError("The export request has no key; nothing can be stored against it.")
+        if self._personal_data_repo is None or self._storage_adapter is None:
+            raise ExportBundleUnavailableError(
+                "This deployment cannot build Art. 15 export bundles: the personal-data "
+                "reader or the object storage is not configured. No data has been "
+                "delivered; please contact the operator."
+            )
+
+        # The subject's own tenants bound every tenant-scoped source (#1662
+        # SCR-001): the user-reference fields on those documents are written by
+        # whoever edits them, so without this a writer in any tenant could name
+        # a foreign key and plant rows into that subject's disclosure.
+        tenant_keys = self._user_tenant_keys(export.user_key)
+        sections: list[tuple[DataSourceDefinition, list[dict[str, object]]]] = []
+        for source in manifest:
+            if source.disclosure_gap is not None:
+                # Never queried: the bundle carries the reason instead of an
+                # empty list that would read as "no data here".
+                sections.append((source, []))
+                continue
+            sections.append((source, self._personal_data_repo.collect_for_user(source, export.user_key, tenant_keys)))
+
+        # Anti-vacuity, in production rather than only in a test: an export that
+        # found *nothing at all* is what a broken walk looks like from the
+        # outside, and it is indistinguishable from an empty account. The user
+        # document is the one source that must always answer, so a bundle
+        # without it is a failure, not a delivery.
+        profile_rows = sum(len(rows) for source, rows in sections if source.filter_field == "_key")
+        if profile_rows == 0:
+            raise ExportBundleUnavailableError(
+                f"The export walk found no profile record for user '{export.user_key}'; "
+                "refusing to deliver a bundle that would read as an empty account."
+            )
+
+        now = datetime.now(UTC)
+        bundle = self._data_export_engine.build_bundle(
+            export.user_key,
+            now,
+            sections,
+            controller_name=self._data_controller_name,
+            controller_email=self._data_controller_email,
+        )
+        payload = json.dumps(bundle, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+
+        await self._storage_adapter.put_object(
+            object_key,
+            _single_chunk(payload),
+            "application/json",
+            metadata={"user_key": export.user_key, "export_key": export.key},
+        )
+
+        completion = {
+            "file_path": object_key,
+            "file_size_bytes": len(payload),
+            "status": "completed",
+            "completed_at": now,
+            "expires_at": now + timedelta(hours=self.EXPORT_TTL_HOURS),
+            # A retry after a failed run must not complete while still carrying
+            # the old reason. ``update_fields`` writes ``keep_none=True``, so
+            # this clear actually lands; through ``update`` it would not.
+            "error_message": None,
+        }
+        for field, value in completion.items():
+            setattr(export, field, value)
+        logger.info(
+            # Distinct from the task-level ``.completed`` in ``retention_tasks``:
+            # this one is the claim that bytes exist, and it carries their size.
+            "retention.process_data_export.delivered",
+            export_key=export.key,
+            user_key=export.user_key,
+            sources=len(sections),
+            records=sum(len(rows) for _source, rows in sections),
+            file_size_bytes=export.file_size_bytes,
+        )
+        return self._export_repo.update_fields(export.key, _persistable(completion))
+
+    async def open_export_bundle(
+        self, user_key: UserKey, export_key: str
+    ) -> tuple[DataExportRequest, AsyncIterator[bytes]]:
+        """Return the export record **and its bytes** for download (Art. 15).
+
+        The endpoint used to answer with metadata only, so even a ``completed``
+        export delivered no data (#1645). Ownership, status and expiry are
+        enforced by :meth:`prepare_export_download`, which also counts the
+        download; this adds the one thing that was missing — the content.
+        """
+        export = self.prepare_export_download(user_key, export_key)
+        if self._storage_adapter is None or not export.file_path:  # pragma: no cover - guarded above
+            raise ValidationError("Export file is not available.")
+        stream = await self._storage_adapter.get_object(export.file_path)
+        return export, stream
+
+    async def _fail_export(
+        self,
+        export: DataExportRequest,
+        exc: BaseException,
+        *,
+        object_key: str | None = None,
+    ) -> DataExportRequest:
+        """End an export run visibly: ``failed`` plus a reason on the record.
+
+        ``completed_at`` is deliberately left unset — it is the timestamp of a
+        delivered disclosure, and writing one here would reintroduce exactly the
+        kind of false claim #1645 is about.
+
+        **What the requester sees (#1662 SCR-008).** Only the text of an
+        :class:`ExportBundleUnavailableError` is written to the record — that
+        class exists to be read by the data subject. Anything else is an
+        internal failure whose message may carry an AQL query, a path or a
+        hostname; it goes to the log under a reference the requester is given,
+        and nothing more.
+
+        **What is left behind (#1662 SCR-006).** If the run failed after the
+        bundle was stored — the completion write, say — a full copy of the
+        account would otherwise sit orphaned in object storage with no record
+        pointing at it. The object is removed best-effort.
+        """
+        if isinstance(exc, ExportBundleUnavailableError):
+            reason = str(exc)
+        else:
+            reference = secrets.token_hex(6)
+            reason = (
+                f"The export failed for an internal reason (reference {reference}). "
+                "No data has been delivered; please contact the operator with this reference."
+            )
+            logger.error(
+                "retention.process_data_export.internal_error",
+                export_key=export.key,
+                user_key=export.user_key,
+                reference=reference,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+        export.status = "failed"
+        export.error_message = reason
+        logger.error(
+            "retention.process_data_export.failed",
+            export_key=export.key,
+            user_key=export.user_key,
+            reason=reason,
+        )
+        if object_key and self._storage_adapter is not None:
+            try:
+                await self._storage_adapter.delete_object(object_key)
+            except Exception as cleanup_exc:  # noqa: BLE001 — the failure is already being recorded
+                logger.error(
+                    "retention.process_data_export.orphan_cleanup_failed",
+                    export_key=export.key,
+                    object_key=object_key,
+                    error=str(cleanup_exc),
+                )
+        if export.key is None:  # pragma: no cover - persisted records always carry a key
+            return export
+        return self._export_repo.update_fields(
+            export.key,
+            {"status": "failed", "error_message": reason},
+        )
 
     async def execute_scheduled_erasures(self, now: datetime) -> int:
         """Hard-delete users whose 90-day soft-delete grace expired.
@@ -848,16 +1101,42 @@ class PrivacyService:
             return False
 
         # ── Phase 1-3: ArangoDB deletion (+ Phase 2.5 audit hash) ──────
-        # The generic ArangoDB hard-delete + audit pseudonymisation pipeline
-        # lands with the NFR-011 deletion worker. Phase 0 / 0.5 above already
-        # detached every binary + reference-index artefact from the user, so
-        # the request is recorded as completed with the storage scopes that ran.
-        logger.info(
-            "retention.erasure.arango_delete_pending",
-            erasure_key=erasure.key,
-            user_key=erasure.user_key,
-            note="ArangoDB edge/document/user hard-delete lands with NFR-011 worker",
-        )
+        # #1645 — this used to write ``completed`` while logging that the
+        # ArangoDB deletion was still pending. ``completed`` is the audit
+        # record's own claim that the Art. 17 erasure ran, so an operator
+        # reading ``erasure_requests`` could not tell a finished erasure from
+        # one that deleted nothing.
+        #
+        # Whether the deletion ran is not asserted here: it is derived from the
+        # one declared inventory (#1622). Every entry carrying the
+        # ``retention_worker`` executor is declared-but-unexecuted, so while
+        # that slice is non-empty the erasure is by construction incomplete.
+        # When those entries are re-attributed to a real executor the slice
+        # empties and this path reaches ``completed`` without an edit here.
+        unexecuted = [step.collection for step in self._erasure_engine.steps_for("retention_worker")]
+        if unexecuted:
+            reason = (
+                "ArangoDB erasure did not run: the declared inventory entries "
+                f"{', '.join(unexecuted)} have no executor (#1645). Object storage and the "
+                "reference index were cleaned; the request stays open for the next daily run."
+            )
+            logger.error(
+                "retention.erasure.arango_delete_unexecuted",
+                erasure_key=erasure.key,
+                user_key=erasure.user_key,
+                unexecuted=unexecuted,
+            )
+            # ``partially_completed`` is not merely the truthful label: it is the
+            # state ``ArangoErasureRepository.list_due_for_hard_delete`` re-selects,
+            # so the obligation stays open instead of being silently dropped.
+            self._mark_erasure(
+                erasure,
+                status="partially_completed",
+                error_message=reason,
+                storage_cleanup_scopes=cleanup_scopes,
+            )
+            return False
+
         self._mark_erasure(
             erasure,
             status="completed",
@@ -1046,17 +1325,30 @@ class PrivacyService:
         error_message: str | None = None,
         storage_cleanup_scopes: list[str] | None = None,
     ) -> None:
-        """Persist an erasure-status transition (in-place update)."""
+        """Persist an erasure-status transition as a named-field write.
+
+        #1662 SCR-003 — this was a full-model ``update``, and the repository
+        merges: a field set to ``None`` never reached the payload. Combined with
+        ``if error_message is not None`` the reason could never be cleared, so
+        the first record to reach ``completed`` would have kept saying
+        "ArangoDB erasure did not run" — the #1645 untruth with the sign
+        flipped. The transition to ``completed`` now names ``error_message:
+        None`` explicitly, and ``update_fields`` (``keep_none=True``) lands it.
+        """
         if erasure.key is None:
             return
-        erasure.status = status  # type: ignore[assignment]
+        fields: dict[str, object] = {"status": status}
         if completed_at is not None:
-            erasure.completed_at = completed_at
+            fields["completed_at"] = completed_at
         if error_message is not None:
-            erasure.error_message = error_message
+            fields["error_message"] = error_message
         if storage_cleanup_scopes is not None:
-            erasure.storage_cleanup_scopes = storage_cleanup_scopes
-        self._erasure_repo.update(erasure.key, erasure)
+            fields["storage_cleanup_scopes"] = storage_cleanup_scopes
+        if status == "completed":
+            fields["error_message"] = None
+        for field, value in fields.items():
+            setattr(erasure, field, value)
+        self._erasure_repo.update_fields(erasure.key, _persistable(fields))
 
     async def expire_email_change_requests(self, now: datetime) -> int:
         """Mark unconfirmed email-change requests older than 24 h as expired."""
@@ -1069,11 +1361,42 @@ class PrivacyService:
         return affected
 
     async def expire_data_exports(self, now: datetime) -> int:
-        """Flip completed exports past their 72-hour expiry to ``expired``."""
-        affected = self._export_repo.expire_old(now.isoformat())
-        if affected:
+        """Expire exports past their 72-hour window **and delete their files**.
+
+        NFR-011 R-05 is "delete the file, set the status to expired" — both
+        halves. Flipping the status alone would leave a full Art. 15 disclosure
+        of a user's personal data sitting in object storage for ever, which is
+        the storage-limitation breach the rule exists to prevent.
+        """
+        expired = self._export_repo.expire_old(now.isoformat())
+        for export in expired:
+            if not export.file_path:
+                continue
+            try:
+                if self._storage_adapter is not None:
+                    await self._storage_adapter.delete_object(export.file_path)
+            except Exception as exc:  # noqa: BLE001 — one bad object must not stall the rest
+                logger.error(
+                    "retention.expire_data_exports.object_delete_failed",
+                    export_key=export.key,
+                    object_key=export.file_path,
+                    error=str(exc),
+                )
+                continue
+            # ``update_fields`` (``keep_none=True``), not ``update``: this
+            # repository merges, so a ``None`` on a full model never reaches the
+            # payload and the record would keep pointing at an object that has
+            # just been deleted.
+            if export.key:
+                self._export_repo.update_fields(
+                    export.key,
+                    {"file_path": None, "file_size_bytes": None},
+                )
+            export.file_path = None
+            export.file_size_bytes = None
+        if expired:
             logger.info(
                 "retention.expire_data_exports.completed",
-                expired=affected,
+                expired=len(expired),
             )
-        return affected
+        return len(expired)

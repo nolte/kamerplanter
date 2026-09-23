@@ -272,12 +272,15 @@ class TestDataExport:
             download_count=0,
         )
         export_repo.get_by_key.return_value = completed
-        export_repo.update.side_effect = lambda _k, e: e
+        # #1662 SCR-005 — the counter is an atomic increment, not a full-model
+        # write-back that could resurrect a record expiry just cleared.
+        export_repo.increment_download_count.side_effect = lambda _k: completed.model_copy(update={"download_count": 1})
 
         result = service.prepare_export_download(USER_KEY, "export-3")
 
         assert result.download_count == 1
-        export_repo.update.assert_called_once()
+        export_repo.increment_download_count.assert_called_once_with("export-3")
+        export_repo.update.assert_not_called()
 
     def test_prepare_download_rejects_expired(self, service, export_repo):
         export_repo.get_by_key.return_value = DataExportRequest(
