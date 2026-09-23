@@ -24,14 +24,16 @@
 # asset per motif. (The logo/app-icons, which do keep a dark variant, are
 # brand-sourced and are not render jobs here at all.)
 #
-# NOTE ON SIZE: the Cloudflare/FLUX backend ignores width/height and always
-# returns a ~1024x1024 square. `width`/`height` below are honoured only by the
-# pollinations provider; for cloudflare, non-square aspect ratios (4:3 heroes)
-# are achieved by cropping in post-processing. `size:` records the final asset
-# target for the reviewer's legibility judgement, not the generation size.
+# NOTE ON SIZE: the default Cloudflare model flux-1-schnell ignores width/height
+# and always returns a 1024x1024 square; flux-2-klein-4b (select it with
+# `model:` in `defaults:` or per job, or `render.py generate --model`) and the
+# pollinations provider honour `width`/`height`. Under flux-1-schnell,
+# non-square aspect ratios (4:3 heroes) are achieved by cropping in
+# post-processing. `size:` records the final asset target for the reviewer's
+# legibility judgement, not the generation size.
 
 defaults:
-  provider: cloudflare            # FLUX.1-schnell (@cf/black-forest-labs/flux-1-schnell), free tier
+  provider: cloudflare            # free tier; no `model:` set -> tool default flux-1-schnell
   base_seed: 4200                 # attempt N uses seed base_seed+N -> real variety on regen
   max_attempts: 3                 # after N rejects a job goes to `blocked` (needs a human)
   render_dir: .render/kami        # PNGs + render-state.json land here (gitignored)
