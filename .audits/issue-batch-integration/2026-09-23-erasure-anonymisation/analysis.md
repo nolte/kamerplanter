@@ -155,6 +155,10 @@ kein neues Issue.
 | #1645 | fullstack-developer | Guard-Tests gegen altes Skript / Truthfulness gegen alten Service | `5 failed, 19 passed` / `5 failed, 6 passed` |
 | #1645 | fullstack-developer | `pytest tests/unit tests/api` | `12221 passed, 20 skipped` |
 | #1645 | Orchestrator-Nachprüfung auf `5446686c0` | beide Reach-Tests + `check_privacy_inventory.py` | `15 passed, 1 warning in 2.88s`; `privacy inventory: one enumeration, attributed and read by the executing path.` |
+| Gruppe | general-purpose (adversarialer Review, read-only) | Diff `origin/develop...HEAD -- src/ scripts/` | kein kritischer Defekt; 2 behoben (EXIF-Reihenfolge, leerer Key), 8 undeklarierte Collections + Roh-Key-Logs → #1700, Snapshot-Fenster als Risiko |
+| #1645/#1664 | fullstack-developer | EXIF-Reach- und Leer-Key-Tests gegen alten Code | `1 failed, 2 passed` (`Left contains 4 more items…user-exif-a.jpg`); `12 failed, 76 passed` (`DID NOT RAISE`) |
+| Gruppe | Orchestrator-Nachprüfung auf `6e52d73a7` | 4 Erasure-Integrationsmodule | `20 passed, 5 warnings in 4.19s` |
+| Gruppe | Orchestrator | `task lint:backend` am Integrationsbranch | `All checks passed!` |
 
 ## Deviations
 
