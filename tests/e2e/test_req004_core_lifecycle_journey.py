@@ -203,7 +203,10 @@ class TestCoreJourneyRecordFeeding:
         feeding_list.fill_ph_after(6.1)
         screenshot("TC-REQ-004-J091_feeding-form", f"Feeding event form filled for {instance_id}")
         feeding_list.submit_create_form()
-        feeding_list.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: `feeding_list.open()` below is a
+        # fresh navigation that would cancel a still-in-flight create POST,
+        # and the dialog closes only once that POST resolved 2xx (#1728).
+        feeding_list.wait_for_create_dialog_closed()
         screenshot("TC-REQ-004-J091_feeding-created", "Feeding event list after recording")
 
         feeding_list.open()

@@ -250,11 +250,18 @@ def create_care_task(
        queue's ordering shifts it: re-check #791 and the queue-head consumers
        (``get_task_keys()``, ``get_first_task_card()``) before you do.
     """
-    # Fill and submit the create dialog. Under heavy parallel load (xdist) the
-    # queue behind the dialog can render slowly enough to delay a dialog field
-    # beyond its wait, or intercept a click; retry the whole dialog several
-    # times before giving up. Each attempt re-navigates (task_queue.open), which
-    # dismisses any half-open dialog from a previous failed attempt.
+    # Fill (but do not yet submit) the create dialog. Under heavy parallel load
+    # (xdist) the queue behind the dialog can render slowly enough to delay a
+    # dialog field beyond its wait, or intercept a click; retry the whole
+    # dialog several times before giving up. Each attempt re-navigates
+    # (task_queue.open), which dismisses any half-open dialog from a previous
+    # failed attempt.
+    #
+    # Submitting is deliberately *not* inside this retry (issue #1728): once
+    # the submit click has been dispatched, the backend may already be
+    # processing (or have processed) a create, and retrying the whole dialog
+    # again would resubmit and risk a duplicate task. The retry below only
+    # ever covers arrange steps that ran before any submit was clicked.
     last_exc: Exception | None = None
     for _attempt in range(4):
         try:
@@ -273,8 +280,6 @@ def create_care_task(
                     f"Self-provisioning failed: plant '{instance_id}' offered no "
                     f"option in the task-create plant autocomplete"
                 )
-            task_queue.submit_task_form()
-            task_queue.wait_for_loading_complete()
             break
         except (
             TimeoutException,
@@ -287,8 +292,36 @@ def create_care_task(
     else:
         raise AssertionError(
             f"Self-provisioning failed: could not drive the task-create dialog "
-            f"for '{task_name}' after 4 attempts: {last_exc}"
+            f"for '{task_name}' after 4 attempts (before submit): {last_exc}"
         )
+
+    # Submit exactly once and confirm it, never retry it. The dialog's only
+    # real success signal is that it closes: ``TaskCreateDialog.onSubmit``
+    # keeps it mounted and open while ``taskApi.createTask`` is in flight and
+    # closes it (via ``onCreated``) only after a 2xx. The previous version
+    # used ``wait_for_loading_complete()`` here, which waits for a
+    # ``loading-skeleton`` the dialog never renders and so returns at once —
+    # the lookup loop below then called ``task_queue.open()``, a navigation
+    # that aborted the still-in-flight ``POST /tasks`` (nginx 499), leaving
+    # whether the backend persisted the task to chance (#1728). A timeout here
+    # is therefore a hard failure, not a retry: resubmitting an unconfirmed
+    # create risks a duplicate task.
+    task_queue.submit_task_form()
+    try:
+        task_queue.wait_for_create_dialog_closed(timeout=15)
+    except TimeoutException as exc:
+        diagnostic = task_queue.get_create_dialog_diagnostic_text()
+        detail = (
+            f" Dialog/snackbar text: {diagnostic!r}."
+            if diagnostic
+            else " No error text was visible."
+        )
+        raise AssertionError(
+            f"Self-provisioning failed: care task '{task_name}' create was not "
+            f"confirmed -- the task-create dialog stayed open for 15s after "
+            f"submit instead of closing (which only happens once the create "
+            f"POST resolves 2xx).{detail}"
+        ) from exc
 
     # The queue refetches after the mutation; poll a few reloads so a slow
     # refetch does not read the list before the new card is materialised.
