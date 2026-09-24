@@ -406,18 +406,24 @@ Unpublish-Fenster (npm erlaubt ein Unpublish 72 Stunden lang).
   Dashboard unter „Pending Status Checks". Jeder Branch trägt den internen Status
   `renovate/stability-days`, der bis zum Ablauf der Frist **pending** ist — und pending
   blockiert den Auto-Merge wie jeder wartende Check.
-- **Ein Update ohne Release-Zeitstempel wird festgehalten, nicht durchgewunken.**
-  Default ist `minimumReleaseAgeBehaviour: 'timestamp-required'`: Liefert die
-  Datenquelle keinen Zeitstempel (laut Renovate-Doku z. B. GHCR, Quay, ECR und
-  Digest-Updates auf wieder gepushte Tags), gilt die Version nie als alt genug und
-  bleibt im Dashboard stehen, bis jemand sie dort freigibt. Das ist bewusst so
-  und wird nicht auf `timestamp-optional` gelockert.
+- **Ein Update ohne Release-Zeitstempel wartet nicht** (Betreiberentscheidung
+  2026-09-24): `minimumReleaseAgeBehaviour: 'timestamp-optional'`. Mit Renovates
+  Default `timestamp-required` gälte eine Version, deren Datenquelle keinen
+  Zeitstempel liefert (laut Renovate-Doku z. B. GHCR, Quay, ECR und Digest-Updates auf
+  wieder gepushte Tags), nie als alt genug und bliebe im Dashboard stehen, bis jemand
+  sie dort freigibt — genau der manuelle Schritt, den die Auto-Merge-Entscheidung
+  abgeschafft hat. Mit `timestamp-optional` überspringt ein solches Update die
+  Wartezeit und wird gemergt, sobald alle Checks grün sind. Gemessen betroffen (GHCR
+  liefert keine Zeitstempel): `ghcr.io/astral-sh/uv` (16 Referenzen — damit die ganze
+  Gruppe `uv toolchain`), `ghcr.io/hadolint/hadolint` (8), `ghcr.io/zaproxy/zaproxy`
+  (5), `ghcr.io/valkey-io/valkey-helm` (1). **Der Tausch:** Diese vier haben keinerlei
+  zeitbasierten Schutz; ihr einziges Netz ist die Menge der Checks.
 - **Ein CVE-Fix, der nicht als Alert kommt, wartet mit.** Kommt eine Sicherheitskorrektur
   als gewöhnlicher Bump — wie der `transformers`-Bump aus #1480 —, gilt für ihn die
   Drei-Tage-Frist. Für ihn gilt dann die Eskalation aus §4.2.
 
 Gehalten von `test_renovate_automerge_policy.py` (Wert, Ausnahme für Security,
-`timestamp-required`).
+`timestamp-optional`).
 
 **Die bewusst in Kauf genommenen Kosten:**
 

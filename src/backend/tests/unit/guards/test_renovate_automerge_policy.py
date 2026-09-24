@@ -159,10 +159,13 @@ class TestReleasesAgeBeforeTheyMerge:
         assert alerts["minimumReleaseAge"] is None, "a security fix must not wait for the release age"
         assert alerts.get("enabled", True) is not False, "vulnerability alerts must stay enabled"
 
-    def test_an_undated_release_is_held_not_waved_through(self) -> None:
-        assert _config().get("minimumReleaseAgeBehaviour", "timestamp-required") == "timestamp-required", (
-            "timestamp-optional would merge an update whose datasource publishes no release date at once"
+    def test_an_undated_release_is_not_held_for_manual_approval(self) -> None:
+        assert _config().get("minimumReleaseAgeBehaviour") == "timestamp-optional", (
+            "with timestamp-required an update whose datasource publishes no release date (GHCR: uv, "
+            "hadolint, zaproxy, valkey-helm) waits for a dashboard approval forever (operator decision "
+            "2026-09-24: it merges once all checks are green instead)"
         )
+        assert not [rule for rule in _rules() if "minimumReleaseAgeBehaviour" in rule]
 
 
 class TestTheLabelMergerStaysOutOfRenovatesWay:

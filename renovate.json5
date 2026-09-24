@@ -90,12 +90,18 @@
   // status `renovate/stability-days`, pending until the age has passed, and a
   // pending status blocks the automerge above exactly like a pending check.
   //
-  // THE CATCH, measured rather than assumed — see NFR-009 §3.4: the default
-  // `minimumReleaseAgeBehaviour: 'timestamp-required'` treats an update whose
-  // datasource publishes NO release timestamp as never old enough. Such an
-  // update is held indefinitely until someone approves it on the dashboard.
-  // That trade (hold rather than wave through) is deliberate and is NOT
-  // relaxed to `timestamp-optional` here.
+  // UNDATED RELEASES DO NOT WAIT EITHER (operator decision 2026-09-24).
+  // Renovate's default `minimumReleaseAgeBehaviour: 'timestamp-required'`
+  // treats an update whose datasource publishes NO release timestamp as never
+  // old enough, and holds it until someone approves it on the dashboard. That
+  // would re-introduce the manual step the automerge decision removed, so this
+  // file sets `timestamp-optional`: such an update skips the age wait and
+  // merges like everything else once ALL checks are green. Measured affected
+  // references (GHCR publishes no timestamps): `ghcr.io/astral-sh/uv` (16 —
+  // the whole `uv toolchain` group moves with it), `ghcr.io/hadolint/hadolint`
+  // (8), `ghcr.io/zaproxy/zaproxy` (5), `ghcr.io/valkey-io/valkey-helm` (1).
+  // THE TRADE, stated: those four get no time-based protection at all; the
+  // check set is their only net.
   //
   // SECURITY UPDATES DO NOT WAIT. `vulnerabilityAlerts` is a mergeable object
   // whose Renovate default already carries `minimumReleaseAge: null`; it is
@@ -109,6 +115,7 @@
   // lib/workers/repository/process/vulnerabilities.ts), and `force` wins over
   // the top-level value and every packageRule.
   minimumReleaseAge: '3 days',
+  minimumReleaseAgeBehaviour: 'timestamp-optional',
   vulnerabilityAlerts: {
     minimumReleaseAge: null,
   },
