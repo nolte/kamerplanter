@@ -180,8 +180,11 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         drifted.
 
         This is the *narrow* delete: auth providers, sessions, API keys,
-        preferences, onboarding state and the user document. It does not remove
-        memberships or apply the anonymisation rules. Its one production caller
+        preferences, onboarding state, memberships with the location assignments
+        hanging off them (#1700 — registration creates a membership before the
+        address is verified) and the user document. It does not apply the
+        anonymisation rules, so the personal tenant registration created keeps
+        its owner reference and name. Its one production caller
         is the unverified-account cleanup (``auth_tasks.cleanup_unverified_accounts``);
         a real account deletion goes through ``PrivacyService.erase_account``.
 

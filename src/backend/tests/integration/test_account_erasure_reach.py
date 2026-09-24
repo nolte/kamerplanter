@@ -126,20 +126,30 @@ def _seed(database, plan: ErasurePlan) -> dict[str, dict[str, list[str]]]:
         if owner != ADMIN:
             record(owner, users, inserted["_id"])
 
-    # Documents first: a ``via`` edge needs its parent row to exist.
-    for step in plan.steps:
-        if step.kind != "document":
-            continue
-        _ensure(database, step.collection)
-        for owner in (SUBJECT, OTHER):
-            doc = {
-                "_key": _row_key(step.collection, owner),
-                step.user_field: owner,
-                "tenant_key": TENANT,
-                "marker": f"marker-{step.collection}-{owner}",
-                **_REQUIRED_SHAPE.get(step.collection, {}),
-            }
-            record(owner, step.collection, database.collection(step.collection).insert(doc)["_id"])
+    # Documents first: a ``via`` edge needs its parent row to exist. A document
+    # reached ``via`` a parent (#1700: ``location_assignments`` through
+    # ``memberships``) carries the parent row's ``_key`` in its user field, so
+    # its parent is seeded before it, whatever the declared order.
+    documents = [step for step in plan.steps if step.kind == "document"]
+    pending = list(documents)
+    while pending:
+        ready = [step for step in pending if step.via is None or step.via in seeded[SUBJECT]]
+        if not ready:
+            raise AssertionError(f"document steps {[s.collection for s in pending]} have an unseedable via chain")
+        for step in ready:
+            pending.remove(step)
+            _ensure(database, step.collection)
+            for owner in (SUBJECT, OTHER):
+                reference = owner if step.via is None else seeded[owner][step.via][0].split("/", 1)[1]
+                doc = {
+                    "_key": _row_key(step.collection, owner),
+                    step.user_field: reference,
+                    "tenant_key": TENANT,
+                    "marker": f"marker-{step.collection}-{owner}",
+                    **_REQUIRED_SHAPE.get(step.collection, {}),
+                    **step.where,
+                }
+                record(owner, step.collection, database.collection(step.collection).insert(doc)["_id"])
 
     for step in plan.steps:
         if step.kind != "edge":
@@ -282,11 +292,33 @@ def _retained_collections(plan: ErasurePlan) -> list[str]:
     return list(dict.fromkeys(names))
 
 
+def _retained_rows(plan: ErasurePlan, owner: str) -> list[str]:
+    """The ``_id`` of each row seeded for a rule — by key, not by collection.
+
+    Since #1700 a collection can carry a delete step *and* a rule
+    (``invitations``: accepted ones go, the inviter reference of the rest is
+    replaced; ``attachments``, ``pest_image_contributions``), so "every row of
+    the collection" is no longer one category.
+    """
+    ids = [f"{rule.collection}/{_row_key(rule.collection, owner, f'-{rule.user_field}')}" for rule in plan.anonymize]
+    ids += [f"{rule.collection}/{_row_key(rule.collection, owner)}" for rule in plan.pseudonymize_audit]
+    return list(dict.fromkeys(ids))
+
+
+def _deleted_rows(plan: ErasurePlan, seeded_owner: dict[str, list[str]], owner: str) -> list[str]:
+    retained = set(_retained_rows(plan, owner))
+    return [
+        doc_id
+        for collection in dict.fromkeys(_deleted_collections(plan))
+        for doc_id in seeded_owner[collection]
+        if doc_id not in retained
+    ]
+
+
 def test_every_subject_row_of_a_delete_step_is_gone(database, erased):
     survivors = [
         doc_id
-        for collection in _deleted_collections(erased.plan)
-        for doc_id in erased.seeded[SUBJECT][collection]
+        for doc_id in _deleted_rows(erased.plan, erased.seeded[SUBJECT], SUBJECT)
         if _read(database, doc_id) is not None
     ]
     assert survivors == []
@@ -295,17 +327,16 @@ def test_every_subject_row_of_a_delete_step_is_gone(database, erased):
 def test_every_retained_subject_row_survives_without_a_trace_of_the_subject(database, erased):
     lost: list[str] = []
     traces: list[str] = []
-    for collection in _retained_collections(erased.plan):
-        for doc_id in erased.seeded[SUBJECT][collection]:
-            doc = _read(database, doc_id)
-            if doc is None:
-                lost.append(doc_id)
+    for doc_id in _retained_rows(erased.plan, SUBJECT):
+        doc = _read(database, doc_id)
+        if doc is None:
+            lost.append(doc_id)
+            continue
+        for field, value in doc.items():
+            if field.startswith("_"):
                 continue
-            for field, value in doc.items():
-                if field.startswith("_"):
-                    continue
-                if value == SUBJECT or value == _display_text(SUBJECT):
-                    traces.append(f"{doc_id}.{field}={value!r}")
+            if value == SUBJECT or value == _display_text(SUBJECT):
+                traces.append(f"{doc_id}.{field}={value!r}")
     assert lost == []
     assert traces == []
 
@@ -389,7 +420,7 @@ def test_a_failure_mid_plan_rolls_the_whole_arango_run_back(database, erased, mo
     plan = ErasureEngine().build_erasure_plan(subject)
     users = next(step.collection for step in plan.steps if step.kind == "user")
     database.collection(users).insert(_user_document(subject))
-    first_document = next(step for step in plan.steps if step.kind == "document")
+    first_document = next(step for step in plan.steps if step.kind == "document" and step.via is None)
     database.collection(first_document.collection).insert({first_document.user_field: subject, "_key": "c-row"})
 
     def boom(*_args, **_kwargs):

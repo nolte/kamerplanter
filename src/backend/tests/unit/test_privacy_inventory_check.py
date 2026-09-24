@@ -99,6 +99,16 @@ def export_run(engine, user_key):
 """
 
 
+#: #1700 (R6) — eight stored models, each carrying ``user_key`` and bound by a
+#: repository to one of the document collections c2..c9 that GOOD_STEPS erases.
+OWNED_MODELS = "\n".join(f"class M{i}(BaseModel):\n    user_key: str\n" for i in range(2, 10))
+COLLECTIONS = "\n".join(f'C{i} = "c{i}"' for i in range(2, 10)) + '\nLOOSE = "loose"\n'
+REPOSITORIES = "from app.data_access.arango import collections as col\n\n" + "\n".join(
+    f"class R{i}(BaseArangoRepository[M{i}]):\n    def __init__(self, db):\n        super().__init__(db, col.C{i})\n"
+    for i in range(2, 10)
+)
+
+
 def _tree(
     tmp_path: Path,
     *,
@@ -106,13 +116,20 @@ def _tree(
     sources: str = GOOD_SOURCES,
     reader: str = READER,
     executors: tuple[str, ...] | None = GOOD_EXECUTORS,
+    owned_models: str = OWNED_MODELS,
+    repositories: str = REPOSITORIES,
 ) -> Path:
     app = tmp_path / "app"
     engines = app / "domain" / "engines"
     engines.mkdir(parents=True)
+    models = app / "domain" / "models"
+    models.mkdir(parents=True)
+    (models / "owned.py").write_text(owned_models, encoding="utf-8")
+    arango = app / "data_access" / "arango"
+    arango.mkdir(parents=True)
+    (arango / "collections.py").write_text(COLLECTIONS, encoding="utf-8")
+    (arango / "repositories.py").write_text(repositories, encoding="utf-8")
     if executors is not None:
-        models = app / "domain" / "models"
-        models.mkdir(parents=True)
         (models / "privacy.py").write_text(
             textwrap.dedent(MODELS_HEAD).format(executors="\n".join(f'    "{name}",' for name in executors)),
             encoding="utf-8",
@@ -336,6 +353,120 @@ class TestR5EveryFilteredStepNamesItsUserField:
         steps = GOOD_STEPS + '\n        ErasureStep(collection="opaque", kind=KIND, executor="account_erasure"),'
         violations = checker.check(_tree(tmp_path, steps=steps))
         assert any(v.startswith("R5") and "opaque" in v for v in violations)
+
+
+class TestR6EveryStoredUserReferenceIsInventoried:
+    """#1700 — an anchor outside the two lists R2 compares with each other.
+
+    Measured before the repair: twelve personal-data surfaces were in neither
+    the export manifest nor the erasure inventory, and R2 stayed green because
+    it only compared those two. These trees rebuild that shape.
+    """
+
+    def _with_loose_model(self, tmp_path: Path, field: str = "user_key", exclusion: str = "") -> Path:
+        models = OWNED_MODELS + f"\nclass Loose(BaseModel):\n    {field}: str\n"
+        repositories = (
+            REPOSITORIES
+            + "\nclass LooseRepository(BaseArangoRepository[Loose]):\n"
+            + "    def __init__(self, db):\n        super().__init__(db, col.LOOSE)\n"
+        )
+        app = _tree(tmp_path, owned_models=models, repositories=repositories)
+        if exclusion:
+            engine = app / "domain" / "engines" / "erasure_engine.py"
+            engine.write_text(
+                engine.read_text(encoding="utf-8").replace(
+                    "    def build_erasure_plan",
+                    f"    EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [\n        {exclusion}\n    ]\n\n"
+                    "    def build_erasure_plan",
+                ),
+                encoding="utf-8",
+            )
+        return app
+
+    def test_a_stored_user_key_in_neither_inventory_is_named(self, tmp_path: Path) -> None:
+        """The #1700 shape: ``calendar_feeds.user_key``, declared nowhere, R2 green."""
+        violations = checker.check(self._with_loose_model(tmp_path))
+        assert [v for v in violations if not v.startswith("R6")] == []
+        assert any(v.startswith("R6") and "'loose.user_key'" in v for v in violations)
+
+    def test_each_field_shape_of_the_pattern_is_caught(self, tmp_path: Path) -> None:
+        for i, field in enumerate(("owner_user_key", "harvested_by_key", "service_account_key", "promoted_by")):
+            violations = checker.check(self._with_loose_model(tmp_path / str(i), field=field))
+            assert any(v.startswith("R6") and f"'loose.{field}'" in v for v in violations), field
+
+    def test_an_exclusion_with_its_reason_satisfies_it(self, tmp_path: Path) -> None:
+        exclusion = 'ErasureExclusion(collection="loose", user_field="user_key", reason="free text"),'
+        assert checker.check(self._with_loose_model(tmp_path, exclusion=exclusion)) == []
+
+    def test_an_exclusion_without_a_reason_is_refused(self, tmp_path: Path) -> None:
+        exclusion = 'ErasureExclusion(collection="loose", user_field="user_key", reason=" "),'
+        violations = checker.check(self._with_loose_model(tmp_path, exclusion=exclusion))
+        assert any(v.startswith("R6") and "reason" in v for v in violations)
+
+    def test_a_stale_exclusion_is_named(self, tmp_path: Path) -> None:
+        """An exclusion for a field no model has would hide the next field of that name."""
+        app = _tree(tmp_path)
+        engine = app / "domain" / "engines" / "erasure_engine.py"
+        engine.write_text(
+            engine.read_text(encoding="utf-8").replace(
+                "    def build_erasure_plan",
+                "    EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [\n"
+                '        ErasureExclusion(collection="gone", user_field="created_by", reason="was free text"),\n'
+                "    ]\n\n    def build_erasure_plan",
+            ),
+            encoding="utf-8",
+        )
+        violations = checker.check(app)
+        assert any(v.startswith("R6") and "gone.created_by" in v and "stale" in v for v in violations)
+
+    def test_a_model_no_repository_binds_is_reported_not_skipped(self, tmp_path: Path) -> None:
+        """Fail closed: an unplaceable model is exactly where a new surface would hide."""
+        models = OWNED_MODELS + "\nclass Unbound(BaseModel):\n    created_by: str\n"
+        violations = checker.check(_tree(tmp_path, owned_models=models))
+        assert any(v.startswith("R6") and "'Unbound'" in v for v in violations)
+
+    def test_an_inline_repository_binding_is_read(self, tmp_path: Path) -> None:
+        """``BaseArangoRepository[M](db, col.X, M)`` — the second spelling in ``data_access``."""
+        models = OWNED_MODELS + "\nclass Inline(BaseModel):\n    user_key: str\n"
+        repositories = REPOSITORIES + "\nINLINE = BaseArangoRepository[Inline](db, col.LOOSE, Inline)\n"
+        violations = checker.check(_tree(tmp_path, owned_models=models, repositories=repositories))
+        assert any(v.startswith("R6") and "'loose.user_key' (Inline)" in v for v in violations)
+
+    def test_a_clear_field_of_a_rule_counts_as_covered(self, tmp_path: Path) -> None:
+        """``harvest_batches.harvester`` style: the free-text companion is emptied by the rule."""
+        models = OWNED_MODELS + "\nclass Harvest(BaseModel):\n    harvested_by: str\n"
+        repositories = (
+            REPOSITORIES
+            + "\nclass HarvestRepository(BaseArangoRepository[Harvest]):\n"
+            + '    def __init__(self, db):\n        super().__init__(db, "harvest_batches")\n'
+        )
+        app = _tree(tmp_path, owned_models=models, repositories=repositories)
+        engine = app / "domain" / "engines" / "erasure_engine.py"
+        engine.write_text(
+            engine.read_text(encoding="utf-8").replace(
+                'AnonymizationRule(collection="harvest_batches", user_field="harvester")',
+                'AnonymizationRule(collection="harvest_batches", user_field="harvester", '
+                'clear_fields=["harvested_by"])',
+            ),
+            encoding="utf-8",
+        )
+        assert checker.check(app) == []
+
+    def test_no_models_at_all_is_a_floor_violation(self, tmp_path: Path) -> None:
+        violations = checker.check(_tree(tmp_path, owned_models=""))
+        assert any(v.startswith("FLOOR") and "user-reference" in v for v in violations)
+
+    def test_the_real_tree_has_well_above_the_floor(self) -> None:
+        from pathlib import Path as _Path
+
+        app_root = _Path(__file__).resolve().parents[2] / "app"
+        references = checker._user_reference_fields(app_root)
+        assert len(references) > 4 * checker.MIN_USER_REFERENCE_FIELDS
+        # The two hand tables name only models that exist: a stale entry is
+        # validated nowhere else (the check reads an entry only when its model is found).
+        models = {model for _path, _line, model, _field in references}
+        assert set(checker.MODEL_COLLECTIONS_BY_HAND) <= models
+        assert set(checker.NOT_PERSISTED_MODELS) <= models
 
 
 class TestTheFloorsSitBelowTodaysInventory:

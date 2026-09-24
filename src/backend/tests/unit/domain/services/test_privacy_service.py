@@ -394,7 +394,16 @@ class TestErasure:
         assert "consent_records" in erasure.deleted_collections
         # #1663 — quality assessments are retained with the harvest and anonymised.
         assert "quality_assessments" in erasure.anonymized_collections
-        assert not set(erasure.deleted_collections) & set(erasure.anonymized_collections)
+        # #1700 — three categories are split by row, and are truthfully in both
+        # lists: accepted invitations go, sent ones lose the inviter; the
+        # pest-reference attachments whose bytes are gone go, the rest are
+        # anonymised; the subject's own contributions go, ones they promoted as
+        # admin lose the promoter. Any other overlap is a contradiction.
+        assert set(erasure.deleted_collections) & set(erasure.anonymized_collections) == {
+            "invitations",
+            "attachments",
+            "pest_image_contributions",
+        }
 
     def test_erasure_blocked_when_active_exists(
         self,

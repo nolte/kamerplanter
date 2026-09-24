@@ -255,6 +255,142 @@ class DataExportEngine:
                 "created_at",
             ],
         ),
+        # ── #1700: categories the erasure inventory now reaches ──────────────
+        # Every collection #1700 added to the erasure inventory is disclosed
+        # here too. Each ``filter_field`` below is stamped server-side from the
+        # caller's account, never read from a request body, so the sources are
+        # not ``tenant_scoped`` (the argument ``quality_assessments`` makes):
+        # nobody can plant a row into another subject's disclosure through them,
+        # and a tenant the subject has left still discloses what they wrote there.
+        DataSourceDefinition(
+            collection="ai_conversations",
+            filter_field="user_key",
+            label="AI assistant conversations",
+            fields=["tenant_key", "title", "context_type", "language", "messages", "created_at", "expires_at"],
+        ),
+        DataSourceDefinition(
+            collection="ai_tip_cache",
+            filter_field="dismissed_by",
+            label="AI tips you dismissed",
+            fields=["tenant_key", "title", "dismissed_at", "acted_on_at"],
+        ),
+        DataSourceDefinition(
+            # REQ-031 section 7.6: hashed, without question/answer plain text.
+            collection="ai_audit_log",
+            filter_field="user_key",
+            label="AI assistant audit entries",
+            fields=["tenant_key", "endpoint", "question_hash", "model_name", "provider_type", "status"],
+        ),
+        DataSourceDefinition(
+            collection="notifications",
+            filter_field="user_key",
+            label="Notifications",
+            fields=["tenant_key", "notification_type", "title", "body", "status", "read_at", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="notification_preferences",
+            filter_field="user_key",
+            label="Notification preferences",
+            fields=["channels", "quiet_hours", "batching", "escalation", "type_overrides", "daily_summary"],
+        ),
+        DataSourceDefinition(
+            # ``token`` is deliberately not exported: it is a live credential.
+            collection="calendar_feeds",
+            filter_field="user_key",
+            label="Calendar feeds",
+            fields=["tenant_key", "name", "filters", "is_active", "expires_at", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="plant_diagnosis_requests",
+            filter_field="user_key",
+            label="Plant diagnosis requests",
+            fields=["tenant_key", "plant_instance_key", "planting_run_key", "classifications", "adapter_key"],
+        ),
+        DataSourceDefinition(
+            collection="task_comments",
+            filter_field="created_by",
+            label="Task comments",
+            fields=["task_key", "comment_text", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="invitations",
+            filter_field="invited_by_user_key",
+            label="Invitations you sent",
+            fields=["tenant_key", "invitation_type", "email", "role", "status", "expires_at", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="invitations",
+            filter_field="accepted_by_user_key",
+            label="Invitations you accepted",
+            fields=["tenant_key", "email", "role", "accepted_at"],
+        ),
+        DataSourceDefinition(
+            collection="location_assignments",
+            label="Location assignments",
+            fields=["tenant_key", "location_key", "can_edit", "notes"],
+            # The one #1700 category the walk cannot reach: an assignment carries
+            # the membership key, not the account key, and the walk follows a
+            # field or a single edge from ``users`` (two hops would be needed).
+            disclosure_gap=(
+                "Location assignments reference your tenant membership, not your account, and are "
+                "not collected per person. Your memberships are listed above; a tenant lead can show "
+                "you the locations assigned to them."
+            ),
+        ),
+        DataSourceDefinition(
+            collection="attachments",
+            filter_field="created_by",
+            label="Uploaded files (metadata)",
+            fields=["tenant_key", "category", "original_filename", "mime_type", "byte_size", "caption", "taken_on"],
+        ),
+        DataSourceDefinition(
+            collection="pest_image_contributions",
+            filter_field="contributed_by",
+            label="Pest reference images you contributed",
+            fields=["tenant_key", "pest_key", "caption", "status", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="pest_image_contributions",
+            filter_field="promoted_by",
+            label="Pest reference images you promoted",
+            fields=["pest_key", "status", "promoted_at"],
+        ),
+        DataSourceDefinition(
+            collection="import_jobs",
+            filter_field="uploaded_by",
+            label="Imports",
+            fields=["tenant_key", "entity_type", "status", "filename", "row_count", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="weather_source_configs",
+            filter_field="updated_by",
+            label="Weather-source settings you changed",
+            fields=["tenant_key", "site_key", "enabled", "updated_at"],
+        ),
+        DataSourceDefinition(
+            collection="manual_overrides",
+            filter_field="created_by",
+            label="Manual actuator overrides",
+            fields=["tenant_key", "actuator_key", "started_at", "expires_at", "reason", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="tenants",
+            filter_field="owner_user_key",
+            label="Tenants you own",
+            fields=["name", "slug", "tenant_type", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="mcp_audit_log",
+            filter_field="service_account_key",
+            label="MCP tool calls (service accounts)",
+            fields=["tenant_key", "tool_name", "status", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="mcp_idempotency_record",
+            filter_field="service_account_key",
+            label="MCP idempotency records (service accounts)",
+            fields=["tenant_key", "tool_name", "created_at", "expires_at"],
+        ),
     ]
 
     #: Bumped when the bundle's shape changes, so a downloaded file stays

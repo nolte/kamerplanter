@@ -149,7 +149,9 @@ class TestTheBundleReachesTheUser:
         # constructed ``gapped_fixture`` keeps the negative: the walk never asks
         # for a source with a declared gap (#1662 SCR-001).
         gaps = {s.collection for s in DataExportEngine.USER_DATA_MANIFEST if s.disclosure_gap}
-        assert gaps == {"gapped_fixture"}, "no production source may carry a gap; the fixture's negative must"
+        # ``location_assignments`` (#1700) is the one production gap: it carries
+        # the membership key, not the account key. Any further gap must be named.
+        assert gaps == {"gapped_fixture", "location_assignments"}, "a new production gap must be named here"
         assert "harvest_batches" not in gaps
         for collection, rows in FIXTURE_ROWS.items():
             for value in rows[0].values():
