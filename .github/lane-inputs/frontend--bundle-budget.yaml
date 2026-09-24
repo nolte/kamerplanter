@@ -10,7 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
+measured_at_commit: 08cacf699784e83e1b63edcf8b26ffc79c740ffe
+replay_seconds: 31
 job_spec_sha256: 719d4303fea0cff98e75888584aed662620dd1fc38e2e02adda79bb0278bb7e7
 invocations:
 - command: npm run build

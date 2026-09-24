@@ -11,7 +11,8 @@ gate:
   filter: helm
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
+measured_at_commit: 08cacf699784e83e1b63edcf8b26ffc79c740ffe
+replay_seconds: 2
 job_spec_sha256: 7ba95ff2de0b51f1c2f9da4f8164a085b95eba5b7aba7449c3f13c948b66375b
 invocations:
 - command: scripts/ci/determine_chart_version.sh
