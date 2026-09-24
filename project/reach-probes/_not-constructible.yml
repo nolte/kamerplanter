@@ -1,12 +1,10 @@
 # Not-constructible manifest; written by capability-reach-audit derive, read by the runner.
 # Empty `entries` means every declared entry received a probe; an absent file means nothing was recorded.
 #
-# Re-derive round of 2026-09-24 (#1717), scoped to the two declarations #1721 changed:
-# spec/req/REQ-025_Datenschutz-Betroffenenrechte.md and
-# src/backend/app/domain/engines/data_export_engine.py. REQ-025 v1.10 states rules and
-# points at the code inventories instead of copying them, so its Art. 15 / Art. 17
-# entries no longer state a count or a set; the code-anchored inventory probes carry
-# that content. Other declarations were not re-inventoried this round.
+# Derive round of 2026-09-24 (#1745), filtered to spec/req/REQ-025_Datenschutz-Betroffenenrechte.md:
+# the two Art. 17 entries that lacked instruments (stored files, reference index) became probes;
+# the scanner re-confirmed the two scope_not_countable REQ-025 entries unchanged. The
+# data_export_engine.py entry below is from the #1717 round and was not re-inventoried.
 entries:
 - id: requirement-req025-art15-export-sources-populated
   declaration:
@@ -55,35 +53,5 @@ entries:
     disclosure, not this edge''s), which is exactly why no probe is drafted rather than one with a coincidentally
     passing but meaningless zero. Whether each excluded edge is instead reached by the erasure walk is
     asserted by inventory-erasure-plan-reaches-rows (erasure_engine.py, out of scope for this file).'
-  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
-  recorded_at: '2026-09-24T15:38:25Z'
-- id: requirement-req025-art17-storage-cleanup-reaches-files
-  declaration:
-    source: requirement
-    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-    location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L265); StorageCleanupRule dataclass (L384-390);
-      §3.5 Phase 0 (L899); AK-OS-04 (L1226)
-  reason: missing_observation_helper
-  detail: Unchanged capability, refreshed location only (previously L588, moved by the v1.10 restructuring).
-    Phase 0 hard-deletes the subject's profile/user_notes files and strips EXIF from diary, inspection,
-    treatment, harvest and plant photos in object storage. The seed (scripts/reach/seed_privacy_subject.py)
-    writes attachment metadata without bytes, and no helper counts the subject's remaining files or EXIF
-    blocks under .reach/storage — confirmed absent in scripts/reach/ (only observe_export_archive.py,
-    observe_erasure_residue.py, observe_executing_inventory.py exist). Needs a seed of one real file per
-    category (with GPS EXIF) and scripts/reach/observe_storage_residue.py.
-  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
-  recorded_at: '2026-09-24T15:38:25Z'
-- id: requirement-req025-art17-reference-index-cleanup
-  declaration:
-    source: requirement
-    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-    location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L265); ReferenceIndexCleanupRule dataclass
-      + Phase-0.5-Kommentar (L394-411); §3.5 Phase 0.5 (L943); AK-OS-05 (L1229)
-  reason: missing_environment_target
-  detail: 'Unchanged capability, refreshed location only (previously L687, moved by the v1.10 restructuring).
-    Phase 0.5 deletes the subject''s user_contributed DINOv2 embeddings from pgvector (REQ-034 §5, AK-OS-05).
-    Confirmed the reach stack still runs no pgvector store: neither docker-compose.reach.yml nor .taskfiles/reach.yaml
-    (checked after #1723''s shared-storage/salt rework) declares a vectordb service or seeds a contributed
-    embedding. Needs a reach:vectordb:up target and a seed of one user_contributed embedding for the subject.'
   derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
   recorded_at: '2026-09-24T15:38:25Z'

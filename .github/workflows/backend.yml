@@ -116,6 +116,10 @@ on:
       # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
       # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
       - 'docker/embedding-service/feed.py'
+      # The reference-index seed's column set is held against the inference-service's
+      # own INSERT by tests/unit/test_reach_storage_and_index_helpers.py (#1745), which
+      # only this suite runs; the guards lane lists the directory but not this file.
+      - 'src/inference-service/app/vectordb/repository.py'
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
@@ -186,6 +190,10 @@ on:
       # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
       # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
       - 'docker/embedding-service/feed.py'
+      # The reference-index seed's column set is held against the inference-service's
+      # own INSERT by tests/unit/test_reach_storage_and_index_helpers.py (#1745), which
+      # only this suite runs; the guards lane lists the directory but not this file.
+      - 'src/inference-service/app/vectordb/repository.py'
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'

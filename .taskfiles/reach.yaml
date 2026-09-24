@@ -57,6 +57,18 @@ tasks:
     cmds:
       - python3 scripts/reach/stack.py seed --subject {{.REACH_SUBJECT}}
 
+  reach:seed:stored-files:
+    desc: |
+      Upload one real JPEG carrying GPS EXIF per attachment category for the
+      seeded subject ({{.REACH_SUBJECT}}, run reach:seed:privacy-subject first)
+      through the production AttachmentService.upload, as created_by in the
+      subject's tenant, with EXIF stripping at ingest switched off (standing in
+      for STORAGE_STRIP_EXIF=false). Categories whose whitelist refuses
+      image/jpeg are recorded as refused. Fails when a stored file carries no
+      EXIF. Writes .reach/subjects/{{.REACH_SUBJECT}}.files.json.
+    cmds:
+      - python3 scripts/reach/stack.py seed-files --subject {{.REACH_SUBJECT}}
+
   reach:export:run-for-subject:
     desc: |
       Drive the seeded subject's Art. 15 export through the real path — sign
@@ -89,3 +101,28 @@ tasks:
     desc: Remove the ranking service container and .reach/ranking.url.
     cmds:
       - python3 scripts/reach/ranking.py down
+
+  reach:vectordb:up:
+    desc: |
+      Build the pgvector reference index (docker/vectordb) from this working
+      copy, run it without a published port (access via docker exec psql),
+      apply the inference-service's species_embeddings migrations and record
+      the container in .reach/vectordb.json. The backend is not wired to it:
+      get_reference_index_store() has no binding to wire.
+    cmds:
+      - python3 scripts/reach/vectordb.py up
+
+  reach:vectordb:down:
+    desc: Remove the reference-index container with its data volume and .reach/vectordb.json.
+    cmds:
+      - python3 scripts/reach/vectordb.py down
+
+  reach:seed:reference-embedding:
+    desc: |
+      Insert one user_contributed embedding of the seeded subject
+      ({{.REACH_SUBJECT}}, run reach:seed:privacy-subject first) into the
+      reference index, with the column set the inference-service writes
+      (is_active=false, contributed_by, tenant_key), plus one curated control
+      row. Writes the row ids to .reach/subjects/{{.REACH_SUBJECT}}.embeddings.json.
+    cmds:
+      - python3 scripts/reach/vectordb.py seed --subject {{.REACH_SUBJECT}}
