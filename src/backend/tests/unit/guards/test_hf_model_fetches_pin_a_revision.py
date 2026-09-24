@@ -168,22 +168,29 @@ def _verifies_digests(instruction: str) -> bool:
 #: A heredoc opener in a Dockerfile instruction: ``<<EOF``, ``<<-EOF``, ``<<'EOF'``.
 _HEREDOC = re.compile(r"<<-?\s*(?P<q>['\"]?)(?P<tag>\w+)(?P=q)")
 
-#: Unpinned fetches that predate this guard, each named by (Dockerfile, repo)
-#: and mapped to the issue that tracks pinning it. #1480 found them while
-#: writing this file and deliberately did not pin them: they belong to
-#: docker/embedding-service, a different image with its own parity question
-#: (each pin needs the export it replaces measured against it) — #1724.
+#: The Dockerfile ``FROM <image> [AS <stage>]`` line, for naming the build stage
+#: a fetch runs in.
+_FROM_STAGE = re.compile(r"^\s*FROM\s+\S+(?:\s+AS\s+(?P<stage>\S+))?", re.IGNORECASE)
+
+#: Unpinned fetches that predate this guard, each NAMED explicitly by
+#: (Dockerfile, build stage, repository) and mapped to the issue that tracks
+#: pinning it. #1480 found them while writing this file and deliberately did not
+#: pin them: they belong to docker/embedding-service, a different image with its
+#: own parity question (each pin needs the export it replaces measured against
+#: it) — #1724.
 #:
-#: EACH ENTRY EXCUSES EXACTLY ONE FETCH. The key carries no count, so without
-#: that rule a second, NEW unpinned fetch of the same repository in the same
-#: Dockerfile would ride in on the old entry unseen. Zero matches is an error
-#: too: a stale entry would silently re-permit the fetch the day its pin is
-#: reverted.
-_UNPINNED_ALLOWED: dict[tuple[str, str], str] = {
-    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-small"): "#1724",
-    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-base"): "#1724",
-    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-large"): "#1724",
-    ("docker/embedding-service/Dockerfile", "Xenova/paraphrase-multilingual-MiniLM-L12-v2"): "#1724",
+#: The rule is a plain name match, both ways. Every unpinned fetch must match an
+#: entry in all three fields, so a new unpinned download — in a new stage, or of
+#: another repository — has no entry and is red. Every entry must match an
+#: unpinned fetch, so an entry whose fetch was pinned, renamed or removed is
+#: stale and red. And because the stage is part of the name, one stage fetching
+#: the same repository twice unpinned would make the name ambiguous: that is red
+#: too (``test_every_unpinned_fetch_has_an_unambiguous_name``).
+_UNPINNED_ALLOWED: dict[tuple[str, str, str], str] = {
+    ("docker/embedding-service/Dockerfile", "dl-e5-small", "intfloat/multilingual-e5-small"): "#1724",
+    ("docker/embedding-service/Dockerfile", "dl-e5-base", "intfloat/multilingual-e5-base"): "#1724",
+    ("docker/embedding-service/Dockerfile", "dl-e5-large", "intfloat/multilingual-e5-large"): "#1724",
+    ("docker/embedding-service/Dockerfile", "dl-minilm", "Xenova/paraphrase-multilingual-MiniLM-L12-v2"): "#1724",
 }
 
 
@@ -198,6 +205,8 @@ class FetchSite:
     revision: str | None
     #: A ``sha256sum -c`` in the same RUN instruction as the fetch.
     digest_checked: bool = False
+    #: The ``AS <stage>`` name of the build stage the fetch runs in ("" if unnamed).
+    stage: str = ""
 
     @property
     def pinned(self) -> bool:
@@ -205,7 +214,12 @@ class FetchSite:
 
     @property
     def label(self) -> str:
-        return f"{self.path}:{self.line}:{self.spelling}:{self.repo or '?'}"
+        return f"{self.path}:{self.line}:{self.stage or '?'}:{self.spelling}:{self.repo or '?'}"
+
+    @property
+    def name(self) -> tuple[str, str, str]:
+        """The allow-list key this fetch would be named by."""
+        return (self.path, self.stage, self.repo or "")
 
 
 # --------------------------------------------------------------------------
@@ -312,7 +326,20 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
     code = _fold_continuations(blanked)
     code_lines = code.splitlines()
     spans = _instruction_spans(blanked)
+    stages = [
+        (number, match.group("stage") or "")
+        for number, line in enumerate(blanked.splitlines(), start=1)
+        if (match := _FROM_STAGE.match(line))
+    ]
     sites: list[FetchSite] = []
+
+    def stage_of(line: int) -> str:
+        current = ""
+        for number, name in stages:
+            if number > line:
+                break
+            current = name
+        return current
 
     def line_of(offset: int) -> int:
         return code.count("\n", 0, offset) + 1
@@ -340,6 +367,7 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
                 repo=repo,
                 revision=revision.group("rev") if revision else None,
                 digest_checked=digest_checked(line_of(match.start())),
+                stage=stage_of(line_of(match.start())),
             )
         )
 
@@ -355,6 +383,7 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
                 repo=positional.strip("'\"") if positional else None,
                 revision=revision.group("rev") if revision else None,
                 digest_checked=digest_checked(line_of(match.start())),
+                stage=stage_of(line_of(match.start())),
             )
         )
 
@@ -367,6 +396,7 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
                 repo=match.group("repo"),
                 revision=match.group("rev"),
                 digest_checked=digest_checked(line_of(match.start())),
+                stage=stage_of(line_of(match.start())),
             )
         )
 
@@ -394,6 +424,20 @@ def _tree_sites() -> list[FetchSite]:
 _SITES = _tree_sites()
 
 
+def _is_allowed_unpinned(site: FetchSite) -> bool:
+    return not site.pinned and site.name in _UNPINNED_ALLOWED
+
+
+#: The fetches the per-fetch pin test is parametrized over: every fetch EXCEPT an
+#: unpinned one named on the allow-list. Those are left out rather than
+#: skipped: the guard lane runs with ``--max-skipped 0`` (#1434), and a skip is
+#: the wrong verdict anyway — a named exception is governed by the two name-match
+#: tests below, not "not checked". An unpinned fetch whose (file, stage, repo)
+#: is NOT on the list stays in here and is red with its full name.
+_GOVERNED_SITES = [site for site in _SITES if not _is_allowed_unpinned(site)]
+_PINNED_SITES = [site for site in _SITES if site.pinned]
+
+
 # --------------------------------------------------------------------------
 # the property, over the checkout
 # --------------------------------------------------------------------------
@@ -411,15 +455,17 @@ class TestHuggingFaceFetchesArePinned:
         collapse must be red here rather than look like a clean tree.
         """
         assert _SITES, "no Hugging Face fetch found in any Dockerfile — the scanner stopped reaching the tree"
-        assert any(site.pinned for site in _SITES), (
+        assert _PINNED_SITES, (
             "no PINNED fetch found — docker/reranker-service pins two since #1480, so the "
             "`revision=` reader has stopped matching"
         )
+        # Both parametrized tests below would otherwise collect ZERO cases and
+        # pass by not running — the allow-list filter must never swallow the tree.
+        assert _GOVERNED_SITES, "every fetch is allow-listed — the per-fetch pin test would run on nothing"
 
-    @pytest.mark.parametrize("site", _SITES, ids=lambda site: site.label)
+    @pytest.mark.parametrize("site", _GOVERNED_SITES, ids=lambda site: site.label)
     def test_fetch_names_a_commit(self, site: FetchSite) -> None:
-        if (site.path, site.repo or "") in _UNPINNED_ALLOWED:
-            pytest.skip(f"allow-listed unpinned fetch, tracked in {_UNPINNED_ALLOWED[(site.path, site.repo or '')]}")
+        """Every fetch not governed by an allowance names a 40-hex commit."""
         assert site.pinned, (
             f"{site.label}: a Hugging Face fetch without a commit pin (revision={site.revision!r}). "
             "Name the 40-hex commit the model was measured on, e.g. "
@@ -427,7 +473,7 @@ class TestHuggingFaceFetchesArePinned:
             "under the image and change its output without failing anything (#1480)."
         )
 
-    @pytest.mark.parametrize("site", [site for site in _SITES if site.pinned], ids=lambda site: site.label)
+    @pytest.mark.parametrize("site", _PINNED_SITES, ids=lambda site: site.label)
     def test_pinned_fetch_verifies_the_bytes_in_the_same_run(self, site: FetchSite) -> None:
         """A commit pin tells the server what to send; it checks nothing that arrives.
 
@@ -442,21 +488,37 @@ class TestHuggingFaceFetchesArePinned:
             "`/api/models/<repo>/revision/<sha>?blobs=true`) before the layer ends (#1480)."
         )
 
-    def test_every_allowance_excuses_exactly_one_unpinned_fetch(self) -> None:
-        """An entry is a count of one, not a licence for its (Dockerfile, repo) pair."""
-        matches = {
-            key: sum(1 for site in _SITES if not site.pinned and (site.path, site.repo or "") == key)
-            for key in _UNPINNED_ALLOWED
-        }
-        stale = sorted(key for key, count in matches.items() if count == 0)
-        widened = sorted((key, count) for key, count in matches.items() if count > 1)
-        assert not stale, (
-            f"allow-list entries that match no unpinned fetch: {stale}. Remove them — a stale "
-            "entry would re-permit the fetch the day its pin is reverted."
+    @pytest.mark.parametrize("entry", sorted(_UNPINNED_ALLOWED), ids=lambda entry: ":".join(entry))
+    def test_every_allowance_names_an_unpinned_fetch(self, entry: tuple[str, str, str]) -> None:
+        """An allow-list entry must name a fetch that exists and is still unpinned.
+
+        The entries are the four docker/embedding-service downloads tracked in
+        #1724. An entry whose fetch was pinned, whose stage was renamed or whose
+        download was removed is stale and must go — left in place it would
+        silently re-permit an unpinned fetch of that name later.
+        """
+        unpinned = {site.name for site in _SITES if not site.pinned}
+        assert entry in unpinned, (
+            f"stale allow-list entry {entry} ({_UNPINNED_ALLOWED[entry]}): no unpinned fetch in "
+            "that Dockerfile and stage of that repository. Remove the entry."
         )
-        assert not widened, (
-            f"allow-list entries that excuse more than one unpinned fetch: {widened}. Each entry "
-            "covers the ONE fetch it was written for; pin the new one instead of sharing the entry."
+
+    def test_every_unpinned_fetch_has_an_unambiguous_name(self) -> None:
+        """One stage fetching the same repository twice unpinned cannot be named.
+
+        The allow-list names an exception by (Dockerfile, stage, repository).
+        Two unpinned fetches sharing that name would both be covered by one
+        entry, so the name would no longer identify the exception it excuses.
+        """
+        seen: dict[tuple[str, str, str], FetchSite] = {}
+        ambiguous: list[str] = []
+        for site in (site for site in _SITES if not site.pinned):
+            if site.name in seen:
+                ambiguous.extend((seen[site.name].label, site.label))
+            seen.setdefault(site.name, site)
+        assert not ambiguous, (
+            f"unpinned fetches sharing one (Dockerfile, stage, repo) name: {ambiguous}. Pin them, "
+            "or split them into separately named stages (#1724)."
         )
 
 
@@ -622,6 +684,18 @@ def test_scanner_scopes_the_digest_check_to_the_run(snippet: str, checked: bool)
     sites = fetch_sites(snippet, path="Dockerfile")
     assert len(sites) == 1 and sites[0].pinned, "the pinned fetch in the snippet was not found"
     assert sites[0].digest_checked is checked
+
+
+def test_a_fetch_is_named_by_the_stage_it_runs_in() -> None:
+    """The allow-list key reads the ``AS <stage>`` of the enclosing ``FROM``."""
+    snippet = (
+        "FROM python:3 AS base\n"
+        "FROM base as dl-one\n"
+        "RUN python -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model')\"\n"
+        "FROM base AS dl-two\n"
+        "RUN python -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model')\"\n"
+    )
+    assert [site.stage for site in fetch_sites(snippet, path="Dockerfile")] == ["dl-one", "dl-two"]
 
 
 def test_a_comment_line_is_not_a_fetch() -> None:
