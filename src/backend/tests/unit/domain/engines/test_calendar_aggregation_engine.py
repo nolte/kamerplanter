@@ -113,7 +113,7 @@ class TestGetEvents:
         query = CalendarEventsQuery(
             start_date=date(2026, 3, 1),
             end_date=date(2026, 3, 31),
-            tenant_key="",
+            tenant_key="tenant1",
         )
         events = calendar.get_events(query)
 
@@ -139,7 +139,7 @@ class TestGetEvents:
         query = CalendarEventsQuery(
             start_date=date(2026, 3, 1),
             end_date=date(2026, 3, 31),
-            tenant_key="",
+            tenant_key="tenant1",
         )
         events = calendar.get_events(query)
 
@@ -163,7 +163,7 @@ class TestGetEvents:
         query = CalendarEventsQuery(
             start_date=date(2026, 3, 1),
             end_date=date(2026, 3, 31),
-            tenant_key="",
+            tenant_key="tenant1",
         )
         events = calendar.get_events(query)
 
@@ -198,7 +198,7 @@ class TestGetEvents:
             start_date=date(2026, 3, 1),
             end_date=date(2026, 3, 31),
             categories=[CalendarEventCategory.PRUNING],
-            tenant_key="",
+            tenant_key="tenant1",
         )
         events = calendar.get_events(query)
 
@@ -217,7 +217,7 @@ class TestGetEvents:
         query = CalendarEventsQuery(
             start_date=date(2026, 3, 1),
             end_date=date(2026, 3, 31),
-            tenant_key="",
+            tenant_key="tenant1",
         )
         events = calendar.get_events(query)
         assert events == []
@@ -248,7 +248,7 @@ class TestGetEvents:
         query = CalendarEventsQuery(
             start_date=date(2026, 3, 1),
             end_date=date(2026, 3, 31),
-            tenant_key="",
+            tenant_key="tenant1",
         )
         events = calendar.get_events(query)
         assert len(events) == 2
@@ -330,4 +330,20 @@ class TestTheServiceLoadsThroughTheRepository:
             "2026-03-01T00:00:00+00:00", "2026-03-31T23:59:59+00:00", tenant_key="t1"
         )
         sources.list_watering_forecast_rows.assert_called_once_with(tenant_key="t1")
+        sources.list_phase_timeline_rows.assert_called_once_with(tenant_key="t1")
+        sources.list_maintenance_logs.assert_called_once_with(
+            "2026-03-01T00:00:00+00:00", "2026-03-31T23:59:59+00:00", tenant_key="t1"
+        )
+        sources.list_watering_logs.assert_called_once_with(
+            "2026-03-01T00:00:00+00:00", "2026-03-31T23:59:59+00:00", tenant_key="t1"
+        )
         sources.get_fertilizer_product_names.assert_not_called()
+
+    def test_an_empty_tenant_key_fails_closed_without_reading_any_source(self):
+        """``tenant_key == ""`` would match every never-stamped legacy row of every tenant (#1704)."""
+        sources = MagicMock()
+        service = CalendarService(MagicMock(), CalendarAggregationEngine(), sources)
+        query = CalendarEventsQuery(start_date=date(2026, 3, 1), end_date=date(2026, 3, 31), tenant_key="")
+
+        assert service.get_events(query) == []
+        assert sources.method_calls == []

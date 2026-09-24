@@ -10,6 +10,9 @@ class ICalendarSourceRepository(ABC):
     :class:`~app.domain.engines.calendar_aggregation_engine.CalendarAggregationEngine`.
     Window bounds are ISO-8601 strings, compared lexicographically against the
     stored ISO timestamps exactly as the queries always did.
+
+    Every per-tenant source takes ``tenant_key`` keyword-only and without a
+    default, so no call site can leave it out (#1704).
     """
 
     @abstractmethod
@@ -18,18 +21,21 @@ class ICalendarSourceRepository(ABC):
         ...
 
     @abstractmethod
-    def list_phase_timeline_rows(self) -> list[dict]:
-        """One row per active plant: its lifecycle growth phases and phase histories."""
+    def list_phase_timeline_rows(self, *, tenant_key: str) -> list[dict]:
+        """One row per active plant of ``tenant_key``: its lifecycle growth phases and phase histories."""
         ...
 
     @abstractmethod
-    def list_maintenance_logs(self, start: str, end: str) -> list[dict]:
-        """Tank maintenance logs performed in ``[start, end]``."""
+    def list_maintenance_logs(self, start: str, end: str, *, tenant_key: str) -> list[dict]:
+        """Maintenance logs of ``tenant_key``'s tanks performed in ``[start, end]``.
+
+        A log has no tenant of its own; it is scoped through its tank.
+        """
         ...
 
     @abstractmethod
-    def list_watering_logs(self, start: str, end: str) -> list[dict]:
-        """Watering logs in ``[start, end]``, each with ``resolved_plant_names``."""
+    def list_watering_logs(self, start: str, end: str, *, tenant_key: str) -> list[dict]:
+        """Watering logs of ``tenant_key`` in ``[start, end]``, each with ``resolved_plant_names``."""
         ...
 
     @abstractmethod

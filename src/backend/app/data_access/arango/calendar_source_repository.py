@@ -38,10 +38,11 @@ class ArangoCalendarSourceRepository(ICalendarSourceRepository):
         bind = {"start": start, "end": end, "tenant_key": tenant_key}
         return list(self._db.aql.execute(aql, bind_vars=bind))
 
-    def list_phase_timeline_rows(self) -> list[dict]:
+    def list_phase_timeline_rows(self, *, tenant_key: str) -> list[dict]:
         aql = f"""
         FOR pi IN {col.PLANT_INSTANCES}
           FILTER pi.removed_on == null
+          FILTER pi.tenant_key == @tenant_key
           LET run_edge = FIRST(
             FOR e IN {col.RUN_CONTAINS}
               FILTER e._to == pi._id
@@ -83,32 +84,42 @@ class ArangoCalendarSourceRepository(ICalendarSourceRepository):
             phase_histories: histories
           }}
         """
-        return list(self._db.aql.execute(aql))
+        return list(self._db.aql.execute(aql, bind_vars={"tenant_key": tenant_key}))
 
-    def list_maintenance_logs(self, start: str, end: str) -> list[dict]:
+    def list_maintenance_logs(self, start: str, end: str, *, tenant_key: str) -> list[dict]:
+        # A maintenance log carries no tenant of its own (``MaintenanceLog`` has
+        # no ``tenant_key``); it belongs to the tenant of its tank, which the
+        # tank router stamps from the request context on create (#1704).
         aql = f"""
         FOR m IN {col.MAINTENANCE_LOGS}
           FILTER m.performed_at != null
           FILTER m.performed_at >= @start AND m.performed_at <= @end
+          LET tank = DOCUMENT(CONCAT("{col.TANKS}/", m.tank_key))
+          FILTER tank != null AND tank.tenant_key == @tenant_key
           RETURN m
         """
-        bind = {"start": start, "end": end}
+        bind = {"start": start, "end": end, "tenant_key": tenant_key}
         return list(self._db.aql.execute(aql, bind_vars=bind))
 
-    def list_watering_logs(self, start: str, end: str) -> list[dict]:
+    def list_watering_logs(self, start: str, end: str, *, tenant_key: str) -> list[dict]:
+        # Every creator stamps ``tenant_key`` on the log (router, watering
+        # service, care-reminder confirmation). The resolved plant names are
+        # held to the same tenant so a stray foreign key cannot surface a
+        # foreign plant's name either (#1704).
         aql = f"""
         FOR w IN {col.WATERING_LOGS}
           FILTER w.logged_at != null
           FILTER w.logged_at >= @start AND w.logged_at <= @end
+          FILTER w.tenant_key == @tenant_key
           LET plant_names = (
             FOR pk IN (w.plant_keys || [])
               LET pi = DOCUMENT(CONCAT("{col.PLANT_INSTANCES}/", pk))
-              FILTER pi != null
+              FILTER pi != null AND pi.tenant_key == @tenant_key
               RETURN pi.plant_name || pi.instance_id || pk
           )
           RETURN MERGE(w, {{ resolved_plant_names: plant_names }})
         """
-        bind = {"start": start, "end": end}
+        bind = {"start": start, "end": end, "tenant_key": tenant_key}
         return list(self._db.aql.execute(aql, bind_vars=bind))
 
     def list_watering_forecast_rows(self, *, tenant_key: str) -> list[dict]:
