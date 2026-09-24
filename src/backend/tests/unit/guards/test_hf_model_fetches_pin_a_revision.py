@@ -114,10 +114,56 @@ _RESOLVE_URL = re.compile(
 
 _COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
 
-#: ``sha256sum -c`` / ``--check``, flags in any order and combined short flags
-#: (``-c --strict``, ``--strict -c``, ``-bc``). ``sha256sum FILE > SUMS`` without
-#: a check flag COMPUTES a digest and verifies nothing, so it must not match.
-_DIGEST_CHECK = re.compile(r"\bsha256sum\s+(?:--?[\w-]+\s+)*?(?:-[a-zA-Z]*c[a-zA-Z]*|--check)(?=\s|$)")
+#: One ``sha256sum`` command: its arguments up to the next shell separator.
+_SHA256SUM = re.compile(r"(?<![\w-])sha256sum(?P<args>(?:\s+[^\s;&|]+)*)")
+
+#: A short-flag cluster containing ``c`` (``-c``, ``-bc``, ``-cw``).
+_SHORT_CHECK = re.compile(r"-[a-zA-Z]*c[a-zA-Z]*")
+
+
+def _long_option_matches(token: str, option: str) -> bool:
+    """Whether GNU getopt_long would read *token* as *option*.
+
+    getopt_long accepts any unambiguous PREFIX of a long option, and sha256sum
+    (GNU coreutils 9.7, the one in the build base) has exactly one long option
+    beginning ``--c`` and one beginning ``--i`` — so ``--c`` is ``--check`` and
+    ``--i`` is ``--ignore-missing``. Measured 2026-09-24 in the image: with one
+    listed file present and one missing, ``-c --i``, ``--ig -c``,
+    ``-c --ignore`` and ``--c --ignore-m`` all exit 0.
+    """
+    return len(token) >= 3 and option.startswith(token)
+
+
+def _verifies_digests(instruction: str) -> bool:
+    """Whether *instruction* runs a ``sha256sum`` that CHECKS and misses nothing.
+
+    ``sha256sum -c`` / ``--check``, flags in any order and combined short
+    flags (``-c --strict``, ``--strict -c``, ``-bc``). Not accepted:
+
+    * ``sha256sum FILE > SUMS`` without a check flag — it COMPUTES a digest
+      and verifies nothing;
+    * any check carrying ``--ignore-missing`` or one of its prefixes, in ANY
+      argument position — GNU permutes arguments, so ``-c SUMS
+      --ignore-missing`` means the same as ``--ignore-missing -c SUMS``. With it,
+      a file that is listed but was never downloaded passes silently, which
+      is the one failure a digest list exists to catch. It has no short form.
+
+    ``--`` ends option parsing; a token after it is a file operand.
+    """
+    for command in _SHA256SUM.finditer(instruction):
+        checks = False
+        ignores_missing = False
+        for token in command.group("args").split():
+            if token == "--":
+                break
+            if _SHORT_CHECK.fullmatch(token) or _long_option_matches(token, "--check"):
+                checks = True
+            elif _long_option_matches(token.split("=", 1)[0], "--ignore-missing"):
+                ignores_missing = True
+        if checks and not ignores_missing:
+            return True
+    return False
+
 
 #: A heredoc opener in a Dockerfile instruction: ``<<EOF``, ``<<-EOF``, ``<<'EOF'``.
 _HEREDOC = re.compile(r"<<-?\s*(?P<q>['\"]?)(?P<tag>\w+)(?P=q)")
@@ -275,7 +321,7 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
         for first, last in spans:
             if first <= line <= last:
                 instruction = " ".join(code_lines[first - 1 : last])
-                return _DIGEST_CHECK.search(instruction) is not None
+                return _verifies_digests(instruction)
         return False
 
     for match in _call_pattern(code).finditer(code):
@@ -517,6 +563,22 @@ _DIGEST_SPELLINGS: list[tuple[str, str, bool]] = [
     ),
     ("--strict before -c", _PINNED_FETCH + "    sha256sum --strict -c /tmp/sums\n", True),
     ("long --check", _PINNED_FETCH + "    sha256sum --check /tmp/sums\n", True),
+    ("abbreviated --c", _PINNED_FETCH + "    sha256sum --c /tmp/sums\n", True),
+    (
+        "after --, --ignore-missing is a file operand, not the option",
+        _PINNED_FETCH + "    sha256sum -c -- --ignore-missing\n",
+        True,
+    ),
+    ("--ignore-missing after -c", _PINNED_FETCH + "    sha256sum -c --ignore-missing /tmp/sums\n", False),
+    ("--ignore-missing before -c", _PINNED_FETCH + "    sha256sum --ignore-missing -c /tmp/sums\n", False),
+    ("--ignore-missing after the operand", _PINNED_FETCH + "    sha256sum -c /tmp/sums --ignore-missing\n", False),
+    ("abbreviated --ignore", _PINNED_FETCH + "    sha256sum -c --ignore /tmp/sums\n", False),
+    ("abbreviated --i", _PINNED_FETCH + "    sha256sum -c --strict --i /tmp/sums\n", False),
+    (
+        "--ignore-missing next to --check",
+        _PINNED_FETCH + "    sha256sum --check --strict --ignore-m /tmp/sums\n",
+        False,
+    ),
     (
         "blank line (a removed comment) inside the continuation",
         _PINNED_FETCH + "\n    sha256sum -c /tmp/sums\n",
