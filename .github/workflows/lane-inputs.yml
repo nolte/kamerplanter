@@ -17,7 +17,9 @@ name: Lane inputs
 #            There is no second list of lanes in this file.
 #   record   replays ONE leg's invocations exactly as the manifest states them,
 #            under `strace -ff -y -z` (`scripts/ci/lane_inputs.py replay`), and
-#            uploads the manifest it wrote. An invocation whose tool this lane
+#            uploads the manifest it wrote — including how long the replay took
+#            (`replay_seconds`), from which the next `plan` sizes this leg's
+#            step timeout. An invocation whose tool this lane
 #            does not provide fails the leg; it is never dropped from the
 #            recording.
 #   compare  diffs `reads`, `job_spec_sha256`, `status` and `invocations` of the
@@ -110,6 +112,9 @@ jobs:
     needs: plan
     runs-on: ubuntu-latest
     # A full unit run under ptrace is several times slower than without it.
+    # The OUTER bound, and the cap of every leg's own step bound below
+    # (`TIMEOUT_CAP_MINUTES` in scripts/ci/lane_inputs.py; the recorder test pins
+    # the two together). It also bounds the setup steps, which no leg measures.
     timeout-minutes: 90
     permissions:
       contents: read
@@ -208,6 +213,12 @@ jobs:
           exit 1
 
       - name: Replay the manifest's invocations under the recorder
+        # Per leg, from the duration this leg's last recording measured
+        # (`replay_seconds` in its manifest): 3x that, at least 10 and at most
+        # 90 minutes; 90 for a leg never measured. `plan` computes it
+        # (`leg_timeout_minutes`), so a hung 2-minute leg is cut off after 10
+        # minutes instead of holding the run for the job's 90 (#1683).
+        timeout-minutes: ${{ matrix.timeout_minutes }}
         env:
           OUT_DIR: ${{ runner.temp }}/lane-inputs-recorded
           LANE: ${{ matrix.lane }}
