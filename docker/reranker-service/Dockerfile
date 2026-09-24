@@ -188,6 +188,18 @@ LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
 
+# NO INSTALLER IN THE SHIPPED IMAGE (security review of #1725). uv never
+# reaches this stage and the venv it built has no pip; the one installer left
+# is the base image's own /usr/local pip — python:3.14-slim ships pip and
+# nothing else (no setuptools, no wheel; measured 2026-09-24 on the digest
+# above), and nothing at runtime imports it. Removed as root, before USER, with
+# the interpreter named absolutely: from the ENV below on, `python` is the
+# venv's, which has no pip module to uninstall with. (`ensurepip`'s bundled
+# wheel stays: it is part of the standard library, and installing from it
+# needs a writable site-packages that UID 1000 on a read-only root does not
+# have.)
+RUN /usr/local/bin/python3 -m pip uninstall --yes --root-user-action=ignore pip
+
 # `--no-dev` leaves the `build` group out, but that does NOT keep
 # huggingface-hub out of the shipped image: `tokenizers` declares it as a
 # dependency of its own, so it ships transitively together with hf-xet,

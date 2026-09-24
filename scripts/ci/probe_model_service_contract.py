@@ -6,18 +6,26 @@
 
 ``scripts/ci/smoke_model_image.sh`` proves that the image becomes READY. This
 proves that a ready image SERVES its contract — a correct answer for a normal
-request, the empty-list answer, and a 422 for a request past the bounds in
-``docker/<service>/limits.py``:
+request, the empty-list answer, a 422 for a request one past EACH bound in
+``docker/<service>/limits.py`` (whose error list names the field and does not
+echo the input), and a 413 for a body whose ``Content-Length`` exceeds the
+image's own ``MAX_BODY_BYTES``:
 
 reranker
     ``POST /rerank`` with a query and three documents, exactly one of them about
     the query → 200 and that document ranked first; ``documents: []`` → 200
-    ``{"results": []}``; 101 documents → 422; a 4097-character query → 422.
+    ``{"results": []}``; 101 documents, a 4097-character query, a
+    16385-character document, ``top_k`` 51 and ``top_k`` 0 → 422 each.
 embedding
     ``POST /embed`` with two texts → 200, two distinct L2-normalised vectors of
     the model's hidden size (read from the ``config.json`` shipped in the image,
     so the probe holds for every ``--target``); ``texts: []`` → 200 with no
-    embeddings; 65 texts → 422.
+    embeddings; 65 texts, a 16385-character text, a 65-character prefix and a
+    129-character model → 422 each.
+both
+    A declared ``Content-Length`` of ``MAX_BODY_BYTES + 1`` (read from the
+    image's ``limits.py``, so the probe and the image cannot disagree) → 413,
+    answered from the headers alone: the probe sends no body at all.
 
 The container is started exactly as the chart runs it and as the smoke script
 starts it: read-only root filesystem, a 64 MiB tmpfs on /tmp, no capabilities,
@@ -32,6 +40,7 @@ only place the cause appears.
 
 from __future__ import annotations
 
+import http.client
 import json
 import math
 import subprocess
@@ -109,7 +118,42 @@ def _expect(condition: bool, message: str) -> None:
     print(f"probe: ok — {message}")
 
 
-def probe_reranker(base: str) -> None:
+def _expect_refused(base: str, path: str, payload: dict[str, Any], what: str) -> None:
+    """422, with an error list that names fields and carries no ``input`` (the default handler echoes it)."""
+    status, body = _request(f"{base}{path}", payload)
+    _expect(status == 422, f"{what} is refused with 422 (got {status})")
+    detail = body.get("detail") if isinstance(body, dict) else None
+    _expect(
+        isinstance(detail, list) and detail and all(set(error) == {"loc", "type", "msg"} for error in detail),
+        f"the 422 for {what} carries loc/type/msg only, no input (got {str(body)[:200]})",
+    )
+
+
+def _image_constant(image: str, name: str) -> int:
+    """An integer from the ``limits.py`` the image ships — the value the running service uses."""
+    script = f"import limits; print(limits.{name})"
+    return int(_docker("run", "--rm", *HARDENED_RUN, "--entrypoint", "python", image, "-c", script))
+
+
+def _expect_body_cap(base: str, path: str, image: str) -> None:
+    """A declared Content-Length one past the cap is answered 413 before any body is sent."""
+    cap = _image_constant(image, "MAX_BODY_BYTES")
+    host, port = base.removeprefix("http://").rsplit(":", 1)
+    connection = http.client.HTTPConnection(host, int(port), timeout=REQUEST_TIMEOUT_SECONDS)
+    try:
+        connection.putrequest("POST", path)
+        connection.putheader("Content-Type", "application/json")
+        connection.putheader("Content-Length", str(cap + 1))
+        connection.endheaders()
+        status = connection.getresponse().status
+    finally:
+        connection.close()
+    _expect(
+        status == 413, f"a declared body of {cap + 1} bytes (MAX_BODY_BYTES + 1) is refused with 413 (got {status})"
+    )
+
+
+def probe_reranker(base: str, image: str) -> None:
     documents = [
         "Car engines need regular oil changes to keep running smoothly.",
         "Tomato plants need deep, regular watering, especially while their fruit is setting.",
@@ -129,11 +173,12 @@ def probe_reranker(base: str) -> None:
         status == 200 and body.get("results") == [], f'documents: [] answers 200 {{"results": []}} ({status}: {body})'
     )
 
-    status, body = _request(f"{base}/rerank", {"query": "q", "documents": ["d"] * 101})
-    _expect(status == 422, f"101 documents are refused with 422 (got {status})")
-
-    status, body = _request(f"{base}/rerank", {"query": "q" * 4097, "documents": ["d"]})
-    _expect(status == 422, f"a 4097-character query is refused with 422 (got {status})")
+    _expect_refused(base, "/rerank", {"query": "q", "documents": ["d"] * 101}, "101 documents")
+    _expect_refused(base, "/rerank", {"query": "q" * 4097, "documents": ["d"]}, "a 4097-character query")
+    _expect_refused(base, "/rerank", {"query": "q", "documents": ["d" * 16385]}, "a 16385-character document")
+    _expect_refused(base, "/rerank", {"query": "q", "documents": ["d"], "top_k": 51}, "top_k 51")
+    _expect_refused(base, "/rerank", {"query": "q", "documents": ["d"], "top_k": 0}, "top_k 0")
+    _expect_body_cap(base, "/rerank", image)
 
 
 def _hidden_size(image: str) -> int:
@@ -167,8 +212,11 @@ def probe_embedding(base: str, image: str) -> None:
         f"texts: [] answers 200 with no embeddings ({status}: {body})",
     )
 
-    status, body = _request(f"{base}/embed", {"texts": ["t"] * 65})
-    _expect(status == 422, f"65 texts are refused with 422 (got {status})")
+    _expect_refused(base, "/embed", {"texts": ["t"] * 65}, "65 texts")
+    _expect_refused(base, "/embed", {"texts": ["t" * 16385]}, "a 16385-character text")
+    _expect_refused(base, "/embed", {"texts": ["t"], "prefix": "p" * 65}, "a 65-character prefix")
+    _expect_refused(base, "/embed", {"texts": ["t"], "model": "m" * 129}, "a 129-character model")
+    _expect_body_cap(base, "/embed", image)
 
 
 def main(argv: list[str]) -> int:
@@ -189,7 +237,7 @@ def main(argv: list[str]) -> int:
         print(f"probe: {image} ({kind}) at {base}")
         _wait_ready(base)
         if kind == "reranker":
-            probe_reranker(base)
+            probe_reranker(base, image)
         else:
             probe_embedding(base, image)
     except (ProbeError, KeyError, TypeError, IndexError, ValueError, OSError) as exc:

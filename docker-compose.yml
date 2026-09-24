@@ -120,6 +120,19 @@ services:
     # so the mapping only serves probing from the host itself.
     ports:
       - "127.0.0.1:8081:8081"
+    # THE SAME RUNTIME SHAPE AS THE CHART AND THE CI PROBE (#1725): read-only
+    # root filesystem, a small non-executable /tmp, no capabilities, no
+    # privilege escalation, UID 1000 — the flags `HARDENED_RUN` in
+    # scripts/ci/probe_model_service_contract.py starts the image with, so the
+    # image is proven to serve under exactly these.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
     # NO `healthcheck:` OVERRIDE HERE, DELIBERATELY (#1609).
     #
     # The override that used to sit here was wrong twice over. It probed

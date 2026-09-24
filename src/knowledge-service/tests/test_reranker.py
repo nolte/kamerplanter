@@ -99,3 +99,21 @@ class TestRerankerEnabled:
         # Should fall back to truncated original list
         assert len(result) == 3
         assert result[0].source_key == "k0"
+
+    def test_rerank_falls_back_when_the_service_is_busy(self, monkeypatch):
+        """A 503 busy/timeout from the reranker (its bounded lock wait / deadline) degrades to no reranking."""
+        chunks = [_make_chunk(f"k{i}", f"Title {i}", f"Content {i}") for i in range(10)]
+
+        def busy_post(url, **kwargs):
+            return httpx.Response(
+                503,
+                json={"status": "busy"},
+                headers={"Retry-After": "20"},
+                request=httpx.Request("POST", url),
+            )
+
+        monkeypatch.setattr(httpx, "post", busy_post)
+
+        result = RerankerEngine("http://reranker:8081").rerank("query", chunks, top_k=3)
+
+        assert [chunk.source_key for chunk in result] == ["k0", "k1", "k2"]

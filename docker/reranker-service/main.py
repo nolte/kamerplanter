@@ -9,11 +9,35 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 from fastapi import FastAPI
-from limits import RerankRequest, cpu_budget
+from fastapi.exceptions import RequestValidationError
+from limits import (
+    LOCK_WAIT_SECONDS,
+    MAX_BODY_BYTES,
+    MAX_INFERENCE_SECONDS,
+    BodySizeLimit,
+    Deadline,
+    RerankRequest,
+    ServiceUnavailableError,
+    cpu_budget,
+    inference_slot,
+    unavailable_handler,
+    validation_error_handler,
+)
 from pydantic import BaseModel
 from tokenizers import Tokenizer
 
 app = FastAPI(title="Kamerplanter Reranker Service")
+
+# THE ORDER OF DEFENCES, OUTSIDE IN (security review of #1725; all in limits.py).
+# `BodySizeLimit` refuses a body past `MAX_BODY_BYTES` with 413 before FastAPI
+# reads it into memory; `validation_error_handler` answers a body past the
+# request bounds with a 422 that names the field and never echoes the input;
+# `unavailable_handler` turns `ServiceUnavailableError` — the lock not
+# obtained within `LOCK_WAIT_SECONDS`, or the request past its
+# `MAX_INFERENCE_SECONDS` deadline — into 503 with `Retry-After`.
+app.add_middleware(BodySizeLimit, max_body_bytes=MAX_BODY_BYTES)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(ServiceUnavailableError, unavailable_handler)
 
 _session = None
 _tokenizer = None
@@ -27,6 +51,10 @@ _ready = False
 # ONE request, and the request bounds in limits.py make that finite. The graph
 # already uses every CPU the cgroup grants (`cpu_budget`), so running two
 # requests side by side bought no throughput, only memory.
+#
+# NEVER `with _inference_lock:` — always `inference_slot(...)`, which waits at
+# most `LOCK_WAIT_SECONDS` and then answers 503 busy. A bare `with` waits
+# forever while holding one of the AnyIO threadpool's 40 threads.
 _inference_lock = threading.Lock()
 
 DEFAULT_MODEL = os.environ.get("RERANKER_MODEL", "bge-reranker-v2-m3")
@@ -199,11 +227,20 @@ def rerank(req: RerankRequest) -> RerankResponse:
     # unchanged (truncation to MAX_LENGTH); padding is a no-op for one pair.
     # Scores are collected in input order, so `index` still names the request's
     # document.
+    #
+    # BOUNDED WAIT, BOUNDED HOLD. The lock is waited for at most
+    # `LOCK_WAIT_SECONDS` (then 503 busy), and the deadline — started here, so
+    # it includes that wait — is checked before every pair: a request past
+    # `MAX_INFERENCE_SECONDS` is abandoned with 503 timeout and the lock
+    # released, instead of computing on for a caller that timed out long ago.
+    #
     # A list of the graph's own scalars, so the array below keeps the graph's
     # output dtype (float32), exactly as the batched `logits[:, 0]` did.
+    deadline = Deadline(MAX_INFERENCE_SECONDS)
     pair_logits = []
-    with _inference_lock:
+    with inference_slot(_inference_lock, wait_seconds=LOCK_WAIT_SECONDS):
         for document in req.documents:
+            deadline.check()
             encoding = _tokenizer.encode_batch([(req.query, document)])[0]
             inputs = {
                 name: np.asarray([getattr(encoding, _ENCODING_FIELDS[name])], dtype=np.int64) for name in _input_names
@@ -229,13 +266,20 @@ def rerank(req: RerankRequest) -> RerankResponse:
     return RerankResponse(results=results, model=DEFAULT_MODEL)
 
 
+# `/health` AND `/ready` ARE `async def`, AND THAT IS THE POINT. A sync route
+# runs on the AnyIO threadpool (40 threads), which is exactly where requests
+# waiting on `_inference_lock` sit; with enough of them queued, a probe would
+# wait for a free thread past its timeout, and a failed liveness probe restarts
+# a pod that is merely busy — killing the inference everyone queued behind.
+# These two only read module flags, so they run on the event loop and answer
+# regardless of the threadpool.
 @app.get("/health")
-def health() -> dict:
+async def health() -> dict:
     return {"status": "ok" if _ready else "loading", "model": DEFAULT_MODEL, "ready": _ready}
 
 
 @app.get("/ready")
-def ready() -> dict:
+async def ready() -> dict:
     if not _ready:
         from fastapi.responses import JSONResponse
 

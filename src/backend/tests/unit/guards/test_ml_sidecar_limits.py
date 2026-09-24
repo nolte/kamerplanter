@@ -36,17 +36,32 @@ only client of both. Its limits are re-read from its source (the ask schema's
 grows past a bound goes red here instead of degrading silently in production
 (the reranker client falls back to no reranking on any HTTP error).
 
+**Serving under load (the security review of #1725).** A bound on the parsed
+request does not bound what happens BEFORE parsing or WHILE serving, so the
+same ``limits.py`` also carries — and this file drives directly, stdlib ASGI
+messages in, messages out — the body-size middleware (413 on a declared or a
+streamed body past ``MAX_BODY_BYTES``, a cap computed here to admit the largest
+request the bounds accept), the 422 handler that never echoes ``input``, the
+lock wait that ends in 503 busy and the per-request deadline that ends in 503
+timeout. ``main.py``'s side — the middleware and both handlers registered,
+``/health`` and ``/ready`` off the threadpool, the lock taken only through the
+bounded wait, the deadline checked before every graph call — is read from its
+AST.
+
 Traces to #1725 (no TC-ID: sidecar internals are not a user-facing case).
 """
 
 from __future__ import annotations
 
 import ast
+import asyncio
 import functools
 import importlib.util
+import json
 import os
 import re
 import sys
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,6 +71,7 @@ from typing import Any
 import pytest
 import yaml
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ValidationError
 
@@ -103,6 +119,10 @@ class Sidecar:
     minimal: dict[str, Any]
     empty_field: str
     bounds: tuple[Bound, ...]
+    #: The knowledge-service client module whose ``httpx.post(timeout=...)`` calls this service.
+    client: str
+    #: The largest request the bounds accept, every string filled with *char*.
+    largest: Callable[[ModuleType, str], dict[str, Any]]
 
     @property
     def dir(self) -> Path:
@@ -123,6 +143,12 @@ _RERANKER = Sidecar(
         Bound("documents.0", "MAX_DOCUMENT_CHARS", 16384, lambda n: {"query": "q", "documents": ["d" * n]}),
         Bound("top_k", "MAX_TOP_K", 50, lambda n: {"query": "q", "documents": ["d"], "top_k": n}),
     ),
+    client="reranker.py",
+    largest=lambda limits, char: {
+        "query": char * limits.MAX_QUERY_CHARS,
+        "documents": [char * limits.MAX_DOCUMENT_CHARS] * limits.MAX_DOCUMENTS,
+        "top_k": limits.MAX_TOP_K,
+    },
 )
 
 _EMBEDDING = Sidecar(
@@ -136,6 +162,12 @@ _EMBEDDING = Sidecar(
         Bound("prefix", "MAX_PREFIX_CHARS", 64, lambda n: {"texts": ["t"], "prefix": "p" * n}),
         Bound("model", "MAX_MODEL_CHARS", 128, lambda n: {"texts": ["t"], "model": "m" * n}),
     ),
+    client="embedding.py",
+    largest=lambda limits, char: {
+        "texts": [char * limits.MAX_TEXT_CHARS] * limits.MAX_TEXTS,
+        "model": char * limits.MAX_MODEL_CHARS,
+        "prefix": char * limits.MAX_PREFIX_CHARS,
+    },
 )
 
 _SIDECARS = (_RERANKER, _EMBEDDING)
@@ -383,14 +415,29 @@ class TestCpuBudget:
 
     def test_both_services_share_one_implementation(self) -> None:
         """Two build contexts, one rule: the copies may not drift apart."""
-        names = ("cpu_budget", "_cgroup_cpu_limit", "_ceil_quota", "_read_fields", "_available_cpus")
+        names = (
+            "cpu_budget",
+            "_cgroup_cpu_limit",
+            "_ceil_quota",
+            "_read_fields",
+            "_available_cpus",
+            "JSONAnswer",
+            "_declared_length",
+            "BodySizeLimit",
+            "ServiceUnavailableError",
+            "inference_slot",
+            "Deadline",
+            "_HasErrors",
+            "validation_error_handler",
+            "unavailable_handler",
+        )
 
         def functions(sidecar: Sidecar) -> dict[str, str]:
             tree = _parse(sidecar.dir / "limits.py")
             return {
                 node.name: ast.dump(node)
                 for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name in names
+                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) and node.name in names
             }
 
         reranker, embedding = functions(_RERANKER), functions(_EMBEDDING)
@@ -421,6 +468,50 @@ def _route(tree: ast.Module) -> ast.FunctionDef:
 
 def _parents(tree: ast.AST) -> dict[ast.AST, ast.AST]:
     return {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+
+
+def _module_locks(tree: ast.Module) -> set[str]:
+    return {
+        target.id
+        for node in tree.body
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+        if ast.unparse(node.value.func) == "threading.Lock"
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+
+
+def _slot_of(item: ast.withitem, locks: set[str]) -> bool:
+    """``with inference_slot(<module lock>, ...)`` — the lock entered through the bounded wait."""
+    call = item.context_expr
+    return (
+        isinstance(call, ast.Call)
+        and ast.unparse(call.func) == "inference_slot"
+        and bool(call.args)
+        and ast.unparse(call.args[0]) in locks
+    )
+
+
+def _get_route(tree: ast.Module, path: str) -> ast.FunctionDef | ast.AsyncFunctionDef:
+    routes = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        for decorator in node.decorator_list
+        if isinstance(decorator, ast.Call) and ast.unparse(decorator.func) == "app.get"
+        if decorator.args and isinstance(decorator.args[0], ast.Constant) and decorator.args[0].value == path
+    ]
+    assert len(routes) == 1, f"expected exactly one GET {path}, found {len(routes)}"
+    return routes[0]
+
+
+def _module_calls(tree: ast.Module, func: str) -> list[ast.Call]:
+    """Calls of *func* made as statements at module level (``app.add_middleware(...)`` and the like)."""
+    return [
+        node.value
+        for node in tree.body
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) and ast.unparse(node.value.func) == func
+    ]
 
 
 class TestMainWiring:
@@ -486,14 +577,7 @@ class TestMainWiring:
         31.9 s / 24.7 s at 1595 / 1650 MiB, outputs identical (max |Δ| 0.0).
         """
         tree = _main(sidecar)
-        locks = {
-            target.id
-            for node in tree.body
-            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
-            if ast.unparse(node.value.func) == "threading.Lock"
-            for target in node.targets
-            if isinstance(target, ast.Name)
-        }
+        locks = _module_locks(tree)
         assert len(locks) == 1, f"{sidecar.service}: expected one module-level threading.Lock(), found {locks}"
 
         route = _route(tree)
@@ -511,14 +595,519 @@ class TestMainWiring:
             node = parents[node]
             chain.append(node)
         loops = [n for n in chain if isinstance(n, ast.For)]
-        guarded = [
-            n
-            for n in chain
-            if isinstance(n, ast.With) and any(ast.unparse(item.context_expr) in locks for item in n.items)
-        ]
+        guarded = [n for n in chain if isinstance(n, ast.With) and any(_slot_of(item, locks) for item in n.items)]
         assert loops, f"{sidecar.service}: session.run is not inside a per-input loop"
-        assert guarded, f"{sidecar.service}: session.run is not inside `with {next(iter(locks))}:`"
+        assert guarded, f"{sidecar.service}: session.run is not inside `with inference_slot({next(iter(locks))}, ...):`"
         assert chain.index(loops[0]) < chain.index(guarded[0]), "the lock must enclose the whole loop"
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    @pytest.mark.parametrize("path", ["/health", "/ready"])
+    def test_the_probes_run_on_the_event_loop(self, sidecar: Sidecar, path: str) -> None:
+        """A sync probe shares the 40-thread pool with requests queued on the lock and can starve."""
+        route = _get_route(_main(sidecar), path)
+
+        assert isinstance(route, ast.AsyncFunctionDef), f"{sidecar.service}: GET {path} is a sync `def`"
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_lock_is_only_ever_taken_with_a_bounded_wait(self, sidecar: Sidecar) -> None:
+        """``inference_slot(lock, wait_seconds=LOCK_WAIT_SECONDS)`` — never ``with lock:`` or ``acquire()``."""
+        tree = _main(sidecar)
+        locks = _module_locks(tree)
+        slots = [
+            item.context_expr
+            for node in ast.walk(tree)
+            if isinstance(node, ast.With)
+            for item in node.items
+            if _slot_of(item, locks)
+        ]
+        bare = [
+            ast.unparse(node)
+            for node in ast.walk(tree)
+            if (isinstance(node, ast.withitem) and ast.unparse(node.context_expr) in locks)
+            or (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and ast.unparse(node.func.value) in locks
+            )
+        ]
+
+        assert bare == [], f"{sidecar.service}: the inference lock is used without the bounded wait: {bare}"
+        assert len(slots) == 1, f"{sidecar.service}: expected one `with inference_slot(...)`, found {len(slots)}"
+        slot = slots[0]
+        assert isinstance(slot, ast.Call)
+        waits = [ast.unparse(keyword.value) for keyword in slot.keywords if keyword.arg == "wait_seconds"]
+        assert waits == ["LOCK_WAIT_SECONDS"], ast.unparse(slot)
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_deadline_is_checked_before_every_graph_call(self, sidecar: Sidecar) -> None:
+        """``Deadline(MAX_INFERENCE_SECONDS)`` started before the lock wait, checked first thing per input."""
+        route = _route(_main(sidecar))
+        deadlines = [
+            node.targets[0].id
+            for node in ast.walk(route)
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+            if ast.unparse(node.value) == "Deadline(MAX_INFERENCE_SECONDS)"
+            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+        ]
+        assert len(deadlines) == 1, f"{sidecar.service}: no single `x = Deadline(MAX_INFERENCE_SECONDS)` in the route"
+
+        run = next(
+            node
+            for node in ast.walk(route)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "run"
+        )
+        parents = _parents(route)
+        node: ast.AST = run
+        while not isinstance(node, ast.For):
+            node = parents[node]
+        first = node.body[0]
+
+        assert isinstance(first, ast.Expr) and ast.unparse(first.value) == f"{deadlines[0]}.check()", (
+            f"{sidecar.service}: the per-input loop does not start with `{deadlines[0]}.check()`"
+        )
+        slot = next(n for n in ast.walk(route) if isinstance(n, ast.With))
+        started = next(
+            n for n in route.body if isinstance(n, ast.Assign) and ast.unparse(n.value).startswith("Deadline(")
+        )
+        assert started.lineno < slot.lineno, "the deadline must be started before the lock wait, so it includes it"
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_body_cap_and_both_handlers_are_registered(self, sidecar: Sidecar) -> None:
+        """The functions tested below are the functions that run."""
+        tree = _main(sidecar)
+        middleware = [ast.unparse(call) for call in _module_calls(tree, "app.add_middleware")]
+        handlers = {
+            ast.unparse(call.args[0]): ast.unparse(call.args[1])
+            for call in _module_calls(tree, "app.add_exception_handler")
+            if len(call.args) == 2
+        }
+        imported = {
+            alias.name
+            for node in tree.body
+            if isinstance(node, ast.ImportFrom) and node.module == "limits"
+            for alias in node.names
+        }
+
+        assert middleware == ["app.add_middleware(BodySizeLimit, max_body_bytes=MAX_BODY_BYTES)"]
+        assert handlers == {
+            "RequestValidationError": "validation_error_handler",
+            "ServiceUnavailableError": "unavailable_handler",
+        }
+        assert {
+            "BodySizeLimit",
+            "MAX_BODY_BYTES",
+            "validation_error_handler",
+            "unavailable_handler",
+            "ServiceUnavailableError",
+            "inference_slot",
+            "Deadline",
+            "LOCK_WAIT_SECONDS",
+            "MAX_INFERENCE_SECONDS",
+        } <= imported
+        defined = {n.name for n in tree.body if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)}
+        assert not defined & imported, f"{sidecar.service}: main.py shadows {defined & imported}"
+
+
+# --------------------------------------------------------------------------
+# serving under load: body cap, 422 shape, bounded lock wait, deadline
+# --------------------------------------------------------------------------
+
+#: Outside the Basic Multilingual Plane: ONE character for pydantic's
+#: ``max_length``, TWELVE bytes in ``json.dumps`` (two ``\\uXXXX`` escapes).
+_WORST_CHAR = "\U0001f600"
+
+
+def _run(middleware: Any, scope: dict[str, Any], messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drive *middleware* with *messages* as the client side; return what it sent back."""
+    inbox = list(messages)
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        if not inbox:
+            raise AssertionError("the middleware read past the last message the client sent")
+        return inbox.pop(0)
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    asyncio.run(middleware(scope, receive, send))
+    return sent
+
+
+class _RecordingApp:
+    """The application behind the middleware: records what it received, answers 200."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.received: list[dict[str, Any]] = []
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        self.calls += 1
+        if scope["type"] == "http":
+            message = await receive()
+            self.received.append(message)
+            while message.get("more_body"):
+                message = await receive()
+                self.received.append(message)
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok"})
+
+
+def _http(headers: dict[str, str] | None = None) -> dict[str, Any]:
+    return {
+        "type": "http",
+        "method": "POST",
+        "path": "/probe",
+        "headers": [(name.encode(), value.encode()) for name, value in (headers or {}).items()],
+    }
+
+
+def _status(sent: list[dict[str, Any]]) -> int:
+    starts = [message for message in sent if message["type"] == "http.response.start"]
+    assert len(starts) == 1, sent
+    return int(starts[0]["status"])
+
+
+def _header(sent: list[dict[str, Any]], name: str) -> str | None:
+    start = next(message for message in sent if message["type"] == "http.response.start")
+    values = [value.decode() for key, value in start["headers"] if key.decode().lower() == name]
+    return values[0] if values else None
+
+
+class TestBodySizeLimit:
+    """The ASGI callable itself, stdlib messages in and out — no server, no FastAPI."""
+
+    CAP = 10
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_declared_length_over_the_cap_is_refused_unread(self, sidecar: Sidecar) -> None:
+        app = _RecordingApp()
+        middleware = sidecar.limits().BodySizeLimit(app, max_body_bytes=self.CAP)
+
+        # No client messages at all: reading one would raise in `receive`.
+        sent = _run(middleware, _http({"content-length": str(self.CAP + 1)}), [])
+
+        assert _status(sent) == 413
+        assert _header(sent, "connection") == "close"
+        assert app.calls == 0
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_chunked_body_over_the_cap_is_refused_while_it_streams(self, sidecar: Sidecar) -> None:
+        """No Content-Length: the bytes are counted, and nothing past the cap is read."""
+        app = _RecordingApp()
+        middleware = sidecar.limits().BodySizeLimit(app, max_body_bytes=self.CAP)
+        chunks = [
+            {"type": "http.request", "body": b"x" * 6, "more_body": True},
+            {"type": "http.request", "body": b"x" * 5, "more_body": True},
+        ]
+
+        sent = _run(middleware, _http({"transfer-encoding": "chunked"}), chunks)
+
+        assert _status(sent) == 413
+        assert app.calls == 0
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_body_that_outgrows_its_declared_length_is_refused(self, sidecar: Sidecar) -> None:
+        app = _RecordingApp()
+        middleware = sidecar.limits().BodySizeLimit(app, max_body_bytes=self.CAP)
+        chunks = [{"type": "http.request", "body": b"x" * (self.CAP + 1), "more_body": False}]
+
+        sent = _run(middleware, _http({"content-length": "2"}), chunks)
+
+        assert _status(sent) == 413
+        assert app.calls == 0
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_body_at_the_cap_reaches_the_application_whole(self, sidecar: Sidecar) -> None:
+        app = _RecordingApp()
+        middleware = sidecar.limits().BodySizeLimit(app, max_body_bytes=self.CAP)
+        chunks = [
+            {"type": "http.request", "body": b"abcd", "more_body": True},
+            {"type": "http.request", "body": b"efghij", "more_body": False},
+        ]
+
+        sent = _run(middleware, _http({"transfer-encoding": "chunked"}), chunks)
+
+        assert _status(sent) == 200
+        assert app.received == [{"type": "http.request", "body": b"abcdefghij", "more_body": False}]
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_client_that_leaves_mid_body_gets_no_answer_and_no_application(self, sidecar: Sidecar) -> None:
+        app = _RecordingApp()
+        middleware = sidecar.limits().BodySizeLimit(app, max_body_bytes=self.CAP)
+        messages = [{"type": "http.request", "body": b"ab", "more_body": True}, {"type": "http.disconnect"}]
+
+        sent = _run(middleware, _http(), messages)
+
+        assert sent == []
+        assert app.calls == 0
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_lifespan_passes_through(self, sidecar: Sidecar) -> None:
+        app = _RecordingApp()
+        middleware = sidecar.limits().BodySizeLimit(app, max_body_bytes=self.CAP)
+
+        _run(middleware, {"type": "lifespan"}, [])
+
+        assert app.calls == 1
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_service_cap_itself_splits_at_max_body_bytes(self, sidecar: Sidecar) -> None:
+        """The same callable with the service's own cap: declared cap passes, cap + 1 does not."""
+        limits = sidecar.limits()
+        cap = limits.MAX_BODY_BYTES
+        refused_app, passed_app = _RecordingApp(), _RecordingApp()
+
+        refused = _run(
+            limits.BodySizeLimit(refused_app, max_body_bytes=cap), _http({"content-length": str(cap + 1)}), []
+        )
+        passed = _run(
+            limits.BodySizeLimit(passed_app, max_body_bytes=cap),
+            _http({"content-length": str(cap)}),
+            [{"type": "http.request", "body": b"x" * cap, "more_body": False}],
+        )
+
+        assert (_status(refused), refused_app.calls) == (413, 0)
+        assert (_status(passed), passed_app.calls) == (200, 1)
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_fastapi_behind_it_answers_413_and_still_serves(self, sidecar: Sidecar) -> None:
+        """Registered the way main.py registers it, in front of a real FastAPI app."""
+        limits = sidecar.limits()
+        app = FastAPI()
+        app.add_middleware(limits.BodySizeLimit, max_body_bytes=64)
+
+        @app.post("/probe")
+        def probe(payload: dict[str, Any]) -> dict[str, int]:
+            return {"keys": len(payload)}
+
+        client = TestClient(app)
+
+        assert client.post("/probe", json={"a": "b"}).json() == {"keys": 1}
+        assert client.post("/probe", json={"a": "b" * 100}).status_code == 413
+        streamed = client.post("/probe", content=iter([b'{"a": "', b"b" * 100, b'"}']))
+        assert streamed.status_code == 413
+
+
+class TestBodyCap:
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_largest_request_the_bounds_accept_fits_under_the_cap(self, sidecar: Sidecar) -> None:
+        """Computed, so a raised bound without a raised cap is red here — and so is a cap of 6 bytes per char."""
+        limits = sidecar.limits()
+        payload = sidecar.largest(limits, _WORST_CHAR)
+        assert _field_errors(getattr(limits, sidecar.model), payload) == [], "the payload is not at the bounds"
+
+        size = len(json.dumps(payload).encode())
+
+        assert size <= limits.MAX_BODY_BYTES, f"{sidecar.service}: an accepted request of {size} bytes gets 413"
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_cap_is_not_much_more_than_that(self, sidecar: Sidecar) -> None:
+        """At most the documented 64 KiB of slack above the largest acceptable request."""
+        limits = sidecar.limits()
+        size = len(json.dumps(sidecar.largest(limits, _WORST_CHAR)).encode())
+
+        assert limits.MAX_BODY_BYTES - size <= limits.BODY_SLACK_BYTES
+
+
+class TestValidationAnswer:
+    @pytest.mark.parametrize(("sidecar", "bound"), _BOUNDS)
+    def test_a_refused_bound_is_named_but_not_echoed(self, sidecar: Sidecar, bound: Bound) -> None:
+        limits = sidecar.limits()
+        model = getattr(limits, sidecar.model)
+        limit = getattr(limits, bound.constant)
+
+        def endpoint(req: Any) -> dict[str, str]:
+            return {"status": "accepted"}
+
+        endpoint.__annotations__ = {"req": model, "return": dict[str, str]}
+        app = FastAPI()
+        app.post("/probe")(endpoint)
+        app.add_exception_handler(RequestValidationError, limits.validation_error_handler)
+        client = TestClient(app)
+
+        response = client.post("/probe", json=bound.build(limit + 1))
+
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert [".".join(str(part) for part in error["loc"][1:]) for error in detail] == [bound.field]
+        assert all(set(error) == {"loc", "type", "msg"} for error in detail), detail
+        assert len(response.content) < 512, f"{len(response.content)} bytes: the input is echoed"
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_malformed_json_carries_no_input_either(self, sidecar: Sidecar) -> None:
+        limits = sidecar.limits()
+        model = getattr(limits, sidecar.model)
+
+        def endpoint(req: Any) -> dict[str, str]:
+            return {"status": "accepted"}
+
+        endpoint.__annotations__ = {"req": model, "return": dict[str, str]}
+        app = FastAPI()
+        app.post("/probe")(endpoint)
+        app.add_exception_handler(RequestValidationError, limits.validation_error_handler)
+
+        response = TestClient(app).post("/probe", content=b'{"x": ', headers={"content-type": "application/json"})
+
+        assert response.status_code == 422
+        assert all(set(error) == {"loc", "type", "msg"} for error in response.json()["detail"])
+
+
+#: A wait of 0.05 s that has not ended after this long is an unbounded one.
+_UNBOUNDED_AFTER_SECONDS = 5.0
+
+
+def _within(seconds: float, call: Callable[[], Any]) -> Any:
+    """``call()`` on a daemon thread; fail — instead of hanging the suite — if it has not returned in time.
+
+    Every caller holds the lock the call waits on and releases it in a
+    ``finally``, so a wait that turns out to be unbounded still ends and the
+    thread does not outlive the test.
+    """
+    outcome: list[Any] = []
+    worker = threading.Thread(target=lambda: outcome.append(call()), daemon=True)
+    worker.start()
+    worker.join(seconds)
+    if worker.is_alive():
+        pytest.fail(f"still waiting after {seconds}s: the lock wait is not bounded")
+    assert outcome, "the call raised instead of returning (see the thread's traceback above)"
+    return outcome[0]
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+class TestBusyAndDeadline:
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_free_lock_is_held_for_the_body_and_released(self, sidecar: Sidecar) -> None:
+        lock = threading.Lock()
+
+        with sidecar.limits().inference_slot(lock, wait_seconds=0.01):
+            assert lock.locked()
+
+        assert not lock.locked()
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_held_lock_is_busy_after_the_wait(self, sidecar: Sidecar) -> None:
+        limits = sidecar.limits()
+        lock = threading.Lock()
+
+        def enter() -> str:
+            try:
+                with limits.inference_slot(lock, wait_seconds=0.05):
+                    return "the body ran without the lock"
+            except limits.ServiceUnavailableError as exc:
+                return str(exc.status)
+
+        lock.acquire()
+        try:
+            outcome = _within(_UNBOUNDED_AFTER_SECONDS, enter)
+        finally:
+            lock.release()
+
+        assert outcome == "busy"
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_an_abort_inside_releases_the_lock(self, sidecar: Sidecar) -> None:
+        limits = sidecar.limits()
+        lock = threading.Lock()
+
+        with pytest.raises(limits.ServiceUnavailableError), limits.inference_slot(lock, wait_seconds=0.01):
+            raise limits.ServiceUnavailableError("timeout")
+
+        assert not lock.locked()
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_deadline(self, sidecar: Sidecar) -> None:
+        limits = sidecar.limits()
+        clock = _Clock()
+        deadline = limits.Deadline(limits.MAX_INFERENCE_SECONDS, clock=clock)
+
+        clock.now += limits.MAX_INFERENCE_SECONDS - 0.001
+        deadline.check()
+        clock.now += 0.001
+        with pytest.raises(limits.ServiceUnavailableError) as raised:
+            deadline.check()
+
+        assert raised.value.status == "timeout"
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    @pytest.mark.parametrize("status", ["busy", "timeout"])
+    def test_fastapi_answers_503_with_retry_after(self, sidecar: Sidecar, status: str) -> None:
+        """A sync route raising from the threadpool, as `/rerank` and `/embed` do."""
+        limits = sidecar.limits()
+        app = FastAPI()
+        app.add_exception_handler(limits.ServiceUnavailableError, limits.unavailable_handler)
+
+        @app.post("/probe")
+        def probe() -> dict[str, str]:
+            raise limits.ServiceUnavailableError(status)
+
+        response = TestClient(app).post("/probe")
+
+        assert response.status_code == 503
+        assert response.json() == {"status": status}
+        assert response.headers["retry-after"] == str(limits.LOCK_WAIT_SECONDS)
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_a_second_request_behind_a_held_lock_is_turned_away(self, sidecar: Sidecar) -> None:
+        """End to end through FastAPI: the route waits the bounded time, then 503 busy."""
+        limits = sidecar.limits()
+        lock = threading.Lock()
+        app = FastAPI()
+        app.add_exception_handler(limits.ServiceUnavailableError, limits.unavailable_handler)
+
+        @app.post("/probe")
+        def probe() -> dict[str, str]:
+            with limits.inference_slot(lock, wait_seconds=0.05):
+                return {"status": "served"}
+
+        client = TestClient(app)
+        lock.acquire()
+        try:
+            busy = _within(_UNBOUNDED_AFTER_SECONDS, lambda: client.post("/probe"))
+        finally:
+            lock.release()
+        served = client.post("/probe")
+
+        assert (busy.status_code, busy.json()) == (503, {"status": "busy"})
+        assert (served.status_code, served.json()) == (200, {"status": "served"})
+
+
+class TestServingBudgets:
+    @pytest.mark.parametrize(
+        ("sidecar", "lock_wait", "max_inference"),
+        [
+            pytest.param(_RERANKER, 20, 120, id="reranker-service"),
+            pytest.param(_EMBEDDING, 90, 300, id="embedding-service"),
+        ],
+    )
+    def test_the_budgets_have_their_contract_values(self, sidecar: Sidecar, lock_wait: int, max_inference: int) -> None:
+        """Measured values (limits.py): 20 long pairs 50.4 s, 32 long e5-large texts ~81 s, at 2 CPUs."""
+        limits = sidecar.limits()
+
+        assert (lock_wait, max_inference) == (limits.LOCK_WAIT_SECONDS, limits.MAX_INFERENCE_SECONDS)
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_lock_wait_ends_before_the_caller_gives_up(self, sidecar: Sidecar) -> None:
+        """A request that finally gets the lock must still have a caller to answer."""
+        timeouts = [
+            keyword.value.value
+            for node in ast.walk(_parse(_KNOWLEDGE_SERVICE / sidecar.client))
+            if isinstance(node, ast.Call) and ast.unparse(node.func) == "httpx.post"
+            for keyword in node.keywords
+            if keyword.arg == "timeout" and isinstance(keyword.value, ast.Constant)
+        ]
+        assert len(timeouts) == 1, f"{sidecar.client}: no single literal httpx.post(timeout=...)"
+        limits = sidecar.limits()
+
+        assert timeouts[0] > limits.LOCK_WAIT_SECONDS
+        assert limits.LOCK_WAIT_SECONDS < limits.MAX_INFERENCE_SECONDS
 
 
 # --------------------------------------------------------------------------
@@ -575,3 +1164,44 @@ class TestRuntimeImage:
         )
         assert not [line for line in runtime if "uv" in line.split() or "/uv" in line], runtime
         assert [line for line in runtime if line.startswith("COPY --from=venv /opt/venv ")], runtime
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_runtime_stage_does_not_carry_pip(self, sidecar: Sidecar) -> None:
+        """The base image's pip is the last installer left in the runtime: removed as root, before USER.
+
+        The venv (built by uv) never had one; python:3.14-slim ships pip and
+        nothing else (no setuptools, no wheel — measured 2026-09-24 on the
+        pinned digest). The interpreter is named absolutely: ``python`` on the
+        runtime PATH is the venv's, which has no pip module to uninstall with.
+        """
+        runtime = _stage(_instructions(sidecar.dir / "Dockerfile"), "runtime")
+        removals = [
+            index
+            for index, line in enumerate(runtime)
+            if line.startswith("RUN ") and re.search(r"/usr/local/bin/python3 -m pip uninstall (--\S+ )*pip$", line)
+        ]
+        users = [index for index, line in enumerate(runtime) if line.startswith("USER ")]
+
+        assert len(removals) == 1, f"{sidecar.service}: the runtime stage does not uninstall pip: {runtime}"
+        assert not users or removals[0] < users[0]
+
+
+class TestComposeRuntime:
+    """docker-compose.yml runs the reranker the way the chart and the CI probe do."""
+
+    def test_the_reranker_runs_hardened(self) -> None:
+        compose = yaml.safe_load((_REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+        service = compose["services"]["reranker-service"]
+        tmpfs = service.get("tmpfs") or []
+        tmpfs_options = {
+            option
+            for entry in tmpfs
+            if entry.split(":", 1)[0] == "/tmp"
+            for option in entry.partition(":")[2].split(",")
+        }
+
+        assert service.get("read_only") is True
+        assert service.get("cap_drop") == ["ALL"]
+        assert "no-new-privileges:true" in (service.get("security_opt") or [])
+        assert service.get("user") == "1000:1000"
+        assert {"noexec", "nosuid"} <= tmpfs_options, tmpfs

@@ -7,12 +7,37 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from feed import build_feed, unfeedable_inputs
-from limits import DEFAULT_MODEL, EmbedRequest, cpu_budget
+from limits import (
+    DEFAULT_MODEL,
+    LOCK_WAIT_SECONDS,
+    MAX_BODY_BYTES,
+    MAX_INFERENCE_SECONDS,
+    BodySizeLimit,
+    Deadline,
+    EmbedRequest,
+    ServiceUnavailableError,
+    cpu_budget,
+    inference_slot,
+    unavailable_handler,
+    validation_error_handler,
+)
 from pydantic import BaseModel
 from transformers import AutoTokenizer
 
 app = FastAPI(title="Kamerplanter Embedding Service")
+
+# THE ORDER OF DEFENCES, OUTSIDE IN (security review of #1725; all in limits.py).
+# `BodySizeLimit` refuses a body past `MAX_BODY_BYTES` with 413 before FastAPI
+# reads it into memory; `validation_error_handler` answers a body past the
+# request bounds with a 422 that names the field and never echoes the input;
+# `unavailable_handler` turns `ServiceUnavailableError` — the lock not
+# obtained within `LOCK_WAIT_SECONDS`, or the request past its
+# `MAX_INFERENCE_SECONDS` deadline — into 503 with `Retry-After`.
+app.add_middleware(BodySizeLimit, max_body_bytes=MAX_BODY_BYTES)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(ServiceUnavailableError, unavailable_handler)
 
 _session = None
 _tokenizer = None
@@ -26,6 +51,10 @@ _ready = False
 # ONE request, and the request bounds in limits.py make that finite. The graph
 # already uses every CPU the cgroup grants (`cpu_budget`), so running two
 # requests side by side bought no throughput, only memory.
+#
+# NEVER `with _inference_lock:` — always `inference_slot(...)`, which waits at
+# most `LOCK_WAIT_SECONDS` and then answers 503 busy. A bare `with` waits
+# forever while holding one of the AnyIO threadpool's 40 threads.
 _inference_lock = threading.Lock()
 
 ONNX_PATH = Path(f"/app/models/onnx/{DEFAULT_MODEL}")
@@ -140,9 +169,17 @@ def embed(req: EmbedRequest) -> EmbedResponse:
     # to the full batch (max |Δ| 0.0). At 64 such texts the full batch was
     # OOMKilled. The tokenizer call is unchanged (truncation to 512 tokens);
     # padding is a no-op for one text. Vectors are collected in input order.
+    #
+    # BOUNDED WAIT, BOUNDED HOLD. The lock is waited for at most
+    # `LOCK_WAIT_SECONDS` (then 503 busy), and the deadline — started here, so
+    # it includes that wait — is checked before every text: a request past
+    # `MAX_INFERENCE_SECONDS` is abandoned with 503 timeout and the lock
+    # released, instead of computing on for a caller that timed out long ago.
+    deadline = Deadline(MAX_INFERENCE_SECONDS)
     vectors = []
-    with _inference_lock:
+    with inference_slot(_inference_lock, wait_seconds=LOCK_WAIT_SECONDS):
         for text in texts:
+            deadline.check()
             encoded = _tokenizer([text], padding=True, truncation=True, max_length=512, return_tensors="np")
             outputs = _session.run(None, build_feed(_input_names, encoded))
             vectors.append(_normalize(_mean_pooling(outputs[0], encoded["attention_mask"]))[0])
@@ -154,13 +191,20 @@ def embed(req: EmbedRequest) -> EmbedResponse:
     )
 
 
+# `/health` AND `/ready` ARE `async def`, AND THAT IS THE POINT. A sync route
+# runs on the AnyIO threadpool (40 threads), which is exactly where requests
+# waiting on `_inference_lock` sit; with enough of them queued, a probe would
+# wait for a free thread past its timeout, and a failed liveness probe restarts
+# a pod that is merely busy — killing the inference everyone queued behind.
+# These two only read module flags, so they run on the event loop and answer
+# regardless of the threadpool.
 @app.get("/health")
-def health() -> dict:
+async def health() -> dict:
     return {"status": "ok" if _ready else "loading", "model": DEFAULT_MODEL, "ready": _ready}
 
 
 @app.get("/ready")
-def ready() -> dict:
+async def ready() -> dict:
     if not _ready:
         from fastapi.responses import JSONResponse
 
