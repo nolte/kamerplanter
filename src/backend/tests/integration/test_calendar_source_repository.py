@@ -5,14 +5,11 @@ live in :class:`ArangoCalendarSourceRepository`, moved verbatim, and the questio
 this module answers is whether every arm survived the move — which only a real
 server can answer, because the arms are AQL text.
 
-**Tenant scoping, as it stands.** Two of the five sources filter by tenant —
-tasks and the watering forecast — and each is measured here with a row of another
-tenant that must not come back. The other three (phase timeline, maintenance logs,
-watering logs) carry **no** tenant predicate today; that was true of the engine's
-queries before the move as well. They are measured here for their window and
-join behaviour only: asserting "another tenant's row is returned" would pin a
-leak, and asserting the opposite would be red for a reason this refactoring does
-not own. The gap is reported on #1638 for its own change.
+**Tenant scoping.** Tasks and the watering forecast are measured here with a row
+of another tenant that must not come back. The other three sources (phase
+timeline, maintenance logs, watering logs) had no tenant predicate until #1704;
+their two-tenant isolation is measured in ``test_calendar_tenant_isolation.py``,
+and this module keeps measuring their window and join behaviour.
 """
 
 from __future__ import annotations
@@ -40,6 +37,7 @@ _DOCUMENT_COLLECTIONS = (
     col.LIFECYCLE_CONFIGS,
     col.PLANTING_RUNS,
     col.SPECIES,
+    col.TANKS,
     col.MAINTENANCE_LOGS,
     col.WATERING_LOGS,
     col.CARE_PROFILES,
@@ -132,8 +130,8 @@ class TestWateringForecastRows:
         assert ArangoCalendarSourceRepository(db).list_watering_forecast_rows(tenant_key=CALLER_TENANT) == []
 
 
-class TestUnscopedSources:
-    """Window and join behaviour only — see the module docstring on tenant scope."""
+class TestWindowAndJoinBehaviour:
+    """Window and join behaviour of the three sources #1704 scoped — isolation lives elsewhere."""
 
     def test_phase_timeline_reaches_the_lifecycle_phases_and_skips_removed_plants(self, db) -> None:
         _plant_with_lifecycle(db, "p-live", CALLER_TENANT)
@@ -141,28 +139,43 @@ class TestUnscopedSources:
         db.collection(col.PLANT_INSTANCES).update({"_key": "p-gone", "removed_on": "2026-02-01"})
         db.collection(col.PHASE_HISTORIES).insert({"plant_instance_key": "p-live", "phase_name": "vegetative"})
 
-        rows = ArangoCalendarSourceRepository(db).list_phase_timeline_rows()
+        rows = ArangoCalendarSourceRepository(db).list_phase_timeline_rows(tenant_key=CALLER_TENANT)
 
         assert [row["plant_key"] for row in rows] == ["p-live"]
         assert rows[0]["current_phase"] == "vegetative"
         assert len(rows[0]["phase_histories"]) == 1
 
     def test_maintenance_logs_are_windowed(self, db) -> None:
+        db.collection(col.TANKS).insert({"_key": "tank-1", "tenant_key": CALLER_TENANT})
         logs = db.collection(col.MAINTENANCE_LOGS)
-        logs.insert({"_key": "m-in", "performed_at": "2026-03-15T10:00:00+00:00"})
-        logs.insert({"_key": "m-out", "performed_at": "2026-02-15T10:00:00+00:00"})
+        logs.insert({"_key": "m-in", "tank_key": "tank-1", "performed_at": "2026-03-15T10:00:00+00:00"})
+        logs.insert({"_key": "m-out", "tank_key": "tank-1", "performed_at": "2026-02-15T10:00:00+00:00"})
 
-        rows = ArangoCalendarSourceRepository(db).list_maintenance_logs(START, END)
+        rows = ArangoCalendarSourceRepository(db).list_maintenance_logs(START, END, tenant_key=CALLER_TENANT)
 
         assert [row["_key"] for row in rows] == ["m-in"]
 
     def test_watering_logs_are_windowed_and_resolve_plant_names(self, db) -> None:
-        db.collection(col.PLANT_INSTANCES).insert({"_key": "p1", "plant_name": "Tomate"})
+        db.collection(col.PLANT_INSTANCES).insert({"_key": "p1", "plant_name": "Tomate", "tenant_key": CALLER_TENANT})
         logs = db.collection(col.WATERING_LOGS)
-        logs.insert({"_key": "w-in", "logged_at": "2026-03-05T09:00:00+00:00", "plant_keys": ["p1", "p-missing"]})
-        logs.insert({"_key": "w-out", "logged_at": "2026-04-05T09:00:00+00:00", "plant_keys": ["p1"]})
+        logs.insert(
+            {
+                "_key": "w-in",
+                "tenant_key": CALLER_TENANT,
+                "logged_at": "2026-03-05T09:00:00+00:00",
+                "plant_keys": ["p1", "p-missing"],
+            }
+        )
+        logs.insert(
+            {
+                "_key": "w-out",
+                "tenant_key": CALLER_TENANT,
+                "logged_at": "2026-04-05T09:00:00+00:00",
+                "plant_keys": ["p1"],
+            }
+        )
 
-        rows = ArangoCalendarSourceRepository(db).list_watering_logs(START, END)
+        rows = ArangoCalendarSourceRepository(db).list_watering_logs(START, END, tenant_key=CALLER_TENANT)
 
         assert [row["_key"] for row in rows] == ["w-in"]
         assert rows[0]["resolved_plant_names"] == ["Tomate"]

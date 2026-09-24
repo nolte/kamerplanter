@@ -66,14 +66,21 @@ class CalendarService:
         are unchanged: the watering forecast is best-effort (a failing read
         contributes no forecast events instead of failing the calendar), and an
         unresolvable fertilizer name falls back to its key.
+
+        Every per-tenant source is read with ``query.tenant_key`` (#1704). An
+        empty tenant key fails closed: it would otherwise match every legacy row
+        whose ``tenant_key`` was never stamped, across all tenants.
         """
+        if not query.tenant_key:
+            logger.warning("calendar_events_without_tenant_refused")
+            return []
         start_dt, end_dt = CalendarAggregationEngine.window(query)
         start, end = start_dt.isoformat(), end_dt.isoformat()
 
         tasks = self._sources.list_tasks_due(start, end, tenant_key=query.tenant_key)
-        phase_plants = self._sources.list_phase_timeline_rows()
-        maintenance_logs = self._sources.list_maintenance_logs(start, end)
-        watering_logs = self._sources.list_watering_logs(start, end)
+        phase_plants = self._sources.list_phase_timeline_rows(tenant_key=query.tenant_key)
+        maintenance_logs = self._sources.list_maintenance_logs(start, end, tenant_key=query.tenant_key)
+        watering_logs = self._sources.list_watering_logs(start, end, tenant_key=query.tenant_key)
         try:
             forecast_plants = self._sources.list_watering_forecast_rows(tenant_key=query.tenant_key)
         except Exception:  # noqa: BLE001 — the forecast is an optional overlay

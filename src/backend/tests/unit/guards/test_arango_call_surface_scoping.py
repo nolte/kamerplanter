@@ -99,7 +99,9 @@ import pytest
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
+from app.domain.interfaces.calendar_source_repository import ICalendarSourceRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.services.task_service import TaskService
 from tests.support.execution_guards import find_project_root
@@ -783,6 +785,19 @@ class TestTheSurfacesStayStrict:
             (ArangoTaskRepository, "get_all_tasks"),
             (TaskService, "list_tasks"),
             (ArangoTaskRepository, "find_open_task_by_name"),
+            # #1704: three of these took no tenant at all and served every
+            # tenant's rows into the aggregated calendar.
+            *[
+                (owner, method)
+                for owner in (ICalendarSourceRepository, ArangoCalendarSourceRepository)
+                for method in (
+                    "list_tasks_due",
+                    "list_phase_timeline_rows",
+                    "list_maintenance_logs",
+                    "list_watering_logs",
+                    "list_watering_forecast_rows",
+                )
+            ],
         ],
     )
     def test_tenant_key_is_keyword_only_and_has_no_default(self, owner: type, method: str) -> None:
