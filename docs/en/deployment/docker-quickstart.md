@@ -274,6 +274,9 @@ TIMESCALEDB_ENABLED=true
 | Reranker Service | [http://localhost:8081](http://localhost:8081) | `vectordb` | Cross-encoder for RAG quality |
 | Ollama | [http://localhost:11434](http://localhost:11434) | `ollama` | Local LLM server (API) |
 
+!!! note "Reranker service reachable only from this machine"
+    The reranker service has no authentication of its own. Port 8081 is therefore bound to `127.0.0.1` only: `http://localhost:8081` still works from this machine, but no longer from another device on the same network.
+
 ---
 
 ## See also

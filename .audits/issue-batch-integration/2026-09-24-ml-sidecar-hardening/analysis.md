@@ -144,6 +144,18 @@ allow-list becomes empty and stays enforced.
 | #1725 | cause verification (orchestrator) | `-m 4g --cpus 2`, docs >512 tokens, POST /rerank N=20/100/400 | `200 in 112 s` / `OOMKilled` / `OOMKilled` — issue said "a few thousand"; measured: 100 already OOMs |
 | #1725 | measurement (orchestrator) | e5-large POST /embed N=16/64, same limits | `200 in 70 s` / `OOMKilled` |
 | #1725 | measurement (orchestrator) | per-call batch size B in-container, N=20 reranker / N=16 e5-large | B=full 56.5 s/47.9 s, 3001/2293 MiB; B=4 54.8/42.2 s, 1852/1845 MiB; **B=1 31.9/24.7 s, 1595/1650 MiB**; outputs vs full batch max abs diff `0.0`, same ranking |
+| #1725 | `nolte-engineering:fullstack-developer` | new `test_ml_sidecar_limits.py` vs pre-change main.py/Dockerfiles; falsified by dropping `max_length` on documents (via `cp`) | `17 failed, 67 passed` (os.cpu_count, no lock, no limits import, chown, runtime from uv-base, no slice const); bound removed → exactly 2 red (`one_past…MAX_DOCUMENTS`, 422 test "200 == 422"); restored green |
+| #1725 | `nolte-engineering:fullstack-developer` | knowledge-service `test_embedding.py` vs old `embed_batch` | `3 failed`; after: `53 passed` |
+| group | orchestrator | rebased onto f34f77f8d (tokenizers 0.22.2→0.23.2, #1732); tokenizer parity: main.py `_load_tokenizer` on 0.23.2 vs transformers 4.57.6 AutoTokenizer (tokenizers 0.22.2), bge + ms-marco, normal / >512 tokens / ragged / single, batch AND per-pair | `compared 60 tensors, 0 differ` |
+| group | orchestrator | `/rerank` Tomaten/Kartoffeln payload, rebuilt images, run read-only/cap-drop/UID 1000 | bge `0.9619869589805603` / `0.000030168561352184042`; ms-marco `0.8973212838172913` / `0.000015518717191298492` — identical to the #1480 values |
+| group | orchestrator | `smoke_model_image.sh` + `probe_model_service_contract.py` on bge, ms-marco, embedding default(minilm), e5-small, e5-large | all 5: `smoke: READY`; `serves its reranker/embedding contract` (normal 200 + correct top doc / 2 vectors of hidden size; empty → 200 []; 101 docs / 4097-char query / 65 texts → 422) |
+| group | orchestrator | probe red-first against develop reranker image | `FAIL … ProbeError('101 documents are refused with 422 (got 200)')` |
+| group | orchestrator | `-m 4g --cpus 2`, long docs, after | reranker N=20 `200 in 50.4 s`, peak 1646 MiB (before 112 s, 4096 MiB); N=100 `200 in 257 s`, peak 1647 MiB (before OOMKilled); e5-large N=16 `200 in 40.3 s`, N=64 `200 in 162 s` (before OOMKilled) |
+| group | orchestrator | `limits.cpu_budget()` in container `--cpus 2`; UID-1000 writability; uv | `cpu_budget 2`; `nothing writable for uid 1000` (both images, /app, /opt/venv, models); `/bin/uv: No such file` (both) |
+| group | orchestrator | endpoint embeddings after (B=1, read-only) vs develop endpoint | e5-large `0.0`, minilm `0.0`; e5-small vs develop model-level `5.9e-08` |
+| group | orchestrator | `docker compose config` / `helm template` + `helm lint` | `host_ip: 127.0.0.1`; both deployments `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, drop ALL, seccomp RuntimeDefault, `/tmp` emptyDir Memory 64Mi; `1 chart(s) linted, 0 chart(s) failed` |
+| group | orchestrator | guards lane, CI conditions (uv 0.12.18, CI=true, `--max-skipped 0 -m 'not advisory'`) | `1538 passed, 49 deselected` |
+| group | orchestrator | advisory guards (`-m advisory`, not run in CI) | `2 failed` — `test_lane_filters_cover_measured_inputs`: the two docker-lint-build manifests do not record the new probe invocation → lane-inputs refresh, owned by #1730 per operator; left untouched |
 
 ## Deviations
 

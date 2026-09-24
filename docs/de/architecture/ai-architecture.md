@@ -167,6 +167,24 @@ Der Embedding-Service läuft als eigenständiger Microservice, den der Knowledge
 !!! note "Modellwahl"
     ADR-006 hat ursprünglich `multilingual-e5-base` (768 Dimensionen) eingeführt; die Konfiguration wurde seither auf die größere `multilingual-e5-large`-Variante (1024 Dimensionen) angehoben. Das Präfix-Schema (`"query: "`/`"passage: "`) aus ADR-006 gilt unverändert.
 
+!!! note "Modell-Pinning und Integritätsprüfung (seit 2026-09-24)"
+    Alle vier auslieferbaren Modelle (`multilingual-e5-small`, `-base`, `-large` sowie das MiniLM-Modell) sind im Docker-Build auf eine feste Commit-Revision gepinnt; jede übernommene Datei wird zusätzlich per sha256-Prüfsumme verifiziert, bevor sie ins Image gelangt. Gemessen gegen das vorherige, ungepinnte Image: alle Dateien bit-identisch, erzeugte Embeddings identisch. Das MiniLM-Modell stammt aus einem Drittanbieter-Export (`Xenova/paraphrase-multilingual-MiniLM-L12-v2`), nicht aus dem Original-Repository der Modell-Autoren. Zur Laufzeit läuft der Service mit `HF_HUB_OFFLINE=1` und lädt daher nie unbemerkt ein Modell nach. Ebenfalls seit diesem Datum behoben: `--target e5-small` beantwortete zuvor jede `/embed`-Anfrage mit einem Fehler, weil dessen ONNX-Graph ein Eingabefeld (`token_type_ids`) erwartet, das der Tokenizer nicht liefert — die Eingabe wird jetzt aus den vom Graph deklarierten Feldern gebaut.
+
+### Anfragelimits und Threading (Embedding-Service)
+
+`POST /embed` begrenzt Anfragen und antwortet bei Überschreitung mit HTTP 422 (Validierungsfehler):
+
+| Feld | Limit |
+|------|-------|
+| `texts` (Anzahl) | höchstens 64 |
+| `texts[i]` (Zeichen je Text) | höchstens 16.384 |
+| `prefix` (Zeichen) | höchstens 64 |
+| `model` (Zeichen) | höchstens 128 |
+
+Eine leere `texts`-Liste ist gültig und liefert HTTP 200 mit einer leeren Embedding-Liste. Der Knowledge-Service selbst sendet Embedding-Anfragen in Abschnitten von höchstens 32 Texten und bleibt damit unter dem Limit.
+
+Die Anzahl der Inferenz-Threads (`intra_op_num_threads`) richtet sich nach dem CPU-Kontingent des Containers (cgroup-Quota bzw. CPU-Affinität), nicht nach der Kernzahl des Host-Systems — sonst plant die ONNX-Runtime mehr Threads ein, als der Container tatsächlich nutzen darf, und der Kernel drosselt sie. Der Service verarbeitet je Anfrage einen Text nach dem anderen unter einer prozessweiten Sperre statt alle Texte in einem gepolsterten Batch; gemessen: identische Embeddings bei niedrigerem Speicherbedarf.
+
 ### Vektorspeicher (dedizierte PostgreSQL + pgvector-Instanz)
 
 Die Vektoren liegen **nicht** in TimescaleDB, sondern in einer eigenen PostgreSQL-Instanz mit der `pgvector`-Extension (Datenbank `kamerplanter_vectors`, eigener Container/Pod `vectordb`). Das hält die Vektorsuche von der Sensor-Zeitreihen-Last auf TimescaleDB getrennt.
@@ -257,9 +275,9 @@ Bi-Encoder (E5-base) und BM25 ranken unabhängig voneinander. Keyword-reiche Chu
 
 Der Re-Ranker läuft als eigenständiger `reranker-service` — analog zum Embedding-Service:
 
-- **Kein PyTorch** im Container — nur ONNX Runtime und Hugging Face Tokenizer
-- **Multi-Stage Dockerfile:** Modell-Download und ONNX-Export in einem gecachten Build-Stage; Runtime-Image bleibt schlank
-- **Port 8081**, FastAPI mit zwei Endpunkten: `/rerank` (POST) und `/health` (GET)
+- **Kein PyTorch** im Container — nur ONNX Runtime und die `tokenizers`-Bibliothek
+- **Multi-Stage Dockerfile:** Modell-Download (bereits als ONNX vorliegend, gepinnt und sha256-verifiziert) in einem gecachten Build-Stage; kein ONNX-Export mehr zur Build-Zeit (siehe Nachtrag in [ADR-007](../adr/007-cross-encoder-reranking.md)); Runtime-Image bleibt schlank
+- **Port 8081**, FastAPI mit drei Endpunkten: `/rerank` (POST), `/health` (GET) und `/ready` (GET)
 - **Modell:** `BAAI/bge-reranker-v2-m3` — multilingual (DE/EN), 568M Parameter, Apache-2.0-Lizenz
 
 <!-- diagram-source: user-described — sequence of the cross-encoder re-ranking call between Knowledge Service and Reranker Service -->
@@ -280,6 +298,21 @@ sequenceDiagram
 
 Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `False` zurück. In diesem Fall wird die ursprüngliche Chunk-Liste auf `top_k` Einträge gekürzt und direkt an den LLM-Kontext übergeben. Ein Timeout oder HTTP-Fehler des Re-Ranker-Service löst ebenfalls diesen Fallback aus — mit einem `WARNING`-Logeintrag (`reranker_fallback`).
 
+### Anfragelimits und Threading (Reranker-Service)
+
+`POST /rerank` begrenzt Anfragen und antwortet bei Überschreitung mit HTTP 422 (Validierungsfehler):
+
+| Feld | Limit |
+|------|-------|
+| `query` (Zeichen) | höchstens 4.096 |
+| `documents` (Anzahl) | höchstens 100 |
+| `documents[i]` (Zeichen je Dokument) | höchstens 16.384 |
+| `top_k` | 1 bis 50 (Default 5, unverändert) |
+
+Eine leere `documents`-Liste ist gültig und liefert HTTP 200 mit einer leeren Ergebnisliste. Der Knowledge-Service sendet höchstens `reranker_initial_k` (Default 20) Dokumente pro Anfrage und bleibt damit unter dem Limit.
+
+Wie beim Embedding-Service richtet sich die Anzahl der Inferenz-Threads (`intra_op_num_threads`) nach dem CPU-Kontingent des Containers (cgroup-Quota bzw. CPU-Affinität), nicht nach der Kernzahl des Host-Systems. Der Service verarbeitet je Anfrage ein Query-Dokument-Paar nach dem anderen unter einer prozessweiten Sperre statt alle Paare in einem gepolsterten Batch; gemessen: identisches Ranking bei niedrigerem Speicherbedarf.
+
 ### Ressourcenbedarf
 
 | Szenario | RAM | CPU | Latenz/Query |
@@ -288,7 +321,10 @@ Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `Fal
 | Re-Ranker deaktiviert | 0 | 0 | 0ms |
 
 !!! tip "Erster Docker-Build"
-    Der erste Build des `reranker-service`-Images lädt das bereits als ONNX exportierte Modell `BAAI/bge-reranker-v2-m3` von Hugging Face herunter, gepinnt auf eine feste Commit-Revision — ein Export via `optimum` findet nicht mehr statt (siehe [ADR-007](../adr/007-cross-encoder-reranking.md)). Die Build-Zeit hängt danach vor allem von der Downloadgeschwindigkeit ab; Folge-Builds nutzen den gecachten Layer und sind in Sekunden abgeschlossen.
+    Der erste Build des `reranker-service`-Images lädt das bereits als ONNX exportierte Modell `BAAI/bge-reranker-v2-m3` von Hugging Face herunter, gepinnt auf eine feste Commit-Revision und per sha256-Prüfsumme verifiziert — ein Export via `optimum` findet nicht mehr statt (siehe [ADR-007](../adr/007-cross-encoder-reranking.md)). Die Build-Zeit hängt danach vor allem von der Downloadgeschwindigkeit ab; Folge-Builds nutzen den gecachten Layer und sind in Sekunden abgeschlossen.
+
+!!! info "Container-Härtung (embedding-service und reranker-service)"
+    Beide ONNX-Sidecars laufen im Runtime-Image ohne Paketmanager (kein `uv`); Anwendungscode, Python-Umgebung und Modell-Dateien gehören `root` und sind für die Service-UID (1000) nur lesbar. Im Entwicklungs-Chart (`values-dev-ki.yaml`) laufen beide Container mit `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, vollständig entzogenen Linux-Capabilities und `seccompProfile: RuntimeDefault`; ein memory-backed `/tmp`-emptyDir steht für Bibliotheken bereit, die zwingend eine Scratch-Datei brauchen. In `docker-compose.yml` ist der (nicht authentifizierte) Reranker-Port nur an `127.0.0.1` gebunden, nicht mehr an alle Netzwerkschnittstellen des Hosts.
 
 ---
 
