@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -6,7 +7,7 @@ import Skeleton from '@mui/material/Skeleton';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NutrientPlanCard from '../components/NutrientPlanCard';
-import type { NutrientPlanMatch, ExperienceLevel } from '@/api/types';
+import type { NutrientPlanMatch, ExperienceLevel, Species } from '@/api/types';
 import LoadingStatus from '@/components/common/LoadingStatus';
 
 interface NutrientPlanStepProps {
@@ -15,6 +16,8 @@ interface NutrientPlanStepProps {
   favoriteNutrientPlanKeys: string[];
   onToggleFavoritePlan: (planKey: string) => void;
   experienceLevel: ExperienceLevel;
+  /** Resolves each plan's `matched_species` keys to display names (#1618). */
+  allSpecies: Species[];
 }
 
 export default function NutrientPlanStep({
@@ -23,8 +26,16 @@ export default function NutrientPlanStep({
   favoriteNutrientPlanKeys,
   onToggleFavoritePlan,
   experienceLevel,
+  allSpecies,
 }: NutrientPlanStepProps) {
   const { t } = useTranslation();
+
+  // Common name when the catalogue has one, else the scientific name; a key the
+  // wizard's catalogue does not hold falls back to the key itself.
+  const speciesNameByKey = useMemo(
+    () => new Map(allSpecies.map((s) => [s.key, s.common_names?.[0] ?? s.scientific_name])),
+    [allSpecies],
+  );
 
   if (loading) {
     return (
@@ -104,6 +115,9 @@ export default function NutrientPlanStep({
                   favorited={favoriteNutrientPlanKeys.includes(plan.plan_key)}
                   onToggleFavorite={() => onToggleFavoritePlan(plan.plan_key)}
                   experienceLevel={experienceLevel}
+                  matchedSpeciesNames={(plan.matched_species ?? []).map(
+                    (key) => speciesNameByKey.get(key) ?? key,
+                  )}
                 />
               </Grid>
             ))}

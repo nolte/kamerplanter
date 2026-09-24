@@ -523,6 +523,7 @@ export default function OnboardingWizard() {
             favoriteNutrientPlanKeys={favoriteNutrientPlanKeys}
             onToggleFavoritePlan={handleToggleFavoritePlan}
             experienceLevel={experienceLevel}
+            allSpecies={allSpecies}
           />
         );
       case 'summary':

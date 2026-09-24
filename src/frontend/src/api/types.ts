@@ -2248,6 +2248,8 @@ export interface NutrientPlan {
   is_template: boolean;
   version: string;
   tags: string[];
+  /** Species this plan is written for (#1618); empty = linked to no species. */
+  species_keys: string[];
   cloned_from_key: string | null;
   watering_schedule: WateringSchedule | null;
   water_mix_ratio_ro_percent: number | null;
@@ -2265,6 +2267,7 @@ export interface NutrientPlanCreate {
   is_template?: boolean;
   version?: string;
   tags?: string[];
+  species_keys?: string[];
   watering_schedule?: WateringSchedule | null;
   water_mix_ratio_ro_percent?: number | null;
   cycle_restart_from_sequence?: number | null;
@@ -2279,6 +2282,8 @@ export interface NutrientPlanUpdate {
   is_template?: boolean;
   version?: string;
   tags?: string[];
+  /** Replaces the species relation; `[]` clears it, omitted leaves it (#1618). */
+  species_keys?: string[];
   watering_schedule?: WateringSchedule | null;
   water_mix_ratio_ro_percent?: number | null;
   cycle_restart_from_sequence?: number | null;
@@ -4453,6 +4458,10 @@ export interface NutrientPlanMatch {
   name: string;
   description: string | null;
   substrate_type: string | null;
+  /** Every species the plan is linked to (#1618). */
+  species_keys: string[];
+  /** The requested species this plan matched, in request order (#1618). */
+  matched_species: string[];
   fertilizer_count: number;
   fertilizers: NutrientPlanFertilizerInfo[];
 }
