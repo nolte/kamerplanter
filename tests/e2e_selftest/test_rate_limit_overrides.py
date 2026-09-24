@@ -52,6 +52,12 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "A couple of change requests per run; the flow is not on any journey path."
     ),
     "rate_limit_email_change_confirm": ("Same volume as the request half it follows."),
+    "rate_limit_export_download": (
+        "No E2E test downloads an Art. 15 export bundle (grep over tests/e2e finds no "
+        "call to the download route, #1666), and a user downloads their own bundle "
+        "a handful of times at most. The hourly budget is a scraping defence on a "
+        "full personal-data copy; raising it here would test nothing the suite uses."
+    ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "
         "deliberate send per channel a user is configuring. It is not on any bootstrap "
