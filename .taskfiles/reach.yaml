@@ -1,0 +1,91 @@
+# ── Capability reach audit (#1680) ───────────────────────────────────────────
+# The environment and act targets the approved reach probes under
+# project/reach-probes/ name in their `environment:` / `teardown:` lists. The
+# capability-reach-audit runner (nolte-engineering plugin, spec
+# `spec/project/capability-reach-audit/` in nolte/claude-shared) calls them as
+# `task <name>` from the repository root, then runs the probe's observation step
+# (scripts/reach/observe_*.py) and compares its output with the expectation.
+#
+# These targets make the system exist and act on it; none of them says anything
+# about reach, and a failing one makes the runner report the probe *not probed*.
+#
+# The T2 stack is the E2E stack's full-mode services (docker-compose.e2e.yml)
+# with the docker-compose.reach.yml overlay, under a compose project unique to
+# this working copy. `test:e2e` cannot be reused for it: run-e2e.sh starts the
+# stack *and* the Selenium runner and removes everything when the tests end.
+# Note that its concurrency guard sees a running reach stack as an E2E stack (it
+# matches the compose file) and refuses to start until `reach:stack:down`.
+#
+# Needs Docker with Compose >= 2.24 (`!reset` in the overlay) and python3; the
+# helpers use the standard library only.
+#
+# Included from the root Taskfile.yaml with `flatten: true` — task names here
+# are global and MUST NOT collide with other .taskfiles/*.yaml.
+
+version: "3"
+
+vars:
+  # The seeded data subject's user key; the probes' observation steps pass the
+  # same value with --subject.
+  REACH_SUBJECT: reach-subject
+
+tasks:
+  reach:stack:up:
+    desc: |
+      Start the capability-reach T2 stack — ArangoDB, Valkey, the full-mode
+      backend and its Celery worker from docker-compose.e2e.yml, plus the
+      docker-compose.reach.yml overlay (127.0.0.1 ports picked by Docker,
+      ArangoDB query tracking with bind variables, one object-storage directory
+      shared by API and worker, the worker's erasure salt) — and record the
+      host-side addresses in .reach/stack.json. Builds from this working copy.
+    cmds:
+      - python3 scripts/reach/stack.py up
+
+  reach:stack:down:
+    desc: Remove the capability-reach T2 stack with its volumes and clear the run state under .reach/.
+    cmds:
+      - python3 scripts/reach/stack.py down
+
+  reach:seed:privacy-subject:
+    desc: |
+      Seed one data subject (key {{.REACH_SUBJECT}}) into the running reach
+      stack: a model-valid row in every collection the Art. 15 export manifest
+      and the Art. 17 erasure plan declare, the declared edges from the subject
+      to them, and a password the act targets sign in with. Writes the seed
+      record to .reach/subjects/{{.REACH_SUBJECT}}.json. A declared field that
+      is not a field of the collection's model stops the seed.
+    cmds:
+      - python3 scripts/reach/stack.py seed --subject {{.REACH_SUBJECT}}
+
+  reach:export:run-for-subject:
+    desc: |
+      Drive the seeded subject's Art. 15 export through the real path — sign
+      in, POST /api/v1/privacy/export, the worker's retention.process_data_export
+      — and wait until the request is terminal. Brackets the run with marker
+      queries in ArangoDB's query log. Reports nothing about the result.
+    cmds:
+      - python3 scripts/reach/run_export_for_subject.py --subject {{.REACH_SUBJECT}}
+
+  reach:erasure:finalise-for-subject:
+    desc: |
+      Request the seeded subject's Art. 17 erasure over the API, move the
+      request's hard-delete date into the past (standing in for the 90-day
+      grace period), send retention.execute_scheduled_erasures through the
+      broker as the daily beat does, and wait until the worker finished it.
+      Brackets the run with marker queries in ArangoDB's query log.
+    cmds:
+      - python3 scripts/reach/finalise_erasure_for_subject.py --subject {{.REACH_SUBJECT}}
+
+  reach:ranking:up:
+    desc: |
+      Build the cross-encoder ranking service (docker/reranker-service, target
+      bge-reranker-v2-m3) from this working copy, run it on a 127.0.0.1 port
+      Docker picks, and write its base URL to .reach/ranking.url. Does not wait
+      for /ready or the HEALTHCHECK — the probe polls /rerank itself.
+    cmds:
+      - python3 scripts/reach/ranking.py up
+
+  reach:ranking:down:
+    desc: Remove the ranking service container and .reach/ranking.url.
+    cmds:
+      - python3 scripts/reach/ranking.py down

@@ -1,0 +1,39 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the operator's standing pre-approval of the gate for the
+# autonomous #1680 run, relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the
+# operator's machine with their environment, as `task` in this repository does.
+#
+# Spec row "Scan lane never executes" (T0). Queries the platform's run record for
+# the last 300 runs the declared trigger (push to develop) started and counts those
+# that executed; queued, skipped, cancelled and startup_failure runs do not count.
+# The workflow file is never read. Needs an authenticated `gh` for this repository.
+# A T0 result says the lane ran, never that it works.
+id: endpoint-zap-postmerge-push-runs
+summary: runs of the post-merge ZAP lane, among its last 300 push-triggered develop runs, that executed
+declaration:
+  source: endpoint
+  path: .github/workflows/security-zap-postmerge.yml
+  location: 'on.push.branches: develop (L115)'
+tier: T0
+expected:
+  kind: count
+  value: 300
+  unit: runs executed
+derived_from: f4dd154210c2962968dba719d686fd7b0138e6c5
+observe:
+  argv:
+  - python3
+  - -c
+  - "import json, subprocess, sys\ngh = subprocess.run(\n    [\"gh\", \"run\", \"list\", \"--workflow\"\
+    , \"security-zap-postmerge.yml\", \"--event\", \"push\",\n     \"--branch\", \"develop\", \"--limit\"\
+    , \"300\", \"--json\", \"conclusion\"],\n    capture_output=True, text=True, timeout=90)\nif gh.returncode\
+    \ != 0:\n    sys.exit(f\"gh run list exited {gh.returncode}: {gh.stderr.strip()}\")\nruns = json.loads(gh.stdout)\n\
+    not_executed = {None, \"\", \"skipped\", \"cancelled\", \"startup_failure\"}\nprint(sum(1 for run\
+    \ in runs if run.get(\"conclusion\") not in not_executed))"
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-24T04:46:06Z'
+  approved_by: nolte
+  observation_digest: 62958e4b63332cfc6b7d3acf728b8dfd02b48eaf7f1cc1c7104da83d1624a409

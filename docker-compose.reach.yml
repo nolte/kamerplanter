@@ -1,0 +1,55 @@
+##
+## Kamerplanter – capability-reach T2 stack (overlay on docker-compose.e2e.yml)
+##
+## Used ONLY through `task reach:stack:up` / `task reach:stack:down`
+## (scripts/reach/stack.py), never on its own. It reuses the E2E stack's
+## full-mode services — arangodb, valkey, backend-full, celery-worker-full —
+## and changes exactly what an execution-based reach probe needs
+## (spec/project/capability-reach-audit/ in nolte/claude-shared, issue #1680):
+##
+## * Host ports, bound to 127.0.0.1 and chosen by Docker (`::`), so the
+##   observation helpers under scripts/reach/ can read ArangoDB and call the API
+##   from outside the containers without colliding with a dev stack or with a
+##   second working copy running the same probes.
+## * ArangoDB tracks EVERY query with its bind variables: the slow-query
+##   threshold is one microsecond (arangod refuses 0), which no AQL query
+##   finishes under, and every entry names its data sources. `stack.py up`
+##   raises the list's length at runtime (arangod has no startup option for
+##   it). The executing-inventory probe reads that list
+##   to learn which collections the export walk and the erasure actually bound —
+##   the database's own record, not a report the privacy code writes about
+##   itself.
+## * One object-storage directory shared by the API and the worker. The E2E file
+##   gives backend-full a private tmpfs and the worker none, so a bundle the
+##   worker writes is invisible to the API and to anyone opening the archive.
+## * The worker receives the two secrets the API already has. Without
+##   ERASURE_TOMBSTONE_SALT every scheduled Art. 17 erasure is held as a
+##   configuration error (PrivacyService._erasure_configuration_error), so the
+##   finalisation the beat runs would never reach the plan.
+##
+## Test-only values, identical to the E2E file's. Not for any deployment.
+##
+
+services:
+  arangodb:
+    command:
+      - --query.slow-threshold=0.000001
+      - --query.slow-streaming-threshold=0.000001
+      - --query.tracking-with-bindvars=true
+      - --query.tracking-with-datasources=true
+    ports:
+      - "127.0.0.1::8529"
+
+  backend-full:
+    tmpfs: !reset []
+    volumes:
+      - ./.reach/storage:/data
+    ports:
+      - "127.0.0.1::8000"
+
+  celery-worker-full:
+    environment:
+      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+    volumes:
+      - ./.reach/storage:/data

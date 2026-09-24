@@ -91,3 +91,9 @@ docker/embedding-service/models/
 # Generated OpenAPI document — build/release artifact, never checked in
 # (regenerate on demand with `task openapi:export`)
 src/backend/openapi.json
+
+# Capability-reach run state (#1680): stack addresses, seeded-subject records,
+# the shared object-storage directory and the ranking URL written by the
+# `reach:*` Taskfile targets. Throw-away; the probe set lives in
+# project/reach-probes/ and the report in .audits/capability-reach/.
+/.reach/
