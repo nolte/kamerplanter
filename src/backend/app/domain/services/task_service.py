@@ -1622,8 +1622,15 @@ class TaskService:
 
     # ── Add Task to Workflow Execution ──
 
-    def add_task_to_workflow_execution(self, execution_key: str, task: Task) -> Task:
-        execution = self.get_workflow_execution(execution_key)
+    def add_task_to_workflow_execution(self, execution_key: str, task: Task, *, tenant_key: str) -> Task:
+        """Attach an ad-hoc task to ``tenant_key``'s execution ``execution_key``.
+
+        The execution is resolved under the caller's tenant first (#1714): a
+        foreign or orphaned execution is a 404, exactly like an unknown key, and
+        nothing is written. Without it a member of one tenant could append tasks
+        to — and so move the progress of — another tenant's execution.
+        """
+        execution = self.get_workflow_execution(execution_key, tenant_key=tenant_key)
         task.workflow_execution_key = execution_key
         task.entity_key = task.entity_key or execution.entity_key
         task.entity_type = task.entity_type or execution.entity_type
@@ -1780,8 +1787,9 @@ class TaskService:
 
     # ── Workflow Execution ──
 
-    def get_workflow_execution(self, key: str) -> WorkflowExecution:
-        return self._repo.get_workflow_execution_or_raise(key)
+    def get_workflow_execution(self, key: str, *, tenant_key: str) -> WorkflowExecution:
+        """``tenant_key``'s execution ``key``; foreign, orphaned and unknown are one 404 (#1714)."""
+        return self._repo.get_workflow_execution_or_raise(key, tenant_key=tenant_key)
 
     def get_executions_for_template(self, template_key: str, *, tenant_key: str) -> list[dict]:
         return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key)

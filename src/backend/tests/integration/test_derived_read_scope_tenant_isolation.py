@@ -430,6 +430,83 @@ class TestInstantiatedTasksBelongToTheCaller:
         assert db.collection(col.TASKS).count() == 0
 
 
+class TestExecutionsByKeyStayInsideTheTenant:
+    """``GET /executions/{key}`` and ``POST /executions/{key}/tasks`` (#1714).
+
+    ``WorkflowExecution`` carries no ``tenant_key``; it belongs to the owner of
+    the entity it runs on. Both routes loaded the execution by its bare key, so a
+    member of A read B's execution, and could attach a task to it that then
+    counted in B's execution record. A foreign execution must answer exactly what
+    an unknown key answers — anything else is an existence oracle over ascending
+    Arango keys. An execution whose entity no longer resolves belongs to nobody.
+    """
+
+    _ENTITIES = ("plant_instance", "location", "tank", "planting_run")
+
+    @staticmethod
+    def _shape(response) -> tuple[int, str | None, str | None]:
+        body = response.json()
+        details = body.get("details") or [{}]
+        return response.status_code, body.get("error_code"), details[0].get("entity")
+
+    def test_the_callers_own_execution_is_readable(self, task_clients) -> None:
+        client_a, _ = task_clients
+
+        for entity_type in self._ENTITIES:
+            response = client_a.get(f"/api/v1/t/{SLUG_A}/tasks/executions/we-{entity_type}-a")
+
+            assert response.status_code == 200, (entity_type, response.text)
+            assert response.json()["key"] == f"we-{entity_type}-a"
+
+    def test_a_foreign_execution_reads_as_an_unknown_key(self, task_clients) -> None:
+        client_a, _ = task_clients
+        unknown = client_a.get(f"/api/v1/t/{SLUG_A}/tasks/executions/we-does-not-exist")
+        assert unknown.status_code == 404, unknown.text
+
+        for entity_type in self._ENTITIES:
+            response = client_a.get(f"/api/v1/t/{SLUG_A}/tasks/executions/we-{entity_type}-b")
+
+            assert self._shape(response) == self._shape(unknown), (entity_type, response.text)
+            assert "Plant b" not in response.text and "plant-b" not in response.text
+
+    def test_an_orphaned_execution_belongs_to_nobody(self, db, task_clients) -> None:
+        client_a, _ = task_clients
+        db.collection(col.PLANT_INSTANCES).delete("plant-a")
+        db.collection(col.WORKFLOW_EXECUTIONS).insert(
+            {"_key": "we-generic-a", "workflow_template_key": SYSTEM_WORKFLOW, "entity_type": "generic"}
+        )
+
+        for key in ("we-plant_instance-a", "we-generic-a"):
+            response = client_a.get(f"/api/v1/t/{SLUG_A}/tasks/executions/{key}")
+
+            assert response.status_code == 404, (key, response.text)
+
+    def test_a_task_cannot_be_attached_to_a_foreign_execution(self, db, task_clients) -> None:
+        client_a, client_b = task_clients
+
+        for entity_type in self._ENTITIES:
+            response = client_a.post(
+                f"/api/v1/t/{SLUG_A}/tasks/executions/we-{entity_type}-b/tasks", json={"name": "Intruder"}
+            )
+
+            assert response.status_code == 404, (entity_type, response.text)
+
+        assert db.collection(col.TASKS).count() == 0
+        assert client_b.get(f"/api/v1/t/{SLUG_B}/tasks").json() == []
+
+    def test_a_task_can_be_attached_to_the_callers_own_execution(self, task_clients) -> None:
+        client_a, _ = task_clients
+
+        response = client_a.post(f"/api/v1/t/{SLUG_A}/tasks/executions/we-tank-a/tasks", json={"name": "Top up"})
+
+        assert response.status_code == 201, response.text
+        created = response.json()
+        assert created["workflow_execution_key"] == "we-tank-a"
+        assert (created["entity_type"], created["entity_key"]) == ("tank", "tank-a")
+        mine = client_a.get(f"/api/v1/t/{SLUG_A}/tasks").json()
+        assert [t["key"] for t in mine] == [created["key"]]
+
+
 class TestYieldStatisticsStayInsideTheTenant:
     def test_the_species_yield_aggregates_the_callers_batches_only(self, db) -> None:
         from app.common.dependencies import get_harvest_service

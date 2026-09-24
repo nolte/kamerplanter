@@ -70,6 +70,29 @@ dependencies cover, not this file. Where an exclusion *can* name the check, it
 does: a ``verified`` exclusion carries a witness function that is proven to call
 both the read and the authorisation (:class:`TestTheExclusionsHoldTheirEvidence`).
 
+**Re-measured for #1714 — should ``anchored`` demand a witness?** #1714 was that
+residual: ``GET``/``POST /tasks/executions/{key}`` handed the URL key to
+``ArangoTaskRepository.get_workflow_execution_by_key`` and nothing checked the
+owner. The fix did not add a witness; it made the read ``strict`` (the owner is
+resolved inside the query), which is the shape a by-key read reached from a URL
+should take. Whether ``anchored`` could instead *require* a witness — a function
+on the path that calls both the read and an ownership check, as ``verified``
+exclusions do — was measured on the typed call graph after that fix
+(2026-09-24): of **115** anchored reads, 21 have no resolved caller and **88** are
+reached from an HTTP or MCP handler. A *strong* witness (a ``verify*`` /
+``require_owned_*`` / ``resolve_owned_*`` call, a ``Depends`` on one, or a
+comparison against ``.tenant_key``) sits on every request path of only **27 of
+88**. Loosened until it proves little — any call in the same function that passes
+``tenant_key=`` counts — it still covers only **67 of 88**; the 21 left are
+dominated by keys that are not request values at all but read off a document
+already resolved under the tenant (``get_site_by_key(plant.site_key)``,
+``get_cultivar_by_key(plant.cultivar_key)``, a run's entries after the run). A
+witness rule would therefore red on 61 (strong) or 21 (loose) correct sites, and
+the loose variant would green on a sibling read that happens to be scoped. **The
+decision is no**: ``anchored`` stays signature-decided, and a by-key read a route
+feeds with a raw URL key is converted to ``strict`` and pinned by a two-tenant
+route test, as #1714 did.
+
 **What the first run found.** On ``origin/develop`` at 18329ac36 the derivation
 named 50 unscoped or optionally scoped reads out of 324 subject reads. Seven were
 fixed as cross-tenant leaks reachable from a tenant route, each with a two-tenant
