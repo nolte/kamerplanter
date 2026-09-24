@@ -44,7 +44,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     # ── Site CRUD ─────────────────────────────────────────────────────
 
-    def get_all_sites(self, offset: int = 0, limit: int = 50, tenant_key: str | None = None) -> tuple[list[Site], int]:
+    def get_all_sites(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> tuple[list[Site], int]:
         return super().get_all(offset, limit, tenant_key=tenant_key)
 
     def find_site_docs_by_types(self, types: list[str]) -> list[dict]:

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from app.common.types import PlantID, SlotKey, SpeciesKey
+from app.common.types import PlantID, SlotKey
 from app.domain.models.plant_instance import PlantInstance
 
 
@@ -16,7 +16,7 @@ class IPlantInstanceRepository(ABC):
     def get_or_raise(self, key: PlantID) -> PlantInstance: ...
 
     @abstractmethod
-    def get_by_instance_id(self, instance_id: str, tenant_key: str = "") -> PlantInstance | None: ...
+    def get_by_instance_id(self, instance_id: str, *, tenant_key: str) -> PlantInstance | None: ...
 
     @abstractmethod
     def create(self, plant: PlantInstance) -> PlantInstance: ...
@@ -39,9 +39,6 @@ class IPlantInstanceRepository(ABC):
     def get_history_by_slot(self, slot_key: SlotKey, years: int = 3, *, tenant_key: str) -> list[PlantInstance]:
         """Return a slot's planting history inside ``tenant_key`` (#927)."""
         ...
-
-    @abstractmethod
-    def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]: ...
 
     @abstractmethod
     def create_descended_from_edge(self, child_key: PlantID, mother_key: PlantID) -> None:

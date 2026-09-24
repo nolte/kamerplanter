@@ -170,7 +170,8 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
         self,
         offset: int = 0,
         limit: int = 50,
-        tenant_key: str | None = None,
+        *,
+        tenant_key: str,
     ) -> tuple[list[HarvestBatch], int]:
         return super().get_all(offset, limit, tenant_key=tenant_key)
 
