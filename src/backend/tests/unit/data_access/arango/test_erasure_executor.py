@@ -173,6 +173,27 @@ class TestStrategies:
                 b for _, b in db.calls if b["@collection"] == rule.collection and b.get("field") == rule.user_field
             ]
             assert binds["rename_prefix"] == ANONYMIZED_KEY_PREFIX
+            # #1700 review — the rename is keyed on the salted tombstone, not on
+            # the guessable row key alone (the slug-squatting hole).
+            assert binds["tombstone"] == TOMBSTONE
+
+    def test_a_rename_value_is_not_derivable_from_the_row_key(self):
+        value = ErasureEngine.anonymized_rename_value(TOMBSTONE, "100")
+        assert value.startswith("anonymized-")
+        assert value != "anonymized-100"
+        assert value != ErasureEngine.anonymized_rename_value(TOMBSTONE, "101")
+        other = ErasureEngine.compute_tombstone_hash(USER_KEY, "t" * 32)
+        assert value != ErasureEngine.anonymized_rename_value(other, "100")
+
+    def test_a_rename_value_refuses_a_guessable_seed(self):
+        with pytest.raises(ValueError, match="tombstone"):
+            ErasureEngine.anonymized_rename_value("100", "100")
+
+    def test_a_tombstone_of_the_wrong_shape_is_refused_before_any_write(self):
+        db = _FakeDb()
+        with pytest.raises(ErasurePlanError, match="not a tombstone"):
+            _run(db, tombstone="anonymized-100")
+        assert db.calls == []
 
     def test_at_least_one_rule_of_each_strategy_is_declared(self):
         """Otherwise the test above would be vacuous for the missing strategy."""

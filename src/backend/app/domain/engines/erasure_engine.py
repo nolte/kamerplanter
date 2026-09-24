@@ -21,9 +21,10 @@ from app.domain.models.privacy import (
 #: free of a data-access import (NFR-001).
 ANONYMIZED_MARKER = "_anonymized"
 
-#: Prefix of a value an :class:`AnonymizationRule` rewrites to
-#: ``<prefix><doc._key>`` (``rename_fields``, #1700). Unique per row, so a field
-#: with a unique index (``tenants.slug``) stays unique, and it names nobody.
+#: Prefix of the value an :class:`AnonymizationRule` writes into its
+#: ``rename_fields`` (#1700): ``<prefix>`` + :meth:`ErasureEngine.anonymized_rename_value`.
+#: The namespace is reserved — ``TenantEngine.generate_slug`` never produces a
+#: slug inside it — so a registration cannot occupy the value first.
 ANONYMIZED_KEY_PREFIX = "anonymized-"
 
 #: The exact shape :meth:`ErasureEngine.compute_tombstone_hash` produces.
@@ -266,8 +267,13 @@ class ErasureEngine:
             # display name. Deleting it would cascade into records a retention
             # obligation keeps (a harvest in it: CanG, NFR-011 R-16), so the
             # tenant is kept and stops naming anyone: owner replaced, name and
-            # slug rewritten to ``anonymized-<key>`` (unique — ``slug`` has a
-            # unique index). An organisation tenant the subject founded keeps
+            # slug rewritten to ``anonymized_rename_value(tombstone, key)`` —
+            # unique per row (``slug`` has a unique index) and derived from the
+            # salted tombstone, so nobody can register it first. Until the
+            # #1700 review it was ``anonymized-<key>``: Arango keys are
+            # guessable, a display name "Anonymized <key>" took the slug, and
+            # the erasure transaction aborted on the unique index on every
+            # retry. An organisation tenant the subject founded keeps
             # its name — it is the group's, not the subject's — and loses only
             # the owner reference. ``owner_user_key`` confers no permission
             # (authority is the membership role, REQ-049), so there is nothing
@@ -820,6 +826,31 @@ class ErasureEngine:
         linkability NFR-011 R-06 keeps the hash for.
         """
         return _TOMBSTONE_PATTERN.fullmatch(value) is not None
+
+    @staticmethod
+    def anonymized_rename_value(tombstone: str, row_key: str) -> str:
+        """The value a ``rename_fields`` rule writes into row *row_key* (#1700).
+
+        ``anonymized-`` + the first 16 hex chars of ``sha256(tombstone + ":" + row_key)``.
+        ``ArangoErasureExecutor`` computes the same expression in AQL for every
+        matched row; this is its specification and the tests' oracle.
+
+        Why the erased **user's** tombstone and not ``compute_tombstone_hash`` of
+        the tenant key: the tombstone is the only salted value the executor is
+        handed — the salt itself never leaves ``PrivacyService`` — and it is
+        already non-guessable without the salt, so a squatter cannot predict the
+        slug. The row key is mixed in so two renamed rows of one subject never
+        share a value under a unique index.
+
+        Raises:
+            ValueError: *tombstone* is not a tombstone hash — a rename keyed on
+                anything guessable reopens the squatting hole.
+        """
+        if not ErasureEngine.is_tombstone(tombstone):
+            msg = "a rename value must be derived from a tombstone hash"
+            raise ValueError(msg)
+        digest = hashlib.sha256(f"{tombstone}:{row_key}".encode()).hexdigest()
+        return f"{ANONYMIZED_KEY_PREFIX}{digest[:16]}"
 
     @staticmethod
     def compute_tombstone_hash(user_key: str, salt: str) -> str:

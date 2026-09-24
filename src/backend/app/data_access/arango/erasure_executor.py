@@ -84,11 +84,17 @@ FOR doc IN @@collection
   RETURN affected
 """
 
+# ``renamed`` is ``ErasureEngine.anonymized_rename_value(@tombstone, doc._key)``
+# spelled in AQL (SHA256 returns lower-case hex, as ``hexdigest`` does).
 _REWRITE_REFERENCE = """
 FOR doc IN @@collection
   FILTER doc[@field] == @value
-  LET renamed = MATCHES(doc, @rename_when)
-    ? ZIP(@rename_fields, (FOR name IN @rename_fields RETURN CONCAT(@rename_prefix, doc._key)))
+  LET renamed = LENGTH(@rename_fields) > 0 AND MATCHES(doc, @rename_when)
+    ? ZIP(
+        @rename_fields,
+        (FOR name IN @rename_fields
+          RETURN CONCAT(@rename_prefix, SUBSTRING(SHA256(CONCAT(@tombstone, ":", doc._key)), 0, 16)))
+      )
     : {}
   UPDATE doc WITH MERGE(@patch, renamed) IN @@collection
   COLLECT WITH COUNT INTO affected
@@ -212,11 +218,16 @@ class ArangoErasureExecutor(IErasureExecutor):
             step.collection == ErasureEngine.PSEUDONYMIZE_AUDIT_PHASE and plan.pseudonymize_audit for step in steps
         ) or any(
             step.collection == ErasureEngine.ANONYMIZE_PHASE
-            and any(rule.replacement_strategy == "tombstone_hash" for rule in plan.anonymize)
+            and any(rule.replacement_strategy == "tombstone_hash" or rule.rename_fields for rule in plan.anonymize)
             for step in steps
         )
         if needs_hash and not tombstone:
             msg = "the plan pseudonymises user keys but no tombstone hash was supplied"
+            raise ErasurePlanError(msg)
+        if tombstone is not None and not ErasureEngine.is_tombstone(tombstone):
+            # A rename is keyed on the tombstone precisely because it is not
+            # guessable (#1700); anything else would reopen slug squatting.
+            msg = "the supplied tombstone is not a tombstone hash"
             raise ErasurePlanError(msg)
 
     @staticmethod
@@ -374,6 +385,7 @@ class ArangoErasureExecutor(IErasureExecutor):
                         "rename_fields": list(rule.rename_fields),
                         "rename_when": rule.rename_when,
                         "rename_prefix": ANONYMIZED_KEY_PREFIX,
+                        "tombstone": tombstone or "",
                     },
                 )
             )
@@ -406,6 +418,7 @@ class ArangoErasureExecutor(IErasureExecutor):
                         "rename_fields": [],
                         "rename_when": {},
                         "rename_prefix": ANONYMIZED_KEY_PREFIX,
+                        "tombstone": tombstone or "",
                     },
                 )
             )

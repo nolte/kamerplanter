@@ -34,7 +34,7 @@ from app.data_access.arango.location_assignment_repository import ArangoLocation
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
-from app.domain.engines.erasure_engine import ANONYMIZED_KEY_PREFIX, ANONYMIZED_MARKER
+from app.domain.engines.erasure_engine import ANONYMIZED_KEY_PREFIX, ANONYMIZED_MARKER, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
@@ -129,8 +129,14 @@ class TestTenantsOfAnErasedOwner:
 
         assert after is not None, "the personal tenant is retained (it may hold CanG-retained harvests)"
         assert after.owner_user_key == ANONYMIZED_MARKER
-        assert after.name == f"{ANONYMIZED_KEY_PREFIX}{personal.key}"
-        assert after.slug == f"{ANONYMIZED_KEY_PREFIX}{personal.key}"
+        expected = ErasureEngine.anonymized_rename_value(
+            ErasureEngine.compute_tombstone_hash(SUBJECT, reach.SALT), personal.key
+        )
+        assert after.name == expected
+        assert after.slug == expected
+        # Not derivable from the (guessable) tenant key: a registration could
+        # otherwise have occupied the slug first (see TestAnonymisedSlugCannotBeSquatted).
+        assert personal.key not in after.slug
         raw = database.collection(col.TENANTS).get(personal.key)
         assert SUBJECT not in str(raw.values())
         assert DISPLAY_NAME not in str(raw.values())
@@ -152,6 +158,43 @@ class TestTenantsOfAnErasedOwner:
 
     def test_the_subject_holds_no_membership_any_more(self, database, tenants):
         assert ArangoMembershipRepository(database).list_by_user(SUBJECT) == []
+
+
+class TestAnonymisedSlugCannotBeSquatted:
+    """#1700 review — the rename target must not be something another tenant can already hold.
+
+    Until the fix the personal tenant was renamed to ``anonymized-<tenant key>``.
+    Arango keys are sequential, so a user registering the display name
+    "Anonymized <key>" got exactly that slug first; the erasure's UPDATE then hit
+    the unique ``tenants.slug`` index (HTTP 409, ERR 1210) and aborted the whole
+    transaction — on every retry, so the account could never be erased.
+
+    The squatter is inserted raw: after the fix ``generate_slug`` no longer
+    produces that slug, but a tenant created before it may still hold it.
+    """
+
+    def test_a_slug_squatted_under_the_old_rule_does_not_block_the_erasure(self, database):
+        _insert_user(database, "squat-victim")
+        personal = _tenant_service(database).create_personal_tenant("squat-victim", "Opfer Beispiel")
+        old_rule_slug = f"{ANONYMIZED_KEY_PREFIX}{personal.key}"
+        database.collection(col.TENANTS).insert(
+            {
+                "name": f"Anonymized {personal.key}",
+                "slug": old_rule_slug,
+                "tenant_type": "personal",
+                "owner_user_key": "squatter",
+                "max_members": 1,
+            }
+        )
+
+        _erase(database, "squat-victim")
+
+        assert database.collection(col.USERS).get("squat-victim") is None
+        after = database.collection(col.TENANTS).get(personal.key)
+        assert after["owner_user_key"] == ANONYMIZED_MARKER
+        assert after["slug"].startswith(ANONYMIZED_KEY_PREFIX)
+        assert after["slug"] != old_rule_slug
+        assert ArangoTenantRepository(database).get_by_slug(old_rule_slug).owner_user_key == "squatter"
 
 
 class TestUnverifiedCleanupRemovesTheRegistrationMembership:
