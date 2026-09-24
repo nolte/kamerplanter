@@ -141,8 +141,8 @@ def _model_classes() -> dict[str, list[type[BaseModel]]]:
 
 def collection_models() -> dict[str, list[type[BaseModel]]]:
     """Collection -> the models a repository binds to it (the R6 placement of the inventory guard)."""
-    constants = inventory_check._collection_constants(APP_ROOT)
-    bindings = inventory_check._repository_bindings(APP_ROOT, constants)
+    constants = inventory_check.collection_constants(APP_ROOT)
+    bindings = inventory_check.repository_bindings(APP_ROOT, constants)
     for model_name, collection in inventory_check.MODEL_COLLECTIONS_BY_HAND.items():
         bindings.setdefault(model_name, set()).add(collection)
     classes = _model_classes()
