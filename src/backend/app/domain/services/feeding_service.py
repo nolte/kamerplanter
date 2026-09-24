@@ -2,12 +2,15 @@ from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import FeedingEventKey
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
 from app.domain.interfaces.feeding_repository import IFeedingRepository
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.feeding_event import FeedingEvent
+from app.domain.services.fertilizer_references import assert_fertilizers_visible
 
 
 class FeedingService:
-    def __init__(self, repo: IFeedingRepository) -> None:
+    def __init__(self, repo: IFeedingRepository, fertilizer_repo: IFertilizerRepository | None = None) -> None:
         self._repo = repo
+        self._fertilizer_repo = fertilizer_repo
         self._runoff_analyzer = RunoffAnalyzer()
 
     # ── CRUD ─────────────────────────────────────────────────────────
@@ -27,6 +30,18 @@ class FeedingService:
         return event
 
     def create_event(self, event: FeedingEvent) -> FeedingEvent:
+        """Persist a feeding event whose fertilizer lines the event's tenant can see (#1713).
+
+        The repository also writes a ``feeding_used`` edge per line, so an
+        unchecked key would put an edge into another tenant's product.
+        """
+        assert_fertilizers_visible(
+            self._fertilizer_repo,
+            (f.fertilizer_key for f in event.fertilizers_used),
+            tenant_key=event.tenant_key,
+            field="fertilizers_used",
+            owner="FeedingService",
+        )
         return self._repo.create(event)
 
     def update_event(self, key: FeedingEventKey, data: dict) -> FeedingEvent:

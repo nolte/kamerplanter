@@ -9,6 +9,7 @@ from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import VolumeSuggestion, WateringVolumeEngine
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -16,6 +17,7 @@ from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.watering_event import WateringEvent
+from app.domain.services.fertilizer_references import assert_fertilizers_visible
 
 logger = structlog.get_logger(__name__)
 
@@ -50,8 +52,10 @@ class WateringService:
         phase_seq_repo: IPhaseSequenceRepository | None = None,
         sensor_service=None,
         irrigation_demand_repo=None,
+        fertilizer_repo: IFertilizerRepository | None = None,
     ) -> None:
         self._repo = repo
+        self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._site_repo = site_repo
         self._run_repo = run_repo
@@ -71,7 +75,19 @@ class WateringService:
     # ── Create ─────────────────────────────────────────────────────────
 
     def create_event(self, event: WateringEvent) -> dict:
-        """Create a watering event and return it with any warnings."""
+        """Create a watering event and return it with any warnings.
+
+        A ``fertilizers_used`` line's ``product_key`` must name a fertilizer the
+        event's tenant can see (#1713); a line without one is a free-text product
+        and references nothing.
+        """
+        assert_fertilizers_visible(
+            self._fertilizer_repo,
+            (f.product_key for f in event.fertilizers_used),
+            tenant_key=event.tenant_key,
+            field="fertilizers_used",
+            owner="WateringService",
+        )
         # Look up irrigation system from the first plant's placement
         irrigation_system = None
         first_plant_key = event.plant_keys[0]

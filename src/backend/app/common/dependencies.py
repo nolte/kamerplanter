@@ -517,7 +517,7 @@ def get_tank_repo() -> ArangoTankRepository:
 
 
 def get_tank_service() -> TankService:
-    return TankService(get_tank_repo(), TankEngine())
+    return TankService(get_tank_repo(), TankEngine(), fertilizer_repo=get_fertilizer_repo())
 
 
 def get_task_entity_guard():
@@ -566,7 +566,7 @@ def get_nutrient_plan_service() -> NutrientPlanService:
 
 
 def get_feeding_service() -> FeedingService:
-    return FeedingService(get_feeding_repo())
+    return FeedingService(get_feeding_repo(), fertilizer_repo=get_fertilizer_repo())
 
 
 def get_watering_repo() -> ArangoWateringRepository:
@@ -590,6 +590,7 @@ def get_watering_service() -> WateringService:
         phase_seq_repo=get_phase_sequence_repo(),
         sensor_service=get_sensor_service(),
         irrigation_demand_repo=get_irrigation_demand_repo(),
+        fertilizer_repo=get_fertilizer_repo(),
     )
 
 
@@ -608,6 +609,7 @@ def get_watering_log_service() -> WateringLogService:
         care_repo=get_care_reminder_repo(),
         care_service=get_care_reminder_service(),
         plant_repo=get_plant_repo(),
+        fertilizer_repo=get_fertilizer_repo(),
     )
 
 
@@ -1058,6 +1060,7 @@ def get_care_reminder_service() -> CareReminderService:
         recurrence=get_recurrence_engine(),
         notification_propagation=get_notification_propagation_service(),
         family_name_resolver=get_family_name_resolver(),
+        fertilizer_repo=get_fertilizer_repo(),
     )
 
 

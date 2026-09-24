@@ -19,6 +19,10 @@ class IFertilizerRepository(ABC):
     def get_by_key(self, key: FertilizerKey) -> Fertilizer | None: ...
 
     @abstractmethod
+    def list_visible_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
+        """The subset of ``keys`` naming fertilizers ``tenant_key`` may see (own ∪ global, #1713)."""
+
+    @abstractmethod
     def get_or_raise(self, key: FertilizerKey) -> Fertilizer: ...
 
     @abstractmethod

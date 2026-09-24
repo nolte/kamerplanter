@@ -190,9 +190,18 @@ class FertilizerService:
         key_b: FertilizerKey,
         reason: str,
         severity: str,
+        *,
+        tenant_key: str,
     ) -> dict:
-        self.get_fertilizer(key_a)
-        self.get_fertilizer(key_b)
+        """Declare ``key_a`` and ``key_b`` incompatible, both visible to ``tenant_key``.
+
+        ``key_b`` is a request value. It used to be resolved without a tenant, so
+        an edge could be written into another tenant's private product — and an
+        unknown key answered 404 while a foreign one answered 201, an existence
+        oracle. Both are now the catalogue's 404 (#1713).
+        """
+        self.get_fertilizer(key_a, tenant_key)
+        self.get_fertilizer(key_b, tenant_key)
         return self._repo.add_incompatibility(key_a, key_b, reason, severity)
 
     def get_incompatibilities(self, key: FertilizerKey) -> list[dict]:

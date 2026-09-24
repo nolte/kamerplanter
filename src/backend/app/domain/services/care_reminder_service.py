@@ -20,6 +20,7 @@ from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
 from app.domain.interfaces.overwintering_profile_template_repository import (
@@ -42,6 +43,7 @@ from app.domain.models.overwintering_profile_template import OverwinteringProfil
 from app.domain.models.species import Cultivar, Species, WateringGuide
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
+from app.domain.services.fertilizer_references import assert_fertilizers_visible
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 
 logger = structlog.get_logger()
@@ -372,8 +374,10 @@ class CareReminderService:
         recurrence: RecurrenceEngine | None = None,
         notification_propagation: NotificationPropagationService | None = None,
         family_name_resolver: Callable[[str], str | None] | None = None,
+        fertilizer_repo: IFertilizerRepository | None = None,
     ) -> None:
         self._repo = care_repo
+        self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._recurrence = recurrence or RecurrenceEngine()
         self._task_repo = task_repo
@@ -840,6 +844,20 @@ class CareReminderService:
             plant = self._plant_repo.get_or_raise(plant_key)
             verify_tenant_ownership(plant, tenant_key, "PlantInstance")
 
+        # #1713: the fertilizer lines are request values and end up on the
+        # WateringLog below. Checked against the tenant the log will carry, and
+        # before the care profile may be created, so a refusal writes nothing.
+        log_tenant_key = tenant_key
+        if reminder_type in (ReminderType.WATERING, ReminderType.FERTILIZING) and self._watering_log_repo is not None:
+            log_tenant_key = tenant_key or self._resolve_tenant_key(plant_key)
+            assert_fertilizers_visible(
+                self._fertilizer_repo,
+                (f.get("fertilizer_key") for f in (fertilizers_used or [])),
+                tenant_key=log_tenant_key,
+                field="fertilizers_used",
+                owner="CareReminderService",
+            )
+
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
             profile = self.get_or_create_profile(plant_key, may_create=True)
@@ -864,7 +882,7 @@ class CareReminderService:
                 # global Gießprotokoll view, which filters strictly on tenant_key
                 # (#580). Prefer the caller-supplied tenant (MCP path); otherwise
                 # resolve it from the plant so the REST care path is also bound.
-                tenant_key=tenant_key or self._resolve_tenant_key(plant_key),
+                tenant_key=log_tenant_key,
                 logged_at=now,
                 application_method=ApplicationMethod.DRENCH,
                 volume_liters=effective_volume,
