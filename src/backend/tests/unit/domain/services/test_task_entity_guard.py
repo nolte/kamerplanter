@@ -202,3 +202,14 @@ def test_a_new_edge_writing_type_fails_closed(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(NotFoundError):
         _guard().verify("greenhouse", "gh_1", tenant_key=_MINE)
+
+
+def test_every_instantiable_workflow_target_is_anchored_by_the_guard() -> None:
+    """``POST .../instantiate`` accepts :class:`WorkflowTargetType` and relies on
+    this guard to anchor the target (#1708). A target type outside the guarded
+    set would be accepted and pass through unchecked, so the two sets must be
+    the same set."""
+    from app.common.enums import WorkflowTargetType
+    from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
+
+    assert {t.value for t in WorkflowTargetType} == set(ENTITY_TYPE_TO_COLLECTION)

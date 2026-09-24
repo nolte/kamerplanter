@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import TaskCategory
+from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.models.task import (
     ChecklistItem,
     Task,
@@ -15,6 +16,8 @@ from app.domain.models.task import (
 )
 from app.domain.services.task_service import TaskService
 from tests.conftest import wire_or_raise
+
+TENANT = "tenant-a"
 
 
 @pytest.fixture
@@ -108,7 +111,7 @@ class TestInstantiateWorkflowEntityAgnostic:
         """Direct call with entity_key/entity_type for plant_instance."""
         _setup_workflow_mocks(mock_repo)
 
-        service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance")
+        service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance", tenant_key=TENANT)
 
         created_task = mock_repo.create_task.call_args[0][0]
         assert created_task.entity_key == "plant1"
@@ -121,6 +124,7 @@ class TestInstantiateWorkflowEntityAgnostic:
             "wf1",
             entity_key="tank1",
             entity_type="tank",
+            tenant_key=TENANT,
         )
 
         created_task = mock_repo.create_task.call_args[0][0]
@@ -134,6 +138,7 @@ class TestInstantiateWorkflowEntityAgnostic:
             "wf1",
             entity_key="loc1",
             entity_type="location",
+            tenant_key=TENANT,
         )
 
         created_task = mock_repo.create_task.call_args[0][0]
@@ -147,6 +152,7 @@ class TestInstantiateWorkflowEntityAgnostic:
             "wf1",
             entity_key="run1",
             entity_type="planting_run",
+            tenant_key=TENANT,
         )
 
         created_task = mock_repo.create_task.call_args[0][0]
@@ -169,6 +175,7 @@ class TestInstantiateWorkflowEntityAgnostic:
             "wf1",
             entity_key="tank1",
             entity_type="tank",
+            tenant_key=TENANT,
         )
 
         created_task = mock_repo.create_task.call_args[0][0]
@@ -186,7 +193,7 @@ class TestInstantiateWorkflowEntityAgnostic:
         ]
         _setup_workflow_mocks(mock_repo, templates)
 
-        service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance")
+        service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance", tenant_key=TENANT)
 
         created_task = mock_repo.create_task.call_args[0][0]
         assert created_task.status == "dormant"
@@ -198,6 +205,7 @@ class TestInstantiateWorkflowEntityAgnostic:
             "wf1",
             entity_key="tank1",
             entity_type="tank",
+            tenant_key=TENANT,
         )
 
         execution_arg = mock_repo.create_workflow_execution.call_args[0][0]
@@ -211,7 +219,7 @@ class TestInstantiateWorkflowEntityAgnostic:
         ]
         _setup_workflow_mocks(mock_repo, templates)
 
-        service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance")
+        service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance", tenant_key=TENANT)
 
         assert mock_repo.create_task.call_count == 2
         for call in mock_repo.create_task.call_args_list:
@@ -386,3 +394,53 @@ class TestTaskCategoryContract:
 
         assert task.category == category
         assert isinstance(task.category, TaskCategory)
+
+
+class TestInstantiateWorkflowStampsTheTenant:
+    """#1708: every generated task carries the caller's tenant, or none is written."""
+
+    def test_every_generated_task_carries_the_tenant(self, service, mock_repo):
+        templates = [
+            _make_task_template(key="tt1", name="Topping"),
+            _make_task_template(key="tt2", name="LST Bend", trigger_phase="vegetative", trigger_type="phase_entry"),
+        ]
+        _setup_workflow_mocks(mock_repo, templates)
+
+        service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance", tenant_key=TENANT)
+
+        stamped = [call[0][0].tenant_key for call in mock_repo.create_task.call_args_list]
+        assert stamped == [TENANT, TENANT]
+
+    def test_an_empty_tenant_is_refused_before_anything_is_written(self, service, mock_repo):
+        _setup_workflow_mocks(mock_repo)
+
+        with pytest.raises(ValueError, match="tenant_key"):
+            service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance", tenant_key="")
+
+        mock_repo.create_workflow_execution.assert_not_called()
+        mock_repo.create_task.assert_not_called()
+
+    def test_the_tenant_cannot_be_omitted(self, service, mock_repo):
+        _setup_workflow_mocks(mock_repo)
+
+        with pytest.raises(TypeError):
+            service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance")  # type: ignore[call-arg]
+
+    def test_an_unknown_entity_type_is_a_validation_error(self, service, mock_repo):
+        _setup_workflow_mocks(mock_repo)
+
+        with pytest.raises(ValidationError):
+            service.instantiate_workflow("wf1", entity_key="thing1", entity_type="generic", tenant_key=TENANT)
+
+        mock_repo.create_workflow_execution.assert_not_called()
+
+    def test_a_foreign_private_template_is_not_found(self, service, mock_repo):
+        _setup_workflow_mocks(mock_repo)
+        mock_repo.get_workflow_template_by_key.return_value = _make_workflow_template().model_copy(
+            update={"tenant_key": "tenant-b"}
+        )
+
+        with pytest.raises(NotFoundError):
+            service.instantiate_workflow("wf1", entity_key="plant1", entity_type="plant_instance", tenant_key=TENANT)
+
+        mock_repo.create_task.assert_not_called()

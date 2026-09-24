@@ -198,13 +198,22 @@ def instantiate_workflow(
     body: WorkflowInstantiateRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
+    entity_guard: TaskEntityGuard = Depends(get_task_entity_guard),
 ):
-    """Instantiate a workflow template for a target entity."""
+    """Instantiate a workflow template for a target entity.
+
+    The target is anchored in the caller's tenant before anything is written
+    (#1708), exactly as ``POST /tasks`` anchors its binding (#1102): a foreign
+    entity key is a 404, so an execution — and tasks that would then surface in
+    the *other* tenant's views — can no longer be attached to it.
+    """
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
+    entity_guard.verify(body.entity_type, body.entity_key, tenant_key=ctx.tenant_key)
     execution = service.instantiate_workflow(
         key,
         entity_key=body.entity_key,
         entity_type=body.entity_type,
+        tenant_key=ctx.tenant_key,
     )
     return _we_response(execution)
 

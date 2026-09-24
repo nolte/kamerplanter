@@ -66,6 +66,7 @@ TEST_DATABASE = run_database_name("derived_read_scope")
 TENANT_A = "tenant-alice"
 TENANT_B = "tenant-bob"
 SLUG_A = "alice"
+SLUG_B = "bob"
 
 _DOCUMENT_COLLECTIONS = (
     col.FERTILIZERS,
@@ -95,6 +96,10 @@ _EDGE_COLLECTIONS = (
     col.HAS_CULTIVAR,
     col.CONTAINS,
     col.HAS_SLOT,
+    col.WF_EXECUTING,
+    col.WF_GENERATED,
+    col.HAS_TASK,
+    col.INSTANCE_OF,
 )
 
 #: A shared (system) workflow template every tenant may read.
@@ -134,7 +139,13 @@ def _seed(db) -> None:
     for tenant, suffix in ((TENANT_A, "a"), (TENANT_B, "b")):
         db.collection(col.SITES).insert({"_key": f"site-{suffix}", "tenant_key": tenant, "name": f"Site {suffix}"})
         db.collection(col.LOCATIONS).insert(
-            {"_key": f"loc-{suffix}", "tenant_key": "", "site_key": f"site-{suffix}", "name": f"Bed {suffix}"}
+            {
+                "_key": f"loc-{suffix}",
+                "tenant_key": "",
+                "site_key": f"site-{suffix}",
+                "name": f"Bed {suffix}",
+                "area_m2": 1.0,
+            }
         )
         db.collection(col.PLANT_INSTANCES).insert(
             {
@@ -143,12 +154,21 @@ def _seed(db) -> None:
                 "instance_id": f"PI-{suffix}",
                 "plant_name": f"Plant {suffix}",
                 "species_key": "sp-shared",
+                "planted_on": "2026-01-01",
                 "removed_on": None,
             }
         )
-        db.collection(col.TANKS).insert({"_key": f"tank-{suffix}", "tenant_key": tenant, "name": f"Tank {suffix}"})
+        db.collection(col.TANKS).insert(
+            {
+                "_key": f"tank-{suffix}",
+                "tenant_key": tenant,
+                "name": f"Tank {suffix}",
+                "tank_type": "nutrient",
+                "volume_liters": 10.0,
+            }
+        )
         db.collection(col.PLANTING_RUNS).insert(
-            {"_key": f"run-{suffix}", "tenant_key": tenant, "name": f"Run {suffix}"}
+            {"_key": f"run-{suffix}", "tenant_key": tenant, "name": f"Run {suffix}", "run_type": "monoculture"}
         )
 
     # Workflows: one shared system template, one private template per tenant.
@@ -198,14 +218,21 @@ def _seed(db) -> None:
                 }
             )
 
-    # Tasks instantiated from the system template: A on one plant, B on two.
+    # The system template's one step. Tasks are NOT seeded: a task of this
+    # template only ever comes into being through ``POST .../instantiate``, and a
+    # seeded row carrying a ``tenant_key`` is a shape that route never produced
+    # before #1708 — the usage-count test below certified nothing while it relied
+    # on one. Tests instantiate through the route instead (``_instantiate``).
     db.collection(col.TASK_TEMPLATES).insert(
-        {"_key": "tt-system", "tenant_key": "", "workflow_template_key": SYSTEM_WORKFLOW, "name": "Step"}
+        {
+            "_key": "tt-system",
+            "tenant_key": "",
+            "workflow_template_key": SYSTEM_WORKFLOW,
+            "name": "Step",
+            "category": "maintenance",
+            "trigger_type": "manual",
+        }
     )
-    for tenant, entity in ((TENANT_A, "plant-a"), (TENANT_B, "plant-b"), (TENANT_B, "plant-b2")):
-        db.collection(col.TASKS).insert(
-            {"tenant_key": tenant, "template_key": "tt-system", "entity_key": entity, "name": "Step"}
-        )
 
     # Harvests of the shared species: A yields 100 g, B 900 g.
     for tenant, suffix, grams in ((TENANT_A, "a", 100.0), (TENANT_B, "b", 900.0)):
@@ -230,22 +257,52 @@ def _task_service(db) -> TaskService:
     return TaskService(ArangoTaskRepository(db), HSTValidator(), DependencyResolver())
 
 
-def _client(overrides: dict):
+def _client(overrides: dict, *, tenant_key: str = TENANT_A, slug: str = SLUG_A):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from app.api.v1.tenant_scoped.router import tenant_scoped_router
     from app.common.auth import get_current_tenant
     from app.common.enums import TenantRole
+    from app.common.error_handlers import app_error_handler
+    from app.common.exceptions import KamerplanterError
     from app.domain.models.tenant_context import TenantContext
 
     app = FastAPI()
+    app.add_exception_handler(KamerplanterError, app_error_handler)
     app.include_router(tenant_scoped_router, prefix="/api/v1")
     app.dependency_overrides[get_current_tenant] = lambda: TenantContext(
-        tenant_key=TENANT_A, tenant_slug=SLUG_A, user_key="user-a", role=TenantRole.LEAD
+        tenant_key=tenant_key, tenant_slug=slug, user_key=f"user-{slug}", role=TenantRole.LEAD
     )
     app.dependency_overrides.update(overrides)
     return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def task_clients(db, monkeypatch):
+    """Route clients for tenant A and B over the test database.
+
+    ``get_task_entity_guard`` is **not** overridden: the real guard builds the
+    real plant/run/tank/site services through ``app.common.dependencies``, whose
+    ``get_db`` is pointed at the test database — the anchor the route applies in
+    production, not a double that could accept what the real one refuses.
+    """
+    from app.common import dependencies
+    from app.common.dependencies import get_task_service
+
+    monkeypatch.setattr(dependencies, "get_db", lambda: db)
+    overrides = {get_task_service: lambda: _task_service(db)}
+    return (
+        _client(overrides),
+        _client(overrides, tenant_key=TENANT_B, slug=SLUG_B),
+    )
+
+
+def _instantiate(client, slug: str, entity_type: str, entity_key: str):
+    return client.post(
+        f"/api/v1/t/{slug}/tasks/workflows/{SYSTEM_WORKFLOW}/instantiate",
+        json={"entity_type": entity_type, "entity_key": entity_key},
+    )
 
 
 class TestFertilizerNamesResolveInsideTheTenant:
@@ -293,16 +350,19 @@ class TestWorkflowReadsStayInsideTheTenant:
         names = " ".join(row["entity_name"] for row in response.json())
         assert "Plant b" not in names and "Bed b" not in names
 
-    def test_usage_counts_of_a_shared_template_are_the_callers_only(self, db) -> None:
-        from app.common.dependencies import get_task_service
+    def test_usage_counts_of_a_shared_template_are_the_callers_only(self, task_clients) -> None:
+        client_a, client_b = task_clients
+        # A runs the shared template on one entity, B on two.
+        assert _instantiate(client_a, SLUG_A, "plant_instance", "plant-a").status_code == 201
+        assert _instantiate(client_b, SLUG_B, "plant_instance", "plant-b").status_code == 201
+        assert _instantiate(client_b, SLUG_B, "tank", "tank-b").status_code == 201
 
-        client = _client({get_task_service: lambda: _task_service(db)})
+        for client, slug, expected in ((client_a, SLUG_A, 1), (client_b, SLUG_B, 2)):
+            response = client.get(f"/api/v1/t/{slug}/tasks/workflows")
 
-        response = client.get(f"/api/v1/t/{SLUG_A}/tasks/workflows")
-
-        assert response.status_code == 200, response.text
-        counts = {row["key"]: row["assigned_entity_count"] for row in response.json()}
-        assert counts[SYSTEM_WORKFLOW] == 1, counts
+            assert response.status_code == 200, response.text
+            counts = {row["key"]: row["assigned_entity_count"] for row in response.json()}
+            assert counts[SYSTEM_WORKFLOW] == expected, (slug, counts)
 
     def test_phase_suggestions_carry_no_foreign_private_phase(self, db) -> None:
         from app.common.dependencies import get_task_service
@@ -315,6 +375,59 @@ class TestWorkflowReadsStayInsideTheTenant:
         names = {row["name"] for row in response.json()}
         assert {"Secret phase a", "Shared phase"} <= names, names
         assert "Secret phase b" not in names
+
+
+class TestInstantiatedTasksBelongToTheCaller:
+    """``POST /t/{slug}/tasks/workflows/{key}/instantiate`` — the production path (#1708).
+
+    The route used to build every task without a ``tenant_key``, so the tasks it
+    generated were in no tenant's list; and it bound the execution to whatever
+    entity key and type arrived.
+    """
+
+    def test_the_generated_tasks_are_in_the_callers_list_only(self, task_clients) -> None:
+        client_a, client_b = task_clients
+
+        created = _instantiate(client_a, SLUG_A, "plant_instance", "plant-a")
+
+        assert created.status_code == 201, created.text
+        execution_key = created.json()["key"]
+        mine = client_a.get(f"/api/v1/t/{SLUG_A}/tasks")
+        assert mine.status_code == 200, mine.text
+        assert [t["workflow_execution_key"] for t in mine.json()] == [execution_key], mine.json()
+        theirs = client_b.get(f"/api/v1/t/{SLUG_B}/tasks")
+        assert theirs.status_code == 200, theirs.text
+        assert theirs.json() == []
+
+    def test_a_foreign_entity_is_refused_and_nothing_is_written(self, db, task_clients) -> None:
+        client_a, client_b = task_clients
+
+        for entity_type, entity_key in (
+            ("plant_instance", "plant-b"),
+            ("location", "loc-b"),
+            ("tank", "tank-b"),
+            ("planting_run", "run-b"),
+        ):
+            response = _instantiate(client_a, SLUG_A, entity_type, entity_key)
+            assert response.status_code == 404, (entity_type, response.text)
+
+        assert db.collection(col.TASKS).count() == 0
+        assert client_b.get(f"/api/v1/t/{SLUG_B}/tasks").json() == []
+        executions = client_b.get(f"/api/v1/t/{SLUG_B}/tasks/workflows/{SYSTEM_WORKFLOW}/executions").json()
+        assert {row["key"] for row in executions} == {
+            "we-plant_instance-b",
+            "we-location-b",
+            "we-tank-b",
+            "we-planting_run-b",
+        }
+
+    def test_an_unknown_entity_type_is_a_422(self, db, task_clients) -> None:
+        client_a, _ = task_clients
+
+        response = _instantiate(client_a, SLUG_A, "generic", "plant-a")
+
+        assert response.status_code == 422, response.text
+        assert db.collection(col.TASKS).count() == 0
 
 
 class TestYieldStatisticsStayInsideTheTenant:
