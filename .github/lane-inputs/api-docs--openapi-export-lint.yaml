@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
-replay_seconds: 52
-job_spec_sha256: c24a3da97877adcdb1b4a1ebe6ef56945b2ec0eeec0600e08490e1070fc3c104
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 54
+job_spec_sha256: cdd19fd2744aa844284c6d1c17c2d0d50b118c18891c3b6710253930f5023264
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend

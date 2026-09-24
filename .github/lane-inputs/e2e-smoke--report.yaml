@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: e2e-smoke.yml
@@ -9,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 5511407fab64bc1f4a14c83fa3ed64d9cfba64f4
-job_spec_sha256: e8e62ceed27e0358f1635a881cdd1c4e8a6bf9d886e49ff6c0c5a0dadba6c4fb
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+job_spec_sha256: ec995eef68db0a18195a65ad045bc40516ca7fafe2f5f9dba1f5f22dda793dd3
 invocations: []
 subprocesses: []
 accepted_gaps: []

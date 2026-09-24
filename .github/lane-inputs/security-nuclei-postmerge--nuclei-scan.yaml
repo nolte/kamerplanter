@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
-replay_seconds: 5
-job_spec_sha256: f56fe78c318ba6c3aac95e3d9d36472aedfb567b137f7db548afe0a50810826b
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 4
+job_spec_sha256: 015536c383150b8cb1e9987952b417458ec35cdf34d5a4abc31d8fa9a36fe250
 invocations:
 - command: docker compose -f docker-compose.e2e.yml -f docker-compose.security.override.yml config --quiet
   cwd: .

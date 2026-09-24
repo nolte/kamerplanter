@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
 replay_seconds: 10
-job_spec_sha256: 137b4f7eef240f6c6991914b4a903f5db02104644c26148da545aa02448c04b4
+job_spec_sha256: 389cb2b83565365d6d683550d65978eff6b112470a929266e47fad572c3ad28b
 invocations:
 - command: task deps:sync:inference-service
   cwd: .

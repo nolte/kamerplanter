@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
 replay_seconds: 6
-job_spec_sha256: 6c0673f48c5ab2fe02f80efa24cedda22abf17100d8465bdfc5bf25dd69e92fb
+job_spec_sha256: 1e40e3da4b7e855c1ee6a261c17b7335c51d7e786a521045a9454e8a66e17004
 invocations:
 - command: task deps:sync:kp-vectordb
   cwd: .
