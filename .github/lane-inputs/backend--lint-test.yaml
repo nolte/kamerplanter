@@ -361,7 +361,6 @@ reads:
 - .github/boring-cyborg.yml
 - .github/lane-inputs/
 - .github/lane-inputs/api-docs--openapi-export-lint.yaml
-- .github/lane-inputs/backend--coverage.yaml
 - .github/lane-inputs/backend--dependency-gates.yaml
 - .github/lane-inputs/backend--lint-test.yaml
 - .github/lane-inputs/backend-guards--guards.yaml
