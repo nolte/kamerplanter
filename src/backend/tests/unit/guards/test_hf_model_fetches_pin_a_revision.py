@@ -34,6 +34,16 @@ recognised, each with a self-test below that runs the SAME scanner:
 * a direct URL — ``huggingface.co/<repo>/resolve/<rev>/...`` (also ``hf.co``),
   where the ``<rev>`` path segment is the pin.
 
+**A pin is not an integrity check, so a pinned fetch must also verify.** The
+revision tells the server what to send; huggingface_hub checks nothing that
+comes back against it. Every PINNED fetch must therefore be followed by a
+``sha256sum -c`` (``--check``, flags in any order) in the SAME logical RUN
+instruction — continuation lines and heredoc bodies included, the next
+instruction not — so no unverified byte is committed to a layer. A
+``sha256sum`` that only computes (no check flag), one in a comment, or a check
+done some other way (``hashlib`` in Python) does not count; the last is a
+stated gap, not a permission.
+
 ``from_pretrained('/model')`` and friends with a literal local path are not
 fetches and are skipped; a non-literal first argument is NOT skipped, because
 this file cannot tell a path from a hub id it cannot see.
@@ -104,6 +114,14 @@ _RESOLVE_URL = re.compile(
 
 _COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
 
+#: ``sha256sum -c`` / ``--check``, flags in any order and combined short flags
+#: (``-c --strict``, ``--strict -c``, ``-bc``). ``sha256sum FILE > SUMS`` without
+#: a check flag COMPUTES a digest and verifies nothing, so it must not match.
+_DIGEST_CHECK = re.compile(r"\bsha256sum\s+(?:--?[\w-]+\s+)*?(?:-[a-zA-Z]*c[a-zA-Z]*|--check)(?=\s|$)")
+
+#: A heredoc opener in a Dockerfile instruction: ``<<EOF``, ``<<-EOF``, ``<<'EOF'``.
+_HEREDOC = re.compile(r"<<-?\s*(?P<q>['\"]?)(?P<tag>\w+)(?P=q)")
+
 #: Unpinned fetches that predate this guard, each named by (Dockerfile, repo).
 #: #1480 found them while writing this file and deliberately did not pin them:
 #: they belong to docker/embedding-service, a different image with its own
@@ -130,6 +148,8 @@ class FetchSite:
     spelling: str
     repo: str | None
     revision: str | None
+    #: A ``sha256sum -c`` in the same RUN instruction as the fetch.
+    digest_checked: bool = False
 
     @property
     def pinned(self) -> bool:
@@ -157,6 +177,46 @@ def _strip_dockerfile_comments(text: str) -> str:
 def _fold_continuations(text: str) -> str:
     """Turn ``\\``-newline into space-newline: ``\\s`` then spans it, lines stay put."""
     return re.sub(r"\\\n", " \n", text)
+
+
+def _instruction_spans(text: str) -> list[tuple[int, int]]:
+    """``(first_line, last_line)`` of every logical Dockerfile instruction, 1-based.
+
+    *text* has its comment lines already blanked. An instruction runs on while
+    its line ends in ``\\`` — skipping blank lines, which is where a comment
+    inside a continued RUN used to be — and through every heredoc it opens. This
+    is what "the same RUN" means for the digest check: a ``sha256sum -c`` in the
+    NEXT instruction runs in a different layer, after the fetched bytes have
+    already been committed to one.
+    """
+    lines = text.splitlines()
+    spans: list[tuple[int, int]] = []
+    index = 0
+    while index < len(lines):
+        if not lines[index].strip():
+            index += 1
+            continue
+        start = index
+        pending: list[str] = []
+        while True:
+            line = lines[index]
+            pending.extend(match.group("tag") for match in _HEREDOC.finditer(line))
+            if line.rstrip().endswith("\\"):
+                index += 1
+                while index < len(lines) and not lines[index].strip():
+                    index += 1
+                if index >= len(lines):
+                    break
+                continue
+            for tag in pending:
+                index += 1
+                while index < len(lines) and lines[index].strip() != tag:
+                    index += 1
+            break
+        end = min(index, len(lines) - 1)
+        spans.append((start + 1, end + 1))
+        index = end + 1
+    return spans
 
 
 def _call_arguments(text: str, open_paren: int) -> str:
@@ -200,11 +260,21 @@ def _is_local_path(value: str) -> bool:
 
 def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
     """Every Hugging Face fetch in the Dockerfile *text*, comments excluded."""
-    code = _fold_continuations(_strip_dockerfile_comments(text))
+    blanked = _strip_dockerfile_comments(text)
+    code = _fold_continuations(blanked)
+    code_lines = code.splitlines()
+    spans = _instruction_spans(blanked)
     sites: list[FetchSite] = []
 
     def line_of(offset: int) -> int:
         return code.count("\n", 0, offset) + 1
+
+    def digest_checked(line: int) -> bool:
+        for first, last in spans:
+            if first <= line <= last:
+                instruction = " ".join(code_lines[first - 1 : last])
+                return _DIGEST_CHECK.search(instruction) is not None
+        return False
 
     for match in _call_pattern(code).finditer(code):
         arguments = _call_arguments(code, match.end() - 1)
@@ -221,6 +291,7 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
                 spelling=match.group("fn"),
                 repo=repo,
                 revision=revision.group("rev") if revision else None,
+                digest_checked=digest_checked(line_of(match.start())),
             )
         )
 
@@ -235,6 +306,7 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
                 spelling="cli download",
                 repo=positional.strip("'\"") if positional else None,
                 revision=revision.group("rev") if revision else None,
+                digest_checked=digest_checked(line_of(match.start())),
             )
         )
 
@@ -246,6 +318,7 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
                 spelling="resolve url",
                 repo=match.group("repo"),
                 revision=match.group("rev"),
+                digest_checked=digest_checked(line_of(match.start())),
             )
         )
 
@@ -304,6 +377,21 @@ class TestHuggingFaceFetchesArePinned:
             "Name the 40-hex commit the model was measured on, e.g. "
             "revision='6f5ff65298512715a1e669753bc754d2bc8f367b' — a branch or tag can be moved "
             "under the image and change its output without failing anything (#1480)."
+        )
+
+    @pytest.mark.parametrize("site", [site for site in _SITES if site.pinned], ids=lambda site: site.label)
+    def test_pinned_fetch_verifies_the_bytes_in_the_same_run(self, site: FetchSite) -> None:
+        """A commit pin tells the server what to send; it checks nothing that arrives.
+
+        huggingface_hub does not verify downloaded bytes against the revision,
+        so a tampered mirror or proxy could serve other files for the right
+        commit. The ``sha256sum -c`` must sit in the SAME RUN, so no unverified
+        byte is ever committed to a layer the runtime stage copies from.
+        """
+        assert site.digest_checked, (
+            f"{site.label}: pinned, but no `sha256sum -c` in the same RUN. Verify every kept file "
+            "against the sha256 of the pinned revision (the Hub's `lfs.sha256` / git blob id, "
+            "`/api/models/<repo>/revision/<sha>?blobs=true`) before the layer ends (#1480)."
         )
 
     def test_every_allowance_still_excuses_an_unpinned_fetch(self) -> None:
@@ -403,6 +491,64 @@ def test_scanner_reads_the_spelling(snippet: str, pinned: bool) -> None:
     assert all(site.repo in {"org/model", "o/n"} for site in sites)
     target = next(site for site in sites if site.repo == "org/model")
     assert target.pinned is pinned
+
+
+_PINNED_FETCH = (
+    'RUN python -c "import huggingface_hub; '
+    f"huggingface_hub.snapshot_download('org/model', revision='{_SHA}', local_dir='/m')\" && \\\n"
+)
+
+_DIGEST_SPELLINGS: list[tuple[str, str, bool]] = [
+    (
+        "sha256sum -c --strict in the same RUN",
+        _PINNED_FETCH + "    sha256sum -c --strict /tmp/model.sha256\n",
+        True,
+    ),
+    ("--strict before -c", _PINNED_FETCH + "    sha256sum --strict -c /tmp/sums\n", True),
+    ("long --check", _PINNED_FETCH + "    sha256sum --check /tmp/sums\n", True),
+    (
+        "blank line (a removed comment) inside the continuation",
+        _PINNED_FETCH + "\n    sha256sum -c /tmp/sums\n",
+        True,
+    ),
+    ("no check at all", _PINNED_FETCH + "    rm -rf /dl\n", False),
+    ("sha256sum that only COMPUTES", _PINNED_FETCH + "    sha256sum /m/model.onnx > /tmp/sums\n", False),
+    (
+        "check in the NEXT instruction",
+        _PINNED_FETCH + "    rm -rf /dl\nRUN sha256sum -c /tmp/sums\n",
+        False,
+    ),
+    (
+        "check only in a comment",
+        _PINNED_FETCH + "    rm -rf /dl\n# sha256sum -c /tmp/sums\n",
+        False,
+    ),
+    (
+        "heredoc RUN",
+        "RUN <<EOF\n"
+        f"python -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"\n"
+        "sha256sum -c /tmp/sums\nEOF\n",
+        True,
+    ),
+    (
+        "heredoc RUN, check after its terminator",
+        "RUN <<EOF\n"
+        f"python -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"\n"
+        "EOF\nRUN sha256sum -c /tmp/sums\n",
+        False,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("snippet", "checked"),
+    [(s, c) for _, s, c in _DIGEST_SPELLINGS],
+    ids=[n for n, _, _ in _DIGEST_SPELLINGS],
+)
+def test_scanner_scopes_the_digest_check_to_the_run(snippet: str, checked: bool) -> None:
+    sites = fetch_sites(snippet, path="Dockerfile")
+    assert len(sites) == 1 and sites[0].pinned, "the pinned fetch in the snippet was not found"
+    assert sites[0].digest_checked is checked
 
 
 def test_a_comment_line_is_not_a_fetch() -> None:

@@ -67,6 +67,20 @@ RUN uv sync --locked --only-group build
 # ready (#1609); `/dl` (including huggingface_hub's `.cache/` bookkeeping
 # inside `local_dir`) is dropped in the same layer.
 #
+# THE PIN NAMES A COMMIT; THE `sha256sum -c` AFTER IT VERIFIES THE BYTES. A
+# commit SHA is an instruction to the server, not a check on what came back:
+# huggingface_hub verifies nothing against it, so a compromised mirror, proxy
+# or CDN edge could hand over different files for the right revision and the
+# build would ship them. Each stage therefore checks the sha256 of every file
+# it keeps, in the same RUN, before anything leaves the layer. The expected
+# values were taken on 2026-09-24 from the pinned revision and cross-checked
+# against the Hub's own record of it
+# (`/api/models/<repo>/revision/<sha>?blobs=true`): `lfs.sha256` for LFS files,
+# the git blob id for the small ones. THE HASHES CHANGE ONLY TOGETHER WITH THE
+# `revision=` LITERAL ABOVE THEM — a re-pin that does not update them fails
+# here, which is the point. The guard named above also requires a
+# `sha256sum -c` in the RUN of every pinned fetch.
+#
 # THE IMPORTS BELOW ARE QUALIFIED (`import x` + `x.f(...)`) RATHER THAN
 # `from x import f`, AND THAT IS NOT STYLE (#1554). Renovate's dockerfile
 # manager reads a CONTINUED line beginning with `from` as a `FROM`
@@ -93,7 +107,9 @@ FROM dl-base AS dl-bge-reranker-v2-m3
 # against the optimum export this stage used to run: identical graph inputs
 # (`input_ids`, `attention_mask`) and output (`logits`), a byte-identical
 # `tokenizer.json`, and over 3 queries x 7 documents a max |Δscore| of 4.7e-6
-# with identical rankings. The pin is what makes that measurement stay true.
+# with identical rankings. The pin is what makes that measurement stay true,
+# and the six sha256 values below are that revision's bytes: change them only
+# together with `revision=`.
 RUN python -c "\
 import huggingface_hub; \
 huggingface_hub.snapshot_download(\
@@ -105,7 +121,16 @@ local_dir='/dl')" && \
     mv /dl/onnx/model.onnx /dl/onnx/model.onnx_data \
        /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/config.json \
        /model/ && \
-    rm -rf /dl /root/.cache
+    printf '%s\n' \
+      'faae32b124a9d54afb7e89b5e9896e03c18a9552d56d1d6b273a709a83012486  /model/model.onnx' \
+      'f009aa6c6cf21986fd7e0021fa66b20ccce27abc6900a57c7109c8496811bcbe  /model/model.onnx_data' \
+      '8bf8afbfd11306bd872018c53bfdf2e160a56f8edbcf49933324404791c148d3  /model/tokenizer.json' \
+      'b87c8703482b0300d3da30e201519aa641f6a450f5eb5bf1e624afbf70c74d80  /model/tokenizer_config.json' \
+      '8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835  /model/special_tokens_map.json' \
+      '122e922dcfed6503c8721e6fe1daf090340c3d95ca7f3aa3a72730b321a51cfd  /model/config.json' \
+      > /tmp/model.sha256 && \
+    sha256sum -c --strict /tmp/model.sha256 && \
+    rm -rf /dl /root/.cache /tmp/model.sha256
 
 FROM dl-base AS dl-ms-marco-minilm
 # cross-encoder/ms-marco-MiniLM-L12-v2 — English-focused, 33M params,
@@ -114,7 +139,8 @@ FROM dl-base AS dl-ms-marco-minilm
 # the id this stage used before, is the old name Hugging Face redirects to it.)
 # Measured 2026-09-24 against the optimum export: identical inputs
 # (`input_ids`, `attention_mask`, `token_type_ids`), byte-identical
-# `tokenizer.json`, max |Δscore| 0.0.
+# `tokenizer.json`, max |Δscore| 0.0. The five sha256 values below are that
+# revision's bytes: change them only together with `revision=`.
 RUN python -c "\
 import huggingface_hub; \
 huggingface_hub.snapshot_download(\
@@ -126,7 +152,15 @@ local_dir='/dl')" && \
     mv /dl/onnx/model.onnx \
        /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/config.json \
        /model/ && \
-    rm -rf /dl /root/.cache
+    printf '%s\n' \
+      '2ac389ab6abe08dcbddf2c41a69b6a18853e0dca440adbc2abc1adfcee46483f  /model/model.onnx' \
+      'd241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66  /model/tokenizer.json' \
+      'a5c2e5a7b1a29a0702cd28c08a399b5ecc110c263009d17f7e3b415f25905fd8  /model/tokenizer_config.json' \
+      '3c3507f36dff57bce437223db3b3081d1e2b52ec3e56ee55438193ecb2c94dd6  /model/special_tokens_map.json' \
+      '69a745055b0307584d2903ea5cf4e1899254e511834f358be80d049918b144d8  /model/config.json' \
+      > /tmp/model.sha256 && \
+    sha256sum -c --strict /tmp/model.sha256 && \
+    rm -rf /dl /root/.cache /tmp/model.sha256
 
 # ── Runtime base (shared across all final targets) ───────────────────
 
