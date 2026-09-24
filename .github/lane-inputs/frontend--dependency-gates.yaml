@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
 job_spec_sha256: 94f86ae058c416572a5fad6867d67abffefa2c343efe9d1aee6b6aa71881ec1f
 invocations:
 - command: python3 ../../scripts/security/npm_audit_gate.py --omit-dev

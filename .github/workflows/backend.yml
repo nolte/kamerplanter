@@ -91,6 +91,10 @@ on:
       - 'scripts/check_*.py'
       - 'scripts/extract_overwintering_templates.py'
       - 'scripts/kami/render.py'
+      # The capability-reach observation helpers (#1715/#1723) are loaded by path from
+      # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
+      # guards lane lists the directory but reads none of its files (#1730).
+      - 'scripts/reach/**'
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
@@ -157,6 +161,10 @@ on:
       - 'scripts/check_*.py'
       - 'scripts/extract_overwintering_templates.py'
       - 'scripts/kami/render.py'
+      # The capability-reach observation helpers (#1715/#1723) are loaded by path from
+      # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
+      # guards lane lists the directory but reads none of its files (#1730).
+      - 'scripts/reach/**'
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
