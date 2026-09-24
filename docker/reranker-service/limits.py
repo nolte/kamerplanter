@@ -66,22 +66,28 @@ MAX_DOCUMENT_CHARS = 16384
 MAX_TOP_K = 50
 
 #: Seconds a request waits for the inference lock before it is answered 503
-#: ``{"status": "busy"}`` (``Retry-After`` = this value). BELOW the caller's
-#: 30 s client timeout (src/knowledge-service/app/reranker.py): a request that
-#: obtains the lock after waiting this long still has a caller to answer, and a
-#: request that does not is refused while that caller is still listening —
-#: its no-rerank fallback then answers at once instead of at the timeout.
-LOCK_WAIT_SECONDS = 20
+#: ``{"status": "busy"}`` (``Retry-After`` = this value). Well inside the
+#: caller's 30 s client timeout (src/knowledge-service/app/reranker.py), so a
+#: request that does not get the lock is refused while its caller is still
+#: listening — the no-rerank fallback then answers at once, not at the timeout.
+LOCK_WAIT_SECONDS = 10
 
 #: Seconds from the start of ``/rerank`` (lock wait included) after which the
 #: request is abandoned between two pairs with 503 ``{"status": "timeout"}``
-#: and the lock released. Measured 2026-09-24 in the bge image under the
-#: chart's limits (``-m 4g --cpus 2``), pairs of more than 512 tokens: 20
-#: documents (the caller's ``reranker_initial_k``) took 50.4 s, 100 documents
-#: (``MAX_DOCUMENTS``) 257 s. So the caller's largest request fits with the
-#: full lock wait on top (20 + 50.4 < 120), and the largest ACCEPTED one no
-#: longer holds the lock for four minutes: it is cut at 120 s plus one pair.
-MAX_INFERENCE_SECONDS = 120
+#: and the lock released. BELOW the caller's 30 s client timeout — the whole
+#: budget, not just the lock wait: past 30 s nobody reads the answer, so
+#: computing on would only hold the lock against the next caller (code review
+#: of the bundle; an earlier value of 120 did exactly that). Measured
+#: 2026-09-24 in the bge image under the chart's limits (``-m 4g --cpus 2``),
+#: pairs of more than 512 tokens: 20 documents (the caller's
+#: ``reranker_initial_k``) took 50.4 s — such a request is cut here and the
+#: caller falls back, as it already did at its own timeout before #1725 (112 s
+#: then). Typical corpus chunks are far shorter than 512 tokens. The deadline
+#: is checked BETWEEN pairs, so it overshoots by one pair (~2.5 s for a
+#: 512-token pair at 2 CPUs): measured with 28 s, the 503 arrived after
+#: 30.5 s — past the caller. 25 s leaves that pair's room. The guard test
+#: requires ``MAX_INFERENCE_SECONDS`` < the caller's timeout.
+MAX_INFERENCE_SECONDS = 25
 
 #: Worst-case bytes of JSON per character the bounds count. pydantic's
 #: ``max_length`` counts code points; ``json.dumps`` (``ensure_ascii``, the

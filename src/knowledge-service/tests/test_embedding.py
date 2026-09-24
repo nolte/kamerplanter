@@ -37,15 +37,15 @@ def service(monkeypatch) -> _FakeEmbedService:
 
 
 def test_the_slice_stays_below_the_service_bound():
-    assert 1 <= _MAX_TEXTS_PER_REQUEST <= 32
+    assert 1 <= _MAX_TEXTS_PER_REQUEST <= 16
 
 
-def test_seventy_texts_go_out_as_32_32_6_and_come_back_in_order(service):
+def test_seventy_texts_go_out_in_slices_of_16_and_come_back_in_order(service):
     texts = [f"t{i}" for i in range(70)]
 
     result = EmbeddingEngine("http://embedding:8080/", model_name="m").embed_batch(texts, prefix="passage: ")
 
-    assert [len(r["json"]["texts"]) for r in service.requests] == [32, 32, 6]
+    assert [len(r["json"]["texts"]) for r in service.requests] == [16, 16, 16, 16, 6]
     assert [text for r in service.requests for text in r["json"]["texts"]] == texts
     assert result == [[float(i)] for i in range(70)]
     assert {r["url"] for r in service.requests} == {"http://embedding:8080/embed"}
@@ -84,5 +84,5 @@ def test_an_http_error_of_any_slice_propagates(monkeypatch):
     monkeypatch.setattr(httpx, "post", failing_second)
 
     with pytest.raises(httpx.HTTPStatusError):
-        EmbeddingEngine("http://embedding:8080").embed_batch([f"t{i}" for i in range(40)])
-    assert calls == [32, 8]
+        EmbeddingEngine("http://embedding:8080").embed_batch([f"t{i}" for i in range(20)])
+    assert calls == [16, 4]

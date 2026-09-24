@@ -1117,12 +1117,12 @@ class TestServingBudgets:
     @pytest.mark.parametrize(
         ("sidecar", "lock_wait", "max_inference"),
         [
-            pytest.param(_RERANKER, 20, 120, id="reranker-service"),
-            pytest.param(_EMBEDDING, 90, 300, id="embedding-service"),
+            pytest.param(_RERANKER, 10, 25, id="reranker-service"),
+            pytest.param(_EMBEDDING, 60, 110, id="embedding-service"),
         ],
     )
     def test_the_budgets_have_their_contract_values(self, sidecar: Sidecar, lock_wait: int, max_inference: int) -> None:
-        """Measured values (limits.py): 20 long pairs 50.4 s, 32 long e5-large texts ~81 s, at 2 CPUs."""
+        """Measured values (limits.py): 20 long pairs 50.4 s, 16 long e5-large texts 40.3 s, at 2 CPUs."""
         limits = sidecar.limits()
 
         assert (lock_wait, max_inference) == (limits.LOCK_WAIT_SECONDS, limits.MAX_INFERENCE_SECONDS)
@@ -1142,6 +1142,26 @@ class TestServingBudgets:
 
         assert timeouts[0] > limits.LOCK_WAIT_SECONDS
         assert limits.LOCK_WAIT_SECONDS < limits.MAX_INFERENCE_SECONDS
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_no_request_outlives_its_caller(self, sidecar: Sidecar) -> None:
+        """The deadline (lock wait included) ends before the caller's client timeout.
+
+        Past the timeout nobody reads the answer; computing on only holds the
+        process-wide lock against the next caller, who then waits
+        ``LOCK_WAIT_SECONDS`` for a 503. The bundle's first budgets (reranker
+        120 s, embedding 300 s against 30 s / 120 s) did exactly that.
+        """
+        timeouts = [
+            keyword.value.value
+            for node in ast.walk(_parse(_KNOWLEDGE_SERVICE / sidecar.client))
+            if isinstance(node, ast.Call) and ast.unparse(node.func) == "httpx.post"
+            for keyword in node.keywords
+            if keyword.arg == "timeout" and isinstance(keyword.value, ast.Constant)
+        ]
+        assert len(timeouts) == 1, f"{sidecar.client}: no single literal httpx.post(timeout=...)"
+
+        assert timeouts[0] > sidecar.limits().MAX_INFERENCE_SECONDS
 
 
 # --------------------------------------------------------------------------

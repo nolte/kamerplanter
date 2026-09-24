@@ -67,21 +67,22 @@ MAX_MODEL_CHARS = 128
 #: Seconds a request waits for the inference lock before it is answered 503
 #: ``{"status": "busy"}`` (``Retry-After`` = this value). LONGER than one
 #: ingest slice: a search query (``embed()``, one short text) that arrives
-#: while an ingest slice of 32 e5-large texts runs must still be served, and
-#: that slice takes ~81 s at 2 CPUs (measured 2026-09-24, ``-m 4g --cpus 2``,
-#: texts of more than 512 tokens: 64 texts in 162 s, one text per graph call,
-#: so 32 ≈ 81 s). BELOW the caller's 120 s client timeout
-#: (src/knowledge-service/app/embedding.py), so the query's own inference
-#: still fits after the wait.
-LOCK_WAIT_SECONDS = 90
+#: while an ingest slice of 16 e5-large texts runs must still be served, and
+#: that slice takes ~41 s at 2 CPUs (measured 2026-09-24, ``-m 4g --cpus 2``,
+#: texts of more than 512 tokens: 16 texts in 40.3 s, 64 in 162 s, one text
+#: per graph call).
+LOCK_WAIT_SECONDS = 60
 
 #: Seconds from the start of ``/embed`` (lock wait included) after which the
 #: request is abandoned between two texts with 503 ``{"status": "timeout"}``
-#: and the lock released. The largest accepted request (``MAX_TEXTS`` = 64
-#: e5-large texts of more than 512 tokens) took 162 s, so even that fits
-#: behind a full lock wait (90 + 162 = 252 < 300); the caller's slice of 32
-#: (~81 s) fits with room to spare.
-MAX_INFERENCE_SECONDS = 300
+#: and the lock released. BELOW the caller's 120 s client timeout
+#: (src/knowledge-service/app/embedding.py) — the whole budget, not just the
+#: lock wait: past it nobody reads the answer (code review of the bundle; an
+#: earlier value of 300 computed on for a caller that had given up). Two
+#: concurrent ingest slices of 16 long texts (~41 s each) fit: 41 + 41 < 110.
+#: A direct caller sending the full ``MAX_TEXTS`` of long e5-large texts
+#: (162 s) is cut here; the knowledge-service never does (it slices at 16).
+MAX_INFERENCE_SECONDS = 110
 
 #: Worst-case bytes of JSON per character the bounds count. pydantic's
 #: ``max_length`` counts code points; ``json.dumps`` (``ensure_ascii``, the

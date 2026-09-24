@@ -12,7 +12,11 @@ logger = structlog.get_logger(__name__)
 #: src/backend/tests/unit/guards/test_ml_sidecar_limits.py requires
 #: ``MAX_TEXTS >= 2 * _MAX_TEXTS_PER_REQUEST``. The service runs one text per
 #: graph call anyway, so a slice costs one HTTP round trip and nothing else.
-_MAX_TEXTS_PER_REQUEST = 32
+#: 16, not 32: a slice must finish well inside the service's
+#: ``MAX_INFERENCE_SECONDS`` (110 s) and let a search query waiting behind it
+#: through within ``LOCK_WAIT_SECONDS`` (60 s) — 16 long e5-large texts take
+#: ~41 s at 2 CPUs.
+_MAX_TEXTS_PER_REQUEST = 16
 
 
 class EmbeddingEngine:
