@@ -1,0 +1,44 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of the gate for the
+# autonomous #1745 run, relayed by the orchestrating session — not an interactive batch
+# answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
+#
+# Expectation from AK-OS-05 as written (the subject's user_contributed embedding gone, the
+# curated control row kept), not from the current binding (NoopReferenceIndexStore).
+id: requirement-req025-art17-reference-index-cleanup
+summary: subject's user-contributed DINOv2 embedding and the curated control row, in pgvector, after erasure
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L265); §3.5 Phase 0.5 (L943-962); AK-OS-05
+    (L1229)
+tier: T2
+expected:
+  kind: set
+  unit: pgvector species_embeddings state after erasure finalisation
+  values:
+  - erased/species_embeddings
+  - kept/curated
+derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+environment:
+- reach:stack:up
+- reach:vectordb:up
+- reach:seed:privacy-subject
+- reach:seed:reference-embedding
+- reach:erasure:finalise-for-subject
+teardown:
+- reach:vectordb:down
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_reference_index.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-24T21:45:43Z'
+  approved_by: nolte
+  observation_digest: a77689fbf7ef9fe2ae0244aabfa7062084986ac427a72c6dbb7f92c8a6a90051

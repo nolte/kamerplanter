@@ -6,14 +6,18 @@ called by hand, though it can be::
 
     python3 scripts/reach/stack.py up
     python3 scripts/reach/stack.py seed --subject reach-subject
+    python3 scripts/reach/stack.py seed-files --subject reach-subject
     python3 scripts/reach/stack.py down
 
 ``up`` starts the E2E stack's full-mode services (``docker-compose.e2e.yml``)
 with the ``docker-compose.reach.yml`` overlay under a project name unique to this
 working copy, waits for them, and records the host-side addresses in
 ``.reach/stack.json``. ``seed`` runs ``seed_privacy_subject.py`` inside the
-backend container and stores its record under ``.reach/subjects/``. ``down``
-removes containers, networks and volumes and clears ``.reach/``'s run state.
+backend container and stores its record under ``.reach/subjects/``.
+``seed-files`` runs ``seed_stored_files.py`` there for a subject ``seed`` already
+wrote — one photo with GPS EXIF per attachment category in the subject's tenant —
+and stores ``.reach/subjects/<subject>.files.json``. ``down`` removes
+containers, networks and volumes and clears ``.reach/``'s run state.
 
 A reach environment target's job is to make the system exist, not to say
 anything about reach: every failure here exits non-zero, and the audit's runner
@@ -43,6 +47,7 @@ from _reach_common import (  # noqa: E402 — sibling import after the path inse
     project_name,
     reach_dir,
     read_stack,
+    read_subject,
     repo_root,
     run,
     run_in_backend,
@@ -146,6 +151,27 @@ def seed(subject: str) -> None:
     log(f"seeded subject {subject!r}: {len(record['rows'])} rows in {len(collections)} collections -> {path}")
 
 
+def seed_files(subject: str) -> None:
+    read_stack()
+    tenant_key = read_subject(subject)["tenant_key"]
+    reach = repo_root() / "scripts" / "reach"
+    output = run_in_backend(
+        reach / "seed_stored_files.py",
+        "--subject",
+        subject,
+        "--tenant-key",
+        tenant_key,
+        # The seed checks the stored bytes with the observer's own EXIF reader.
+        support=(reach / "observe_storage_residue.py", reach / "_reach_common.py"),
+        timeout=300,
+    )
+    record = json.loads(output)
+    path = subject_file(subject).with_name(f"{subject}.files.json")
+    path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    refused = ", ".join(record["refused"]) or "none"
+    log(f"seeded {len(record['files'])} stored files for {subject!r} (refused categories: {refused}) -> {path}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -153,12 +179,16 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("down", help="remove the stack, its volumes and the run state")
     seed_parser = sub.add_parser("seed", help="seed one data subject into every declared collection")
     seed_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
+    files_parser = sub.add_parser("seed-files", help="upload one GPS-EXIF photo per attachment category")
+    files_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
     args = parser.parse_args(argv)
     try:
         if args.command == "up":
             up()
         elif args.command == "down":
             down()
+        elif args.command == "seed-files":
+            seed_files(args.subject)
         else:
             seed(args.subject)
     except ReachError as exc:
