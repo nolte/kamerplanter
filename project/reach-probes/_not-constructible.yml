@@ -1,31 +1,89 @@
 # Not-constructible manifest; written by capability-reach-audit derive, read by the runner.
 # Empty `entries` means every declared entry received a probe; an absent file means nothing was recorded.
 #
-# Derive round of 2026-09-24 (#1680), scoped by the operator's brief to the declarations
-# behind the five worked-acceptance rows of spec/project/capability-reach-audit/: REQ-025
-# §3.1 (export manifest, erasure plan), the two engine inventories, the README reranker
-# row and the post-merge ZAP trigger. Other declarations were not inventoried this round.
+# Re-derive round of 2026-09-24 (#1717), scoped to the two declarations #1721 changed:
+# spec/req/REQ-025_Datenschutz-Betroffenenrechte.md and
+# src/backend/app/domain/engines/data_export_engine.py. REQ-025 v1.10 states rules and
+# points at the code inventories instead of copying them, so its Art. 15 / Art. 17
+# entries no longer state a count or a set; the code-anchored inventory probes carry
+# that content. Other declarations were not re-inventoried this round.
 entries:
+- id: requirement-req025-art15-export-sources-populated
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: §3.1.1 Wo die Inventare stehen (L256-268), §3.1.2 Regeln für die Offenlegung (L274-295)
+  reason: scope_not_countable
+  detail: The declared scope is a set of universally-quantified rules ("every X meeting condition C is
+    a manifest source"), not a stated count or named set — the schema's `expected` cannot hold a rule,
+    only its result. The count/set this declaration would need to state to become constructible is exactly
+    the collection/edge list DataExportEngine.USER_DATA_MANIFEST enumerates today (38 collections, 7 edges);
+    that content is probed directly, and stays in sync automatically because it reads the code, by inventory-export-manifest-sources-populated.
+  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+  recorded_at: '2026-09-24T15:38:25Z'
+- id: requirement-req025-art17-erasure-plan-reaches-rows
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: §3.1.1 Wo die Inventare stehen (L256-268), §3.1.3 Regeln für Löschung, Anonymisierung und
+      Pseudonymisierung (L297-324)
+  reason: scope_not_countable
+  detail: 'Same shape as the Art. 15 entry: §3.1.3 states five rules for deletion / anonymisation / pseudonymisation
+    (retention floors, shared-tenant anonymisation, audit pseudonymisation, no free-text keying, every
+    account-shaped field reached-or-excluded) plus §3.1.4''s reciprocity principle, none of which is a
+    stated count or named set — the document deliberately stopped carrying its own copy (#1719) precisely
+    to end the two-lists-must-match drift (#1663, #1700, #1716) this reach-audit framework would otherwise
+    reintroduce by hand-copying the code''s list back into the probe''s `expected`. The constructible
+    form of this claim is inventory-erasure-plan-reaches-rows (anchored on erasure_engine.py, out of scope
+    for this file per the dispatching brief).'
+  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+  recorded_at: '2026-09-24T15:38:25Z'
+- id: inventory-export-manifest-excluded-from-disclosure
+  declaration:
+    source: inventory
+    path: src/backend/app/domain/engines/data_export_engine.py
+    location: DataExportEngine.EXCLUDED_FROM_DISCLOSURE (L517-623)
+  reason: scope_not_countable
+  detail: 'The declaration''s own claim is an absence — these 15 edges are deliberately not disclosed
+    as their own bundle sections — so the correct expectation would be a zero/empty count, which the schema
+    cannot express (CountExpectation.value >= 1, SetExpectation.values minItems 1). Note for whoever seeds
+    this: scripts/reach/seed_privacy_subject.py still creates rows for most of these edges as part of
+    the erasure-plan edge steps, and observe_export_archive.py''s `edge/<name>` line is keyed off seeded
+    subject_edges independent of manifest membership, so an edge here can still print as `edge/<name>`
+    when its target document is independently disclosed by another manifest source (e.g. has_membership''s
+    target `memberships` row is disclosed by user_key) — that would measure the wrong thing (the target''s
+    disclosure, not this edge''s), which is exactly why no probe is drafted rather than one with a coincidentally
+    passing but meaningless zero. Whether each excluded edge is instead reached by the erasure walk is
+    asserted by inventory-erasure-plan-reaches-rows (erasure_engine.py, out of scope for this file).'
+  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+  recorded_at: '2026-09-24T15:38:25Z'
 - id: requirement-req025-art17-storage-cleanup-reaches-files
   declaration:
     source: requirement
     path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-    location: §3.1 ErasureEngine.STORAGE_CLEANUP_RULES (L588)
+    location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L265); StorageCleanupRule dataclass (L384-390);
+      §3.5 Phase 0 (L899); AK-OS-04 (L1226)
   reason: missing_observation_helper
-  detail: Phase 0 hard-deletes the subject's profile/user_notes files and strips EXIF from diary, inspection,
-    treatment, harvest and plant photos in object storage. The seed writes attachment metadata without
-    bytes, and no helper counts the subject's remaining files or EXIF blocks under .reach/storage. Needs
-    a seed of one real file per category (with GPS EXIF) and scripts/reach/observe_storage_residue.py.
-  derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
-  recorded_at: '2026-09-24T04:46:06Z'
+  detail: Unchanged capability, refreshed location only (previously L588, moved by the v1.10 restructuring).
+    Phase 0 hard-deletes the subject's profile/user_notes files and strips EXIF from diary, inspection,
+    treatment, harvest and plant photos in object storage. The seed (scripts/reach/seed_privacy_subject.py)
+    writes attachment metadata without bytes, and no helper counts the subject's remaining files or EXIF
+    blocks under .reach/storage — confirmed absent in scripts/reach/ (only observe_export_archive.py,
+    observe_erasure_residue.py, observe_executing_inventory.py exist). Needs a seed of one real file per
+    category (with GPS EXIF) and scripts/reach/observe_storage_residue.py.
+  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+  recorded_at: '2026-09-24T15:38:25Z'
 - id: requirement-req025-art17-reference-index-cleanup
   declaration:
     source: requirement
     path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-    location: §3.1 Phase 0.5 _reference_index_cleanup (L687)
+    location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L265); ReferenceIndexCleanupRule dataclass
+      + Phase-0.5-Kommentar (L394-411); §3.5 Phase 0.5 (L943); AK-OS-05 (L1229)
   reason: missing_environment_target
-  detail: Phase 0.5 deletes the subject's user_contributed DINOv2 embeddings from pgvector (REQ-034 §5,
-    AK-OS-05). The reach stack runs no pgvector store and no target seeds a contributed embedding. Needs
-    a reach:vectordb:up target and a seed of one user_contributed embedding for the subject.
-  derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
-  recorded_at: '2026-09-24T04:46:06Z'
+  detail: 'Unchanged capability, refreshed location only (previously L687, moved by the v1.10 restructuring).
+    Phase 0.5 deletes the subject''s user_contributed DINOv2 embeddings from pgvector (REQ-034 §5, AK-OS-05).
+    Confirmed the reach stack still runs no pgvector store: neither docker-compose.reach.yml nor .taskfiles/reach.yaml
+    (checked after #1723''s shared-storage/salt rework) declares a vectordb service or seeds a contributed
+    embedding. Needs a reach:vectordb:up target and a seed of one user_contributed embedding for the subject.'
+  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+  recorded_at: '2026-09-24T15:38:25Z'
