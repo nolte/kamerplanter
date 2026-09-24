@@ -106,12 +106,16 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 | **Patch-Updates** | laufend, begrenzt durch die Warteschlange | Auto-Merge bei allen Checks grün (§3.4) |
 | **Minor-Updates** | laufend, begrenzt durch die Warteschlange | Auto-Merge bei allen Checks grün (§3.4) |
 | **Major-Updates** | eigener Branch je Major (`separateMajorMinor`) | Auto-Merge bei allen Checks grün (§3.4); rot → Migration nach §7 |
-| **Security-Fixes (Critical/High)** | sofort, an der Warteschlange vorbei | Auto-Merge bei allen Checks grün (§3.4); SLA §4.2 |
+| **Security-Fixes (Critical/High)** | sofort, an der Warteschlange und an der Mindest-Release-Wartezeit vorbei | Auto-Merge bei allen Checks grün (§3.4); SLA §4.2 |
 | **Container-Base-Images** | laufend, gebündelt je Upstream-Release | Auto-Merge bei allen Checks grün (§3.4) |
 | **`helmv3`-Chart-Dependencies** | laufend | Auto-Merge bei allen Checks grün (§3.4, §6.4) |
 
 Bis 2026-09-24 stand in der rechten Spalte für Patch, Minor, Major, Container-Images und
 `helmv3` „manuelles Review"; die Betreiberentscheidung in §3.4 hat das ersetzt.
+
+„Laufend" heißt seit derselben Entscheidung: **frühestens drei Tage nach dem Release**
+der jeweiligen Version (`minimumReleaseAge: '3 days'`, §3.4). Ausgenommen sind nur
+Security-Fixes aus Vulnerability-Alerts.
 
 **MUSS**: Es gibt **kein** Zeitfenster für die PR-Erstellung, und es soll keins geben
 (#1566, Betreiberentscheidung 2026-09-21). `renovate.json5` setzt weder `schedule` noch
@@ -122,8 +126,8 @@ CI-Zyklus sparen. Wer die Spalte wieder einführen will, misst vorher, welchen Z
 spart.
 
 **MUSS**: Security-relevante Updates (CVE Critical/High) werden nicht zurückgehalten.
-Renovate nimmt Vulnerability-Alert-PRs von den Warteschlangen-Grenzen und von der
-Gruppierung aus (§3.5).
+Renovate nimmt Vulnerability-Alert-PRs von den Warteschlangen-Grenzen, von der
+Gruppierung (§3.5) und von der Drei-Tage-Wartezeit nach dem Release (§3.4) aus.
 
 ### 2.3 Lockfile-Pflicht
 
@@ -383,6 +387,38 @@ hinterlassen — nach der Regel oben hätte Renovate diese Pull Requests nie gem
 Preset und keine Regel setzt das Label `automerge` auf Renovate-Pull-Requests; ein
 zweiter Merger, der nur auf Pflicht-Checks wartet, würde die Entscheidung unterlaufen.
 
+**MUSS — Mindestalter eines Releases (Betreiberentscheidung 2026-09-24):** Jedes Update
+wartet, bis die vorgeschlagene Version **drei Tage** alt ist (`minimumReleaseAge: '3 days'`
+auf oberster Ebene; keine `packageRules`-Regel setzt den Schlüssel). Der Grund: Wenn
+niemand einen Bump vor dem Merge liest, ist Zeit die Verteidigung gegen ein
+kompromittiertes oder zurückgezogenes Release — für Sicherheitsforscher, Registries und
+Unpublish-Fenster (npm erlaubt ein Unpublish 72 Stunden lang).
+
+- **Security-Updates warten nicht.** `vulnerabilityAlerts: { minimumReleaseAge: null }`
+  steht ausgeschrieben, obwohl Renovates Default denselben Wert trägt: die Ausnahme soll
+  nicht an einem Default hängen. Renovate baut die Fix-Regeln beider Alert-Quellen —
+  GitHub-Alerts und, falls je eingeschaltet, `osvVulnerabilityAlerts` (hier aus, Default
+  `false`) — mit `force: { ...vulnerabilityAlerts }`. `force` schlägt den Wert oben und
+  jede Regel.
+- **Mechanik** (Renovate-Doku `minimumReleaseAge`, `internalChecksFilter`,
+  key-concepts/minimum-release-age): Mit dem Default `internalChecksFilter: 'strict'`
+  legt Renovate für ein jüngeres Update gar keinen Branch an; es steht im Dependency
+  Dashboard unter „Pending Status Checks". Jeder Branch trägt den internen Status
+  `renovate/stability-days`, der bis zum Ablauf der Frist **pending** ist — und pending
+  blockiert den Auto-Merge wie jeder wartende Check.
+- **Ein Update ohne Release-Zeitstempel wird festgehalten, nicht durchgewunken.**
+  Default ist `minimumReleaseAgeBehaviour: 'timestamp-required'`: Liefert die
+  Datenquelle keinen Zeitstempel (laut Renovate-Doku z. B. GHCR, Quay, ECR und
+  Digest-Updates auf wieder gepushte Tags), gilt die Version nie als alt genug und
+  bleibt im Dashboard stehen, bis jemand sie dort freigibt. Das ist bewusst so
+  und wird nicht auf `timestamp-optional` gelockert.
+- **Ein CVE-Fix, der nicht als Alert kommt, wartet mit.** Kommt eine Sicherheitskorrektur
+  als gewöhnlicher Bump — wie der `transformers`-Bump aus #1480 —, gilt für ihn die
+  Drei-Tage-Frist. Für ihn gilt dann die Eskalation aus §4.2.
+
+Gehalten von `test_renovate_automerge_policy.py` (Wert, Ausnahme für Security,
+`timestamp-required`).
+
 **Die bewusst in Kauf genommenen Kosten:**
 
 - Ein wackeliger oder roter **nicht-pflichtiger** Check (Coverage, Docker-Builds mit
@@ -449,7 +485,8 @@ gh api repos/nolte/gh-plumbing/contents/renovate-configs/common.json?ref=<tag> \
 
 **MUSS**: Sicherheitsupdates umgehen diese Grenzen. Renovate nimmt
 Vulnerability-Alert-PRs von `prConcurrentLimit`, `prHourlyLimit` und von der
-Gruppierung aus; ein CVE-Fix wird dadurch nie zurückgehalten. Das war nicht immer so
+Gruppierung aus, ebenso von der Mindest-Release-Wartezeit (§3.4); ein CVE-Fix aus einem
+Alert wird dadurch nie zurückgehalten. Das war nicht immer so
 wirksam, wie es klingt: bei vollem Kontingent hielt Renovate den CVE-tragenden
 `transformers`-Bump (#1480) als „Rate-Limited" zurück, weil er als normaler Bump und
 nicht über einen Alert kam.
@@ -550,7 +587,7 @@ jobs:
 | **Medium** (4.0–6.9) | 30 Tage | Nächster Sprint | Backlog |
 | **Low** (0.1–3.9) | 90 Tage | regulärer Update-Strom | — |
 
-**MUSS**: Critical-CVEs werden an der Warteschlange vorbei behandelt — Renovate nimmt Vulnerability-Alert-PRs von den Grenzen aus (§3.5) und erstellt sofort einen PR.
+**MUSS**: Critical-CVEs werden an der Warteschlange vorbei behandelt — Renovate nimmt Vulnerability-Alert-PRs von den Grenzen aus (§3.5) und erstellt **sofort** einen PR. Die Mindest-Release-Wartezeit von drei Tagen (§3.4) gilt für Alert-PRs ausdrücklich **nicht** (`vulnerabilityAlerts: { minimumReleaseAge: null }`); sie werden gemergt, sobald alle Checks grün sind. Kommt ein CVE-Fix nicht als Alert, sondern als gewöhnlicher Bump, unterliegt er der Frist; innerhalb der SLA wird er dann über das Dependency Dashboard freigegeben oder per Hotfix-Branch eingespielt.
 **MUSS**: GitHub Security Advisories sind aktiviert und senden Benachrichtigungen an das Maintainer-Team.
 **SOLL**: Bei Critical-CVEs wird ein Hotfix-Branch erstellt, wenn der reguläre PR nicht innerhalb von 8 Stunden gemergt werden kann.
 

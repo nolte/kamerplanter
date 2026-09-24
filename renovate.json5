@@ -74,6 +74,44 @@
   automergeStrategy: 'squash',
   platformAutomerge: false,
   rebaseWhen: 'behind-base-branch',
+  // ── Three days between a release and its merge; security fixes exempt ──────
+  // Operator decision 2026-09-24, taken together with the automerge decision
+  // above: once nobody reads a bump before it lands, the only defence against a
+  // compromised or quickly-retracted release is time — for security
+  // researchers, registries and unpublish windows (npm allows an unpublish for
+  // 72 hours) to catch it. `minimumReleaseAge` applies to EVERY update this
+  // file produces, per version.
+  //
+  // HOW RENOVATE ENFORCES IT (docs.renovatebot.com, `minimumReleaseAge` and
+  // key-concepts/minimum-release-age): with the default
+  // `internalChecksFilter: 'strict'` Renovate creates no branch for an update
+  // younger than three days — it waits under "Pending Status Checks" on the
+  // Dependency Dashboard. Every branch it does push carries the internal
+  // status `renovate/stability-days`, pending until the age has passed, and a
+  // pending status blocks the automerge above exactly like a pending check.
+  //
+  // THE CATCH, measured rather than assumed — see NFR-009 §3.4: the default
+  // `minimumReleaseAgeBehaviour: 'timestamp-required'` treats an update whose
+  // datasource publishes NO release timestamp as never old enough. Such an
+  // update is held indefinitely until someone approves it on the dashboard.
+  // That trade (hold rather than wave through) is deliberate and is NOT
+  // relaxed to `timestamp-optional` here.
+  //
+  // SECURITY UPDATES DO NOT WAIT. `vulnerabilityAlerts` is a mergeable object
+  // whose Renovate default already carries `minimumReleaseAge: null`; it is
+  // restated so the exemption does not rest on a default, and so the guard can
+  // hold it. Alert PRs therefore skip the age check the same way they skip the
+  // queue limits (NFR-009 §3.5, §4.2). `osvVulnerabilityAlerts` is not enabled
+  // here (default `false`); were it switched on, it would inherit the
+  // exemption: both alert sources — GitHub's alerts and OSV — build their fix
+  // rules with `force: { ...vulnerabilityAlerts }` (renovatebot/renovate
+  // lib/workers/repository/init/vulnerability.ts and
+  // lib/workers/repository/process/vulnerabilities.ts), and `force` wins over
+  // the top-level value and every packageRule.
+  minimumReleaseAge: '3 days',
+  vulnerabilityAlerts: {
+    minimumReleaseAge: null,
+  },
   // ── Helm dev values also carry a third-party pin (#1027) ─────────────────────
   // The built-in `helm-values` manager only matches `values.yaml` by default, so
   // `helm/kamerplanter/values-dev*.yaml` — which pin `timescale/timescaledb` for

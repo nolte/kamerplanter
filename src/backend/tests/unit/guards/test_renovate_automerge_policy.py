@@ -134,6 +134,37 @@ class TestRenovateMergesEverythingItself:
         )
 
 
+class TestReleasesAgeBeforeTheyMerge:
+    """Three days between a release and its automerge; security fixes never wait.
+
+    Operator decision 2026-09-24 (NFR-009 §3.4): once no human reads a bump
+    before it lands, time is the defence against a compromised or retracted
+    release. Renovate applies ``vulnerabilityAlerts`` to both alert sources as a
+    ``force`` override, so the exemption set there beats the top-level value.
+    """
+
+    def test_every_update_waits_three_days(self) -> None:
+        assert _config().get("minimumReleaseAge") == "3 days"
+
+    def test_no_package_rule_shortens_or_lifts_the_wait(self) -> None:
+        offenders = [rule.get("groupName") or rule for rule in _rules() if "minimumReleaseAge" in rule]
+        assert not offenders, f"a packageRules entry overrides minimumReleaseAge: {offenders}"
+
+    def test_security_updates_are_exempt(self) -> None:
+        alerts = _config().get("vulnerabilityAlerts")
+        assert isinstance(alerts, dict) and "minimumReleaseAge" in alerts, (
+            "vulnerabilityAlerts must restate minimumReleaseAge explicitly; the exemption may not rest "
+            "on Renovate's default"
+        )
+        assert alerts["minimumReleaseAge"] is None, "a security fix must not wait for the release age"
+        assert alerts.get("enabled", True) is not False, "vulnerability alerts must stay enabled"
+
+    def test_an_undated_release_is_held_not_waved_through(self) -> None:
+        assert _config().get("minimumReleaseAgeBehaviour", "timestamp-required") == "timestamp-required", (
+            "timestamp-optional would merge an update whose datasource publishes no release date at once"
+        )
+
+
 class TestTheLabelMergerStaysOutOfRenovatesWay:
     """``automerge.yaml`` neither merges nor leaves a ``cancelled`` run on a Renovate head."""
 
