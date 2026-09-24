@@ -10,6 +10,9 @@ from app.data_access.arango import collections as col
 from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.models.privacy import DataSourceDefinition
 
+#: Filter fields that name an edge endpoint. Their value is a document id.
+EDGE_ENDPOINT_FIELDS = frozenset({"_from", "_to"})
+
 
 class ArangoPersonalDataRepository(IPersonalDataRepository):
     """Resolves one declared manifest source into the user's rows.
@@ -52,9 +55,15 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
         # ``_key`` is a system attribute and cannot be reached through
         # ``doc[@field]`` bind syntax in the same way, so it gets its own query
         # rather than a string-built one.
+        # An edge collection whose rows *are* the subject's data (#1719,
+        # ``user_favorites``: which catalogue entries they marked, and when)
+        # is filtered on its endpoint, which stores the document id
+        # ``users/<key>`` rather than the bare key. Comparing the endpoint with
+        # the bare key would match nothing and read as "no favourites".
+        match_value = f"{col.USERS}/{user_key}" if field in EDGE_ENDPOINT_FIELDS else user_key
         bind_vars: dict[str, Any] = {
             "@collection": source.collection,
-            "user_key": user_key,
+            "user_key": match_value,
             "fields": list(source.fields),
         }
         if field == "_key":

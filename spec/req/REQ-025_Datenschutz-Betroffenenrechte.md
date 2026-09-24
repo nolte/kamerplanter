@@ -7,7 +7,7 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.9 (#1716: Tenant-Overlay-Quellen des Exports als nicht implementiert gekennzeichnet)
+Version: 1.10 (#1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt — v1.9 #1716: Tenant-Overlay-Quellen als nicht implementiert gekennzeichnet)
 Abhängigkeit: REQ-023 v1.13 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.4 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.10 | 2026-09-24 | **#1719 Offenlegung folgt der Löschung, Inventare nur im Code:** Guard-Regel R2 in `scripts/check_privacy_inventory.py` prüft jetzt beide Richtungen: Jede Collection, die die Löschung als Daten der Person entfernt oder anonymisiert, steht im Art.-15-Manifest oder mit Begründung in `DataExportEngine.EXCLUDED_FROM_DISCLOSURE`. Vorher gemessen: 20 Collections ohne Offenlegung. **Neu offengelegt:** `user_favorites` (die Kantenzeile selbst, gefiltert über `_from`), `api_keys` (ohne `key_hash`), `user_preferences`, `onboarding_states`, `pest_detections` (ohne `image_hash`); `plant_diagnosis_requests` zusätzlich mit `inspection_key`, `harvest_observation_key`, `phenotype`, `confirmed_labels`, `created_at`. **Begründet ausgeschlossen:** 15 Kanten, deren Endpunkte offengelegte Dokumente sind und deren Attribute (falls vorhanden) offengelegte Felder kopieren (`has_api_key`, `has_membership`, `membership_in`, drei Standort-Zuweisungs-Kanten, drei Schädlingserkennungs-Kanten, `notification_for_run`, vier `cv_*`-Kanten, `has_invitation`). §3.1 führt keine Abschrift der beiden Inventare mehr, sondern die Regeln (Offenlegung, Löschung/Anonymisierung/Pseudonymisierung mit Aufbewahrungsgründen, Ausschlussprinzip) und Verweise auf `data_export_engine.py` / `erasure_engine.py`. Neues Abnahmekriterium AK-01a. |
 | 1.9 | 2026-09-24 | **#1716 Export-Quellen ohne Gegenstück im Code:** Die beiden `DataSourceDefinition`s für `tenant_species_config` und `tenant_cultivar_config` (v1.3, ADR-002) sind aus der Manifest-Kopie in §3.1 genommen und als **nicht implementiert** gekennzeichnet. Gemessen: Keine der beiden Collections hat eine Konstante in `collections.py`, ein Modell oder ein Repository; das Tenant-Overlay aus REQ-001 v4.0 existiert nicht. Was es gibt — mandanteneigene `species`/`cultivars` (`tenant_key`, #1090) und die Freigabekanten `tenant_has_access` (#1092) — trägt keinen Nutzerschlüssel und ist deshalb keine Art.-15-Quelle zur betroffenen Person. Ebenso als nicht implementiert gekennzeichnet: der `SpeciesReferenceResolver` (ADR-002). Die vier `cv_*`-Kanten im Löschinventar stehen jetzt als `ErasureStep`s da, wie in `erasure_engine.py`, statt als Kommentar. |
 | 1.8 | 2026-09-24 | **#1700 Vollständigkeit des Löschinventars:** Guard-Regel R6 in `scripts/check_privacy_inventory.py` ankert außerhalb der beiden Listen, an den Modellfeldern (`user_key`, `*_user_key`, `*_by_key`, `*_account_key`, `*_by`): Jedes gespeicherte Feld dieser Form muss vom Löschinventar erreicht oder in `ErasureEngine.EXCLUDED_USER_REFERENCES` mit Begründung ausgeschlossen sein. Vorher gemessen: 23 Felder in keiner der beiden Listen. **Gelöscht:** `ai_conversations`, `ai_tip_cache` (`dismissed_by`, REQ-031 §7.5; nach Review anonymisiert statt gelöscht, weil der Tipp mandantenweit gilt), `notifications` (+ `notification_for_run`), `notification_preferences`, `calendar_feeds` (der Feed-Token liefert danach nichts mehr), `plant_diagnosis_requests` (+ vier `cv_*`-Kanten), angenommene `invitations` (`accepted_by_user_key`, + `has_invitation`), `attachments` der Kategorie `pest_reference` (Bytes bereits gelöscht), `mcp_idempotency_record`, `location_assignments` (über `memberships`, `via` jetzt auch für Dokumente; + drei Zuweisungs-Kanten). **Anonymisiert (`_anonymized`):** `task_comments.created_by`, `invitations.invited_by_user_key`, `pest_image_contributions.promoted_by`, `attachments.created_by` (Rest), `ai_audit_log.user_key` (REQ-031 §7.5), `import_jobs.uploaded_by`, `weather_source_configs.updated_by`, `manual_overrides.created_by`, `tenants.owner_user_key` — beim persönlichen Mandanten zusätzlich `name`/`slug` → `anonymized-<Hash>` (aus dem Tombstone, Präfix reserviert) (`rename_fields`/`rename_when`). **Pseudonymisiert:** `mcp_audit_log.service_account_key`. **Ausgeschlossen (Freitext bzw. kein Kontoschlüssel):** `performed_by` in vier Protokoll-Collections, `workflow_templates.created_by`, `task_audit_entries.changed_by`, `sync_runs.triggered_by`. Der Mitgliedschaftsblock ist jetzt `account_cascade` (Bereinigung unbestätigter Konten läuft über die volle Löschung `erase_account`). Alle neuen Kategorien stehen im Art.-15-Manifest; `location_assignments` mit `disclosure_gap`. Löschprotokolle tragen statt des Klartext-Schlüssels den Tombstone-Hash (`subject`). |
 | 1.7 | 2026-09-23 | **#1663 Nutzerfeld im Löschinventar:** Jeder `edge`-/`document`-Schritt von `ErasureEngine.DELETE_STEPS` nennt das Feld, über das die Zeilen des Nutzers gefunden werden (`user_field`; bei Kanten der Endpunkt `_from`/`_to`, ggf. mit `via` auf die Eltern-Collection), durchgesetzt von Guard-Regel R5 in `scripts/check_privacy_inventory.py`. Gemessen und ergänzt: `has_api_key`, `has_membership` und `user_favorites` fehlten im Inventar; `membership_in` und die drei Schädlingserkennungs-Kanten berühren `users` nicht und werden über `memberships` bzw. `pest_detections` erreicht. `quality_assessments` erhält das serverseitige `assessed_by_key` (Migration v0057, kein Rückschluss aus Freitext) und eine `tombstone_hash`-Regel (NFR-011 R-16); `yield_metrics` trägt kein Nutzerfeld. Die Code-Kopie in §3 ist an den Code angeglichen (vorher Freitextfelder `harvester`/`applicator`/`inspector` und Marker `"[gelöscht]"`). AK-DA-04/05 als nicht implementiert gekennzeichnet — `plant_diary_analyses` existiert im Code nicht. |
@@ -242,84 +243,110 @@ email_change_requests:
 
 ### 3.1 Engine-Schicht
 
-**`DataExportEngine`** — Daten-Zusammenstellung (pure Logik, kein I/O):
+Die beiden Inventare personenbezogener Daten — **was nach Art. 15/20 offengelegt** und
+**was nach Art. 17 gelöscht, anonymisiert oder pseudonymisiert** wird — stehen **nur im
+Code**. Dieser Abschnitt legt die Regeln fest, denen beide folgen müssen, und sagt, wo sie
+stehen. Er führt bewusst **keine Abschrift** der Listen (#1719): Bis v1.8 stand hier eine
+handgepflegte Kopie beider Inventare. Sie wich zuletzt in rund 30 Quellen und in
+Feldnamen (`harvester`, `assigned_to`, …) vom Code ab und musste in #1663, #1700 und #1716
+jeweils von Hand nachgezogen werden — dieselbe Form (zwei Listen, die übereinstimmen
+müssen und nie verglichen werden), die vor #1622 die beiden Code-Inventare
+auseinanderlaufen ließ.
 
-```python
-class DataExportEngine:
-    """Definiert das Manifest aller User-bezogenen Daten-Collections."""
+#### 3.1.1 Wo die Inventare stehen
 
-    # Manifest: Welche Collections enthalten User-bezogene Daten?
-    USER_DATA_MANIFEST: list[DataSourceDefinition] = [
-        DataSourceDefinition(
-            collection="users",
-            filter_field="_key",
-            label="Profildaten",
-            fields=["email", "display_name", "avatar_url", "locale",
-                    "timezone", "status", "email_verified", "created_at"],
-        ),
-        DataSourceDefinition(
-            collection="auth_providers",
-            edge_collection="has_auth_provider",
-            label="Verknüpfte Authentifizierungs-Provider",
-            fields=["provider", "provider_email", "linked_at", "last_used_at"],
-        ),
-        DataSourceDefinition(
-            collection="refresh_tokens",
-            edge_collection="has_session",
-            label="Aktive Sessions",
-            fields=["device_info", "ip_address", "issued_at", "expires_at"],
-        ),
-        DataSourceDefinition(
-            collection="memberships",
-            edge_collection="has_membership",
-            label="Tenant-Mitgliedschaften",
-            fields=["role", "joined_at"],
-        ),
-        DataSourceDefinition(
-            collection="consent_records",
-            edge_collection="has_consent",
-            label="Einwilligungen",
-            fields=["purpose", "granted", "granted_at", "revoked_at"],
-        ),
-        # Tenant-scoped Daten (über created_by / assigned_to)
-        DataSourceDefinition(
-            collection="tasks",
-            filter_field="assigned_to",
-            label="Zugewiesene Aufgaben",
-            fields=["title", "status", "due_date", "completed_at"],
-        ),
-        DataSourceDefinition(
-            collection="harvest_batches",
-            filter_field="harvester",
-            label="Erntedaten",
-            fields=["name", "status", "started_at", "completed_at"],
-        ),
-        DataSourceDefinition(
-            collection="inspections",
-            filter_field="inspector",
-            label="Inspektionsprotokolle",
-            fields=["type", "date", "findings"],
-        ),
-        # Keine Einträge für tenant_species_config / tenant_cultivar_config:
-        # Diese Collections existieren im Code nicht (#1716, siehe Hinweis unten).
-    ]
+| Inventar | Ort (maßgeblich) |
+|----------|------------------|
+| Art.-15/20-Manifest | `DataExportEngine.USER_DATA_MANIFEST` in `src/backend/app/domain/engines/data_export_engine.py` |
+| Löschziele, die bewusst nicht offengelegt werden | `DataExportEngine.EXCLUDED_FROM_DISCLOSURE` (dieselbe Datei) |
+| Löschschritte in Ausführungsreihenfolge | `ErasureEngine.DELETE_STEPS` in `src/backend/app/domain/engines/erasure_engine.py` |
+| Anonymisierungsregeln | `ErasureEngine.ANONYMIZE_COLLECTIONS` (dieselbe Datei) |
+| Audit-Pseudonymisierung | `ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS` (dieselbe Datei) |
+| Object-Storage- und pgvector-Bereinigung | `ErasureEngine.STORAGE_CLEANUP_RULES`, `ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES` (dieselbe Datei) |
+| Kontofelder, die die Löschung bewusst nicht anfasst | `ErasureEngine.EXCLUDED_USER_REFERENCES` (dieselbe Datei) |
+| Datenmodell der Einträge | `DataSourceDefinition`, `DisclosureExclusion`, `ErasureStep`, `AnonymizationRule`, `PseudonymizationRule`, `ErasureExclusion` in `src/backend/app/domain/models/privacy.py` |
+| Durchsetzung der Regeln unten | `scripts/check_privacy_inventory.py` (R1–R6, pre-commit und CI) sowie `src/backend/tests/unit/domain/engines/test_privacy_engines.py` und `src/backend/tests/integration/test_privacy_export_walk.py` |
 
-    def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
-        """Gibt das vollständige Manifest für einen User zurück."""
-        return self.USER_DATA_MANIFEST
+Die Engines sind reine Logik ohne I/O. Das Manifest liest
+`PrivacyService.process_data_export` über `build_export_manifest`, das Löschinventar
+`PrivacyService.erase_account` über `build_erasure_plan` (#1622, #1645, #1664).
 
-    def validate_export_request(self, user_key: str, existing_exports: list) -> list[str]:
-        """Prüft ob Export möglich ist. Gibt Fehlerliste zurück."""
-        errors = []
-        # Max. 1 aktiver Export pro User
-        active = [e for e in existing_exports if e.status in ('pending', 'processing')]
-        if active:
-            errors.append("Ein Export-Auftrag ist bereits aktiv.")
-        return errors
-```
+#### 3.1.2 Regeln für die Offenlegung (Art. 15/20)
 
-> **Tenant-Overlay-Quellen: nicht implementiert (Stand #1716).** Bis v1.8 nannte diese
-> Manifest-Kopie zwei weitere Quellen, `tenant_species_config` und
+1. **Jede Kategorie, die das System einer Person über ein Kontofeld zurechnet, ist eine
+   Manifest-Quelle** (`DataSourceDefinition`). Die Zuordnung hat eine von vier Formen:
+   das Profil selbst (`filter_field="_key"`), ein Kontofeld am Dokument
+   (`filter_field="<feld>"`), eine Kante von `users` zum Dokument (`edge_collection`),
+   oder der Endpunkt `_from`/`_to` einer Kante, deren Zeile selbst die Daten ist
+   (`user_favorites`, #1719).
+2. **Nur Felder, die das Modell trägt.** Ein falscher Feldname liefert eine leere Spalte,
+   die sich wie „keine Daten" liest.
+3. **Keine Zugangsdaten, keine internen Prüfwerte.** Gespeicherte Geheimnisse und ihre
+   Hashes (API-Schlüssel-Hash, Kalender-Feed-Token) sowie interne Dedup-Hashes von
+   Bildern werden nicht exportiert.
+4. **Mandantenbindung, wo Fremde das Kontofeld schreiben können.** Ein Kontofeld, das
+   jeder Bearbeiter setzt, wird nur in den Mandanten der Person gelesen
+   (`tenant_scoped`, #1662 SCR-001). Ein serverseitig aus dem Aufrufer gestempeltes Feld
+   braucht das nicht, und Daten aus einem verlassenen Mandanten bleiben dann Teil der
+   Auskunft.
+5. **Ehrliche Lücken statt leerer Listen.** Eine Kategorie, die sich nicht pro Person
+   zuordnen lässt, steht mit Begründung im Bundle (`disclosure_gap`); Altdatensätze ohne
+   Kontoschlüssel werden neben den gelieferten Zeilen benannt (`attribution_gap`). Leere
+   Sektionen bleiben im Bundle (`record_count`).
+
+#### 3.1.3 Regeln für Löschung, Anonymisierung und Pseudonymisierung (Art. 17)
+
+1. **Löschen ist der Normalfall** für Daten der Person ohne Aufbewahrungsgrund. Jeder
+   Schritt nennt, wer ihn ausführt (`executor`), und wie die Zeilen der Person gefunden
+   werden (`user_field`, bei Kanten `_from`/`_to`, ggf. `via` auf das Elterndokument,
+   ggf. `where`). Reihenfolge: Object Storage (Phase 0) → pgvector-Referenz-Index
+   (Phase 0.5) → Kanten → Dokumente → Anonymisierung → Audit-Pseudonymisierung
+   (Phase 2.5) → `users`.
+2. **Anonymisieren statt löschen**, wenn das Dokument bleiben muss:
+   - **gesetzliche Aufbewahrungspflicht** — Ernten und Qualitätsbewertungen (CanG,
+     5 Jahre, NFR-011 R-16), Behandlungen und Inspektionen (PflSchG §11, 3 Jahre,
+     NFR-011 R-17/R-18). Der Kontoschlüssel wird zum Tombstone-Hash, damit die
+     aufbewahrten Datensätze desselben Kontos für eine Prüfung verknüpfbar bleiben;
+     Freitextnamen werden geleert (Art. 17 Abs. 3).
+   - **Datensatz eines möglicherweise geteilten Mandanten** — Aufgaben und
+     Aufgabenkommentare, Tagebucheinträge (REQ-050 §7.4), Anhänge (AK-OS-02),
+     Importaufträge, Wetterquellen-Einstellungen, manuelle Übersteuerungen, verworfene
+     KI-Tipps, versandte Einladungen, freigegebene Referenzbilder und der Mandant selbst.
+     Der Kontobezug wird durch den Marker `_anonymized` ersetzt; beim persönlichen
+     Mandanten zusätzlich Name und Kurzname.
+3. **Pseudonymisieren** für Audit-Protokolle mit eigener Aufbewahrung: Löschaudit
+   (NFR-011 R-06, 1 Jahr) und MCP-Aufrufprotokoll (REQ-033). Tombstone-Hash siehe unten.
+4. **Nie auf Freitext schlüsseln.** Eine Regel trifft nur ein serverseitig gesetztes
+   Kontofeld; ein eingetippter Name ist kein Schlüssel (#1662, #1663).
+5. **Jedes gespeicherte Feld in Form eines Kontoschlüssels** (`user_key`, `*_user_key`,
+   `*_by_key`, `*_account_key`, `*_by`) wird vom Löschinventar erreicht oder steht mit
+   Begründung in `EXCLUDED_USER_REFERENCES` (Freitext, Enum-Wert, nur Default
+   geschrieben; #1700).
+
+#### 3.1.4 Gegenseitigkeit und Ausschlussprinzip
+
+- **Was offengelegt wird, muss löschbar sein** (Guard-Regel R2, vorwärts).
+- **Was die Löschung als Daten der Person entfernt oder anonymisiert, wird offengelegt**
+  — oder steht mit Begründung in `EXCLUDED_FROM_DISCLOSURE` (R2, rückwärts, #1719). Dass
+  die Löschung eine Collection anfasst, belegt, dass sie Daten der Person hält.
+- **Ausgeschlossen werden darf nur, was keine Information über die Person trägt, die
+  nicht schon eine offengelegte Quelle liefert:** die Kante zwischen Konto und einem
+  offengelegten Dokument, eine Kante, deren Attribute Kopien offengelegter Felder sind,
+  oder reiner technischer Zustand ohne eigenen Inhalt. Eine Kante mit eigenem Inhalt ist
+  eine Manifest-Quelle (Favoriten: welcher Katalogeintrag, wann, manuell oder per
+  Kaskade). Jede ausgeschlossene Kante gehört zu einem offengelegten Dokument; das prüft
+  `test_every_excluded_edge_belongs_to_a_disclosed_document`.
+- Ein Ausschluss für eine Collection, die die Löschung nicht anfasst oder die zugleich
+  offengelegt wird, ist veraltet und wird abgewiesen.
+
+> **Nicht implementiert (Stand #1663):** Die Collection `plant_diary_analyses` aus
+> REQ-051 §5 existiert im Code nicht. Sobald sie angelegt wird, braucht sie zwei
+> Anonymisierungsregeln für `requested_by` und `claimed_by` (Marker `_anonymized`,
+> AK-DA-04) und eine Manifest-Quelle (AK-DA-05). Der Code führt bewusst keine
+> Platzhalterregel.
+
+> **Tenant-Overlay-Quellen: nicht implementiert (Stand #1716).** Bis v1.8 nannte die
+> frühere Manifest-Kopie dieser Spec zwei weitere Quellen, `tenant_species_config` und
 > `tenant_cultivar_config` (ADR-002 / W-006, Schicht 2 aus REQ-001 v4.0). Keine der beiden
 > Collections existiert im Code: keine Konstante in `collections.py`, kein Modell, kein
 > Repository, kein Eintrag in `DataExportEngine.USER_DATA_MANIFEST`. Der Export kann sie
@@ -346,344 +373,18 @@ class DataExportEngine:
 > Seit #1663 (Migration v0057) gilt dasselbe für `quality_assessments.assessed_by_key`
 > neben dem Freitext `assessed_by` — Qualitätsbewertungen gehören nach NFR-011 R-16 zur
 > Erntedokumentation. `yield_metrics` (ebenfalls R-16) trägt kein Nutzerfeld und braucht
-> deshalb keine Regel. Die Codebeispiele unten geben den Stand des Codes
-> (`src/backend/app/domain/engines/erasure_engine.py`) wieder.
+> deshalb keine Regel.
 
-**`ErasureEngine`** — Orchestrierte Löschreihenfolge (pure Logik):
+
+Die Mechanik der Einträge, die die Listen im Code verwenden, ist unten beschrieben
+(Tombstone-Hash, `StorageCleanupRule`, `ReferenceIndexCleanupRule`).
 
 ```python
-class ErasureEngine:
-    """Definiert die Löschreihenfolge und Anonymisierungsregeln."""
-
-    # Collections, deren Dokumente erhalten bleiben (gesetzliche Aufbewahrungs-
-    # pflicht oder geteilter Mandanten-Datensatz); nur der Nutzerbezug wird
-    # entfernt. Jede Regel schlüsselt auf ein Feld, das einen Benutzerschlüssel
-    # trägt — nie auf Freitext (#1663, gemessen in #1662).
-    #
-    # replacement_strategy:
-    #   "tombstone_hash" — der Schlüssel wird durch compute_tombstone_hash()
-    #                      ersetzt ('anon_' + 16 Hex-Zeichen); die aufbewahrten
-    #                      Datensätze desselben gelöschten Kontos bleiben
-    #                      untereinander verknüpfbar (CanG-/PflSchG-Prüfung),
-    #                      ohne jemanden zu benennen.
-    #   "marker"         — der Schlüssel wird durch anonymized_value ersetzt
-    #                      (hier "_anonymized", derselbe Wert wie bei Anhängen,
-    #                      AK-OS-02).
-    # clear_fields: Freitext-Anzeigenamen, die im selben Schreibvorgang geleert
-    #               werden — ein Name ist für sich personenbezogen.
-    ANONYMIZE_COLLECTIONS: list[AnonymizationRule] = [
-        AnonymizationRule(
-            collection="harvest_batches",
-            user_field="harvested_by_key",          # serverseitig gesetzt (#1669)
-            replacement_strategy="tombstone_hash",
-            clear_fields=["harvester"],
-            reason="CanG: 5 Jahre Aufbewahrungspflicht (NFR-011 R-16)",
-        ),
-        AnonymizationRule(
-            collection="quality_assessments",
-            user_field="assessed_by_key",           # serverseitig gesetzt (#1663)
-            replacement_strategy="tombstone_hash",
-            clear_fields=["assessed_by"],
-            reason="CanG: Teil der Erntedokumentation (NFR-011 R-16)",
-        ),
-        AnonymizationRule(
-            collection="treatment_applications",
-            user_field="applied_by_key",            # serverseitig gesetzt (#1669)
-            replacement_strategy="tombstone_hash",
-            clear_fields=["applied_by"],
-            reason="PflSchG §11: 3 Jahre Aufbewahrungspflicht (NFR-011 R-17)",
-        ),
-        AnonymizationRule(
-            collection="tasks",
-            user_field="assigned_to_user_key",
-            anonymized_value="_anonymized",
-            reason="REQ-024: Aufgabe gehört zum Arbeitsplan eines evtl. geteilten Mandanten",
-        ),
-        AnonymizationRule(
-            collection="inspections",
-            user_field="inspected_by_key",          # serverseitig gesetzt (#1669)
-            replacement_strategy="tombstone_hash",
-            clear_fields=["inspector"],
-            reason="PflSchG §11: 3 Jahre Aufbewahrungspflicht (NFR-011 R-18)",
-        ),
-        # REQ-050: Tagebuch-Einträge. Hier gibt es KEINE gesetzliche
-        # Aufbewahrungspflicht — der Eintrag gehört zum Pflanzen-Datensatz eines
-        # womöglich geteilten Mandanten und würde beim Hard-Delete die Historie
-        # fremder Mitglieder zerreissen. Dieselbe Abwägung wie bei den Foto-
-        # Anhängen (Scope `user_diary_attachments`, siehe unten).
-        AnonymizationRule(
-            collection="plant_diary_entries",
-            user_field="created_by",
-            anonymized_value="_anonymized",
-            reason="REQ-050 §7.4: geteilter Mandanten-Datensatz",
-        ),
-        AnonymizationRule(
-            collection="plant_diary_entries",
-            user_field="analysis_requested_by",
-            anonymized_value="_anonymized",
-            reason="REQ-050 §7.3/7.4: wer die KI-Analyse angefordert hat",
-        ),
-        AnonymizationRule(
-            collection="plant_diary_entries",
-            user_field="analysis_claimed_by",
-            anonymized_value="_anonymized",
-            reason="REQ-050 §7.3/7.4: Kennung des ausführenden Agenten",
-        ),
-        # #1700 — Nutzerbezüge, die in keinem Inventar standen (gefunden von R6).
-        # Geteilter Mandanten-Datensatz: Inhalt bleibt, Bezug wird ersetzt.
-        AnonymizationRule(collection="task_comments", user_field="created_by",
-                          anonymized_value="_anonymized", reason="REQ-024 / NFR-011 R-22"),
-        AnonymizationRule(collection="invitations", user_field="invited_by_user_key",
-                          anonymized_value="_anonymized", reason="REQ-024: Einladung gehört dem Mandanten"),
-        AnonymizationRule(collection="pest_image_contributions", user_field="promoted_by",
-                          anonymized_value="_anonymized", reason="REQ-010: Admin, der freigegeben hat"),
-        AnonymizationRule(collection="attachments", user_field="created_by",
-                          anonymized_value="_anonymized", reason="NFR-013 §6.2 / AK-OS-02 (Rest-Kategorien)"),
-        AnonymizationRule(collection="ai_audit_log", user_field="user_key",
-                          anonymized_value="_anonymized", reason="REQ-031 §7.5: user_key -> null, Hashes bleiben"),
-        AnonymizationRule(collection="import_jobs", user_field="uploaded_by",
-                          anonymized_value="_anonymized", reason="REQ-012"),
-        AnonymizationRule(collection="weather_source_configs", user_field="updated_by",
-                          anonymized_value="_anonymized", reason="REQ-046"),
-        AnonymizationRule(collection="manual_overrides", user_field="created_by",
-                          anonymized_value="_anonymized", reason="REQ-018 / NFR-011 R-15"),
-        AnonymizationRule(collection="ai_tip_cache", user_field="dismissed_by",
-                          anonymized_value="_anonymized",
-                          reason="REQ-031 §7.5 — Tipp gilt mandantenweit, nur der Verwerfende wird entfernt"),
-        # Persönlicher Mandant: nicht löschen (kann CanG-pflichtige Ernten
-        # enthalten, NFR-011 R-16). Besitzer ersetzt; name/slug stammen aus dem
-        # Anzeigenamen und werden zu "anonymized-" + sha256(tombstone:tenant_key)[:16]
-        # (nicht erratbar; slug bleibt eindeutig). generate_slug vergibt das Präfix
-        # "anonymized" nie, sodass kein Mandant den Zielwert vorab belegen kann.
-        # Organisationen behalten ihren Namen. owner_user_key verleiht keine
-        # Rechte (REQ-049: Rolle der Mitgliedschaft) — nichts zu übertragen.
-        AnonymizationRule(collection="tenants", user_field="owner_user_key",
-                          anonymized_value="_anonymized",
-                          rename_fields=["name", "slug"], rename_when={"tenant_type": "personal"},
-                          reason="REQ-024 / NFR-011 R-16"),
-        # NICHT IMPLEMENTIERT — REQ-051 §5 Analyse-Archiv: Die Collection
-        # `plant_diary_analyses` existiert im Code noch nicht (kein Modell, keine
-        # Collection-Konstante). Sobald sie angelegt wird, braucht sie zwei
-        # Regeln für `requested_by` und `claimed_by` (Marker `_anonymized`,
-        # AK-DA-04). Bis dahin gibt es dort nichts zu anonymisieren, und der
-        # Code führt bewusst keine Platzhalterregel.
-    ]
-
-    # Das einzige deklarierte Inventar personenbezogener Daten in ArangoDB
-    # (#1622). Jeder Eintrag nennt, WER ihn entfernt (executor), und seit #1663,
-    # WIE die Zeilen des Nutzers gefunden werden (user_field):
-    #   kind="document" — Modellfeld mit dem Benutzerschlüssel (doc.<user_field> == key)
-    #   kind="edge"     — Endpunkt "_from" / "_to". Ohne via zeigt er auf
-    #                     users/<key>; mit via auf ein Dokument der genannten
-    #                     Collection, das über deren eigenen document-Schritt
-    #                     dem Nutzer gehört (die Kante steht deshalb VOR diesem
-    #                     Schritt).
-    #   kind="user" / "phase" — kein user_field.
-    # Jeder executor hat einen Laufzeitpfad (#1645): Alle ArangoDB-Schritte
-    # führt ArangoErasureExecutor aus, erreicht über PrivacyService.erase_account
-    # — den gemeinsamen Einstieg von Admin-Löschung (#1664) und geplanter
-    # Self-Service-Löschung nach Art. 17 (#1645). "account_erasure" hat keinen
-    # weiteren Leser; auch die Bereinigung unbestätigter Konten läuft über
-    # PrivacyService.erase_account (volle Löschung, #1700). Die früheren Werte
-    # "retention_worker" (deklariert, noch nicht ausgeführt) und
-    # "membership_cascade" sind in "account_erasure" aufgegangen.
-    # Reihenfolge ist tragend: Phasen → Kanten → Dokumente → Anonymisierung →
-    # Audit-Pseudonymisierung → users. Jeder Schritt, der über den
-    # Benutzerschlüssel filtert, läuft vor der Audit-Pseudonymisierung.
-    DELETE_STEPS: list[ErasureStep] = [
-        # Phase 0 / 0.5: Object Storage (W-007) und pgvector-Referenz-Index
-        # (REQ-034 §5 / SR-003) — vor allen ArangoDB-Operationen, weil danach
-        # die attachments-Metadaten (created_by) weg sind.
-        ErasureStep("_storage_cleanup", kind="phase", executor="storage_cleanup"),
-        ErasureStep("_reference_index_cleanup", kind="phase", executor="reference_index_cleanup"),
-        # Phase 1: Kanten users -> <Dokument>
-        ErasureStep("requested_export",       kind="edge", user_field="_from", executor="account_erasure"),
-        ErasureStep("has_consent",            kind="edge", user_field="_from", executor="account_erasure"),
-        ErasureStep("has_restriction",        kind="edge", user_field="_from", executor="account_erasure"),
-        ErasureStep("requested_erasure",      kind="edge", user_field="_from", executor="account_erasure"),
-        ErasureStep("requested_email_change", kind="edge", user_field="_from", executor="account_erasure"),
-        ErasureStep("user_favorites",         kind="edge", user_field="_from", executor="account_erasure"),
-        ErasureStep("has_auth_provider",      kind="edge", user_field="_from", executor="account_cascade"),
-        ErasureStep("has_session",            kind="edge", user_field="_from", executor="account_cascade"),
-        ErasureStep("has_api_key",            kind="edge", user_field="_from", executor="account_cascade"),
-        # #1700: Mitgliedschaftsblock ist account_cascade — die Registrierung legt
-        # eine Mitgliedschaft an, bevor die Adresse bestätigt ist.
-        ErasureStep("has_membership",         kind="edge", user_field="_from", executor="account_cascade"),
-        # REQ-024 Standort-Zuweisungen: kein Kontoschlüssel, nur membership_key —
-        # erreicht über memberships (via auf einem Dokument, #1700).
-        ErasureStep("assigned_to_location", kind="edge", user_field="_from", via="location_assignments",
-                    executor="account_cascade"),
-        ErasureStep("assignment_for", kind="edge", user_field="_from", via="location_assignments",
-                    executor="account_cascade"),
-        ErasureStep("assignment_in_tenant", kind="edge", user_field="_from", via="location_assignments",
-                    executor="account_cascade"),
-        ErasureStep("location_assignments", kind="document", user_field="membership_key", via="memberships",
-                    executor="account_cascade"),
-        # memberships -> tenants: berührt users nie
-        ErasureStep("membership_in", kind="edge", user_field="_from", via="memberships",
-                    executor="account_cascade"),
-        # Phase 2: Dokumente
-        ErasureStep("memberships",             kind="document", user_field="user_key", executor="account_cascade"),
-        ErasureStep("data_export_requests",    kind="document", user_field="user_key", executor="account_erasure"),
-        ErasureStep("consent_records",         kind="document", user_field="user_key", executor="account_erasure"),
-        ErasureStep("processing_restrictions", kind="document", user_field="user_key", executor="account_erasure"),
-        ErasureStep("email_change_requests",   kind="document", user_field="user_key", executor="account_erasure"),
-        ErasureStep("auth_providers",          kind="document", user_field="user_key", executor="account_cascade"),
-        ErasureStep("refresh_tokens",          kind="document", user_field="user_key", executor="account_cascade"),
-        ErasureStep("api_keys",                kind="document", user_field="user_key", executor="account_cascade"),
-        ErasureStep("user_preferences",        kind="document", user_field="user_key", executor="account_cascade"),
-        ErasureStep("onboarding_states",       kind="document", user_field="user_key", executor="account_cascade"),
-        ErasureStep("identification_requests", kind="document", user_field="user_key", executor="account_erasure"),
-        # REQ-044 §8: Schädlingserkennungen — Kanten starten an der Erkennung
-        ErasureStep("pest_detection_of", kind="edge", user_field="_from", via="pest_detections",
-                    executor="account_erasure"),
-        ErasureStep("pest_detection_flagged", kind="edge", user_field="_from", via="pest_detections",
-                    executor="account_erasure"),
-        ErasureStep("pest_detection_suggested_inspection", kind="edge", user_field="_from",
-                    via="pest_detections", executor="account_erasure"),
-        ErasureStep("pest_detections", kind="document", user_field="user_key", executor="account_erasure"),
-        # REQ-010 §8: Referenzbild-Beiträge (Modell hat kein user_key)
-        ErasureStep("pest_image_contributions", kind="document", user_field="contributed_by",
-                    executor="pest_image_cleanup"),
-        # #1700: eigene Datensätze ohne Aufbewahrungsfrist (von R6 gefunden)
-        ErasureStep("ai_conversations", kind="document", user_field="user_key", executor="account_erasure"),
-        # ai_tip_cache: kein Löschschritt — der Tipp gilt mandantenweit; nur
-        # dismissed_by wird anonymisiert (AnonymizationRule, REQ-031 §7.5).
-        ErasureStep("notification_for_run", kind="edge", user_field="_from", via="notifications",
-                    executor="account_erasure"),
-        ErasureStep("notifications", kind="document", user_field="user_key", executor="account_erasure"),
-        ErasureStep("notification_preferences", kind="document", user_field="user_key",
-                    executor="account_erasure"),
-        # Feed-Token liefert danach nichts mehr (get_by_token findet keine Zeile)
-        ErasureStep("calendar_feeds", kind="document", user_field="user_key", executor="account_erasure"),
-        # REQ-038: Kanten starten an der Diagnoseanfrage, danach die Anfrage selbst
-        ErasureStep("cv_diagnosed_for", kind="edge", user_field="_from", via="plant_diagnosis_requests",
-                    executor="account_erasure"),
-        ErasureStep("cv_diagnosis_found", kind="edge", user_field="_from", via="plant_diagnosis_requests",
-                    executor="account_erasure"),
-        ErasureStep("cv_attached_to_inspection", kind="edge", user_field="_from",
-                    via="plant_diagnosis_requests", executor="account_erasure"),
-        ErasureStep("cv_phenotype_of", kind="edge", user_field="_from", via="plant_diagnosis_requests",
-                    executor="account_erasure"),
-        ErasureStep("plant_diagnosis_requests", kind="document", user_field="user_key",
-                    executor="account_erasure"),
-        # angenommene Einladungen nennen den Nutzer zweimal (Schlüssel + E-Mail)
-        ErasureStep("has_invitation", kind="edge", user_field="_to", via="invitations",
-                    executor="account_erasure"),
-        ErasureStep("invitations", kind="document", user_field="accepted_by_user_key",
-                    executor="account_erasure"),
-        # Dokumente, deren Bytes Phase 0 bereits gelöscht hat
-        ErasureStep("attachments", kind="document", user_field="created_by",
-                    where={"category": "pest_reference"}, executor="account_erasure"),
-        ErasureStep("mcp_idempotency_record", kind="document", user_field="service_account_key",
-                    executor="account_erasure"),
-        # Phase 2.4: ANONYMIZE_COLLECTIONS anwenden
-        ErasureStep("_anonymize_collections", kind="phase", executor="account_erasure"),
-        # Phase 2.5: Audit-Log-Pseudonymisierung (W-002, siehe unten) — die
-        # Collections werden NICHT gelöscht, der user_key wird durch einen
-        # Tombstone-Hash ersetzt. Danach findet kein Schritt den Nutzer mehr.
-        ErasureStep("_pseudonymize_audit_collections", kind="phase", executor="account_erasure"),
-        # Phase 3: User selbst (zuletzt)
-        ErasureStep("users", kind="user", executor="account_cascade"),
-    ]
-
-    # <!-- Quelle: Widerspruchsanalyse W-007 -->
-    # Object-Storage-Cleanup: zwei Scopes, generisch erweiterbar.
-    # Phase 0 läuft vor allen ArangoDB-Operationen — sie braucht den Lookup
-    # auf attachments.created_by == user_key, der nach Phase 1 nicht mehr
-    # zuverlässig funktioniert.
-    STORAGE_CLEANUP_RULES: list[StorageCleanupRule] = [
-        StorageCleanupRule(
-            scope="user_personal",
-            description=(
-                "Hard-Delete: alle Anhaenge mit created_by == user_key UND "
-                "category in {'profile', 'user_notes'}. Beispiele: "
-                "Profilfoto, eigene Notiz-Fotos ohne Bezug zu "
-                "aufbewahrungspflichtigen Datensaetzen."
-            ),
-            action="hard_delete",
-            ref="NFR-013 §6.2 Punkt 2",
-        ),
-        StorageCleanupRule(
-            scope="user_diary_attachments",
-            description=(
-                "Anonymisierung: alle Anhaenge mit created_by == user_key UND "
-                "category in {'diary', 'inspection', 'treatment', 'harvest', 'plant'}. "
-                "('plant' = Pflanzenfoto-Galerie, REQ-034 §5 — gehört zum "
-                "Pflanzen-Datensatz der Instanz.) "
-                "Datei bleibt erhalten (gehört zum Tenant-Datensatz, evtl. "
-                "Aufbewahrungspflicht via NFR-011 R-16/R-17/R-18). "
-                "ArangoDB-Metadatum created_by wird auf '_anonymized' gesetzt. "
-                "Wenn Tenant STORAGE_KEEP_EXIF_<category>=true gesetzt hat, "
-                "werden zusätzlich EXIF-Daten aus der Datei selbst entfernt "
-                "(strip_exif_for_user, NFR-013 §4.2)."
-            ),
-            action="anonymize_metadata_and_strip_exif",
-            ref="NFR-013 §6.2 Punkt 3+4, §6.4",
-        ),
-    ]
-    # <!-- /Quelle: Widerspruchsanalyse W-007 -->
-
-    # <!-- Quelle: Widerspruchsanalyse W-002 -->
-    # Audit-Log-Pseudonymisierung: Generische Liste — aktuell ein Eintrag,
-    # leicht erweiterbar für künftige Audit-Collections (z.B. consent_change_audit).
-    # Hintergrund: NFR-011 R-06 verlangt 1 Jahr Aufbewahrung des Erasure-
-    # Audit-Logs (Art. 5(2) Rechenschaftspflicht). Ohne Pseudonymisierung
-    # bleibt user_key 1 Jahr personenbezogen → Verstoß gegen Art. 5(1)(e)
-    # Speicherbegrenzung. Tombstone-Hash entkoppelt den Eintrag vom User.
-    PSEUDONYMIZE_AUDIT_COLLECTIONS: list[PseudonymizationRule] = [
-        PseudonymizationRule(
-            collection="erasure_requests",
-            user_field="user_key",
-            replacement_strategy="tombstone_hash",
-            reason=(
-                "Erasure-Audit-Logs werden 1 Jahr aufbewahrt (NFR-011 R-06, "
-                "Art. 5(2) Rechenschaftspflicht). Nach Hard-Delete des Users "
-                "darf der user_key nicht mehr als personenbezogener "
-                "Identifikator gespeichert sein (Art. 5(1)(e))."
-            ),
-        ),
-        # #1700 — REQ-033: MCP-Audit mit eigener Aufbewahrung
-        PseudonymizationRule(
-            collection="mcp_audit_log",
-            user_field="service_account_key",
-            replacement_strategy="tombstone_hash",
-            reason="REQ-033 / NFR-011: Audit-Fenster, Dienstkonto-Schlüssel pseudonymisiert",
-        ),
-    ]
-    # <!-- /Quelle: Widerspruchsanalyse W-002 -->
-
-    # #1700 — gespeicherte Nutzerbezugsfelder, die die Löschung bewusst nicht
-    # anfasst. R6 verlangt für jedes Feld der Form user_key / *_by / … entweder
-    # einen Inventareintrag oder einen Eintrag hier, mit Begründung.
-    EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
-        ErasureExclusion("watering_events", "performed_by", reason="Freitext, nie Kontoschlüssel"),
-        ErasureExclusion("watering_logs", "performed_by", reason="Freitext, nie Kontoschlüssel"),
-        ErasureExclusion("maintenance_logs", "performed_by", reason="Freitext, nie Kontoschlüssel"),
-        ErasureExclusion("tank_fill_events", "performed_by", reason="Freitext, nie Kontoschlüssel"),
-        ErasureExclusion("workflow_templates", "created_by", reason="Freitext aus dem Request-Body"),
-        ErasureExclusion("task_audit_entries", "changed_by", reason="nur Default 'system' geschrieben"),
-        ErasureExclusion("sync_runs", "triggered_by", reason="SyncTrigger-Enum, keine Person"),
-    ]
-
-    def build_erasure_plan(self, user_key: str, user_data: dict) -> ErasurePlan:
-        """Erstellt einen Löschplan für den gegebenen User."""
-        plan = ErasurePlan(user_key=user_key)
-        plan.storage_cleanup = self.STORAGE_CLEANUP_RULES                # W-007
-        plan.anonymize = self.ANONYMIZE_COLLECTIONS
-        plan.pseudonymize_audit = self.PSEUDONYMIZE_AUDIT_COLLECTIONS    # W-002
-        plan.steps = self.DELETE_STEPS                                    # #1622 / #1663
-        plan.delete = [step.collection for step in self.DELETE_STEPS]    # abgeleitete Reihenfolge
-        plan.soft_delete_immediate = True
-        plan.hard_delete_after_days = 90  # NFR-011 R-01
-        return plan
-
-
 # <!-- Quelle: Widerspruchsanalyse W-007 -->
 @dataclass
 class StorageCleanupRule:
     """Regel für die Object-Storage-Bereinigung in Phase 0 des Erasure-Tasks."""
-    scope: Literal["user_personal", "user_diary_attachments"]
+    scope: Literal["user_personal", "user_diary_attachments", "user_pest_reference_images"]
     description: str
     action: Literal["hard_delete", "anonymize_metadata_and_strip_exif"]
     ref: str  # Referenz auf NFR-013-Sektion
@@ -693,25 +394,12 @@ class StorageCleanupRule:
 # <!-- Quelle: REQ-034 Security-Review SR-003 -->
 # Referenz-Index-Cleanup (Phase 0.5): Der DINOv2-Referenz-Index
 # (REQ-029-A species_embeddings) liegt physisch in pgvector, NICHT in
-# ArangoDB. Die generische Erasure-Pipeline (Phasen 1–3) erfasst ihn daher
-# nicht. Vom Nutzer beigesteuerte Embeddings (source='user_contributed')
-# tragen seit REQ-029-A §5.1 die Provenienz-Felder contributed_by / tenant_key /
-# contributed_at und werden über diese Regel entfernt. Kuratiert übernommene
-# Referenzen (source != 'user_contributed') bleiben unberührt — sie sind
-# nicht personenbezogen.
-REFERENCE_INDEX_CLEANUP_RULES: list[ReferenceIndexCleanupRule] = [
-    ReferenceIndexCleanupRule(
-        store="pgvector",
-        collection="species_embeddings",
-        filter="source == 'user_contributed' AND contributed_by == user_key",
-        action="hard_delete",
-        ref="REQ-029-A §5.1, REQ-034 §5",
-    ),
-]
-# Bei Tenant-Löschung (REQ-024) greift dieselbe Regel mit Filter
+# ArangoDB. Vom Nutzer beigesteuerte Embeddings (source='user_contributed')
+# tragen die Provenienz-Felder contributed_by / tenant_key / contributed_at und
+# werden über eine ReferenceIndexCleanupRule entfernt. Kuratiert übernommene
+# Referenzen bleiben unberührt — sie sind nicht personenbezogen. Bei
+# Tenant-Löschung (REQ-024) greift dieselbe Regel mit Filter
 # `source == 'user_contributed' AND tenant_key == X`.
-
-
 @dataclass
 class ReferenceIndexCleanupRule:
     """Regel für die pgvector-Referenz-Index-Bereinigung (Phase 0.5)."""
@@ -1508,6 +1196,7 @@ pages.privacy.objection.title: "Widerspruch"
 | # | Kriterium | Art. | Prüfmethode |
 |---|-----------|------|-------------|
 | AK-01 | Datenexport enthält alle im Manifest definierten User-Daten als JSON | 15/20 | Integration |
+| AK-01a | Jede Collection, die die Kontolöschung als Daten der Person löscht oder anonymisiert, ist im Datenexport enthalten oder mit Begründung in `DataExportEngine.EXCLUDED_FROM_DISCLOSURE` ausgeschlossen (§3.1.4, #1719) | 15/17 | Unit + Integration |
 | AK-02 | Export-Datei ist nach 72 Stunden nicht mehr downloadbar (Status: expired) | 15/20 | Integration |
 | AK-03 | Max. 1 aktiver Export-Auftrag pro User | 15/20 | Unit |
 | AK-04 | E-Mail-Änderung erfordert Verifikation der neuen Adresse (Token, 24h gültig) | 16 | Integration |

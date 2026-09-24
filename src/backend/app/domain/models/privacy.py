@@ -199,6 +199,23 @@ class DataSourceDefinition(BaseModel):
     attribution_gap: str | None = None
 
 
+class DisclosureExclusion(BaseModel):
+    """An erasure target deliberately not disclosed under Art. 15 (#1719).
+
+    The erasure inventory removes or anonymises a collection *because* it holds
+    the subject's data, so by default the Art. 15 bundle discloses it too
+    (``scripts/check_privacy_inventory.py`` R2, reverse direction). An entry
+    here is the written exception: a collection whose rows carry no information
+    about the subject beyond what a disclosed source already delivers — the
+    graph edge between the account and a disclosed document, or an edge whose
+    attributes are a copy of fields on one. ``reason`` is the claim a reviewer
+    checks against the write path.
+    """
+
+    collection: str
+    reason: str = Field(min_length=1)
+
+
 #: Who removes an :class:`ErasureStep` at runtime. Closed on purpose: a step
 #: whose executor is not one of these cannot be attributed, and an inventory of
 #: personal data that cannot say who erases an entry is the documentation half

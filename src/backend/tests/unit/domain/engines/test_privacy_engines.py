@@ -1,6 +1,7 @@
 """Tests for REQ-025 privacy engines: DataExport / Erasure / Consent."""
 
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -9,6 +10,7 @@ from app.data_access.arango import collections as col
 from app.domain.engines.consent_engine import DIARY_AI_ANALYSIS, ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
+from app.domain.interfaces.favorites_repository import IFavoritesRepository
 from app.domain.models.actuator import ManualOverride
 from app.domain.models.ai_assistant import AiAuditLogEntry, AiConversation, AiTipCard
 from app.domain.models.attachment import Attachment
@@ -42,6 +44,7 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.models.user_preference import UserPreference
 from app.domain.models.weather import WeatherSourceConfig
+from app.domain.services.favorites_service import FavoritesService
 
 #: Which domain model backs each collection of the export manifest / the
 #: anonymisation rules. Used to check declared field names against reality —
@@ -82,21 +85,73 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "tenants": Tenant,
     "mcp_audit_log": McpAuditLog,
     "mcp_idempotency_record": McpIdempotencyRecord,
-}
-
-
-#: The erasure inventory reaches collections the export manifest does not
-#: declare (account plumbing, pest detections, pest reference images). Built
-#: explicitly rather than derived from a registry: a document step whose
-#: collection is missing here fails the field-existence test by name instead of
-#: being skipped (#1663).
-ERASURE_COLLECTION_MODELS: dict[str, type[BaseModel]] = {
-    **COLLECTION_MODELS,
+    # #1719 — erased as the subject's data, so disclosed as well.
     "api_keys": ApiKey,
     "user_preferences": UserPreference,
     "onboarding_states": OnboardingState,
     "pest_detections": PestDetection,
 }
+
+
+class _CapturingFavoritesRepo(IFavoritesRepository):
+    """Records the edge ``FavoritesService`` stores; resolves one global species.
+
+    Every method the favourite-creation path does not need raises, so the
+    measurement cannot silently depend on a plausible default.
+    """
+
+    def __init__(self) -> None:
+        self.inserted: list[dict] = []
+
+    def find_edge(self, from_id: str, to_id: str) -> dict | None:
+        return None
+
+    def insert_edge(self, edge_data: dict) -> dict:
+        self.inserted.append(dict(edge_data))
+        return {**edge_data, "_key": "e1"}
+
+    def get_catalogue_row(self, collection_name: str, key: str) -> dict | None:
+        return {"_key": key, "tenant_key": ""} if collection_name == col.SPECIES else None
+
+    def is_granted(self, collection_name: str, key: str, tenant_key: str) -> bool:
+        return False
+
+    def promote_to_manual(self, edge_key: str) -> None:
+        raise AssertionError("not on the creation path")
+
+    def remove_edges_to_key(self, from_id: str, target_key: str) -> int:
+        raise AssertionError("not on the creation path")
+
+    def remove_cascade_edges(self, from_id: str, cascade_from_key: str) -> int:
+        raise AssertionError("not on the creation path")
+
+    def list_edges(self, from_id: str, target_type: str | None = None) -> list[dict]:
+        raise AssertionError("not on the creation path")
+
+
+def _stored_favorite_edge_fields() -> set[str]:
+    """The attributes of a ``user_favorites`` edge, measured off the one writer.
+
+    ``user_favorites`` has no domain model — it is a raw edge document — so the
+    field-existence check reads the shape ``FavoritesService`` actually stores
+    instead of a hand-kept list that could drift from it (#1719).
+    """
+    repo = _CapturingFavoritesRepo()
+    FavoritesService(repo, MagicMock()).add_favorite("u1", "species-1", tenant_key="t1")
+    assert len(repo.inserted) == 1, "precondition: exactly one edge was written"
+    return set(repo.inserted[0])
+
+
+#: Manifest sources that are raw edge collections without a domain model: the
+#: stored attributes, measured off the production writer.
+EDGE_SOURCE_FIELDS: dict[str, set[str]] = {"user_favorites": _stored_favorite_edge_fields()}
+
+
+#: The erasure inventory reaches the same document collections the manifest
+#: discloses (#1719). Built explicitly rather than derived from a registry: a
+#: document step whose collection is missing here fails the field-existence test
+#: by name instead of being skipped (#1663).
+ERASURE_COLLECTION_MODELS: dict[str, type[BaseModel]] = {**COLLECTION_MODELS}
 
 
 def _model_field_names(model: type[BaseModel]) -> set[str]:
@@ -243,15 +298,84 @@ class TestDataExportEngine:
         manifest = engine.build_export_manifest("u1")
 
         # A new source must extend the mapping — otherwise it escapes the check.
-        assert {entry.collection for entry in manifest} == set(COLLECTION_MODELS)
+        assert {entry.collection for entry in manifest} == set(COLLECTION_MODELS) | set(EDGE_SOURCE_FIELDS)
 
         unknown: list[str] = []
         for entry in manifest:
-            allowed = _model_field_names(COLLECTION_MODELS[entry.collection])
+            if entry.collection in EDGE_SOURCE_FIELDS:
+                allowed = EDGE_SOURCE_FIELDS[entry.collection]
+            else:
+                allowed = _model_field_names(COLLECTION_MODELS[entry.collection])
             unknown += [f"{entry.collection}.{field}" for field in entry.fields if field not in allowed]
             if entry.filter_field and entry.filter_field not in allowed:
                 unknown.append(f"{entry.collection}.[filter]{entry.filter_field}")
         assert unknown == []
+
+
+class TestArt15DisclosesWhatArt17Erases:
+    """#1719 — the reverse of R2: what the erasure removes as the subject's is disclosed.
+
+    ``user_favorites`` was deleted on erasure and absent from the bundle. The
+    source-tree gate (``scripts/check_privacy_inventory.py``) enforces the rule
+    by collection name; these tests pin what the names cannot say.
+    """
+
+    @staticmethod
+    def _manifest() -> dict[str, list]:
+        by_collection: dict[str, list] = {}
+        for entry in DataExportEngine.USER_DATA_MANIFEST:
+            by_collection.setdefault(entry.collection, []).append(entry)
+        return by_collection
+
+    def test_favourites_are_disclosed_as_their_edge_rows(self):
+        entry = self._manifest()["user_favorites"][0]
+        assert entry.filter_field == "_from"
+        assert entry.edge_collection is None, "the edge row is the data, not the catalogue entry it points at"
+        assert {"_to", "target_type", "favorited_at"} <= set(entry.fields)
+        assert entry.disclosure_gap is None
+
+    def test_no_credential_or_internal_hash_is_exported(self):
+        by_collection = self._manifest()
+        assert "key_hash" not in by_collection["api_keys"][0].fields
+        assert "image_hash" not in by_collection["pest_detections"][0].fields
+
+    def test_every_erasure_target_is_disclosed_or_excluded_with_a_reason(self):
+        """The rule itself, over the imported engines (the gate reads the AST)."""
+        disclosed = {e.collection for e in DataExportEngine.USER_DATA_MANIFEST} | {
+            e.edge_collection for e in DataExportEngine.USER_DATA_MANIFEST if e.edge_collection
+        }
+        excluded = {e.collection for e in DataExportEngine.EXCLUDED_FROM_DISCLOSURE}
+        targets = {s.collection for s in ErasureEngine.DELETE_STEPS if s.kind != "phase"}
+        targets |= {r.collection for r in ErasureEngine.ANONYMIZE_COLLECTIONS}
+        targets |= {r.collection for r in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS}
+        assert sorted(targets - disclosed - excluded) == []
+        assert sorted(excluded - targets) == [], "a stale exclusion hides the next collection of that name"
+        assert sorted(excluded & disclosed) == []
+
+    def test_every_excluded_edge_belongs_to_a_disclosed_document(self):
+        """The exclusion principle, checked rather than trusted.
+
+        An excluded collection must be an edge step whose own document — the
+        ``via`` collection, or the non-user end of a ``users -> x`` edge per the
+        named graph — is a manifest source. An edge that belongs to nothing the
+        bundle shows would be undisclosed data under a technical label.
+        """
+        manifest = {e.collection for e in DataExportEngine.USER_DATA_MANIFEST}
+        definitions = {d["edge_collection"]: d for d in col.GRAPH_EDGE_DEFINITIONS}
+        steps = {s.collection: s for s in ErasureEngine.DELETE_STEPS}
+        orphaned: list[str] = []
+        for exclusion in DataExportEngine.EXCLUDED_FROM_DISCLOSURE:
+            step = steps.get(exclusion.collection)
+            assert step is not None and step.kind == "edge", f"{exclusion.collection}: only edges are excluded"
+            if step.via:
+                owners = {step.via}
+            else:
+                definition = definitions[exclusion.collection]
+                assert col.USERS in definition["from_vertex_collections"], exclusion.collection
+                owners = set(definition["to_vertex_collections"])
+            if not owners & manifest:
+                orphaned.append(exclusion.collection)
+        assert orphaned == []
 
 
 class TestErasureEngine:
