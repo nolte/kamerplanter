@@ -49,8 +49,15 @@
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
+| #1714 | fullstack-developer | Zwei-Mandanten-Routentests vor/nach | `3 failed, 2 passed` (`assert 200 == 404`, `assert 201 == 404`) → `52 passed` |
+| #1714 | fullstack-developer | `anchored`-Witness gemessen | 115 anchored; 88 request-erreichbar; starker Witness 27/88, loser 67/88 → Regel wäre bei 61 bzw. 21 korrekten Stellen rot → **nicht eingeführt**, Zahlen im Guard-Docstring |
+| #1713 | fullstack-developer | Routen je Pfad fremd/unbekannt/eigen/global vor/nach | `10 failed, 20 passed` → `30 passed` |
+| #1713 | fullstack-developer | Write-Side-Guard gegen alte Services | `1 failed, 7 passed` (`create_event builds ['FeedingEvent'] and reaches no fertilizer visibility check`) → grün |
+| Gruppe | fullstack-developer | `tests/unit tests/api` auf finalem HEAD | `12395 passed, 20 skipped` |
 
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
+| #1713 | local adaptation | Unbekannte Dünger-Keys wurden bisher still gespeichert → jetzt 422 (gleiche Antwort wie fremd). Kanal-Zuweisung/Inkompatibilität behalten ihre 404-Semantik. Ein `MagicMock`-Double, das jeden Key als unsichtbar meldete, auf die echte Form korrigiert. |
+| #1714 | local adaptation | `anchored`-Witness-Regel gemessen und verworfen (zu viele korrekte Stellen rot); Entscheidung im Guard-Docstring. |
