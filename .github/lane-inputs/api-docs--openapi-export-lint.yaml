@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
+measured_at_commit: 692cb0ad6ab8e4758bd997cec7f5c4329fe8589e
 job_spec_sha256: c24a3da97877adcdb1b4a1ebe6ef56945b2ec0eeec0600e08490e1070fc3c104
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -18,7 +18,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2719
+  untracked_reads_dropped: 2724
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -436,6 +436,7 @@ reads:
 - src/backend/app/data_access/arango/connection.py
 - src/backend/app/data_access/arango/consent_repository.py
 - src/backend/app/data_access/arango/enrichment_repository.py
+- src/backend/app/data_access/arango/erasure_executor.py
 - src/backend/app/data_access/arango/feeding_repository.py
 - src/backend/app/data_access/arango/fertilizer_repository.py
 - src/backend/app/data_access/arango/glossary_repository.py
@@ -461,6 +462,7 @@ reads:
 - src/backend/app/data_access/arango/refresh_token_repository.py
 - src/backend/app/data_access/arango/site_repository.py
 - src/backend/app/data_access/arango/species_repository.py
+- src/backend/app/data_access/arango/starter_kit_repository.py
 - src/backend/app/data_access/arango/substrate_repository.py
 - src/backend/app/data_access/arango/succession_plan_repository.py
 - src/backend/app/data_access/arango/system_settings_repository.py
@@ -618,6 +620,7 @@ reads:
 - src/backend/app/domain/interfaces/auth_provider.py
 - src/backend/app/domain/interfaces/auth_provider_repository.py
 - src/backend/app/domain/interfaces/calendar_feed_repository.py
+- src/backend/app/domain/interfaces/calendar_source_repository.py
 - src/backend/app/domain/interfaces/care_reminder_repository.py
 - src/backend/app/domain/interfaces/climate_normal_repository.py
 - src/backend/app/domain/interfaces/consent_repository.py
@@ -629,8 +632,10 @@ reads:
 - src/backend/app/domain/interfaces/email_change_repository.py
 - src/backend/app/domain/interfaces/email_service.py
 - src/backend/app/domain/interfaces/enrichment_repository.py
+- src/backend/app/domain/interfaces/erasure_executor.py
 - src/backend/app/domain/interfaces/erasure_repository.py
 - src/backend/app/domain/interfaces/external_source_adapter.py
+- src/backend/app/domain/interfaces/favorites_repository.py
 - src/backend/app/domain/interfaces/feeding_repository.py
 - src/backend/app/domain/interfaces/fertilizer_repository.py
 - src/backend/app/domain/interfaces/graph_repository.py

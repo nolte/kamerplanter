@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
+measured_at_commit: 692cb0ad6ab8e4758bd997cec7f5c4329fe8589e
 job_spec_sha256: d3fe2390bc7db7ba10d1d417e2a771eb09362b71fe00a3520d804bfe72ca4fa0
 invocations:
 - command: task docs:venv
