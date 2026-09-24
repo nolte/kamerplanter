@@ -95,6 +95,10 @@ on:
       # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
       # guards lane lists the directory but reads none of its files (#1730).
       - 'scripts/reach/**'
+      # The embedding sidecar's feed builder (#1724) is loaded by path from
+      # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
+      # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
+      - 'docker/embedding-service/feed.py'
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
@@ -165,6 +169,10 @@ on:
       # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
       # guards lane lists the directory but reads none of its files (#1730).
       - 'scripts/reach/**'
+      # The embedding sidecar's feed builder (#1724) is loaded by path from
+      # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
+      # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
+      - 'docker/embedding-service/feed.py'
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
