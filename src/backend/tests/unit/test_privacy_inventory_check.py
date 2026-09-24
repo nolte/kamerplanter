@@ -28,6 +28,8 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from tests.support.repo_scripts import load_repo_script
 
 checker = load_repo_script("check_privacy_inventory")
@@ -140,6 +142,18 @@ def _tree(
     )
     (app / "executor.py").write_text(textwrap.dedent(reader), encoding="utf-8")
     return app
+
+
+@pytest.fixture(autouse=True)
+def _constructed_tree_floor(request, monkeypatch):
+    """Constructed trees carry nine user-reference fields, not the real tree's ~50.
+
+    ``MIN_USER_REFERENCE_FIELDS`` tracks the real tree (#1700 review); every test
+    here builds a miniature one, so the R6 floor is lowered to what those carry.
+    The tests that read the real tree or the constant itself keep the real value.
+    """
+    if "real" not in request.node.name:
+        monkeypatch.setattr(checker, "MIN_USER_REFERENCE_FIELDS", 6)
 
 
 def _codes(violations: list[str]) -> set[str]:
@@ -456,17 +470,106 @@ class TestR6EveryStoredUserReferenceIsInventoried:
         violations = checker.check(_tree(tmp_path, owned_models=""))
         assert any(v.startswith("FLOOR") and "user-reference" in v for v in violations)
 
-    def test_the_real_tree_has_well_above_the_floor(self) -> None:
+    def test_the_real_tree_sits_just_above_the_floor(self) -> None:
+        """#1700 review — a floor of 6 under 52 would let 46 fields vanish unnoticed.
+
+        The floor tracks the measured count with a small margin, so a reader that
+        loses a whole module (or the base-class walk) trips it.
+        """
         from pathlib import Path as _Path
 
         app_root = _Path(__file__).resolve().parents[2] / "app"
         references = checker._user_reference_fields(app_root)
-        assert len(references) > 4 * checker.MIN_USER_REFERENCE_FIELDS
+        assert len(references) >= checker.MIN_USER_REFERENCE_FIELDS
+        assert len(references) - checker.MIN_USER_REFERENCE_FIELDS <= 6, (
+            f"measured {len(references)} user-reference fields; raise MIN_USER_REFERENCE_FIELDS "
+            f"(now {checker.MIN_USER_REFERENCE_FIELDS}) to within a few of it"
+        )
         # The two hand tables name only models that exist: a stale entry is
         # validated nowhere else (the check reads an entry only when its model is found).
         models = {model for _path, _line, model, _field in references}
         assert set(checker.MODEL_COLLECTIONS_BY_HAND) <= models
         assert set(checker.NOT_PERSISTED_MODELS) <= models
+
+
+class TestR6PartialStepIsNotFullCoverage:
+    """#1700 review — a ``where``-filtered document step removes only some rows.
+
+    ``attachments`` is deleted only for ``category == "pest_reference"``; the rest
+    of the rows keep ``created_by`` unless a rule or an exclusion covers them.
+    """
+
+    def _tree_with_partial_c2(self, tmp_path: Path, extra_rule: str = "") -> Path:
+        steps = GOOD_STEPS.replace(
+            'ErasureStep(collection="c2", kind="document", executor="account_erasure", user_field="user_key"),',
+            'ErasureStep(collection="c2", kind="document", executor="account_erasure", user_field="user_key", '
+            'where={"category": "pest_reference"}),',
+        )
+        assert steps != GOOD_STEPS
+        app = _tree(tmp_path, steps=steps)
+        if extra_rule:
+            engine = app / "domain" / "engines" / "erasure_engine.py"
+            engine.write_text(
+                engine.read_text(encoding="utf-8").replace(
+                    'AnonymizationRule(collection="harvest_batches", user_field="harvester"),',
+                    'AnonymizationRule(collection="harvest_batches", user_field="harvester"),\n        ' + extra_rule,
+                ),
+                encoding="utf-8",
+            )
+        return app
+
+    def test_a_partial_step_alone_is_named(self, tmp_path: Path) -> None:
+        violations = checker.check(self._tree_with_partial_c2(tmp_path))
+        assert any(v.startswith("R6") and "'c2.user_key'" in v and "where" in v for v in violations), violations
+
+    def test_a_rule_covering_the_rest_satisfies_it(self, tmp_path: Path) -> None:
+        rule = 'AnonymizationRule(collection="c2", user_field="user_key"),'
+        assert checker.check(self._tree_with_partial_c2(tmp_path, extra_rule=rule)) == []
+
+    def test_an_empty_where_is_full_coverage(self, tmp_path: Path) -> None:
+        steps = GOOD_STEPS.replace('user_field="user_key"),', 'user_field="user_key", where={}),', 1)
+        assert checker.check(_tree(tmp_path, steps=steps)) == []
+
+
+class TestR6InheritedFields:
+    """#1700 review — a field declared on a base class is stored by every subclass."""
+
+    def _tree(self, tmp_path: Path, models: str, not_persisted: dict[str, str] | None = None) -> list[str]:
+        repositories = (
+            REPOSITORIES
+            + "\nclass ChildRepository(BaseArangoRepository[Child]):\n"
+            + "    def __init__(self, db):\n        super().__init__(db, col.LOOSE)\n"
+        )
+        app = _tree(tmp_path, owned_models=OWNED_MODELS + models, repositories=repositories)
+        return checker.check(app)
+
+    def test_an_inherited_field_is_checked_on_the_subclass_collection(self, tmp_path: Path) -> None:
+        models = "\nclass Stamped(BaseModel):\n    created_by: str\n\nclass Child(Stamped):\n    name: str\n"
+        violations = self._tree(tmp_path, models)
+        assert any(v.startswith("R6") and "'loose.created_by' (Child)" in v for v in violations), violations
+
+    def test_a_base_across_modules_is_resolved(self, tmp_path: Path) -> None:
+        repositories = (
+            REPOSITORIES
+            + "\nclass ChildRepository(BaseArangoRepository[Child]):\n"
+            + "    def __init__(self, db):\n        super().__init__(db, col.LOOSE)\n"
+        )
+        app = _tree(
+            tmp_path,
+            owned_models=OWNED_MODELS + "\nclass Child(base.Stamped):\n    name: str\n",
+            repositories=repositories,
+        )
+        (app / "domain" / "models" / "base.py").write_text(
+            "class Stamped(BaseModel):\n    owner_user_key: str\n", encoding="utf-8"
+        )
+        violations = checker.check(app)
+        assert any(v.startswith("R6") and "'loose.owner_user_key' (Child)" in v for v in violations), violations
+
+    def test_a_not_persisted_base_does_not_hide_its_persisted_subclass(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setitem(checker.NOT_PERSISTED_MODELS, "Stamped", "a mixin, never stored itself")
+        models = "\nclass Stamped(BaseModel):\n    created_by: str\n\nclass Child(Stamped):\n    name: str\n"
+        violations = self._tree(tmp_path, models)
+        assert any(v.startswith("R6") and "'loose.created_by' (Child)" in v for v in violations), violations
 
 
 class TestTheFloorsSitBelowTodaysInventory:

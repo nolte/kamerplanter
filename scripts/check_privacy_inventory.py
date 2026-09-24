@@ -98,8 +98,10 @@ Known blind spots (the honest residue)
   a collection name passed through a local variable assigned from a constant.
 * R3 proves a call exists, not that the call result is used. A caller that reads
   the manifest and throws it away passes.
-* R6 sees only fields whose *name* has one of its shapes, at the top level of a
-  model under ``domain/models``. A key stored as ``author`` or ``owner``, nested
+* R6 sees only fields whose *name* has one of its shapes, declared on a model
+  under ``domain/models`` or on a base class inside that package (#1700
+  review). A ``where``-filtered document step covers its field only together
+  with a rule or an exclusion for the remaining rows. A key stored as ``author`` or ``owner``, nested
   in a dict/list, or written by a repository without a model (raw dicts) is not
   seen. It checks that a field is *declared*, not that the declared step reaches
   it — that is the reach test's job (``test_account_erasure_reach.py``).
@@ -203,10 +205,12 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
     "MemberInfo": "read projection of memberships joined with users (tenant_service.list_members)",
 }
 
-#: Floor for R6: the models reader must have found user-reference fields at all.
-#: Today's tree has more than 50; a reader that silently returns nothing would
-#: otherwise pass R6 over an empty set.
-MIN_USER_REFERENCE_FIELDS = 6
+#: Floor for R6. Measured on 2026-09-24: 52 user-reference model fields
+#: (``main`` prints the count on every green run). The floor sits a small margin
+#: below that — not at a token 6 — so a reader that loses one models module, or
+#: the base-class walk, trips it instead of shrinking R6 silently. A legitimate
+#: removal of more than four such fields lowers it here, in the same change.
+MIN_USER_REFERENCE_FIELDS = 48
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:
@@ -348,24 +352,81 @@ def _repository_bindings(app_root: pathlib.Path, constants: dict[str, str]) -> d
     return bindings
 
 
+def _base_name(node: ast.expr) -> str | None:
+    """``Base`` or ``module.Base`` -> ``"Base"``; anything else (``Generic[T]``) -> ``None``."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
 def _user_reference_fields(app_root: pathlib.Path) -> list[tuple[pathlib.Path, int, str, str]]:
-    """``(file, line, model, field)`` for every model field :data:`USER_REFERENCE_FIELD` matches."""
+    """``(file, line, model, field)`` for every model field :data:`USER_REFERENCE_FIELD` matches.
+
+    Inherited fields count (#1700 review): a field declared on a base class
+    inside the models package is stored by every subclass, so it is reported
+    once per subclass, at the line of its declaration. A base is resolved in its
+    own module first, then by name across the package. A name defined in
+    several other modules is not guessed at: the subclass inherits the fields of
+    *every* candidate — fail closed, a field R6 then asks about that the model
+    does not store is a loud false positive, where a guess could be a silent
+    false negative. A base outside the package (``BaseModel``) carries nothing
+    this script can read and is skipped.
+    """
     found: list[tuple[pathlib.Path, int, str, str]] = []
     root = app_root / MODELS_REL
     if not root.is_dir():
         return found
+    # (path, name) -> (bases, own fields as (line, name))
+    classes: dict[tuple[pathlib.Path, str], tuple[list[str], list[tuple[int, str]]]] = {}
+    by_name: dict[str, list[pathlib.Path]] = {}
     for path in sorted(root.rglob("*.py")):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not isinstance(node, ast.ClassDef):
                 continue
-            for stmt in node.body:
-                if (
-                    isinstance(stmt, ast.AnnAssign)
-                    and isinstance(stmt.target, ast.Name)
-                    and USER_REFERENCE_FIELD.match(stmt.target.id)
-                ):
-                    found.append((path, stmt.lineno, node.name, stmt.target.id))
+            fields = [
+                (stmt.lineno, stmt.target.id)
+                for stmt in node.body
+                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name)
+            ]
+            bases = [name for base in node.bases if (name := _base_name(base)) is not None]
+            classes[(path, node.name)] = (bases, fields)
+            by_name.setdefault(node.name, []).append(path)
+
+    def resolve(path: pathlib.Path, name: str) -> list[tuple[pathlib.Path, str]]:
+        if (path, name) in classes:
+            return [(path, name)]
+        return [(candidate, name) for candidate in by_name.get(name, [])]
+
+    def all_fields(
+        ident: tuple[pathlib.Path, str], seen: frozenset[tuple[pathlib.Path, str]]
+    ) -> list[tuple[pathlib.Path, int, str]]:
+        bases, own = classes[ident]
+        result = [(ident[0], line, name) for line, name in own]
+        for base in bases:
+            for parent in resolve(ident[0], base):
+                if parent not in seen and parent != ident:
+                    result.extend(all_fields(parent, seen | {ident}))
+        return result
+
+    for ident in classes:
+        model = ident[1]
+        names_seen: set[str] = set()
+        for field_path, line, field in all_fields(ident, frozenset()):
+            if field in names_seen or not USER_REFERENCE_FIELD.match(field):
+                continue
+            names_seen.add(field)
+            found.append((field_path, line, model, field))
     return found
+
+
+def _has_where(call: ast.Call) -> bool:
+    """True unless ``where=`` is absent or a literal empty dict; an unreadable value counts as a filter."""
+    for kw in call.keywords:
+        if kw.arg == "where":
+            return not (isinstance(kw.value, ast.Dict) and not kw.value.keys)
+    return False
 
 
 def _list_kwarg(call: ast.Call, name: str) -> list[str]:
@@ -523,10 +584,17 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
                 f"'{collection}', which collections.py does not declare."
             )
     covered: set[tuple[str, str]] = set()
+    # A document step with a non-empty ``where`` removes only the matching rows
+    # (``attachments`` of category ``pest_reference``). It covers the field only
+    # together with a rule or an exclusion for the rest (#1700 review).
+    partial: dict[tuple[str, str], int] = {}
     for call in steps:
         c, f = _kwarg(call, "collection"), _kwarg(call, "user_field")
         if _kwarg(call, "kind") == "document" and c and f:
-            covered.add((c, f))
+            if _has_where(call):
+                partial.setdefault((c, f), call.lineno)
+            else:
+                covered.add((c, f))
     for call in (*anon, *pseudo):
         c = _kwarg(call, "collection")
         if c is None:
@@ -562,6 +630,14 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
         for collection in sorted(collections):
             seen_pairs.add((collection, field))
             if (collection, field) in covered or (collection, field) in excluded:
+                continue
+            if (collection, field) in partial:
+                violations.append(
+                    f"R6 {path}:{lineno} — '{collection}.{field}' ({model}) is removed only by the "
+                    f"where-filtered step at {ERASURE_ENGINE}:{partial[(collection, field)]}; the rows "
+                    f"outside that where keep the account reference. Add an anonymisation rule for "
+                    f"them, or exclude the field with the reason."
+                )
                 continue
             violations.append(
                 f"R6 {path}:{lineno} — '{collection}.{field}' ({model}) holds an account reference and is in "
@@ -621,8 +697,10 @@ def main() -> int:
         for site in violations:
             print(f"  FAIL {site}", file=sys.stderr)
         return 1
-    names = sorted({field for _path, _line, _model, field in _user_reference_fields(APP_ROOT)})
+    references = _user_reference_fields(APP_ROOT)
+    names = sorted({field for _path, _line, _model, field in references})
     print(f"R6 user-reference fields ({USER_REFERENCE_FIELD.pattern}): {', '.join(names)}")
+    print(f"R6 measured {len(references)} user-reference model field(s); floor {MIN_USER_REFERENCE_FIELDS}.")
     print("privacy inventory: one enumeration, attributed and read by the executing path.")
     return 0
 
