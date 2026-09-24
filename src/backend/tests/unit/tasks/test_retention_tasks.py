@@ -34,7 +34,8 @@ class TestProcessDataExport:
         result = process_data_export("export_1")
 
         assert result == {"export_key": "export_1", "status": "completed"}
-        service.process_data_export.assert_awaited_once_with("export_1")
+        # A first, direct call is attempt 1 of 6: not final, not a retry (#1666).
+        service.process_data_export.assert_awaited_once_with("export_1", final_attempt=False, is_retry=False)
 
     def test_handles_none_result(self, _mock_dependencies):
         service = MagicMock()

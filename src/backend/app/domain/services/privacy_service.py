@@ -16,6 +16,7 @@ from app.common.exceptions import (
     DuplicateError,
     FeatureNotConfiguredError,
     InvalidTokenError,
+    KamerplanterError,
     NotFoundError,
     UnauthorizedError,
     ValidationError,
@@ -826,7 +827,13 @@ class PrivacyService:
     #   was reached (#1645).
     # * ``expire_email_change_requests`` and ``expire_data_exports`` run.
 
-    async def process_data_export(self, export_key: str) -> DataExportRequest | None:
+    async def process_data_export(
+        self,
+        export_key: str,
+        *,
+        final_attempt: bool = True,
+        is_retry: bool = False,
+    ) -> DataExportRequest | None:
         """Build the export bundle and flip the request to a **terminal** state.
 
         Pipeline:
@@ -842,12 +849,29 @@ class PrivacyService:
         had not been served. Any failure of step 3/4 now ends the request as
         ``failed`` with an ``error_message`` the requester reads over
         ``GET /privacy/export/{key}``.
+
+        **#1666 — which failures end it, and when.** A failure that another
+        attempt would repeat identically — :class:`ExportBundleUnavailableError`
+        or any domain error (:class:`KamerplanterError`) — ends the request as
+        ``failed`` at once. Anything else is treated as infrastructure (object
+        storage, database, network) and, unless this is the ``final_attempt``,
+        is re-raised with the request left ``processing`` so the calling
+        Celery task's declared retry policy applies. Only the final attempt
+        writes ``failed``. A caller without a retry policy keeps the default
+        ``final_attempt=True``: it must not leave a request open that nothing
+        will pick up again.
+
+        Args:
+            final_attempt: No retry follows this call; any failure is terminal.
+            is_retry: This call is a retry of an attempt that left the request
+                ``processing``; that state is accepted instead of skipped.
         """
         export = self._export_repo.get_by_key(export_key)
         if export is None:
             logger.warning("retention.process_data_export.missing", export_key=export_key)
             return None
-        if export.status != "pending":
+        resumable = ("pending", "processing") if is_retry else ("pending",)
+        if export.status not in resumable:
             logger.info(
                 "retention.process_data_export.skipped",
                 export_key=export_key,
@@ -884,8 +908,19 @@ class PrivacyService:
         object_key = self._data_export_engine.bundle_object_key(export.user_key, export_key)
         try:
             return await self._build_export_bundle(export, manifest, object_key)
-        except Exception as exc:  # noqa: BLE001 — every failure must be recorded
+        except (ExportBundleUnavailableError, KamerplanterError) as exc:
+            # Deterministic: a retry would fail the same way.
             return await self._fail_export(export, exc, object_key=object_key)
+        except Exception as exc:  # noqa: BLE001 — terminal only on the last attempt
+            if final_attempt:
+                return await self._fail_export(export, exc, object_key=object_key)
+            logger.warning(
+                "retention.process_data_export.retrying",
+                export_key=export.key,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+            raise
 
     async def _build_export_bundle(
         self,
