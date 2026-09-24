@@ -35,8 +35,8 @@ tasks:
       Start the capability-reach T2 stack — ArangoDB, Valkey, the full-mode
       backend and its Celery worker from docker-compose.e2e.yml, plus the
       docker-compose.reach.yml overlay (127.0.0.1 ports picked by Docker,
-      ArangoDB query tracking with bind variables, one object-storage directory
-      shared by API and worker, the worker's erasure salt) — and record the
+      ArangoDB query tracking with bind variables, the API's and worker's shared
+      object storage backed by .reach/storage) — and record the
       host-side addresses in .reach/stack.json. Builds from this working copy.
     cmds:
       - python3 scripts/reach/stack.py up
