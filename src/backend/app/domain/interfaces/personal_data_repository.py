@@ -36,6 +36,9 @@ class IPersonalDataRepository(ABC):
 
         * ``edge_collection`` set — traverse that edge from the user vertex.
         * ``filter_field == "_key"`` — the user document itself.
+        * ``filter_field`` ``_from`` / ``_to`` — the rows of an edge collection
+          whose endpoint is the user vertex ``users/<key>`` (#1719): the edge
+          itself is the data, not the vertex at its other end.
         * any other ``filter_field`` — documents carrying the user reference.
 
         Returns an empty list when the user has no data in that source. A

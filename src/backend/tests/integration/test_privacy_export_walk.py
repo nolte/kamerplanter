@@ -42,7 +42,7 @@ import pytest
 from arango import ArangoClient
 
 from app.data_access.arango import collections as col
-from app.data_access.arango.personal_data_repository import ArangoPersonalDataRepository
+from app.data_access.arango.personal_data_repository import EDGE_ENDPOINT_FIELDS, ArangoPersonalDataRepository
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -96,6 +96,14 @@ def _document(source, owner: str, *, tenant: str = TENANTS[0]) -> dict:
       display name every real row carries beside the key.
     """
     doc = {field: _marker(source.collection, owner) for field in source.fields}
+    if source.filter_field in EDGE_ENDPOINT_FIELDS:
+        # #1719 — an edge row that *is* the subject's data (``user_favorites``).
+        # Production writes the user vertex id, not the bare key
+        # (``FavoritesService._add_one``: ``from_id = f"users/{user_key}"``), and
+        # the other end is a catalogue document id.
+        doc["_from"] = f"{col.USERS}/{owner}"
+        doc["_to"] = _edge_row_target(source, owner)
+        return doc
     if source.filter_field and source.filter_field != "_key":
         doc[source.filter_field] = FREE_TEXT_ATTRIBUTION if source.disclosure_gap else owner
     if source.attribution_gap:
@@ -103,6 +111,31 @@ def _document(source, owner: str, *, tenant: str = TENANTS[0]) -> dict:
     if source.tenant_scoped:
         doc["tenant_key"] = tenant
     return doc
+
+
+def _edge_row_target(source, owner: str) -> str:
+    """The ``_to`` of a seeded edge row: a document the named graph lets the edge reach."""
+    definition = next(d for d in col.GRAPH_EDGE_DEFINITIONS if d["edge_collection"] == source.collection)
+    return f"{definition['to_vertex_collections'][0]}/{_marker(source.collection, owner)}"
+
+
+def _assert_edge_row_starts_at_the_user(source) -> None:
+    """Refuse to seed an edge row whose declared endpoint cannot hold ``users/<key>``.
+
+    The filter-field guard (:func:`_assert_filter_field_is_written_as_a_user_key`)
+    looks for a *key* assignment and cannot see an endpoint written as a document
+    id; for an edge-row source the named graph is the authority instead.
+    """
+    definition = next((d for d in col.GRAPH_EDGE_DEFINITIONS if d["edge_collection"] == source.collection), None)
+    assert definition is not None, (
+        f"manifest source '{source.collection}' is keyed on an edge endpoint, but the named graph "
+        "defines no such edge collection"
+    )
+    side = "from_vertex_collections" if source.filter_field == "_from" else "to_vertex_collections"
+    assert col.USERS in definition[side], (
+        f"manifest source '{source.collection}' filters on {source.filter_field}, but the graph lets that end "
+        f"hold {definition[side]}, never a user: the Art. 15 export discloses nothing for this category."
+    )
 
 
 def _legacy_documents(source, *, tenant: str = TENANTS[0]) -> list[dict]:
@@ -185,6 +218,9 @@ def _assert_filter_field_is_written_as_a_user_key(source) -> None:
     """
     if not source.filter_field or source.filter_field == "_key" or source.disclosure_gap:
         return
+    if source.filter_field in EDGE_ENDPOINT_FIELDS:
+        _assert_edge_row_starts_at_the_user(source)
+        return
     writers = _user_key_writers(source.filter_field)
     assert writers, (
         f"manifest source '{source.collection}' is keyed on '{source.filter_field}', but no production "
@@ -213,7 +249,7 @@ def db():
         if source.collection == col.USERS:
             continue
         if not database.has_collection(source.collection):
-            database.create_collection(source.collection)
+            database.create_collection(source.collection, edge=source.filter_field in EDGE_ENDPOINT_FIELDS)
         target = database.collection(source.collection)
         _assert_filter_field_is_written_as_a_user_key(source)
         for owner in (SUBJECT, OTHER):
@@ -306,6 +342,11 @@ def test_no_declared_source_leaks_another_users_document(db, source):
 
 
 TENANT_SCOPED = [source for source in DISCLOSED if source.tenant_scoped]
+
+#: #1719 — deleted by the erasure as the subject's data and, until then, absent
+#: from the Art. 15 bundle. Spelled out so the end-to-end test does not follow
+#: the manifest: dropping one from the manifest must fail, not shrink the check.
+ERASED_AND_NOW_DISCLOSED = ("user_favorites", "api_keys", "user_preferences", "onboarding_states", "pest_detections")
 
 
 @pytest.mark.parametrize("source", TENANT_SCOPED, ids=[source.collection for source in TENANT_SCOPED])
@@ -496,6 +537,21 @@ async def test_the_data_subject_receives_a_bundle_carrying_their_records(db, tmp
         assert sections[source.collection]["attribution_gap"] == source.attribution_gap
         assert sections[source.collection]["record_count"] == 1
     assert _marker("legacy", SUBJECT) not in delivered
+
+    # #1719 — the collections the erasure removed as the subject's data while
+    # the file did not carry them. Named here rather than derived from the
+    # manifest, so a manifest that drops one goes red instead of shrinking the
+    # loop above.
+    for collection in ERASED_AND_NOW_DISCLOSED:
+        assert collection in sections, f"the bundle has no section for '{collection}'"
+        section = sections[collection]
+        assert section["disclosed"] is True, collection
+        assert section["record_count"] == 1, collection
+        values = {value for row in section["records"] for value in row.values()}
+        assert _marker(collection, SUBJECT) in values, collection
+    favourite = sections["user_favorites"]["records"][0]
+    assert favourite["_to"] == _edge_row_target(next(s for s in DISCLOSED if s.collection == "user_favorites"), SUBJECT)
+    assert "key_hash" not in sections["api_keys"]["records"][0]
 
     # The injection direction, end to end: a row naming the subject in a foreign
     # tenant is in the database and not in the file.

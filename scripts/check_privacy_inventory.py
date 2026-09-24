@@ -36,7 +36,14 @@ collection names. It enumerates the CLASS:
       two places that nothing compared;
   R2  every collection the *export* manifest declares as personal data appears
       in the *erasure* inventory — the Art. 15 and Art. 17 answers to "what does
-      this system hold about me" may not disagree;
+      this system hold about me" may not disagree. Since #1719 in both
+      directions: every collection the erasure deletes or anonymises (a non-phase
+      delete step, an anonymisation or pseudonymisation rule) is a manifest
+      source, or is named in ``DataExportEngine.EXCLUDED_FROM_DISCLOSURE`` with a
+      literal reason. The erasure removing it is the proof it is the subject's
+      data; an exclusion is the written claim that it adds nothing a disclosed
+      source does not already deliver. An exclusion for a collection the erasure
+      does not reach, or that is also disclosed, is stale and refused;
   R3  both declared inventories are READ by executing code: ``build_export_manifest``
       and ``build_erasure_plan`` are called from a module under ``app/`` other
       than the engine that defines them;
@@ -107,6 +114,13 @@ Known blind spots (the honest residue)
   in a dict/list, or written by a repository without a model (raw dicts) is not
   seen. It checks that a field is *declared*, not that the declared step reaches
   it — that is the reach test's job (``test_account_erasure_reach.py``).
+* R2 (reverse) takes an exclusion's reason on trust; that an excluded edge
+  belongs to a disclosed document is pinned by
+  ``test_every_excluded_edge_belongs_to_a_disclosed_document``, not here.
+  Measured on 2026-09-24 before #1719, the reverse direction named 20
+  collections: 5 were exported as a result (``user_favorites``, ``api_keys``,
+  ``user_preferences``, ``onboarding_states``, ``pest_detections``), 15 edges
+  were excluded.
 * R2 compares collection names, not fields. A manifest entry that declares the
   right collection and the wrong field is the business of
   ``test_every_manifest_field_exists_on_its_model``.
@@ -147,6 +161,10 @@ INVENTORY_READERS = {
     "build_erasure_plan": ERASURE_ENGINE_REL,
     "build_export_manifest": EXPORT_ENGINE_REL,
 }
+
+#: The list on ``DataExportEngine`` that names erasure targets which are
+#: deliberately not disclosed, each with its reason (R2 reverse, #1719).
+DISCLOSURE_EXCLUSIONS = "EXCLUDED_FROM_DISCLOSURE"
 
 #: Helper whose whole purpose is removing documents by user reference (R4).
 USER_SCOPED_REMOVAL = "_remove_docs_for_user"
@@ -405,6 +423,51 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
                         f"data for Art. 15 export but appears in no erasure inventory entry. "
                         f"What must be disclosed must also be erasable."
                     )
+
+    # ── R2 (reverse, #1719): what the erasure removes because it is the
+    # subject's is disclosed, or excluded with the reason ──
+    #
+    # The forward direction alone let ``user_favorites`` through: deleted on
+    # erasure (so demonstrably the subject's) and absent from the Art. 15
+    # bundle. Every non-phase delete step and every anonymisation or
+    # pseudonymisation rule names a collection that holds the subject's data;
+    # each must be a manifest source, or appear in
+    # ``DataExportEngine.EXCLUDED_FROM_DISCLOSURE`` with a literal reason.
+    erasure_targets: dict[str, int] = {}
+    for call in (*steps, *anon, *pseudo):
+        name = _kwarg(call, "collection")
+        if name is None or _kwarg(call, "kind") == "phase":
+            continue
+        erasure_targets.setdefault(name, call.lineno)
+    disclosure_exclusions: dict[str, int] = {}
+    for call in _class_list_calls(export_tree, "DataExportEngine", DISCLOSURE_EXCLUSIONS):
+        name, reason = _kwarg(call, "collection"), _kwarg(call, "reason")
+        if not name or not reason or not reason.strip():
+            violations.append(
+                f"R2 {EXPORT_ENGINE}:{call.lineno} — a disclosure exclusion must name a literal "
+                f"collection= and a non-empty reason=; an exclusion without a reason is a hole."
+            )
+            continue
+        disclosure_exclusions[name] = call.lineno
+    for name, lineno in sorted(erasure_targets.items()):
+        if name in manifest_names or name in disclosure_exclusions:
+            continue
+        violations.append(
+            f"R2 {ERASURE_ENGINE}:{lineno} — '{name}' is erased or anonymised as the subject's data but is "
+            f"not disclosed under Art. 15. Declare it in DataExportEngine.USER_DATA_MANIFEST, or name it in "
+            f"DataExportEngine.{DISCLOSURE_EXCLUSIONS} with the reason it is not the subject's data."
+        )
+    for name, lineno in sorted(disclosure_exclusions.items()):
+        if name not in erasure_targets:
+            violations.append(
+                f"R2 {EXPORT_ENGINE}:{lineno} — the disclosure exclusion '{name}' names no collection the "
+                f"erasure inventory removes or anonymises; a stale exclusion hides the next one of that name."
+            )
+        elif name in manifest_names:
+            violations.append(
+                f"R2 {EXPORT_ENGINE}:{lineno} — '{name}' is both a manifest source and excluded from "
+                f"disclosure; one of the two is wrong."
+            )
 
     # ── R3: both declared inventories are read by executing code ──
     for reader, defining_rel in INVENTORY_READERS.items():

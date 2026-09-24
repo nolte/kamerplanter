@@ -73,8 +73,13 @@ GOOD_STEPS = "\n".join(
     for i in range(10)
 )
 
-#: Ten manifest sources that the erasure inventory above declares.
-GOOD_SOURCES = "\n".join(f'        DataSourceDefinition(collection="c{i}", label="L{i}"),' for i in range(10))
+#: Ten manifest sources that the erasure inventory above declares, plus the
+#: collections of its two rules — since #1719 every erasure target must be
+#: disclosed too (R2, reverse direction).
+GOOD_SOURCES = "\n".join(
+    f'        DataSourceDefinition(collection="{name}", label="L"),'
+    for name in (*(f"c{i}" for i in range(10)), "harvest_batches", "erasure_requests")
+)
 
 #: The closed executor set as ``domain/models/privacy.py`` declares it.
 MODELS_HEAD = """
@@ -197,7 +202,8 @@ class TestR1ClosedSetComesFromTheModel:
             + '\n        ErasureStep(collection="fresh", kind="document", executor="new_executor", '
             + 'user_field="user_key"),'
         )
-        tree = _tree(tmp_path, steps=steps, executors=(*GOOD_EXECUTORS, "new_executor"))
+        sources = GOOD_SOURCES + '\n        DataSourceDefinition(collection="fresh", label="F"),'
+        tree = _tree(tmp_path, steps=steps, sources=sources, executors=(*GOOD_EXECUTORS, "new_executor"))
         assert checker.check(tree) == []
 
     def test_an_unreadable_closed_set_is_reported_not_treated_as_empty(self, tmp_path: Path) -> None:
@@ -219,6 +225,70 @@ class TestR2Reconciliation:
         )
         violations = checker.check(_tree(tmp_path, sources=sources))
         assert any(v.startswith("R2") and "has_thing" in v for v in violations)
+
+
+class TestR2ReverseEveryErasureTargetIsDisclosed:
+    """#1719 — the direction R2 did not check.
+
+    ``user_favorites`` was deleted on erasure — the proof it is the subject's
+    data — and absent from the Art. 15 manifest. The forward direction only asks
+    whether what is disclosed can be erased, so it stayed green.
+    """
+
+    FAVOURITES_STEP = (
+        '\n        ErasureStep(collection="user_favorites", kind="edge", executor="account_erasure", '
+        'user_field="_from"),'
+    )
+
+    @staticmethod
+    def _with_exclusions(app: Path, entries: str) -> Path:
+        engine = app / "domain" / "engines" / "data_export_engine.py"
+        engine.write_text(
+            engine.read_text(encoding="utf-8").replace(
+                "    def build_export_manifest",
+                f"    EXCLUDED_FROM_DISCLOSURE: list[DisclosureExclusion] = [\n        {entries}\n    ]\n\n"
+                "    def build_export_manifest",
+            ),
+            encoding="utf-8",
+        )
+        return app
+
+    def test_an_erased_collection_that_is_not_disclosed_is_named(self, tmp_path: Path) -> None:
+        """The ``user_favorites`` shape, exactly."""
+        violations = checker.check(_tree(tmp_path, steps=GOOD_STEPS + self.FAVOURITES_STEP))
+        assert any(v.startswith("R2") and "'user_favorites'" in v and "not disclosed" in v for v in violations)
+
+    def test_an_anonymised_collection_that_is_not_disclosed_is_named(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES.replace('        DataSourceDefinition(collection="harvest_batches", label="L"),\n', "")
+        assert sources != GOOD_SOURCES
+        violations = checker.check(_tree(tmp_path, sources=sources))
+        assert any(v.startswith("R2") and "'harvest_batches'" in v and "not disclosed" in v for v in violations)
+
+    def test_disclosing_it_satisfies_the_rule(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES + '\n        DataSourceDefinition(collection="user_favorites", label="F"),'
+        assert checker.check(_tree(tmp_path, steps=GOOD_STEPS + self.FAVOURITES_STEP, sources=sources)) == []
+
+    def test_an_exclusion_with_its_reason_satisfies_the_rule(self, tmp_path: Path) -> None:
+        app = _tree(tmp_path, steps=GOOD_STEPS + self.FAVOURITES_STEP)
+        app = self._with_exclusions(app, 'DisclosureExclusion(collection="user_favorites", reason="plumbing"),')
+        assert checker.check(app) == []
+
+    def test_an_exclusion_without_a_reason_is_refused(self, tmp_path: Path) -> None:
+        app = _tree(tmp_path, steps=GOOD_STEPS + self.FAVOURITES_STEP)
+        app = self._with_exclusions(app, 'DisclosureExclusion(collection="user_favorites", reason=" "),')
+        violations = checker.check(app)
+        assert any(v.startswith("R2") and "reason" in v for v in violations)
+        assert any(v.startswith("R2") and "'user_favorites'" in v and "not disclosed" in v for v in violations)
+
+    def test_a_stale_exclusion_is_named(self, tmp_path: Path) -> None:
+        app = self._with_exclusions(_tree(tmp_path), 'DisclosureExclusion(collection="gone", reason="was an edge"),')
+        violations = checker.check(app)
+        assert any(v.startswith("R2") and "'gone'" in v and "stale" in v for v in violations)
+
+    def test_an_exclusion_of_a_disclosed_collection_is_named(self, tmp_path: Path) -> None:
+        app = self._with_exclusions(_tree(tmp_path), 'DisclosureExclusion(collection="c3", reason="twice"),')
+        violations = checker.check(app)
+        assert any(v.startswith("R2") and "'c3'" in v and "both" in v for v in violations)
 
 
 class TestR3Readership:
@@ -360,7 +430,8 @@ class TestR5EveryFilteredStepNamesItsUserField:
             + '\n        ErasureStep(collection="_storage_cleanup", kind="phase", executor="storage_cleanup"),'
             + '\n        ErasureStep(collection="users", kind="user", executor="account_cascade"),'
         )
-        assert checker.check(_tree(tmp_path, steps=steps)) == []
+        sources = GOOD_SOURCES + '\n        DataSourceDefinition(collection="users", label="Profile"),'
+        assert checker.check(_tree(tmp_path, steps=steps, sources=sources)) == []
 
     def test_a_step_whose_kind_the_reader_cannot_see_is_not_waved_through(self, tmp_path: Path) -> None:
         """A non-literal ``kind`` must not read as "phase" and skip R5 silently."""

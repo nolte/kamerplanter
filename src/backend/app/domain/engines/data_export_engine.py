@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
+from app.domain.models.privacy import DataExportRequest, DataSourceDefinition, DisclosureExclusion
 
 #: Why the three legally-retained categories are only *partly* disclosable.
 #: Since #1669 every create path stores the caller's account in
@@ -304,7 +304,21 @@ class DataExportEngine:
             collection="plant_diagnosis_requests",
             filter_field="user_key",
             label="Plant diagnosis requests",
-            fields=["tenant_key", "plant_instance_key", "planting_run_key", "classifications", "adapter_key"],
+            # #1719 — ``inspection_key``, ``harvest_observation_key`` and
+            # ``confirmed_labels`` are what the three ``cv_*`` edges below
+            # mirror; they are disclosed here so the edges need not be.
+            fields=[
+                "tenant_key",
+                "plant_instance_key",
+                "planting_run_key",
+                "inspection_key",
+                "harvest_observation_key",
+                "classifications",
+                "phenotype",
+                "confirmed_labels",
+                "adapter_key",
+                "created_at",
+            ],
         ),
         DataSourceDefinition(
             collection="task_comments",
@@ -390,6 +404,221 @@ class DataExportEngine:
             filter_field="service_account_key",
             label="MCP idempotency records (service accounts)",
             fields=["tenant_key", "tool_name", "created_at", "expires_at"],
+        ),
+        # ── #1719: erased as the subject's data, and until now not disclosed ──
+        # Found by the reverse direction of R2 in
+        # ``scripts/check_privacy_inventory.py``: each collection below is
+        # deleted by ``ErasureEngine.DELETE_STEPS`` because it is the subject's,
+        # which is the proof that Art. 15 has to show it. Every ``filter_field``
+        # is stamped from the caller's account, never read from a body, so none
+        # is ``tenant_scoped``.
+        DataSourceDefinition(
+            # REQ-020: the edge row is the data (``_from`` = the subject,
+            # ``_to`` = the catalogue entry, when and how it was marked), not the
+            # catalogue entry at its other end — that is global or tenant data.
+            collection="user_favorites",
+            filter_field="_from",
+            label="Favourites",
+            fields=["_to", "target_type", "source", "cascade_from_key", "favorited_at"],
+        ),
+        DataSourceDefinition(
+            # ``key_hash`` is deliberately not exported: it is the stored form of
+            # a live credential (the ``calendar_feeds.token`` argument).
+            collection="api_keys",
+            filter_field="user_key",
+            label="API keys (without the secret)",
+            fields=[
+                "label",
+                "key_prefix",
+                "tenant_scope",
+                "ip_allowlist",
+                "rate_limit_per_minute",
+                "revoked",
+                "last_used_at",
+                "expires_at",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="user_preferences",
+            filter_field="user_key",
+            label="Personal settings",
+            fields=[
+                "experience_level",
+                "onboarding_completed",
+                "locale",
+                "theme",
+                "temperature_unit",
+                "watering_can_liters",
+                "smart_home_enabled",
+                "kiosk_enabled",
+                "high_contrast",
+                "module_visibility",
+                "dashboard_layout",
+                "created_at",
+                "updated_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="onboarding_states",
+            filter_field="user_key",
+            label="Onboarding wizard progress",
+            fields=[
+                "completed",
+                "skipped",
+                "completed_at",
+                "selected_kit_id",
+                "selected_experience_level",
+                "wizard_step",
+                "created_entities",
+                "site_name",
+                "site_type",
+                "selected_site_key",
+                "plant_count",
+                "plant_configs",
+                "favorite_species_keys",
+                "favorite_nutrient_plan_keys",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            # REQ-044 section 8: the subject's own detection requests (no image
+            # is stored). ``image_hash`` is an internal dedup value, as for
+            # ``identification_requests``, and not exported.
+            collection="pest_detections",
+            filter_field="user_key",
+            label="Pest detection requests",
+            fields=[
+                "tenant_key",
+                "plant_instance_key",
+                "planting_run_key",
+                "source",
+                "adapter_key",
+                "trigger",
+                "capture_device",
+                "findings",
+                "suggested_next_step",
+                "llm_explanation",
+                "feedback",
+                "created_at",
+            ],
+        ),
+    ]
+
+    #: Collections the erasure inventory removes that the bundle deliberately
+    #: does not carry as sections of their own (#1719). The rule is R2's reverse
+    #: direction in ``scripts/check_privacy_inventory.py``: an erasure target is
+    #: disclosed unless it is named here, with the reason, measured against its
+    #: write path. Every entry is a graph edge whose endpoints are disclosed
+    #: documents and whose attributes, where it has any, are a copy of a field a
+    #: disclosed source already delivers — the edge adds nothing the subject
+    #: does not already receive. An edge that carries information of its own
+    #: (``user_favorites``) is a manifest source instead.
+    EXCLUDED_FROM_DISCLOSURE: list[DisclosureExclusion] = [
+        DisclosureExclusion(
+            collection="has_api_key",
+            reason=(
+                "users -> api_keys, no attributes (api_key_repository.create); the api_keys rows are "
+                "disclosed by user_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="has_membership",
+            reason=(
+                "users -> memberships, no attributes (membership_repository.create); the memberships are "
+                "disclosed by user_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="membership_in",
+            reason=(
+                "memberships -> tenants, no attributes; the tenant of each disclosed membership is its tenant_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="assigned_to_location",
+            reason=(
+                "location_assignments -> locations, no attributes (location_assignment_repository.create); "
+                "the assignment's location_key is its own field, and the category is named in the bundle "
+                "with its disclosure_gap."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="assignment_for",
+            reason=(
+                "location_assignments -> memberships, no attributes; the membership is disclosed, the "
+                "assignment category is named with its disclosure_gap."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="assignment_in_tenant",
+            reason=(
+                "location_assignments -> tenants, no attributes; the assignment's tenant_key is its own "
+                "field, the category is named with its disclosure_gap."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="pest_detection_of",
+            reason=(
+                "pest_detections -> plant_instances / planting_runs, no attributes; mirrors the disclosed "
+                "plant_instance_key / planting_run_key of the detection."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="pest_detection_flagged",
+            reason=(
+                "pest_detections -> pests; confidence / mode / confirmed copy the disclosed findings and "
+                "feedback of the detection (pest_detection_repository.create / add_feedback)."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="pest_detection_suggested_inspection",
+            reason=(
+                "pest_detections -> inspections, no attributes (link_suggested_inspection); the inspection "
+                "is disclosed by inspected_by_key, which the detection bridge stamps from the caller."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="notification_for_run",
+            reason=(
+                "notifications -> planting_runs; declared in the graph, but no code path under app/ writes "
+                "it (measured 2026-09-24). The notifications themselves are disclosed by user_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_diagnosed_for",
+            reason=(
+                "plant_diagnosis_requests -> plant_instances / planting_runs, no attributes; mirrors the "
+                "disclosed plant_instance_key / planting_run_key of the request."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_diagnosis_found",
+            reason=(
+                "plant_diagnosis_requests -> diseases / pests; confidence / rank / category / confirmed copy "
+                "the disclosed classifications and confirmed_labels (plant_diagnosis_repository.create)."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_attached_to_inspection",
+            reason=(
+                "plant_diagnosis_requests -> inspections, no attributes; mirrors the disclosed inspection_key "
+                "of the request (plant_diagnosis_repository.mark_confirmed)."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_phenotype_of",
+            reason=(
+                "plant_diagnosis_requests -> harvest_observations, no attributes; mirrors the disclosed "
+                "harvest_observation_key of the request."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="has_invitation",
+            reason=(
+                "tenants -> invitations, no attributes (invitation_repository.create); the invitations are "
+                "disclosed by invited_by_user_key and accepted_by_user_key."
+            ),
         ),
     ]
 
