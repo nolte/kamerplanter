@@ -12,7 +12,7 @@ measured_on: '2026-09-23'
 measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
 job_spec_sha256: f02dd45b332629d10825386a65a99c267f20ea94d5a37435613c6643e378ef23
 invocations:
-- command: pytest --cov=app --cov-report=term-missing --cov-report=xml --ignore=tests/integration tests/unit/test_lane_inputs_recorder.py
+- command: pytest --cov=app --cov-report=term-missing --cov-report=xml --ignore=tests/integration
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
@@ -1126,8 +1126,7 @@ reads:
 - src/backend/tests/support/
 - src/backend/tests/unit/
 - src/backend/tests/unit/guards/
-partial_reason: Recorded from the job's command narrowed to ONE test file (tests/unit/test_lane_inputs_recorder.py), to bootstrap
-  a manifest for a job that runs a reusable workflow. The job's real invocation is `pytest --cov=app --cov-report=term-missing
-  --cov-report=xml --ignore=tests/integration` over the whole unit, contracts and api tiers; what those tiers read is NOT
-  in this file, so this manifest certifies nothing about the coverage job's filter. The full run is recorded in CI (#1683);
-  until then the guard holds this status as an open finding.
+partial_reason: 'invocations[0] names the job''s real command since #1683, so the CI lane (.github/workflows/lane-inputs.yml)
+  replays the full run. The `reads` below are still those of the bootstrap recording, which narrowed that command to ONE
+  test file (tests/unit/test_lane_inputs_recorder.py); what the unit, contracts and api tiers read is NOT in this file,
+  so it certifies nothing about the coverage job''s filter until the CI recording is committed.'

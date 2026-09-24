@@ -90,6 +90,44 @@ Usage::
 
     python3 scripts/ci/lane_inputs.py show .github/lane-inputs/<name>.yaml
 
+Where the manifests are actually recorded (#1683)
+-------------------------------------------------
+
+The commands above are the instrument; the place it is meant to run is the
+advisory CI lane ``.github/workflows/lane-inputs.yml``, where the environment
+is the real one (Linux, ``strace``, Docker, an ArangoDB service). That lane
+does not keep a second list of what to run. It reads every manifest's own
+``invocations`` and replays them::
+
+    # the matrix: one leg per manifest with invocations, plus one per
+    # `covered_by` delegation target that has no manifest yet (bootstrap)
+    python3 scripts/ci/lane_inputs.py plan --github-output "$GITHUB_OUTPUT"
+
+    # one leg: re-run the manifest's invocations under the recorder, writing a
+    # fresh manifest into --out-dir; hand-written fields (gate, accepted_gaps,
+    # unrecorded_invocations) are carried over, measured ones are re-measured
+    python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" .github/lane-inputs/<name>.yaml
+
+    # a delegation target without a manifest: its invocations are the job's own
+    # held `run:` commands, read from the workflow
+    python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" backend-guards.yml/guards
+
+    # the verdict: committed vs recorded, on reads, job hash, status and invocations
+    python3 scripts/ci/lane_inputs.py compare recorded/lane-inputs --run-id "$GITHUB_RUN_ID"
+
+A hand-edited ``reads:`` therefore disagrees with the next CI recording and
+fails ``compare``. To refresh a manifest, download what CI recorded and commit
+it, rather than re-measuring on a workstation::
+
+    gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
+    cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
+
+Absolute paths under ``/tmp/`` in a recorded command or ``env`` value are
+scratch OUTPUT locations (an ``--out`` file, a ``UV_PROJECT_ENVIRONMENT``). A
+replay maps each to ``SCRATCH_DIR/<basename>`` and ``compare`` normalises both
+sides the same way, so a manifest recorded on a workstation and one recorded in
+CI agree on the command when they agree on everything else.
+
 Standard library plus PyYAML. Traces to #1596 (no TC-ID: a source-tree gate is
 not a user-facing case).
 """
@@ -141,7 +179,16 @@ _READLINK_LINE = re.compile(r'^(?:\d+\s+)?readlink(?:at)?\((?:(?:AT_FDCWD|\d+<[^
 _ARGV_ITEM = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
 EXIT_OK = 0
+EXIT_FINDINGS = 1
 EXIT_USAGE = 2
+
+#: Where a replay puts a recorded invocation's scratch outputs (see the module docstring).
+SCRATCH_DIR = Path("/tmp/lane-inputs-scratch")
+_SCRATCH_PATH = re.compile(r"/tmp/[^\s'\";|&<>()]+")
+
+#: The gate kinds a manifest may declare. ``unfiltered`` is a job with no relevance
+#: filter at all, recorded because another manifest delegates to it (``covered_by``).
+GATE_KINDS = ("on-paths", "paths-filter", "unfiltered")
 
 
 class LaneInputsError(Exception):
@@ -358,9 +405,25 @@ def _without_filter_patterns(job: Any) -> Any:
     return copy
 
 
-def manifest_path(workflow: str, job: str) -> Path:
-    stem = workflow.rsplit(".", 1)[0]
-    return MANIFEST_DIR / f"{stem}--{job}.yaml"
+def manifest_stem(workflow: str, job: str) -> str:
+    return f"{workflow.rsplit('.', 1)[0]}--{job}"
+
+
+def manifest_path(workflow: str, job: str, directory: Path | None = None) -> Path:
+    return (directory or MANIFEST_DIR) / f"{manifest_stem(workflow, job)}.yaml"
+
+
+def _display(path: Path) -> str:
+    """Repo-relative when inside the checkout, absolute otherwise (a replay writes to a scratch dir)."""
+    try:
+        return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _target(args: argparse.Namespace) -> Path:
+    directory = Path(args.manifest_dir).resolve() if getattr(args, "manifest_dir", None) else None
+    return manifest_path(args.workflow, args.job, directory)
 
 
 # ---------------------------------------------------------------------- manifest
@@ -377,8 +440,9 @@ def write_manifest(path: Path, manifest: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     header = (
         "# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance\n"
-        "# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the\n"
-        "# `invocations` below. The guard is\n"
+        "# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane\n"
+        "# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when\n"
+        "# its recording differs from this file (#1683). The guard is\n"
         "# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.\n"
     )
     body = yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True, width=120)
@@ -386,7 +450,13 @@ def write_manifest(path: Path, manifest: dict[str, Any]) -> None:
 
 
 def _fresh_manifest(args: argparse.Namespace, document: dict[str, Any]) -> dict[str, Any]:
-    gate: dict[str, Any] = {"kind": "paths-filter" if args.filter else "on-paths"}
+    if args.filter:
+        kind = "paths-filter"
+    elif getattr(args, "unfiltered", False):
+        kind = "unfiltered"
+    else:
+        kind = "on-paths"
+    gate: dict[str, Any] = {"kind": kind}
     if args.filter:
         names = [name.strip() for name in args.filter.split(",") if name.strip()]
         gate["filter"] = names[0] if len(names) == 1 else names
@@ -462,10 +532,10 @@ def command_record(args: argparse.Namespace) -> int:
             )
         manifest = _fresh_manifest(args, document)
         manifest["empty_reads_reason"] = args.empty_reads_reason.strip()
-        target = manifest_path(args.workflow, args.job)
+        target = _target(args)
         write_manifest(target, manifest)
         print(
-            f"lane-inputs: recorded an empty read set with its reason → {target.relative_to(REPO_ROOT)}",
+            f"lane-inputs: recorded an empty read set with its reason → {_display(target)}",
             file=sys.stderr,
         )
         return EXIT_OK
@@ -505,7 +575,7 @@ def command_record(args: argparse.Namespace) -> int:
     reads |= {f"{entry}/" if entry else "./" for entry in listings if entry in directories}
     dropped_untracked = len(files - tracked)
 
-    target = manifest_path(args.workflow, args.job)
+    target = _target(args)
     if args.append and target.is_file():
         manifest = load_manifest(target)
         if manifest.get("job") != args.job or manifest.get("workflow") != args.workflow:
@@ -535,7 +605,7 @@ def command_record(args: argparse.Namespace) -> int:
     write_manifest(target, manifest)
     print(
         f"lane-inputs: {len(reads)} tracked path(s) read ({dropped_untracked} untracked dropped), "
-        f"{len(trace.execs)} subprocess exec(s) followed → {target.relative_to(REPO_ROOT)}",
+        f"{len(trace.execs)} subprocess exec(s) followed → {_display(target)}",
         file=sys.stderr,
     )
     return EXIT_OK
@@ -677,7 +747,7 @@ def command_derive_docker(args: argparse.Namespace) -> int:
         if ignore.is_file():
             reads.add(ignore.relative_to(REPO_ROOT.resolve()).as_posix())
 
-    target = manifest_path(args.workflow, args.job)
+    target = _target(args)
     if args.append and target.is_file():
         manifest = load_manifest(target)
         manifest["job_spec_sha256"] = job_spec_hash(document, args.job)
@@ -699,10 +769,488 @@ def command_derive_docker(args: argparse.Namespace) -> int:
     )
     write_manifest(target, manifest)
     print(
-        f"lane-inputs: {len(reads)} tracked path(s) in the narrowed context → {target.relative_to(REPO_ROOT)}",
+        f"lane-inputs: {len(reads)} tracked path(s) in the narrowed context → {_display(target)}",
         file=sys.stderr,
     )
     return EXIT_OK
+
+
+# ------------------------------------------------------------------ normalise
+
+
+def normalise_scratch(text: str) -> str:
+    """Map every ``/tmp/...`` path in *text* to ``SCRATCH_DIR/<basename>``.
+
+    Idempotent: a path already under ``SCRATCH_DIR`` maps to itself. Used by
+    ``replay`` to rewrite a recorded command before re-running it and by
+    ``compare`` on both sides, so a workstation's scratchpad path and the CI
+    lane's scratch path are the same token.
+    """
+
+    def _rewrite(match: re.Match[str]) -> str:
+        name = match.group(0).rstrip("/").rpartition("/")[2]
+        return f"{SCRATCH_DIR.as_posix()}/{name}"
+
+    return _SCRATCH_PATH.sub(_rewrite, text)
+
+
+# --------------------------------------------------------- held run: commands
+#
+# The guard's rule 5 holds a job's `run:` commands against its manifest; the
+# bootstrap below derives a manifest's first invocations from the same
+# commands. The two must select the same commands, so the recorder test pins
+# `held_commands` against the guard's `job_commands` over every real job — the
+# same arrangement as `hash_job_spec` / `job_spec_hash`.
+
+_HELD_HEADS = ("task", "pytest", "python", "python3", "npx")
+_ASSIGNMENT_TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*")
+
+
+def split_script(script: str) -> list[list[str]]:
+    """The simple commands of a ``run:`` script, as the guard's ``_split_script`` tokenises them."""
+    joined = re.sub(r"\\\r?\n", " ", script)
+    commands: list[list[str]] = []
+    for line in joined.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        lexer = shlex.shlex(stripped, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        try:
+            tokens = list(lexer)
+        except ValueError:
+            continue
+        current: list[str] = []
+        for token in tokens:
+            if token in (";", "&&", "||", "|", ";;", "&"):
+                commands.append(current)
+                current = []
+            else:
+                current.append(token)
+        commands.append(current)
+    out = []
+    for command in commands:
+        while command and (command[0] == "sudo" or _ASSIGNMENT_TOKEN.fullmatch(command[0])):
+            command = command[1:]
+        if command:
+            out.append(command)
+    return out
+
+
+def _is_held(tokens: list[str]) -> bool:
+    head = tokens[0][2:] if tokens[0].startswith("./") else tokens[0]
+    if head in ("python", "python3") and tokens[1:3] == ["-m", "pip"]:
+        return False
+    return head in _HELD_HEADS or head.startswith("scripts/")
+
+
+def _step_cwd(document: dict[str, Any], job: dict[str, Any], step: dict[str, Any]) -> str:
+    for scope in (
+        step,
+        (job.get("defaults") or {}).get("run") or {},
+        (document.get("defaults") or {}).get("run") or {},
+    ):
+        if isinstance(scope, dict) and isinstance(scope.get("working-directory"), str):
+            return scope["working-directory"]
+    return "."
+
+
+def held_commands(document: dict[str, Any], job_id: str) -> list[tuple[list[str], str, dict[str, str]]]:
+    """``(tokens, cwd, env)`` for every held ``run:`` command of *job_id*, env = job env + step env."""
+    job = (document.get("jobs") or {}).get(job_id)
+    if not isinstance(job, dict):
+        raise LaneInputsError(f"job {job_id!r} is not defined in this workflow")
+    job_env = job.get("env") if isinstance(job.get("env"), dict) else {}
+    out: list[tuple[list[str], str, dict[str, str]]] = []
+    for step in job.get("steps") or []:
+        if not isinstance(step, dict) or not isinstance(step.get("run"), str):
+            continue
+        step_env = step.get("env") if isinstance(step.get("env"), dict) else {}
+        env = {str(key): str(value) for key, value in {**job_env, **step_env}.items()}
+        cwd = _step_cwd(document, job, step)
+        for tokens in split_script(step["run"]):
+            if _is_held(tokens):
+                out.append((tokens, cwd, env))
+    return out
+
+
+def _has_paths_filter(job: Any) -> bool:
+    return isinstance(job, dict) and any(
+        isinstance(step, dict) and "paths-filter@" in str(step.get("uses", "")) for step in job.get("steps") or []
+    )
+
+
+def _on_filtered(document: dict[str, Any]) -> bool:
+    block = document.get("on", document.get(True))
+    if not isinstance(block, dict):
+        return False
+    return any(
+        isinstance(spec, dict) and (spec.get("paths") or spec.get("paths-ignore"))
+        for event, spec in block.items()
+        if event in ("push", "pull_request", "pull_request_target")
+    )
+
+
+def bootstrap_invocations(workflow: str, job: str) -> list[dict[str, Any]]:
+    """The first invocations of a manifest that does not exist yet: the job's own held commands.
+
+    Only for a job with no relevance filter — the only kind a ``covered_by``
+    may name, and the only kind whose manifest cannot be seeded by the lane's
+    own filter. A command carrying an expression or an env value carrying one
+    cannot be replayed outside the runner that resolves it and is refused
+    rather than guessed at.
+    """
+    _path, document = load_workflow(workflow)
+    jobs = document.get("jobs") or {}
+    if job not in jobs:
+        raise LaneInputsError(f"{workflow} defines no job {job!r}")
+    if _on_filtered(document) or _has_paths_filter(jobs[job]):
+        raise LaneInputsError(
+            f"{workflow}/{job} decides its relevance with a filter; bootstrap records unfiltered "
+            f"delegation targets only — record a filtered job with `record` and commit its manifest"
+        )
+    invocations: list[dict[str, Any]] = []
+    for tokens, cwd, env in held_commands(document, job):
+        unresolved = [token for token in tokens if "${{" in token or "$" in token] + [
+            f"{key}={value}" for key, value in env.items() if "${{" in value
+        ]
+        if unresolved:
+            raise LaneInputsError(
+                f"{workflow}/{job} runs {shlex.join(tokens)!r} with run-time values {unresolved}; "
+                f"a bootstrap cannot resolve them"
+            )
+        invocations.append(
+            {"command": shlex.join(tokens), "cwd": cwd, "env": sorted(f"{k}={v}" for k, v in env.items())}
+        )
+    if not invocations:
+        raise LaneInputsError(f"{workflow}/{job} runs no held command (task/pytest/python/npx/scripts)")
+    return invocations
+
+
+# --------------------------------------------------------------------- replay
+
+
+def _is_derived(invocation: dict[str, Any]) -> bool:
+    return str(invocation.get("recorder", "")).startswith("docker build")
+
+
+def _replay_base(committed: dict[str, Any]) -> dict[str, Any]:
+    """The committed manifest minus everything a recording produces; hand-written fields survive."""
+    base = dict(committed)
+    base["invocations"] = []
+    base["subprocesses"] = []
+    base["reads"] = []
+    base["status"] = "measured"
+    base.pop("partial_reason", None)
+    return base
+
+
+def _bootstrap_base(workflow: str, job: str) -> dict[str, Any]:
+    _path, document = load_workflow(workflow)
+    return {
+        "schema": SCHEMA,
+        "workflow": workflow,
+        "job": job,
+        "gate": {"kind": "unfiltered"},
+        "status": "measured",
+        "measured_on": dt.datetime.now(dt.UTC).date().isoformat(),
+        "measured_at_commit": head_commit(),
+        "job_spec_sha256": job_spec_hash(document, job),
+        "invocations": [],
+        "subprocesses": [],
+        "accepted_gaps": [],
+        "reads": [],
+    }
+
+
+def _program_available(program: str, cwd: Path) -> bool:
+    if "/" in program:
+        return (cwd / program).is_file()
+    return shutil.which(program) is not None
+
+
+def replay_argv(invocation: dict[str, Any], *, workflow: str, job: str, out_dir: Path) -> list[str]:
+    """The ``lane_inputs.py`` argv that re-records *invocation* into *out_dir*."""
+    common = ["--workflow", workflow, "--job", job, "--append", "--manifest-dir", str(out_dir)]
+    command = normalise_scratch(str(invocation.get("command", "")))
+    try:
+        faithful = shlex.join(shlex.split(command)) == command
+    except ValueError:
+        faithful = False
+    if not faithful and not _is_derived(invocation):
+        # A command written before the recorder used `shlex.join` (a plain
+        # " ".join) lost its quoting: `bash -c find … | wc -l` splits into
+        # `bash -c find` plus stray words, and replaying it runs a DIFFERENT
+        # command — measured: a bare `find` over the whole checkout, 462 reads
+        # instead of 9. Refused rather than replayed.
+        raise LaneInputsError(
+            f"{command!r} does not survive shlex.split/shlex.join unchanged, so its quoting was lost when it was "
+            f"written; re-spell it as the recorder writes it (shlex.join of the argv) before it can be replayed"
+        )
+    if _is_derived(invocation):
+        tokens = shlex.split(command)
+        options = dict(zip(tokens[1::2], tokens[2::2], strict=False))
+        if tokens[:1] != ["derive-docker"] or "--context" not in options or "--dockerfile" not in options:
+            raise LaneInputsError(f"cannot replay the derived invocation {command!r}")
+        return ["derive-docker", *common, "--context", options["--context"], "--dockerfile", options["--dockerfile"]]
+    argv = ["record", *common, "--cwd", str(invocation.get("cwd") or ".")]
+    for assignment in invocation.get("env") or []:
+        argv += ["--env", normalise_scratch(str(assignment))]
+    reason = invocation.get("allow_failure_reason")
+    if isinstance(reason, str) and reason.strip():
+        argv += ["--allow-failure", reason.strip()]
+    return [*argv, "--", *shlex.split(command)]
+
+
+def command_replay(args: argparse.Namespace) -> int:
+    lane = args.lane
+    if lane.endswith((".yaml", ".yml")):
+        source = Path(lane) if Path(lane).is_absolute() else REPO_ROOT / lane
+        committed = load_manifest(source)
+        workflow, job = str(committed.get("workflow", "")), str(committed.get("job", ""))
+        invocations = [entry for entry in committed.get("invocations") or [] if isinstance(entry, dict)]
+        if not invocations:
+            raise LaneInputsError(
+                f"{source.name} has no invocation to replay"
+                + (
+                    f" (empty_reads_reason: {committed['empty_reads_reason']})"
+                    if committed.get("empty_reads_reason")
+                    else ""
+                )
+            )
+        base = _replay_base(committed)
+        name = source.name
+    else:
+        workflow, _, job = lane.partition("/")
+        invocations = bootstrap_invocations(workflow, job)
+        base = _bootstrap_base(workflow, job)
+        name = f"{manifest_stem(workflow, job)}.yaml"
+
+    out_dir = Path(args.out_dir).resolve()
+    argvs = [replay_argv(entry, workflow=workflow, job=job, out_dir=out_dir) for entry in invocations]
+    for argv in argvs:
+        print(f"lane-inputs: replay → python3 scripts/ci/lane_inputs.py {shlex.join(argv)}", file=sys.stderr)
+    if args.dry_run:
+        return EXIT_OK
+
+    for argv, entry in zip(argvs, invocations, strict=True):
+        if argv[0] != "record":
+            continue
+        program = argv[argv.index("--") + 1]
+        cwd = REPO_ROOT / str(entry.get("cwd") or ".")
+        if not _program_available(program, cwd):
+            raise LaneInputsError(
+                f"{name}: {program!r} is not available in this environment, so {entry.get('command')!r} cannot be "
+                f"replayed. Provide it in .github/workflows/lane-inputs.yml (see `plan`'s environment flags) — the "
+                f"manifest is not recorded rather than recorded without this invocation"
+            )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+    target = out_dir / name
+    write_manifest(target, base)
+    for index, argv in enumerate(argvs):
+        code = main(argv)
+        if code != EXIT_OK:
+            target.unlink(missing_ok=True)
+            raise LaneInputsError(
+                f"{name}: invocations[{index}] could not be recorded (exit {code}); no manifest was written, so "
+                f"`compare` reports this lane as unrecorded instead of certifying a shorter read set"
+            )
+    print(f"lane-inputs: replayed {len(argvs)} invocation(s) → {_display(target)}", file=sys.stderr)
+    return EXIT_OK
+
+
+# ----------------------------------------------------------------------- plan
+
+#: Environment the recorder lane provides only where a leg needs it; everything
+#: else (Python, uv, Task, Node, strace, Docker, yq) is in every leg. Decided per
+#: manifest from its own invocations, so the workflow carries no list of lanes.
+_ENV_FLAGS = ("backend", "frontend", "helm", "skaffold", "nuclei", "hadolint", "arangodb")
+
+
+def environment_flags(invocations: list[dict[str, Any]]) -> dict[str, bool]:
+    flags = dict.fromkeys(_ENV_FLAGS, False)
+    for invocation in invocations:
+        if _is_derived(invocation):
+            continue
+        cwd = str(invocation.get("cwd") or ".")
+        command = str(invocation.get("command", ""))
+        try:
+            head = shlex.split(command)[0]
+        except (ValueError, IndexError):
+            head = ""
+        flags["backend"] |= cwd == "src/backend" or cwd.startswith("src/backend/")
+        flags["frontend"] |= cwd == "src/frontend" or cwd.startswith("src/frontend/")
+        flags["skaffold"] |= "skaffold" in command
+        flags["helm"] |= head == "helm" or "skaffold" in command
+        flags["nuclei"] |= head == "nuclei"
+        flags["hadolint"] |= head == "hadolint"
+        flags["arangodb"] |= any(str(entry).startswith("ARANGODB_HOST=") for entry in invocation.get("env") or [])
+    return flags
+
+
+def plan_matrix(manifest_dir: Path | None = None) -> list[dict[str, Any]]:
+    """One matrix leg per manifest with invocations, plus one per unrecorded ``covered_by`` target."""
+    directory = manifest_dir or MANIFEST_DIR
+    manifests = {path.name: load_manifest(path) for path in sorted(directory.glob("*.yaml"))}
+    legs: list[dict[str, Any]] = []
+    for name, manifest in manifests.items():
+        invocations = [entry for entry in manifest.get("invocations") or [] if isinstance(entry, dict)]
+        if not invocations:
+            continue
+        lane = f"{_display(directory / name)}"
+        legs.append({"name": name.removesuffix(".yaml"), "lane": lane, **environment_flags(invocations)})
+    recorded = {(str(m.get("workflow")), str(m.get("job"))) for m in manifests.values()}
+    targets = sorted(
+        {
+            str(gap["covered_by"])
+            for manifest in manifests.values()
+            for gap in manifest.get("accepted_gaps") or []
+            if isinstance(gap, dict) and gap.get("covered_by")
+        }
+    )
+    for target in targets:
+        workflow, _, job = target.partition("/")
+        if (workflow, job) in recorded:
+            continue
+        legs.append(
+            {
+                "name": manifest_stem(workflow, job),
+                "lane": target,
+                **environment_flags(bootstrap_invocations(workflow, job)),
+            }
+        )
+    return legs
+
+
+def command_plan(args: argparse.Namespace) -> int:
+    legs = plan_matrix()
+    matrix = json.dumps({"include": legs}, separators=(",", ":"))
+    if args.github_output:
+        with Path(args.github_output).open("a", encoding="utf-8") as handle:
+            handle.write(f"matrix={matrix}\n")
+    print(json.dumps({"include": legs}, indent=2))
+    print(f"lane-inputs: {len(legs)} lane(s) to record", file=sys.stderr)
+    return EXIT_OK
+
+
+# -------------------------------------------------------------------- compare
+
+
+def _comparable_invocation(invocation: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "command": normalise_scratch(str(invocation.get("command", ""))),
+        "cwd": str(invocation.get("cwd") or "."),
+    }
+    if _is_derived(invocation):
+        out["copy_sources"] = list(invocation.get("copy_sources") or [])
+    else:
+        out["env"] = sorted(normalise_scratch(str(entry)) for entry in invocation.get("env") or [])
+        out["exit_code"] = invocation.get("exit_code")
+    return out
+
+
+def _sample(paths: list[str], limit: int = 10) -> str:
+    return ", ".join(paths[:limit]) + (f", … (+{len(paths) - limit})" if len(paths) > limit else "")
+
+
+def manifest_differences(name: str, committed: dict[str, Any], recorded: dict[str, Any]) -> list[str]:
+    """What the committed manifest claims that the CI recording of the same lane does not agree with."""
+    findings: list[str] = []
+    if committed.get("job_spec_sha256") != recorded.get("job_spec_sha256"):
+        findings.append(
+            f"{name}: job_spec_sha256 {str(committed.get('job_spec_sha256'))[:12]} is not the live job's "
+            f"{str(recorded.get('job_spec_sha256'))[:12]} — the committed read set describes another job definition"
+        )
+    if committed.get("status") != recorded.get("status"):
+        findings.append(f"{name}: status {committed.get('status')!r} committed, {recorded.get('status')!r} recorded")
+    ours = [_comparable_invocation(e) for e in committed.get("invocations") or [] if isinstance(e, dict)]
+    theirs = [_comparable_invocation(e) for e in recorded.get("invocations") or [] if isinstance(e, dict)]
+    if ours != theirs:
+        for index in range(max(len(ours), len(theirs))):
+            left = ours[index] if index < len(ours) else None
+            right = theirs[index] if index < len(theirs) else None
+            if left != right:
+                findings.append(f"{name}: invocations[{index}] committed {left} ≠ recorded {right}")
+                break
+    committed_reads = {str(entry) for entry in committed.get("reads") or []}
+    recorded_reads = {str(entry) for entry in recorded.get("reads") or []}
+    unlisted = sorted(recorded_reads - committed_reads)
+    unread = sorted(committed_reads - recorded_reads)
+    if unlisted:
+        findings.append(
+            f"{name}: the CI run read {len(unlisted)} path(s) the committed manifest does not list — the filter "
+            f"is held against a set that is too small: {_sample(unlisted)}"
+        )
+    if unread:
+        findings.append(
+            f"{name}: the committed manifest lists {len(unread)} path(s) the CI run did not read: {_sample(unread)}"
+        )
+    return findings
+
+
+def compare_manifests(committed_dir: Path, recorded_dir: Path) -> tuple[list[str], list[str]]:
+    """``(findings, notes)`` of the committed manifests against a CI recording of them.
+
+    Compared: ``reads`` (as sets), ``job_spec_sha256``, ``status`` and the
+    ``invocations`` (command, cwd, env, exit code — scratch paths normalised).
+    Not compared: when and where the recording ran (``measured_on``,
+    ``measured_at_commit``, ``subprocesses``, ``untracked_reads_dropped``) and
+    the hand-written fields a replay carries over verbatim. A manifest with
+    invocations that the recording lacks is a finding — its record leg failed
+    or never ran, and silence there would read as agreement. A recorded manifest
+    with no committed counterpart (a bootstrapped delegation target) is a
+    finding too: it exists to be committed.
+    """
+    committed = {path.name: load_manifest(path) for path in sorted(committed_dir.glob("*.yaml"))}
+    recorded = (
+        {path.name: load_manifest(path) for path in sorted(recorded_dir.glob("*.yaml"))}
+        if recorded_dir.is_dir()
+        else {}
+    )
+    findings: list[str] = []
+    notes: list[str] = []
+    for name, manifest in committed.items():
+        if not any(isinstance(entry, dict) for entry in manifest.get("invocations") or []):
+            notes.append(f"{name}: no invocation to replay — {manifest.get('empty_reads_reason') or 'no reason given'}")
+            continue
+        counterpart = recorded.get(name)
+        if counterpart is None:
+            findings.append(
+                f"{name}: the CI lane recorded no manifest for it — its record leg failed or did not run, so the "
+                f"committed read set is unverified; see that leg's log"
+            )
+            continue
+        findings += manifest_differences(name, manifest, counterpart)
+    for name in sorted(set(recorded) - set(committed)):
+        findings.append(f"{name}: recorded in CI and not committed — commit it (a delegation target's first manifest)")
+    return findings, notes
+
+
+def command_compare(args: argparse.Namespace) -> int:
+    recorded_dir = Path(args.recorded_dir)
+    committed_dir = Path(args.committed_dir) if args.committed_dir else MANIFEST_DIR
+    findings, notes = compare_manifests(committed_dir, recorded_dir)
+    run = args.run_id or "<run-id>"
+    lines = [f"lane-inputs compare: {len(findings)} finding(s), {len(notes)} note(s)"]
+    lines += [f"  FINDING {finding}" for finding in findings]
+    lines += [f"  note    {note}" for note in notes]
+    if findings:
+        lines += [
+            "",
+            "The committed manifests disagree with what this run recorded. Do not edit `reads` by hand; commit",
+            "the CI recording instead:",
+            f"  gh run download {run} -n lane-inputs -D /tmp/lane-inputs-{run}",
+            f"  cp /tmp/lane-inputs-{run}/*.yaml .github/lane-inputs/",
+            "then re-run the guard (tests/unit/guards/test_lane_filters_cover_measured_inputs.py) against the result.",
+        ]
+    text = "\n".join(lines)
+    print(text)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with Path(summary).open("a", encoding="utf-8") as handle:
+            handle.write("```\n" + text + "\n```\n")
+    return EXIT_FINDINGS if findings else EXIT_OK
 
 
 # -------------------------------------------------------------------------- show
@@ -747,6 +1295,16 @@ def _parser() -> argparse.ArgumentParser:
             help="paths-filter filter name that gates this job (omit for an on:-level paths filter)",
         )
         p.add_argument("--append", action="store_true", help="merge into the existing manifest instead of replacing it")
+        p.add_argument(
+            "--unfiltered",
+            action="store_true",
+            help="the job has no relevance filter (gate.kind unfiltered): recorded because a covered_by names it",
+        )
+        p.add_argument(
+            "--manifest-dir",
+            default=None,
+            help="write the manifest here instead of .github/lane-inputs/ (the CI replay's output directory)",
+        )
 
     record = sub.add_parser("record", help="run an invocation under strace and record its tracked reads")
     lane_arguments(record)
@@ -789,6 +1347,22 @@ def _parser() -> argparse.ArgumentParser:
     derive.add_argument("--context", required=True)
     derive.add_argument("--dockerfile", required=True)
     derive.set_defaults(func=command_derive_docker)
+
+    replay = sub.add_parser("replay", help="re-record a manifest's own invocations (the CI lane, #1683)")
+    replay.add_argument("lane", help="a manifest path, or WORKFLOW/JOB for a delegation target with no manifest yet")
+    replay.add_argument("--out-dir", required=True, help="where the re-recorded manifest is written")
+    replay.add_argument("--dry-run", action="store_true", help="print the record commands, run nothing")
+    replay.set_defaults(func=command_replay)
+
+    plan = sub.add_parser("plan", help="the CI lane's matrix: one leg per lane to record")
+    plan.add_argument("--github-output", default=None, help="append `matrix=<json>` to this file")
+    plan.set_defaults(func=command_plan)
+
+    compare = sub.add_parser("compare", help="the committed manifests against a CI recording of them")
+    compare.add_argument("recorded_dir")
+    compare.add_argument("--committed-dir", default=None, help="default: .github/lane-inputs/")
+    compare.add_argument("--run-id", default=None, help="the run whose `lane-inputs` artifact holds the recording")
+    compare.set_defaults(func=command_compare)
 
     show = sub.add_parser("show", help="summarise a manifest")
     show.add_argument("manifest")

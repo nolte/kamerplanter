@@ -1,0 +1,48 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: lane-inputs.yml
+job: record
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-24'
+measured_at_commit: 84bdf692f1de0ed50435d217799a85007e1cfb49
+job_spec_sha256: c51dc99b670ef5abd39ed37c8caeea9755690d50b75697ed2181060c9dd30b7a
+invocations:
+- command: python3 scripts/ci/lane_inputs.py replay --dry-run --out-dir /tmp/lane-inputs-scratch/recorded .github/lane-inputs/side-services--libs.yaml
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 0
+- command: python3 scripts/ci/lane_inputs.py replay --dry-run --out-dir /tmp/lane-inputs-scratch/recorded backend-guards.yml/guards
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 1
+unrecorded_invocations:
+- command: python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" "$LANE"
+  reason: 'This job IS the recorder: the replay runs every invocation of one manifest under strace, and ptrace cannot nest,
+    so it cannot itself be recorded. invocations[] records the same command with --dry-run for a manifest leg and a bootstrap
+    leg, which is every file the replay opens on its own account (the manifest, the workflow a bootstrap reads, the script).
+    What the replayed invocations read is the OBJECT of the measurement, written into each lane''s own manifest, not an input
+    of this job''s verdict. A change outside this filter that alters some lane''s reads is found by the weekly scheduled run
+    (#1683).'
+subprocesses:
+- git
+- python3
+accepted_gaps:
+- pattern: scripts/ci/
+  reason: The listing is Python's import-path scan of sys.path[0] (the script's own directory), made while resolving `import
+    yaml` and the stdlib; no file under scripts/ci/ is read. Only a new module there that shadows one of those imports could
+    change this job's verdict, and scripts/ci/lane_inputs.py - the one file that is read - is in the filter.
+reads:
+- .github/lane-inputs/side-services--libs.yaml
+- .github/workflows/backend-guards.yml
+- scripts/ci/
+- scripts/ci/lane_inputs.py

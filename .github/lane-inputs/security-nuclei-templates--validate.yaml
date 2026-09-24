@@ -24,7 +24,7 @@ invocations:
   exit_code: 0
   env: []
   untracked_reads_dropped: 0
-- command: bash -c find tests/security/nuclei-templates -name '*.yaml' -type f | wc -l
+- command: bash -c 'find tests/security/nuclei-templates -name '"'"'*.yaml'"'"' -type f | wc -l'
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0

@@ -12,8 +12,8 @@ measured_on: '2026-09-23'
 measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
 job_spec_sha256: 47b77e553245cc387ebe639dbd4b14d7bbc7d26501c87d7179594259f3ba48a3
 invocations:
-- command: bash -c VERSION_NUM="${VERSION#v}"; sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/docker-compose-x.yml;
-    cp .env.example /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/.env.example-x
+- command: bash -c 'VERSION_NUM="${VERSION#v}"; sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/docker-compose-x.yml;
+    cp .env.example /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/.env.example-x'
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
