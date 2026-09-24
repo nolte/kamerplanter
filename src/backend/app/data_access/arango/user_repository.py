@@ -3,6 +3,7 @@ from arango.database import StandardDatabase
 from app.common.types import UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.erasure_executor import ArangoErasureExecutor
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User
@@ -146,8 +147,7 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         """One user by an exact match on a token attribute, or ``None``.
 
         ``attribute`` is interpolated because AQL cannot bind an attribute name;
-        it is a code constant at both call sites and never a caller value, the
-        same rule :meth:`_remove_docs_for_user` states for its collection name.
+        it is a code constant at both call sites and never a caller value.
         ``token`` is bound.
 
         A ``token`` of ``None`` would otherwise match every user that has no such
@@ -170,41 +170,29 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         return User(**self._from_doc(docs[0]))
 
     def delete(self, key: UserKey) -> bool:
-        """Delete a user and cascade every account-owned artefact (#1019, #1622).
+        """Delete a user and cascade every account-owned artefact (#1019, #1622, #1664).
 
-        The collections are **not** written down here. Until #1622 they were —
-        eight hand-written names beside a declared erasure plan of 26 entries
-        that nothing read, and the two differed by 23. This walks
-        :meth:`ErasureEngine.build_erasure_plan` and executes exactly the steps
-        the plan attributes to ``account_cascade``, so the inventory an auditor
-        reads is the inventory that runs. Adding a collection to the cascade
-        means declaring it; there is no second place to forget.
+        Runs the ``account_cascade`` slice of the declared erasure plan through
+        :class:`ArangoErasureExecutor` — the same executor the full account
+        erasure (:meth:`PrivacyService.erase_account`) uses, so there is one
+        walk of the inventory and not two. Until #1664 this method carried its
+        own copy of that walk; a second copy is how the #1622 inventories
+        drifted.
 
-        Memberships stay attributed to ``membership_cascade`` and are removed by
-        :meth:`UserService.delete_account_permanently` *before* this call (their
-        per-tenant storage walk needs them alive).
+        This is the *narrow* delete: auth providers, sessions, API keys,
+        preferences, onboarding state and the user document. It does not remove
+        memberships or apply the anonymisation rules. Its one production caller
+        is the unverified-account cleanup (``auth_tasks.cleanup_unverified_accounts``);
+        a real account deletion goes through ``PrivacyService.erase_account``.
+
+        Returns whether the user document was removed.
         """
-        user_id = f"{col.USERS}/{key}"
-        deleted = False
-        for step in ErasureEngine().build_erasure_plan(key).steps:
-            if step.executor != "account_cascade":
-                continue
-            if step.kind == "edge":
-                self.delete_edges(step.collection, user_id)
-            elif step.kind == "document":
-                self._remove_docs_for_user(step.collection, key)
-            elif step.kind == "user":
-                deleted = super().delete(key)
-        return deleted
-
-    def _remove_docs_for_user(self, collection: str, key: UserKey) -> None:
-        """Remove every document in ``collection`` carrying ``user_key == key``.
-
-        The collection name is always a ``collections.py`` code constant, so it
-        is interpolated (never a caller value); ``key`` is bound.
-        """
-        query = f"FOR doc IN {collection} FILTER doc.user_key == @key REMOVE doc IN {collection}"
-        self._db.aql.execute(query, bind_vars={"key": key})
+        report = ArangoErasureExecutor(self._db).run_erasure_plan(
+            ErasureEngine().build_erasure_plan(key),
+            tombstone=None,
+            executors=("account_cascade",),
+        )
+        return report.affected(self._collection_name) > 0
 
     def list_all(self) -> list[User]:
         """Every user, newest first (platform-admin listing, #1019)."""

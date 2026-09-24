@@ -3,26 +3,33 @@
 from datetime import UTC, datetime
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
+from app.data_access.arango import collections as col
 from app.domain.engines.consent_engine import DIARY_AI_ANALYSIS, ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
-from app.domain.models.auth import AuthProvider, RefreshToken
-from app.domain.models.harvest import HarvestBatch
+from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
+from app.domain.models.harvest import HarvestBatch, QualityAssessment, YieldMetric
 from app.domain.models.identification import IdentificationRequest
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.membership import Membership
+from app.domain.models.onboarding import OnboardingState
+from app.domain.models.pest_detection import PestDetection
+from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.privacy import (
     ConsentRecord,
     DataExportRequest,
     EmailChangeRequest,
+    ErasurePlan,
     ErasureRequest,
+    ErasureStep,
     ProcessingRestriction,
 )
 from app.domain.models.task import Task
 from app.domain.models.user import User
+from app.domain.models.user_preference import UserPreference
 
 #: Which domain model backs each collection of the export manifest / the
 #: anonymisation rules. Used to check declared field names against reality —
@@ -39,10 +46,26 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "data_export_requests": DataExportRequest,
     "tasks": Task,
     "harvest_batches": HarvestBatch,
+    "quality_assessments": QualityAssessment,
     "inspections": Inspection,
     "treatment_applications": TreatmentApplication,
     "plant_diary_entries": PlantDiaryEntry,
     "identification_requests": IdentificationRequest,
+}
+
+
+#: The erasure inventory reaches collections the export manifest does not
+#: declare (account plumbing, pest detections, pest reference images). Built
+#: explicitly rather than derived from a registry: a document step whose
+#: collection is missing here fails the field-existence test by name instead of
+#: being skipped (#1663).
+ERASURE_COLLECTION_MODELS: dict[str, type[BaseModel]] = {
+    **COLLECTION_MODELS,
+    "api_keys": ApiKey,
+    "user_preferences": UserPreference,
+    "onboarding_states": OnboardingState,
+    "pest_detections": PestDetection,
+    "pest_image_contributions": PestImageContribution,
 }
 
 
@@ -135,6 +158,7 @@ class TestDataExportEngine:
         by_collection = {e.collection: e for e in engine.build_export_manifest("u1")}
         expected = {
             "harvest_batches": "harvested_by_key",
+            "quality_assessments": "assessed_by_key",
             "inspections": "inspected_by_key",
             "treatment_applications": "applied_by_key",
         }
@@ -143,10 +167,13 @@ class TestDataExportEngine:
             assert entry.filter_field == key_field, collection
             assert entry.disclosure_gap is None, collection
             assert entry.attribution_gap, f"{collection}: the legacy null rows must be stated"
-            assert entry.tenant_scoped is True, collection
+            # ``quality_assessments`` carries no ``tenant_key`` (it hangs off its
+            # batch), so a tenant clause would match nothing (#1663).
+            assert entry.tenant_scoped is (collection != "quality_assessments"), collection
             # The display name is not what the walk keys on, and it is not
             # delivered as if it were an attribution.
-            assert entry.filter_field not in ("harvester", "inspector", "applied_by")
+            assert entry.filter_field not in ("harvester", "inspector", "applied_by", "assessed_by")
+        assert "v0057" in by_collection["quality_assessments"].attribution_gap
         # No production source is undisclosable any more; the mechanism stays
         # (``DataSourceDefinition.disclosure_gap``) for a future category.
         assert not [e.collection for e in by_collection.values() if e.disclosure_gap]
@@ -311,6 +338,7 @@ class TestErasureEngine:
         rules = {rule.collection: rule for rule in pseudonymised}
         expected = {
             "harvest_batches": ("harvested_by_key", "harvester"),
+            "quality_assessments": ("assessed_by_key", "assessed_by"),
             "inspections": ("inspected_by_key", "inspector"),
             "treatment_applications": ("applied_by_key", "applied_by"),
         }
@@ -323,12 +351,29 @@ class TestErasureEngine:
         display_keyed = [
             f"{rule.collection}.{rule.user_field}"
             for rule in engine.ANONYMIZE_COLLECTIONS
-            if rule.user_field in ("harvester", "inspector", "applied_by")
+            if rule.user_field in ("harvester", "inspector", "applied_by", "assessed_by")
         ]
         assert display_keyed == [], "an inert free-text rule survived beside the key rule"
         # Exactly one rule per retained collection: replaced, not duplicated.
         for collection in expected:
             assert sum(1 for rule in engine.ANONYMIZE_COLLECTIONS if rule.collection == collection) == 1
+
+    def test_yield_metrics_carries_no_user_field_and_therefore_no_rule(self):
+        """#1663 — NFR-011 R-16 names ``yield_metrics``, but there is nobody in it.
+
+        Measured: ``YieldMetric`` holds weights, a waste percentage and its
+        batch key. An anonymisation rule needs a field to match the subject on;
+        declaring one here would address a field that does not exist. Should a
+        user reference ever be added to the model, this goes red and the rule
+        has to be written.
+        """
+        user_like = [
+            name
+            for name in YieldMetric.model_fields
+            if name.endswith(("_by", "_by_key", "user_key")) or name in ("created_by", "owner")
+        ]
+        assert user_like == []
+        assert "yield_metrics" not in {rule.collection for rule in ErasureEngine.ANONYMIZE_COLLECTIONS}
 
     def test_anonymized_collection_names_are_reported_once(self):
         """AK-08a — the confirmation lists categories, not rules."""
@@ -338,6 +383,140 @@ class TestErasureEngine:
         assert names.count("plant_diary_entries") == 1
         assert len(names) == len(set(names))
         assert set(names) == {rule.collection for rule in engine.ANONYMIZE_COLLECTIONS}
+
+
+class TestErasureStepUserField:
+    """#1663 — every step that filters a collection says which field it filters on."""
+
+    def test_every_document_step_user_field_exists_on_its_model(self):
+        """A step keyed on a missing field deletes nothing and reports success.
+
+        The collection->model map is explicit (``ERASURE_COLLECTION_MODELS``);
+        a document step whose collection has no entry fails here by name —
+        a ``.get()`` that skipped it would be the vacuum this test exists for.
+        """
+        unmapped: list[str] = []
+        unknown: list[str] = []
+        for step in ErasureEngine.DELETE_STEPS:
+            if step.kind != "document":
+                continue
+            model = ERASURE_COLLECTION_MODELS.get(step.collection)
+            if model is None:
+                unmapped.append(step.collection)
+                continue
+            if step.user_field not in _model_field_names(model):
+                unknown.append(f"{step.collection}.{step.user_field}")
+        assert unmapped == [], "extend ERASURE_COLLECTION_MODELS for these document steps"
+        assert unknown == []
+
+    def test_every_anonymisation_and_pseudonymisation_field_exists_on_its_model(self):
+        """``user_field`` and every ``clear_fields`` entry, for all rules — no skip."""
+        rules = [
+            *((rule.collection, rule.user_field, rule.clear_fields) for rule in ErasureEngine.ANONYMIZE_COLLECTIONS),
+            *((rule.collection, rule.user_field, []) for rule in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS),
+        ]
+        unmapped = [collection for collection, _f, _c in rules if collection not in ERASURE_COLLECTION_MODELS]
+        assert unmapped == []
+        unknown = [
+            f"{collection}.{field}"
+            for collection, user_field, clear_fields in rules
+            for field in (user_field, *clear_fields)
+            if field not in _model_field_names(ERASURE_COLLECTION_MODELS[collection])
+        ]
+        assert unknown == []
+
+    def test_every_edge_endpoint_matches_the_graph_definition(self):
+        """The direction is measured against the named graph, not assumed.
+
+        A prior manifest bug declared ``membership_in`` as if it touched the
+        user; it runs ``memberships -> tenants``. Without ``via`` the declared
+        endpoint must be able to hold ``users/<key>``; with ``via`` it must be
+        able to hold a document of that collection.
+        """
+        definitions = {d["edge_collection"]: d for d in col.GRAPH_EDGE_DEFINITIONS}
+        wrong: list[str] = []
+        for step in ErasureEngine.DELETE_STEPS:
+            if step.kind != "edge":
+                continue
+            definition = definitions.get(step.collection)
+            assert definition is not None, f"edge step '{step.collection}' is not in the named graph"
+            side = "from_vertex_collections" if step.user_field == "_from" else "to_vertex_collections"
+            expected = step.via or col.USERS
+            if expected not in definition[side]:
+                wrong.append(f"{step.collection}.{step.user_field} -> {definition[side]} (expected {expected})")
+        assert wrong == []
+
+    def test_a_via_edge_precedes_the_document_step_that_matches_its_endpoint(self):
+        """The executor resolves a ``via`` edge through its parent documents.
+
+        Removing ``memberships`` first leaves nothing for ``membership_in`` to
+        be matched against — the edges would survive as orphans.
+        """
+        order = ErasureEngine.delete_order()
+        documents = {step.collection: step for step in ErasureEngine.DELETE_STEPS if step.kind == "document"}
+        vias = [step for step in ErasureEngine.DELETE_STEPS if step.kind == "edge" and step.via]
+        assert vias, "guard against a vacuous loop: membership_in and the pest-detection edges use via"
+        for step in vias:
+            assert step.via in documents, f"'{step.collection}' is reached via '{step.via}', which has no document step"
+            assert order.index(step.collection) < order.index(step.via), step.collection
+
+    def test_every_user_keyed_step_runs_before_the_audit_pseudonymisation(self):
+        """#1663 — after ``erasure_requests.user_key`` is hashed, the key is gone.
+
+        Every step that finds its rows by the subject's key — edges, documents
+        and the anonymisation phase — has to have run by then; the user
+        document comes last.
+        """
+        order = ErasureEngine.delete_order()
+        audit = order.index("_pseudonymize_audit_collections")
+        keyed = [step.collection for step in ErasureEngine.DELETE_STEPS if step.kind in ("edge", "document")]
+        assert keyed, "guard against a vacuous loop"
+        late = [name for name in [*keyed, "_anonymize_collections"] if order.index(name) > audit]
+        assert late == []
+        assert order[-1] == "users"
+
+    @pytest.mark.parametrize("kind", ["edge", "document"])
+    def test_a_filtered_step_without_a_user_field_is_refused(self, kind):
+        with pytest.raises(ValueError, match="user_field"):
+            ErasureStep(collection="x", kind=kind, executor="account_erasure")
+
+    @pytest.mark.parametrize("kind", ["user", "phase"])
+    def test_a_user_or_phase_step_takes_no_user_field(self, kind):
+        with pytest.raises(ValueError, match="filters nothing"):
+            ErasureStep(collection="x", kind=kind, executor="account_erasure", user_field="user_key")
+
+    def test_an_edge_keyed_on_a_document_field_is_refused(self):
+        with pytest.raises(ValueError, match="_from or _to"):
+            ErasureStep(collection="has_x", kind="edge", executor="account_erasure", user_field="user_key")
+
+    def test_a_document_keyed_on_an_edge_endpoint_is_refused(self):
+        with pytest.raises(ValueError, match="edge endpoint"):
+            ErasureStep(collection="x", kind="document", executor="account_erasure", user_field="_from")
+
+    def test_via_is_refused_on_a_document(self):
+        with pytest.raises(ValueError, match="via applies to edges only"):
+            ErasureStep(collection="x", kind="document", executor="account_erasure", user_field="user_key", via="y")
+
+
+class TestErasurePhaseNames:
+    """#1664 — the executor recognises the two ArangoDB phases by name."""
+
+    def test_both_phase_constants_name_a_declared_phase_step(self):
+        phases = {s.collection for s in ErasureEngine.DELETE_STEPS if s.kind == "phase"}
+        assert ErasureEngine.ANONYMIZE_PHASE in phases
+        assert ErasureEngine.PSEUDONYMIZE_AUDIT_PHASE in phases
+
+    def test_every_phase_is_either_an_arango_phase_or_owned_by_a_non_arango_executor(self):
+        """A phase the ArangoDB executor neither implements nor delegates would be refused at runtime."""
+        arango = {ErasureEngine.ANONYMIZE_PHASE, ErasureEngine.PSEUDONYMIZE_AUDIT_PHASE}
+        unhandled = [
+            s.collection
+            for s in ErasureEngine.DELETE_STEPS
+            if s.kind == "phase"
+            and s.collection not in arango
+            and s.executor not in ("storage_cleanup", "reference_index_cleanup")
+        ]
+        assert unhandled == []
 
 
 class TestConsentEngine:
@@ -410,3 +589,46 @@ class TestConsentEngine:
         assert purpose.required is False
         # optional purpose: blocked without consent, allowed once granted
         assert engine.is_processing_allowed("plant_diagnosis", consent=None) is False
+
+
+class TestErasureConfirmationAndTombstoneShape:
+    """#1645 — helpers the scheduled erasure and its confirmation read."""
+
+    def test_deleted_names_are_the_document_and_user_steps_in_declared_order(self):
+        names = ErasureEngine().deleted_collection_names()
+        expected = [s.collection for s in ErasureEngine.DELETE_STEPS if s.kind in ("document", "user")]
+        assert names == expected
+        assert names[-1] == "users"
+        assert not any(name.startswith("_") for name in names), "a phase is not a category"
+
+    def test_a_computed_tombstone_is_recognised(self):
+        assert ErasureEngine.is_tombstone(ErasureEngine.compute_tombstone_hash("u-1", "s" * 32))
+
+    @pytest.mark.parametrize(
+        "value",
+        ["u-1", "anon_", "anon_0123456789abcdeZ", "anon_0123456789abcdef0", "xanon_0123456789abcdef", ""],
+    )
+    def test_anything_else_is_not(self, value):
+        assert not ErasureEngine.is_tombstone(value)
+
+
+class TestErasurePlanUserKey:
+    """#1664 — a plan must name the user it erases.
+
+    Every executor filter is ``doc[@field] == @user_key``; with an empty key it
+    matches each unattributed row (``pest_detections.user_key`` defaults to
+    ``""``) and erases other users' data.
+    """
+
+    @pytest.mark.parametrize("user_key", ["", "   ", "\t\n"])
+    def test_an_empty_or_blank_user_key_is_rejected_by_the_model(self, user_key):
+        with pytest.raises(ValidationError):
+            ErasurePlan(user_key=user_key)
+
+    @pytest.mark.parametrize("user_key", ["", "   "])
+    def test_the_engine_cannot_build_a_plan_without_a_user_key(self, user_key):
+        with pytest.raises(ValidationError):
+            ErasureEngine().build_erasure_plan(user_key)
+
+    def test_surrounding_whitespace_is_stripped(self):
+        assert ErasurePlan(user_key=" u-1 ").user_key == "u-1"

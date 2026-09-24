@@ -88,6 +88,14 @@ class QualityAssessment(BaseModel):
     batch_key: str = ""
     assessed_at: datetime | None = None
     assessed_by: str = Field(default="", max_length=200)
+    # Which *account* recorded the assessment (#1663, same shape as
+    # ``HarvestBatch.harvested_by_key``). ``assessed_by`` is a typed-in display
+    # name and stays exactly that; this field is set by the server from the
+    # caller's key on every create path, never from a request body. ``None``
+    # means a row written before #1663 (v0057 stamps it explicitly): such a row
+    # cannot be attributed, and neither the Art. 15 walk nor the Art. 17 rule
+    # reaches it.
+    assessed_by_key: str | None = None
     appearance_score: float = Field(default=0, ge=0, le=100)
     aroma_score: float = Field(default=0, ge=0, le=100)
     color_score: float = Field(default=0, ge=0, le=100)

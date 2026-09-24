@@ -178,12 +178,6 @@ class InMemoryMembershipRepo:
     def count(self) -> int:
         return len(self._store)
 
-    def delete_all_for_user(self, user_key: str) -> int:
-        keys = [k for k, m in self._store.items() if m.user_key == user_key]
-        for k in keys:
-            self.delete(k)
-        return len(keys)
-
 
 def _tenant(key: str, name: str, slug: str, *, is_active: bool = True, is_platform: bool = False) -> Tenant:
     return Tenant(
@@ -240,7 +234,6 @@ class Backend:
         self.user_service = UserService(
             self.user_repo,  # type: ignore[arg-type]
             MagicMock(),
-            self.membership_repo,  # type: ignore[arg-type]
         )
 
         app = FastAPI()
@@ -446,17 +439,3 @@ class TestReadsRouteThroughServices:
         assert len(rows) == 1
         assert rows[0]["email"] == "alice@example.com"
         assert rows[0]["membership_key"] == "m-1"
-
-
-# ── delete_user cascade removes memberships before the user (SEC-003 order) ────
-
-
-class TestDeleteUserCascade:
-    def test_permanent_delete_removes_memberships_then_the_user(self, backend):
-        backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-1", role=TenantRole.GROWER))
-        backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-2", role=TenantRole.VIEWER))
-
-        backend.user_service.delete_account_permanently("u-1")
-
-        assert backend.membership_repo._store == {}
-        assert backend.user_repo.deleted == ["u-1"]

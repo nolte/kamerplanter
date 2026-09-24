@@ -1,6 +1,7 @@
 """Pure logic for REQ-025 erasure orchestration (Art. 17)."""
 
 import hashlib
+import re
 
 from app.domain.models.privacy import (
     AnonymizationRule,
@@ -19,14 +20,25 @@ from app.domain.models.privacy import (
 #: free of a data-access import (NFR-001).
 ANONYMIZED_MARKER = "_anonymized"
 
+#: The exact shape :meth:`ErasureEngine.compute_tombstone_hash` produces.
+_TOMBSTONE_PATTERN = re.compile(r"anon_[0-9a-f]{16}")
+
 
 class ErasureEngine:
     """Defines the deletion order, anonymisation rules and storage-cleanup steps.
 
-    Pure-logic engine. No I/O. The Celery task that executes the plan walks
-    the steps in declared order: storage cleanup -> edges -> documents ->
-    audit-log pseudonymisation -> user document.
+    Pure-logic engine. No I/O. ``PrivacyService.erase_account`` executes the
+    plan in declared order: storage cleanup -> edges -> documents ->
+    anonymisation -> audit-log pseudonymisation -> user document. The ArangoDB
+    part runs in ``ArangoErasureExecutor`` (#1664).
     """
+
+    #: Names of the two ArangoDB phase steps in :attr:`DELETE_STEPS`. The
+    #: executor recognises a phase by these names; the inventory spells them as
+    #: literals because ``scripts/check_privacy_inventory.py`` reads it without
+    #: importing it, and ``test_privacy_engines.py`` pins that both agree.
+    ANONYMIZE_PHASE = "_anonymize_collections"
+    PSEUDONYMIZE_AUDIT_PHASE = "_pseudonymize_audit_collections"
 
     # Collections whose user references must be retained — either for legal
     # compliance (CanG, PflSchG) or because the document belongs to a record of
@@ -34,13 +46,14 @@ class ErasureEngine:
     # marker; the document itself survives. A collection may appear more than
     # once when it carries several user references (see ``plant_diary_entries``).
     #
-    # The three retention rules key on the server-set ``*_by_key`` fields
-    # (#1669). Until then they keyed on ``harvester`` / ``applied_by`` /
-    # ``inspector`` — free text typed by the user — and were inert: a rule that
-    # matches "whatever was typed" never finds the account being erased
-    # (measured on #1662, recorded on #1663). Those rules are **replaced**, not
-    # kept beside these, so no reader can mistake the old shape for a second
-    # path. Rows written before #1669 carry ``null`` in the key field and are
+    # The four retention rules key on the server-set ``*_by_key`` fields (#1669;
+    # ``quality_assessments.assessed_by_key`` since #1663). Until then they
+    # keyed on ``harvester`` / ``applied_by`` / ``inspector`` — free text typed
+    # by the user — and were inert: a rule that matches "whatever was typed"
+    # never finds the account being erased (measured on #1662, recorded on
+    # #1663). Those rules are **replaced**, not kept beside these, so no reader
+    # can mistake the old shape for a second path. Rows written before #1669
+    # (#1663 for quality assessments) carry ``null`` in the key field and are
     # not reached by design — guessing an owner from the free text is exactly
     # the backfill the issue forbids.
     ANONYMIZE_COLLECTIONS: list[AnonymizationRule] = [
@@ -53,6 +66,20 @@ class ErasureEngine:
                 "CanG: 5-year retention for harvest documentation. The account key becomes a "
                 "tombstone hash so the erased user's harvests stay linkable to each other for "
                 "the audit; the free-text harvester name is cleared."
+            ),
+        ),
+        AnonymizationRule(
+            # #1663 — the assessment belongs to the harvest record (NFR-011
+            # R-16 lists ``quality_assessments`` beside ``harvest_batches``).
+            # ``yield_metrics`` is R-16 too but carries no user field at all
+            # (``models/harvest.py::YieldMetric``), so it needs no rule.
+            collection="quality_assessments",
+            user_field="assessed_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["assessed_by"],
+            reason=(
+                "NFR-011 R-16 / CanG: 5-year retention for harvest documentation, including the "
+                "quality assessment. Key pseudonymised, free-text assessor name cleared."
             ),
         ),
         AnonymizationRule(
@@ -200,11 +227,16 @@ class ErasureEngine:
     # in neither the plan nor the export manifest, so the documented inventory
     # understated what the system holds.
     #
-    # There is now one list, and every entry says who removes it. An entry
-    # carrying ``retention_worker`` is declared but **not executed** — the
-    # NFR-011 ArangoDB deletion worker does not exist yet. That is a statement
-    # about the system, not a placeholder: it is the honest form of a gap that
-    # was previously invisible because the two lists never met.
+    # There is now one list, and every entry says who removes it. Every
+    # ArangoDB entry — whatever its attribution — is executed by
+    # ``ArangoErasureExecutor`` whenever ``PrivacyService.erase_account`` runs,
+    # and both account-deletion paths run it: the platform-admin delete (#1664)
+    # and the scheduled self-service Art. 17 erasure,
+    # ``PrivacyService._finalize_erasure`` (#1645). The attribution says which
+    # *further* reader a step has: ``account_cascade`` is also run by
+    # ``ArangoUserRepository.delete`` (unverified-account cleanup),
+    # ``pest_image_cleanup`` by the REQ-010 pest-image cleanup; ``account_erasure``
+    # has no reader but ``erase_account``. See ``ErasureExecutor`` for the set.
     #
     # Order is load-bearing: phases first, then edges, then documents, then the
     # user document, so no orphan edge survives its endpoint.
@@ -215,36 +247,116 @@ class ErasureEngine:
             kind="phase",
             executor="reference_index_cleanup",
         ),
-        ErasureStep(collection="requested_export", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="has_consent", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="has_restriction", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="requested_erasure", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="requested_email_change", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="has_auth_provider", kind="edge", executor="account_cascade"),
-        ErasureStep(collection="has_session", kind="edge", executor="account_cascade"),
-        ErasureStep(collection="membership_in", kind="edge", executor="membership_cascade"),
-        ErasureStep(collection="memberships", kind="document", executor="membership_cascade"),
-        ErasureStep(collection="data_export_requests", kind="document", executor="retention_worker"),
-        ErasureStep(collection="consent_records", kind="document", executor="retention_worker"),
-        ErasureStep(collection="processing_restrictions", kind="document", executor="retention_worker"),
-        ErasureStep(collection="email_change_requests", kind="document", executor="retention_worker"),
-        ErasureStep(collection="auth_providers", kind="document", executor="account_cascade"),
-        ErasureStep(collection="refresh_tokens", kind="document", executor="account_cascade"),
-        ErasureStep(collection="api_keys", kind="document", executor="account_cascade"),
-        ErasureStep(collection="user_preferences", kind="document", executor="account_cascade"),
-        ErasureStep(collection="onboarding_states", kind="document", executor="account_cascade"),
-        ErasureStep(collection="identification_requests", kind="document", executor="retention_worker"),
+        # Every edge below that has no ``via`` runs ``users -> <document>``: the
+        # graph definition in ``collections.py`` declares ``USERS`` as its only
+        # ``from`` collection and each repository inserts it with the user id as
+        # ``_from`` (e.g. ``data_export_repository.py`` ``create_edge(REQUESTED_EXPORT,
+        # user_id, export_id)``). ``test_privacy_engines.py`` pins every endpoint
+        # against the graph definition rather than trusting this comment.
+        ErasureStep(collection="requested_export", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(collection="has_consent", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(collection="has_restriction", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(collection="requested_erasure", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(
+            collection="requested_email_change",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+        ),
+        ErasureStep(
+            # #1663 — written by ``FavoritesService`` (``_from`` = the user,
+            # ``_to`` = species / nutrient plan / fertilizer) and named in no
+            # erasure enumeration until now.
+            collection="user_favorites",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+        ),
+        ErasureStep(collection="has_auth_provider", kind="edge", executor="account_cascade", user_field="_from"),
+        ErasureStep(collection="has_session", kind="edge", executor="account_cascade", user_field="_from"),
+        ErasureStep(
+            # #1663 — ``api_key_repository.create`` writes this edge beside every
+            # key; the cascade removed the ``api_keys`` documents and left the
+            # edges pointing at nothing.
+            collection="has_api_key",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+        ),
+        ErasureStep(
+            # #1663 — ``users -> memberships``; ``delete_all_for_user`` has always
+            # removed it, the inventory never named it.
+            collection="has_membership",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+        ),
+        ErasureStep(
+            collection="membership_in",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="memberships",
+            note="memberships -> tenants; never touches users (membership_repository.create).",
+        ),
+        ErasureStep(collection="memberships", kind="document", executor="account_erasure", user_field="user_key"),
+        ErasureStep(
+            collection="data_export_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(collection="consent_records", kind="document", executor="account_erasure", user_field="user_key"),
+        ErasureStep(
+            collection="processing_restrictions",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            collection="email_change_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(collection="auth_providers", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="refresh_tokens", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="api_keys", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="user_preferences", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="onboarding_states", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(
+            collection="identification_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
         # REQ-044 §8 — pest detections are deleted (no legal retention basis);
         # edges first, then the document. ``beneficials`` is global reference
-        # data, not personal, and is intentionally left untouched.
-        ErasureStep(collection="pest_detection_of", kind="edge", executor="retention_worker"),
-        ErasureStep(collection="pest_detection_flagged", kind="edge", executor="retention_worker"),
+        # data, not personal, and is intentionally left untouched. The three
+        # edges start at the detection, not at the user, so they are reached
+        # ``via`` the subject's ``pest_detections`` (pest_detection_repository.create).
+        ErasureStep(
+            collection="pest_detection_of",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="pest_detections",
+        ),
+        ErasureStep(
+            collection="pest_detection_flagged",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="pest_detections",
+        ),
         ErasureStep(
             collection="pest_detection_suggested_inspection",
             kind="edge",
-            executor="retention_worker",
+            executor="account_erasure",
+            user_field="_from",
+            via="pest_detections",
         ),
-        ErasureStep(collection="pest_detections", kind="document", executor="retention_worker"),
+        ErasureStep(collection="pest_detections", kind="document", executor="account_erasure", user_field="user_key"),
         # REQ-010 §8 — user-contributed pest reference images are deleted (no
         # legal retention basis). Their attachment bytes are hard-deleted by the
         # ``user_pest_reference_images`` storage-cleanup rule (Phase 0); this
@@ -254,16 +366,18 @@ class ErasureEngine:
             collection="pest_image_contributions",
             kind="document",
             executor="pest_image_cleanup",
+            user_field="contributed_by",
+            note="Not user_key: the model has none (pest_image_repository.list_for_user).",
         ),
         ErasureStep(
             collection="_anonymize_collections",
             kind="phase",
-            executor="retention_worker",
+            executor="account_erasure",
         ),
         ErasureStep(
             collection="_pseudonymize_audit_collections",
             kind="phase",
-            executor="retention_worker",
+            executor="account_erasure",
         ),
         ErasureStep(collection="users", kind="user", executor="account_cascade"),
     ]
@@ -326,6 +440,17 @@ class ErasureEngine:
         """
         return [step for step in cls.DELETE_STEPS if step.executor == executor]
 
+    def deleted_collection_names(self) -> list[str]:
+        """Collections whose rows of the subject are removed outright, in declared order.
+
+        The other half of the REQ-025 AK-08a confirmation beside
+        :meth:`anonymized_collection_names`: the *document* and *user* steps of
+        :attr:`DELETE_STEPS`. Edges are the graph's plumbing between those
+        documents, not a category of data a user would recognise, and phases are
+        not collections.
+        """
+        return [step.collection for step in self.DELETE_STEPS if step.kind in ("document", "user")]
+
     def anonymized_collection_names(self) -> list[str]:
         """Collection names touched by :attr:`ANONYMIZE_COLLECTIONS`, each once.
 
@@ -340,6 +465,19 @@ class ErasureEngine:
             if rule.collection not in names:
                 names.append(rule.collection)
         return names
+
+    @staticmethod
+    def is_tombstone(value: str) -> bool:
+        """True when *value* has the exact shape of a :meth:`compute_tombstone_hash` result.
+
+        The audit pseudonymisation writes this hash into ``erasure_requests.user_key``
+        inside the same ArangoDB transaction that removes the user document, so an
+        erasure request carrying one has had its ArangoDB plan committed. Running
+        the plan again with the hash as the "user key" would match nothing but the
+        audit rows themselves and rewrite them to a hash of the hash, breaking the
+        linkability NFR-011 R-06 keeps the hash for.
+        """
+        return _TOMBSTONE_PATTERN.fullmatch(value) is not None
 
     @staticmethod
     def compute_tombstone_hash(user_key: str, salt: str) -> str:

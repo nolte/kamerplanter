@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.4 (Sensor-Retention nach data_classification, ADR-003)
+Version: 1.5 (Eindeutige Retention-IDs, Umsetzungsstand markiert, #1663)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,8 +21,9 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.5 | 2026-09-23 | **#1663:** Die ID R-19 war doppelt vergeben (Gießdienst-Rotation in §2.1, Promotion-Audit-Log in §2.3). Das Promotion-Audit-Log heißt jetzt **R-24** (R-23 ist im `spec/knowledge/COMPLIANCE-PLAN.md` bereits für RAG-Anfragen vorgesehen); R-19 bleibt die Gießdienst-Rotation, auf die sich `spec/e2e-testcases/TC-NFR-011.md` bezieht. Die Zeilen R-19, R-19a, R-20, R-21 und R-24 sind als nicht implementiert gekennzeichnet — ihre Collections existieren im Code nicht. `quality_assessments` (R-16) wird seit #1663 über das serverseitige `assessed_by_key` anonymisiert; `yield_metrics` (R-16) trägt kein Nutzerfeld. |
 | 1.4 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** R-14 differenziert nach `Location.data_classification` (REQ-002): `OUTDOOR_OPEN` Stufe 2 = 5y, Stufe 3 = 20y (Opt-in); `GREENHOUSE` Stufe 3 = 10y (Opt-in); `INDOOR_*` und `UNKNOWN` weiterhin 5y. Forward-only-Klassifizierungs-Wechsel. Vier neue Settings. R-19a für Saison-Aggregate-Anonymisierung bei User-Löschung. |
-| 1.3 | 2026-04-27 | **ADR-002 (W-006 Promotion-Audit):** R-19 ergänzt — `promotion_audit_log`-Collection mit 5 Jahren Aufbewahrung. Begründung: Bei Sortenrechts-Streitigkeiten relevant; konsistent mit Erntedaten-Retention (R-16). |
+| 1.3 | 2026-04-27 | **ADR-002 (W-006 Promotion-Audit):** R-19 (seit v1.5: R-24) ergänzt — `promotion_audit_log`-Collection mit 5 Jahren Aufbewahrung. Begründung: Bei Sortenrechts-Streitigkeiten relevant; konsistent mit Erntedaten-Retention (R-16). |
 | 1.2 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** R-17 präzisiert: Aufbewahrungsfrist umfasst auch geerbte `to_plant`-Edges (Karenz-Snapshot beim Detach). Fristberechnung anhand Original-`applied_at`, nicht anhand `inherited_at`. Hard-Delete nach 3 Jahren entfernt Original-Treatment + alle abhängigen Edges (direkt, run, geerbt) im selben Schritt. |
 | 1.1 | 2026-04-27 | **W-002 Fix (Tombstone-Salt):** R-06 Maßnahme präzisiert (Pseudonymisierung sofort nach User-Hard-Delete + Hard-Delete des Audit-Eintrags nach 1 Jahr). Pflicht-Setting `ERASURE_TOMBSTONE_SALT` in §4 ergänzt — Backend startet ohne dieses Setting nicht (siehe REQ-025 §3.1). Compliance-Begründung: Art. 5(1)(e) Speicherbegrenzung. |
 | 1.0 | 2026-02-27 | Erstversion — Retention-Matrix R-01 bis R-15, Celery-Master-Task, TimescaleDB-Downsampling, Konfigurations-Defaults. |
@@ -83,11 +84,11 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-11 | Abgelaufene Refresh Tokens | `refresh_tokens` | Sofort nach Ablauf | Hard-Delete (TTL-Index besteht) | Zweckentfall | REQ-023 §2 |
 | R-12 | Einladungen (abgelaufen) | `invitations` | 30 Tage nach Ablauf | Hard-Delete | Zweckentfall | REQ-024 |
 | R-13 | Processing Restrictions | `processing_restrictions` | Unbegrenzt (bis Aufhebung durch Betroffenen) | Nur auf expliziten Wunsch entfernen | Art. 18 DSGVO | REQ-025 |
-| R-19 | Gießdienst-Rotation (DutyRotation) | `duty_rotations` | Unbegrenzt (bei User-Löschung: User-Referenz anonymisieren) | Anonymisierung: User-Referenz auf NULL, Dienst-Zeitraum bleibt | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
-| R-20 | Pinnwand-Beiträge (BulletinPost/Comment) | `bulletin_posts`, `bulletin_comments` | Bei User-Löschung: User-Referenz anonymisieren, Inhalt bleibt | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
-| R-21 | Einkaufslisten (SharedShoppingList) | `shared_shopping_lists` | Bei User-Löschung: User-Referenz anonymisieren | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
-| R-22 | Aufgaben-Bewertungen (Task difficulty/quality ratings) | `tasks` (Felder: `difficulty_rating`, `quality_rating`, `assigned_to`) | Bei User-Löschung: `assigned_to` auf NULL setzen, Bewertungen bleiben (aggregiert nutzbar) | Anonymisierung | Art. 17 Abs. 3 (Lern-System benötigt Aggregatdaten) | REQ-006 |
-| R-19a <!-- ADR-003 --> | Saison-Aggregate (`seasonal_cycles.sensor_aggregates`) | `seasonal_cycles` (Feld `aggregate_computed_by`) | Aggregate bleiben unbegrenzt (keine personenbezogenen Daten); bei User-Löschung `aggregate_computed_by → NULL` | Anonymisierung | Art. 17 Abs. 3 (fachliche Trendanalyse über Pflanzenleben) | REQ-003 v2.x, REQ-025 |
+| R-19 | Gießdienst-Rotation (DutyRotation) | `duty_rotations` | Unbegrenzt (bei User-Löschung: User-Referenz anonymisieren) | Anonymisierung: User-Referenz auf NULL, Dienst-Zeitraum bleibt | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 **Nicht implementiert** (Stand #1663): Die Collection `duty_rotations` existiert im Code nicht; es gibt keine Regel im Löschinventar (`ErasureEngine`). |
+| R-20 | Pinnwand-Beiträge (BulletinPost/Comment) | `bulletin_posts`, `bulletin_comments` | Bei User-Löschung: User-Referenz anonymisieren, Inhalt bleibt | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 **Nicht implementiert** (Stand #1663): Die Collections `bulletin_posts`/`bulletin_comments` existieren im Code nicht; es gibt keine Regel im Löschinventar (`ErasureEngine`). |
+| R-21 | Einkaufslisten (SharedShoppingList) | `shared_shopping_lists` | Bei User-Löschung: User-Referenz anonymisieren | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 **Nicht implementiert** (Stand #1663): Die Collection `shared_shopping_lists` existiert im Code nicht; es gibt keine Regel im Löschinventar (`ErasureEngine`). |
+| R-22 | Aufgaben-Bewertungen (Task difficulty/quality ratings) | `tasks` (Felder: `difficulty_rating`, `quality_rating`, `assigned_to_user_key`) | Bei User-Löschung: `assigned_to_user_key` durch den Marker `_anonymized` ersetzen (`ErasureEngine.ANONYMIZE_COLLECTIONS`), Bewertungen bleiben (aggregiert nutzbar) | Anonymisierung | Art. 17 Abs. 3 (Lern-System benötigt Aggregatdaten) | REQ-006 |
+| R-19a <!-- ADR-003 --> | Saison-Aggregate (`seasonal_cycles.sensor_aggregates`) | `seasonal_cycles` (Feld `aggregate_computed_by`) | Aggregate bleiben unbegrenzt (keine personenbezogenen Daten); bei User-Löschung `aggregate_computed_by → NULL` | Anonymisierung | Art. 17 Abs. 3 (fachliche Trendanalyse über Pflanzenleben) | REQ-003 v2.x, REQ-025 **Nicht implementiert** (Stand #1663): Die Collection `seasonal_cycles` existiert im Code nicht; es gibt keine Regel im Löschinventar (`ErasureEngine`). |
 
 ### 2.2 Sensordaten (Indirekt personenbezogen — SEC-K-005)
 
@@ -172,7 +173,7 @@ Diese Daten unterliegen gesetzlichen Mindestaufbewahrungsfristen und dürfen **n
 | R-16 | Erntedaten (HarvestBatch, QualityAssessment, YieldMetric) | `harvest_batches`, `quality_assessments`, `yield_metrics` | 5 Jahre | Art. 6(1)(c) gesetzl. Pflicht, CanG (Cannabis-Gesetz) | REQ-007 |
 | R-17 | Behandlungsanwendungen (TreatmentApplication) | `treatment_applications` + `to_plant`/`to_run`-Edges (inkl. geerbter `inherited_from_run`-Edges, ADR-001) | 3 Jahre | Art. 6(1)(c) gesetzl. Pflicht, PflSchG §11 | REQ-010 |
 | R-18 | Inspektionsprotokolle | `inspections` | 3 Jahre | PflSchG §11 | REQ-010 |
-| R-19 <!-- ADR-002 --> | Promotion-Audit-Log (Species/Cultivar tenant→global) | `promotion_audit_log` | 5 Jahre | Sortenrechts-Streitigkeiten, Art. 5(2) Rechenschaftspflicht | REQ-001 v4.1 |
+| R-24 <!-- ADR-002; bis v1.4 doppelt als R-19 vergeben --> | Promotion-Audit-Log (Species/Cultivar tenant→global) | `promotion_audit_log` | 5 Jahre | Sortenrechts-Streitigkeiten, Art. 5(2) Rechenschaftspflicht. **Nicht implementiert** (Stand #1663): Die Collection `promotion_audit_log` existiert im Code nicht. | REQ-001 v4.1 |
 
 **Wichtig:** Bei einer Löschanfrage (Art. 17 DSGVO) durch einen Betroffenen werden diese Daten **anonymisiert** (User-Referenz entfernt), aber nicht gelöscht, solange die gesetzliche Aufbewahrungsfrist läuft (Art. 17 Abs. 3 lit. b).
 

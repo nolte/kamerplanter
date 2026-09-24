@@ -4,8 +4,9 @@ Covers both deletion entry points:
 
 * ``TenantService._purge_tenant_storage`` drops the tenant's
   ``pest_image_contributions`` link documents on tenant deletion.
-* ``PrivacyService.run_user_storage_erasure`` hard-deletes the user's
-  contribution documents (the attachment bytes go via the
+* ``PrivacyService._run_pre_arango_phases`` — the phases ``erase_account``
+  runs before the ArangoDB plan — hard-deletes the user's contribution
+  documents (the attachment bytes go via the
   ``user_pest_reference_images`` storage-cleanup rule) on user erasure.
 
 Also asserts the ErasureEngine declares the pest-image storage rule + the
@@ -128,7 +129,7 @@ def _contribution(
 
 class TestUserErasureDropsPestImageDocuments:
     @pytest.mark.asyncio
-    async def test_run_user_storage_erasure_deletes_user_contributions(self):
+    async def test_pre_arango_phases_delete_user_contributions(self):
         pest_repo = MagicMock()
         pest_repo.list_for_user.return_value = [
             _contribution("pic1", "t1", "u1"),
@@ -139,7 +140,7 @@ class TestUserErasureDropsPestImageDocuments:
         # No storage adapter / membership repo wired → storage cleanup is a no-op,
         # but the pest-image document cleanup still runs.
 
-        await svc.run_user_storage_erasure("u1")
+        await svc._run_pre_arango_phases("u1")
 
         pest_repo.list_for_user.assert_called_once_with("u1")
         # Each contribution deleted against its OWN tenant key.
@@ -150,7 +151,7 @@ class TestUserErasureDropsPestImageDocuments:
     async def test_no_op_when_repo_unwired(self):
         svc = _privacy_service(pest_image_repo=None)
         # Must not raise.
-        assert await svc.run_user_storage_erasure("u1") == []
+        assert await svc._run_pre_arango_phases("u1") == ([], 0, 0)
 
 
 # ── SEC-001: promoted-embedding retract on erasure ─────────────────────────
@@ -172,7 +173,7 @@ class TestUserErasureRetractsPromotedEmbeddings:
             pest_inference_client=inference,
         )
 
-        await svc.run_user_storage_erasure("u1")
+        await svc._run_pre_arango_phases("u1")
 
         inference.retract_prototype.assert_called_once_with(
             label="spider_mite",
@@ -198,7 +199,7 @@ class TestUserErasureRetractsPromotedEmbeddings:
             pest_inference_client=inference,
         )
 
-        await svc.run_user_storage_erasure("u1")
+        await svc._run_pre_arango_phases("u1")
 
         assert order == ["retract", "delete"]
 
@@ -216,7 +217,7 @@ class TestUserErasureRetractsPromotedEmbeddings:
             pest_inference_client=inference,
         )
 
-        await svc.run_user_storage_erasure("u1")
+        await svc._run_pre_arango_phases("u1")
 
         inference.retract_prototype.assert_not_called()
         # …but the document is still dropped.
@@ -236,7 +237,7 @@ class TestUserErasureRetractsPromotedEmbeddings:
             pest_inference_client=inference,
         )
 
-        await svc.run_user_storage_erasure("u1")
+        await svc._run_pre_arango_phases("u1")
 
         inference.retract_prototype.assert_not_called()
         pest_repo.delete.assert_called_once_with("pic1", "t1")
@@ -257,7 +258,7 @@ class TestUserErasureRetractsPromotedEmbeddings:
         )
 
         # Must still complete the document delete despite the retract failure.
-        await svc.run_user_storage_erasure("u1")
+        await svc._run_pre_arango_phases("u1")
         pest_repo.delete.assert_called_once_with("pic1", "t1")
 
     @pytest.mark.asyncio
@@ -274,7 +275,7 @@ class TestUserErasureRetractsPromotedEmbeddings:
         )
 
         # Must not raise; documents still dropped.
-        await svc.run_user_storage_erasure("u1")
+        await svc._run_pre_arango_phases("u1")
         pest_repo.delete.assert_called_once_with("pic1", "t1")
 
 

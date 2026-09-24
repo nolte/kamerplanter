@@ -1,17 +1,18 @@
-"""#1669 — the attribution key is the caller's account, and the body cannot set it.
+"""#1669 / #1663 — the attribution key is the caller's account, and the body cannot set it.
 
-``HarvestBatch.harvested_by_key``, ``Inspection.inspected_by_key`` and
-``TreatmentApplication.applied_by_key`` are what the Art. 15 walk and the Art. 17
+``HarvestBatch.harvested_by_key``, ``Inspection.inspected_by_key``,
+``TreatmentApplication.applied_by_key`` and (since #1663)
+``QualityAssessment.assessed_by_key`` are what the Art. 15 walk and the Art. 17
 rules match a subject on. If a request body could choose the value, any member
 could plant records into another user's disclosure or make their own records
 unattributable — so the value has to come from the resolved context and from
 nowhere else.
 
-**Reject or ignore, decided: ignore.** The three ``*Create`` schemas do not declare
+**Reject or ignore, decided: ignore.** The four ``*Create`` schemas do not declare
 the field, and this repository's request schemas run Pydantic's default
 ``extra="ignore"`` (``app/api/mapping.py`` documents that convention; only the two
 admin secret-bearing schemas opt into ``extra="forbid"``). Rejecting here alone
-would make these three routes the only ones that 422 on an unknown key, which is
+would make these routes the only ones that 422 on an unknown key, which is
 a convention change with its own issue. What this file pins is the property that
 matters either way: a body carrying the field **does not influence the stored
 value**, measured by reading the model handed to the service.
@@ -34,7 +35,7 @@ from app.api.v1.ipm.tenant_router import router as ipm_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_harvest_service, get_ipm_service
 from app.common.enums import TenantRole
-from app.domain.models.harvest import HarvestBatch
+from app.domain.models.harvest import HarvestBatch, QualityAssessment
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.tenant_context import TenantContext
 
@@ -48,10 +49,18 @@ FORGED = "someone-else"
 class _HarvestService:
     def __init__(self) -> None:
         self.created: list[HarvestBatch] = []
+        self.assessments: list[QualityAssessment] = []
 
     def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:
         self.created.append(batch)
         return batch.model_copy(update={"key": "hb-1", "plant_key": plant_key})
+
+    def get_batch(self, key: str, tenant_key: str | None = None) -> HarvestBatch:
+        return HarvestBatch(_key=key, tenant_key=tenant_key or "")
+
+    def create_quality_assessment(self, batch_key: str, assessment: QualityAssessment) -> QualityAssessment:
+        self.assessments.append(assessment)
+        return assessment.model_copy(update={"key": "qa-1", "batch_key": batch_key})
 
 
 class _IpmService:
@@ -135,6 +144,22 @@ def test_a_treatment_application_is_attributed_to_the_caller_and_the_body_cannot
     assert FORGED not in response.text
 
 
+def test_a_quality_assessment_is_attributed_to_the_caller_and_the_body_cannot_override_it(harness) -> None:
+    """#1663 — the fourth retained category (NFR-011 R-16)."""
+    client, harvest, _ipm = harness
+
+    response = client.post(
+        _url("harvest/batches/hb-1/quality"),
+        json={"assessed_by": "Maren", "assessed_by_key": FORGED, "appearance_score": 80},
+    )
+
+    assert response.status_code == 201, response.text
+    (assessment,) = harvest.assessments
+    assert assessment.assessed_by_key == CALLER
+    assert assessment.assessed_by == "Maren", "the display name is the caller's free text, unchanged"
+    assert FORGED not in response.text
+
+
 def test_a_body_without_the_field_is_attributed_all_the_same(harness) -> None:
     """The key is not opt-in: an ordinary create carries it too."""
     client, harvest, ipm = harness
@@ -142,8 +167,10 @@ def test_a_body_without_the_field_is_attributed_all_the_same(harness) -> None:
     assert client.post(_url("harvest/plants/p1/batches"), json={}).status_code == 201
     assert client.post(_url("ipm/plants/p1/inspections"), json={}).status_code == 201
     assert client.post(_url("ipm/plants/p1/treatment-applications"), json={"treatment_key": "tr-1"}).status_code == 201
+    assert client.post(_url("harvest/batches/hb-1/quality"), json={}).status_code == 201
 
     assert harvest.created[0].harvested_by_key == CALLER
+    assert harvest.assessments[0].assessed_by_key == CALLER
     assert ipm.inspections[0].inspected_by_key == CALLER
     assert ipm.applications[0].applied_by_key == CALLER
 
@@ -156,10 +183,11 @@ def test_the_request_schemas_do_not_declare_the_key_fields() -> None:
     the explicit keyword after it would have to win by argument order alone.
     Pin the absence so that change has to come through here.
     """
-    from app.api.v1.harvest.schemas import HarvestBatchCreate, HarvestBatchUpdate
+    from app.api.v1.harvest.schemas import HarvestBatchCreate, HarvestBatchUpdate, QualityAssessmentCreate
     from app.api.v1.ipm.schemas import InspectionCreate, TreatmentApplicationCreate
 
     assert "harvested_by_key" not in HarvestBatchCreate.model_fields
     assert "harvested_by_key" not in HarvestBatchUpdate.model_fields
     assert "inspected_by_key" not in InspectionCreate.model_fields
     assert "applied_by_key" not in TreatmentApplicationCreate.model_fields
+    assert "assessed_by_key" not in QualityAssessmentCreate.model_fields

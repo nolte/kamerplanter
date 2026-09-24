@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import secrets
 from collections.abc import AsyncIterator
@@ -13,6 +14,7 @@ import structlog
 from app.common.decoys import decoy_document_key, email_digest
 from app.common.exceptions import (
     DuplicateError,
+    FeatureNotConfiguredError,
     InvalidTokenError,
     NotFoundError,
     UnauthorizedError,
@@ -30,6 +32,7 @@ from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.interfaces.data_export_repository import IDataExportRepository
 from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.erasure_executor import IErasureExecutor
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
@@ -43,6 +46,7 @@ from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.privacy import (
+    AccountErasureReport,
     ConsentRecord,
     ConsentWithPurpose,
     DataControllerInfo,
@@ -143,6 +147,8 @@ class PrivacyService:
         ipm_repo: IIpmRepository | None = None,
         pest_inference_client: PestDetectionInferenceClient | None = None,
         personal_data_repo: IPersonalDataRepository | None = None,
+        erasure_executor: IErasureExecutor | None = None,
+        tombstone_salt: str = "",
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -184,6 +190,12 @@ class PrivacyService:
         # absent an export run fails *visibly* rather than silently delivering
         # nothing, which is the whole point of #1645.
         self._personal_data_repo = personal_data_repo
+        # REQ-025 Art. 17 — the write side of the declared erasure plan (#1664)
+        # and the NFR-011 §4 salt its tombstone hashes are built from. Optional
+        # for the same reason as above; :meth:`erase_account` refuses to start
+        # without either, before it touches anything.
+        self._erasure_executor = erasure_executor
+        self._tombstone_salt = tombstone_salt
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -499,8 +511,13 @@ class PrivacyService:
             # anonymisation rules (plant_diary_entries has three user
             # references) and the confirmation lists categories, not rules.
             anonymized_collections=self._erasure_engine.anonymized_collection_names(),
+            # REQ-025 AK-08a — the other half of the confirmation, off the same
+            # inventory the erasure executes. It was declared on the model and
+            # never filled, so the confirmation named no deleted category.
+            deleted_collections=self._erasure_engine.deleted_collection_names(),
             retained_reason=(
-                "Harvest, treatment and inspection records are retained per CanG and PflSchG and will be anonymised. "
+                "Harvest records (including quality assessments), treatment and inspection records are "
+                "retained per CanG and PflSchG and will be anonymised. "
                 "Diary entries stay with the plant record of their tenant; their author and AI-analysis "
                 "references are anonymised (REQ-050 section 7.4)."
             ),
@@ -793,10 +810,10 @@ class PrivacyService:
     #
     # * ``process_data_export`` **runs**: it walks the declared Art. 15
     #   manifest, stores the bundle and serves it (#1645).
-    # * ``execute_scheduled_erasures`` runs Phase 0 / 0.5 only. The
-    #   ArangoDB phases have no executor, so an erasure is recorded
-    #   ``partially_completed`` and stays queued for retry — it does not
-    #   claim to have deleted anything.
+    # * ``execute_scheduled_erasures`` **runs**: each due request goes
+    #   through :meth:`erase_account`, the entry the platform-admin delete
+    #   shares, and is recorded ``completed`` only when every declared step
+    #   was reached (#1645).
     # * ``expire_email_change_requests`` and ``expire_data_exports`` run.
 
     async def process_data_export(self, export_key: str) -> DataExportRequest | None:
@@ -1036,7 +1053,7 @@ class PrivacyService:
         """Hard-delete users whose 90-day soft-delete grace expired.
 
         Returns the number of erasures *finalised* in this run. Each candidate
-        runs through the W-007 phase order:
+        runs :meth:`erase_account`, which keeps the W-007 phase order:
 
           Phase 0    object-storage cleanup (hard-delete + anonymise/strip)
           Phase 0.5  reference-index cleanup (pgvector user_contributed)
@@ -1047,7 +1064,8 @@ class PrivacyService:
         (``created_by == user_key``) which Phase 1 would remove. If Phase 0 or
         0.5 fails, the erasure is marked ``partially_completed`` and the
         ArangoDB deletion is skipped so the next daily run can retry
-        (AK-OS-04 / AK-OS-05).
+        (AK-OS-04 / AK-OS-05). The same holds for a failed ArangoDB run: its
+        transaction aborts and the request stays ``partially_completed``.
 
         **Retry selection (SEC-001):** candidates include not only ``scheduled``
         requests but also ``partially_completed`` (transient failure) and
@@ -1072,23 +1090,34 @@ class PrivacyService:
         return finalised
 
     async def _finalize_erasure(self, erasure: ErasureRequest, now: datetime) -> bool:
-        """Run the phased hard-delete for a single erasure request.
+        """Run the account erasure for one due request and record what it did.
 
-        Returns ``True`` when the erasure reached ``completed``; ``False`` when
-        a pre-ArangoDB phase failed and the request was left
-        ``partially_completed`` for retry.
+        The ArangoDB work is :meth:`erase_account` — the same entry the
+        platform-admin delete runs, so the self-service Art. 17 path executes
+        no step of its own and skips none (#1645). Until #1645 this ran only
+        the object-storage and reference-index phases and recorded the request
+        ``partially_completed`` because nothing in ArangoDB had been touched.
+
+        ``completed`` is written only when the returned report accounts for
+        every step of the declared inventory. Any exception, or a report that
+        leaves a declared step unaccounted for, records ``partially_completed``
+        with the reason; ``list_due_for_hard_delete`` re-selects that state and
+        the next daily run repeats the whole erasure. That repeat is safe:
+        every phase is idempotent and the ArangoDB plan runs in one transaction
+        (pinned by ``tests/integration/test_account_erasure_reach.py``).
+
+        Returns ``True`` when the request reached ``completed``.
         """
         if erasure.key is None:
             return False
+        if self._erasure_engine.is_tombstone(erasure.user_key):
+            return self._record_committed_erasure(erasure, now)
         try:
             self._mark_erasure(erasure, status="in_progress")
-
-            # ── Phase 0 + 0.5: object-storage + reference-index cleanup ──
-            # Shared with the platform-admin delete-user path (SEC-003).
-            cleanup_scopes = await self.run_user_storage_erasure(erasure.user_key)
-        except Exception as exc:  # noqa: BLE001 — any pre-delete failure → retry
+            report = await self.erase_account(erasure.user_key)
+        except Exception as exc:  # noqa: BLE001 — any failure leaves the duty open for the next run
             logger.error(
-                "retention.erasure.pre_delete_failed",
+                "retention.erasure.failed",
                 erasure_key=erasure.key,
                 user_key=erasure.user_key,
                 error=str(exc),
@@ -1096,72 +1125,168 @@ class PrivacyService:
             self._mark_erasure(
                 erasure,
                 status="partially_completed",
-                error_message=str(exc),
+                error_message=f"Erasure did not finish; the next daily run repeats it: {exc}",
             )
             return False
 
-        # ── Phase 1-3: ArangoDB deletion (+ Phase 2.5 audit hash) ──────
-        # #1645 — this used to write ``completed`` while logging that the
-        # ArangoDB deletion was still pending. ``completed`` is the audit
-        # record's own claim that the Art. 17 erasure ran, so an operator
-        # reading ``erasure_requests`` could not tell a finished erasure from
-        # one that deleted nothing.
-        #
-        # Whether the deletion ran is not asserted here: it is derived from the
-        # one declared inventory (#1622). Every entry carrying the
-        # ``retention_worker`` executor is declared-but-unexecuted, so while
-        # that slice is non-empty the erasure is by construction incomplete.
-        # When those entries are re-attributed to a real executor the slice
-        # empties and this path reaches ``completed`` without an edit here.
-        unexecuted = [step.collection for step in self._erasure_engine.steps_for("retention_worker")]
-        if unexecuted:
-            reason = (
-                "ArangoDB erasure did not run: the declared inventory entries "
-                f"{', '.join(unexecuted)} have no executor (#1645). Object storage and the "
-                "reference index were cleaned; the request stays open for the next daily run."
-            )
+        unreached = report.unreached(self._erasure_engine.delete_order())
+        if unreached:
             logger.error(
-                "retention.erasure.arango_delete_unexecuted",
+                "retention.erasure.steps_unreached",
                 erasure_key=erasure.key,
-                user_key=erasure.user_key,
-                unexecuted=unexecuted,
+                unreached=unreached,
             )
-            # ``partially_completed`` is not merely the truthful label: it is the
-            # state ``ArangoErasureRepository.list_due_for_hard_delete`` re-selects,
-            # so the obligation stays open instead of being silently dropped.
             self._mark_erasure(
                 erasure,
                 status="partially_completed",
-                error_message=reason,
-                storage_cleanup_scopes=cleanup_scopes,
+                error_message=(
+                    f"Erasure ran but did not account for the declared steps {', '.join(unreached)}; "
+                    "the next daily run repeats it."
+                ),
+                storage_cleanup_scopes=report.storage_cleanup_scopes,
             )
             return False
 
+        # The request is addressed by its document key only. Its ``user_key``
+        # is the tombstone hash by now (``_pseudonymize_audit_collections``
+        # rewrote it inside the run) and ``_mark_erasure`` never writes that
+        # field, so the plaintext key does not return with the status.
         self._mark_erasure(
             erasure,
             status="completed",
             completed_at=now,
-            storage_cleanup_scopes=cleanup_scopes,
+            storage_cleanup_scopes=report.storage_cleanup_scopes,
         )
         return True
 
-    async def run_user_storage_erasure(self, user_key: str) -> list[str]:
-        """Run Phase 0 + Phase 0.5 storage cleanup for a single user.
+    def _record_committed_erasure(self, erasure: ErasureRequest, now: datetime) -> bool:
+        """Close a request whose ArangoDB plan already committed.
 
-        Reusable entry point shared by the scheduled self-service erasure
-        (``_finalize_erasure``) and the platform-admin "delete user" path
-        (SEC-003). Performs the object-storage cleanup (hard-delete + anonymise/
-        strip per :class:`StorageCleanupRule`) and the pgvector reference-index
-        cleanup, in that order. Returns the storage scopes that were applied.
+        The tombstone hash reaches ``erasure_requests.user_key`` only inside the
+        erasure transaction, and that transaction also removes the user
+        document; the object-storage phases run before it. A due request that
+        carries the hash therefore belongs to a run whose final status write
+        was lost (the worker died after the commit, or the write failed), and
+        everything the plan declares has been done. Re-running
+        :meth:`erase_account` with the hash as the user key would reach none of
+        the subject's rows and rewrite the audit rows to a hash of the hash.
+        """
+        logger.info(
+            "retention.erasure.already_committed",
+            erasure_key=erasure.key,
+            previous_status=erasure.status,
+        )
+        self._mark_erasure(erasure, status="completed", completed_at=now)
+        return True
 
-        **Caller contract for the admin path:** invoke this *before* the user's
-        memberships are removed — the per-tenant storage walk resolves the
-        user's tenants via ``membership_repo`` and would otherwise find none.
+    async def erase_account(self, user_key: UserKey) -> AccountErasureReport:
+        """Erase one account: every declared phase, then the ArangoDB plan (#1664).
+
+        The single entry both account-deletion paths share: the platform-admin
+        ``DELETE /admin/platform/users/{key}`` (#1664) and the scheduled
+        self-service Art. 17 path, :meth:`_finalize_erasure` (#1645).
+
+        Order, and why:
+
+        1. **Refuse before touching anything** when the executor or the NFR-011
+           §4 tombstone salt is missing — a half-run erasure is worse than none.
+        2. **Export bundles** (object storage): the ``data_export_requests``
+           documents are the only pointer to a stored Art. 15 bundle, and step 4
+           removes them.
+        3. **Phase 0 / 0.5 / pest images** (:meth:`_run_pre_arango_phases`):
+           they resolve the user's tenants through the memberships step 4 removes.
+        4. **The ArangoDB plan** via :class:`IErasureExecutor`, in one
+           transaction: edges and documents removed, retained rows anonymised,
+           audit rows pseudonymised, the user document last.
+
+        Every phase is idempotent, so a crash anywhere is repaired by running
+        this again; nothing a first run missed is skipped by the second.
+
+        Returns:
+            Per-phase and per-step counts. Logged without the rows' content.
+
+        Raises:
+            FeatureNotConfiguredError: ``ERASURE_TOMBSTONE_SALT`` is missing or
+                shorter than NFR-011 §4 requires (HTTP 503).
+            ValueError: ``user_key`` is empty or blank (#1664) — raised before
+                any phase runs.
+        """
+        if self._erasure_executor is None:  # pragma: no cover - guarded by wiring
+            raise RuntimeError(
+                "PrivacyService.erase_account requires an erasure_executor; "
+                "construct the service with one (see app.common.dependencies)."
+            )
+        if not user_key or not user_key.strip():
+            # #1664 — the plan's filters are ``doc[@field] == @user_key``; a blank
+            # key matches every unattributed row and erases other users' data.
+            msg = "erase_account needs a user key; refusing to erase with an empty one"
+            raise ValueError(msg)
+        try:
+            tombstone = self._erasure_engine.compute_tombstone_hash(user_key, self._tombstone_salt)
+        except ValueError as exc:
+            raise FeatureNotConfiguredError(
+                "account_erasure",
+                "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters.",
+            ) from exc
+        plan = self._erasure_engine.build_erasure_plan(user_key)
+
+        report = AccountErasureReport()
+        report.export_files_removed = await self._run_export_file_cleanup(user_key)
+        scopes, reference_removed, pest_removed = await self._run_pre_arango_phases(user_key)
+        report.storage_cleanup_scopes = scopes
+        report.reference_index_removed = reference_removed
+        # The pest-image cleanup removes the rows of the step attributed to it;
+        # the executor's own pass over that step is the safety net.
+        for step in plan.steps:
+            if step.executor == "pest_image_cleanup":
+                report.delegated_removed[step.collection] = pest_removed
+        report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
+
+        logger.info(
+            "erasure.account_erased",
+            user_key=user_key,
+            export_files_removed=report.export_files_removed,
+            storage_cleanup_scopes=report.storage_cleanup_scopes,
+            reference_index_removed=report.reference_index_removed,
+            delegated_removed=report.delegated_removed,
+            arango_steps={step.collection: step.affected for step in report.arango.steps},
+        )
+        return report
+
+    async def _run_export_file_cleanup(self, user_key: str) -> int:
+        """Delete the stored Art. 15 bundles of *user_key* before their records go.
+
+        ``data_export_requests.file_path`` is the only pointer to a bundle in
+        object storage. The ArangoDB plan removes those documents, so a bundle
+        not deleted here first would sit in storage for good — a complete
+        disclosure of the erased user's data that nothing can find again
+        (NFR-011 R-05 is precisely "delete the file"). A failed delete raises
+        and stops the erasure before the pointer is lost; a re-run retries it.
+        """
+        if self._storage_adapter is None:
+            logger.info(
+                "retention.erasure.export_file_cleanup_skipped",
+                user_key=user_key,
+                reason="storage adapter not wired",
+            )
+            return 0
+        removed = 0
+        for export in self._export_repo.list_by_user(user_key):
+            if export.file_path:
+                await self._storage_adapter.delete_object(export.file_path)
+                removed += 1
+        return removed
+
+    async def _run_pre_arango_phases(self, user_key: str) -> tuple[list[str], int, int]:
+        """Phase 0, Phase 0.5 and the pest-image documents, with their counts.
+
+        Returns ``(storage scopes applied, reference vectors removed, pest-image
+        contributions removed)``.
         """
         scopes = await self._run_storage_cleanup(user_key)
-        await self._run_reference_index_cleanup(user_key)
-        self._run_pest_image_document_cleanup(user_key)
-        return scopes
+        reference_removed = await self._run_reference_index_cleanup(user_key)
+        pest_removed = self._run_pest_image_document_cleanup(user_key)
+        return scopes, reference_removed, pest_removed
 
     def _run_pest_image_document_cleanup(self, user_key: str) -> int:
         """REQ-010 — drop the user's ``pest_image_contributions`` link documents.
@@ -1226,7 +1351,7 @@ class PrivacyService:
             )
             return []
 
-        tenant_keys = self._user_tenant_keys(user_key)
+        tenant_keys = self._erasure_tenant_keys(user_key)
         applied_scopes: list[str] = []
         for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
             for tenant_key in tenant_keys:
@@ -1244,12 +1369,18 @@ class PrivacyService:
                         deleted=deleted,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
-                    anonymised = await self._anonymize_attachment_metadata(
+                    # Strip first: both halves select the photos by
+                    # ``created_by == user_key``, and the anonymisation rewrites
+                    # exactly that field. Run the other way round, the strip
+                    # finds nothing and every photo keeps its GPS EXIF (#1645).
+                    # A crash between the two leaves ``created_by`` intact, so
+                    # a re-run repeats both.
+                    stripped = await self._storage_adapter.strip_exif_for_user(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
                     )
-                    stripped = await self._storage_adapter.strip_exif_for_user(
+                    anonymised = await self._anonymize_attachment_metadata(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
@@ -1304,6 +1435,27 @@ class PrivacyService:
             removed=removed,
         )
         return removed
+
+    def _erasure_tenant_keys(self, user_key: str) -> list[str]:
+        """The tenants whose object storage may hold the user's files.
+
+        The user's member tenants, plus every tenant holding one of their pest
+        reference contributions (#1664). A contribution outlives its author's
+        membership: a user who left a tenant still owns the pest images they
+        uploaded there, and the ``user_pest_reference_images`` rule, walking
+        member tenants only, never reached those bytes — while the pest-image
+        cleanup removed the link documents that pointed at them.
+
+        Deliberately **not** :meth:`_user_tenant_keys`: the Art. 15 export is
+        restricted to member tenants (#1662 SCR-001), erasure must reach
+        further.
+        """
+        keys = self._user_tenant_keys(user_key)
+        if self._pest_image_repo is not None:
+            for contribution in self._pest_image_repo.list_for_user(user_key):
+                if contribution.tenant_key and contribution.tenant_key not in keys:
+                    keys.append(contribution.tenant_key)
+        return keys
 
     def _user_tenant_keys(self, user_key: str) -> list[str]:
         """Return the distinct tenant keys the user is a member of."""

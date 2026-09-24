@@ -128,15 +128,22 @@ class TestRetentionPipeline:
         """#1645 — the return value is *finalised*, not *seen*.
 
         It used to be 3 here because every candidate was marked ``completed``
-        regardless of what ran. While the ArangoDB phases have no executor the
-        honest count is 0, and the beat task's log says so.
+        regardless of what ran. Now each candidate runs the declared plan; the
+        one whose run fails stays open and is not counted.
         """
+        from app.domain.models.privacy import ErasureRequest
+        from tests.support.privacy_doubles import RecordingErasureExecutor
+
         erasure_repo = MagicMock()
-        erasure_repo.list_due_for_hard_delete.return_value = [MagicMock(), MagicMock(), MagicMock()]
-        svc = _make_service(erasure_repo=erasure_repo)
+        erasure_repo.list_due_for_hard_delete.return_value = [
+            ErasureRequest(key=f"er-{i}", user_key=f"u-{i}", status="scheduled") for i in range(3)
+        ]
+        executor = RecordingErasureExecutor(fail_with=RuntimeError("arango down"), fail_for=frozenset({"u-1"}))
+        svc = _make_service(erasure_repo=erasure_repo, erasure_executor=executor, tombstone_salt="s" * 32)
 
         result = await svc.execute_scheduled_erasures(datetime.now(UTC))
-        assert result == 0
+        assert result == 2
+        assert [user for user, _tombstone in executor.runs] == ["u-0", "u-1", "u-2"]
 
     async def test_expire_email_change_requests_delegates_to_repo(self):
         email_repo = MagicMock()

@@ -199,27 +199,3 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         """
         cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
         return sum(1 for _ in cursor)
-
-    def delete_all_for_user(self, user_key: str) -> int:
-        """Delete every membership of one user, with its graph edges (#1019).
-
-        The user-perspective twin of :meth:`delete_all_for_tenant`: same
-        ``has_membership`` (inbound) + ``membership_in`` (outbound) edge cleanup,
-        filtered on ``user_key`` instead of ``tenant_key``. Returns the number of
-        memberships removed.
-        """
-        query = f"""
-        FOR m IN {col.MEMBERSHIPS}
-          FILTER m.user_key == @user_key
-          LET mid = CONCAT("{col.MEMBERSHIPS}/", m._key)
-          LET del_has = (
-            FOR e IN {col.HAS_MEMBERSHIP} FILTER e._to == mid REMOVE e IN {col.HAS_MEMBERSHIP}
-          )
-          LET del_in = (
-            FOR e IN {col.MEMBERSHIP_IN} FILTER e._from == mid REMOVE e IN {col.MEMBERSHIP_IN}
-          )
-          REMOVE m IN {col.MEMBERSHIPS}
-          RETURN 1
-        """
-        cursor = self._db.aql.execute(query, bind_vars={"user_key": user_key})
-        return sum(1 for _ in cursor)

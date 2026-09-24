@@ -869,7 +869,7 @@ def get_auth_service() -> AuthService:
 
 
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo(), get_membership_repo())
+    return UserService(get_user_repo(), get_refresh_token_repo())
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────
@@ -1634,7 +1634,16 @@ def get_privacy_service():
         ipm_repo=get_ipm_repo(),
         pest_inference_client=get_pest_inference_client(),
         personal_data_repo=get_personal_data_repo(),
+        erasure_executor=get_erasure_executor(),
+        tombstone_salt=settings.erasure_tombstone_salt,
     )
+
+
+def get_erasure_executor():
+    """REQ-025 Art. 17 — the ArangoDB executor of the declared erasure plan (#1664)."""
+    from app.data_access.arango.erasure_executor import ArangoErasureExecutor
+
+    return ArangoErasureExecutor(get_db())
 
 
 # ── Knowledge Service client ─────────────────────────────────────

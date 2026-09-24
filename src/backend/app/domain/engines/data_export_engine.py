@@ -25,6 +25,11 @@ _LEGACY_ATTRIBUTION_GAP = (
 )
 
 
+#: The same statement for ``quality_assessments``, whose account key arrived
+#: one migration later (#1663, v0057).
+_LEGACY_QUALITY_ATTRIBUTION_GAP = _LEGACY_ATTRIBUTION_GAP.replace("migration v0056", "migration v0057")
+
+
 class DataExportEngine:
     """Defines the manifest of all user-related data sources for export.
 
@@ -153,6 +158,32 @@ class DataExportEngine:
                 "quality_grade",
                 "notes",
                 "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="quality_assessments",
+            # #1663 — server-set on the one create path (REST); ``assessed_by``
+            # is the display name. Pre-#1663 rows carry ``null`` (v0057).
+            #
+            # Not ``tenant_scoped``: the model carries no ``tenant_key`` (the
+            # assessment hangs off its harvest batch), so a tenant clause would
+            # match nothing. The clause exists against *planting* a foreign key
+            # into a user-editable field (#1662 SCR-001); ``assessed_by_key`` is
+            # never read from a body and no route updates an assessment, so
+            # the value is always the account that created the row.
+            filter_field="assessed_by_key",
+            attribution_gap=_LEGACY_QUALITY_ATTRIBUTION_GAP,
+            label="Harvest quality assessments",
+            fields=[
+                "batch_key",
+                "assessed_at",
+                "appearance_score",
+                "aroma_score",
+                "color_score",
+                "defects",
+                "overall_score",
+                "grade",
+                "notes",
             ],
         ),
         DataSourceDefinition(

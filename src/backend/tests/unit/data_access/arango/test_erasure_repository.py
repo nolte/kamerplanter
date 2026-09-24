@@ -79,7 +79,9 @@ class TestFindActiveForUser:
         result = repo.find_active_for_user("u1")
 
         assert isinstance(result, ErasureRequest)
-        assert "doc.status IN ['scheduled', 'in_progress']" in mock_db.aql.execute.call_args.args[0]
+        # #1645 — ``partially_completed`` is an open duty and blocks a new request.
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "doc.status IN ['scheduled', 'in_progress', 'partially_completed']" in query
 
     def test_none_when_empty(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])

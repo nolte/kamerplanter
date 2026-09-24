@@ -58,15 +58,14 @@ class IUserRepository(ABC):
 
     @abstractmethod
     def delete(self, key: UserKey) -> bool:
-        """Delete a user and cascade every artefact the account solely owns.
+        """Delete a user and the artefacts the account solely owns.
 
-        Removes the user's auth-provider docs + edges, refresh tokens, session
-        edges, API keys, preferences and onboarding state, then the user
-        document itself (#1019 folded the api-key/preference/onboarding removals
-        in from the platform-admin router, which had hand-written them as raw
-        AQL). Memberships are *not* removed here — they are a user↔tenant
-        relationship owned by the membership repository; the account-deletion
-        cascade removes them first, via ``delete_all_for_user``.
+        Runs the ``account_cascade`` slice of the declared erasure plan: the
+        user's auth-provider docs + edges, refresh tokens, session edges, API
+        keys + edges, preferences and onboarding state, then the user document.
+        Memberships and the anonymisation rules are *not* applied here — a full
+        account deletion goes through ``PrivacyService.erase_account``, which
+        runs the whole plan (#1664).
         """
 
     @abstractmethod

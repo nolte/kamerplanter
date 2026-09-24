@@ -6,7 +6,10 @@ The two defects this file pins are not "the feature is unfinished". They are
 * ``_finalize_erasure`` wrote ``status="completed"`` while logging that the
   ArangoDB deletion was still pending. ``completed`` is the audit record's own
   claim that the Art. 17 erasure ran; an operator reading ``erasure_requests``
-  could not tell a finished erasure from one that deleted nothing.
+  could not tell a finished erasure from one that deleted nothing. #1662 made
+  it say ``partially_completed`` while no executor existed; since #1645 it runs
+  ``erase_account`` and the inverse is pinned: ``completed`` exactly when the
+  declared plan ran and accounted for every step, never otherwise.
 * ``process_data_export`` flipped the request to ``processing`` and returned.
   The request never left that state, so an Art. 15 request neither delivered a
   bundle nor failed — it simply sat there.
@@ -26,7 +29,9 @@ from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import DataExportRequest, ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import FakeDataExportRepo
+from tests.support.privacy_doubles import FakeDataExportRepo, RecordingErasureExecutor
+
+SALT = "s" * 32
 
 
 def _make_service(**overrides) -> PrivacyService:
@@ -64,57 +69,72 @@ def _recording_export_repo(export: DataExportRequest) -> FakeDataExportRepo:
     return FakeDataExportRepo(export)
 
 
-@pytest.mark.asyncio
-class TestErasureDoesNotClaimAnUnrunDeletion:
-    async def test_an_erasure_that_deleted_no_document_is_not_completed(self):
-        """The record may not say ``completed`` while the user still exists.
+def _due(user_key: str = "u-1", status: str = "scheduled") -> ErasureRequest:
+    return ErasureRequest(key="er-1", user_key=user_key, status=status, requested_at=datetime.now(UTC))
 
-        The two halves are asserted together on purpose: the status is only
-        meaningful next to the effect it describes.
+
+def _erasure_service(erasure: ErasureRequest, executor: RecordingErasureExecutor, **overrides) -> PrivacyService:
+    erasure_repo = MagicMock()
+    erasure_repo.list_due_for_hard_delete.return_value = [erasure]
+    deps = {"erasure_repo": erasure_repo, "erasure_executor": executor, "tombstone_salt": SALT}
+    deps.update(overrides)
+    return _make_service(**deps)
+
+
+@pytest.mark.asyncio
+class TestErasureClaimsExactlyWhatRan:
+    async def test_an_erasure_whose_plan_ran_is_completed(self):
+        """The inverse of the #1662 pin: with the plan executed, ``completed`` is the truth.
+
+        The status is asserted beside the effect it describes: the executor
+        received the subject's plan and the NFR-011 tombstone.
         """
-        erasure = ErasureRequest(
-            key="er-1",
-            user_key="u-1",
-            status="scheduled",
-            requested_at=datetime.now(UTC),
-        )
-        erasure_repo = MagicMock()
-        erasure_repo.list_due_for_hard_delete.return_value = [erasure]
-        user_repo = MagicMock()
-        svc = _make_service(erasure_repo=erasure_repo, user_repo=user_repo)
+        erasure = _due()
+        executor = RecordingErasureExecutor()
+        svc = _erasure_service(erasure, executor)
 
         finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
 
-        # Effect: nothing was removed.
-        user_repo.delete.assert_not_called()
-        # Claim: therefore the record must not read as a finished erasure, and
-        # the run must not count it as one.
-        assert erasure.status != "completed"
+        assert executor.runs == [("u-1", ErasureEngine.compute_tombstone_hash("u-1", SALT))]
+        assert erasure.status == "completed"
+        assert erasure.completed_at is not None
+        assert erasure.error_message is None
+        assert finalised == 1
+
+    async def test_a_run_that_raised_is_not_completed_and_says_why(self):
+        erasure = _due()
+        svc = _erasure_service(erasure, RecordingErasureExecutor(fail_with=RuntimeError("transaction aborted")))
+
+        finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
+
+        assert erasure.status == "partially_completed"
         assert erasure.completed_at is None
+        assert "transaction aborted" in (erasure.error_message or "")
         assert finalised == 0
 
-    async def test_the_unfinished_erasure_names_what_did_not_run(self):
-        """A truthful record must be actionable, not merely non-``completed``."""
-        erasure = ErasureRequest(
-            key="er-1",
-            user_key="u-1",
-            status="scheduled",
-            requested_at=datetime.now(UTC),
-        )
-        erasure_repo = MagicMock()
-        erasure_repo.list_due_for_hard_delete.return_value = [erasure]
-        svc = _make_service(erasure_repo=erasure_repo)
+    async def test_a_report_missing_a_declared_step_is_not_completed(self):
+        """A run that returns without accounting for a step did not erase it."""
+        erasure = _due()
+        svc = _erasure_service(erasure, RecordingErasureExecutor(drop=("pest_detections",)))
 
-        await svc.execute_scheduled_erasures(datetime.now(UTC))
+        finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
 
-        assert erasure.error_message
-        # The reason is derived from the one declared inventory (#1622), not
-        # written down a second time here: a step re-attributed to a real
-        # executor must drop out of the message without editing this test.
-        unexecuted = [step.collection for step in ErasureEngine.steps_for("retention_worker")]
-        assert unexecuted, "guard against a vacuous assertion if the slice ever empties"
-        for name in unexecuted:
-            assert name in erasure.error_message
+        assert erasure.status == "partially_completed"
+        assert "pest_detections" in (erasure.error_message or "")
+        assert finalised == 0
+
+    async def test_without_the_salt_nothing_runs_and_nothing_is_claimed(self):
+        """503 on the admin path; on the scheduled path an open request, untouched data."""
+        erasure = _due()
+        executor = RecordingErasureExecutor()
+        svc = _erasure_service(erasure, executor, tombstone_salt="")
+
+        finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
+
+        assert executor.runs == []
+        assert erasure.status == "partially_completed"
+        assert "ERASURE_TOMBSTONE_SALT" in (erasure.error_message or "")
+        assert finalised == 0
 
     async def test_the_request_stays_selectable_for_a_later_retry(self):
         """The obligation stays open: the daily beat must pick it up again.
@@ -123,14 +143,48 @@ class TestErasureDoesNotClaimAnUnrunDeletion:
         ``scheduled`` / ``partially_completed`` / stale ``in_progress``. A
         terminal state outside that set would silently drop the Art. 17 duty.
         """
-        erasure = ErasureRequest(key="er-1", user_key="u-1", status="scheduled")
-        erasure_repo = MagicMock()
-        erasure_repo.list_due_for_hard_delete.return_value = [erasure]
-        svc = _make_service(erasure_repo=erasure_repo)
+        erasure = _due()
+        svc = _erasure_service(erasure, RecordingErasureExecutor(fail_with=RuntimeError("down")))
 
         await svc.execute_scheduled_erasures(datetime.now(UTC))
 
         assert erasure.status in {"scheduled", "partially_completed", "in_progress"}
+
+    async def test_the_status_writes_never_carry_the_subject_key(self):
+        """The audit hash is written inside the run; no status write may undo it.
+
+        ``_pseudonymize_audit_collections`` rewrites ``erasure_requests.user_key``
+        to the tombstone. Every write afterwards addresses the request by its
+        document key and names only status fields.
+        """
+        erasure = _due()
+        svc = _erasure_service(erasure, RecordingErasureExecutor())
+
+        await svc.execute_scheduled_erasures(datetime.now(UTC))
+
+        writes = svc._erasure_repo.update_fields.call_args_list  # type: ignore[attr-defined]
+        assert writes, "the run must record its status"
+        assert all(call.args[0] == "er-1" for call in writes)
+        assert all("user_key" not in call.args[1] for call in writes)
+        svc._erasure_repo.update.assert_not_called()  # type: ignore[attr-defined]
+
+    async def test_a_request_already_under_the_hash_is_closed_without_a_rerun(self):
+        """A lost final status write must not lead to a hash of the hash.
+
+        The tombstone reaches the request only inside the committed ArangoDB
+        transaction. Re-running the plan with it as the "user key" would match
+        the audit rows alone and rewrite them to ``hash(hash)``.
+        """
+        tombstone = ErasureEngine.compute_tombstone_hash("u-1", SALT)
+        erasure = _due(user_key=tombstone, status="in_progress")
+        executor = RecordingErasureExecutor()
+        svc = _erasure_service(erasure, executor)
+
+        finalised = await svc.execute_scheduled_erasures(datetime.now(UTC))
+
+        assert executor.runs == []
+        assert erasure.status == "completed"
+        assert finalised == 1
 
 
 @pytest.mark.asyncio

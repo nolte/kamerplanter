@@ -122,9 +122,61 @@ aber nicht gelöscht (Art. 17 Abs. 3 lit. b):
 
 !!! danger "Löschsperre beachten"
     Einen aktiven Ernte- oder Behandlungsdatensatz zu löschen wäre ein Verstoß gegen
-    das CanG bzw. PflSchG. Das System verhindert dies technisch — bei einer Löschanfrage
-    wird die User-Referenz (`user_key`) auf `null` gesetzt, der Datensatz selbst bleibt
-    bis zum Ablauf der Frist erhalten.
+    das CanG bzw. PflSchG. Die Konto-Löschung löscht diese Datensätze deshalb nicht,
+    sondern entfernt nur den Personenbezug. Der Datensatz selbst bleibt bis zum Ablauf
+    der Frist erhalten.
+
+### So sieht ein anonymisierter Datensatz aus
+
+Die Kontenreferenz wird nicht auf `null` gesetzt, sondern ersetzt. Welche Form sie
+bekommt, hängt davon ab, ob die Datensätze des gelöschten Kontos für die Prüfung
+untereinander verknüpfbar bleiben müssen:
+
+| Datensatz | Feld mit der Kontenreferenz | Wird ersetzt durch | Zusätzlich geleert |
+|-----------|-----------------------------|--------------------|--------------------|
+| Ernte (HarvestBatch) | `harvested_by_key` | Tombstone-Hash `anon_…` | `harvester` |
+| Qualitätsbewertung (QualityAssessment) | `assessed_by_key` | Tombstone-Hash `anon_…` | `assessed_by` |
+| Behandlung (TreatmentApplication) | `applied_by_key` | Tombstone-Hash `anon_…` | `applied_by` |
+| Inspektion (Inspection) | `inspected_by_key` | Tombstone-Hash `anon_…` | `inspector` |
+| Aufgabe (Task) | `assigned_to_user_key` | Markierung `_anonymized` | — |
+| Tagebucheintrag (PlantDiaryEntry) | `created_by`, `analysis_requested_by`, `analysis_claimed_by` | Markierung `_anonymized` | — |
+| Löschungs-Audit (ErasureRequest) | `user_key` | Tombstone-Hash `anon_…` | — |
+
+- Der **Tombstone-Hash** hat die Form `anon_` plus 16 Hex-Zeichen. Er wird aus dem
+  Kontoschlüssel und dem geheimen Salt `ERASURE_TOMBSTONE_SALT` gebildet, ist nicht
+  umkehrbar und für dasselbe Konto immer gleich. So bleiben die Ernten, Behandlungen und
+  Inspektionen eines gelöschten Kontos für eine Prüfung einander zuordenbar, ohne dass
+  sie noch eine Person nennen.
+- Die **Namensfelder** (`harvester`, `assessed_by`, `applied_by`, `inspector`) sind
+  Freitext, den jemand beim Erfassen eingetippt hat. Ein Name ist für sich schon ein
+  Personenbezug, deshalb werden sie im selben Schritt geleert.
+- **Qualitätsbewertungen** gehören zur Erntedokumentation und werden seit dieser
+  Änderung genauso anonymisiert wie die Ernte selbst. Sie erscheinen auch in deiner
+  Datenauskunft (Art. 15 DSGVO).
+- **Mengen- und Ertragsdaten** (YieldMetric) tragen keine Kontenreferenz. Es gibt dort
+  nichts zu anonymisieren.
+
+!!! warning "Ältere Datensätze ohne Kontenreferenz"
+    Das Feld mit der Kontenreferenz gibt es für Ernten, Behandlungen, Inspektionen und
+    Qualitätsbewertungen erst seit einer Migration. Datensätze, die vorher erfasst wurden,
+    haben dort `null` und nur den eingetippten Namen. Das System rät den Besitzer nicht
+    aus dem Freitext, deshalb erreicht die Konto-Löschung solche Altdatensätze nicht. Ihr
+    Namensfeld bleibt, wie es eingegeben wurde.
+
+### Beide Löschwege tun dasselbe
+
+Es spielt keine Rolle, ob ein Platform-Admin dein Konto über die Benutzerverwaltung
+löscht oder ob du selbst einen Löschantrag stellst: Beide Wege führen dieselbe Löschung
+aus. Sie bereinigt Dateispeicher und Referenzindex, löscht deine übrigen Datensätze,
+anonymisiert die aufbewahrungspflichtigen wie oben beschrieben und entfernt zuletzt dein
+Konto. Der Datenbankteil läuft in einem Stück: Entweder ist er vollständig erledigt oder
+gar nicht.
+
+Deinen eigenen Antrag führt der tägliche Lauf nach Ablauf der 90 Tage aus. Danach steht
+er auf `completed` und trägt statt deiner Kontokennung den Tombstone-Hash. Schlägt ein
+Lauf fehl, bleibt der Antrag als `partially_completed` offen, und der nächste tägliche
+Lauf wiederholt die ganze Löschung. Solange ein Antrag offen ist, kannst du keinen
+zweiten stellen.
 
 ---
 
@@ -220,7 +272,7 @@ Verfahren:
 flowchart TD
     A["Erasure request Art. 17"] --> B{"Statutory retention<br/>obligation?"}
     B -- "No" --> C["Immediately: Hard-delete<br/>or Soft-delete + 90d"]
-    B -- "Yes (CanG, PflSchG)" --> D["Anonymization:<br/>user_key = null<br/>Record remains"]
+    B -- "Yes (CanG, PflSchG)" --> D["Anonymization:<br/>account key → anon_… hash<br/>name fields emptied<br/>Record remains"]
     D --> E["After period elapses:<br/>Automatic hard-delete<br/>via Celery task"]
 ```
 
@@ -229,8 +281,10 @@ flowchart TD
 | User-Account | Soft-Delete → Hard-Delete nach 90 Tagen |
 | Consent Records | Sofort löschen (Widerruf) |
 | Export-Dateien | Sofort löschen |
-| Erntedaten, Behandlungen, Inspektionen | Anonymisieren, nicht löschen (Art. 17 Abs. 3) |
-| Shared Tenant-Daten (Pins, Einkaufslisten) | User-Referenz anonymisieren, Inhalt bleibt |
+| Erntedaten, Qualitätsbewertungen, Behandlungen, Inspektionen | Anonymisieren (Tombstone-Hash `anon_…`, Namensfelder geleert), nicht löschen (Art. 17 Abs. 3) |
+| Aufgaben und Tagebucheinträge in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
+| Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |
+| Mitgliedschaften, Sitzungen, API-Schlüssel, Einwilligungen, Export-Anträge, Favoriten, Schädlingserkennungen, eigene Schädlingsfotos | Löschen |
 
 ---
 

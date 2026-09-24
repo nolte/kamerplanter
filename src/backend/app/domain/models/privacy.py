@@ -1,9 +1,9 @@
 """Domain models for REQ-025 Privacy & GDPR data subject rights."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, model_validator
 
 # ── Type aliases ───────────────────────────────────────────────────
 
@@ -192,17 +192,36 @@ class DataSourceDefinition(BaseModel):
 #: Who removes an :class:`ErasureStep` at runtime. Closed on purpose: a step
 #: whose executor is not one of these cannot be attributed, and an inventory of
 #: personal data that cannot say who erases an entry is the documentation half
-#: of the split #1622 measured. ``retention_worker`` is the **declared gap** —
-#: the NFR-011 ArangoDB deletion worker does not exist yet, so a step carrying
-#: it is enumerated but not executed, and says so.
+#: of the split #1622 measured. Every name has a runtime reader (#1645):
+#:
+#: * ``account_erasure`` — ``ArangoErasureExecutor`` as run by
+#:   ``PrivacyService.erase_account``, the one entry both account-deletion paths
+#:   share (platform-admin delete, #1664; scheduled self-service Art. 17,
+#:   #1645). No narrower path runs these steps.
+#: * ``account_cascade`` — the same executor, and additionally the slice
+#:   ``ArangoUserRepository.delete`` runs for the unverified-account cleanup.
+#: * ``pest_image_cleanup`` — ``PrivacyService._run_pest_image_document_cleanup``
+#:   (retracts a promoted image's embedding first); the executor's own pass is
+#:   the safety net.
+#: * ``storage_cleanup`` / ``reference_index_cleanup`` — the object-storage and
+#:   pgvector phases ``erase_account`` runs before the ArangoDB transaction.
+#:
+#: Until #1645 this set also carried ``retention_worker`` ("declared, not yet
+#: executed by the self-service path") and ``membership_cascade`` (a membership
+#: repository cascade #1664 removed). Neither named a runtime executor any
+#: more, so both were folded into ``account_erasure``.
+#: ``scripts/check_privacy_inventory.py`` reads this alias as its closed set.
 type ErasureExecutor = Literal[
     "account_cascade",
-    "membership_cascade",
+    "account_erasure",
     "pest_image_cleanup",
     "storage_cleanup",
     "reference_index_cleanup",
-    "retention_worker",
 ]
+
+
+#: The two endpoint attributes an ArangoDB edge can reach a vertex through.
+_EDGE_ENDPOINTS: frozenset[str] = frozenset({"_from", "_to"})
 
 
 class ErasureStep(BaseModel):
@@ -213,12 +232,54 @@ class ErasureStep(BaseModel):
     reference, ``user`` is the user document itself, and ``phase`` is a
     non-collection stage (object storage, reference index, audit hashing)
     whose own rules live in the matching engine constant.
+
+    ``user_field`` is how the executor finds the subject's rows (#1663). It is
+    required for ``edge`` and ``document`` and forbidden for ``user`` and
+    ``phase``. Before #1663 the step had no such field: the one executor that
+    ran hard-coded ``doc.user_key`` / ``e._from`` for its slice, and any other
+    executor would have had to guess — a guessed filter on the wrong field
+    deletes somebody else's rows.
+
+    * ``document`` — the model field carrying the user key (``user_key``,
+      ``contributed_by`` …); the executor matches ``doc.<user_field> == key``.
+    * ``edge`` — the endpoint (``_from`` / ``_to``). Without ``via`` that
+      endpoint *is* ``users/<key>``. With ``via`` it points into the named
+      document collection instead, and the edge belongs to the subject when the
+      document it points at does — as matched by that collection's own
+      ``document`` step, which therefore has to come *after* the edge in the
+      inventory (``membership_in`` runs ``memberships -> tenants`` and never
+      touches ``users``; the pest-detection edges start at ``pest_detections``).
     """
 
     collection: str
     kind: Literal["edge", "document", "user", "phase"]
     executor: ErasureExecutor
+    user_field: str | None = None
+    via: str | None = None
     note: str = ""
+
+    @model_validator(mode="after")
+    def _user_field_matches_kind(self) -> Self:
+        if self.kind in ("user", "phase"):
+            if self.user_field is not None or self.via is not None:
+                msg = f"{self.kind} step '{self.collection}' filters nothing and takes no user_field/via"
+                raise ValueError(msg)
+            return self
+        if not self.user_field:
+            msg = f"{self.kind} step '{self.collection}' must declare the user_field it filters the subject on"
+            raise ValueError(msg)
+        if self.kind == "edge":
+            if self.user_field not in _EDGE_ENDPOINTS:
+                msg = f"edge step '{self.collection}' reaches the subject through _from or _to, not '{self.user_field}'"
+                raise ValueError(msg)
+        else:
+            if self.user_field in _EDGE_ENDPOINTS:
+                msg = f"document step '{self.collection}' cannot be keyed on an edge endpoint"
+                raise ValueError(msg)
+            if self.via is not None:
+                msg = f"document step '{self.collection}' is keyed directly; via applies to edges only"
+                raise ValueError(msg)
+        return self
 
 
 class AnonymizationRule(BaseModel):
@@ -286,7 +347,10 @@ class ReferenceIndexCleanupRule(BaseModel):
 class ErasurePlan(BaseModel):
     """Aggregated plan that the erasure executor processes step by step."""
 
-    user_key: str
+    #: Never empty (#1664): every executor filter is ``doc[@field] == @user_key``,
+    #: and unattributed rows carry ``""`` (``pest_detections.user_key`` defaults
+    #: to it) — a blank key would erase other users' rows, not nobody's.
+    user_key: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     storage_cleanup: list[StorageCleanupRule] = Field(default_factory=list)
     reference_index_cleanup: list[ReferenceIndexCleanupRule] = Field(default_factory=list)
     anonymize: list[AnonymizationRule] = Field(default_factory=list)
@@ -297,6 +361,92 @@ class ErasurePlan(BaseModel):
     delete: list[str] = Field(default_factory=list)
     soft_delete_immediate: bool = True
     hard_delete_after_days: int = 90
+
+
+class ErasureStepOutcome(BaseModel):
+    """How many rows one declared :class:`ErasureStep` reached (#1664).
+
+    ``affected`` is what the store reported for the write — removed rows for an
+    ``edge`` / ``document`` / ``user`` step, rewritten rows (summed over the
+    phase's rules) for the two ArangoDB phases. It is a measurement, never a
+    status: a step that ran and matched nothing reports ``0``, and the reach
+    test fails on exactly that.
+    """
+
+    collection: str
+    kind: Literal["edge", "document", "user", "phase"]
+    executor: ErasureExecutor
+    affected: int = 0
+
+
+class ErasureRuleOutcome(BaseModel):
+    """Rows one anonymisation or pseudonymisation rule rewrote (#1664).
+
+    A collection can carry several rules (``plant_diary_entries`` has three user
+    references), so the rule is identified by ``collection`` + ``user_field``.
+    """
+
+    phase: str
+    collection: str
+    user_field: str
+    affected: int = 0
+
+
+class ErasureExecutionReport(BaseModel):
+    """What one run of the ArangoDB erasure executor did, step by step (#1664).
+
+    ``steps`` follows the declared order of :attr:`ErasurePlan.steps` and holds
+    only the steps this executor ran — a phase owned by another executor
+    (object storage, reference index) appears in ``delegated`` instead, so a
+    reader can tell "ran and found nothing" from "not this executor's slice".
+    Carries no user key: it is logged, and the logs must not name the subject
+    beyond what the calling path already logs.
+    """
+
+    steps: list[ErasureStepOutcome] = Field(default_factory=list)
+    rules: list[ErasureRuleOutcome] = Field(default_factory=list)
+    delegated: list[str] = Field(default_factory=list)
+    #: Declared collections the database does not have. They hold no rows, so
+    #: nothing is lost by skipping them; they are listed so the skip is visible.
+    absent_collections: list[str] = Field(default_factory=list)
+
+    def affected(self, collection: str) -> int:
+        """Rows the step named *collection* reached (``0`` when it did not run)."""
+        return sum(step.affected for step in self.steps if step.collection == collection)
+
+
+class AccountErasureReport(BaseModel):
+    """The full account-erasure run: pre-ArangoDB phases plus the executor (#1664).
+
+    Returned by :meth:`PrivacyService.erase_account`, the one entry both
+    account-deletion paths share. ``delegated_removed`` holds, per declared
+    step, the rows an executor *other* than the ArangoDB one removed — today the
+    REQ-010 pest-image cleanup (``pest_image_cleanup``), which drops the link
+    documents itself because it must retract a promoted image's recognition
+    embedding first. The executor's own pass over the same step is the safety
+    net and normally finds nothing left.
+    """
+
+    storage_cleanup_scopes: list[str] = Field(default_factory=list)
+    reference_index_removed: int = 0
+    export_files_removed: int = 0
+    delegated_removed: dict[str, int] = Field(default_factory=dict)
+    arango: ErasureExecutionReport = Field(default_factory=ErasureExecutionReport)
+
+    def affected(self, collection: str) -> int:
+        """Rows every phase together removed from the declared step *collection*."""
+        return self.arango.affected(collection) + self.delegated_removed.get(collection, 0)
+
+    def unreached(self, declared: list[str]) -> list[str]:
+        """The names of *declared* steps this run neither executed nor delegated (#1645).
+
+        A step the executor ran appears in ``arango.steps`` (``affected`` may be
+        ``0`` — "ran and found nothing" is a finished step); a non-ArangoDB phase
+        appears in ``arango.delegated``. Anything else was not run, and an
+        erasure that skipped a declared step must not be recorded ``completed``.
+        """
+        covered = {step.collection for step in self.arango.steps} | set(self.arango.delegated)
+        return [name for name in declared if name not in covered]
 
 
 # ── Privacy-policy response models ─────────────────────────────────

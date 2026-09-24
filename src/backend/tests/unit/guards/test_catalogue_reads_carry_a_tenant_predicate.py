@@ -25,14 +25,14 @@ one, and a sweep that knows only one of them looks complete while missing sites 
 this repository has paid for that twice (a regex that demanded a string literal,
 a glob that assumed a name prefix). Resolved here: an inline literal, an f-string
 (its placeholders become ``<<EXPR>>``), implicit and ``+`` concatenation, a name
-assigned anywhere in the same function, and the receiver of a trailing
+assigned anywhere in the same function or at module level, and the receiver of a trailing
 ``.replace``/``.format``/``.join`` — which is the spelling the #1561 repair itself
 uses to splice its predicate in.
 
 **Spellings this does NOT match**, named rather than discovered later:
 
-* a query assembled from a *parameter*, a module constant, or a class attribute,
-  or one returned by a helper — these resolve to nothing and are **reported**
+* a query assembled from a *parameter* or a class attribute, or one returned by
+  a helper (a module-level constant **is** resolved since #1664) — these resolve to nothing and are **reported**
   (:data:`_UNRESOLVED_IS_A_FINDING`), not silently skipped, because "I could not
   read it" and "it is fine" are different answers;
 * a collection named only through a bind variable (``FOR d IN @@collection``) —
@@ -128,8 +128,17 @@ def _aql_execute_calls() -> tuple[tuple[str, int, str, str | None, bool], ...]:
         if any(part in _EXCLUDED_DIRS for part in path.relative_to(_APP).parts):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
+        # Module-level constants (#1664): ``ArangoErasureExecutor`` keeps its AQL in
+        # ``_REMOVE_DOCUMENTS`` & co. A function-local name shadows a module one.
+        module_assigns: dict[str, ast.AST] = {
+            target.id: node.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
         for function in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)]:
-            assigns: dict[str, ast.AST] = {}
+            assigns: dict[str, ast.AST] = dict(module_assigns)
             for node in ast.walk(function):
                 if isinstance(node, ast.Assign):
                     for target in node.targets:
