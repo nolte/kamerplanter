@@ -18,8 +18,8 @@ The rules below are the mechanical part of closing that class over ``app/``:
       how #1535 was found.
 
 ``R3`` a call to ``get_all_tasks`` that does not name ``tenant_key``. This is
-      #1533; the signature now refuses it too, and :class:`TestTheSurfacesStayStrict`
-      pins that, because an AST rule over call sites cannot see a default sneaking
+      #1533; the signature now refuses it too, and ``test_tenant_scoped_reads_are_derived.py``
+      pins that (#1708), because an AST rule over call sites cannot see a default sneaking
       back into the signature — nor can a signature check see a call that passes
       ``tenant_key=""``, which is why both exist.
 
@@ -99,10 +99,6 @@ import pytest
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
-from app.data_access.arango.task_repository import ArangoTaskRepository
-from app.domain.interfaces.calendar_source_repository import ICalendarSourceRepository
-from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.services.task_service import TaskService
 from tests.support.execution_guards import find_project_root
 
@@ -776,34 +772,46 @@ class TestTheSurfacesStayStrict:
     ``tenant_key`` back as an optional parameter would make every one of the repaired
     call sites legal again with one argument dropped — which is exactly how #1533
     happened.
+
+    **The repository half is derived now (#1708).** This class used to carry a
+    hand list of repository methods — ``get_all_tasks``, ``find_open_task_by_name``
+    and the five #1704 calendar reads — and a read nobody enrolled was simply not
+    on it. ``test_tenant_scoped_reads_are_derived.py`` inventories every repository
+    read over a tenant-bearing collection and holds each implementation *and* the
+    interface it overrides to ``tenant_key`` keyword-only without a default, so the
+    list is gone rather than extended. What stays here is the service layer, which
+    that guard does not inventory.
     """
 
-    @pytest.mark.parametrize(
-        "owner,method",
-        [
-            (ITaskRepository, "get_all_tasks"),
-            (ArangoTaskRepository, "get_all_tasks"),
-            (TaskService, "list_tasks"),
-            (ArangoTaskRepository, "find_open_task_by_name"),
-            # #1704: three of these took no tenant at all and served every
-            # tenant's rows into the aggregated calendar.
-            *[
-                (owner, method)
-                for owner in (ICalendarSourceRepository, ArangoCalendarSourceRepository)
-                for method in (
+    def test_the_service_entry_point_takes_the_tenant_keyword_only(self) -> None:
+        parameter = inspect.signature(TaskService.list_tasks).parameters["tenant_key"]
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        assert parameter.default is inspect.Parameter.empty
+
+    def test_the_derived_guard_covers_what_the_hand_list_did(self) -> None:
+        """The methods the old list pinned are all in the derived inventory as ``strict``.
+
+        A pin for the migration itself: if the derivation ever stopped seeing one of
+        them, deleting the hand list would have been a silent narrowing.
+        """
+        from tests.unit.guards.test_tenant_scoped_reads_are_derived import _real_inventory, _verdicts
+
+        strict = {v.method.qualname for v in _verdicts(_real_inventory()) if v.category == "strict"}
+        formerly_listed = {
+            "ArangoTaskRepository.get_all_tasks",
+            "ArangoTaskRepository.find_open_task_by_name",
+            *(
+                f"ArangoCalendarSourceRepository.{name}"
+                for name in (
                     "list_tasks_due",
                     "list_phase_timeline_rows",
                     "list_maintenance_logs",
                     "list_watering_logs",
                     "list_watering_forecast_rows",
                 )
-            ],
-        ],
-    )
-    def test_tenant_key_is_keyword_only_and_has_no_default(self, owner: type, method: str) -> None:
-        parameter = inspect.signature(getattr(owner, method)).parameters["tenant_key"]
-        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY, f"{owner.__name__}.{method}"
-        assert parameter.default is inspect.Parameter.empty, f"{owner.__name__}.{method}"
+            ),
+        }
+        assert formerly_listed - strict == set()
 
     def test_the_service_rejects_the_empty_tenant_too(self) -> None:
         """The value half at the layer the routers actually call (#1573 review SCR-007).

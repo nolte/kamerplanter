@@ -27,9 +27,7 @@ class ArangoImportJobRepository(BaseArangoRepository[ImportJob], IImportJobRepos
     def save(self, job: ImportJob) -> ImportJob:
         return super().create(job)
 
-    def list_all(
-        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
-    ) -> tuple[list[ImportJob], int]:
+    def list_all(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None) -> tuple[list[ImportJob], int]:
         """List jobs; ``tenant_key=None`` is the explicit system-context read.
 
         ``all_tenants=True`` rather than "no filter": with

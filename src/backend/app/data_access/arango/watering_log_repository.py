@@ -4,6 +4,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.fertilizer_repository import visible_fertilizer_labels
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.watering_log import WateringLog
 
@@ -89,24 +90,20 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
         )
         return {r["key"]: r["name"] for r in cursor}
 
-    def resolve_fertilizer_names(self, fert_keys: list[str]) -> dict[str, str]:
-        """Batch-resolve fertilizer keys to display names."""
-        if not fert_keys:
-            return {}
-        query = """
-        FOR fk IN @fert_keys
-          LET f = DOCUMENT(CONCAT(@col, "/", fk))
-          FILTER f != null
-          RETURN { key: fk, name: CONCAT(f.product_name, " (", f.brand, ")") }
+    def resolve_fertilizer_names(self, fert_keys: list[str], *, tenant_key: str) -> dict[str, str]:
+        """Batch-resolve fertilizer keys to ``"<product> (<brand>)"`` **visible to one tenant** (#1708).
+
+        The #952 shape again, for fertilizers: ``fertilizers_used[].fertilizer_key``
+        arrives in the request body and nothing verifies it on write, so a log
+        naming another tenant's *private* product read its name and brand back
+        out of every watering-log response. The lookup is
+        :func:`~app.data_access.arango.fertilizer_repository.visible_fertilizer_labels`
+        (the catalogue's own ∪ global union); a key it rejects drops out of the
+        map and the response falls back to the raw key, which discloses nothing
+        the caller did not already supply.
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "fert_keys": fert_keys,
-                "col": col.FERTILIZERS,
-            },
-        )
-        return {r["key"]: r["name"] for r in cursor}
+        labels = visible_fertilizer_labels(self._db, fert_keys, tenant_key=tenant_key)
+        return {key: f"{name or ''} ({brand or ''})" for key, (name, brand) in labels.items()}
 
     # ── Update ──────────────────────────────────────────────────────────
 

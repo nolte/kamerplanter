@@ -18,6 +18,7 @@ queries stay identical to the ones they replaced.
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.fertilizer_repository import visible_fertilizer_labels
 from app.domain.interfaces.calendar_source_repository import ICalendarSourceRepository
 
 
@@ -197,8 +198,14 @@ class ArangoCalendarSourceRepository(ICalendarSourceRepository):
         bind = {"tenant_key": tenant_key}
         return list(self._db.aql.execute(aql, bind_vars=bind))
 
-    def get_fertilizer_product_names(self, keys: list[str]) -> dict[str, str]:
-        if not keys:
-            return {}
-        docs = self._db.collection(col.FERTILIZERS).get_many(keys)
-        return {doc["_key"]: doc.get("product_name", doc["_key"]) for doc in docs}
+    def get_fertilizer_product_names(self, keys: list[str], *, tenant_key: str) -> dict[str, str]:
+        """Product names of the fertilizers ``tenant_key`` may see (#1708).
+
+        The keys come out of the tenant's own nutrient plans, but a plan entry
+        names its fertilizer by key, and a bare ``get_many`` resolved a foreign
+        tenant's private product as readily as a global one. The lookup is the
+        shared :func:`~app.data_access.arango.fertilizer_repository.visible_fertilizer_labels`;
+        a key it rejects is omitted and the calendar shows the key instead.
+        """
+        labels = visible_fertilizer_labels(self._db, keys, tenant_key=tenant_key)
+        return {key: name or key for key, (name, _brand) in labels.items()}

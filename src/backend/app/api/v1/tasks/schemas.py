@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.attachments.schemas import ThumbnailUris
+from app.common.enums import WorkflowTargetType
 
 # ── Checklist ──
 
@@ -458,8 +459,16 @@ class WorkflowExecutionListItem(BaseModel):
 
 
 class WorkflowInstantiateRequest(BaseModel):
-    entity_key: str
-    entity_type: str
+    """Target of a workflow instantiation.
+
+    ``entity_type`` is the closed :class:`WorkflowTargetType` set (#1708): an
+    execution on any other type has no owner the execution list can resolve, so
+    it was accepted, stored, and then appeared nowhere. Rejected here as a 422
+    instead of reaching the domain model.
+    """
+
+    entity_key: str = Field(min_length=1, max_length=200)
+    entity_type: WorkflowTargetType
 
 
 class WorkflowExecutionResponse(BaseModel):

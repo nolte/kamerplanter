@@ -65,17 +65,22 @@ class _FakeSpeciesRepo:
         self._by_norm[species.scientific_name_normalized] = species
         return species
 
-    def find_synonym_match_candidates(self, species: Species) -> list[Species]:
+    def find_synonym_match_candidates(self, species: Species, *, tenant_key: str) -> list[Species]:
         """Precise synonym-link candidates (mirrors the AQL repo contract).
 
         Returns every stored record whose normalized name equals one of the new
         record's normalized synonyms, or whose normalized synonyms contain the
         new record's normalized name — excluding an exact normalized-name match.
+        Only records ``tenant_key`` may read qualify (own ∪ global, #1708); the
+        real query also admits explicitly granted rows, which this double does
+        not model — it is stricter, never looser, than the repository.
         """
         new_norm = species.scientific_name_normalized
         new_syn_norms = {normalize_scientific_name(s) for s in species.synonyms}
         candidates: list[Species] = []
         for stored in self._by_norm.values():
+            if stored.tenant_key not in ("", tenant_key):
+                continue
             if stored.scientific_name_normalized == new_norm:
                 continue
             stored_syn_norms = {normalize_scientific_name(s) for s in stored.synonyms}

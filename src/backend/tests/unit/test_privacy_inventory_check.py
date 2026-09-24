@@ -487,8 +487,13 @@ class TestR6EveryStoredUserReferenceIsInventoried:
         )
         # The two hand tables name only models that exist: a stale entry is
         # validated nowhere else (the check reads an entry only when its model is found).
+        # ``MODEL_COLLECTIONS_BY_HAND`` is shared with the #1708 tenant-scope guard
+        # since it moved to ``arango_repository_bindings.py``, so it also places
+        # models that carry no user reference — "exists" is the question for it,
+        # not "carries a reference".
         models = {model for _path, _line, model, _field in references}
-        assert set(checker.MODEL_COLLECTIONS_BY_HAND) <= models
+        defined = {name for _module, name in load_repo_script("arango_repository_bindings").model_fields(app_root)}
+        assert set(checker.MODEL_COLLECTIONS_BY_HAND) <= defined
         assert set(checker.NOT_PERSISTED_MODELS) <= models
 
 

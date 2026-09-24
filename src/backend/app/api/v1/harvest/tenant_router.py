@@ -282,4 +282,4 @@ def get_yield_stats(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Return aggregated yield statistics for a species."""
-    return service.get_yield_stats(species_key, days_back)
+    return service.get_yield_stats(species_key, days_back, tenant_key=ctx.tenant_key)

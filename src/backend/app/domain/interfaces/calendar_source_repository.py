@@ -49,6 +49,6 @@ class ICalendarSourceRepository(ABC):
         ...
 
     @abstractmethod
-    def get_fertilizer_product_names(self, keys: list[str]) -> dict[str, str]:
-        """``{fertilizer_key: product_name}`` for the keys that exist; missing keys are omitted."""
+    def get_fertilizer_product_names(self, keys: list[str], *, tenant_key: str) -> dict[str, str]:
+        """``{fertilizer_key: product_name}`` for the keys ``tenant_key`` may see; others are omitted."""
         ...
