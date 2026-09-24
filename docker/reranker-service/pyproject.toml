@@ -26,9 +26,9 @@ dependencies = [
     # (CVE-2026-1839). The service called exactly one thing from it,
     # `AutoTokenizer`, whose fast path IS this library; main.py configures the
     # padding and truncation transformers used to add per call, with measured
-    # parity for both shipped models. The export stage still installs
-    # transformers through the `build` group below, which never reaches the
-    # shipped image.
+    # parity for both shipped models. The exporter is gone too — the download
+    # stages fetch pre-exported ONNX (see the Dockerfile) — so nothing in this
+    # tree needs transformers any more, at runtime or at build time.
     #
     # `sentencepiece` and `protobuf` left with it. sentencepiece was the slow
     # tokenizer's backend, which `tokenizer.json` never touches; protobuf is
@@ -39,12 +39,13 @@ dependencies = [
 ]
 
 # The model-download stage's toolchain. A PEP 735 group, so `uv sync` in the
-# runtime stage leaves it out and the shipped image stays free of it.
+# runtime stage leaves it out and the shipped image stays free of it. It is a
+# downloader and nothing else: the models are fetched already exported to ONNX,
+# at a pinned revision, so no exporter, no torch and no transformers are
+# installed even at build time.
 [dependency-groups]
 build = [
     "huggingface-hub",
-    "optimum[onnxruntime]",
-    "sentencepiece",
 ]
 
 [tool.uv]

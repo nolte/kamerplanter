@@ -1,6 +1,7 @@
 # Cross-encoder reranker service — ONNX Runtime only, no PyTorch
 #
-# Multi-stage build: each model downloads in a cached stage.
+# Multi-stage build: each model downloads, already exported to ONNX and pinned
+# to a commit, in a cached stage.
 # Build the final image by targeting the desired model stage:
 #
 #   docker build --target bge-reranker-v2-m3 .   (multilingual, default)
@@ -39,17 +40,43 @@ RUN uv sync --locked --only-group build
 
 # ── Download stages (cached independently) ───────────────────────────
 #
+# NOTHING IS EXPORTED HERE ANY MORE (#1480). Each stage downloads a graph that
+# is already ONNX, plus the tokenizer files, and arranges them in /model the
+# way main.py reads them: `model.onnx` (and, for bge, `model.onnx_data`, the
+# external-weights file the graph references by RELATIVE name, so the two must
+# stay in one directory), `tokenizer.json`, `tokenizer_config.json` (main.py
+# reads `pad_token` from it), `special_tokens_map.json` and `config.json`.
+#
+# These stages used to export with optimum (`ORTModelForSequenceClassification
+# .from_pretrained(..., export=True)`), which dragged torch and transformers
+# into the build group — and optimum-onnx, the exporter since optimum 2.0,
+# caps transformers below 4.58 in every release it has published, holding the
+# whole lock on a line with three HIGH CVEs. Downloading the exported graph
+# needs `huggingface-hub` and nothing else.
+#
+# EVERY FETCH IS PINNED TO A COMMIT SHA, AND RENOVATE WILL NOT BUMP IT — BY
+# DESIGN. A Hugging Face repository is mutable: a branch name like `main` can
+# be force-pushed to a different graph, and a different graph is a different
+# ranking, silently. A model change must therefore be a reviewed diff of a
+# `revision=` literal, with the parity measurement below repeated for it.
+# src/backend/tests/unit/guards/test_hf_model_fetches_pin_a_revision.py fails
+# on any Hugging Face fetch in a docker/**/Dockerfile that does not carry one.
+#
+# Each `mv` names its file explicitly, so a revision that stops carrying one of
+# them fails the build here instead of producing an image that cannot become
+# ready (#1609); `/dl` (including huggingface_hub's `.cache/` bookkeeping
+# inside `local_dir`) is dropped in the same layer.
+#
 # THE IMPORTS BELOW ARE QUALIFIED (`import x` + `x.f(...)`) RATHER THAN
 # `from x import f`, AND THAT IS NOT STYLE (#1554). Renovate's dockerfile
 # manager reads a CONTINUED line beginning with `from` as a `FROM`
-# instruction, so every
-# `from optimum.onnxruntime import ORTModelForSequenceClassification; \`
-# in these `RUN python -c` bodies was extracted as an image stage: two
-# phantom `optimum.onnxruntime` dependencies, each issuing a real
-# `getDigest(index.docker.io, library/optimum.onnxruntime)` lookup on every
-# scan. Harmless only until someone publishes that name: Renovate would then
-# propose a "version bump" that rewrites a Python import statement inside a
-# RUN step.
+# instruction, so a
+# `from huggingface_hub import snapshot_download; \`
+# in these `RUN python -c` bodies would be extracted as an image stage: a
+# phantom `huggingface_hub` dependency issuing a real
+# `getDigest(index.docker.io, library/huggingface_hub)` lookup on every scan.
+# Harmless only until someone publishes that name: Renovate would then propose
+# a "version bump" that rewrites a Python import statement inside a RUN step.
 #
 # Measured with Renovate 44.103.2: the same mis-read covers a heredoc body
 # line, an indented continuation, an upper-case `FROM` inside a shell string
@@ -57,39 +84,49 @@ RUN uv sync --locked --only-group build
 # scripts/ci/check_renovate_dashboard.py keeps all five spellings out.
 
 FROM dl-base AS dl-bge-reranker-v2-m3
-# BAAI/bge-reranker-v2-m3 — multilingual, 568M params, Apache-2.0
-# Export to ONNX via optimum
-# THE TOKENIZER IS SAVED BESIDE THE GRAPH, AND THAT IS THE WHOLE POINT (#1609).
+# BAAI/bge-reranker-v2-m3 — multilingual, 568M params, Apache-2.0.
 #
-# `ORTModelForSequenceClassification.save_pretrained()` writes `config.json`,
-# `model.onnx` and `model.onnx_data` — the graph and its config, and nothing
-# else. It does NOT write a tokenizer. `main.py` then calls
-# `AutoTokenizer.from_pretrained()` on that directory, transformers finds no
-# vocabulary, falls back to converting a slow tokenizer whose `vocab_file` is
-# `None`, and dies with `AttributeError: 'NoneType' object has no attribute
-# 'endswith'`. In a DAEMON thread: the process survives, `/health` keeps
-# answering 200, and `/ready` is a permanent 503. The image built green for
-# weeks in exactly that state.
-#
-# Both saves must target the same `/model`, and both must live in this one RUN:
-# the runtime stage copies that directory wholesale.
+# Fetched from `onnx-community/bge-reranker-v2-m3-ONNX`, which is NOT the model
+# author: it is Hugging Face's community export of BAAI's weights (its card
+# declares no licence of its own; the weights are BAAI's Apache-2.0). That is
+# acceptable because of what was measured before switching, 2026-09-24,
+# against the optimum export this stage used to run: identical graph inputs
+# (`input_ids`, `attention_mask`) and output (`logits`), a byte-identical
+# `tokenizer.json`, and over 3 queries x 7 documents a max |Δscore| of 4.7e-6
+# with identical rankings. The pin is what makes that measurement stay true.
 RUN python -c "\
-import optimum.onnxruntime; \
-import transformers; \
-model = optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained('BAAI/bge-reranker-v2-m3', export=True); \
-model.save_pretrained('/model'); \
-transformers.AutoTokenizer.from_pretrained('BAAI/bge-reranker-v2-m3').save_pretrained('/model')" && \
-    rm -rf /root/.cache
+import huggingface_hub; \
+huggingface_hub.snapshot_download(\
+repo_id='onnx-community/bge-reranker-v2-m3-ONNX', \
+revision='6f5ff65298512715a1e669753bc754d2bc8f367b', \
+allow_patterns=['onnx/model.onnx', 'onnx/model.onnx_data', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'config.json'], \
+local_dir='/dl')" && \
+    mkdir /model && \
+    mv /dl/onnx/model.onnx /dl/onnx/model.onnx_data \
+       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/config.json \
+       /model/ && \
+    rm -rf /dl /root/.cache
 
 FROM dl-base AS dl-ms-marco-minilm
-# cross-encoder/ms-marco-MiniLM-L-12-v2 — English-focused, 33M params, Apache-2.0
+# cross-encoder/ms-marco-MiniLM-L12-v2 — English-focused, 33M params,
+# Apache-2.0. The model author publishes the ONNX export in its own
+# repository, so this one comes from the source. (`ms-marco-MiniLM-L-12-v2`,
+# the id this stage used before, is the old name Hugging Face redirects to it.)
+# Measured 2026-09-24 against the optimum export: identical inputs
+# (`input_ids`, `attention_mask`, `token_type_ids`), byte-identical
+# `tokenizer.json`, max |Δscore| 0.0.
 RUN python -c "\
-import optimum.onnxruntime; \
-import transformers; \
-model = optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained('cross-encoder/ms-marco-MiniLM-L-12-v2', export=True); \
-model.save_pretrained('/model'); \
-transformers.AutoTokenizer.from_pretrained('cross-encoder/ms-marco-MiniLM-L-12-v2').save_pretrained('/model')" && \
-    rm -rf /root/.cache
+import huggingface_hub; \
+huggingface_hub.snapshot_download(\
+repo_id='cross-encoder/ms-marco-MiniLM-L12-v2', \
+revision='7b0235231ca2674cb8ca8f022859a6eba2b1c968', \
+allow_patterns=['onnx/model.onnx', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'config.json'], \
+local_dir='/dl')" && \
+    mkdir /model && \
+    mv /dl/onnx/model.onnx \
+       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/config.json \
+       /model/ && \
+    rm -rf /dl /root/.cache
 
 # ── Runtime base (shared across all final targets) ───────────────────
 
@@ -103,8 +140,9 @@ LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
 
 WORKDIR /app
 # The lock is the single source of truth for what gets installed (NFR-009
-# §2.3/§6.1); `--no-dev` leaves the export toolchain (optimum, torch) out of the
-# shipped image — the runtime needs onnxruntime only.
+# §2.3/§6.1); `--no-dev` leaves the `build` group (the model downloader,
+# huggingface-hub) out of the shipped image — the runtime needs onnxruntime and
+# the tokenizers library only.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 COPY main.py .

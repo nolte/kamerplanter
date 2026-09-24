@@ -66,10 +66,12 @@ def _pad_token(model_dir: Path) -> str:
 
     `tokenizer_config.json` spells it either as a plain string or as an
     AddedToken dict (`{"content": "<pad>", ...}`), depending on which
-    transformers version wrote the file; both occur in the two models this image
-    ships. A missing pad token is an error, not a default: guessing `[PAD]` for
-    an XLM-RoBERTa vocabulary would pad with a real word piece and shift every
-    score without failing anything.
+    transformers version wrote the file. The two revisions pinned in the
+    Dockerfile both use the plain string (`<pad>` for bge, `[PAD]` for MiniLM);
+    the dict form is read so that a re-pin to a file written the other way does
+    not break startup. A missing pad token is an error, not a default: the two
+    vocabularies do not even agree on its spelling, and a guessed token that
+    happens to be a real word piece would shift every score without failing.
     """
     config = json.loads((model_dir / "tokenizer_config.json").read_text(encoding="utf-8"))
     pad = config.get("pad_token")
