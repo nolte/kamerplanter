@@ -7,7 +7,7 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.8 (#1700: Löschinventar gegen die Modellfelder geprüft, 23 Lücken geschlossen)
+Version: 1.9 (#1716: Tenant-Overlay-Quellen des Exports als nicht implementiert gekennzeichnet)
 Abhängigkeit: REQ-023 v1.13 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.4 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.9 | 2026-09-24 | **#1716 Export-Quellen ohne Gegenstück im Code:** Die beiden `DataSourceDefinition`s für `tenant_species_config` und `tenant_cultivar_config` (v1.3, ADR-002) sind aus der Manifest-Kopie in §3.1 genommen und als **nicht implementiert** gekennzeichnet. Gemessen: Keine der beiden Collections hat eine Konstante in `collections.py`, ein Modell oder ein Repository; das Tenant-Overlay aus REQ-001 v4.0 existiert nicht. Was es gibt — mandanteneigene `species`/`cultivars` (`tenant_key`, #1090) und die Freigabekanten `tenant_has_access` (#1092) — trägt keinen Nutzerschlüssel und ist deshalb keine Art.-15-Quelle zur betroffenen Person. Ebenso als nicht implementiert gekennzeichnet: der `SpeciesReferenceResolver` (ADR-002). Die vier `cv_*`-Kanten im Löschinventar stehen jetzt als `ErasureStep`s da, wie in `erasure_engine.py`, statt als Kommentar. |
 | 1.8 | 2026-09-24 | **#1700 Vollständigkeit des Löschinventars:** Guard-Regel R6 in `scripts/check_privacy_inventory.py` ankert außerhalb der beiden Listen, an den Modellfeldern (`user_key`, `*_user_key`, `*_by_key`, `*_account_key`, `*_by`): Jedes gespeicherte Feld dieser Form muss vom Löschinventar erreicht oder in `ErasureEngine.EXCLUDED_USER_REFERENCES` mit Begründung ausgeschlossen sein. Vorher gemessen: 23 Felder in keiner der beiden Listen. **Gelöscht:** `ai_conversations`, `ai_tip_cache` (`dismissed_by`, REQ-031 §7.5; nach Review anonymisiert statt gelöscht, weil der Tipp mandantenweit gilt), `notifications` (+ `notification_for_run`), `notification_preferences`, `calendar_feeds` (der Feed-Token liefert danach nichts mehr), `plant_diagnosis_requests` (+ vier `cv_*`-Kanten), angenommene `invitations` (`accepted_by_user_key`, + `has_invitation`), `attachments` der Kategorie `pest_reference` (Bytes bereits gelöscht), `mcp_idempotency_record`, `location_assignments` (über `memberships`, `via` jetzt auch für Dokumente; + drei Zuweisungs-Kanten). **Anonymisiert (`_anonymized`):** `task_comments.created_by`, `invitations.invited_by_user_key`, `pest_image_contributions.promoted_by`, `attachments.created_by` (Rest), `ai_audit_log.user_key` (REQ-031 §7.5), `import_jobs.uploaded_by`, `weather_source_configs.updated_by`, `manual_overrides.created_by`, `tenants.owner_user_key` — beim persönlichen Mandanten zusätzlich `name`/`slug` → `anonymized-<Hash>` (aus dem Tombstone, Präfix reserviert) (`rename_fields`/`rename_when`). **Pseudonymisiert:** `mcp_audit_log.service_account_key`. **Ausgeschlossen (Freitext bzw. kein Kontoschlüssel):** `performed_by` in vier Protokoll-Collections, `workflow_templates.created_by`, `task_audit_entries.changed_by`, `sync_runs.triggered_by`. Der Mitgliedschaftsblock ist jetzt `account_cascade` (Bereinigung unbestätigter Konten läuft über die volle Löschung `erase_account`). Alle neuen Kategorien stehen im Art.-15-Manifest; `location_assignments` mit `disclosure_gap`. Löschprotokolle tragen statt des Klartext-Schlüssels den Tombstone-Hash (`subject`). |
 | 1.7 | 2026-09-23 | **#1663 Nutzerfeld im Löschinventar:** Jeder `edge`-/`document`-Schritt von `ErasureEngine.DELETE_STEPS` nennt das Feld, über das die Zeilen des Nutzers gefunden werden (`user_field`; bei Kanten der Endpunkt `_from`/`_to`, ggf. mit `via` auf die Eltern-Collection), durchgesetzt von Guard-Regel R5 in `scripts/check_privacy_inventory.py`. Gemessen und ergänzt: `has_api_key`, `has_membership` und `user_favorites` fehlten im Inventar; `membership_in` und die drei Schädlingserkennungs-Kanten berühren `users` nicht und werden über `memberships` bzw. `pest_detections` erreicht. `quality_assessments` erhält das serverseitige `assessed_by_key` (Migration v0057, kein Rückschluss aus Freitext) und eine `tombstone_hash`-Regel (NFR-011 R-16); `yield_metrics` trägt kein Nutzerfeld. Die Code-Kopie in §3 ist an den Code angeglichen (vorher Freitextfelder `harvester`/`applicator`/`inspector` und Marker `"[gelöscht]"`). AK-DA-04/05 als nicht implementiert gekennzeichnet — `plant_diary_analyses` existiert im Code nicht. |
 | 1.6 | 2026-08-16 | **REQ-051 Analyse-Archiv:** REQ-051 §5 fuehrt die Collection `plant_diary_analyses`, in der jeder abgeschlossene Analyselauf eines Tagebuch-Eintrags aufbewahrt wird. Damit entstehen zwei personenbezogene Felder ausserhalb des Eintragsdokuments (`requested_by`, `claimed_by`), die die drei Regeln aus v1.5 nicht erfassten — ohne Ergaenzung waere ein geloeschter Nutzer im Archiv weiterhin namentlich zugeordnet, waehrend er am Eintrag selbst bereits anonymisiert ist. Zwei neue `AnonymizationRule`-Eintraege schliessen die Luecke; die Abwaegung ist dieselbe wie beim Eintragsdokument (Anonymisierung statt Hard-Delete, weil der Lauf zum Pflanzen-Datensatz eines womoeglich geteilten Mandanten gehoert). Neue Abnahmekriterien AK-DA-04 (Anonymisierung) und AK-DA-05 (Art.-15-Auskunft umfasst die archivierten Laeufe). |
@@ -299,21 +300,8 @@ class DataExportEngine:
             label="Inspektionsprotokolle",
             fields=["type", "date", "findings"],
         ),
-        # <!-- Quelle: ADR-002 / W-006 -->
-        # Tenant-eigene Stammdaten und Overlays (Schicht 2 + 3) — DSGVO Art. 20
-        DataSourceDefinition(
-            collection="tenant_species_config",
-            filter_field="tenant_key",            # Alle Overlays des Tenants
-            label="Tenant-Anpassungen an Species",
-            fields=["species_key", "notes", "hidden", "custom_fields"],
-        ),
-        DataSourceDefinition(
-            collection="tenant_cultivar_config",
-            filter_field="tenant_key",
-            label="Tenant-Anpassungen an Cultivars",
-            fields=["cultivar_key", "notes", "hidden", "custom_fields"],
-        ),
-        # <!-- /Quelle: ADR-002 / W-006 -->
+        # Keine Einträge für tenant_species_config / tenant_cultivar_config:
+        # Diese Collections existieren im Code nicht (#1716, siehe Hinweis unten).
     ]
 
     def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
@@ -329,6 +317,18 @@ class DataExportEngine:
             errors.append("Ein Export-Auftrag ist bereits aktiv.")
         return errors
 ```
+
+> **Tenant-Overlay-Quellen: nicht implementiert (Stand #1716).** Bis v1.8 nannte diese
+> Manifest-Kopie zwei weitere Quellen, `tenant_species_config` und
+> `tenant_cultivar_config` (ADR-002 / W-006, Schicht 2 aus REQ-001 v4.0). Keine der beiden
+> Collections existiert im Code: keine Konstante in `collections.py`, kein Modell, kein
+> Repository, kein Eintrag in `DataExportEngine.USER_DATA_MANIFEST`. Der Export kann sie
+> also nicht offenlegen. Was es heute an mandantenbezogenen Stammdaten gibt, ist keine
+> Art.-15-Quelle zur betroffenen Person: mandanteneigene `species`/`cultivars` tragen nur
+> `tenant_key` (#1090), die Freigabekanten `tenant_has_access` verbinden `tenants` mit
+> `species`/`cultivars` (#1092) — beide ohne Nutzerschlüssel. Sobald REQ-001 das Overlay
+> anlegt und es einen Nutzer zurechnet, gehört es mit diesem Schlüsselfeld in beide
+> Inventare (Guard-Regeln R2 und R6 in `scripts/check_privacy_inventory.py`).
 
 > **Zurechnung der aufbewahrungspflichtigen Datensätze (#1669, seit Migration v0056).**
 > Die Freitextfelder `harvest_batches.harvester`, `inspections.inspector` und
@@ -556,8 +556,15 @@ class ErasureEngine:
                     executor="account_erasure"),
         # Feed-Token liefert danach nichts mehr (get_by_token findet keine Zeile)
         ErasureStep("calendar_feeds", kind="document", user_field="user_key", executor="account_erasure"),
-        # cv_diagnosed_for / cv_diagnosis_found / cv_attached_to_inspection / cv_phenotype_of
-        # (via plant_diagnosis_requests, _from), dann:
+        # REQ-038: Kanten starten an der Diagnoseanfrage, danach die Anfrage selbst
+        ErasureStep("cv_diagnosed_for", kind="edge", user_field="_from", via="plant_diagnosis_requests",
+                    executor="account_erasure"),
+        ErasureStep("cv_diagnosis_found", kind="edge", user_field="_from", via="plant_diagnosis_requests",
+                    executor="account_erasure"),
+        ErasureStep("cv_attached_to_inspection", kind="edge", user_field="_from",
+                    via="plant_diagnosis_requests", executor="account_erasure"),
+        ErasureStep("cv_phenotype_of", kind="edge", user_field="_from", via="plant_diagnosis_requests",
+                    executor="account_erasure"),
         ErasureStep("plant_diagnosis_requests", kind="document", user_field="user_key",
                     executor="account_erasure"),
         # angenommene Einladungen nennen den Nutzer zweimal (Schlüssel + E-Mail)
@@ -851,6 +858,10 @@ class ConsentEngine:
 
 <!-- Quelle: ADR-002 / W-006 -->
 **`SpeciesReferenceResolver`** — Wandelt `species_key`-Referenzen in `species_ref`-Wrapper um (DSGVO Art. 20 Datenübertragbarkeit).
+
+> **Nicht implementiert** (Stand #1716): Der Resolver existiert im Code nicht, und der
+> Export enthält keine `species_ref`-/`cultivar_ref`-Wrapper. Der folgende Abschnitt
+> beschreibt den Zielzustand aus ADR-002.
 
 Hintergrund: Plant-Daten enthalten `species_key`-Referenzen. Bei `origin='system'`/`'enrichment'` ist das eine globale Referenz, beim Empfänger auflösbar. Bei `origin='tenant'` ist die Referenz nur im Quell-Tenant gültig. Damit der Export self-contained ist, wird tenant-eigene Species **inline als Snapshot** eingebettet.
 
