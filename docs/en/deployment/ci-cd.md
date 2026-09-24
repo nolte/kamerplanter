@@ -43,6 +43,7 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-cd-refresh-master.yml` | Published release | Update `main` branch to release state |
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
 | `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
+| `lane-inputs.yml` | PR to `develop` (workflows, manifests, recorder, guard), weekly, manual | Measures which files the filtered jobs read and compares with `.github/lane-inputs/` ([details](#lane-inputs)) |
 
 ---
 
@@ -458,6 +459,45 @@ This workflow runs on pull requests to `develop` when `skaffold.yaml`, Helm file
 
 !!! note "Skaffold is for local development only"
     Skaffold is used exclusively for the local development environment (Kind cluster). Production deployments do not go through Skaffold — they use the `docker-publish` workflow in combination with the Helm chart.
+
+---
+
+## Measured inputs of the path filters (`lane-inputs.yml`) {#lane-inputs}
+
+Many workflows only run when a pull request changes certain paths. Such a path filter is a claim: "a change outside these paths cannot change this job's result." Whether that holds depends on which files the job actually **reads** — not on which paths the workflow mentions.
+
+That is why `.github/lane-inputs/` holds one manifest per filtered job with its measured read set. The guard `src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py` holds every path filter against that set: if a job reads a file its filter does not select, the guard fails. The fix is to widen the **filter**. Only a file that genuinely does not affect the job's result, or that another unfiltered required job checks anyway, goes under `accepted_gaps` with a specific reason (with `covered_by` when another job stands in — the guard then checks that this job reads the file according to its own manifest).
+
+### What the workflow does
+
+The workflow `lane-inputs.yml` measures the read sets where the jobs themselves run — on a GitHub runner:
+
+1. **plan** reads every manifest and emits one matrix entry per manifest. There is no second list of jobs.
+2. **record** re-runs the commands recorded in the manifest under `strace` and writes a fresh manifest. The real job's environment is derived from its workflow (for example a `.venv/bin` added via `$GITHUB_PATH`). If a tool is missing or a command fails, no shorter manifest is written — the entry fails instead.
+3. **compare** compares the committed manifests with the measurement (read set, job hash, status, commands) and fails on any difference.
+
+It runs on pull requests that change workflows, manifests, the recorder or the guard, weekly on `develop`, and on demand. The workflow and the guard are **not required** (advisory); promoting them is decided on their measured history (NFR-018 §4).
+
+!!! note "Why `compare` can turn red without anyone's mistake"
+    Many jobs list directories. When a file is added there, the job's read set grows — the committed manifest is then stale although nobody did anything wrong. Surfacing exactly that is what the weekly run is for.
+
+### Refreshing a manifest from a CI run
+
+`reads:` is never edited by hand. Instead, take over what CI measured:
+
+```bash
+# start the workflow for your branch (a matching PR does this too)
+gh workflow run lane-inputs.yml --ref <branch>
+
+# after the run: download the measurement and take it over
+gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
+cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
+
+# then run the guard (from src/backend)
+python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py
+```
+
+If the guard then reports a read path outside the filter, widen the path filter in the workflow. If that changes the job definition (not just the filter patterns, which are not part of the job hash), run `lane-inputs.yml` again and take over the new measurement.
 
 ---
 

@@ -1,0 +1,255 @@
+name: Lane inputs
+
+# WHAT THIS LANE IS FOR (#1683).
+#
+# Every relevance filter in `.github/` is held against a MEASURED read set, one
+# manifest per job under `.github/lane-inputs/`, by the guard
+# `src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py`
+# (#1596). Until this lane those manifests were recorded by hand — on Linux,
+# under `strace`, with Docker and a running ArangoDB — and the freshness hash
+# they carry (`job_spec_sha256`) is computable from the workflow, so a stale
+# manifest could be brought back to green without measuring anything. This lane
+# is where the instrument runs instead:
+#
+#   plan     reads every manifest and emits one matrix leg per manifest with
+#            invocations, plus one per `covered_by` delegation target that has
+#            no manifest yet (its invocations are that job's own `run:` lines).
+#            There is no second list of lanes in this file.
+#   record   replays ONE leg's invocations exactly as the manifest states them,
+#            under `strace -ff -y -z` (`scripts/ci/lane_inputs.py replay`), and
+#            uploads the manifest it wrote. An invocation whose tool this lane
+#            does not provide fails the leg; it is never dropped from the
+#            recording.
+#   compare  diffs `reads`, `job_spec_sha256`, `status` and `invocations` of the
+#            committed manifests against the recording and fails on any
+#            difference — which is what gives a hand-edited `reads:` no path to
+#            green.
+#
+# HOW TO REFRESH A MANIFEST. Not on a workstation. Run this lane (a pull request
+# that touches the paths below does, or `gh workflow run lane-inputs.yml --ref
+# <branch>`), then commit what it recorded:
+#
+#   gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
+#   cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
+#
+# NOT REQUIRED, AND WHY. This lane and the guard are advisory until the lane has
+# a measured history (NFR-018 §4): promotion is a decision made on recorded
+# runs, not by editing this comment. It also does not run on every pull request:
+# a full recording replays every filtered job of the repository under ptrace,
+# which costs an order of magnitude more than the jobs themselves. It runs when
+# the things that define the manifests change (below), weekly on `develop`, and
+# on demand. A change elsewhere that alters some job's reads is therefore caught
+# by the next scheduled run, not by its own pull request — that is the price of
+# not running this everywhere, stated here rather than hidden.
+#
+# SECURITY. Every job holds `contents: read` and nothing else (#1644: no job
+# holds a write scope while pull-request code runs). `record` executes the pull
+# request's code by design — that is what it measures — so it gets no secret
+# and no write token; the manifests leave the job only as an artifact.
+
+on:
+  pull_request:
+    branches: [develop]
+    # gate-integrity-ok: src/backend/pyproject.toml is read only for the uv
+    # version (`version-file:`), src/backend/uv.lock, src/frontend/package-lock.json
+    # and .github/renovate-pins.yaml only to install the toolchain a leg replays
+    # with, and src/backend / src/frontend are working directories of those
+    # installs. None of them decides what is recorded or compared; a change to
+    # any of them that alters a job's reads is caught by the weekly schedule,
+    # which is the stated cost of not running this lane on every pull request.
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/lane-inputs/**'
+      - 'scripts/ci/lane_inputs.py'
+      - 'src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py'
+  schedule:
+    - cron: '37 3 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: lane-inputs-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The SAME image and digest as the integration lane in backend-guards.yml, so
+  # a recording of that lane runs against the server it runs against. An env
+  # value rather than a `services:` entry because only the legs that need it
+  # start it; the `{{depName}} image` group in renovate.json5 matches on package
+  # identity across managers, so this pin moves with the others.
+  # renovate: datasource=docker depName=arangodb
+  ARANGODB_IMAGE: arangodb:3.12@sha256:f8e1590646f0600da50d4c8a03d0596e1a70453c24c145e54d80c792de247a43
+  # The image docker-lint-build.yml runs hadolint from; the binary is copied out
+  # of it so the recorder can trace the process that actually opens the files.
+  # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+  HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+
+jobs:
+  plan:
+    name: Plan the recordings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the recorder's own dependency
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+      - name: One leg per manifest, read from the manifests
+        id: plan
+        run: python3 scripts/ci/lane_inputs.py plan --github-output "$GITHUB_OUTPUT"
+
+  record:
+    name: Record ${{ matrix.name }}
+    needs: plan
+    runs-on: ubuntu-latest
+    # A full unit run under ptrace is several times slower than without it.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The guards read git history (the migration-rename guard runs `git log`).
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install strace
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends strace
+          strace -V | head -1
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+      - name: Set up Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Install the recorder's own dependency
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+
+      - name: Backend environment
+        if: matrix.backend
+        working-directory: src/backend
+        run: |
+          uv sync --locked --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Frontend environment
+        if: matrix.frontend
+        working-directory: src/frontend
+        run: npm ci
+      - name: Setup Helm
+        if: matrix.helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - name: Helm chart repositories
+        if: matrix.helm
+        run: |
+          helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+          helm repo add ollama https://otwld.github.io/ollama-helm/
+      - name: Setup Skaffold
+        if: matrix.skaffold
+        uses: hiberbee/github-action-skaffold@e3f5dd5659610cb792c6cf32daaa797ea6d89842 # 1.27.0
+        with:
+          skaffold-version: 2.24.0
+      - name: Resolve the pinned Nuclei version
+        if: matrix.nuclei
+        id: nuclei_pin
+        run: echo "version=$(yq e '.nuclei_version' .github/renovate-pins.yaml)" >> "$GITHUB_OUTPUT"
+      - name: Install Nuclei
+        if: matrix.nuclei
+        uses: projectdiscovery/nuclei-action@cc153d0541e1adf8a42bbe31c0a4fb2376147538 # v3.1.1
+        with:
+          install-only: true
+          version: ${{ steps.nuclei_pin.outputs.version }}
+      - name: Install hadolint from the pinned image
+        if: matrix.hadolint
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          container=$(docker create "$HADOLINT_IMAGE")
+          docker cp "$container:/bin/hadolint" "$RUNNER_TEMP/bin/hadolint"
+          docker rm "$container"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Start ArangoDB
+        if: matrix.arangodb
+        run: |
+          docker run -d --name arangodb -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword "$ARANGODB_IMAGE"
+          for attempt in $(seq 1 60); do
+            if curl -fsS --max-time 5 -u root:rootpassword http://localhost:8529/_api/version >/dev/null; then
+              echo "ArangoDB answered after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::ArangoDB did not answer on localhost:8529 within 120 s."
+          docker logs arangodb | tail -50
+          exit 1
+
+      - name: Replay the manifest's invocations under the recorder
+        env:
+          OUT_DIR: ${{ runner.temp }}/lane-inputs-recorded
+          LANE: ${{ matrix.lane }}
+        run: python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" "$LANE"
+      - name: Upload the recorded manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lane-inputs-${{ matrix.name }}
+          path: ${{ runner.temp }}/lane-inputs-recorded/*.yaml
+          if-no-files-found: error
+          retention-days: 14
+
+  compare:
+    name: Compare with the committed manifests
+    needs: [plan, record]
+    # Runs when some record legs failed, too: a lane whose leg failed is
+    # reported as unrecorded here, by name, instead of the whole comparison
+    # silently not happening. The plan must have succeeded, or there is no
+    # recording to compare against.
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the recorder's own dependency
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+      - name: Download every leg's recording
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: lane-inputs-*
+          merge-multiple: true
+          path: recorded/lane-inputs
+      - name: Publish the recording as one artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lane-inputs
+          path: recorded/lane-inputs/*.yaml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Compare
+        run: python3 scripts/ci/lane_inputs.py compare recorded/lane-inputs --run-id "$GITHUB_RUN_ID"

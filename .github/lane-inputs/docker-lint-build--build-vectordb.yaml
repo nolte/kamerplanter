@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: docker-lint-build.yml
@@ -9,8 +10,8 @@ gate:
   kind: paths-filter
   filter: vectordb
 status: derived
-measured_on: '2026-09-23'
-measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+measured_on: '2026-09-24'
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: 6c1f3e446dee46361cf13d74b6e371b1d5e35e3bd6f3e0be55fac0ef13418fd5
 invocations:
 - command: derive-docker --context docker/vectordb --dockerfile docker/vectordb/Dockerfile

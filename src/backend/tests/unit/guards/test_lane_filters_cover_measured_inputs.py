@@ -77,23 +77,41 @@ This file then asserts, over the real tree:
    skipped, or is a finding; a ``covered_by`` delegation to a job that has no
    manifest is a finding, never a silent pass.
 
+WHERE THE MANIFESTS COME FROM (#1683).
+
+The recorder runs in CI: ``.github/workflows/lane-inputs.yml`` replays every
+manifest's own ``invocations`` under ``strace`` on ``ubuntu-latest`` and its
+``compare`` job fails when the committed ``reads``, ``job_spec_sha256``,
+``status`` or ``invocations`` differ from what it recorded — so a hand-edited
+``reads:`` has no path to green there. To refresh a manifest, do not re-measure
+on a workstation; run that lane (a pull request touching ``.github/workflows/``,
+``.github/lane-inputs/``, ``scripts/ci/lane_inputs.py`` or this file does, as
+does ``gh workflow run lane-inputs.yml --ref <branch>``) and commit what it
+recorded::
+
+    gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
+    cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
+
+A ``covered_by`` target with no manifest is recorded by the same lane from the
+job's own ``run:`` lines (``replay WORKFLOW/JOB``); its manifest declares
+``gate.kind: unfiltered``, which this file accepts only for a job that really
+has no filter.
+
 WHERE THIS FILE RUNS, AND WHY NOT IN THE REQUIRED LANE (#1683).
 
-The manifests are recorded on a workstation until the recorder runs in CI
-(#1683). Until then a manifest can be absent (``backend-guards.yml/guards``)
-or partial (``backend--coverage.yaml``), and a rule that reddens on either is
-right to — but a REQUIRED context that is red on a known, dated gap blocks
-every merge over a fact no pull request can change. So this file carries
+The two gaps this file once held open in aging registers — no manifest for
+``backend-guards.yml/guards``, and ``backend--coverage.yaml`` recorded from one
+test file (``status: partial``) — are closed: both manifests are now CI
+recordings from ``lane-inputs.yml`` (#1683), so the registers are gone and
+every finding on the real tree is red. The file still carries
 ``pytestmark = pytest.mark.advisory``, and the required ``Write-route and tree
 guards`` lane deselects it with ``-m 'not advisory'`` (``backend-guards.yml``);
 ``task test:backend:unit`` — ``pytest tests/unit/`` — still collects it, so the
-advisory ``backend.yml`` lanes carry the verdict. The two known gaps stand in
-``_UNRECORDED_DELEGATES`` and ``_PARTIAL_MANIFESTS`` below: the rules still
-emit the findings (the planted cases prove it), the real-tree tests let
-exactly those entries through, and ``TestTheRegistersAge`` goes red the moment
-the named manifest appears or stops being partial, so an entry cannot outlive
-#1683. #1683 promotes this file back into the required set by deleting the
-marker and the two registers.
+advisory ``backend.yml`` lanes carry the verdict. A manifest's read set moves
+whenever a file is added under a directory a job enumerates, so the manifests
+go stale between two recordings by construction; promoting this file and the
+lane is a decision on their measured history (NFR-018 §4), not an edit of this
+paragraph.
 
 THE MATCHER, AND WHY IT IS ALLOWED TO EXIST HERE.
 
@@ -174,25 +192,6 @@ _SCHEMA = 2
 #: file the job's filter could miss. A `python -m pip …` is pip, not a script, and
 #: is exempt for the same reason.
 _INVOCATION_HEADS = ("task", "pytest", "python", "python3", "npx")
-
-#: Aging registers for the two gaps #1683 closes (see the module docstring).
-#: Each entry is checked for staleness by ``TestTheRegistersAge``: the moment
-#: ``backend-guards.yml/guards`` has a manifest, or ``backend--coverage.yaml`` is
-#: no longer partial, the entry is red and must be deleted. Adding an entry here
-#: is the same act as adding an ``accepted_gaps`` reason: it names what is known.
-_UNRECORDED_DELEGATES: dict[str, str] = {
-    "backend-guards.yml/guards": (
-        "#1683 — the lane's `pytest … --max-skipped 0` trips on tests that skip on a workstation and the "
-        "recorder refuses a red run; the manifest is recorded in CI, where the run is green"
-    ),
-}
-_PARTIAL_MANIFESTS: dict[str, str] = {
-    "backend--coverage.yaml": (
-        "#1683 — recorded from the job's command narrowed to one test file; the full run "
-        "(every unit, contract and api test under coverage) is recorded in CI"
-    ),
-}
-
 
 # --------------------------------------------------------------------- matcher
 
@@ -555,10 +554,17 @@ def malformed_manifests(s: Sweep) -> list[str]:
             continue
         if m.job not in wf.jobs:
             findings.append(f"{m.path.name}: names job {m.job!r}, which {m.workflow} does not define")
-        if m.gate_kind not in ("on-paths", "paths-filter"):
-            findings.append(f"{m.path.name}: gate.kind {m.gate_kind!r} is neither on-paths nor paths-filter")
+        if m.gate_kind not in ("on-paths", "paths-filter", "unfiltered"):
+            findings.append(f"{m.path.name}: gate.kind {m.gate_kind!r} is none of on-paths, paths-filter, unfiltered")
         if m.gate_kind == "on-paths" and not wf.on_filtered:
             findings.append(f"{m.path.name}: claims an on:-level filter, but {m.workflow} has none")
+        if m.gate_kind == "unfiltered" and (wf.on_filtered or m.filters or _job_has_paths_filter(wf, m.job)):
+            # `unfiltered` exists for a `covered_by` target (#1683): a manifest
+            # that claims it for a filtered job would take that job's filter out
+            # of the coverage rule, which is the one thing it must never do.
+            findings.append(
+                f"{m.path.name}: gate.kind unfiltered, but job {m.job!r} in {m.workflow} runs behind a relevance filter"
+            )
         known = {sf.name for sf in wf.step_filters}
         for name in m.filters:
             if name not in known:
@@ -582,6 +588,13 @@ def malformed_manifests(s: Sweep) -> list[str]:
             )
         findings += failed_invocation_findings(m)
     return findings
+
+
+def _job_has_paths_filter(wf: Workflow, job: str) -> bool:
+    spec = wf.jobs.get(job)
+    return isinstance(spec, dict) and any(
+        isinstance(step, dict) and _PATHS_FILTER in str(step.get("uses", "")) for step in spec.get("steps") or []
+    )
 
 
 def failed_invocation_findings(m: Manifest) -> list[str]:
@@ -1066,7 +1079,6 @@ class TestTheRealTree:
 
     def test_every_read_is_selected_by_every_filter_that_gates_its_job(self, real: Sweep) -> None:
         findings = [finding for m in real.manifests for finding in coverage_findings(real, m)]
-        findings = [finding for finding in findings if not _registered(finding)]
         assert not findings, (
             "A job reads a path its relevance filter does not select, so a change to that path cannot run "
             "the job that depends on it (#1596). Widen the filter, or write the gap down under accepted_gaps "
@@ -1076,7 +1088,6 @@ class TestTheRealTree:
 
     def test_every_held_invocation_of_a_job_is_the_one_its_manifest_recorded(self, real: Sweep) -> None:
         findings = [finding for m in real.manifests for finding in invocation_findings(real, m)]
-        findings = [finding for finding in findings if not _registered(finding)]
         assert not findings, (
             "A manifest certifies a filter only for the invocation it recorded (review of #1682, O2). "
             "Record the missing command with `scripts/ci/lane_inputs.py record --append`, or write down under "
@@ -1104,58 +1115,6 @@ class TestTheRealTree:
             "no required context decides its relevance inside the job any more; "
             "retire rule 4 with a reason rather than leave it green over nothing"
         )
-
-
-def _registered(finding: str) -> bool:
-    """Whether a real-tree finding is one the two #1683 registers hold open (see the module docstring).
-
-    A partial manifest produces two findings about the same fact — ``status
-    partial`` on the filter, and rule 5's "the recording narrowed the job's
-    invocation" — and the register holds both; nothing else about that
-    manifest (a stale gap, a read outside the filter) is held.
-    """
-    if any(f"covered_by {delegate!r} names a job with no manifest" in finding for delegate in _UNRECORDED_DELEGATES):
-        return True
-    return any(
-        finding.startswith(f"{name}: ") and ("status partial" in finding or "narrowed or altered" in finding)
-        for name in _PARTIAL_MANIFESTS
-    )
-
-
-class TestTheRegistersAge:
-    """Each register entry is red the moment the fact it records stops being true (NFR-018 §2.5)."""
-
-    def test_every_unrecorded_delegate_still_has_no_manifest_and_is_still_delegated_to(self, real: Sweep) -> None:
-        all_findings = [finding for m in real.manifests for finding in coverage_findings(real, m)]
-        for delegate, reason in _UNRECORDED_DELEGATES.items():
-            workflow_name, _, job = delegate.partition("/")
-            wf = real.workflow(workflow_name)
-            assert wf is not None and job in wf.jobs, f"{delegate!r} in _UNRECORDED_DELEGATES names no live job"
-            assert not real.manifests_for(workflow_name, job), (
-                f"{delegate} now has a manifest under .github/lane-inputs/ — delete its _UNRECORDED_DELEGATES "
-                f"entry ({reason}); the delegations to it are held against that manifest from now on"
-            )
-            assert any(f"covered_by {delegate!r} names a job with no manifest" in f for f in all_findings), (
-                f"no manifest delegates to {delegate} any more — the _UNRECORDED_DELEGATES entry is stale"
-            )
-
-    def test_every_registered_partial_manifest_is_still_partial(self, real: Sweep) -> None:
-        by_name = {m.path.name: m for m in real.manifests}
-        for name, reason in _PARTIAL_MANIFESTS.items():
-            assert name in by_name, f"{name} in _PARTIAL_MANIFESTS does not exist — delete the entry"
-            assert by_name[name].status == "partial", (
-                f"{name} is no longer partial — delete its _PARTIAL_MANIFESTS entry ({reason})"
-            )
-
-    def test_the_registers_hold_nothing_the_rules_do_not_emit(self, real: Sweep) -> None:
-        """A register entry that matches no finding would be a silent pass in disguise."""
-        emitted = [
-            finding for m in real.manifests for finding in (*coverage_findings(real, m), *invocation_findings(real, m))
-        ]
-        held = [f for f in emitted if _registered(f)]
-        assert held, "the rules emit no registered finding; the registers are inert"
-        for name in _PARTIAL_MANIFESTS:
-            assert any(f.startswith(f"{name}: status partial") for f in held), f"{name}: no partial finding is emitted"
 
 
 class TestTheRealTreeCanGoRed:
@@ -1720,6 +1679,50 @@ class TestTheSweepCanGoRed:
         )
         findings = malformed_manifests(sweep(github, manifests))
         assert findings == ["w--integration.yaml: claims paths-filter filter 'frontend', which w.yml does not define"]
+
+    def test_unfiltered_is_accepted_for_a_job_without_any_filter(self, tree: tuple[Path, Path]) -> None:
+        """#1683: a `covered_by` target is recorded as `gate.kind: unfiltered` by the CI lane's bootstrap."""
+        github, manifests = tree
+        _plant(
+            github,
+            "workflows/g.yml",
+            "name: planted\non:\n  push:\njobs:\n  guards:\n"
+            "    runs-on: ubuntu-latest\n    steps:\n      - run: pytest\n",
+        )
+        _plant(
+            manifests,
+            "g--guards.yaml",
+            _manifest(
+                "g.yml",
+                "guards",
+                reads=["src/a.py"],
+                gate_kind="unfiltered",
+                job_hash=_hash_of(github, "g.yml", "guards"),
+            ),
+        )
+        assert malformed_manifests(sweep(github, manifests)) == []
+
+    @pytest.mark.parametrize("shape", ["on-paths", "paths-filter step"])
+    def test_unfiltered_is_refused_for_a_job_behind_a_filter(self, tree: tuple[Path, Path], shape: str) -> None:
+        """Claiming `unfiltered` for a filtered job would take its filter out of the coverage rule."""
+        github, manifests = tree
+        if shape == "on-paths":
+            _plant(github, "workflows/w.yml", _workflow_with_on_filter(["src/**"]))
+            job = "build"
+        else:
+            _plant(github, "workflows/w.yml", _workflow_with_step_filter(["src/**"]))
+            job = "integration"
+        _plant(
+            manifests,
+            f"w--{job}.yaml",
+            _manifest(
+                "w.yml", job, reads=["src/a.py"], gate_kind="unfiltered", job_hash=_hash_of(github, "w.yml", job)
+            ),
+        )
+        findings = malformed_manifests(sweep(github, manifests))
+        assert findings == [
+            f"w--{job}.yaml: gate.kind unfiltered, but job {job!r} in w.yml runs behind a relevance filter"
+        ], findings
 
 
 class TestTheReviewRoundRulesCanGoRed:

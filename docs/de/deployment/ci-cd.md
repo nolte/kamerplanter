@@ -43,6 +43,7 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 | `release-cd-refresh-master.yml` | Veröffentlichtes Release | `main`-Branch auf den Release-Stand aktualisieren |
 | `release-lag.yml` | Zeitplan, täglich 09:00 UTC (+ manuell) | Meldet, wenn `develop` Commits trägt, die kein **veröffentlichtes** Release enthält |
 | `renovate-health.yml` | Zeitplan, täglich 09:20 UTC (+ manuell) | Liest das Dependency Dashboard (#12) und meldet, wenn Renovate ein Problem berichtet oder die Manager-Inventur abweicht |
+| `lane-inputs.yml` | PR auf `develop` (Workflows, Manifeste, Recorder, Guard), wöchentlich, manuell | Misst, welche Dateien die gefilterten Jobs lesen, und vergleicht mit `.github/lane-inputs/` ([Details](#lane-inputs)) |
 
 ---
 
@@ -463,6 +464,45 @@ Dieser Workflow läuft bei Pull Requests auf `develop`, wenn `skaffold.yaml`, He
 
 !!! note "Skaffold ist nur für die lokale Entwicklung"
     Skaffold wird ausschließlich für die lokale Entwicklungsumgebung (Kind-Cluster) verwendet. Produktions-Deployments laufen nicht über Skaffold, sondern über den `docker-publish`-Workflow in Kombination mit dem Helm-Chart.
+
+---
+
+## Gemessene Eingaben der Pfadfilter (`lane-inputs.yml`) {#lane-inputs}
+
+Viele Workflows laufen nur, wenn ein Pull Request bestimmte Pfade ändert. Ein solcher Pfadfilter ist eine Behauptung: „Eine Änderung außerhalb dieser Pfade kann das Ergebnis des Jobs nicht ändern.“ Ob das stimmt, hängt davon ab, welche Dateien der Job tatsächlich **liest** — nicht davon, welche Pfade im Workflow erwähnt werden.
+
+Deshalb gibt es unter `.github/lane-inputs/` pro gefiltertem Job ein Manifest mit seiner gemessenen Lesemenge. Der Guard `src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py` hält jeden Pfadfilter gegen diese Menge: Liest ein Job eine Datei, die sein Filter nicht auswählt, schlägt der Guard an. Dann wird der **Filter** erweitert. Nur wenn eine Datei für das Ergebnis des Jobs wirklich keine Rolle spielt oder ein anderer, ungefilterter Pflicht-Job sie ohnehin prüft, steht sie mit konkreter Begründung unter `accepted_gaps` (mit `covered_by`, wenn ein anderer Job einspringt — der Guard prüft dann, dass dieser Job die Datei laut seinem eigenen Manifest auch liest).
+
+### Was der Workflow tut
+
+Der Workflow `lane-inputs.yml` misst die Lesemengen dort, wo die Jobs selbst laufen — auf einem GitHub-Runner:
+
+1. **plan** liest alle Manifeste und erzeugt pro Manifest einen Matrix-Eintrag. Eine zweite Liste der Jobs gibt es nicht.
+2. **record** führt die im Manifest festgehaltenen Befehle unter `strace` erneut aus und schreibt ein frisches Manifest. Die Umgebung des echten Jobs wird aus dessen Workflow abgeleitet (zum Beispiel ein per `$GITHUB_PATH` eingehängtes `.venv/bin`). Fehlt ein Werkzeug oder schlägt ein Befehl fehl, wird kein kürzeres Manifest geschrieben, sondern der Eintrag schlägt fehl.
+3. **compare** vergleicht die eingecheckten Manifeste mit der Messung (Lesemenge, Job-Hash, Status, Befehle) und schlägt bei jeder Abweichung an.
+
+Er läuft bei Pull Requests, die Workflows, Manifeste, den Recorder oder den Guard ändern, wöchentlich auf `develop` und auf Abruf. Workflow und Guard sind **nicht verpflichtend** (advisory); über eine Hochstufung wird anhand ihrer gemessenen Historie entschieden (NFR-018 §4).
+
+!!! note "Warum `compare` auch ohne eigenen Fehler rot werden kann"
+    Viele Jobs listen Verzeichnisse auf. Kommt dort eine Datei hinzu, wächst ihre Lesemenge — das eingecheckte Manifest ist dann veraltet, obwohl niemand etwas falsch gemacht hat. Genau das soll der wöchentliche Lauf sichtbar machen.
+
+### Ein Manifest aus einem CI-Lauf auffrischen
+
+`reads:` wird nie von Hand bearbeitet. Stattdessen übernimmst du, was CI gemessen hat:
+
+```bash
+# Workflow für deinen Branch starten (ein passender PR tut das auch)
+gh workflow run lane-inputs.yml --ref <branch>
+
+# nach dem Lauf: Messung herunterladen und übernehmen
+gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
+cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
+
+# danach den Guard laufen lassen (aus src/backend)
+python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py
+```
+
+Meldet der Guard danach einen gelesenen Pfad außerhalb des Filters, erweiterst du den Pfadfilter im Workflow. Ändert sich dadurch die Job-Definition (nicht nur die Filtermuster, die im Job-Hash nicht enthalten sind), lässt du `lane-inputs.yml` erneut laufen und übernimmst die neue Messung.
 
 ---
 
