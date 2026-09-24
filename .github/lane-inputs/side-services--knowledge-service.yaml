@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: e96ac87e6caa97e530935dbc5ac0f5ed8cfa5e9a
 job_spec_sha256: ef66430751a38d32774c475b4c7ceddf81f44cf438f298a01b5038a881ddb79a
 invocations:
 - command: task deps:sync:knowledge-service
@@ -43,6 +43,7 @@ reads:
 - .taskfiles/frontend.yaml
 - .taskfiles/libs.yaml
 - .taskfiles/mcp.yaml
+- .taskfiles/reach.yaml
 - Taskfile.yaml
 - src/knowledge-service/
 - src/knowledge-service/app/

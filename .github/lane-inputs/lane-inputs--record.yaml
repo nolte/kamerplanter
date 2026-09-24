@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: e96ac87e6caa97e530935dbc5ac0f5ed8cfa5e9a
 job_spec_sha256: c51dc99b670ef5abd39ed37c8caeea9755690d50b75697ed2181060c9dd30b7a
 invocations:
 - command: python3 scripts/ci/lane_inputs.py replay --dry-run --out-dir /tmp/lane-inputs-scratch/recorded .github/lane-inputs/side-services--libs.yaml
@@ -24,7 +24,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2
+  untracked_reads_dropped: 3
 unrecorded_invocations:
 - command: python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" "$LANE"
   reason: 'This job IS the recorder: the replay runs every invocation of one manifest under strace, and ptrace cannot nest,

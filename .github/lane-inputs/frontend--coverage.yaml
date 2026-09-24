@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: e96ac87e6caa97e530935dbc5ac0f5ed8cfa5e9a
 job_spec_sha256: c2dcbcac2a9337b8e76c6a5356bcdc61cd10de9858d8300cd1bf382ca3a44a58
 invocations:
 - command: npm run test:coverage
