@@ -1329,7 +1329,7 @@ class PrivacyService:
         log(
             event,
             erasure_key=erasure.key,
-            user_key=erasure.user_key,
+            subject=self._erasure_log_subject(erasure.user_key),
             attempt=attempt,
             escalated=escalated,
             next_attempt_at=next_attempt_at.isoformat(),
@@ -1436,7 +1436,7 @@ class PrivacyService:
 
         report = AccountErasureReport()
         if pre_arango_completed:
-            logger.info("retention.erasure.pre_arango_phases_skipped", user_key=user_key)
+            logger.info("retention.erasure.pre_arango_phases_skipped", subject=self._erasure_log_subject(user_key))
             report.storage_cleanup_scopes = list(recorded_storage_scopes or [])
             pest_removed = 0
         else:
@@ -1455,7 +1455,7 @@ class PrivacyService:
 
         logger.info(
             "erasure.account_erased",
-            user_key=user_key,
+            subject=self._erasure_log_subject(user_key),
             export_files_removed=report.export_files_removed,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
             reference_index_removed=report.reference_index_removed,
@@ -1477,7 +1477,7 @@ class PrivacyService:
         if self._storage_adapter is None:
             logger.info(
                 "retention.erasure.export_file_cleanup_skipped",
-                user_key=user_key,
+                subject=self._erasure_log_subject(user_key),
                 reason="storage adapter not wired",
             )
             return 0
@@ -1523,7 +1523,7 @@ class PrivacyService:
                 removed += 1
         logger.info(
             "retention.erasure.pest_image_documents_cleanup",
-            user_key=user_key,
+            subject=self._erasure_log_subject(user_key),
             removed=removed,
         )
         return removed
@@ -1557,7 +1557,7 @@ class PrivacyService:
         if self._storage_adapter is None or self._membership_repo is None:
             logger.info(
                 "retention.erasure.storage_cleanup_skipped",
-                user_key=user_key,
+                subject=self._erasure_log_subject(user_key),
                 reason="storage adapter / membership repo not wired",
             )
             return []
@@ -1576,7 +1576,7 @@ class PrivacyService:
                         "retention.erasure.storage_hard_delete",
                         scope=rule.scope,
                         tenant_key=tenant_key,
-                        user_key=user_key,
+                        subject=self._erasure_log_subject(user_key),
                         deleted=deleted,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
@@ -1600,7 +1600,7 @@ class PrivacyService:
                         "retention.erasure.storage_anonymize",
                         scope=rule.scope,
                         tenant_key=tenant_key,
-                        user_key=user_key,
+                        subject=self._erasure_log_subject(user_key),
                         metadata_anonymized=anonymised,
                         exif_stripped=stripped,
                     )
@@ -1632,7 +1632,7 @@ class PrivacyService:
         if self._reference_index_store is None:
             logger.info(
                 "retention.erasure.reference_index_cleanup_skipped",
-                user_key=user_key,
+                subject=self._erasure_log_subject(user_key),
                 reason="reference-index store not wired",
             )
             return 0
@@ -1642,10 +1642,24 @@ class PrivacyService:
         )
         logger.info(
             "retention.erasure.reference_index_cleanup",
-            user_key=user_key,
+            subject=self._erasure_log_subject(user_key),
             removed=removed,
         )
         return removed
+
+    def _erasure_log_subject(self, user_key: str) -> str:
+        """The reference an erasure log line carries instead of the plaintext key (#1700).
+
+        The salted tombstone hash the audit rows receive (NFR-011 R-06): every
+        line of one erasure — and the pseudonymised ``erasure_requests`` row —
+        share it, and it names nobody. The log lines outlive the account under no
+        retention rule, so the plaintext key must not be in them. A missing or
+        short salt (the case ``erase_account`` refuses) still yields no key.
+        """
+        try:
+            return self._erasure_engine.compute_tombstone_hash(user_key, self._tombstone_salt)
+        except ValueError:
+            return "anon_unavailable"
 
     def _erasure_tenant_keys(self, user_key: str) -> list[str]:
         """The tenants whose object storage may hold the user's files.

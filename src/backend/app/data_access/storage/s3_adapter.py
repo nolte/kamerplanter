@@ -339,7 +339,6 @@ class S3StorageAdapter(IObjectStorageAdapter):
             "storage_delete_for_user",
             backend=BACKEND_KEY,
             tenant_key=tenant_key,
-            user_key=user_key,
             scope=scope,
             deleted=deleted,
         )
@@ -373,7 +372,6 @@ class S3StorageAdapter(IObjectStorageAdapter):
                     "exif_strip_unsupported_format",
                     backend=BACKEND_KEY,
                     tenant_key=tenant_key,
-                    user_key=user_key,
                     mime_type=att.mime_type,
                 )
                 continue
@@ -385,7 +383,6 @@ class S3StorageAdapter(IObjectStorageAdapter):
             "storage_strip_exif_for_user",
             backend=BACKEND_KEY,
             tenant_key=tenant_key,
-            user_key=user_key,
             scope=scope,
             rewritten=rewritten,
             skipped_unsupported=skipped_unsupported,

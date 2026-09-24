@@ -30,7 +30,6 @@ class NoopReferenceIndexStore(IReferenceIndexStore):
             reason="pgvector species_embeddings index not yet built (REQ-029-A Phase 2)",
             scope="user",
             tenant_key=tenant_key,
-            user_key=user_key,
             removed=0,
         )
         return 0
