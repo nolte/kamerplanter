@@ -1135,7 +1135,8 @@ def bootstrap_invocations(workflow: str, job: str) -> list[dict[str, Any]]:
 #: A replay runs every invocation with ``--deselect`` of it in ``PYTEST_ADDOPTS``.
 #: The guard holds the COMMITTED manifests against the live tree — exactly the
 #: manifests a replay produces successors for. Run inside the replay of the
-#: unit-suite legs (backend--lint-test, backend--coverage: ``pytest tests/unit/``),
+#: unit-suite legs (backend--lint-test, backend--coverage: ``pytest tests/unit/``;
+#: backend-guards--guards already leaves it out with ``-m 'not advisory'``),
 #: it failed whenever a change had staled one of them (as any change to a
 #: recorded job does), those legs recorded nothing, and every such change cost
 #: two recordings (#1683, 2026-09-24). The real CI lanes still run it; only the
@@ -1685,6 +1686,33 @@ def read_drift(
     return findings, notes
 
 
+def delegated_reads(
+    committed: dict[str, dict[str, Any]], *, workflow_dir: Path = WORKFLOW_DIR
+) -> dict[tuple[str, str], dict[str, str]]:
+    """``(workflow, job) -> {read: delegating manifest}``: what each ``covered_by`` lane must read.
+
+    The guard's ``_delegation_findings`` semantics: a delegating manifest's
+    committed reads that its filter does not select and that a gap with
+    ``covered_by`` explains are owed by the covering lane.
+    """
+    owed: dict[tuple[str, str], dict[str, str]] = {}
+    for name, manifest in committed.items():
+        gaps = [g for g in manifest.get("accepted_gaps") or [] if isinstance(g, dict) and g.get("covered_by")]
+        workflow = workflow_dir / str(manifest.get("workflow"))
+        if not gaps or not workflow.is_file():
+            continue
+        live = relevance_filter(yaml.safe_load(workflow.read_text()) or {}, manifest)
+        for read in (str(entry) for entry in manifest.get("reads") or []):
+            if not live.rejects(read):
+                continue
+            for gap in gaps:
+                if gap_matches(gap, read):
+                    target_workflow, _, target_job = str(gap["covered_by"]).partition("/")
+                    owed.setdefault((target_workflow, target_job), {}).setdefault(read, name)
+                    break
+    return owed
+
+
 def compare_manifests(
     committed_dir: Path, recorded_dir: Path, *, workflow_dir: Path = WORKFLOW_DIR
 ) -> tuple[list[str], list[str]]:
@@ -1720,6 +1748,7 @@ def compare_manifests(
         for manifest in source.values():
             key = (str(manifest.get("workflow")), str(manifest.get("job")))
             reads_of[key] = {str(entry) for entry in manifest.get("reads") or []}
+    delegated = delegated_reads(committed, workflow_dir=workflow_dir)
     for name, manifest in committed.items():
         if not any(isinstance(entry, dict) for entry in manifest.get("invocations") or []):
             notes.append(f"{name}: no invocation to replay — {manifest.get('empty_reads_reason') or 'no reason given'}")
@@ -1737,6 +1766,17 @@ def compare_manifests(
         )
         findings += read_findings
         notes += read_notes
+        # Review of #1747: a covering lane that stops reading a path another lane
+        # delegates to it would keep the stale committed read, and the guard's
+        # delegation rule (which reads committed manifests) would stay green.
+        owed = delegated.get((str(manifest.get("workflow")), str(manifest.get("job"))), {})
+        recorded_reads = {str(entry) for entry in counterpart.get("reads") or []}
+        dropped = sorted(read for read in owed if read not in recorded_reads)
+        if dropped:
+            findings.append(
+                f"{name}: the CI run no longer reads {len(dropped)} path(s) other lanes delegate to it through "
+                f"covered_by: {_sample([f'{read} ({owed[read]})' for read in dropped])}"
+            )
     for name in sorted(set(recorded) - set(committed)):
         findings.append(f"{name}: recorded in CI and not committed — commit it (a delegation target's first manifest)")
     return findings, notes

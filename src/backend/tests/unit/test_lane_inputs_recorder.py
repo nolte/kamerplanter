@@ -1020,3 +1020,40 @@ class TestCompareCountsOnlyReadsOutsideTheFilterAsDrift:
             compared += len(candidates)
             assert ours == theirs, f"{m.path.name}: {sorted(ours ^ theirs)[:5]}"
         assert compared >= 10000 and disagreements == 0, compared
+
+
+class TestACoveringLaneThatStopsReadingADelegatedPathIsDrift:
+    """Review of #1747: a `covered_by` lane dropping a delegated read must not pass as a note.
+
+    The guard's delegation rule holds the delegating manifest's gap hits against
+    the covering lane's COMMITTED reads. A covering lane that stops reading one
+    of them would keep the stale committed read and the guard green — the
+    delegation assumed, not measured (B1 of the #1682 review).
+    """
+
+    def _tree(self, tmp_path: Path, covering_recorded: list[str]) -> tuple:
+        (tmp_path / "workflows").mkdir()
+        (tmp_path / "workflows" / "w.yml").write_text(_ON_PATHS_WORKFLOW)
+        (tmp_path / "workflows" / "g.yml").write_text("on: [pull_request]\njobs:\n  guards:\n    steps: []\n")
+        gaps = [{"pattern": "docs/**", "reason": "r" * 50, "covered_by": "g.yml/guards"}]
+        delegating = _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "docs/a.md"])
+        covering = _committed(workflow="g.yml", job="guards", gate={"kind": "unfiltered"}, reads=["docs/a.md", "x"])
+        for side in ("committed", "recorded"):
+            _write(tmp_path / side, "w--j.yaml", delegating)
+        _write(tmp_path / "committed", "g--guards.yaml", covering)
+        _write(tmp_path / "recorded", "g--guards.yaml", {**covering, "reads": covering_recorded})
+        return recorder.compare_manifests(
+            tmp_path / "committed", tmp_path / "recorded", workflow_dir=tmp_path / "workflows"
+        )
+
+    def test_a_dropped_delegated_read_is_a_finding(self, tmp_path: Path) -> None:
+        findings, _ = self._tree(tmp_path, ["x"])
+        assert findings == [
+            "g--guards.yaml: the CI run no longer reads 1 path(s) other lanes delegate to it through covered_by: "
+            "docs/a.md (w--j.yaml)"
+        ]
+
+    def test_a_dropped_read_nobody_delegates_is_a_note(self, tmp_path: Path) -> None:
+        findings, notes = self._tree(tmp_path, ["docs/a.md"])
+        assert findings == []
+        assert "g--guards.yaml: 1 committed read(s) not made in this run (not drift)" in notes
