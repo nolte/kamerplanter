@@ -823,8 +823,12 @@ def get_workflow_execution(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """Return a single workflow execution by key."""
-    return _we_response(service.get_workflow_execution(key))
+    """Return one of the tenant's workflow executions by key.
+
+    The execution belongs to the owner of the entity it runs on (#1714); a
+    foreign or orphaned execution answers the same 404 as an unknown key.
+    """
+    return _we_response(service.get_workflow_execution(key, tenant_key=ctx.tenant_key))
 
 
 @router.post("/executions/{key}/tasks", response_model=TaskResponse, status_code=201)
@@ -834,7 +838,10 @@ def add_task_to_workflow(
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Add an ad-hoc task to a running workflow execution."""
+    """Add an ad-hoc task to one of the tenant's running workflow executions.
+
+    A foreign or orphaned execution is a 404 and nothing is written (#1714).
+    """
     task = Task(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.add_task_to_workflow_execution(key, task)
+    created = service.add_task_to_workflow_execution(key, task, tenant_key=ctx.tenant_key)
     return _task_response(created)

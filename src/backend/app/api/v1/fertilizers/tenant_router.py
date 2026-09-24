@@ -191,7 +191,7 @@ def add_incompatibility(
 ):
     """Declare an incompatibility between this fertilizer and another."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.add_incompatibility(key, body.other_key, body.reason, body.severity)
+    service.add_incompatibility(key, body.other_key, body.reason, body.severity, tenant_key=ctx.tenant_key)
     return IncompatibilityResponse(
         fertilizer_key=body.other_key, product_name=None, reason=body.reason, severity=body.severity
     )

@@ -21,6 +21,7 @@ from app.domain.models.nutrient_plan import (
     normalize_species_keys,
 )
 from app.domain.models.site import RoWaterProfile
+from app.domain.services.fertilizer_references import assert_fertilizers_visible, require_visible_fertilizer
 from app.domain.services.location_ownership import resolve_owned_location
 
 
@@ -129,9 +130,34 @@ class NutrientPlanService:
     # ── Phase entries ────────────────────────────────────────────────
 
     def create_phase_entry(self, plan_key: NutrientPlanKey, entry: NutrientPlanPhaseEntry) -> NutrientPlanPhaseEntry:
-        self.get_plan(plan_key)
+        plan = self.get_plan(plan_key)
         entry.plan_key = plan_key
+        self._assert_dosages_visible(entry.delivery_channels, tenant_key=plan.tenant_key)
         return self._repo.create_phase_entry(entry)
+
+    def _assert_dosages_visible(self, channels: list, *, tenant_key: str) -> None:
+        """Refuse a dosage naming a fertilizer the plan's tenant cannot see (#1713).
+
+        ``channels`` are models on create and plain dicts on a patch
+        (``model_dump`` in the route); both are read. Unknown and foreign keys
+        are one 422, like :meth:`_assert_species_visible`.
+        """
+
+        def keys():
+            for channel in channels or []:
+                dosages = (
+                    channel.get("fertilizer_dosages", []) if isinstance(channel, dict) else channel.fertilizer_dosages
+                )
+                for dosage in dosages or []:
+                    yield dosage.get("fertilizer_key") if isinstance(dosage, dict) else dosage.fertilizer_key
+
+        assert_fertilizers_visible(
+            self._fert_repo,
+            keys(),
+            tenant_key=tenant_key,
+            field="delivery_channels",
+            owner="NutrientPlanService",
+        )
 
     def get_phase_entries(self, plan_key: NutrientPlanKey) -> list[NutrientPlanPhaseEntry]:
         self.get_plan(plan_key)
@@ -183,6 +209,8 @@ class NutrientPlanService:
             "watering_schedule_override",
             "water_mix_ratio_ro_percent",
         }
+        if "delivery_channels" in data:
+            self._assert_dosages_visible(data["delivery_channels"], tenant_key=tenant_key)
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(existing, field, value)
@@ -237,7 +265,8 @@ class NutrientPlanService:
         channel_ids = [ch.channel_id for ch in entry.delivery_channels]
         if channel_id not in channel_ids:
             raise NotFoundError("DeliveryChannel", channel_id)
-        self._fert_repo.get_or_raise(fertilizer_key)
+        # Unknown was already a 404 here; a foreign key now answers the same (#1713).
+        require_visible_fertilizer(self._fert_repo, fertilizer_key, tenant_key=tenant_key, owner="NutrientPlanService")
         return self._repo.add_fertilizer_to_channel(
             entry_key,
             channel_id,

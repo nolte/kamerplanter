@@ -27,6 +27,39 @@ ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
 }
 
 
+#: The owner of a ``WorkflowExecution`` (bound to ``we``), as AQL ``LET``\ s.
+#:
+#: An execution carries no ``tenant_key``; it belongs to the entity it runs on —
+#: that entity's own ``tenant_key``, or for a location its site's
+#: (``Location.tenant_key`` is never written, #1397). An execution whose entity
+#: no longer resolves, or whose type names no collection, has ``owner == null``
+#: and so belongs to nobody. Shared by every read that selects executions for a
+#: tenant (#1708 listing, #1714 by key), so the two cannot disagree on whose an
+#: execution is. Built from collection constants only — no request value is
+#: interpolated; the tenant is always bound as ``@tenant_key`` by the caller.
+_EXECUTION_OWNER = f"""
+          LET etype = we.entity_type
+          LET ekey = we.entity_key
+          LET plant = etype == 'plant_instance'
+            ? DOCUMENT(CONCAT('{col.PLANT_INSTANCES}/', ekey))
+            : null
+          LET loc = etype == 'location'
+            ? DOCUMENT(CONCAT('{col.LOCATIONS}/', ekey))
+            : null
+          LET tank = etype == 'tank'
+            ? DOCUMENT(CONCAT('{col.TANKS}/', ekey))
+            : null
+          LET run_doc = etype == 'planting_run'
+            ? DOCUMENT(CONCAT('{col.PLANTING_RUNS}/', ekey))
+            : null
+          LET loc_site = loc != null ? DOCUMENT(CONCAT('{col.SITES}/', loc.site_key)) : null
+          LET owner = plant != null ? plant.tenant_key
+            : (tank != null ? tank.tenant_key
+            : (run_doc != null ? run_doc.tenant_key
+            : (loc_site != null ? loc_site.tenant_key : null)))
+"""
+
+
 class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     # Base collection TASKS is tenant-scoped.  Tenant listings use get_all_tasks
     # (which filters explicitly); the inherited get_all is only reached from
@@ -819,13 +852,33 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             )
         return we
 
-    def get_workflow_execution_by_key(self, key: WorkflowExecutionKey) -> WorkflowExecution | None:
-        coll = self._db.collection(col.WORKFLOW_EXECUTIONS)
-        doc = coll.get(key)
+    def get_workflow_execution_by_key(self, key: WorkflowExecutionKey, *, tenant_key: str) -> WorkflowExecution | None:
+        """The execution ``key`` if ``tenant_key`` owns it, else ``None`` (#1714).
+
+        The owner is resolved exactly as the listing resolves it
+        (:data:`_EXECUTION_OWNER`). A foreign execution and an orphaned one (its
+        entity gone, or a type that names no collection) come back as ``None``,
+        the same as an unknown key — the caller cannot tell them apart, which is
+        the point: Arango keys ascend, and a distinguishable answer would be an
+        existence oracle over every other tenant's executions.
+        """
+        self._require_tenant_key(tenant_key, "get_workflow_execution_by_key")
+        query = f"""
+        FOR we IN {col.WORKFLOW_EXECUTIONS}
+          FILTER we._key == @key
+          {_EXECUTION_OWNER}
+          FILTER owner == @tenant_key
+          LIMIT 1
+          RETURN we
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"key": key, "tenant_key": tenant_key})
+        doc = next(iter(cursor), None)
         return WorkflowExecution(**self._from_doc(doc)) if doc else None
 
-    def get_workflow_execution_or_raise(self, key: WorkflowExecutionKey) -> WorkflowExecution:
-        return self.get_or_raise_by(self.get_workflow_execution_by_key, "WorkflowExecution", key)
+    def get_workflow_execution_or_raise(self, key: WorkflowExecutionKey, *, tenant_key: str) -> WorkflowExecution:
+        return self.get_or_raise_by(
+            lambda k: self.get_workflow_execution_by_key(k, tenant_key=tenant_key), "WorkflowExecution", key
+        )
 
     def update_workflow_execution(self, key: WorkflowExecutionKey, execution: WorkflowExecution) -> WorkflowExecution:
         coll = self._db.collection(col.WORKFLOW_EXECUTIONS)
@@ -1121,25 +1174,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         query = f"""
         FOR we IN {col.WORKFLOW_EXECUTIONS}
           FILTER we.workflow_template_key == @template_key
-          LET etype = we.entity_type
-          LET ekey = we.entity_key
-          LET plant = etype == 'plant_instance'
-            ? DOCUMENT(CONCAT('{col.PLANT_INSTANCES}/', ekey))
-            : null
-          LET loc = etype == 'location'
-            ? DOCUMENT(CONCAT('{col.LOCATIONS}/', ekey))
-            : null
-          LET tank = etype == 'tank'
-            ? DOCUMENT(CONCAT('{col.TANKS}/', ekey))
-            : null
-          LET run_doc = etype == 'planting_run'
-            ? DOCUMENT(CONCAT('{col.PLANTING_RUNS}/', ekey))
-            : null
-          LET loc_site = loc != null ? DOCUMENT(CONCAT('{col.SITES}/', loc.site_key)) : null
-          LET owner = plant != null ? plant.tenant_key
-            : (tank != null ? tank.tenant_key
-            : (run_doc != null ? run_doc.tenant_key
-            : (loc_site != null ? loc_site.tenant_key : null)))
+          {_EXECUTION_OWNER}
           FILTER owner == @tenant_key
           LET sp = plant != null AND plant.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', plant.species_key))

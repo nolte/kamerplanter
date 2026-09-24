@@ -9,6 +9,7 @@ from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
@@ -21,6 +22,7 @@ from app.domain.models.watering_log import (
     WateringLogFertilizer,
     find_watering_log_violations,
 )
+from app.domain.services.fertilizer_references import assert_fertilizers_visible
 
 if TYPE_CHECKING:
     from app.domain.services.care_reminder_service import CareReminderService
@@ -38,8 +40,10 @@ class WateringLogService:
         care_repo: ICareReminderRepository | None = None,
         care_service: CareReminderService | None = None,
         plant_repo: IPlantInstanceRepository | None = None,
+        fertilizer_repo: IFertilizerRepository | None = None,
     ) -> None:
         self._repo = repo
+        self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._site_repo = site_repo
         self._run_repo = run_repo
@@ -53,7 +57,13 @@ class WateringLogService:
     # ── CRUD ─────────────────────────────────────────────────────────────
 
     def create_log(self, log: WateringLog) -> dict:
-        """Create a watering log and return it with any warnings."""
+        """Create a watering log and return it with any warnings.
+
+        Every ``fertilizers_used`` key must name a fertilizer the log's tenant can
+        see — own or global — or the log is refused with 422 before anything is
+        written (#1713).
+        """
+        self._assert_fertilizers_visible(log)
         irrigation_system = None
         if log.slot_keys:
             first_slot = self._site_repo.get_slot_by_key(log.slot_keys[0])
@@ -123,6 +133,15 @@ class WateringLogService:
                     )
 
         return {"log": created, "warnings": warnings}
+
+    def _assert_fertilizers_visible(self, log: WateringLog) -> None:
+        assert_fertilizers_visible(
+            self._fertilizer_repo,
+            (f.fertilizer_key for f in log.fertilizers_used),
+            tenant_key=log.tenant_key,
+            field="fertilizers_used",
+            owner="WateringLogService",
+        )
 
     def get_log(self, key: str, tenant_key: str = "") -> WateringLog:
         log = self._repo.get_or_raise(key)
@@ -340,6 +359,9 @@ class WateringLogService:
             channel_id=channel_id,
             fertilizers_used=fertilizers_used,
         )
+        # The override lines come from the request (#1713): checked before the
+        # log is written, like the direct create path.
+        self._assert_fertilizers_visible(watering_log)
         created_log = self._repo.create(watering_log)
 
         # Complete the task

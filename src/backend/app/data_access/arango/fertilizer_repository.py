@@ -89,6 +89,16 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         total = next(count_cursor, 0)
         return items, total
 
+    def list_visible_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
+        """The subset of ``keys`` naming fertilizers ``tenant_key`` may see (#1713).
+
+        The write-side twin of the #1708 read filter and deliberately the *same*
+        query: :func:`visible_fertilizer_labels`, the catalogue's own ∪ global
+        union. A write that stores a fertilizer reference asks this, so what a
+        tenant may reference and what it may later read back cannot drift apart.
+        """
+        return set(visible_fertilizer_labels(self._db, keys, tenant_key=tenant_key))
+
     def delete(self, key: FertilizerKey) -> bool:
         fert_id = f"{col.FERTILIZERS}/{key}"
         # Delete outbound edges

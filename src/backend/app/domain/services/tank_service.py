@@ -3,14 +3,19 @@ from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import MaintenanceScheduleKey, TankKey
 from app.domain.engines.tank_engine import TankEngine
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+from app.domain.services.fertilizer_references import assert_fertilizers_visible
 
 
 class TankService:
-    def __init__(self, repo: ITankRepository, engine: TankEngine) -> None:
+    def __init__(
+        self, repo: ITankRepository, engine: TankEngine, fertilizer_repo: IFertilizerRepository | None = None
+    ) -> None:
         self._repo = repo
         self._engine = engine
+        self._fertilizer_repo = fertilizer_repo
 
     # ── Tank CRUD ──────────────────────────────────────────────────────
 
@@ -224,6 +229,14 @@ class TankService:
         """Record a fill event, auto-create TankState from measured values."""
         tank = self.get_tank(tank_key)
         event.tank_key = tank_key
+        # A fill event carries no tenant; it is the tank's (#1713).
+        assert_fertilizers_visible(
+            self._fertilizer_repo,
+            (f.product_key for f in event.fertilizers_used),
+            tenant_key=tank.tenant_key,
+            field="fertilizers_used",
+            owner="TankService",
+        )
 
         # Resolve water defaults via cascade
         event_data = event.model_dump(exclude_none=True)
