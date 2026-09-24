@@ -37,10 +37,11 @@ on:
 # WORKFLOW-LEVEL FLOOR IS READ-ONLY, AND THE WRITE IS DECLARED WHERE IT IS
 # USED (#1614). `checks: write` used to sit here, which handed it to BOTH jobs
 # — including `changes`, which only runs a paths filter and writes nothing.
-# Every job below checks out pull-request code, so an inherited write scope is
-# a write scope sharing a runner with untrusted code for no reason anyone
-# wrote down. `scripts/check_untrusted_checkout_permissions.py` enumerates the
-# class.
+# `changes` and `smoke` check out pull-request code, so an inherited write
+# scope is a write scope sharing a runner with untrusted code for no reason
+# anyone wrote down. Since #1644 the one write this workflow needs sits on the
+# `report` job, which checks nothing out.
+# `scripts/check_untrusted_checkout_permissions.py` enumerates the class.
 permissions:
   contents: read
 
@@ -154,17 +155,20 @@ jobs:
           || needs.changes.outputs.runtime == 'true'
           || needs.changes.outputs.e2e_infra == 'true')
     runs-on: ubuntu-latest
-    # dorny/test-reporter publishes the parsed JUnit XML as a check run.
-    # No `pull-requests: write` is needed — the action does not post PR
-    # comments. This job DOES check out pull-request code, so it is the one
-    # remaining member of the #1614 class; it is carried as a named exception
-    # in `scripts/check_untrusted_checkout_permissions.py`; #1644 carries the
-    # split, which is an artefact-routing change to this lane, not a permission
-    # move.
+    # READ-ONLY, because this job checks out pull-request code (#1644). The
+    # check run that renders the JUnit XML needs `checks: write`; that write
+    # lives in the `report` job below, which never has pull-request code on its
+    # runner — the reports reach it as the `e2e-smoke-reports` artifact.
+    # `scripts/check_untrusted_checkout_permissions.py` enumerates the class.
     permissions:
       contents: read
-      checks: write
     timeout-minutes: 30
+    # The `report` job is gated on this output: an empty id means no artifact
+    # was uploaded (the run failed before pytest wrote anything, or the upload
+    # itself failed), so there is nothing to publish and the summary step below
+    # carries the result on its own.
+    outputs:
+      report_artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -183,26 +187,110 @@ jobs:
           E2E_COMPOSE_OVERLAYS: docker-compose.e2e.ci.yml
         run: ./scripts/run-e2e.sh --smoke
 
-      # Render the JUnit XML produced by the run into a check run + the job
-      # summary, so concrete per-test failure messages (assertion text + a
-      # short traceback) are visible without digging through raw logs.
-      # `continue-on-error` keeps this required job from turning red solely
-      # because a fork PR's read-only GITHUB_TOKEN cannot create a check run.
+      # The `id` is load-bearing: its `artifact-id` output is the job output
+      # the `report` job is gated on, and the summary step below reads it.
+      - name: Upload E2E reports
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-smoke-reports
+          path: test-reports/e2e/
+          retention-days: 14
+          if-no-files-found: warn
+
+      # This job no longer renders the report, so it must not claim to. With an
+      # artifact, the `report` job runs and owns the rendered results; this
+      # summary only points there. Without one, the `report` job is skipped and
+      # this step is the only place the results show up.
+      - name: Job summary
+        if: always()
+        env:
+          REPORT_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+        run: |
+          {
+            PROTOCOL=$(find test-reports/e2e -name protokoll.md -print -quit 2>/dev/null)
+            if [ -n "$REPORT_ARTIFACT_ID" ]; then
+              echo "**E2E smoke (light)** — the results are published by this run's"
+              echo "\`Publish E2E smoke report\` job; full protocol, screenshots and"
+              echo "container logs are in the \`e2e-smoke-reports\` artifact."
+            elif [ -n "$PROTOCOL" ]; then
+              # A protocol exists but no artifact carries it (the upload
+              # failed): surface the result overview here.
+              echo "## E2E smoke (light)"
+              awk '/^## Zusammenfassung/{f=1; next} f && /^## /{exit} f{print}' "$PROTOCOL"
+              awk '/^## Fehlgeschlagene Tests/{f=1} f && /^## Testergebnisse/{exit} f && /^###? /{print}' "$PROTOCOL"
+              echo ""
+              echo "The report artifact could not be uploaded; see the job log."
+            else
+              echo "## E2E smoke (light)"
+              echo ""
+              echo "No test protocol was generated (the run failed before pytest)."
+              echo "See the job log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Publishes the smoke results as a check run. It holds `checks: write` and
+  # therefore NEVER checks out pull-request code (#1644): the JUnit XML reaches
+  # it as the artifact `smoke` uploaded, read by the reporter's `artifact:`
+  # input. The XML is data the pull request's code produced — it is parsed and
+  # rendered, never executed.
+  #
+  # `always()` makes it run when the suite FAILED, which is when the report
+  # matters most; the artifact-id clause skips it when there is nothing to
+  # publish (and when `smoke` itself was skipped as inert), instead of letting
+  # it fail on a missing download.
+  #
+  # Fork pull requests: their GITHUB_TOKEN is read-only whatever this block
+  # declares, so the check run cannot be created. The reporter step is
+  # `continue-on-error` and the summary step falls back to the protocol
+  # excerpt — the same behaviour the combined job had before the split.
+  #
+  # gate-integrity-ok: a publisher, not a verdict — the suite's result is the
+  # `smoke` check itself, which this job neither replaces nor masks; the
+  # output clause only skips publishing when no artifact exists.
+  report:
+    name: Publish E2E smoke report
+    needs: smoke
+    if: always() && needs.smoke.outputs.report_artifact_id != ''
+    runs-on: ubuntu-latest
+    # `actions: read` lists and downloads this run's artifacts;
+    # `contents: read` lets the reporter list the commit's tracked files for
+    # annotations; `checks: write` creates the check run. No
+    # `pull-requests: write` — the action posts no comments.
+    permissions:
+      actions: read
+      contents: read
+      checks: write
+    timeout-minutes: 10
+    steps:
+      # Only for the protocol-excerpt fallback in the summary step; the
+      # reporter fetches the artifact itself.
+      - name: Download E2E reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.smoke.outputs.report_artifact_id }}
+          path: e2e-smoke-reports
+
+      # Render the JUnit XML into a check run + the job summary, so concrete
+      # per-test failure messages (assertion text + a short traceback) are
+      # visible without digging through raw logs. `path` is matched against
+      # the entries INSIDE the artifact, whose root is `test-reports/e2e/`.
       # The `id` is load-bearing: the "Job summary" step below reads
       # `steps.report.outcome` to decide whether the results are already
       # rendered, or whether it has to surface them from the protocol itself.
       - name: Render E2E test report
         id: report
-        if: always()
-        # gate-integrity-ok: a reporter, not a measurement — the reason is the
-        # comment block above. The suite's verdict is the "Run E2E smoke suite"
-        # step, and the "Job summary" step reads `steps.report.outcome`, so a
-        # failure here is observed rather than discarded.
+        # gate-integrity-ok: a reporter, not a measurement — the suite's
+        # verdict is the `smoke` job, and the "Job summary" step reads
+        # `steps.report.outcome`, so a failure here (typically a fork PR's
+        # read-only token) is observed rather than discarded.
         continue-on-error: true
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:
+          artifact: e2e-smoke-reports
           name: E2E smoke report
-          path: test-reports/e2e/**/junit-*.xml
+          path: "**/junit-*.xml"
           reporter: java-junit
           list-tests: failed
           list-suites: failed
@@ -231,8 +319,8 @@ jobs:
           SUMMARY_PREFILLED=no
           if [ -s "$GITHUB_STEP_SUMMARY" ]; then SUMMARY_PREFILLED=yes; fi
           {
-            PROTOCOL=$(find test-reports/e2e -name protokoll.md -print -quit 2>/dev/null)
-            JUNIT=$(find test-reports/e2e -name 'junit-*.xml' -print -quit 2>/dev/null)
+            PROTOCOL=$(find e2e-smoke-reports -name protokoll.md -print -quit 2>/dev/null)
+            JUNIT=$(find e2e-smoke-reports -name 'junit-*.xml' -print -quit 2>/dev/null)
             # Whenever either signal is missing, the excerpt below is produced,
             # so a fork PR loses the artifact pointer at worst, never the
             # results themselves.
@@ -250,16 +338,7 @@ jobs:
             else
               echo "## E2E smoke (light)"
               echo ""
-              echo "No test protocol was generated (the run failed before pytest)."
-              echo "See the job log and the \`e2e-smoke-reports\` artifact."
+              echo "The artifact carries no test protocol (the run failed before pytest)."
+              echo "See the \`E2E smoke (compose, light)\` job log and the \`e2e-smoke-reports\` artifact."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload E2E reports
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: e2e-smoke-reports
-          path: test-reports/e2e/
-          retention-days: 14
-          if-no-files-found: warn
