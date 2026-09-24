@@ -39,10 +39,15 @@ revision tells the server what to send; huggingface_hub checks nothing that
 comes back against it. Every PINNED fetch must therefore be followed by a
 ``sha256sum -c`` (``--check``, flags in any order) in the SAME logical RUN
 instruction — continuation lines and heredoc bodies included, the next
-instruction not — so no unverified byte is committed to a layer. A
-``sha256sum`` that only computes (no check flag), one in a comment, or a check
-done some other way (``hashlib`` in Python) does not count; the last is a
-stated gap, not a permission.
+instruction not — so no unverified byte is committed to a layer. The check
+must come AFTER the fetch and its failure must be able to fail the RUN: one
+before the fetch, or one neutralised by ``|| true``, a following ``;``, a pipe,
+``$( )``/backticks, ``!`` or ``&``, does not count (the shell model and the
+dash measurements behind it are in ``_fetch_is_verified``, which also names
+what it does not parse). A ``sha256sum`` that only computes (no check flag),
+one with ``--ignore-missing``, one in a comment, or a check done some other way
+(``hashlib`` in Python) does not count either; the last is a stated gap, not a
+permission.
 
 ``from_pretrained('/model')`` and friends with a literal local path are not
 fetches and are skipped; a non-literal first argument is NOT skipped, because
@@ -171,6 +176,198 @@ _HEREDOC = re.compile(r"<<-?\s*(?P<q>['\"]?)(?P<tag>\w+)(?P=q)")
 #: The Dockerfile ``FROM <image> [AS <stage>]`` line, for naming the build stage
 #: a fetch runs in.
 _FROM_STAGE = re.compile(r"^\s*FROM\s+\S+(?:\s+AS\s+(?P<stage>\S+))?", re.IGNORECASE)
+
+#: ``RUN`` plus its BuildKit flags (``--mount=…``, ``--network=…``).
+_RUN_PREFIX = re.compile(r"^\s*RUN\b\s*(?:--\S+\s+)*", re.IGNORECASE)
+
+#: Shell control operators that end a simple command, longest first so ``&&``
+#: is not read as two ``&``.
+_OPERATORS = ("&&", "||", ";;", ";", "|", "&", "\n")
+
+
+@dataclass(frozen=True)
+class _Command:
+    """One simple command of a RUN script and the operators around it."""
+
+    text: str
+    words: tuple[str, ...]
+    before: str
+    after: str
+
+
+def _shell_commands(script: str) -> list[_Command]:
+    """Split *script* into simple commands at TOP-LEVEL control operators.
+
+    Quotes, ``$( … )`` and backticks are tracked so that an operator inside
+    them — the ``;`` in ``python -c "import x; x.f()"``, a ``|`` inside a
+    command substitution — does not split. Consequently a ``sha256sum`` inside
+    ``$( )`` or backticks is part of another command's word and can never be
+    read as a top-level check.
+    """
+    commands: list[_Command] = []
+    current: list[str] = []
+    before = ""
+    quote: str | None = None
+    depth = 0
+    backtick = False
+    index = 0
+
+    def flush(operator: str) -> None:
+        nonlocal before, current
+        text = "".join(current).strip()
+        current = []
+        if text:
+            commands.append(_Command(text=text, words=tuple(text.split()), before=before, after=operator))
+            before = operator
+        elif before in ("", "\n"):
+            # An empty command between two operators (a blank heredoc line):
+            # keep the stronger operator as the one that joins the neighbours.
+            before = operator
+        if commands and not text and operator not in ("", "\n"):
+            last = commands[-1]
+            if last.after == "\n":
+                commands[-1] = _Command(last.text, last.words, last.before, operator)
+
+    while index < len(script):
+        char = script[index]
+        if char == "\\" and quote != "'":
+            current.append(script[index : index + 2])
+            index += 2
+            continue
+        if quote is not None:
+            if char == quote:
+                quote = None
+            elif char == "$" and script.startswith("$(", index) and quote == '"':
+                depth += 1
+            elif char == ")" and depth and quote == '"':
+                depth -= 1
+            current.append(char)
+            index += 1
+            continue
+        if char in "'\"":
+            quote = char
+        elif script.startswith("$(", index):
+            depth += 1
+        elif char == ")" and depth:
+            depth -= 1
+        elif char == "`":
+            backtick = not backtick
+        elif not depth and not backtick:
+            operator = next((op for op in _OPERATORS if script.startswith(op, index)), None)
+            if operator is not None:
+                flush(operator)
+                index += len(operator)
+                continue
+        current.append(char)
+        index += 1
+    flush("")
+    return commands
+
+
+def _run_script(lines: list[str]) -> str:
+    """The shell script a RUN instruction executes, from its source *lines*.
+
+    Continuation lines are joined; blank lines (where a comment was) inside a
+    continuation vanish, as BuildKit drops them. A heredoc body is the script
+    itself, one command per line. ``RUN <cmd> <<EOF`` feeds the body to
+    ``<cmd>`` rather than to the shell, so there the body is folded into one
+    quoted word of that command. Any other instruction yields no script.
+    """
+    if not lines or not _RUN_PREFIX.match(lines[0]):
+        return ""
+    first = lines[0]
+    heredoc = _HEREDOC.search(first)
+    if heredoc is None:
+        joined = "\n".join(line for line in lines if line.strip())
+        return _RUN_PREFIX.sub("", re.sub(r"\\\n", " ", joined), count=1)
+    body: list[str] = []
+    for line in lines[1:]:
+        if line.strip() == heredoc.group("tag"):
+            break
+        body.append(line)
+    head = _RUN_PREFIX.sub("", first[: heredoc.start()], count=1).strip()
+    if not head:
+        return "\n".join(body)
+    blob = " ".join(body).replace("'", '"')
+    return f"{head} '{blob}'"
+
+
+def _sets_errexit(command: _Command, current: bool) -> bool:
+    """``set -e`` / ``set -o errexit`` switch errexit on, ``+e`` / ``+o`` off."""
+    if not command.words or command.words[0] != "set":
+        return current
+    words = command.words[1:]
+    for position, word in enumerate(words):
+        if word in ("-o", "+o") and position + 1 < len(words) and words[position + 1] == "errexit":
+            current = word == "-o"
+        elif re.fullmatch(r"[-+][a-zA-Z]*e[a-zA-Z]*", word):
+            current = word.startswith("-")
+    return current
+
+
+def _fetch_is_verified(commands: list[_Command], fetch: int) -> bool:
+    """Whether a check AFTER ``commands[fetch]`` can fail the RUN, measured on dash.
+
+    ``/bin/sh`` in python:3.14-slim is dash, which RUN uses without ``-e``.
+    Measured 2026-09-24 in the image, with a checksum list that does not match:
+
+    * the RUN fails for ``C && x``, ``x && C && y``, ``set -e; C; y``,
+      ``set +e; C && y``, ``x=$(C)`` and ``(C)``;
+    * it SUCCEEDS for ``C || true``, ``C || :``, ``C || exit 0``, ``C; y`` (any
+      ``y``, not only ``true``), ``C`` followed by another heredoc line,
+      ``C | tee log``, ``echo $(C)``, ``echo `C```, ``! C``, ``C &`` and
+      ``x || C`` (C never runs).
+
+    So a check counts only if it is a top-level ``sha256sum`` command after the
+    fetch, the operators from the fetch to it are ``&&``, ``;`` or newline (a
+    failed fetch then still reaches the check, which fails on missing files),
+    it is not followed by ``|``, ``||`` or ``&``, and every operator after it is
+    ``&&`` — or ``;``/newline while errexit is on (``set -e`` / ``-o errexit``
+    earlier, not undone by ``set +e``). ``set +e`` on its own does NOT mask a
+    check whose tail is ``&&`` (measured), so it is only tracked as switching
+    errexit off.
+
+    NOT covered, stated rather than implied: ``x=$(C)`` and ``(C)`` do propagate
+    the failure but are not recognised (red — the conservative direction);
+    ``set -o pipefail`` is not modelled, so ``C | tee`` is refused even with it;
+    ``if``/``case``/functions, ``SHELL`` overrides and the JSON exec form of RUN
+    are not parsed; ``trap``, ``exec`` redirection and aliases are ignored.
+    """
+    errexit_before: list[bool] = []
+    state = False
+    for command in commands:
+        errexit_before.append(state)
+        state = _sets_errexit(command, state)
+
+    for check in range(fetch + 1, len(commands)):
+        command = commands[check]
+        if not command.words or command.words[0] != "sha256sum" or not _verifies_digests(command.text):
+            continue
+        reaches = all(commands[k].after in ("&&", ";", "\n") for k in range(fetch, check))
+        if not reaches or command.after in ("|", "||", "&"):
+            continue
+        propagates = True
+        for k in range(check, len(commands) - 1):
+            operator = commands[k].after
+            if operator == "&&":
+                continue
+            if operator in (";", "\n") and errexit_before[k + 1]:
+                continue
+            propagates = False
+            break
+        if propagates and commands[-1].after in ("", "\n", ";"):
+            return True
+    return False
+
+
+def _command_fetches(command: _Command) -> bool:
+    """Whether *command* contains any Hugging Face fetch spelling."""
+    return bool(
+        _call_pattern(command.text).search(command.text)
+        or _CLI_DOWNLOAD.search(command.text)
+        or _RESOLVE_URL.search(command.text)
+    )
+
 
 #: Unpinned fetches that predate this guard, each NAMED explicitly by
 #: (Dockerfile, build stage, repository) and mapped to the issue that tracks
@@ -324,12 +521,15 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
     """Every Hugging Face fetch in the Dockerfile *text*, comments excluded."""
     blanked = _strip_dockerfile_comments(text)
     code = _fold_continuations(blanked)
-    code_lines = code.splitlines()
     spans = _instruction_spans(blanked)
+    blanked_lines = blanked.splitlines()
+    # A stage opens only on the FIRST line of an instruction. A continued line
+    # or a heredoc body line that happens to begin with `from` (a Python
+    # `from huggingface_hub import …`) is inside a RUN and opens nothing.
     stages = [
-        (number, match.group("stage") or "")
-        for number, line in enumerate(blanked.splitlines(), start=1)
-        if (match := _FROM_STAGE.match(line))
+        (first, match.group("stage") or "")
+        for first, _last in spans
+        if (match := _FROM_STAGE.match(blanked_lines[first - 1]))
     ]
     sites: list[FetchSite] = []
 
@@ -345,10 +545,12 @@ def fetch_sites(text: str, *, path: str) -> list[FetchSite]:
         return code.count("\n", 0, offset) + 1
 
     def digest_checked(line: int) -> bool:
+        """Every fetching command of the fetch's RUN is followed by a check that can fail it."""
         for first, last in spans:
             if first <= line <= last:
-                instruction = " ".join(code_lines[first - 1 : last])
-                return _verifies_digests(instruction)
+                commands = _shell_commands(_run_script(blanked_lines[first - 1 : last]))
+                fetching = [index for index, command in enumerate(commands) if _command_fetches(command)]
+                return bool(fetching) and all(_fetch_is_verified(commands, index) for index in fetching)
         return False
 
     for match in _call_pattern(code).finditer(code):
@@ -666,6 +868,63 @@ _DIGEST_SPELLINGS: list[tuple[str, str, bool]] = [
         True,
     ),
     (
+        "check BEFORE the fetch in the same RUN",
+        'RUN sha256sum -c /old.sums && python -c "import huggingface_hub; '
+        f"huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"\n",
+        False,
+    ),
+    ("check || true", _PINNED_FETCH + "    sha256sum -c /tmp/sums || true\n", False),
+    ("check || :", _PINNED_FETCH + "    sha256sum -c /tmp/sums || :\n", False),
+    ("check || exit 0", _PINNED_FETCH + "    sha256sum -c /tmp/sums || exit 0\n", False),
+    ("check ; true", _PINNED_FETCH + "    sha256sum -c /tmp/sums; true\n", False),
+    ("check ; any other command", _PINNED_FETCH + "    sha256sum -c /tmp/sums; rm -rf /dl\n", False),
+    ("check && y || true", _PINNED_FETCH + "    sha256sum -c /tmp/sums && rm -rf /dl || true\n", False),
+    ("check piped into tee", _PINNED_FETCH + "    sha256sum -c /tmp/sums | tee /tmp/log\n", False),
+    ("check inside $( )", _PINNED_FETCH + "    echo $(sha256sum -c /tmp/sums)\n", False),
+    ("check inside backticks", _PINNED_FETCH + "    echo `sha256sum -c /tmp/sums`\n", False),
+    ("negated check", _PINNED_FETCH + "    ! sha256sum -c /tmp/sums\n", False),
+    ("backgrounded check", _PINNED_FETCH + "    sha256sum -c /tmp/sums & wait\n", False),
+    (
+        "check behind || (runs only if the step before failed)",
+        _PINNED_FETCH + "    true || sha256sum -c /tmp/sums\n",
+        False,
+    ),
+    (
+        "set -e, then ; after the check",
+        'RUN set -e; python -c "import huggingface_hub; '
+        f"huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"; "
+        "sha256sum -c /tmp/sums; rm -rf /dl\n",
+        True,
+    ),
+    (
+        "set -e undone by set +e, then ; after the check",
+        'RUN set -e; set +e; python -c "import huggingface_hub; '
+        f"huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"; "
+        "sha256sum -c /tmp/sums; rm -rf /dl\n",
+        False,
+    ),
+    (
+        "set +e does not mask an && tail (measured)",
+        'RUN set +e; python -c "import huggingface_hub; '
+        f"huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\" && "
+        "sha256sum -c /tmp/sums && rm -rf /dl\n",
+        True,
+    ),
+    (
+        "heredoc RUN, a line after the check masks it",
+        "RUN <<EOF\n"
+        f"python -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"\n"
+        "sha256sum -c /tmp/sums\nrm -rf /dl\nEOF\n",
+        False,
+    ),
+    (
+        "heredoc RUN under set -e, a line after the check",
+        "RUN <<EOF\nset -e\n"
+        f"python -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"\n"
+        "sha256sum -c /tmp/sums\nrm -rf /dl\nEOF\n",
+        True,
+    ),
+    (
         "heredoc RUN, check after its terminator",
         "RUN <<EOF\n"
         f"python -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model', revision='{_SHA}')\"\n"
@@ -684,6 +943,23 @@ def test_scanner_scopes_the_digest_check_to_the_run(snippet: str, checked: bool)
     sites = fetch_sites(snippet, path="Dockerfile")
     assert len(sites) == 1 and sites[0].pinned, "the pinned fetch in the snippet was not found"
     assert sites[0].digest_checked is checked
+
+
+@pytest.mark.parametrize(
+    "snippet",
+    [
+        'FROM base AS dl-one\nRUN python -c "\\\nimport huggingface_hub; \\\n'
+        "from huggingface_hub import snapshot_download as g; \\\ng('org/model')\"\n",
+        "FROM base AS dl-one\nRUN python3 <<EOF\nimport huggingface_hub\n"
+        "from huggingface_hub import snapshot_download as g\ng('org/model')\nEOF\n",
+        "FROM base AS dl-one\nRUN <<EOF\npython - <<'PY'\n"
+        "FROM = 1\nPY\npython -c \"import huggingface_hub; huggingface_hub.snapshot_download('org/model')\"\nEOF\n",
+    ],
+    ids=["continued python line starting with from", "heredoc body line starting with from", "FROM inside a heredoc"],
+)
+def test_only_an_instruction_line_opens_a_stage(snippet: str) -> None:
+    """A ``from``/``FROM`` line inside a RUN (continuation or heredoc) is not a stage."""
+    assert [site.stage for site in fetch_sites(snippet, path="Dockerfile")] == ["dl-one"]
 
 
 def test_a_fetch_is_named_by_the_stage_it_runs_in() -> None:
