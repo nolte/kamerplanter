@@ -7,7 +7,7 @@ from contextlib import suppress
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .base_page import IMPLICIT_WAIT_EQUIVALENT, BasePage
+from .base_page import DEFAULT_TIMEOUT, IMPLICIT_WAIT_EQUIVALENT, BasePage
 
 
 class FeedingEventListPage(BasePage):
@@ -29,6 +29,12 @@ class FeedingEventListPage(BasePage):
 
     # Create dialog
     CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root")
+    # Scoped to the dialog's own testid (unlike CREATE_DIALOG above) so a wait
+    # for it to close cannot be satisfied by an unrelated MUI portal.
+    FEEDING_EVENT_CREATE_DIALOG = (
+        By.CSS_SELECTOR,
+        "[data-testid='feeding-event-create-dialog']",
+    )
     FORM_PLANT_KEY = (By.CSS_SELECTOR, "[data-testid='form-field-plant_key']")
     FORM_PLANT_KEY_SELECT = (
         By.CSS_SELECTOR,
@@ -250,6 +256,22 @@ class FeedingEventListPage(BasePage):
         """Submit the create form."""
         btn = self.wait_for_element_clickable(self.FORM_SUBMIT)
         self.scroll_and_click(btn)
+
+    def wait_for_create_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the create dialog is gone, i.e. the feeding event really was recorded.
+
+        The read-back :meth:`submit_create_form` does not have:
+        ``FeedingEventCreateDialog.onSubmit`` calls ``onCreated()`` -- the only
+        thing that clears ``createOpen`` on the submit path -- **after**
+        ``await api.createFeedingEvent(...)`` resolves. A rejected create runs
+        ``handleError`` instead and leaves the dialog up. So the dialog being
+        gone means the POST returned 2xx; ``wait_for_loading_complete()`` does
+        not mean that -- it is satisfied by a ``loading-skeleton`` this dialog
+        never renders, so a navigation right after it can cancel a still
+        in-flight create (#1728, same mechanism as
+        ``_journey_helpers.create_care_task``).
+        """
+        self.wait_for_element_hidden(self.FEEDING_EVENT_CREATE_DIALOG, timeout)
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""

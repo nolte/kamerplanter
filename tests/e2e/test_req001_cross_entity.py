@@ -77,7 +77,10 @@ class TestCompleteWorkflow:
         family_name = f"E2eWorkflowaceae{unique}"
         family_list.fill_create_form(family_name)
         family_list.submit_create_form()
-        family_list.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: the create dialog's own closing is
+        # the real confirmation (`BotanicalFamilyCreateDialog` clears only on a
+        # 2xx create), and step 2 navigates away right after (#1728).
+        family_list.wait_for_create_dialog_closed()
         screenshot("TC-REQ-001-089_family-created", f"Family {family_name} created")
 
         # Step 2: Create a species with that family
@@ -92,7 +95,9 @@ class TestCompleteWorkflow:
         except Exception:
             pass  # Family might not be in dropdown yet — continue
         species_list.submit_form()
-        species_list.wait_for_loading_complete()
+        # Same reasoning as above: step 3 reloads the list right after, which
+        # would cancel an in-flight create POST under `wait_for_loading_complete()`.
+        species_list.wait_for_create_dialog_closed()
         screenshot("TC-REQ-001-089_species-created", f"Species {scientific_name} created")
 
         # Step 3: Navigate to the species detail page

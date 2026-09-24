@@ -497,6 +497,56 @@ class TaskQueuePage(BasePage):
         """Submit the create-task form."""
         self.scroll_and_click(self.wait_for_element_clickable(self.FORM_SUBMIT))
 
+    def wait_for_create_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until ``[data-testid='task-create-dialog']`` is no longer visible.
+
+        This is the create dialog's real, and only, confirmation signal:
+        ``TaskCreateDialog.onSubmit`` keeps the dialog mounted and open while
+        ``taskApi.createTask`` is in flight, and calls ``onCreated`` (which the
+        caller wires to ``setCreateOpen(false)``) only once that request
+        resolves 2xx. A validation error or a rejected create both leave the
+        dialog open, so this raising on timeout is exactly "the create was not
+        confirmed" -- never "the request is merely slow" folded into a false
+        success (issue #1728: the previous helper used
+        ``wait_for_loading_complete()`` here, which is satisfied by a
+        skeleton the dialog never renders and returns immediately).
+        """
+        self.wait_for_element_hidden(self.TASK_DIALOG, timeout=timeout)
+
+    def get_create_dialog_diagnostic_text(self) -> str:
+        """Return whatever visible text explains why the create dialog is still open.
+
+        Checked in this order:
+
+        1. A notistack snackbar (``#notistack-snackbar``) -- the path
+           ``TaskCreateDialog``'s ``onSubmit`` takes on a rejected
+           ``createTask``, via ``useApiError().handleError``.
+        2. Inline MUI validation helper text inside the dialog -- the path a
+           client-side ``zod`` validation failure takes (both the ``Mui-error``
+           and ``MuiFormHelperText-error`` class spellings, since this suite has
+           seen both MUI major versions render one or the other).
+
+        Returns ``''`` if neither is on screen, which a caller must read as
+        "cause unknown" -- not as "no error occurred": the dialog can still be
+        open only because the POST has not resolved yet.
+        """
+        snackbar_elements = self.driver.find_elements(*self.SNACKBAR)
+        for element in snackbar_elements:
+            text = (element.text or "").strip()
+            if text:
+                return text
+        dialog_selector = self.TASK_DIALOG[1]
+        error_elements = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            f"{dialog_selector} .MuiFormHelperText-root.Mui-error, "
+            f"{dialog_selector} .MuiFormHelperText-root.MuiFormHelperText-error",
+        )
+        for element in error_elements:
+            text = (element.text or "").strip()
+            if text:
+                return text
+        return ""
+
     # ── Task lookup by name (self-provisioning journey) ────────────────
 
     #: The states the queue settles into once its fetch has landed.

@@ -614,7 +614,10 @@ class TestFertilizerDetailPage:
             unique = uuid.uuid4().hex[:6]
             fertilizer_list.fill_product_name(f"DetailTest-{unique}")
             fertilizer_list.submit_create_form()
-            fertilizer_list.wait_for_loading_complete()
+            # Not `wait_for_loading_complete()`: the `open()` below is a fresh
+            # navigation that would cancel a still-in-flight create POST, and
+            # the dialog closes only once that POST resolved 2xx (#1728).
+            fertilizer_list.wait_for_create_dialog_closed()
             fertilizer_list.open()
 
     def _navigate_to_first_fertilizer(self, fertilizer_list: FertilizerListPage) -> str:

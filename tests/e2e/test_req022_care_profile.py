@@ -638,7 +638,12 @@ class TestWateringCyclePropagation:
         )
         pflege.set_watering_interval(5)
         pflege.click_save_profile()
-        pflege.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: `CareProfileForm.onSubmit` keeps
+        # the dialog open until `careApi.updateProfile` resolves and closes it
+        # (via `onDone`) only on success; the `open()` reload below would
+        # otherwise be free to cancel a still-in-flight PATCH (#1728, same
+        # mechanism as `_journey_helpers.create_care_task`).
+        pflege.wait_for_dialog_closed()
 
         # Reopen the profile from a fresh dashboard load to prove persistence.
         pflege.open()
@@ -694,7 +699,9 @@ class TestWateringCyclePropagation:
         )
         pflege.set_watering_interval(3)
         pflege.click_save_profile()
-        pflege.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: see the analogous fix above (#1728) —
+        # the dialog closes only once the profile PATCH resolved 2xx.
+        pflege.wait_for_dialog_closed()
 
         pflege.open()
         after = pflege.count_care_cards_for_plant(plant_key, "watering")
@@ -757,7 +764,9 @@ class TestWateringCyclePropagation:
         )
 
         pflege.click_save_profile()
-        pflege.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: see the analogous fix above (#1728) —
+        # the dialog closes only once the profile PATCH resolved 2xx.
+        pflege.wait_for_dialog_closed()
 
         # Reopen and verify the preset interval persisted.
         pflege.open()
