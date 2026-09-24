@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: docker-lint-build.yml
@@ -9,8 +10,8 @@ gate:
   kind: paths-filter
   filter: backend
 status: derived
-measured_on: '2026-09-23'
-measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+measured_on: '2026-09-24'
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: d94357ca94b8450c02ca8b8bf8eef9f42302de75e4e668eadba62b976b3efcb5
 invocations:
 - command: derive-docker --context src/backend --dockerfile src/backend/Dockerfile
@@ -22,7 +23,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 2812
+  context_files_after_dockerignore: 1932
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -373,6 +374,7 @@ reads:
 - src/backend/app/data_access/arango/onboarding_state_repository.py
 - src/backend/app/data_access/arango/overwintering_profile_repository.py
 - src/backend/app/data_access/arango/overwintering_profile_template_repository.py
+- src/backend/app/data_access/arango/personal_data_repository.py
 - src/backend/app/data_access/arango/pest_detection_repository.py
 - src/backend/app/data_access/arango/pest_image_repository.py
 - src/backend/app/data_access/arango/phase_sequence_repository.py
@@ -615,6 +617,7 @@ reads:
 - src/backend/app/domain/interfaces/oidc_config_repository.py
 - src/backend/app/domain/interfaces/overwintering_profile_repository.py
 - src/backend/app/domain/interfaces/overwintering_profile_template_repository.py
+- src/backend/app/domain/interfaces/personal_data_repository.py
 - src/backend/app/domain/interfaces/pest_detection_adapter.py
 - src/backend/app/domain/interfaces/pest_detection_repository.py
 - src/backend/app/domain/interfaces/pest_image_repository.py
@@ -1004,6 +1007,8 @@ reads:
 - src/backend/app/migrations/versions/v0052_drop_unowned_import_jobs.py
 - src/backend/app/migrations/versions/v0053_recompute_care_profiles_newly_mapped_families.py
 - src/backend/app/migrations/versions/v0054_strip_credentials_from_soft_deleted_accounts.py
+- src/backend/app/migrations/versions/v0055_rename_account_type_user_to_human.py
+- src/backend/app/migrations/versions/v0056_stamp_attribution_user_keys.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/__init__.py
 - src/backend/app/observability/error_tracking.py
@@ -1073,6 +1078,7 @@ reads:
 - src/backend/tests/api/test_api_major_discovery.py
 - src/backend/tests/api/test_aquaponics_router.py
 - src/backend/tests/api/test_attachments_router.py
+- src/backend/tests/api/test_attribution_key_is_server_set.py
 - src/backend/tests/api/test_auth_device_pairing_api.py
 - src/backend/tests/api/test_auth_device_pairing_security.py
 - src/backend/tests/api/test_auth_login_lockout_enumeration.py
@@ -1193,6 +1199,7 @@ reads:
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_plant_scoped_route_residue_tenant_scope.py
+- src/backend/tests/integration/test_privacy_export_walk.py
 - src/backend/tests/integration/test_propagation_lineage_tenant_isolation.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
@@ -1202,6 +1209,8 @@ reads:
 - src/backend/tests/integration/test_v0048_backfill_missing_care_profiles.py
 - src/backend/tests/integration/test_v0051_rename_cec_key.py
 - src/backend/tests/integration/test_v0054_strip_soft_deleted_credentials.py
+- src/backend/tests/integration/test_v0055_rename_account_type_user_to_human.py
+- src/backend/tests/integration/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/support/__init__.py
 - src/backend/tests/support/arango_integration.py
 - src/backend/tests/support/db_guard.py
@@ -1209,6 +1218,7 @@ reads:
 - src/backend/tests/support/execution_guards.py
 - src/backend/tests/support/grant_fakes.py
 - src/backend/tests/support/oidc_admin.py
+- src/backend/tests/support/privacy_doubles.py
 - src/backend/tests/support/renovate_config.py
 - src/backend/tests/support/repo_scripts.py
 - src/backend/tests/support/tenant_replay.py
@@ -1641,7 +1651,10 @@ reads:
 - src/backend/tests/unit/domain/services/test_post_harvest_service.py
 - src/backend/tests/unit/domain/services/test_print_service.py
 - src/backend/tests/unit/domain/services/test_privacy_email_change_enumeration.py
+- src/backend/tests/unit/domain/services/test_privacy_executor_truthfulness.py
+- src/backend/tests/unit/domain/services/test_privacy_export_bundle.py
 - src/backend/tests/unit/domain/services/test_privacy_retention.py
+- src/backend/tests/unit/domain/services/test_privacy_review_round.py
 - src/backend/tests/unit/domain/services/test_privacy_service.py
 - src/backend/tests/unit/domain/services/test_propagation_service.py
 - src/backend/tests/unit/domain/services/test_quarter_climate_service.py
@@ -1708,7 +1721,9 @@ reads:
 - src/backend/tests/unit/guards/test_entity_name_vocabulary.py
 - src/backend/tests/unit/guards/test_execution_guards.py
 - src/backend/tests/unit/guards/test_favoritable_collections_declare_ownership.py
+- src/backend/tests/unit/guards/test_integration_databases_are_run_scoped.py
 - src/backend/tests/unit/guards/test_integration_tier_gate.py
+- src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py
 - src/backend/tests/unit/guards/test_library_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
@@ -1722,7 +1737,9 @@ reads:
 - src/backend/tests/unit/guards/test_renovate_dashboard_parser.py
 - src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
+- src/backend/tests/unit/guards/test_settings_labels_fit_api.py
 - src/backend/tests/unit/guards/test_skaffold_render_assertion.py
+- src/backend/tests/unit/guards/test_spec_literal_discriminators_match_models.py
 - src/backend/tests/unit/guards/test_uv_pin_is_single.py
 - src/backend/tests/unit/guards/test_uv_pin_manager_covers_every_pin.py
 - src/backend/tests/unit/guards/test_workflow_install_bounds.py
@@ -1840,6 +1857,8 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0051_rename_cec_key.py
 - src/backend/tests/unit/migrations/versions/test_v0052_drop_unowned_import_jobs.py
 - src/backend/tests/unit/migrations/versions/test_v0053_recompute_care_profiles_newly_mapped_families.py
+- src/backend/tests/unit/migrations/versions/test_v0055_rename_account_type_user_to_human.py
+- src/backend/tests/unit/migrations/versions/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
 - src/backend/tests/unit/observability/__init__.py
@@ -1888,6 +1907,7 @@ reads:
 - src/backend/tests/unit/test_db_guard.py
 - src/backend/tests/unit/test_delivery_run_alert_workflow.py
 - src/backend/tests/unit/test_delivery_run_check.py
+- src/backend/tests/unit/test_dependency_providers_construct.py
 - src/backend/tests/unit/test_deployed_build_check.py
 - src/backend/tests/unit/test_determine_chart_version.py
 - src/backend/tests/unit/test_diagnose_service.py
@@ -1902,7 +1922,9 @@ reads:
 - src/backend/tests/unit/test_glossary_read_does_not_generate.py
 - src/backend/tests/unit/test_glossary_service.py
 - src/backend/tests/unit/test_importorskip_only_for_optional_deps.py
+- src/backend/tests/unit/test_kami_render_model.py
 - src/backend/tests/unit/test_knowledge_service_adapter.py
+- src/backend/tests/unit/test_lane_inputs_recorder.py
 - src/backend/tests/unit/test_layer_imports_check.py
 - src/backend/tests/unit/test_mcp_migration.py
 - src/backend/tests/unit/test_mdns.py

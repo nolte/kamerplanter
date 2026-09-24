@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 84bdf692f1de0ed50435d217799a85007e1cfb49
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: 0da009c71384cae56b1c123734033257788ee84029863b6e75368a285f054cb9
 invocations:
 - command: python3 scripts/ci/lane_inputs.py compare .github/lane-inputs --run-id 0
@@ -55,6 +55,7 @@ reads:
 - .github/lane-inputs/docker-publish--update-release-assets.yaml
 - .github/lane-inputs/docs-requirements--requirements.yaml
 - .github/lane-inputs/e2e-smoke--changes.yaml
+- .github/lane-inputs/e2e-smoke--report.yaml
 - .github/lane-inputs/e2e-smoke--smoke.yaml
 - .github/lane-inputs/frontend--bundle-budget.yaml
 - .github/lane-inputs/frontend--changes.yaml

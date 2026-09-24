@@ -19,6 +19,19 @@ on:
   # src/backend/app/migrations/seed_data/** needs no entry: it is inside
   # src/backend/**. Said out loud because the 2026-08-08 audit listed the seed
   # files as a CI blind spot, and the blind spot was the knowledge side.
+  #
+  # The entries after '.gitignore' come from the CI recording of this workflow's
+  # unit suite (.github/lane-inputs/backend--lint-test.yaml and
+  # backend--coverage.yaml, #1683): tests OUTSIDE tests/unit/guards and
+  # tests/unit/api read them, so the required unfiltered guards lane does not
+  # stand in for this one there. src/frontend/src/** and the nginx/entrypoint
+  # files are read by test_seed_catalogue_page_size_check.py,
+  # test_deployed_build_check.py and tests/unit/entrypoints/; the TC documents
+  # by test_e2e_tc_id_scope.py; tests/e2e/*.py by the e2e-helper unit tests;
+  # scripts/check_*.py and the other scripts by their own unit tests; the
+  # explain templates by test_ai_explain_engine.py. Every other read of this
+  # suite outside the filter is read by backend-guards.yml/guards too, and the
+  # manifests delegate it there under accepted_gaps.
   push:
     branches: [develop]
     paths:
@@ -75,6 +88,16 @@ on:
       # ignore rule decides which files the lint step sees — measured 2026-09-23 with
       # scripts/ci/lane_inputs.py (#1596): two opens of it per `task lint:backend`.
       - '.gitignore'
+      - 'scripts/check_*.py'
+      - 'scripts/extract_overwintering_templates.py'
+      - 'scripts/kami/render.py'
+      - 'scripts/route_consumer_exemptions.yaml'
+      - 'spec/e2e-testcases/**'
+      - 'spec/knowledge/explain-templates/**'
+      - 'src/frontend/src/**'
+      - 'src/frontend/docker-entrypoint.d/**'
+      - 'src/frontend/nginx-security-headers.inc'
+      - 'tests/e2e/*.py'
   pull_request:
     branches: [develop]
     paths:
@@ -131,6 +154,16 @@ on:
       # ignore rule decides which files the lint step sees — measured 2026-09-23 with
       # scripts/ci/lane_inputs.py (#1596): two opens of it per `task lint:backend`.
       - '.gitignore'
+      - 'scripts/check_*.py'
+      - 'scripts/extract_overwintering_templates.py'
+      - 'scripts/kami/render.py'
+      - 'scripts/route_consumer_exemptions.yaml'
+      - 'spec/e2e-testcases/**'
+      - 'spec/knowledge/explain-templates/**'
+      - 'src/frontend/src/**'
+      - 'src/frontend/docker-entrypoint.d/**'
+      - 'src/frontend/nginx-security-headers.inc'
+      - 'tests/e2e/*.py'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.

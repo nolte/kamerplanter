@@ -128,6 +128,19 @@ replay maps each to ``SCRATCH_DIR/<basename>`` and ``compare`` normalises both
 sides the same way, so a manifest recorded on a workstation and one recorded in
 CI agree on the command when they agree on everything else.
 
+Two things a replay reproduces from the real job rather than from a list kept
+here. ``PATH``: a step that runs ``echo "$PWD/<dir>" >> "$GITHUB_PATH"`` (the
+side-services and backend installs put their venv on ``PATH`` that way, and the
+job's later ``python -m pytest`` resolves to it) is read from the workflow by
+:func:`job_path_additions` and prepended for the replay — without it the replay
+ran the runner's bare interpreter, ``No module named pytest``. Scratch INPUTS:
+an invocation that reads a file a step before it produced and the lane cannot
+produce (the ZAP report ``zap_gate.py`` judges comes out of a scan) records the
+stand-in it was measured with as ``scratch_inputs: {<basename>: <content>}``
+(``record --scratch-input NAME=CONTENT``); the replay writes it to
+``SCRATCH_DIR/<basename>`` before tracing, and ``compare`` compares it like the
+command, so the stand-in is on record instead of assumed.
+
 Standard library plus PyYAML. Traces to #1596 (no TC-ID: a source-tree gate is
 not a user-facing case).
 """
@@ -548,6 +561,11 @@ def command_record(args: argparse.Namespace) -> int:
     for assignment in args.env:
         key, _, value = assignment.partition("=")
         env[key] = value
+    scratch_inputs = _scratch_inputs(args.scratch_input, args.command)
+    if scratch_inputs:
+        SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+        for name, content in scratch_inputs.items():
+            (SCRATCH_DIR / name).write_text(content, encoding="utf-8")
 
     # Settle the index first. Right after a checkout or a write, entries whose
     # stat data git cannot trust ("racily clean") make the next `git diff` or
@@ -594,6 +612,8 @@ def command_record(args: argparse.Namespace) -> int:
         "env": sorted(args.env),
         "untracked_reads_dropped": dropped_untracked,
     }
+    if scratch_inputs:
+        invocation["scratch_inputs"] = scratch_inputs
     if trace.returncode != 0:
         invocation["allow_failure_reason"] = args.allow_failure.strip()
     _merge_into(manifest, invocation=invocation, reads=reads, execs=trace.execs, cwd=cwd)
@@ -609,6 +629,23 @@ def command_record(args: argparse.Namespace) -> int:
         file=sys.stderr,
     )
     return EXIT_OK
+
+
+def _scratch_inputs(assignments: list[str], command: list[str]) -> dict[str, str]:
+    """``--scratch-input NAME=CONTENT`` as ``{NAME: CONTENT}``, each NAME named by the command under SCRATCH_DIR."""
+    out: dict[str, str] = {}
+    joined = normalise_scratch(shlex.join(command))
+    for assignment in assignments:
+        name, sep, content = assignment.partition("=")
+        if not sep or not name or "/" in name or name in (".", ".."):
+            raise LaneInputsError(f"--scratch-input {assignment!r}: expected BASENAME=CONTENT")
+        if f"{SCRATCH_DIR.as_posix()}/{name}" not in joined:
+            raise LaneInputsError(
+                f"--scratch-input {name!r} is not a path the invocation names under {SCRATCH_DIR}; a stand-in the "
+                f"command does not read is not an input of it"
+            )
+        out[name] = content
+    return out
 
 
 # ---------------------------------------------------------------- derive-docker
@@ -874,6 +911,48 @@ def held_commands(document: dict[str, Any], job_id: str) -> list[tuple[list[str]
     return out
 
 
+_GITHUB_PATH_LINE = re.compile(
+    r"""^\s*echo\s+(?P<q>["']?)\$\{?(?P<base>PWD|RUNNER_TEMP)\}?/(?P<rel>[^"'\s]+)(?P=q)\s*>>\s*["']?\$\{?GITHUB_PATH\}?["']?\s*$"""
+)
+
+
+def job_path_additions(document: dict[str, Any], job_id: str) -> list[str]:
+    """Repo-relative directories *job_id*'s ``run:`` steps append to ``$GITHUB_PATH``, in step order.
+
+    Only the spelling the workflows use — ``echo "$PWD/<dir>" >> "$GITHUB_PATH"``
+    — resolved against the step's working directory. ``$RUNNER_TEMP/<dir>`` is a
+    tool the job installed outside the checkout (hadolint copied out of its
+    image); the replay does not reproduce it, the lane provides that tool itself
+    and ``replay`` refuses an invocation whose program is missing. A
+    ``$GITHUB_PATH`` write in any other spelling is refused rather than silently
+    not reproduced: a replay that resolves ``python`` differently from the job
+    records another job.
+    """
+    job = (document.get("jobs") or {}).get(job_id)
+    if not isinstance(job, dict):
+        raise LaneInputsError(f"job {job_id!r} is not defined in this workflow")
+    out: list[str] = []
+    for step in job.get("steps") or []:
+        if not isinstance(step, dict) or not isinstance(step.get("run"), str):
+            continue
+        cwd = _step_cwd(document, job, step)
+        for line in step["run"].splitlines():
+            if "GITHUB_PATH" not in line:
+                continue
+            match = _GITHUB_PATH_LINE.match(line)
+            if match is None:
+                raise LaneInputsError(
+                    f"job {job_id!r} writes $GITHUB_PATH as {line.strip()!r}; the replay reproduces only "
+                    f'`echo "$PWD/<dir>" >> "$GITHUB_PATH"` — spell it that way or teach job_path_additions'
+                )
+            if match["base"] != "PWD":
+                continue
+            directory = (Path(cwd) / match["rel"]).as_posix()
+            if directory not in out:
+                out.append(directory)
+    return out
+
+
 def _has_paths_filter(job: Any) -> bool:
     return isinstance(job, dict) and any(
         isinstance(step, dict) and "paths-filter@" in str(step.get("uses", "")) for step in job.get("steps") or []
@@ -996,6 +1075,11 @@ def replay_argv(invocation: dict[str, Any], *, workflow: str, job: str, out_dir:
     argv = ["record", *common, "--cwd", str(invocation.get("cwd") or ".")]
     for assignment in invocation.get("env") or []:
         argv += ["--env", normalise_scratch(str(assignment))]
+    scratch = invocation.get("scratch_inputs") or {}
+    if not isinstance(scratch, dict):
+        raise LaneInputsError(f"{command!r}: scratch_inputs must be a mapping of basename to content")
+    for name, content in sorted(scratch.items()):
+        argv += ["--scratch-input", f"{name}={content}"]
     reason = invocation.get("allow_failure_reason")
     if isinstance(reason, str) and reason.strip():
         argv += ["--allow-failure", reason.strip()]
@@ -1028,34 +1112,46 @@ def command_replay(args: argparse.Namespace) -> int:
 
     out_dir = Path(args.out_dir).resolve()
     argvs = [replay_argv(entry, workflow=workflow, job=job, out_dir=out_dir) for entry in invocations]
+    _path, document = load_workflow(workflow)
+    path_additions = job_path_additions(document, job)
+    for directory in path_additions:
+        print(f"lane-inputs: replay → PATH += {directory} (the job's own $GITHUB_PATH write)", file=sys.stderr)
     for argv in argvs:
         print(f"lane-inputs: replay → python3 scripts/ci/lane_inputs.py {shlex.join(argv)}", file=sys.stderr)
     if args.dry_run:
         return EXIT_OK
 
-    for argv, entry in zip(argvs, invocations, strict=True):
-        if argv[0] != "record":
-            continue
-        program = argv[argv.index("--") + 1]
-        cwd = REPO_ROOT / str(entry.get("cwd") or ".")
-        if not _program_available(program, cwd):
-            raise LaneInputsError(
-                f"{name}: {program!r} is not available in this environment, so {entry.get('command')!r} cannot be "
-                f"replayed. Provide it in .github/workflows/lane-inputs.yml (see `plan`'s environment flags) — the "
-                f"manifest is not recorded rather than recorded without this invocation"
-            )
-    out_dir.mkdir(parents=True, exist_ok=True)
-    SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
-    target = out_dir / name
-    write_manifest(target, base)
-    for index, argv in enumerate(argvs):
-        code = main(argv)
-        if code != EXIT_OK:
-            target.unlink(missing_ok=True)
-            raise LaneInputsError(
-                f"{name}: invocations[{index}] could not be recorded (exit {code}); no manifest was written, so "
-                f"`compare` reports this lane as unrecorded instead of certifying a shorter read set"
-            )
+    saved_path = os.environ.get("PATH", "")
+    if path_additions:
+        # Prepended for every invocation, not from its step on: before the
+        # install step runs, the directory does not exist and PATH lookup skips it.
+        os.environ["PATH"] = os.pathsep.join([*(str(REPO_ROOT / d) for d in path_additions), saved_path])
+    try:
+        for argv, entry in zip(argvs, invocations, strict=True):
+            if argv[0] != "record":
+                continue
+            program = argv[argv.index("--") + 1]
+            cwd = REPO_ROOT / str(entry.get("cwd") or ".")
+            if not _program_available(program, cwd):
+                raise LaneInputsError(
+                    f"{name}: {program!r} is not available in this environment, so {entry.get('command')!r} cannot be "
+                    f"replayed. Provide it in .github/workflows/lane-inputs.yml (see `plan`'s environment flags) — the "
+                    f"manifest is not recorded rather than recorded without this invocation"
+                )
+        out_dir.mkdir(parents=True, exist_ok=True)
+        SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+        target = out_dir / name
+        write_manifest(target, base)
+        for index, argv in enumerate(argvs):
+            code = main(argv)
+            if code != EXIT_OK:
+                target.unlink(missing_ok=True)
+                raise LaneInputsError(
+                    f"{name}: invocations[{index}] could not be recorded (exit {code}); no manifest was written, so "
+                    f"`compare` reports this lane as unrecorded instead of certifying a shorter read set"
+                )
+    finally:
+        os.environ["PATH"] = saved_path
     print(f"lane-inputs: replayed {len(argvs)} invocation(s) → {_display(target)}", file=sys.stderr)
     return EXIT_OK
 
@@ -1147,6 +1243,7 @@ def _comparable_invocation(invocation: dict[str, Any]) -> dict[str, Any]:
     else:
         out["env"] = sorted(normalise_scratch(str(entry)) for entry in invocation.get("env") or [])
         out["exit_code"] = invocation.get("exit_code")
+        out["scratch_inputs"] = dict(sorted((invocation.get("scratch_inputs") or {}).items()))
     return out
 
 
@@ -1310,6 +1407,16 @@ def _parser() -> argparse.ArgumentParser:
     lane_arguments(record)
     record.add_argument("--cwd", default=None, help="directory the invocation runs in, repo-relative")
     record.add_argument("--env", action="append", default=[], metavar="KEY=VALUE")
+    record.add_argument(
+        "--scratch-input",
+        action="append",
+        default=[],
+        metavar="BASENAME=CONTENT",
+        help=(
+            f"write CONTENT to {SCRATCH_DIR}/BASENAME before tracing: a stand-in for a file an earlier step of the "
+            "job produces and the recorder cannot (a scan report); kept in the manifest as `scratch_inputs`"
+        ),
+    )
     record.add_argument(
         "--allow-failure",
         default=None,

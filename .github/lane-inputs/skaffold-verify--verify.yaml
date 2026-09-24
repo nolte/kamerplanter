@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: skaffold-verify.yml
@@ -8,8 +9,8 @@ job: verify
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-23'
-measured_at_commit: 19ead787396ebaec745dadc74a2877043fa722a9
+measured_on: '2026-09-24'
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: 0499a0f895191a28519aec2e580ec79d23b26696df7a9be4083617fff3f3b75d
 invocations:
 - command: helm dependency build helm/kamerplanter
@@ -17,7 +18,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 12
+  untracked_reads_dropped: 8
 - command: helm lint helm/kamerplanter -f helm/kamerplanter/values-dev.yaml
   cwd: .
   recorder: strace -ff -y -z
@@ -35,22 +36,23 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2351
-- command: scripts/ci/skaffold_render_verify.sh /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/rendered-manifests.yaml
+  untracked_reads_dropped: 340
+- command: scripts/ci/skaffold_render_verify.sh /tmp/lane-inputs-scratch/rendered-manifests.yaml
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 26
+  untracked_reads_dropped: 28
 subprocesses:
-- asdf
 - bash
+- bin/skaffold
 - dirname
 - docker
 - git
 - grep
 - helm
 - kubectl
+- minikube
 - mktemp
 - rm
 - scripts/ci/assert_rendered_manifests.sh
@@ -110,49 +112,6 @@ reads:
 - .github/actions/
 - .github/actions/ephemeral-stack/
 - .github/lane-inputs/
-- .github/lane-inputs/api-docs--openapi-export-lint.yaml
-- .github/lane-inputs/backend--dependency-gates.yaml
-- .github/lane-inputs/backend--lint-test.yaml
-- .github/lane-inputs/backend-guards--integration.yaml
-- .github/lane-inputs/docker-lint-build--build-backend.yaml
-- .github/lane-inputs/docker-lint-build--build-embedding-service.yaml
-- .github/lane-inputs/docker-lint-build--build-frontend.yaml
-- .github/lane-inputs/docker-lint-build--build-inference-service.yaml
-- .github/lane-inputs/docker-lint-build--build-knowledge-service.yaml
-- .github/lane-inputs/docker-lint-build--build-knowledge.yaml
-- .github/lane-inputs/docker-lint-build--build-reranker-service.yaml
-- .github/lane-inputs/docker-lint-build--build-vectordb.yaml
-- .github/lane-inputs/docker-lint-build--changes.yaml
-- .github/lane-inputs/docker-publish--build-backend.yaml
-- .github/lane-inputs/docker-publish--build-embedding-service.yaml
-- .github/lane-inputs/docker-publish--build-frontend.yaml
-- .github/lane-inputs/docker-publish--build-inference-service.yaml
-- .github/lane-inputs/docker-publish--build-knowledge-service.yaml
-- .github/lane-inputs/docker-publish--build-knowledge.yaml
-- .github/lane-inputs/docker-publish--build-reranker-service.yaml
-- .github/lane-inputs/docker-publish--build-vectordb.yaml
-- .github/lane-inputs/docker-publish--changes.yaml
-- .github/lane-inputs/docker-publish--publish-helm-charts.yaml
-- .github/lane-inputs/docker-publish--update-release-assets.yaml
-- .github/lane-inputs/docs-requirements--requirements.yaml
-- .github/lane-inputs/e2e-smoke--changes.yaml
-- .github/lane-inputs/e2e-smoke--smoke.yaml
-- .github/lane-inputs/frontend--bundle-budget.yaml
-- .github/lane-inputs/frontend--changes.yaml
-- .github/lane-inputs/frontend--coverage.yaml
-- .github/lane-inputs/frontend--deadcode.yaml
-- .github/lane-inputs/frontend--dependency-gates.yaml
-- .github/lane-inputs/frontend--lighthouse.yaml
-- .github/lane-inputs/frontend--lint-test-build.yaml
-- .github/lane-inputs/frontend--npm-audit-dev.yaml
-- .github/lane-inputs/security-nuclei-postmerge--nuclei-scan.yaml
-- .github/lane-inputs/security-nuclei-postmerge--report-findings.yaml
-- .github/lane-inputs/security-nuclei-templates--validate.yaml
-- .github/lane-inputs/security-zap-postmerge--report-findings.yaml
-- .github/lane-inputs/security-zap-postmerge--zap-scan.yaml
-- .github/lane-inputs/side-services--inference-service.yaml
-- .github/lane-inputs/side-services--knowledge-service.yaml
-- .github/lane-inputs/side-services--libs.yaml
 - .github/styles/
 - .github/styles/config/
 - .github/styles/config/vocabularies/
@@ -1434,6 +1393,7 @@ reads:
 - src/backend/app/migrations/versions/v0053_recompute_care_profiles_newly_mapped_families.py
 - src/backend/app/migrations/versions/v0054_strip_credentials_from_soft_deleted_accounts.py
 - src/backend/app/migrations/versions/v0055_rename_account_type_user_to_human.py
+- src/backend/app/migrations/versions/v0056_stamp_attribution_user_keys.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -1511,6 +1471,7 @@ reads:
 - src/backend/tests/api/test_api_major_discovery.py
 - src/backend/tests/api/test_aquaponics_router.py
 - src/backend/tests/api/test_attachments_router.py
+- src/backend/tests/api/test_attribution_key_is_server_set.py
 - src/backend/tests/api/test_auth_device_pairing_api.py
 - src/backend/tests/api/test_auth_device_pairing_security.py
 - src/backend/tests/api/test_auth_login_lockout_enumeration.py
@@ -1644,6 +1605,7 @@ reads:
 - src/backend/tests/integration/test_v0051_rename_cec_key.py
 - src/backend/tests/integration/test_v0054_strip_soft_deleted_credentials.py
 - src/backend/tests/integration/test_v0055_rename_account_type_user_to_human.py
+- src/backend/tests/integration/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/support/
 - src/backend/tests/support/__init__.py
 - src/backend/tests/support/arango_integration.py
@@ -2173,6 +2135,7 @@ reads:
 - src/backend/tests/unit/guards/test_entity_name_vocabulary.py
 - src/backend/tests/unit/guards/test_execution_guards.py
 - src/backend/tests/unit/guards/test_favoritable_collections_declare_ownership.py
+- src/backend/tests/unit/guards/test_integration_databases_are_run_scoped.py
 - src/backend/tests/unit/guards/test_integration_tier_gate.py
 - src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py
 - src/backend/tests/unit/guards/test_library_lock_hash_verification.py
@@ -2188,6 +2151,7 @@ reads:
 - src/backend/tests/unit/guards/test_renovate_dashboard_parser.py
 - src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
+- src/backend/tests/unit/guards/test_settings_labels_fit_api.py
 - src/backend/tests/unit/guards/test_skaffold_render_assertion.py
 - src/backend/tests/unit/guards/test_spec_literal_discriminators_match_models.py
 - src/backend/tests/unit/guards/test_uv_pin_is_single.py
@@ -2313,6 +2277,7 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0052_drop_unowned_import_jobs.py
 - src/backend/tests/unit/migrations/versions/test_v0053_recompute_care_profiles_newly_mapped_families.py
 - src/backend/tests/unit/migrations/versions/test_v0055_rename_account_type_user_to_human.py
+- src/backend/tests/unit/migrations/versions/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -2380,6 +2345,7 @@ reads:
 - src/backend/tests/unit/test_glossary_read_does_not_generate.py
 - src/backend/tests/unit/test_glossary_service.py
 - src/backend/tests/unit/test_importorskip_only_for_optional_deps.py
+- src/backend/tests/unit/test_kami_render_model.py
 - src/backend/tests/unit/test_knowledge_service_adapter.py
 - src/backend/tests/unit/test_lane_inputs_recorder.py
 - src/backend/tests/unit/test_layer_imports_check.py
@@ -2604,6 +2570,7 @@ reads:
 - src/frontend/src/components/ai/aiErrorMessage.ts
 - src/frontend/src/components/common/
 - src/frontend/src/components/common/AuthImage.tsx
+- src/frontend/src/components/common/CatalogueLoadError.tsx
 - src/frontend/src/components/common/ColumnFilterBar.tsx
 - src/frontend/src/components/common/ConfirmDialog.tsx
 - src/frontend/src/components/common/DataTable.tsx
@@ -3199,6 +3166,7 @@ reads:
 - src/frontend/src/test/checkBundleBudget.test.ts
 - src/frontend/src/test/components/
 - src/frontend/src/test/components/AuthImage.test.tsx
+- src/frontend/src/test/components/CatalogueLoadError.test.tsx
 - src/frontend/src/test/components/ConfirmDialog.test.tsx
 - src/frontend/src/test/components/DashboardPendingSignal.test.tsx
 - src/frontend/src/test/components/DataTable.test.tsx
@@ -3374,6 +3342,7 @@ reads:
 - src/frontend/src/test/pages/CalendarPage.test.tsx
 - src/frontend/src/test/pages/CalendarPageMobileFilters.test.tsx
 - src/frontend/src/test/pages/CareProfileForm.test.tsx
+- src/frontend/src/test/pages/CatalogueLoadFailureCallSites.test.tsx
 - src/frontend/src/test/pages/ChannelFertilizerDialog.test.tsx
 - src/frontend/src/test/pages/CompanionPlantingPageDropdown.test.tsx
 - src/frontend/src/test/pages/ConnectDeviceDialog.test.tsx
@@ -3454,6 +3423,7 @@ reads:
 - src/frontend/src/test/pages/PlantInstanceCreateDialog.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageAncestry.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageCareTab.test.tsx
+- src/frontend/src/test/pages/PlantInstanceDetailPageCatalogueState.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageHarvestReadiness.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageHeader.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageTasksTab.test.tsx
@@ -3464,6 +3434,7 @@ reads:
 - src/frontend/src/test/pages/PlantPhaseTimeline.test.tsx
 - src/frontend/src/test/pages/PlantPhotoGallery.test.tsx
 - src/frontend/src/test/pages/PlantingRunCompleteHarvest.test.tsx
+- src/frontend/src/test/pages/PlantingRunCreateDialog.test.tsx
 - src/frontend/src/test/pages/PostHarvestDialogs.test.tsx
 - src/frontend/src/test/pages/PostHarvestPage.test.tsx
 - src/frontend/src/test/pages/PostHarvestPageMobile.test.tsx

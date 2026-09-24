@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: docker-publish.yml
@@ -8,12 +9,12 @@ job: update-release-assets
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-23'
-measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+measured_on: '2026-09-24'
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: 47b77e553245cc387ebe639dbd4b14d7bbc7d26501c87d7179594259f3ba48a3
 invocations:
-- command: bash -c 'VERSION_NUM="${VERSION#v}"; sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/docker-compose-x.yml;
-    cp .env.example /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/.env.example-x'
+- command: bash -c 'VERSION_NUM="${VERSION#v}"; sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > /tmp/lane-inputs-scratch/docker-compose-x.yml;
+    cp .env.example /tmp/lane-inputs-scratch/.env.example-x'
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0

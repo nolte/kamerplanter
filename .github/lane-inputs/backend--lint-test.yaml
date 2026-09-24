@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: backend.yml
@@ -8,8 +9,8 @@ job: lint-test
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-23'
-measured_at_commit: 19ead787396ebaec745dadc74a2877043fa722a9
+measured_on: '2026-09-24'
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: 41db0a0e34a802cae7563ce65717afb476897c9e7dbc94b2a598da0d55167eea
 invocations:
 - command: task lint:backend
@@ -17,7 +18,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 152
+  untracked_reads_dropped: 157
 - command: task format:backend
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -35,34 +36,26 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 703
+  untracked_reads_dropped: 1131
 - command: task test:backend:api
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2711
+  untracked_reads_dropped: 3348
 - command: task test:backend:unit
   cwd: src/backend
   recorder: strace -ff -y -z
-  exit_code: 201
+  exit_code: 0
   env: []
-  untracked_reads_dropped: 4137
-  allow_failure_reason: '201 is task''s `command failed` over pytest''s skip-floor exit: `--max-skipped 1` (#1434) was exceeded
-    on the recording workstation, where the hash-verification falsifiers (test_lock_hash_verification, test_library_lock_hash_verification,
-    test_docs_requirements_hash_verification) skip without the pinned uv on PATH or without CI set. Every other test ran to
-    completion. The reads those falsifiers make when they run — src/backend/uv.lock and pyproject.toml, the two src/libs/*/uv.lock,
-    tests/e2e/uv.lock, docs/requirements.txt, copied and synced in a scratch tree — are the reads this run may lack from THEM;
-    each of those files is in this read set through other tests (test_uv_pin_manager_covers_every_pin, test_lock_hash_verification''s
-    own probes), so the failure path cost the file-level set nothing that is known.'
+  untracked_reads_dropped: 4754
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 149
+  untracked_reads_dropped: 139
 subprocesses:
-- asdf
 - awk
 - bash
 - cat
@@ -85,8 +78,11 @@ subprocesses:
 - mkdir
 - node
 - python
+- python3
 - python3.14
 - rm
+- ruff
+- rustc
 - scripts/ci/assert_rendered_manifests.sh
 - scripts/ci/determine_chart_version.sh
 - scripts/precommit_sibling_notice.sh
@@ -106,193 +102,193 @@ subprocesses:
 - xargs
 accepted_gaps:
 - pattern: .audits/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: .claude/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: .env.example
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: .github/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: .pre-commit-config.yaml
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: .vscode/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: brand/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: docker-compose.e2e.ci.yml
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: docker-compose.e2e.yml
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: docker-compose.release.yml
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: docker-compose.security.override.yml
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: docker-compose.yml
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: docker/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: docs/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: helm/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: project/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: renovate.json5
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: scripts/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: spec/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: src/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: src/frontend/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: src/inference-service/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: src/knowledge-service/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: src/libs/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: test-reports/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: tests/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: tools/**
-  reason: 'ASSUMED, NOT MEASURED (#1683): these paths are read by the tree guards (tests/unit/guards, tests/unit/api), which
-    this job runs as part of tests/unit/ and which the unfiltered required lane in covered_by also runs on every pull request
-    and push. That lane has NO manifest yet, so the guard cannot check that it really reads them; the delegation rests on
-    the two shared test directories, not on a measurement, and stands as an open finding in the guard''s _UNRECORDED_DELEGATES
-    register until the manifest is recorded in CI.'
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 reads:
 - .audits/
@@ -347,6 +343,7 @@ reads:
 - .github/boring-cyborg.yml
 - .github/lane-inputs/
 - .github/lane-inputs/api-docs--openapi-export-lint.yaml
+- .github/lane-inputs/backend--coverage.yaml
 - .github/lane-inputs/backend--dependency-gates.yaml
 - .github/lane-inputs/backend--lint-test.yaml
 - .github/lane-inputs/backend-guards--integration.yaml
@@ -372,6 +369,7 @@ reads:
 - .github/lane-inputs/docker-publish--update-release-assets.yaml
 - .github/lane-inputs/docs-requirements--requirements.yaml
 - .github/lane-inputs/e2e-smoke--changes.yaml
+- .github/lane-inputs/e2e-smoke--report.yaml
 - .github/lane-inputs/e2e-smoke--smoke.yaml
 - .github/lane-inputs/frontend--bundle-budget.yaml
 - .github/lane-inputs/frontend--changes.yaml
@@ -381,6 +379,9 @@ reads:
 - .github/lane-inputs/frontend--lighthouse.yaml
 - .github/lane-inputs/frontend--lint-test-build.yaml
 - .github/lane-inputs/frontend--npm-audit-dev.yaml
+- .github/lane-inputs/lane-inputs--compare.yaml
+- .github/lane-inputs/lane-inputs--plan.yaml
+- .github/lane-inputs/lane-inputs--record.yaml
 - .github/lane-inputs/security-nuclei-postmerge--nuclei-scan.yaml
 - .github/lane-inputs/security-nuclei-postmerge--report-findings.yaml
 - .github/lane-inputs/security-nuclei-templates--validate.yaml
@@ -413,6 +414,7 @@ reads:
 - .github/workflows/e2e-nightly.yml
 - .github/workflows/e2e-smoke.yml
 - .github/workflows/frontend.yml
+- .github/workflows/lane-inputs.yml
 - .github/workflows/release-assets-complete.yml
 - .github/workflows/release-cd-deliver-docs.yml
 - .github/workflows/release-cd-refresh-master.yml
@@ -548,12 +550,16 @@ reads:
 - scripts/ci/check_release_lag.py
 - scripts/ci/check_renovate_dashboard.py
 - scripts/ci/determine_chart_version.sh
+- scripts/ci/lane_inputs.py
 - scripts/docs/
+- scripts/extract_overwintering_templates.py
 - scripts/kami/
+- scripts/kami/render.py
 - scripts/precommit_sibling_notice.sh
 - scripts/route_consumer_exemptions.yaml
 - scripts/security/
 - scripts/security/assert-nuclei-coverage.sh
+- scripts/security/zap_gate.py
 - scripts/source_text.py
 - spec/
 - spec/analysis/
@@ -844,9 +850,83 @@ reads:
 - spec/knowledge/rag/umwelt/
 - spec/knowledge/rag/vermehrung/
 - spec/nfr/
+- spec/nfr/NFR-001_Separation-of-Concerns.md
+- spec/nfr/NFR-002_Kubernetes-Plattform.md
+- spec/nfr/NFR-003_Code-Standard-Linting.md
+- spec/nfr/NFR-004_Lokale-Entwicklungsumgebung.md
+- spec/nfr/NFR-005_Technische-Dokumentation.md
 - spec/nfr/NFR-006_API-Fehlerbehandlung.md
+- spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md
+- spec/nfr/NFR-008_Teststrategie-Testprotokoll.md
+- spec/nfr/NFR-008a_E2E-Selenium-Teststandard.md
+- spec/nfr/NFR-009_Dependency-Management.md
+- spec/nfr/NFR-010_UI-Pflegemasken-Listenansichten.md
+- spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md
+- spec/nfr/NFR-012_Cloud-Provider-Enterprise-Skalierung.md
+- spec/nfr/NFR-013_Speicheranbindung-Object-Storage.md
+- spec/nfr/NFR-014_Nuclei-Security-Scanning.md
+- spec/nfr/NFR-015_OWASP-ZAP-Security-Scanning.md
+- spec/nfr/NFR-016_Datenbank-Migrationsstrategie.md
+- spec/nfr/NFR-017_Skalierbare-Mehrsprachigkeit.md
+- spec/nfr/NFR-018_CI-CD-Pipeline-Integritaet.md
 - spec/rag-eval/
 - spec/req/
+- spec/req/README.md
+- spec/req/REQ-001_Stammdatenverwaltung.md
+- spec/req/REQ-002_Standortverwaltung.md
+- spec/req/REQ-003_Phasensteuerung.md
+- spec/req/REQ-004-A_EC-Budget-Kalkulation.md
+- spec/req/REQ-004_Duenge-Logik.md
+- spec/req/REQ-005_Hybrid-Sensorik.md
+- spec/req/REQ-006_Aufgabenplanung.md
+- spec/req/REQ-007_Erntemanagement.md
+- spec/req/REQ-008_Post-Harvest.md
+- spec/req/REQ-009_Dashboard.md
+- spec/req/REQ-010_IPM-System.md
+- spec/req/REQ-011_Externe-Stammdatenanreicherung.md
+- spec/req/REQ-012_Stammdaten-Import.md
+- spec/req/REQ-013_Pflanzdurchlauf.md
+- spec/req/REQ-014_Tankmanagement.md
+- spec/req/REQ-015-A_Aussaatkalender-Berechnungsregeln.md
+- spec/req/REQ-015_Kalenderansicht.md
+- spec/req/REQ-016_InvenTree-Integration.md
+- spec/req/REQ-017_Vermehrungsmanagement.md
+- spec/req/REQ-018_Umgebungssteuerung.md
+- spec/req/REQ-019_Substratverwaltung.md
+- spec/req/REQ-020_Onboarding-Wizard.md
+- spec/req/REQ-021_UI-Erfahrungsstufen.md
+- spec/req/REQ-022_Pflegeerinnerungen.md
+- spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md
+- spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md
+- spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+- spec/req/REQ-026_Aquaponik-Management.md
+- spec/req/REQ-027_Light-Modus.md
+- spec/req/REQ-028_Mischkultur-Companion-Planting.md
+- spec/req/REQ-029-A_Self-Hosted-Bilderkennung-Referenzbild-Beschaffung.md
+- spec/req/REQ-029_KI-Bilderkennung-Pflanzenidentifikation.md
+- spec/req/REQ-030_Benachrichtigungssystem.md
+- spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md
+- spec/req/REQ-032_Druckansichten-Export.md
+- spec/req/REQ-033_MCP-Server.md
+- spec/req/REQ-034_Pflanzenfoto-Galerie.md
+- spec/req/REQ-035_KI-Fachbegriff-Glossar.md
+- spec/req/REQ-036_KI-Diagnose-Assistent.md
+- spec/req/REQ-037_Evapotranspiration-Bewaesserung.md
+- spec/req/REQ-038_CV-Pflanzendiagnose.md
+- spec/req/REQ-039_Klimazonen-Winterhaerte.md
+- spec/req/REQ-040_Enrichment-OpenFarm-Growstuff.md
+- spec/req/REQ-041_Agroklimatologie-NASA-POWER.md
+- spec/req/REQ-042_Modulare-Feature-Sichtbarkeit.md
+- spec/req/REQ-043_Pflanzengesundheits-Einschaetzung.md
+- spec/req/REQ-044_Schaedlingserkennung.md
+- spec/req/REQ-045_Individualisierbares-Dashboard.md
+- spec/req/REQ-046_Wetterdienst-Datenquellen.md
+- spec/req/REQ-047_Saison-Ueberwinterungs-Automatik.md
+- spec/req/REQ-048_Spezies-Identitaetsaufloesung-Deduplizierung.md
+- spec/req/REQ-049_Rollenmodell-und-Vokabular.md
+- spec/req/REQ-050_KI-Analyse-Tagebucheintraege.md
+- spec/req/REQ-051_Pflanzen-Tagebuch.md
+- spec/req/REQ-052_Bilderfassung.md
 - spec/style-guides/
 - spec/target-audiences/
 - spec/ui-nfr/
@@ -1288,6 +1368,7 @@ reads:
 - src/backend/app/data_access/arango/onboarding_state_repository.py
 - src/backend/app/data_access/arango/overwintering_profile_repository.py
 - src/backend/app/data_access/arango/overwintering_profile_template_repository.py
+- src/backend/app/data_access/arango/personal_data_repository.py
 - src/backend/app/data_access/arango/pest_detection_repository.py
 - src/backend/app/data_access/arango/pest_image_repository.py
 - src/backend/app/data_access/arango/phase_sequence_repository.py
@@ -1539,6 +1620,7 @@ reads:
 - src/backend/app/domain/interfaces/oidc_config_repository.py
 - src/backend/app/domain/interfaces/overwintering_profile_repository.py
 - src/backend/app/domain/interfaces/overwintering_profile_template_repository.py
+- src/backend/app/domain/interfaces/personal_data_repository.py
 - src/backend/app/domain/interfaces/pest_detection_adapter.py
 - src/backend/app/domain/interfaces/pest_detection_repository.py
 - src/backend/app/domain/interfaces/pest_image_repository.py
@@ -1939,6 +2021,8 @@ reads:
 - src/backend/app/migrations/versions/v0052_drop_unowned_import_jobs.py
 - src/backend/app/migrations/versions/v0053_recompute_care_profiles_newly_mapped_families.py
 - src/backend/app/migrations/versions/v0054_strip_credentials_from_soft_deleted_accounts.py
+- src/backend/app/migrations/versions/v0055_rename_account_type_user_to_human.py
+- src/backend/app/migrations/versions/v0056_stamp_attribution_user_keys.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -2012,6 +2096,7 @@ reads:
 - src/backend/tests/api/test_api_major_discovery.py
 - src/backend/tests/api/test_aquaponics_router.py
 - src/backend/tests/api/test_attachments_router.py
+- src/backend/tests/api/test_attribution_key_is_server_set.py
 - src/backend/tests/api/test_auth_device_pairing_api.py
 - src/backend/tests/api/test_auth_device_pairing_security.py
 - src/backend/tests/api/test_auth_login_lockout_enumeration.py
@@ -2134,6 +2219,7 @@ reads:
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_plant_scoped_route_residue_tenant_scope.py
+- src/backend/tests/integration/test_privacy_export_walk.py
 - src/backend/tests/integration/test_propagation_lineage_tenant_isolation.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
@@ -2143,6 +2229,8 @@ reads:
 - src/backend/tests/integration/test_v0048_backfill_missing_care_profiles.py
 - src/backend/tests/integration/test_v0051_rename_cec_key.py
 - src/backend/tests/integration/test_v0054_strip_soft_deleted_credentials.py
+- src/backend/tests/integration/test_v0055_rename_account_type_user_to_human.py
+- src/backend/tests/integration/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/support/
 - src/backend/tests/support/__init__.py
 - src/backend/tests/support/arango_integration.py
@@ -2151,6 +2239,7 @@ reads:
 - src/backend/tests/support/execution_guards.py
 - src/backend/tests/support/grant_fakes.py
 - src/backend/tests/support/oidc_admin.py
+- src/backend/tests/support/privacy_doubles.py
 - src/backend/tests/support/renovate_config.py
 - src/backend/tests/support/repo_scripts.py
 - src/backend/tests/support/tenant_replay.py
@@ -2598,7 +2687,10 @@ reads:
 - src/backend/tests/unit/domain/services/test_post_harvest_service.py
 - src/backend/tests/unit/domain/services/test_print_service.py
 - src/backend/tests/unit/domain/services/test_privacy_email_change_enumeration.py
+- src/backend/tests/unit/domain/services/test_privacy_executor_truthfulness.py
+- src/backend/tests/unit/domain/services/test_privacy_export_bundle.py
 - src/backend/tests/unit/domain/services/test_privacy_retention.py
+- src/backend/tests/unit/domain/services/test_privacy_review_round.py
 - src/backend/tests/unit/domain/services/test_privacy_service.py
 - src/backend/tests/unit/domain/services/test_propagation_service.py
 - src/backend/tests/unit/domain/services/test_quarter_climate_service.py
@@ -2668,6 +2760,7 @@ reads:
 - src/backend/tests/unit/guards/test_entity_name_vocabulary.py
 - src/backend/tests/unit/guards/test_execution_guards.py
 - src/backend/tests/unit/guards/test_favoritable_collections_declare_ownership.py
+- src/backend/tests/unit/guards/test_integration_databases_are_run_scoped.py
 - src/backend/tests/unit/guards/test_integration_tier_gate.py
 - src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py
 - src/backend/tests/unit/guards/test_library_lock_hash_verification.py
@@ -2683,7 +2776,9 @@ reads:
 - src/backend/tests/unit/guards/test_renovate_dashboard_parser.py
 - src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
+- src/backend/tests/unit/guards/test_settings_labels_fit_api.py
 - src/backend/tests/unit/guards/test_skaffold_render_assertion.py
+- src/backend/tests/unit/guards/test_spec_literal_discriminators_match_models.py
 - src/backend/tests/unit/guards/test_uv_pin_is_single.py
 - src/backend/tests/unit/guards/test_uv_pin_manager_covers_every_pin.py
 - src/backend/tests/unit/guards/test_workflow_install_bounds.py
@@ -2806,6 +2901,8 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0051_rename_cec_key.py
 - src/backend/tests/unit/migrations/versions/test_v0052_drop_unowned_import_jobs.py
 - src/backend/tests/unit/migrations/versions/test_v0053_recompute_care_profiles_newly_mapped_families.py
+- src/backend/tests/unit/migrations/versions/test_v0055_rename_account_type_user_to_human.py
+- src/backend/tests/unit/migrations/versions/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -2858,6 +2955,7 @@ reads:
 - src/backend/tests/unit/test_db_guard.py
 - src/backend/tests/unit/test_delivery_run_alert_workflow.py
 - src/backend/tests/unit/test_delivery_run_check.py
+- src/backend/tests/unit/test_dependency_providers_construct.py
 - src/backend/tests/unit/test_deployed_build_check.py
 - src/backend/tests/unit/test_determine_chart_version.py
 - src/backend/tests/unit/test_diagnose_service.py
@@ -2872,6 +2970,7 @@ reads:
 - src/backend/tests/unit/test_glossary_read_does_not_generate.py
 - src/backend/tests/unit/test_glossary_service.py
 - src/backend/tests/unit/test_importorskip_only_for_optional_deps.py
+- src/backend/tests/unit/test_kami_render_model.py
 - src/backend/tests/unit/test_knowledge_service_adapter.py
 - src/backend/tests/unit/test_lane_inputs_recorder.py
 - src/backend/tests/unit/test_layer_imports_check.py
@@ -3020,6 +3119,7 @@ reads:
 - src/frontend/src/components/ai/aiErrorMessage.ts
 - src/frontend/src/components/common/
 - src/frontend/src/components/common/AuthImage.tsx
+- src/frontend/src/components/common/CatalogueLoadError.tsx
 - src/frontend/src/components/common/ColumnFilterBar.tsx
 - src/frontend/src/components/common/ConfirmDialog.tsx
 - src/frontend/src/components/common/DataTable.tsx
@@ -3620,10 +3720,14 @@ reads:
 - tests/
 - tests/e2e/
 - tests/e2e/Dockerfile
+- tests/e2e/_a11y_helpers.py
+- tests/e2e/_gherkin.py
+- tests/e2e/_seed_log.py
 - tests/e2e/conftest.py
 - tests/e2e/features/
 - tests/e2e/fixtures/
 - tests/e2e/pages/
+- tests/e2e/protocol_plugin.py
 - tests/e2e/pyproject.toml
 - tests/e2e/uv.lock
 - tests/e2e_selftest/
@@ -3634,6 +3738,7 @@ reads:
 - tests/security/zap-rules.tsv
 - tests/security/zap-scripts/
 - tests/security/zap-setup/
+- tests/security/zap-setup/zap_hooks.py
 - tools/
 - tools/rag-eval/
 - tools/rag-eval/requirements.txt

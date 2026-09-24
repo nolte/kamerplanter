@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: docs-requirements.yml
@@ -8,8 +9,8 @@ job: requirements
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-23'
-measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
+measured_on: '2026-09-24'
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: d3fe2390bc7db7ba10d1d417e2a771eb09362b71fe00a3520d804bfe72ca4fa0
 invocations:
 - command: task docs:venv
@@ -17,7 +18,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 20503
+  untracked_reads_dropped: 19952
 - command: task docs:lock
   cwd: .
   recorder: strace -ff -y -z
@@ -29,18 +30,18 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1
+  untracked_reads_dropped: 3
 subprocesses:
 - .venv-docs/bin/pip
-- .venv-docs/bin/python3
-- asdf
-- bash
 - cut
 - getopt
 - git
 - ld-linux-x86-64.so.2
 - lsb_release
+- python
 - python3
+- python3.11
+- rustc
 - task
 - tr
 - uname

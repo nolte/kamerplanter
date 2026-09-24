@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: security-zap-postmerge.yml
@@ -55,6 +56,8 @@ invocations:
   exit_code: 0
   env: []
   untracked_reads_dropped: 0
+  scratch_inputs:
+    zap-empty.json: '{"site": []}'
 - command: python3 scripts/security/zap_gate.py /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/zap-empty.json
     --profile api --rules tests/security/zap-api-rules.tsv --emit-blocking /tmp/claude-1000/-home-nolte-repos-github-kamerplanter/97003d13-043f-40e9-b936-eb80607b2daa/scratchpad/blocking-api.json
   cwd: .
@@ -62,6 +65,8 @@ invocations:
   exit_code: 0
   env: []
   untracked_reads_dropped: 0
+  scratch_inputs:
+    zap-empty.json: '{"site": []}'
 subprocesses:
 - asdf
 - bash

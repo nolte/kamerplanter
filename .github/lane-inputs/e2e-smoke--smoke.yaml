@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: e2e-smoke.yml
@@ -12,7 +13,7 @@ gate:
   - e2e_infra
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 5511407fab64bc1f4a14c83fa3ed64d9cfba64f4
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: f0d123471f5b3b896c4f8f17eda79e956b85e31f235274ee662049ddffb52203
 invocations:
 - command: docker compose -f docker-compose.e2e.yml --profile smoke config --quiet
@@ -36,7 +37,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 1931
+  context_files_after_dockerignore: 1932
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
   cwd: .
   recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
@@ -56,7 +57,7 @@ invocations:
   - nginx.conf
   - nginx-security-headers.inc
   - docker-entrypoint.d/
-  context_files_after_dockerignore: 1068
+  context_files_after_dockerignore: 1073
 - command: derive-docker --context tests/e2e --dockerfile tests/e2e/Dockerfile
   cwd: .
   recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
@@ -1792,6 +1793,7 @@ reads:
 - src/backend/tests/unit/guards/test_renovate_dashboard_parser.py
 - src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
+- src/backend/tests/unit/guards/test_settings_labels_fit_api.py
 - src/backend/tests/unit/guards/test_skaffold_render_assertion.py
 - src/backend/tests/unit/guards/test_spec_literal_discriminators_match_models.py
 - src/backend/tests/unit/guards/test_uv_pin_is_single.py
@@ -2178,6 +2180,7 @@ reads:
 - src/frontend/src/components/ai/WhyDrawer.tsx
 - src/frontend/src/components/ai/aiErrorMessage.ts
 - src/frontend/src/components/common/AuthImage.tsx
+- src/frontend/src/components/common/CatalogueLoadError.tsx
 - src/frontend/src/components/common/ColumnFilterBar.tsx
 - src/frontend/src/components/common/ConfirmDialog.tsx
 - src/frontend/src/components/common/DataTable.tsx
@@ -2699,6 +2702,7 @@ reads:
 - src/frontend/src/test/api/propagation.test.ts
 - src/frontend/src/test/checkBundleBudget.test.ts
 - src/frontend/src/test/components/AuthImage.test.tsx
+- src/frontend/src/test/components/CatalogueLoadError.test.tsx
 - src/frontend/src/test/components/ConfirmDialog.test.tsx
 - src/frontend/src/test/components/DashboardPendingSignal.test.tsx
 - src/frontend/src/test/components/DataTable.test.tsx
@@ -2853,6 +2857,7 @@ reads:
 - src/frontend/src/test/pages/CalendarPage.test.tsx
 - src/frontend/src/test/pages/CalendarPageMobileFilters.test.tsx
 - src/frontend/src/test/pages/CareProfileForm.test.tsx
+- src/frontend/src/test/pages/CatalogueLoadFailureCallSites.test.tsx
 - src/frontend/src/test/pages/ChannelFertilizerDialog.test.tsx
 - src/frontend/src/test/pages/CompanionPlantingPageDropdown.test.tsx
 - src/frontend/src/test/pages/ConnectDeviceDialog.test.tsx
@@ -2933,6 +2938,7 @@ reads:
 - src/frontend/src/test/pages/PlantInstanceCreateDialog.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageAncestry.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageCareTab.test.tsx
+- src/frontend/src/test/pages/PlantInstanceDetailPageCatalogueState.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageHarvestReadiness.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageHeader.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageTasksTab.test.tsx
@@ -2943,6 +2949,7 @@ reads:
 - src/frontend/src/test/pages/PlantPhaseTimeline.test.tsx
 - src/frontend/src/test/pages/PlantPhotoGallery.test.tsx
 - src/frontend/src/test/pages/PlantingRunCompleteHarvest.test.tsx
+- src/frontend/src/test/pages/PlantingRunCreateDialog.test.tsx
 - src/frontend/src/test/pages/PostHarvestDialogs.test.tsx
 - src/frontend/src/test/pages/PostHarvestPage.test.tsx
 - src/frontend/src/test/pages/PostHarvestPageMobile.test.tsx

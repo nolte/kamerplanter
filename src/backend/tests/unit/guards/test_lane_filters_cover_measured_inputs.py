@@ -99,23 +99,19 @@ has no filter.
 
 WHERE THIS FILE RUNS, AND WHY NOT IN THE REQUIRED LANE (#1683).
 
-Until the lane above has produced and the tree has committed the first CI
-recordings, a manifest can be absent (``backend-guards.yml/guards``) or partial
-(``backend--coverage.yaml``), and a rule that reddens on either is right to —
-but a REQUIRED context that is red on a known, dated gap blocks every merge
-over a fact no pull request can change. The lane is advisory too, and the
-promotion of both is a decision on its measured history (NFR-018 §4), not an
-edit of this paragraph. So this file carries
+The two gaps this file once held open in aging registers — no manifest for
+``backend-guards.yml/guards``, and ``backend--coverage.yaml`` recorded from one
+test file (``status: partial``) — are closed: both manifests are now CI
+recordings from ``lane-inputs.yml`` (#1683), so the registers are gone and
+every finding on the real tree is red. The file still carries
 ``pytestmark = pytest.mark.advisory``, and the required ``Write-route and tree
 guards`` lane deselects it with ``-m 'not advisory'`` (``backend-guards.yml``);
 ``task test:backend:unit`` — ``pytest tests/unit/`` — still collects it, so the
-advisory ``backend.yml`` lanes carry the verdict. The two known gaps stand in
-``_UNRECORDED_DELEGATES`` and ``_PARTIAL_MANIFESTS`` below: the rules still
-emit the findings (the planted cases prove it), the real-tree tests let
-exactly those entries through, and ``TestTheRegistersAge`` goes red the moment
-the named manifest appears or stops being partial, so an entry cannot outlive
-#1683. #1683 promotes this file back into the required set by deleting the
-marker and the two registers.
+advisory ``backend.yml`` lanes carry the verdict. A manifest's read set moves
+whenever a file is added under a directory a job enumerates, so the manifests
+go stale between two recordings by construction; promoting this file and the
+lane is a decision on their measured history (NFR-018 §4), not an edit of this
+paragraph.
 
 THE MATCHER, AND WHY IT IS ALLOWED TO EXIST HERE.
 
@@ -196,26 +192,6 @@ _SCHEMA = 2
 #: file the job's filter could miss. A `python -m pip …` is pip, not a script, and
 #: is exempt for the same reason.
 _INVOCATION_HEADS = ("task", "pytest", "python", "python3", "npx")
-
-#: Aging registers for the two gaps #1683 closes (see the module docstring).
-#: Each entry is checked for staleness by ``TestTheRegistersAge``: the moment
-#: ``backend-guards.yml/guards`` has a manifest, or ``backend--coverage.yaml`` is
-#: no longer partial, the entry is red and must be deleted. Adding an entry here
-#: is the same act as adding an ``accepted_gaps`` reason: it names what is known.
-_UNRECORDED_DELEGATES: dict[str, str] = {
-    "backend-guards.yml/guards": (
-        "#1683 — the lane's `pytest … --max-skipped 0` trips on tests that skip on a workstation and the "
-        "recorder refuses a red run; the manifest is recorded in CI, where the run is green"
-    ),
-}
-_PARTIAL_MANIFESTS: dict[str, str] = {
-    "backend--coverage.yaml": (
-        "#1683 — the reads were recorded from the job's command narrowed to one test file; invocations[] "
-        "names the full command since, and lane-inputs.yml records the full run (every unit, contract and "
-        "api test under coverage) — commit that recording and delete this entry"
-    ),
-}
-
 
 # --------------------------------------------------------------------- matcher
 
@@ -1103,7 +1079,6 @@ class TestTheRealTree:
 
     def test_every_read_is_selected_by_every_filter_that_gates_its_job(self, real: Sweep) -> None:
         findings = [finding for m in real.manifests for finding in coverage_findings(real, m)]
-        findings = [finding for finding in findings if not _registered(finding)]
         assert not findings, (
             "A job reads a path its relevance filter does not select, so a change to that path cannot run "
             "the job that depends on it (#1596). Widen the filter, or write the gap down under accepted_gaps "
@@ -1113,7 +1088,6 @@ class TestTheRealTree:
 
     def test_every_held_invocation_of_a_job_is_the_one_its_manifest_recorded(self, real: Sweep) -> None:
         findings = [finding for m in real.manifests for finding in invocation_findings(real, m)]
-        findings = [finding for finding in findings if not _registered(finding)]
         assert not findings, (
             "A manifest certifies a filter only for the invocation it recorded (review of #1682, O2). "
             "Record the missing command with `scripts/ci/lane_inputs.py record --append`, or write down under "
@@ -1141,58 +1115,6 @@ class TestTheRealTree:
             "no required context decides its relevance inside the job any more; "
             "retire rule 4 with a reason rather than leave it green over nothing"
         )
-
-
-def _registered(finding: str) -> bool:
-    """Whether a real-tree finding is one the two #1683 registers hold open (see the module docstring).
-
-    A partial manifest produces two findings about the same fact — ``status
-    partial`` on the filter, and rule 5's "the recording narrowed the job's
-    invocation" — and the register holds both; nothing else about that
-    manifest (a stale gap, a read outside the filter) is held.
-    """
-    if any(f"covered_by {delegate!r} names a job with no manifest" in finding for delegate in _UNRECORDED_DELEGATES):
-        return True
-    return any(
-        finding.startswith(f"{name}: ") and ("status partial" in finding or "narrowed or altered" in finding)
-        for name in _PARTIAL_MANIFESTS
-    )
-
-
-class TestTheRegistersAge:
-    """Each register entry is red the moment the fact it records stops being true (NFR-018 §2.5)."""
-
-    def test_every_unrecorded_delegate_still_has_no_manifest_and_is_still_delegated_to(self, real: Sweep) -> None:
-        all_findings = [finding for m in real.manifests for finding in coverage_findings(real, m)]
-        for delegate, reason in _UNRECORDED_DELEGATES.items():
-            workflow_name, _, job = delegate.partition("/")
-            wf = real.workflow(workflow_name)
-            assert wf is not None and job in wf.jobs, f"{delegate!r} in _UNRECORDED_DELEGATES names no live job"
-            assert not real.manifests_for(workflow_name, job), (
-                f"{delegate} now has a manifest under .github/lane-inputs/ — delete its _UNRECORDED_DELEGATES "
-                f"entry ({reason}); the delegations to it are held against that manifest from now on"
-            )
-            assert any(f"covered_by {delegate!r} names a job with no manifest" in f for f in all_findings), (
-                f"no manifest delegates to {delegate} any more — the _UNRECORDED_DELEGATES entry is stale"
-            )
-
-    def test_every_registered_partial_manifest_is_still_partial(self, real: Sweep) -> None:
-        by_name = {m.path.name: m for m in real.manifests}
-        for name, reason in _PARTIAL_MANIFESTS.items():
-            assert name in by_name, f"{name} in _PARTIAL_MANIFESTS does not exist — delete the entry"
-            assert by_name[name].status == "partial", (
-                f"{name} is no longer partial — delete its _PARTIAL_MANIFESTS entry ({reason})"
-            )
-
-    def test_the_registers_hold_nothing_the_rules_do_not_emit(self, real: Sweep) -> None:
-        """A register entry that matches no finding would be a silent pass in disguise."""
-        emitted = [
-            finding for m in real.manifests for finding in (*coverage_findings(real, m), *invocation_findings(real, m))
-        ]
-        held = [f for f in emitted if _registered(f)]
-        assert held, "the rules emit no registered finding; the registers are inert"
-        for name in _PARTIAL_MANIFESTS:
-            assert any(f.startswith(f"{name}: status partial") for f in held), f"{name}: no partial finding is emitted"
 
 
 class TestTheRealTreeCanGoRed:

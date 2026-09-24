@@ -316,7 +316,13 @@ class TestCompare:
 
     @pytest.mark.parametrize(
         ("field", "value"),
-        [("command", "python -m y"), ("cwd", "."), ("exit_code", 1), ("env", [])],
+        [
+            ("command", "python -m y"),
+            ("cwd", "."),
+            ("exit_code", 1),
+            ("env", []),
+            ("scratch_inputs", {"out.json": "{}"}),
+        ],
     )
     def test_an_invocation_that_differs_is_a_finding(self, tmp_path: Path, field: str, value: object) -> None:
         _write(tmp_path / "committed", "w--j.yaml", _committed())
@@ -513,3 +519,66 @@ class TestALossySpellingIsRefused:
         }
         argv = recorder.replay_argv(invocation, workflow="w.yml", job="j", out_dir=tmp_path)
         assert argv[argv.index("--") + 1 :] == ["bash", "-c", "find tests -name '*.yaml' | wc -l"]
+
+
+class TestTheReplayReproducesTheJobsPath:
+    """A job that puts its venv on PATH via $GITHUB_PATH is replayed with that PATH (#1683, first CI run)."""
+
+    def test_the_side_services_venvs_are_read_from_the_workflow(self) -> None:
+        _path, document = recorder.load_workflow("side-services.yml")
+        assert recorder.job_path_additions(document, "libs") == ["src/libs/kp_vectordb/.venv/bin"]
+        assert recorder.job_path_additions(document, "inference-service") == ["src/inference-service/.venv/bin"]
+
+    def test_a_runner_temp_tool_dir_is_the_lanes_to_provide_not_the_replays(self) -> None:
+        document = {"jobs": {"j": {"steps": [{"run": 'echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"'}]}}}
+        assert recorder.job_path_additions(document, "j") == []
+
+    def test_another_spelling_is_refused_rather_than_silently_not_reproduced(self) -> None:
+        document = {"jobs": {"j": {"steps": [{"run": "echo /opt/x/bin >> $GITHUB_PATH"}]}}}
+        with pytest.raises(recorder.LaneInputsError, match="GITHUB_PATH"):
+            recorder.job_path_additions(document, "j")
+
+    def test_every_live_job_that_writes_github_path_is_understood(self) -> None:
+        """No workflow writes $GITHUB_PATH in a spelling the replay would refuse."""
+        for path in sorted(recorder.WORKFLOW_DIR.glob("*.yml")):
+            _p, document = recorder.load_workflow(path.name)
+            for job in document.get("jobs") or {}:
+                recorder.job_path_additions(document, job)
+
+    def test_the_replay_leaves_path_as_it_found_it(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(recorder.shutil, "which", lambda _program: None)
+        before = recorder.os.environ.get("PATH")
+        code = recorder.main(
+            ["replay", "--out-dir", str(tmp_path / "out"), ".github/lane-inputs/side-services--libs.yaml"]
+        )
+        assert code == recorder.EXIT_USAGE
+        assert recorder.os.environ.get("PATH") == before
+
+
+class TestScratchInputs:
+    """A stand-in for a file an earlier step produced is declared in the manifest, not assumed."""
+
+    def test_a_scratch_input_replays_as_an_argument(self, tmp_path: Path) -> None:
+        invocation = {
+            **_committed()["invocations"][0],
+            "scratch_inputs": {"out.json": '{"site": []}'},
+        }
+        argv = recorder.replay_argv(invocation, workflow="w.yml", job="j", out_dir=tmp_path)
+        assert argv[argv.index("--scratch-input") + 1] == 'out.json={"site": []}'
+
+    def test_a_stand_in_the_command_does_not_name_is_refused(self) -> None:
+        with pytest.raises(recorder.LaneInputsError, match="not a path the invocation names"):
+            recorder._scratch_inputs(["other.json={}"], ["python", "x.py", "/tmp/lane-inputs-scratch/in.json"])
+
+    def test_a_path_is_not_a_basename(self) -> None:
+        with pytest.raises(recorder.LaneInputsError, match="BASENAME=CONTENT"):
+            recorder._scratch_inputs(["a/b.json={}"], ["python", "/tmp/lane-inputs-scratch/a/b.json"])
+
+    def test_a_workstation_scratch_path_names_the_same_input(self) -> None:
+        command = ["python3", "gate.py", "/tmp/claude-1000/x/scratchpad/zap-empty.json"]
+        assert recorder._scratch_inputs(["zap-empty.json={}"], command) == {"zap-empty.json": "{}"}
+
+    def test_the_committed_zap_manifest_declares_its_report_stand_in(self) -> None:
+        manifest = recorder.load_manifest(recorder.MANIFEST_DIR / "security-zap-postmerge--zap-scan.yaml")
+        gates = [i for i in manifest["invocations"] if "zap_gate.py" in i["command"]]
+        assert gates and all(i.get("scratch_inputs", {}).get("zap-empty.json") for i in gates)

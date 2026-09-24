@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: backend-guards.yml
@@ -10,7 +11,7 @@ gate:
   filter: integration
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 5511407fab64bc1f4a14c83fa3ed64d9cfba64f4
+measured_at_commit: 1aab569d7231c9e21dbf71f71cd0c83494dafb7f
 job_spec_sha256: 826cf1b1e09f33746169782208b7291ffeb9f6ac8e7ae1d08c53f22ab335537f
 invocations:
 - command: task test:backend:integration
@@ -22,7 +23,7 @@ invocations:
   - ARANGODB_PASSWORD=rootpassword
   - ARANGODB_PORT=8529
   - ARANGODB_USERNAME=root
-  untracked_reads_dropped: 3588
+  untracked_reads_dropped: 3567
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -30,8 +31,6 @@ invocations:
   env: []
   untracked_reads_dropped: 139
 subprocesses:
-- asdf
-- bash
 - collect2
 - gcc
 - ld
