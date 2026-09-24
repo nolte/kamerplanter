@@ -149,16 +149,16 @@ jobs:
   # of the input set, not with a new opinion about it.
   #
   # BECAUSE THIS LANE IS UNFILTERED, OTHER LANES DELEGATE TO IT (#1596).
-  # `backend.yml`'s `lint-test` and `coverage` jobs run the whole unit tier, which
-  # contains the same two directories, and therefore read the same files outside
-  # their own `paths:` filter. Their manifests name them as `accepted_gaps` with
-  # `covered_by: backend-guards.yml/guards`. What
-  # `test_lane_filters_cover_measured_inputs.py` holds today is the STRUCTURE of
-  # that claim — the delegate is unfiltered and decides no relevance of its own —
-  # and NOT the reads: this job has no manifest yet (#1683, above), so the
-  # delegation is ASSUMED, NOT MEASURED, the guard says so in a finding, and the
-  # finding is held open in the guard's `_UNRECORDED_DELEGATES` register until
-  # the manifest exists. Once it does, every delegated path must appear in it.
+  # `backend.yml`'s `lint-test` job runs the whole unit tier, which contains the
+  # same two directories (and, since #1741, the frontend-reading tests named in
+  # this job's invocation), and therefore reads the same files outside its own
+  # `paths:` filter. Its manifest names them as `accepted_gaps` with
+  # `covered_by: backend-guards.yml/guards`, and
+  # `test_lane_filters_cover_measured_inputs.py` holds both halves of that
+  # claim: the delegate is unfiltered and decides no relevance of its own, and
+  # every delegated path appears in this job's own CI-recorded manifest
+  # (.github/lane-inputs/backend-guards--guards.yaml, recorded since #1683 — the
+  # "no manifest yet" state described above is history).
   guards:
     name: Write-route and tree guards
     runs-on: ubuntu-latest
@@ -242,7 +242,33 @@ jobs:
         # advisory backend.yml lanes. The marker is registered in pyproject.toml;
         # `grep -rn "mark.advisory" tests/` names every file the flag excludes.
         # Deselected is not skipped: `--max-skipped 0` still counts every skip.
-        run: pytest tests/unit/api tests/unit/guards -q --max-skipped 0 -m 'not advisory'
+        #
+        # THE NAMED FILES AFTER THE TWO DIRECTORIES (#1741) are the tests of the
+        # unit, contract and API tiers that read the frontend tree or the e2e
+        # helpers — measured with an audit hook over those tiers on 2026-09-24,
+        # and listed in backend.yml's filter comment. They used to reach CI only
+        # through backend.yml, whose filter therefore had to select
+        # src/frontend/** and tests/e2e/*.py and ran the whole ~13-minute backend
+        # suite on every frontend-only pull request. Here they run on every pull
+        # request, under this lane's skip floor, in about fifteen seconds; they
+        # still run in backend.yml's tiers as well. A new test that reads the
+        # frontend belongs in this list — test_lane_filters_cover_measured_inputs.py
+        # reports its read as uncovered until it is.
+        run: >-
+          pytest tests/unit/api tests/unit/guards
+          tests/unit/test_seed_catalogue_page_size_check.py
+          tests/unit/entrypoints
+          tests/unit/test_route_role_guards_check.py
+          tests/unit/domain/services/test_oauth_auto_link_claim.py
+          tests/unit/test_e2e_a11y_helpers.py
+          tests/unit/test_e2e_seed_log_redaction.py
+          tests/unit/test_e2e_tc_id_scope.py
+          tests/unit/test_gherkin_line_classification.py
+          tests/contracts/test_plant_property_enum_sync.py
+          tests/contracts/test_dashboard_widgets_contract.py
+          tests/contracts/test_notification_channels_contract.py
+          tests/api/test_notification_act_role_gate.py
+          -q --max-skipped 0 -m 'not advisory'
 
   # THE SECOND REQUIRED CHECK IN THIS LANE, AND WHY A 2–3-MINUTE JOB WITH A
   # SERVICE CONTAINER SITS IN THE "FAST" LANE (#1432).

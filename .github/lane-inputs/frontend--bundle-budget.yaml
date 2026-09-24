@@ -7,7 +7,8 @@ schema: 2
 workflow: frontend.yml
 job: bundle-budget
 gate:
-  kind: on-paths
+  kind: paths-filter
+  filter: frontend
 status: measured
 measured_on: '2026-09-24'
 measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339

@@ -182,9 +182,10 @@ jobs:
           helm repo add ollama https://otwld.github.io/ollama-helm/
       - name: Setup Skaffold
         if: matrix.skaffold
-        uses: hiberbee/github-action-skaffold@e3f5dd5659610cb792c6cf32daaa797ea6d89842 # 1.27.0
-        with:
-          skaffold-version: 2.24.0
+        # The same install skaffold-verify.yml uses, so the leg replays the job
+        # with the job's own skaffold — and, like the job since #1741, without
+        # the image build the previous setup action ran unconditionally.
+        uses: ./.github/actions/setup-skaffold
       - name: Resolve the pinned Nuclei version
         if: matrix.nuclei
         id: nuclei_pin

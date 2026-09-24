@@ -21,17 +21,32 @@ on:
   # files as a CI blind spot, and the blind spot was the knowledge side.
   #
   # The entries after '.gitignore' come from the CI recording of this workflow's
-  # unit suite (.github/lane-inputs/backend--lint-test.yaml and
-  # backend--coverage.yaml, #1683): tests OUTSIDE tests/unit/guards and
-  # tests/unit/api read them, so the required unfiltered guards lane does not
-  # stand in for this one there. src/frontend/src/** and the nginx/entrypoint
-  # files are read by test_seed_catalogue_page_size_check.py,
-  # test_deployed_build_check.py and tests/unit/entrypoints/; the TC documents
-  # by test_e2e_tc_id_scope.py; tests/e2e/*.py by the e2e-helper unit tests;
-  # scripts/check_*.py and the other scripts by their own unit tests; the
-  # explain templates by test_ai_explain_engine.py. Every other read of this
-  # suite outside the filter is read by backend-guards.yml/guards too, and the
-  # manifests delegate it there under accepted_gaps.
+  # unit suite (.github/lane-inputs/backend--lint-test.yaml, #1683): tests
+  # OUTSIDE tests/unit/guards and tests/unit/api read them, so the required
+  # unfiltered guards lane does not stand in for this one there. The TC
+  # documents are read by test_e2e_tc_id_scope.py; scripts/check_*.py and the
+  # other scripts by their own unit tests; the explain templates by
+  # test_ai_explain_engine.py. Every other read of this suite outside the filter
+  # is read by backend-guards.yml/guards too, and the manifest delegates it there
+  # under accepted_gaps.
+  #
+  # src/frontend/** and tests/e2e/*.py are NOT here any more (#1741). From #1706
+  # until #1741 they were, because a handful of tests in this suite read them —
+  # and every frontend-only pull request therefore paid the whole backend suite
+  # (~13 min) for about fifteen seconds of tests. Measured with an audit hook
+  # over the suite on 2026-09-24, the readers are exactly:
+  # test_seed_catalogue_page_size_check.py, tests/unit/entrypoints/,
+  # test_route_role_guards_check.py, domain/services/test_oauth_auto_link_claim.py,
+  # the four e2e-helper tests (test_e2e_a11y_helpers.py,
+  # test_e2e_seed_log_redaction.py, test_e2e_tc_id_scope.py,
+  # test_gherkin_line_classification.py), three contract tests
+  # (test_plant_property_enum_sync.py, test_dashboard_widgets_contract.py,
+  # test_notification_channels_contract.py) and tests/api/test_notification_act_role_gate.py.
+  # The required `Write-route and tree guards` lane (backend-guards.yml, no
+  # filter, `--max-skipped 0`) names each of them in its own invocation, so a
+  # frontend change still runs them — in a required check, which this lane is
+  # not. test_lane_filters_cover_measured_inputs.py holds each such read
+  # against the guards lane's recorded manifest.
   push:
     branches: [develop]
     paths:
@@ -102,10 +117,6 @@ on:
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
-      - 'src/frontend/src/**'
-      - 'src/frontend/docker-entrypoint.d/**'
-      - 'src/frontend/nginx-security-headers.inc'
-      - 'tests/e2e/*.py'
   pull_request:
     branches: [develop]
     paths:
@@ -176,10 +187,6 @@ on:
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
-      - 'src/frontend/src/**'
-      - 'src/frontend/docker-entrypoint.d/**'
-      - 'src/frontend/nginx-security-headers.inc'
-      - 'tests/e2e/*.py'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.
@@ -301,7 +308,26 @@ jobs:
         # in .taskfiles/backend.yaml, so this lane and a contributor's local run
         # enforce the identical contract — which is the reason these steps call
         # the target rather than inlining pytest.
-        run: task test:backend:unit
+        #
+        # COVERAGE IS MEASURED HERE, NOT IN A SECOND RUN (#1741). Until #1741 a
+        # separate `Coverage / Python Coverage` job (gh-plumbing's reusable
+        # workflow) ran the same 12 579 tests a second time: measured on #1726,
+        # 12m52 here and 13m20 there, 761 s instrumented against 733 s
+        # uninstrumented (+4 %). It was also the WEAKER run of the two — a shallow
+        # clone and no skip floor, so it reported 10 skips where this job allows
+        # 1. `-rs` on a depth-1 clone names them: 4 in
+        # test_applied_migration_sources_are_frozen.py (no vX.Y.Z tag in the
+        # clone), 4 in test_model_field_renames_have_migrations.py (shallow
+        # history), 1 in test_audit_oauth_links.py (the named commit is not in
+        # the clone) — all nine history-dependent — plus the one skip this job
+        # allows as well (test_e2e_admin_env_containment.py, the file that is
+        # allowed to set the variables). With `fetch-depth: 0` the nine run.
+        #
+        # The three tiers each add to one `.coverage` data file (`--cov-append`
+        # on the second and third), and the `Coverage floor` step below reports
+        # and floors the union — the same number the old job measured, from a run
+        # that also carries the skip floors.
+        run: task test:backend:unit -- --cov=app --cov-report=
 
       - name: Contract tests
         # Enforce the plant-property contract gates that previously never ran in
@@ -309,7 +335,7 @@ jobs:
         # frontend/src/api/types.ts) and the de/en i18n completeness of those
         # enums (tests/contracts/test_plant_property_enum_sync.py). These guard
         # exactly the drift class the plant-property data-model plan addresses.
-        run: task test:backend:contracts
+        run: task test:backend:contracts -- --cov=app --cov-append --cov-report=
 
       - name: API tests
         # The router tier, which ran in no gate at all until 2026-08-05 although
@@ -334,7 +360,23 @@ jobs:
         # because without a server it self-skipped and would have reported green
         # having tested almost nothing. The Taskfile comment above these targets
         # carries the full tier map.
-        run: task test:backend:api
+        run: task test:backend:api -- --cov=app --cov-append --cov-report=
+
+      - name: Coverage summary
+        # What `Coverage / Python Coverage` rendered into its job summary, from
+        # the union of the three tiers above (#1741).
+        run: |
+          {
+            echo "## Test coverage"
+            echo
+            coverage report --format=markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Coverage floor
+        # The floor the retired coverage job enforced (`fail-under: 60`); the
+        # measured total on #1726 was 83 %. Raising it is a separate decision on
+        # measured history, not a side effect of moving the measurement (#1741).
+        run: coverage report --fail-under=60
 
   dependency-gates:
     name: Lock, CVE and licence gates
@@ -524,51 +566,3 @@ jobs:
             --from=mixed \
             --ignore-packages python-dateutil uvloop qrcode pyphen \
             --allow-only='MIT;MIT License;MIT-0;MIT-CMU;MIT OR Apache-2.0;BSD License;BSD-2-Clause;BSD-3-Clause;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;Apache License 2.0;Apache Software License;Apache-2.0;Apache-2.0 AND MIT;Apache-2.0 OR BSD-2-Clause;Apache-2.0 OR BSD-3-Clause;ISC License (ISCL);Python Software Foundation License;PSF-2.0;Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;LGPL-2.1-or-later;LGPL-3.0-only;The Unlicense (Unlicense)'
-
-  coverage:
-    name: Coverage
-    uses: nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml@80cb5ebb91a3b49126729de31b1037f11c34b5cd # v2.2.0
-    with:
-      python-version: '3.14'
-      working-directory: src/backend
-      # Same install as lint-test above, minus the action. `$GITHUB_PATH`
-      # persists across the steps of the reusable job, so the bare `pytest` and
-      # `coverage` it runs afterwards resolve to the synced project environment.
-      #
-      # This is the ONE place that still installs uv with pip, and it cannot be
-      # an `astral-sh/setup-uv` step: the steps of this job belong to
-      # `nolte/gh-plumbing`'s reusable workflow and a caller can only hand it a
-      # shell command. So the command READS the pin instead of repeating it —
-      # `[tool.uv].required-version` is already the exact specifier `==<version>`
-      # and is appended to the package name verbatim. No workflow file therefore
-      # carries a literal uv version any more — the absence guard
-      # tests/unit/guards/test_uv_pin_is_single.py asserts exactly that — and
-      # this lane stays on the same uv as every other one without a second
-      # literal to maintain. A uv mode for the reusable workflow is a gh-plumbing change
-      # (repository boundary) and deliberately out of scope here.
-      #
-      # Failure mode to expect: a typo in this expression breaks the COVERAGE
-      # lane, not the backend lane — visible, but in a different place.
-      #
-      # The `case` is the one thing this expression cannot read from the guard:
-      # appending the specifier verbatim is only correct while it IS an exact
-      # `==` pin. Loosened to a floor, `pip install "uv>=x.y.z"` resolves to the
-      # newest release of the day and this lane silently leaves the pinned
-      # toolchain — so it refuses instead. The same condition is a red test in
-      # tests/unit/guards/test_uv_pin_is_single.py and
-      # tests/unit/guards/test_lock_hash_verification.py; this is the third
-      # reader saying so at the point of use.
-      install-command: UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && case "$UV_SPEC" in "=="*) ;; *) echo "::error::[tool.uv].required-version is $UV_SPEC, which is not an exact == pin, so this lane would install the newest uv of the day instead of the pinned one" >&2; exit 1;; esac && python -m pip install "uv$UV_SPEC" && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      coverage-source: app
-      # This lane runs the WHOLE of testpaths (`tests`) and has no ArangoDB, so
-      # it must say out loud which tier it does not run. Before #1432 it did not
-      # have to: tests/integration/ self-skipped here and contributed nothing to
-      # the number anyway. Now a missing database is a failure whenever `CI` is
-      # set — correctly, for the gate — which would have turned this lane red for
-      # a reason that is not about coverage. The tier's own gate is the
-      # `Integration tests (ArangoDB)` job in `backend-guards.yml`, with a
-      # service container; the
-      # measured coverage is unchanged by this line, because skipped tests cover
-      # nothing either.
-      pytest-args: --ignore=tests/integration
-      fail-under: 60

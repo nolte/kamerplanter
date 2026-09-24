@@ -1135,13 +1135,14 @@ def bootstrap_invocations(workflow: str, job: str) -> list[dict[str, Any]]:
 #: A replay runs every invocation with ``--deselect`` of it in ``PYTEST_ADDOPTS``.
 #: The guard holds the COMMITTED manifests against the live tree — exactly the
 #: manifests a replay produces successors for. Run inside the replay of the
-#: unit-suite legs (backend--lint-test, backend--coverage: ``pytest tests/unit/``;
-#: backend-guards--guards already leaves it out with ``-m 'not advisory'``),
+#: unit-suite legs (backend--lint-test: ``pytest tests/unit/``, and until #1741
+#: backend--coverage; backend-guards--guards already leaves it out with
+#: ``-m 'not advisory'``),
 #: it failed whenever a change had staled one of them (as any change to a
 #: recorded job does), those legs recorded nothing, and every such change cost
 #: two recordings (#1683, 2026-09-24). The real CI lanes still run it; only the
 #: replay leaves it out. What that costs: the reads the guard ALONE makes are not
-#: in those two manifests (most of them — the workflows, the manifests — are
+#: in that manifest (most of them — the workflows, the manifests — are
 #: read by the recorder's own tests in the same suite, which stay in).
 REPLAY_DESELECTED_GUARD = "tests/unit/guards/test_lane_filters_cover_measured_inputs.py"
 

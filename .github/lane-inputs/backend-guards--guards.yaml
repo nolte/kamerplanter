@@ -14,7 +14,7 @@ measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
 replay_seconds: 985
 job_spec_sha256: c39123cb9f825540f70e929b011065c9fde41371fb47be0ed75b57093f6bb9b3
 invocations:
-- command: pytest tests/unit/api tests/unit/guards -q --max-skipped 0 -m 'not advisory'
+- command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints tests/unit/test_route_role_guards_check.py tests/unit/domain/services/test_oauth_auto_link_claim.py tests/unit/test_e2e_a11y_helpers.py tests/unit/test_e2e_seed_log_redaction.py tests/unit/test_e2e_tc_id_scope.py tests/unit/test_gherkin_line_classification.py tests/contracts/test_plant_property_enum_sync.py tests/contracts/test_dashboard_widgets_contract.py tests/contracts/test_notification_channels_contract.py tests/api/test_notification_act_role_gate.py -q --max-skipped 0 -m 'not advisory'
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
