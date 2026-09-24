@@ -38,11 +38,14 @@ dependencies = [
     "numpy",
 ]
 
-# The model-download stage's toolchain. A PEP 735 group, so `uv sync` in the
-# runtime stage leaves it out and the shipped image stays free of it. It is a
-# downloader and nothing else: the models are fetched already exported to ONNX,
-# at a pinned revision, so no exporter, no torch and no transformers are
-# installed even at build time.
+# The model-download stage's toolchain. A PEP 735 group, so `uv sync --no-dev`
+# in the runtime stage does not install it FROM HERE — but huggingface-hub
+# still ships: `tokenizers` above depends on it, and it arrives transitively
+# (with hf-xet, requests, fsspec, filelock). The runtime never calls it; the
+# Dockerfile sets `HF_HUB_OFFLINE=1` so it cannot download anything either.
+# The group is a downloader and nothing else: the models are fetched already
+# exported to ONNX, at a pinned revision, so no exporter, no torch and no
+# transformers are installed even at build time.
 [dependency-groups]
 build = [
     "huggingface-hub",

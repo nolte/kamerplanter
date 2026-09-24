@@ -140,11 +140,17 @@ LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
 
 WORKDIR /app
 # The lock is the single source of truth for what gets installed (NFR-009
-# §2.3/§6.1); `--no-dev` leaves the `build` group (the model downloader,
-# huggingface-hub) out of the shipped image — the runtime needs onnxruntime and
-# the tokenizers library only.
+# §2.3/§6.1). `--no-dev` leaves the `build` group out, but that does NOT keep
+# huggingface-hub out of the shipped image: `tokenizers` declares it as a
+# dependency of its own, so it ships transitively together with hf-xet,
+# requests, fsspec and filelock. main.py never calls it — the tokenizer is
+# read from `tokenizer.json` on disk — so it is dead weight here, and the
+# `HF_HUB_OFFLINE=1` below turns any future accidental hub call (a
+# `Tokenizer.from_pretrained`, a stray `snapshot_download`) into an error
+# instead of a silent download of an unpinned model at runtime.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
+ENV HF_HUB_OFFLINE=1
 COPY main.py .
 # Create the non-root numeric user; each final target COPYs its model with
 # --chown=1000 and switches to USER 1000 as its last instruction.
