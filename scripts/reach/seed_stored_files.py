@@ -35,8 +35,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import io
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -133,11 +135,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--subject", required=True)
     parser.add_argument("--tenant-key", required=True)
     args = parser.parse_args(argv)
+    # The backend's structlog writes its event lines (``attachment_uploaded`` …)
+    # to stdout, which is this script's record channel: the host parses it as one
+    # JSON document. While the product code runs, both the ``sys.stdout`` object
+    # and file descriptor 1 (a logger bound to the process's stdout before this
+    # point writes there) point at stderr; the record goes out afterwards.
+    sys.stdout.flush()
+    record_fd = os.dup(1)
+    os.dup2(2, 1)
     try:
-        record = asyncio.run(seed(args.subject, args.tenant_key))
+        with contextlib.redirect_stdout(sys.stderr):
+            record = asyncio.run(seed(args.subject, args.tenant_key))
     except SeedError as exc:
         print(f"seed files: {exc}", file=sys.stderr)
         return 1
+    finally:
+        sys.stdout.flush()
+        os.dup2(record_fd, 1)
+        os.close(record_fd)
     json.dump(record, sys.stdout, sort_keys=True)
     sys.stdout.write("\n")
     return 0

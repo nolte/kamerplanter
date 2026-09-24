@@ -22,6 +22,7 @@ failing one: a deleted helper would turn these tests silent instead of red.
 from __future__ import annotations
 
 import io
+import json
 import re
 from pathlib import Path
 from types import ModuleType
@@ -81,6 +82,28 @@ def test_the_production_stripper_output_reads_as_without_exif(storage, seed_file
     stripped = strip_exif(seed_files.seed_jpeg(0), "image/jpeg")
     assert not storage.jpeg_has_exif(stripped)
     assert not storage.jpeg_has_gps(stripped)
+
+
+def test_the_seed_record_is_the_only_thing_on_stdout_while_the_product_logs_there(seed_files, monkeypatch, capfd):
+    """The host parses the seed's stdout as one JSON document (``stack.py seed-files``).
+
+    The backend's structlog prints its event lines (``attachment_uploaded`` …) to
+    stdout; the first reach-stack run failed on exactly that with
+    ``JSONDecodeError: Extra data``. The stand-in writes to file descriptor 1 the
+    way a logger bound to the process's stdout does.
+    """
+    import os
+
+    async def noisy_seed(subject, tenant_key):
+        os.write(1, b"2026-09-24 [info] attachment_uploaded category=diary\n")
+        print("attachment_uploaded category=ipm")
+        return {"subject": subject, "tenant_key": tenant_key, "files": [], "refused": []}
+
+    monkeypatch.setattr(seed_files, "seed", noisy_seed)
+    assert seed_files.main(["--subject", "reach-subject", "--tenant-key", "t1"]) == 0
+    captured = capfd.readouterr()
+    assert json.loads(captured.out)["tenant_key"] == "t1"
+    assert "attachment_uploaded" in captured.err
 
 
 def test_seed_images_differ_per_category_so_upload_dedup_cannot_merge_them(seed_files):
