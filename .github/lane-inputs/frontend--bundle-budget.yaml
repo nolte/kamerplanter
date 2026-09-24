@@ -7,12 +7,13 @@ schema: 2
 workflow: frontend.yml
 job: bundle-budget
 gate:
-  kind: on-paths
+  kind: paths-filter
+  filter: frontend
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
-replay_seconds: 40
-job_spec_sha256: 66626dfc94085740fe598cbdcb0a87fb16df34881352d98dc4d155c17e23f42a
+measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+replay_seconds: 39
+job_spec_sha256: 9ee2a68963ef9b450546ce81f6c33ab19494364a2297675b28a5a1ab0517da96
 invocations:
 - command: npm run build
   cwd: src/frontend

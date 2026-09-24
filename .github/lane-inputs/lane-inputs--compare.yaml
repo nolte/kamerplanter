@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
-replay_seconds: 5
+measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+replay_seconds: 3
 job_spec_sha256: bf53c5687183d38a860433b5643f9984e7808a41a3b241d435b36962b76912d1
 invocations:
 - command: python3 scripts/ci/lane_inputs.py compare .github/lane-inputs --run-id 0
@@ -30,7 +30,6 @@ accepted_gaps:
 reads:
 - .github/lane-inputs/
 - .github/lane-inputs/api-docs--openapi-export-lint.yaml
-- .github/lane-inputs/backend--coverage.yaml
 - .github/lane-inputs/backend--dependency-gates.yaml
 - .github/lane-inputs/backend--lint-test.yaml
 - .github/lane-inputs/backend-guards--guards.yaml
@@ -79,5 +78,6 @@ reads:
 - .github/lane-inputs/side-services--knowledge-service.yaml
 - .github/lane-inputs/side-services--libs.yaml
 - .github/lane-inputs/skaffold-verify--verify.yaml
+- .github/workflows/backend.yml
 - scripts/ci/
 - scripts/ci/lane_inputs.py

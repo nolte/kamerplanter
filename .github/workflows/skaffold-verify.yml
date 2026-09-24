@@ -80,45 +80,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The hiberbee/github-action-skaffold step below runs `skaffold build`,
-      # which builds the inference-service image. Its `model-export` stage
-      # installs torch + exports the DINOv2 ONNX model and exhausts the runner
-      # disk, causing intermittent "Docker build ran into internal error"
-      # (~25% of runs). Reclaim ~20 GB of preinstalled toolchains first.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
-            /usr/local/lib/android /opt/hostedtoolcache/CodeQL
-          # gate-integrity-ok: housekeeping, not a verdict. This job's verdict is
-          # the render assertion below; a prune that finds nothing to remove
-          # exits non-zero, and failing the build for a clean disk would be
-          # noise, not a finding.
-          sudo docker image prune --all --force || true
-          df -h /
+      # NO IMAGE IS BUILT HERE, AND NO DISK IS FREED FOR ONE (#1741).
+      #
+      # Until #1741 the `hiberbee/github-action-skaffold` setup step ran an
+      # unconditional `skaffold build` of all eight artifacts in skaffold.yaml (4m05 on
+      # #1726; 4m16 on #1738, plus 1m52 for a `Free disk space` step that existed
+      # only because the inference-service `model-export` stage filled the runner
+      # disk). The result was never used: the render below takes its tags from
+      # the manifests (`--digest-source=none`). The action is replaced by
+      # ./.github/actions/setup-skaffold, which installs the binary and nothing
+      # else, and the disk step is gone with the build it made room for.
+      #
+      # WHAT THAT DROPS, DECIDED: the one signal the build gave by accident —
+      # that the Dockerfile targets only skaffold.yaml selects still build: the
+      # `dev` stages of backend, frontend, knowledge-service and
+      # inference-service, and the embedding service's `e5-large` model target.
+      # Nothing asserted it; a broken one only failed this job as a side effect
+      # of the setup step. It is NOT moved into docker-lint-build.yml, which
+      # builds every one of these Dockerfiles for its production target: the dev
+      # stages are thin layers over the same `base` stage (backend:
+      # `uv sync --locked --extra dev`, which every backend CI job runs too;
+      # frontend: COPY plus an entrypoint script; knowledge-service and
+      # inference-service: `uv sync` plus COPY), `e5-large` differs from the
+      # default target only in the model it downloads, they exist for
+      # `skaffold dev` on a workstation, and a break there surfaces on the first
+      # `skaffold dev` rather than in production. Paying ~6 runner-minutes on nearly every pull
+      # request for that is the trade #1741 declined; re-open it with a measured
+      # dev-stage breakage that reached develop, not by restoring the build.
 
       - name: Setup Helm
         # No `version:` input, so this installs helm `latest` — v4.3.0 as of
-        # 2026-09-19. That floating version is coupled to the skaffold pin
-        # below; see the note there. No Renovate manager covers either, so
+        # 2026-09-19. That floating version is coupled to the skaffold pin in
+        # .github/actions/setup-skaffold; see the note there. No Renovate manager covers either, so
         # neither moves on a reviewed bump.
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
       - name: Setup Skaffold
-        uses: hiberbee/github-action-skaffold@e3f5dd5659610cb792c6cf32daaa797ea6d89842 # 1.27.0
-        with:
-          # 2.17.2 CANNOT drive helm 4. Supplying `--images` (see the render
-          # step) makes skaffold install itself as a helm post-renderer plugin,
-          # and helm 4 validates the plugin manifest:
-          #
-          #   Error: plugin is installed but unusable: failed to load plugin
-          #   ".../skaffold-render1772333544": invalid plugin `version` "0.1":
-          #   must be valid semver
-          #
-          # Measured against helm v4.3.0: 2.17.2 fails, 2.19.0 and 2.24.0 both
-          # render 40 resources. This pin was stale rather than deliberate — it
-          # carried no rationale, and nothing tracks it — so it silently fell
-          # behind when `setup-helm`'s `latest` moved to 4.x.
-          skaffold-version: 2.24.0
+        # The pinned skaffold (2.24.0 — 2.17.2 cannot drive helm 4; the reason
+        # and the checksum live in the action), installed WITHOUT the build the
+        # previous setup action ran unconditionally (#1741).
+        uses: ./.github/actions/setup-skaffold
 
       - name: Build chart dependencies
         run: |
@@ -144,8 +145,9 @@ jobs:
         # Removing `|| true` revealed that it had NEVER worked: plain
         # `skaffold render` defaults to `--digest-source=remote`, tries to
         # resolve `kamerplanter-backend:<sha>` in a registry, and fails with
-        # "does the image exist remotely?" — this job builds and pushes nothing,
-        # so that lookup can never succeed. Every run for the life of this
+        # "does the image exist remotely?" — this job pushes nothing (and, since
+        # #1741, builds nothing either; before it the setup action built every
+        # image locally and pushed none), so that lookup can never succeed. Every run for the life of this
         # workflow produced that error, discarded it, and uploaded an empty
         # artifact.
         #

@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
-replay_seconds: 34
-job_spec_sha256: 4717482b376c41008c6f3491181add9c810062b64e28e47f1e50683ad62e5c77
+measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+replay_seconds: 55
+job_spec_sha256: 9e7d5315a110d4963a55509bc4739ed17eb1b202de979be7450e1a4ae639ad56
 invocations:
 - command: helm dependency build helm/kamerplanter
   cwd: .
@@ -37,16 +37,15 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 340
+  untracked_reads_dropped: 339
 - command: scripts/ci/skaffold_render_verify.sh /tmp/lane-inputs-scratch/rendered-manifests.yaml
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 28
+  untracked_reads_dropped: 26
 subprocesses:
 - bash
-- bin/skaffold
 - dirname
 - docker
 - git
@@ -113,6 +112,7 @@ reads:
 - .github/
 - .github/actions/
 - .github/actions/ephemeral-stack/
+- .github/actions/setup-skaffold/
 - .github/lane-inputs/
 - .github/styles/
 - .github/styles/config/

@@ -216,8 +216,22 @@ jobs:
   # UI-NFR-003 R-013/R-014/R-015/R-028 — hard gate on the initial payload size.
   # Standalone job (does not touch the required `static` check) so a budget
   # breach fails visibly without deadlocking automerge.
+  #
+  # Gated on the `frontend` change detection like `coverage` and `lighthouse`
+  # (#1741). Until then it was the one job here without it, so every pull
+  # request — backend-only ones included — paid `npm ci` plus a production
+  # build for a budget no change of theirs could move: 1m0s on #1726, 1m5s on
+  # #1736, 1m1s on #1739. It is advisory, so a skipped job reporting success is
+  # the whole cost of the gate; the `needs.changes.result` clause keeps a failed
+  # detector from turning into that silent pass.
   bundle-budget:
     name: Bundle budget
+    needs: changes
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.changes.result != 'success'
+          || needs.changes.outputs.frontend == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
-replay_seconds: 1745
-job_spec_sha256: f58a2eb4efb5ff8288d9ed98b72ff04558c2b477bb78ae6e229c87443f3dcbd4
+measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+replay_seconds: 1559
+job_spec_sha256: 6b0437e7681491d6907549831063861ad4bc3ed444939473902f62dedb79c0bc
 invocations:
 - command: task lint:backend
   cwd: src/backend
@@ -32,24 +32,24 @@ invocations:
   exit_code: 0
   env: []
   untracked_reads_dropped: 24
-- command: task test:backend:contracts
+- command: task test:backend:contracts -- --cov=app --cov-append --cov-report=
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1131
-- command: task test:backend:api
+  untracked_reads_dropped: 1217
+- command: task test:backend:api -- --cov=app --cov-append --cov-report=
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 3358
-- command: task test:backend:unit
+  untracked_reads_dropped: 3413
+- command: task test:backend:unit -- --cov=app --cov-report=
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 4791
+  untracked_reads_dropped: 4840
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -247,14 +247,19 @@ accepted_gaps:
     which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
     workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
     guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
-    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683). Since
+    #1741 that includes the frontend readers the guards lane names in its own invocation, so backend.yml no longer selects
+    src/frontend/.'
   covered_by: backend-guards.yml/guards
 - pattern: src/frontend/**
   reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
     which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
     workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
     guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
-    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683). Since
+    #1741 that includes the frontend readers outside those two directories (test_seed_catalogue_page_size_check.py, tests/unit/entrypoints/,
+    test_route_role_guards_check.py, test_oauth_auto_link_claim.py, three contract tests and test_notification_act_role_gate.py):
+    the guards lane names them in its own invocation, so backend.yml no longer selects src/frontend/.'
   covered_by: backend-guards.yml/guards
 - pattern: src/inference-service/**
   reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
@@ -289,7 +294,10 @@ accepted_gaps:
     which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
     workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
     guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
-    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683). Since
+    #1741 that includes the e2e-helper unit tests (test_e2e_a11y_helpers.py, test_e2e_seed_log_redaction.py, test_e2e_tc_id_scope.py,
+    test_gherkin_line_classification.py): the guards lane names them in its own invocation, so backend.yml no longer selects
+    tests/e2e/*.py.'
   covered_by: backend-guards.yml/guards
 - pattern: tools/**
   reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
@@ -349,10 +357,11 @@ reads:
 - .github/actions/
 - .github/actions/ephemeral-stack/
 - .github/actions/ephemeral-stack/action.yml
+- .github/actions/setup-skaffold/
+- .github/actions/setup-skaffold/action.yml
 - .github/boring-cyborg.yml
 - .github/lane-inputs/
 - .github/lane-inputs/api-docs--openapi-export-lint.yaml
-- .github/lane-inputs/backend--coverage.yaml
 - .github/lane-inputs/backend--dependency-gates.yaml
 - .github/lane-inputs/backend--lint-test.yaml
 - .github/lane-inputs/backend-guards--guards.yaml

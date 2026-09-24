@@ -47,10 +47,11 @@ would look exactly as green as correctness.
 WHAT THIS GUARD DOES NOT SEE. Named here, at the guard, and not only in the pull
 request, because a sweep is only as complete as the spelling it matches:
 
-* **a version in a shell variable** — ``pip install "uv$UV_SPEC"``. There is one
-  such site (``backend.yml``); it is in :data:`_EXEMPTIONS` with its argument,
-  and the shape is visible rather than skipped because the parse failure is a
-  finding. What this file can NOT do is read the variable's value;
+* **a version in a shell variable** — ``pip install "uv$UV_SPEC"``. There was
+  one such site (``backend.yml``'s coverage lane, retired in #1741); a new one
+  would have to enter :data:`_EXEMPTIONS` with its argument, and the shape is
+  visible rather than skipped because the parse failure is a finding. What this
+  file can NOT do is read the variable's value;
 * **an install inside a called shell script** — a ``run: ./scripts/foo.sh`` whose
   script installs something. No sweep in this repository reads shell scripts for
   installs today. This is the largest hole and the cheapest one to fall into:
@@ -123,7 +124,7 @@ _SKIPPED_DIRECTORIES = frozenset({".git", ".venv", "node_modules", "__pycache__"
 
 #: Keys whose value is a command (or a list of commands). Everything below such
 #: a key is shell text; everything else in these files is configuration or prose.
-#: `install-command:` is go-task/`setup-python`-style tooling input — `backend.yml`
+#: `install-command:` is go-task/`setup-python`-style tooling input — `frontend.yml`
 #: passes one to the reusable coverage workflow — and is shell all the same.
 _COMMAND_KEYS = frozenset({"run", "cmd", "cmds", "install-command", "install_command", "pre-install-command"})
 
@@ -214,21 +215,12 @@ class Exemption:
 #: §2.3.1 calls that double use a circular argument, and it is how three entries
 #: in `tools/rag-eval/requirements.txt` stayed unbounded until #1572).
 #:
-#: One entry on 2026-09-20. A register that grows is a rule dissolving, so
-#: :func:`stale_exemptions` makes an entry that matches nothing RED: the entry
-#: has to go when the site does, rather than outliving it as decoration.
-_EXEMPTIONS: tuple[Exemption, ...] = (
-    Exemption(
-        file=".github/workflows/backend.yml",
-        spec="uv$UV_SPEC",
-        why=(
-            "the version lives in a shell variable read from [tool.uv].required-version, so there is no literal "
-            "to check here. The same command asserts INLINE that the spec is an exact `==` pin and fails the lane "
-            "otherwise (#1296), and the pin itself is guarded by test_uv_pin_is_single.py and "
-            "test_uv_pin_manager_covers_every_pin.py — three readers, none of them this one."
-        ),
-    ),
-)
+#: Empty since #1741. Its one entry — `uv$UV_SPEC` in backend.yml's coverage
+#: lane — went with that lane, and :func:`stale_exemptions` would have turned it
+#: red the moment it matched nothing. A register that grows is a rule
+#: dissolving; an entry has to go when the site does, rather than outliving it
+#: as decoration.
+_EXEMPTIONS: tuple[Exemption, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -460,7 +460,20 @@ class TestBootstrap:
         invocations = recorder.bootstrap_invocations("backend-guards.yml", "guards")
         assert invocations == [
             {
-                "command": "pytest tests/unit/api tests/unit/guards -q --max-skipped 0 -m 'not advisory'",
+                "command": (
+                    "pytest tests/unit/api tests/unit/guards"
+                    # The frontend and e2e-helper readers the lane names since #1741.
+                    " tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints"
+                    " tests/unit/test_route_role_guards_check.py"
+                    " tests/unit/domain/services/test_oauth_auto_link_claim.py"
+                    " tests/unit/test_e2e_a11y_helpers.py tests/unit/test_e2e_seed_log_redaction.py"
+                    " tests/unit/test_e2e_tc_id_scope.py tests/unit/test_gherkin_line_classification.py"
+                    " tests/contracts/test_plant_property_enum_sync.py"
+                    " tests/contracts/test_dashboard_widgets_contract.py"
+                    " tests/contracts/test_notification_channels_contract.py"
+                    " tests/api/test_notification_act_role_gate.py"
+                    " -q --max-skipped 0 -m 'not advisory'"
+                ),
                 "cwd": "src/backend",
                 "env": ["KAMERPLANTER_MODE=full"],
             }

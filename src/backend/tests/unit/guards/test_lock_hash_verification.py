@@ -117,19 +117,19 @@ def _required_uv_version() -> str | None:
 
 
 class TestTheRequiredVersionIsStillAnExactPin:
-    """A floor instead of an ``==`` pin switches three readers off at once."""
+    """A floor instead of an ``==`` pin switches two readers off at once."""
 
     def test_required_version_is_an_exact_equality_specifier(self) -> None:
         pin = _raw_required_version()
         assert isinstance(pin, str) and pin.startswith("=="), (
             f"src/backend/pyproject.toml pins [tool.uv].required-version to {pin!r}, which is not an exact "
-            "`==` specifier. Three readers degrade silently on anything else and NONE of them goes red on "
+            "`==` specifier. Two readers degrade silently on anything else and NEITHER goes red on "
             "its own: (1) the `uv toolchain` customManager in renovate.json5 matches "
-            '`required-version = "==(?<currentValue>...)"` and stops tracking the pin; (2) the coverage '
-            "lane's install-command in backend.yml appends the specifier to the package name, so a floor "
-            "installs the newest release of the day instead of the pinned one; (3) _required_uv_version() "
-            "above returns None, so this falsifier stops checking that the uv on PATH is the uv the "
-            "repository locks with. Loosen this only together with all three."
+            '`required-version = "==(?<currentValue>...)"` and stops tracking the pin; (2) '
+            "_required_uv_version() above returns None, so this falsifier stops checking that the uv on "
+            "PATH is the uv the repository locks with. Loosen this only together with both. (A third "
+            "reader, the coverage lane's pip install-command in backend.yml, was retired with that lane "
+            "in #1741.)"
         )
 
 

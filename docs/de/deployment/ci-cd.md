@@ -56,6 +56,7 @@ Der Backend-CI-Workflow läuft bei jedem Push auf `develop` und bei Pull Request
 1. **Ruff Lint** — prüft den Python-Code auf Stil- und Qualitätsprobleme (`ruff check .`)
 2. **Ruff Format** — stellt sicher, dass der Code korrekt formatiert ist (`ruff format --check .`)
 3. **Unit-Tests** — führt alle Tests unter `tests/unit/` mit pytest aus
+4. **Testabdeckung** — misst die Abdeckung im selben Testlauf (kein zweiter Lauf) und lässt den Job unter 60 % fehlschlagen
 
 ```yaml title=".github/workflows/backend.yml (vereinfacht)"
 jobs:
@@ -210,7 +211,7 @@ Zusätzlich zu `lint-test-build` laufen im selben Workflow zwei eigenständige J
 | Initiales CSS-Bundle | 50 KB | unter Budget |
 | `/dashboard`-Route-Chunk | 12 KB | unter Budget |
 
-Eine Überschreitung lässt den Job fehlschlagen; der Bundle-Analyzer-Report (Treemap via `rollup-plugin-visualizer`) wird als Artefakt `bundle-stats` hochgeladen. Möglich wird dieses Budget durch eine `manualChunks`-Vendor-Strategie in `vite.config.ts`: React, MUI-Core, Redux Toolkit und react-i18next werden eager in stabile, langlebige Vendor-Chunks gruppiert, während schwere routen-gebundene Bibliotheken (`recharts`, `@mui/x-*`, `react-grid-layout`) lazy bleiben.
+Der Job läuft nur bei Pull Requests, die das Frontend ändern (dieselbe Erkennung wie `lint-test-build`), sowie bei jedem Push auf `develop`. Eine Überschreitung lässt den Job fehlschlagen; der Bundle-Analyzer-Report (Treemap via `rollup-plugin-visualizer`) wird als Artefakt `bundle-stats` hochgeladen. Möglich wird dieses Budget durch eine `manualChunks`-Vendor-Strategie in `vite.config.ts`: React, MUI-Core, Redux Toolkit und react-i18next werden eager in stabile, langlebige Vendor-Chunks gruppiert, während schwere routen-gebundene Bibliotheken (`recharts`, `@mui/x-*`, `react-grid-layout`) lazy bleiben.
 
 !!! note "300-KB-Ziel noch nicht erreicht"
     UI-NFR-003 formuliert für das initiale JavaScript-Bundle einen Zielwert von 300 KB gzip. Das aktuelle Budget von 490 KB sichert lediglich den gemessenen Ist-Stand gegen unbemerktes weiteres Wachstum ab, erreicht das Ziel aber noch nicht. Haupttreiber ist das eager geladene i18n-Übersetzungsbundle (~160 KB gzip). Das Erreichen des 300-KB-Ziels erfordert Lazy-Loading der Übersetzungen und ist als offener Folgeschritt vorgesehen. <!-- UI-NFR-003 R-013 -->
@@ -461,6 +462,8 @@ Dieser Workflow läuft bei Pull Requests auf `develop`, wenn `skaffold.yaml`, He
 3. **`helm template`** — rendert alle Kubernetes-Manifeste und prüft die Templating-Logik
 4. **`skaffold diagnose`** — validiert die Skaffold-Konfiguration
 5. **`skaffold render`** — erzeugt gerenderte Manifeste und lädt sie als Artefakt hoch
+
+Der Workflow baut keine Images: Er installiert nur das `skaffold`-Binary und prüft, ob Konfiguration und Chart zusammenpassen. Ob die `dev`-Stages der Dockerfiles bauen, zeigt sich beim ersten `skaffold dev` auf deinem Rechner.
 
 !!! note "Skaffold ist nur für die lokale Entwicklung"
     Skaffold wird ausschließlich für die lokale Entwicklungsumgebung (Kind-Cluster) verwendet. Produktions-Deployments laufen nicht über Skaffold, sondern über den `docker-publish`-Workflow in Kombination mit dem Helm-Chart.
