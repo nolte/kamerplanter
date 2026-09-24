@@ -405,11 +405,18 @@ def load_workflows(dot_github: Path) -> list[Workflow]:
 # ------------------------------------------------------------------ manifests
 
 
+def _action_name(uses: str) -> str:
+    return uses.split("@", 1)[0] if not uses.startswith("./") else uses
+
+
 def job_spec_hash(job: Any) -> str:
-    """The recorder's ``hash_job_spec``, verbatim: the parsed job minus paths-filter patterns.
+    """The recorder's ``hash_job_spec``, verbatim: the parsed job minus paths-filter patterns and ``uses:`` refs.
 
     The patterns are compared live by this file, so editing them must not
-    stale the manifest; every other change to the job must.
+    stale the manifest. Nor may an action's ``@<ref>`` (#1683): the recorder
+    replays ``run:`` commands, never actions, so a Renovate pin bump (#1734)
+    changes nothing it measured. Every other change to the job — the action's
+    name included — must.
     """
     if isinstance(job, dict) and isinstance(job.get("steps"), list):
         job = dict(job)
@@ -422,8 +429,12 @@ def job_spec_hash(job: Any) -> str:
             ):
                 step = dict(step)
                 step["with"] = {key: value for key, value in step["with"].items() if key != "filters"}
+            if isinstance(step, dict) and isinstance(step.get("uses"), str):
+                step = {**step, "uses": _action_name(step["uses"])}
             cleaned.append(step)
         job["steps"] = cleaned
+    if isinstance(job, dict) and isinstance(job.get("uses"), str):
+        job = {**job, "uses": _action_name(job["uses"])}
     canonical = json.dumps(job, sort_keys=True, default=str, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

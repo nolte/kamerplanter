@@ -304,19 +304,6 @@ class TestCompare:
         findings, notes = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
         assert findings == [] and notes == [], "when and where it was recorded is not a difference"
 
-    def test_a_hand_trimmed_reads_list_is_a_finding_naming_the_missing_path(self, tmp_path: Path) -> None:
-        _write(tmp_path / "committed", "w--j.yaml", _committed(reads=["src/backend/a.py"]))
-        _write(tmp_path / "recorded", "w--j.yaml", _committed())
-        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
-        assert len(findings) == 1
-        assert "does not list" in findings[0] and "src/backend/tests/" in findings[0]
-
-    def test_a_listed_path_the_run_did_not_read_is_a_finding(self, tmp_path: Path) -> None:
-        _write(tmp_path / "committed", "w--j.yaml", _committed(reads=["src/backend/a.py", "src/backend/tests/", "x"]))
-        _write(tmp_path / "recorded", "w--j.yaml", _committed())
-        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
-        assert len(findings) == 1 and "did not read" in findings[0] and "x" in findings[0]
-
     def test_a_hash_that_is_not_the_live_jobs_is_a_finding(self, tmp_path: Path) -> None:
         _write(tmp_path / "committed", "w--j.yaml", _committed())
         _write(tmp_path / "recorded", "w--j.yaml", _committed(job_spec_sha256="b" * 64))
@@ -726,3 +713,310 @@ class TestCompareHoldsTheDurationsPresence:
         (tmp_path / "recorded").mkdir()
         findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
         assert findings == []
+
+
+# ------------------------------------ #1683: the job hash ignores action pins
+
+
+#: `github/codeql-action/upload-sarif` before #1734 (v4.38.1) and after it (v4.38.2).
+_CODEQL_BEFORE_1734 = "github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd"
+_CODEQL_AFTER_1734 = "github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"
+
+
+def _report_findings_job() -> dict:
+    """The live `report-findings` job of security-nuclei-postmerge.yml, the job #1734's bump staled."""
+    _path, document = recorder.load_workflow("security-nuclei-postmerge.yml")
+    return document["jobs"]["report-findings"]
+
+
+def _with_uses(job: dict, old: str, new: str) -> dict:
+    job = dict(job)
+    job["steps"] = [
+        {**step, "uses": step["uses"].replace(old, new)} if isinstance(step.get("uses"), str) else step
+        for step in job["steps"]
+    ]
+    return job
+
+
+class TestAnActionPinIsNotPartOfTheJobSpec:
+    """A Renovate action bump changes no command the job runs and no file the recorder measures (#1683).
+
+    #1734 moved `github/codeql-action/upload-sarif` from v4.38.1 to v4.38.2 in
+    `report-findings`; the old hash went from 5e1a2241d031 to 2795890740be and
+    the next unrelated backend PR inherited a red freshness guard. The recorder
+    never replays an action (it replays `run:` commands), so an action's ref
+    cannot be an input of the recorded read set. Asserted over the real job, for
+    the recorder's hash and the guard's, which must stay the same function.
+    """
+
+    def test_the_1734_bump_leaves_the_hash_unchanged(self, guard: ModuleType) -> None:
+        live = _report_findings_job()
+        assert _CODEQL_AFTER_1734 in str(live), "the fixture is the job as #1734 left it"
+        before = _with_uses(live, _CODEQL_AFTER_1734, _CODEQL_BEFORE_1734)
+        assert recorder.hash_job_spec(before) == recorder.hash_job_spec(live)
+        assert guard.job_spec_hash(before) == guard.job_spec_hash(live)
+
+    def test_a_branch_or_tag_ref_is_a_pin_too(self) -> None:
+        live = _report_findings_job()
+        assert recorder.hash_job_spec(_with_uses(live, _CODEQL_AFTER_1734, "github/codeql-action/upload-sarif@v4")) == (
+            recorder.hash_job_spec(live)
+        )
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            "run",  # a command the job runs
+            "with",  # an input the action is given
+            "name",  # a different action altogether
+            "env",
+            "working-directory",
+        ],
+    )
+    def test_everything_else_about_a_step_is_still_in_the_hash(self, guard: ModuleType, change: str) -> None:
+        live = _report_findings_job()
+        steps = list(live["steps"])
+        index = next(i for i, step in enumerate(steps) if "codeql-action" in str(step.get("uses", "")))
+        step = dict(steps[index])
+        if change == "run":
+            # report-findings runs no `run:` step; the plan job of lane-inputs.yml does.
+            _path, document = recorder.load_workflow("lane-inputs.yml")
+            live = document["jobs"]["plan"]
+            steps = list(live["steps"])
+            index = next(i for i, s in enumerate(steps) if isinstance(s.get("run"), str))
+            step = {**steps[index], "run": steps[index]["run"] + "\necho changed"}
+        elif change == "with":
+            step["with"] = {**(step.get("with") or {}), "category": "changed"}
+        elif change == "name":
+            step["uses"] = step["uses"].replace("github/codeql-action/upload-sarif", "github/codeql-action/analyze")
+        elif change == "env":
+            step["env"] = {**(step.get("env") or {}), "CHANGED": "1"}
+        else:
+            step["working-directory"] = "src/changed"
+        steps[index] = step
+        changed = {**live, "steps": steps}
+        assert recorder.hash_job_spec(changed) != recorder.hash_job_spec(live)
+        assert guard.job_spec_hash(changed) == recorder.hash_job_spec(changed)
+
+    def test_a_reusable_workflow_call_is_normalised_the_same_way(self, guard: ModuleType) -> None:
+        call = {"uses": "nolte/gh-plumbing/.github/workflows/x.yml@" + "a" * 40, "with": {"k": "v"}}
+        bumped = {**call, "uses": "nolte/gh-plumbing/.github/workflows/x.yml@" + "b" * 40}
+        local = {"uses": "./.github/workflows/x.yml", "with": {"k": "v"}}
+        assert recorder.hash_job_spec(call) == recorder.hash_job_spec(bumped) == guard.job_spec_hash(bumped)
+        assert recorder.hash_job_spec(local) != recorder.hash_job_spec(call), "the called workflow's name counts"
+
+
+# ------------------------ #1683: a replay does not run the guard against itself
+
+
+class TestTheReplayDoesNotRunTheManifestGuardAgainstTheManifestsItReplaces:
+    """The unit-suite legs replay `pytest tests/unit/`, which contains the manifest guard.
+
+    That guard holds the COMMITTED manifests against the live tree — the very
+    manifests the replay is producing successors for. A change to a recorded
+    job staled one of them, the guard failed inside backend--lint-test and
+    backend--coverage, their legs recorded nothing, and every such change cost
+    two recordings (#1683, 2026-09-24). The replay deselects that one file;
+    the real CI lanes still run it.
+    """
+
+    def test_every_replayed_invocation_runs_with_the_guard_deselected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: list[str] = []
+
+        def fake_trace(command: list[str], *, cwd: Path, env: dict[str, str]) -> object:
+            seen.append(env.get("PYTEST_ADDOPTS", ""))
+            return recorder.Trace(files={str(recorder.REPO_ROOT / "scripts/ci/lane_inputs.py")})
+
+        monkeypatch.setattr(recorder, "run_traced", fake_trace)
+        monkeypatch.setenv("PYTEST_ADDOPTS", "-p no:randomly")
+        code = recorder.main(["replay", "--out-dir", str(tmp_path), ".github/lane-inputs/lane-inputs--record.yaml"])
+        assert code == recorder.EXIT_OK
+        assert len(seen) == 2
+        assert all(
+            value == "-p no:randomly --deselect tests/unit/guards/test_lane_filters_cover_measured_inputs.py"
+            for value in seen
+        ), seen
+        assert recorder.os.environ["PYTEST_ADDOPTS"] == "-p no:randomly", "the replay restores the environment"
+
+    def test_the_deselected_node_id_is_the_guards_own_file(self) -> None:
+        backend = recorder.REPO_ROOT / "src" / "backend"
+        assert (backend / recorder.REPLAY_DESELECTED_GUARD).is_file()
+        assert (backend / "pyproject.toml").is_file(), "node ids are relative to src/backend, pytest's rootdir"
+
+    def test_the_real_lanes_do_not_deselect_it(self) -> None:
+        """No workflow step and no Taskfile command leaves the guard out; only the replay's environment does."""
+        guard_file = recorder.REPLAY_DESELECTED_GUARD.rpartition("/")[2]
+        sources = [*sorted(recorder.WORKFLOW_DIR.glob("*.yml")), recorder.REPO_ROOT / ".taskfiles" / "backend.yaml"]
+        for path in sources:
+            for line in path.read_text().splitlines():
+                if guard_file in line:
+                    assert not any(flag in line for flag in ("--deselect", "--ignore", "PYTEST_ADDOPTS")), (
+                        f"{path.name}: {line.strip()}"
+                    )
+
+
+# ------------------------- #1683: only a read outside the filter is drift
+
+
+_ON_PATHS_WORKFLOW = """\
+on:
+  pull_request:
+    paths:
+      - 'src/backend/**'
+      - '!src/backend/docs/**'
+jobs:
+  j:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pytest
+"""
+
+_STEP_FILTER_WORKFLOW = """\
+on:
+  pull_request:
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dorny/paths-filter@0000000000000000000000000000000000000000
+        with:
+          filters: |
+            backend:
+              - 'src/backend/**'
+            frontend:
+              - 'src/frontend/**'
+  j:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pytest
+"""
+
+
+class TestCompareCountsOnlyReadsOutsideTheFilterAsDrift:
+    """`compare` over a planted workflow: a new read the filter selects is no finding, one it does not select is.
+
+    The filter is the live one of the manifest's workflow — ``on:`` paths or the
+    paths-filter names in ``gate.filter`` — decided by the matcher the guard
+    uses (pinned by ``test_the_matcher_agrees_with_the_guards_over_the_committed_reads``).
+    """
+
+    def _compare(self, tmp_path: Path, committed: dict, recorded: dict, workflow: str = _ON_PATHS_WORKFLOW) -> tuple:
+        (tmp_path / "workflows").mkdir(exist_ok=True)
+        (tmp_path / "workflows" / "w.yml").write_text(workflow)
+        _write(tmp_path / "committed", "w--j.yaml", committed)
+        _write(tmp_path / "recorded", "w--j.yaml", recorded)
+        return recorder.compare_manifests(
+            tmp_path / "committed", tmp_path / "recorded", workflow_dir=tmp_path / "workflows"
+        )
+
+    def test_a_new_read_inside_the_filter_is_not_drift(self, tmp_path: Path) -> None:
+        """The #1683 churn: a pull request adding a file the job reads, under a path that already runs it."""
+        findings, notes = self._compare(
+            tmp_path,
+            _committed(reads=["src/backend/a.py"]),
+            _committed(reads=["src/backend/a.py", "src/backend/new.py", "src/backend/tests/"]),
+        )
+        assert findings == []
+        assert notes == ["w--j.yaml: 2 new read(s) inside the relevance filter (not drift)"]
+
+    def test_a_new_read_outside_the_filter_is_drift_naming_the_path(self, tmp_path: Path) -> None:
+        findings, _ = self._compare(
+            tmp_path,
+            _committed(reads=["src/backend/a.py"]),
+            _committed(reads=["src/backend/a.py", "renovate.json5", "src/backend/docs/x.md"]),
+        )
+        assert len(findings) == 1
+        assert "2 path(s) the job's relevance filter does not select" in findings[0]
+        assert "renovate.json5 (the on:-level paths filter)" in findings[0]
+        assert "src/backend/docs/x.md" in findings[0], "a negated pattern takes a path back out"
+
+    def test_a_listing_is_held_as_a_file_added_inside_it(self, tmp_path: Path) -> None:
+        findings, _ = self._compare(
+            tmp_path, _committed(reads=["src/backend/a.py"]), _committed(reads=["src/backend/a.py", "./"])
+        )
+        assert len(findings) == 1 and "./ (the on:-level paths filter)" in findings[0]
+
+    def test_the_paths_filter_named_in_gate_filter_is_the_one_held(self, tmp_path: Path) -> None:
+        gate = {"kind": "paths-filter", "filter": "backend"}
+        findings, _ = self._compare(
+            tmp_path,
+            _committed(gate=gate, reads=["src/backend/a.py"]),
+            _committed(gate=gate, reads=["src/backend/a.py", "src/backend/b.py", "src/frontend/c.ts"]),
+            workflow=_STEP_FILTER_WORKFLOW,
+        )
+        assert len(findings) == 1 and "src/frontend/c.ts (the paths-filter)" in findings[0], findings
+
+    def test_a_new_read_an_accepted_gap_already_accepts_is_not_drift(self, tmp_path: Path) -> None:
+        gaps = [{"pattern": "renovate.json5", "reason": "r" * 50}]
+        findings, _ = self._compare(
+            tmp_path,
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "renovate.json5"]),
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "renovate.json5", "renovate.json5"]),
+        )
+        assert findings == []
+        gaps = [{"pattern": "docs/**", "reason": "r" * 50}]
+        findings, _ = self._compare(
+            tmp_path,
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py"]),
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "docs/new.md"]),
+        )
+        assert findings == []
+
+    def test_a_gap_delegated_to_a_lane_that_did_not_read_the_new_path_is_drift(self, tmp_path: Path) -> None:
+        gaps = [{"pattern": "docs/**", "reason": "r" * 50, "covered_by": "g.yml/guards"}]
+        (tmp_path / "workflows").mkdir()
+        (tmp_path / "workflows" / "g.yml").write_text("on: [pull_request]\njobs:\n  guards:\n    steps: []\n")
+        _write(tmp_path / "committed", "g--guards.yaml", _committed(workflow="g.yml", job="guards", reads=["x"]))
+        _write(tmp_path / "recorded", "g--guards.yaml", _committed(workflow="g.yml", job="guards", reads=["x"]))
+        findings, _ = self._compare(
+            tmp_path,
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py"]),
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "docs/new.md"]),
+        )
+        assert findings == [
+            "w--j.yaml: 1 new read(s) fall under an accepted gap whose covered_by lane did not read them in this "
+            "run: docs/new.md (covered_by g.yml/guards)"
+        ]
+        _write(
+            tmp_path / "recorded", "g--guards.yaml", _committed(workflow="g.yml", job="guards", reads=["docs/new.md"])
+        )
+        findings, _ = self._compare(
+            tmp_path,
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py"]),
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "docs/new.md"]),
+        )
+        assert findings == []
+
+    def test_a_committed_read_the_run_did_not_make_is_a_note(self, tmp_path: Path) -> None:
+        findings, notes = self._compare(
+            tmp_path, _committed(reads=["src/backend/a.py", "renovate.json5"]), _committed(reads=["src/backend/a.py"])
+        )
+        assert findings == []
+        assert notes == ["w--j.yaml: 1 committed read(s) not made in this run (not drift)"]
+
+    def test_a_recording_that_read_nothing_is_a_finding(self, tmp_path: Path) -> None:
+        findings, _ = self._compare(tmp_path, _committed(), _committed(reads=[]))
+        assert findings == ["w--j.yaml: the CI recording read nothing at all — the instrument measured nothing"]
+
+    def test_the_matcher_agrees_with_the_guards_over_the_committed_reads(self, guard: ModuleType) -> None:
+        """A deterministic seventh of all committed reads, against every filtered manifest's filter, both matchers."""
+        import dataclasses
+
+        real = guard.sweep(guard._DOT_GITHUB, guard._MANIFEST_DIR)
+        # Every 7th distinct read (deterministic; ~2k of ~15k) keeps this under a few seconds while
+        # still reaching every top-level area, plus the root listing and a path no filter selects.
+        every_read = sorted({read for m in real.manifests for read in m.reads})
+        candidates = sorted(set(every_read[::7]) | {"./", "renovate.json5"})
+        compared = disagreements = 0
+        for m in real.manifests:
+            wf = real.workflow(m.workflow)
+            if wf is None or m.gate_kind == "unfiltered":
+                continue
+            theirs = set(guard.uncovered_reads(real, dataclasses.replace(m, reads=tuple(candidates))))
+            ours_filter = recorder.relevance_filter(wf.document, recorder.load_manifest(m.path))
+            ours = {read for read in candidates if ours_filter.rejects(read)}
+            disagreements += len(ours ^ theirs)
+            compared += len(candidates)
+            assert ours == theirs, f"{m.path.name}: {sorted(ours ^ theirs)[:5]}"
+        assert compared >= 10000 and disagreements == 0, compared

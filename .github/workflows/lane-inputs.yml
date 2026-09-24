@@ -22,11 +22,16 @@ name: Lane inputs
 #            step timeout. An invocation whose tool this lane
 #            does not provide fails the leg; it is never dropped from the
 #            recording.
-#   compare  diffs `reads`, `job_spec_sha256`, `status` and `invocations` of the
-#            committed manifests against the recording and fails on any
-#            difference — which is what gives a hand-edited `reads:` no path to
-#            green. `replay_seconds` is not compared (wall clock varies run to
-#            run); a replayed manifest without a plausible one is a finding.
+#   compare  holds the committed manifests against the recording: a new read
+#            the job's live relevance filter does NOT select (and no accepted
+#            gap explains) is a finding; a new read inside the filter is not
+#            drift (#1683) — the filter already runs the job for it. Also
+#            findings: a differing `job_spec_sha256` (which ignores action pins),
+#            `status` or `invocations`, a recording that read nothing, a lane
+#            with no recording. `replay_seconds` is not compared (wall clock
+#            varies run to run); a replayed manifest without a plausible one is
+#            a finding. A hand-trimmed `reads:` that drops a path outside the
+#            filter therefore still has no path to green.
 #
 # HOW TO REFRESH A MANIFEST. Not on a workstation. Run this lane (a pull request
 # that touches the paths below does, or `gh workflow run lane-inputs.yml --ref
