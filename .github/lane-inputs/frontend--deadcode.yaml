@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 692cb0ad6ab8e4758bd997cec7f5c4329fe8589e
+measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
 job_spec_sha256: cb90a91c830e8c755f365864597c7e79b26a956fda723513458f2145618a8c38
 invocations:
 - command: npm run deadcode

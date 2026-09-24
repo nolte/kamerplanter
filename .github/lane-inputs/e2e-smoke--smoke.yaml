@@ -13,7 +13,7 @@ gate:
   - e2e_infra
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 692cb0ad6ab8e4758bd997cec7f5c4329fe8589e
+measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
 job_spec_sha256: f0d123471f5b3b896c4f8f17eda79e956b85e31f235274ee662049ddffb52203
 invocations:
 - command: docker compose -f docker-compose.e2e.yml --profile smoke config --quiet
@@ -37,7 +37,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 1956
+  context_files_after_dockerignore: 1959
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
   cwd: .
   recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
@@ -1262,6 +1262,7 @@ reads:
 - src/backend/tests/integration/test_diary_overview_query.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
+- src/backend/tests/integration/test_erasure_inventory_special_cases.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_location_label_projection.py
 - src/backend/tests/integration/test_merge_mode_null_clearing.py
@@ -1660,6 +1661,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
 - src/backend/tests/unit/domain/services/test_erasure_retry_lifecycle.py
 - src/backend/tests/unit/domain/services/test_every_plant_write_bootstraps_its_profile.py
@@ -1968,6 +1970,7 @@ reads:
 - src/backend/tests/unit/tasks/test_tank_maintenance_idempotency_scope.py
 - src/backend/tests/unit/tasks/test_tank_maintenance_tasks.py
 - src/backend/tests/unit/tasks/test_tenant_tasks.py
+- src/backend/tests/unit/tasks/test_unverified_cleanup_erasure.py
 - src/backend/tests/unit/tasks/test_vernalization_updates.py
 - src/backend/tests/unit/tasks/test_watering_tasks.py
 - src/backend/tests/unit/tasks/test_weather_tasks.py

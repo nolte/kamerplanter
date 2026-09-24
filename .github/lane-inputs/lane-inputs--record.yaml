@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 692cb0ad6ab8e4758bd997cec7f5c4329fe8589e
+measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
 job_spec_sha256: c51dc99b670ef5abd39ed37c8caeea9755690d50b75697ed2181060c9dd30b7a
 invocations:
 - command: python3 scripts/ci/lane_inputs.py replay --dry-run --out-dir /tmp/lane-inputs-scratch/recorded .github/lane-inputs/side-services--libs.yaml

@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 692cb0ad6ab8e4758bd997cec7f5c4329fe8589e
+measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
 job_spec_sha256: 0499a0f895191a28519aec2e580ec79d23b26696df7a9be4083617fff3f3b75d
 invocations:
 - command: helm dependency build helm/kamerplanter
@@ -1601,6 +1601,7 @@ reads:
 - src/backend/tests/integration/test_diary_overview_query.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
+- src/backend/tests/integration/test_erasure_inventory_special_cases.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_location_label_projection.py
 - src/backend/tests/integration/test_merge_mode_null_clearing.py
@@ -2015,6 +2016,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
 - src/backend/tests/unit/domain/services/test_erasure_retry_lifecycle.py
 - src/backend/tests/unit/domain/services/test_every_plant_write_bootstraps_its_profile.py
@@ -2335,6 +2337,7 @@ reads:
 - src/backend/tests/unit/tasks/test_tank_maintenance_idempotency_scope.py
 - src/backend/tests/unit/tasks/test_tank_maintenance_tasks.py
 - src/backend/tests/unit/tasks/test_tenant_tasks.py
+- src/backend/tests/unit/tasks/test_unverified_cleanup_erasure.py
 - src/backend/tests/unit/tasks/test_vernalization_updates.py
 - src/backend/tests/unit/tasks/test_watering_tasks.py
 - src/backend/tests/unit/tasks/test_weather_tasks.py

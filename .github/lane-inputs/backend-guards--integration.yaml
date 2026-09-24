@@ -11,7 +11,7 @@ gate:
   filter: integration
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 692cb0ad6ab8e4758bd997cec7f5c4329fe8589e
+measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
 job_spec_sha256: 826cf1b1e09f33746169782208b7291ffeb9f6ac8e7ae1d08c53f22ab335537f
 invocations:
 - command: task test:backend:integration
@@ -23,7 +23,7 @@ invocations:
   - ARANGODB_PASSWORD=rootpassword
   - ARANGODB_PORT=8529
   - ARANGODB_USERNAME=root
-  untracked_reads_dropped: 3612
+  untracked_reads_dropped: 3614
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -1150,6 +1150,7 @@ reads:
 - src/backend/tests/integration/test_diary_overview_query.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
+- src/backend/tests/integration/test_erasure_inventory_special_cases.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_location_label_projection.py
 - src/backend/tests/integration/test_merge_mode_null_clearing.py
