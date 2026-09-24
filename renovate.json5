@@ -449,8 +449,11 @@
     // `automerge: false` is inherited from the group rule above. It exists so
     // the decision lives beside the group it governs, grep-able, instead of in
     // an operator's merge script. The one thing that still stops a major here
-    // is a guard going red, e.g. `test_onnx_export_toolchain_floor.py` for a
-    // `transformers` bump the ONNX exporter cannot follow (#1480, #1611).
+    // is a guard going red. (The example that used to stand here,
+    // `test_onnx_export_toolchain_floor.py` holding back a `transformers` major
+    // the reranker's ONNX exporter could not follow, is gone with #1480: the
+    // reranker downloads pre-exported ONNX and tokenizes with `tokenizers`, so
+    // neither the exporter nor transformers is in its lock any more.)
     {
       description: 'Majors of the application group merge through the train when green (#1678, 2026-09-23)',
       matchManagers: [

@@ -589,14 +589,15 @@ class TestNoLineIsReadAsAnImageThatIsNotOne:
         )
 
     def test_the_two_model_images_import_qualified(self) -> None:
-        """The subject of #1554, asserted at the artefact rather than at the sweep."""
+        """The subject of #1554, asserted at the artefact rather than at the sweep.
+
+        Since #1480 both images download through ``huggingface_hub``; the
+        reranker used to import ``optimum.onnxruntime`` to export its graphs and
+        now fetches them already exported, so its row names the new module.
+        """
         for dockerfile, module, call in (
             ("docker/embedding-service/Dockerfile", "huggingface_hub", "huggingface_hub.snapshot_download("),
-            (
-                "docker/reranker-service/Dockerfile",
-                "optimum.onnxruntime",
-                "optimum.onnxruntime.ORTModelForSequenceClassification.from_pretrained(",
-            ),
+            ("docker/reranker-service/Dockerfile", "huggingface_hub", "huggingface_hub.snapshot_download("),
         ):
             text = (_REPO_ROOT / dockerfile).read_text()
             # COMMENTS ARE STRIPPED FIRST, for the reason the sweep above strips

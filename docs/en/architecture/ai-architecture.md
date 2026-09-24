@@ -288,7 +288,7 @@ When `RERANKER_URL` is empty or not set, `RerankerEngine.available` returns `Fal
 | Reranker disabled | 0 | 0 | 0ms |
 
 !!! tip "First Docker build"
-    The first build of the `reranker-service` image takes 10–15 minutes because `BAAI/bge-reranker-v2-m3` is downloaded and exported to ONNX via `optimum`. Subsequent builds use the cached layer and complete in seconds.
+    The first build of the `reranker-service` image downloads the already ONNX-exported `BAAI/bge-reranker-v2-m3` model from Hugging Face, pinned to a fixed commit revision — no export via `optimum` happens any more (see [ADR-007](../adr/007-cross-encoder-reranking.md)). Build time now depends mainly on download speed; subsequent builds use the cached layer and complete in seconds.
 
 ---
 

@@ -43,7 +43,7 @@ Query → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
 | Languages | Multilingual (DE/EN) | English-focused |
 | Parameters | 568M | 33M |
 | BEIR benchmark | State-of-the-art | Good, but EN-only |
-| ONNX export | Via optimum | Via optimum |
+| ONNX export | Via optimum (until 2026-09-24; see amendment below) | Via optimum (until 2026-09-24; see amendment below) |
 | Licence | Apache-2.0 | Apache-2.0 |
 | Kamerplanter use case | DE knowledge base | Unsuitable |
 
@@ -65,10 +65,22 @@ Query → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
 ### Negative
 
 - Additional microservice (+1.5–4 GB RAM, +500ms latency per query)
-- ONNX export via `optimum` during Docker build (longer build time)
-- First Docker build takes ~10–15 minutes (model download + export)
+- ONNX export via `optimum` during Docker build (longer build time) — until 2026-09-24, see amendment below
+- First Docker build takes ~10–15 minutes (model download + export) — until 2026-09-24, see amendment below
 
 ### Neutral
 
 - Knowledge service config: 3 new environment variables (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_TOP_K`)
 - Helm/Skaffold: new controller, service, NetworkPolicy (analogous to embedding service)
+
+## Amendment (2026-09-24): export mechanism replaced by a pinned download
+
+As of 2026-09-24, the `reranker-service` no longer exports any model to ONNX itself via `optimum` at Docker build time. The download stages in the Dockerfile instead fetch model files that are already ONNX, directly from Hugging Face — each pinned to a fixed commit revision (`onnx-community/bge-reranker-v2-m3-ONNX` and `cross-encoder/ms-marco-MiniLM-L12-v2` respectively). At runtime, the service tokenizes with the `tokenizers` library instead of `transformers`. `transformers`, `optimum` and `torch` are gone from the image and from the dependency lock (tracked internally as issue #1480).
+
+**Reason:** `optimum-onnx`, the ONNX exporter, caps `transformers` below 4.58 in every release it has published. That held the reranker service on `transformers` 4.57.6 — a version with three HIGH CVEs and one MEDIUM CVE.
+
+**Measured** against the previous `optimum` export: identical tokenizer output, identical graph inputs/outputs, and a maximum score delta of 4.7 × 10⁻⁶ for `bge-reranker-v2-m3` (no measurable delta for `ms-marco-MiniLM-L12-v2`), with identical rankings in both cases. Build time drops accordingly: the 10–15 minute export is gone, leaving only the download.
+
+The API (`/rerank`, `/health`, `/ready`) is unchanged — with one exception: an empty `documents` list now returns an empty result instead of an error.
+
+This ADR's actual decision — Cross-Encoder re-ranking with `bge-reranker-v2-m3` as the default model — and its rationale remain unchanged; only the way the ONNX file is obtained has changed.
