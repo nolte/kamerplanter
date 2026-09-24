@@ -309,6 +309,8 @@ All configuration is done via environment variables. The most important ones:
 
 Dependency updates are automatically created as pull requests via [Renovate](https://github.com/renovatebot/renovate). The configuration lives in `renovate.json5`.
 
+Renovate merges these pull requests into `develop` itself as soon as **every** check on the pull request is green — not only the required ones. This applies to every group and every update type, major updates included. A red or cancelled check holds the pull request until it is re-run or fixed.
+
 ## See Also
 
 - [Local Development](../development/local-setup.md)

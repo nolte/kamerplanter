@@ -6,6 +6,74 @@
   mode: 'full',
   separateMajorMinor: true,
   separateMinorPatch: false,
+  // ── Automerge: EVERY Renovate pull request, merged by Renovate itself ───────
+  // Operator decision 2026-09-24 (repository owner): Renovate pull requests
+  // merge into `develop` on their own once CI is green — for every group this
+  // file defines and every update type, majors included (application
+  // dependencies, uv toolchain, third-party and selenium images, the python
+  // build backend, github-actions, renovate itself, helmv3, everything). The
+  // reason is the routine flow: dependency bumps should not wait for a manual
+  // merge. Safety comes from ALL checks being green, not from a reviewer.
+  //
+  // WHAT THIS REPLACED, kept as history: until this decision exactly one rule
+  // set `automerge: true` (github-actions minor/patch/digest) and three rules
+  // wrote `automerge: false` out — `application dependencies` (#1550, also the
+  // carrier of the old NFR-009 §3.4 ban on automerging react/react-dom/fastapi/
+  // typescript minors), `uv toolchain` ("the resolver gets read before it
+  // lands") and the application-majors rule of #1678. Images, helmv3 and the
+  // python build backend fell back to Renovate's default `false`. Every one of
+  // those rules is gone or lost its flag; the arguments that justified them are
+  // superseded by the decision above, not refuted.
+  //
+  // WHY THESE FIVE KEYS, each one load-bearing:
+  //   * `automerge: true` at the TOP LEVEL, and nowhere else. A packageRule that
+  //     sets `automerge` would override this for its match, so no rule does;
+  //     tests/unit/guards/test_renovate_automerge_policy.py holds that.
+  //   * `platformAutomerge: false`. With the default `true`, Renovate only
+  //     enables GitHub's native auto-merge, and GitHub then merges as soon as
+  //     the REQUIRED contexts are green — four contexts out of ~25 check runs.
+  //     Measured: #1734 (github-actions, native automerge) merged with the
+  //     `Lane inputs` compare red. With `false`, Renovate merges itself after
+  //     reading the branch status, and its reading covers every check run on
+  //     the head commit (renovatebot/renovate lib/modules/platform/github
+  //     `getBranchStatus`): any run concluding `failure` -> red, no merge; all
+  //     runs `success`/`neutral`/`skipped` and the combined commit status
+  //     `success` or empty -> green; anything else — pending, `cancelled`,
+  //     `timed_out`, `action_required` — is yellow, and yellow waits.
+  //   * `automergeType: 'pr'` — a pull request exists for every bump, so the
+  //     advisory lanes that only run on `pull_request` run at all.
+  //   * `automergeStrategy: 'squash'` — the only merge method the repository
+  //     allows (`allow_squash_merge` is the single one enabled). Renovate stops
+  //     automerging when the chosen strategy is not supported, so this is not
+  //     left to `auto`.
+  //   * `rebaseWhen: 'behind-base-branch'` — what `auto` resolves to once
+  //     automerge is on, written out because it carries a standing rule:
+  //     Renovate only automerges branches that are up to date AND green
+  //     (`required_status_checks.strict` is true besides), and it keeps its
+  //     branches current itself. Never `update-branch` a `renovate/` branch by
+  //     hand — a foreign commit makes Renovate stop rebasing it.
+  //   `ignoreTests` is deliberately NOT set: its default `false` is what makes
+  //   Renovate wait for checks at all.
+  //
+  // THE SECOND MERGER IS SWITCHED OFF, not raced. `.github/workflows/automerge.yaml`
+  // (pascalgn, `automerge` label) is the path for our own pull requests and
+  // waits for the REQUIRED checks only. It skips `renovate/` branches, and runs
+  // for them in a group of their own: its `cancel-in-progress` concurrency used
+  // to leave a `cancelled` `automerge / automerge` check run on the head of 13
+  // of the last 25 Renovate pull requests (measured 2026-09-24), and
+  // `cancelled` is yellow above — Renovate would have waited forever. No
+  // preset or rule here adds the `automerge` label.
+  //
+  // THE COST, stated: a flaky or red advisory lane now stalls a Renovate pull
+  // request until it is re-run; majors merge without a human reading them; and
+  // Renovate merges at most one branch per run, so the merge happens on the
+  // App's run cadence, each merge making every other open branch rebase and
+  // re-run CI.
+  automerge: true,
+  automergeType: 'pr',
+  automergeStrategy: 'squash',
+  platformAutomerge: false,
+  rebaseWhen: 'behind-base-branch',
   // ── Helm dev values also carry a third-party pin (#1027) ─────────────────────
   // The built-in `helm-values` manager only matches `values.yaml` by default, so
   // `helm/kamerplanter/values-dev*.yaml` — which pin `timescale/timescaledb` for
@@ -102,7 +170,6 @@
         'patch',
         'digest',
       ],
-      automerge: true,
     },
     {
       groupName: 'github-actions major',
@@ -179,23 +246,26 @@
     // second kind of evidence, so the two must not share a branch.
     //
     // The ACTION joins this group rather than sitting in the generic
-    // `github-actions` one so that both halves of the resolver path are READ
+    // `github-actions` one so that both halves of the resolver path LAND
     // TOGETHER — not because either half silently changes the other. What is
     // actually true, and all that is claimed here: with
     // `version-file: src/backend/pyproject.toml` (#1383) the installed uv is
     // decided by `[tool.uv].required-version` ALONE, so an action bump does not
-    // move the resolver. The reason to review them in one pull request is that
+    // move the resolver. The reason to ship them in one pull request is that
     // the action is the code that reads, caches and installs that pin, and the
-    // pin is what it installs; a reviewer looking at either one in isolation is
-    // looking at half of the mechanism that produces five lock files.
+    // pin is what it installs; a CI run over either one in isolation measures
+    // half of the mechanism that produces the lock files.
     // The generic `github-actions` rule above would otherwise have claimed it;
     // this rule is later in the array and therefore wins on `groupName`.
     //
-    // `automerge: false` is explicit for the same reason. The generic
-    // `github-actions` rule automerges minor/patch/digest, and everything else in
-    // this group changes the RESOLVER that produces five lock files — a change
-    // whose blast radius is every Python image here. It gets read before it
-    // lands.
+    // HISTORY: until 2026-09-24 this rule wrote `automerge: false` out, because
+    // a resolver change has every Python image as its blast radius and "gets
+    // read before it lands". The operator decision at the top of this file
+    // replaced that: the group now merges on its own like every other one, and
+    // the evidence it is judged on — every lock relocks identically, every image
+    // still builds — is what the lock-hash guards and the image builds on the
+    // pull request measure. The group itself stays, because both halves of the
+    // resolver path still have to land in ONE pull request.
     {
       groupName: 'uv toolchain',
       matchDatasources: [
@@ -208,7 +278,6 @@
         'ghcr.io/astral-sh/uv',
         'astral-sh/setup-uv',
       ],
-      automerge: false,
     },
     // The build backend uv is constrained to for the two sdist-only backend
     // dependencies (`[tool.uv].build-constraint-dependencies`), read by the
@@ -260,7 +329,7 @@
     },
     // ── ONE group for every application dependency (#1550) ───────────────────
     // Direct operator instruction: application dependencies arrive as ONE
-    // reviewable bump, whatever the service, whatever the ecosystem.
+    // bump, whatever the service, whatever the ecosystem.
     //
     // WHAT THIS REPLACED — fourteen groups, most of them one per tree:
     // `python minor/patch`, `python fastapi-stack`, `python major`,
@@ -381,21 +450,18 @@
     // `matchPackageNames` on a temporary rule BELOW this one (the jsdom hold is
     // the worked example), not a new permanent per-tree group.
     //
-    // `automerge: false` IS WRITTEN OUT, not inherited. The commons config this
-    // file extends does not automerge these managers today, but nothing here
-    // reads that config, and the risk this group concentrates is new: before
-    // #1550 it was spread over `frontend minor/patch` and `python minor/patch`,
-    // and now ONE branch carries backend runtime, frontend runtime and the E2E
-    // suite at once. `uv toolchain` above spells the same flag out for the same
-    // reason. Two named requirements land inside this group and neither may
-    // depend on an inherited default:
-    //   * NFR-009 §3.4 forbids auto-merge for MINOR updates of `react`,
-    //     `react-dom`, `fastapi` and `typescript` — all four are in this group
-    //     now, where before they sat in `frontend react` / `frontend typescript`
-    //     / `python fastapi-stack`;
-    //   * the selenium ceiling in tests/e2e/pyproject.toml exists because
-    //     `pages/_element_proxy.py` reads Selenium internals, and a green E2E
-    //     run is exactly what a bump there has to be judged on.
+    // HISTORY: from #1550 until 2026-09-24 this rule wrote `automerge: false`
+    // out rather than inheriting it, because ONE branch now carries backend
+    // runtime, frontend runtime and the E2E suite at once, and because NFR-009
+    // §3.4 then forbade auto-merge for MINOR updates of `react`, `react-dom`,
+    // `fastapi` and `typescript` — all four live in this group. The operator
+    // decision at the top of this file lifted both: the group merges on its
+    // own, majors included, once EVERY check on the head is green. What a bump
+    // here is judged on is therefore the full check set, not a reader — which
+    // is also why the selenium ceiling in tests/e2e/pyproject.toml still
+    // matters: `pages/_element_proxy.py` reads Selenium internals, and the
+    // `E2E smoke (compose, light)` lane is the check that has to go red when a
+    // bump there breaks them.
     //
     // WHAT THIS GROUP DOES NOT REACH — and the answer SHRANK when #1509 landed,
     // which is why this paragraph is rewritten rather than annotated.
@@ -433,39 +499,19 @@
         'npm',
         'pip_requirements',
       ],
-      automerge: false,
     },
-    // ── MAJOR updates of the application group: same path as minor/patch ─────
-    // Operator decision 2026-09-23, taken on #1678 (`@sentry/react` 11): a
-    // major bump of this group is NOT parked, collected, or given a changelog
-    // review of its own. It merges the way a minor does — every required
-    // check green, then the merge train squash-merges it. The pre-merge
-    // `E2E smoke (compose, light)` lane runs on every pull request and is the
-    // net a breaking frontend major is caught in; a review strand per major
-    // costs tokens without adding a verdict the lane does not already give.
-    //
-    // This rule changes nothing Renovate does — `separateMajorMinor` already
-    // puts majors on `renovate/major-application-dependencies`, and
-    // `automerge: false` is inherited from the group rule above. It exists so
-    // the decision lives beside the group it governs, grep-able, instead of in
-    // an operator's merge script. The one thing that still stops a major here
-    // is a guard going red. (The example that used to stand here,
-    // `test_onnx_export_toolchain_floor.py` holding back a `transformers` major
-    // the reranker's ONNX exporter could not follow, is gone with #1480: the
-    // reranker downloads pre-exported ONNX and tokenizes with `tokenizers`, so
-    // neither the exporter nor transformers is in its lock any more.)
-    {
-      description: 'Majors of the application group merge through the train when green (#1678, 2026-09-23)',
-      matchManagers: [
-        'pep621',
-        'npm',
-        'pip_requirements',
-      ],
-      matchUpdateTypes: [
-        'major',
-      ],
-      automerge: false,
-    },
+    // ── MAJOR updates of the application group (history, #1678) ──────────────
+    // A rule stood here from 2026-09-23 to 2026-09-24. It recorded the operator
+    // decision taken on #1678 (`@sentry/react` 11) that a major of this group is
+    // not parked or given a changelog review of its own but merges the way a
+    // minor does, and it changed nothing Renovate did: it carried
+    // `automerge: false`, and the actual merge was an operator's merge train
+    // waiting for the required checks. The 2026-09-24 decision at the top of
+    // this file made that merge Renovate's own and widened "green" to every
+    // check, so the rule had nothing left to say and was removed.
+    // `separateMajorMinor` still puts majors on
+    // `renovate/major-application-dependencies`, so a red major cannot stall the
+    // routine stream.
     // ── jsdom held at 29 until Testing Library catches up (#827) ─────────────
     // jsdom 30 reimplemented its CSS engine, and the new `getComputedStyle`
     // return values make `@testing-library/dom`'s `isInaccessible()` classify
@@ -611,9 +657,12 @@
     // images import qualified, so the dockerfile manager no longer reads those
     // Python imports as image stages and there is nothing left to group.
     //
-    // No automerge. These are the databases the tests run against and the
-    // browser the E2E suite drives; a green run is necessary but the merge
-    // stays a decision.
+    // HISTORY: until 2026-09-24 this group carried no automerge ("these are the
+    // databases the tests run against and the browser the E2E suite drives; a
+    // green run is necessary but the merge stays a decision"). Under the
+    // operator decision at the top of this file a green run of EVERY check —
+    // integration lane, image builds with smoke, E2E smoke — is now also
+    // sufficient, and the group merges on its own.
     {
       groupName: '{{#if (equals updateType "major")}}{{depName}} image{{else}}third-party images{{/if}}',
       matchDatasources: [

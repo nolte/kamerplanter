@@ -82,14 +82,16 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 
 | Update-Typ | Beispiel | Risiko | Behandlung |
 |---|---|---|---|
-| **Patch** (`x.y.Z`) | `1.2.3` → `1.2.4` | Niedrig — nur Bugfixes | Auto-Merge nach grüner CI |
-| **Minor** (`x.Y.0`) | `1.2.3` → `1.3.0` | Mittel — neue Features, abwärtskompatibel | Auto-Merge nach grüner CI |
-| **Major** (`X.0.0`) | `1.2.3` → `2.0.0` | Hoch — Breaking Changes möglich | Manuelles Review, Feature-Branch |
+| **Patch** (`x.y.Z`) | `1.2.3` → `1.2.4` | Niedrig — nur Bugfixes | Auto-Merge durch Renovate, sobald **alle** Checks grün sind (§3.4) |
+| **Minor** (`x.Y.0`) | `1.2.3` → `1.3.0` | Mittel — neue Features, abwärtskompatibel | Auto-Merge durch Renovate, sobald **alle** Checks grün sind (§3.4) |
+| **Major** (`X.0.0`) | `1.2.3` → `2.0.0` | Hoch — Breaking Changes möglich | Eigener Branch (`separateMajorMinor`); Auto-Merge durch Renovate, sobald **alle** Checks grün sind (§3.4). Bleibt ein Check rot, greift der Migrationsprozess aus §7. |
 
-> **Die Spalte „Behandlung" beschreibt das Risiko, nicht die Konfiguration (#1566).**
-> Auto-Merge nach grüner CI gilt seit #1550 nur noch für die `github-actions`-Gruppe;
-> Applikations-Abhängigkeiten tragen `automerge: false` und gehen auch als Patch durch
-> manuelles Review. Maßgeblich ist §3.4 mit seiner Messung, nicht diese Zeile.
+> **Die Spalte „Behandlung" gilt seit der Betreiberentscheidung vom 2026-09-24 für jede
+> Gruppe und jeden Update-Typ gleich** — maßgeblich ist §3.4. Das Risiko unterscheidet
+> sich weiterhin je Zeile; es wird nicht mehr durch einen Menschen vor dem Merge
+> abgefangen, sondern durch die vollständige Menge der Checks auf dem Pull Request.
+> Historie: Von #1550 bis zu dieser Entscheidung galt Auto-Merge nur für die
+> `github-actions`-Gruppe, alle übrigen Updates gingen durch manuelles Review.
 
 **MUSS**: Alle Dependencies verwenden Version-Pinning mit Kompatibilitätsbereich:
 - Python (`pyproject.toml`): `>=`-Pinning mit oberer Grenze, z.B. `fastapi>=0.115.0,<1.0.0`
@@ -101,12 +103,15 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 
 | Kategorie | Frequenz | Nachbehandlung |
 |---|---|---|
-| **Patch-Updates** | laufend, begrenzt durch die Warteschlange | manuelles Review (§3.4) |
-| **Minor-Updates** | laufend, begrenzt durch die Warteschlange | manuelles Review (§3.4) |
-| **Major-Updates** | eigener Branch je Major (`separateMajorMinor`) | manuelles Review innerhalb 1 Woche |
-| **Security-Fixes (Critical/High)** | sofort, an der Warteschlange vorbei | §4.2 |
-| **Container-Base-Images** | laufend, gebündelt je Upstream-Release | manuelles Review |
-| **`helmv3`-Chart-Dependencies** | laufend | manuelles Review (§6.4) |
+| **Patch-Updates** | laufend, begrenzt durch die Warteschlange | Auto-Merge bei allen Checks grün (§3.4) |
+| **Minor-Updates** | laufend, begrenzt durch die Warteschlange | Auto-Merge bei allen Checks grün (§3.4) |
+| **Major-Updates** | eigener Branch je Major (`separateMajorMinor`) | Auto-Merge bei allen Checks grün (§3.4); rot → Migration nach §7 |
+| **Security-Fixes (Critical/High)** | sofort, an der Warteschlange vorbei | Auto-Merge bei allen Checks grün (§3.4); SLA §4.2 |
+| **Container-Base-Images** | laufend, gebündelt je Upstream-Release | Auto-Merge bei allen Checks grün (§3.4) |
+| **`helmv3`-Chart-Dependencies** | laufend | Auto-Merge bei allen Checks grün (§3.4, §6.4) |
+
+Bis 2026-09-24 stand in der rechten Spalte für Patch, Minor, Major, Container-Images und
+`helmv3` „manuelles Review"; die Betreiberentscheidung in §3.4 hat das ersetzt.
 
 **MUSS**: Es gibt **kein** Zeitfenster für die PR-Erstellung, und es soll keins geben
 (#1566, Betreiberentscheidung 2026-09-21). `renovate.json5` setzt weder `schedule` noch
@@ -215,7 +220,7 @@ Daraus folgt die Reichweite der Regel, damit sie nicht erneut je Datei hergeleit
 | Kriterium | Renovate | Dependabot |
 |---|---|---|
 | **Gruppierung** | Flexibel — beliebige Pakete gruppierbar | Eingeschränkt — nur Ökosystem-basiert |
-| **Auto-Merge** | Nativ mit Branch-Protection | Erfordert zusätzliche GitHub Actions |
+| **Auto-Merge** | Eingebaut — Renovate mergt selbst nach eigener Prüfung aller Checks, oder nativ über die Plattform | Erfordert zusätzliche GitHub Actions |
 | **Schedule** | Fein konfigurierbar (Cron-Syntax) | Nur daily/weekly/monthly |
 | **Konfiguration** | `renovate.json5` — ausdrucksstark, vererbbar | `dependabot.yml` — limitiert |
 | **Monorepo-Support** | Erstklassig (Package-Rules pro Pfad) | Grundlegend |
@@ -224,7 +229,7 @@ Daraus folgt die Reichweite der Regel, damit sie nicht erneut je Datei hergeleit
 | **Lockfile-Handling** | Automatisch (`lockFileMaintenance`) | Grundlegend |
 | **Preis** | Kostenlos (Open Source & GitHub App) | Kostenlos (GitHub-integriert) |
 
-**Entscheidung**: Renovate Bot wird eingesetzt, da die Gruppierungsfähigkeit, die Custom Manager für Pins ohne Manifest-Format und der native Auto-Merge-Support für das Kamerplanter-Projekt entscheidend sind. Der fein konfigurierbare Zeitplan war ein Argument bei der Wahl, wird aber nicht genutzt (§2.2) — er trägt die Entscheidung nicht.
+**Entscheidung**: Renovate Bot wird eingesetzt, da die Gruppierungsfähigkeit, die Custom Manager für Pins ohne Manifest-Format und der eingebaute Auto-Merge-Support für das Kamerplanter-Projekt entscheidend sind. Der fein konfigurierbare Zeitplan war ein Argument bei der Wahl, wird aber nicht genutzt (§2.2) — er trägt die Entscheidung nicht.
 
 ### 3.2 Was `renovate.json5` entscheidet — und wie man es nachmisst
 
@@ -252,7 +257,7 @@ dieselbe Inventur täglich gegen die Realität der Plattform.
 #### Die tragenden Entscheidungen
 
 Tragend heißt: fällt die Entscheidung weg, ändert sich das beobachtbare Verhalten des
-Bots. Alles andere in der Datei ist Ausformulierung dieser fünf Punkte.
+Bots. Alles andere in der Datei ist Ausformulierung dieser sechs Punkte.
 
 | Entscheidung | Form in `renovate.json5` | Warum tragend | Beleg |
 |---|---|---|---|
@@ -260,6 +265,7 @@ Bots. Alles andere in der Datei ist Ausformulierung dieser fünf Punkte.
 | **Majors getrennt, Minor und Patch zusammen** | `separateMajorMinor: true`, `separateMinorPatch: false` | Trägt die Gruppenstrategie aus §3.3: ein festgehaltener Major blockiert den Routinestrom nicht, und Minor/Patch kosten einen CI-Zyklus statt zwei. Beide Werte wiederholen Renovates Default — sie stehen trotzdem ausgeschrieben da, weil Regeln weiter unten sich ausdrücklich auf sie berufen und eine (`selenium images`) `separateMajorMinor: false` lokal überschreibt. Ein stiller Default-Wechsel würde die Gruppenstrategie umbauen. | `grep -n "separateM" renovate.json5`; die Berufung: `grep -n "separateMajorMinor" renovate.json5` (sechs Treffer: zwei gesetzte Werte, vier Kommentare, die sich darauf berufen) |
 | **Eine Gruppe für alle Applikations-Abhängigkeiten** | `packageRules` → `groupName: 'application dependencies'`, gematcht über `matchManagers: ['pep621','npm','pip_requirements']` | Betreiberauftrag #1550, ausgeschrieben in §3.3. Über den Manager gematcht, nicht über Pfade — ein neuer Baum wird ohne Aufzählung erreicht. | `grep -n "application dependencies" renovate.json5` |
 | **Reichweite gegen zwei geerbte Ausschlüsse geweitet** | `'helm-values'.managerFilePatterns` (#1027) und `ignorePaths` **ohne** `**/tests/**` (#1464) | Beides sind Dateien, die unbeobachtet alterten: die Dev-Values mit ihrem TimescaleDB-Pin und der gesamte `tests/e2e`-Baum. `ignorePaths` wird ersetzt, nicht gemerged — die geerbte Liste steht deshalb vollständig minus einem Muster in der Datei. | `grep -n "ignorePaths" -A 10 renovate.json5`; Gegenprobe über die Inventur in `task renovate:dry-run` |
+| **Renovate mergt jeden eigenen Pull Request selbst, sobald alle Checks grün sind** | Top-Level `automerge: true`, `platformAutomerge: false`, `automergeType: 'pr'`, `automergeStrategy: 'squash'`, `rebaseWhen: 'behind-base-branch'`; keine `packageRules`-Zeile setzt `automerge` | Betreiberentscheidung 2026-09-24, ausgeführt in §3.4. Ohne `platformAutomerge: false` würde GitHub schon bei grünen **Pflicht**-Checks mergen. | `src/backend/tests/unit/guards/test_renovate_automerge_policy.py` |
 | **Vier `customManagers` für Pins, die kein Manager kennt** | `uv`-`required-version` und Build-Backend, `.github/renovate-pins.yaml`, Werkzeugversionen in `run:`-Schritten, Container-Images in `env:`-Werten und Taskfile-Variablen | Diese Pins sind echte Abhängigkeiten in Dateien ohne Manifest-Format. Ohne die Regex-Manager altern sie unbemerkt — das ist derselbe Defekt, den #1303 sechs Wochen lang trug. | `grep -n "customType: 'regex'" renovate.json5` (vier Treffer) |
 
 `mode: 'full'` steht ebenfalls im Top-Level, ist aber **nicht** tragend: es wiederholt
@@ -313,11 +319,11 @@ Die Forderung ist **Atomarität**, nicht eine bestimmte Anzahl Gruppen. Sie wird
 
 | Gruppe | Umfang | Begründung |
 |---|---|---|
-| **Application dependencies** | Alle Abhängigkeiten der Manager `pep621`, `npm`, `pip_requirements` — Backend, die vier Side-Services, die zwei geteilten Bibliotheken, Frontend, `tests/e2e`, `docs/`, `tools/rag-eval` | Ein Betreiberauftrag (#1550): Applikations-Abhängigkeiten kommen als **ein** prüfbarer Bump an. Enthält die früheren Kohäsionsgruppen MUI, React, Redux, i18n, ESLint, Frontend Testing, Pydantic, Python Linting, Python Testing vollständig. Majors gehen über `separateMajorMinor` automatisch in einen eigenen Branch, damit ein festgehaltener Major den Routinestrom nicht blockiert. Kein Auto-Merge (§3.4). |
+| **Application dependencies** | Alle Abhängigkeiten der Manager `pep621`, `npm`, `pip_requirements` — Backend, die vier Side-Services, die zwei geteilten Bibliotheken, Frontend, `tests/e2e`, `docs/`, `tools/rag-eval` | Ein Betreiberauftrag (#1550): Applikations-Abhängigkeiten kommen als **ein** prüfbarer Bump an. Enthält die früheren Kohäsionsgruppen MUI, React, Redux, i18n, ESLint, Frontend Testing, Pydantic, Python Linting, Python Testing vollständig. Majors gehen über `separateMajorMinor` automatisch in einen eigenen Branch, damit ein festgehaltener Major den Routinestrom nicht blockiert. Auto-Merge wie jede Gruppe (§3.4); bis 2026-09-24 ausdrücklich ohne. |
 | **Container base images** | `matchDatasources: ['docker']` über eine gepflegte Paketliste, managerübergreifend (`dockerfile`, `docker-compose`, `helm-values`, Workflow-Service-Container) | Ein Upstream-Release darf nicht je Manager in einen eigenen PR zerfallen (#1359/#1369). Minor/Patch/Digest teilen sich einen Branch; **Majors behalten je Image einen eigenen Branch**, weil vier Basis-Image-Majors vier verschiedene Stacks neu bauen und jeder für sich zu beurteilen ist. |
 | **Selenium images** | `selenium/hub`, `selenium/node-chrome` | Versionieren unabhängig, müssen zur Laufzeit zusammenpassen; `separateMajorMinor: false` hält Hub-Minor und Node-„Major" in einem PR (#1367/#1370). |
 | **uv toolchain** | `[tool.uv].required-version` in sieben `pyproject.toml`, `ghcr.io/astral-sh/uv` in fünf Dockerfiles, `astral-sh/setup-uv` in den Workflows | Nicht die Abhängigkeit einer Anwendung, sondern der **Resolver**, der sieben Lockfiles erzeugt. Wird an anderer Evidenz beurteilt („jedes Lock relockt identisch") und bleibt deshalb außerhalb der Applikationsgruppe (#1296, #1383). |
-| **GitHub Actions** | `actions/*`, `docker/*` | CI-Workflow-Stabilität; Minor/Patch/Digest mit Auto-Merge, Majors getrennt. |
+| **GitHub Actions** | `actions/*`, `docker/*` | CI-Workflow-Stabilität; Majors in eigenem Branch. Auto-Merge wie jede Gruppe (§3.4). |
 | **Helm Charts** | Alle `Chart.yaml`-Dependencies | Deployment-Konsistenz. |
 
 > **Warum eine statt vierzehn Gruppen (#1550, gemessen am 2026-09-19):** `required_status_checks.strict: true` entwertet bei jedem Merge alle anderen offenen PRs, also kosten N Dependency-Bumps N volle CI-Zyklen. Die damals geltende Obergrenze offener PRs — zu diesem Zeitpunkt Renovates eigener Default, denn das geteilte Preset setzte noch keinen Wert — machte die Warteschlange zur faktischen Policy: bei sechzehn offenen `renovate/`-Branches hielt Renovate den CVE-tragenden `transformers`-Bump (#1480) als „Rate-Limited" zurück — keine Regel verbot ihn, die Schlange war voll. Gemessen mit `task renovate:dry-run` vorher/nachher: 16 → 8 Branches für denselben Bestand, Manager-Inventur unverändert. **Die Obergrenze selbst steht hier bewusst nicht als Zahl** — sie wird im geteilten Preset gepflegt und altert dort als Bump; das Abrufkommando steht in §3.5.
@@ -326,37 +332,82 @@ Die Forderung ist **Atomarität**, nicht eine bestimmte Anzahl Gruppen. Sie wird
 
 ### 3.4 Auto-Merge-Regeln
 
-Hier stand bis #1566 ein Flussdiagramm, das Auto-Merge für **jedes** Patch- und für
-nicht-kritische Minor-Updates versprach, sowie eine Bedingung über
-Branch-Protection auf `main`. Beides war falsch: `renovate.json5` schaltet Auto-Merge
-für Applikations-Abhängigkeiten ausdrücklich **ab**, und `main` trägt überhaupt keine
-Branch-Protection.
+**Entscheidung (Betreiber/Repository-Owner, 2026-09-24):** Renovate-Pull-Requests werden
+automatisch nach `develop` gemergt, sobald die CI grün ist — für **alle** Gruppen und
+Update-Typen: Applikations-Abhängigkeiten einschließlich Majors und einschließlich der
+Minors von `react`, `react-dom`, `fastapi` und `typescript`, die `uv toolchain`,
+Third-Party- und Datenbank-Images, die Selenium-Images, das Python-Build-Backend,
+`github-actions` einschließlich Majors, Renovate selbst, `helmv3` — alles. **Grün heißt
+alle Checks, nicht nur die Pflicht-Checks.** Der Grund: Der Routinestrom der
+Abhängigkeiten soll ohne manuelle Merges fließen; die Sicherheit kommt aus der
+vollständigen Menge der Checks, nicht aus den Pflicht-Checks allein und nicht aus einem
+Review.
 
-**MUSS**: Auto-Merge ist die Ausnahme, nicht die Regel. Genau eine Regel in
-`renovate.json5` setzt `automerge: true`. Nachzumessen in einer Zeile:
+**MUSS**: `renovate.json5` setzt auf oberster Ebene `automerge: true`,
+`platformAutomerge: false`, `automergeType: 'pr'`, `automergeStrategy: 'squash'` und
+`rebaseWhen: 'behind-base-branch'`. Keine `packageRules`-Regel setzt `automerge`,
+`platformAutomerge` oder `rebaseWhen`, und `ignoreTests` ist nicht `true`. Gehalten von
+`src/backend/tests/unit/guards/test_renovate_automerge_policy.py`, der die Datei als das
+Objekt liest, das Renovate liest — eine Regel mit `automerge: false` ist dort rot,
+gleichgültig was die Kommentare sagen.
 
-```bash
-grep -n "automerge" renovate.json5
-```
+| Schlüssel | Warum |
+|---|---|
+| `automerge: true`, nur oben | Eine Regel mit eigenem `automerge` überschreibt die oberste Ebene für ihren Match. Ein einziges vergessenes `automerge: false` schafft wieder eine Insel mit manuellem Merge. |
+| `platformAutomerge: false` | Mit dem Default `true` schaltet Renovate nur GitHubs nativen Auto-Merge ein, und GitHub mergt, sobald die **Pflicht**-Checks grün sind. Gemessen: #1734 (`github-actions`, nativer Auto-Merge) wurde mit rotem `Lane inputs`-Compare gemergt. Mit `false` mergt Renovate selbst, nachdem es den Branch-Status gelesen hat. |
+| `automergeType: 'pr'` | Jeder Bump bekommt einen Pull Request, damit die Lanes, die nur auf `pull_request` laufen, überhaupt laufen. |
+| `automergeStrategy: 'squash'` | Das Repository erlaubt nur Squash-Merges. Renovate hört auf zu automergen, wenn die gewählte Strategie auf der Plattform nicht unterstützt ist — deshalb nicht `auto`. |
+| `rebaseWhen: 'behind-base-branch'` | Renovate automergt nur Branches, die aktuell **und** grün sind, und hält seine Branches selbst aktuell. Ein `renovate/`-Branch wird **nie** von Hand per `update-branch` aktualisiert: ein fremder Commit lässt Renovate das Rebasen einstellen. |
 
-Die gesetzten Werte, die dabei herauskommen — alle übrigen Treffer sind Kommentare, die
-sich darauf berufen:
+**Was „alle Checks grün" bei Renovate bedeutet** — nachgelesen im Quelltext
+(`getBranchStatus` im GitHub-Plattformmodul von Renovate) und in der Dokumentation
+(`ignoreTests`: „Renovate's default behavior is to only automerge if every status check has
+succeeded"; `automergeType`: „Renovate only automerges branches which are up-to-date and
+green"):
 
-| Regel | Auto-Merge | Warum |
-|---|---|---|
-| `github-actions` (`minor`, `patch`, `digest`) | **ja** | Ein Action-Digest-Bump trägt kein eigenes Changelog; ein Review daran gewinnt nichts. Das Digest-Pinning selbst kommt aus dem geteilten Preset. |
-| `github-actions major` | nein — keine `automerge`-Zeile | Ein Major einer Action ändert ihre Eingaben. |
-| `application dependencies` | **nein**, `automerge: false` ausgeschrieben | Betreiberentscheidung #1550. Der Wert ist absichtlich nicht vererbt: das Preset automergt diese Manager heute nicht, aber „heute nicht" ist keine Zusage. Damit gehen auch Patch und Minor durch manuelles Review — genau das, was das alte Diagramm bestritt. |
-| `uv toolchain` | **nein**, `automerge: false` ausgeschrieben | Der Resolver, der sämtliche Locks erzeugt, wird an anderer Evidenz beurteilt (§3.3). |
-| `third-party images`, `selenium images`, `python build backend` | nein — keine `automerge`-Zeile | Ein Basis-Image-Bump baut einen ganzen Stack neu. |
-| alles, wofür keine Regel greift (u. a. der `helmv3`-Manager) | nein — Renovates Default ist `automerge: false` | Auto-Merge muss angefordert werden, nie abgewählt. |
+- Endet **ein** Check-Run auf dem Head-Commit mit `failure`, oder ist der kombinierte
+  Commit-Status `failure`: rot, kein Merge.
+- Enden **alle** Check-Runs mit `success`, `neutral` oder `skipped` und ist der
+  kombinierte Commit-Status `success` oder leer: grün, Merge.
+- Alles andere — laufend, wartend, `cancelled`, `timed_out`, `action_required` — ist
+  „pending" und wartet. Ein abgebrochener Lauf blockiert also so lange, bis er neu
+  gestartet wird.
 
-**MUSS**: Majors werden nie automatisch gemergt. Das gilt ohne eigene Regel, weil
-`separateMajorMinor: true` sie in eigene Branches trennt (§3.2) und keine Major-Regel
-`automerge` setzt.
+**MUSS**: Der Label-Automerge `.github/workflows/automerge.yaml` (pascalgn, Label
+`automerge`, wartet nur auf die Pflicht-Checks) bleibt der Weg für eigene Pull Requests
+und fasst Renovate-Pull-Requests **nicht** an: sein Job überspringt `renovate/`-Branches,
+und deren Läufe bekommen je Lauf eine eigene Concurrency-Gruppe. Gemessen am 2026-09-24:
+Die gemeinsame `cancel-in-progress`-Gruppe je Pull Request hatte auf dem Head von 13 der
+letzten 25 Renovate-Pull-Requests einen `cancelled`-Check-Run `automerge / automerge`
+hinterlassen — nach der Regel oben hätte Renovate diese Pull Requests nie gemergt. Kein
+Preset und keine Regel setzt das Label `automerge` auf Renovate-Pull-Requests; ein
+zweiter Merger, der nur auf Pflicht-Checks wartet, würde die Entscheidung unterlaufen.
 
-**MUSS**: Die Branch-Protection, die einen Auto-Merge überhaupt erst gegen rote Checks
-absichert, liegt auf dem Integrationszweig `develop` — **nicht** auf `main`. Gemessen:
+**Die bewusst in Kauf genommenen Kosten:**
+
+- Ein wackeliger oder roter **nicht-pflichtiger** Check (Coverage, Docker-Builds mit
+  Smoke, E2E-Smoke, `Lane inputs` …) hält einen Renovate-Pull-Request an, bis er neu
+  gestartet oder repariert ist.
+- Majors werden gemergt, ohne dass ein Mensch sie gelesen hat. Das Netz ist die
+  Check-Menge, allen voran `E2E smoke (compose, light)`.
+- Renovate mergt je Lauf höchstens einen Branch je Zielbranch. Der Merge folgt also der
+  Laufkadenz der Renovate-App, und jeder Merge lässt unter `strict: true` alle übrigen
+  offenen Renovate-Branches rebasen und die CI erneut durchlaufen.
+
+**Historie.** Bis #1566 stand hier ein Flussdiagramm, das Auto-Merge für jedes Patch-
+und nicht-kritische Minor-Update versprach, das die Konfiguration nie umsetzte. Von
+#1566 bis 2026-09-24 lautete die Regel: „Auto-Merge ist die Ausnahme, nicht die Regel.
+Genau eine Regel in `renovate.json5` setzt `automerge: true`" — die `github-actions`-Gruppe
+für Minor/Patch/Digest, nativ über die Plattform. `application dependencies` und
+`uv toolchain` schrieben `automerge: false` aus, Images, `helmv3` und das Build-Backend
+erbten Renovates Default `false`, und die Minors von `react`, `react-dom`, `fastapi` und
+`typescript` durften ausdrücklich nicht automatisch gemergt werden. Am 2026-09-23 (#1678)
+entschied der Betreiber, Majors der Applikationsgruppe wie Minors zu mergen — damals noch
+über einen Merge-Zug, der auf die Pflicht-Checks wartete. Die Entscheidung vom 2026-09-24
+ersetzt all das.
+
+**MUSS**: Die Branch-Protection liegt auf dem Integrationszweig `develop` — **nicht** auf
+`main`. Gemessen:
 
 ```bash
 gh api repos/<owner>/<repo> --jq '.default_branch'
@@ -367,11 +418,12 @@ gh api repos/<owner>/<repo>/branches/develop/protection \
 
 Der zweite Aufruf liefert `false`: `main` ist ein reiner Release-Spiegel ohne Regelwerk,
 ein Auto-Merge findet dort nie statt. Die Liste der Pflicht-Checks steht hier
-**bewusst nicht ausgeschrieben** — sie ändert sich mit jeder neuen Lane, und eine
-abgeschriebene Liste wäre wieder der Defekt, den dieser Abschnitt behebt. NFR-018
+**bewusst nicht ausgeschrieben** — sie ändert sich mit jeder neuen Lane. Für
+Renovate-Pull-Requests ist sie seit 2026-09-24 nicht mehr die Merge-Bedingung (die ist
+„alle Checks"), sondern nur noch die Untergrenze, die GitHub selbst erzwingt. NFR-018
 regelt, welche Lanes durchsetzend sein müssen; das Kommando oben sagt, welche es sind.
 
-**MUSS**: `required_status_checks.strict` steht auf `true`. Ein Auto-Merge setzt damit
+**MUSS**: `required_status_checks.strict` steht auf `true`. Ein Merge setzt damit
 nicht nur grüne Checks voraus, sondern auch einen aktuellen Branch — das ist die
 Ursache der Warteschlangen-Ökonomie aus §3.3 und §3.5.
 
@@ -494,7 +546,7 @@ jobs:
 | Schweregrad (CVSS) | SLA | Verantwortlich | Eskalation |
 |---|---|---|---|
 | **Critical** (9.0–10.0) | 24 Stunden | DevOps / Maintainer | Direkte Benachrichtigung |
-| **High** (7.0–8.9) | 7 Tage | Entwickler via PR-Review | Dependency Dashboard |
+| **High** (7.0–8.9) | 7 Tage | Renovate-Auto-Merge (§3.4); bei rotem Check der Entwickler | Dependency Dashboard |
 | **Medium** (4.0–6.9) | 30 Tage | Nächster Sprint | Backlog |
 | **Low** (0.1–3.9) | 90 Tage | regulärer Update-Strom | — |
 
@@ -618,7 +670,7 @@ jobs:
 3. **Runtime**: Vollständige Testsuite (Unit + Integration + API) gemäß NFR-008
 4. **Bundle-Size**: Vergleich der Frontend-Bundle-Größe vor/nach Update
 
-**SOLL**: Bei Major-Updates wird zusätzlich ein manueller Smoke-Test auf dem Staging-System durchgeführt (vgl. NFR-007 Abschnitt 6).
+**SOLL**: Bei einer manuell durchgeführten Major-Migration (§7) wird zusätzlich ein Smoke-Test auf dem Staging-System durchgeführt (vgl. NFR-007 Abschnitt 6). Ein Renovate-Major, dessen Checks alle grün sind, wird ohne diesen Schritt gemergt (§3.4, Betreiberentscheidung 2026-09-24).
 
 ---
 
@@ -682,7 +734,7 @@ dependencies = [
 {
   groupName: 'application dependencies',
   matchManagers: ['pep621', 'npm', 'pip_requirements'],
-  automerge: false,  // §3.4: react/react-dom/fastapi/typescript liegen hier
+  // Kein eigenes `automerge` (§3.4): bis 2026-09-24 stand hier `automerge: false`.
 }
 ```
 
@@ -768,15 +820,23 @@ dependencies:
 ```
 
 **MUSS**: Helm-Chart-Updates werden monatlich geprüft (niedrigere Frequenz wegen Deployment-Risiko).
-**MUSS**: Helm-Chart-Updates erfordern immer manuelles Review — kein Auto-Merge.
+**MUSS**: Helm-Chart-Updates (`helmv3`) werden wie jedes andere Renovate-Update automatisch gemergt, sobald alle Checks grün sind (§3.4, Betreiberentscheidung 2026-09-24). Bis dahin galt hier „immer manuelles Review — kein Auto-Merge".
 
 ---
 
 ## 7. Major-Version-Upgrade-Prozess
 
+**Geltungsbereich (seit 2026-09-24).** Dieser Abschnitt gilt für eine **manuelle**
+Major-Migration — also dann, wenn ein Renovate-Major nicht von selbst grün wird, weil
+Code angepasst werden muss, oder wenn ein Major ohne Renovate eingeführt wird. Ein
+Renovate-Major, dessen Checks **alle** grün sind, wird nach §3.4 ohne Checkliste, ohne
+Feature-Branch, ohne Maintainer-Review und ohne Vorab-Tag gemergt
+(Betreiberentscheidungen #1678 vom 2026-09-23 und vom 2026-09-24). Das Rückgängigmachen
+eines solchen Merges folgt §7.3 (Git Revert).
+
 ### 7.1 Bewertungscheckliste
 
-Vor jedem Major-Upgrade **MUSS** folgende Checkliste abgearbeitet werden:
+Vor jeder manuellen Major-Migration **MUSS** folgende Checkliste abgearbeitet werden:
 
 | # | Prüfpunkt | Aktion | Status |
 |---|---|---|---|
@@ -876,13 +936,11 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
     - [ ] Renovate Bot ist als GitHub App installiert und für das Repository aktiviert
     - [ ] `renovate.json5` ist im Repository-Root eingecheckt und valide
     - [ ] Dependency Dashboard ist als GitHub Issue sichtbar
-- [ ] **Auto-Merge** — die drei Punkte unten beschreiben einen Zustand, den #1550
-  bewusst verlassen hat; sie bleiben als offene Betreiberentscheidung stehen und sind
-  gegen §3.4 zu lesen, nicht gegen die Konfiguration
-    - [ ] ~~Patch-Updates werden nach grüner CI automatisch gemergt~~ — gilt nur für `github-actions`
-    - [ ] ~~Minor-Updates (nicht Kern-Frameworks) werden nach grüner CI automatisch gemergt~~ — dito
-    - [x] Major-Updates erfordern manuelles Review
-    - [x] Kern-Frameworks (`react`, `fastapi`, `typescript`) erfordern immer manuelles Review — sie liegen in der Applikationsgruppe mit `automerge: false`
+- [ ] **Auto-Merge** (§3.4, Betreiberentscheidung 2026-09-24)
+    - [x] Jeder Renovate-Pull-Request — Patch, Minor, Major, jede Gruppe — wird von Renovate selbst gemergt, sobald **alle** Checks grün sind (`automerge: true`, `platformAutomerge: false`)
+    - [x] Keine `packageRules`-Regel setzt `automerge`; gehalten von `test_renovate_automerge_policy.py`
+    - [x] Der Label-Automerge (`automerge.yaml`) überspringt `renovate/`-Branches und hinterlässt dort keine `cancelled`-Check-Runs
+    - [ ] Renovate-Pull-Requests, die an einem roten oder abgebrochenen nicht-pflichtigen Check hängen, werden beobachtet (Dependency Dashboard, `renovate-health.yml`)
 - [ ] **CI-Integration**
     - [ ] Alle Dependency-PRs durchlaufen die vollständige CI-Pipeline (Tests, Lint, Build)
     - [ ] `npm audit` und `pip-audit` sind in der CI-Pipeline integriert

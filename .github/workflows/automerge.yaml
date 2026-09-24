@@ -40,8 +40,25 @@ on:
 # is the backstop. Each fallback keeps runs about the SAME commit in one group
 # and runs about different commits apart — which is the property that matters,
 # since the merge decision is per commit.
+#
+# RENOVATE BRANCHES GET A GROUP OF THEIR OWN — one per run — and the job below
+# skips them (operator decision 2026-09-24, NFR-009 §3.4). Renovate merges its
+# own pull requests (`platformAutomerge: false` in renovate.json5) and does so
+# only when EVERY check run on the head commit is `success`, `neutral` or
+# `skipped`; a `cancelled` run counts as pending, and pending never merges.
+# Under the shared per-PR group above, the burst of `opened`/`labeled`/`edited`
+# events Renovate produces for one pull request cancelled earlier runs of this
+# workflow ON THE HEAD COMMIT: 13 of the last 25 Renovate heads carried a
+# `cancelled` `automerge / automerge` check run (measured 2026-09-24), which
+# would have held each of them forever. A run-scoped group is never cancelled,
+# and the skipped job reports `skipped`. Skipping, not merely not-labelling,
+# also keeps this workflow from becoming a second merger that waits for the
+# REQUIRED checks only — which is exactly the gate the decision replaced.
+# `github.event.pull_request` is present on the `pull_request` and
+# `pull_request_review` events; `check_suite`/`status` runs attach their check
+# runs to the default branch, not to a Renovate head, and keep the old key.
 concurrency:
-  group: automerge-${{ github.event.pull_request.number || github.event.check_suite.head_sha || github.event.sha || github.ref }}
+  group: automerge-${{ startsWith(github.event.pull_request.head.ref, 'renovate/') && format('renovate-{0}', github.run_id) || github.event.pull_request.number || github.event.check_suite.head_sha || github.event.sha || github.ref }}
   cancel-in-progress: true
 
 # The merging job declares `contents: write` and `pull-requests: write` itself.
@@ -53,6 +70,9 @@ permissions:
 
 jobs:
   automerge:
+    # Renovate merges its own pull requests once every check is green (see the
+    # concurrency comment above); this workflow is the path for everything else.
+    if: ${{ !startsWith(github.event.pull_request.head.ref, 'renovate/') }}
     # When `vars.PORTFOLIO_APP_ID` is set, the reusable mints a short-lived
     # GitHub-App installation token from `secrets.PORTFOLIO_APP_PRIVATE_KEY`
     # and merges with it instead of GITHUB_TOKEN. This is load-bearing: a
