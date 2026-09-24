@@ -152,6 +152,7 @@ import datetime as dt
 import glob as globmodule
 import hashlib
 import json
+import math
 import os
 import re
 import shlex
@@ -159,6 +160,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -178,6 +180,42 @@ SCHEMA = 2
 
 #: A reason shorter than this is a label, not a reason (the guard's `_MIN_REASON_CHARS`).
 MIN_REASON_CHARS = 40
+
+# ------------------------------------------------------- per-leg replay timeout
+#
+# `replay` measures the wall clock of its own run and writes it into the
+# manifest it produces as `replay_seconds` — a measurement like `reads`, written
+# by this tool only (a workstation `record` drops it, `compare` does not compare
+# it). `plan` turns it into the leg's `timeout_minutes`, which lane-inputs.yml
+# puts on the replay STEP; the record job keeps its own `timeout-minutes` as the
+# outer bound. Before this (#1683, 2026-09-24) one 90-minute job bound held a
+# hung 2-minute leg (frontend--lighthouse, > 60 min in the replay step) as long
+# as the slowest real one.
+#
+# Per manifest, not per invocation: the step the bound applies to runs ONE
+# `replay`, i.e. every invocation of the manifest plus the recorder's own git
+# calls between them, so that whole span is the quantity measured.
+
+#: Headroom over one recorded duration. Measured over the five runs of
+#: 2026-09-24 (35979465184, 35997205619, 36003779768, 36003712853, 36014274408):
+#: for every leg whose replay took longer than a minute, the slowest successful
+#: replay was at most 1.75× its fastest (backend-guards--integration 225–394 s,
+#: backend--coverage 1222–1756 s). 3× clears that spread from whichever run was
+#: recorded, while a hang — frontend--lighthouse at > 30× its usual 78–117 s — is
+#: cut off at a tenth of the old bound.
+TIMEOUT_FACTOR = 3
+#: Short legs replay in seconds (a docker-derived leg in 0–24 s), where the
+#: runner's own jitter (a cold uv cache, a slow `git ls-files`) dominates the
+#: measurement; three times a few seconds is no bound anyone could rely on.
+TIMEOUT_FLOOR_MINUTES = 10
+#: The record job's own `timeout-minutes` in lane-inputs.yml (pinned by the
+#: recorder test): a step bound above it would never fire, and a leg that has
+#: never been measured (a bootstrap, or a manifest recorded on a workstation) gets
+#: exactly the bound it had before.
+TIMEOUT_CAP_MINUTES = 90
+#: A replay that completed cannot have taken longer than the job that ran it, so
+#: a larger value was not written by this tool (the guard's `_REPLAY_SECONDS_MAX`).
+REPLAY_SECONDS_MAX = TIMEOUT_CAP_MINUTES * 60
 
 #: The syscalls that decide "this file was read". ``openat``/``open`` for files,
 #: ``getdents64`` for directory listings, ``execve`` so the followed subprocesses
@@ -206,6 +244,49 @@ GATE_KINDS = ("on-paths", "paths-filter", "unfiltered")
 
 class LaneInputsError(Exception):
     """A usage or environment problem, reported without a traceback."""
+
+
+def replay_seconds_problem(manifest: dict[str, Any]) -> str | None:
+    """Why *manifest*'s ``replay_seconds`` is not a measurement this tool could have written, or ``None``.
+
+    A whole number of seconds (rounded up, so at least 1) no larger than the job
+    that ran the replay allows. ``bool`` is excluded explicitly: YAML's ``true``
+    is an ``int`` to Python.
+    """
+    if "replay_seconds" not in manifest:
+        return "has no `replay_seconds`"
+    value = manifest["replay_seconds"]
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= REPLAY_SECONDS_MAX:
+        return (
+            f"`replay_seconds: {value!r}` is not a whole number of seconds between 1 and {REPLAY_SECONDS_MAX} "
+            f"(the record job's own bound)"
+        )
+    return None
+
+
+def leg_timeout_minutes(manifest: dict[str, Any] | None) -> int:
+    """The replay step's bound for one leg: TIMEOUT_FACTOR × the measured replay, floored and capped.
+
+    ``None`` (a bootstrap leg, no manifest yet) and a manifest without a usable
+    measurement get the cap — the bound every leg had before it was measured.
+    """
+    if manifest is None or replay_seconds_problem(manifest) is not None:
+        return TIMEOUT_CAP_MINUTES
+    minutes = math.ceil(TIMEOUT_FACTOR * int(manifest["replay_seconds"]) / 60)
+    return min(TIMEOUT_CAP_MINUTES, max(TIMEOUT_FLOOR_MINUTES, minutes))
+
+
+def with_replay_seconds(manifest: dict[str, Any], seconds: int) -> dict[str, Any]:
+    """*manifest* with ``replay_seconds`` placed after ``measured_at_commit``, beside the other run facts."""
+    out: dict[str, Any] = {}
+    for key, value in manifest.items():
+        if key == "replay_seconds":
+            continue
+        out[key] = value
+        if key == "measured_at_commit":
+            out["replay_seconds"] = seconds
+    out.setdefault("replay_seconds", seconds)
+    return out
 
 
 @dataclass
@@ -529,6 +610,10 @@ def _merge_into(
     manifest["subprocesses"] = sorted(programs)
     manifest["measured_on"] = dt.date.today().isoformat()
     manifest["measured_at_commit"] = head_commit()
+    # The duration described the invocations as they were; with one added or
+    # re-recorded it describes nothing. `replay` writes a fresh one after its
+    # last invocation, a workstation `record` leaves the leg unmeasured (the cap).
+    manifest.pop("replay_seconds", None)
 
 
 # ----------------------------------------------------------------------- record
@@ -1020,7 +1105,10 @@ def _replay_base(committed: dict[str, Any]) -> dict[str, Any]:
     base["subprocesses"] = []
     base["reads"] = []
     base["status"] = "measured"
+    # Written under the recorder's contract, not the committed file's.
+    base["schema"] = SCHEMA
     base.pop("partial_reason", None)
+    base.pop("replay_seconds", None)
     return base
 
 
@@ -1142,6 +1230,7 @@ def command_replay(args: argparse.Namespace) -> int:
         SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
         target = out_dir / name
         write_manifest(target, base)
+        started = time.monotonic()
         for index, argv in enumerate(argvs):
             code = main(argv)
             if code != EXIT_OK:
@@ -1150,9 +1239,15 @@ def command_replay(args: argparse.Namespace) -> int:
                     f"{name}: invocations[{index}] could not be recorded (exit {code}); no manifest was written, so "
                     f"`compare` reports this lane as unrecorded instead of certifying a shorter read set"
                 )
+        # Rounded up: the bound `plan` derives from it must not come out tighter than what was measured.
+        seconds = max(1, math.ceil(time.monotonic() - started))
+        write_manifest(target, with_replay_seconds(load_manifest(target), seconds))
     finally:
         os.environ["PATH"] = saved_path
-    print(f"lane-inputs: replayed {len(argvs)} invocation(s) → {_display(target)}", file=sys.stderr)
+    print(
+        f"lane-inputs: replayed {len(argvs)} invocation(s) in {seconds} s → {_display(target)}",
+        file=sys.stderr,
+    )
     return EXIT_OK
 
 
@@ -1186,7 +1281,11 @@ def environment_flags(invocations: list[dict[str, Any]]) -> dict[str, bool]:
 
 
 def plan_matrix(manifest_dir: Path | None = None) -> list[dict[str, Any]]:
-    """One matrix leg per manifest with invocations, plus one per unrecorded ``covered_by`` target."""
+    """One matrix leg per manifest with invocations, plus one per unrecorded ``covered_by`` target.
+
+    Each leg carries ``timeout_minutes`` (:func:`leg_timeout_minutes`) for the
+    record job's replay step.
+    """
     directory = manifest_dir or MANIFEST_DIR
     manifests = {path.name: load_manifest(path) for path in sorted(directory.glob("*.yaml"))}
     legs: list[dict[str, Any]] = []
@@ -1195,7 +1294,14 @@ def plan_matrix(manifest_dir: Path | None = None) -> list[dict[str, Any]]:
         if not invocations:
             continue
         lane = f"{_display(directory / name)}"
-        legs.append({"name": name.removesuffix(".yaml"), "lane": lane, **environment_flags(invocations)})
+        legs.append(
+            {
+                "name": name.removesuffix(".yaml"),
+                "lane": lane,
+                "timeout_minutes": leg_timeout_minutes(manifest),
+                **environment_flags(invocations),
+            }
+        )
     recorded = {(str(m.get("workflow")), str(m.get("job"))) for m in manifests.values()}
     targets = sorted(
         {
@@ -1213,6 +1319,7 @@ def plan_matrix(manifest_dir: Path | None = None) -> list[dict[str, Any]]:
             {
                 "name": manifest_stem(workflow, job),
                 "lane": target,
+                "timeout_minutes": leg_timeout_minutes(None),
                 **environment_flags(bootstrap_invocations(workflow, job)),
             }
         )
@@ -1254,6 +1361,21 @@ def _sample(paths: list[str], limit: int = 10) -> str:
 def manifest_differences(name: str, committed: dict[str, Any], recorded: dict[str, Any]) -> list[str]:
     """What the committed manifest claims that the CI recording of the same lane does not agree with."""
     findings: list[str] = []
+    # `replay_seconds` is not compared — wall clock varies run to run — but a
+    # manifest that was replayed must carry one: the committed side, or its leg
+    # is bounded at the job-level cap without anything saying so; the recorded
+    # side, or the recorder stopped measuring itself.
+    problem = replay_seconds_problem(committed)
+    if problem == "has no `replay_seconds`":
+        findings.append(
+            f"{name}: the committed manifest {problem}, so `plan` gives its leg the job-level "
+            f"{TIMEOUT_CAP_MINUTES}-minute bound — commit the CI recording"
+        )
+    elif problem is not None:
+        findings.append(f"{name}: the committed manifest's {problem} — commit the CI recording")
+    problem = replay_seconds_problem(recorded)
+    if problem is not None:
+        findings.append(f"{name}: the CI recording {problem} — the replay did not measure itself")
     if committed.get("job_spec_sha256") != recorded.get("job_spec_sha256"):
         findings.append(
             f"{name}: job_spec_sha256 {str(committed.get('job_spec_sha256'))[:12]} is not the live job's "
@@ -1292,7 +1414,10 @@ def compare_manifests(committed_dir: Path, recorded_dir: Path) -> tuple[list[str
     Compared: ``reads`` (as sets), ``job_spec_sha256``, ``status`` and the
     ``invocations`` (command, cwd, env, exit code — scratch paths normalised).
     Not compared: when and where the recording ran (``measured_on``,
-    ``measured_at_commit``, ``subprocesses``, ``untracked_reads_dropped``) and
+    ``measured_at_commit``, ``subprocesses``, ``untracked_reads_dropped``), how
+    long it took (``replay_seconds`` — wall clock varies run to run; it sizes the
+    next run's step bound and is committed with the recording, and only its
+    presence and range are held, on both sides) and
     the hand-written fields a replay carries over verbatim. A manifest with
     invocations that the recording lacks is a finding — its record leg failed
     or never ran, and silence there would read as agreement. A recorded manifest

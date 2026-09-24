@@ -10,7 +10,8 @@ gate:
   kind: unfiltered
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
+measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
+replay_seconds: 751
 job_spec_sha256: de4e017c42319e4ede1b2bcd07bb2c49caaf55de44ddd4eb111bb92c4e4c6fa3
 invocations:
 - command: pytest tests/unit/api tests/unit/guards -q --max-skipped 0 -m 'not advisory'

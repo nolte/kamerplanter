@@ -175,6 +175,7 @@ class TestTheContractIsTheSameInBothFiles:
     def test_schema_and_reason_floor(self, guard: ModuleType) -> None:
         assert recorder.SCHEMA == guard._SCHEMA, "a manifest written by this recorder must be one the guard accepts"
         assert recorder.MIN_REASON_CHARS == guard._MIN_REASON_CHARS
+        assert recorder.REPLAY_SECONDS_MAX == guard._REPLAY_SECONDS_MAX
 
     def test_a_reason_shorter_than_the_floor_is_refused_at_the_command_line(self) -> None:
         import argparse
@@ -248,8 +249,16 @@ def _committed(**overrides: object) -> dict:
         "subprocesses": ["python"],
         "accepted_gaps": [],
         "reads": ["src/backend/a.py", "src/backend/tests/"],
+        "replay_seconds": 120,
     }
     manifest.update(overrides)
+    return manifest
+
+
+def _unmeasured(**overrides: object) -> dict:
+    """A manifest as a workstation `record` (or the recorder before #1683's per-leg timeout) wrote it."""
+    manifest = _committed(**overrides)
+    del manifest["replay_seconds"]
     return manifest
 
 
@@ -582,3 +591,138 @@ class TestScratchInputs:
         manifest = recorder.load_manifest(recorder.MANIFEST_DIR / "security-zap-postmerge--zap-scan.yaml")
         gates = [i for i in manifest["invocations"] if "zap_gate.py" in i["command"]]
         assert gates and all(i.get("scratch_inputs", {}).get("zap-empty.json") for i in gates)
+
+
+# ------------------------------------------------ per-leg replay timeout (#1683)
+
+
+class TestThePlanSizesEachLegsTimeoutFromItsMeasuredReplay:
+    """`plan` turns a manifest's measured `replay_seconds` into the leg's step timeout.
+
+    Asserted through ``plan_matrix`` — the function ``plan --github-output``
+    serialises into the matrix the ``record`` job reads — over a planted
+    manifest directory, so the arithmetic is reached the way production reaches it.
+    """
+
+    @pytest.mark.parametrize(
+        ("seconds", "minutes"),
+        [
+            (1, 10),  # a docker-derived leg: the floor, not 1 minute
+            (200, 10),  # 3 × 200 s = 10 min exactly
+            (201, 11),  # rounded UP: a bound rounded down is tighter than the rule
+            (394, 20),  # backend-guards--integration, slowest of five runs on 2026-09-24
+            (1756, 88),  # backend--coverage, slowest successful leg measured on 2026-09-24
+            (1800, 90),
+            (1801, 90),  # capped at the job-level bound
+            (5400, 90),
+        ],
+    )
+    def test_three_times_the_recorded_duration_between_floor_and_cap(
+        self, tmp_path: Path, seconds: int, minutes: int
+    ) -> None:
+        _write(tmp_path, "w--j.yaml", _committed(replay_seconds=seconds))
+        (leg,) = recorder.plan_matrix(tmp_path)
+        assert leg["timeout_minutes"] == minutes
+
+    @pytest.mark.parametrize("value", [None, 0, -5, "600", True, 12.5, 5401])
+    def test_a_leg_without_a_usable_measurement_gets_the_job_level_bound(self, tmp_path: Path, value: object) -> None:
+        manifest = _unmeasured() if value is None else _committed(replay_seconds=value)
+        _write(tmp_path, "w--j.yaml", manifest)
+        (leg,) = recorder.plan_matrix(tmp_path)
+        assert leg["timeout_minutes"] == recorder.TIMEOUT_CAP_MINUTES == 90
+
+    def test_a_bootstrap_leg_has_never_been_measured_and_gets_the_job_level_bound(self, tmp_path: Path) -> None:
+        _write(
+            tmp_path,
+            "w--j.yaml",
+            _committed(
+                replay_seconds=60,
+                accepted_gaps=[{"pattern": "x", "reason": "r" * 50, "covered_by": "backend-guards.yml/guards"}],
+            ),
+        )
+        legs = {leg["name"]: leg for leg in recorder.plan_matrix(tmp_path)}
+        assert legs["w--j"]["timeout_minutes"] == 10
+        assert legs["backend-guards--guards"]["timeout_minutes"] == recorder.TIMEOUT_CAP_MINUTES
+
+    def test_the_cap_is_the_record_jobs_own_bound_and_the_replay_step_reads_the_leg(self) -> None:
+        """The cap equals the job-level `timeout-minutes`, and the replay step is bounded by the matrix value."""
+        _path, document = recorder.load_workflow("lane-inputs.yml")
+        record = document["jobs"]["record"]
+        assert record["timeout-minutes"] == recorder.TIMEOUT_CAP_MINUTES
+        (replay,) = [step for step in record["steps"] if "lane_inputs.py replay" in str(step.get("run", ""))]
+        assert replay.get("timeout-minutes") == "${{ matrix.timeout_minutes }}"
+
+
+class TestTheReplayMeasuresItsOwnDuration:
+    """`replay` writes `replay_seconds` — the wall clock of the step the timeout bounds — into its manifest."""
+
+    def test_the_replayed_manifest_carries_the_measured_seconds_rounded_up(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Only the tracer is doubled: `replay` → `main(record …)` → `command_record` run as in CI.
+        monkeypatch.setattr(
+            recorder,
+            "run_traced",
+            lambda command, *, cwd, env: recorder.Trace(files={str(recorder.REPO_ROOT / "scripts/ci/lane_inputs.py")}),
+        )
+        clock = iter([1000.0, 1242.2])
+        monkeypatch.setattr(recorder.time, "monotonic", lambda: next(clock))
+        out = tmp_path / "out"
+        code = recorder.main(["replay", "--out-dir", str(out), ".github/lane-inputs/lane-inputs--plan.yaml"])
+        assert code == recorder.EXIT_OK
+        manifest = recorder.load_manifest(out / "lane-inputs--plan.yaml")
+        assert manifest["replay_seconds"] == 243
+        assert manifest["reads"] == ["scripts/ci/lane_inputs.py"]
+        assert manifest["schema"] == recorder.SCHEMA
+
+    def test_a_replay_does_not_carry_the_committed_duration_over(self) -> None:
+        assert "replay_seconds" not in recorder._replay_base(_committed(replay_seconds=600))
+
+    def test_a_workstation_record_drops_a_duration_that_no_longer_describes_the_invocations(self) -> None:
+        manifest = _committed(replay_seconds=600)
+        recorder._merge_into(manifest, invocation={"command": "pytest"}, reads=set(), execs=[])
+        assert "replay_seconds" not in manifest
+
+
+class TestCompareDoesNotTreatTheDurationAsDrift:
+    def test_a_different_duration_is_no_finding(self, tmp_path: Path) -> None:
+        _write(tmp_path / "committed", "w--j.yaml", _committed(replay_seconds=100))
+        _write(tmp_path / "recorded", "w--j.yaml", _committed(replay_seconds=900))
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == [], "wall-clock time varies run to run; it sizes a bound, it is not a read"
+
+
+class TestCompareHoldsTheDurationsPresence:
+    """The value is not compared; its absence where a replay happened is a finding (#1683 per-leg timeout)."""
+
+    def test_a_committed_manifest_with_invocations_and_no_duration_is_a_finding(self, tmp_path: Path) -> None:
+        _write(tmp_path / "committed", "w--j.yaml", _unmeasured())
+        _write(tmp_path / "recorded", "w--j.yaml", _committed())
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == [
+            "w--j.yaml: the committed manifest has no `replay_seconds`, so `plan` gives its leg the job-level "
+            "90-minute bound — commit the CI recording"
+        ]
+
+    def test_a_recording_without_a_duration_is_a_finding_against_the_recorder(self, tmp_path: Path) -> None:
+        _write(tmp_path / "committed", "w--j.yaml", _committed())
+        _write(tmp_path / "recorded", "w--j.yaml", _unmeasured())
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == ["w--j.yaml: the CI recording has no `replay_seconds` — the replay did not measure itself"]
+
+    @pytest.mark.parametrize("value", [0, 5401, "600", True, 12.5])
+    def test_a_hand_edited_duration_is_a_finding(self, tmp_path: Path, value: object) -> None:
+        _write(tmp_path / "committed", "w--j.yaml", _committed(replay_seconds=value))
+        _write(tmp_path / "recorded", "w--j.yaml", _committed())
+        (finding,) = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")[0]
+        assert "is not a whole number of seconds between 1 and 5400" in finding
+
+    def test_a_manifest_without_invocations_needs_none(self, tmp_path: Path) -> None:
+        _write(
+            tmp_path / "committed",
+            "w--changes.yaml",
+            _unmeasured(invocations=[], reads=[], empty_reads_reason="checkout and paths-filter only, nothing read"),
+        )
+        (tmp_path / "recorded").mkdir()
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == []
