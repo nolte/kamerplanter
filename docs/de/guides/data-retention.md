@@ -174,9 +174,27 @@ gar nicht.
 
 Deinen eigenen Antrag führt der tägliche Lauf nach Ablauf der 90 Tage aus. Danach steht
 er auf `completed` und trägt statt deiner Kontokennung den Tombstone-Hash. Schlägt ein
-Lauf fehl, bleibt der Antrag als `partially_completed` offen, und der nächste tägliche
-Lauf wiederholt die ganze Löschung. Solange ein Antrag offen ist, kannst du keinen
-zweiten stellen.
+Lauf fehl, bleibt der Antrag als `partially_completed` offen und wird wiederholt, bis er
+gelingt. Solange ein Antrag offen ist, kannst du keinen zweiten stellen.
+
+??? info "Für Betreiber: Wiederholungen und Log-Level"
+    Jeder fehlgeschlagene Versuch wird am Antrag gezählt (`attempt_count`,
+    `last_attempt_at`), und der nächste Versuch wartet 1, 2, 4 und danach höchstens
+    7 Tage (`next_attempt_at`). Der Antrag bleibt dabei ausgewählt; der tägliche Lauf
+    überspringt ihn bis dahin mit `retention.erasure.deferred` (Level info).
+    Dateispeicher- und Referenzindex-Bereinigung laufen pro Antrag nur einmal: Sind sie
+    erledigt (`pre_arango_completed_at`), wiederholt ein späterer Versuch nur noch den
+    Datenbankteil.
+
+    `retention.erasure.failed` bzw. `retention.erasure.steps_unreached` erscheinen auf
+    Level error nur beim ersten Fehlschlag und beim fünften Versuch (`escalated=true`),
+    dazwischen auf Level info. Die Zahl offener, fehlschlagender Anträge steht in jedem
+    Lauf als `open_failing` im Event `retention.execute_scheduled_erasures.completed`.
+
+    Fehlt `ERASURE_TOMBSTONE_SALT`, ist das ein Konfigurationsfehler: Jeder Lauf schreibt
+    genau eine Zeile `retention.execute_scheduled_erasures.not_configured` auf Level
+    error, verbraucht keinen Versuch und fasst keine Daten an. Nach der Korrektur laufen
+    alle offenen Anträge beim nächsten täglichen Lauf.
 
 ---
 

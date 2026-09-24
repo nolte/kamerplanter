@@ -168,8 +168,26 @@ database part runs as one unit: it is either done completely or not at all.
 
 Your own request is carried out by the daily run once the 90 days have passed. After that
 it reads `completed` and carries the tombstone hash instead of your account key. If a run
-fails, the request stays open as `partially_completed` and the next daily run repeats the
-whole erasure. While a request is open, you cannot file a second one.
+fails, the request stays open as `partially_completed` and is retried until it succeeds.
+While a request is open, you cannot file a second one.
+
+??? info "For operators: retries and log levels"
+    Every failed attempt is counted on the request (`attempt_count`, `last_attempt_at`),
+    and the next attempt waits 1, 2, 4 and then at most 7 days (`next_attempt_at`). The
+    request stays selected; until then the daily run skips it with
+    `retention.erasure.deferred` (info level). The object-storage and reference-index
+    cleanup runs only once per request: once it has finished
+    (`pre_arango_completed_at`), a later attempt repeats only the database part.
+
+    `retention.erasure.failed` and `retention.erasure.steps_unreached` appear at error
+    level only on the first failure and on the fifth attempt (`escalated=true`), at info
+    level in between. Each run reports the number of open, failing requests as
+    `open_failing` in the `retention.execute_scheduled_erasures.completed` event.
+
+    A missing `ERASURE_TOMBSTONE_SALT` is a configuration error: every run writes exactly
+    one `retention.execute_scheduled_erasures.not_configured` line at error level, spends
+    no attempt and touches no data. Once it is fixed, all open requests run on the next
+    daily run.
 
 ---
 

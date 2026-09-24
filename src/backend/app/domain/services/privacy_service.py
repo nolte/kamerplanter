@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -120,6 +120,16 @@ class PrivacyService:
     # daily, so 6 h is well beyond a single healthy run yet short enough to
     # recover a crashed worker on the next day's run.
     ERASURE_STALE_AFTER_HOURS = 6
+    # #1666 — retry lifecycle of a failing scheduled erasure. The n-th failed
+    # attempt defers the next one by ``2 ** (n - 1)`` days, capped: a transient
+    # outage is retried the next night, a persistent failure stops repeating the
+    # full erasure nightly. ``ERASURE_RETRY_SLACK`` absorbs the beat's own
+    # jitter so a one-day backoff does not miss the next 04:00 run by seconds.
+    ERASURE_RETRY_MAX_DELAY_DAYS = 7
+    ERASURE_RETRY_SLACK = timedelta(hours=1)
+    #: The failed attempt that is logged at error a second time (escalation).
+    #: Between the first failure and this one the failures log at info.
+    ERASURE_ESCALATE_AFTER_ATTEMPTS = 5
 
     def __init__(
         self,
@@ -1063,9 +1073,15 @@ class PrivacyService:
         ArangoDB deletion — they rely on the ``attachments`` metadata
         (``created_by == user_key``) which Phase 1 would remove. If Phase 0 or
         0.5 fails, the erasure is marked ``partially_completed`` and the
-        ArangoDB deletion is skipped so the next daily run can retry
+        ArangoDB deletion is skipped so a later run can retry
         (AK-OS-04 / AK-OS-05). The same holds for a failed ArangoDB run: its
         transaction aborts and the request stays ``partially_completed``.
+
+        **Retry lifecycle (#1666):** a failed attempt is counted on the request
+        and defers the next one by 1, 2, 4, then 7 days (capped); a deferred
+        request is still selected and skipped with an info line. A missing
+        executor or tombstone salt is a configuration error, checked once per
+        run: one error line, no request touched, no attempt spent.
 
         **Retry selection (SEC-001):** candidates include not only ``scheduled``
         requests but also ``partially_completed`` (transient failure) and
@@ -1078,16 +1094,96 @@ class PrivacyService:
         if not candidates:
             return 0
 
+        configuration_error = self._erasure_configuration_error()
+        if configuration_error is not None:
+            return self._hold_erasures_for_configuration(candidates, now, configuration_error)
+
         finalised = 0
+        deferred = 0
         for erasure in candidates:
+            if self._erasure_deferred(erasure, now):
+                deferred += 1
+                continue
             if await self._finalize_erasure(erasure, now):
                 finalised += 1
         logger.info(
             "retention.execute_scheduled_erasures.completed",
             candidates=len(candidates),
             finalised=finalised,
+            deferred=deferred,
+            # The gauge of open, failing Art. 17 duties (#1666): what an operator
+            # watches instead of a nightly error line per request.
+            open_failing=sum(1 for e in candidates if e.status != "completed" and e.attempt_count > 0),
         )
         return finalised
+
+    def _erasure_configuration_error(self) -> str | None:
+        """Why this deployment cannot erase anything, or ``None`` when it can.
+
+        #1666 — a missing executor or tombstone salt is not a property of one
+        request and not transient: every candidate fails identically until the
+        operator changes the configuration. It is therefore checked once per
+        run, before any request is touched, instead of surfacing as one error
+        line and one spent retry per request.
+        """
+        if self._erasure_executor is None:
+            return "No erasure executor is wired on this deployment."
+        try:
+            self._erasure_engine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
+        except ValueError:
+            return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        return None
+
+    def _hold_erasures_for_configuration(self, candidates: list[ErasureRequest], now: datetime, reason: str) -> int:
+        """Keep every due request open, untouched, while the deployment cannot erase.
+
+        One error line per run — loud, because a statutory duty is blocked and
+        only the operator can unblock it, but one line and not one per request.
+        No attempt is spent and no backoff is set: the requests carry no failure
+        of their own, so the first run after the fix executes all of them.
+        A request whose ArangoDB plan already committed needs neither executor
+        nor salt and is still closed.
+        """
+        finalised = 0
+        held = 0
+        for erasure in candidates:
+            if erasure.key is None:
+                continue
+            if self._erasure_engine.is_tombstone(erasure.user_key):
+                finalised += int(self._record_committed_erasure(erasure, now))
+                continue
+            held += 1
+            self._mark_erasure(
+                erasure,
+                status="partially_completed",
+                error_message=(
+                    f"Erasure is not configured on this deployment: {reason} "
+                    "It runs on the first daily run after the configuration is fixed."
+                ),
+            )
+        logger.error(
+            "retention.execute_scheduled_erasures.not_configured",
+            reason=reason,
+            held=held,
+            finalised=finalised,
+        )
+        return finalised
+
+    def _erasure_deferred(self, erasure: ErasureRequest, now: datetime) -> bool:
+        """True while a failed request waits out its backoff (#1666).
+
+        The request stays selected by ``list_due_for_hard_delete``; only this
+        run leaves it alone, and says so below error level.
+        """
+        if erasure.next_attempt_at is None or erasure.next_attempt_at <= now + self.ERASURE_RETRY_SLACK:
+            return False
+        logger.info(
+            "retention.erasure.deferred",
+            erasure_key=erasure.key,
+            attempt_count=erasure.attempt_count,
+            next_attempt_at=erasure.next_attempt_at.isoformat(),
+        )
+        return True
 
     async def _finalize_erasure(self, erasure: ErasureRequest, now: datetime) -> bool:
         """Run the account erasure for one due request and record what it did.
@@ -1101,10 +1197,16 @@ class PrivacyService:
         ``completed`` is written only when the returned report accounts for
         every step of the declared inventory. Any exception, or a report that
         leaves a declared step unaccounted for, records ``partially_completed``
-        with the reason; ``list_due_for_hard_delete`` re-selects that state and
-        the next daily run repeats the whole erasure. That repeat is safe:
-        every phase is idempotent and the ArangoDB plan runs in one transaction
-        (pinned by ``tests/integration/test_account_erasure_reach.py``).
+        with the reason and a backoff (:meth:`_record_failed_attempt`);
+        ``list_due_for_hard_delete`` keeps selecting that state.
+
+        #1666 — a retry does not repeat the storage work that already finished:
+        once export cleanup, Phase 0 and Phase 0.5 have run for this request,
+        ``pre_arango_completed_at`` is recorded and the next attempt runs only
+        the ArangoDB plan. Skipping them is safe because the subject is
+        soft-deleted — nothing new is created under their key — and the ArangoDB
+        plan that would remove the attachment index they rely on runs in one
+        transaction, so a failed plan left it intact.
 
         Returns ``True`` when the request reached ``completed``.
         """
@@ -1112,38 +1214,42 @@ class PrivacyService:
             return False
         if self._erasure_engine.is_tombstone(erasure.user_key):
             return self._record_committed_erasure(erasure, now)
-        try:
-            self._mark_erasure(erasure, status="in_progress")
-            report = await self.erase_account(erasure.user_key)
-        except Exception as exc:  # noqa: BLE001 — any failure leaves the duty open for the next run
-            logger.error(
-                "retention.erasure.failed",
-                erasure_key=erasure.key,
-                user_key=erasure.user_key,
-                error=str(exc),
-            )
+
+        def _checkpoint(scopes: list[str]) -> None:
             self._mark_erasure(
                 erasure,
-                status="partially_completed",
-                error_message=f"Erasure did not finish; the next daily run repeats it: {exc}",
+                status="in_progress",
+                storage_cleanup_scopes=scopes,
+                pre_arango_completed_at=now,
+            )
+
+        try:
+            self._mark_erasure(erasure, status="in_progress", last_attempt_at=now)
+            report = await self.erase_account(
+                erasure.user_key,
+                pre_arango_completed=erasure.pre_arango_completed_at is not None,
+                recorded_storage_scopes=erasure.storage_cleanup_scopes,
+                on_pre_arango_complete=_checkpoint,
+            )
+        except Exception as exc:  # noqa: BLE001 — any failure leaves the duty open for a later run
+            self._record_failed_attempt(
+                erasure,
+                now,
+                event="retention.erasure.failed",
+                reason=f"Erasure did not finish: {exc}",
+                error=str(exc),
             )
             return False
 
         unreached = report.unreached(self._erasure_engine.delete_order())
         if unreached:
-            logger.error(
-                "retention.erasure.steps_unreached",
-                erasure_key=erasure.key,
-                unreached=unreached,
-            )
-            self._mark_erasure(
+            self._record_failed_attempt(
                 erasure,
-                status="partially_completed",
-                error_message=(
-                    f"Erasure ran but did not account for the declared steps {', '.join(unreached)}; "
-                    "the next daily run repeats it."
-                ),
+                now,
+                event="retention.erasure.steps_unreached",
+                reason=f"Erasure ran but did not account for the declared steps {', '.join(unreached)}.",
                 storage_cleanup_scopes=report.storage_cleanup_scopes,
+                unreached=unreached,
             )
             return False
 
@@ -1158,6 +1264,48 @@ class PrivacyService:
             storage_cleanup_scopes=report.storage_cleanup_scopes,
         )
         return True
+
+    def _record_failed_attempt(
+        self,
+        erasure: ErasureRequest,
+        now: datetime,
+        *,
+        event: str,
+        reason: str,
+        storage_cleanup_scopes: list[str] | None = None,
+        **log_fields: object,
+    ) -> None:
+        """Count a failed attempt, set its backoff, and log at the right level (#1666).
+
+        Error level is reserved for the two moments an operator must act on:
+        the **first** failure of a request and the attempt that reaches
+        :attr:`ERASURE_ESCALATE_AFTER_ATTEMPTS`. Every failure in between is the
+        same news again and logs at info — the open duty stays visible through
+        the record and the run's ``open_failing`` gauge, not through a nightly
+        error line the operator learns to ignore (NFR-018 §1).
+        """
+        attempt = erasure.attempt_count + 1
+        delay_days = min(2 ** (attempt - 1), self.ERASURE_RETRY_MAX_DELAY_DAYS)
+        next_attempt_at = now + timedelta(days=delay_days)
+        escalated = attempt == self.ERASURE_ESCALATE_AFTER_ATTEMPTS
+        log = logger.error if attempt == 1 or escalated else logger.info
+        log(
+            event,
+            erasure_key=erasure.key,
+            user_key=erasure.user_key,
+            attempt=attempt,
+            escalated=escalated,
+            next_attempt_at=next_attempt_at.isoformat(),
+            **log_fields,
+        )
+        self._mark_erasure(
+            erasure,
+            status="partially_completed",
+            error_message=f"{reason} Attempt {attempt}; the next one is due after {next_attempt_at.date()}.",
+            storage_cleanup_scopes=storage_cleanup_scopes,
+            attempt_count=attempt,
+            next_attempt_at=next_attempt_at,
+        )
 
     def _record_committed_erasure(self, erasure: ErasureRequest, now: datetime) -> bool:
         """Close a request whose ArangoDB plan already committed.
@@ -1179,7 +1327,14 @@ class PrivacyService:
         self._mark_erasure(erasure, status="completed", completed_at=now)
         return True
 
-    async def erase_account(self, user_key: UserKey) -> AccountErasureReport:
+    async def erase_account(
+        self,
+        user_key: UserKey,
+        *,
+        pre_arango_completed: bool = False,
+        recorded_storage_scopes: list[str] | None = None,
+        on_pre_arango_complete: Callable[[list[str]], None] | None = None,
+    ) -> AccountErasureReport:
         """Erase one account: every declared phase, then the ArangoDB plan (#1664).
 
         The single entry both account-deletion paths share: the platform-admin
@@ -1201,6 +1356,18 @@ class PrivacyService:
 
         Every phase is idempotent, so a crash anywhere is repaired by running
         this again; nothing a first run missed is skipped by the second.
+
+        Args:
+            pre_arango_completed: Steps 2 and 3 already finished for this
+                subject on an earlier attempt of the same request (#1666); they
+                are skipped and ``recorded_storage_scopes`` stands in for their
+                result. Only the scheduled path sets this, from its own marker.
+            recorded_storage_scopes: The scopes recorded when steps 2 and 3
+                finished; reported unchanged when they are skipped.
+            on_pre_arango_complete: Called with the applied scopes as soon as
+                steps 2 and 3 finished, before the ArangoDB plan — the scheduled
+                path records its marker here, so a failing plan does not make
+                the next attempt repeat the storage work.
 
         Returns:
             Per-phase and per-step counts. Logged without the rows' content.
@@ -1231,10 +1398,17 @@ class PrivacyService:
         plan = self._erasure_engine.build_erasure_plan(user_key)
 
         report = AccountErasureReport()
-        report.export_files_removed = await self._run_export_file_cleanup(user_key)
-        scopes, reference_removed, pest_removed = await self._run_pre_arango_phases(user_key)
-        report.storage_cleanup_scopes = scopes
-        report.reference_index_removed = reference_removed
+        if pre_arango_completed:
+            logger.info("retention.erasure.pre_arango_phases_skipped", user_key=user_key)
+            report.storage_cleanup_scopes = list(recorded_storage_scopes or [])
+            pest_removed = 0
+        else:
+            report.export_files_removed = await self._run_export_file_cleanup(user_key)
+            scopes, reference_removed, pest_removed = await self._run_pre_arango_phases(user_key)
+            report.storage_cleanup_scopes = scopes
+            report.reference_index_removed = reference_removed
+            if on_pre_arango_complete is not None:
+                on_pre_arango_complete(scopes)
         # The pest-image cleanup removes the rows of the step attributed to it;
         # the executor's own pass over that step is the safety net.
         for step in plan.steps:
@@ -1476,6 +1650,10 @@ class PrivacyService:
         completed_at: datetime | None = None,
         error_message: str | None = None,
         storage_cleanup_scopes: list[str] | None = None,
+        attempt_count: int | None = None,
+        last_attempt_at: datetime | None = None,
+        next_attempt_at: datetime | None = None,
+        pre_arango_completed_at: datetime | None = None,
     ) -> None:
         """Persist an erasure-status transition as a named-field write.
 
@@ -1496,8 +1674,16 @@ class PrivacyService:
             fields["error_message"] = error_message
         if storage_cleanup_scopes is not None:
             fields["storage_cleanup_scopes"] = storage_cleanup_scopes
+        retry_fields = {
+            "attempt_count": attempt_count,
+            "last_attempt_at": last_attempt_at,
+            "next_attempt_at": next_attempt_at,
+            "pre_arango_completed_at": pre_arango_completed_at,
+        }
+        fields.update({name: value for name, value in retry_fields.items() if value is not None})
         if status == "completed":
             fields["error_message"] = None
+            fields["next_attempt_at"] = None
         for field, value in fields.items():
             setattr(erasure, field, value)
         self._erasure_repo.update_fields(erasure.key, _persistable(fields))
