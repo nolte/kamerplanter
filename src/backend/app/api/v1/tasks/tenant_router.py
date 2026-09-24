@@ -109,7 +109,7 @@ def list_workflows(
         target_entity_type=target_entity_type,
     )
     wf_keys = [wt.key for wt in templates if wt.key]
-    usage_map = service.get_workflow_usage_stats(wf_keys) if wf_keys else {}
+    usage_map = service.get_workflow_usage_stats(wf_keys, tenant_key=ctx.tenant_key) if wf_keys else {}
     result = []
     for wt in templates:
         resp = _wf_response(wt)
@@ -189,7 +189,7 @@ def list_workflow_executions(
 ):
     """List a workflow template's executions with enriched entity info."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    return service.get_executions_for_template(key)
+    return service.get_executions_for_template(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/workflows/{key}/instantiate", response_model=WorkflowExecutionResponse, status_code=201)
@@ -242,7 +242,7 @@ def list_phase_suggestions(
     service: TaskService = Depends(get_task_service),
 ):
     """List suggested workflow phases for building templates."""
-    return service.get_phase_suggestions()
+    return service.get_phase_suggestions(tenant_key=ctx.tenant_key)
 
 
 @router.put("/phases/reorder", response_model=list[WorkflowPhaseResponse])

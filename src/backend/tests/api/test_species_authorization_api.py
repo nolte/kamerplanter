@@ -71,7 +71,7 @@ class _FakeRepo(NoGrantsMixin):
         not a shortcut around the scoping."""
         return None
 
-    def find_synonym_match_candidates(self, species: Species) -> list[Species]:
+    def find_synonym_match_candidates(self, species: Species, *, tenant_key: str) -> list[Species]:
         return []
 
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species:

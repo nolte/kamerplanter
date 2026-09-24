@@ -235,10 +235,19 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
     def get_yield_for_batch(self, batch_key: HarvestBatchKey) -> YieldMetric | None:
         return self._yield.find_one_by_field("batch_key", batch_key)
 
-    def get_yield_statistics_for_species(self, species_key: str, days_back: int = 365) -> dict:
+    def get_yield_statistics_for_species(self, species_key: str, days_back: int = 365, *, tenant_key: str) -> dict:
+        """Aggregate ``tenant_key``'s yields of one species over ``days_back`` days.
+
+        A species is catalogue data every tenant shares; its harvests are not.
+        Before #1708 ``GET /t/{slug}/harvest/species/{key}/yield-stats`` resolved
+        the caller's tenant and then averaged every tenant's batches. The batch
+        carries ``tenant_key`` itself, so that is where the predicate hangs.
+        """
+        self._require_tenant_key(tenant_key, "get_yield_statistics_for_species")
         cutoff = (datetime.now(UTC) - timedelta(days=days_back)).isoformat()
         query = """
         FOR hb IN harvest_batches
+            FILTER hb.tenant_key == @tenant_key
             FOR pi IN plant_instances
                 FILTER pi._key == hb.plant_key
                 FILTER pi.species_key == @species_key
@@ -258,7 +267,7 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
                         avg_trim_waste_percent: avg_trim_waste
                     }
         """
-        bind = {"species_key": species_key, "cutoff": cutoff}
+        bind = {"species_key": species_key, "cutoff": cutoff, "tenant_key": tenant_key}
         cursor = self._db.aql.execute(query, bind_vars=bind)
         result = next(cursor, None)
         return result or {

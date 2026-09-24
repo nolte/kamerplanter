@@ -243,9 +243,9 @@ class TaskService:
             target_entity_type=target_entity_type,
         )
 
-    def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]:
-        """Return species_name and assigned plant count per workflow key."""
-        return self._repo.get_workflow_usage_stats(wf_keys)
+    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
+        """Return species_name and ``tenant_key``'s assigned entity count per workflow key (#1708)."""
+        return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key)
 
     def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
         wt = self._repo.get_workflow_template_or_raise(key)
@@ -464,8 +464,8 @@ class TaskService:
             self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
         return self._repo.reorder_phases(phase_orders)
 
-    def get_phase_suggestions(self) -> list[dict]:
-        return self._repo.get_phase_suggestions()
+    def get_phase_suggestions(self, *, tenant_key: str) -> list[dict]:
+        return self._repo.get_phase_suggestions(tenant_key=tenant_key)
 
     # ── Task Templates ──
 
@@ -1756,5 +1756,5 @@ class TaskService:
     def get_workflow_execution(self, key: str) -> WorkflowExecution:
         return self._repo.get_workflow_execution_or_raise(key)
 
-    def get_executions_for_template(self, template_key: str) -> list[dict]:
-        return self._repo.get_executions_for_template(template_key)
+    def get_executions_for_template(self, template_key: str, *, tenant_key: str) -> list[dict]:
+        return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key)

@@ -10,6 +10,31 @@ from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 
 
+def visible_fertilizer_labels(
+    db: StandardDatabase, keys: list[str], *, tenant_key: str
+) -> dict[str, tuple[str | None, str | None]]:
+    """``{key: (product_name, brand)}`` for the fertilizers ``tenant_key`` may see (#1708).
+
+    The one place a caller-supplied list of fertilizer keys is turned into
+    display labels. A key reaches such a lookup from a document the caller owns —
+    a watering log's ``fertilizers_used``, a nutrient plan entry — but nothing
+    verifies it on write, so resolving it unscoped disclosed a foreign tenant's
+    *private* product name and brand (the #952 shape). The catalogue's own ∪
+    global union applies; a key it rejects is simply absent, and the caller shows
+    the key instead. An empty ``tenant_key`` collapses to global-only.
+    """
+    if not keys:
+        return {}
+    predicate, predicate_vars = tenant_union_predicate(tenant_key, doc_var="f")
+    query = f"""
+    FOR f IN {col.FERTILIZERS}
+      FILTER f._key IN @keys AND {predicate}
+      RETURN {{ key: f._key, product_name: f.product_name, brand: f.brand }}
+    """
+    cursor = db.aql.execute(query, bind_vars={"keys": list(keys), **predicate_vars})
+    return {row["key"]: (row["product_name"], row["brand"]) for row in cursor}
+
+
 class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRepository):
     is_tenant_scoped = True
     _model_cls = Fertilizer
