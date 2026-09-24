@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: e96ac87e6caa97e530935dbc5ac0f5ed8cfa5e9a
+measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
 job_spec_sha256: 0499a0f895191a28519aec2e580ec79d23b26696df7a9be4083617fff3f3b75d
 invocations:
 - command: helm dependency build helm/kamerplanter
@@ -36,7 +36,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 340
+  untracked_reads_dropped: 341
 - command: scripts/ci/skaffold_render_verify.sh /tmp/lane-inputs-scratch/rendered-manifests.yaml
   cwd: .
   recorder: strace -ff -y -z
@@ -73,7 +73,6 @@ reads:
 - .audits/e2e-tcid-drift/2026-07-26/
 - .audits/issue-orchestrate/
 - .audits/issue-orchestrate/1098/
-- .audits/issue-orchestrate/1730/
 - .audits/issue-orchestrate/737/
 - .audits/issue-orchestrate/749/
 - .audits/issue-orchestrate/754/
