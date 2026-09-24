@@ -275,7 +275,7 @@ TIMESCALEDB_ENABLED=true
 | Ollama | [http://localhost:11434](http://localhost:11434) | `ollama` | Lokaler LLM-Server (API) |
 
 !!! note "Reranker-Service nur von diesem Rechner erreichbar"
-    Der Reranker-Service hat keine eigene Authentifizierung. Port 8081 ist deshalb ausschließlich an `127.0.0.1` gebunden: `http://localhost:8081` funktioniert weiterhin von diesem Rechner aus, aber nicht mehr von einem anderen Gerät im selben Netzwerk.
+    Der Reranker-Service hat keine eigene Authentifizierung. Port 8081 ist deshalb ausschließlich an `127.0.0.1` gebunden: `http://localhost:8081` funktioniert weiterhin von diesem Rechner aus, aber nicht mehr von einem anderen Gerät im selben Netzwerk. Der Container läuft dabei schreibgeschützt, als UID 1000 und ohne Linux-Capabilities — siehe „Container-Härtung" in der [KI-Architektur](../architecture/ai-architecture.md).
 
 ---
 
