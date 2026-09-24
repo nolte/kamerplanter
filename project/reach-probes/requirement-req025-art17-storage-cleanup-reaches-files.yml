@@ -1,0 +1,50 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of the gate for the
+# autonomous #1745 run, relayed by the orchestrating session — not an interactive batch
+# answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
+#
+# Categories resolve through local_fs_adapter._erasure_scope_categories (the code's declared
+# scope -> category map): user_personal names no existing category (no profile/user_notes
+# AttachmentCategory), so it contributes no member. The seed also stores id_recognition, which
+# no scope names; its line is observed but deliberately not expected.
+id: requirement-req025-art17-storage-cleanup-reaches-files
+summary: subject's seeded stored files after erasure — hard-deleted or anonymise-and-strip, per STORAGE_CLEANUP_RULES
+  scope
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L265); §3.5 Phase 0 (L899-941); AK-OS-01..04 (L1223-1226)
+tier: T2
+expected:
+  kind: set
+  unit: per-category outcome of the seeded stored file after erasure finalisation, for categories a STORAGE_CLEANUP_RULES
+    scope names
+  values:
+  - stripped/diary
+  - stripped/ipm
+  - stripped/harvest
+  - stripped/post_harvest
+  - stripped/task
+  - stripped/plant
+  - deleted/pest_reference
+derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:seed:stored-files
+- reach:erasure:finalise-for-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_storage_residue.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-24T21:45:43Z'
+  approved_by: nolte
+  observation_digest: a59b614f091660505f12dc177fc8f6b1a079146ab9eeed45ef19f24fca6c17df
