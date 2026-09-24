@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: 6c0673f48c5ab2fe02f80efa24cedda22abf17100d8465bdfc5bf25dd69e92fb
 invocations:
 - command: task deps:sync:kp-vectordb
@@ -18,7 +18,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 101
+  untracked_reads_dropped: 99
 - command: task test:kp-vectordb
   cwd: .
   recorder: strace -ff -y -z
@@ -28,6 +28,7 @@ invocations:
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
+- python3
 - task
 - uv
 accepted_gaps: []

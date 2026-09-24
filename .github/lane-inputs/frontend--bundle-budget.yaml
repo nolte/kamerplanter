@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: 719d4303fea0cff98e75888584aed662620dd1fc38e2e02adda79bb0278bb7e7
 invocations:
 - command: npm run build
@@ -268,6 +268,7 @@ reads:
 - src/frontend/src/components/form/PlantInstanceAutocompleteField.tsx
 - src/frontend/src/components/form/PlantInstancePicker.tsx
 - src/frontend/src/components/form/SpeciesAutocompleteField.tsx
+- src/frontend/src/components/form/SpeciesMultiAutocompleteField.tsx
 - src/frontend/src/components/form/SubstrateSelectField.tsx
 - src/frontend/src/components/form/UnsavedChangesGuard.tsx
 - src/frontend/src/components/glossary/

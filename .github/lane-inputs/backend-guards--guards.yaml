@@ -10,7 +10,7 @@ gate:
   kind: unfiltered
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: de4e017c42319e4ede1b2bcd07bb2c49caaf55de44ddd4eb111bb92c4e4c6fa3
 invocations:
 - command: pytest tests/unit/api tests/unit/guards -q --max-skipped 0 -m 'not advisory'
@@ -19,7 +19,7 @@ invocations:
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 4734
+  untracked_reads_dropped: 4735
 subprocesses:
 - awk
 - bash
@@ -1454,6 +1454,7 @@ reads:
 - src/backend/app/migrations/versions/v0055_rename_account_type_user_to_human.py
 - src/backend/app/migrations/versions/v0056_stamp_attribution_user_keys.py
 - src/backend/app/migrations/versions/v0057_stamp_quality_assessor_user_key.py
+- src/backend/app/migrations/versions/v0058_stamp_nutrient_plan_species_relation.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -1554,6 +1555,7 @@ reads:
 - src/backend/tests/api/test_enrichment.py
 - src/backend/tests/api/test_error_handling.py
 - src/backend/tests/api/test_family_relationship_role_gate.py
+- src/backend/tests/api/test_favorites_matching_plans_router.py
 - src/backend/tests/api/test_freestyle_tasks_tenant_router.py
 - src/backend/tests/api/test_global_router_write_gates_api.py
 - src/backend/tests/api/test_glossary_endpoints.py
@@ -1647,6 +1649,7 @@ reads:
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_location_label_projection.py
 - src/backend/tests/integration/test_merge_mode_null_clearing.py
+- src/backend/tests/integration/test_nutrient_plan_species_matching.py
 - src/backend/tests/integration/test_onboarding_repositories_tenant_scope.py
 - src/backend/tests/integration/test_open_task_by_name_lookup.py
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
@@ -1654,6 +1657,7 @@ reads:
 - src/backend/tests/integration/test_plant_scoped_route_residue_tenant_scope.py
 - src/backend/tests/integration/test_privacy_export_walk.py
 - src/backend/tests/integration/test_propagation_lineage_tenant_isolation.py
+- src/backend/tests/integration/test_seeded_plan_species_relation.py
 - src/backend/tests/integration/test_self_service_erasure_reach.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
@@ -1666,6 +1670,7 @@ reads:
 - src/backend/tests/integration/test_v0055_rename_account_type_user_to_human.py
 - src/backend/tests/integration/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/integration/test_v0057_stamp_quality_assessor_user_key.py
+- src/backend/tests/integration/test_v0058_stamp_nutrient_plan_species_relation.py
 - src/backend/tests/support/
 - src/backend/tests/support/__init__.py
 - src/backend/tests/support/arango_integration.py
@@ -2291,6 +2296,7 @@ reads:
 - src/backend/tests/unit/migrations/test_seed_overwintering_profiles.py
 - src/backend/tests/unit/migrations/test_seed_phase_sequence_binding.py
 - src/backend/tests/unit/migrations/test_seed_phase_sequences_key_stability.py
+- src/backend/tests/unit/migrations/test_seed_plan_species_names_resolve.py
 - src/backend/tests/unit/migrations/test_seed_post_seed_binding_verification.py
 - src/backend/tests/unit/migrations/test_seed_propagation_methods.py
 - src/backend/tests/unit/migrations/test_seed_registry.py
@@ -2345,6 +2351,7 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0055_rename_account_type_user_to_human.py
 - src/backend/tests/unit/migrations/versions/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/unit/migrations/versions/test_v0057_stamp_quality_assessor_user_key.py
+- src/backend/tests/unit/migrations/versions/test_v0058_stamp_nutrient_plan_species_relation.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -2631,6 +2638,7 @@ reads:
 - src/frontend/src/test/mocks/
 - src/frontend/src/test/observability/
 - src/frontend/src/test/pages/
+- src/frontend/src/test/pages/onboarding/
 - src/frontend/src/test/routes/
 - src/frontend/src/test/store/
 - src/frontend/src/test/theme/

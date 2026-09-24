@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: 0da009c71384cae56b1c123734033257788ee84029863b6e75368a285f054cb9
 invocations:
 - command: python3 scripts/ci/lane_inputs.py compare .github/lane-inputs --run-id 0

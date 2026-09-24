@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 76a0463793fd8020ce4b292c4954bc102b53c94e
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: baa12515c457a3c6d076af784675fed386877edb43f04e5903e09ab9725a90bf
 invocations:
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
@@ -33,7 +33,7 @@ invocations:
   - nginx.conf
   - nginx-security-headers.inc
   - docker-entrypoint.d/
-  context_files_after_dockerignore: 1073
+  context_files_after_dockerignore: 1076
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -265,6 +265,7 @@ reads:
 - src/frontend/src/components/form/PlantInstanceAutocompleteField.tsx
 - src/frontend/src/components/form/PlantInstancePicker.tsx
 - src/frontend/src/components/form/SpeciesAutocompleteField.tsx
+- src/frontend/src/components/form/SpeciesMultiAutocompleteField.tsx
 - src/frontend/src/components/form/SubstrateSelectField.tsx
 - src/frontend/src/components/form/UnsavedChangesGuard.tsx
 - src/frontend/src/components/glossary/TermTooltip.tsx
@@ -766,6 +767,7 @@ reads:
 - src/frontend/src/test/components/SeasonOverviewPanel.test.tsx
 - src/frontend/src/test/components/SensorHistoryChart.test.tsx
 - src/frontend/src/test/components/SpeciesAutocompleteField.test.tsx
+- src/frontend/src/test/components/SpeciesMultiAutocompleteField.test.tsx
 - src/frontend/src/test/components/SpeciesThumbnail.test.tsx
 - src/frontend/src/test/components/SpringReturnAssistant.test.tsx
 - src/frontend/src/test/components/SubstrateSelectField.test.tsx
@@ -1031,6 +1033,7 @@ reads:
 - src/frontend/src/test/pages/WorkflowTemplateListPage.test.tsx
 - src/frontend/src/test/pages/calculationsPresets.test.ts
 - src/frontend/src/test/pages/harvestability.test.ts
+- src/frontend/src/test/pages/onboarding/NutrientPlanStep.test.tsx
 - src/frontend/src/test/pages/siteForm.test.ts
 - src/frontend/src/test/pages/useNutrientPlanActions.test.tsx
 - src/frontend/src/test/pages/useNutrientPlanData.test.tsx
