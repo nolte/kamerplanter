@@ -11,8 +11,9 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
-job_spec_sha256: f1e1bd541d2380f8eb95ea05c55c21848e11c477ac7595fe60972c8a4cbe52b1
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 1497
+job_spec_sha256: afc7a4de022ae225c83e57e596c5ca72ed5dd9943e50a3b50a0550a0ccb94ae5
 invocations:
 - command: task typecheck
   cwd: src/frontend

@@ -10,8 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
-job_spec_sha256: 0499a0f895191a28519aec2e580ec79d23b26696df7a9be4083617fff3f3b75d
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 34
+job_spec_sha256: 4717482b376c41008c6f3491181add9c810062b64e28e47f1e50683ad62e5c77
 invocations:
 - command: helm dependency build helm/kamerplanter
   cwd: .
@@ -36,7 +37,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 341
+  untracked_reads_dropped: 340
 - command: scripts/ci/skaffold_render_verify.sh /tmp/lane-inputs-scratch/rendered-manifests.yaml
   cwd: .
   recorder: strace -ff -y -z

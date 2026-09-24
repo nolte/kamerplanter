@@ -186,6 +186,12 @@ _MIN_REASON_CHARS = 40
 #: contract. The recorder's `SCHEMA` is the same number; the recorder test pins it.
 _SCHEMA = 2
 
+#: `replay_seconds` (#1683, per-leg timeout): the wall clock of the CI replay that
+#: produced the manifest, from which `plan` sizes the leg's step timeout. A replay
+#: that completed cannot have outlasted the record job's own 90-minute bound; the
+#: recorder's `REPLAY_SECONDS_MAX` is the same number and the recorder test pins it.
+_REPLAY_SECONDS_MAX = 90 * 60
+
 #: The heads of a `run:` command that rule 5 holds against the manifest. `uv`,
 #: `helm`, `docker`, `npm` and the rest are deliberately outside: they are either
 #: recorded as a side effect of one of these (`task` → `uv run`) or read no tracked
@@ -399,11 +405,18 @@ def load_workflows(dot_github: Path) -> list[Workflow]:
 # ------------------------------------------------------------------ manifests
 
 
+def _action_name(uses: str) -> str:
+    return uses.split("@", 1)[0] if not uses.startswith("./") else uses
+
+
 def job_spec_hash(job: Any) -> str:
-    """The recorder's ``hash_job_spec``, verbatim: the parsed job minus paths-filter patterns.
+    """The recorder's ``hash_job_spec``, verbatim: the parsed job minus paths-filter patterns and ``uses:`` refs.
 
     The patterns are compared live by this file, so editing them must not
-    stale the manifest; every other change to the job must.
+    stale the manifest. Nor may an action's ``@<ref>`` (#1683): the recorder
+    replays ``run:`` commands, never actions, so a Renovate pin bump (#1734)
+    changes nothing it measured. Every other change to the job — the action's
+    name included — must.
     """
     if isinstance(job, dict) and isinstance(job.get("steps"), list):
         job = dict(job)
@@ -416,8 +429,12 @@ def job_spec_hash(job: Any) -> str:
             ):
                 step = dict(step)
                 step["with"] = {key: value for key, value in step["with"].items() if key != "filters"}
+            if isinstance(step, dict) and isinstance(step.get("uses"), str):
+                step = {**step, "uses": _action_name(step["uses"])}
             cleaned.append(step)
         job["steps"] = cleaned
+    if isinstance(job, dict) and isinstance(job.get("uses"), str):
+        job = {**job, "uses": _action_name(job["uses"])}
     canonical = json.dumps(job, sort_keys=True, default=str, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -439,6 +456,11 @@ class Manifest:
     invocations: list[dict[str, Any]] = field(default_factory=list)
     unrecorded_invocations: list[dict[str, Any]] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    #: `_ABSENT` when the key is missing, so a written `replay_seconds: null` is told apart from no key.
+    replay_seconds: Any = None
+
+
+_ABSENT = object()
 
 
 def _dict_entries(value: Any) -> list[dict[str, Any]]:
@@ -479,6 +501,7 @@ def load_manifests(manifest_dir: Path) -> list[Manifest]:
                 partial_reason=str(document["partial_reason"]) if document.get("partial_reason") else None,
                 invocations=_dict_entries(document.get("invocations")),
                 unrecorded_invocations=_dict_entries(document.get("unrecorded_invocations")),
+                replay_seconds=document.get("replay_seconds", _ABSENT),
             )
         )
     return manifests
@@ -587,7 +610,35 @@ def malformed_manifests(s: Sweep) -> list[str]:
                 f"characters saying what subset of the job's invocation was recorded"
             )
         findings += failed_invocation_findings(m)
+        findings += replay_duration_findings(m)
     return findings
+
+
+def replay_duration_findings(m: Manifest) -> list[str]:
+    """A manifest with invocations carries the wall clock of the CI replay that wrote it (#1683, per-leg timeout).
+
+    ``plan`` sizes the leg's replay-step timeout from it. Missing, the leg falls
+    back to the record job's 90 minutes without anything saying so — the state a
+    workstation ``record`` leaves (it drops the value) and the one this rule
+    exists to make visible. The value is not compared with a new recording (wall
+    clock varies run to run); what is checkable is that it is a duration this
+    tool could have written: whole seconds, rounded up, within the job's bound.
+    """
+    if not m.invocations:
+        return []
+    value = m.replay_seconds
+    if value is _ABSENT:
+        return [
+            f"{m.path.name}: has no `replay_seconds` — a manifest with invocations carries the duration its CI "
+            f"replay measured (lane-inputs.yml), and without it `plan` bounds the leg at the job-level "
+            f"{_REPLAY_SECONDS_MAX // 60} minutes; commit the CI recording"
+        ]
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= _REPLAY_SECONDS_MAX:
+        return [
+            f"{m.path.name}: `replay_seconds: {value!r}` is not a whole number of seconds between 1 and "
+            f"{_REPLAY_SECONDS_MAX} — only the CI replay writes it; commit its recording"
+        ]
+    return []
 
 
 def _job_has_paths_filter(wf: Workflow, job: str) -> bool:
@@ -1236,6 +1287,7 @@ def _manifest(
     partial_reason: str | None = None,
     invocations: list[dict[str, Any]] | None = None,
     unrecorded: list[dict[str, Any]] | None = None,
+    replay_seconds: object = 120,
 ) -> str:
     gate: dict[str, Any] = {"kind": gate_kind}
     if filters:
@@ -1255,7 +1307,14 @@ def _manifest(
         document["partial_reason"] = partial_reason
     if unrecorded is not None:
         document["unrecorded_invocations"] = unrecorded
+    if invocations and replay_seconds is not _NO_DURATION:
+        # What `replay` writes after the last invocation (#1683 per-leg timeout).
+        document["replay_seconds"] = replay_seconds
     return yaml.safe_dump(document, sort_keys=False)
+
+
+#: `_manifest(replay_seconds=_NO_DURATION)`: a manifest recorded before the replay measured itself.
+_NO_DURATION = object()
 
 
 def _hash_of(root: Path, workflow: str, job: str) -> str:
@@ -2058,3 +2117,57 @@ class TestTheMatcherAgreesWithTheDocumentedSemantics:
         assert probe_path("src/backend/") == f"src/backend/{_PROBE}"
         assert probe_path("./") == _PROBE
         assert probe_path("src/a.py") == "src/a.py"
+
+
+class TestTheReplayDurationRuleCanGoRed:
+    """A manifest with invocations carries the duration its CI replay measured (#1683, per-leg timeout).
+
+    ``plan`` sizes the leg's step timeout from it; without it the leg silently
+    falls back to the job-level 90 minutes, which is the state the rule exists
+    to leave. Planted through ``malformed_manifests``, the predicate
+    ``TestTheRealTree`` calls.
+    """
+
+    @pytest.fixture
+    def tree(self, tmp_path: Path) -> tuple[Path, Path]:
+        github, manifests = tmp_path / ".github", tmp_path / ".github" / "lane-inputs"
+        _plant(github, "workflows/w.yml", _workflow_with_on_filter(["src/**"]))
+        return github, manifests
+
+    def _findings(self, tree: tuple[Path, Path], **kwargs: Any) -> list[str]:
+        github, manifests = tree
+        _plant(
+            manifests,
+            "w--build.yaml",
+            _manifest(
+                "w.yml",
+                "build",
+                reads=["src/a.py"],
+                job_hash=_hash_of(github, "w.yml", "build"),
+                invocations=[{"command": "pytest", "cwd": ".", "exit_code": 0}],
+                **kwargs,
+            ),
+        )
+        return malformed_manifests(sweep(github, manifests))
+
+    def test_a_measured_duration_is_well_formed(self, tree: tuple[Path, Path]) -> None:
+        assert self._findings(tree, replay_seconds=1) == []
+        assert self._findings(tree, replay_seconds=_REPLAY_SECONDS_MAX) == []
+
+    def test_a_manifest_with_invocations_and_no_duration_is_a_finding(self, tree: tuple[Path, Path]) -> None:
+        (finding,) = self._findings(tree, replay_seconds=_NO_DURATION)
+        assert finding.startswith("w--build.yaml: has no `replay_seconds`")
+
+    @pytest.mark.parametrize("value", [0, -1, _REPLAY_SECONDS_MAX + 1, "600", True, 12.5, None])
+    def test_a_duration_the_recorder_cannot_have_written_is_a_finding(
+        self, tree: tuple[Path, Path], value: object
+    ) -> None:
+        (finding,) = self._findings(tree, replay_seconds=value)
+        assert "is not a whole number of seconds" in finding
+
+    def test_a_manifest_without_invocations_needs_no_duration(self, tree: tuple[Path, Path]) -> None:
+        github, manifests = tree
+        document = yaml.safe_load(_manifest("w.yml", "build", reads=[], job_hash=_hash_of(github, "w.yml", "build")))
+        document["empty_reads_reason"] = "checkout and paths-filter only; nothing under the tree is opened"
+        _plant(manifests, "w--build.yaml", yaml.safe_dump(document, sort_keys=False))
+        assert malformed_manifests(sweep(github, manifests)) == []
