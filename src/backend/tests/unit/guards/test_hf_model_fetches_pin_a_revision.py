@@ -122,20 +122,22 @@ _DIGEST_CHECK = re.compile(r"\bsha256sum\s+(?:--?[\w-]+\s+)*?(?:-[a-zA-Z]*c[a-zA
 #: A heredoc opener in a Dockerfile instruction: ``<<EOF``, ``<<-EOF``, ``<<'EOF'``.
 _HEREDOC = re.compile(r"<<-?\s*(?P<q>['\"]?)(?P<tag>\w+)(?P=q)")
 
-#: Unpinned fetches that predate this guard, each named by (Dockerfile, repo).
-#: #1480 found them while writing this file and deliberately did not pin them:
-#: they belong to docker/embedding-service, a different image with its own
-#: parity question (each pin needs the export it replaces measured against it).
-#: An entry that matches no unpinned fetch is an error — a stale entry would
-#: silently re-permit the fetch the day someone reverts its pin.
+#: Unpinned fetches that predate this guard, each named by (Dockerfile, repo)
+#: and mapped to the issue that tracks pinning it. #1480 found them while
+#: writing this file and deliberately did not pin them: they belong to
+#: docker/embedding-service, a different image with its own parity question
+#: (each pin needs the export it replaces measured against it) — #1724.
+#:
+#: EACH ENTRY EXCUSES EXACTLY ONE FETCH. The key carries no count, so without
+#: that rule a second, NEW unpinned fetch of the same repository in the same
+#: Dockerfile would ride in on the old entry unseen. Zero matches is an error
+#: too: a stale entry would silently re-permit the fetch the day its pin is
+#: reverted.
 _UNPINNED_ALLOWED: dict[tuple[str, str], str] = {
-    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-small"): "embedding-service, pre-#1480",
-    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-base"): "embedding-service, pre-#1480",
-    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-large"): "embedding-service, pre-#1480",
-    (
-        "docker/embedding-service/Dockerfile",
-        "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
-    ): "embedding-service, pre-#1480",
+    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-small"): "#1724",
+    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-base"): "#1724",
+    ("docker/embedding-service/Dockerfile", "intfloat/multilingual-e5-large"): "#1724",
+    ("docker/embedding-service/Dockerfile", "Xenova/paraphrase-multilingual-MiniLM-L12-v2"): "#1724",
 }
 
 
@@ -371,7 +373,7 @@ class TestHuggingFaceFetchesArePinned:
     @pytest.mark.parametrize("site", _SITES, ids=lambda site: site.label)
     def test_fetch_names_a_commit(self, site: FetchSite) -> None:
         if (site.path, site.repo or "") in _UNPINNED_ALLOWED:
-            pytest.skip(f"allow-listed pre-#1480 fetch: {_UNPINNED_ALLOWED[(site.path, site.repo or '')]}")
+            pytest.skip(f"allow-listed unpinned fetch, tracked in {_UNPINNED_ALLOWED[(site.path, site.repo or '')]}")
         assert site.pinned, (
             f"{site.label}: a Hugging Face fetch without a commit pin (revision={site.revision!r}). "
             "Name the 40-hex commit the model was measured on, e.g. "
@@ -394,12 +396,21 @@ class TestHuggingFaceFetchesArePinned:
             "`/api/models/<repo>/revision/<sha>?blobs=true`) before the layer ends (#1480)."
         )
 
-    def test_every_allowance_still_excuses_an_unpinned_fetch(self) -> None:
-        unpinned = {(site.path, site.repo or "") for site in _SITES if not site.pinned}
-        stale = sorted(set(_UNPINNED_ALLOWED) - unpinned)
+    def test_every_allowance_excuses_exactly_one_unpinned_fetch(self) -> None:
+        """An entry is a count of one, not a licence for its (Dockerfile, repo) pair."""
+        matches = {
+            key: sum(1 for site in _SITES if not site.pinned and (site.path, site.repo or "") == key)
+            for key in _UNPINNED_ALLOWED
+        }
+        stale = sorted(key for key, count in matches.items() if count == 0)
+        widened = sorted((key, count) for key, count in matches.items() if count > 1)
         assert not stale, (
             f"allow-list entries that match no unpinned fetch: {stale}. Remove them — a stale "
             "entry would re-permit the fetch the day its pin is reverted."
+        )
+        assert not widened, (
+            f"allow-list entries that excuse more than one unpinned fetch: {widened}. Each entry "
+            "covers the ONE fetch it was written for; pin the new one instead of sharing the entry."
         )
 
 
