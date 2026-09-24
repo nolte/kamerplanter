@@ -179,6 +179,40 @@ _BOUNDS = [
 _BY_SERVICE = [pytest.param(sidecar, id=sidecar.service) for sidecar in _SIDECARS]
 
 
+#: A runtime stage that ships a model an earlier stage produced — the same
+#: signature ``test_model_images_prove_readiness.py`` finds model images by.
+_MODEL_COPY = re.compile(r"^\s*COPY\s+--from=[\w.-]+\s+(?:--[\w-]+=\S+\s+)*/model\b", re.MULTILINE)
+
+
+def _model_serving_images_under_docker() -> set[str]:
+    """Every ``docker/<service>`` whose Dockerfile ships a build-stage model."""
+    found = set()
+    for dockerfile in sorted((_REPO_ROOT / "docker").glob("*/Dockerfile")):
+        text = "\n".join(
+            line for line in dockerfile.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#")
+        )
+        if _MODEL_COPY.search(text):
+            found.add(dockerfile.parent.name)
+    return found
+
+
+def test_every_model_image_under_docker_is_a_governed_sidecar() -> None:
+    """The class, not the two sites: a third ONNX sidecar must carry the same bounds.
+
+    #1725 was found at one of two template copies and the other had every
+    weakness too. This file governs a fixed list of services, so a new image
+    under ``docker/`` that serves a model would otherwise be outside every
+    assertion here — the sibling drift again, one copy later.
+    """
+    images = _model_serving_images_under_docker()
+    assert images, "no model-serving Dockerfile under docker/ — the sweep stopped reaching the tree"
+    governed = {sidecar.service for sidecar in _SIDECARS}
+    assert images == governed, (
+        f"model-serving images under docker/ {sorted(images)} != services this file governs {sorted(governed)}: "
+        "add a Sidecar entry (bounds, cpu_budget, lock, runtime stage) for the new image, or remove the stale one"
+    )
+
+
 def _field_errors(model: type[BaseModel], payload: dict[str, Any]) -> list[str]:
     try:
         model.model_validate(payload)
