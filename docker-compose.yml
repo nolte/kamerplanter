@@ -110,8 +110,29 @@ services:
       dockerfile: Dockerfile
       target: bge-reranker-v2-m3
     profiles: ["vectordb"]
+    # LOCALHOST ONLY (#1725). The reranker has no authentication: in the chart
+    # a NetworkPolicy admits only the knowledge-service, and Compose has no
+    # equivalent, so a bare "8081:8081" published it on every interface of the
+    # host — to the whole LAN. Nothing in this file calls it: the
+    # knowledge-service, its only client, is not a Compose service (it runs in
+    # the `kamerplanter-ki` Helm release). A client added to this network would
+    # reach it as `http://reranker-service:8081`, never through this mapping,
+    # so the mapping only serves probing from the host itself.
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
+    # THE SAME RUNTIME SHAPE AS THE CHART AND THE CI PROBE (#1725): read-only
+    # root filesystem, a small non-executable /tmp, no capabilities, no
+    # privilege escalation, UID 1000 — the flags `HARDENED_RUN` in
+    # scripts/ci/probe_model_service_contract.py starts the image with, so the
+    # image is proven to serve under exactly these.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
     # NO `healthcheck:` OVERRIDE HERE, DELIBERATELY (#1609).
     #
     # The override that used to sit here was wrong twice over. It probed

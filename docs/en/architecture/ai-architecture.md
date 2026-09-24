@@ -167,6 +167,26 @@ The embedding service runs as a standalone microservice that the Knowledge Servi
 !!! note "Model choice"
     ADR-006 originally introduced `multilingual-e5-base` (768 dimensions); the configuration has since been raised to the larger `multilingual-e5-large` variant (1024 dimensions). The prefix scheme (`"query: "`/`"passage: "`) from ADR-006 still applies unchanged.
 
+!!! note "Model pinning and integrity verification (since 2026-09-24)"
+    All four shippable models (`multilingual-e5-small`, `-base`, `-large`, and the MiniLM model) are pinned to a fixed commit revision at Docker build time; every kept file is additionally verified against a sha256 checksum before it ends up in the image. Measured against the previous, unpinned image: every file byte-identical, generated embeddings identical. The MiniLM model comes from a third-party export (`Xenova/paraphrase-multilingual-MiniLM-L12-v2`), not from the original repository of the model authors. At runtime the service runs with `HF_HUB_OFFLINE=1`, so it can never silently fetch a model. Also fixed as of this date: `--target e5-small` used to answer every `/embed` request with an error, because its ONNX graph declares an input field (`token_type_ids`) the tokenizer never produces — the feed is now built from the fields the graph itself declares.
+
+### Request Limits and Threading (Embedding Service)
+
+`POST /embed` bounds requests and answers an oversized one with HTTP 422 (validation error):
+
+| Field | Limit |
+|-------|-------|
+| `texts` (count) | at most 64 |
+| `texts[i]` (characters per text) | at most 16,384 |
+| `prefix` (characters) | at most 64 |
+| `model` (characters) | at most 128 |
+
+An empty `texts` list is valid and returns HTTP 200 with an empty embedding list. The Knowledge Service itself sends embedding requests in slices of at most 16 texts, staying under the limit.
+
+An ASGI middleware guards against oversized requests before validation: a body larger than 12,650,752 bytes (~12.7 MB, derived from the limits above) is refused with HTTP 413 before it is even parsed. A 422 validation error now carries only `loc`, `type` and `msg` per error — the offending input itself is no longer echoed back. Because every request shares one inference lock, a request waits at most 60 seconds for the lock (then HTTP 503 `{"status": "busy"}` with `Retry-After: 60`) and is aborted after at most 110 seconds overall (HTTP 503 `{"status": "timeout"}`). `/health` and `/ready` do not share the lock and stay reachable under load.
+
+The number of inference threads (`intra_op_num_threads`) is sized from the container's CPU allotment (cgroup quota or CPU affinity), not from the host machine's core count — otherwise the ONNX Runtime would schedule more threads than the container is actually allowed to use, and the kernel would throttle them. The service processes one text at a time per request under a process-wide lock instead of running every text as one padded batch; measured: identical embeddings at lower memory usage.
+
 ### Vector Store (dedicated PostgreSQL + pgvector instance)
 
 The vectors do **not** live in TimescaleDB — they are stored in a dedicated PostgreSQL instance with the `pgvector` extension (database `kamerplanter_vectors`, its own `vectordb` container/pod). This keeps vector search isolated from the sensor time-series load on TimescaleDB.
@@ -257,9 +277,9 @@ The Bi-Encoder (E5-base) and BM25 rank independently. Keyword-rich chunks receiv
 
 The re-ranker runs as a standalone `reranker-service` — analogous to the embedding service:
 
-- **No PyTorch** in the container — only Open Neural Network Exchange (ONNX) Runtime and the Hugging Face tokenizer
-- **Multi-stage Dockerfile:** model download and ONNX export in a cached build stage; the runtime image remains lean
-- **Port 8081**, FastAPI with two endpoints: `/rerank` (POST) and `/health` (GET)
+- **No PyTorch** in the container — only ONNX Runtime and the `tokenizers` library
+- **Multi-stage Dockerfile:** model download (already ONNX, pinned and sha256-verified) in a cached build stage; no ONNX export at build time any more (see the amendment in [ADR-007](../adr/007-cross-encoder-reranking.md)); the runtime image remains lean
+- **Port 8081**, FastAPI with three endpoints: `/rerank` (POST), `/health` (GET) and `/ready` (GET)
 - **Model:** `BAAI/bge-reranker-v2-m3` — multilingual (DE/EN), 568M parameters, Apache-2.0 licence
 
 <!-- diagram-source: user-described — sequence of the cross-encoder re-ranking call between Knowledge Service and Reranker Service -->
@@ -280,6 +300,23 @@ sequenceDiagram
 
 When `RERANKER_URL` is empty or not set, `RerankerEngine.available` returns `False`. In that case the original chunk list is truncated to `top_k` entries and passed directly to the LLM context. A timeout or HTTP error from the reranker service also triggers this fallback — with a `WARNING` log entry (`reranker_fallback`).
 
+### Request Limits and Threading (Reranker Service)
+
+`POST /rerank` bounds requests and answers an oversized one with HTTP 422 (validation error):
+
+| Field | Limit |
+|-------|-------|
+| `query` (characters) | at most 4,096 |
+| `documents` (count) | at most 100 |
+| `documents[i]` (characters per document) | at most 16,384 |
+| `top_k` | 1 to 50 (default 5, unchanged) |
+
+An empty `documents` list is valid and returns HTTP 200 with an empty result list. The Knowledge Service sends at most `reranker_initial_k` (default 20) documents per request, staying under the limit.
+
+An ASGI middleware guards against oversized requests before validation: a body larger than 19,775,488 bytes (~19.8 MB, derived from the limits above) is refused with HTTP 413 before it is even parsed. A 422 validation error now carries only `loc`, `type` and `msg` per error — the offending input itself is no longer echoed back. Because every request shares one inference lock, a request waits at most 10 seconds for the lock (then HTTP 503 `{"status": "busy"}` with `Retry-After: 10`) and is aborted after at most 25 seconds overall (HTTP 503 `{"status": "timeout"}`). `/health` and `/ready` do not share the lock and stay reachable under load. The Knowledge Service treats a reranker HTTP 503 like any other error and falls back to the un-reranked chunk list (see "Graceful degradation" above).
+
+As with the embedding service, the number of inference threads (`intra_op_num_threads`) is sized from the container's CPU allotment (cgroup quota or CPU affinity), not from the host machine's core count. The service processes one query–document pair at a time per request under a process-wide lock instead of running every pair as one padded batch; measured: identical ranking at lower memory usage.
+
 ### Resource requirements
 
 | Scenario | RAM | CPU | Latency/query |
@@ -288,7 +325,10 @@ When `RERANKER_URL` is empty or not set, `RerankerEngine.available` returns `Fal
 | Reranker disabled | 0 | 0 | 0ms |
 
 !!! tip "First Docker build"
-    The first build of the `reranker-service` image downloads the already ONNX-exported `BAAI/bge-reranker-v2-m3` model from Hugging Face, pinned to a fixed commit revision — no export via `optimum` happens any more (see [ADR-007](../adr/007-cross-encoder-reranking.md)). Build time now depends mainly on download speed; subsequent builds use the cached layer and complete in seconds.
+    The first build of the `reranker-service` image downloads the already ONNX-exported `BAAI/bge-reranker-v2-m3` model from Hugging Face, pinned to a fixed commit revision and verified against a sha256 checksum — no export via `optimum` happens any more (see [ADR-007](../adr/007-cross-encoder-reranking.md)). Build time now depends mainly on download speed; subsequent builds use the cached layer and complete in seconds.
+
+!!! info "Container hardening (embedding-service and reranker-service)"
+    Both ONNX sidecars run without a package manager in the runtime image: `pip` is removed from the base image at build time, and `uv` never reaches the runtime stage in the first place; application code, the Python environment and the model files are owned by `root` and readable only, not writable, by the service UID (1000). In the development chart (`values-dev-ki.yaml`) both containers run with `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, and `seccompProfile: RuntimeDefault`; a memory-backed `/tmp` emptyDir is provided for any library that insists on a scratch file. `docker-compose.yml` starts the reranker service the same way — read-only, as UID 1000, without capabilities, with a `/tmp` tmpfs — and binds its (unauthenticated) port to `127.0.0.1` only, not to every network interface of the host.
 
 ---
 

@@ -11,9 +11,9 @@ gate:
   filter: embedding-service
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+measured_at_commit: 1b8ac17a97c80267e5352c95afc5baacb62a3502
 replay_seconds: 1
-job_spec_sha256: 4d0955fc4315e75945bdf2a4c3791d567dcc8fd732702951fc6e392d495e542b
+job_spec_sha256: 73548dee7b2fb3d3dcb5cca49217c0aa2ab7fdf891e1fe2a3e35bbe074bbbab1
 invocations:
 - command: derive-docker --context docker/embedding-service --dockerfile docker/embedding-service/Dockerfile
   cwd: .
@@ -25,12 +25,16 @@ invocations:
   - pyproject.toml
   - uv.lock
   - main.py
-  context_files_after_dockerignore: 6
+  - limits.py
+  - feed.py
+  context_files_after_dockerignore: 8
 subprocesses: []
 accepted_gaps: []
 reads:
 - docker/embedding-service/.dockerignore
 - docker/embedding-service/Dockerfile
+- docker/embedding-service/feed.py
+- docker/embedding-service/limits.py
 - docker/embedding-service/main.py
 - docker/embedding-service/pyproject.toml
 - docker/embedding-service/uv.lock
@@ -39,3 +43,8 @@ unrecorded_invocations:
   reason: Runs against the image the job just built (`docker run` of a :pr tag that exists only on the runner); on a workstation
     there is no such image. The script reads nothing from the tree but itself, and scripts/ci/** is in this workflow's on:-level
     filter; the image's inputs are the derived build context above.
+- command: scripts/ci/probe_model_service_contract.py kp-embedding-service:pr embedding
+  reason: Runs against the image the job just built (`docker run` of a :pr tag that exists only on the runner); on a workstation
+    there is no such image. The script reads nothing from the tree but itself (it reads the body cap from `limits` INSIDE
+    the image), and scripts/ci/** is in this workflow's on:-level filter; the image's inputs are the derived build context
+    above.

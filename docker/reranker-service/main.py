@@ -9,15 +9,53 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi.exceptions import RequestValidationError
+from limits import (
+    LOCK_WAIT_SECONDS,
+    MAX_BODY_BYTES,
+    MAX_INFERENCE_SECONDS,
+    BodySizeLimit,
+    Deadline,
+    RerankRequest,
+    ServiceUnavailableError,
+    cpu_budget,
+    inference_slot,
+    unavailable_handler,
+    validation_error_handler,
+)
+from pydantic import BaseModel
 from tokenizers import Tokenizer
 
 app = FastAPI(title="Kamerplanter Reranker Service")
+
+# THE ORDER OF DEFENCES, OUTSIDE IN (security review of #1725; all in limits.py).
+# `BodySizeLimit` refuses a body past `MAX_BODY_BYTES` with 413 before FastAPI
+# reads it into memory; `validation_error_handler` answers a body past the
+# request bounds with a 422 that names the field and never echoes the input;
+# `unavailable_handler` turns `ServiceUnavailableError` — the lock not
+# obtained within `LOCK_WAIT_SECONDS`, or the request past its
+# `MAX_INFERENCE_SECONDS` deadline — into 503 with `Retry-After`.
+app.add_middleware(BodySizeLimit, max_body_bytes=MAX_BODY_BYTES)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(ServiceUnavailableError, unavailable_handler)
 
 _session = None
 _tokenizer = None
 _input_names: list[str] = []
 _ready = False
+
+# ONE INFERENCE AT A TIME, PROCESS-WIDE (#1725). The route is a sync `def`, so
+# FastAPI runs each request on its own threadpool thread, and every one of them
+# used to start its own `session.run` — N concurrent requests held N sets of
+# activations at once. The lock makes the memory of the process the memory of
+# ONE request, and the request bounds in limits.py make that finite. The graph
+# already uses every CPU the cgroup grants (`cpu_budget`), so running two
+# requests side by side bought no throughput, only memory.
+#
+# NEVER `with _inference_lock:` — always `inference_slot(...)`, which waits at
+# most `LOCK_WAIT_SECONDS` and then answers 503 busy. A bare `with` waits
+# forever while holding one of the AnyIO threadpool's 40 threads.
+_inference_lock = threading.Lock()
 
 DEFAULT_MODEL = os.environ.get("RERANKER_MODEL", "bge-reranker-v2-m3")
 ONNX_PATH = Path(f"/app/models/onnx/{DEFAULT_MODEL}")
@@ -37,12 +75,6 @@ _ENCODING_FIELDS = {
     "attention_mask": "attention_mask",
     "token_type_ids": "type_ids",
 }
-
-
-class RerankRequest(BaseModel):
-    query: str
-    documents: list[str]
-    top_k: int = Field(default=5, ge=1, le=50)
 
 
 class RerankResult(BaseModel):
@@ -133,7 +165,12 @@ def _preload() -> None:
 
     opts = ort.SessionOptions()
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    opts.intra_op_num_threads = os.cpu_count() or 2
+    # The cgroup's CPU quota, not the host's CPU count (#1725): see
+    # `limits.cpu_budget`. One inter-op thread, because the graph runs one
+    # pair at a time under `_inference_lock` — there is no second operator
+    # stream to schedule in parallel.
+    opts.intra_op_num_threads = cpu_budget()
+    opts.inter_op_num_threads = 1
     session = ort.InferenceSession(str(onnx_file), opts, providers=["CPUExecutionProvider"])
 
     # Refuse, at load time, a graph that asks for an input the tokenizer cannot
@@ -148,7 +185,10 @@ def _preload() -> None:
     _session = session
     _input_names = input_names
     elapsed = time.monotonic() - start
-    print(f"ONNX reranker model loaded in {elapsed:.2f}s from {onnx_file}")
+    print(
+        f"ONNX reranker model loaded in {elapsed:.2f}s from {onnx_file} "
+        f"(intra-op threads: {opts.intra_op_num_threads}, inter-op threads: {opts.inter_op_num_threads})"
+    )
     _ready = True
 
 
@@ -174,26 +214,42 @@ def rerank(req: RerankRequest) -> RerankResponse:
     if not req.documents:
         return RerankResponse(results=[], model=DEFAULT_MODEL)
 
-    # Cross-encoder: encode query-document pairs. Padding to the batch's longest
-    # pair is configured on the tokenizer, so every encoding has the same length
-    # and the rows stack into a rectangular [N, L] tensor.
-    encodings = _tokenizer.encode_batch([(req.query, doc) for doc in req.documents])
+    # ONE PAIR PER `session.run`, UNDER THE PROCESS-WIDE LOCK (#1725).
+    #
+    # This used to tokenize every pair into one [N, L] batch padded to the
+    # longest pair and run it once. Measured 2026-09-24 in the bge image under
+    # the chart's limits (`-m 4g --cpus 2`), 20 documents of more than 512
+    # tokens: the full batch took 56.5 s at 3001 MiB maxrss, batches of 4 took
+    # 54.8 s at 1852 MiB, and one pair per run took 31.9 s at 1595 MiB — lower
+    # memory AND faster, because nothing is spent on padding — with logits
+    # IDENTICAL to the full batch (max |Δ| 0.0, identical ranking). At 100 such
+    # documents the full batch was OOMKilled. The tokenizer configuration is
+    # unchanged (truncation to MAX_LENGTH); padding is a no-op for one pair.
+    # Scores are collected in input order, so `index` still names the request's
+    # document.
+    #
+    # BOUNDED WAIT, BOUNDED HOLD. The lock is waited for at most
+    # `LOCK_WAIT_SECONDS` (then 503 busy), and the deadline — started here, so
+    # it includes that wait — is checked before every pair: a request past
+    # `MAX_INFERENCE_SECONDS` is abandoned with 503 timeout and the lock
+    # released, instead of computing on for a caller that timed out long ago.
+    #
+    # A list of the graph's own scalars, so the array below keeps the graph's
+    # output dtype (float32), exactly as the batched `logits[:, 0]` did.
+    deadline = Deadline(MAX_INFERENCE_SECONDS)
+    pair_logits = []
+    with inference_slot(_inference_lock, wait_seconds=LOCK_WAIT_SECONDS):
+        for document in req.documents:
+            deadline.check()
+            encoding = _tokenizer.encode_batch([(req.query, document)])[0]
+            inputs = {
+                name: np.asarray([getattr(encoding, _ENCODING_FIELDS[name])], dtype=np.int64) for name in _input_names
+            }
+            logits = _session.run(None, inputs)[0]
+            # Extract the relevance score — handle both [1, 1] and [1] shapes
+            pair_logits.append(logits[0, 0] if logits.ndim == 2 else logits[0])
 
-    inputs = {
-        name: np.asarray([getattr(encoding, _ENCODING_FIELDS[name]) for encoding in encodings], dtype=np.int64)
-        for name in _input_names
-    }
-
-    outputs = _session.run(None, inputs)
-    logits = outputs[0]
-
-    # Extract relevance scores — handle both [N, 1] and [N] shapes
-    if logits.ndim == 2:
-        scores = logits[:, 0]
-    else:
-        scores = logits
-
-    scores = _sigmoid(scores)
+    scores = _sigmoid(np.asarray(pair_logits))
 
     # Rank by score descending, take top_k
     ranked_indices = np.argsort(scores)[::-1][: req.top_k]
@@ -210,13 +266,20 @@ def rerank(req: RerankRequest) -> RerankResponse:
     return RerankResponse(results=results, model=DEFAULT_MODEL)
 
 
+# `/health` AND `/ready` ARE `async def`, AND THAT IS THE POINT. A sync route
+# runs on the AnyIO threadpool (40 threads), which is exactly where requests
+# waiting on `_inference_lock` sit; with enough of them queued, a probe would
+# wait for a free thread past its timeout, and a failed liveness probe restarts
+# a pod that is merely busy — killing the inference everyone queued behind.
+# These two only read module flags, so they run on the event loop and answer
+# regardless of the threadpool.
 @app.get("/health")
-def health() -> dict:
+async def health() -> dict:
     return {"status": "ok" if _ready else "loading", "model": DEFAULT_MODEL, "ready": _ready}
 
 
 @app.get("/ready")
-def ready() -> dict:
+async def ready() -> dict:
     if not _ready:
         from fastapi.responses import JSONResponse
 
