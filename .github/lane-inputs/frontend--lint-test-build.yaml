@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: ef45659b8d60f6572db29b318dace5327bc96541
 job_spec_sha256: f1e1bd541d2380f8eb95ea05c55c21848e11c477ac7595fe60972c8a4cbe52b1
 invocations:
 - command: task typecheck
@@ -60,6 +60,7 @@ reads:
 - .taskfiles/frontend.yaml
 - .taskfiles/libs.yaml
 - .taskfiles/mcp.yaml
+- .taskfiles/reach.yaml
 - Taskfile.yaml
 - src/frontend/
 - src/frontend/docker-entrypoint.d/

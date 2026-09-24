@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: ef45659b8d60f6572db29b318dace5327bc96541
 job_spec_sha256: 6c0673f48c5ab2fe02f80efa24cedda22abf17100d8465bdfc5bf25dd69e92fb
 invocations:
 - command: task deps:sync:kp-vectordb
@@ -43,6 +43,7 @@ reads:
 - .taskfiles/frontend.yaml
 - .taskfiles/libs.yaml
 - .taskfiles/mcp.yaml
+- .taskfiles/reach.yaml
 - Taskfile.yaml
 - src/libs/kp_vectordb/
 - src/libs/kp_vectordb/kp_vectordb/

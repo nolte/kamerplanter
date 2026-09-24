@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: ef45659b8d60f6572db29b318dace5327bc96541
 job_spec_sha256: d3fe2390bc7db7ba10d1d417e2a771eb09362b71fe00a3520d804bfe72ca4fa0
 invocations:
 - command: task docs:venv
@@ -59,6 +59,7 @@ reads:
 - .taskfiles/frontend.yaml
 - .taskfiles/libs.yaml
 - .taskfiles/mcp.yaml
+- .taskfiles/reach.yaml
 - Taskfile.yaml
 - docs/requirements.in
 - docs/requirements.txt

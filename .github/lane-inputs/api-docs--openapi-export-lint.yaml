@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: ef45659b8d60f6572db29b318dace5327bc96541
 job_spec_sha256: c24a3da97877adcdb1b4a1ebe6ef56945b2ec0eeec0600e08490e1070fc3c104
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -18,7 +18,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2724
+  untracked_reads_dropped: 2725
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -781,6 +781,7 @@ reads:
 - src/backend/app/domain/services/environment_snapshot_service.py
 - src/backend/app/domain/services/favorites_service.py
 - src/backend/app/domain/services/feeding_service.py
+- src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
 - src/backend/app/domain/services/glossary_service.py
 - src/backend/app/domain/services/ha_publish_service.py
