@@ -16,6 +16,9 @@
 nutrient_plans:
   # ── Plagron 100% Terra — Cannabis (Osmosewasser) ────────────────────────────
   - name: "Plagron 100% Terra — Cannabis (Osmosewasser)"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       RO-Wasser-Variante des Plagron 100% Terra Cannabis-Plans.
       Identische Basisdüngung, ergänzt durch Terra Aquatica CalMag

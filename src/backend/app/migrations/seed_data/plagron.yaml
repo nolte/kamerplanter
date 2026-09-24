@@ -163,6 +163,9 @@ nutrient_plans:
   # Based on: https://plagron.com/downloads/en/grow-schedule-100-terra
   #           https://pevgrow.com/blog/en/plagron-chart-for-cannabis-growing/
   - name: "Plagron 100% Terra — Cannabis"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       Vollständiges Düngeprogramm für Cannabis in Erde mit der Plagron
       100% Terra-Serie. Enthält Terra Grow/Bloom als Basisdünger,
@@ -341,6 +344,9 @@ nutrient_plans:
   # ── Plagron 100% Coco — Cannabis ─────────────────────────────────────
   # Based on: https://plagron.com/downloads/en/grow-schedule-100-coco
   - name: "Plagron 100% Coco — Cannabis"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       Vollständiges Düngeprogramm für Cannabis auf Coco mit der Plagron
       100% Coco-Serie. Enthält Cocos A+B als 2-Komponenten-Basisdünger,
