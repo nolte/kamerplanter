@@ -157,7 +157,9 @@ def get_export_status(
         }
     },
 )
+@limiter.limit(settings.rate_limit_export_download)
 async def download_export(
+    request: Request,
     export_key: Annotated[str, Path(description="Document key of the data-export job.")],
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
@@ -167,6 +169,10 @@ async def download_export(
     #1645 — this used to answer with the request's *metadata* and no file, so
     even a ``completed`` export delivered no personal data to the data subject.
     Ownership, status and expiry are enforced in the service.
+
+    Rate-limited per client IP (``settings.rate_limit_export_download``, #1666):
+    each call streams a full copy of the account's data. The bytes are streamed
+    from object storage chunk by chunk, never held whole in the worker.
     """
     export, stream = await service.open_export_bundle(current_user.key or "", export_key)
     filename = f"kamerplanter-export-{export.key}.json"

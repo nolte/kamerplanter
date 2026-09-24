@@ -28,7 +28,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.tasks import celery_app
-from app.tasks.task_bridge import run_async_task
+from app.tasks.task_bridge import TaskAttempt, run_async_task
 
 logger = structlog.get_logger(__name__)
 
@@ -37,34 +37,61 @@ STALE_EXPORT_REDISPATCH_AFTER_MINUTES = 15
 
 @run_async_task(  # type: ignore[misc]
     name="retention.process_data_export",
+    bind=True,
     autoretry_for=(Exception,),
     retry_backoff=True,
     retry_backoff_max=600,
     retry_jitter=True,
     max_retries=5,
 )
-async def process_data_export(export_key: str) -> dict:
-    """Build the export bundle and flip the request to completed.
+async def process_data_export(attempt: TaskAttempt, export_key: str) -> dict:
+    """Build the export bundle and flip the request to a terminal state.
 
     Triggered by ``PrivacyService.request_data_export`` via ``.delay`` once the
-    request record exists. Idempotent — the service skips non-``pending``
-    exports — so ``autoretry_for=(Exception,)`` may retry broadly (bounded by
-    ``max_retries`` + backoff). The ``run_async_task`` decorator bridges the
+    request record exists. The ``run_async_task`` decorator bridges the
     coroutine to Celery and logs/re-raises failures.
+
+    **Retry policy (#1666).** The service ends a request as ``failed`` at once
+    only for failures a retry would repeat (no bundle can be produced, a domain
+    error). An infrastructure failure — object storage, database — propagates
+    while attempts remain, so ``autoretry_for`` with backoff actually runs; the
+    request stays ``processing`` meanwhile and the retry resumes it
+    (``is_retry``). Only the last attempt (``retries == max_retries``) records
+    ``failed``. ``attempt`` is the bridge's snapshot of the retry position —
+    ``self.request`` would read empty on the coroutine's thread. Before #1666
+    the service swallowed every exception, so an outage ended the Art. 15
+    request on the first attempt and the declared five retries never fired.
     """
 
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    result = await service.process_data_export(export_key)
-    logger.info(
-        "retention.process_data_export.completed",
-        export_key=export_key,
-        file_size_bytes=result.file_size_bytes if result else None,
+    result = await service.process_data_export(
+        export_key,
+        final_attempt=attempt.is_final,
+        is_retry=attempt.is_retry,
     )
+    status = result.status if result else "unknown"
+    # The event name follows the outcome: an operator reading "completed" must
+    # be reading a delivered bundle, not a failed or skipped request (#1666).
+    if status == "completed":
+        logger.info(
+            "retention.process_data_export.completed",
+            export_key=export_key,
+            status=status,
+            attempt=attempt.number,
+            file_size_bytes=result.file_size_bytes if result else None,
+        )
+    else:
+        logger.warning(
+            "retention.process_data_export.not_completed",
+            export_key=export_key,
+            status=status,
+            attempt=attempt.number,
+        )
     return {
         "export_key": export_key,
-        "status": result.status if result else "unknown",
+        "status": status,
     }
 
 

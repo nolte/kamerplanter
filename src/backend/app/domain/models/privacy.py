@@ -105,6 +105,16 @@ class ErasureRequest(BaseModel):
     storage_cleanup_scopes: list[str] = Field(default_factory=list)
     retained_reason: str | None = None
     error_message: str | None = None
+    #: Retry lifecycle of the scheduled erasure (#1666). ``attempt_count`` counts
+    #: failed runs; ``next_attempt_at`` is the backoff horizon before which the
+    #: daily beat leaves the request alone. The request stays selected — the
+    #: Art. 17 duty is deferred, never dropped.
+    attempt_count: int = Field(default=0, ge=0)
+    last_attempt_at: datetime | None = None
+    next_attempt_at: datetime | None = None
+    #: Set once export cleanup, Phase 0 and Phase 0.5 finished for this request;
+    #: a retry then runs only the ArangoDB plan (#1666).
+    pre_arango_completed_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

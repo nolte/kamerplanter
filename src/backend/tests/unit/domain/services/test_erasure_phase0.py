@@ -7,7 +7,7 @@ guard) and AK-OS-05 (reference-index cleanup), all exercised through
 ``erase_account`` ahead of the ArangoDB plan (#1645).
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -227,14 +227,16 @@ class TestErasurePhase0:
             [erasure] if erasure.status != "completed" else []
         )
 
-        finalised_run1 = await svc.execute_scheduled_erasures(datetime.now(UTC))
+        run1_at = datetime.now(UTC)
+        finalised_run1 = await svc.execute_scheduled_erasures(run1_at)
         assert finalised_run1 == 0
         assert erasure.status == "partially_completed"
         assert "S3 down" in (erasure.error_message or "")
 
-        # Run 2: storage is healthy, so Phase 0 runs to the end and the
+        # Run 2 is the *next daily* run: a first failure backs off one day
+        # (#1666). Storage is healthy, so Phase 0 runs to the end and the
         # ArangoDB plan follows (#1645); the old reason is cleared.
-        finalised_run2 = await svc.execute_scheduled_erasures(datetime.now(UTC))
+        finalised_run2 = await svc.execute_scheduled_erasures(run1_at + timedelta(days=1))
         assert finalised_run2 == 1
         assert erasure.status == "completed"
         assert erasure.error_message is None

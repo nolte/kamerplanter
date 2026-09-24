@@ -559,6 +559,22 @@ class Settings(BaseSettings):
     #: JSON body, so a prefetcher cannot spend the budget. A sandbox that renders
     #: the landing page and executes its JavaScript could — ten absorbs that too.
     rate_limit_email_change_confirm: str = "10/minute"
+    #: ``GET /api/v1/privacy/export/{key}/download`` (REQ-025 Art. 15), per client IP.
+    #:
+    #: **Why a limit at all** (#1666). Every call streams a complete copy of an
+    #: account's personal data out of object storage. The route is authenticated
+    #: and ownership-checked, so this is not an access control; it bounds the
+    #: cost and the blast radius of a leaked session or a client stuck in a loop,
+    #: and it brings the route in line with its siblings, which all carry one.
+    #:
+    #: **Where 10 an hour comes from — the legitimate side.** A bundle is
+    #: downloaded once, perhaps again after an interrupted transfer or on a second
+    #: device, within its 72-hour window. Ten an hour covers that with room for
+    #: several people behind one NAT address. It sits above
+    #: ``rate_limit_email_change`` (that one bounds mail to third parties) and far
+    #: below ``rate_limit_auth`` (an interactive retry surface): a download is
+    #: neither.
+    rate_limit_export_download: str = "10/hour"
     #: ``POST /api/v1/auth/refresh``, per client IP (#1131).
     #:
     #: **Why its own setting and not ``rate_limit_auth``.** That budget's own
