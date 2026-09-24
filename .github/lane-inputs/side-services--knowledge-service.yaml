@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
+measured_at_commit: 1f6b9255add89c59217a5ee54a1ca3b8113f7d51
 job_spec_sha256: ef66430751a38d32774c475b4c7ceddf81f44cf438f298a01b5038a881ddb79a
 invocations:
 - command: task deps:sync:knowledge-service
@@ -24,7 +24,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1118
+  untracked_reads_dropped: 1119
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
@@ -76,6 +76,7 @@ reads:
 - src/knowledge-service/tests/conftest.py
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
+- src/knowledge-service/tests/test_embedding.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
 - src/knowledge-service/tests/test_vectordb_sync_guard.py
