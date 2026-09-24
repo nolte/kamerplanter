@@ -19,15 +19,19 @@
 ##   to learn which collections the export walk and the erasure actually bound —
 ##   the database's own record, not a report the privacy code writes about
 ##   itself.
-## * One object-storage directory shared by the API and the worker. The E2E file
-##   gives backend-full a private tmpfs and the worker none, so a bundle the
-##   worker writes is invisible to the API and to anyone opening the archive.
-## * The worker receives the two secrets the API already has. Without
-##   ERASURE_TOMBSTONE_SALT every scheduled Art. 17 erasure is held as a
-##   configuration error (PrivacyService._erasure_configuration_error), so the
-##   finalisation the beat runs would never reach the plan.
+## * The E2E file's object storage — one volume backend-full and
+##   celery-worker-full already share — backed by .reach/storage instead of a
+##   tmpfs, so the export observation can open the bundle the worker wrote from
+##   the host. Only the volume's backing changes; which containers mount it, and
+##   where, is the E2E file's. `scripts/reach/_reach_common.py` supplies the
+##   absolute path as REACH_STORAGE_DIR (compose does not resolve a relative
+##   device path).
 ##
-## Test-only values, identical to the E2E file's. Not for any deployment.
+## The worker's secrets and the storage sharing are not added here: the E2E
+## file gives the worker the API's (#1717), so what this stack proves is what
+## the E2E stack runs.
+##
+## Test-only. Not for any deployment.
 ##
 
 services:
@@ -41,15 +45,12 @@ services:
       - "127.0.0.1::8529"
 
   backend-full:
-    tmpfs: !reset []
-    volumes:
-      - ./.reach/storage:/data
     ports:
       - "127.0.0.1::8000"
 
-  celery-worker-full:
-    environment:
-      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
-      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
-    volumes:
-      - ./.reach/storage:/data
+volumes:
+  object-storage-full:
+    driver_opts: !override
+      type: none
+      o: bind
+      device: ${REACH_STORAGE_DIR:?REACH_STORAGE_DIR is set by scripts/reach/_reach_common.py; start this stack with task reach:stack:up}

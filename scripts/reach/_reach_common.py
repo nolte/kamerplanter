@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -30,8 +31,12 @@ from pathlib import Path
 from typing import Any
 
 #: The E2E compose file whose full-mode services the reach stack reuses, and the
-#: overlay that adds what a probe needs (host ports, query tracking, shared storage).
+#: overlay that adds what a probe needs (host ports, query tracking, host-readable storage).
 COMPOSE_FILES = ("docker-compose.e2e.yml", "docker-compose.reach.yml")
+#: Environment variable the overlay binds the E2E file's object-storage volume to.
+#: Compose does not resolve a relative ``device`` in a volume's driver options, so
+#: :func:`run` hands it the absolute path of ``.reach/storage``.
+STORAGE_DIR_VARIABLE = "REACH_STORAGE_DIR"
 #: The E2E file puts the full-mode services behind this profile.
 COMPOSE_PROFILE = "full"
 #: The services a T2 probe needs: data store, broker, API, worker. No frontend,
@@ -100,6 +105,7 @@ def run(
             capture_output=True,
             timeout=timeout,
             cwd=repo_root(),
+            env={**os.environ, STORAGE_DIR_VARIABLE: str(reach_dir() / "storage")},
             check=False,
         )
     except subprocess.TimeoutExpired as exc:

@@ -105,6 +105,10 @@ DISTINCT_CONTENT: dict[str, Any] = {
     "erasure_requests": lambda key: {"requested_at": _unique_timestamp(key)},
 }
 
+#: Filter fields that name an edge endpoint; a manifest source filtered on one is
+#: an edge collection whose rows are the data (``user_favorites``, #1719).
+EDGE_ENDPOINTS = frozenset({"_from", "_to"})
+
 #: Fields never filled with a marker: credentials and the fields the seed sets.
 _NO_MARKER = ("token", "password", "hash", "secret")
 
@@ -141,8 +145,8 @@ def _model_classes() -> dict[str, list[type[BaseModel]]]:
 
 def collection_models() -> dict[str, list[type[BaseModel]]]:
     """Collection -> the models a repository binds to it (the R6 placement of the inventory guard)."""
-    constants = inventory_check._collection_constants(APP_ROOT)
-    bindings = inventory_check._repository_bindings(APP_ROOT, constants)
+    constants = inventory_check.collection_constants(APP_ROOT)
+    bindings = inventory_check.repository_bindings(APP_ROOT, constants)
     for model_name, collection in inventory_check.MODEL_COLLECTIONS_BY_HAND.items():
         bindings.setdefault(model_name, set()).add(collection)
     classes = _model_classes()
@@ -357,6 +361,42 @@ class Seeder:
                     optional_markers.discard(wire)
         raise SeedError(f"seeded '{collection}' row could not be made a valid {model.__name__}")
 
+    def endpoint_edge(self, source: Any, users: str) -> dict[str, Any]:
+        """Insert the subject's row of a manifest source whose rows are edges (#1719).
+
+        Such a source (``user_favorites``) filters on an edge endpoint: the edge
+        row itself is the disclosed data, ``users/<subject>`` on one side and the
+        marked catalogue entry on the other. A document insert cannot hold it —
+        ArangoDB refuses an edge without both endpoints — so the row is built
+        here: the subject on the filtered side, a seeded row (or a named
+        placeholder) of the far side's collections on the other, and a marker in
+        every other field the source discloses. The row is recorded as a
+        *document* row: it is the data, not a link to it, and the export
+        observer recognises it by those markers.
+        """
+        field = source.filter_field
+        definition = self.edge_definitions.get(source.collection)
+        if definition is None:
+            raise SeedError(f"manifest source '{source.collection}' filters on {field} but is not a graph edge")
+        own_side = "from_vertex_collections" if field == "_from" else "to_vertex_collections"
+        far_side = "to_vertex_collections" if field == "_from" else "from_vertex_collections"
+        if users not in definition[own_side]:
+            raise SeedError(f"manifest source '{source.collection}' cannot hold {users} on {field}")
+        far = list(definition[far_side])
+        target = next(
+            (self.rows_of(name)[0]["id"] for name in far if self.rows_of(name)),
+            f"{far[0]}/reach-target-{secrets.token_hex(4)}",
+        )
+        key = self.new_key()
+        opposite = "_to" if field == "_from" else "_from"
+        doc: dict[str, Any] = {"_key": key, field: f"{users}/{self.subject}", opposite: target}
+        for name in source.fields:
+            if name not in EDGE_ENDPOINTS:
+                doc[name] = f"{MARKER_PREFIX}:{key}:{name}"
+        return self._insert(
+            source.collection, doc, kind="document", role=f"export:{source.collection}.{field}", edge=True
+        )
+
     def rows_of(self, collection: str) -> list[dict[str, Any]]:
         return [row for row in self.rows if row["collection"] == collection and row["kind"] != "edge"]
 
@@ -453,6 +493,10 @@ class Seeder:
                 continue
             field = source.filter_field or ""
             if (source.collection, field, "{}") in self.covered:
+                continue
+            if field in EDGE_ENDPOINTS:
+                self.endpoint_edge(source, users)
+                self.covered.add((source.collection, field, "{}"))
                 continue
             self.document(
                 source.collection,

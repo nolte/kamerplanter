@@ -114,6 +114,12 @@ services:
       ARANGODB_PASSWORD: e2e-test-password
       REDIS_URL: redis://valkey:6379/0
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      # The worker runs the same code paths as the API behind it and must hold
+      # the same secrets (#1717): the Fernet key decrypts what the API stored,
+      # and without the tombstone salt every scheduled Art. 17 erasure is held
+      # as a configuration error. Values identical to `backend`'s; test-only.
+      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -266,13 +272,15 @@ services:
       context: ./src/backend
     # NFR-013 local-fs object storage (STORAGE_LOCAL_FS_ROOT defaults to
     # /data/attachments): the hardened image runs non-root and ships no /data,
-    # so photo uploads (REQ-034) fail with PermissionError. A per-run tmpfs
-    # (docker default mode 1777) makes the root writable; contents are
-    # deliberately ephemeral. Not shared with celery-worker-full — the only
-    # worker-side attachment readers (pest dataset acquisition) are not
-    # exercised by the E2E suite.
-    tmpfs:
-      - /data
+    # so photo uploads (REQ-034) fail with PermissionError. The tmpfs-backed
+    # volume `object-storage-full` (mode 1777, see `volumes:` at the end of the
+    # file) makes the root writable; contents are deliberately ephemeral. It is
+    # shared with celery-worker-full (#1717): the Art. 15 export runs in the
+    # worker and writes its bundle into this storage, and the API serves the
+    # download from it — a private mount per container would make every bundle
+    # invisible to the API.
+    volumes:
+      - object-storage-full:/data
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"
@@ -355,8 +363,20 @@ services:
       ARANGODB_PASSWORD: e2e-test-password
       REDIS_URL: redis://valkey:6379/1
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      # Same secrets as backend-full (#1717). Art. 15 export and Art. 17 erasure
+      # run as Celery tasks here: without the tombstone salt the scheduled
+      # erasure refuses to run
+      # (`retention.execute_scheduled_erasures.not_configured`), and a Fernet
+      # key differing from the API's would leave the worker unable to read what
+      # the API encrypted. Values identical to backend-full's; test-only.
+      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
+    # The API's object storage, at the API's path (see backend-full): export
+    # bundles the worker writes must be the files the API serves.
+    volumes:
+      - object-storage-full:/data
     depends_on:
       arangodb:
         condition: service_healthy
@@ -550,3 +570,14 @@ services:
       - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=tablet
+
+volumes:
+  # Object storage shared by backend-full and celery-worker-full (#1717). A
+  # tmpfs, so contents stay per run and never touch the host disk, with mode
+  # 1777 because the hardened image runs as UID 1000 and a fresh volume root
+  # would otherwise belong to root.
+  object-storage-full:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: mode=1777

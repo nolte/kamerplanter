@@ -128,8 +128,14 @@ def seed(subject: str) -> None:
         "--subject",
         subject,
         # The seed places each collection in its model the way the inventory
-        # guard does; it reuses that reader rather than carrying a copy.
-        support=(scripts / "check_privacy_inventory.py", scripts / "source_text.py"),
+        # guard does; it reuses that reader rather than carrying a copy. The
+        # support tuple is the guard's import closure: it imports the
+        # repository-binding reader since #1712.
+        support=(
+            scripts / "check_privacy_inventory.py",
+            scripts / "arango_repository_bindings.py",
+            scripts / "source_text.py",
+        ),
         timeout=300,
     )
     record = json.loads(output)
