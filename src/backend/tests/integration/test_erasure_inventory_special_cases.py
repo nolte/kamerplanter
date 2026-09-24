@@ -99,7 +99,7 @@ class TestCalendarFeedTokenStopsServing:
         repo = ArangoCalendarFeedRepository(database)
         token = secrets.token_urlsafe(24)
         feed = repo.save(CalendarFeed(tenant_key="t-feed", name="Mein Kalender", token=token, user_key="feed-owner"))
-        service = CalendarService(feed_repo=repo, aggregation_engine=None)  # type: ignore[arg-type]
+        service = CalendarService(feed_repo=repo, aggregation_engine=None, source_repo=None)  # type: ignore[arg-type]
         # Positive control: before the erasure the token resolves to the feed.
         assert repo.get_by_token(token) is not None
 
