@@ -72,6 +72,7 @@ from app.domain.interfaces.device_pairing_store import IDevicePairingCodeStore
 from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottleStore
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -1945,13 +1946,37 @@ def get_attachment_service():
     )
 
 
-def get_reference_index_store():
-    """REQ-025 Phase 0.5 / REQ-029-A — DINOv2 reference-index store.
+def get_reference_index_store() -> IReferenceIndexStore:
+    """REQ-025 Phase 0.5 / REQ-024 / REQ-029-A — the DINOv2 reference-index store.
 
-    Returns the no-op store until the physical pgvector ``species_embeddings``
-    index ships (DINOv2 Phase 2). Swap the binding here once the real store
-    exists — the erasure pipeline and engine rules need no change.
+    Binds the store that reaches the index the product writes to (issue #1753):
+
+    * ``settings.inference_service_enabled`` set →
+      :class:`InferenceServiceReferenceIndexStore` (``binding =
+      "inference_service"``): the erasure and the tenant deletion delete the
+      ``user_contributed`` rows through the inference-service and fail loud
+      when they cannot.
+    * unset → :class:`NoopReferenceIndexStore` (``binding = "noop"``).
+
+    Why the flag is the right discriminator: a contributed vector is written
+    only by ``POST /t/{slug}/identification/reference``, and that route refuses
+    with ``AdapterNotAvailableError`` unless the flag is set
+    (``app/api/v1/recognition/tenant_router.py``, ``contribute_reference``,
+    the ``if not settings.inference_service_enabled`` guard). The second
+    writer, the REQ-034 §4 gallery hook, stops at the same flag (Guard 1 in
+    ``app/tasks/reference_contribution_tasks.py::_evaluate``) and is inert on
+    every binding. So without the flag no contribution can exist, and binding
+    the real store there would only make every erasure fail against a service
+    that is not deployed.
     """
+    if settings.inference_service_enabled:
+        from app.data_access.external.inference_service_client import InferenceServiceClient
+        from app.data_access.vectordb.inference_reference_index_store import (
+            InferenceServiceReferenceIndexStore,
+        )
+
+        return InferenceServiceReferenceIndexStore(InferenceServiceClient(settings.inference_service_url))
+
     from app.data_access.vectordb.noop_reference_index_store import (
         NoopReferenceIndexStore,
     )

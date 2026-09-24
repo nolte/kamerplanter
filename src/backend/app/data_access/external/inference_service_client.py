@@ -7,12 +7,16 @@ index. This client exposes:
   (``LocalEmbeddingAdapter``, WS-3).
 - ``embed`` / ``embed_batch`` / ``upsert_reference`` — sync, used by the
   Celery reference-image acquisition pipeline (WS-4).
+- ``delete_user_contributions`` / ``delete_tenant_contributions`` — sync, used
+  by the GDPR erasure (REQ-025 Phase 0.5) and the tenant deletion (REQ-024)
+  through :class:`InferenceServiceReferenceIndexStore` (issue #1753).
 
 The split mirrors the call sites: identification runs inside async FastAPI
 handlers, while acquisition runs inside synchronous Celery tasks.
 """
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 import structlog
@@ -24,6 +28,20 @@ logger = structlog.get_logger(__name__)
 _MATCH_TIMEOUT_SECONDS = 30.0
 _EMBED_TIMEOUT_SECONDS = 120.0
 _READY_TIMEOUT_SECONDS = 5.0
+_ERASURE_TIMEOUT_SECONDS = 30.0
+
+
+def _path_segment(name: str, value: str | None) -> str:
+    """Percent-encode *value* as exactly one path segment; refuse a blank key.
+
+    A blank key would ask the service for an unscoped erasure (it refuses with
+    422 too); refusing here keeps the request from being sent at all. ``/`` is
+    encoded so a key can never address a different route.
+    """
+    if value is None or not value.strip():
+        msg = f"{name} must be a non-blank key; refusing an unscoped erasure"
+        raise ValueError(msg)
+    return quote(value, safe="")
 
 
 class InferenceServiceClient:
@@ -240,3 +258,51 @@ class InferenceServiceClient:
         )
         response.raise_for_status()
         return response.json()
+
+    # ── GDPR erasure (sync, issue #1753) ───────────────────────────────
+    # Both calls propagate every failure (``raise_for_status``): an erasure
+    # that cannot reach the index must not report success.
+
+    def delete_user_contributions(self, contributed_by: str, *, tenant_key: str | None = None) -> int:
+        """Delete one user's ``user_contributed`` reference embeddings (REQ-025 AK-OS-05).
+
+        ``tenant_key`` narrows the delete to one tenant; ``None`` reaches every
+        tenant. Curated references are never touched — the service binds its
+        DELETE to ``source = 'user_contributed'``. Returns the rows deleted.
+
+        Raises:
+            ValueError: ``contributed_by`` is blank, or ``tenant_key`` is given
+                but blank. Nothing is sent.
+            httpx.HTTPError: The service is unreachable or answered non-2xx.
+        """
+        segment = _path_segment("contributed_by", contributed_by)
+        params: dict[str, str] = {}
+        if tenant_key is not None:
+            _path_segment("tenant_key", tenant_key)
+            params["tenant_key"] = tenant_key
+        response = httpx.delete(
+            f"{self._base_url}/reference/contributions/by-contributor/{segment}",
+            params=params,
+            headers=self._auth_headers(),
+            timeout=_ERASURE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return int(response.json()["deleted"])
+
+    def delete_tenant_contributions(self, tenant_key: str) -> int:
+        """Delete every ``user_contributed`` reference embedding of a tenant (REQ-024).
+
+        Returns the rows deleted.
+
+        Raises:
+            ValueError: ``tenant_key`` is blank. Nothing is sent.
+            httpx.HTTPError: The service is unreachable or answered non-2xx.
+        """
+        segment = _path_segment("tenant_key", tenant_key)
+        response = httpx.delete(
+            f"{self._base_url}/reference/contributions/by-tenant/{segment}",
+            headers=self._auth_headers(),
+            timeout=_ERASURE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return int(response.json()["deleted"])

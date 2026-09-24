@@ -276,10 +276,14 @@ class TenantService:
         """NFR-013 §6.1 — delete the tenant's object-storage prefix + ref index.
 
         Steps (with audit logs):
-          1. Delete all ``attachments`` metadata for the tenant.
-          2. Drop the tenant's ``pest_image_contributions`` link documents.
-          3. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
-          4. Remove the tenant's user-contributed reference-index vectors.
+          1. Remove the tenant's user-contributed reference-index vectors
+             (inference-service; fails loud, #1753).
+          2. Delete all ``attachments`` metadata for the tenant.
+          3. Drop the tenant's ``pest_image_contributions`` link documents.
+          4. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
+
+        Any step that raises stops the purge, and ``delete_tenant`` then never
+        reaches the tenant record, so the whole delete can be retried.
 
         ``delete_prefix`` / reference-index calls are async; this method is
         invoked from a synchronous request handler, so it bridges via
@@ -294,6 +298,19 @@ class TenantService:
         # ``list_objects_v2(Prefix=...)`` — both a mass cross-tenant deletion.
         if not tenant_key or not _TENANT_KEY_PATTERN.match(tenant_key):
             raise ValidationError(f"Refusing to purge storage for an invalid tenant key: {tenant_key!r}")
+
+        # REQ-024 / REQ-025 AK-OS-05 — the tenant's contributed reference vectors
+        # go first: they live in a separate service, and when that delete fails
+        # (ExternalSourceError, HTTP 502) nothing else has been removed yet, so
+        # a retry starts from the same state (#1753).
+        if self._reference_index_store is not None:
+            removed_vectors = run_async(self._reference_index_store.delete_tenant_contributions(tenant_key))
+            logger.info(
+                "tenant_reference_index_cleanup",
+                tenant_key=tenant_key,
+                binding=self._reference_index_store.binding,
+                removed=removed_vectors,
+            )
 
         if self._attachment_repo is not None:
             removed_meta = self._attachment_repo.delete_all_for_tenant(tenant_key)
@@ -328,14 +345,6 @@ class TenantService:
                 tenant_key=tenant_key,
                 prefix=prefix,
                 deleted=deleted_objects,
-            )
-
-        if self._reference_index_store is not None:
-            removed_vectors = run_async(self._reference_index_store.delete_tenant_contributions(tenant_key))
-            logger.info(
-                "tenant_reference_index_cleanup",
-                tenant_key=tenant_key,
-                removed=removed_vectors,
             )
 
     def _retract_promoted_pest_image_embeddings(self, contributions) -> None:  # type: ignore[no-untyped-def]

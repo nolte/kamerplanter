@@ -136,6 +136,38 @@ class FakeRepo:
         self.rows = [r for r in self.rows if r.get("species_key") != species_key]
         return before - len(self.rows)
 
+    def delete_user_contributions(self, contributed_by: str, tenant_key: str | None = None) -> int:
+        """Mirror of the real delete: same refusals, same ``source`` bound."""
+        from app.vectordb.repository import USER_CONTRIBUTED_SOURCE, require_erasure_key
+
+        require_erasure_key("contributed_by", contributed_by)
+        if tenant_key is not None:
+            require_erasure_key("tenant_key", tenant_key)
+
+        def _hit(r: dict) -> bool:
+            return (
+                r.get("source") == USER_CONTRIBUTED_SOURCE
+                and r.get("contributed_by") == contributed_by
+                and (tenant_key is None or r.get("tenant_key") == tenant_key)
+            )
+
+        before = len(self.rows)
+        self.rows = [r for r in self.rows if not _hit(r)]
+        return before - len(self.rows)
+
+    def delete_tenant_contributions(self, tenant_key: str) -> int:
+        """Mirror of the real delete: same refusal, same ``source`` bound."""
+        from app.vectordb.repository import USER_CONTRIBUTED_SOURCE, require_erasure_key
+
+        require_erasure_key("tenant_key", tenant_key)
+        before = len(self.rows)
+
+        def _hit(r: dict) -> bool:
+            return r.get("source") == USER_CONTRIBUTED_SOURCE and r.get("tenant_key") == tenant_key
+
+        self.rows = [r for r in self.rows if not _hit(r)]
+        return before - len(self.rows)
+
     def count(self, species_key=None) -> int:
         if species_key:
             return sum(1 for r in self.rows if r.get("species_key") == species_key)

@@ -23,6 +23,33 @@ class SpeciesMatch:
     score: float
 
 
+#: The only ``source`` a GDPR erasure may delete (REQ-025 AK-OS-05). Curated
+#: references (GBIF, Wikimedia, manual) are never reached by the erasure paths.
+USER_CONTRIBUTED_SOURCE = "user_contributed"
+
+# Static statements: the source filter is part of the text, so no caller can
+# drop or widen it; the identities are always bind parameters.
+_DELETE_BY_CONTRIBUTOR_SQL = "DELETE FROM species_embeddings WHERE source = 'user_contributed' AND contributed_by = %s"
+_DELETE_BY_CONTRIBUTOR_IN_TENANT_SQL = (
+    "DELETE FROM species_embeddings WHERE source = 'user_contributed' AND contributed_by = %s AND tenant_key = %s"
+)
+_DELETE_BY_TENANT_SQL = "DELETE FROM species_embeddings WHERE source = 'user_contributed' AND tenant_key = %s"
+
+
+def require_erasure_key(name: str, value: str | None) -> str:
+    """Return *value* unchanged, or refuse a missing/blank erasure filter.
+
+    A blank ``contributed_by`` / ``tenant_key`` must never reach a DELETE: it
+    would either match nothing (and report a successful erasure that erased
+    nothing) or, in a future query shape, everything. Shared with the test fake
+    so both refuse the same inputs.
+    """
+    if value is None or not value.strip():
+        msg = f"{name} must be a non-blank key; refusing an unscoped erasure"
+        raise ValueError(msg)
+    return value
+
+
 def _to_vector_literal(vector: list[float]) -> str:
     """Render a float list into the pgvector text literal '[v1,v2,...]'."""
     return f"[{','.join(repr(float(v)) for v in vector)}]"
@@ -258,6 +285,48 @@ class SpeciesEmbeddingRepository:
                 (species_key,),
             )
             return result.rowcount or 0
+
+    def delete_user_contributions(self, contributed_by: str, tenant_key: str | None = None) -> int:
+        """REQ-025 AK-OS-05 — delete one user's contributed reference embeddings.
+
+        Removes every row with ``source = 'user_contributed'`` AND
+        ``contributed_by = contributed_by`` — narrowed to ``tenant_key`` when
+        one is given. Rows of any other source are never touched, whoever they
+        name. Returns the number of rows deleted.
+
+        Raises:
+            ValueError: ``contributed_by`` is blank, or ``tenant_key`` is given
+                but blank (``None`` means "every tenant").
+        """
+        require_erasure_key("contributed_by", contributed_by)
+        if tenant_key is None:
+            sql: str = _DELETE_BY_CONTRIBUTOR_SQL
+            params: tuple[str, ...] = (contributed_by,)
+        else:
+            require_erasure_key("tenant_key", tenant_key)
+            sql = _DELETE_BY_CONTRIBUTOR_IN_TENANT_SQL
+            params = (contributed_by, tenant_key)
+        with self._pool.connection() as conn:
+            result = conn.execute(sql, params)
+            deleted = result.rowcount or 0
+        logger.info("reference_contributions_deleted", scope="user", deleted=deleted)
+        return deleted
+
+    def delete_tenant_contributions(self, tenant_key: str) -> int:
+        """REQ-024 / REQ-025 — delete every contributed reference embedding of a tenant.
+
+        Removes every row with ``source = 'user_contributed'`` AND
+        ``tenant_key = tenant_key``. Returns the number of rows deleted.
+
+        Raises:
+            ValueError: ``tenant_key`` is blank.
+        """
+        require_erasure_key("tenant_key", tenant_key)
+        with self._pool.connection() as conn:
+            result = conn.execute(_DELETE_BY_TENANT_SQL, (tenant_key,))
+            deleted = result.rowcount or 0
+        logger.info("reference_contributions_deleted", scope="tenant", deleted=deleted)
+        return deleted
 
     def count(self, species_key: str | None = None) -> int:
         """Count reference embeddings, optionally for a single species."""

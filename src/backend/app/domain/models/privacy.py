@@ -115,6 +115,11 @@ class ErasureRequest(BaseModel):
     #: Set once export cleanup, Phase 0 and Phase 0.5 finished for this request;
     #: a retry then runs only the ArangoDB plan (#1666).
     pre_arango_completed_at: datetime | None = None
+    #: Which reference-index store Phase 0.5 ran against (``"inference_service"``
+    #: / ``"noop"``) and how many contributed vectors it removed, recorded with
+    #: the pre-ArangoDB checkpoint (#1753). Neither names the subject.
+    reference_index_binding: str | None = None
+    reference_index_removed: int | None = Field(default=None, ge=0)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -489,6 +494,10 @@ class AccountErasureReport(BaseModel):
 
     storage_cleanup_scopes: list[str] = Field(default_factory=list)
     reference_index_removed: int = 0
+    #: The store Phase 0.5 ran against in *this* call (``"inference_service"`` /
+    #: ``"noop"``); ``None`` when it did not run — no store wired, or a retry
+    #: that skipped the pre-ArangoDB phases (#1753).
+    reference_index_binding: str | None = None
     export_files_removed: int = 0
     delegated_removed: dict[str, int] = Field(default_factory=dict)
     arango: ErasureExecutionReport = Field(default_factory=ErasureExecutionReport)

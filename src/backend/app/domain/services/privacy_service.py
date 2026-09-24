@@ -1250,12 +1250,14 @@ class PrivacyService:
         if self._erasure_engine.is_tombstone(erasure.user_key):
             return self._record_committed_erasure(erasure, now)
 
-        def _checkpoint(scopes: list[str]) -> None:
+        def _checkpoint(pre_arango: AccountErasureReport) -> None:
             self._mark_erasure(
                 erasure,
                 status="in_progress",
-                storage_cleanup_scopes=scopes,
+                storage_cleanup_scopes=pre_arango.storage_cleanup_scopes,
                 pre_arango_completed_at=now,
+                reference_index_binding=pre_arango.reference_index_binding,
+                reference_index_removed=pre_arango.reference_index_removed,
             )
 
         try:
@@ -1370,7 +1372,7 @@ class PrivacyService:
         *,
         pre_arango_completed: bool = False,
         recorded_storage_scopes: list[str] | None = None,
-        on_pre_arango_complete: Callable[[list[str]], None] | None = None,
+        on_pre_arango_complete: Callable[[AccountErasureReport], None] | None = None,
     ) -> AccountErasureReport:
         """Erase one account: every declared phase, then the ArangoDB plan (#1664).
 
@@ -1401,10 +1403,11 @@ class PrivacyService:
                 result. Only the scheduled path sets this, from its own marker.
             recorded_storage_scopes: The scopes recorded when steps 2 and 3
                 finished; reported unchanged when they are skipped.
-            on_pre_arango_complete: Called with the applied scopes as soon as
-                steps 2 and 3 finished, before the ArangoDB plan — the scheduled
-                path records its marker here, so a failing plan does not make
-                the next attempt repeat the storage work.
+            on_pre_arango_complete: Called with the report so far (scopes,
+                reference-index binding and count) as soon as steps 2 and 3
+                finished, before the ArangoDB plan — the scheduled path records
+                its marker here, so a failing plan does not make the next
+                attempt repeat the storage work.
 
         Returns:
             Per-phase and per-step counts. Logged without the rows' content.
@@ -1444,8 +1447,9 @@ class PrivacyService:
             scopes, reference_removed, pest_removed = await self._run_pre_arango_phases(user_key)
             report.storage_cleanup_scopes = scopes
             report.reference_index_removed = reference_removed
+            report.reference_index_binding = self._reference_index_binding()
             if on_pre_arango_complete is not None:
-                on_pre_arango_complete(scopes)
+                on_pre_arango_complete(report)
         # The pest-image cleanup removes the rows of the step attributed to it;
         # the executor's own pass over that step is the safety net.
         for step in plan.steps:
@@ -1459,6 +1463,7 @@ class PrivacyService:
             export_files_removed=report.export_files_removed,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
             reference_index_removed=report.reference_index_removed,
+            reference_index_binding=report.reference_index_binding,
             delegated_removed=report.delegated_removed,
             arango_steps={step.collection: step.affected for step in report.arango.steps},
         )
@@ -1622,12 +1627,23 @@ class PrivacyService:
             categories=categories,
         )
 
+    def _reference_index_binding(self) -> str | None:
+        """The name of the wired reference-index store, ``None`` when unwired (#1753)."""
+        if self._reference_index_store is None:
+            return None
+        return self._reference_index_store.binding
+
     async def _run_reference_index_cleanup(self, user_key: str) -> int:
         """Phase 0.5 — remove the user's contributed DINOv2 embeddings.
 
         Runs once per user across all their tenants (the store filters by
-        ``contributed_by == user_key``). No-op when the pgvector index has not
-        been built yet (default :class:`NoopReferenceIndexStore`).
+        ``contributed_by == user_key``). Which index that reaches is the DI
+        binding (:func:`app.common.dependencies.get_reference_index_store`): the
+        inference-service's pgvector ``species_embeddings`` wherever the
+        inference-service is enabled, the no-op store where no index is
+        deployed (#1753). The binding is logged, so a run that reached nothing
+        says so. A failing delete raises: :meth:`_finalize_erasure` then
+        records ``partially_completed`` and the ArangoDB plan does not run.
         """
         if self._reference_index_store is None:
             logger.info(
@@ -1643,6 +1659,7 @@ class PrivacyService:
         logger.info(
             "retention.erasure.reference_index_cleanup",
             subject=self._erasure_log_subject(user_key),
+            binding=self._reference_index_store.binding,
             removed=removed,
         )
         return removed
@@ -1705,6 +1722,8 @@ class PrivacyService:
         last_attempt_at: datetime | None = None,
         next_attempt_at: datetime | None = None,
         pre_arango_completed_at: datetime | None = None,
+        reference_index_binding: str | None = None,
+        reference_index_removed: int | None = None,
     ) -> None:
         """Persist an erasure-status transition as a named-field write.
 
@@ -1730,6 +1749,8 @@ class PrivacyService:
             "last_attempt_at": last_attempt_at,
             "next_attempt_at": next_attempt_at,
             "pre_arango_completed_at": pre_arango_completed_at,
+            "reference_index_binding": reference_index_binding,
+            "reference_index_removed": reference_index_removed,
         }
         fields.update({name: value for name, value in retry_fields.items() if value is not None})
         if status == "completed":

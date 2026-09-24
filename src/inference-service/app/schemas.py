@@ -55,6 +55,13 @@ class DeleteReferenceResponse(BaseModel):
     deleted: int
 
 
+class DeleteContributionsResponse(BaseModel):
+    """Result of erasing user-contributed reference embeddings (REQ-025 AK-OS-05)."""
+
+    status: str
+    deleted: int
+
+
 class ReferenceImageItem(BaseModel):
     """Provenance of one stored reference image (no embedding).
 

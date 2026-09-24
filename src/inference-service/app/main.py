@@ -6,6 +6,7 @@ it over HTTP only (REQ-029-A 3.1, plan D-3).
 """
 
 import json
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from app.observability.error_tracking import init_error_tracking, resolve_releas
 from app.phenotype_engine import PhenotypeEngine, PhenotypeUnavailableError
 from app.schemas import (
     BatchEmbedResponse,
+    DeleteContributionsResponse,
     DeleteReferenceResponse,
     DiseaseClassificationItem,
     DiseaseClassifyResponse,
@@ -501,6 +503,57 @@ def set_reference_active(
         id=embedding_id,
         is_active=body.is_active,
     )
+
+
+# -- GDPR erasure of user contributions (REQ-025 AK-OS-05, issue #1753) -----
+#
+# Declared before ``DELETE /reference/{species_key}``. The paths have three
+# segments below ``/reference`` and so cannot match the one-segment species
+# route in any order; declaring them first keeps that true should the species
+# route ever gain a catch-all converter. Both run behind the app-level
+# ``require_service_token`` dependency like every non-probe route.
+
+
+def _erase_contributions(action: Callable[..., int], **keys: str | None) -> DeleteContributionsResponse:
+    """Run one erasure delete; a blank key is the caller's error (422), not a no-op."""
+    try:
+        deleted = action(**keys)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return DeleteContributionsResponse(status="ok", deleted=deleted)
+
+
+@app.delete(
+    "/reference/contributions/by-contributor/{contributed_by}",
+    response_model=DeleteContributionsResponse,
+)
+def delete_user_contributions(
+    contributed_by: str,
+    tenant_key: str | None = Query(default=None),
+) -> DeleteContributionsResponse:
+    """Delete one user's contributed reference embeddings (Art. 17 erasure, Phase 0.5).
+
+    Only rows with ``source = 'user_contributed'`` are reached; curated
+    references stay whoever they name. ``tenant_key`` narrows the delete to one
+    tenant; omitted, every tenant's contributions of the user go. A blank
+    contributor or a blank ``tenant_key`` is refused with 422.
+    """
+    repo = _require_repo()
+    return _erase_contributions(repo.delete_user_contributions, contributed_by=contributed_by, tenant_key=tenant_key)
+
+
+@app.delete(
+    "/reference/contributions/by-tenant/{tenant_key}",
+    response_model=DeleteContributionsResponse,
+)
+def delete_tenant_contributions(tenant_key: str) -> DeleteContributionsResponse:
+    """Delete every contributed reference embedding of a tenant (REQ-024 tenant deletion).
+
+    Only rows with ``source = 'user_contributed'`` are reached. A blank tenant
+    key is refused with 422.
+    """
+    repo = _require_repo()
+    return _erase_contributions(repo.delete_tenant_contributions, tenant_key=tenant_key)
 
 
 @app.delete("/reference/{species_key}", response_model=DeleteReferenceResponse)
