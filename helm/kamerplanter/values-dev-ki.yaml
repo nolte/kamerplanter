@@ -8,7 +8,10 @@
 #   kamerplanter-ki-embedding-service
 #   kamerplanter-ki-vectordb
 
-# -- Dev overrides: relax readOnlyRootFilesystem for hot-reload (SEC-M-004)
+# -- Dev overrides: relax runAsNonRoot for hot-reload (SEC-M-004). The
+# knowledge-service and the vectordb relax readOnlyRootFilesystem per container
+# below; the reranker- and embedding-service do NOT — they run read-only with an
+# emptyDir /tmp (#1725).
 defaultPodOptions:
   securityContext:
     runAsNonRoot: false
@@ -113,19 +116,31 @@ controllers:
     strategy: Recreate
     pod:
       # No hot-reload/sync and no writable /app needed — the image already ships
-      # USER 1000 and reads only the 1000-owned model files. No reason for root.
+      # USER 1000 and only READS its code and model, which are root-owned (#1725).
+      # No reason for root. seccomp repeated from defaultPodOptions: a
+      # pod.securityContext here replaces it (bjw-s does not deep-merge).
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
           repository: kamerplanter-reranker-service
           tag: latest
           pullPolicy: IfNotPresent
+        # Read-only root filesystem (#1725): the image writes nothing at runtime
+        # (root-owned files, PYTHONDONTWRITEBYTECODE=1, HF_HUB_OFFLINE=1); /tmp
+        # is the memory-backed `reranker-tmp` emptyDir below, for any
+        # library that insists on a scratch file. CI starts the image the same
+        # way (scripts/ci/smoke_model_image.sh).
         securityContext:
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         env:
           RERANKER_MODEL: "bge-reranker-v2-m3"
         probes:
@@ -164,19 +179,31 @@ controllers:
     strategy: Recreate
     pod:
       # No hot-reload/sync and no writable /app needed — the image already ships
-      # USER 1000 and reads only the 1000-owned model files. No reason for root.
+      # USER 1000 and only READS its code and model, which are root-owned (#1725).
+      # No reason for root. seccomp repeated from defaultPodOptions: a
+      # pod.securityContext here replaces it (bjw-s does not deep-merge).
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
           repository: kamerplanter-embedding-service
           tag: latest
           pullPolicy: IfNotPresent
+        # Read-only root filesystem (#1725): the image writes nothing at runtime
+        # (root-owned files, PYTHONDONTWRITEBYTECODE=1, HF_HUB_OFFLINE=1); /tmp
+        # is the memory-backed `embedding-tmp` emptyDir below, for any
+        # library that insists on a scratch file. CI starts the image the same
+        # way (scripts/ci/smoke_model_image.sh).
         securityContext:
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         env:
           EMBEDDING_MODEL: "multilingual-e5-large"
         probes:
@@ -331,6 +358,28 @@ persistence:
     enabled: false
   arangodb-apps:
     enabled: false
+
+  # /tmp of the two ONNX sidecars, whose root filesystem is read-only (#1725).
+  # Same shape as `backend-tmp` in values.yaml.
+  reranker-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      reranker-service:
+        main:
+          - path: /tmp
+
+  embedding-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      embedding-service:
+        main:
+          - path: /tmp
 
   knowledge:
     enabled: true

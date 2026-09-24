@@ -43,6 +43,9 @@
 # Known to be able to fail, measured 2026-09-21 against stub containers that
 # answer 200, answer 503 forever, answer 200 with the wrong body, and publish no
 # port: exit 0, 1, 1, 1 respectively, with the container logs dumped on each red.
+# Those runs predate the hardened `docker run` flags of the HTTP form (#1725)
+# and were NOT repeated with them; a stub that needs a writable root
+# filesystem or root now fails to start, which is a red for a different reason.
 # An assertion that has only ever seen its passing input is not known to be able
 # to fail (NFR-018 §2). The structural half — that every model-shipping image is
 # actually wired to this script — is asserted by
@@ -88,7 +91,24 @@ cleanup() {
 trap cleanup EXIT
 
 # Let the kernel pick the host port: several of these may run side by side.
-CONTAINER="$(docker run -d -P "$IMAGE")"
+#
+# STARTED THE WAY THE CHART RUNS IT (#1725): read-only root filesystem, a
+# small tmpfs for /tmp (the chart's memory-backed emptyDir), no capabilities,
+# no privilege escalation, and the image's non-root UID. An image that only
+# becomes ready while it can write to its own filesystem — a library caching
+# into $HOME, bytecode written next to the code — would pass a plain
+# `docker run` here and then crash-loop in the cluster; this makes CI see what
+# the cluster sees. Both HTTP-form users (the embedding and reranker images)
+# ship `USER 1000` and root-owned files, so `--user 1000:1000` changes nothing
+# for them but states the expectation. The `model` form above is unchanged: it
+# runs a one-off verifier, not the server.
+CONTAINER="$(docker run -d -P \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --user 1000:1000 \
+  "$IMAGE")"
 # `|| true`: an unpublished port must reach the diagnostic below rather than
 # abort the script under `set -e` with docker's own terser message.
 HOST_PORT="$(docker port "$CONTAINER" "$PORT/tcp" 2>/dev/null | head -1 | sed 's/.*://' || true)"

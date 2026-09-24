@@ -18,6 +18,9 @@ on:
       # one change most able to break those jobs — a change to the script that
       # decides whether they pass — would never start them.
       - 'scripts/ci/smoke_model_image.sh'
+      # The contract probe the embedding and reranker jobs run after it (#1725),
+      # for the same reason.
+      - 'scripts/ci/probe_model_service_contract.py'
       # This file itself. Without it the lint workflow could be rewritten and
       # merged WITHOUT ever running — which is what happened to the pull request
       # that introduced this line: it changed how linting works and the job did
@@ -122,11 +125,15 @@ jobs:
               - '.github/workflows/docker-lint-build.yml'
               # This job runs the smoke script; a change to it must run this job.
               - 'scripts/ci/smoke_model_image.sh'
+              # ... and the contract probe (#1725), likewise.
+              - 'scripts/ci/probe_model_service_contract.py'
             reranker-service:
               - 'docker/reranker-service/**'
               - '.github/workflows/docker-lint-build.yml'
               # This job runs the smoke script; a change to it must run this job.
               - 'scripts/ci/smoke_model_image.sh'
+              # ... and the contract probe (#1725), likewise.
+              - 'scripts/ci/probe_model_service_contract.py'
             knowledge-service:
               - 'src/knowledge-service/**'
               - '.github/workflows/docker-lint-build.yml'
@@ -290,6 +297,16 @@ jobs:
       - name: Prove the embedding service serves its model
         run: scripts/ci/smoke_model_image.sh kp-embedding-service:pr 8080 /ready
 
+      # #1725 — READY IS NOT THE CONTRACT. The smoke step above proves the model
+      # loads; this one proves the ready image answers `/embed` correctly (two
+      # normalised vectors of the model's width), answers an empty list, and
+      # refuses a request past docker/embedding-service/limits.py with a 422 —
+      # started read-only, capability-free and as UID 1000, as the chart runs
+      # it. No `target:` above, so this is the last stage (`minilm`); the
+      # probe reads the width from the image's own config.json.
+      - name: Prove the embedding service serves its bounded contract
+        run: scripts/ci/probe_model_service_contract.py kp-embedding-service:pr embedding
+
   build-reranker-service:
     needs: changes
     if: needs.changes.outputs.reranker-service == 'true'
@@ -327,6 +344,15 @@ jobs:
       # asserts the pairing over the whole class.
       - name: Prove the reranker serves its model
         run: scripts/ci/smoke_model_image.sh kp-reranker-service:pr 8081 /ready
+
+      # #1725 — READY IS NOT THE CONTRACT. The smoke step above proves the model
+      # loads; this one proves the ready image ranks the one relevant document
+      # of three first, answers `documents: []` with `{"results": []}`, and
+      # refuses 101 documents and a 4097-character query with a 422
+      # (docker/reranker-service/limits.py) — started read-only,
+      # capability-free and as UID 1000, as the chart runs it.
+      - name: Prove the reranker serves its bounded contract
+        run: scripts/ci/probe_model_service_contract.py kp-reranker-service:pr reranker
 
   build-knowledge-service:
     needs: changes

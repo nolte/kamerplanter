@@ -15,9 +15,9 @@
 # dockerfile manager ages it together with `[tool.uv].required-version`. The
 # environment pins uv to the interpreter this image ships (no managed-Python
 # download, no cache layer) and puts the project environment on PATH, so the
-# stages below resolve `python` and `uvicorn` without an activation step. It
-# lives in /opt/venv, OUTSIDE /app, because the runtime stage chowns /app to
-# UID 1000 and a venv inside it would end up writable by the server's UID.
+# stages below resolve `python` and `uvicorn` without an activation step. The
+# project environment lives in /opt/venv, built by the `venv` stage below and
+# copied into a runtime stage that has no uv at all (#1725).
 FROM python:3.14-slim@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS uv-base
 COPY --from=ghcr.io/astral-sh/uv:0.12.18@sha256:3adc3706091ce7c2fe595e669628caedd6d951551b92b258b7e7dbe06d9440bc /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
@@ -162,9 +162,25 @@ local_dir='/dl')" && \
     sha256sum -c --strict /tmp/model.sha256 && \
     rm -rf /dl /root/.cache /tmp/model.sha256
 
+# ── Runtime environment: built with uv, shipped without it (#1725) ──
+#
+# The lock is the single source of truth for what gets installed (NFR-009
+# §2.3/§6.1). The environment is built HERE and only its directory is copied
+# into `runtime`, so uv — a tool that can install anything — is not in the
+# shipped image. It lives in /opt/venv rather than under /app because it is
+# copied as a unit; like everything else in the runtime it stays owned by
+# root, so the serving UID can import it and rewrite none of it. `runtime`
+# starts from the SAME digest-pinned base as `uv-base`: the venv's `python`
+# is a symlink to /usr/local/bin/python3 of exactly that image.
+
+FROM uv-base AS venv
+WORKDIR /src
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev
+
 # ── Runtime base (shared across all final targets) ───────────────────
 
-FROM uv-base AS runtime
+FROM python:3.14-slim@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS runtime
 
 LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
       org.opencontainers.image.description="ONNX cross-encoder reranker (BGE reranker v2 m3) that re-scores RAG retrieval hits for Kamerplanter" \
@@ -172,9 +188,7 @@ LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
 
-WORKDIR /app
-# The lock is the single source of truth for what gets installed (NFR-009
-# §2.3/§6.1). `--no-dev` leaves the `build` group out, but that does NOT keep
+# `--no-dev` leaves the `build` group out, but that does NOT keep
 # huggingface-hub out of the shipped image: `tokenizers` declares it as a
 # dependency of its own, so it ships transitively together with hf-xet,
 # requests, fsspec and filelock. main.py never calls it — the tokenizer is
@@ -182,14 +196,29 @@ WORKDIR /app
 # `HF_HUB_OFFLINE=1` below turns any future accidental hub call (a
 # `Tokenizer.from_pretrained`, a stray `snapshot_download`) into an error
 # instead of a silent download of an unpinned model at runtime.
-COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev
-ENV HF_HUB_OFFLINE=1
-COPY main.py .
-# Create the non-root numeric user; each final target COPYs its model with
-# --chown=1000 and switches to USER 1000 as its last instruction.
-RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
-    && chown -R 1000:1000 /app
+#
+# `PYTHONDONTWRITEBYTECODE=1`: the root filesystem is read-only in the chart
+# and in CI (#1725), and nothing under /app belongs to the serving UID, so
+# there is nowhere to write `__pycache__` — the venv's own bytecode was
+# compiled at build time (`UV_COMPILE_BYTECODE=1` in `uv-base`).
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HF_HUB_OFFLINE=1
+COPY --from=venv /opt/venv /opt/venv
+
+WORKDIR /app
+# NOTHING HERE IS OWNED BY THE SERVING UID (#1725). The code, the environment
+# and (in the final targets) the model are root-owned and world-readable, so
+# UID 1000 can import and read them and can rewrite none of them — before
+# #1725 a `chown -R 1000:1000 /app` and `COPY --chown=1000:1000` made `main.py`
+# and the ONNX graph writable by the process serving requests. The user is
+# created for a name in `/etc/passwd` only; each final target switches to
+# USER 1000 as its last instruction. `--chmod=0644` because ownership no longer
+# grants the read: the build context's own mode bits would otherwise decide
+# whether UID 1000 can import the code (a checkout under umask 077 would ship
+# 0600 files and a server that cannot start).
+COPY --chmod=0644 main.py limits.py ./
+RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app
 EXPOSE 8081
 # THE HEALTHCHECK ASSERTS READINESS, NOT A SOCKET (#1609).
 #
@@ -216,10 +245,10 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
 
 FROM runtime AS bge-reranker-v2-m3
 ENV RERANKER_MODEL=bge-reranker-v2-m3
-COPY --from=dl-bge-reranker-v2-m3 --chown=1000:1000 /model/ /app/models/onnx/bge-reranker-v2-m3/
+COPY --from=dl-bge-reranker-v2-m3 /model/ /app/models/onnx/bge-reranker-v2-m3/
 USER 1000
 
 FROM runtime AS ms-marco-minilm
 ENV RERANKER_MODEL=ms-marco-MiniLM-L-12-v2
-COPY --from=dl-ms-marco-minilm --chown=1000:1000 /model/ /app/models/onnx/ms-marco-MiniLM-L-12-v2/
+COPY --from=dl-ms-marco-minilm /model/ /app/models/onnx/ms-marco-MiniLM-L-12-v2/
 USER 1000
