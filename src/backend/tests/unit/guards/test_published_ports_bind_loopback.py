@@ -13,33 +13,47 @@ the same for six services. #1725 had bound only the reranker; #1739's guard
 (``test_ml_sidecar_limits.py``) asserted its hardening flags but never the
 bind, so even that one fix had no guard.
 
-**What is asserted, over which selector.** Three spellings publish a host port,
-and each is read from every file that can carry it — never from a list of the
+**What is asserted, over which selector.** Every spelling that publishes a
+host port is read from every file that can carry it — never from a list of the
 files the defect was found in:
 
 * a Compose ``ports:`` entry, short syntax (``"8529:8529"``,
   ``"127.0.0.1::8529"``, ``"[::1]:80:80"``, ranges, ``/udp``) or long syntax
   (``published:`` / ``host_ip:``), in every tracked file that is a Compose file
-  by name OR by shape, plus ``network_mode: host``, which puts every listener of
+  by name OR by shape, and in every Compose-shaped fenced YAML block of a
+  Markdown file (a spec or doc example is copied as surely as the file); plus
+  ``network_mode: host`` (interpolation resolved), which puts every listener of
   the container on every host interface;
 * a GitHub Actions ``services:`` / ``container:`` ``ports:`` entry (the runner
-  hands it to ``docker create -p``);
-* a ``docker run`` / ``docker compose run`` ``-p`` / ``--publish`` /
-  ``-P`` / ``--publish-all`` flag in any tracked script, config or document —
-  a copy-paste command in the docs publishes a port as surely as a Compose file;
+  hands it to ``docker create -p``) and their ``options:`` string;
+* a ``docker`` / ``podman`` / ``nerdctl`` ``run`` or ``create`` command (also
+  ``docker compose run``, ``docker service create``) with ``-p`` / ``-p8080:80``
+  / ``-dp`` / ``--publish`` / ``-P`` / ``--publish-all`` / ``--network host`` in
+  any tracked script, config, JSON, shebang script or document. A YAML file is
+  read scalar by scalar, so a folded ``>-`` command is one line and a workflow
+  publish is keyed by its job;
 * the same flags in a Python argv sequence (``["docker", "run", "-p", …]`` or a
-  call to a ``*docker*`` helper), read from the AST, an f-string rendered with
-  its placeholders so ``f"127.0.0.1::{port}"`` keeps its literal host.
+  call to a helper whose name contains an engine), read from the AST, an
+  f-string rendered with its placeholders so ``f"127.0.0.1::{port}"`` keeps its
+  literal host.
+
+This module itself is not read: its text is its fixtures.
 
 **What it cannot see**, named so nobody reads its silence as coverage: a publish
-assembled at runtime (a variable holding ``"-p"``, a Docker SDK ``ports=``
-mapping, testcontainers), and a ``docker run`` whose ``run`` and ``-p`` sit in
-different strings of a shell script (a function wrapping ``docker run "$@"``).
-None exists in this checkout (``git grep`` for ``ports=``, ``testcontainers``,
-``DockerContainer(`` on 2026-09-25); a new one needs its own reading here.
-A kind cluster's ``extraPortMappings`` (``kind-config.yaml``, no
+assembled at runtime (a variable or ``*args`` holding ``"-p"``, an engine binary
+held in a variable, a Docker SDK ``ports=`` mapping, testcontainers); a
+``docker run`` whose ``run`` and ``-p`` sit in different strings of a shell
+script (a function wrapping ``docker run "$@"``); a Compose-shaped YAML file
+that does not parse and is not named like one; a Markdown YAML block that does
+not parse and has no ``ports:`` / ``network_mode:`` line. None of the first
+three exists in this checkout (``git grep`` for ``ports=``, ``testcontainers``,
+``DockerContainer(`` on 2026-09-25); a new one needs its own reading here. A
+kind cluster's ``extraPortMappings`` (``kind-config.yaml``, no
 ``listenAddress`` → ``0.0.0.0``) is a publish by another tool and is tracked
-as #1756, not read here.
+as #1756, not read here. And a loopback bind is only as good as the engine:
+Docker Engine before 28.0 let hosts on the same L2 segment reach ports
+published on ``127.0.0.1`` (moby's ``route_localnet`` fix) — not checkable from
+the repository.
 
 Each entry must name a loopback host address (``127.0.0.0/8`` or ``::1``).
 Environment interpolation is resolved the way Compose resolves it with the
@@ -50,14 +64,18 @@ when its default is loopback AND the entry is named in :data:`ALLOWED_OVERRIDABL
 with the reason remote reach is wanted.
 
 **Fail closed.** A spelling this module cannot resolve — an interpolation
-without a default, ``${VAR:?…}``, a nested default, a bare IPv6 address, a
-hostname instead of an address, an unknown long-syntax key, a ``ports:`` value
-that is not a list — is a failure that names the spelling, never a skip.
+without a default in the host field, ``${VAR:?…}`` there, a nested default, a
+bare IPv6 address, a hostname instead of an address, an unknown long-syntax
+key, a ``ports:`` value that is not a list, swarm's ``published=…,target=…``
+form, a non-literal argv spec — is a failure that names the spelling, never a
+skip.
 
 **Red first.** Run against develop 47771d74d this module failed with the 13
 unbound Compose entries above, the ``--publish 8080:80`` in
-``.taskfiles/mcp.yaml`` and every ``docker run -p 8529:8529`` the integration
-tests' docstrings tell a developer to run (with ``rootpassword``).
+``.taskfiles/mcp.yaml``, ``-P`` in ``scripts/ci/smoke_model_image.sh``, every
+``docker run -p 8529:8529`` the integration tests' docstrings tell a developer
+to run (with ``rootpassword``), the two GitHub Actions publishes and the
+Compose examples in REQ-027 (Light mode) and NFR-001.
 """
 
 from __future__ import annotations
@@ -102,17 +120,12 @@ ALLOWED_OVERRIDABLE: dict[tuple[str, str, str], str] = {
     ("docker-compose.release.yml", "backend", "${KAMERPLANTER_BIND_ADDRESS:-127.0.0.1}:8000:8000"): _FRONT_DOOR_API,
 }
 
-# Publishes that stay on every interface. Keyed (file, where, the entry as
-# written).
-_GITHUB_HOSTED_RUNNER = (
-    "Runs on a GitHub-hosted runner: a single-use VM that accepts no inbound connection from any other host, "
-    "so there is no network the port could be exposed to. Binding it would change the job definition and "
-    "invalidate the recorded lane manifest (.github/lane-inputs/, job_spec_sha256) for no reduction in exposure."
-)
-ALLOWED_UNBOUND: dict[tuple[str, str, str], str] = {
-    (".github/workflows/backend-guards.yml", "jobs.integration.services.arangodb", "8529:8529"): _GITHUB_HOSTED_RUNNER,
-    (".github/workflows/lane-inputs.yml", "docker run", "8529:8529"): _GITHUB_HOSTED_RUNNER,
-}
+# Publishes that stay on every interface, keyed (file, where, the entry as
+# written) — `where` is the Compose service, the workflow job, or the line of
+# a text file. None today: the two GitHub Actions publishes an earlier draft of
+# #1750 exempted as "a hosted runner has no inbound path" also run under `act`
+# on a developer's workstation, where they are exactly this defect.
+ALLOWED_UNBOUND: dict[tuple[str, str, str], str] = {}
 
 
 # ------------------------------------------------------------------ parsing
@@ -452,10 +465,18 @@ def sweep_compose(files: list[YamlFile]) -> tuple[list[Finding], set]:
         for name, service in services.items():
             if not isinstance(service, dict):
                 continue
-            if str(service.get("network_mode", "")).strip() == "host":
-                findings.append(
-                    Finding(item.path, str(name), "network_mode: host", "every listener binds every host interface")
-                )
+            if service.get("network_mode") is not None:
+                try:
+                    mode, _ = resolve(str(service["network_mode"]))
+                except UnparseableError as exc:
+                    findings.append(Finding(item.path, str(name), f"network_mode: {service['network_mode']}", str(exc)))
+                else:
+                    if mode.strip() == "host":
+                        findings.append(
+                            Finding(
+                                item.path, str(name), "network_mode: host", "every listener binds every host interface"
+                            )
+                        )
             # Keyed by service name alone: that is how ALLOWED_OVERRIDABLE names it.
             found, keys = _judge_listing(item.path, str(name), service.get("ports"), overridable_ok=True)
             findings += found
@@ -489,14 +510,30 @@ def sweep_workflows(files: list[YamlFile]) -> tuple[list[Finding], set]:
 
 
 _TEXT_SUFFIXES = (
-    *(".sh", ".bash", ".py", ".yml", ".yaml", ".md", ".toml"),
+    *(".sh", ".bash", ".py", ".yml", ".yaml", ".md", ".toml", ".json"),
     *(".cfg", ".ini", ".txt", ".j2", ".env", ".example"),
 )
 _TEXT_NAMES = re.compile(r"(^|/)(Taskfile[^/]*|Makefile|Dockerfile[^/]*|Justfile)$")
-_DOCKER_RUN = re.compile(r"(?<![\w-])docker(?:-compose)?(?![\w-])(?P<middle>.*?)(?<![\w-])run(?![\w-])(?P<tail>.*)")
+_LOCKFILE = re.compile(r"(^|/)[^/]*-lock\.json$")
+_CONTAINER_CLI = re.compile(
+    r"(?<![\w-])(?:docker(?:-compose)?|podman(?:-compose)?|nerdctl)(?![\w-])"
+    r"(?P<middle>.*?)(?<![\w-])(?:run|create)(?![\w-])(?P<tail>.*)"
+)
 _SHELL_END = re.compile(r"&&|\|\||;|(?<![|])\|(?![|])")
-_PUBLISH = re.compile(r"(?<!\S)(?:--publish|-[dit]*p)(?:=|\s+)(?P<spec>\S+)")
-_PUBLISH_ALL = re.compile(r"(?<!\S)(?:--publish-all|-[dit]*P[dit]*)(?=\s|$)")
+_PUBLISH = re.compile(
+    r"(?<!\S)(?:--publish(?:=|\s+)(?P<long>\S+)"
+    r"|-[dit]*p(?:(?:=|\s+)(?P<spaced>\S+)|(?P<attached>[\"'\[\d$]\S*)))"
+)
+_PUBLISH_ALL = re.compile(r"(?<!\S)(?:--publish-all(?:=(?P<value>\S+))?|-[dit]*P[dit]*)(?=\s|$)")
+_HOST_NETWORK = re.compile(r"(?<!\S)--net(?:work)?(?:=|\s+)[\"']?host[\"']?(?=[\s)]|$)")
+
+#: The two non-address results a CLI sweep can report.
+PUBLISH_ALL = "-P"
+HOST_NETWORK = "--network host"
+
+#: This module's own text is its fixtures and its red-first record — every
+#: publish in it is an example of the class, none runs.
+_SELF = Path(__file__).resolve()
 
 
 def logical_lines(text: str) -> list[tuple[int, str]]:
@@ -522,18 +559,26 @@ def _clean_spec(spec: str) -> str:
     return spec.strip("\"'`),;")
 
 
-def cli_publishes(path: str, text: str) -> list[tuple[int, str]]:
-    """Every ``docker [compose] run`` publish flag in ``text``: (line, spec) — ``-P`` as spec ``-P``."""
+def cli_publishes(text: str) -> list[tuple[int, str]]:
+    """Every publish in a ``docker|podman|nerdctl … run|create`` command: (line, spec).
+
+    ``-P`` / ``--publish-all`` report as :data:`PUBLISH_ALL`, ``--network host``
+    / ``--net=host`` as :data:`HOST_NETWORK`.
+    """
     found = []
     for number, line in logical_lines(text):
-        match = _DOCKER_RUN.search(line)
+        match = _CONTAINER_CLI.search(line)
         if not match:
             continue
         tail = _SHELL_END.split(match.group("tail"), maxsplit=1)[0]
         for publish in _PUBLISH.finditer(tail):
-            found.append((number, _clean_spec(publish.group("spec"))))
-        for _ in _PUBLISH_ALL.finditer(tail):
-            found.append((number, "-P"))
+            spec = publish.group("long") or publish.group("spaced") or publish.group("attached")
+            found.append((number, _clean_spec(spec)))
+        for publish_all in _PUBLISH_ALL.finditer(tail):
+            if (publish_all.group("value") or "").strip("\"'").lower() not in ("false", "0"):
+                found.append((number, PUBLISH_ALL))
+        for _ in _HOST_NETWORK.finditer(tail):
+            found.append((number, HOST_NETWORK))
     return found
 
 
@@ -561,76 +606,182 @@ def _callee_name(node: ast.Call) -> str:
     return ""
 
 
-def argv_publishes(source: str) -> list[tuple[int, str]]:
-    """Every publish flag in a Python argv sequence that runs a container: (line, spec).
+_ENGINES = ("docker", "podman", "nerdctl")
+_ARGV_PUBLISH = re.compile(r"^-[dit]*p$")
+_ARGV_PUBLISH_ATTACHED = re.compile(r"^-[dit]*p(?P<spec>.+)$")
 
-    A sequence is a list/tuple literal or a call's positional arguments; it runs
-    a container when it holds ``"run"`` and either a ``"docker"`` element or the
-    callee's name contains ``docker``. A spec that is not a literal is reported
-    as ``<non-literal>`` so the caller fails closed on it.
+
+def argv_publishes(source: str) -> list[tuple[int, str]]:
+    """Every publish in a Python argv sequence that starts a container: (line, spec).
+
+    A sequence is a list/tuple literal or a call's positional arguments; it
+    starts a container when it holds ``"run"`` or ``"create"`` and either an
+    engine element (``"docker"``, ``"podman"``, ``"nerdctl"``) or a callee whose
+    name contains one. A spec that is not a literal is reported as
+    ``<non-literal>`` so the caller fails closed on it.
     """
     found: list[tuple[int, str]] = []
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.List | ast.Tuple):
-            elements, docker_callee = list(node.elts), False
+            elements, engine_callee = list(node.elts), False
         elif isinstance(node, ast.Call):
-            elements, docker_callee = list(node.args), "docker" in _callee_name(node).lower()
+            callee = _callee_name(node).lower()
+            elements, engine_callee = list(node.args), any(engine in callee for engine in _ENGINES)
         else:
             continue
         strings = [_argv_string(element) for element in elements]
-        if "run" not in strings or not (docker_callee or "docker" in strings):
+        verbs = [index for index, value in enumerate(strings) if value in ("run", "create")]
+        if not verbs or not (engine_callee or any(value in _ENGINES for value in strings)):
             continue
-        after_run = strings.index("run") + 1
-        for index in range(after_run, len(strings)):
+        for index in range(verbs[0] + 1, len(strings)):
             value = strings[index]
-            if value in ("-p", "--publish"):
-                spec = strings[index + 1] if index + 1 < len(strings) else None
-                found.append((elements[index].lineno, spec if spec is not None else "<non-literal>"))
-            elif value is not None and value.startswith("--publish="):
-                found.append((elements[index].lineno, value.partition("=")[2]))
-            elif value in ("-P", "--publish-all"):
-                found.append((elements[index].lineno, "-P"))
+            following = strings[index + 1] if index + 1 < len(strings) else None
+            line = elements[index].lineno
+            if value is None:
+                continue
+            if value == "--publish" or _ARGV_PUBLISH.match(value):
+                found.append((line, following if following is not None else "<non-literal>"))
+            elif value.startswith("--publish="):
+                found.append((line, value.partition("=")[2]))
+            elif attached := _ARGV_PUBLISH_ATTACHED.match(value):
+                found.append((line, attached.group("spec")))
+            elif value in ("-P", "--publish-all") or re.match(r"^--publish-all=(?!false$|0$)", value):
+                found.append((line, PUBLISH_ALL))
+            elif (value in ("--network", "--net") and following == "host") or value in ("--network=host", "--net=host"):
+                found.append((line, HOST_NETWORK))
     return found
 
 
-def sweep_cli(root: Path, tracked: list[str]) -> tuple[list[Finding], set]:
+def _yaml_strings(node: Any, trail: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], str]]:
+    """Every string scalar of a parsed YAML document with the key path it sits under."""
+    if isinstance(node, str):
+        return [(trail, node)]
+    if isinstance(node, dict):
+        return [item for key, value in node.items() for item in _yaml_strings(value, (*trail, str(key)))]
+    if isinstance(node, list):
+        return [item for value in node for item in _yaml_strings(value, trail)]
+    return []
+
+
+def _where_in_yaml(document: Any, trail: tuple[str, ...]) -> str:
+    """A workflow's publishes are keyed by job — the allow-list names the job, never a line."""
+    if isinstance(document, dict) and isinstance(document.get("jobs"), dict) and trail[:1] == ("jobs",):
+        return f"jobs.{trail[1]}" if len(trail) > 1 else "jobs"
+    return "yaml"
+
+
+def text_publishes(path: str, text: str, document: Any) -> list[tuple[str, str]]:
+    """(where, spec) for every CLI publish in one file.
+
+    A YAML file that parses is read scalar by scalar — a folded ``>-`` command
+    is one line there, and a container's ``options:`` string is read as the
+    ``docker create`` arguments the runner makes of it. Any other file, and a
+    YAML file that does not parse (a Helm template), is read as text.
+    """
+    found: list[tuple[str, str]] = []
+    if document is not None:
+        for trail, value in _yaml_strings(document):
+            where = _where_in_yaml(document, trail)
+            if trail and trail[-1] == "options" and ("services" in trail or "container" in trail):
+                value = "docker create " + value
+            found += [(where, spec) for _, spec in cli_publishes(value)]
+        return found
+    found += [(f"line {number}", spec) for number, spec in cli_publishes(text)]
+    if path.endswith(".py"):
+        found += [(f"line {number}", spec) for number, spec in argv_publishes(text)]
+    return found
+
+
+_FENCE = re.compile(r"^(?P<indent>[ \t]*)```(?:ya?ml)[^\n]*\n(?P<body>.*?)^(?P=indent)```", re.MULTILINE | re.DOTALL)
+
+
+def markdown_compose_blocks(path: str, text: str) -> tuple[list[YamlFile], list[str]]:
+    """Compose-shaped fenced YAML blocks of a Markdown file, and the ``ports:`` blocks that do not parse."""
+    blocks, broken = [], []
+    for match in _FENCE.finditer(text):
+        line = text.count("\n", 0, match.start()) + 1
+        body = "\n".join(row[len(match.group("indent")) :] for row in match.group("body").splitlines())
+        try:
+            documents = list(yaml.load_all(body, Loader=_StringLoader))  # noqa: S506 — SafeLoader subclass
+        except yaml.YAMLError as exc:
+            if re.search(r"^\s*(ports|network_mode)\s*:", body, re.MULTILINE):
+                broken.append(f"{path}:{line}: a YAML block with ports: that does not parse ({type(exc).__name__})")
+            continue
+        blocks += [YamlFile(f"{path}:{line}", document, "") for document in documents if _looks_like_compose(document)]
+    return blocks, broken
+
+
+def _has_shebang(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            return handle.read(2) == b"#!"
+    except OSError:  # pragma: no cover
+        return False
+
+
+def _eligible(root: Path, path: str) -> bool:
+    if _LOCKFILE.search(path) or (root / path).resolve() == _SELF:
+        return False
+    if path.endswith(_TEXT_SUFFIXES) or _TEXT_NAMES.search(path):
+        return True
+    return "." not in Path(path).name and _has_shebang(root / path)
+
+
+def _judge_cli(path: str, where: str, spec: str) -> tuple[Finding | None, tuple[str, str, str] | None]:
+    key = (path, where, spec)
+    if spec == PUBLISH_ALL:
+        return Finding(path, where, spec, "--publish-all binds every exposed port on every interface"), None
+    if spec == HOST_NETWORK:
+        return Finding(path, where, spec, "the host network puts every listener on every host interface"), None
+    try:
+        verdict = judge_short(spec)
+    except UnparseableError as exc:
+        return Finding(path, where, spec, f"unparseable: {exc}"), None
+    if not verdict.bound:
+        if key in ALLOWED_UNBOUND:
+            return None, key
+        return Finding(path, where, spec, verdict.problem), None
+    if verdict.host_ip_interpolated:
+        return Finding(path, where, spec, _INTERPOLATED_HOST), None
+    return None, None
+
+
+def sweep_cli(root: Path, tracked: list[str], parsed: dict[str, YamlFile]) -> tuple[list[Finding], set]:
     findings: list[Finding] = []
     seen: set = set()
     for path in tracked:
-        if not (path.endswith(_TEXT_SUFFIXES) or _TEXT_NAMES.search(path)):
+        if not _eligible(root, path):
             continue
         try:
             text = (root / path).read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        # prose-permeable: cheap pre-filter; the subject IS prose too — a doc command publishes a port
-        if "docker" not in text:
+        item = parsed.get(path)
+        document = item.document if item is not None and not item.error else None
+        try:
+            publishes = text_publishes(path, text, document)
+        except SyntaxError as exc:
+            findings.append(Finding(path, "ast", "", f"unparseable Python: {exc}"))
             continue
-        publishes = cli_publishes(path, text)
-        if path.endswith(".py"):
-            try:
-                publishes += argv_publishes(text)
-            except SyntaxError as exc:
-                findings.append(Finding(path, "ast", "", f"unparseable Python: {exc}"))
-        for number, spec in publishes:
-            key = (path, "docker run", spec)
-            where = f"line {number}"
-            if spec == "-P":
-                findings.append(Finding(path, where, spec, "--publish-all binds every exposed port on every interface"))
-                continue
-            try:
-                verdict = judge_short(spec)
-            except UnparseableError as exc:
-                findings.append(Finding(path, where, spec, f"unparseable: {exc}"))
-                continue
-            if not verdict.bound:
-                if key in ALLOWED_UNBOUND:
-                    seen.add(key)
-                    continue
-                findings.append(Finding(path, where, spec, verdict.problem))
-            elif verdict.host_ip_interpolated:
-                findings.append(Finding(path, where, spec, _INTERPOLATED_HOST))
+        for where, spec in publishes:
+            finding, key = _judge_cli(path, where, spec)
+            if finding is not None:
+                findings.append(finding)
+            if key is not None:
+                seen.add(key)
     return findings, seen
+
+
+def sweep_markdown(root: Path, tracked: list[str]) -> tuple[list[Finding], set]:
+    findings: list[Finding] = []
+    for path in tracked:
+        if not path.endswith(".md"):
+            continue
+        blocks, broken = markdown_compose_blocks(path, (root / path).read_text(encoding="utf-8"))
+        findings += [Finding(entry.split(":", 1)[0], "yaml block", "", entry) for entry in broken]
+        found, _ = sweep_compose(blocks)
+        findings += found
+    return findings, set()
 
 
 # ------------------------------------------------------------------ the guard
@@ -655,7 +806,8 @@ def sweeps(tracked: list[str], all_yaml: list[YamlFile]) -> dict[str, tuple[list
     return {
         "compose": sweep_compose(compose),
         "workflows": sweep_workflows(all_yaml),
-        "cli": sweep_cli(_REPO_ROOT, tracked),
+        "cli": sweep_cli(_REPO_ROOT, tracked, {item.path: item for item in all_yaml}),
+        "markdown": sweep_markdown(_REPO_ROOT, tracked),
     }
 
 
@@ -673,7 +825,7 @@ class TestSelector:
         assert _REPO_ROOT is not None
         text = (_REPO_ROOT / ".taskfiles" / "mcp.yaml").read_text(encoding="utf-8")
 
-        assert cli_publishes(".taskfiles/mcp.yaml", text), "the --publish in .taskfiles/mcp.yaml is no longer seen"
+        assert cli_publishes(text), "the --publish in .taskfiles/mcp.yaml is no longer seen"
 
 
 class TestEveryPublishBindsLoopback:
@@ -684,6 +836,11 @@ class TestEveryPublishBindsLoopback:
     def test_workflow_containers(self, sweeps: dict[str, tuple[list[Finding], set]]) -> None:
         findings, _ = sweeps["workflows"]
         assert not findings, "workflow container ports that do not bind loopback:\n" + "\n".join(map(str, findings))
+
+    def test_compose_blocks_in_markdown(self, sweeps: dict[str, tuple[list[Finding], set]]) -> None:
+        """A Compose example in a doc or a spec is copied as surely as the file itself."""
+        findings, _ = sweeps["markdown"]
+        assert not findings, "Compose examples in Markdown that do not bind loopback:\n" + "\n".join(map(str, findings))
 
     def test_docker_run_commands(self, sweeps: dict[str, tuple[list[Finding], set]]) -> None:
         findings, _ = sweeps["cli"]
@@ -819,11 +976,22 @@ def test_compose_found_by_shape_not_only_by_name() -> None:
         ("docker compose -p proj up -d", []),
         ("docker run -P app", ["-P"]),
         ("docker run app && psql -p 5432", []),
+        ("docker run -d -p8529:8529 arangodb", ["8529:8529"]),
+        ("docker run -dp8529:8529 arangodb", ["8529:8529"]),
+        ("docker create -p 80:80 app", ["80:80"]),
+        ("docker container create --publish 80:80 app", ["80:80"]),
+        ("docker service create --publish published=8080,target=80 app", ["published=8080,target=80"]),
+        ("podman run -p 80:80 app", ["80:80"]),
+        ("nerdctl run -p 127.0.0.1:80:80 app", ["127.0.0.1:80:80"]),
+        ("docker run --publish-all=true app", ["-P"]),
+        ("docker run --publish-all=false app", []),
+        ("docker run --network host app", ["--network host"]),
+        ("docker run --net=host app", ["--network host"]),
         ("PGPASSWORD=x psql -h localhost -p 5433", []),
     ],
 )
 def test_cli_publishes(text: str, specs: list[str]) -> None:
-    assert [spec for _, spec in cli_publishes("x.sh", text)] == specs
+    assert [spec for _, spec in cli_publishes(text)] == specs
 
 
 @pytest.mark.parametrize(
@@ -836,7 +1004,58 @@ def test_cli_publishes(text: str, specs: list[str]) -> None:
         ('_docker("run", "-p", spec, image)', ["<non-literal>"]),
         ('["docker", "compose", "-p", project_name()]', []),
         ('[sys.executable, "-m", "pytest", "-p", "no:cacheprovider"]', []),
+        ('_docker("run", "-p8080:80", image)', ["8080:80"]),
+        ('["docker", "create", "-dp", "80:80", image]', ["80:80"]),
+        ('["podman", "run", "--network=host", image]', ["--network host"]),
+        ('["docker", "run", "--network", "host", image]', ["--network host"]),
     ],
 )
 def test_argv_publishes(source: str, specs: list[str]) -> None:
     assert [spec for _, spec in argv_publishes(source)] == specs
+
+
+def test_workflow_scalars_are_keyed_by_job_and_options_are_read() -> None:
+    document = load_yaml(
+        "jobs:\n"
+        "  it:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    services:\n"
+        "      db:\n"
+        "        image: x\n"
+        "        options: >-\n"
+        "          --publish 8529:8529\n"
+        "          --health-cmd true\n"
+        "    steps:\n"
+        "      - run: >-\n"
+        "          docker run -d\n"
+        "          -p 6379:6379 valkey\n"
+    )
+
+    assert sorted(text_publishes(".github/workflows/x.yml", "", document)) == [
+        ("jobs.it", "6379:6379"),
+        ("jobs.it", "8529:8529"),
+    ]
+
+
+def test_markdown_compose_blocks_are_read() -> None:
+    text = '# Doc\n\n```yaml\nservices:\n  web:\n    image: x\n    ports:\n      - "8000:8000"\n```\n'
+
+    blocks, broken = markdown_compose_blocks("doc.md", text)
+    findings, _ = sweep_compose(blocks)
+
+    assert not broken
+    assert [(finding.path, finding.raw) for finding in findings] == [("doc.md:3", "8000:8000")]
+
+
+def test_markdown_block_with_ports_that_does_not_parse_fails_closed() -> None:
+    _, broken = markdown_compose_blocks("doc.md", "```yaml\nports:\n  - [\n```\n")
+
+    assert broken
+
+
+def test_network_mode_is_resolved_before_it_is_compared() -> None:
+    document = load_yaml('services:\n  a:\n    image: x\n    network_mode: "${NET:-host}"\n')
+
+    findings, _ = sweep_compose([YamlFile("compose.yaml", document, "")])
+
+    assert [finding.raw for finding in findings] == ["network_mode: host"]

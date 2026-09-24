@@ -277,7 +277,7 @@ TIMESCALEDB_ENABLED=true
 !!! note "Every port is reachable only from this machine"
     Docker Compose binds every port in the tables above to `127.0.0.1`. `http://localhost:…` works from the machine running Kamerplanter, but no other device on the same network can reach it — not the databases, not Valkey, not Ollama, and not the app itself. ArangoDB, Valkey and the PostgreSQL databases hold your data behind the example passwords from `.env.example`; Ollama and the reranker service have no authentication at all.
 
-    Want to open Kamerplanter on your phone or tablet? Set `KAMERPLANTER_BIND_ADDRESS=0.0.0.0` in `.env` and restart with `docker compose up -d`. That opens only the user interface (port 8080) and the API (port 8000) to your network — the databases, Valkey, Ollama and the reranker stay on this machine. The steps are in [Permanent operation — Accessing from other devices](docker-dauerbetrieb.md#accessing-from-other-devices).
+    Want to open Kamerplanter on your phone or tablet? Mind that this stack runs in Light mode, which has no login: once the ports are open, every device on your network can read and change your data. If that is fine on your home network, set `KAMERPLANTER_BIND_ADDRESS=0.0.0.0` in `.env` and restart with `docker compose up -d`. That opens only the user interface (port 8080) and the API (port 8000) to your network — the databases, Valkey, Ollama and the reranker stay on this machine. The steps are in [Permanent operation — Accessing from other devices](docker-dauerbetrieb.md#accessing-from-other-devices).
 
     The reranker container also runs read-only, as UID 1000, and without Linux capabilities — see "Container hardening" in the [AI architecture](../architecture/ai-architecture.md).
 

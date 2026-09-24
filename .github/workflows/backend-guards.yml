@@ -351,8 +351,10 @@ jobs:
           # lane and a local `docker run` are the same thing (NFR-009: no secret
           # here, because there is no secret here).
           ARANGO_ROOT_PASSWORD: rootpassword
+        # Loopback (#1750): under `act` this service runs on a developer's
+        # workstation, where a bare 8529:8529 would publish `rootpassword` to the LAN.
         ports:
-          - 8529:8529
+          - 127.0.0.1:8529:8529
         options: >-
           --health-cmd "arangosh --server.endpoint tcp://127.0.0.1:8529 --server.password rootpassword --javascript.execute-string 'db._version()'"
           --health-interval 10s

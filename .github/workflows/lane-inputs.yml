@@ -207,7 +207,8 @@ jobs:
       - name: Start ArangoDB
         if: matrix.arangodb
         run: |
-          docker run -d --name arangodb -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword "$ARANGODB_IMAGE"
+          # Loopback (#1750): the same command under `act` runs on a workstation.
+          docker run -d --name arangodb -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword "$ARANGODB_IMAGE"
           for attempt in $(seq 1 60); do
             if curl -fsS --max-time 5 -u root:rootpassword http://localhost:8529/_api/version >/dev/null; then
               echo "ArangoDB answered after ${attempt} attempt(s)."

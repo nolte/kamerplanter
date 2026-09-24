@@ -548,14 +548,14 @@ services:
       # Kein SMTP_* nötig
       # Kein OIDC_* nötig
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   frontend:
     image: kamerplanter/frontend:latest
     environment:
       VITE_KAMERPLANTER_MODE: light
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
 
   arangodb:
     image: arangodb:3.11

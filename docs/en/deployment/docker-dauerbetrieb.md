@@ -150,7 +150,7 @@ Open in your browser:
 - **Kamerplanter:** [http://your-server:8080](http://localhost:8080)
 - **API documentation:** [http://your-server:8000/api/v1/docs](http://localhost:8000/api/v1/docs)
 
-Replace `your-server` with the IP address or hostname of your server. If you're working on the server itself, `localhost` works.
+On the server itself, use `localhost` in place of `your-server`. From any other device these addresses answer only after you have opened the two ports — see [Accessing from other devices](#accessing-from-other-devices); until then the ports are bound to `127.0.0.1` and another device gets "connection refused".
 
 ---
 
@@ -242,6 +242,8 @@ By default, Kamerplanter is only accessible from the server itself: `docker-comp
 
     This opens exactly two ports: the user interface (8080) and the API (8000), which a Home Assistant host on your network talks to. The databases, Valkey and Ollama stay reachable from the server only, whatever you set here.
 
+    If the server has more than one network (a VPN, a second interface, a public address), set the server's home-network address instead of `0.0.0.0` — for example `KAMERPLANTER_BIND_ADDRESS=192.168.1.100` — so the ports open on that network only.
+
     !!! warning "Anyone on your network can then use Kamerplanter"
         The release file runs in Light mode, which has no login. Once the ports are open, every device on your network can read and change your data. Only do this on a home network you trust, behind your router's firewall — never with port forwarding to the internet. Details: [Light Mode](../user-guide/light-mode.md).
 
@@ -284,7 +286,7 @@ By default, Kamerplanter is only accessible from the server itself: `docker-comp
     ArangoDB takes a bit longer on first start. Wait 30 seconds and check again. If the error persists: Do the passwords in `.env` match? `ARANGO_ROOT_PASSWORD` and `ARANGODB_PASSWORD` must be identical.
 
 ??? question "Can't access from another device"
-    Check: (1) Is `KAMERPLANTER_BIND_ADDRESS=0.0.0.0` set in `.env`, and did you restart afterwards? Without it, port 8080 is bound to `127.0.0.1` and refuses every other device. (2) Are both devices on the same network? (3) Is the IP address correct? (4) Is the CORS setting in `.env` updated? (5) Is a firewall blocking port 8080?
+    Check: (1) Is `KAMERPLANTER_BIND_ADDRESS=0.0.0.0` set in `.env`, and did you restart afterwards? Without it, port 8080 is bound to `127.0.0.1` and refuses every other device. (2) Are both devices on the same network? (3) Is the IP address correct? (4) Is the CORS setting in `.env` updated? (5) Is a firewall blocking port 8080? Note the reverse, too: ports Docker publishes bypass host firewalls such as ufw or firewalld, so a firewall rule does not protect a port you opened with `KAMERPLANTER_BIND_ADDRESS` — the bind address is what does.
 
 ??? question "How much disk space does Kamerplanter need long-term?"
     The Docker images take about 2 GB. The database grows depending on usage — for a typical home user with up to 100 plants, data stays under 100 MB. Sensor data can grow faster when recording is enabled.

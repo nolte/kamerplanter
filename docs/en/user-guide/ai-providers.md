@@ -135,7 +135,7 @@ LLM_MODEL=gemma3:4b
 !!! warning "Ollama on another host"
     If Ollama runs on a different machine (e.g. a NAS), `LLM_API_URL` must point to that machine's IP address or DNS name. Port 11434 must be reachable from the Knowledge Service's network.
 
-    The Docker commands above bind port 11434 to `127.0.0.1` only — Ollama has no authentication of its own, so this keeps everyone else on the network away from your model. If the Knowledge Service runs on another machine, publish the port on the network address it reaches instead, for example `-p 192.168.1.20:11434:11434` — not on every interface.
+    The Docker commands above bind port 11434 to `127.0.0.1` only — Ollama has no authentication of its own, so this keeps everyone else on the network away from your model. If the Knowledge Service runs on another machine — or in a container or local Kubernetes cluster on this one, which reaches the host through the Docker bridge rather than through `127.0.0.1` — publish the port on the address it connects to instead, for example `-p 192.168.1.20:11434:11434` or `-p 172.17.0.1:11434:11434`, not on every interface. Simpler still: start Ollama on the same Docker network as the service and drop `-p` entirely.
 
 ---
 
