@@ -7,8 +7,9 @@ nothing at all applied ``ANONYMIZE_COLLECTIONS`` or the audit pseudonymisation.
 Every rule was declared, guarded and never executed (the class #1622 and #1645
 catalogue). This module is the single place a plan becomes ArangoDB writes; both
 account-deletion paths reach it through :meth:`PrivacyService.erase_account`, and
-the unverified-account cleanup reaches its ``account_cascade`` slice through
-:meth:`ArangoUserRepository.delete`.
+since the #1700 review so does the unverified-account cleanup.
+:meth:`ArangoUserRepository.delete` still runs the ``account_cascade`` slice, but
+no production path calls it any more.
 
 Nothing here names a personal-data collection. Every collection, filter field
 and rule comes off the plan; ``scripts/check_privacy_inventory.py`` refuses a

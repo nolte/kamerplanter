@@ -184,9 +184,11 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         hanging off them (#1700 — registration creates a membership before the
         address is verified) and the user document. It does not apply the
         anonymisation rules, so the personal tenant registration created keeps
-        its owner reference and name. Its one production caller
-        is the unverified-account cleanup (``auth_tasks.cleanup_unverified_accounts``);
-        a real account deletion goes through ``PrivacyService.erase_account``.
+        its owner reference and name. It therefore has **no production caller**:
+        every account deletion — the unverified-account cleanup included since
+        the #1700 review (``auth_tasks.cleanup_unverified_accounts``) — goes
+        through ``PrivacyService.erase_account``. It stays as the
+        ``UserRepository`` interface's delete and for tests of the cascade slice.
 
         Returns whether the user document was removed.
         """
@@ -219,11 +221,11 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         """Abandoned half-registrations, for `cleanup_unverified_accounts` to purge.
 
         **An account with a linked federated provider is excluded, and that
-        exclusion is load-bearing rather than tidy.** The task this feeds
-        HARD-DELETES what it returns, and `delete` deliberately does not remove
-        memberships — the account-deletion cascade does that before calling it.
-        So a row returned here in error costs the user their account, their
-        personal tenant, and leaves the tenant and its plant data orphaned.
+        exclusion is load-bearing rather than tidy.** The task this feeds runs
+        the full Art. 17 erasure on what it returns (``PrivacyService.erase_account``,
+        #1700 review). So a row returned here in error costs the user their
+        account, their memberships, and leaves their personal tenant and its
+        plant data anonymised and ownerless.
 
         The predicate used to be `email_verified == false` alone. That was
         survivable only because nothing ever created a federated account in that

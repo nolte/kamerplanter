@@ -10,9 +10,11 @@ built by the real ``ensure_collections`` (unique indexes included):
   ``slug`` index, but no longer carries the owner's key or display name; an
   organisation tenant the subject founded keeps its name and loses only the
   owner reference, and its other member is untouched (REQ-024);
-* the unverified-account cleanup — which runs only the ``account_cascade``
-  slice — now also removes the membership registration created, and the
-  location assignment hanging off it.
+* the narrow ``account_cascade`` delete removes the membership registration
+  created, and the location assignment hanging off it; the unverified-account
+  cleanup task itself runs the full erasure and anonymises the personal tenant;
+* a slug squatted under the old ``anonymized-<key>`` rule no longer blocks an
+  erasure, and a tip dismissed for the tenant stays dismissed.
 
 Runs against a real ArangoDB (see ``tests/integration/conftest.py``).
 """
@@ -222,6 +224,34 @@ class TestADismissedTipStaysDismissedForTheTenant:
         assert after is not None, "the tip is the tenant's; deleting it re-shows it to the other members"
         assert after["dismissed_at"] == "2026-09-24T06:00:00+00:00"
         assert after["dismissed_by"] == ANONYMIZED_MARKER
+
+
+class TestUnverifiedCleanupAnonymisesThePersonalTenant:
+    """#1700 review — the cleanup task used the narrow delete and left a name-bearing tenant.
+
+    Drives the Celery task itself (``cleanup_unverified_accounts``) with its two
+    dependencies bound to this database.
+    """
+
+    def test_the_personal_tenant_of_a_reaped_account_names_nobody(self, database, monkeypatch):
+        from app.tasks.auth_tasks import cleanup_unverified_accounts
+
+        _insert_user(database, "reaped", verified=False)
+        database.collection(col.USERS).update({"_key": "reaped", "created_at": "2020-01-01T00:00:00+00:00"})
+        tenant = _tenant_service(database).create_personal_tenant("reaped", "Verlassene Registrierung")
+        privacy_service, _ = reach._services(database)
+        monkeypatch.setattr("app.common.dependencies.get_user_repo", lambda: ArangoUserRepository(database))
+        monkeypatch.setattr("app.common.dependencies.get_privacy_service", lambda: privacy_service)
+
+        result = cleanup_unverified_accounts.run()
+
+        assert result["removed"] >= 1
+        assert database.collection(col.USERS).get("reaped") is None
+        after = database.collection(col.TENANTS).get(tenant.key)
+        assert after["owner_user_key"] == ANONYMIZED_MARKER
+        assert "Verlassene" not in after["name"]
+        assert "verlassene" not in after["slug"]
+        assert "reaped" not in str(after.values())
 
 
 class TestUnverifiedCleanupRemovesTheRegistrationMembership:
