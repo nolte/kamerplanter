@@ -182,20 +182,29 @@ Aufbewahrungsfrist enthalten, zum Beispiel Ernten nach CanG. Stattdessen nennt e
 danach nicht mehr:
 
 - Die Besitzer-Referenz wird durch `_anonymized` ersetzt.
-- Name und Kurzname werden zu `anonymized-<Schlüssel>`. Der Kurzname bleibt dadurch
-  eindeutig.
+- Name und Kurzname werden zu `anonymized-` und einer Zeichenfolge, die sich aus
+  dem Schlüssel nicht zurückrechnen lässt. Der Kurzname bleibt dadurch eindeutig, und
+  kein neuer Garten kann ihn vorher belegen: Kurznamen, die mit `anonymized`
+  beginnen, vergibt Kamerplanter nicht.
 
 Einen Gemeinschaftsgarten, den du gegründet hast, behält seinen Namen, denn der gehört
 der Gruppe. Nur die Besitzer-Referenz wird ersetzt. Die Besitzer-Referenz verleiht
 keine Rechte, die Rechte hängen an der Rolle in der Mitgliedschaft. Deshalb muss
 nichts übertragen werden.
 
+Ein KI-Tipp, den du ausgeblendet hast, bleibt für die anderen Mitglieder deines
+Gartens ausgeblendet. Nur der Vermerk, dass du es warst, wird durch `_anonymized`
+ersetzt.
+
+Nie bestätigte Konten, die Kamerplanter nach Ablauf der Frist entfernt, durchlaufen
+dieselbe vollständige Löschung wie jede andere Konto-Löschung.
+
 ### Was zusätzlich gelöscht wird
 
 Neben den bekannten Kategorien löscht die Konto-Löschung auch diese Datensätze, die
 nur dir gehören und keiner Aufbewahrungsfrist unterliegen:
 
-- deine Gespräche mit dem KI-Assistenten und die KI-Tipps, die du ausgeblendet hast
+- deine Gespräche mit dem KI-Assistenten
 - deine Benachrichtigungen und deine Benachrichtigungseinstellungen
 - deine Kalender-Feeds: Der Feed-Link funktioniert nach der Löschung nicht mehr
 - deine Diagnose-Anfragen für Pflanzenkrankheiten

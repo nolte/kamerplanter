@@ -176,19 +176,26 @@ delete this garden, because it can hold records under a statutory retention peri
 such as harvests under the CanG. Instead, it stops naming you:
 
 - The owner reference is replaced with `_anonymized`.
-- The name and the short name become `anonymized-<key>`, so the short name stays
-  unique.
+- The name and the short name become `anonymized-` followed by a string that cannot
+  be traced back to the key. The short name stays unique, and no new garden can take
+  it first: Kamerplanter never hands out short names that start with `anonymized`.
 
 A community garden you founded keeps its name, because the name belongs to the group.
 Only the owner reference is replaced. The owner reference grants no rights; rights come
 from the role in a membership, so nothing needs to be handed over.
+
+An AI tip you dismissed stays dismissed for the other members of your garden. Only
+the note that you dismissed it is replaced with `_anonymized`.
+
+Accounts that were never confirmed, and that Kamerplanter removes once the period runs
+out, go through the same full deletion as any other account deletion.
 
 ### What else is deleted
 
 Besides the familiar categories, account deletion also deletes these records, which
 belong only to you and fall under no retention period:
 
-- your AI assistant conversations and the AI tips you dismissed
+- your AI assistant conversations
 - your notifications and your notification settings
 - your calendar feeds: the feed link stops working after the deletion
 - your plant-disease diagnosis requests
