@@ -63,7 +63,9 @@ yet place in a collection) — among them
 R1–R5 were green. The anchor is the models, which nobody edits to satisfy a
 privacy list. A model is placed in its collection through its repository
 (``BaseArangoRepository[M]`` + the collection it passes), or through
-:data:`MODEL_COLLECTIONS_BY_HAND` where the repository writes raw; a model it
+:data:`MODEL_COLLECTIONS_BY_HAND` where the repository writes raw — both read
+from ``scripts/arango_repository_bindings.py``, which the tenant-scope guard
+(#1708) shares, so the two gates cannot disagree about where a model lives; a model it
 cannot place is reported, never skipped.
 
 A comment cannot satisfy it
@@ -119,6 +121,12 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+from arango_repository_bindings import (  # noqa: E402
+    COLLECTIONS_REL,
+    MODEL_COLLECTIONS_BY_HAND,
+    collection_constants,
+    repository_bindings,
+)
 from source_text import is_called  # noqa: E402
 
 BACKEND = pathlib.Path("src/backend")
@@ -127,8 +135,6 @@ ERASURE_ENGINE_REL = "domain/engines/erasure_engine.py"
 EXPORT_ENGINE_REL = "domain/engines/data_export_engine.py"
 PRIVACY_MODELS_REL = "domain/models/privacy.py"
 MODELS_REL = "domain/models"
-DATA_ACCESS_REL = "data_access"
-COLLECTIONS_REL = "data_access/arango/collections.py"
 
 #: The alias in :data:`PRIVACY_MODELS_REL` that declares the closed set of
 #: executors an inventory entry may name (R1). Read off the AST, because this
@@ -182,19 +188,6 @@ USER_REFERENCE_FIELD = re.compile(
     r"^(user_key|[a-z0-9_]+_user_key|[a-z0-9_]+_by_key|[a-z0-9_]+_account_key|[a-z0-9_]+_by)$"
 )
 
-#: Models whose repository does not bind them through ``BaseArangoRepository[M]``
-#: (hand-written ``coll.insert`` in a repository bound to another model). Every
-#: value must be a collection name ``collections.py`` declares — checked.
-MODEL_COLLECTIONS_BY_HAND: dict[str, str] = {
-    "TaskComment": "task_comments",  # task_repository.create_comment
-    "TaskAuditEntry": "task_audit_entries",  # task_repository.create_audit_entry
-    "WorkflowTemplate": "workflow_templates",  # task_repository (col.WORKFLOW_TEMPLATES)
-    "Attachment": "attachments",  # attachment_repository (raw AQL over col.ATTACHMENTS)
-    "OnboardingState": "onboarding_states",  # onboarding_state_repository (raw=True)
-    "UserPreference": "user_preferences",  # user_preference_service (raw collection access)
-    "McpAuditLog": "mcp_audit_log",  # mcp_repository.ArangoMcpAuditRepository
-    "McpIdempotencyRecord": "mcp_idempotency_record",  # mcp_repository.ArangoMcpIdempotencyRepository
-}
 
 #: Models that carry a user-reference field but are never stored as documents.
 #: The reason is the claim a reviewer checks; an unplaceable model not named here
@@ -271,85 +264,6 @@ def _is_written_down_name(node: ast.expr) -> bool:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return True
     return isinstance(node, ast.Attribute) and node.attr.isupper()
-
-
-def _collection_constants(app_root: pathlib.Path) -> dict[str, str]:
-    """``NAME = "value"`` module-level string constants of ``collections.py``."""
-    path = app_root / COLLECTIONS_REL
-    if not path.is_file():
-        return {}
-    constants: dict[str, str] = {}
-    for stmt in ast.parse(path.read_text(encoding="utf-8")).body:
-        if (
-            isinstance(stmt, ast.Assign)
-            and len(stmt.targets) == 1
-            and isinstance(stmt.targets[0], ast.Name)
-            and isinstance(stmt.value, ast.Constant)
-            and isinstance(stmt.value.value, str)
-        ):
-            constants[stmt.targets[0].id] = stmt.value.value
-    return constants
-
-
-def _resolve_collection(node: ast.expr, constants: dict[str, str]) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    if isinstance(node, ast.Attribute):
-        return constants.get(node.attr)
-    if isinstance(node, ast.Name):
-        return constants.get(node.id)
-    return None
-
-
-def _subscript_model(node: ast.expr) -> str | None:
-    """``BaseArangoRepository[Model]`` -> ``"Model"``."""
-    if (
-        isinstance(node, ast.Subscript)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "BaseArangoRepository"
-        and isinstance(node.slice, ast.Name)
-    ):
-        return node.slice.id
-    return None
-
-
-def _repository_bindings(app_root: pathlib.Path, constants: dict[str, str]) -> dict[str, set[str]]:
-    """Model class name -> the collections a repository binds it to.
-
-    Two spellings exist in ``data_access``: a subclass
-    ``class R(BaseArangoRepository[M])`` whose ``__init__`` calls
-    ``super().__init__(db, <collection>)``, and an inline
-    ``BaseArangoRepository[M](db, <collection>, M)``.
-    """
-    bindings: dict[str, set[str]] = {}
-    root = app_root / DATA_ACCESS_REL
-    if not root.is_dir():
-        return bindings
-    for path in sorted(root.rglob("*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                models = [m for base in node.bases if (m := _subscript_model(base)) is not None]
-                if not models:
-                    continue
-                for call in ast.walk(node):
-                    if (
-                        isinstance(call, ast.Call)
-                        and isinstance(call.func, ast.Attribute)
-                        and call.func.attr == "__init__"
-                        and isinstance(call.func.value, ast.Call)
-                        and isinstance(call.func.value.func, ast.Name)
-                        and call.func.value.func.id == "super"
-                        and len(call.args) >= 2
-                    ):
-                        collection = _resolve_collection(call.args[1], constants)
-                        if collection is not None:
-                            for model in models:
-                                bindings.setdefault(model, set()).add(collection)
-            elif isinstance(node, ast.Call) and (model := _subscript_model(node.func)) is not None:
-                if len(node.args) >= 2 and (collection := _resolve_collection(node.args[1], constants)) is not None:
-                    bindings.setdefault(model, set()).add(collection)
-    return bindings
 
 
 def _base_name(node: ast.expr) -> str | None:
@@ -572,8 +486,8 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
     # anonymisation / pseudonymisation rule (its key or one of its
     # ``clear_fields``), or a written exclusion — for the collection that stores
     # the model.
-    constants = _collection_constants(app_root)
-    bindings = _repository_bindings(app_root, constants)
+    constants = collection_constants(app_root)
+    bindings = repository_bindings(app_root, constants)
     known_collections = set(constants.values())
     references = _user_reference_fields(app_root)
     for model in sorted({model for _p, _l, model, _f in references} & MODEL_COLLECTIONS_BY_HAND.keys()):
