@@ -119,13 +119,21 @@ class S3StorageAdapter(IObjectStorageAdapter):
         etag = (response.get("ETag") or "").strip('"')
         return ObjectRef(key=key, etag=etag, size_bytes=len(data))
 
-    def _get_sync(self, key: str) -> bytes:
+    def _open_body_sync(self, key: str) -> Any:
+        """``GetObject`` and return the unread ``StreamingBody``."""
         client = self._get_client()
         try:
             response = client.get_object(Bucket=self._bucket, Key=key)
         except client.exceptions.NoSuchKey as exc:
             raise NotFoundError("storage object", key) from exc
-        return response["Body"].read()
+        return response["Body"]
+
+    def _get_sync(self, key: str) -> bytes:
+        body = self._open_body_sync(key)
+        try:
+            return body.read()
+        finally:
+            body.close()
 
     def _head_sync(self, key: str) -> ObjectMetadata:
         from botocore.exceptions import ClientError
@@ -234,11 +242,21 @@ class S3StorageAdapter(IObjectStorageAdapter):
         return ref
 
     async def get_object(self, key: str) -> AsyncIterator[bytes]:
-        data = await asyncio.to_thread(self._get_sync, key)
+        """Stream the object's body, ``_CHUNK_SIZE`` bytes per read (#1666).
+
+        ``GetObject`` runs before returning, so a missing key raises
+        ``NotFoundError`` here; the body is then read chunk by chunk as the
+        consumer pulls, and closed when the iterator ends or is abandoned. The
+        previous version read the whole body and sliced the in-memory copy.
+        """
+        body = await asyncio.to_thread(self._open_body_sync, key)
 
         async def _iter() -> AsyncIterator[bytes]:
-            for i in range(0, len(data), _CHUNK_SIZE):
-                yield data[i : i + _CHUNK_SIZE]
+            try:
+                while chunk := await asyncio.to_thread(body.read, _CHUNK_SIZE):
+                    yield chunk
+            finally:
+                body.close()
 
         return _iter()
 

@@ -247,14 +247,26 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         return ObjectRef(key=key, etag=ref.etag, size_bytes=ref.size_bytes)
 
     async def get_object(self, key: str) -> AsyncIterator[bytes]:
+        """Stream the object from disk, ``_CHUNK_SIZE`` bytes per read (#1666).
+
+        The file is opened before returning, so a missing object raises
+        ``NotFoundError`` here rather than mid-stream; each chunk is then read
+        only when the consumer asks for it. The previous version read the whole
+        file and sliced the in-memory copy — an iterator in the signature, a
+        full buffer underneath.
+        """
         path = self._path_for(key)
-        if not await asyncio.to_thread(path.exists):
-            raise NotFoundError("storage object", key)
-        data = await asyncio.to_thread(self._read_sync, path)
+        try:
+            handle = await asyncio.to_thread(path.open, "rb")
+        except FileNotFoundError as exc:
+            raise NotFoundError("storage object", key) from exc
 
         async def _iter() -> AsyncIterator[bytes]:
-            for i in range(0, len(data), _CHUNK_SIZE):
-                yield data[i : i + _CHUNK_SIZE]
+            try:
+                while chunk := await asyncio.to_thread(handle.read, _CHUNK_SIZE):
+                    yield chunk
+            finally:
+                handle.close()
 
         return _iter()
 
