@@ -11,7 +11,7 @@ gate:
   filter: embedding-service
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
+measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
 job_spec_sha256: 3ee2d90be459b202f480cf6515cf0315061b728a91dedeb4a0bb1dd3e8434365
 invocations:
 - command: derive-docker --context docker/embedding-service --dockerfile docker/embedding-service/Dockerfile
