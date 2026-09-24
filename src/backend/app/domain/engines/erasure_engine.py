@@ -252,6 +252,20 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
+            # REQ-031 section 7.5. A tip card is the tenant's, not the member's:
+            # ``AiAssistantService.dismiss_daily_tip`` hides it for the whole
+            # tenant. Deleting the subject's dismissed rows (the first #1700
+            # draft) re-showed the tip to every other member of a shared tenant;
+            # only the dismisser reference goes, ``dismissed_at`` stays.
+            collection="ai_tip_cache",
+            user_field="dismissed_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-031 section 7.5: a dismissed tip stays dismissed for the tenant; only the "
+                "reference to the member who dismissed it is removed."
+            ),
+        ),
+        AnonymizationRule(
             # ``actuators/tenant_router.py`` stamps ``created_by=ctx.user_key``.
             collection="manual_overrides",
             user_field="created_by",
@@ -551,14 +565,6 @@ class ErasureEngine:
             kind="document",
             executor="account_erasure",
             user_field="user_key",
-        ),
-        ErasureStep(
-            # REQ-031 section 7.5: tip-cache entries the user dismissed; a cache
-            # (7-day TTL) that regenerates, so removal loses nothing of the tenant's.
-            collection="ai_tip_cache",
-            kind="document",
-            executor="account_erasure",
-            user_field="dismissed_by",
         ),
         ErasureStep(
             collection="notification_for_run",

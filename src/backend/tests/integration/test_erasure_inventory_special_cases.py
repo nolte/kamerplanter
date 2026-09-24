@@ -197,6 +197,33 @@ class TestAnonymisedSlugCannotBeSquatted:
         assert ArangoTenantRepository(database).get_by_slug(old_rule_slug).owner_user_key == "squatter"
 
 
+class TestADismissedTipStaysDismissedForTheTenant:
+    """#1700 review — ``dismiss_daily_tip`` hides the tip for the whole tenant.
+
+    Deleting the subject's dismissed rows would re-show today's tip to every
+    other member of a shared tenant. The row stays; only ``dismissed_by`` loses
+    the key.
+    """
+
+    def test_the_row_and_its_dismissal_survive_without_the_key(self, database):
+        _insert_user(database, "tip-dismisser")
+        row = database.collection(col.AI_TIP_CACHE).insert(
+            {
+                "tenant_key": "t-shared",
+                "tip_type": "daily",
+                "dismissed_at": "2026-09-24T06:00:00+00:00",
+                "dismissed_by": "tip-dismisser",
+            }
+        )
+
+        _erase(database, "tip-dismisser")
+
+        after = database.collection(col.AI_TIP_CACHE).get(row["_key"])
+        assert after is not None, "the tip is the tenant's; deleting it re-shows it to the other members"
+        assert after["dismissed_at"] == "2026-09-24T06:00:00+00:00"
+        assert after["dismissed_by"] == ANONYMIZED_MARKER
+
+
 class TestUnverifiedCleanupRemovesTheRegistrationMembership:
     def test_membership_and_its_location_assignment_go_with_the_unverified_account(self, database):
         _insert_user(database, "unverified", verified=False)
