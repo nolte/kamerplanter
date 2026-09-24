@@ -48,8 +48,13 @@ def _plan(key: str, tenant_key: str) -> dict:
         "tenant_key": tenant_key,
         "name": f"Plan {key}",
         "description": f"description of {key}",
-        "substrate_type": "soil",
+        "recommended_substrate_type": "soil",
         "is_template": True,
+        # #1618: every row here is linked to the requested species, so the
+        # assertions below measure the tenant predicate and nothing else. The
+        # species filter itself is measured in
+        # ``test_nutrient_plan_species_matching.py``.
+        "species_keys": SPECIES_KEYS,
     }
 
 
@@ -72,9 +77,17 @@ def db():
     plans.insert(_plan("plan-own", CALLER_TENANT))
     # A row that carries no ownership field at all: global by absence, the same
     # way the `== null` arm of the shared predicate reads it.
-    plans.insert({"_key": "plan-null-tenant", "name": "Plan null", "is_template": True})
+    plans.insert({"_key": "plan-null-tenant", "name": "Plan null", "is_template": True, "species_keys": SPECIES_KEYS})
     # Not a template and not a system row: outside the answer for every caller.
-    plans.insert({"_key": "plan-private", "tenant_key": CALLER_TENANT, "name": "Private", "is_template": False})
+    plans.insert(
+        {
+            "_key": "plan-private",
+            "tenant_key": CALLER_TENANT,
+            "name": "Private",
+            "is_template": False,
+            "species_keys": SPECIES_KEYS,
+        }
+    )
 
     # The foreign plan's fertilizer, reachable through an embedded dosage — the
     # projection that leaked product name and brand.

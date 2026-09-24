@@ -31,6 +31,8 @@ fertilizers:
 nutrient_plans:
   # ── Plan: Monstera deliciosa — Gardol Grünpflanzendünger ──────────────────────
   - name: "Monstera deliciosa — Gardol Grünpflanzendünger"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/monstera_deliciosa_gardol.md ("Pflanze:")
+    species_names: ["Monstera deliciosa"]
     description: >-
       Ganzjahresplan für Monstera deliciosa in Erdsubstrat.
       Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6).
@@ -199,6 +201,8 @@ nutrient_plans:
 
   # ── Plan: Chlorophytum comosum — Gardol Grünpflanzendünger ───────────────────
   - name: "Chlorophytum comosum — Gardol Grünpflanzendünger"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/gruenlilie_gardol.md ("Pflanze:")
+    species_names: ["Chlorophytum comosum"]
     description: >-
       Ganzjahresplan für Chlorophytum comosum (Grünlilie) in Erdsubstrat.
       Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6).
@@ -389,6 +393,8 @@ nutrient_plans:
 
   # ── Plan: Spathiphyllum wallisii — Gardol Grünpflanzendünger ─────────────────
   - name: "Spathiphyllum wallisii — Gardol Grünpflanzendünger"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/einblatt_gardol.md ("Pflanze:")
+    species_names: ["Spathiphyllum wallisii"]
     description: >-
       Ganzjahresplan für Spathiphyllum wallisii (Einblatt) in Erdsubstrat.
       Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6) in halber Dosis.
@@ -566,6 +572,8 @@ nutrient_plans:
 
   # ── Plan: Guzmania lingulata — Gardol Grünpflanzendünger ─────────────────────
   - name: "Guzmania lingulata — Gardol Grünpflanzendünger"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/guzmania_gardol.md ("Pflanze:")
+    species_names: ["Guzmania lingulata"]
     description: >-
       Lebenszyklus-Plan für Guzmania lingulata (Bromelie) in Orchideensubstrat.
       Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6) auf 1/4-Dosis
@@ -729,6 +737,8 @@ nutrient_plans:
 
   # ── Plan: Yucca elephantipes — Gardol Grünpflanzendünger ─────────────────────
   - name: "Yucca elephantipes — Gardol Grünpflanzendünger"
+    # #1618 species relation — source: the plan name is the binomial (no plan document)
+    species_names: ["Yucca elephantipes"]
     description: >-
       Ganzjahresplan für Yucca elephantipes (Yucca-Palme) in Erdsubstrat.
       Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6).

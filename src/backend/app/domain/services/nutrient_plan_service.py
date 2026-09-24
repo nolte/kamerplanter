@@ -12,8 +12,14 @@ from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.fertilizer import DEFAULT_MIXING_PRIORITY, Fertilizer
-from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
+from app.domain.models.nutrient_plan import (
+    DeliveryChannel,
+    NutrientPlan,
+    NutrientPlanPhaseEntry,
+    normalize_species_keys,
+)
 from app.domain.models.site import RoWaterProfile
 from app.domain.services.location_ownership import resolve_owned_location
 
@@ -25,11 +31,13 @@ class NutrientPlanService:
         fert_repo: IFertilizerRepository,
         validator: NutrientPlanValidator,
         site_repo: ISiteRepository | None = None,
+        species_repo: ISpeciesRepository | None = None,
     ) -> None:
         self._repo = repo
         self._fert_repo = fert_repo
         self._validator = validator
         self._site_repo = site_repo
+        self._species_repo = species_repo
         self._water_calc = WaterMixCalculator()
         self._dosage_engine = DosageCalculationEngine()
 
@@ -60,6 +68,7 @@ class NutrientPlanService:
         return plan
 
     def create_plan(self, plan: NutrientPlan) -> NutrientPlan:
+        self._assert_species_visible(plan.species_keys, tenant_key=plan.tenant_key)
         return self._repo.create(plan)
 
     def update_plan(self, key: NutrientPlanKey, data: dict) -> NutrientPlan:
@@ -73,14 +82,45 @@ class NutrientPlanService:
             "is_template",
             "version",
             "tags",
+            "species_keys",
             "watering_schedule",
             "water_mix_ratio_ro_percent",
             "cycle_restart_from_sequence",
         }
+        if "species_keys" in data:
+            # Assignment below bypasses the model validator, so normalise here.
+            data = {**data, "species_keys": normalize_species_keys(data["species_keys"])}
+            self._assert_species_visible(data["species_keys"], tenant_key=existing.tenant_key)
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(existing, field, value)
         return self._repo.update(key, existing)
+
+    def _assert_species_visible(self, species_keys: list[str], *, tenant_key: str) -> None:
+        """Refuse a species relation that names a species the plan's tenant cannot see (#1618).
+
+        The relation is what the onboarding match filters on, so a key that does
+        not resolve would make a plan match nothing while looking linked, and a
+        key of another tenant's private species would store a reference to a
+        document the owner may not read. Visibility is the species catalogue's
+        own union — own ∪ global ∪ granted
+        (:meth:`ISpeciesRepository.list_visible_keys`) — so this check and the
+        species list the form offers cannot disagree. Unknown and invisible keys
+        are reported alike (422), never as 403/404: telling them apart would be an
+        existence oracle for another tenant's species.
+        """
+        if not species_keys:
+            return
+        if self._species_repo is None:
+            # A wiring defect, not a user error: the DI factory always passes it.
+            raise RuntimeError("NutrientPlanService needs a species repository to link species")
+        visible = self._species_repo.list_visible_keys(tenant_key=tenant_key) or set()
+        unknown = [key for key in species_keys if key not in visible]
+        if unknown:
+            raise ValidationError(
+                "Unknown species in species_keys",
+                details=[{"field": "species_keys", "message": f"Unknown species: {key}"} for key in unknown],
+            )
 
     def delete_plan(self, key: NutrientPlanKey) -> bool:
         self.get_plan(key)

@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 3.6 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 3.7 (NutrientPlan.species_keys — Art↔Plan-Relation, #1618)
 ```
 
 ## 1. Business Case
@@ -320,6 +320,7 @@ Wenn `currentWeek > max(week_end)` aller Entries und `cycle_restart_from_sequenc
     - `is_template: bool` (als Vorlage für andere nutzbar)
     - `version: int` (Versionierung bei Änderungen)
     - `tags: list[str]` (z.B. ["organic", "autoflower", "heavy-feeder"])
+    - `species_keys: list[str]` (Default `[]`) — Pflanzenarten, für die der Plan gedacht ist (#1618). Einzige Grundlage des Nährstoffplan-Matchings im Onboarding (REQ-020 §3): Ein Plan passt, wenn die Relation mindestens eine angefragte Art enthält; eine **leere Relation passt zu keiner Art**. Mitgelieferte Vorlagen erhalten sie aus ihrem Quelldokument (`species_names` in der Seed-YAML, aufgelöst gegen den Artenkatalog); Nutzer:innen pflegen sie im Tab „Bearbeiten“. Jeder Schlüssel muss eine für den Mandanten sichtbare Art sein (sonst 422). Ein Klon übernimmt die Relation. Bewusst ein Feld am Plan und keine Kante: Die Beziehung trägt keine Attribute, und der einzige Leser filtert Pläne nach Art.
     - `water_mix_ratio_ro_percent: Optional[int]` (ge=0, le=100) — Default-Mischverhältnis Osmose/Leitungswasser in Prozent Osmoseanteil (0 = reines Leitungswasser, 100 = reines Osmosewasser, 50 = 50/50-Mischung). Wird vom `WaterMixCalculator` zusammen mit dem `TapWaterProfile` der Site (REQ-002) für die automatische Basis-EC-Berechnung genutzt. `null` = kein Mischverhältnis definiert (manuelle Eingabe pro Befüllung). Nur relevant wenn die Site `water_source.has_ro_system=true` hat.
     - `watering_schedule: Optional[WateringSchedule]` (Gießplan-Konfiguration für manuelle Bewässerung — siehe eingebettetes Modell unten; `null` = Plan ohne Terminplanung, rein als Dosierungsvorlage nutzbar)
     <!-- Quelle: Nährstoffplan-Review Monstera 2026-03 -->

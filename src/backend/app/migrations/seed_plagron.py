@@ -17,7 +17,7 @@ from typing import Any
 
 import structlog
 
-from app.common.dependencies import get_fertilizer_repo, get_nutrient_plan_repo
+from app.common.dependencies import get_db, get_fertilizer_repo, get_nutrient_plan_repo
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.nutrient_plan import (
     DeliveryChannel,
@@ -152,7 +152,12 @@ def _build_nutrient_plan(raw: dict[str, Any]) -> NutrientPlan:
 
 def run_seed_plagron() -> None:
     """Create Plagron fertilizer products and nutrient plans."""
-    from app.migrations.seed_upsert_helpers import upsert_fertilizers, upsert_nutrient_plan_with_entries
+    from app.migrations.seed_upsert_helpers import (
+        load_species_key_map,
+        resolve_plan_species_keys,
+        upsert_fertilizers,
+        upsert_nutrient_plan_with_entries,
+    )
 
     data = load_yaml("plagron.yaml")
     fert_repo = get_fertilizer_repo()
@@ -163,6 +168,8 @@ def run_seed_plagron() -> None:
     fert_keys = upsert_fertilizers(fert_repo, fertilizers)
 
     # ── Upsert nutrient plans ─────────────────────────────────────────────
+    # #1618: seeded plans are linked to the species their source names.
+    species_key_map = load_species_key_map(get_db())
     existing_plans, _ = plan_repo.get_all(offset=0, limit=100, all_tenants=True)  # seed: global catalog
     existing_plan_map = {p.name: p for p in existing_plans}
 
@@ -170,7 +177,10 @@ def run_seed_plagron() -> None:
     for raw_plan in raw_plans:
         plan = _build_nutrient_plan(raw_plan)
         entries = _build_phase_entries(raw_plan.get("phase_entries", []), fert_keys)
-        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map)
+        species_keys = resolve_plan_species_keys(
+            raw_plan.get("species_names", []), species_key_map, plan_name=plan.name
+        )
+        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map, species_keys=species_keys)
 
     logger.info(
         "seed_plagron_complete",

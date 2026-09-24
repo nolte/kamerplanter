@@ -26,6 +26,11 @@ class NutrientPlanMatchResponse(BaseModel):
     name: str
     description: str | None = None
     substrate_type: str | None = None
+    species_keys: list[str] = Field(default_factory=list, description="Every species the plan is linked to (#1618).")
+    matched_species: list[str] = Field(
+        default_factory=list,
+        description="The requested species keys this plan is linked to, in request order (#1618).",
+    )
     fertilizer_count: int = 0
     fertilizers: list[NutrientPlanFertilizerInfo] = []
 

@@ -180,3 +180,138 @@ class TestUpdatePlanSubstrateValidation:
 
         assert resp.status_code == 200, resp.text
         assert service.update_plan.call_args.args[1] == {"name": "Neuer Name"}
+
+
+# ── #1618: the species relation on create / update ──────────────────────────
+
+
+VISIBLE_SPECIES = {"solanum-lycopersicum", "ocimum-basilicum"}
+
+
+def _build_with_real_service(stored: NutrientPlan | None = None) -> tuple[TestClient, MagicMock, MagicMock]:
+    """The real :class:`NutrientPlanService` over doubles, so its species check runs.
+
+    The species double answers ``list_visible_keys`` with a fixed set — the one
+    method the service calls — and records the tenant it was asked about, so a
+    test can pin that the check asks about the *plan's* tenant.
+    """
+    from app.domain.services.nutrient_plan_service import NutrientPlanService
+
+    stored = stored or NutrientPlan(_key="plan_1", name="Bestandsplan", tenant_key=TENANT_KEY)
+    repo = MagicMock()
+    repo.create.side_effect = lambda plan: plan.model_copy(update={"key": "plan_1"})
+    repo.get_or_raise.return_value = stored
+    repo.update.side_effect = lambda key, plan: plan
+    species_repo = MagicMock()
+    species_repo.list_visible_keys.return_value = set(VISIBLE_SPECIES)
+    service = NutrientPlanService(repo, MagicMock(), MagicMock(), species_repo=species_repo)
+
+    app = FastAPI()
+    app.include_router(nutrient_plans_router, prefix="/api/v1/t/{tenant_slug}")
+    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(Exception, unhandled_error_handler)  # type: ignore[arg-type]
+    app.dependency_overrides[get_current_tenant] = _ctx
+    app.dependency_overrides[get_nutrient_plan_service] = lambda: service
+    return TestClient(app, raise_server_exceptions=False), repo, species_repo
+
+
+class TestPlanSpeciesRelation:
+    def test_create_links_the_given_species_and_returns_them(self):
+        client, repo, species_repo = _build_with_real_service()
+
+        resp = client.post(_URL, json={"name": "Tomate", "species_keys": ["solanum-lycopersicum"]})
+
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["species_keys"] == ["solanum-lycopersicum"]
+        assert repo.create.call_args.args[0].species_keys == ["solanum-lycopersicum"]
+        species_repo.list_visible_keys.assert_called_once_with(tenant_key=TENANT_KEY)
+
+    def test_create_without_species_stores_an_empty_relation(self):
+        client, repo, species_repo = _build_with_real_service()
+
+        resp = client.post(_URL, json={"name": "Ohne Art"})
+
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["species_keys"] == []
+        assert repo.create.call_args.args[0].species_keys == []
+        species_repo.list_visible_keys.assert_not_called()
+
+    def test_create_with_a_species_the_tenant_cannot_see_is_422(self):
+        """Unknown and foreign-private keys look alike on purpose: no existence oracle."""
+        client, repo, _species_repo = _build_with_real_service()
+
+        resp = client.post(_URL, json={"name": "Fremd", "species_keys": ["solanum-lycopersicum", "foreign-private"]})
+
+        assert resp.status_code == 422, resp.text
+        body = resp.json()
+        assert body["error_code"] == "VALIDATION_ERROR"
+        assert "foreign-private" in str(body["details"])
+        assert "solanum-lycopersicum" not in str(body["details"])
+        repo.create.assert_not_called()
+
+    def test_duplicate_and_blank_keys_are_normalised_on_create(self):
+        client, repo, _species_repo = _build_with_real_service()
+
+        resp = client.post(
+            _URL,
+            json={"name": "Doppelt", "species_keys": [" ocimum-basilicum", "ocimum-basilicum", ""]},
+        )
+
+        assert resp.status_code == 201, resp.text
+        assert repo.create.call_args.args[0].species_keys == ["ocimum-basilicum"]
+
+    def test_update_replaces_the_relation(self):
+        client, repo, _species_repo = _build_with_real_service()
+
+        resp = client.put(f"{_URL}/plan_1", json={"species_keys": ["ocimum-basilicum", "ocimum-basilicum "]})
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["species_keys"] == ["ocimum-basilicum"]
+        assert repo.update.call_args.args[1].species_keys == ["ocimum-basilicum"]
+
+    def test_update_with_an_empty_list_clears_the_relation(self):
+        stored = NutrientPlan(
+            _key="plan_1", name="Bestandsplan", tenant_key=TENANT_KEY, species_keys=["solanum-lycopersicum"]
+        )
+        client, repo, _species_repo = _build_with_real_service(stored)
+
+        resp = client.put(f"{_URL}/plan_1", json={"species_keys": []})
+
+        assert resp.status_code == 200, resp.text
+        assert repo.update.call_args.args[1].species_keys == []
+
+    def test_update_without_the_field_leaves_the_relation_alone(self):
+        stored = NutrientPlan(
+            _key="plan_1", name="Bestandsplan", tenant_key=TENANT_KEY, species_keys=["solanum-lycopersicum"]
+        )
+        client, repo, species_repo = _build_with_real_service(stored)
+
+        resp = client.put(f"{_URL}/plan_1", json={"name": "Neu"})
+
+        assert resp.status_code == 200, resp.text
+        assert repo.update.call_args.args[1].species_keys == ["solanum-lycopersicum"]
+        species_repo.list_visible_keys.assert_not_called()
+
+    def test_update_with_a_species_the_tenant_cannot_see_is_422(self):
+        client, repo, _species_repo = _build_with_real_service()
+
+        resp = client.put(f"{_URL}/plan_1", json={"species_keys": ["foreign-private"]})
+
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["error_code"] == "VALIDATION_ERROR"
+        repo.update.assert_not_called()
+
+
+def test_the_production_factory_wires_the_species_repository(monkeypatch):
+    """Without it every create/update that names a species would raise (#1618)."""
+    from app.common import dependencies
+
+    sentinel = MagicMock()
+    for name in ("get_nutrient_plan_repo", "get_fertilizer_repo", "get_site_repo"):
+        monkeypatch.setattr(dependencies, name, MagicMock)
+    monkeypatch.setattr(dependencies, "get_species_repo", lambda: sentinel)
+
+    service = dependencies.get_nutrient_plan_service()
+
+    assert service._species_repo is sentinel

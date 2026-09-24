@@ -7,7 +7,9 @@ and phase entries so all seed scripts consistently sync YAML → DB.
 from typing import Any
 
 import structlog
+from arango.database import StandardDatabase
 
+from app.data_access.arango import collections as col
 from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.domain.models.fertilizer import Fertilizer
@@ -40,13 +42,69 @@ def upsert_fertilizers(
     return fert_keys
 
 
+def load_species_key_map(db: StandardDatabase) -> dict[str, str]:
+    """``scientific_name → _key`` over the species catalogue (#1618).
+
+    No tenant filter, deliberately: ``species.scientific_name`` carries a
+    collection-wide unique index (``ensure_collections``), so a seeded name
+    resolves to exactly one row, and that row is the global seed species — the
+    species seeds run before the plan seeds in the registry.
+    """
+    if not db.has_collection(col.SPECIES):
+        return {}
+    cursor = db.aql.execute(
+        """
+        FOR s IN @@species
+            RETURN { name: s.scientific_name, key: s._key }
+        """,
+        bind_vars={"@species": col.SPECIES},
+    )
+    return {row["name"]: row["key"] for row in cursor}
+
+
+def resolve_plan_species_keys(
+    species_names: list[str],
+    species_key_map: dict[str, str],
+    *,
+    plan_name: str,
+) -> list[str]:
+    """Resolve a seed plan's ``species_names`` to species keys (#1618).
+
+    ``species_names`` are scientific names taken from the plan's source document
+    (``spec/knowledge/nutrient-plans/*.md``, "Pflanze:"), never guessed from its
+    name or tags; a plan whose source names no species carries none and matches
+    no species in the onboarding wizard. A name the catalogue does not hold is
+    logged and skipped — the unit guard
+    ``test_seed_plan_species_names_resolve`` keeps that at zero for the shipped
+    seed files.
+    """
+    keys: list[str] = []
+    for name in species_names:
+        key = species_key_map.get(name)
+        if key is None:
+            logger.warning("seed_plan_species_not_found", plan=plan_name, species=name)
+            continue
+        if key not in keys:
+            keys.append(key)
+    return keys
+
+
 def upsert_nutrient_plan_with_entries(
     plan_repo: ArangoNutrientPlanRepository,
     plan: NutrientPlan,
     desired_entries: list[NutrientPlanPhaseEntry],
     existing_plan_map: dict[str, Any],
+    *,
+    species_keys: list[str],
 ) -> str:
-    """Upsert a nutrient plan and its phase entries. Returns the plan key."""
+    """Upsert a nutrient plan and its phase entries. Returns the plan key.
+
+    ``species_keys`` is the plan's species relation (#1618), resolved by
+    :func:`resolve_plan_species_keys`. Keyword-only with no default so a seed
+    loader cannot upsert a plan without deciding its relation (#948 drift
+    class); the seed is the source of truth for it and overwrites it on every run.
+    """
+    plan.species_keys = list(species_keys)
     if plan.name in existing_plan_map:
         existing = existing_plan_map[plan.name]
         plan_key = existing.key or ""

@@ -203,11 +203,10 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
 
     # ── Onboarding / favourites reads (#1638) ───────────────────────
 
-    def list_template_plan_summaries(self, *, tenant_key: str) -> list[dict]:
-        """Template plans visible to ``tenant_key``, with their fertilizers (#1561).
+    def list_template_plan_summaries(self, *, tenant_key: str, species_keys: list[str]) -> list[dict]:
+        """Template plans visible to ``tenant_key`` that are linked to any of ``species_keys`` (#1561, #1618).
 
-        Moved verbatim from ``FavoritesService.get_matching_nutrient_plans``
-        (#1638). The predicate is the hybrid-catalogue union
+        **Visibility** is the hybrid-catalogue union
         :func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`
         builds — own ∪ global — the **same** one :meth:`get_all` applies, so the
         two reads of ``nutrient_plans`` answer one visibility question. A strict
@@ -216,15 +215,35 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         variant: ``tenant_has_access`` is declared only ``tenants -> species |
         cultivars``, so a plan cannot carry a grant.
 
-        This is where a species filter lands once the data model carries a
-        species↔plan relation (#1618).
+        **The species match** (#1618) reads the plan's own ``species_keys``
+        relation: a plan is returned when that list shares at least one key with
+        the request. The ``IS_ARRAY`` guard makes an absent attribute (a plan
+        written before the field existed and not yet stamped by v0058) and a
+        stored ``null`` read as the empty relation — and the empty relation
+        matches **nothing**. That is the operator decision of 2026-09-23 stated as a
+        predicate: a plan nobody linked to a species must not silently match every
+        species, which is exactly what this read did before the relation existed.
+
+        ``matched_species`` is the intersection, in the request's order, and the
+        rows are sorted by how many of the requested species a plan fits (REQ-020
+        §3 "Relevanz"), then by name so the order is stable.
+
+        ``substrate_type`` projects ``recommended_substrate_type``. It used to read
+        ``plan.substrate_type``, an attribute :class:`NutrientPlan` does not have,
+        so the wizard's substrate badge was ``null`` for every real plan — the
+        integration fixture had invented the field and hid it.
         """
+        if not species_keys:
+            return []
+
         predicate, bind_vars = tenant_union_predicate(tenant_key, doc_var="plan")
+        bind_vars["species_keys"] = list(species_keys)
 
         # The body below is a plain string spliced once through `.replace`, not an
         # f-string: it holds AQL object literals (`{ plan_key: ... }`) whose braces
         # an f-string would read as fields. Only the *predicate* is spliced; the
-        # tenant itself travels as a bind var and never enters the query text.
+        # tenant and the species keys travel as bind vars and never enter the
+        # query text.
         #
         # Collect fertilizer keys from both graph edges AND embedded
         # delivery_channels[].fertilizer_dosages[] to handle plans where
@@ -234,6 +253,9 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             FOR plan IN nutrient_plans
                 FILTER (plan.is_template == true OR plan.origin == "system")
                     AND __TENANT_PREDICATE__
+                LET plan_species = IS_ARRAY(plan.species_keys) ? plan.species_keys : []
+                LET matched_species = (FOR sk IN @species_keys FILTER sk IN plan_species RETURN sk)
+                FILTER LENGTH(matched_species) > 0
                 LET phase_entries = (
                     FOR pe IN nutrient_plan_phase_entries
                         FILTER pe.plan_key == plan._key
@@ -258,11 +280,14 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
                             FILTER f._key == fk
                             RETURN { key: f._key, product_name: f.product_name, brand: f.brand }
                 )
+                SORT LENGTH(matched_species) DESC, plan.name ASC
                 RETURN {
                     plan_key: plan._key,
                     name: plan.name,
                     description: plan.description,
-                    substrate_type: plan.substrate_type,
+                    substrate_type: plan.recommended_substrate_type,
+                    species_keys: plan_species,
+                    matched_species: matched_species,
                     fertilizer_count: LENGTH(fertilizer_keys),
                     fertilizers: fertilizers
                 }
@@ -408,6 +433,8 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             is_template=False,
             version="1.0",
             tags=list(source.tags),
+            # #1618: a clone is written for the same species as its source.
+            species_keys=list(source.species_keys),
             cloned_from_key=source_key,
         )
         created_plan = self.create(new_plan)
