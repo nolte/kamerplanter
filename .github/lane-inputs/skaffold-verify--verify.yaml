@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 08cacf699784e83e1b63edcf8b26ffc79c740ffe
-replay_seconds: 40
+measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
+replay_seconds: 43
 job_spec_sha256: 0499a0f895191a28519aec2e580ec79d23b26696df7a9be4083617fff3f3b75d
 invocations:
 - command: helm dependency build helm/kamerplanter

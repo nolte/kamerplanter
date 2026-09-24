@@ -10,8 +10,8 @@ gate:
   kind: unfiltered
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 08cacf699784e83e1b63edcf8b26ffc79c740ffe
-replay_seconds: 860
+measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
+replay_seconds: 751
 job_spec_sha256: de4e017c42319e4ede1b2bcd07bb2c49caaf55de44ddd4eb111bb92c4e4c6fa3
 invocations:
 - command: pytest tests/unit/api tests/unit/guards -q --max-skipped 0 -m 'not advisory'
@@ -20,7 +20,7 @@ invocations:
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 4740
+  untracked_reads_dropped: 4741
 subprocesses:
 - awk
 - bash

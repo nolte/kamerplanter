@@ -11,8 +11,8 @@ gate:
   filter: frontend
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 08cacf699784e83e1b63edcf8b26ffc79c740ffe
-replay_seconds: 1
+measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
+replay_seconds: 2
 job_spec_sha256: baa12515c457a3c6d076af784675fed386877edb43f04e5903e09ab9725a90bf
 invocations:
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
