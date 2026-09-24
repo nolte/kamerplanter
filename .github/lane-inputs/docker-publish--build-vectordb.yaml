@@ -11,7 +11,7 @@ gate:
   filter: vectordb
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+measured_at_commit: 0b7ae682db8c264f2546b8d5a509aba1dc819a5d
 replay_seconds: 1
 job_spec_sha256: 27c34ea45cd9a85402182e3dabe83d2ce1ccf58977bbe6154382d881c38f8ec2
 invocations:

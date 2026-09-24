@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+measured_at_commit: 0b7ae682db8c264f2546b8d5a509aba1dc819a5d
 replay_seconds: 3
 job_spec_sha256: d9c46d94139e55a1e0d0afd42244547d026ef39df384f7a0791cbc8622fea03c
 invocations:
@@ -30,7 +30,6 @@ accepted_gaps:
 reads:
 - .github/lane-inputs/
 - .github/lane-inputs/api-docs--openapi-export-lint.yaml
-- .github/lane-inputs/backend--coverage.yaml
 - .github/lane-inputs/backend--dependency-gates.yaml
 - .github/lane-inputs/backend--lint-test.yaml
 - .github/lane-inputs/backend-guards--guards.yaml

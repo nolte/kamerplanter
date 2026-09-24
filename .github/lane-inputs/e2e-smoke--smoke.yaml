@@ -13,8 +13,8 @@ gate:
   - e2e_infra
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
-replay_seconds: 4
+measured_at_commit: 0b7ae682db8c264f2546b8d5a509aba1dc819a5d
+replay_seconds: 3
 job_spec_sha256: c1307a00172c85c88d04bec5f70520877cf1895e6f523953238e85b0fe138bb1
 invocations:
 - command: docker compose -f docker-compose.e2e.yml --profile smoke config --quiet
