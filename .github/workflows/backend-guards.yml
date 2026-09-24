@@ -251,9 +251,16 @@ jobs:
         # src/frontend/** and tests/e2e/*.py and ran the whole ~13-minute backend
         # suite on every frontend-only pull request. Here they run on every pull
         # request, under this lane's skip floor, in about fifteen seconds; they
-        # still run in backend.yml's tiers as well. A new test that reads the
-        # frontend belongs in this list — test_lane_filters_cover_measured_inputs.py
-        # reports its read as uncovered until it is.
+        # still run in backend.yml's tiers as well.
+        #
+        # A new test that reads the frontend or the e2e helpers belongs in this
+        # list, and NOTHING MECHANICAL SAYS SO YET: test_lane_filters_cover_measured_inputs.py
+        # holds a delegated read against this lane's manifest by PATH, so a new
+        # reader of a file one of the tests below already reads stays green while
+        # it runs only in backend.yml — which a frontend-only pull request no
+        # longer starts. Such a break surfaces on the next backend pull request or
+        # the Monday backend.yml schedule. Holding the reader, not only the path,
+        # is #1749.
         run: >-
           pytest tests/unit/api tests/unit/guards
           tests/unit/test_seed_catalogue_page_size_check.py

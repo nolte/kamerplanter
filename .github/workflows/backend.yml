@@ -46,7 +46,9 @@ on:
   # filter, `--max-skipped 0`) names each of them in its own invocation, so a
   # frontend change still runs them — in a required check, which this lane is
   # not. test_lane_filters_cover_measured_inputs.py holds each such read
-  # against the guards lane's recorded manifest.
+  # against the guards lane's recorded manifest — by path, not by reader: a NEW
+  # test that reads a file one of those tests already reads is not caught until
+  # #1749, so it has to be added to the guards invocation by hand.
   push:
     branches: [develop]
     paths:
