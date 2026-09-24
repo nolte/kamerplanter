@@ -111,10 +111,21 @@ def _load_tokenizer(model_dir: Path) -> Tokenizer:
 
 
 def _preload() -> None:
+    """Load tokenizer and graph, validate them, and only then publish them.
+
+    EVERYTHING IS BUILT IN LOCALS AND PUBLISHED IN ONE STEP, `_ready` LAST. The
+    first version of this function assigned `_session` straight away and the
+    input names two statements later, while `/rerank` gated on `_session`: a
+    request in that window built an empty feed and 500'd, and when the
+    input-name check below raised, `_session` stayed set with `_ready` False —
+    `/ready` said 503 while `/rerank` served a feed that could not work. Now a
+    failure anywhere leaves every global untouched, and `/rerank` gates on the
+    same `_ready` flag `/ready` reports, so the two can never disagree.
+    """
     global _session, _tokenizer, _input_names, _ready
     start = time.monotonic()
 
-    _tokenizer = _load_tokenizer(ONNX_PATH)
+    tokenizer = _load_tokenizer(ONNX_PATH)
 
     onnx_file = ONNX_PATH / "model.onnx"
     if not onnx_file.exists():
@@ -123,16 +134,19 @@ def _preload() -> None:
     opts = ort.SessionOptions()
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     opts.intra_op_num_threads = os.cpu_count() or 2
-    _session = ort.InferenceSession(str(onnx_file), opts, providers=["CPUExecutionProvider"])
+    session = ort.InferenceSession(str(onnx_file), opts, providers=["CPUExecutionProvider"])
 
     # Refuse, at load time, a graph that asks for an input the tokenizer cannot
     # produce: failing here keeps `/ready` at 503 (which the image's HEALTHCHECK
     # and the CI smoke step both assert) instead of 500-ing every request.
-    _input_names = [graph_input.name for graph_input in _session.get_inputs()]
-    unknown = sorted(set(_input_names) - _ENCODING_FIELDS.keys())
+    input_names = [graph_input.name for graph_input in session.get_inputs()]
+    unknown = sorted(set(input_names) - _ENCODING_FIELDS.keys())
     if unknown:
         raise ValueError(f"{onnx_file} expects inputs this service cannot feed: {unknown}")
 
+    _tokenizer = tokenizer
+    _session = session
+    _input_names = input_names
     elapsed = time.monotonic() - start
     print(f"ONNX reranker model loaded in {elapsed:.2f}s from {onnx_file}")
     _ready = True
@@ -145,10 +159,20 @@ def preload_model() -> None:
 
 @app.post("/rerank", response_model=RerankResponse)
 def rerank(req: RerankRequest) -> RerankResponse:
-    if _session is None or _tokenizer is None:
+    # `_ready` is the one flag `_preload` sets after everything else is
+    # published and validated; gating on `_session` alone let requests through a
+    # half-loaded or rejected model (see `_preload`).
+    if not _ready:
         from fastapi.responses import JSONResponse
 
         return JSONResponse(status_code=503, content={"status": "loading"})
+
+    # Nothing to rank. Answered without touching the tokenizer or the session:
+    # an empty batch encodes to a 1-D empty array the graph rejects, so this
+    # used to be a 500 — and was one on transformers too (`AutoTokenizer([])`
+    # raises IndexError, measured with 4.57.6).
+    if not req.documents:
+        return RerankResponse(results=[], model=DEFAULT_MODEL)
 
     # Cross-encoder: encode query-document pairs. Padding to the batch's longest
     # pair is configured on the tokenizer, so every encoding has the same length
