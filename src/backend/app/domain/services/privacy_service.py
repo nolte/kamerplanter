@@ -1321,6 +1321,8 @@ class PrivacyService:
         """
         attempt = erasure.attempt_count + 1
         delay_days = min(2 ** (attempt - 1), self.ERASURE_RETRY_MAX_DELAY_DAYS)
+        # recurrence-owner-ok: a retry backoff after a failed erasure attempt, not
+        # a cadence — it ends when the erasure succeeds, so there is no rule to advance.
         next_attempt_at = now + timedelta(days=delay_days)
         escalated = attempt == self.ERASURE_ESCALATE_AFTER_ATTEMPTS
         log = logger.error if attempt == 1 or escalated else logger.info
