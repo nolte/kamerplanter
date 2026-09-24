@@ -309,6 +309,8 @@ Alle Konfiguration erfolgt über Umgebungsvariablen. Die wichtigsten:
 
 Dependency-Updates werden automatisch via [Renovate](https://github.com/renovatebot/renovate) als Pull Requests erstellt. Die Konfiguration liegt in `renovate.json5`.
 
+Renovate mergt diese Pull Requests selbst nach `develop`, sobald **alle** Checks auf dem Pull Request grün sind — nicht nur die Pflicht-Checks. Das gilt für jede Gruppe und jeden Update-Typ, auch für Major-Updates. Ein roter oder abgebrochener Check hält den Pull Request an, bis er neu gestartet oder behoben ist.
+
 ## Siehe auch
 
 - [Lokale Entwicklung](../development/local-setup.md)

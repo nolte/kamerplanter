@@ -10,8 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 1f6b9255add89c59217a5ee54a1ca3b8113f7d51
-job_spec_sha256: 0499a0f895191a28519aec2e580ec79d23b26696df7a9be4083617fff3f3b75d
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 34
+job_spec_sha256: 4717482b376c41008c6f3491181add9c810062b64e28e47f1e50683ad62e5c77
 invocations:
 - command: helm dependency build helm/kamerplanter
   cwd: .
@@ -36,7 +37,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 341
+  untracked_reads_dropped: 340
 - command: scripts/ci/skaffold_render_verify.sh /tmp/lane-inputs-scratch/rendered-manifests.yaml
   cwd: .
   recorder: strace -ff -y -z
@@ -126,8 +127,6 @@ reads:
 - docker/embedding-service/
 - docker/embedding-service/.dockerignore
 - docker/embedding-service/Dockerfile
-- docker/embedding-service/feed.py
-- docker/embedding-service/limits.py
 - docker/embedding-service/main.py
 - docker/embedding-service/pyproject.toml
 - docker/embedding-service/uv.lock
@@ -136,7 +135,6 @@ reads:
 - docker/reranker-service/
 - docker/reranker-service/.dockerignore
 - docker/reranker-service/Dockerfile
-- docker/reranker-service/limits.py
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
 - docker/reranker-service/uv.lock
@@ -2184,7 +2182,6 @@ reads:
 - src/backend/tests/unit/guards/test_library_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
-- src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
@@ -2388,7 +2385,6 @@ reads:
 - src/backend/tests/unit/test_e2e_a11y_helpers.py
 - src/backend/tests/unit/test_e2e_seed_log_redaction.py
 - src/backend/tests/unit/test_e2e_tc_id_scope.py
-- src/backend/tests/unit/test_embedding_service_feed.py
 - src/backend/tests/unit/test_frontend_calls_served_check.py
 - src/backend/tests/unit/test_gate_text_assertions_check.py
 - src/backend/tests/unit/test_gherkin_line_classification.py

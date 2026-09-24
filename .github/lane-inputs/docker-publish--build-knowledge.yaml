@@ -11,8 +11,9 @@ gate:
   filter: knowledge
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
-job_spec_sha256: 83dc8a08e7a2b7d5096e50f0bbca8164a024bd3f743a4dde86d5e170ab568fc0
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 3
+job_spec_sha256: 7c915532e74016b2c1aa39883a4747de82440495c1e0921428778c3a39c93ee5
 invocations:
 - command: derive-docker --context . --dockerfile docker/knowledge/Dockerfile
   cwd: .
@@ -20,7 +21,7 @@ invocations:
     COPY/ADD sources
   copy_sources:
   - spec/knowledge/rag/
-  context_files_after_dockerignore: 4526
+  context_files_after_dockerignore: 4524
 subprocesses: []
 accepted_gaps: []
 reads:

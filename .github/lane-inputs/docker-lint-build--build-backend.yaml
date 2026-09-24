@@ -11,8 +11,9 @@ gate:
   filter: backend
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 1f6b9255add89c59217a5ee54a1ca3b8113f7d51
-job_spec_sha256: d94357ca94b8450c02ca8b8bf8eef9f42302de75e4e668eadba62b976b3efcb5
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 1
+job_spec_sha256: e70c6a5c2e488770f4f501e29dd0614960c917ee25c11196115f432664383c16
 invocations:
 - command: derive-docker --context src/backend --dockerfile src/backend/Dockerfile
   cwd: .
@@ -23,7 +24,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 1978
+  context_files_after_dockerignore: 1976
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -1764,7 +1765,6 @@ reads:
 - src/backend/tests/unit/guards/test_library_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
-- src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
@@ -1959,7 +1959,6 @@ reads:
 - src/backend/tests/unit/test_e2e_a11y_helpers.py
 - src/backend/tests/unit/test_e2e_seed_log_redaction.py
 - src/backend/tests/unit/test_e2e_tc_id_scope.py
-- src/backend/tests/unit/test_embedding_service_feed.py
 - src/backend/tests/unit/test_frontend_calls_served_check.py
 - src/backend/tests/unit/test_gate_text_assertions_check.py
 - src/backend/tests/unit/test_gherkin_line_classification.py

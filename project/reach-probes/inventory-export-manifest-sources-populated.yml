@@ -1,13 +1,15 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the operator's standing pre-approval of the gate for the
-# autonomous #1680 run, relayed by the orchestrating session — not an interactive
+# Approval: recorded under the operator's explicit approval of the gate for re-deriving the
+# probes #1721 made stale (#1717), relayed by the orchestrating session — not an interactive
 # batch answer. It records that the targets and the observe argv below run on the
 # operator's machine with their environment, as `task` in this repository does.
 #
-# The same row against the manifest the export walk executes: 33 collections and
-# 7 edges. location_assignments is declared with a disclosure_gap (not
-# collected per person, the bundle says why) and is therefore not an expected member.
+# Re-derived after #1721 (#1719): the manifest the export walk executes now has 38
+# collections and 7 edges (new: api_keys, onboarding_states, pest_detections,
+# user_favorites, user_preferences). location_assignments is declared with a
+# disclosure_gap (not collected per person, the bundle says why) and is therefore not
+# an expected member.
 id: inventory-export-manifest-sources-populated
 summary: sources of the executing export manifest whose seeded rows reach the subject's Art. 15 archive
 declaration:
@@ -22,6 +24,7 @@ expected:
   - collection/ai_audit_log
   - collection/ai_conversations
   - collection/ai_tip_cache
+  - collection/api_keys
   - collection/attachments
   - collection/auth_providers
   - collection/calendar_feeds
@@ -40,6 +43,8 @@ expected:
   - collection/memberships
   - collection/notification_preferences
   - collection/notifications
+  - collection/onboarding_states
+  - collection/pest_detections
   - collection/pest_image_contributions
   - collection/plant_diagnosis_requests
   - collection/plant_diary_entries
@@ -50,6 +55,8 @@ expected:
   - collection/tasks
   - collection/tenants
   - collection/treatment_applications
+  - collection/user_favorites
+  - collection/user_preferences
   - collection/users
   - collection/weather_source_configs
   - edge/has_auth_provider
@@ -59,7 +66,7 @@ expected:
   - edge/requested_email_change
   - edge/requested_erasure
   - edge/requested_export
-derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
+derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -74,6 +81,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-24T04:46:06Z'
+  approved_at: '2026-09-24T15:38:25Z'
   approved_by: nolte
   observation_digest: 17281a965c090fdf0d4e4a3b73f6e4f4ab96d7690503b7c71280c6699879d8e4

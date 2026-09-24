@@ -11,8 +11,9 @@ gate:
   filter: knowledge-service
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 7144bc6ed9bf52e6c55504d3a7196cd8e34da17f
-job_spec_sha256: 227403cc4f415d2d96f53aeb6f7ef4582b923d642e1d69545059265b0313a126
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 2
+job_spec_sha256: 3bfcc082a5be94168b34d314545917247842eca4c5b303a6f2a46d402afcb728
 invocations:
 - command: derive-docker --context src/knowledge-service --dockerfile src/knowledge-service/Dockerfile
   cwd: .

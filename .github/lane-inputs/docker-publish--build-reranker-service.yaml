@@ -11,8 +11,9 @@ gate:
   filter: reranker-service
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 1f6b9255add89c59217a5ee54a1ca3b8113f7d51
-job_spec_sha256: e0a7c95c062037558655420806d7d56719e31e94406b39224863d85b65a84164
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 1
+job_spec_sha256: 5375fc65eaad109254098a86c02218da53fd94525d2f3c579dd88ad5abbb75a7
 invocations:
 - command: derive-docker --context docker/reranker-service --dockerfile docker/reranker-service/Dockerfile
   cwd: .
@@ -24,14 +25,12 @@ invocations:
   - pyproject.toml
   - uv.lock
   - main.py
-  - limits.py
-  context_files_after_dockerignore: 5
+  context_files_after_dockerignore: 4
 subprocesses: []
 accepted_gaps: []
 reads:
 - docker/reranker-service/.dockerignore
 - docker/reranker-service/Dockerfile
-- docker/reranker-service/limits.py
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
 - docker/reranker-service/uv.lock

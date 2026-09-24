@@ -1,18 +1,17 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the operator's standing pre-approval of the gate for the
-# autonomous #1680 run, relayed by the orchestrating session — not an interactive
+# Approval: recorded under the operator's explicit approval of the gate for re-deriving the
+# probes #1721 made stale (#1717), relayed by the orchestrating session — not an interactive
 # batch answer. It records that the targets and the observe argv below run on the
 # operator's machine with their environment, as `task` in this repository does.
 #
-# Spec row "Two personal-data inventories, one executing" (T2). Unlike the worked
-# example this probe acts: the enumeration the code actually runs is observed in
-# ArangoDB's query log while the real export and the real erasure execute
-# (disclosure reads, resp. writes, between marker queries), and each declared
-# inventory is listed only when every collection it declares was used. The anchor
-# is the export engine; a change confined to erasure_engine.py is not detected as
-# a declaration change of this probe (single-path anchor), but it is of
-# inventory-erasure-plan-reaches-rows.
+# Spec row "Two personal-data inventories, one executing" (T2), re-derived after #1721
+# changed its single-path anchor; content unchanged. The enumeration the code actually
+# runs is observed in ArangoDB's query log while the real export and the real erasure
+# execute (disclosure reads, resp. writes, between marker queries), and each declared
+# inventory is listed only when every collection it declares was used. A change
+# confined to erasure_engine.py is not detected as a declaration change of this probe
+# (single-path anchor), but it is of inventory-erasure-plan-reaches-rows.
 id: inventory-personal-data-inventories-execute
 summary: declared personal-data inventories that the executing export and erasure actually enumerate
 declaration:
@@ -26,7 +25,7 @@ expected:
   values:
   - export-manifest
   - erasure-plan
-derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
+derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -42,6 +41,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-24T04:46:06Z'
+  approved_at: '2026-09-24T15:38:25Z'
   approved_by: nolte
   observation_digest: 38c1d41959f0f33b1c9090366a04800fe2915708cf664d44001ab7b93b4fcc87

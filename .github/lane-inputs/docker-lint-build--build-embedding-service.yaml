@@ -11,8 +11,9 @@ gate:
   filter: embedding-service
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 1f6b9255add89c59217a5ee54a1ca3b8113f7d51
-job_spec_sha256: 128b8d3d06d77e16ae4c83c7a90e9dad958a27e0f3d99bb7b057ff49768e9ed3
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 1
+job_spec_sha256: 4d0955fc4315e75945bdf2a4c3791d567dcc8fd732702951fc6e392d495e542b
 invocations:
 - command: derive-docker --context docker/embedding-service --dockerfile docker/embedding-service/Dockerfile
   cwd: .
@@ -24,16 +25,12 @@ invocations:
   - pyproject.toml
   - uv.lock
   - main.py
-  - limits.py
-  - feed.py
-  context_files_after_dockerignore: 8
+  context_files_after_dockerignore: 6
 subprocesses: []
 accepted_gaps: []
 reads:
 - docker/embedding-service/.dockerignore
 - docker/embedding-service/Dockerfile
-- docker/embedding-service/feed.py
-- docker/embedding-service/limits.py
 - docker/embedding-service/main.py
 - docker/embedding-service/pyproject.toml
 - docker/embedding-service/uv.lock

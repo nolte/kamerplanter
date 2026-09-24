@@ -112,11 +112,16 @@ does not keep a second list of what to run. It reads every manifest's own
     # held `run:` commands, read from the workflow
     python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" backend-guards.yml/guards
 
-    # the verdict: committed vs recorded, on reads, job hash, status and invocations
+    # the verdict: committed vs recorded — new reads OUTSIDE the job's relevance filter,
+    # job hash (action pins excluded), status, invocations, empty recordings
     python3 scripts/ci/lane_inputs.py compare recorded/lane-inputs --run-id "$GITHUB_RUN_ID"
 
-A hand-edited ``reads:`` therefore disagrees with the next CI recording and
-fails ``compare``. To refresh a manifest, download what CI recorded and commit
+A hand-edited ``reads:`` that drops a path outside the job's relevance filter
+therefore disagrees with the next CI recording and fails ``compare``; a read
+inside the filter that a later change adds is not drift (#1683) — the filter
+already runs the job for it. A replay runs pytest with the manifest guard
+deselected (:data:`REPLAY_DESELECTED_GUARD`), so a stale manifest cannot stop
+the unit-suite legs from recording its successor. To refresh a manifest, download what CI recorded and commit
 it, rather than re-measuring on a workstation::
 
     gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
@@ -149,9 +154,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import functools
 import glob as globmodule
 import hashlib
 import json
+import math
 import os
 import re
 import shlex
@@ -159,6 +166,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -178,6 +186,42 @@ SCHEMA = 2
 
 #: A reason shorter than this is a label, not a reason (the guard's `_MIN_REASON_CHARS`).
 MIN_REASON_CHARS = 40
+
+# ------------------------------------------------------- per-leg replay timeout
+#
+# `replay` measures the wall clock of its own run and writes it into the
+# manifest it produces as `replay_seconds` — a measurement like `reads`, written
+# by this tool only (a workstation `record` drops it, `compare` does not compare
+# it). `plan` turns it into the leg's `timeout_minutes`, which lane-inputs.yml
+# puts on the replay STEP; the record job keeps its own `timeout-minutes` as the
+# outer bound. Before this (#1683, 2026-09-24) one 90-minute job bound held a
+# hung 2-minute leg (frontend--lighthouse, > 60 min in the replay step) as long
+# as the slowest real one.
+#
+# Per manifest, not per invocation: the step the bound applies to runs ONE
+# `replay`, i.e. every invocation of the manifest plus the recorder's own git
+# calls between them, so that whole span is the quantity measured.
+
+#: Headroom over one recorded duration. Measured over the five runs of
+#: 2026-09-24 (35979465184, 35997205619, 36003779768, 36003712853, 36014274408):
+#: for every leg whose replay took longer than a minute, the slowest successful
+#: replay was at most 1.75× its fastest (backend-guards--integration 225–394 s,
+#: backend--coverage 1222–1756 s). 3× clears that spread from whichever run was
+#: recorded, while a hang — frontend--lighthouse at > 30× its usual 78–117 s — is
+#: cut off at a tenth of the old bound.
+TIMEOUT_FACTOR = 3
+#: Short legs replay in seconds (a docker-derived leg in 0–24 s), where the
+#: runner's own jitter (a cold uv cache, a slow `git ls-files`) dominates the
+#: measurement; three times a few seconds is no bound anyone could rely on.
+TIMEOUT_FLOOR_MINUTES = 10
+#: The record job's own `timeout-minutes` in lane-inputs.yml (pinned by the
+#: recorder test): a step bound above it would never fire, and a leg that has
+#: never been measured (a bootstrap, or a manifest recorded on a workstation) gets
+#: exactly the bound it had before.
+TIMEOUT_CAP_MINUTES = 90
+#: A replay that completed cannot have taken longer than the job that ran it, so
+#: a larger value was not written by this tool (the guard's `_REPLAY_SECONDS_MAX`).
+REPLAY_SECONDS_MAX = TIMEOUT_CAP_MINUTES * 60
 
 #: The syscalls that decide "this file was read". ``openat``/``open`` for files,
 #: ``getdents64`` for directory listings, ``execve`` so the followed subprocesses
@@ -206,6 +250,49 @@ GATE_KINDS = ("on-paths", "paths-filter", "unfiltered")
 
 class LaneInputsError(Exception):
     """A usage or environment problem, reported without a traceback."""
+
+
+def replay_seconds_problem(manifest: dict[str, Any]) -> str | None:
+    """Why *manifest*'s ``replay_seconds`` is not a measurement this tool could have written, or ``None``.
+
+    A whole number of seconds (rounded up, so at least 1) no larger than the job
+    that ran the replay allows. ``bool`` is excluded explicitly: YAML's ``true``
+    is an ``int`` to Python.
+    """
+    if "replay_seconds" not in manifest:
+        return "has no `replay_seconds`"
+    value = manifest["replay_seconds"]
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= REPLAY_SECONDS_MAX:
+        return (
+            f"`replay_seconds: {value!r}` is not a whole number of seconds between 1 and {REPLAY_SECONDS_MAX} "
+            f"(the record job's own bound)"
+        )
+    return None
+
+
+def leg_timeout_minutes(manifest: dict[str, Any] | None) -> int:
+    """The replay step's bound for one leg: TIMEOUT_FACTOR × the measured replay, floored and capped.
+
+    ``None`` (a bootstrap leg, no manifest yet) and a manifest without a usable
+    measurement get the cap — the bound every leg had before it was measured.
+    """
+    if manifest is None or replay_seconds_problem(manifest) is not None:
+        return TIMEOUT_CAP_MINUTES
+    minutes = math.ceil(TIMEOUT_FACTOR * int(manifest["replay_seconds"]) / 60)
+    return min(TIMEOUT_CAP_MINUTES, max(TIMEOUT_FLOOR_MINUTES, minutes))
+
+
+def with_replay_seconds(manifest: dict[str, Any], seconds: int) -> dict[str, Any]:
+    """*manifest* with ``replay_seconds`` placed after ``measured_at_commit``, beside the other run facts."""
+    out: dict[str, Any] = {}
+    for key, value in manifest.items():
+        if key == "replay_seconds":
+            continue
+        out[key] = value
+        if key == "measured_at_commit":
+            out["replay_seconds"] = seconds
+    out.setdefault("replay_seconds", seconds)
+    return out
 
 
 @dataclass
@@ -386,16 +473,47 @@ def job_spec_hash(document: dict[str, Any], job: str) -> str:
 
 
 def hash_job_spec(job: Any) -> str:
-    """SHA-256 of the parsed job, minus the ``filters`` input of any ``paths-filter`` step.
+    """SHA-256 of the parsed job, minus paths-filter patterns and minus the ref of every ``uses:``.
 
     The patterns are held against the manifest LIVE by the guard; they are not
     an input to what the job reads, so editing them must not demand a
-    re-measurement. Everything else about the job — every step, every
-    ``run:``, every ``with:`` — is part of the hash. The guard computes the
-    same function; keep the two identical.
+    re-measurement. The same holds for the ``@<ref>`` of a ``uses:`` (#1683):
+    the recorder replays a job's ``run:`` commands, never its actions, so an
+    action's version cannot change the recorded read set — yet a Renovate
+    digest bump (#1734, ``github/codeql-action`` v4.38.1 → v4.38.2) staled
+    ``report-findings`` and reddened the next unrelated pull request. The
+    action's NAME stays in the hash (another action is another job), as does
+    everything else about the job — every step, every ``run:``, every
+    ``with:``, ``env``, ``working-directory``. The guard computes the same
+    function; keep the two identical.
     """
-    canonical = json.dumps(_without_filter_patterns(job), sort_keys=True, default=str, separators=(",", ":"))
+    canonical = json.dumps(
+        _without_action_refs(_without_filter_patterns(job)), sort_keys=True, default=str, separators=(",", ":")
+    )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def action_name(uses: str) -> str:
+    """``owner/repo[/path]@ref`` → ``owner/repo[/path]``; a local ``./path`` has no ref and is itself."""
+    return uses.split("@", 1)[0] if not uses.startswith("./") else uses
+
+
+def _without_action_refs(job: Any) -> Any:
+    """*job* with every ``uses:`` — a step's, and a reusable-workflow call's at job level — reduced to its name."""
+    if not isinstance(job, dict):
+        return job
+    copy = dict(job)
+    if isinstance(copy.get("uses"), str):
+        copy["uses"] = action_name(copy["uses"])
+    steps = copy.get("steps")
+    if isinstance(steps, list):
+        copy["steps"] = [
+            {**step, "uses": action_name(step["uses"])}
+            if isinstance(step, dict) and isinstance(step.get("uses"), str)
+            else step
+            for step in steps
+        ]
+    return copy
 
 
 def _without_filter_patterns(job: Any) -> Any:
@@ -529,6 +647,10 @@ def _merge_into(
     manifest["subprocesses"] = sorted(programs)
     manifest["measured_on"] = dt.date.today().isoformat()
     manifest["measured_at_commit"] = head_commit()
+    # The duration described the invocations as they were; with one added or
+    # re-recorded it describes nothing. `replay` writes a fresh one after its
+    # last invocation, a workstation `record` leaves the leg unmeasured (the cap).
+    manifest.pop("replay_seconds", None)
 
 
 # ----------------------------------------------------------------------- record
@@ -1009,6 +1131,25 @@ def bootstrap_invocations(workflow: str, job: str) -> list[dict[str, Any]]:
 # --------------------------------------------------------------------- replay
 
 
+#: The manifest guard, as a pytest node id relative to src/backend (pytest's rootdir).
+#: A replay runs every invocation with ``--deselect`` of it in ``PYTEST_ADDOPTS``.
+#: The guard holds the COMMITTED manifests against the live tree — exactly the
+#: manifests a replay produces successors for. Run inside the replay of the
+#: unit-suite legs (backend--lint-test, backend--coverage: ``pytest tests/unit/``;
+#: backend-guards--guards already leaves it out with ``-m 'not advisory'``),
+#: it failed whenever a change had staled one of them (as any change to a
+#: recorded job does), those legs recorded nothing, and every such change cost
+#: two recordings (#1683, 2026-09-24). The real CI lanes still run it; only the
+#: replay leaves it out. What that costs: the reads the guard ALONE makes are not
+#: in those two manifests (most of them — the workflows, the manifests — are
+#: read by the recorder's own tests in the same suite, which stay in).
+REPLAY_DESELECTED_GUARD = "tests/unit/guards/test_lane_filters_cover_measured_inputs.py"
+
+
+def _replay_pytest_addopts(existing: str) -> str:
+    return " ".join(part for part in (existing.strip(), f"--deselect {REPLAY_DESELECTED_GUARD}") if part)
+
+
 def _is_derived(invocation: dict[str, Any]) -> bool:
     return str(invocation.get("recorder", "")).startswith("docker build")
 
@@ -1020,7 +1161,10 @@ def _replay_base(committed: dict[str, Any]) -> dict[str, Any]:
     base["subprocesses"] = []
     base["reads"] = []
     base["status"] = "measured"
+    # Written under the recorder's contract, not the committed file's.
+    base["schema"] = SCHEMA
     base.pop("partial_reason", None)
+    base.pop("replay_seconds", None)
     return base
 
 
@@ -1122,6 +1266,8 @@ def command_replay(args: argparse.Namespace) -> int:
         return EXIT_OK
 
     saved_path = os.environ.get("PATH", "")
+    saved_addopts = os.environ.get("PYTEST_ADDOPTS")
+    os.environ["PYTEST_ADDOPTS"] = _replay_pytest_addopts(saved_addopts or "")
     if path_additions:
         # Prepended for every invocation, not from its step on: before the
         # install step runs, the directory does not exist and PATH lookup skips it.
@@ -1142,6 +1288,7 @@ def command_replay(args: argparse.Namespace) -> int:
         SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
         target = out_dir / name
         write_manifest(target, base)
+        started = time.monotonic()
         for index, argv in enumerate(argvs):
             code = main(argv)
             if code != EXIT_OK:
@@ -1150,9 +1297,19 @@ def command_replay(args: argparse.Namespace) -> int:
                     f"{name}: invocations[{index}] could not be recorded (exit {code}); no manifest was written, so "
                     f"`compare` reports this lane as unrecorded instead of certifying a shorter read set"
                 )
+        # Rounded up: the bound `plan` derives from it must not come out tighter than what was measured.
+        seconds = max(1, math.ceil(time.monotonic() - started))
+        write_manifest(target, with_replay_seconds(load_manifest(target), seconds))
     finally:
         os.environ["PATH"] = saved_path
-    print(f"lane-inputs: replayed {len(argvs)} invocation(s) → {_display(target)}", file=sys.stderr)
+        if saved_addopts is None:
+            os.environ.pop("PYTEST_ADDOPTS", None)
+        else:
+            os.environ["PYTEST_ADDOPTS"] = saved_addopts
+    print(
+        f"lane-inputs: replayed {len(argvs)} invocation(s) in {seconds} s → {_display(target)}",
+        file=sys.stderr,
+    )
     return EXIT_OK
 
 
@@ -1186,7 +1343,11 @@ def environment_flags(invocations: list[dict[str, Any]]) -> dict[str, bool]:
 
 
 def plan_matrix(manifest_dir: Path | None = None) -> list[dict[str, Any]]:
-    """One matrix leg per manifest with invocations, plus one per unrecorded ``covered_by`` target."""
+    """One matrix leg per manifest with invocations, plus one per unrecorded ``covered_by`` target.
+
+    Each leg carries ``timeout_minutes`` (:func:`leg_timeout_minutes`) for the
+    record job's replay step.
+    """
     directory = manifest_dir or MANIFEST_DIR
     manifests = {path.name: load_manifest(path) for path in sorted(directory.glob("*.yaml"))}
     legs: list[dict[str, Any]] = []
@@ -1195,7 +1356,14 @@ def plan_matrix(manifest_dir: Path | None = None) -> list[dict[str, Any]]:
         if not invocations:
             continue
         lane = f"{_display(directory / name)}"
-        legs.append({"name": name.removesuffix(".yaml"), "lane": lane, **environment_flags(invocations)})
+        legs.append(
+            {
+                "name": name.removesuffix(".yaml"),
+                "lane": lane,
+                "timeout_minutes": leg_timeout_minutes(manifest),
+                **environment_flags(invocations),
+            }
+        )
     recorded = {(str(m.get("workflow")), str(m.get("job"))) for m in manifests.values()}
     targets = sorted(
         {
@@ -1213,6 +1381,7 @@ def plan_matrix(manifest_dir: Path | None = None) -> list[dict[str, Any]]:
             {
                 "name": manifest_stem(workflow, job),
                 "lane": target,
+                "timeout_minutes": leg_timeout_minutes(None),
                 **environment_flags(bootstrap_invocations(workflow, job)),
             }
         )
@@ -1247,6 +1416,167 @@ def _comparable_invocation(invocation: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# The relevance-filter matcher `compare` needs to tell a read the filter selects
+# from one it does not (#1683: only the latter is drift). It is the guard's
+# matcher (`glob_to_regex`, `Trigger.fires_for`, `StepFilter.selects`,
+# `probe_path`, `_gap_matches` in test_lane_filters_cover_measured_inputs.py),
+# kept here because this script runs where pytest does not; the recorder test
+# holds the two to the same verdict over every read of every committed manifest,
+# the arrangement `hash_job_spec` / `job_spec_hash` already has.
+
+_DIFF_TRIGGERS = ("push", "pull_request", "pull_request_target")
+_PROBE = "__lane_inputs_probe__"
+
+
+@functools.cache
+def glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """A GitHub / picomatch path pattern as an anchored regex (the guard's ``glob_to_regex``)."""
+    out: list[str] = []
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if pattern.startswith("**/", index):
+            out.append("(?:.*/)?")
+            index += 3
+            continue
+        if pattern.startswith("**", index):
+            out.append(".*")
+            index += 2
+            continue
+        if char == "*":
+            out.append("[^/]*")
+        elif char == "?":
+            out.append("[^/]")
+        elif char == "[":
+            close = pattern.find("]", index + 1)
+            if close != -1:
+                body = pattern[index + 1 : close]
+                if body.startswith("!"):
+                    body = "^" + body[1:]
+                out.append(f"[{body}]")
+                index = close + 1
+                continue
+            out.append(re.escape(char))
+        else:
+            out.append(re.escape(char))
+        index += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
+def _matches(pattern: str, path: str) -> bool:
+    return glob_to_regex(pattern).match(path) is not None
+
+
+def probe_path(read: str) -> str:
+    """A file is itself; a listing ``dir/`` is a file added inside it; ``./`` a file at the root."""
+    if read == "./":
+        return _PROBE
+    if read.endswith("/"):
+        return read + _PROBE
+    return read
+
+
+def _trigger_fires(paths: list[str], paths_ignore: list[str], path: str) -> bool:
+    if paths:
+        selected = paths[0].startswith("!")
+        for pattern in paths:
+            negated = pattern.startswith("!")
+            if _matches(pattern[1:] if negated else pattern, path):
+                selected = not negated
+        return selected
+    if paths_ignore:
+        return not any(_matches(pattern, path) for pattern in paths_ignore)
+    return True
+
+
+def _step_filter_selects(patterns: list[str], quantifier: str, path: str) -> bool:
+    verdicts = []
+    for pattern in patterns:
+        negated = pattern.startswith("!")
+        hit = _matches(pattern[1:] if negated else pattern, path)
+        verdicts.append((not hit) if negated else hit)
+    if not verdicts:
+        return False
+    return all(verdicts) if quantifier == "every" else any(verdicts)
+
+
+def _string_list(value: Any) -> list[str]:
+    return [entry for entry in value if isinstance(entry, str)] if isinstance(value, list) else []
+
+
+def _step_filter_patterns(raw: Any) -> dict[str, list[str]]:
+    document = yaml.safe_load(raw) if isinstance(raw, str) else raw
+    if not isinstance(document, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for name, value in document.items():
+        patterns = []
+        for entry in value if isinstance(value, list) else [value]:
+            if isinstance(entry, dict):
+                entry = entry.get("path")
+            if isinstance(entry, str):
+                patterns.append(entry)
+        out[str(name)] = patterns
+    return out
+
+
+@dataclass
+class RelevanceFilter:
+    """What decides whether a pull request runs one job: its workflow's ``on:`` paths and its paths-filter names."""
+
+    triggers: list[tuple[list[str], list[str]]] = field(default_factory=list)
+    step_filters: list[tuple[list[str], str]] = field(default_factory=list)
+
+    def rejects(self, read: str) -> list[str]:
+        """Which part of the filter does NOT select *read* (empty: the filter selects it)."""
+        probe = probe_path(read)
+        failed = []
+        if any(paths or ignore for paths, ignore in self.triggers) and not any(
+            _trigger_fires(paths, ignore, probe) for paths, ignore in self.triggers
+        ):
+            failed.append("the on:-level paths filter")
+        if self.step_filters and not any(_step_filter_selects(p, q, probe) for p, q in self.step_filters):
+            failed.append("the paths-filter")
+        return failed
+
+
+def relevance_filter(document: dict[str, Any], manifest: dict[str, Any]) -> RelevanceFilter:
+    """The live filter of *manifest*'s job: its workflow's diff triggers plus the filters ``gate.filter`` names."""
+    block = document.get("on", document.get(True))
+    if isinstance(block, str):
+        block = {block: None}
+    elif isinstance(block, list):
+        block = dict.fromkeys(block)
+    triggers = []
+    for event, spec in (block or {}).items() if isinstance(block, dict) else []:
+        if event in _DIFF_TRIGGERS:
+            spec = spec if isinstance(spec, dict) else {}
+            triggers.append((_string_list(spec.get("paths")), _string_list(spec.get("paths-ignore"))))
+    gate = manifest.get("gate") if isinstance(manifest.get("gate"), dict) else {}
+    raw_names = gate.get("filter")
+    names = [raw_names] if isinstance(raw_names, str) else [str(n) for n in raw_names or []]
+    step_filters = []
+    if names:
+        for job in (document.get("jobs") or {}).values():
+            for step in (job.get("steps") or []) if isinstance(job, dict) else []:
+                if not isinstance(step, dict) or "paths-filter@" not in str(step.get("uses", "")):
+                    continue
+                inputs = step.get("with") if isinstance(step.get("with"), dict) else {}
+                quantifier = str(inputs.get("predicate-quantifier", "some"))
+                for name, patterns in _step_filter_patterns(inputs.get("filters")).items():
+                    if name in names:
+                        step_filters.append((patterns, quantifier))
+    return RelevanceFilter(triggers, step_filters)
+
+
+def gap_matches(gap: dict[str, Any], read: str) -> bool:
+    """An ``accepted_gaps`` entry that explains *read* (the guard's ``_gap_matches``)."""
+    pattern = gap.get("pattern")
+    return isinstance(pattern, str) and (
+        pattern == read or _matches(pattern, probe_path(read)) or _matches(pattern, read)
+    )
+
+
 def _sample(paths: list[str], limit: int = 10) -> str:
     return ", ".join(paths[:limit]) + (f", … (+{len(paths) - limit})" if len(paths) > limit else "")
 
@@ -1254,6 +1584,21 @@ def _sample(paths: list[str], limit: int = 10) -> str:
 def manifest_differences(name: str, committed: dict[str, Any], recorded: dict[str, Any]) -> list[str]:
     """What the committed manifest claims that the CI recording of the same lane does not agree with."""
     findings: list[str] = []
+    # `replay_seconds` is not compared — wall clock varies run to run — but a
+    # manifest that was replayed must carry one: the committed side, or its leg
+    # is bounded at the job-level cap without anything saying so; the recorded
+    # side, or the recorder stopped measuring itself.
+    problem = replay_seconds_problem(committed)
+    if problem == "has no `replay_seconds`":
+        findings.append(
+            f"{name}: the committed manifest {problem}, so `plan` gives its leg the job-level "
+            f"{TIMEOUT_CAP_MINUTES}-minute bound — commit the CI recording"
+        )
+    elif problem is not None:
+        findings.append(f"{name}: the committed manifest's {problem} — commit the CI recording")
+    problem = replay_seconds_problem(recorded)
+    if problem is not None:
+        findings.append(f"{name}: the CI recording {problem} — the replay did not measure itself")
     if committed.get("job_spec_sha256") != recorded.get("job_spec_sha256"):
         findings.append(
             f"{name}: job_spec_sha256 {str(committed.get('job_spec_sha256'))[:12]} is not the live job's "
@@ -1270,29 +1615,119 @@ def manifest_differences(name: str, committed: dict[str, Any], recorded: dict[st
             if left != right:
                 findings.append(f"{name}: invocations[{index}] committed {left} ≠ recorded {right}")
                 break
-    committed_reads = {str(entry) for entry in committed.get("reads") or []}
-    recorded_reads = {str(entry) for entry in recorded.get("reads") or []}
-    unlisted = sorted(recorded_reads - committed_reads)
-    unread = sorted(committed_reads - recorded_reads)
-    if unlisted:
-        findings.append(
-            f"{name}: the CI run read {len(unlisted)} path(s) the committed manifest does not list — the filter "
-            f"is held against a set that is too small: {_sample(unlisted)}"
-        )
-    if unread:
-        findings.append(
-            f"{name}: the committed manifest lists {len(unread)} path(s) the CI run did not read: {_sample(unread)}"
-        )
+    if not recorded.get("reads") and any(isinstance(e, dict) for e in recorded.get("invocations") or []):
+        findings.append(f"{name}: the CI recording read nothing at all — the instrument measured nothing")
     return findings
 
 
-def compare_manifests(committed_dir: Path, recorded_dir: Path) -> tuple[list[str], list[str]]:
+def read_drift(
+    name: str,
+    committed: dict[str, Any],
+    recorded: dict[str, Any],
+    *,
+    reads_of: dict[tuple[str, str], set[str]],
+    workflow_dir: Path = WORKFLOW_DIR,
+) -> tuple[list[str], list[str]]:
+    """``(findings, notes)`` over the READS of one lane: only a read its relevance filter does not select is drift.
+
+    #1683: a new read INSIDE the filter changes no verdict the guard reaches —
+    the filter already runs the job for a change to that path — so it is not a
+    finding, and a pull request that adds a file under ``src/backend/`` no
+    longer stales ``backend--lint-test``. A new read OUTSIDE the filter is: the
+    job now depends on a path whose change would not run it. Unless the
+    committed manifest's ``accepted_gaps`` already accepts it — then the guard's
+    coverage rule reaches the same verdict with the read added — and, when that
+    gap names a ``covered_by`` lane, that lane's recording reads it too.
+    Reads the committed manifest lists and the run did not make are a note:
+    a larger committed set only asks more of the filter.
+    """
+    findings: list[str] = []
+    committed_reads = {str(entry) for entry in committed.get("reads") or []}
+    recorded_reads = {str(entry) for entry in recorded.get("reads") or []}
+    new = sorted(recorded_reads - committed_reads)
+    gone = sorted(committed_reads - recorded_reads)
+    notes = [f"{name}: {len(gone)} committed read(s) not made in this run (not drift)"] if gone else []
+    if not new:
+        return findings, notes
+    workflow = workflow_dir / str(committed.get("workflow"))
+    if not workflow.is_file():
+        return [f"{name}: names workflow {committed.get('workflow')!r}, which does not exist"], notes
+    live = relevance_filter(yaml.safe_load(workflow.read_text()) or {}, committed)
+    gaps = [gap for gap in committed.get("accepted_gaps") or [] if isinstance(gap, dict)]
+    outside: list[str] = []
+    undelegated: list[str] = []
+    inside = 0
+    for read in new:
+        failed = live.rejects(read)
+        if not failed:
+            inside += 1
+            continue
+        gap = next((g for g in gaps if gap_matches(g, read)), None)
+        if gap is None:
+            outside.append(f"{read} ({' and '.join(failed)})")
+            continue
+        covered_by = gap.get("covered_by")
+        if covered_by is not None:
+            target_workflow, _, target_job = str(covered_by).partition("/")
+            if read not in reads_of.get((target_workflow, target_job), set()):
+                undelegated.append(f"{read} (covered_by {covered_by})")
+    if outside:
+        findings.append(
+            f"{name}: the CI run read {len(outside)} path(s) the job's relevance filter does not select and no "
+            f"accepted gap explains — a change there would not run the job: {_sample(outside)}"
+        )
+    if undelegated:
+        findings.append(
+            f"{name}: {len(undelegated)} new read(s) fall under an accepted gap whose covered_by lane did not read "
+            f"them in this run: {_sample(undelegated)}"
+        )
+    if inside:
+        notes.append(f"{name}: {inside} new read(s) inside the relevance filter (not drift)")
+    return findings, notes
+
+
+def delegated_reads(
+    committed: dict[str, dict[str, Any]], *, workflow_dir: Path = WORKFLOW_DIR
+) -> dict[tuple[str, str], dict[str, str]]:
+    """``(workflow, job) -> {read: delegating manifest}``: what each ``covered_by`` lane must read.
+
+    The guard's ``_delegation_findings`` semantics: a delegating manifest's
+    committed reads that its filter does not select and that a gap with
+    ``covered_by`` explains are owed by the covering lane.
+    """
+    owed: dict[tuple[str, str], dict[str, str]] = {}
+    for name, manifest in committed.items():
+        gaps = [g for g in manifest.get("accepted_gaps") or [] if isinstance(g, dict) and g.get("covered_by")]
+        workflow = workflow_dir / str(manifest.get("workflow"))
+        if not gaps or not workflow.is_file():
+            continue
+        live = relevance_filter(yaml.safe_load(workflow.read_text()) or {}, manifest)
+        for read in (str(entry) for entry in manifest.get("reads") or []):
+            if not live.rejects(read):
+                continue
+            for gap in gaps:
+                if gap_matches(gap, read):
+                    target_workflow, _, target_job = str(gap["covered_by"]).partition("/")
+                    owed.setdefault((target_workflow, target_job), {}).setdefault(read, name)
+                    break
+    return owed
+
+
+def compare_manifests(
+    committed_dir: Path, recorded_dir: Path, *, workflow_dir: Path = WORKFLOW_DIR
+) -> tuple[list[str], list[str]]:
     """``(findings, notes)`` of the committed manifests against a CI recording of them.
 
-    Compared: ``reads`` (as sets), ``job_spec_sha256``, ``status`` and the
-    ``invocations`` (command, cwd, env, exit code — scratch paths normalised).
+    Compared: ``reads`` — as drift only where the job's live relevance filter
+    does not select a new read (:func:`read_drift`, #1683) — ``job_spec_sha256``
+    (which no longer moves with an action's pin), ``status``, the
+    ``invocations`` (command, cwd, env, exit code — scratch paths normalised),
+    and whether the recording read anything at all.
     Not compared: when and where the recording ran (``measured_on``,
-    ``measured_at_commit``, ``subprocesses``, ``untracked_reads_dropped``) and
+    ``measured_at_commit``, ``subprocesses``, ``untracked_reads_dropped``), how
+    long it took (``replay_seconds`` — wall clock varies run to run; it sizes the
+    next run's step bound and is committed with the recording, and only its
+    presence and range are held, on both sides) and
     the hand-written fields a replay carries over verbatim. A manifest with
     invocations that the recording lacks is a finding — its record leg failed
     or never ran, and silence there would read as agreement. A recorded manifest
@@ -1307,6 +1742,13 @@ def compare_manifests(committed_dir: Path, recorded_dir: Path) -> tuple[list[str
     )
     findings: list[str] = []
     notes: list[str] = []
+    # A covered_by lane's reads as this run recorded them, the committed ones where it recorded none.
+    reads_of: dict[tuple[str, str], set[str]] = {}
+    for source in (committed, recorded):
+        for manifest in source.values():
+            key = (str(manifest.get("workflow")), str(manifest.get("job")))
+            reads_of[key] = {str(entry) for entry in manifest.get("reads") or []}
+    delegated = delegated_reads(committed, workflow_dir=workflow_dir)
     for name, manifest in committed.items():
         if not any(isinstance(entry, dict) for entry in manifest.get("invocations") or []):
             notes.append(f"{name}: no invocation to replay — {manifest.get('empty_reads_reason') or 'no reason given'}")
@@ -1319,6 +1761,22 @@ def compare_manifests(committed_dir: Path, recorded_dir: Path) -> tuple[list[str
             )
             continue
         findings += manifest_differences(name, manifest, counterpart)
+        read_findings, read_notes = read_drift(
+            name, manifest, counterpart, reads_of=reads_of, workflow_dir=workflow_dir
+        )
+        findings += read_findings
+        notes += read_notes
+        # Review of #1747: a covering lane that stops reading a path another lane
+        # delegates to it would keep the stale committed read, and the guard's
+        # delegation rule (which reads committed manifests) would stay green.
+        owed = delegated.get((str(manifest.get("workflow")), str(manifest.get("job"))), {})
+        recorded_reads = {str(entry) for entry in counterpart.get("reads") or []}
+        dropped = sorted(read for read in owed if read not in recorded_reads)
+        if dropped:
+            findings.append(
+                f"{name}: the CI run no longer reads {len(dropped)} path(s) other lanes delegate to it through "
+                f"covered_by: {_sample([f'{read} ({owed[read]})' for read in dropped])}"
+            )
     for name in sorted(set(recorded) - set(committed)):
         findings.append(f"{name}: recorded in CI and not committed — commit it (a delegation target's first manifest)")
     return findings, notes

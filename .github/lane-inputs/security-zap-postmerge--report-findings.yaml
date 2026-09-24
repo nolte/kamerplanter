@@ -1,6 +1,7 @@
 # Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
-# filter can be held against it (#1596). Do not edit `reads` by hand: re-run the
-# `invocations` below. The guard is
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
 # src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
 schema: 2
 workflow: security-zap-postmerge.yml
@@ -8,9 +9,9 @@ job: report-findings
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-23'
-measured_at_commit: bc7de7c58e5997fd9e6b202e6b67846bf9bc38c0
-job_spec_sha256: 6f69d4a8aa122b8cc52f3e614aef96c2bfce32ee292ed030ef51fcaabc10df95
+measured_on: '2026-09-24'
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+job_spec_sha256: 20baa07e3c391a27364cde7a4a32496b2b3bacfef394ca4b40c67c7c52475253
 invocations: []
 subprocesses: []
 accepted_gaps: []
