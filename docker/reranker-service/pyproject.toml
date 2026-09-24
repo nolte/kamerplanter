@@ -1,4 +1,4 @@
-# Packaging source for the embedding service (#1374). This is a deployable
+# Packaging source for the reranker service (#1374). This is a deployable
 # service, not a distributable library: main.py is COPYed into the image and run
 # by uvicorn from the working directory, so `[tool.uv].package = false` keeps uv
 # from ever building a wheel of it. The file exists so that every Python install
@@ -9,41 +9,33 @@ name = "kamerplanter-reranker-service"
 version = "1.0.0"
 description = "ONNX cross-encoder reranker re-scoring RAG retrieval hits for Kamerplanter (ADR-007)"
 requires-python = ">=3.14"
-# Carried over unchanged from the requirements.txt this file replaces; Renovate
-# ages them from here through the lock (`rangeStrategy: update-lockfile`).
+# Renovate ages these from here through the lock (`rangeStrategy:
+# update-lockfile`).
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "onnxruntime>=1.20.0",
-    # transformers sits on the 4.57.x line, and NOT because this range is open
-    # (#1480). `optimum-onnx` — pulled in by the `build` group below, and since
-    # optimum 2.0 the package that *is* the ONNX exporter — declares
-    # `transformers>=4.36,<4.58` in every release it has published (0.0.1 …
-    # 0.1.0, read from PyPI on 2026-09-20). The ceiling is the exporter's, not
-    # ours, and the sibling docker/embedding-service resolves this identical
-    # range to transformers 5.17.0 precisely because it has no exporter beside
-    # it.
+    # The tokenizer is the Rust `tokenizers` library, read straight from the
+    # model's `tokenizer.json` — NOT transformers, and that is #1480.
     #
-    # Widening this to `>=5.10,<6` does not fail, which is the trap: uv (0.12.17,
-    # measured 2026-09-20) satisfies it by walking optimum back to 1.17.1, a
-    # 2024-02-18 release with no transformers ceiling at all. The lock then looks
-    # healthy and the export stage dies five seconds in, on
-    # `from transformers.utils import is_tf_available` — removed in transformers
-    # 5. The build log is in #1480;
-    # src/backend/tests/unit/guards/test_onnx_export_toolchain_floor.py keeps that
-    # downgrade from ever arriving silently.
+    # transformers used to sit here, held on the 4.57.x line by the ONNX
+    # exporter the build stage ran: `optimum-onnx` declared
+    # `transformers>=4.36,<4.58` in every release it had published (0.0.1 …
+    # 0.1.0, read from PyPI on 2026-09-24), and that line carries three HIGH
+    # CVEs (CVE-2026-9856, CVE-2026-4372, CVE-2026-5241) plus one MEDIUM
+    # (CVE-2026-1839). The service called exactly one thing from it,
+    # `AutoTokenizer`, whose fast path IS this library; main.py configures the
+    # padding and truncation transformers used to add per call, with measured
+    # parity for both shipped models. The export stage still installs
+    # transformers through the `build` group below, which never reaches the
+    # shipped image.
     #
-    # The price of staying here is four CVEs open against 4.57.6: CVE-2026-9856,
-    # CVE-2026-4372, CVE-2026-5241 (HIGH) and CVE-2026-1839 (MEDIUM). All four
-    # are code-execution classes reached through loading an untrusted model,
-    # checkpoint or chat template; this service loads exactly one model, exported
-    # into the image at build time, and never takes a model name from a request.
-    # Revisit the moment optimum-onnx accepts transformers >= 4.58 — #1480 stays
-    # open until then.
-    "transformers>=4.46.0",
+    # `sentencepiece` and `protobuf` left with it. sentencepiece was the slow
+    # tokenizer's backend, which `tokenizer.json` never touches; protobuf is
+    # onnxruntime's own dependency and stays in the lock through it, it is just
+    # no longer something this service claims to import.
+    "tokenizers>=0.22.0",
     "numpy",
-    "sentencepiece",
-    "protobuf",
 ]
 
 # The model-download stage's toolchain. A PEP 735 group, so `uv sync` in the
