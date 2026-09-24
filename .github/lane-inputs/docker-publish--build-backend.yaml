@@ -11,8 +11,8 @@ gate:
   filter: backend
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 0b7ae682db8c264f2546b8d5a509aba1dc819a5d
-replay_seconds: 14
+measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+replay_seconds: 2
 job_spec_sha256: f309815c7e3b6f3122deec77f4fe73d4629688b8300ddba7a11248db7b53a9e8
 invocations:
 - command: derive-docker --context src/backend --dockerfile src/backend/Dockerfile

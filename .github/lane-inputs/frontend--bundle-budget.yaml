@@ -11,8 +11,8 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 0b7ae682db8c264f2546b8d5a509aba1dc819a5d
-replay_seconds: 41
+measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+replay_seconds: 39
 job_spec_sha256: 9ee2a68963ef9b450546ce81f6c33ab19494364a2297675b28a5a1ab0517da96
 invocations:
 - command: npm run build

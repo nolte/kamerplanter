@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 0b7ae682db8c264f2546b8d5a509aba1dc819a5d
-replay_seconds: 47
+measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+replay_seconds: 55
 job_spec_sha256: 9e7d5315a110d4963a55509bc4739ed17eb1b202de979be7450e1a4ae639ad56
 invocations:
 - command: helm dependency build helm/kamerplanter
@@ -73,7 +73,6 @@ reads:
 - .audits/e2e-tcid-drift/2026-07-26/
 - .audits/issue-orchestrate/
 - .audits/issue-orchestrate/1098/
-- .audits/issue-orchestrate/1741/
 - .audits/issue-orchestrate/737/
 - .audits/issue-orchestrate/749/
 - .audits/issue-orchestrate/754/
