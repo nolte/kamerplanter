@@ -199,7 +199,11 @@ class TokenPairResponse(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjcxNjM0In0.sIgn4tur3",
+                    # Elided on purpose: a complete three-part JWT here, even an
+                    # unsigned sample, is what secret scanners are built to flag
+                    # (Trivy `jwt-token`, code-scanning alert #8). The header is
+                    # kept so the example still reads as a JWT.
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.…",
                     "token_type": "bearer",
                     "expires_in": 900,
                     "refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl",
