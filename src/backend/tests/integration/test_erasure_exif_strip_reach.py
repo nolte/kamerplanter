@@ -16,7 +16,7 @@ real AQL selector and the real rewrite. So this module runs the real
 
 Runs in CI against a service container; locally it needs a database::
 
-    docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_erasure_exif_strip_reach.py -v
 """
 

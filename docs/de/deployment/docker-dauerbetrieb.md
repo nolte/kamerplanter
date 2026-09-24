@@ -232,23 +232,34 @@ docker compose -f docker-compose.release.yml -f docker-compose.override.yml exec
 
 ## Zugriff von anderen Geräten
 
-Standardmäßig ist Kamerplanter nur über den Server selbst erreichbar. Um von Smartphone, Tablet oder anderen Rechnern im Heimnetz zuzugreifen:
+Standardmäßig ist Kamerplanter nur über den Server selbst erreichbar: `docker-compose.release.yml` bindet jeden Port an `127.0.0.1`. Um von Smartphone, Tablet oder anderen Rechnern im Heimnetz zuzugreifen:
 
-1. Finde die IP-Adresse deines Servers:
+1. Öffne Benutzeroberfläche und API für dein Netzwerk. Ergänze diese Zeile in der `.env`:
+
+    ```ini title=".env"
+    KAMERPLANTER_BIND_ADDRESS=0.0.0.0
+    ```
+
+    Damit öffnest du genau zwei Ports: die Benutzeroberfläche (8080) und die API (8000), mit der ein Home-Assistant-Rechner in deinem Netzwerk spricht. Datenbanken, Valkey und Ollama bleiben nur vom Server aus erreichbar, egal was du hier einträgst.
+
+    !!! warning "Danach kann jeder in deinem Netzwerk Kamerplanter benutzen"
+        Die Release-Datei läuft im Light-Modus, der keine Anmeldung kennt. Sobald die Ports offen sind, kann jedes Gerät in deinem Netzwerk deine Daten lesen und ändern. Mach das nur in einem Heimnetz, dem du vertraust, hinter der Firewall deines Routers — nie mit einer Portweiterleitung ins Internet. Details: [Light-Modus](../user-guide/light-mode.md).
+
+2. Finde die IP-Adresse deines Servers:
 
     ```bash
     hostname -I
     ```
 
-2. Öffne auf dem anderen Gerät den Browser und gehe zu `http://<IP-Adresse>:8080`
+3. Öffne auf dem anderen Gerät den Browser und gehe zu `http://<IP-Adresse>:8080`
 
-3. Passe die CORS-Einstellung in `.env` an, damit die API Anfragen von der neuen Adresse akzeptiert:
+4. Passe die CORS-Einstellung in `.env` an, damit die API Anfragen von der neuen Adresse akzeptiert:
 
     ```ini title=".env"
     CORS_ORIGINS=["http://localhost:8080","http://192.168.1.100:8080"]
     ```
 
-4. Starte die Dienste nach der Änderung neu:
+5. Starte die Dienste nach der Änderung neu:
 
     ```bash
     docker compose -f docker-compose.release.yml -f docker-compose.override.yml up -d
@@ -273,7 +284,7 @@ Standardmäßig ist Kamerplanter nur über den Server selbst erreichbar. Um von 
     ArangoDB braucht beim ersten Start etwas länger. Warte 30 Sekunden und prüfe erneut. Falls der Fehler bleibt: Stimmen die Passwörter in `.env` überein? `ARANGO_ROOT_PASSWORD` und `ARANGODB_PASSWORD` müssen identisch sein.
 
 ??? question "Zugriff von anderem Gerät funktioniert nicht"
-    Prüfe: (1) Sind beide Geräte im gleichen Netzwerk? (2) Stimmt die IP-Adresse? (3) Ist die CORS-Einstellung in `.env` angepasst? (4) Blockiert eine Firewall Port 8080?
+    Prüfe: (1) Steht `KAMERPLANTER_BIND_ADDRESS=0.0.0.0` in der `.env`, und hast du danach neu gestartet? Ohne diese Zeile ist Port 8080 an `127.0.0.1` gebunden und weist jedes andere Gerät ab. (2) Sind beide Geräte im gleichen Netzwerk? (3) Stimmt die IP-Adresse? (4) Ist die CORS-Einstellung in `.env` angepasst? (5) Blockiert eine Firewall Port 8080?
 
 ??? question "Wie viel Speicherplatz braucht Kamerplanter langfristig?"
     Die Docker-Images belegen ca. 2 GB. Die Datenbank wächst je nach Nutzung — für einen typischen Heimanwender mit bis zu 100 Pflanzen bleiben die Daten unter 100 MB. Sensorik-Daten können bei aktivierter Aufzeichnung schneller wachsen.

@@ -87,7 +87,7 @@ tasks:
   #
   # Locally it needs a server of its own:
   #   task dev:core            # the dev stack, or:
-  #   docker run -d --rm --name kp-it-arango -p 8529:8529 \
+  #   docker run -d --rm --name kp-it-arango -p 127.0.0.1:8529:8529 \
   #     -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
   # Point it elsewhere with ARANGODB_HOST / ARANGODB_PORT / ARANGODB_USERNAME /
   # ARANGODB_PASSWORD (`Settings`' own names — some modules connect through

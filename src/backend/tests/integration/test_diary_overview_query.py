@@ -14,7 +14,7 @@ Runs in CI against a service container; locally it needs a database of its own
 (a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one
 with::
 
-    docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_diary_overview_query.py -v
 """
 

@@ -86,7 +86,7 @@ Ollama is a program that runs language models locally on a machine or server. No
 
     ```bash
     docker run -d --name ollama \
-      -p 11434:11434 \
+      -p 127.0.0.1:11434:11434 \
       -v ollama_data:/root/.ollama \
       ollama/ollama
     ```
@@ -96,7 +96,7 @@ Ollama is a program that runs language models locally on a machine or server. No
     ```bash
     docker run -d --name ollama \
       --gpus all \
-      -p 11434:11434 \
+      -p 127.0.0.1:11434:11434 \
       -v ollama_data:/root/.ollama \
       ollama/ollama
     ```
@@ -134,6 +134,8 @@ LLM_MODEL=gemma3:4b
 
 !!! warning "Ollama on another host"
     If Ollama runs on a different machine (e.g. a NAS), `LLM_API_URL` must point to that machine's IP address or DNS name. Port 11434 must be reachable from the Knowledge Service's network.
+
+    The Docker commands above bind port 11434 to `127.0.0.1` only — Ollama has no authentication of its own, so this keeps everyone else on the network away from your model. If the Knowledge Service runs on another machine, publish the port on the network address it reaches instead, for example `-p 192.168.1.20:11434:11434` — not on every interface.
 
 ---
 

@@ -278,7 +278,7 @@ kubectl top nodes
 
 ```bash
 # Registry Container erstellen
-docker run -d --restart=always -p 5001:5000 --name kind-registry registry:2
+docker run -d --restart=always -p 127.0.0.1:5001:5000 --name kind-registry registry:2
 
 # Registry mit Kind verbinden
 docker network connect kind kind-registry
@@ -2072,7 +2072,7 @@ docker port agrotech-control-plane
 # - role: worker
 
 # Lösung 3: Lokales Registry
-docker run -d -p 5001:5000 --name kind-registry registry:2
+docker run -d -p 127.0.0.1:5001:5000 --name kind-registry registry:2
 docker network connect kind kind-registry
 ```
 

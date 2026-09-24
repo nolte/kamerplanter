@@ -274,8 +274,12 @@ TIMESCALEDB_ENABLED=true
 | Reranker-Service | [http://localhost:8081](http://localhost:8081) | `vectordb` | Cross-Encoder für RAG-Qualität |
 | Ollama | [http://localhost:11434](http://localhost:11434) | `ollama` | Lokaler LLM-Server (API) |
 
-!!! note "Reranker-Service nur von diesem Rechner erreichbar"
-    Der Reranker-Service hat keine eigene Authentifizierung. Port 8081 ist deshalb ausschließlich an `127.0.0.1` gebunden: `http://localhost:8081` funktioniert weiterhin von diesem Rechner aus, aber nicht mehr von einem anderen Gerät im selben Netzwerk. Der Container läuft dabei schreibgeschützt, als UID 1000 und ohne Linux-Capabilities — siehe „Container-Härtung" in der [KI-Architektur](../architecture/ai-architecture.md).
+!!! note "Alle Ports sind nur von diesem Rechner erreichbar"
+    Docker Compose bindet jeden Port aus den Tabellen oben an `127.0.0.1`. `http://localhost:…` funktioniert auf dem Rechner, auf dem Kamerplanter läuft — kein anderes Gerät im selben Netzwerk erreicht ihn: nicht die Datenbanken, nicht Valkey, nicht Ollama und auch nicht die App selbst. ArangoDB, Valkey und die PostgreSQL-Datenbanken halten deine Daten hinter den Beispiel-Passwörtern aus `.env.example`; Ollama und der Reranker-Service haben gar keine Authentifizierung.
+
+    Du willst Kamerplanter auf dem Smartphone oder Tablet öffnen? Setze `KAMERPLANTER_BIND_ADDRESS=0.0.0.0` in der `.env` und starte mit `docker compose up -d` neu. Damit öffnest du nur die Benutzeroberfläche (Port 8080) und die API (Port 8000) für dein Netzwerk — Datenbanken, Valkey, Ollama und der Reranker bleiben auf diesem Rechner. Die Schritte stehen unter [Dauerbetrieb — Zugriff von anderen Geräten](docker-dauerbetrieb.md#zugriff-von-anderen-geraten).
+
+    Der Reranker-Container läuft außerdem schreibgeschützt, als UID 1000 und ohne Linux-Capabilities — siehe „Container-Härtung" in der [KI-Architektur](../architecture/ai-architecture.md).
 
 ---
 

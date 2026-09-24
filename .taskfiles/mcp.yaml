@@ -155,4 +155,4 @@ tasks:
         echo "Stop with Ctrl+C — no changes are written to docker-compose.e2e.yml."
         echo
         docker compose -f docker-compose.e2e.yml \
-          run --rm --service-ports --publish 8080:80 frontend
+          run --rm --service-ports --publish 127.0.0.1:8080:80 frontend

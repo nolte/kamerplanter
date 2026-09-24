@@ -15,7 +15,7 @@ Provides the vector store for RAG (Retrieval-Augmented Generation). The embeddin
 
 ```bash
 docker build -t kamerplanter-vectordb .
-docker run -p 5432:5432 -e POSTGRES_PASSWORD=secret kamerplanter-vectordb
+docker run -p 127.0.0.1:5432:5432 -e POSTGRES_PASSWORD=secret kamerplanter-vectordb
 ```
 
 Enable the extension in your database:
