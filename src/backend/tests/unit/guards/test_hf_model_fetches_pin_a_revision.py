@@ -89,7 +89,8 @@ malformed lines). Two rules close them, each with a self-test per spelling:
   the path's last write. The kept directory must be created by ``mkdir``
   WITHOUT ``-p`` in that RUN (the build then fails if it already exists, so
   nothing the base image or an earlier layer put there rides along), and no
-  other instruction of the stage may name it. A path is looked for in the raw
+  other instruction of the stage may name it. A redirection of ANY descriptor
+  into it (``rm -rf /dl 2> /model/x``) is red. A path is looked for in the raw
   text AND in every word after quote removal (``/mod""el`` is ``/model``), and
   any ``mv``/``cp``/``curl``/``tee``/``python`` … with a ``$``-computed word, or
   a redirect to a computed target, is red in the fetch's RUN: an ``ENV`` of an
@@ -534,6 +535,10 @@ class _Parsed:
         """The files its standard output is redirected into."""
         return [target for fd, op, target in self.redirects if op in (">", ">>", ">|") and fd in ("", "1")]
 
+    def outputs(self) -> list[_Word]:
+        """The files ANY of its descriptors is redirected into (``2> f`` creates ``f`` too)."""
+        return [target for _fd, op, target in self.redirects if op in (">", ">>", ">|", "<>")]
+
 
 _REDIRECT_OP = re.compile(r"<<-?|>>|>\||>&|<&|<>|>|<")
 
@@ -746,6 +751,8 @@ def _file_content(commands: list[_Command], check: int, path: str) -> str | None
     * one that redirects output to a non-literal target (``> "$SUMS"``), or an
       argument-writer (``tee``, ``cp``, ``python`` …) with a non-literal
       argument — the path it writes is computed, and may be this one;
+    * a literal writer to ANOTHER spelling of the same basename (``> sums``
+      next to ``> /tmp/sums``): under the right WORKDIR they are one file;
     * for a relative *path*, any ``cd`` before the check.
     """
     target = posixpath.normpath(path)
@@ -758,6 +765,11 @@ def _file_content(commands: list[_Command], check: int, path: str) -> str | None
         written = _literal_output(command, parsed)
         if written is not None:
             if posixpath.normpath(written[0]) != target:
+                # `> sums` and `> /tmp/sums` are one file under WORKDIR /tmp:
+                # a literal writer to another spelling of the same basename
+                # may be overwriting this list (code review of #1755).
+                if posixpath.basename(posixpath.normpath(written[0])) == posixpath.basename(target):
+                    return None
                 continue
             if written[1] == ">>":
                 if content is None:
@@ -911,7 +923,7 @@ def _pairing_problem(
         parsed = _parse(command.text)
         computed = (
             parsed.name in _ARGUMENT_WRITERS | {"curl", "wget"} and any(not w.literal for w in parsed.args)
-        ) or any(not target.literal for target in parsed.writes())
+        ) or any(not target.literal for target in parsed.outputs())
         if computed:
             # `mv x "$M"/`, `> "$OUT"`: the path is computed — an `ENV` of an
             # ancestor stage can point it at a kept directory unseen.
@@ -928,7 +940,10 @@ def _pairing_problem(
             if any(_under(target, root) for root in roots):
                 writes.append((index, target))
             continue
-        if any(any(_under(posixpath.normpath(t.value), r) for r in roots) for t in parsed.writes()):
+        # Any descriptor, not only stdout: `rm -rf /dl 2> /model/c` creates a
+        # kept file too (code review of #1755). A literal writer's own stdout
+        # target was handled above.
+        if any(any(_under(posixpath.normpath(t.value), r) for r in roots) for t in parsed.outputs()):
             return refusal
         operands = [word.value for word in parsed.args[1:] if not word.value.startswith("-")]
         options = [word.value for word in parsed.args[1:] if word.value.startswith("-")]
@@ -1775,6 +1790,19 @@ _CHECKLIST_SPELLINGS: list[tuple[str, str, bool]] = [
         False,
     ),
     (
+        "a relative and an absolute spelling of one list (WORKDIR decides)",
+        _PINNED_FETCH
+        + f"    printf '%s\\n' '{_HEX}  /m/a' '{_HEX_2}  /m/b' > sums && \\\n"
+        + f"    printf '%s\\n' '{_HEX}  /m/a' > /tmp/sums && \\\n"
+        + "    sha256sum -c --strict sums\n",
+        False,
+    ),
+    (
+        "an absolute list overwritten through its relative spelling",
+        _PINNED_FETCH + _WRITE_SUMS + f"    printf '%s\\n' '{_HEX}  /m/a' > sums && \\\n" + _CHECK,
+        False,
+    ),
+    (
         "one of two checklists is computed",
         _PINNED_FETCH
         + _WRITE_SUMS
@@ -2008,6 +2036,24 @@ _PAIRING_SPELLINGS: list[tuple[str, str, str | None]] = [
         "mv into a computed path",
         _stage('    mkdir /model && \\\n    mv /dl/a /dl/b /model/ && mv /dl/c "$M"/ && \\\n' + _TWO_LINES + _VERIFY),
         "computed path",
+    ),
+    (
+        "stderr of rm redirected into the kept dir",
+        _stage(
+            "    mkdir /model && \\\n    mv /dl/a /dl/b /model/ && \\\n"
+            + _TWO_LINES
+            + "    sha256sum -c --strict /tmp/sums && \\\n    rm -rf /dl 2>/model/c\n"
+        ),
+        "touches",
+    ),
+    (
+        "stderr of chmod appended into the kept dir",
+        _stage(
+            "    mkdir /model && chmod 644 /x 2>>/model/c && \\\n    mv /dl/a /dl/b /model/ && \\\n"
+            + _TWO_LINES
+            + _VERIFY
+        ),
+        "touches",
     ),
     (
         "tar -C into the kept dir",
