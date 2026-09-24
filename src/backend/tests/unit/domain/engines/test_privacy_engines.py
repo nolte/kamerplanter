@@ -9,14 +9,24 @@ from app.data_access.arango import collections as col
 from app.domain.engines.consent_engine import DIARY_AI_ANALYSIS, ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
+from app.domain.models.actuator import ManualOverride
+from app.domain.models.ai_assistant import AiAuditLogEntry, AiConversation, AiTipCard
+from app.domain.models.attachment import Attachment
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
+from app.domain.models.calendar import CalendarFeed
 from app.domain.models.harvest import HarvestBatch, QualityAssessment, YieldMetric
 from app.domain.models.identification import IdentificationRequest
+from app.domain.models.import_job import ImportJob
+from app.domain.models.invitation import Invitation
 from app.domain.models.ipm import Inspection, TreatmentApplication
+from app.domain.models.location_assignment import LocationAssignment
+from app.domain.models.mcp import McpAuditLog, McpIdempotencyRecord
 from app.domain.models.membership import Membership
+from app.domain.models.notification import Notification, NotificationPreferences
 from app.domain.models.onboarding import OnboardingState
 from app.domain.models.pest_detection import PestDetection
 from app.domain.models.pest_image import PestImageContribution
+from app.domain.models.plant_diagnosis_request import PlantDiagnosisRequest
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.privacy import (
     ConsentRecord,
@@ -27,9 +37,11 @@ from app.domain.models.privacy import (
     ErasureStep,
     ProcessingRestriction,
 )
-from app.domain.models.task import Task
+from app.domain.models.task import Task, TaskComment
+from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.models.user_preference import UserPreference
+from app.domain.models.weather import WeatherSourceConfig
 
 #: Which domain model backs each collection of the export manifest / the
 #: anonymisation rules. Used to check declared field names against reality —
@@ -51,6 +63,25 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "treatment_applications": TreatmentApplication,
     "plant_diary_entries": PlantDiaryEntry,
     "identification_requests": IdentificationRequest,
+    # #1700 — categories the erasure inventory reaches since #1700, disclosed too.
+    "ai_conversations": AiConversation,
+    "ai_tip_cache": AiTipCard,
+    "ai_audit_log": AiAuditLogEntry,
+    "notifications": Notification,
+    "notification_preferences": NotificationPreferences,
+    "calendar_feeds": CalendarFeed,
+    "plant_diagnosis_requests": PlantDiagnosisRequest,
+    "task_comments": TaskComment,
+    "invitations": Invitation,
+    "location_assignments": LocationAssignment,
+    "attachments": Attachment,
+    "pest_image_contributions": PestImageContribution,
+    "import_jobs": ImportJob,
+    "weather_source_configs": WeatherSourceConfig,
+    "manual_overrides": ManualOverride,
+    "tenants": Tenant,
+    "mcp_audit_log": McpAuditLog,
+    "mcp_idempotency_record": McpIdempotencyRecord,
 }
 
 
@@ -65,7 +96,6 @@ ERASURE_COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "user_preferences": UserPreference,
     "onboarding_states": OnboardingState,
     "pest_detections": PestDetection,
-    "pest_image_contributions": PestImageContribution,
 }
 
 
@@ -174,9 +204,12 @@ class TestDataExportEngine:
             # delivered as if it were an attribution.
             assert entry.filter_field not in ("harvester", "inspector", "applied_by", "assessed_by")
         assert "v0057" in by_collection["quality_assessments"].attribution_gap
-        # No production source is undisclosable any more; the mechanism stays
-        # (``DataSourceDefinition.disclosure_gap``) for a future category.
-        assert not [e.collection for e in by_collection.values() if e.disclosure_gap]
+        # The one undisclosable source is #1700's ``location_assignments``: it
+        # carries the membership key, not the account key, and the walk follows
+        # a field or one edge from ``users``. Any other gap is new and must say so.
+        assert [e.collection for e in DataExportEngine.USER_DATA_MANIFEST if e.disclosure_gap] == [
+            "location_assignments"
+        ]
 
     def test_the_bundle_states_the_attribution_gap_beside_the_delivered_rows(self):
         engine = DataExportEngine()
@@ -493,9 +526,28 @@ class TestErasureStepUserField:
         with pytest.raises(ValueError, match="edge endpoint"):
             ErasureStep(collection="x", kind="document", executor="account_erasure", user_field="_from")
 
-    def test_via_is_refused_on_a_document(self):
-        with pytest.raises(ValueError, match="via applies to edges only"):
-            ErasureStep(collection="x", kind="document", executor="account_erasure", user_field="user_key", via="y")
+    def test_via_is_accepted_on_a_document(self):
+        """#1700 — ``location_assignments`` carries its membership's key, not the account key."""
+        step = ErasureStep(
+            collection="x", kind="document", executor="account_erasure", user_field="membership_key", via="y"
+        )
+        assert step.via == "y"
+
+    def test_where_is_refused_on_an_edge(self):
+        with pytest.raises(ValueError, match="where applies to documents"):
+            ErasureStep(
+                collection="has_x", kind="edge", executor="account_erasure", user_field="_from", where={"a": "b"}
+            )
+
+    def test_a_via_document_precedes_its_parent_and_follows_its_own_via_edges(self):
+        order = ErasureEngine.delete_order()
+        via_documents = [s for s in ErasureEngine.DELETE_STEPS if s.kind == "document" and s.via]
+        assert via_documents, "guard against a vacuous loop: location_assignments uses via"
+        for step in via_documents:
+            assert order.index(step.collection) < order.index(step.via)
+            for edge in ErasureEngine.DELETE_STEPS:
+                if edge.via == step.collection:
+                    assert order.index(edge.collection) < order.index(step.collection), edge.collection
 
 
 class TestErasurePhaseNames:

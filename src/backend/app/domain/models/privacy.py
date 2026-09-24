@@ -259,6 +259,11 @@ class ErasureStep(BaseModel):
       ``document`` step, which therefore has to come *after* the edge in the
       inventory (``membership_in`` runs ``memberships -> tenants`` and never
       touches ``users``; the pest-detection edges start at ``pest_detections``).
+    * ``document`` with ``via`` (#1700) — the row carries no account key, only
+      the ``_key`` of a parent row that does: ``location_assignments.membership_key``
+      points at the subject's ``memberships``. The executor matches
+      ``doc.<user_field> IN <keys of the parent rows>``; the parent's own step
+      comes *after* this one, like an edge's.
     """
 
     collection: str
@@ -266,15 +271,23 @@ class ErasureStep(BaseModel):
     executor: ErasureExecutor
     user_field: str | None = None
     via: str | None = None
+    #: Extra equality predicates a ``document`` row must also satisfy (#1700).
+    #: ``attachments`` is removed only for ``category == pest_reference`` — the
+    #: rows whose bytes the storage phase hard-deleted; the other categories are
+    #: tenant records and are anonymised instead.
+    where: dict[str, str] = Field(default_factory=dict)
     note: str = ""
 
     @model_validator(mode="after")
     def _user_field_matches_kind(self) -> Self:
         if self.kind in ("user", "phase"):
-            if self.user_field is not None or self.via is not None:
-                msg = f"{self.kind} step '{self.collection}' filters nothing and takes no user_field/via"
+            if self.user_field is not None or self.via is not None or self.where:
+                msg = f"{self.kind} step '{self.collection}' filters nothing and takes no user_field/via/where"
                 raise ValueError(msg)
             return self
+        if self.kind == "edge" and self.where:
+            msg = f"edge step '{self.collection}' is matched by its endpoint only; where applies to documents"
+            raise ValueError(msg)
         if not self.user_field:
             msg = f"{self.kind} step '{self.collection}' must declare the user_field it filters the subject on"
             raise ValueError(msg)
@@ -285,9 +298,6 @@ class ErasureStep(BaseModel):
         else:
             if self.user_field in _EDGE_ENDPOINTS:
                 msg = f"document step '{self.collection}' cannot be keyed on an edge endpoint"
-                raise ValueError(msg)
-            if self.via is not None:
-                msg = f"document step '{self.collection}' is keyed directly; via applies to edges only"
                 raise ValueError(msg)
         return self
 
@@ -316,7 +326,30 @@ class AnonymizationRule(BaseModel):
     anonymized_value: str = "[deleted]"
     replacement_strategy: Literal["marker", "tombstone_hash"] = "marker"
     clear_fields: list[str] = Field(default_factory=list)
+    #: Fields rewritten to ``<ANONYMIZED_KEY_PREFIX><doc._key>`` rather than
+    #: emptied (#1700): a value that must stay non-empty and unique (a tenant's
+    #: ``slug`` has a unique index) but was derived from the subject (a personal
+    #: tenant's ``name``/``slug`` come from the display name).
+    rename_fields: list[str] = Field(default_factory=list)
+    #: Equality predicates a row must satisfy for :attr:`rename_fields` to apply;
+    #: empty means every matched row. The key reference is replaced either way.
+    rename_when: dict[str, str] = Field(default_factory=dict)
     reason: str
+
+
+class ErasureExclusion(BaseModel):
+    """A stored user-reference field the erasure deliberately does not touch (#1700).
+
+    ``scripts/check_privacy_inventory.py`` (R6) requires every persisted model
+    field shaped like an account key to be reached by the inventory or named
+    here. The reason is the claim: typically that the field is free text typed
+    by the caller and never an account key, so matching on it would erase
+    whatever was typed (the class #1663 measured on ``harvester``).
+    """
+
+    collection: str
+    user_field: str
+    reason: str = Field(min_length=1)
 
 
 class PseudonymizationRule(BaseModel):

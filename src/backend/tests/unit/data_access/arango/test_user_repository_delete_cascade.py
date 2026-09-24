@@ -33,6 +33,10 @@ class _FakeAql:
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
         self._queries.append(query)
         self._bind_vars.append(bind_vars or {})
+        if "REMOVE" not in query and "UPDATE" not in query:
+            # #1700 — a ``via`` parent lookup (the subject's memberships, for the
+            # location assignments hanging off them); answered with one row.
+            return iter([{"id": f"{(bind_vars or {})['@collection']}/p-1", "key": "p-1"}])
         # Every executor write is a counting ``COLLECT WITH COUNT``; one row each.
         return iter([1])
 
@@ -72,7 +76,11 @@ class _FakeDb:
 
     @property
     def swept(self) -> list[str]:
-        return [bv.get("@collection") for bv in self.bind_vars]
+        return [
+            bv.get("@collection")
+            for query, bv in zip(self.queries, self.bind_vars, strict=True)
+            if "REMOVE" in query or "UPDATE" in query
+        ]
 
 
 def test_delete_sweeps_api_keys_preferences_and_onboarding_then_the_user():
@@ -103,14 +111,19 @@ def test_delete_sweeps_api_keys_preferences_and_onboarding_then_the_user():
 def test_delete_stays_the_narrow_cascade():
     """#1664 — the unverified-account cleanup keeps its narrow slice.
 
-    ``delete`` runs only the ``account_cascade`` slice: no memberships, no
-    anonymisation, no audit hashing (which would need a tombstone salt this path
-    does not have). The full erasure is ``PrivacyService.erase_account``.
+    ``delete`` runs only the ``account_cascade`` slice: no anonymisation, no
+    audit hashing (which would need a tombstone salt this path does not have).
+    The full erasure is ``PrivacyService.erase_account``.
+
+    #1700 — the slice now includes the memberships and the location assignments
+    hanging off them: registration creates a membership before the address is
+    verified, and the cleanup left it behind a deleted user.
     """
     db = _FakeDb()
     ArangoUserRepository(db).delete(USER_KEY)  # type: ignore[arg-type]
 
-    assert col.MEMBERSHIPS not in db.swept
+    assert col.MEMBERSHIPS in db.swept
+    assert col.LOCATION_ASSIGNMENTS in db.swept
     assert not any("patch" in bv for bv in db.bind_vars)
 
 
@@ -124,7 +137,11 @@ def test_every_user_scoped_remove_binds_the_key_never_interpolates_it():
     assert db.queries
     for query, binds in zip(db.queries, db.bind_vars, strict=True):
         assert USER_KEY not in query  # the value never lands in the AQL text
-        assert binds.get("value") in (USER_KEY, f"{col.USERS}/{USER_KEY}")
+        if "values" in binds:
+            # #1700 — a ``via`` step binds the parent rows it resolved, never the key.
+            assert USER_KEY not in binds["values"]
+        else:
+            assert binds.get("value") in (USER_KEY, f"{col.USERS}/{USER_KEY}")
 
 
 def test_the_cascade_attribution_still_covers_every_account_owned_artefact():
@@ -156,6 +173,14 @@ def test_the_cascade_attribution_still_covers_every_account_owned_artefact():
         col.API_KEYS,
         col.USER_PREFERENCES,
         col.ONBOARDING_STATES,
+        # #1700 — the registration membership and what hangs off it.
+        col.HAS_MEMBERSHIP,
+        col.ASSIGNED_TO_LOCATION,
+        col.ASSIGNMENT_FOR,
+        col.ASSIGNMENT_IN_TENANT,
+        col.LOCATION_ASSIGNMENTS,
+        col.MEMBERSHIP_IN,
+        col.MEMBERSHIPS,
         col.USERS,
     }
     assert steps[-1].collection == col.USERS

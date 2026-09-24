@@ -141,6 +141,14 @@ def _user_key_writers(field: str) -> list[str]:
             return node.id.endswith(("user_key", "account_key"))
         if isinstance(node, ast.Attribute):
             return node.attr in {"user_key", "account_key", "key"} or node.attr.endswith("user_key")
+        if isinstance(node, ast.IfExp):
+            # #1700 — ``promoted_by=admin_user_key if promote else None``: a key
+            # or nothing. A branch that is anything else (a string, a call) is
+            # not a key and does not count.
+            branches = (node.body, node.orelse)
+            return any(_is_user_key_expr(b) for b in branches) and all(
+                _is_user_key_expr(b) or (isinstance(b, ast.Constant) and b.value is None) for b in branches
+            )
         return False
 
     hits: list[str] = []
@@ -155,6 +163,13 @@ def _user_key_writers(field: str) -> list[str]:
                 for target in node.targets:
                     if isinstance(target, ast.Attribute) and target.attr == field:
                         hits.append(f"{path.relative_to(_APP.parent)}:{node.lineno}")
+            elif isinstance(node, ast.Dict):
+                # #1700 — a partial update spells the field as a dict key:
+                # ``update_fields(key, {"accepted_by_user_key": user_key, ...})``
+                # (``tenant_service.accept_invitation``). Same narrow value test.
+                for key, value in zip(node.keys, node.values, strict=True):
+                    if isinstance(key, ast.Constant) and key.value == field and _is_user_key_expr(value):
+                        hits.append(f"{path.relative_to(_APP.parent)}:{key.lineno}")
     return hits
 
 

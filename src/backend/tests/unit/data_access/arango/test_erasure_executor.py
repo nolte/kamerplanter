@@ -25,22 +25,41 @@ USER_KEY = "u-42"
 TOMBSTONE = ErasureEngine.compute_tombstone_hash(USER_KEY, "s" * 32)
 
 
+#: The one parent row every ``via`` lookup answers with (#1700).
+PARENT_KEY = "p-1"
+
+
 class _FakeAql:
-    def __init__(self, calls: list[tuple[str, dict[str, Any]]], fail_on: str | None) -> None:
+    def __init__(
+        self,
+        calls: list[tuple[str, dict[str, Any]]],
+        reads: list[tuple[str, dict[str, Any]]],
+        fail_on: str | None,
+    ) -> None:
         self._calls = calls
+        self._reads = reads
         self._fail_on = fail_on
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
         bind_vars = bind_vars or {}
         if self._fail_on is not None and bind_vars.get("@collection") == self._fail_on:
             raise RuntimeError(f"write to {self._fail_on} failed")
+        if "REMOVE" not in query and "UPDATE" not in query:
+            # A ``via`` parent lookup: not a write, answered with one parent row.
+            self._reads.append((query, bind_vars))
+            return iter([{"id": f"{bind_vars['@collection']}/{PARENT_KEY}", "key": PARENT_KEY}])
         self._calls.append((query, bind_vars))
         return iter([1])
 
 
 class _FakeTransaction:
-    def __init__(self, calls: list[tuple[str, dict[str, Any]]], fail_on: str | None) -> None:
-        self.aql = _FakeAql(calls, fail_on)
+    def __init__(
+        self,
+        calls: list[tuple[str, dict[str, Any]]],
+        reads: list[tuple[str, dict[str, Any]]],
+        fail_on: str | None,
+    ) -> None:
+        self.aql = _FakeAql(calls, reads, fail_on)
         self.committed = False
         self.aborted = False
 
@@ -54,6 +73,7 @@ class _FakeTransaction:
 class _FakeDb:
     def __init__(self, *, missing: frozenset[str] = frozenset(), fail_on: str | None = None) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.reads: list[tuple[str, dict[str, Any]]] = []
         self.missing = missing
         self.fail_on = fail_on
         self.transactions: list[_FakeTransaction] = []
@@ -65,7 +85,7 @@ class _FakeDb:
     def begin_transaction(self, write: list[str], allow_implicit: bool) -> _FakeTransaction:
         assert allow_implicit is False, "every collection the run touches must be declared"
         self.declared_write = list(write)
-        transaction = _FakeTransaction(self.calls, self.fail_on)
+        transaction = _FakeTransaction(self.calls, self.reads, self.fail_on)
         self.transactions.append(transaction)
         return transaction
 
@@ -130,11 +150,50 @@ class TestStrategies:
         db = _FakeDb()
         plan = _plan()
         _run(db, plan)
-        patches = {(b["@collection"], b["field"]): b["patch"] for _, b in db.calls if "patch" in b}
+        writes = {(b["@collection"], b["field"]): b for _, b in db.calls if "patch" in b}
         for rule in plan.anonymize:
             expected_value = TOMBSTONE if rule.replacement_strategy == "tombstone_hash" else rule.anonymized_value
             expected = {rule.user_field: expected_value, **dict.fromkeys(rule.clear_fields, "")}
-            assert patches[(rule.collection, rule.user_field)] == expected
+            binds = writes[(rule.collection, rule.user_field)]
+            assert binds["patch"] == expected
+            assert binds["rename_fields"] == rule.rename_fields
+            assert binds["rename_when"] == rule.rename_when
+
+    def test_a_rename_rule_is_declared_and_bound_with_its_prefix(self):
+        """#1700 — the personal tenant's name/slug; otherwise the check above is vacuous for renames."""
+        from app.domain.engines.erasure_engine import ANONYMIZED_KEY_PREFIX
+
+        db = _FakeDb()
+        plan = _plan()
+        _run(db, plan)
+        renaming = [rule for rule in plan.anonymize if rule.rename_fields]
+        assert renaming
+        for rule in renaming:
+            (binds,) = [
+                b for _, b in db.calls if b["@collection"] == rule.collection and b.get("field") == rule.user_field
+            ]
+            assert binds["rename_prefix"] == ANONYMIZED_KEY_PREFIX
+            # #1700 review — the rename is keyed on the salted tombstone, not on
+            # the guessable row key alone (the slug-squatting hole).
+            assert binds["tombstone"] == TOMBSTONE
+
+    def test_a_rename_value_is_not_derivable_from_the_row_key(self):
+        value = ErasureEngine.anonymized_rename_value(TOMBSTONE, "100")
+        assert value.startswith("anonymized-")
+        assert value != "anonymized-100"
+        assert value != ErasureEngine.anonymized_rename_value(TOMBSTONE, "101")
+        other = ErasureEngine.compute_tombstone_hash(USER_KEY, "t" * 32)
+        assert value != ErasureEngine.anonymized_rename_value(other, "100")
+
+    def test_a_rename_value_refuses_a_guessable_seed(self):
+        with pytest.raises(ValueError, match="tombstone"):
+            ErasureEngine.anonymized_rename_value("100", "100")
+
+    def test_a_tombstone_of_the_wrong_shape_is_refused_before_any_write(self):
+        db = _FakeDb()
+        with pytest.raises(ErasurePlanError, match="not a tombstone"):
+            _run(db, tombstone="anonymized-100")
+        assert db.calls == []
 
     def test_at_least_one_rule_of_each_strategy_is_declared(self):
         """Otherwise the test above would be vacuous for the missing strategy."""
@@ -168,29 +227,68 @@ class TestStrategies:
         via_steps = [s for s in plan.steps if s.kind == "edge" and s.via]
         assert via_steps, "the inventory declares via edges; this test must not be vacuous"
         for step in via_steps:
-            parent = next(s for s in plan.steps if s.kind == "document" and s.collection == step.via)
             (binds,) = [b for _, b in db.calls if b["@collection"] == step.collection]
-            assert binds["@parent"] == step.via
-            assert binds["parent_field"] == parent.user_field
-            assert binds["endpoint"] == step.user_field
-            assert binds["value"] == USER_KEY
+            assert binds["field"] == step.user_field
+            # An edge points at its parent by ``_id``.
+            assert binds["values"] == [f"{step.via}/{PARENT_KEY}"]
+
+    def test_a_via_document_filters_on_its_parents_keys(self):
+        """#1700 — ``location_assignments.membership_key`` holds the membership's ``_key``."""
+        db = _FakeDb()
+        plan = _plan()
+        _run(db, plan)
+        via_documents = [s for s in plan.steps if s.kind == "document" and s.via]
+        assert via_documents, "the inventory declares a via document; this test must not be vacuous"
+        for step in via_documents:
+            (binds,) = [b for _, b in db.calls if b["@collection"] == step.collection]
+            assert binds["field"] == step.user_field
+            assert binds["values"] == [PARENT_KEY]
+
+    def test_every_via_parent_is_looked_up_on_its_own_user_field(self):
+        db = _FakeDb()
+        plan = _plan()
+        _run(db, plan)
+        documents = {s.collection: s for s in plan.steps if s.kind == "document"}
+        looked_up = {(b["@collection"], b["field"]) for _, b in db.reads}
+        for step in plan.steps:
+            if step.via is not None:
+                assert (step.via, documents[step.via].user_field) in looked_up
+        for _, binds in db.reads:
+            parent = documents[binds["@collection"]]
+            if parent.via is None:
+                assert binds["value"] == USER_KEY
+            else:
+                assert binds["values"] == [PARENT_KEY]
 
     def test_a_document_step_filters_on_its_declared_user_field(self):
         db = _FakeDb()
         plan = _plan()
         _run(db, plan)
         for step in plan.steps:
-            if step.kind != "document":
+            if step.kind != "document" or step.via is not None:
                 continue
-            (binds,) = [b for _, b in db.calls if b["@collection"] == step.collection]
+            # ``patch`` marks a rule's rewrite of the same collection (``attachments``).
+            (binds,) = [b for _, b in db.calls if b["@collection"] == step.collection and "patch" not in b]
             assert binds["field"] == step.user_field
             assert binds["value"] == USER_KEY
+            assert binds["where"] == step.where
+
+    def test_a_where_predicate_is_declared_and_bound(self):
+        """#1700 — only the ``pest_reference`` attachments are removed; the rest are anonymised."""
+        db = _FakeDb()
+        plan = _plan()
+        _run(db, plan)
+        narrowed = [s for s in plan.steps if s.where]
+        assert narrowed
+        for step in narrowed:
+            (binds,) = [b for _, b in db.calls if b["@collection"] == step.collection and "patch" not in b]
+            assert binds["where"] == step.where
 
     def test_the_user_key_is_bound_never_interpolated(self):
         db = _FakeDb()
         _run(db)
         assert db.calls
-        for query, _ in db.calls:
+        for query, _ in db.calls + db.reads:
             assert USER_KEY not in query
             assert TOMBSTONE not in query
 
@@ -200,6 +298,30 @@ class TestRefusals:
         db = _FakeDb()
         with pytest.raises(ErasurePlanError, match="tombstone"):
             _run(db, tombstone=None)
+        assert db.transactions == []
+
+    def test_a_via_chain_that_does_not_end_in_a_declared_document_is_refused(self):
+        plan = _plan()
+        plan.steps.insert(
+            0,
+            ErasureStep(
+                collection="orphans", kind="document", executor="account_erasure", user_field="k", via="nowhere"
+            ),
+        )
+        db = _FakeDb()
+        with pytest.raises(ErasurePlanError, match="nowhere"):
+            _run(db, plan)
+        assert db.transactions == []
+
+    def test_a_via_cycle_is_refused(self):
+        plan = _plan()
+        plan.steps[:0] = [
+            ErasureStep(collection="a", kind="document", executor="account_erasure", user_field="k", via="b"),
+            ErasureStep(collection="b", kind="document", executor="account_erasure", user_field="k", via="a"),
+        ]
+        db = _FakeDb()
+        with pytest.raises(ErasurePlanError, match="cycle"):
+            _run(db, plan)
         assert db.transactions == []
 
     def test_an_unknown_phase_is_refused_before_any_write(self):

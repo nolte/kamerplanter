@@ -5,6 +5,7 @@ import re
 
 from app.domain.models.privacy import (
     AnonymizationRule,
+    ErasureExclusion,
     ErasureExecutor,
     ErasurePlan,
     ErasureStep,
@@ -19,6 +20,12 @@ from app.domain.models.privacy import (
 #: not drift apart. Declared here rather than imported so the domain layer stays
 #: free of a data-access import (NFR-001).
 ANONYMIZED_MARKER = "_anonymized"
+
+#: Prefix of the value an :class:`AnonymizationRule` writes into its
+#: ``rename_fields`` (#1700): ``<prefix>`` + :meth:`ErasureEngine.anonymized_rename_value`.
+#: The namespace is reserved — ``TenantEngine.generate_slug`` never produces a
+#: slug inside it — so a registration cannot occupy the value first.
+ANONYMIZED_KEY_PREFIX = "anonymized-"
 
 #: The exact shape :meth:`ErasureEngine.compute_tombstone_hash` produces.
 _TOMBSTONE_PATTERN = re.compile(r"anon_[0-9a-f]{16}")
@@ -155,6 +162,147 @@ class ErasureEngine:
                 "device or account name and is anonymised together with the entry."
             ),
         ),
+        # ── #1700: user references that were in neither inventory ──────────
+        # Each was found by R6 of ``scripts/check_privacy_inventory.py``, which
+        # anchors on the model fields rather than on the two lists.
+        AnonymizationRule(
+            # ``tasks/tenant_router.py`` stamps ``created_by=ctx.user_key``. The
+            # comment belongs to the task of a possibly shared tenant — the same
+            # argument as ``tasks.assigned_to_user_key`` (NFR-011 R-22) and the
+            # diary entry (REQ-050 section 7.4): text kept, author removed.
+            collection="task_comments",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-024: a task comment belongs to the work plan of a possibly shared tenant "
+                "and is retained; only the author reference is removed (as NFR-011 R-22 for tasks)."
+            ),
+        ),
+        AnonymizationRule(
+            # A pending invitation the subject sent is the tenant's, not theirs:
+            # it stays valid for the invitee. Accepted invitations *to* the
+            # subject are removed by the ``invitations`` delete step instead.
+            collection="invitations",
+            user_field="invited_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-024: an invitation belongs to the inviting tenant; NFR-011 R-12 governs its "
+                "expiry. The inviter reference is removed, the invitation keeps working."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-010 promotion audit: the key of the *platform admin* who
+            # released someone else's contribution. The contribution is its
+            # contributor's and is deleted with *their* account, not the admin's.
+            collection="pest_image_contributions",
+            user_field="promoted_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-010: a promoted reference image belongs to its contributor; erasing the "
+                "promoting admin removes the admin reference and keeps the promotion."
+            ),
+        ),
+        AnonymizationRule(
+            # Runs after the storage phase and after the ``pest_reference``
+            # delete step: what is left are documentation photos of the tenant
+            # (diary, ipm, harvest, task, plant — already anonymised by the
+            # storage phase, a no-op here) plus the categories no storage scope
+            # names (import, export, id_recognition, tenant_export). Same marker
+            # as the storage phase (REQ-025 AK-OS-02).
+            collection="attachments",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "NFR-013 section 6.2 / REQ-025 AK-OS-02: attachments of a tenant record are "
+                "retained with the uploader reference replaced; bytes follow their own storage rule."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-031 section 7.5 prescribes exactly this: "user_key -> null,
+            # hashes stay". The marker is the executor's null; the entry keeps
+            # its question hash for the 30-day audit window.
+            collection="ai_audit_log",
+            user_field="user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-031 section 7.5: AI audit entries are retained for their 30-day window "
+                "(section 7.4) with the user reference removed; the hashes stay."
+            ),
+        ),
+        AnonymizationRule(
+            # ``imports/router.py`` stamps ``uploaded_by=ctx.user_key``. The
+            # import job records what entered the tenant's master data.
+            collection="import_jobs",
+            user_field="uploaded_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-012: an import job documents what entered the tenant's data and is "
+                "retained; only the uploader reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # ``weather_source_service`` stamps ``updated_by=user_key`` on the
+            # per-site configuration (1:1 per site, a tenant setting).
+            collection="weather_source_configs",
+            user_field="updated_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-046: the weather-source configuration belongs to the tenant's site and "
+                "is retained; only the last-editor reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-031 section 7.5. A tip card is the tenant's, not the member's:
+            # ``AiAssistantService.dismiss_daily_tip`` hides it for the whole
+            # tenant. Deleting the subject's dismissed rows (the first #1700
+            # draft) re-showed the tip to every other member of a shared tenant;
+            # only the dismisser reference goes, ``dismissed_at`` stays.
+            collection="ai_tip_cache",
+            user_field="dismissed_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-031 section 7.5: a dismissed tip stays dismissed for the tenant; only the "
+                "reference to the member who dismissed it is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # ``actuators/tenant_router.py`` stamps ``created_by=ctx.user_key``.
+            collection="manual_overrides",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-018 / NFR-011 R-15: manual overrides are part of the tenant's actuator "
+                "history and are retained; only the operator reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # The personal tenant (``tenant_service.create_personal_tenant``)
+            # carries the subject as owner and takes ``name``/``slug`` from the
+            # display name. Deleting it would cascade into records a retention
+            # obligation keeps (a harvest in it: CanG, NFR-011 R-16), so the
+            # tenant is kept and stops naming anyone: owner replaced, name and
+            # slug rewritten to ``anonymized_rename_value(tombstone, key)`` —
+            # unique per row (``slug`` has a unique index) and derived from the
+            # salted tombstone, so nobody can register it first. Until the
+            # #1700 review it was ``anonymized-<key>``: Arango keys are
+            # guessable, a display name "Anonymized <key>" took the slug, and
+            # the erasure transaction aborted on the unique index on every
+            # retry. An organisation tenant the subject founded keeps
+            # its name — it is the group's, not the subject's — and loses only
+            # the owner reference. ``owner_user_key`` confers no permission
+            # (authority is the membership role, REQ-049), so there is nothing
+            # to transfer.
+            collection="tenants",
+            user_field="owner_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            rename_fields=["name", "slug"],
+            rename_when={"tenant_type": "personal"},
+            reason=(
+                "REQ-024 / NFR-011 R-16: a tenant may hold records under a retention obligation, "
+                "so it is retained; the owner reference is removed and a personal tenant's "
+                "display-name-derived name and slug are replaced."
+            ),
+        ),
     ]
 
     # Object-storage cleanup rules (Phase 0). Must run before ArangoDB edge
@@ -283,23 +431,62 @@ class ErasureEngine:
             executor="account_cascade",
             user_field="_from",
         ),
+        # #1700 — the membership block is ``account_cascade``: registration
+        # creates a membership (in the personal tenant) before the address is
+        # verified, and the unverified-account cleanup left it, and every
+        # location assignment hanging off it, behind a deleted user.
         ErasureStep(
             # #1663 — ``users -> memberships``; ``delete_all_for_user`` has always
             # removed it, the inventory never named it.
             collection="has_membership",
             kind="edge",
-            executor="account_erasure",
+            executor="account_cascade",
             user_field="_from",
+        ),
+        # #1700 — REQ-024 assignment-based write control. An assignment carries
+        # no account key, only ``membership_key`` (``models/location_assignment.py``),
+        # so it is reached ``via`` the subject's memberships; its three edges
+        # start at the assignment (``location_assignment_repository.create``).
+        # Removing a membership one by one always removed its assignments
+        # (``membership_repository.delete``); the bulk erasure did not.
+        ErasureStep(
+            collection="assigned_to_location",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+            via="location_assignments",
+        ),
+        ErasureStep(
+            collection="assignment_for",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+            via="location_assignments",
+        ),
+        ErasureStep(
+            collection="assignment_in_tenant",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+            via="location_assignments",
+        ),
+        ErasureStep(
+            collection="location_assignments",
+            kind="document",
+            executor="account_cascade",
+            user_field="membership_key",
+            via="memberships",
+            note="No account key on the model; matched on the _key of the subject's memberships.",
         ),
         ErasureStep(
             collection="membership_in",
             kind="edge",
-            executor="account_erasure",
+            executor="account_cascade",
             user_field="_from",
             via="memberships",
             note="memberships -> tenants; never touches users (membership_repository.create).",
         ),
-        ErasureStep(collection="memberships", kind="document", executor="account_erasure", user_field="user_key"),
+        ErasureStep(collection="memberships", kind="document", executor="account_cascade", user_field="user_key"),
         ErasureStep(
             collection="data_export_requests",
             kind="document",
@@ -369,6 +556,109 @@ class ErasureEngine:
             user_field="contributed_by",
             note="Not user_key: the model has none (pest_image_repository.list_for_user).",
         ),
+        # ── #1700: personal rows that were in neither inventory ──────────────
+        # None of these carries a retention obligation in NFR-011; each is the
+        # subject's own (inbox, settings, feeds, AI chats, CV requests).
+        ErasureStep(
+            # REQ-031 section 7.5: the erasure "cascades to all ai_conversations".
+            collection="ai_conversations",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            collection="notification_for_run",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="notifications",
+        ),
+        ErasureStep(collection="notifications", kind="document", executor="account_erasure", user_field="user_key"),
+        ErasureStep(
+            collection="notification_preferences",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            # REQ-015: the feed row holds the token the iCal endpoint serves
+            # (``calendar_feed_repository.get_by_token``); removing the row is
+            # what makes the token stop serving.
+            collection="calendar_feeds",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        # REQ-038 CV diagnosis requests: the subject's own analysis requests, the
+        # same category as ``identification_requests``. The inspection a request
+        # may be attached to is retained and anonymised by its own rule.
+        ErasureStep(
+            collection="cv_diagnosed_for",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="cv_diagnosis_found",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="cv_attached_to_inspection",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="cv_phenotype_of",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="plant_diagnosis_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        # An invitation the subject *accepted* has served its purpose and names
+        # the subject twice (``accepted_by_user_key`` and the ``email`` it was
+        # sent to). The tenant -> invitation edge goes with it.
+        ErasureStep(
+            collection="has_invitation",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_to",
+            via="invitations",
+        ),
+        ErasureStep(
+            collection="invitations",
+            kind="document",
+            executor="account_erasure",
+            user_field="accepted_by_user_key",
+        ),
+        ErasureStep(
+            # The attachment documents whose bytes the storage phase hard-deleted
+            # (``user_pest_reference_images``). Before #1700 the document stayed,
+            # pointing at nothing and still naming the uploader.
+            collection="attachments",
+            kind="document",
+            executor="account_erasure",
+            user_field="created_by",
+            where={"category": "pest_reference"},
+        ),
+        ErasureStep(
+            # REQ-033 replay cache (TTL); keyed by the service account that called.
+            collection="mcp_idempotency_record",
+            kind="document",
+            executor="account_erasure",
+            user_field="service_account_key",
+        ),
         ErasureStep(
             collection="_anonymize_collections",
             kind="phase",
@@ -397,6 +687,70 @@ class ErasureEngine:
                 "user_key must no longer be stored as a personal identifier "
                 "(Art. 5(1)(e) storage limitation)."
             ),
+        ),
+        PseudonymizationRule(
+            # #1700 — REQ-033: the MCP audit log is an audit record with its own
+            # retention (``MCP_AUDIT_RETENTION_DAYS``); the calling service
+            # account's key becomes the tombstone hash, like the erasure audit.
+            collection="mcp_audit_log",
+            user_field="service_account_key",
+            replacement_strategy="tombstone_hash",
+            reason=(
+                "REQ-033 / NFR-011: MCP tool-call audit entries are retained for their audit "
+                "window; the service-account key is pseudonymised so the entries stay linkable."
+            ),
+        ),
+    ]
+
+    # ── Stored user-reference fields the erasure deliberately leaves (#1700) ──
+    #
+    # ``scripts/check_privacy_inventory.py`` R6 requires every persisted model
+    # field shaped like an account key to be reached above or named here with
+    # the reason. Each reason below was measured against the write path.
+    EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
+        ErasureExclusion(
+            collection="watering_events",
+            user_field="performed_by",
+            reason=(
+                "Free text typed by the caller (watering_events/schemas.py), never an account key; "
+                "matching on it erases whatever was typed (the class #1663 measured)."
+            ),
+        ),
+        ErasureExclusion(
+            collection="watering_logs",
+            user_field="performed_by",
+            reason="Free text typed by the caller (watering_logs/schemas.py, e.g. 'Lisa'), never an account key.",
+        ),
+        ErasureExclusion(
+            collection="maintenance_logs",
+            user_field="performed_by",
+            reason="Free text typed by the caller (tanks/schemas.py), never an account key.",
+        ),
+        ErasureExclusion(
+            collection="tank_fill_events",
+            user_field="performed_by",
+            reason="Free text typed by the caller (tanks/schemas.py), never an account key.",
+        ),
+        ErasureExclusion(
+            collection="workflow_templates",
+            user_field="created_by",
+            reason=(
+                "Free text from the request body (tasks/schemas.py WorkflowTemplateCreate.created_by), "
+                "never stamped from the caller's account."
+            ),
+        ),
+        ErasureExclusion(
+            collection="task_audit_entries",
+            user_field="changed_by",
+            reason=(
+                "Written only by TaskService._record_audit, which no code path calls with an account "
+                "key; every stored value is its default 'system'."
+            ),
+        ),
+        ErasureExclusion(
+            collection="sync_runs",
+            user_field="triggered_by",
+            reason="A SyncTrigger enum value (manual / scheduled), not a person.",
         ),
     ]
 
@@ -478,6 +832,31 @@ class ErasureEngine:
         linkability NFR-011 R-06 keeps the hash for.
         """
         return _TOMBSTONE_PATTERN.fullmatch(value) is not None
+
+    @staticmethod
+    def anonymized_rename_value(tombstone: str, row_key: str) -> str:
+        """The value a ``rename_fields`` rule writes into row *row_key* (#1700).
+
+        ``anonymized-`` + the first 16 hex chars of ``sha256(tombstone + ":" + row_key)``.
+        ``ArangoErasureExecutor`` computes the same expression in AQL for every
+        matched row; this is its specification and the tests' oracle.
+
+        Why the erased **user's** tombstone and not ``compute_tombstone_hash`` of
+        the tenant key: the tombstone is the only salted value the executor is
+        handed — the salt itself never leaves ``PrivacyService`` — and it is
+        already non-guessable without the salt, so a squatter cannot predict the
+        slug. The row key is mixed in so two renamed rows of one subject never
+        share a value under a unique index.
+
+        Raises:
+            ValueError: *tombstone* is not a tombstone hash — a rename keyed on
+                anything guessable reopens the squatting hole.
+        """
+        if not ErasureEngine.is_tombstone(tombstone):
+            msg = "a rename value must be derived from a tombstone hash"
+            raise ValueError(msg)
+        digest = hashlib.sha256(f"{tombstone}:{row_key}".encode()).hexdigest()
+        return f"{ANONYMIZED_KEY_PREFIX}{digest[:16]}"
 
     @staticmethod
     def compute_tombstone_hash(user_key: str, salt: str) -> str:

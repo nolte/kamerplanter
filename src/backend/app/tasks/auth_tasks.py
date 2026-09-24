@@ -21,19 +21,57 @@ def cleanup_expired_tokens() -> dict:
 
 @celery_app.task(name="app.tasks.auth_tasks.cleanup_unverified_accounts")
 def cleanup_unverified_accounts() -> dict:
-    """Remove unverified accounts older than 72 hours."""
-    from app.common.dependencies import get_user_repo
+    """Erase unverified accounts older than 72 hours through the full Art. 17 plan.
 
-    repo = get_user_repo()
+    Each candidate goes through :meth:`PrivacyService.erase_account`, the entry
+    both account-deletion paths share (#1700 review). Until then this task used
+    ``ArangoUserRepository.delete`` — the ``account_cascade`` slice only — and
+    the personal tenant registration created survived with the display name as
+    ``name``/``slug`` and the key as ``owner_user_key``.
+
+    The full entry needs the NFR-011 §4 tombstone salt, which the narrow delete
+    did not. A missing salt is instance-wide, so the run stops at the first
+    :class:`FeatureNotConfiguredError`, deletes nothing, logs an error and
+    reports every remaining candidate as ``blocked``; the next run retries them
+    once the salt is set. Falling back to the narrow delete would recreate the
+    orphan, and skipping quietly would hide a misconfiguration that also blocks
+    every self-service erasure. Any other failure is per account: counted,
+    logged without the key (#1700), and the loop moves on.
+
+    Returns:
+        ``{"removed", "failed", "blocked"}`` counts, plus ``reason`` when blocked.
+    """
+    from app.common.async_bridge import run_async
+    from app.common.dependencies import get_privacy_service, get_user_repo
+    from app.common.exceptions import FeatureNotConfiguredError
+
     cutoff = (datetime.now(UTC) - timedelta(hours=72)).isoformat()
-    users = repo.get_unverified_before(cutoff)
-    count = 0
-    for user in users:
-        if user.key:
-            repo.delete(user.key)
-            count += 1
-    logger.info("cleanup_unverified_accounts", removed=count)
-    return {"removed": count}
+    candidates = [user.key for user in get_user_repo().get_unverified_before(cutoff) if user.key]
+    result: dict = {"removed": 0, "failed": 0, "blocked": 0}
+    if not candidates:
+        logger.info("cleanup_unverified_accounts", **result)
+        return result
+
+    privacy_service = get_privacy_service()
+    for position, user_key in enumerate(candidates):
+        try:
+            run_async(privacy_service.erase_account(user_key))
+        except FeatureNotConfiguredError:
+            result["blocked"] = len(candidates) - position
+            result["reason"] = "erasure_not_configured"
+            logger.error(
+                "cleanup_unverified_accounts_blocked",
+                reason="ERASURE_TOMBSTONE_SALT is missing or too short (NFR-011 section 4)",
+                **{k: v for k, v in result.items() if k != "reason"},
+            )
+            return result
+        except Exception as exc:  # noqa: BLE001 - one account must not stop the others
+            result["failed"] += 1
+            logger.error("cleanup_unverified_account_failed", error_type=type(exc).__name__)
+            continue
+        result["removed"] += 1
+    logger.info("cleanup_unverified_accounts", **result)
+    return result
 
 
 def _anonymize_ip(ip_str: str) -> str:

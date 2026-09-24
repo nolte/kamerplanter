@@ -42,7 +42,29 @@ collection names. It enumerates the CLASS:
       than the engine that defines them;
   R4  no executing path writes a personal-data collection name down again — a
       user-scoped bulk removal must take its collection from the inventory, not
-      from a literal or a ``collections.py`` constant.
+      from a literal or a ``collections.py`` constant;
+  R5  every filtered step and every rule names the field it matches (#1663);
+  R6  every persisted model field shaped like an account key (``user_key``,
+      ``*_user_key``, ``*_by_key``, ``*_account_key``, ``*_by``) is reached by
+      the erasure inventory — a document step, a rule's key or one of its
+      ``clear_fields`` — or named in ``ErasureEngine.EXCLUDED_USER_REFERENCES``
+      with a reason (#1700).
+
+Why R6 exists
+-------------
+R2 compares the export manifest with the erasure inventory and nothing else. A
+collection absent from *both* passes it. Measured on 2026-09-24 before #1700:
+R6 named 23 stored model fields in neither list (plus five models it could not
+yet place in a collection) — among them
+``ai_conversations.user_key``, ``notifications.user_key``,
+``calendar_feeds.user_key``, ``task_comments.created_by``,
+``invitations.invited_by_user_key``, ``tenants.owner_user_key``,
+``pest_image_contributions.promoted_by``, ``attachments.created_by`` — while
+R1–R5 were green. The anchor is the models, which nobody edits to satisfy a
+privacy list. A model is placed in its collection through its repository
+(``BaseArangoRepository[M]`` + the collection it passes), or through
+:data:`MODEL_COLLECTIONS_BY_HAND` where the repository writes raw; a model it
+cannot place is reported, never skipped.
 
 A comment cannot satisfy it
 ---------------------------
@@ -76,6 +98,13 @@ Known blind spots (the honest residue)
   a collection name passed through a local variable assigned from a constant.
 * R3 proves a call exists, not that the call result is used. A caller that reads
   the manifest and throws it away passes.
+* R6 sees only fields whose *name* has one of its shapes, declared on a model
+  under ``domain/models`` or on a base class inside that package (#1700
+  review). A ``where``-filtered document step covers its field only together
+  with a rule or an exclusion for the remaining rows. A key stored as ``author`` or ``owner``, nested
+  in a dict/list, or written by a repository without a model (raw dicts) is not
+  seen. It checks that a field is *declared*, not that the declared step reaches
+  it — that is the reach test's job (``test_account_erasure_reach.py``).
 * R2 compares collection names, not fields. A manifest entry that declares the
   right collection and the wrong field is the business of
   ``test_every_manifest_field_exists_on_its_model``.
@@ -85,6 +114,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -96,6 +126,9 @@ APP_ROOT = BACKEND / "app"
 ERASURE_ENGINE_REL = "domain/engines/erasure_engine.py"
 EXPORT_ENGINE_REL = "domain/engines/data_export_engine.py"
 PRIVACY_MODELS_REL = "domain/models/privacy.py"
+MODELS_REL = "domain/models"
+DATA_ACCESS_REL = "data_access"
+COLLECTIONS_REL = "data_access/arango/collections.py"
 
 #: The alias in :data:`PRIVACY_MODELS_REL` that declares the closed set of
 #: executors an inventory entry may name (R1). Read off the AST, because this
@@ -124,6 +157,60 @@ MIN_STEPS = 8
 MIN_EXECUTORS = 2
 MIN_MANIFEST_SOURCES = 10
 MIN_FILTERED_STEPS = 6
+
+# ── R6: the anchor outside the two lists (#1700) ─────────────────────────────
+#
+#: A persisted model field whose name says "this holds an account key". Derived
+#: from what ``domain/models`` spells on 2026-09-24, not from the inventory:
+#:
+#: * ``user_key`` and ``*_user_key`` — ``Membership.user_key``,
+#:   ``Invitation.invited_by_user_key``, ``Tenant.owner_user_key``,
+#:   ``Task.assigned_to_user_key`` …
+#: * ``*_by_key`` — the server-set attribution of #1669 (``harvested_by_key`` …)
+#: * ``*_account_key`` — ``McpAuditLog.service_account_key`` (a ``users`` key)
+#: * ``*_by`` — ``created_by``, ``promoted_by``, ``contributed_by``,
+#:   ``dismissed_by``, ``uploaded_by`` … Some of these are free text typed by the
+#:   caller (``performed_by``, ``harvester``'s siblings); the pattern takes them
+#:   all, and a free-text field is classified by an exclusion that says so rather
+#:   than by the pattern guessing.
+#:
+#: What it does not match, stated rather than assumed: a key stored under a name
+#: without one of these shapes (``author``, ``owner``), a key nested inside a
+#: dict or list field, and a model this script cannot place in a collection is
+#: *reported*, not skipped (see :data:`MODEL_COLLECTIONS_BY_HAND`).
+USER_REFERENCE_FIELD = re.compile(
+    r"^(user_key|[a-z0-9_]+_user_key|[a-z0-9_]+_by_key|[a-z0-9_]+_account_key|[a-z0-9_]+_by)$"
+)
+
+#: Models whose repository does not bind them through ``BaseArangoRepository[M]``
+#: (hand-written ``coll.insert`` in a repository bound to another model). Every
+#: value must be a collection name ``collections.py`` declares — checked.
+MODEL_COLLECTIONS_BY_HAND: dict[str, str] = {
+    "TaskComment": "task_comments",  # task_repository.create_comment
+    "TaskAuditEntry": "task_audit_entries",  # task_repository.create_audit_entry
+    "WorkflowTemplate": "workflow_templates",  # task_repository (col.WORKFLOW_TEMPLATES)
+    "Attachment": "attachments",  # attachment_repository (raw AQL over col.ATTACHMENTS)
+    "OnboardingState": "onboarding_states",  # onboarding_state_repository (raw=True)
+    "UserPreference": "user_preferences",  # user_preference_service (raw collection access)
+    "McpAuditLog": "mcp_audit_log",  # mcp_repository.ArangoMcpAuditRepository
+    "McpIdempotencyRecord": "mcp_idempotency_record",  # mcp_repository.ArangoMcpIdempotencyRepository
+}
+
+#: Models that carry a user-reference field but are never stored as documents.
+#: The reason is the claim a reviewer checks; an unplaceable model not named here
+#: is a violation, so a new stored model cannot fall through silently.
+NOT_PERSISTED_MODELS: dict[str, str] = {
+    "TenantContext": "request-scoped auth context, built per request (common/auth.py)",
+    "ErasurePlan": "the plan itself, built in memory by ErasureEngine.build_erasure_plan",
+    "MemberInfo": "read projection of memberships joined with users (tenant_service.list_members)",
+}
+
+#: Floor for R6. Measured on 2026-09-24: 52 user-reference model fields
+#: (``main`` prints the count on every green run). The floor sits a small margin
+#: below that — not at a token 6 — so a reader that loses one models module, or
+#: the base-class walk, trips it instead of shrinking R6 silently. A legitimate
+#: removal of more than four such fields lowers it here, in the same change.
+MIN_USER_REFERENCE_FIELDS = 48
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:
@@ -184,6 +271,169 @@ def _is_written_down_name(node: ast.expr) -> bool:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return True
     return isinstance(node, ast.Attribute) and node.attr.isupper()
+
+
+def _collection_constants(app_root: pathlib.Path) -> dict[str, str]:
+    """``NAME = "value"`` module-level string constants of ``collections.py``."""
+    path = app_root / COLLECTIONS_REL
+    if not path.is_file():
+        return {}
+    constants: dict[str, str] = {}
+    for stmt in ast.parse(path.read_text(encoding="utf-8")).body:
+        if (
+            isinstance(stmt, ast.Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], ast.Name)
+            and isinstance(stmt.value, ast.Constant)
+            and isinstance(stmt.value.value, str)
+        ):
+            constants[stmt.targets[0].id] = stmt.value.value
+    return constants
+
+
+def _resolve_collection(node: ast.expr, constants: dict[str, str]) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Attribute):
+        return constants.get(node.attr)
+    if isinstance(node, ast.Name):
+        return constants.get(node.id)
+    return None
+
+
+def _subscript_model(node: ast.expr) -> str | None:
+    """``BaseArangoRepository[Model]`` -> ``"Model"``."""
+    if (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "BaseArangoRepository"
+        and isinstance(node.slice, ast.Name)
+    ):
+        return node.slice.id
+    return None
+
+
+def _repository_bindings(app_root: pathlib.Path, constants: dict[str, str]) -> dict[str, set[str]]:
+    """Model class name -> the collections a repository binds it to.
+
+    Two spellings exist in ``data_access``: a subclass
+    ``class R(BaseArangoRepository[M])`` whose ``__init__`` calls
+    ``super().__init__(db, <collection>)``, and an inline
+    ``BaseArangoRepository[M](db, <collection>, M)``.
+    """
+    bindings: dict[str, set[str]] = {}
+    root = app_root / DATA_ACCESS_REL
+    if not root.is_dir():
+        return bindings
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                models = [m for base in node.bases if (m := _subscript_model(base)) is not None]
+                if not models:
+                    continue
+                for call in ast.walk(node):
+                    if (
+                        isinstance(call, ast.Call)
+                        and isinstance(call.func, ast.Attribute)
+                        and call.func.attr == "__init__"
+                        and isinstance(call.func.value, ast.Call)
+                        and isinstance(call.func.value.func, ast.Name)
+                        and call.func.value.func.id == "super"
+                        and len(call.args) >= 2
+                    ):
+                        collection = _resolve_collection(call.args[1], constants)
+                        if collection is not None:
+                            for model in models:
+                                bindings.setdefault(model, set()).add(collection)
+            elif isinstance(node, ast.Call) and (model := _subscript_model(node.func)) is not None:
+                if len(node.args) >= 2 and (collection := _resolve_collection(node.args[1], constants)) is not None:
+                    bindings.setdefault(model, set()).add(collection)
+    return bindings
+
+
+def _base_name(node: ast.expr) -> str | None:
+    """``Base`` or ``module.Base`` -> ``"Base"``; anything else (``Generic[T]``) -> ``None``."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _user_reference_fields(app_root: pathlib.Path) -> list[tuple[pathlib.Path, int, str, str]]:
+    """``(file, line, model, field)`` for every model field :data:`USER_REFERENCE_FIELD` matches.
+
+    Inherited fields count (#1700 review): a field declared on a base class
+    inside the models package is stored by every subclass, so it is reported
+    once per subclass, at the line of its declaration. A base is resolved in its
+    own module first, then by name across the package. A name defined in
+    several other modules is not guessed at: the subclass inherits the fields of
+    *every* candidate — fail closed, a field R6 then asks about that the model
+    does not store is a loud false positive, where a guess could be a silent
+    false negative. A base outside the package (``BaseModel``) carries nothing
+    this script can read and is skipped.
+    """
+    found: list[tuple[pathlib.Path, int, str, str]] = []
+    root = app_root / MODELS_REL
+    if not root.is_dir():
+        return found
+    # (path, name) -> (bases, own fields as (line, name))
+    classes: dict[tuple[pathlib.Path, str], tuple[list[str], list[tuple[int, str]]]] = {}
+    by_name: dict[str, list[pathlib.Path]] = {}
+    for path in sorted(root.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            fields = [
+                (stmt.lineno, stmt.target.id)
+                for stmt in node.body
+                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name)
+            ]
+            bases = [name for base in node.bases if (name := _base_name(base)) is not None]
+            classes[(path, node.name)] = (bases, fields)
+            by_name.setdefault(node.name, []).append(path)
+
+    def resolve(path: pathlib.Path, name: str) -> list[tuple[pathlib.Path, str]]:
+        if (path, name) in classes:
+            return [(path, name)]
+        return [(candidate, name) for candidate in by_name.get(name, [])]
+
+    def all_fields(
+        ident: tuple[pathlib.Path, str], seen: frozenset[tuple[pathlib.Path, str]]
+    ) -> list[tuple[pathlib.Path, int, str]]:
+        bases, own = classes[ident]
+        result = [(ident[0], line, name) for line, name in own]
+        for base in bases:
+            for parent in resolve(ident[0], base):
+                if parent not in seen and parent != ident:
+                    result.extend(all_fields(parent, seen | {ident}))
+        return result
+
+    for ident in classes:
+        model = ident[1]
+        names_seen: set[str] = set()
+        for field_path, line, field in all_fields(ident, frozenset()):
+            if field in names_seen or not USER_REFERENCE_FIELD.match(field):
+                continue
+            names_seen.add(field)
+            found.append((field_path, line, model, field))
+    return found
+
+
+def _has_where(call: ast.Call) -> bool:
+    """True unless ``where=`` is absent or a literal empty dict; an unreadable value counts as a filter."""
+    for kw in call.keywords:
+        if kw.arg == "where":
+            return not (isinstance(kw.value, ast.Dict) and not kw.value.keys)
+    return False
+
+
+def _list_kwarg(call: ast.Call, name: str) -> list[str]:
+    for kw in call.keywords:
+        if kw.arg == name and isinstance(kw.value, ast.List):
+            return [e.value for e in kw.value.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+    return []
 
 
 def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
@@ -313,6 +563,94 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
                 f"user_field=; a rule that cannot say which field it matches is inert."
             )
 
+    # ── R6: every stored user reference is inventoried or excluded (#1700) ──
+    #
+    # R2 compares the export manifest with the erasure inventory and nothing
+    # else, so a collection absent from BOTH is invisible to it. #1700 measured
+    # twelve such surfaces. The anchor here is the models: every persisted model
+    # field shaped like an account key must be matched by a delete step, an
+    # anonymisation / pseudonymisation rule (its key or one of its
+    # ``clear_fields``), or a written exclusion — for the collection that stores
+    # the model.
+    constants = _collection_constants(app_root)
+    bindings = _repository_bindings(app_root, constants)
+    known_collections = set(constants.values())
+    references = _user_reference_fields(app_root)
+    for model in sorted({model for _p, _l, model, _f in references} & MODEL_COLLECTIONS_BY_HAND.keys()):
+        collection = MODEL_COLLECTIONS_BY_HAND[model]
+        if collection not in known_collections:
+            violations.append(
+                f"R6 {app_root / COLLECTIONS_REL} — MODEL_COLLECTIONS_BY_HAND maps '{model}' to "
+                f"'{collection}', which collections.py does not declare."
+            )
+    covered: set[tuple[str, str]] = set()
+    # A document step with a non-empty ``where`` removes only the matching rows
+    # (``attachments`` of category ``pest_reference``). It covers the field only
+    # together with a rule or an exclusion for the rest (#1700 review).
+    partial: dict[tuple[str, str], int] = {}
+    for call in steps:
+        c, f = _kwarg(call, "collection"), _kwarg(call, "user_field")
+        if _kwarg(call, "kind") == "document" and c and f:
+            if _has_where(call):
+                partial.setdefault((c, f), call.lineno)
+            else:
+                covered.add((c, f))
+    for call in (*anon, *pseudo):
+        c = _kwarg(call, "collection")
+        if c is None:
+            continue
+        if f := _kwarg(call, "user_field"):
+            covered.add((c, f))
+        covered.update((c, cleared) for cleared in _list_kwarg(call, "clear_fields"))
+    excluded: dict[tuple[str, str], int] = {}
+    for call in _class_list_calls(erasure_tree, "ErasureEngine", "EXCLUDED_USER_REFERENCES"):
+        c, f, reason = _kwarg(call, "collection"), _kwarg(call, "user_field"), _kwarg(call, "reason")
+        if not c or not f or not reason or not reason.strip():
+            violations.append(
+                f"R6 {ERASURE_ENGINE}:{call.lineno} — an exclusion must name a literal collection=, "
+                f"user_field= and a non-empty reason=; an exclusion without a reason is a hole."
+            )
+            continue
+        excluded[(c, f)] = call.lineno
+    seen_pairs: set[tuple[str, str]] = set()
+    for path, lineno, model, field in references:
+        if model in NOT_PERSISTED_MODELS:
+            continue
+        collections = set(bindings.get(model, set()))
+        if model in MODEL_COLLECTIONS_BY_HAND:
+            collections.add(MODEL_COLLECTIONS_BY_HAND[model])
+        if not collections:
+            violations.append(
+                f"R6 {path}:{lineno} — model '{model}' carries the user reference '{field}', and no "
+                f"repository binds it to a collection this script can read. Bind it through "
+                f"BaseArangoRepository[{model}], or name its collection in MODEL_COLLECTIONS_BY_HAND "
+                f"(or NOT_PERSISTED_MODELS, with the reason) in {pathlib.Path(__file__).name}."
+            )
+            continue
+        for collection in sorted(collections):
+            seen_pairs.add((collection, field))
+            if (collection, field) in covered or (collection, field) in excluded:
+                continue
+            if (collection, field) in partial:
+                violations.append(
+                    f"R6 {path}:{lineno} — '{collection}.{field}' ({model}) is removed only by the "
+                    f"where-filtered step at {ERASURE_ENGINE}:{partial[(collection, field)]}; the rows "
+                    f"outside that where keep the account reference. Add an anonymisation rule for "
+                    f"them, or exclude the field with the reason."
+                )
+                continue
+            violations.append(
+                f"R6 {path}:{lineno} — '{collection}.{field}' ({model}) holds an account reference and is in "
+                f"neither the erasure inventory nor ErasureEngine.EXCLUDED_USER_REFERENCES. Declare a "
+                f"delete step or an anonymisation rule, or exclude it with the reason."
+            )
+    for (collection, field), lineno in sorted(excluded.items()):
+        if (collection, field) not in seen_pairs:
+            violations.append(
+                f"R6 {ERASURE_ENGINE}:{lineno} — the exclusion '{collection}.{field}' names no stored model "
+                f"field this script finds; a stale exclusion hides the next field of that name."
+            )
+
     # ── Anti-vacuity: the reader above must have found an inventory ──
     if len(steps) < MIN_STEPS:
         violations.append(
@@ -334,6 +672,12 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
             f"expected at least {MIN_MANIFEST_SOURCES}."
         )
 
+    if len(references) < MIN_USER_REFERENCE_FIELDS:
+        violations.append(
+            f"FLOOR {app_root / MODELS_REL} — read {len(references)} user-reference model field(s), "
+            f"expected at least {MIN_USER_REFERENCE_FIELDS}; R6 over none is vacuous."
+        )
+
     return violations
 
 
@@ -353,6 +697,10 @@ def main() -> int:
         for site in violations:
             print(f"  FAIL {site}", file=sys.stderr)
         return 1
+    references = _user_reference_fields(APP_ROOT)
+    names = sorted({field for _path, _line, _model, field in references})
+    print(f"R6 user-reference fields ({USER_REFERENCE_FIELD.pattern}): {', '.join(names)}")
+    print(f"R6 measured {len(references)} user-reference model field(s); floor {MIN_USER_REFERENCE_FIELDS}.")
     print("privacy inventory: one enumeration, attributed and read by the executing path.")
     return 0
 

@@ -140,7 +140,17 @@ untereinander verknüpfbar bleiben müssen:
 | Inspektion (Inspection) | `inspected_by_key` | Tombstone-Hash `anon_…` | `inspector` |
 | Aufgabe (Task) | `assigned_to_user_key` | Markierung `_anonymized` | — |
 | Tagebucheintrag (PlantDiaryEntry) | `created_by`, `analysis_requested_by`, `analysis_claimed_by` | Markierung `_anonymized` | — |
+| Aufgaben-Kommentar | `created_by` | Markierung `_anonymized` | — |
+| Einladung, die du verschickt hast | `invited_by_user_key` | Markierung `_anonymized` | — |
+| Datei im Garten (Foto, Import-Datei) | `created_by` | Markierung `_anonymized` | — |
+| Import-Auftrag | `uploaded_by` | Markierung `_anonymized` | — |
+| Wetterquellen-Einstellung eines Standorts | `updated_by` | Markierung `_anonymized` | — |
+| Manuelle Aktor-Übersteuerung | `created_by` | Markierung `_anonymized` | — |
+| KI-Protokolleintrag | `user_key` | Markierung `_anonymized` | — |
+| Schädlingsfoto, das du als Admin freigegeben hast | `promoted_by` | Markierung `_anonymized` | — |
+| Garten, den du angelegt hast | `owner_user_key` | Markierung `_anonymized` | beim persönlichen Garten zusätzlich Name und Kurzname, siehe unten |
 | Löschungs-Audit (ErasureRequest) | `user_key` | Tombstone-Hash `anon_…` | — |
+| MCP-Protokolleintrag eines Dienstkontos | `service_account_key` | Tombstone-Hash `anon_…` | — |
 
 - Der **Tombstone-Hash** hat die Form `anon_` plus 16 Hex-Zeichen. Er wird aus dem
   Kontoschlüssel und dem geheimen Salt `ERASURE_TOMBSTONE_SALT` gebildet, ist nicht
@@ -162,6 +172,61 @@ untereinander verknüpfbar bleiben müssen:
     haben dort `null` und nur den eingetippten Namen. Das System rät den Besitzer nicht
     aus dem Freitext, deshalb erreicht die Konto-Löschung solche Altdatensätze nicht. Ihr
     Namensfeld bleibt, wie es eingegeben wurde.
+
+### Was mit deinem persönlichen Garten passiert
+
+Bei der Registrierung legt Kamerplanter einen persönlichen Garten für dich an. Sein
+Name und sein Kurzname in der Adresse stammen aus deinem Anzeigenamen. Die
+Konto-Löschung löscht diesen Garten nicht, denn er kann Datensätze mit gesetzlicher
+Aufbewahrungsfrist enthalten, zum Beispiel Ernten nach CanG. Stattdessen nennt er dich
+danach nicht mehr:
+
+- Die Besitzer-Referenz wird durch `_anonymized` ersetzt.
+- Name und Kurzname werden zu `anonymized-` und einer Zeichenfolge, die sich aus
+  dem Schlüssel nicht zurückrechnen lässt. Der Kurzname bleibt dadurch eindeutig, und
+  kein neuer Garten kann ihn vorher belegen: Kurznamen, die mit `anonymized`
+  beginnen, vergibt Kamerplanter nicht.
+
+Einen Gemeinschaftsgarten, den du gegründet hast, behält seinen Namen, denn der gehört
+der Gruppe. Nur die Besitzer-Referenz wird ersetzt. Die Besitzer-Referenz verleiht
+keine Rechte, die Rechte hängen an der Rolle in der Mitgliedschaft. Deshalb muss
+nichts übertragen werden.
+
+Ein KI-Tipp, den du ausgeblendet hast, bleibt für die anderen Mitglieder deines
+Gartens ausgeblendet. Nur der Vermerk, dass du es warst, wird durch `_anonymized`
+ersetzt.
+
+Nie bestätigte Konten, die Kamerplanter nach Ablauf der Frist entfernt, durchlaufen
+dieselbe vollständige Löschung wie jede andere Konto-Löschung.
+
+### Was zusätzlich gelöscht wird
+
+Neben den bekannten Kategorien löscht die Konto-Löschung auch diese Datensätze, die
+nur dir gehören und keiner Aufbewahrungsfrist unterliegen:
+
+- deine Gespräche mit dem KI-Assistenten
+- deine Benachrichtigungen und deine Benachrichtigungseinstellungen
+- deine Kalender-Feeds: Der Feed-Link funktioniert nach der Löschung nicht mehr
+- deine Diagnose-Anfragen für Pflanzenkrankheiten
+- deine Standort-Zuweisungen in Gärten, in denen du Mitglied warst
+- Einladungen, die du angenommen hast (sie nennen deine E-Mail-Adresse)
+- die Dateieinträge deiner eigenen Schädlingsfotos, deren Dateien schon gelöscht sind
+
+Ein Konto, das nie bestätigt wurde, entfernt der tägliche Aufräumlauf. Dabei gehen
+jetzt auch die Mitgliedschaft und die Standort-Zuweisungen mit. Der persönliche Garten
+eines solchen Kontos wird dabei noch nicht anonymisiert.
+
+!!! info "Was bewusst nicht angefasst wird"
+    Einige Felder heißen zwar „… von“, enthalten aber Freitext, den jemand beim Erfassen
+    eingetippt hat, zum Beispiel „durchgeführt von“ bei Gieß- und Tankprotokollen oder
+    „erstellt von“ bei Workflow-Vorlagen. Das System ordnet solchen Freitext keinem
+    Konto zu und ändert ihn bei der Löschung nicht.
+
+### Protokolle der Löschung
+
+Die Protokollzeilen einer Löschung nennen deine Kontokennung nicht. Sie tragen
+stattdessen denselben Tombstone-Hash wie der Löschungs-Audit. So lassen sich die Zeilen
+einer Löschung einander zuordnen, ohne dass sie eine Person nennen.
 
 ### Beide Löschwege tun dasselbe
 
@@ -300,9 +365,10 @@ flowchart TD
 | Consent Records | Sofort löschen (Widerruf) |
 | Export-Dateien | Sofort löschen |
 | Erntedaten, Qualitätsbewertungen, Behandlungen, Inspektionen | Anonymisieren (Tombstone-Hash `anon_…`, Namensfelder geleert), nicht löschen (Art. 17 Abs. 3) |
-| Aufgaben und Tagebucheinträge in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
+| Aufgaben, Aufgaben-Kommentare, Tagebucheinträge, Dateien, Import-Aufträge, Einstellungen und Übersteuerungen in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
+| Gärten, die du angelegt hast | Besitzer-Referenz ersetzen; beim persönlichen Garten auch Name und Kurzname |
 | Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |
-| Mitgliedschaften, Sitzungen, API-Schlüssel, Einwilligungen, Export-Anträge, Favoriten, Schädlingserkennungen, eigene Schädlingsfotos | Löschen |
+| Mitgliedschaften, Standort-Zuweisungen, Sitzungen, API-Schlüssel, Einwilligungen, Export-Anträge, Favoriten, Schädlingserkennungen, eigene Schädlingsfotos, KI-Gespräche, Benachrichtigungen, Kalender-Feeds, Diagnose-Anfragen, angenommene Einladungen | Löschen |
 
 ---
 

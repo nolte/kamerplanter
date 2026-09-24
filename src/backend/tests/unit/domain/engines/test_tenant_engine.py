@@ -66,3 +66,34 @@ class TestCanCreateOrganization:
 
     def test_zero_existing(self):
         assert TenantEngine.can_create_organization(0) is True
+
+
+class TestAnonymizedSlugPrefixIsReserved:
+    """#1700 — ``anonymized-`` is the namespace erasure renames a personal tenant into.
+
+    A slug a registration could produce inside it can collide with the one the
+    erasure writes, and ``tenants.slug`` carries a unique index: the erasure
+    transaction would then abort on every retry (Art. 17 blocked for good).
+    """
+
+    def test_a_display_name_spelling_the_prefix_does_not_land_in_it(self):
+        slug = TenantEngine.generate_slug("Anonymized 101")
+        assert not slug.startswith("anonymized-")
+        assert "anonymized-101" in slug  # still derived from the name, just moved out of the namespace
+
+    def test_the_bare_prefix_word_is_moved_too(self):
+        """``anonymized`` + the uniqueness suffix ``-2`` would otherwise reach ``anonymized-2``."""
+        assert TenantEngine.generate_slug("Anonymized") != "anonymized"
+        assert not TenantEngine.generate_slug("Anonymized").startswith("anonymized")
+
+    def test_unicode_and_case_variants_are_moved(self):
+        for name in ("ANONYMIZED 7", "  anonymized---x", "Anonymized-ä"):
+            assert not TenantEngine.generate_slug(name).startswith("anonymized"), name
+
+    def test_a_name_merely_containing_the_word_is_untouched(self):
+        assert TenantEngine.generate_slug("Not Anonymized Garden") == "not-anonymized-garden"
+
+    def test_the_reserved_prefix_is_the_one_erasure_writes(self):
+        from app.domain.engines.erasure_engine import ANONYMIZED_KEY_PREFIX
+
+        assert TenantEngine.RESERVED_SLUG_PREFIX == ANONYMIZED_KEY_PREFIX

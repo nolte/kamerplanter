@@ -128,8 +128,7 @@ def erased(database):
 def test_every_subject_row_of_a_delete_step_is_gone(database, erased):
     survivors = [
         doc_id
-        for collection in reach._deleted_collections(erased.plan)
-        for doc_id in erased.seeded[SUBJECT][collection]
+        for doc_id in reach._deleted_rows(erased.plan, erased.seeded[SUBJECT], SUBJECT)
         if reach._read(database, doc_id) is not None
     ]
     assert survivors == []
@@ -147,17 +146,16 @@ def test_the_edge_the_request_itself_wrote_is_gone(database, erased):
 def test_every_retained_subject_row_survives_without_a_trace_of_the_subject(database, erased):
     lost: list[str] = []
     traces: list[str] = []
-    for collection in reach._retained_collections(erased.plan):
-        for doc_id in erased.seeded[SUBJECT][collection]:
-            doc = reach._read(database, doc_id)
-            if doc is None:
-                lost.append(doc_id)
-                continue
-            traces.extend(
-                f"{doc_id}.{field}={value!r}"
-                for field, value in doc.items()
-                if not field.startswith("_") and value in (SUBJECT, reach._display_text(SUBJECT))
-            )
+    for doc_id in reach._retained_rows(erased.plan, SUBJECT):
+        doc = reach._read(database, doc_id)
+        if doc is None:
+            lost.append(doc_id)
+            continue
+        traces.extend(
+            f"{doc_id}.{field}={value!r}"
+            for field, value in doc.items()
+            if not field.startswith("_") and value in (SUBJECT, reach._display_text(SUBJECT))
+        )
     assert lost == []
     assert traces == []
 

@@ -137,7 +137,17 @@ whether the erased account's records must stay linkable to each other for an aud
 | Inspection (Inspection) | `inspected_by_key` | Tombstone hash `anon_…` | `inspector` |
 | Task (Task) | `assigned_to_user_key` | Marker `_anonymized` | — |
 | Diary entry (PlantDiaryEntry) | `created_by`, `analysis_requested_by`, `analysis_claimed_by` | Marker `_anonymized` | — |
+| Task comment | `created_by` | Marker `_anonymized` | — |
+| Invitation you sent | `invited_by_user_key` | Marker `_anonymized` | — |
+| File in a garden (photo, import file) | `created_by` | Marker `_anonymized` | — |
+| Import job | `uploaded_by` | Marker `_anonymized` | — |
+| Weather-source setting of a site | `updated_by` | Marker `_anonymized` | — |
+| Manual actuator override | `created_by` | Marker `_anonymized` | — |
+| AI audit entry | `user_key` | Marker `_anonymized` | — |
+| Pest photo you promoted as an admin | `promoted_by` | Marker `_anonymized` | — |
+| Garden you created | `owner_user_key` | Marker `_anonymized` | for your personal garden also its name and short name, see below |
 | Erasure audit (ErasureRequest) | `user_key` | Tombstone hash `anon_…` | — |
+| MCP audit entry of a service account | `service_account_key` | Tombstone hash `anon_…` | — |
 
 - The **tombstone hash** is `anon_` followed by 16 hex characters. It is derived from the
   account key and the secret salt `ERASURE_TOMBSTONE_SALT`, cannot be reversed, and is
@@ -157,6 +167,57 @@ whether the erased account's records must stay linkable to each other for an aud
     field only since a migration. Records written before it hold `null` there and only the
     typed-in name. The system does not guess an owner from free text, so account deletion
     does not reach these older records; their name field stays as it was entered.
+
+### What happens to your personal garden
+
+When you register, Kamerplanter creates a personal garden for you. Its name and the
+short name in its address come from your display name. Account deletion does not
+delete this garden, because it can hold records under a statutory retention period,
+such as harvests under the CanG. Instead, it stops naming you:
+
+- The owner reference is replaced with `_anonymized`.
+- The name and the short name become `anonymized-` followed by a string that cannot
+  be traced back to the key. The short name stays unique, and no new garden can take
+  it first: Kamerplanter never hands out short names that start with `anonymized`.
+
+A community garden you founded keeps its name, because the name belongs to the group.
+Only the owner reference is replaced. The owner reference grants no rights; rights come
+from the role in a membership, so nothing needs to be handed over.
+
+An AI tip you dismissed stays dismissed for the other members of your garden. Only
+the note that you dismissed it is replaced with `_anonymized`.
+
+Accounts that were never confirmed, and that Kamerplanter removes once the period runs
+out, go through the same full deletion as any other account deletion.
+
+### What else is deleted
+
+Besides the familiar categories, account deletion also deletes these records, which
+belong only to you and fall under no retention period:
+
+- your AI assistant conversations
+- your notifications and your notification settings
+- your calendar feeds: the feed link stops working after the deletion
+- your plant-disease diagnosis requests
+- your location assignments in gardens you were a member of
+- invitations you accepted (they name your email address)
+- the file entries of your own pest photos whose files are already deleted
+
+The daily cleanup removes accounts that were never confirmed. It now also removes their
+membership and location assignments. The personal garden of such an account is not yet
+anonymized by that cleanup.
+
+!!! info "What is deliberately left alone"
+    Some fields are named "… by" but hold free text someone typed in when recording,
+    such as "performed by" on watering and tank logs or "created by" on workflow
+    templates. The system does not attribute such free text to an account and leaves it
+    unchanged on deletion.
+
+### Logs of an erasure
+
+The log lines of an erasure do not name your account key. They carry the same
+tombstone hash as the erasure audit instead, so the lines of one erasure can be linked
+to each other without naming anyone.
 
 ### Both deletion paths do the same
 
@@ -291,9 +352,10 @@ flowchart TD
 | Consent records | Delete immediately (on revocation) |
 | Export files | Delete immediately |
 | Harvest data, quality assessments, treatments, inspections | Anonymize (tombstone hash `anon_…`, name fields emptied), do not delete (Art. 17(3)) |
-| Tasks and diary entries in a (possibly shared) garden | Replace the account reference with `_anonymized`, content remains |
+| Tasks, task comments, diary entries, files, import jobs, settings and overrides in a (possibly shared) garden | Replace the account reference with `_anonymized`, content remains |
+| Gardens you created | Replace the owner reference; for your personal garden also its name and short name |
 | Erasure audit | Replace the account reference with the tombstone hash, keep for 1 year |
-| Memberships, sessions, API keys, consents, export requests, favorites, pest detections, own pest photos | Delete |
+| Memberships, location assignments, sessions, API keys, consents, export requests, favorites, pest detections, own pest photos, AI conversations, notifications, calendar feeds, diagnosis requests, accepted invitations | Delete |
 
 ---
 

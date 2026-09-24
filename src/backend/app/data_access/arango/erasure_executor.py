@@ -7,8 +7,9 @@ nothing at all applied ``ANONYMIZE_COLLECTIONS`` or the audit pseudonymisation.
 Every rule was declared, guarded and never executed (the class #1622 and #1645
 catalogue). This module is the single place a plan becomes ArangoDB writes; both
 account-deletion paths reach it through :meth:`PrivacyService.erase_account`, and
-the unverified-account cleanup reaches its ``account_cascade`` slice through
-:meth:`ArangoUserRepository.delete`.
+since the #1700 review so does the unverified-account cleanup.
+:meth:`ArangoUserRepository.delete` still runs the ``account_cascade`` slice, but
+no production path calls it any more.
 
 Nothing here names a personal-data collection. Every collection, filter field
 and rule comes off the plan; ``scripts/check_privacy_inventory.py`` refuses a
@@ -23,7 +24,7 @@ from typing import Any
 import structlog
 from arango.database import StandardDatabase, TransactionDatabase
 
-from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.engines.erasure_engine import ANONYMIZED_KEY_PREFIX, ErasureEngine
 from app.domain.interfaces.erasure_executor import IErasureExecutor
 from app.domain.models.privacy import (
     AnonymizationRule,
@@ -47,20 +48,33 @@ _DELEGATED_PHASE_EXECUTORS: frozenset[str] = frozenset({"storage_cleanup", "refe
 # (``doc[@field]``) and the value. Nothing a caller controls is interpolated.
 _REMOVE_DOCUMENTS = """
 FOR doc IN @@collection
-  FILTER doc[@field] == @value
+  FILTER doc[@field] == @value AND MATCHES(doc, @where)
   REMOVE doc IN @@collection
   COLLECT WITH COUNT INTO affected
   RETURN affected
 """
 
-_REMOVE_EDGES_VIA_PARENT = """
-FOR parent IN @@parent
-  FILTER parent[@parent_field] == @value
-  FOR edge IN @@collection
-    FILTER edge[@endpoint] == parent._id
-    REMOVE edge IN @@collection
-    COLLECT WITH COUNT INTO affected
-    RETURN affected
+# A ``via`` step matches the rows that point at the subject's parent rows. The
+# parent rows are resolved first (:meth:`_parent_rows`, recursively when the
+# parent is itself reached ``via`` another collection) and bound as a list.
+_REMOVE_BY_REFERENCE = """
+FOR doc IN @@collection
+  FILTER doc[@field] IN @values AND MATCHES(doc, @where)
+  REMOVE doc IN @@collection
+  COLLECT WITH COUNT INTO affected
+  RETURN affected
+"""
+
+_SELECT_ROWS = """
+FOR doc IN @@collection
+  FILTER doc[@field] == @value AND MATCHES(doc, @where)
+  RETURN {id: doc._id, key: doc._key}
+"""
+
+_SELECT_ROWS_BY_REFERENCE = """
+FOR doc IN @@collection
+  FILTER doc[@field] IN @values AND MATCHES(doc, @where)
+  RETURN {id: doc._id, key: doc._key}
 """
 
 _REMOVE_USER = """
@@ -71,13 +85,33 @@ FOR doc IN @@collection
   RETURN affected
 """
 
+# ``renamed`` is ``ErasureEngine.anonymized_rename_value(@tombstone, doc._key)``
+# spelled in AQL (SHA256 returns lower-case hex, as ``hexdigest`` does).
 _REWRITE_REFERENCE = """
 FOR doc IN @@collection
   FILTER doc[@field] == @value
-  UPDATE doc WITH @patch IN @@collection
+  LET renamed = LENGTH(@rename_fields) > 0 AND MATCHES(doc, @rename_when)
+    ? ZIP(
+        @rename_fields,
+        (FOR name IN @rename_fields
+          RETURN CONCAT(@rename_prefix, SUBSTRING(SHA256(CONCAT(@tombstone, ":", doc._key)), 0, 16)))
+      )
+    : {}
+  UPDATE doc WITH MERGE(@patch, renamed) IN @@collection
   COLLECT WITH COUNT INTO affected
   RETURN affected
 """
+
+
+def _via_chain(plan: ErasurePlan, step: ErasureStep) -> list[str]:
+    """The collections *step* is reached through, nearest first (validated acyclic before use)."""
+    documents = {s.collection: s for s in plan.steps if s.kind == "document"}
+    chain: list[str] = []
+    via = step.via
+    while via is not None and via not in chain and via in documents:
+        chain.append(via)
+        via = documents[via].via
+    return chain
 
 
 class ErasurePlanError(ValueError):
@@ -166,18 +200,35 @@ class ArangoErasureExecutor(IErasureExecutor):
                 if step.collection not in (ErasureEngine.ANONYMIZE_PHASE, ErasureEngine.PSEUDONYMIZE_AUDIT_PHASE):
                     msg = f"erasure phase '{step.collection}' has no ArangoDB implementation"
                     raise ErasurePlanError(msg)
-            if step.via is not None and step.via not in documents:
-                msg = f"edge step '{step.collection}' is reached via '{step.via}', which the plan does not declare"
-                raise ErasurePlanError(msg)
+            if step.via is not None:
+                seen = {step.collection}
+                via: str | None = step.via
+                while via is not None:
+                    if via not in documents:
+                        msg = (
+                            f"{step.kind} step '{step.collection}' is reached via '{via}', "
+                            "which the plan does not declare as a document step"
+                        )
+                        raise ErasurePlanError(msg)
+                    if via in seen:
+                        msg = f"{step.kind} step '{step.collection}' is reached through a via cycle at '{via}'"
+                        raise ErasurePlanError(msg)
+                    seen.add(via)
+                    via = documents[via].via
         needs_hash = any(
             step.collection == ErasureEngine.PSEUDONYMIZE_AUDIT_PHASE and plan.pseudonymize_audit for step in steps
         ) or any(
             step.collection == ErasureEngine.ANONYMIZE_PHASE
-            and any(rule.replacement_strategy == "tombstone_hash" for rule in plan.anonymize)
+            and any(rule.replacement_strategy == "tombstone_hash" or rule.rename_fields for rule in plan.anonymize)
             for step in steps
         )
         if needs_hash and not tombstone:
             msg = "the plan pseudonymises user keys but no tombstone hash was supplied"
+            raise ErasurePlanError(msg)
+        if tombstone is not None and not ErasureEngine.is_tombstone(tombstone):
+            # A rename is keyed on the tombstone precisely because it is not
+            # guessable (#1700); anything else would reopen slug squatting.
+            msg = "the supplied tombstone is not a tombstone hash"
             raise ErasurePlanError(msg)
 
     @staticmethod
@@ -192,8 +243,8 @@ class ArangoErasureExecutor(IErasureExecutor):
         for step in steps:
             if step.kind in ("edge", "document", "user"):
                 add(step.collection)
-                if step.via is not None:
-                    add(step.via)
+                for parent in _via_chain(plan, step):
+                    add(parent)
             elif step.collection == ErasureEngine.ANONYMIZE_PHASE:
                 for rule in plan.anonymize:
                     add(rule.collection)
@@ -228,7 +279,7 @@ class ArangoErasureExecutor(IErasureExecutor):
                 ]
             report.rules.extend(outcomes)
             affected = sum(outcome.affected for outcome in outcomes)
-        elif step.collection not in present or (step.via is not None and step.via not in present):
+        elif step.collection not in present or any(parent not in present for parent in _via_chain(plan, step)):
             # A collection the database lacks holds no rows (see ``absent_collections``).
             affected = 0
         elif step.kind == "user":
@@ -237,20 +288,24 @@ class ArangoErasureExecutor(IErasureExecutor):
                     _REMOVE_USER, bind_vars={"@collection": step.collection, "value": plan.user_key}
                 )
             )
-        elif step.kind == "edge" and step.via is not None:
-            parent = next(s for s in plan.steps if s.kind == "document" and s.collection == step.via)
-            affected = self._counted(
-                transaction.aql.execute(
-                    _REMOVE_EDGES_VIA_PARENT,
-                    bind_vars={
-                        "@collection": step.collection,
-                        "@parent": step.via,
-                        "parent_field": parent.user_field,
-                        "endpoint": step.user_field,
-                        "value": plan.user_key,
-                    },
+        elif step.via is not None:
+            # An edge points at its parent by ``_id``; a document carries the
+            # parent's ``_key`` (``location_assignments.membership_key``).
+            parents = self._parent_rows(transaction, plan, step.via)
+            values = [row["id"] if step.kind == "edge" else row["key"] for row in parents]
+            affected = 0
+            if values:
+                affected = self._counted(
+                    transaction.aql.execute(
+                        _REMOVE_BY_REFERENCE,
+                        bind_vars={
+                            "@collection": step.collection,
+                            "field": step.user_field,
+                            "values": values,
+                            "where": step.where,
+                        },
+                    )
                 )
-            )
         else:
             # ``edge`` without ``via`` runs ``users -> <document>``: its endpoint is
             # the user vertex id, built from the plan's own ``user`` step.
@@ -258,12 +313,53 @@ class ArangoErasureExecutor(IErasureExecutor):
             affected = self._counted(
                 transaction.aql.execute(
                     _REMOVE_DOCUMENTS,
-                    bind_vars={"@collection": step.collection, "field": step.user_field, "value": value},
+                    bind_vars={
+                        "@collection": step.collection,
+                        "field": step.user_field,
+                        "value": value,
+                        "where": step.where,
+                    },
                 )
             )
         report.steps.append(
             ErasureStepOutcome(collection=step.collection, kind=step.kind, executor=step.executor, affected=affected)
         )
+
+    def _parent_rows(
+        self, transaction: TransactionDatabase, plan: ErasurePlan, collection: str
+    ) -> list[dict[str, str]]:
+        """``{id, key}`` of the subject's rows in *collection*, as its document step matches them.
+
+        Resolved through the parent's own step, recursively: the assignment edges
+        run ``location_assignments -> …``, whose rows are the subject's through
+        ``memberships``. ``_refuse_unexecutable`` has already checked every
+        ``via`` names a declared document step and that the chain ends.
+        """
+        parent = next(s for s in plan.steps if s.kind == "document" and s.collection == collection)
+        if parent.via is None:
+            cursor = transaction.aql.execute(
+                _SELECT_ROWS,
+                bind_vars={
+                    "@collection": parent.collection,
+                    "field": parent.user_field,
+                    "value": plan.user_key,
+                    "where": parent.where,
+                },
+            )
+            return [dict(row) for row in cursor]
+        keys = [row["key"] for row in self._parent_rows(transaction, plan, parent.via)]
+        if not keys:
+            return []
+        cursor = transaction.aql.execute(
+            _SELECT_ROWS_BY_REFERENCE,
+            bind_vars={
+                "@collection": parent.collection,
+                "field": parent.user_field,
+                "values": keys,
+                "where": parent.where,
+            },
+        )
+        return [dict(row) for row in cursor]
 
     def _anonymize(
         self,
@@ -287,6 +383,10 @@ class ArangoErasureExecutor(IErasureExecutor):
                         "field": rule.user_field,
                         "value": user_key,
                         "patch": patch,
+                        "rename_fields": list(rule.rename_fields),
+                        "rename_when": rule.rename_when,
+                        "rename_prefix": ANONYMIZED_KEY_PREFIX,
+                        "tombstone": tombstone or "",
                     },
                 )
             )
@@ -316,6 +416,10 @@ class ArangoErasureExecutor(IErasureExecutor):
                         "field": rule.user_field,
                         "value": user_key,
                         "patch": {rule.user_field: tombstone},
+                        "rename_fields": [],
+                        "rename_when": {},
+                        "rename_prefix": ANONYMIZED_KEY_PREFIX,
+                        "tombstone": tombstone or "",
                     },
                 )
             )
