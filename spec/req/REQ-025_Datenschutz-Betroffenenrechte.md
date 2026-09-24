@@ -7,7 +7,7 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.7 (#1663: Nutzerfeld je Löschschritt, Qualitätsbewertungen zurechenbar)
+Version: 1.8 (#1700: Löschinventar gegen die Modellfelder geprüft, 23 Lücken geschlossen)
 Abhängigkeit: REQ-023 v1.13 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.4 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.8 | 2026-09-24 | **#1700 Vollständigkeit des Löschinventars:** Guard-Regel R6 in `scripts/check_privacy_inventory.py` ankert außerhalb der beiden Listen, an den Modellfeldern (`user_key`, `*_user_key`, `*_by_key`, `*_account_key`, `*_by`): Jedes gespeicherte Feld dieser Form muss vom Löschinventar erreicht oder in `ErasureEngine.EXCLUDED_USER_REFERENCES` mit Begründung ausgeschlossen sein. Vorher gemessen: 23 Felder in keiner der beiden Listen. **Gelöscht:** `ai_conversations`, `ai_tip_cache` (`dismissed_by`, REQ-031 §7.5), `notifications` (+ `notification_for_run`), `notification_preferences`, `calendar_feeds` (der Feed-Token liefert danach nichts mehr), `plant_diagnosis_requests` (+ vier `cv_*`-Kanten), angenommene `invitations` (`accepted_by_user_key`, + `has_invitation`), `attachments` der Kategorie `pest_reference` (Bytes bereits gelöscht), `mcp_idempotency_record`, `location_assignments` (über `memberships`, `via` jetzt auch für Dokumente; + drei Zuweisungs-Kanten). **Anonymisiert (`_anonymized`):** `task_comments.created_by`, `invitations.invited_by_user_key`, `pest_image_contributions.promoted_by`, `attachments.created_by` (Rest), `ai_audit_log.user_key` (REQ-031 §7.5), `import_jobs.uploaded_by`, `weather_source_configs.updated_by`, `manual_overrides.created_by`, `tenants.owner_user_key` — beim persönlichen Mandanten zusätzlich `name`/`slug` → `anonymized-<_key>` (`rename_fields`/`rename_when`). **Pseudonymisiert:** `mcp_audit_log.service_account_key`. **Ausgeschlossen (Freitext bzw. kein Kontoschlüssel):** `performed_by` in vier Protokoll-Collections, `workflow_templates.created_by`, `task_audit_entries.changed_by`, `sync_runs.triggered_by`. Der Mitgliedschaftsblock ist jetzt `account_cascade` (Bereinigung unbestätigter Konten entfernt Mitgliedschaft und Zuweisungen). Alle neuen Kategorien stehen im Art.-15-Manifest; `location_assignments` mit `disclosure_gap`. Löschprotokolle tragen statt des Klartext-Schlüssels den Tombstone-Hash (`subject`). |
 | 1.7 | 2026-09-23 | **#1663 Nutzerfeld im Löschinventar:** Jeder `edge`-/`document`-Schritt von `ErasureEngine.DELETE_STEPS` nennt das Feld, über das die Zeilen des Nutzers gefunden werden (`user_field`; bei Kanten der Endpunkt `_from`/`_to`, ggf. mit `via` auf die Eltern-Collection), durchgesetzt von Guard-Regel R5 in `scripts/check_privacy_inventory.py`. Gemessen und ergänzt: `has_api_key`, `has_membership` und `user_favorites` fehlten im Inventar; `membership_in` und die drei Schädlingserkennungs-Kanten berühren `users` nicht und werden über `memberships` bzw. `pest_detections` erreicht. `quality_assessments` erhält das serverseitige `assessed_by_key` (Migration v0057, kein Rückschluss aus Freitext) und eine `tombstone_hash`-Regel (NFR-011 R-16); `yield_metrics` trägt kein Nutzerfeld. Die Code-Kopie in §3 ist an den Code angeglichen (vorher Freitextfelder `harvester`/`applicator`/`inspector` und Marker `"[gelöscht]"`). AK-DA-04/05 als nicht implementiert gekennzeichnet — `plant_diary_analyses` existiert im Code nicht. |
 | 1.6 | 2026-08-16 | **REQ-051 Analyse-Archiv:** REQ-051 §5 fuehrt die Collection `plant_diary_analyses`, in der jeder abgeschlossene Analyselauf eines Tagebuch-Eintrags aufbewahrt wird. Damit entstehen zwei personenbezogene Felder ausserhalb des Eintragsdokuments (`requested_by`, `claimed_by`), die die drei Regeln aus v1.5 nicht erfassten — ohne Ergaenzung waere ein geloeschter Nutzer im Archiv weiterhin namentlich zugeordnet, waehrend er am Eintrag selbst bereits anonymisiert ist. Zwei neue `AnonymizationRule`-Eintraege schliessen die Luecke; die Abwaegung ist dieselbe wie beim Eintragsdokument (Anonymisierung statt Hard-Delete, weil der Lauf zum Pflanzen-Datensatz eines womoeglich geteilten Mandanten gehoert). Neue Abnahmekriterien AK-DA-04 (Anonymisierung) und AK-DA-05 (Art.-15-Auskunft umfasst die archivierten Laeufe). |
 | 1.5 | 2026-08-04 | **REQ-050 KI-Analyse von Tagebuch-Einträgen:** Neuer Consent-Purpose `diary_ai_analysis` (Art. 6(1)(a), opt-in **je Eintrag**, nie automatisch). Gleichzeitig **Widerspruch aufgelöst:** Der Zwecktext von `ai_tenant_data_access` sagte pauschal, Tagebuch-Freitexte würden „NIE" übertragen. Diese Zusage gilt für den **serverseitigen** Assistenten (REQ-031) und ist entsprechend präzisiert; sie darf nicht als Verbot der ausdrücklich vom Nutzer ausgelösten Freigabe nach REQ-050 gelesen werden. Beide Wege sind getrennt und einzeln einwilligungspflichtig. |
@@ -428,6 +429,33 @@ class ErasureEngine:
             anonymized_value="_anonymized",
             reason="REQ-050 §7.3/7.4: Kennung des ausführenden Agenten",
         ),
+        # #1700 — Nutzerbezüge, die in keinem Inventar standen (gefunden von R6).
+        # Geteilter Mandanten-Datensatz: Inhalt bleibt, Bezug wird ersetzt.
+        AnonymizationRule(collection="task_comments", user_field="created_by",
+                          anonymized_value="_anonymized", reason="REQ-024 / NFR-011 R-22"),
+        AnonymizationRule(collection="invitations", user_field="invited_by_user_key",
+                          anonymized_value="_anonymized", reason="REQ-024: Einladung gehört dem Mandanten"),
+        AnonymizationRule(collection="pest_image_contributions", user_field="promoted_by",
+                          anonymized_value="_anonymized", reason="REQ-010: Admin, der freigegeben hat"),
+        AnonymizationRule(collection="attachments", user_field="created_by",
+                          anonymized_value="_anonymized", reason="NFR-013 §6.2 / AK-OS-02 (Rest-Kategorien)"),
+        AnonymizationRule(collection="ai_audit_log", user_field="user_key",
+                          anonymized_value="_anonymized", reason="REQ-031 §7.5: user_key -> null, Hashes bleiben"),
+        AnonymizationRule(collection="import_jobs", user_field="uploaded_by",
+                          anonymized_value="_anonymized", reason="REQ-012"),
+        AnonymizationRule(collection="weather_source_configs", user_field="updated_by",
+                          anonymized_value="_anonymized", reason="REQ-046"),
+        AnonymizationRule(collection="manual_overrides", user_field="created_by",
+                          anonymized_value="_anonymized", reason="REQ-018 / NFR-011 R-15"),
+        # Persönlicher Mandant: nicht löschen (kann CanG-pflichtige Ernten
+        # enthalten, NFR-011 R-16). Besitzer ersetzt; name/slug stammen aus dem
+        # Anzeigenamen und werden zu "anonymized-<_key>" (slug bleibt eindeutig).
+        # Organisationen behalten ihren Namen. owner_user_key verleiht keine
+        # Rechte (REQ-049: Rolle der Mitgliedschaft) — nichts zu übertragen.
+        AnonymizationRule(collection="tenants", user_field="owner_user_key",
+                          anonymized_value="_anonymized",
+                          rename_fields=["name", "slug"], rename_when={"tenant_type": "personal"},
+                          reason="REQ-024 / NFR-011 R-16"),
         # NICHT IMPLEMENTIERT — REQ-051 §5 Analyse-Archiv: Die Collection
         # `plant_diary_analyses` existiert im Code noch nicht (kein Modell, keine
         # Collection-Konstante). Sobald sie angelegt wird, braucht sie zwei
@@ -473,12 +501,24 @@ class ErasureEngine:
         ErasureStep("has_auth_provider",      kind="edge", user_field="_from", executor="account_cascade"),
         ErasureStep("has_session",            kind="edge", user_field="_from", executor="account_cascade"),
         ErasureStep("has_api_key",            kind="edge", user_field="_from", executor="account_cascade"),
-        ErasureStep("has_membership",         kind="edge", user_field="_from", executor="account_erasure"),
+        # #1700: Mitgliedschaftsblock ist account_cascade — die Registrierung legt
+        # eine Mitgliedschaft an, bevor die Adresse bestätigt ist.
+        ErasureStep("has_membership",         kind="edge", user_field="_from", executor="account_cascade"),
+        # REQ-024 Standort-Zuweisungen: kein Kontoschlüssel, nur membership_key —
+        # erreicht über memberships (via auf einem Dokument, #1700).
+        ErasureStep("assigned_to_location", kind="edge", user_field="_from", via="location_assignments",
+                    executor="account_cascade"),
+        ErasureStep("assignment_for", kind="edge", user_field="_from", via="location_assignments",
+                    executor="account_cascade"),
+        ErasureStep("assignment_in_tenant", kind="edge", user_field="_from", via="location_assignments",
+                    executor="account_cascade"),
+        ErasureStep("location_assignments", kind="document", user_field="membership_key", via="memberships",
+                    executor="account_cascade"),
         # memberships -> tenants: berührt users nie
         ErasureStep("membership_in", kind="edge", user_field="_from", via="memberships",
-                    executor="account_erasure"),
+                    executor="account_cascade"),
         # Phase 2: Dokumente
-        ErasureStep("memberships",             kind="document", user_field="user_key", executor="account_erasure"),
+        ErasureStep("memberships",             kind="document", user_field="user_key", executor="account_cascade"),
         ErasureStep("data_export_requests",    kind="document", user_field="user_key", executor="account_erasure"),
         ErasureStep("consent_records",         kind="document", user_field="user_key", executor="account_erasure"),
         ErasureStep("processing_restrictions", kind="document", user_field="user_key", executor="account_erasure"),
@@ -500,6 +540,30 @@ class ErasureEngine:
         # REQ-010 §8: Referenzbild-Beiträge (Modell hat kein user_key)
         ErasureStep("pest_image_contributions", kind="document", user_field="contributed_by",
                     executor="pest_image_cleanup"),
+        # #1700: eigene Datensätze ohne Aufbewahrungsfrist (von R6 gefunden)
+        ErasureStep("ai_conversations", kind="document", user_field="user_key", executor="account_erasure"),
+        ErasureStep("ai_tip_cache", kind="document", user_field="dismissed_by", executor="account_erasure"),
+        ErasureStep("notification_for_run", kind="edge", user_field="_from", via="notifications",
+                    executor="account_erasure"),
+        ErasureStep("notifications", kind="document", user_field="user_key", executor="account_erasure"),
+        ErasureStep("notification_preferences", kind="document", user_field="user_key",
+                    executor="account_erasure"),
+        # Feed-Token liefert danach nichts mehr (get_by_token findet keine Zeile)
+        ErasureStep("calendar_feeds", kind="document", user_field="user_key", executor="account_erasure"),
+        # cv_diagnosed_for / cv_diagnosis_found / cv_attached_to_inspection / cv_phenotype_of
+        # (via plant_diagnosis_requests, _from), dann:
+        ErasureStep("plant_diagnosis_requests", kind="document", user_field="user_key",
+                    executor="account_erasure"),
+        # angenommene Einladungen nennen den Nutzer zweimal (Schlüssel + E-Mail)
+        ErasureStep("has_invitation", kind="edge", user_field="_to", via="invitations",
+                    executor="account_erasure"),
+        ErasureStep("invitations", kind="document", user_field="accepted_by_user_key",
+                    executor="account_erasure"),
+        # Dokumente, deren Bytes Phase 0 bereits gelöscht hat
+        ErasureStep("attachments", kind="document", user_field="created_by",
+                    where={"category": "pest_reference"}, executor="account_erasure"),
+        ErasureStep("mcp_idempotency_record", kind="document", user_field="service_account_key",
+                    executor="account_erasure"),
         # Phase 2.4: ANONYMIZE_COLLECTIONS anwenden
         ErasureStep("_anonymize_collections", kind="phase", executor="account_erasure"),
         # Phase 2.5: Audit-Log-Pseudonymisierung (W-002, siehe unten) — die
@@ -566,8 +630,28 @@ class ErasureEngine:
                 "Identifikator gespeichert sein (Art. 5(1)(e))."
             ),
         ),
+        # #1700 — REQ-033: MCP-Audit mit eigener Aufbewahrung
+        PseudonymizationRule(
+            collection="mcp_audit_log",
+            user_field="service_account_key",
+            replacement_strategy="tombstone_hash",
+            reason="REQ-033 / NFR-011: Audit-Fenster, Dienstkonto-Schlüssel pseudonymisiert",
+        ),
     ]
     # <!-- /Quelle: Widerspruchsanalyse W-002 -->
+
+    # #1700 — gespeicherte Nutzerbezugsfelder, die die Löschung bewusst nicht
+    # anfasst. R6 verlangt für jedes Feld der Form user_key / *_by / … entweder
+    # einen Inventareintrag oder einen Eintrag hier, mit Begründung.
+    EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
+        ErasureExclusion("watering_events", "performed_by", reason="Freitext, nie Kontoschlüssel"),
+        ErasureExclusion("watering_logs", "performed_by", reason="Freitext, nie Kontoschlüssel"),
+        ErasureExclusion("maintenance_logs", "performed_by", reason="Freitext, nie Kontoschlüssel"),
+        ErasureExclusion("tank_fill_events", "performed_by", reason="Freitext, nie Kontoschlüssel"),
+        ErasureExclusion("workflow_templates", "created_by", reason="Freitext aus dem Request-Body"),
+        ErasureExclusion("task_audit_entries", "changed_by", reason="nur Default 'system' geschrieben"),
+        ErasureExclusion("sync_runs", "triggered_by", reason="SyncTrigger-Enum, keine Person"),
+    ]
 
     def build_erasure_plan(self, user_key: str, user_data: dict) -> ErasurePlan:
         """Erstellt einen Löschplan für den gegebenen User."""
