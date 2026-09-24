@@ -109,7 +109,7 @@ def list_workflows(
         target_entity_type=target_entity_type,
     )
     wf_keys = [wt.key for wt in templates if wt.key]
-    usage_map = service.get_workflow_usage_stats(wf_keys) if wf_keys else {}
+    usage_map = service.get_workflow_usage_stats(wf_keys, tenant_key=ctx.tenant_key) if wf_keys else {}
     result = []
     for wt in templates:
         resp = _wf_response(wt)
@@ -189,7 +189,7 @@ def list_workflow_executions(
 ):
     """List a workflow template's executions with enriched entity info."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    return service.get_executions_for_template(key)
+    return service.get_executions_for_template(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/workflows/{key}/instantiate", response_model=WorkflowExecutionResponse, status_code=201)
@@ -198,13 +198,22 @@ def instantiate_workflow(
     body: WorkflowInstantiateRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
+    entity_guard: TaskEntityGuard = Depends(get_task_entity_guard),
 ):
-    """Instantiate a workflow template for a target entity."""
+    """Instantiate a workflow template for a target entity.
+
+    The target is anchored in the caller's tenant before anything is written
+    (#1708), exactly as ``POST /tasks`` anchors its binding (#1102): a foreign
+    entity key is a 404, so an execution — and tasks that would then surface in
+    the *other* tenant's views — can no longer be attached to it.
+    """
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
+    entity_guard.verify(body.entity_type, body.entity_key, tenant_key=ctx.tenant_key)
     execution = service.instantiate_workflow(
         key,
         entity_key=body.entity_key,
         entity_type=body.entity_type,
+        tenant_key=ctx.tenant_key,
     )
     return _we_response(execution)
 
@@ -242,7 +251,7 @@ def list_phase_suggestions(
     service: TaskService = Depends(get_task_service),
 ):
     """List suggested workflow phases for building templates."""
-    return service.get_phase_suggestions()
+    return service.get_phase_suggestions(tenant_key=ctx.tenant_key)
 
 
 @router.put("/phases/reorder", response_model=list[WorkflowPhaseResponse])

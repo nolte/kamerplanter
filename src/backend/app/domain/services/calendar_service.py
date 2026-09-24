@@ -91,7 +91,9 @@ class CalendarService:
         fertilizer_keys = CalendarAggregationEngine.forecast_fertilizer_keys(forecast_plants)
         if fertilizer_keys:
             try:
-                fertilizer_names = self._sources.get_fertilizer_product_names(fertilizer_keys)
+                fertilizer_names = self._sources.get_fertilizer_product_names(
+                    fertilizer_keys, tenant_key=query.tenant_key
+                )
             except Exception:  # noqa: BLE001 — names are a display hint; keys stand in
                 logger.warning("calendar_fertilizer_names_unavailable", exc_info=True)
 

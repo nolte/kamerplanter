@@ -5,7 +5,7 @@ from arango.database import StandardDatabase
 
 from app.common.datetimes import today_utc
 from app.common.enums import TaskStatus, TerminationType
-from app.common.types import PlantID, SlotKey, SpeciesKey
+from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -48,7 +48,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
     # ── Basic CRUD ────────────────────────────────────────────────────
 
-    def get_by_instance_id(self, instance_id: str, tenant_key: str = "") -> PlantInstance | None:
+    def get_by_instance_id(self, instance_id: str, *, tenant_key: str) -> PlantInstance | None:
         """Look up a plant by its (globally unique) ``instance_id``.
 
         ``instance_id`` carries a unique index, so a bare lookup already returns at
@@ -156,11 +156,6 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantInstance(**self._resolve_phase_name(self._from_doc(doc))) for doc in cursor]
-
-    # ── Species-based query ───────────────────────────────────────────
-
-    def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]:
-        return self.find_by_field("species_key", species_key)
 
     # ── Genetic lineage (REQ-017 / REQ-003 D10) ───────────────────────
 

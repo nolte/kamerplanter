@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
-from app.common.enums import AttachmentCategory, TaskOrigin
+from app.common.enums import AttachmentCategory, TaskOrigin, WorkflowTargetType
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -243,9 +243,9 @@ class TaskService:
             target_entity_type=target_entity_type,
         )
 
-    def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]:
-        """Return species_name and assigned plant count per workflow key."""
-        return self._repo.get_workflow_usage_stats(wf_keys)
+    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
+        """Return species_name and ``tenant_key``'s assigned entity count per workflow key (#1708)."""
+        return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key)
 
     def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
         wt = self._repo.get_workflow_template_or_raise(key)
@@ -464,8 +464,8 @@ class TaskService:
             self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
         return self._repo.reorder_phases(phase_orders)
 
-    def get_phase_suggestions(self) -> list[dict]:
-        return self._repo.get_phase_suggestions()
+    def get_phase_suggestions(self, *, tenant_key: str) -> list[dict]:
+        return self._repo.get_phase_suggestions(tenant_key=tenant_key)
 
     # ── Task Templates ──
 
@@ -824,14 +824,40 @@ class TaskService:
         template_key: str,
         entity_key: str,
         entity_type: str,
+        *,
+        tenant_key: str,
     ) -> WorkflowExecution:
         """Generate tasks from a workflow template for a specific entity.
 
         Tasks whose trigger_phase does not match the current phase are created
         with status 'dormant' for plant_instance entities and 'pending' for
         all other entity types (which have no phase concept).
+
+        ``tenant_key`` is required and keyword-only (#1708): every generated task
+        is stamped with it. Before, the tasks kept the model default ``""`` — and
+        since every task list filters strictly on the caller's tenant, a workflow
+        instantiated through the route produced tasks that appeared in *no*
+        tenant's list and counted for no tenant's usage statistics. An empty value
+        is refused rather than stamped, because it is that same silence spelled
+        differently. The template read is anchored on the same tenant, so a
+        foreign private template is a 404 here as it is at the route.
+
+        ``entity_type`` must be a :class:`WorkflowTargetType`: an execution on any
+        other type has no owner the execution list could resolve, so it would
+        exist and appear nowhere. Whether ``entity_key`` belongs to the tenant is
+        the caller's check (:class:`TaskEntityGuard`, as on ``POST /tasks``).
+
+        The :class:`WorkflowExecution` record itself carries no tenant; it belongs
+        to the entity it runs on, and every read resolves the owner there.
         """
-        wt = self.get_workflow_template(template_key)
+        if not tenant_key:
+            raise ValueError("instantiate_workflow requires a tenant_key")
+        try:
+            target_type = WorkflowTargetType(entity_type)
+        except ValueError as exc:
+            raise ValidationError(f"Unsupported workflow entity type '{entity_type}'.") from exc
+        entity_type = target_type.value
+        wt = self.get_workflow_template(template_key, tenant_key=tenant_key)
         templates = self._repo.get_task_templates_for_workflow(template_key)
 
         if not templates:
@@ -886,6 +912,7 @@ class TaskService:
                 template_key=tt.key,
                 workflow_execution_key=execution.key,
                 activity_key=tt.activity_key,
+                tenant_key=tenant_key,
             )
             created_task = self._repo.create_task(task)
 
@@ -1756,5 +1783,5 @@ class TaskService:
     def get_workflow_execution(self, key: str) -> WorkflowExecution:
         return self._repo.get_workflow_execution_or_raise(key)
 
-    def get_executions_for_template(self, template_key: str) -> list[dict]:
-        return self._repo.get_executions_for_template(template_key)
+    def get_executions_for_template(self, template_key: str, *, tenant_key: str) -> list[dict]:
+        return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key)

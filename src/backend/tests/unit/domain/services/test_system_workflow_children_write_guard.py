@@ -395,7 +395,7 @@ class TestWhatTheUiLegitimatelyDoesWithSystemWorkflowsStillWorks:
         )
         repo.create_task.side_effect = lambda task: task.model_copy(update={"key": "task-1"})
 
-        execution = service.instantiate_workflow(SYSTEM_WORKFLOW, "plant-1", "plant_instance")
+        execution = service.instantiate_workflow(SYSTEM_WORKFLOW, "plant-1", "plant_instance", tenant_key=TENANT_KEY)
 
         assert execution.workflow_template_key == SYSTEM_WORKFLOW
         repo.create_task.assert_called_once()

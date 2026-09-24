@@ -66,7 +66,7 @@ def create_log(
     result = service.create_log(log)
     created = result["log"]
     fert_keys = list({fu.fertilizer_key for fu in created.fertilizers_used})
-    fert_map = service.resolve_fertilizer_names(fert_keys) if fert_keys else {}
+    fert_map = service.resolve_fertilizer_names(fert_keys, tenant_key=ctx.tenant_key) if fert_keys else {}
     plant_map = service.resolve_plant_names(created.plant_keys, tenant_key=ctx.tenant_key) if created.plant_keys else {}
     return WateringLogWithWarnings(log=_log_response(created, plant_map, fert_map), warnings=result["warnings"])
 
@@ -82,7 +82,7 @@ def list_logs(
     all_plant_keys = list({pk for log in items for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_plant_keys, tenant_key=ctx.tenant_key) if all_plant_keys else {}
     all_fert_keys = list({fu.fertilizer_key for log in items for fu in log.fertilizers_used})
-    fert_map = service.resolve_fertilizer_names(all_fert_keys) if all_fert_keys else {}
+    fert_map = service.resolve_fertilizer_names(all_fert_keys, tenant_key=ctx.tenant_key) if all_fert_keys else {}
     return [_log_response(log, name_map, fert_map) for log in items]
 
 
@@ -96,7 +96,7 @@ def get_log(
     log = service.get_log(key, tenant_key=ctx.tenant_key)
     name_map = service.resolve_plant_names(log.plant_keys, tenant_key=ctx.tenant_key) if log.plant_keys else {}
     fert_keys = list({fu.fertilizer_key for fu in log.fertilizers_used})
-    fert_map = service.resolve_fertilizer_names(fert_keys) if fert_keys else {}
+    fert_map = service.resolve_fertilizer_names(fert_keys, tenant_key=ctx.tenant_key) if fert_keys else {}
     return _log_response(log, name_map, fert_map)
 
 
@@ -112,7 +112,7 @@ def update_log(
     updated = service.update_log(key, body.model_dump(exclude_unset=True))
     name_map = service.resolve_plant_names(updated.plant_keys, tenant_key=ctx.tenant_key) if updated.plant_keys else {}
     fert_keys = list({fu.fertilizer_key for fu in updated.fertilizers_used})
-    fert_map = service.resolve_fertilizer_names(fert_keys) if fert_keys else {}
+    fert_map = service.resolve_fertilizer_names(fert_keys, tenant_key=ctx.tenant_key) if fert_keys else {}
     return _log_response(updated, name_map, fert_map)
 
 
@@ -154,7 +154,7 @@ def get_plant_logs(
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks, tenant_key=ctx.tenant_key) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
-    fert_map = service.resolve_fertilizer_names(all_fks) if all_fks else {}
+    fert_map = service.resolve_fertilizer_names(all_fks, tenant_key=ctx.tenant_key) if all_fks else {}
     return [_log_response(log, name_map, fert_map) for log in logs]
 
 
@@ -173,7 +173,7 @@ def get_slot_logs(
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks, tenant_key=ctx.tenant_key) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
-    fert_map = service.resolve_fertilizer_names(all_fks) if all_fks else {}
+    fert_map = service.resolve_fertilizer_names(all_fks, tenant_key=ctx.tenant_key) if all_fks else {}
     return [_log_response(log, name_map, fert_map) for log in logs]
 
 
@@ -192,7 +192,7 @@ def get_location_logs(
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks, tenant_key=ctx.tenant_key) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
-    fert_map = service.resolve_fertilizer_names(all_fks) if all_fks else {}
+    fert_map = service.resolve_fertilizer_names(all_fks, tenant_key=ctx.tenant_key) if all_fks else {}
     return [_log_response(log, name_map, fert_map) for log in logs]
 
 

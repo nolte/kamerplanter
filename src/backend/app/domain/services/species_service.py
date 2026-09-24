@@ -269,7 +269,9 @@ class SpeciesService:
         (``system``/``enrichment``) record wins, then the most-populated one.
         """
         candidates = [
-            c for c in self._repo.find_synonym_match_candidates(species) if self._is_synonym_linked(species, c)
+            c
+            for c in self._repo.find_synonym_match_candidates(species, tenant_key=species.tenant_key)
+            if self._is_synonym_linked(species, c)
         ]
         new_count = _populated_field_count(species)
         fuller = [c for c in candidates if _populated_field_count(c) > new_count]

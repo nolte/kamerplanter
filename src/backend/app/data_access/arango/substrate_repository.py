@@ -110,9 +110,7 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
     def get_batch_or_raise(self, key: BatchKey) -> SubstrateBatch:
         return self._batches.get_or_raise(key)
 
-    def get_batches_by_substrate(
-        self, substrate_key: SubstrateKey, *, tenant_key: str | None = None
-    ) -> list[SubstrateBatch]:
+    def get_batches_by_substrate(self, substrate_key: SubstrateKey, *, tenant_key: str | None) -> list[SubstrateBatch]:
         """List a substrate's batches, scoped to one tenant (#1195).
 
         **Strict equality, not the hybrid union.** A batch belongs to exactly one

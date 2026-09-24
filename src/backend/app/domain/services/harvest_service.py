@@ -303,5 +303,5 @@ class HarvestService:
     def get_yield(self, batch_key: str) -> YieldMetric | None:
         return self._repo.get_yield_for_batch(batch_key)
 
-    def get_yield_stats(self, species_key: str, days_back: int = 365) -> dict:
-        return self._repo.get_yield_statistics_for_species(species_key, days_back)
+    def get_yield_stats(self, species_key: str, days_back: int = 365, *, tenant_key: str) -> dict:
+        return self._repo.get_yield_statistics_for_species(species_key, days_back, tenant_key=tenant_key)

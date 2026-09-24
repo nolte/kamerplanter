@@ -187,6 +187,21 @@ class TestFertilizerProductNames:
         fertilizers.insert({"_key": "f-named", "product_name": "Grow A"})
         fertilizers.insert({"_key": "f-nameless"})
 
-        names = ArangoCalendarSourceRepository(db).get_fertilizer_product_names(["f-named", "f-nameless", "f-ghost"])
+        names = ArangoCalendarSourceRepository(db).get_fertilizer_product_names(
+            ["f-named", "f-nameless", "f-ghost"], tenant_key="t1"
+        )
 
         assert names == {"f-named": "Grow A", "f-nameless": "f-nameless"}
+
+    def test_a_foreign_private_fertilizer_is_omitted_and_an_own_one_kept(self, db) -> None:
+        """#1708: the name lookup follows the catalogue's own ∪ global union."""
+        fertilizers = db.collection(col.FERTILIZERS)
+        fertilizers.insert({"_key": "f-own", "tenant_key": "t1", "product_name": "Own Blend"})
+        fertilizers.insert({"_key": "f-global", "tenant_key": "", "product_name": "Global Grow"})
+        fertilizers.insert({"_key": "f-foreign", "tenant_key": "t2", "product_name": "Secret Blend"})
+
+        names = ArangoCalendarSourceRepository(db).get_fertilizer_product_names(
+            ["f-own", "f-global", "f-foreign"], tenant_key="t1"
+        )
+
+        assert names == {"f-own": "Own Blend", "f-global": "Global Grow"}

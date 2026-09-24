@@ -262,11 +262,18 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
                 return self.get_phases_for_workflow(wf_key)
         return []
 
-    def get_phase_suggestions(self) -> list[dict]:
-        """Aggregate distinct phase names across all workflows with species info."""
+    def get_phase_suggestions(self, *, tenant_key: str) -> list[dict]:
+        """Aggregate distinct phase names across the workflows ``tenant_key`` may read.
+
+        Phase names are text a tenant typed into its own workflow. Aggregated
+        over every template they reached every other tenant's builder (#1708);
+        the workflow-template catalogue's own ∪ global union now bounds the set.
+        """
+        predicate, predicate_vars = tenant_union_predicate(tenant_key, doc_var="wf")
         query = (
             f"FOR p IN {col.WORKFLOW_PHASES} "
             f"  LET wf = DOCUMENT({col.WORKFLOW_TEMPLATES}, p.workflow_template_key) "
+            f"  FILTER wf != null AND {predicate} "
             f"  COLLECT name = p.name, trigger = p.trigger_phase "
             f"  AGGREGATE dur = MAX(p.duration_days), stress = MAX(p.stress_tolerance), "
             f"    cnt = LENGTH(1), species = UNIQUE(wf.species_compatible) "
@@ -277,7 +284,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             f"    used_by_species: FLATTEN(species) "
             f"  }}"
         )
-        return list(self._db.aql.execute(query))
+        return list(self._db.aql.execute(query, bind_vars=predicate_vars))
 
     # ── TaskTemplate ──
 
@@ -1061,8 +1068,14 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         self._db.aql.execute(delete_query, bind_vars={"key": wf_key})
         return count
 
-    def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]:
-        """Return species_name and assigned plant count per workflow key."""
+    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
+        """Return species_name and the tenant's assigned entity count per workflow key.
+
+        A system template is shared, its tasks are not: counted over every tenant,
+        ``entity_count`` told each tenant how many entities *all* tenants ran the
+        template on (#1708). Only ``tenant_key``'s tasks count.
+        """
+        self._require_tenant_key(tenant_key, "get_workflow_usage_stats")
         if not wf_keys:
             return {}
         query = f"""
@@ -1082,18 +1095,29 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           LET entity_keys = (
             FOR t IN {col.TASKS}
               FILTER t.template_key IN tt_keys AND t.entity_key != null
+              FILTER t.tenant_key == @tenant_key
               RETURN DISTINCT t.entity_key
           )
           RETURN {{ wf_key: wf_key, species_name: species_name, entity_count: LENGTH(entity_keys) }}
         """
-        cursor = self._db.aql.execute(query, bind_vars={"wf_keys": wf_keys})
+        cursor = self._db.aql.execute(query, bind_vars={"wf_keys": wf_keys, "tenant_key": tenant_key})
         result: dict[str, dict] = {}
         for row in cursor:
             result[row["wf_key"]] = {"species_name": row["species_name"], "entity_count": row["entity_count"]}
         return result
 
-    def get_executions_for_template(self, template_key: str) -> list[dict]:
-        """Return workflow executions for a template with enriched entity info."""
+    def get_executions_for_template(self, template_key: str, *, tenant_key: str) -> list[dict]:
+        """Return ``tenant_key``'s executions of a template, with enriched entity info.
+
+        ``WorkflowExecution`` carries no ``tenant_key``; it belongs to the entity
+        it runs on. A shared system template is readable by every tenant, so
+        before #1708 this list handed every tenant every other tenant's
+        executions of it — with plant, location, tank and run names. The owner is
+        read off the entity: its own ``tenant_key``, or for a location its site's
+        (``Location.tenant_key`` is never written, #1397). An execution whose
+        entity no longer resolves belongs to nobody and is not listed.
+        """
+        self._require_tenant_key(tenant_key, "get_executions_for_template")
         query = f"""
         FOR we IN {col.WORKFLOW_EXECUTIONS}
           FILTER we.workflow_template_key == @template_key
@@ -1111,6 +1135,12 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           LET run_doc = etype == 'planting_run'
             ? DOCUMENT(CONCAT('{col.PLANTING_RUNS}/', ekey))
             : null
+          LET loc_site = loc != null ? DOCUMENT(CONCAT('{col.SITES}/', loc.site_key)) : null
+          LET owner = plant != null ? plant.tenant_key
+            : (tank != null ? tank.tenant_key
+            : (run_doc != null ? run_doc.tenant_key
+            : (loc_site != null ? loc_site.tenant_key : null)))
+          FILTER owner == @tenant_key
           LET sp = plant != null AND plant.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', plant.species_key))
             : null
@@ -1134,7 +1164,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             completed_at: we.completed_at
           }}
         """
-        cursor = self._db.aql.execute(query, bind_vars={"template_key": template_key})
+        cursor = self._db.aql.execute(query, bind_vars={"template_key": template_key, "tenant_key": tenant_key})
         return list(cursor)
 
     # ── Dashboard counts (REQ-009) ──
