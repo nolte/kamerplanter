@@ -1,0 +1,47 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the operator's standing pre-approval of the gate for the
+# autonomous #1680 run, relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the
+# operator's machine with their environment, as `task` in this repository does.
+#
+# Spec row "Two personal-data inventories, one executing" (T2). Unlike the worked
+# example this probe acts: the enumeration the code actually runs is observed in
+# ArangoDB's query log while the real export and the real erasure execute
+# (disclosure reads, resp. writes, between marker queries), and each declared
+# inventory is listed only when every collection it declares was used. The anchor
+# is the export engine; a change confined to erasure_engine.py is not detected as
+# a declaration change of this probe (single-path anchor), but it is of
+# inventory-erasure-plan-reaches-rows.
+id: inventory-personal-data-inventories-execute
+summary: declared personal-data inventories that the executing export and erasure actually enumerate
+declaration:
+  source: inventory
+  path: src/backend/app/domain/engines/data_export_engine.py
+  location: DataExportEngine.USER_DATA_MANIFEST (L40) and ErasureEngine.build_erasure_plan (#1622)
+tier: T2
+expected:
+  kind: set
+  unit: declared inventories the executing paths enumerate
+  values:
+  - export-manifest
+  - erasure-plan
+derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:export:run-for-subject
+- reach:erasure:finalise-for-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_executing_inventory.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 300
+approval:
+  approved_at: '2026-09-24T04:46:06Z'
+  approved_by: nolte
+  observation_digest: 38c1d41959f0f33b1c9090366a04800fe2915708cf664d44001ab7b93b4fcc87

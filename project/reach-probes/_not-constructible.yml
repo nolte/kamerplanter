@@ -1,0 +1,31 @@
+# Not-constructible manifest; written by capability-reach-audit derive, read by the runner.
+# Empty `entries` means every declared entry received a probe; an absent file means nothing was recorded.
+#
+# Derive round of 2026-09-24 (#1680), scoped by the operator's brief to the declarations
+# behind the five worked-acceptance rows of spec/project/capability-reach-audit/: REQ-025
+# §3.1 (export manifest, erasure plan), the two engine inventories, the README reranker
+# row and the post-merge ZAP trigger. Other declarations were not inventoried this round.
+entries:
+- id: requirement-req025-art17-storage-cleanup-reaches-files
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: §3.1 ErasureEngine.STORAGE_CLEANUP_RULES (L588)
+  reason: missing_observation_helper
+  detail: Phase 0 hard-deletes the subject's profile/user_notes files and strips EXIF from diary, inspection,
+    treatment, harvest and plant photos in object storage. The seed writes attachment metadata without
+    bytes, and no helper counts the subject's remaining files or EXIF blocks under .reach/storage. Needs
+    a seed of one real file per category (with GPS EXIF) and scripts/reach/observe_storage_residue.py.
+  derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
+  recorded_at: '2026-09-24T04:46:06Z'
+- id: requirement-req025-art17-reference-index-cleanup
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: §3.1 Phase 0.5 _reference_index_cleanup (L687)
+  reason: missing_environment_target
+  detail: Phase 0.5 deletes the subject's user_contributed DINOv2 embeddings from pgvector (REQ-034 §5,
+    AK-OS-05). The reach stack runs no pgvector store and no target seeds a contributed embedding. Needs
+    a reach:vectordb:up target and a seed of one user_contributed embedding for the subject.
+  derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
+  recorded_at: '2026-09-24T04:46:06Z'
