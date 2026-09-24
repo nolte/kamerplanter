@@ -25,7 +25,8 @@ name: Lane inputs
 #   compare  diffs `reads`, `job_spec_sha256`, `status` and `invocations` of the
 #            committed manifests against the recording and fails on any
 #            difference — which is what gives a hand-edited `reads:` no path to
-#            green.
+#            green. `replay_seconds` is not compared (wall clock varies run to
+#            run); a replayed manifest without a plausible one is a finding.
 #
 # HOW TO REFRESH A MANIFEST. Not on a workstation. Run this lane (a pull request
 # that touches the paths below does, or `gh workflow run lane-inputs.yml --ref

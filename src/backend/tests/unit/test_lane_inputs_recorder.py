@@ -175,6 +175,7 @@ class TestTheContractIsTheSameInBothFiles:
     def test_schema_and_reason_floor(self, guard: ModuleType) -> None:
         assert recorder.SCHEMA == guard._SCHEMA, "a manifest written by this recorder must be one the guard accepts"
         assert recorder.MIN_REASON_CHARS == guard._MIN_REASON_CHARS
+        assert recorder.REPLAY_SECONDS_MAX == guard._REPLAY_SECONDS_MAX
 
     def test_a_reason_shorter_than_the_floor_is_refused_at_the_command_line(self) -> None:
         import argparse
@@ -248,8 +249,16 @@ def _committed(**overrides: object) -> dict:
         "subprocesses": ["python"],
         "accepted_gaps": [],
         "reads": ["src/backend/a.py", "src/backend/tests/"],
+        "replay_seconds": 120,
     }
     manifest.update(overrides)
+    return manifest
+
+
+def _unmeasured(**overrides: object) -> dict:
+    """A manifest as a workstation `record` (or the recorder before #1683's per-leg timeout) wrote it."""
+    manifest = _committed(**overrides)
+    del manifest["replay_seconds"]
     return manifest
 
 
@@ -617,7 +626,7 @@ class TestThePlanSizesEachLegsTimeoutFromItsMeasuredReplay:
 
     @pytest.mark.parametrize("value", [None, 0, -5, "600", True, 12.5, 5401])
     def test_a_leg_without_a_usable_measurement_gets_the_job_level_bound(self, tmp_path: Path, value: object) -> None:
-        manifest = _committed() if value is None else _committed(replay_seconds=value)
+        manifest = _unmeasured() if value is None else _committed(replay_seconds=value)
         _write(tmp_path, "w--j.yaml", manifest)
         (leg,) = recorder.plan_matrix(tmp_path)
         assert leg["timeout_minutes"] == recorder.TIMEOUT_CAP_MINUTES == 90
@@ -681,3 +690,39 @@ class TestCompareDoesNotTreatTheDurationAsDrift:
         _write(tmp_path / "recorded", "w--j.yaml", _committed(replay_seconds=900))
         findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
         assert findings == [], "wall-clock time varies run to run; it sizes a bound, it is not a read"
+
+
+class TestCompareHoldsTheDurationsPresence:
+    """The value is not compared; its absence where a replay happened is a finding (#1683 per-leg timeout)."""
+
+    def test_a_committed_manifest_with_invocations_and_no_duration_is_a_finding(self, tmp_path: Path) -> None:
+        _write(tmp_path / "committed", "w--j.yaml", _unmeasured())
+        _write(tmp_path / "recorded", "w--j.yaml", _committed())
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == [
+            "w--j.yaml: the committed manifest has no `replay_seconds`, so `plan` gives its leg the job-level "
+            "90-minute bound — commit the CI recording"
+        ]
+
+    def test_a_recording_without_a_duration_is_a_finding_against_the_recorder(self, tmp_path: Path) -> None:
+        _write(tmp_path / "committed", "w--j.yaml", _committed())
+        _write(tmp_path / "recorded", "w--j.yaml", _unmeasured())
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == ["w--j.yaml: the CI recording has no `replay_seconds` — the replay did not measure itself"]
+
+    @pytest.mark.parametrize("value", [0, 5401, "600", True, 12.5])
+    def test_a_hand_edited_duration_is_a_finding(self, tmp_path: Path, value: object) -> None:
+        _write(tmp_path / "committed", "w--j.yaml", _committed(replay_seconds=value))
+        _write(tmp_path / "recorded", "w--j.yaml", _committed())
+        (finding,) = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")[0]
+        assert "is not a whole number of seconds between 1 and 5400" in finding
+
+    def test_a_manifest_without_invocations_needs_none(self, tmp_path: Path) -> None:
+        _write(
+            tmp_path / "committed",
+            "w--changes.yaml",
+            _unmeasured(invocations=[], reads=[], empty_reads_reason="checkout and paths-filter only, nothing read"),
+        )
+        (tmp_path / "recorded").mkdir()
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == []

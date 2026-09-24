@@ -1361,6 +1361,21 @@ def _sample(paths: list[str], limit: int = 10) -> str:
 def manifest_differences(name: str, committed: dict[str, Any], recorded: dict[str, Any]) -> list[str]:
     """What the committed manifest claims that the CI recording of the same lane does not agree with."""
     findings: list[str] = []
+    # `replay_seconds` is not compared — wall clock varies run to run — but a
+    # manifest that was replayed must carry one: the committed side, or its leg
+    # is bounded at the job-level cap without anything saying so; the recorded
+    # side, or the recorder stopped measuring itself.
+    problem = replay_seconds_problem(committed)
+    if problem == "has no `replay_seconds`":
+        findings.append(
+            f"{name}: the committed manifest {problem}, so `plan` gives its leg the job-level "
+            f"{TIMEOUT_CAP_MINUTES}-minute bound — commit the CI recording"
+        )
+    elif problem is not None:
+        findings.append(f"{name}: the committed manifest's {problem} — commit the CI recording")
+    problem = replay_seconds_problem(recorded)
+    if problem is not None:
+        findings.append(f"{name}: the CI recording {problem} — the replay did not measure itself")
     if committed.get("job_spec_sha256") != recorded.get("job_spec_sha256"):
         findings.append(
             f"{name}: job_spec_sha256 {str(committed.get('job_spec_sha256'))[:12]} is not the live job's "
@@ -1401,7 +1416,8 @@ def compare_manifests(committed_dir: Path, recorded_dir: Path) -> tuple[list[str
     Not compared: when and where the recording ran (``measured_on``,
     ``measured_at_commit``, ``subprocesses``, ``untracked_reads_dropped``), how
     long it took (``replay_seconds`` — wall clock varies run to run; it sizes the
-    next run's step bound and is committed with the recording) and
+    next run's step bound and is committed with the recording, and only its
+    presence and range are held, on both sides) and
     the hand-written fields a replay carries over verbatim. A manifest with
     invocations that the recording lacks is a finding — its record leg failed
     or never ran, and silence there would read as agreement. A recorded manifest
