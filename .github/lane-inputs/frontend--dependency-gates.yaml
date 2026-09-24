@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: ef45659b8d60f6572db29b318dace5327bc96541
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: 94f86ae058c416572a5fad6867d67abffefa2c343efe9d1aee6b6aa71881ec1f
 invocations:
 - command: python3 ../../scripts/security/npm_audit_gate.py --omit-dev
@@ -26,7 +26,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1515
+  untracked_reads_dropped: 1514
 subprocesses:
 - license-checker-rseidelsohn
 - node

@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: ef45659b8d60f6572db29b318dace5327bc96541
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: b8977f9efdea4a7c6e59c0ee1f3d283453a63d41b861b1f18a6d67323435d43b
 invocations:
 - command: python3 scripts/ci/lane_inputs.py plan --github-output /tmp/lane-inputs-scratch/github_output

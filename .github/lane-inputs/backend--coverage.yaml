@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: ef45659b8d60f6572db29b318dace5327bc96541
+measured_at_commit: 6b694a459dff9ece4b649cb6dbdeb79593f0a531
 job_spec_sha256: f02dd45b332629d10825386a65a99c267f20ea94d5a37435613c6643e378ef23
 invocations:
 - command: pytest --cov=app --cov-report=term-missing --cov-report=xml --ignore=tests/integration
@@ -18,7 +18,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 7058
+  untracked_reads_dropped: 7047
 subprocesses:
 - awk
 - bash
@@ -257,7 +257,6 @@ reads:
 - .audits/
 - .audits/adr-008-phase-0-inventory/
 - .audits/agent-review/
-- .audits/capability-reach/
 - .audits/cicd-audit/
 - .audits/e2e-core-function-coverage/
 - .audits/e2e-tcid-drift/
@@ -407,13 +406,11 @@ reads:
 - .taskfiles/frontend.yaml
 - .taskfiles/libs.yaml
 - .taskfiles/mcp.yaml
-- .taskfiles/reach.yaml
 - .vscode/
 - Taskfile.yaml
 - brand/
 - docker-compose.e2e.ci.yml
 - docker-compose.e2e.yml
-- docker-compose.reach.yml
 - docker-compose.release.yml
 - docker-compose.security.override.yml
 - docker-compose.yml
@@ -428,6 +425,7 @@ reads:
 - docker/reranker-service/Dockerfile
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
+- docker/reranker-service/uv.lock
 - docker/vectordb/
 - docker/vectordb/Dockerfile
 - docs/
@@ -479,12 +477,10 @@ reads:
 - project/
 - project/features/
 - project/maturity/
-- project/reach-probes/
 - project/requirements/
 - project/sprints/
 - renovate.json5
 - scripts/
-- scripts/arango_repository_bindings.py
 - scripts/check_attest_registry_credentials.py
 - scripts/check_bdd_traceability.py
 - scripts/check_boundary_validation.py
@@ -524,12 +520,6 @@ reads:
 - scripts/kami/
 - scripts/kami/render.py
 - scripts/precommit_sibling_notice.sh
-- scripts/reach/
-- scripts/reach/_reach_common.py
-- scripts/reach/observe_erasure_residue.py
-- scripts/reach/observe_executing_inventory.py
-- scripts/reach/observe_export_archive.py
-- scripts/reach/observe_ranking_order.py
 - scripts/route_consumer_exemptions.yaml
 - scripts/security/
 - scripts/security/assert-nuclei-coverage.sh
@@ -1428,9 +1418,6 @@ reads:
 - src/backend/app/data_access/timescale/__init__.py
 - src/backend/app/data_access/timescale/connection.py
 - src/backend/app/data_access/timescale/migrations/
-- src/backend/app/data_access/timescale/migrations/001_create_hypertable.sql
-- src/backend/app/data_access/timescale/migrations/002_continuous_aggregates.sql
-- src/backend/app/data_access/timescale/migrations/003_retention_policies.sql
 - src/backend/app/data_access/timescale/null_observation_repository.py
 - src/backend/app/data_access/timescale/observation_repository.py
 - src/backend/app/data_access/timescale/schema.py
@@ -1733,7 +1720,6 @@ reads:
 - src/backend/app/domain/services/environment_snapshot_service.py
 - src/backend/app/domain/services/favorites_service.py
 - src/backend/app/domain/services/feeding_service.py
-- src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
 - src/backend/app/domain/services/glossary_service.py
 - src/backend/app/domain/services/ha_publish_service.py
@@ -1840,7 +1826,6 @@ reads:
 - src/backend/app/mcp_server/tools/tasks.py
 - src/backend/app/mcp_server/tools/tenants.py
 - src/backend/app/migrations/
-- src/backend/app/migrations/README.md
 - src/backend/app/migrations/__init__.py
 - src/backend/app/migrations/__main__.py
 - src/backend/app/migrations/acquire_pest_dataset.py
@@ -1867,7 +1852,6 @@ reads:
 - src/backend/app/migrations/seed_cultivation_flexible.py
 - src/backend/app/migrations/seed_data.py
 - src/backend/app/migrations/seed_data/
-- src/backend/app/migrations/seed_data/CONSISTENCY.md
 - src/backend/app/migrations/seed_data/activities.yaml
 - src/backend/app/migrations/seed_data/adventskalender.yaml
 - src/backend/app/migrations/seed_data/auth.yaml
@@ -2009,7 +1993,6 @@ reads:
 - src/backend/app/migrations/versions/v0056_stamp_attribution_user_keys.py
 - src/backend/app/migrations/versions/v0057_stamp_quality_assessor_user_key.py
 - src/backend/app/migrations/versions/v0058_stamp_nutrient_plan_species_relation.py
-- src/backend/app/migrations/versions/v0059_backfill_instantiated_task_tenant_key.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -2047,10 +2030,6 @@ reads:
 - src/backend/app/tasks/weather_tasks.py
 - src/backend/app/templates/
 - src/backend/app/templates/print/
-- src/backend/app/templates/print/base.html
-- src/backend/app/templates/print/care_checklist.html
-- src/backend/app/templates/print/nutrient_plan.html
-- src/backend/app/templates/print/plant_label.html
 - src/backend/pyproject.toml
 - src/backend/scripts/
 - src/backend/scripts/__init__.py
@@ -2206,13 +2185,11 @@ reads:
 - src/backend/tests/integration/test_care_profile_edge_concurrency.py
 - src/backend/tests/integration/test_care_profile_null_clearing.py
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
-- src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
-- src/backend/tests/integration/test_fertilizer_reference_tenant_visibility.py
 - src/backend/tests/integration/test_location_label_projection.py
 - src/backend/tests/integration/test_merge_mode_null_clearing.py
 - src/backend/tests/integration/test_nutrient_plan_species_matching.py
@@ -2237,7 +2214,6 @@ reads:
 - src/backend/tests/integration/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/integration/test_v0057_stamp_quality_assessor_user_key.py
 - src/backend/tests/integration/test_v0058_stamp_nutrient_plan_species_relation.py
-- src/backend/tests/integration/test_v0059_backfill_instantiated_task_tenant_key.py
 - src/backend/tests/support/
 - src/backend/tests/support/__init__.py
 - src/backend/tests/support/arango_integration.py
@@ -2638,7 +2614,6 @@ reads:
 - src/backend/tests/unit/domain/services/test_favorites_family_resolution.py
 - src/backend/tests/unit/domain/services/test_favorites_resolver_tenant_scope.py
 - src/backend/tests/unit/domain/services/test_favorites_tenant_predicate.py
-- src/backend/tests/unit/domain/services/test_fertilizer_references.py
 - src/backend/tests/unit/domain/services/test_fertilizer_stock_update.py
 - src/backend/tests/unit/domain/services/test_ha_publish_service.py
 - src/backend/tests/unit/domain/services/test_hardiness_zone_service.py
@@ -2774,8 +2749,6 @@ reads:
 - src/backend/tests/unit/guards/test_entity_name_vocabulary.py
 - src/backend/tests/unit/guards/test_execution_guards.py
 - src/backend/tests/unit/guards/test_favoritable_collections_declare_ownership.py
-- src/backend/tests/unit/guards/test_fertilizer_references_are_verified_on_write.py
-- src/backend/tests/unit/guards/test_hf_model_fetches_pin_a_revision.py
 - src/backend/tests/unit/guards/test_integration_databases_are_run_scoped.py
 - src/backend/tests/unit/guards/test_integration_tier_gate.py
 - src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py
@@ -2785,6 +2758,7 @@ reads:
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
+- src/backend/tests/unit/guards/test_onnx_export_toolchain_floor.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py
 - src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py
 - src/backend/tests/unit/guards/test_precommit_sibling_notice.py
@@ -2794,7 +2768,6 @@ reads:
 - src/backend/tests/unit/guards/test_settings_labels_fit_api.py
 - src/backend/tests/unit/guards/test_skaffold_render_assertion.py
 - src/backend/tests/unit/guards/test_spec_literal_discriminators_match_models.py
-- src/backend/tests/unit/guards/test_tenant_scoped_reads_are_derived.py
 - src/backend/tests/unit/guards/test_uv_pin_is_single.py
 - src/backend/tests/unit/guards/test_uv_pin_manager_covers_every_pin.py
 - src/backend/tests/unit/guards/test_workflow_install_bounds.py
@@ -2922,7 +2895,6 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0056_stamp_attribution_user_keys.py
 - src/backend/tests/unit/migrations/versions/test_v0057_stamp_quality_assessor_user_key.py
 - src/backend/tests/unit/migrations/versions/test_v0058_stamp_nutrient_plan_species_relation.py
-- src/backend/tests/unit/migrations/versions/test_v0059_backfill_instantiated_task_tenant_key.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -3004,7 +2976,6 @@ reads:
 - src/backend/tests/unit/test_plant_photo_service.py
 - src/backend/tests/unit/test_plant_scoped_route_tenant_check.py
 - src/backend/tests/unit/test_privacy_inventory_check.py
-- src/backend/tests/unit/test_reach_observation_helpers.py
 - src/backend/tests/unit/test_recurrence_boundary_check.py
 - src/backend/tests/unit/test_reference_contribution_task.py
 - src/backend/tests/unit/test_release_assets_check.py
