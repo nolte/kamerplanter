@@ -66,12 +66,16 @@ Der Export läuft danach asynchron im Hintergrund (dauert je nach Datenmenge 1�
 !!! info "Nur über API: Status prüfen & Datei herunterladen"
     Den Fortschritt einer laufenden Export-Anfrage abzufragen und die fertige Datei herunterzuladen ist in der Oberfläche noch nicht verdrahtet — dafür aktuell nur über die API: `GET /api/v1/privacy/export/{export_key}` liefert den Status, `GET /api/v1/privacy/export/{export_key}/download` liefert die Download-Metadaten (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
-Der Export enthält alle Daten, die dem System über dich bekannt sind:
-- Profildaten (Name, E-Mail, Einstellungen)
-- Alle angelegten Pflanzen, Standorte, Aufgaben und Ernten
-- Pflegeerinnerungen und Bestätigungshistorie
-- Sensordaten (wenn du welche hast)
-- Einwilligungshistorie
+Der Export enthält die Daten, die Kamerplanter dir als Person zuordnet:
+
+- dein Konto: Profil, Anmeldeverfahren, Sitzungen, API-Schlüssel (ohne den geheimen Schlüssel selbst), persönliche Einstellungen, Einrichtungsstand, Favoriten
+- deine Mitgliedschaften in Gärten, Einladungen und deinen persönlichen Garten
+- deine Datenschutz-Vorgänge: Einwilligungen, Einschränkungen, Lösch-, Export- und E-Mail-Änderungsanfragen
+- was du erfasst hast: Aufgaben und Kommentare, Tagebucheinträge, Ernten und Qualitätsbewertungen, Inspektionen und Behandlungen, Pflanzenbestimmungen und Diagnosen, Schädlingserkennungen, Anhänge und beigetragene Referenzbilder, Importe
+- deine Gespräche mit dem KI-Assistenten, ausgeblendete Tipps und die zugehörigen Protokolle
+- Benachrichtigungen und deren Einstellungen, Kalender-Feeds, Wetterquellen und manuelle Eingriffe in Geräte
+
+Pflanzen, Standorte und Sensordaten gehören dem Garten, nicht einer einzelnen Person. Sie sind deshalb nicht im persönlichen Export enthalten. Die Standort-Zuweisungen hängen an deiner Mitgliedschaft; welche Standorte dir zugewiesen sind, kann dir die Leitung deines Gartens zeigen.
 
 !!! tip "Datenportabilität"
     Die JSON-Export-Datei entspricht DSGVO Art. 20 (Datenportabilität). Du kannst sie nutzen, um deine Daten in ein anderes System zu übertragen.

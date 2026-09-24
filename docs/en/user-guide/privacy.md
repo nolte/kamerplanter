@@ -66,12 +66,16 @@ The export then runs asynchronously in the background (takes 1–5 minutes depen
 !!! info "API only: Checking status & downloading the file"
     Checking the progress of a running export request and downloading the finished file is not yet wired up in the interface — for now this only works via the API: `GET /api/v1/privacy/export/{export_key}` returns the status, `GET /api/v1/privacy/export/{export_key}/download` returns the download metadata (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
-The export contains all data the system knows about you:
-- Profile data (name, email, settings)
-- All created plants, locations, tasks and harvests
-- Care reminders and confirmation history
-- Sensor data (if you have any)
-- Consent history
+The export contains the data Kamerplanter attributes to you as a person:
+
+- your account: profile, sign-in methods, sessions, API keys (without the secret key itself), personal preferences, setup progress, favourites
+- your memberships in gardens, invitations and your personal garden
+- your privacy requests: consents, restrictions, erasure, export and email-change requests
+- what you recorded: tasks and comments, diary entries, harvests and quality assessments, inspections and treatments, plant identifications and diagnoses, pest detections, attachments and contributed reference images, imports
+- your conversations with the AI assistant, dismissed tips and the related logs
+- notifications and their settings, calendar feeds, weather sources and manual device overrides
+
+Plants, locations and sensor data belong to the garden, not to one person, so they are not part of your personal export. Location assignments hang off your membership; your garden's lead can show you which locations are assigned to you.
 
 !!! tip "Data portability"
     The JSON export file complies with GDPR Art. 20 (data portability). You can use it to transfer your data to another system.
