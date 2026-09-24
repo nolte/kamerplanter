@@ -75,16 +75,24 @@ class INutrientPlanRepository(ABC):
     # ── Onboarding / favourites reads (#1638) ───────────────────────
 
     @abstractmethod
-    def list_template_plan_summaries(self, *, tenant_key: str) -> list[dict]:
-        """Template plans visible to ``tenant_key`` (own ∪ global), each with its fertilizers.
+    def list_template_plan_summaries(self, *, tenant_key: str, species_keys: list[str]) -> list[dict]:
+        """Template plans visible to ``tenant_key`` (own ∪ global) linked to any of ``species_keys``.
 
         Every row is ``{plan_key, name, description, substrate_type,
-        fertilizer_count, fertilizers: [{key, product_name, brand}]}``. The
-        fertilizer set is the union of the ``plan_uses_fertilizer`` edges and the
-        dosages embedded in the phase entries' delivery channels.
+        species_keys, matched_species, fertilizer_count, fertilizers: [{key,
+        product_name, brand}]}``, sorted by the number of matched species
+        (descending), then by name. The fertilizer set is the union of the
+        ``plan_uses_fertilizer`` edges and the dosages embedded in the phase
+        entries' delivery channels.
 
-        ``tenant_key`` is keyword-only with no default (#948); an empty string is
-        the anonymous / light-mode context and collapses the union to global-only.
+        A plan matches when its ``species_keys`` relation shares at least one key
+        with ``species_keys`` (#1618). A plan with an empty or absent relation
+        matches **no** species, and an empty ``species_keys`` argument returns
+        nothing.
+
+        Both arguments are keyword-only with no default (#948): an omitted
+        predicate must not be spellable. An empty ``tenant_key`` is the anonymous
+        / light-mode context and collapses the union to global-only.
         """
         ...
 

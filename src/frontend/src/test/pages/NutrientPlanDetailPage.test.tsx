@@ -37,6 +37,13 @@ vi.mock('@/api/endpoints/fertilizers', () => ({
   fetchAllFertilizers: (...args: unknown[]) => fetchFertilizers(...args),
 }));
 
+// The edit tab's "suitable for" picker reads the species catalogue (#1618).
+const listAllSpecies = vi.fn();
+vi.mock('@/api/endpoints/species', () => ({
+  listAllSpecies: (...args: unknown[]) => listAllSpecies(...args),
+  getSpecies: vi.fn(),
+}));
+
 const downloadNutrientPlanPdf = vi.fn();
 vi.mock('@/api/endpoints/print', () => ({
   downloadNutrientPlanPdf: (...args: unknown[]) => downloadNutrientPlanPdf(...args),
@@ -70,6 +77,7 @@ function makePlan(overrides: Partial<NutrientPlan> = {}): NutrientPlan {
     is_template: false,
     version: '1.0',
     tags: [],
+    species_keys: [],
     cloned_from_key: null,
     watering_schedule: null,
     water_mix_ratio_ro_percent: null,
@@ -92,6 +100,29 @@ describe('NutrientPlanDetailPage', () => {
     updateNutrientPlan.mockReset().mockResolvedValue(makePlan());
     fetchFertilizers.mockReset().mockResolvedValue([]);
     downloadNutrientPlanPdf.mockReset().mockResolvedValue(new Blob(['x']));
+    listAllSpecies.mockReset().mockResolvedValue({
+      items: [{ key: 'solanum-lycopersicum', scientific_name: 'Solanum lycopersicum', common_names: ['Tomate'] }],
+      total: 1,
+      offset: 0,
+      limit: 1,
+    });
+  });
+
+  it('shows the linked species on the edit tab (#1618)', async () => {
+    fetchNutrientPlan.mockResolvedValue(makePlan({ species_keys: ['solanum-lycopersicum'] }));
+    // `useNavigate` is mocked in this suite, so a tab click cannot move the
+    // hash; the edit tab is opened through its URL instead.
+    renderWithProviders(<NutrientPlanDetailPage />, { route: '/plan#edit' });
+
+    expect(await screen.findByText('Tomate (Solanum lycopersicum)')).toBeInTheDocument();
+    expect(listAllSpecies).toHaveBeenCalled();
+  });
+
+  it('does not load the species catalogue while the edit tab is closed (#1618)', async () => {
+    renderWithProviders(<NutrientPlanDetailPage />);
+    await screen.findByTestId('nutrient-plan-detail-page');
+
+    expect(listAllSpecies).not.toHaveBeenCalled();
   });
 
   afterAll(() => {

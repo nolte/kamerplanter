@@ -561,6 +561,7 @@ def get_nutrient_plan_service() -> NutrientPlanService:
         get_fertilizer_repo(),
         NutrientPlanValidator(),
         site_repo=get_site_repo(),
+        species_repo=get_species_repo(),
     )
 
 

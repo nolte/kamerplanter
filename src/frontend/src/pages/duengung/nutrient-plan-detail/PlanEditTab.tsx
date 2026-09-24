@@ -19,7 +19,10 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
-import type { ScheduleMode } from '@/api/types';
+import SpeciesMultiAutocompleteField from '@/components/form/SpeciesMultiAutocompleteField';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
+import type { CatalogueReader } from '@/hooks/useCatalogue';
+import type { ScheduleMode, Species } from '@/api/types';
 import {
   substrateTypes,
   applicationMethods,
@@ -41,6 +44,8 @@ interface PlanEditTabProps {
   scheduleEnabled: boolean;
   weekdaySchedule: number[];
   onWeekdayToggle: (dayIndex: number) => void;
+  /** Species catalogue backing the "suitable for" picker (#1618). */
+  speciesCatalogue: CatalogueReader<Species>;
 }
 
 /**
@@ -60,6 +65,7 @@ export default function PlanEditTab({
   scheduleEnabled,
   weekdaySchedule,
   onWeekdayToggle,
+  speciesCatalogue,
 }: PlanEditTabProps) {
   const { t } = useTranslation();
 
@@ -155,6 +161,21 @@ export default function PlanEditTab({
               control={control}
               label={t('pages.nutrientPlans.tags')}
               placeholder={t('pages.nutrientPlans.tagsPlaceholder')}
+            />
+            {/* #1618: the species relation the onboarding plan match filters on.
+                Disabled until the catalogue is complete, and a failed load is
+                shown as such rather than as an empty picker (#1628). */}
+            <SpeciesMultiAutocompleteField
+              name="species_keys"
+              control={control}
+              label={t('pages.nutrientPlans.speciesKeys')}
+              helperText={t('pages.nutrientPlans.speciesKeysHelper')}
+              species={speciesCatalogue.items}
+              disabled={isReadOnly || speciesCatalogue.status !== 'ready'}
+            />
+            <CatalogueLoadError
+              reader={speciesCatalogue}
+              focusSelector="[data-testid='form-field-species_keys'] input"
             />
           </CardContent>
         </Card>

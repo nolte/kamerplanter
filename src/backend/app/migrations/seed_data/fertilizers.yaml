@@ -350,6 +350,9 @@ nutrient_plans:
   # Based on: https://www.advancednutrients.com/feeding/
   #           https://www.growbarato.net/blog/en/advanced-nutrients-feeding-chart/
   - name: "Advanced Nutrients pH Perfect Sensi — Cannabis"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       Vollständiges Düngeprogramm für Cannabis mit der pH Perfect Sensi-Serie
       von Advanced Nutrients. Enthält Basis A+B, Booster (Big Bud, Overdrive),
@@ -566,6 +569,9 @@ nutrient_plans:
   # Based on: https://www.advancednutrients.com/de/products/ph-perfect-grow-micro-bloom/
   #           https://www.advancednutrients.com/feeding/
   - name: "Advanced Nutrients pH Perfect GMB — Cannabis"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       Vollständiges Düngeprogramm für Cannabis mit der pH Perfect
       Grow-Micro-Bloom 3-Part-Serie von Advanced Nutrients.
@@ -796,6 +802,9 @@ nutrient_plans:
   #   Voodoo Juice/Piranha/Tarantula im Sensizym-Kanal (Wurzelphase);
   #   Nirvana im Free-Flow-Kanal (Blütephase).
   - name: "Advanced Nutrients GMB + PK 13-14 — Cannabis (Tank + Gießkanne)"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       Drei-Kanal-Düngeprogramm für Cannabis mit pH Perfect GMB 3-Part als Basis,
       erweitert um Ertragssteigerungs-Supplements.

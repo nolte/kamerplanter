@@ -173,6 +173,10 @@ Enter a name (e.g. "Tomatoes Raised Bed 2026") and optionally select a **recomme
 !!! note "The reference substrate for EC calculations is a separate field"
     The substrate Kamerplanter calculates EC tolerance and CalMag recommendations against (`reference_substrate_type`) is not shown when creating a plan and defaults to **soil**. You change it later on the **Edit** tab via the **"Reference Substrate (EC Calibration)"** field — visible from the **Expert** experience level upward.
 
+### Assign plant species
+
+On the **Edit** tab, **Suitable for plant species** sets which species the plan is meant for. You can pick several. The setup wizard suggests a plan marked as a template only for these species — a plan with no species assigned is never offered there. A clone keeps the original's assignment.
+
 ### Step 3: Add Phase Entries
 
 The new plan opens on the **Phase Entries** tab — it shows the phases as a Gantt timeline. For each growth phase add the fertilizer dosages:

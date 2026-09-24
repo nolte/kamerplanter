@@ -28,6 +28,8 @@ from tests.support.onboarding_wiring import build_favorites_service
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 TEST_DATABASE = run_database_name("onboarding_repositories")
+#: The species every template plan below is linked to (#1618).
+SPECIES = "solanum-lycopersicum"
 CALLER_TENANT = "tenant-alice"
 FOREIGN_TENANT = "tenant-bob"
 CALLER_USER = "users/alice"
@@ -107,16 +109,23 @@ class TestVisibleSpeciesKeys:
 class TestTemplatePlanSummaries:
     def test_a_foreign_template_plan_is_not_served_and_own_and_global_are(self, db) -> None:
         plans = db.collection(col.NUTRIENT_PLANS)
-        plans.insert({"_key": "plan-foreign", "tenant_key": FOREIGN_TENANT, "is_template": True})
-        plans.insert({"_key": "plan-global", "tenant_key": "", "is_template": True})
-        plans.insert({"_key": "plan-own", "tenant_key": CALLER_TENANT, "is_template": True})
+        # Every row is linked to the requested species (#1618), so only the
+        # tenant predicate decides here.
+        linked = {"is_template": True, "species_keys": [SPECIES]}
+        plans.insert({"_key": "plan-foreign", "tenant_key": FOREIGN_TENANT, **linked})
+        plans.insert({"_key": "plan-global", "tenant_key": "", **linked})
+        plans.insert({"_key": "plan-own", "tenant_key": CALLER_TENANT, **linked})
 
-        rows = ArangoNutrientPlanRepository(db).list_template_plan_summaries(tenant_key=CALLER_TENANT)
+        rows = ArangoNutrientPlanRepository(db).list_template_plan_summaries(
+            tenant_key=CALLER_TENANT, species_keys=[SPECIES]
+        )
 
         assert {row["plan_key"] for row in rows} == {"plan-global", "plan-own"}
 
     def test_the_fertilizer_projection_unions_edges_and_embedded_dosages(self, db) -> None:
-        db.collection(col.NUTRIENT_PLANS).insert({"_key": "plan-own", "tenant_key": CALLER_TENANT, "is_template": True})
+        db.collection(col.NUTRIENT_PLANS).insert(
+            {"_key": "plan-own", "tenant_key": CALLER_TENANT, "is_template": True, "species_keys": [SPECIES]}
+        )
         db.collection(col.FERTILIZERS).insert({"_key": "f-edge", "product_name": "Edge", "brand": "B"})
         db.collection(col.FERTILIZERS).insert({"_key": "f-embedded", "product_name": "Embedded", "brand": "B"})
         db.collection(col.NUTRIENT_PLAN_PHASE_ENTRIES).insert(
@@ -130,7 +139,9 @@ class TestTemplatePlanSummaries:
             {"_from": f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/pe-1", "_to": f"{col.FERTILIZERS}/f-edge"}
         )
 
-        (row,) = ArangoNutrientPlanRepository(db).list_template_plan_summaries(tenant_key=CALLER_TENANT)
+        (row,) = ArangoNutrientPlanRepository(db).list_template_plan_summaries(
+            tenant_key=CALLER_TENANT, species_keys=[SPECIES]
+        )
 
         assert row["fertilizer_count"] == 2
         assert {f["key"] for f in row["fertilizers"]} == {"f-edge", "f-embedded"}

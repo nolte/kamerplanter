@@ -280,13 +280,15 @@ class FavoritesService:
         *,
         tenant_key: str,
     ) -> list[dict]:
-        """Template nutrient plans the calling tenant may see (#1561).
+        """Template nutrient plans linked to any of ``species_keys`` that the tenant may see (#1561, #1618).
 
         **What this returns, stated once so the next reader does not have to
-        infer it from three disagreeing sources.** The name, the route docstring
-        and the body each used to pick a different reading — favourited plans,
-        species-matched plans, template plans. It returns *template* plans, and
-        only those visible to ``tenant_key``.
+        infer it from three disagreeing sources.** It returns *template* plans,
+        only those visible to ``tenant_key``, and only those whose
+        ``species_keys`` relation contains at least one requested species. A plan
+        with an empty relation matches no species (operator decision
+        2026-09-23, #1618); each row names the species it matched in
+        ``matched_species``.
 
         ``tenant_key`` reached nothing before this change: the AQL ran **without**
         ``bind_vars`` and its only filter was ``is_template == true OR
@@ -318,25 +320,17 @@ class FavoritesService:
         context and collapses the union to global-only, exactly as
         :meth:`_is_visible` does.
 
-        **``species_keys`` is not a filter, and this is measured, not assumed.**
-        There is no species↔plan relation in the graph: ``NutrientPlan`` carries
-        no species field, ``GRAPH_EDGE_DEFINITIONS`` declares no edge between the
-        two, and the one candidate — ``Species.default_nutrient_plan_key`` — is
-        set by **zero** of the seeded species (``grep -c default_nutrient_plan_key
-        app/migrations/seed_data/*.yaml`` → 0). Filtering on it would return an
-        empty list for every fresh installation, which is the #324
-        over-strictness class wearing the other mask. The parameter therefore
-        still only guards the empty-selection early return, which is an honest
-        short-circuit but not a filter, and the route says so. Giving it teeth
-        needs a relation in the data model, which is a separate change; tracked
-        in the follow-up issue linked from #1561.
+        **``species_keys`` is a filter since #1618.** Until then it was accepted
+        and ignored, because no species↔plan relation existed; the relation is
+        now ``NutrientPlan.species_keys``, maintained on the seeded template plans
+        from their source documents and editable on tenant plans. The filter runs
+        in the repository query, next to the visibility predicate, so a caller
+        cannot receive a row that failed either.
         """
         if not species_keys:
             return []
 
-        # The query lives in the repository that owns ``nutrient_plans`` (#1638),
-        # which is also where #1618's species filter will land.
-        return self._plan_repo.list_template_plan_summaries(tenant_key=tenant_key)
+        return self._plan_repo.list_template_plan_summaries(tenant_key=tenant_key, species_keys=species_keys)
 
     def cascade_fertilizers(self, user_key: str, nutrient_plan_key: str, *, tenant_key: str) -> list[dict]:
         """Traverse plan → entries → fertilizers and create cascade favorite edges.

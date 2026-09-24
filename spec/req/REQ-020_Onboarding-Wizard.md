@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Frontend (Backend-Unterstützung für Starter-Kits und Präferenzen)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.10 (Favoriten sind serverseitig — sechs Zieltypen)
+Version: 1.11 (Plan-Matching über die Art↔Plan-Relation)
 Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne), REQ-024 v1.3 (Platform-Tenant), REQ-027 v1.2 (Moduswechsel)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-001 v4.0 (Stammdaten-Scoping), REQ-004 v3.2 (Nährstoffpläne
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.11 | 2026-09-24 | **Nährstoffplan-Matching filtert auf eine echte Relation.** `get_matching_nutrient_plans` lieferte jeden für den Mandanten sichtbaren Vorlagen-Plan; die übergebenen `species_keys` wurden angenommen und ignoriert, weil das Datenmodell keine Beziehung zwischen Art und Plan kannte. Die Matching-Logik unten nannte „Tags, `recommended_substrate_type` oder `species_keys` auf dem StarterKit" — nichts davon trägt eine Art-Zuordnung. Betreiberentscheidung 2026-09-23: Die Relation ist `NutrientPlan.species_keys` (REQ-004), gepflegt auf den mitgelieferten Vorlagen aus deren Quelldokument, und **ein Plan ohne Relation passt zu keiner Art**. Rückfall auf Familien- oder Sortenebene ist nicht spezifiziert und nicht gebaut. (#1618) |
 | 1.10 | 2026-08-22 | **Favoriten sind serverseitig, und §2 nennt alle sechs Zieltypen.** Die Liste stand auf `species | nutrient_plans | fertilizers`, während `_resolve_collection` zusätzlich `activities` und `botanical_families` auflöste; Substrate waren in der Oberfläche favorisierbar und in **keiner** Anforderung als Ziel genannt — sie lagen nur im `localStorage`. Mit #1233 sind alle sechs serverseitig, und `add_favorite` kaskadiert dort, wo `DELETE` schon aufräumt: die in §1 zugesagte Dünger-Kaskade lief bis dahin ausschließlich im Onboarding-Assistenten. (#1233) |
 | 1.9 | 2026-08-22 | **Persönliche Datensätze: Rolle und Eigentümerprüfung getrennt.** Onboarding-Status, User Preferences und Favoriten trugen `Alle Rollen (eigene)` in den Schreibspalten — ein Ausdruck, den REQ-049 §3.1 nicht kennt und der nebenbei den Beobachter zum Schreiber machte. Jetzt `Alle Rollen` beim Lesen, `Ab Gärtner` beim Anlegen/Ändern/Löschen; dass jede Rolle ausschließlich den eigenen Satz erreicht, steht als Service-Prädikat in „Besonderheiten". REQ-049 §3.1 hält die Regel jetzt allgemein fest. (#1216) |
 | 1.8 | 2026-08-22 | **Favoriten-Router nennt den Pfad, der ausgeliefert wird.** §4 spezifizierte `/api/v1/favorites` — einen Pfad ohne Mandanten-Segment, den es nie gab; montiert ist ausschließlich `/api/v1/t/{tenant_slug}/favorites`. Alle neun Vorkommen (Routertabelle, Response-Beispiel, drei Abnahmekriterien) korrigiert. Neu ist der Absatz, **warum** der Pfad einen Mandanten trägt, obwohl die Daten nutzerglobal bleiben: `get_current_tenant` braucht ihn für die Mitgliedschaftsprüfung, und `_verify_target_tenant_access` braucht ihn, um mandantenbesessene Kataloge (#1090, #950) überhaupt aufzulösen. Diese Begründung stand bisher nur im Docstring des Routers. Die Aussage von REQ-049 §Abgrenzung und ADR-009 — Favoriten sind personenbezogen und werden von `X-Active-Tenant` nicht neu gebunden — bleibt unberührt und ist jetzt hier verlinkt. (#1232) |
@@ -514,11 +515,14 @@ class FavoritesService:
     ) -> list[dict]:
         """Findet NutrientPlans die zu den gegebenen Species passen.
 
-        Matching-Logik:
+        Matching-Logik (#1618):
         1. NutrientPlans mit is_template=true im Tenant oder global
-        2. Match über Tags, recommended_substrate_type oder
-           explizite species_keys auf dem StarterKit
-        3. Sortierung: Relevanz (Anzahl passender Species) absteigend
+        2. Match über die Relation NutrientPlan.species_keys (REQ-004):
+           ein Plan passt, wenn sie mindestens eine angefragte Species
+           enthält. Leere Relation = passt zu KEINER Species — Tags,
+           Name und recommended_substrate_type werden nicht ausgewertet.
+        3. Sortierung: Relevanz (Anzahl passender Species) absteigend,
+           dann Name
 
         Returns: Liste mit plan_key, name, description, matched_species,
                  fertilizer_count, difficulty_estimate

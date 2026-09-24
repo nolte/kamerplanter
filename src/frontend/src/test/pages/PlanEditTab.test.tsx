@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 import i18n from 'i18next';
 import PlanEditTab from '@/pages/duengung/nutrient-plan-detail/PlanEditTab';
 import type { EditFormData } from '@/pages/duengung/nutrient-plan-detail/nutrientPlanSchema';
-import type { ScheduleMode } from '@/api/types';
+import type { ScheduleMode, Species } from '@/api/types';
+import type { CatalogueReader, CatalogueStatus } from '@/hooks/useCatalogue';
 import { renderWithProviders, createStoreWithExpertise, type TestStore } from '../helpers';
 
 function defaults(): EditFormData {
@@ -18,6 +19,7 @@ function defaults(): EditFormData {
     is_template: false,
     version: '1',
     tags: [],
+    species_keys: [],
     schedule_enabled: true,
     schedule_mode: 'weekdays',
     weekday_schedule: [0],
@@ -31,6 +33,32 @@ function defaults(): EditFormData {
   };
 }
 
+const TOMATO = {
+  key: 'solanum-lycopersicum',
+  scientific_name: 'Solanum lycopersicum',
+  common_names: ['Tomate'],
+  genus: 'Solanum',
+  family_name: 'Solanaceae',
+} as Species;
+const BASIL = {
+  key: 'ocimum-basilicum',
+  scientific_name: 'Ocimum basilicum',
+  common_names: ['Basilikum'],
+  genus: 'Ocimum',
+  family_name: 'Lamiaceae',
+} as Species;
+
+function catalogue(status: CatalogueStatus = 'ready', items: Species[] = [TOMATO, BASIL]): CatalogueReader<Species> {
+  return {
+    name: 'species',
+    items: status === 'ready' ? items : [],
+    status,
+    error: status === 'failed' ? 'errors.generic' : null,
+    isEmpty: status === 'ready' && items.length === 0,
+    reload: vi.fn(),
+  };
+}
+
 interface HarnessProps {
   isReadOnly?: boolean;
   saving?: boolean;
@@ -41,6 +69,9 @@ interface HarnessProps {
   onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancel?: () => void;
   onWeekdayToggle?: (index: number) => void;
+  speciesCatalogue?: CatalogueReader<Species>;
+  speciesKeys?: string[];
+  onValues?: (values: EditFormData) => void;
 }
 
 function Harness({
@@ -53,13 +84,19 @@ function Harness({
   onSubmit = () => {},
   onCancel = () => {},
   onWeekdayToggle = () => {},
+  speciesCatalogue = catalogue(),
+  speciesKeys = [],
+  onValues = () => {},
 }: HarnessProps) {
-  const { control } = useForm<EditFormData>({ defaultValues: defaults() });
+  const { control, getValues } = useForm<EditFormData>({
+    defaultValues: { ...defaults(), species_keys: speciesKeys },
+  });
   return (
     <PlanEditTab
       control={control}
       onSubmit={(e) => {
         e.preventDefault();
+        onValues(getValues());
         onSubmit(e);
       }}
       isReadOnly={isReadOnly}
@@ -70,6 +107,7 @@ function Harness({
       scheduleEnabled={scheduleEnabled}
       weekdaySchedule={weekdaySchedule}
       onWeekdayToggle={onWeekdayToggle}
+      speciesCatalogue={speciesCatalogue}
     />
   );
 }
@@ -171,5 +209,62 @@ describe('PlanEditTab', () => {
     slider.focus();
     await user.keyboard('{ArrowRight}');
     expect(slider).toBeInTheDocument();
+  });
+
+  describe('species relation (#1618)', () => {
+    it('shows the linked species by name and keeps them in the form', async () => {
+      const user = userEvent.setup();
+      const onValues = vi.fn();
+      render({ speciesKeys: ['solanum-lycopersicum'], onValues });
+
+      expect(screen.getByText('Tomate (Solanum lycopersicum)')).toBeInTheDocument();
+      await user.click(screen.getByTestId('form-submit-button'));
+      expect(onValues.mock.calls[0][0].species_keys).toEqual(['solanum-lycopersicum']);
+    });
+
+    it('adds a species picked from the catalogue', async () => {
+      const user = userEvent.setup();
+      const onValues = vi.fn();
+      render({ onValues });
+
+      const input = screen.getByRole('combobox', { name: i18n.t('pages.nutrientPlans.speciesKeys') });
+      await user.click(input);
+      await user.type(input, 'Basil');
+      await user.click(await screen.findByRole('option', { name: 'Basilikum (Ocimum basilicum)' }));
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      expect(onValues.mock.calls[0][0].species_keys).toEqual(['ocimum-basilicum']);
+    });
+
+    it('keeps a linked key the catalogue does not hold instead of dropping it', async () => {
+      const user = userEvent.setup();
+      const onValues = vi.fn();
+      render({ speciesKeys: ['unknown-species'], onValues });
+
+      expect(screen.getByText('unknown-species')).toBeInTheDocument();
+      await user.click(screen.getByTestId('form-submit-button'));
+      expect(onValues.mock.calls[0][0].species_keys).toEqual(['unknown-species']);
+    });
+
+    it('explains what the relation does', () => {
+      render();
+      expect(screen.getByText(i18n.t('pages.nutrientPlans.speciesKeysHelper'))).toBeInTheDocument();
+    });
+
+    it('disables the picker while the catalogue is loading', () => {
+      render({ speciesCatalogue: catalogue('loading') });
+      expect(screen.getByRole('combobox', { name: i18n.t('pages.nutrientPlans.speciesKeys') })).toBeDisabled();
+    });
+
+    it('shows a failed catalogue load instead of an empty picker', () => {
+      render({ speciesCatalogue: catalogue('failed') });
+      expect(screen.getByRole('combobox', { name: i18n.t('pages.nutrientPlans.speciesKeys') })).toBeDisabled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+
+    it('disables the picker for a read-only plan', () => {
+      render({ isReadOnly: true });
+      expect(screen.getByRole('combobox', { name: i18n.t('pages.nutrientPlans.speciesKeys') })).toBeDisabled();
+    });
   });
 });

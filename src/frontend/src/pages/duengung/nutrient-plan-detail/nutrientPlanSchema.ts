@@ -30,6 +30,7 @@ export const editSchema = z.object({
   is_template: z.boolean(),
   version: z.string().max(50),
   tags: z.array(z.string()),
+  species_keys: z.array(z.string()),
   schedule_enabled: z.boolean(),
   schedule_mode: z.enum(['weekdays', 'interval']),
   weekday_schedule: z.array(z.number()),
