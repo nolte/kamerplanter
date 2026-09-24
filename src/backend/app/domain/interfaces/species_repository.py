@@ -18,6 +18,15 @@ class ISpeciesRepository(ABC):
     def get_or_raise(self, key: SpeciesKey) -> Species: ...
 
     @abstractmethod
+    def list_visible_keys(self, *, tenant_key: str) -> set[str] | None:
+        """Keys of every species ``tenant_key`` can see: own ∪ global ∪ granted.
+
+        ``None`` only when the ``species`` collection does not exist; an empty set
+        is a real answer. Other datastore errors propagate.
+        """
+        ...
+
+    @abstractmethod
     def get_by_scientific_name(self, name: str) -> Species | None: ...
 
     @abstractmethod

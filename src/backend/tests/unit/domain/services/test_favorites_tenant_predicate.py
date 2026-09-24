@@ -28,6 +28,7 @@ import pytest
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.domain.services.favorites_service import FavoritesService
+from tests.support.onboarding_wiring import build_favorites_service
 
 CALLER_TENANT = "tenant-alice"
 FOREIGN_TENANT = "tenant-bob"
@@ -72,7 +73,7 @@ class _FakeDb:
 
 def _service(rows_by_collection: dict[str, dict[str, dict]]) -> tuple[FavoritesService, _FakeDb]:
     db = _FakeDb(rows_by_collection)
-    return FavoritesService(db), db  # type: ignore[arg-type]
+    return build_favorites_service(db), db  # type: ignore[arg-type]
 
 
 def test_favorite_global_hybrid_entry_succeeds() -> None:

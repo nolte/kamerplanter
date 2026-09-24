@@ -27,6 +27,12 @@ their own ``StandardDatabase`` stood untouched. So the tests drive BOTH spelling
 against constructed trees, and one asserts that a module using the spelling the
 issue's own grep could not see is still caught.
 
+**Rule 2 has no allowlist since #1638.** The four modules it once recorded were
+moved behind repositories and the entry mechanism was removed, so
+:class:`TestRuleTwoCannotBeSatisfiedByListing` pins both halves: the mechanism is
+gone, and re-adding a handle to any of the four formerly-recorded modules — in a
+copy of the real ``app/domain`` — turns the gate red.
+
 Traces to the 2026-08-08 issue-pattern audit, measure P1.3 (no TC-ID: a
 source-tree gate is not a user-facing case).
 """
@@ -34,6 +40,7 @@ source-tree gate is not a user-facing case).
 from __future__ import annotations
 
 import json
+import shutil
 import textwrap
 from collections.abc import Callable
 from pathlib import Path
@@ -451,36 +458,6 @@ class TestBusinessLogicHandles:
         assert "hold or reach a persistence handle" in out
         assert "services/s.py" in out
 
-    def test_a_recorded_crossing_is_not_a_violation(
-        self, build_domain: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        root = build_domain(modules={"services/s.py": "class S:\n    def __init__(self, db):\n        self._db = db\n"})
-        sites = checker.collect_handles(root)
-        allow = (
-            checker.AllowedHandle(
-                path=sites[0].relative(),
-                marker="handle",
-                reason="recorded for this test, with a reason long enough to argue with",
-            ),
-        )
-        violations, obsolete = checker.classify_handles(sites, allow)
-        assert violations == []
-        assert obsolete == []
-
-    def test_an_entry_matching_nothing_fails_the_check(self, build_domain: Callable[..., Path]) -> None:
-        """The half that rots — same rule rule 1 carries."""
-        root = build_domain(modules={"services/clean.py": "X = 1\n"})
-        allow = (
-            checker.AllowedHandle(
-                path="src/backend/app/domain/services/gone.py",
-                marker="handle",
-                reason="stale entry, kept after the crossing was removed",
-            ),
-        )
-        violations, obsolete = checker.classify_handles(checker.collect_handles(root), allow)
-        assert violations == []
-        assert [entry.path for entry in obsolete] == ["src/backend/app/domain/services/gone.py"]
-
     def test_a_missing_handle_root_is_a_usage_error_not_a_pass(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -499,18 +476,15 @@ class TestTheRealTree:
         """Rule 2 on the real ``app/domain``; ``main([])`` runs both rules."""
         assert checker.main([]) == checker.EXIT_OK
 
-    def test_auth_service_is_not_on_the_handle_allowlist(self) -> None:
-        """#1556's two sites are GONE, not recorded.
+    def test_the_business_logic_holds_no_handle_at_all(self) -> None:
+        """Not "no unrecorded one": rule 2 has nothing to record into (#1638).
 
-        An allowlist entry would have satisfied the gate just as well and left
-        the defect in place — this pins which of the two happened.
+        #1556's two ``auth_service`` sites and #1638's four modules are all GONE,
+        which this asserts directly on the scan rather than through an allowlist
+        an entry could have satisfied.
         """
-        recorded = [entry.path for entry in checker.ALLOWED_HANDLES]
-        assert "src/backend/app/domain/services/auth_service.py" not in recorded
-
-    def test_every_handle_allowlist_entry_names_a_reason_worth_reading(self) -> None:
-        thin = [f"{entry.path}: {entry.marker}" for entry in checker.ALLOWED_HANDLES if len(entry.reason) < 60]
-        assert not thin, "handle-allowlist entries with a reason too short to argue with:\n" + "\n".join(thin)
+        sites = checker.collect_handles(checker.REPO_ROOT / checker.DEFAULT_HANDLE_SCAN_ROOT)
+        assert [f"{site.relative()}:{site.line}: {site.marker}" for site in sites] == []
 
     def test_every_allowlist_entry_names_a_reason_worth_reading(self) -> None:
         """A one-word reason is a rubber stamp, and the allowlist IS the review.
@@ -521,3 +495,46 @@ class TestTheRealTree:
         """
         thin = [f"{entry.path}: {entry.module}" for entry in checker.ALLOWED_IMPORTS if len(entry.reason) < 60]
         assert not thin, "allowlist entries with a reason too short to argue with:\n" + "\n".join(thin)
+
+
+#: The modules rule 2 recorded before #1638, with a handle spelling to re-add.
+_FORMERLY_RECORDED = {
+    "services/favorites_service.py": "from arango.database import StandardDatabase\n",
+    "services/starter_kit_service.py": "\n\ndef _probe(db):\n    return db.aql.execute('RETURN 1')\n",
+    "services/onboarding_service.py": "\n\nclass _Holder:\n    def __init__(self, db):\n        self._db = db\n",
+    "engines/calendar_aggregation_engine.py": "\n\ndef _reach(repo):\n    return getattr(repo, '_db')\n",
+}
+
+
+class TestRuleTwoCannotBeSatisfiedByListing:
+    """#1638 acceptance: the allowlist reached zero and the mechanism went with it."""
+
+    def test_there_is_no_handle_allowlist_to_add_an_entry_to(self) -> None:
+        leftovers = [
+            name for name in ("ALLOWED_HANDLES", "AllowedHandle", "classify_handles") if hasattr(checker, name)
+        ]
+        assert leftovers == [], f"the rule-2 entry mechanism is back: {leftovers}"
+
+    @pytest.mark.parametrize("relative", sorted(_FORMERLY_RECORDED))
+    def test_re_adding_a_handle_to_a_formerly_recorded_module_fails(
+        self, relative: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A copy of the REAL ``app/domain`` with one handle re-introduced goes red.
+
+        The real tree rather than a constructed one, so the test also proves the
+        rest of ``app/domain`` stays clean around the injected site — a green
+        baseline, then one line, then red.
+        """
+        real = checker.REPO_ROOT / checker.DEFAULT_HANDLE_SCAN_ROOT
+        domain = tmp_path / "app" / "domain"
+        shutil.copytree(real, domain, ignore=shutil.ignore_patterns("__pycache__"))
+        assert checker.main(["--handle-scan-root", str(domain)]) == checker.EXIT_OK
+        capsys.readouterr()
+
+        target = domain / relative
+        target.write_text(target.read_text(encoding="utf-8") + _FORMERLY_RECORDED[relative], encoding="utf-8")
+
+        assert checker.main(["--handle-scan-root", str(domain)]) == checker.EXIT_DEFECTS
+        out = capsys.readouterr().out
+        assert relative in out
+        assert "no allowlist" in out

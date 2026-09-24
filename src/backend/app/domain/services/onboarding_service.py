@@ -13,22 +13,36 @@ from app.domain.engines.onboarding_engine import OnboardingEngine
 from app.domain.models.onboarding import OnboardingState, PlantConfig
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Site
+from app.domain.services.favorites_service import FavoritesService
 from app.domain.services.singleton_document import pick_singleton
 from app.domain.services.starter_kit_service import StarterKitService
+from app.domain.services.user_preference_service import UserPreferenceService
 
 logger = structlog.get_logger()
 
 
 class OnboardingService:
-    def __init__(self, db, starter_kit_service: StarterKitService) -> None:
-        # Service-embedded dict view: the methods below wrap the raw dict into
-        # OnboardingState themselves, so the repository stays in raw mode
-        # (FR-002 A3). It is a named class since #1516 — ``onboarding_states``
-        # needs full-replace null semantics or ``reset_wizard`` cannot clear the
-        # previous run's selections.
-        self._repo = ArangoOnboardingStateRepository(db)
-        self._db = db
+    def __init__(
+        self,
+        state_repo: ArangoOnboardingStateRepository,
+        starter_kit_service: StarterKitService,
+        *,
+        favorites_service: FavoritesService,
+        user_preference_service: UserPreferenceService,
+    ) -> None:
+        # Raw-mode repository: the methods below wrap the raw dict into
+        # OnboardingState themselves (FR-002 A3). It is a named class since #1516 —
+        # ``onboarding_states`` needs full-replace null semantics or
+        # ``reset_wizard`` cannot clear the previous run's selections.
+        #
+        # Every collaborator is injected (#1638). This service used to keep the
+        # ``StandardDatabase`` only to build FavoritesService and
+        # UserPreferenceService from it on demand, which made it a holder of a
+        # persistence handle without ever querying through one.
+        self._repo = state_repo
         self._kit_service = starter_kit_service
+        self._favorites = favorites_service
+        self._preferences = user_preference_service
         self._engine = OnboardingEngine()
 
     def _stored(self, user_key: str) -> OnboardingState | None:
@@ -160,9 +174,7 @@ class OnboardingService:
         fav_plans = favorite_nutrient_plan_keys or []
 
         if fav_species or fav_plans:
-            from app.domain.services.favorites_service import FavoritesService
-
-            fav_service = FavoritesService(self._db)
+            fav_service = self._favorites
             for species_key in fav_species:
                 with contextlib.suppress(ValueError, Exception):
                     fav_service.add_favorite(user_key, species_key, tenant_key=tenant_key, source="onboarding")
@@ -199,10 +211,7 @@ class OnboardingService:
         if smart_home_enabled is not None:
             pref_updates["smart_home_enabled"] = smart_home_enabled
         if pref_updates:
-            from app.domain.services.user_preference_service import UserPreferenceService
-
-            pref_service = UserPreferenceService(self._db)
-            pref_service.update_preferences(user_key, pref_updates)
+            self._preferences.update_preferences(user_key, pref_updates)
 
         return {
             "status": "completed",
@@ -388,9 +397,7 @@ class OnboardingService:
         """
         state = self._materialise(user_key)
 
-        from app.domain.services.favorites_service import FavoritesService
-
-        fav_service = FavoritesService(self._db)
+        fav_service = self._favorites
         for edge in fav_service.list_favorites(user_key):
             if edge.get("source") not in ("onboarding", "cascade"):
                 continue

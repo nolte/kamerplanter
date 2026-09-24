@@ -166,10 +166,9 @@ def _materialise_preferences(db, user_key: str) -> str | None:
 
 
 def _materialise_onboarding_state(db, user_key: str) -> str | None:
-    from app.domain.services.onboarding_service import OnboardingService
-    from app.domain.services.starter_kit_service import StarterKitService
+    from tests.support.onboarding_wiring import build_onboarding_service
 
-    return OnboardingService(db, StarterKitService(db)).save_progress(user_key, 2).key
+    return build_onboarding_service(db).save_progress(user_key, 2).key
 
 
 def test_concurrent_first_preferences_write_yields_one_document_and_no_error(db):

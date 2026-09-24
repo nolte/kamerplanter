@@ -179,11 +179,9 @@ def test_reading_the_widget_catalog_writes_nothing(monkeypatch: pytest.MonkeyPat
 
 def _onboarding_service(repo: _CountingSingletonRepo):
     """The real service, really constructed — see :func:`_preference_service`."""
-    from app.domain.services.onboarding_service import OnboardingService
-    from app.domain.services.starter_kit_service import StarterKitService
+    from tests.support.onboarding_wiring import build_onboarding_service
 
-    db = MagicMock()
-    service = OnboardingService(db, StarterKitService(db))
+    service = build_onboarding_service(MagicMock())
     service._repo = repo  # type: ignore[assignment]
     return service
 

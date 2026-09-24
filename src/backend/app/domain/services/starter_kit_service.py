@@ -1,16 +1,16 @@
 from app.common.exceptions import NotFoundError
-from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.starter_kit_repository import ArangoStarterKitRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.starter_kit import StarterKit
 
 
 class StarterKitService:
-    def __init__(self, db) -> None:
-        from app.data_access.arango import collections as col
-
-        # Service-embedded dict view: methods below wrap the raw dict into
-        # StarterKit themselves, so opt into raw mode (FR-002 A3).
-        self._repo = BaseArangoRepository(db, col.STARTER_KITS, raw=True)
-        self._db = db
+    def __init__(self, kit_repo: ArangoStarterKitRepository, species_repo: ISpeciesRepository) -> None:
+        # Raw-mode kit repository: the methods below wrap the raw dict into
+        # StarterKit themselves (FR-002 A3). Species visibility is asked of the
+        # species repository, which owns that collection (#1638).
+        self._repo = kit_repo
+        self._species_repo = species_repo
 
     def list_kits(self, difficulty: str | None = None) -> list[StarterKit]:
         if difficulty:
@@ -82,33 +82,17 @@ class StarterKitService:
         treated as one.
         """
         try:
-            if not self._db.has_collection("species"):
-                return None
-            cursor = self._db.aql.execute(
-                """
-                FOR doc IN species
-                    FILTER doc.tenant_key == @tenant_key
-                        OR doc.tenant_key == ""
-                        OR doc.tenant_key == null
-                        OR LENGTH(
-                            FOR edge IN tenant_has_access
-                                FILTER edge._from == CONCAT("tenants/", @tenant_key)
-                                FILTER edge._to == doc._id
-                                LIMIT 1
-                                RETURN 1
-                        ) > 0
-                    RETURN doc._key
-                """,
-                bind_vars={"tenant_key": tenant_key},
-            )
-            return set(cursor)
+            return self._species_repo.list_visible_keys(tenant_key=tenant_key)
         except Exception:
             return None
 
     def get_kit_detail_for_tenant(self, kit_id: str, tenant_key: str) -> dict:
         """Get a single kit with per-species availability flags for a tenant."""
         kit = self.get_kit_by_id(kit_id)
-        accessible_species = self._get_accessible_species_keys(tenant_key)
+        # `_visible_species_keys`, not the `_get_accessible_species_keys` that stood
+        # here: #1201 renamed the helper and left this caller behind, so the detail
+        # route raised AttributeError (500) for every request since.
+        accessible_species = self._visible_species_keys(tenant_key)
         availability = []
         for sk in kit.species_keys:
             available = accessible_species is None or sk in accessible_species

@@ -21,7 +21,7 @@ def mock_engine():
 
 @pytest.fixture
 def service(mock_repo, mock_engine):
-    return CalendarService(mock_repo, mock_engine)
+    return CalendarService(mock_repo, mock_engine, MagicMock())
 
 
 class TestCreateFeed:
@@ -120,7 +120,7 @@ class TestGenerateIcalForFeed:
         )
         feed.key = "f1"
         mock_repo.get_by_token.return_value = feed
-        mock_engine.get_events.return_value = []
+        mock_engine.aggregate.return_value = []
 
         result = service.generate_ical_for_feed("f1", "tok123")
 

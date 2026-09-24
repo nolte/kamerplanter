@@ -139,11 +139,6 @@ _REVIEWED: dict[str, str] = {
         "SAFE — `watering_log_key` is a local initialised to None and only ever written onto a "
         "newly created CareConfirmation."
     ),
-    "favorites_service::_add_one": (
-        "SAFE — the `cascade_from_key` clear is a raw driver write "
-        "(`self._db.collection(...).update(...)`), and python-arango's `keep_none` default is "
-        "True, so the null is stored. Not a BaseArangoRepository path at all."
-    ),
     "import_service::confirm": (
         "SAFE — the name is `update_fn`, a local callable initialised to None; no model field."
     ),
@@ -233,7 +228,6 @@ _SITE_REPOSITORY: dict[str, str | None] = {
     "planting_run_service::_reassign_plant_slots": "plant_instance_repository.ArangoPlantInstanceRepository",
     "actuator_service::_dispatch": None,
     "care_reminder_service::confirm_reminder": None,
-    "favorites_service::_add_one": None,
     "import_service::confirm": None,
     "plant_photo_service::assess_photo": None,
     "privacy_service::grant_consent": "consent_repository.ArangoConsentRepository",

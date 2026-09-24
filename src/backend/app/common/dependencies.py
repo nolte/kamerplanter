@@ -971,22 +971,45 @@ def get_mcp_dispatcher():
 # ── REQ-020 Onboarding dependencies ────────────────────────────────
 
 
+def get_favorites_repo():
+    from app.data_access.arango.favorites_repository import ArangoFavoritesRepository
+
+    return ArangoFavoritesRepository(get_db())
+
+
 def get_favorites_service():
     from app.domain.services.favorites_service import FavoritesService
 
-    return FavoritesService(get_db())
+    return FavoritesService(get_favorites_repo(), get_nutrient_plan_repo())
+
+
+def get_starter_kit_repo():
+    from app.data_access.arango.starter_kit_repository import ArangoStarterKitRepository
+
+    return ArangoStarterKitRepository(get_db())
 
 
 def get_starter_kit_service():
     from app.domain.services.starter_kit_service import StarterKitService
 
-    return StarterKitService(get_db())
+    return StarterKitService(get_starter_kit_repo(), get_species_repo())
+
+
+def get_onboarding_state_repo():
+    from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
+
+    return ArangoOnboardingStateRepository(get_db())
 
 
 def get_onboarding_service():
     from app.domain.services.onboarding_service import OnboardingService
 
-    return OnboardingService(get_db(), get_starter_kit_service())
+    return OnboardingService(
+        get_onboarding_state_repo(),
+        get_starter_kit_service(),
+        favorites_service=get_favorites_service(),
+        user_preference_service=get_user_preference_service(),
+    )
 
 
 def get_user_preference_service():
@@ -1162,7 +1185,13 @@ def get_calendar_feed_repo():
 def get_calendar_aggregation_engine():
     from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
 
-    return CalendarAggregationEngine(get_db())
+    return CalendarAggregationEngine()
+
+
+def get_calendar_source_repo():
+    from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
+
+    return ArangoCalendarSourceRepository(get_db())
 
 
 def get_calendar_service():
@@ -1171,6 +1200,7 @@ def get_calendar_service():
     return CalendarService(
         get_calendar_feed_repo(),
         get_calendar_aggregation_engine(),
+        get_calendar_source_repo(),
         species_repo=get_species_repo(),
         site_repo=get_site_repo(),
         planting_run_service=get_planting_run_service(),
