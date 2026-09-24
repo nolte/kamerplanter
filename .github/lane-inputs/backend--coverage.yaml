@@ -127,13 +127,6 @@ accepted_gaps:
     guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
     this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
-- pattern: docker-compose.reach.yml
-  reason: 'Read by tests/unit/migrations/test_e2e_admin_env_containment.py, which globs docker-compose*.yml. The guards
-    lane runs that same module as a child pytest: tests/unit/guards/test_execution_guards.py::_run_tier starts it and
-    asserts returncode 0, so a containment violation in this file reds backend-guards.yml/guards, which runs unfiltered on
-    every pull request (measured with strace -f, #1730). The guard holds this read against the guards lane''s manifest,
-    so if _run_tier stops running that module, this gap turns red.'
-  covered_by: backend-guards.yml/guards
 - pattern: docker-compose.release.yml
   reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
     which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
