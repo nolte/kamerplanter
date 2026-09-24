@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -283,6 +284,8 @@ export default function SubstrateDetailPage() {
               );
             })}
           </Box>
+          {/* Lookup only: a failed load leaves the components as raw keys (#1628). */}
+          <CatalogueLoadError reader={substrateCatalogue} impact="lookup" />
         </Box>
       )}
 

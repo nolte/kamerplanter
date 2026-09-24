@@ -166,6 +166,21 @@ describe('SubstrateDetailPage', () => {
     expect(screen.getByText('sub-unknown: 50%')).toBeTruthy();
   });
 
+  it('says the component catalogue failed instead of leaving raw keys unexplained (#1628)', async () => {
+    useSubstrate({
+      is_mix: true,
+      mix_components: [{ substrate_key: 'sub-2', fraction: 0.5 }],
+    } as never);
+    server.use(http.get('/api/v1/substrates', () => errorEnvelope(500)));
+    renderWithProviders(<SubstrateDetailPage />);
+
+    const element = await screen.findByTestId('catalogue-load-error-substrates');
+    expect(element.textContent).toContain(i18n.t('common.catalogue.loadFailedLookup'));
+    expect(screen.getByTestId('catalogue-load-error-substrates-retry')).toBeTruthy();
+    // The chip still renders, as its key — the page is usable, merely unresolved.
+    expect(screen.getByText('sub-2: 50%')).toBeTruthy();
+  });
+
   it('falls back to a type/brand label when the substrate has no name', async () => {
     // name_de/name_en null exercises the reset `?? ''` and the title `|| fallback`.
     useSubstrate({ name_de: null, name_en: null } as never);

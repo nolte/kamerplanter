@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -192,6 +193,7 @@ export default function CompanionPlantingPage() {
         getOptionLabel={speciesOptionLabel}
         isOptionEqualToValue={(option, value) => option.key === value.key}
         loading={catalogueLoading}
+        disabled={speciesCatalogue.status === 'failed'}
         // "Keine Art gefunden" is a false statement while the catalogue request
         // is still in flight — and indistinguishable, to a user and to a test,
         // from a genuinely empty catalogue.
@@ -288,6 +290,15 @@ export default function CompanionPlantingPage() {
             data-testid="species-select"
           />
         )}
+      />
+      {/*
+        A failed load is its own state, not "no species found" (#1628). The
+        add-relation dialog below needs no second element: it opens only for a
+        species picked from this list, so it is unreachable while this failed.
+      */}
+      <CatalogueLoadError
+        reader={speciesCatalogue}
+        focusSelector="[data-testid='species-select'] input"
       />
 
       {/* Persistent legend (not hover-dependent, so it works on touch too) mapping

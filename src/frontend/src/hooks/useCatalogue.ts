@@ -30,15 +30,18 @@ import { fetchSubstrates } from '@/store/slices/substratesSlice';
  *
  * Both follow from the same cause: the loader was duplicated instead of shared.
  *
- * **What is closed and what is not.** This hook *makes the three states
- * available*; it does not make a consumer render them. Measured over the tree:
- * **two of sixteen** call sites render a failure distinctly — the two #1568
- * named. Fourteen still show a failed load as an empty list, which is no worse
- * than the `.catch(() => {})` they replaced and no better either; four of those
- * back a mandatory field, where "empty" actively misleads. Enumerated in #1628.
- * Until that lands, treat defect 2 above as closed *at the two sites #1568
- * named*, and as merely reachable everywhere else.
- * So does a third, which is why this went unseen for two milestones —
+ * **Rendering the failure.** This hook *makes the three states available*; it
+ * cannot make a consumer render them. #1628 measured that only two of sixteen
+ * call sites did, and the other fourteen showed a failed load as an empty list.
+ * The ready-made element for that is `CatalogueLoadError`
+ * (`components/common/CatalogueLoadError.tsx`): it takes this reader, renders
+ * nothing unless `status` is `failed`, and carries the retry. The rule for every
+ * call site is to render it next to what the catalogue feeds — and disable a
+ * picker while `status !== 'ready'` — or to state in a comment why not.
+ * `WorkflowDetailPage` and `SpeciesCreateDialog` keep their own `ErrorDisplay`
+ * branch from #1568 because it is coupled to their retry-focus handling.
+ *
+ * A third defect is why this went unseen for two milestones —
  * `scripts/check_seed_catalogue_page_size.py` binds **one** owning module per
  * catalogue (the slice), and a picker in a different module is invisible to it.
  *
@@ -94,7 +97,8 @@ import { fetchSubstrates } from '@/store/slices/substratesSlice';
  *
  * @example
  * const families = useCatalogue('botanicalFamilies', { enabled: open });
- * if (families.status === 'failed') return <ErrorDisplay error={families.error!} onRetry={families.reload} />;
+ * <CatalogueLoadError reader={families} />
+ * <FormSelectField disabled={families.status !== 'ready'} … />
  */
 
 /** Rows a catalogue name resolves to. */
@@ -140,6 +144,8 @@ export type CatalogueStatus = 'loading' | 'ready' | 'failed';
 
 /** What {@link useCatalogue} returns. */
 export interface CatalogueReader<T> {
+  /** Which catalogue this reader reads — lets `CatalogueLoadError` name it. */
+  name: CatalogueName;
   /** The complete catalogue once `status` is `ready`; `[]` before that. */
   items: T[];
   status: CatalogueStatus;
@@ -370,11 +376,12 @@ export function useCatalogue<K extends CatalogueName>(
     const status: CatalogueStatus =
       state.status === 'ready' && !isComplete ? 'loading' : state.status;
     return {
+      name,
       items,
       status,
       error: state.error,
       isEmpty: status === 'ready' && items.length === 0,
       reload,
     };
-  }, [items, isComplete, state.status, state.error, reload]);
+  }, [name, items, isComplete, state.status, state.error, reload]);
 }

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -126,6 +127,15 @@ export default function LineagePanel(): ReactElement {
 
   return (
     <Grid container spacing={3}>
+      {/*
+        Lookup only: a failed load would otherwise render every species in the
+        lineage and graft results as "unknown species" (#1628).
+      */}
+      {speciesCatalogue.status === 'failed' && (
+        <Grid size={12}>
+          <CatalogueLoadError reader={speciesCatalogue} impact="lookup" />
+        </Grid>
+      )}
       {/* Ancestry / descendants */}
       <Grid size={{ xs: 12, md: 6 }}>
         <Card variant="outlined">

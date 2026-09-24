@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import TipCardsPanel from '@/components/ai/TipCardsPanel';
 import { isLightMode } from '@/config/mode';
@@ -2781,8 +2782,14 @@ export default function PlantInstanceDetailPage() {
                     label={t('pages.plantInstances.substrate')}
                     helperText={t('pages.plantInstances.substrateHelper')}
                     substrates={substrateCatalogue.items}
+                    disabled={substrateCatalogue.status !== 'ready'}
                   />
                 </FormRow>
+                {/* A failed load is its own state, not an empty picker (#1628). */}
+                <CatalogueLoadError
+                  reader={substrateCatalogue}
+                  focusSelector="[data-testid='form-field-substrate_key'] input"
+                />
                 <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
               </CardContent>
             </Card>

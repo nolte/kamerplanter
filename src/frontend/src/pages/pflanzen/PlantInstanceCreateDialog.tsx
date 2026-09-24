@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -445,7 +446,9 @@ export default function PlantInstanceCreateDialog({
                 label={t('entities.species')}
                 required
                 autoFocus
-                disabled={!!initialSpeciesKey || !!duplicateFrom}
+                disabled={
+                  !!initialSpeciesKey || !!duplicateFrom || speciesCatalogue.status !== 'ready'
+                }
                 species={speciesCatalogue.items}
               />
             </Box>
@@ -467,6 +470,21 @@ export default function PlantInstanceCreateDialog({
               />
             </Box>
           </Box>
+          {/*
+            A failed load is its own state, not an empty mandatory picker
+            (#1628). With a preset species the field is locked, so the failure
+            only costs the species' display name — no picker to return focus
+            to in that case.
+          */}
+          <CatalogueLoadError
+            reader={speciesCatalogue}
+            impact={initialSpeciesKey || duplicateFrom ? 'lookup' : 'picker'}
+            focusSelector={
+              initialSpeciesKey || duplicateFrom
+                ? undefined
+                : "[data-testid='form-field-species_key'] input"
+            }
+          />
           <FormRow>
             <FormSelectField
               name="cultivar_key"
@@ -648,6 +666,11 @@ export default function PlantInstanceCreateDialog({
             label={t('pages.plantInstances.substrate')}
             helperText={t('pages.plantInstances.substrateHelper')}
             substrates={substrateCatalogue.items}
+            disabled={substrateCatalogue.status !== 'ready'}
+          />
+          <CatalogueLoadError
+            reader={substrateCatalogue}
+            focusSelector="[data-testid='form-field-substrate_key'] input"
           />
 
           <LocationAssignmentSection

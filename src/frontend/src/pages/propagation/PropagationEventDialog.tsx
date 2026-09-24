@@ -1,4 +1,5 @@
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -169,6 +170,14 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
                 ? t('pages.propagation.fields.speciesLoading')
                 : t('pages.propagation.fields.speciesKeyHelper')
             }
+          />
+          {/*
+            A failed load is its own state, not an empty picker (#1628). A
+            successful retry returns focus to the species field.
+          */}
+          <CatalogueLoadError
+            reader={speciesCatalogue}
+            focusSelector="[data-testid='form-field-species_key'] input"
           />
 
           <Divider sx={{ my: 2 }} />

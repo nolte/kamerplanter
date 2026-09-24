@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -327,6 +328,7 @@ export default function SpeciesCompanionTab({
             value={companionTargetKey}
             onChange={(e) => setCompanionTargetKey(e.target.value)}
             helperText={t('pages.companionPlanting.targetSpeciesHelper')}
+            disabled={speciesCatalogue.status !== 'ready'}
             sx={{ mt: 1, mb: 2 }}
             data-testid="target-species-select"
           >
@@ -338,6 +340,11 @@ export default function SpeciesCompanionTab({
                 </MenuItem>
               ))}
           </TextField>
+          {/* A failed load is its own state, not an empty picker (#1628). */}
+          <CatalogueLoadError
+            reader={speciesCatalogue}
+            focusSelector="[data-testid='target-species-select'] [role='combobox']"
+          />
           {companionDialogType === 'compatible' && (
             <TextField
               type="number"

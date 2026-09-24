@@ -351,7 +351,20 @@
       "typical": "Typical"
     },
     "failed": "Failed",
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "catalogue": {
+      "loadFailedTitle": "{{catalogue}} could not be loaded",
+      "loadFailedPicker": "The selection stays locked until the list has loaded. An empty selection here does not mean there are no entries. Check your connection and try again.",
+      "loadFailedLookup": "Names from this list may therefore be missing or shown only as an identifier. Check your connection and try again.",
+      "names": {
+        "activities": "The activity list",
+        "botanicalFamilies": "The list of plant families",
+        "fertilizers": "The fertilizer list",
+        "nutrientPlans": "The list of nutrient plans",
+        "species": "The species list",
+        "substrates": "The substrate list"
+      }
+    }
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
