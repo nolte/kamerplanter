@@ -37,6 +37,9 @@ mapping, testcontainers), and a ``docker run`` whose ``run`` and ``-p`` sit in
 different strings of a shell script (a function wrapping ``docker run "$@"``).
 None exists in this checkout (``git grep`` for ``ports=``, ``testcontainers``,
 ``DockerContainer(`` on 2026-09-25); a new one needs its own reading here.
+A kind cluster's ``extraPortMappings`` (``kind-config.yaml``, no
+``listenAddress`` → ``0.0.0.0``) is a publish by another tool and is tracked
+as #1756, not read here.
 
 Each entry must name a loopback host address (``127.0.0.0/8`` or ``::1``).
 Environment interpolation is resolved the way Compose resolves it with the
