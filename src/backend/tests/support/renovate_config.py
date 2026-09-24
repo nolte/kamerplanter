@@ -15,6 +15,9 @@ duplication that lets one copy be fixed and the other keep lying.
 
 from __future__ import annotations
 
+import json
+from typing import Any
+
 
 def strip_comments(text: str) -> str:
     """Drop whole-line ``//`` comments.
@@ -59,3 +62,81 @@ def array_value(text: str, key: str) -> str | None:
             if depth == 0:
                 return text[opening : index + 1]
     return None
+
+
+_JSON5_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
+
+
+def _skip_blank_and_comments(text: str, index: int) -> int:
+    """First index at or after *index* that is neither whitespace nor a comment."""
+    while index < len(text):
+        if text[index].isspace():
+            index += 1
+        elif text.startswith("//", index):
+            newline = text.find("\n", index)
+            index = len(text) if newline == -1 else newline + 1
+        elif text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            index = len(text) if end == -1 else end + 2
+        else:
+            break
+    return index
+
+
+def json5_to_json(text: str) -> str:
+    """Rewrite the JSON5 subset ``renovate.json5`` uses into strict JSON.
+
+    Added for ``test_renovate_automerge_policy`` (NFR-009 §3.4), which asserts
+    WHERE a key sits — top level versus inside a ``packageRules`` entry — and a
+    textual reader cannot tell those apart without guessing from indentation.
+    The subset is exactly what the file uses: ``//`` and ``/* */`` comments,
+    single- and double-quoted strings with backslash escapes, unquoted
+    identifier keys, trailing commas. Comments are dropped by a tokenizer that
+    knows it is inside a string, so the ``//`` of ``https://`` and of every
+    ``/…/`` regex survives — the case ``strip_comments`` above deliberately does
+    not handle. Anything outside the subset reaches ``json.loads`` unchanged
+    and fails there loudly, which is the intended failure mode.
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char in "'\"":
+            quote, index, chars = char, index + 1, []
+            while text[index] != quote:
+                if text[index] == "\\":
+                    escaped = text[index + 1]
+                    chars.append(_JSON5_ESCAPES.get(escaped, escaped))
+                    index += 2
+                else:
+                    chars.append(text[index])
+                    index += 1
+            index += 1
+            out.append(json.dumps("".join(chars)))
+        elif text.startswith("//", index) or text.startswith("/*", index):
+            index = _skip_blank_and_comments(text, index)
+            out.append("\n")
+        elif char.isalpha() or char in "_$":
+            end = index
+            while end < len(text) and (text[end].isalnum() or text[end] in "_$"):
+                end += 1
+            word = text[index:end]
+            out.append(word if word in ("true", "false", "null") else json.dumps(word))
+            index = end
+        elif char == ",":
+            following = _skip_blank_and_comments(text, index + 1)
+            if following < len(text) and text[following] not in "]}":
+                out.append(",")
+            index += 1
+        else:
+            out.append(char)
+            index += 1
+    return "".join(out)
+
+
+def load(text: str) -> dict[str, Any]:
+    """``renovate.json5`` as the object Renovate reads, via :func:`json5_to_json`."""
+    config = json.loads(json5_to_json(text))
+    if not isinstance(config, dict):
+        raise ValueError("renovate.json5 does not hold an object at its top level")
+    return config

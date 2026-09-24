@@ -317,6 +317,11 @@ branches:
       # by the required status checks and by the `review` / `security-review`
       # step in the pull-request-merge flow, not by branch protection.
       #
+      # Renovate pull requests take neither path: since 2026-09-24 Renovate
+      # merges them itself once EVERY check on the head is green
+      # (`platformAutomerge: false` in renovate.json5, NFR-009 §3.4). A review
+      # requirement would block that path as well.
+      #
       # Revisit if a second regular contributor appears: at that point the
       # approval stops being self-approval and starts being a review.
       # `restrictions: null` is load-bearing, not a tidy-up. The commons declare
