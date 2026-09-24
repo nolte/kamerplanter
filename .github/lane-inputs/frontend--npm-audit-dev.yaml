@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
-replay_seconds: 4
-job_spec_sha256: 6ef72619fa427d0912e47a28a963eb28e79274e041ed5382b85ae108958b153f
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 3
+job_spec_sha256: b37af46f8e47cf65d0a0c9b70ca64d6df022be27dab5cdcae7a4f6340202175c
 invocations:
 - command: python3 ../../scripts/security/npm_audit_gate.py
   cwd: src/frontend

@@ -10,9 +10,9 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-24'
-measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
 replay_seconds: 1
-job_spec_sha256: 47b77e553245cc387ebe639dbd4b14d7bbc7d26501c87d7179594259f3ba48a3
+job_spec_sha256: fb788497fc80674eb8c2ed056871164c8ad65c3e971fad292abc77266e3593de
 invocations:
 - command: bash -c 'VERSION_NUM="${VERSION#v}"; sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > /tmp/lane-inputs-scratch/docker-compose-x.yml;
     cp .env.example /tmp/lane-inputs-scratch/.env.example-x'

@@ -11,9 +11,9 @@ gate:
   filter: knowledge
 status: derived
 measured_on: '2026-09-24'
-measured_at_commit: 432a80a7485feabf41e02f8c2dfdd369761e8ac5
-replay_seconds: 3
-job_spec_sha256: e4535970c17f6704c5278b5083860a73a2de5dfecb57e6173e30ed1a4293d13f
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+replay_seconds: 4
+job_spec_sha256: 38e7a57643a98c5af30d272b9d86207d7b4567b06c4098c4bec454e55a1d94b5
 invocations:
 - command: derive-docker --context . --dockerfile docker/knowledge/Dockerfile
   cwd: .
