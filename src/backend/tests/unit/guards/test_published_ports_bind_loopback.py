@@ -35,7 +35,14 @@ files the defect was found in:
 * the same flags in a Python argv sequence (``["docker", "run", "-p", …]`` or a
   call to a helper whose name contains an engine), read from the AST, an
   f-string rendered with its placeholders so ``f"127.0.0.1::{port}"`` keeps its
-  literal host.
+  literal host;
+* a kind cluster config (``kind: Cluster``, ``apiVersion: kind.x-k8s.io/…``)
+  in any tracked YAML file, fenced YAML block or shell heredoc (#1756): every
+  ``extraPortMappings`` entry is a host publish of the node container and must
+  name a loopback ``listenAddress`` (kind's default is ``0.0.0.0``), and an
+  explicit ``networking.apiServerAddress`` must be loopback. An
+  ``apiVersion: kind.x-k8s.io/…`` line that does not sit in a config this
+  module could read fails.
 
 This module itself is not read: its text is its fixtures.
 
@@ -48,9 +55,9 @@ that does not parse and is not named like one; a Markdown YAML block that does
 not parse and has no ``ports:`` / ``network_mode:`` line. None of the first
 three exists in this checkout (``git grep`` for ``ports=``, ``testcontainers``,
 ``DockerContainer(`` on 2026-09-25); a new one needs its own reading here. A
-kind cluster's ``extraPortMappings`` (``kind-config.yaml``, no
-``listenAddress`` → ``0.0.0.0``) is a publish by another tool and is tracked
-as #1756, not read here. And a loopback bind is only as good as the engine:
+kind cluster already running keeps the binding it was created with — the
+config is read, not the cluster — and a kind config in a file type the text
+sweep does not read (see ``_eligible``) is not seen. And a loopback bind is only as good as the engine:
 Docker Engine before 28.0 let hosts on the same L2 segment reach ports
 published on ``127.0.0.1`` (moby's ``route_localnet`` fix) — not checkable from
 the repository.
@@ -75,7 +82,10 @@ unbound Compose entries above, the ``--publish 8080:80`` in
 ``.taskfiles/mcp.yaml``, ``-P`` in ``scripts/ci/smoke_model_image.sh``, every
 ``docker run -p 8529:8529`` the integration tests' docstrings tell a developer
 to run (with ``rootpassword``), the two GitHub Actions publishes and the
-Compose examples in REQ-027 (Light mode) and NFR-001.
+Compose examples in REQ-027 (Light mode) and NFR-001. The kind sweep (#1756),
+run against develop 0c217e570, failed with the two ingress mappings (80, 443)
+of ``kind-config.yaml`` and the 16 ``extraPortMappings`` entries of the three
+``cat > kind-config.yaml <<EOF`` examples in NFR-004.
 """
 
 from __future__ import annotations
@@ -844,6 +854,168 @@ def sweep_markdown(root: Path, tracked: list[str]) -> tuple[list[Finding], set]:
     return findings, set()
 
 
+# ------------------------------------------------------------------ kind clusters
+
+#: kind publishes a node container's port on the host through the cluster
+#: config, not through a ``docker run`` this module could read: every
+#: ``extraPortMappings`` entry becomes a ``-p <listenAddress>:<hostPort>:…`` of
+#: the node container, and ``listenAddress`` defaults to ``0.0.0.0``
+#: (kind.sigs.k8s.io/docs/user/configuration, "0.0.0.0 is the current
+#: default"). ``networking.apiServerAddress`` is the same kind of bind for the
+#: API server; its default is ``127.0.0.1``, so only an explicit value is read.
+#: kind interpolates no environment variable in its config, so there is no
+#: overridable spelling and no allow-list here.
+_KIND_API_VERSION = "kind.x-k8s.io/"
+_KIND_API_LINE = re.compile(r"^[ \t]*apiVersion:[ \t]*[\"']?kind\.x-k8s\.io/", re.MULTILINE)
+_KIND_MAPPING_KEYS = {"containerPort", "hostPort", "listenAddress", "protocol"}
+_HEREDOC = re.compile(
+    r"<<-?[ \t]*(?P<quote>['\"]?)(?P<tag>[A-Za-z_]\w*)(?P=quote)[^\n]*\n(?P<body>.*?)^[ \t]*(?P=tag)[ \t]*$",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def is_kind_cluster(document: Any) -> bool:
+    return (
+        isinstance(document, dict)
+        and document.get("kind") == "Cluster"
+        and str(document.get("apiVersion", "")).startswith(_KIND_API_VERSION)
+    )
+
+
+def _yaml_regions(path: str, text: str) -> list[tuple[int, int, str]]:
+    """``(start, end, body)`` of every place a YAML document can sit in ``text``.
+
+    A YAML file is one region. Any other text contributes its fenced YAML
+    blocks (de-indented as in :func:`markdown_compose_blocks`) and its shell
+    heredoc bodies — a spec that tells a developer to ``cat > kind-config.yaml
+    <<EOF`` is a config as surely as the file.
+    """
+    if path.endswith((".yml", ".yaml")):
+        return [(0, len(text), text)]
+    regions = []
+    for match in _FENCE.finditer(text):
+        indent = match.group("indent")
+        body = "\n".join(row[len(indent) :] for row in match.group("body").splitlines())
+        regions.append((match.start(), match.end(), body))
+    regions += [(match.start(), match.end(), match.group("body")) for match in _HEREDOC.finditer(text)]
+    return sorted(regions)
+
+
+def _line_of(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
+def kind_clusters(path: str, text: str) -> tuple[list[tuple[str, dict[str, Any]]], list[str]]:
+    """The kind cluster configs written in ``text``, and every one this guard cannot read.
+
+    Fail closed: each ``apiVersion: kind.x-k8s.io/…`` line must lie inside a
+    region that parsed into a kind ``Cluster`` document; one that does not — a
+    region that does not parse, a config embedded in a form not read here — is
+    reported, never skipped.
+    """
+    clusters: list[tuple[str, dict[str, Any]]] = []
+    covered: list[tuple[int, int]] = []
+    for start, end, body in _yaml_regions(path, text):
+        if _KIND_API_VERSION not in body:
+            continue
+        try:
+            documents = list(yaml.load_all(body, Loader=_StringLoader))  # noqa: S506 — SafeLoader subclass
+        except yaml.YAMLError:
+            continue
+        found = [document for document in documents if is_kind_cluster(document)]
+        if not found:
+            continue
+        covered.append((start, end))
+        where = path if (start, end) == (0, len(text)) else f"{path}:{_line_of(text, start)}"
+        clusters += [(where, document) for document in found]
+    broken = [
+        f"{path}:{_line_of(text, match.start())}: a kind cluster config this guard cannot read"
+        for match in _KIND_API_LINE.finditer(text)
+        if not any(start <= match.start() < end for start, end in covered)
+    ]
+    return clusters, broken
+
+
+def _judge_kind_address(where: str, raw: str, address: Any, missing: str) -> Finding | None:
+    if address is None:
+        return Finding(where, "kind", raw, missing)
+    try:
+        verdict = judge_host(str(address), host_interpolated=False)
+    except UnparseableError as exc:
+        return Finding(where, "kind", raw, f"unparseable: {exc}")
+    return None if verdict.bound else Finding(where, "kind", raw, verdict.problem.replace("Docker", "kind"))
+
+
+def judge_kind_cluster(where: str, document: dict[str, Any]) -> list[Finding]:
+    findings: list[Finding] = []
+    networking = document.get("networking")
+    if networking is not None and not isinstance(networking, dict):
+        findings.append(Finding(where, "networking", render(networking), "networking: is not a mapping"))
+    elif networking and "apiServerAddress" in networking:
+        finding = _judge_kind_address(
+            where, f"apiServerAddress={networking['apiServerAddress']}", networking["apiServerAddress"], ""
+        )
+        findings += [finding] if finding else []
+    nodes = document.get("nodes")
+    if nodes is None:
+        return findings
+    if not isinstance(nodes, list):
+        return [*findings, Finding(where, "nodes", render(nodes), "nodes: is not a list — unparseable")]
+    for index, node in enumerate(nodes):
+        node_where = f"nodes[{index}]"
+        if not isinstance(node, dict):
+            findings.append(Finding(where, node_where, render(node), "node is not a mapping — unparseable"))
+            continue
+        mappings = node.get("extraPortMappings")
+        if mappings is None:
+            continue
+        if not isinstance(mappings, list):
+            findings.append(Finding(where, node_where, render(mappings), "extraPortMappings: is not a list"))
+            continue
+        for mapping in mappings:
+            raw = render(mapping)
+            if not isinstance(mapping, dict):
+                findings.append(Finding(where, node_where, raw, "port mapping is not a mapping — unparseable"))
+                continue
+            unknown = set(mapping) - _KIND_MAPPING_KEYS
+            if unknown or "containerPort" not in mapping:
+                problem = f"keys this guard does not know: {sorted(unknown)}" if unknown else "no containerPort"
+                findings.append(Finding(where, node_where, raw, f"unparseable: {problem}"))
+                continue
+            finding = _judge_kind_address(
+                where,
+                raw,
+                mapping.get("listenAddress"),
+                "names no listenAddress, so kind binds every interface (default 0.0.0.0)",
+            )
+            if finding is not None:
+                findings.append(Finding(finding.path, node_where, finding.raw, finding.problem))
+    return findings
+
+
+def sweep_kind(root: Path, tracked: list[str]) -> tuple[list[Finding], list[str]]:
+    """Every kind cluster config in a tracked file, and the findings over them."""
+    findings: list[Finding] = []
+    seen: list[str] = []
+    for path in tracked:
+        if not _eligible(root, path):
+            continue
+        try:
+            text = (root / path).read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        # prose-permeable: a cheap prefilter over every text file; a Markdown example is a config as surely as
+        # the file, so its prose half is part of the subject — kind_clusters() then parses what it selects
+        if _KIND_API_VERSION not in text:
+            continue
+        clusters, broken = kind_clusters(path, text)
+        findings += [Finding(entry.split(":", 1)[0], "kind", "", entry) for entry in broken]
+        for where, document in clusters:
+            seen.append(where)
+            findings += judge_kind_cluster(where, document)
+    return findings, seen
+
+
 # ------------------------------------------------------------------ the guard
 
 
@@ -860,7 +1032,15 @@ def all_yaml(tracked: list[str]) -> list[YamlFile]:
 
 
 @pytest.fixture(scope="module")
-def sweeps(tracked: list[str], all_yaml: list[YamlFile]) -> dict[str, tuple[list[Finding], set]]:
+def kind_sweep(tracked: list[str]) -> tuple[list[Finding], list[str]]:
+    assert _REPO_ROOT is not None
+    return sweep_kind(_REPO_ROOT, tracked)
+
+
+@pytest.fixture(scope="module")
+def sweeps(
+    tracked: list[str], all_yaml: list[YamlFile], kind_sweep: tuple[list[Finding], list[str]]
+) -> dict[str, tuple[list[Finding], set]]:
     assert _REPO_ROOT is not None
     compose, _ = compose_files(all_yaml)
     return {
@@ -868,6 +1048,7 @@ def sweeps(tracked: list[str], all_yaml: list[YamlFile]) -> dict[str, tuple[list
         "workflows": sweep_workflows(all_yaml),
         "cli": sweep_cli(_REPO_ROOT, tracked, {item.path: item for item in all_yaml}),
         "markdown": sweep_markdown(_REPO_ROOT, tracked),
+        "kind": (kind_sweep[0], set()),
     }
 
 
@@ -887,6 +1068,12 @@ class TestSelector:
 
         assert cli_publishes(text), "the --publish in .taskfiles/mcp.yaml is no longer seen"
 
+    def test_every_kind_cluster_config_is_found(self, kind_sweep: tuple[list[Finding], list[str]]) -> None:
+        _, seen = kind_sweep
+
+        # The file the defect was found in is a floor, not the selector.
+        assert "kind-config.yaml" in seen, seen
+
 
 class TestEveryPublishBindsLoopback:
     def test_compose(self, sweeps: dict[str, tuple[list[Finding], set]]) -> None:
@@ -905,6 +1092,11 @@ class TestEveryPublishBindsLoopback:
     def test_docker_run_commands(self, sweeps: dict[str, tuple[list[Finding], set]]) -> None:
         findings, _ = sweeps["cli"]
         assert not findings, "docker run publishes that do not bind loopback:\n" + "\n".join(map(str, findings))
+
+    def test_kind_cluster_port_mappings(self, sweeps: dict[str, tuple[list[Finding], set]]) -> None:
+        """#1756 — a kind ``extraPortMappings`` entry is a host publish by another tool."""
+        findings, _ = sweeps["kind"]
+        assert not findings, "kind cluster configs that do not bind loopback:\n" + "\n".join(map(str, findings))
 
     def test_every_allow_list_entry_still_exists(self, sweeps: dict[str, tuple[list[Finding], set]]) -> None:
         """A stale entry is a hole waiting for a new publish of the same spelling."""
@@ -1133,3 +1325,76 @@ def test_yaml_comment_commands_are_read() -> None:
     )
 
     assert text_publishes("Taskfile.yaml", text, load_yaml(text)) == [("line 4", "8529:8529")]
+
+
+# ------------------------------------------------------------------ kind clusters (#1756)
+
+_KIND_HEAD = "kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\n"
+
+
+def _kind(mapping: str) -> dict[str, Any]:
+    return load_yaml(_KIND_HEAD + "nodes:\n  - role: control-plane\n    extraPortMappings:\n" + mapping)
+
+
+@pytest.mark.parametrize(
+    ("mapping", "bound"),
+    [
+        ("      - containerPort: 80\n        hostPort: 80\n", False),
+        ('      - containerPort: 80\n        hostPort: 80\n        listenAddress: "0.0.0.0"\n', False),
+        ('      - containerPort: 80\n        hostPort: 80\n        listenAddress: ""\n', False),
+        ('      - containerPort: 80\n        hostPort: 80\n        listenAddress: "192.168.1.5"\n', False),
+        ('      - containerPort: 80\n        hostPort: 80\n        listenAddress: "127.0.0.1"\n', True),
+        ('      - containerPort: 80\n        hostPort: 80\n        listenAddress: "::1"\n', True),
+    ],
+)
+def test_kind_port_mapping(mapping: str, bound: bool) -> None:
+    assert (judge_kind_cluster("kind.yaml", _kind(mapping)) == []) is bound
+
+
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        '      - containerPort: 80\n        listenAddress: "localhost"\n',
+        '      - containerPort: 80\n        listenAddress: "${BIND}"\n',
+        '      - containerPort: 80\n        listenAddress: "127.0.0.1"\n        hostIP: "0.0.0.0"\n',
+        '      - hostPort: 80\n        listenAddress: "127.0.0.1"\n',
+        "      - 80:80\n",
+    ],
+)
+def test_unparseable_kind_mapping_fails_closed(mapping: str) -> None:
+    findings = judge_kind_cluster("kind.yaml", _kind(mapping))
+
+    assert findings
+    assert all("unparseable" in finding.problem for finding in findings), findings
+
+
+def test_kind_api_server_address_is_read() -> None:
+    document = load_yaml(_KIND_HEAD + 'networking:\n  apiServerAddress: "0.0.0.0"\n')
+
+    assert [finding.raw for finding in judge_kind_cluster("kind.yaml", document)] == ["apiServerAddress=0.0.0.0"]
+
+
+def test_kind_config_in_a_heredoc_and_a_fence_is_read() -> None:
+    body = _KIND_HEAD + "nodes:\n- role: control-plane\n  extraPortMappings:\n  - containerPort: 80\n    hostPort: 80\n"
+    text = f"# Setup\n\n```bash\ncat > kind-config.yaml <<EOF\n{body}EOF\n```\n\n```yaml\n{body}```\n"
+
+    clusters, broken = kind_clusters("doc.md", text)
+
+    assert not broken
+    assert [where for where, _ in clusters] == ["doc.md:4", "doc.md:15"]
+    assert all(judge_kind_cluster(where, document) for where, document in clusters)
+
+
+def test_kind_config_this_guard_cannot_read_fails_closed() -> None:
+    text = 'CONFIG = """\nkind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\n"""\n'
+
+    clusters, broken = kind_clusters("make_cluster.py", text)
+
+    assert clusters == []
+    assert broken == ["make_cluster.py:3: a kind cluster config this guard cannot read"]
+
+
+def test_a_non_kind_cluster_document_is_not_read() -> None:
+    document = load_yaml("apiVersion: external-secrets.io/v1beta1\nkind: ClusterSecretStore\n")
+
+    assert not is_kind_cluster(document)
