@@ -736,6 +736,11 @@ _AUTHORISATION: frozenset[str] = frozenset(
         # `test_every_auth_shaped_dependency_is_classified` red one session after
         # that test was written. That is the vocabulary drift the rule exists for.
         "require_owned_plant",
+        # #1851. ``get_current_user`` plus a refusal of a tenant-scoped API key on
+        # a route that acts on the whole account. For a session or an unscoped
+        # key it admits exactly what ``get_current_user`` admits, so it is
+        # authorisation but not "more than membership".
+        "require_account_principal",
     }
 )
 

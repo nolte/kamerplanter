@@ -29,7 +29,7 @@ from app.api.v1.auth.schemas import (
     VerifyEmailRequest,
 )
 from app.api.v1.mcp.deps import require_mcp_enabled
-from app.common.auth import get_current_user, get_refresh_token_from_cookie
+from app.common.auth import get_refresh_token_from_cookie, require_account_principal
 from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
 from app.common.exceptions import (
     InvalidTokenError,
@@ -382,7 +382,7 @@ def logout(
 def logout_all(
     response: Response,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """Revoke all of the current user's active sessions."""
@@ -546,7 +546,7 @@ def _remaining_seconds(expires_at: datetime) -> int:
 @limiter.limit(settings.rate_limit_auth)
 def create_device_pairing(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """Mint a one-time QR pairing code for the authenticated user (#1118).
@@ -632,7 +632,7 @@ def redeem_device_pairing(
 @api_keys_router.post("/api-keys", response_model=ApiKeyCreatedResponse, status_code=201)
 def create_api_key(
     body: ApiKeyCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """Create a new M2M API key for the current user."""
@@ -642,7 +642,7 @@ def create_api_key(
 
 @api_keys_router.get("/api-keys", response_model=list[ApiKeySummaryResponse])
 def list_api_keys(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """List the current user's M2M API keys (metadata only)."""
@@ -653,7 +653,7 @@ def list_api_keys(
 @api_keys_router.delete("/api-keys/{key_id}", response_model=MessageResponse)
 def revoke_api_key(
     key_id: Annotated[str, Path(description="Identifier of the API key to revoke.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """Revoke one of the current user's M2M API keys."""

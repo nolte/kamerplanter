@@ -54,6 +54,30 @@ def get_current_user(
     return _resolve_principal(request, credentials, auth_provider, optional=False)  # type: ignore[return-value]
 
 
+#: The refusal a tenant-scoped API key gets on an account-level route (#1851).
+SCOPED_KEY_ON_ACCOUNT_ROUTE = "This API key is restricted to one tenant and cannot act on the account."
+
+
+def require_account_principal(user: User = Depends(get_current_user)) -> User:
+    """The caller, refused when it is a tenant-scoped API key (#1851, REQ-023).
+
+    A key restricted to one tenant (``tenant_scope``) binds on every route that
+    resolves a tenant (#1817). A route that resolves *no* tenant acts on the
+    owner's whole account — its credentials, sessions, linked providers, other
+    API keys, its GDPR rights over every tenant, the tenants it creates or joins.
+    A scoped key acting there would be the whole account again, so such a route
+    depends on this instead of on :func:`get_current_user`. Sessions and
+    unscoped keys pass unchanged.
+
+    Which routes take this and which admit a scoped key is decided per route
+    class in REQ-023 and held by
+    ``tests/unit/guards/test_scoped_keys_on_routes_without_a_tenant.py``.
+    """
+    if _key_scope(user):
+        raise ForbiddenError(SCOPED_KEY_ON_ACCOUNT_ROUTE)
+    return user
+
+
 def get_authenticated_with_api_key(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> bool:
