@@ -25,7 +25,7 @@ from app.api.v1.privacy.schemas import (
     RetentionCategoryInfoResponse,
     RightInfoResponse,
 )
-from app.common.auth import get_authenticated_with_api_key, get_current_user
+from app.common.auth import get_authenticated_with_api_key, require_account_principal
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.common.request_ip import resolve_client_ip
@@ -129,7 +129,7 @@ def _to_consent_response_from_record(
 
 @router.post("/export", response_model=DataExportResponse, status_code=201)
 def request_data_export(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Initiate a new data-export job (Art. 15 / 20)."""
@@ -140,7 +140,7 @@ def request_data_export(
 @router.get("/export/{export_key}", response_model=DataExportResponse)
 def get_export_status(
     export_key: Annotated[str, Path(description="Document key of the data-export job.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Return status of a single export job (ownership-checked)."""
@@ -162,7 +162,7 @@ def get_export_status(
 async def download_export(
     request: Request,
     export_key: Annotated[str, Path(description="Document key of the data-export job.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Stream the Art. 15 export bundle and record the download.
@@ -192,7 +192,7 @@ async def download_export(
 def request_email_change(
     request: Request,
     body: EmailChangeCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Initiate an email-change request (Art. 16).
@@ -237,7 +237,7 @@ def confirm_email_change(
 @router.post("/erasure", response_model=ErasureResponse, status_code=201)
 def request_erasure(
     body: ErasureCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     via_api_key: bool = Depends(get_authenticated_with_api_key),
     client_ip: str | None = Depends(resolve_client_ip),
     service: PrivacyService = Depends(get_privacy_service),
@@ -261,7 +261,7 @@ def request_erasure(
 @router.get("/erasure/{erasure_key}", response_model=ErasureResponse)
 def get_erasure_status(
     erasure_key: Annotated[str, Path(description="Document key of the erasure request.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Return status of an erasure request (ownership-checked)."""
@@ -275,7 +275,7 @@ def get_erasure_status(
 @router.post("/restrict", response_model=RestrictionResponse, status_code=201)
 def restrict_processing(
     body: RestrictionCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Create a processing-restriction (Art. 18)."""
@@ -291,7 +291,7 @@ def restrict_processing(
 @router.delete("/restrict/{restriction_key}", response_model=RestrictionResponse)
 def lift_restriction(
     restriction_key: Annotated[str, Path(description="Document key of the processing restriction.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Lift an existing processing-restriction."""
@@ -305,7 +305,7 @@ def lift_restriction(
 @router.post("/object", response_model=RestrictionResponse, status_code=201)
 def object_to_processing(
     body: ObjectionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """File an objection (Art. 21) — stored as restriction with objection_pending."""
@@ -322,7 +322,7 @@ def object_to_processing(
 
 @router.get("/consents", response_model=list[ConsentResponse])
 def list_consents(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """List all known purposes annotated with current consent state."""
@@ -346,7 +346,7 @@ def list_consents(
 def grant_consent(
     body: ConsentGrantRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Grant consent for a processing purpose."""
@@ -369,7 +369,7 @@ def grant_consent(
 @router.delete("/consents/{purpose}", response_model=ConsentResponse)
 def revoke_consent(
     purpose: Annotated[str, Path(description="Processing purpose whose consent to revoke.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Revoke consent for an optional processing purpose."""
@@ -415,7 +415,7 @@ def get_privacy_policy(
 # ── REQ-033 §4.6 / AC-S3 — MCP activity self-service ──────────────────
 @router.get("/mcp-activity", response_model=list[McpAuditLogEntry])
 def get_mcp_activity(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     audit_repo: ArangoMcpAuditRepository = Depends(get_mcp_audit_repo),
 ) -> list[McpAuditLogEntry]:
     """Return the MCP tool-call audit trail attributed to the calling account.

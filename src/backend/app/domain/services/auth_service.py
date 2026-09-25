@@ -1,4 +1,5 @@
 import hashlib
+import re
 import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -52,6 +53,7 @@ from app.domain.models.auth import (
     TokenPair,
 )
 from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
+from app.domain.services.api_key_controls import ApiKeyRateLimiter, enforce_api_key_controls
 from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
 from app.domain.services.tenant_service import TenantService
 
@@ -64,6 +66,9 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
 
 
 _API_KEY_PREFIX = "kp_"
+
+#: What a tenant key or slug looks like; the shape ``create_api_key`` accepts as a scope (#1852).
+_TENANT_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}")
 
 #: The single refusal message for an account whose ``is_active`` is ``False``
 #: (#1528). All six raise sites **in this module** use it — the five entry points
@@ -183,6 +188,7 @@ class AuthService:
         device_pairing_throttle_store: IDevicePairingThrottleStore | None = None,
         tombstone_salt: str = "",
         step_up_verifier: StepUpVerifier | None = None,
+        api_key_rate_limiter: ApiKeyRateLimiter | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -200,6 +206,7 @@ class AuthService:
         self._oauth_engine = oauth_engine
         self._oauth_state_store = oauth_state_store
         self._api_key_repo = api_key_repo
+        self._api_key_rate_limiter = api_key_rate_limiter
         self._oidc_config_repo = oidc_config_repo
         self._encryption_engine = encryption_engine
         # Never ``None``: a missing store would make the SEC-H-010 login guard
@@ -1066,6 +1073,10 @@ class AuthService:
         if not self._api_key_repo:
             raise ValidationError("API keys are not configured.")
 
+        # #1852: the scope is stored as the tenant's *key*, resolved here from the
+        # slug or key the caller typed — never verbatim.
+        tenant_scope = self._canonical_tenant_scope(user_key, tenant_scope)
+
         raw_key = f"{_API_KEY_PREFIX}{secrets.token_urlsafe(32)}"
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         key_prefix = raw_key[:8]
@@ -1088,6 +1099,46 @@ class AuthService:
             tenant_scope=tenant_scope,
             created_at=created.created_at,
         )
+
+    def _canonical_tenant_scope(self, user_key: UserKey, requested: str | None) -> str | None:
+        """Resolve a requested ``tenant_scope`` to the key of a tenant the caller is active in (#1852).
+
+        Until #1852 the scope was stored as typed and matched on slug *or* key.
+        A slug is a name, not an identity: renaming a tenant re-derives it and a
+        deleted tenant's slug is issued again, so a slug-form scope re-bound to
+        whichever tenant held the name, and the tenant erasure — which deletes
+        keys whose ``tenant_scope`` equals the erased tenant's key — left it in
+        place. Resolving at creation makes the stored scope the stable key.
+
+        The caller may name the tenant by slug or by key. An unknown value, a
+        tenant the caller holds no *active* membership in, and a tenant that is
+        itself inactive are refused with one message, so the endpoint answers no
+        "does this tenant exist?" question.
+        """
+        if requested is None or not requested.strip():
+            return None
+        refusal = ForbiddenError("tenant_scope must name a tenant you are an active member of.")
+        if self._tenant_service is None:
+            raise refusal
+        value = requested.strip()
+        # Keys and slugs are both plain tokens. Anything else (a ``/`` would make
+        # the key lookup read a document *id* in another collection) is refused
+        # before it reaches a lookup.
+        if not _TENANT_REF.fullmatch(value):
+            raise refusal
+        tenant = None
+        for lookup in (self._tenant_service.get_tenant, self._tenant_service.get_tenant_by_slug):
+            try:
+                tenant = lookup(value)
+            except NotFoundError:
+                continue
+            break
+        if tenant is None or not tenant.key or not getattr(tenant, "is_active", True):
+            raise refusal
+        membership = self._tenant_service.get_membership(user_key, tenant.key)
+        if membership is None or not membership.is_active:
+            raise refusal
+        return tenant.key
 
     def list_api_keys(self, user_key: UserKey) -> list[ApiKeySummary]:
         if not self._api_key_repo:
@@ -1117,8 +1168,17 @@ class AuthService:
         self._api_key_repo.revoke(key_id)
         logger.info("api_key_revoked", key_id=key_id, subject=self._log_subject(user_key))
 
-    def authenticate_api_key(self, raw_key: str) -> User | None:
-        """Authenticate a request via API key. Returns the user or None."""
+    def authenticate_api_key(self, raw_key: str, *, client_ip: str | None) -> User | None:
+        """Authenticate a request via API key. Returns the user or None.
+
+        ``None`` for an unknown, revoked or expired key and an inactive owner.
+        The key's own network controls raise instead (#1850): a request from
+        outside its ``ip_allowlist`` is a 401 and a spent
+        ``rate_limit_per_minute`` budget a 429, decided by
+        :func:`~app.domain.services.api_key_controls.enforce_api_key_controls` —
+        the implementation the MCP authenticator uses, so the two surfaces
+        cannot disagree about what a key may do.
+        """
         if not self._api_key_repo:
             return None
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
@@ -1128,6 +1188,7 @@ class AuthService:
         # Check expiry
         if api_key.expires_at and api_key.expires_at < datetime.now(UTC):
             return None
+        enforce_api_key_controls(api_key, client_ip=client_ip, rate_limiter=self._api_key_rate_limiter)
         # Update last_used_at
         if api_key.key:
             self._api_key_repo.update_last_used(api_key.key)

@@ -25,12 +25,14 @@ from app.common.auth import (
     get_current_tenant,
     get_current_user,
     refuse_in_light_mode,
+    require_account_principal,
     require_admin_scope,
 )
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.common.request_ip import resolve_client_ip
+from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
@@ -62,15 +64,22 @@ def list_my_tenants(
     user: User = Depends(get_current_user),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """List all tenants the current user is a member of."""
-    items = service.list_my_tenants(user.key)
+    """List all tenants the current user is a member of.
+
+    A tenant-scoped API key sees only the tenant it is restricted to (#1851):
+    the list is the account's, and the key must not learn the owner's other
+    tenants. Admitted rather than refused because the Home Assistant
+    integration reads it to find its tenant.
+    """
+    scope = user.api_key_tenant_scope
+    items = [t for t in service.list_my_tenants(user.key) if api_key_scope_admits(scope, tenant_key=t.key)]
     return [TenantWithRoleResponse(**t.model_dump()) for t in items]
 
 
 @router.post("", response_model=TenantResponse, status_code=201)
 def create_organization(
     body: TenantCreateRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_account_principal),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Create a new organization tenant."""
@@ -293,7 +302,7 @@ def revoke_invitation(
 @router.post("/invitations/accept", response_model=MessageResponse)
 def accept_invitation(
     body: AcceptInvitationRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_account_principal),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Accept an invitation using its token."""

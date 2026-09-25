@@ -9,11 +9,14 @@ from fastapi import APIRouter, Depends
 
 from app.api.mapping import to_response
 from app.api.v1.user_preferences.schemas import UserPreferenceResponse, UserPreferenceUpdate
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_account_principal
 from app.common.dependencies import get_user_preference_service
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.user_preference_service import UserPreferenceService
 
+# Writes of the caller's ACCOUNT-WIDE settings below depend on
+# ``require_account_principal``: the tenant in the path admits a tenant-scoped API
+# key, but these settings span every tenant of its owner (#1851).
 router = APIRouter(prefix="/user-preferences", tags=["user-preferences"])
 
 
@@ -27,7 +30,7 @@ def get_preferences(
     return to_response(pref, UserPreferenceResponse)
 
 
-@router.patch("", response_model=UserPreferenceResponse)
+@router.patch("", response_model=UserPreferenceResponse, dependencies=[Depends(require_account_principal)])
 def update_preferences(
     body: UserPreferenceUpdate,
     ctx: TenantContext = Depends(get_current_tenant),

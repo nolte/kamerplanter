@@ -275,26 +275,6 @@ class TestRecognitionImages:
         assert [r.source for r in resp] == ["contribution"]
 
 
-class _FakeTenantService:
-    """Minimal stand-in for the platform-admin membership lookup."""
-
-    def __init__(self, *, admin: bool) -> None:
-        self._admin = admin
-
-    def get_membership(self, user_key, tenant_key):
-        if not self._admin:
-            return None
-        from app.core.permissions import TenantRole as _Role
-        from app.domain.models.membership import Membership
-
-        return Membership(
-            user_key=user_key,
-            tenant_key=tenant_key,
-            role=_Role.LEAD,
-            is_active=True,
-        )
-
-
 class TestIncludeInactiveGating:
     """REQ-010 — only a platform admin may unlock the deselected-image view."""
 
@@ -303,14 +283,12 @@ class TestIncludeInactiveGating:
 
         monkeypatch.setattr(settings, "kamerplanter_mode", "full")
         service = _FakeService(list_views=[_view(is_own=True)], recognition_views=[_recognition_view()])
-        tenant_service = _FakeTenantService(admin=True)
-
         tenant_router.list_pest_images(
             "p1",
             include_inactive=True,
             ctx=_ctx(),
             service=service,
-            tenant_service=tenant_service,
+            platform_admin=True,
         )
 
         # The admin's request unlocks the inactive rows for BOTH sources.
@@ -322,15 +300,13 @@ class TestIncludeInactiveGating:
 
         monkeypatch.setattr(settings, "kamerplanter_mode", "full")
         service = _FakeService(list_views=[_view(is_own=True)], recognition_views=[_recognition_view()])
-        tenant_service = _FakeTenantService(admin=False)
-
         # A normal member asking for inactive images is silently downgraded — no 403.
         tenant_router.list_pest_images(
             "p1",
             include_inactive=True,
             ctx=_ctx(),
             service=service,
-            tenant_service=tenant_service,
+            platform_admin=False,
         )
 
         assert service.list_include_inactive is False
@@ -339,7 +315,7 @@ class TestIncludeInactiveGating:
     def test_default_request_never_includes_inactive(self):
         service = _FakeService(list_views=[_view(is_own=True)])
 
-        # The house-style direct call (no include_inactive, no tenant_service)
+        # The house-style direct call (no include_inactive, no platform_admin)
         # must default to active-only and never touch the admin gate.
         tenant_router.list_pest_images("p1", ctx=_ctx(), service=service)
 

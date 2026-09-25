@@ -21,8 +21,8 @@ from app.api.v1.ipm.schemas import (
     TreatmentApplicationCreate,
     TreatmentApplicationResponse,
 )
-from app.common.auth import get_current_tenant, is_platform_admin, require_permission
-from app.common.dependencies import get_ipm_service, get_pest_image_service, get_tenant_service
+from app.common.auth import get_current_tenant, get_is_platform_admin, require_permission
+from app.common.dependencies import get_ipm_service, get_pest_image_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
@@ -37,7 +37,6 @@ from app.domain.services.pest_image_service import (
     PestInspectionImageView,
     PestRecognitionImageView,
 )
-from app.domain.services.tenant_service import TenantService
 
 router = APIRouter(prefix="/ipm", tags=["ipm"], responses=NOT_FOUND_RESPONSE)
 
@@ -316,7 +315,7 @@ def list_pest_images(
     include_inactive: bool = False,
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: PestImageService = Depends(get_pest_image_service),
-    tenant_service: TenantService = Depends(get_tenant_service),
+    platform_admin: bool = Depends(get_is_platform_admin),
 ) -> list[PestImageResponse]:
     """List reference images for a pest from the caller's tenant perspective.
 
@@ -343,7 +342,10 @@ def list_pest_images(
     """
     # Curation override is platform-admin-only; force it off for everyone else
     # (display-only privilege — no 403, just the default active-only behaviour).
-    effective_include_inactive = include_inactive and is_platform_admin(tenant_service, ctx.user_key)
+    # Resolved through ``get_is_platform_admin`` (#1851), which answers ``False``
+    # for a tenant-scoped API key; ``is True`` keeps a direct call without the
+    # dependency (the house-style unit test) on the active-only default.
+    effective_include_inactive = include_inactive and platform_admin is True
 
     views = service.list_for_pest(ctx.tenant_key, pest_key, include_inactive=effective_include_inactive)
     responses = [_pest_image_response(v, ctx.tenant_slug) for v in views]

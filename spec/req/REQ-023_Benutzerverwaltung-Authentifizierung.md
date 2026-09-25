@@ -948,7 +948,27 @@ kp_<48 hex characters>
 
 Die Middleware erkennt anhand des `kp_`-Prefix automatisch, ob ein API-Key oder JWT vorliegt. API-Keys werden gegen den gespeicherten Hash validiert und `last_used_at` wird aktualisiert.
 
-**`tenant_scope` gilt auf REST und MCP gleich:** Ein Key mit `tenant_scope` wird auf jedem Tenant abgewiesen, den der Scope nicht zulässt (Abgleich auf Slug oder Key des Tenants), auch wenn sein Besitzer dort Mitglied ist. Auf REST geschieht das in der Tenant-Auflösung (`/t/{slug}/`-Pfad und `X-Active-Tenant`-Header) mit derselben 403-Antwort wie für einen fremden Tenant; der header-lose Fallback auf den persönlichen Tenant greift nur, wenn dieser der Scope ist, sonst gilt nur der globale Katalog. Routen, die keinen Tenant auflösen (Konto-, Plattform-Admin- und Tenant-Lebenszyklus-Routen), sind davon noch nicht erfasst.
+**`tenant_scope` gilt auf REST und MCP gleich, Abgleich auf den Tenant-Key (#1852):** Der Wert wird bereits beim Anlegen des Keys aufgelöst und geprüft — der Aufrufer muss im benannten Tenant (per Slug oder Key referenzierbar) *aktives* Mitglied sein, sonst weist `POST /auth/api-keys` mit `403 Forbidden` ab ("tenant_scope must name a tenant you are an active member of."), mit derselben Antwort für einen unbekannten wie für einen fremden Tenant. Gespeichert und zurückgegeben wird ausschließlich der **Key** des Tenants, nicht der eingegebene Slug — ein Abgleich auf den Slug findet zur Laufzeit nicht mehr statt. Dadurch bleibt der Scope über eine Umbenennung des Tenants hinweg stabil, und die Tenant-Löschung, die Keys mit passendem `tenant_scope` widerruft, trifft weiterhin genau die richtigen Keys. Bestandskeys wurden per Migration (v0063) auf den Tenant-Key umgeschrieben, sofern der Besitzer dort noch aktives Mitglied war, sonst widerrufen.
+
+Auf REST geschieht die Bindung in der Tenant-Auflösung (`/t/{slug}/`-Pfad und `X-Active-Tenant`-Header) mit derselben 403-Antwort wie für einen fremden Tenant; der header-lose Fallback auf den persönlichen Tenant greift nur, wenn dieser der Scope ist, sonst gilt nur der globale Katalog.
+
+**Routen ohne Tenant-Auflösung sind seit #1851 erfasst.** Ein Key mit `tenant_scope` handelt nur innerhalb des einen Tenants — die folgende Tabelle zeigt, wie jede Routenklasse mit einem begrenzten Key umgeht:
+
+| Routenklasse | Beispiele | Verhalten mit `tenant_scope` |
+|---|---|---|
+| Konto-/Anmeldedaten-Routen | `PATCH`/`DELETE /users/me`, Passwort, Sitzungen, verknüpfte Provider | `403 Forbidden` über `require_account_principal` ("This API key is restricted to one tenant and cannot act on the account.") |
+| Datenschutz-Routen | `/api/v1/privacy/*` | `403 Forbidden` über `require_account_principal` |
+| Tenant-Lebenszyklus & API-Key-Verwaltung | `POST /tenants`, `POST /tenants/invitations/accept`, `POST`/`GET`/`DELETE /auth/api-keys`, `POST /auth/device-pairing`, `POST /auth/logout-all` | `403 Forbidden` über `require_account_principal` |
+| Kontoweite Einstellungen unter `/t/{slug}/` | `PUT …/notifications/preferences`, `POST …/notifications/pwa/subscribe`/`unsubscribe`, `PATCH …/user-preferences`, `POST …/onboarding/skip`/`reset`, `PATCH …/onboarding/state`, `DELETE …/favorites/{key}` | `403 Forbidden` über `require_account_principal` — die Einstellungen gelten für alle Tenants des Kontos, nicht nur für den Scope-Tenant |
+| Plattform-Admin-Routen | `/api/v1/admin/*` | Abgewiesen — ein begrenzter Key ist nie Plattform-Admin (unabhängig von `require_account_principal`) |
+| Tenant-auflösende Routen | `/t/{slug}/...`, jede Route mit `X-Active-Tenant` | Scope bindet wie zuvor beschrieben |
+| Identitätsabfrage | `GET /users/me` | Zugelassen — liefert `is_platform_admin: false` für einen begrenzten Key |
+| Tenant-Liste | `GET /tenants` | Zugelassen, aber auf den Scope-Tenant eingeengt |
+| Globale Stammdaten & Berechnungen | z. B. Arten-/Sorten-Katalog, IPM-Referenzdaten, zustandslose Rechner | Zugelassen — kein Tenant-Bezug |
+
+Ein Key **ohne** `tenant_scope` ist von dieser Tabelle nicht betroffen.
+
+**IP-Allowlist und Rate Limit gelten für REST und MCP durch dieselbe Implementierung (#1850):** `ip_allowlist` (CIDR-Liste) und `rate_limit_per_minute` auf `ApiKey` wurden bis dahin nur vom MCP-Authenticator gelesen; ein REST-Aufruf mit demselben Key war davon unberührt. Beide Kontrollen laufen jetzt über eine gemeinsame Funktion, die von beiden Oberflächen aufgerufen wird — eine Adresse außerhalb der Allowlist (oder eine nicht auflösbare) liefert auf beiden Wegen `401 Unauthorized` ("Client IP is not permitted for this API key."), ein überschrittenes Budget `429 Too Many Requests`. Das Budget ist eine Eigenschaft des Keys, nicht der Oberfläche: REST- und MCP-Aufrufe desselben Keys teilen sich einen Zähler pro Minute. Ist der Zähler-Speicher nicht erreichbar, wird `429` geantwortet (fail-closed) statt das Limit stillschweigend zu ignorieren.
 
 <!-- Quelle: Service Accounts v1.7 -->
 **Erweiterter Flow bei Service-Account-API-Keys:**
@@ -991,9 +1011,11 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
   "api_key": "kp_a3f8e7b2c9d4f1a6e8b3c5d7f9a2b4c6d8e0f1a3b5c7d9e1f3",
   "key_prefix": "kp_a3f8...",
   "created_at": "2026-02-27T14:30:00Z",
-  "tenant_scope": "mein-garten"
+  "tenant_scope": "t-a1b2c3d4"
 }
 ```
+
+Die Request nennt den Tenant per Slug (oder Key); gespeichert und in der Response zurückgegeben wird stets der Tenant-**Key** (#1852, siehe oben).
 
 > **Hinweis:** Der vollständige Key wird nur bei der Erstellung angezeigt. Nach dem Schließen des Dialogs ist er nicht mehr abrufbar. Bei Verlust muss ein neuer Key erstellt werden.
 
