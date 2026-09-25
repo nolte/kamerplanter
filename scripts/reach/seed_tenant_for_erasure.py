@@ -15,8 +15,9 @@ never a copy:
 * an entry without a parent carries its tenant field (``tenant_key``, or
   ``tenant_scope`` on an API key) = the tenant;
 * an entry with parents is reached **only** through its first parent: the
-  foreign key names the tenant's parent row and ``tenant_key`` holds a marker,
-  never the tenant (the ``locations``/``slots`` shape of #1397);
+  foreign key names the tenant's parent row and ``tenant_key`` (where the model
+  has one) keeps its empty default, never the tenant (the ``locations``/``slots``
+  shape of #1397);
 * the deletion-record collection is skipped: its row is the act's proof;
 * an ``pseudonymize`` entry's account-key fields (read off the account erasure's
   tombstone rules, as the engine does) hold the member's key, and their free-text
@@ -97,6 +98,11 @@ def _seed_one(seeder: Seeder, tenant: str, member: str, role: str) -> None:
             parent = entry.parents[0]
             overrides[parent.field] = own[parent.collection]
             overrides.update(parent.where)
+            # The shape production writes: a parent-chained row's own tenant
+            # field is never filled (#1397) and keeps the model default. A marker
+            # here would be a value no write path produces — and one the executor
+            # rightly treats as another tenant's row (#1769 review SEC-004).
+            overrides["tenant_key"] = ""
         else:
             overrides[entry.tenant_field] = tenant
         rule = rules.get(entry.collection)
