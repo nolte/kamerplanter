@@ -1,10 +1,15 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's standing pre-approval of every gate for the
-# autonomous #1768 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the operator's
-# machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
+# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
+# orchestrating session — not an interactive batch answer. It records that the targets and the
+# observe argv below run on the operator's machine with their environment, as `task` in this
+# repository does.
 #
+# Re-derived after #1797: #1769 squash-merged as 0d7276476, leaving the branch commit e6af8a62d
+# outside develop's history. router.py last changed in that squash; derived_from is
+# now it. Observe step, targets and expectation unchanged (2/2 recounted at 0d7276476).
+# Earlier:
 # Re-derived for #1769: router.py changed in e6af8a62d (the tenant-delete route beside this one);
 # DELETE /admin/platform/users/{key}, the erasure plan's steps and this observe step are unchanged
 # (erasure_engine.py changed since 77efb5095 only by #1786's log-subject helpers). Earlier:
@@ -26,7 +31,7 @@ expected:
   values:
   - record/platform_admin/completed
   - subject-in-records/0
-derived_from: e6af8a62dfe41bcd50c22fbee0871ca029d73469
+derived_from: 0d7276476da5fd808dace49d4c3df932eb2a50b9
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -41,6 +46,6 @@ observe:
   - reach-subject
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-25T09:19:17Z'
+  approved_at: '2026-09-25T11:41:19Z'
   approved_by: nolte
   observation_digest: fe814f713d7729b1c4193deff99ca704d264974b061764aa33f8ec45be7eee5d

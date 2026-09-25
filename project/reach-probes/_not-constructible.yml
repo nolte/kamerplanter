@@ -16,6 +16,11 @@
 # three entries, all drafted and approved (endpoint-admin-tenant-delete-reaches-rows,
 # endpoint-admin-tenant-delete-persists-proof, inventory-tenant-erasure-plan-reaches-rows); no new
 # not-constructible entry.
+#
+# Re-derive round of 2026-09-25 (after #1797), filtered to src/backend/app/api/v1/admin/platform/router.py
+# (DELETE /admin/platform/users/{key} and /tenants/{key}), tenant_erasure_engine.py, erasure_engine.py and
+# data_export_engine.py: no new not-constructible entry; inventory-export-manifest-excluded-from-disclosure
+# re-inventoried unchanged at 16667ac9a (#1786 added one import line, location +1), derived_from moved to it.
 entries:
 - id: requirement-req025-art15-export-sources-populated
   declaration:
@@ -110,7 +115,7 @@ entries:
   declaration:
     source: inventory
     path: src/backend/app/domain/engines/data_export_engine.py
-    location: DataExportEngine.EXCLUDED_FROM_DISCLOSURE (L517-623)
+    location: DataExportEngine.EXCLUDED_FROM_DISCLOSURE (L518-624)
   reason: scope_not_countable
   detail: 'The declaration''s own claim is an absence — these 15 edges are deliberately not disclosed as their own
     bundle sections — so the correct expectation would be a zero/empty count, which the schema cannot express (CountExpectation.value
@@ -122,5 +127,5 @@ entries:
     (the target''s disclosure, not this edge''s), which is exactly why no probe is drafted rather than one with
     a coincidentally passing but meaningless zero. Whether each excluded edge is instead reached by the erasure
     walk is asserted by inventory-erasure-plan-reaches-rows (erasure_engine.py, out of scope for this file).'
-  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
-  recorded_at: '2026-09-24T15:38:25Z'
+  derived_from: 16667ac9ae0fc8c6c2018351388e8d8b5f328ff8
+  recorded_at: '2026-09-25T11:41:19Z'

@@ -1,9 +1,14 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's standing pre-approval of every gate for the
-# autonomous #1769 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the operator's
-# machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
+# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
+# orchestrating session — not an interactive batch answer. It records that the targets and the
+# observe argv below run on the operator's machine with their environment, as `task` in this
+# repository does.
+#
+# Re-derived after #1797: #1769 squash-merged as 0d7276476, leaving the branch commit d685df380
+# outside develop's history. router.py last changed in that squash; derived_from is
+# now it. Observe step, targets and expectation unchanged (3/3 recounted at 0d7276476).
 id: endpoint-admin-tenant-delete-persists-proof
 summary: tenant_erasure_records after the platform-admin tenant delete — one completed platform_admin record, none containing
   the member's account key
@@ -20,7 +25,7 @@ expected:
   - member-in-records/0
   - record-unreached/0
   - record/platform_admin/completed
-derived_from: d685df380f551191612fcea354d7897bab1dbd1e
+derived_from: 0d7276476da5fd808dace49d4c3df932eb2a50b9
 environment:
 - reach:stack:up
 - reach:seed:erasure-tenant
@@ -36,6 +41,6 @@ observe:
   - --records
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-25T09:02:00Z'
+  approved_at: '2026-09-25T11:41:19Z'
   approved_by: nolte
   observation_digest: f1df40ac229836df8c90604d3eae1f93f2e61dbe7b6b3a0730e78a3ebe752baa
