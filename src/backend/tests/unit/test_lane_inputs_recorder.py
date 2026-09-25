@@ -1355,14 +1355,9 @@ class TestTheReadersScopeIsTheSameFunctionInBothFiles:
             ["docs/b.md", "renovate.json5", "docs/"]
         )
 
-    def test_the_committed_delegating_manifest_matches_its_live_filter(self, guard: ModuleType) -> None:
-        real = guard.sweep(guard._DOT_GITHUB, guard._MANIFEST_DIR)
-        delegating = [m for m in real.manifests if any(g.get("covered_by") for g in m.accepted_gaps)]
-        assert delegating, "backend--lint-test delegates to the guards lane"
-        for m in delegating:
-            assert m.readers_scope_sha256 == guard._readers_scope_sha256(list(guard.uncovered_reads(real, m))), (
-                m.path.name
-            )
+    # Not held here against the COMMITTED manifest: this file runs inside the
+    # recorded unit-suite leg, which would then assert the output it is about to
+    # replace (#1747). The guard, deselected in replays, holds it on the real tree.
 
 
 def test_a_read_two_overlapping_gaps_leave_undelegated_is_counted_once(tmp_path: Path) -> None:
