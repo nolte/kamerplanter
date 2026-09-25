@@ -29,6 +29,14 @@ After the uploads the seed reads every stored object back through the storage
 adapter and fails when it carries no GPS EXIF — read both with Pillow and with
 the observer's own marker walk. A seeded file without EXIF would make any later
 ``stripped/<category>`` certify nothing.
+
+#1760 — it then renders each file's WebP renditions with the production task
+body (``app.tasks.storage_tasks._generate``, what the worker's
+``generate_thumbnails`` runs after an upload) and records their keys under
+``renditions``, failing when a rendition was not written. The upload also queues
+that task on the worker; running the body here makes the renditions exist
+before the erasure instead of racing it. ``observe_rendition_residue.py`` reads
+them after the erasure.
 """
 
 from __future__ import annotations
@@ -97,7 +105,7 @@ async def seed(subject: str, tenant_key: str) -> dict[str, Any]:
         attachment_repo=get_attachment_repo(),
         settings=settings.model_copy(update={"storage_strip_exif": False}),
     )
-    files: list[dict[str, str]] = []
+    files: list[dict[str, Any]] = []
     refused: list[str] = []
     for position, category in enumerate(AttachmentCategory):
         try:
@@ -127,7 +135,34 @@ async def seed(subject: str, tenant_key: str) -> dict[str, Any]:
             )
     if not files:
         raise SeedError("no category accepted an image/jpeg upload")
+    await _render(storage, files, tenant_key)
     return {"subject": subject, "tenant_key": tenant_key, "files": files, "refused": refused}
+
+
+async def _render(storage: Any, files: list[dict[str, Any]], tenant_key: str) -> None:
+    """Write every file's renditions through the production task body and record their keys (#1760)."""
+    from app.domain.engines.storage.thumbnail_generator import rendition_keys
+    from app.tasks.storage_tasks import _generate
+
+    for entry in files:
+        outcome = await _generate(entry["attachment_key"], tenant_key)
+        keys = rendition_keys(entry["storage_key"], MIME_TYPE)
+        if outcome.get("generated") != len(keys):
+            raise SeedError(f"the {entry['category']} renditions were not generated: {outcome}")
+        for key in keys:
+            if not await _exists(storage, key):
+                raise SeedError(f"the {entry['category']} rendition {key} was reported but not stored")
+        entry["renditions"] = keys
+
+
+async def _exists(storage: Any, key: str) -> bool:
+    from app.common.exceptions import NotFoundError
+
+    try:
+        await storage.head_object(key)
+    except NotFoundError:
+        return False
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:

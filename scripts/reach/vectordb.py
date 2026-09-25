@@ -125,6 +125,23 @@ RETURNING id;
 """
 
 
+#: #1759 — the subject's contributed pest prototype, written the way the
+#: promotion index task writes it (``app/tasks/pest_image_tasks.py``), but
+#: deactivated as a demoted contribution's row is (the case the pre-#1759 erasure
+#: skipped), plus a curated control row sharing its record id.
+PEST_SEED_SQL = """
+INSERT INTO pest_embeddings (label, category, embedding, model, source, source_record_id, source_url, is_active)
+VALUES ('spider_mite', 'pest', :'contributed_vector'::vector, 'dinov2_vits14', 'user_contributed',
+        :'contribution_key', :'contribution_url', false)
+RETURNING id;
+INSERT INTO pest_embeddings (label, category, embedding, model, source, source_record_id, source_url, license,
+                             attribution, is_active)
+VALUES ('spider_mite', 'pest', :'curated_vector'::vector, 'dinov2_vits14', 'gbif', :'contribution_key',
+        'https://gbif.example/reach', 'CC-BY-4.0', 'reach control row', true)
+RETURNING id;
+"""
+
+
 def vector_literal(seed: str) -> str:
     """A deterministic, L2-normalised 384-dimensional pgvector literal (pure; unit-tested)."""
     raw: list[float] = []
@@ -336,6 +353,70 @@ def seed(subject: str) -> None:
     log(f"seeded contribution {ids[0]} and curated control row {ids[1]} -> {path}")
 
 
+def pest_file(subject: str) -> Path:
+    return reach_dir() / "subjects" / f"{subject}.pest-prototypes.json"
+
+
+def seed_pest(subject: str) -> None:
+    """Insert a prototype for each of the subject's own seeded pest-image contributions (#1759).
+
+    Every seeded row the subject *contributed* gets its prototype; the first
+    one also gets the curated control row with the same record id.
+    """
+    record = read_record()
+    # Only the subject's own contributions: the privacy seed also writes a row
+    # the subject *promoted* (``promoted_by``) for another contributor, and that
+    # contributor's prototype must survive the subject's erasure.
+    rows = [
+        row
+        for row in read_subject(subject)["rows"]
+        if row["collection"] == "pest_image_contributions"
+        and row.get("fingerprint", {}).get("contributed_by") == subject
+    ]
+    if not rows:
+        raise ReachError(
+            "the subject has no seeded pest_image_contributions row of its own; run reach:seed:privacy-subject"
+        )
+    contributions: list[dict[str, Any]] = []
+    curated_id: int | None = None
+    for position, row in enumerate(rows):
+        tenant_key = row.get("fingerprint", {}).get("tenant_key")
+        if not tenant_key:
+            raise ReachError("a seeded pest_image_contributions row carries no tenant_key")
+        output = psql(
+            record,
+            PEST_SEED_SQL,
+            {
+                "contribution_key": row["key"],
+                "contribution_url": f"contribution://{tenant_key}/{row['key']}",
+                "contributed_vector": vector_literal(f"reach-pest-contributed-{position}"),
+                "curated_vector": vector_literal(f"reach-pest-curated-{position}"),
+            },
+        )
+        ids = [int(line) for line in output.split() if line.strip()]
+        if len(ids) != 2:
+            raise ReachError(f"expected two inserted pest row ids, psql printed {output!r}")
+        contributions.append({"contribution_key": row["key"], "contributed_id": ids[0]})
+        if curated_id is None:
+            curated_id = ids[1]
+        else:
+            # One curated control row is enough; drop the extra one again.
+            psql(
+                record,
+                "DELETE FROM pest_embeddings WHERE id = :'id'::integer;",
+                {"id": str(ids[1])},
+            )
+    path = pest_file(subject)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    seeded = {
+        "subject": subject,
+        "contributions": contributions,
+        "curated_id": curated_id,
+    }
+    path.write_text(json.dumps(seeded, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    log(f"seeded {len(contributions)} pest prototype(s) and curated control row {curated_id} -> {path}")
+
+
 def down() -> None:
     container, _ = _names()
     inference, _ = _inference_names()
@@ -352,12 +433,16 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("down", help="remove the store and its record")
     seed_parser = sub.add_parser("seed", help="insert the subject's contribution and a curated control row")
     seed_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
+    pest_parser = sub.add_parser("seed-pest", help="insert a prototype of the subject's pest-image contribution")
+    pest_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
     args = parser.parse_args(argv)
     try:
         if args.command == "up":
             up()
         elif args.command == "down":
             down()
+        elif args.command == "seed-pest":
+            seed_pest(args.subject)
         else:
             seed(args.subject)
     except ReachError as exc:
