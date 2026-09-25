@@ -74,6 +74,9 @@ class _FakeRedis:
             self.ttls[name] = ex
         return True
 
+    def get(self, name: str) -> str | None:
+        return self.values.get(name)
+
     def ttl(self, name: str) -> int:
         if name not in self.values:
             return -2
@@ -87,6 +90,9 @@ class _FakeRedis:
 
 
 class _BrokenRedis:
+    def get(self, name: str) -> str | None:
+        raise ConnectionError("valkey is down")
+
     def pipeline(self, transaction: bool = True):
         raise ConnectionError("valkey is down")
 
@@ -220,18 +226,29 @@ def test_strike_rearms_the_counter_and_counts_the_locks() -> None:
         for _ in range(5):
             store.reserve_attempt(SUBJECT)
 
-        assert store.strike(SUBJECT, rearm_to=4) == 1
+        assert store.strike(SUBJECT, rearm_to=4, lock_seconds=lambda strikes: 900 * strikes) == 1
         assert store.reserve_attempt(SUBJECT) == 5
-        assert store.strike(SUBJECT, rearm_to=4) == 2
+        assert store.strike(SUBJECT, rearm_to=4, lock_seconds=lambda strikes: 900 * strikes) == 2
 
 
-def test_release_gives_a_refused_reservation_back() -> None:
+def test_a_strike_locks_in_the_same_step_it_re_arms() -> None:
+    """/code-review of #1846: a separate re-arm and lock left a window in which a request passed the lock check."""
+    redis = _PipelineRedis()
+    store = RedisStepUpThrottleStore(redis, fallback=MemoryStepUpThrottleStore())
+
+    store.strike(SUBJECT, rearm_to=4, lock_seconds=lambda strikes: 900)
+
+    assert ["set", "set", "set"] in redis.transactions
+    assert 0 < store.lock_remaining_seconds(SUBJECT) <= 900
+
+
+def test_the_lock_grows_with_the_strikes() -> None:
     for store in (
         MemoryStepUpThrottleStore(),
         RedisStepUpThrottleStore(_PipelineRedis(), fallback=MemoryStepUpThrottleStore()),
     ):
-        store.reserve_attempt(SUBJECT)
-        store.reserve_attempt(SUBJECT)
-        store.release_attempt(SUBJECT)
+        store.strike(SUBJECT, rearm_to=4, lock_seconds=lambda strikes: 60 * strikes)
+        first = store.lock_remaining_seconds(SUBJECT)
+        store.strike(SUBJECT, rearm_to=4, lock_seconds=lambda strikes: 60 * strikes)
 
-        assert store.reserve_attempt(SUBJECT) == 2
+        assert store.lock_remaining_seconds(SUBJECT) > first

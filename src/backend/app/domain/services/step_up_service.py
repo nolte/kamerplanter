@@ -176,11 +176,10 @@ class StepUpVerifier:
         account_attempts = self._store.reserve_attempt(account)
         if pair_attempts > MAX_ATTEMPTS or account_attempts > ACCOUNT_CEILING:
             # Over this window's budget: a burst racing the attempt that is being
-            # tested. Refused without bcrypt, and the reservations are given back,
-            # so the count stays the number of passwords actually tested — the
-            # attempt after the next lock must be tested again (review SEC-001).
-            self._store.release_attempt(pair)
-            self._store.release_attempt(account)
+            # tested. Refused without bcrypt. The reservation is not given back —
+            # the tested attempt either clears the counter (right password) or
+            # strikes, which re-arms it and overwrites the overshoot; a give-back
+            # landing after that re-arm would undercount (/code-review of #1846).
             remaining = max(self._store.lock_remaining_seconds(pair), self._store.lock_remaining_seconds(account))
             self._refuse_locked(action, user_key, remaining or 60)
 
@@ -212,10 +211,13 @@ class StepUpVerifier:
         before review SEC-001 the count only grew, and every later attempt was
         refused without bcrypt until the 24-hour window ran out.
         """
-        strikes = self._store.strike(subject, rearm_to=threshold - 1)
-        locked_until = self._throttle_engine.calculate_lockout(threshold - 1 + strikes, threshold=threshold)
-        if locked_until is not None:
-            self._store.lock(subject, max(1, int((locked_until - datetime.now(UTC)).total_seconds())))
+        engine = self._throttle_engine
+
+        def lock_seconds(strikes: int) -> int:
+            locked_until = engine.calculate_lockout(threshold - 1 + strikes, threshold=threshold)
+            return int((locked_until - datetime.now(UTC)).total_seconds()) if locked_until else 1
+
+        self._store.strike(subject, rearm_to=threshold - 1, lock_seconds=lock_seconds)
 
     def _refuse_locked(self, action: StepUpAction, user_key: str, remaining_seconds: int) -> None:
         minutes = max(1, -(-remaining_seconds // 60))

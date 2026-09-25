@@ -222,3 +222,56 @@ def test_an_account_wide_lock_reports_its_own_wait() -> None:
         _verify(verifier, user, PASSWORD, ip="192.0.2.99")
 
     assert excinfo.value.retry_after_minutes >= 15
+
+
+# ── /code-review finding: a refused reservation must not undercount after a strike ──
+
+
+class _LateReleaseStore(MemoryStepUpThrottleStore):
+    """Delivers every given-back reservation only after the next strike.
+
+    Models the interleaving the review found: burst requests refused while the
+    one tested attempt runs bcrypt give their reservation back *after* that
+    attempt failed and re-armed the counter — which then undercounts.
+    """
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._late: list[str] = []
+
+    def release_attempt(self, subject: str) -> None:
+        self._late.append(subject)
+
+    def strike(self, subject: str, **kwargs):  # type: ignore[override]
+        strikes = super().strike(subject, **kwargs)
+        late, self._late = self._late, []
+        release = getattr(super(), "release_attempt", None)
+        for pending in late:
+            if release is not None:
+                release(pending)
+        return strikes
+
+
+def test_a_burst_during_the_tested_attempt_does_not_buy_extra_tries_after_the_lock() -> None:
+    clock = _Clock()
+    store = _LateReleaseStore(clock=clock)
+    user = _user()
+    burst: list[str] = []
+
+    class _BurstDuringBcrypt(_CountingEngine):
+        def verify_password(self, plain: str, hashed: str) -> bool:
+            if self.calls == MAX_ATTEMPTS - 1 and not burst:  # the attempt that reaches the threshold
+                for _ in range(3):
+                    burst.append(_safe_verify(verifier, user))
+            return super().verify_password(plain, hashed)
+
+    engine = _BurstDuringBcrypt()
+    verifier = StepUpVerifier(store, engine)
+    _fail_until_locked(verifier, user)
+    assert burst == ["StepUpLockedError"] * 3
+    clock.advance(16)
+    before = engine.calls
+
+    outcomes = [_safe_verify(verifier, user) for _ in range(4)]
+
+    assert engine.calls - before == 1, outcomes

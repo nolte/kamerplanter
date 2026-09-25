@@ -26,6 +26,7 @@ plus client address); implementations store only a digest of them (NFR-011).
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 
 class IStepUpThrottleStore(ABC):
@@ -46,25 +47,19 @@ class IStepUpThrottleStore(ABC):
         ...
 
     @abstractmethod
-    def release_attempt(self, subject: str) -> None:
-        """Give back a reservation that was refused without testing a password.
+    def strike(self, subject: str, *, rearm_to: int, lock_seconds: Callable[[int], int]) -> int:
+        """Lock the subject after a failed attempt; return how many locks it has had.
 
-        A burst that raced past the lock check is refused on its own count; if that
-        refusal kept its reservation, the count would drift above the number of
-        passwords actually tested, and the attempt after the next lock would be
-        refused too (security review SEC-001).
-        """
-        ...
+        In **one** step (a single transaction in the shared tier): the strike count
+        goes up by one, the lock is set for ``lock_seconds(strikes)`` seconds, and
+        the attempt counter is set back to *rearm_to* — so once the lock ends the
+        next attempt is tested again (one try, as after a login lockout) instead of
+        being refused on a count that only ever grows (security review SEC-001).
+        One step, because a request arriving between a separate re-arm and lock
+        would pass the lock check and be tested (``/code-review`` of #1846).
 
-    @abstractmethod
-    def strike(self, subject: str, *, rearm_to: int) -> int:
-        """Record one more lock for the subject and return how many it has had.
-
-        Sets the attempt counter back to *rearm_to*, so that once the lock ends the
-        next attempt is tested again — one try, as after a login lockout — instead
-        of being refused on a count that only ever grows (security review
-        SEC-001). The strike count lives for the counter window and drives the
-        doubling backoff.
+        Reservations refused over the budget are never given back: the re-arm
+        overwrites them, and a give-back landing after it would undercount.
         """
         ...
 

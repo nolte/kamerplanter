@@ -56,6 +56,8 @@ class _StringRedis(Protocol):
 
     def pipeline(self, transaction: bool = ...) -> Any: ...
 
+    def get(self, name: str) -> str | None: ...
+
     def ttl(self, name: str) -> int: ...
 
     def delete(self, *names: str) -> object: ...
@@ -123,19 +125,14 @@ class MemoryStepUpThrottleStore(IStepUpThrottleStore):
             entry.expires_at = now + self._ttl
             return entry.count
 
-    def release_attempt(self, subject: str) -> None:
-        now = self._clock()
-        with self._mutex:
-            entry = self._entry(_digest(subject), now)
-            entry.count = max(0, entry.count - 1)
-
-    def strike(self, subject: str, *, rearm_to: int) -> int:
+    def strike(self, subject: str, *, rearm_to: int, lock_seconds: Callable[[int], int]) -> int:
         now = self._clock()
         with self._mutex:
             entry = self._entry(_digest(subject), now)
             entry.strikes += 1
             entry.count = rearm_to
             entry.expires_at = now + self._ttl
+            entry.locked_until = now + timedelta(seconds=max(1, lock_seconds(entry.strikes)))
             return entry.strikes
 
     def lock(self, subject: str, seconds: int) -> None:
@@ -197,29 +194,26 @@ class RedisStepUpThrottleStore(IStepUpThrottleStore):
             return self._fallback.reserve_attempt(subject)
         return int(count)
 
-    def release_attempt(self, subject: str) -> None:
-        key = f"{_COUNT_PREFIX}{_digest(subject)}"
-        try:
-            self._redis.pipeline(transaction=True).incr(key, -1).expire(key, self._ttl_seconds).execute()
-        except Exception as exc:  # noqa: BLE001 - see lock_remaining_seconds
-            self._unavailable("decr", exc)
-            self._fallback.release_attempt(subject)
+    def strike(self, subject: str, *, rearm_to: int, lock_seconds: Callable[[int], int]) -> int:
+        """Strike count, lock and re-arm in one ``MULTI``/``EXEC``.
 
-    def strike(self, subject: str, *, rearm_to: int) -> int:
+        The next strike count is read first to size the lock. That read is not in
+        the transaction, and needs not be: only the one request whose reservation
+        reached the threshold strikes, so no two strikes of one subject race.
+        """
         digest = _digest(subject)
         strikes_key = f"{_STRIKE_PREFIX}{digest}"
         try:
-            strikes, *_ = (
-                self._redis.pipeline(transaction=True)
-                .incr(strikes_key)
-                .expire(strikes_key, self._ttl_seconds)
-                .set(f"{_COUNT_PREFIX}{digest}", str(rearm_to), ex=self._ttl_seconds)
-                .execute()
-            )
+            strikes = int(self._redis.get(strikes_key) or 0) + 1
+            self._redis.pipeline(transaction=True).set(
+                f"{_LOCK_PREFIX}{digest}", "1", ex=max(1, lock_seconds(strikes))
+            ).set(strikes_key, str(strikes), ex=self._ttl_seconds).set(
+                f"{_COUNT_PREFIX}{digest}", str(rearm_to), ex=self._ttl_seconds
+            ).execute()
         except Exception as exc:  # noqa: BLE001 - see lock_remaining_seconds
             self._unavailable("strike", exc)
-            return self._fallback.strike(subject, rearm_to=rearm_to)
-        return int(strikes)
+            return self._fallback.strike(subject, rearm_to=rearm_to, lock_seconds=lock_seconds)
+        return strikes
 
     def lock(self, subject: str, seconds: int) -> None:
         try:
