@@ -24,7 +24,7 @@ from limits import (
     validation_error_handler,
 )
 from pydantic import BaseModel
-from transformers import AutoTokenizer
+from tokenization import load_tokenizer
 
 app = FastAPI(title="Kamerplanter Embedding Service")
 
@@ -95,7 +95,10 @@ def _preload() -> None:
     global _session, _tokenizer, _input_names, _ready
     start = time.monotonic()
 
-    tokenizer = AutoTokenizer.from_pretrained(str(ONNX_PATH))
+    # Rust `tokenizers` from `tokenizer.json`, configured to truncate to 512
+    # tokens and pad with the model's own pad token (#1752; the measured
+    # parity and the MiniLM defect this fixes are in `load_tokenizer`).
+    tokenizer = load_tokenizer(ONNX_PATH)
 
     # Find the ONNX model file
     onnx_file = ONNX_PATH / "model.onnx"
@@ -149,10 +152,11 @@ def embed(req: EmbedRequest) -> EmbedResponse:
 
         return JSONResponse(status_code=503, content={"status": "loading"})
 
-    # Nothing to embed. Answered without touching the tokenizer: transformers
-    # raises IndexError on an empty batch (measured with 5.17.0, the locked
-    # version), so `texts: []` used to be a 500. `dimensions` is 0, as it always
-    # was for an empty result.
+    # Nothing to embed. Answered without touching the tokenizer or the graph:
+    # when this service still tokenized through transformers, an empty batch
+    # raised IndexError (measured with 5.17.0), so `texts: []` used to be a 500.
+    # The short-circuit stays — with no vector there is no `dimensions` to read
+    # off, so it is 0, as it always was for an empty result.
     if not req.texts:
         return EmbedResponse(embeddings=[], model=req.model, dimensions=0)
 
@@ -167,8 +171,14 @@ def embed(req: EmbedRequest) -> EmbedResponse:
     # 1845 MiB, and one text per run took 24.7 s at 1650 MiB — lower memory AND
     # faster, because nothing is spent on padding — with embeddings IDENTICAL
     # to the full batch (max |Δ| 0.0). At 64 such texts the full batch was
-    # OOMKilled. The tokenizer call is unchanged (truncation to 512 tokens);
+    # OOMKilled. The tokenizer truncates to 512 tokens (`load_tokenizer`);
     # padding is a no-op for one text. Vectors are collected in input order.
+    #
+    # The encoded dict deliberately carries NO `token_type_ids`: the reference
+    # pipeline omits them, so `build_feed` feeds zeros to a graph that declares
+    # the input — exactly what it did before #1752. (The `type_ids` tokenizers
+    # returns are all zeros for a single sequence anyway, measured for all four
+    # models.)
     #
     # BOUNDED WAIT, BOUNDED HOLD. The lock is waited for at most
     # `LOCK_WAIT_SECONDS` (then 503 busy), and the deadline — started here, so
@@ -180,7 +190,11 @@ def embed(req: EmbedRequest) -> EmbedResponse:
     with inference_slot(_inference_lock, wait_seconds=LOCK_WAIT_SECONDS):
         for text in texts:
             deadline.check()
-            encoded = _tokenizer([text], padding=True, truncation=True, max_length=512, return_tensors="np")
+            encoding = _tokenizer.encode(text)
+            encoded = {
+                "input_ids": np.asarray([encoding.ids], dtype=np.int64),
+                "attention_mask": np.asarray([encoding.attention_mask], dtype=np.int64),
+            }
             outputs = _session.run(None, build_feed(_input_names, encoded))
             vectors.append(_normalize(_mean_pooling(outputs[0], encoded["attention_mask"]))[0])
 

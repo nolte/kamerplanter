@@ -1,7 +1,7 @@
 """Build the ONNX Runtime input feed from what the GRAPH declares (#1724).
 
 Kept apart from ``main.py`` and importing only numpy, so it can be unit-tested
-without onnxruntime, transformers or a model on disk.
+without onnxruntime, tokenizers or a model on disk.
 
 **The defect this is written against, measured 2026-09-24** on the develop
 image ``--target e5-small``: ``/ready`` answered 200, and every ``POST /embed``

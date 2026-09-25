@@ -62,6 +62,7 @@ import os
 import re
 import sys
 import threading
+import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -1238,6 +1239,87 @@ class TestRuntimeImage:
 
         assert len(removals) == 1, f"{sidecar.service}: the runtime stage does not uninstall pip: {runtime}"
         assert not users or removals[0] < users[0]
+
+
+# --------------------------------------------------------------------------
+# the tokenizer: Rust `tokenizers`, never transformers (#1480, #1752)
+# --------------------------------------------------------------------------
+
+#: Packages a sidecar's runtime must not reach. ``transformers`` is the only one
+#: either service ever used, and only for ``AutoTokenizer``: it carried three HIGH
+#: CVEs on the line the reranker was held on (#1480), and in the embedding image
+#: (transformers 5.17.0) it tokenized the MiniLM model — whose
+#: ``tokenizer_config.json`` names ``BertTokenizer`` over a Unigram
+#: ``tokenizer.json`` — through a WordPiece backend that mapped nearly every word
+#: to ``<unk>`` (measured 2026-09-25: max |Δ| 0.309 against the reference
+#: vectors, #1752). ``tokenizers`` reads ``tokenizer.json`` as published.
+_FORBIDDEN_RUNTIME_PACKAGES = frozenset({"transformers"})
+
+
+def _runtime_closure(lock_file: Path, project: str) -> set[str]:
+    """Every package the runtime venv installs: the project's ``dependencies``, transitively.
+
+    Exactly what ``uv sync --locked --no-dev`` in the ``venv`` stage installs:
+    ``dev-dependencies`` (the ``build`` group) are left out, extras requested
+    on an edge (``uvicorn[standard]``) are followed.
+    """
+
+    packages = {entry["name"]: entry for entry in tomllib.loads(lock_file.read_text(encoding="utf-8"))["package"]}
+    assert project in packages, f"{lock_file}: no package {project!r}"
+
+    def edges(entry: dict[str, Any], extras: frozenset[str]) -> list[tuple[str, frozenset[str]]]:
+        found = [(dep["name"], frozenset(dep.get("extra", ()))) for dep in entry.get("dependencies", [])]
+        for extra in extras:
+            found += [
+                (dep["name"], frozenset(dep.get("extra", ())))
+                for dep in entry.get("optional-dependencies", {}).get(extra, [])
+            ]
+        return found
+
+    seen: set[tuple[str, frozenset[str]]] = set()
+    pending = edges(packages[project], frozenset())
+    while pending:
+        name, extras = pending.pop()
+        if (name, extras) in seen:
+            continue
+        seen.add((name, extras))
+        pending += edges(packages[name], extras)
+    return {name for name, _ in seen}
+
+
+class TestRuntimeTokenizer:
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_the_runtime_lock_does_not_reach_transformers(self, sidecar: Sidecar) -> None:
+        pyproject = sidecar.dir / "pyproject.toml"
+        project = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["name"]
+        closure = _runtime_closure(sidecar.dir / "uv.lock", project)
+
+        assert "onnxruntime" in closure and "tokenizers" in closure, (
+            f"{sidecar.service}: the runtime closure lost onnxruntime/tokenizers — the walk stopped reaching the lock"
+        )
+        assert closure.isdisjoint(_FORBIDDEN_RUNTIME_PACKAGES), sorted(closure & _FORBIDDEN_RUNTIME_PACKAGES)
+
+    @pytest.mark.parametrize("sidecar", _BY_SERVICE)
+    def test_no_module_of_the_service_imports_transformers(self, sidecar: Sidecar) -> None:
+        """Every ``*.py`` the service ships, read as AST: an import, not a comment, is what counts."""
+        modules = sorted(sidecar.dir.glob("*.py"))
+        assert any(module.name == "main.py" for module in modules), modules
+        offending = []
+        for module in modules:
+            for node in ast.walk(ast.parse(module.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Import):
+                    names = [alias.name for alias in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                    names = [node.module]
+                else:
+                    continue
+                offending += [
+                    f"{module.name}:{node.lineno} {name}"
+                    for name in names
+                    if name.split(".")[0] in _FORBIDDEN_RUNTIME_PACKAGES
+                ]
+
+        assert offending == []
 
 
 class TestComposeRuntime:

@@ -3,7 +3,7 @@
 Kept apart from ``main.py`` and importing only the standard library and
 pydantic, so the backend's guard suite
 (src/backend/tests/unit/guards/test_ml_sidecar_limits.py) loads THIS file — the
-one ``main.py`` imports — by path, without onnxruntime, transformers or a model.
+one ``main.py`` imports — by path, without onnxruntime, tokenizers or a model.
 docker/reranker-service/limits.py is its sibling and is held to the same
 assertions by the same parametrized test; ``cpu_budget`` is a verbatim copy
 there, because the two images are separate build contexts.
