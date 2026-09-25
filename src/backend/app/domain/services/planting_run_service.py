@@ -284,6 +284,8 @@ class PlantingRunService:
         run_key: PlantingRunKey,
         entry_key: str,
         data: dict,
+        *,
+        tenant_key: str,
     ) -> PlantingRunEntry:
         """Partially update a run entry (REQ-013).
 
@@ -292,10 +294,10 @@ class PlantingRunService:
         merged entry is re-validated against the model so field constraints
         (``quantity >= 1``, ``id_prefix`` pattern) keep applying.
         """
-        run = self.get_run(run_key)
+        run = self.get_run(run_key, tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("update_entry", run.status.value)
-        existing = self._repo.get_entry_or_raise(entry_key)
+        existing = self._entry_of_run(run_key, entry_key)
 
         patch = {k: v for k, v in data.items() if k in self.ENTRY_UPDATABLE_FIELDS}
         nulled_required = self.ENTRY_REQUIRED_FIELDS & {k for k, v in patch.items() if v is None}
@@ -316,17 +318,30 @@ class PlantingRunService:
         self._repo.update(run_key, run)
         return updated
 
-    def delete_entry(self, run_key: PlantingRunKey, entry_key: str) -> bool:
-        run = self.get_run(run_key)
+    def delete_entry(self, run_key: PlantingRunKey, entry_key: str, *, tenant_key: str) -> bool:
+        run = self.get_run(run_key, tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("delete_entry", run.status.value)
-        self._repo.get_entry_or_raise(entry_key)
+        self._entry_of_run(run_key, entry_key)
         result = self._repo.delete_entry(entry_key)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
         run.planned_quantity = sum(e.quantity for e in entries)
         self._repo.update(run_key, run)
         return result
+
+    def _entry_of_run(self, run_key: PlantingRunKey, entry_key: str) -> PlantingRunEntry:
+        """The entry ``entry_key`` **of run** ``run_key``, or 404 (#1867).
+
+        An entry is addressed through its run, and the run is what the caller's
+        tenant was checked against. Loading the entry by its key alone let a
+        member of one tenant edit or delete any tenant's entry through a run of
+        their own. A foreign and an unknown entry answer the same.
+        """
+        entry = self._repo.get_entry_or_raise(entry_key)
+        if entry.run_key != run_key:
+            raise NotFoundError("PlantingRunEntry", entry_key)
+        return entry
 
     # ── Batch operations ──────────────────────────────────────────────
 

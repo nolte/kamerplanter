@@ -1,7 +1,7 @@
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import NutrientDemandLevel
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.engines.area_dosing_engine import AreaDosingCalculator, AreaDosingResult
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
@@ -208,7 +208,22 @@ class FertilizerService:
         self.get_fertilizer(key)
         return self._repo.get_incompatibilities(key)
 
-    def remove_incompatibility(self, key_a: FertilizerKey, key_b: FertilizerKey) -> bool:
+    def remove_incompatibility(
+        self, key_a: FertilizerKey, key_b: FertilizerKey, *, tenant_key: str, is_platform_admin: bool
+    ) -> bool:
+        """Remove the incompatibility between ``key_a`` and ``key_b`` (#1867).
+
+        Both products are resolved in the caller's scope, as :meth:`add_incompatibility`
+        does since #1713 — ``key_b`` used to be taken as given. And the edge must
+        touch one of the caller's **own** products: with a global ``key_a`` and
+        another tenant's private ``key_b``, tenant A deleted the incompatibility
+        tenant B had declared. An edge between two global products is shared
+        catalogue data, so only a platform admin may remove it.
+        """
+        a = self.get_fertilizer(key_a, tenant_key)
+        b = self.get_fertilizer(key_b, tenant_key)
+        if not is_platform_admin and tenant_key not in (a.tenant_key, b.tenant_key):
+            raise ForbiddenError("Only a platform admin may remove an incompatibility between two shared products.")
         return self._repo.remove_incompatibility(key_a, key_b)
 
     # ── Reverse lookup ─────────────────────────────────────────────────

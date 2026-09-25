@@ -271,9 +271,8 @@ def update_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's maintenance schedule."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_schedule(skey, data)
+    updated = service.update_schedule(key, skey, data, tenant_key=ctx.tenant_key)
     return to_response(updated, MaintenanceScheduleResponse)
 
 
@@ -285,8 +284,7 @@ def delete_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Delete a tank's maintenance schedule."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.delete_schedule(skey)
+    service.delete_schedule(key, skey, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/fills", response_model=FillEventResultResponse, status_code=201)

@@ -1,5 +1,5 @@
 from app.common.enums import IrrigationSystem
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import MaintenanceScheduleKey, TankKey
 from app.domain.engines.tank_engine import TankEngine
@@ -190,8 +190,25 @@ class TankService:
         self.get_tank(tank_key)
         return self._repo.get_schedules(tank_key)
 
-    def update_schedule(self, key: MaintenanceScheduleKey, data: dict) -> MaintenanceSchedule:
-        existing = self._repo.get_schedule_or_raise(key)
+    def _schedule_of_tank(
+        self, tank_key: TankKey, key: MaintenanceScheduleKey, *, tenant_key: str
+    ) -> MaintenanceSchedule:
+        """The schedule ``key`` **of tank** ``tank_key`` in ``tenant_key``, or 404 (#1867).
+
+        The tank is resolved under the tenant; the schedule must belong to it. A
+        schedule loaded by its key alone let any tank owner change or delete any
+        tenant's schedule. A foreign and an unknown schedule answer the same.
+        """
+        self.get_tank(tank_key, tenant_key)
+        schedule = self._repo.get_schedule_or_raise(key)
+        if schedule.tank_key != tank_key:
+            raise NotFoundError("MaintenanceSchedule", key)
+        return schedule
+
+    def update_schedule(
+        self, tank_key: TankKey, key: MaintenanceScheduleKey, data: dict, *, tenant_key: str
+    ) -> MaintenanceSchedule:
+        existing = self._schedule_of_tank(tank_key, key, tenant_key=tenant_key)
         allowed_fields = {
             "interval_days",
             "reminder_days_before",
@@ -213,8 +230,8 @@ class TankService:
 
         return self._repo.update_schedule(key, existing)
 
-    def delete_schedule(self, key: MaintenanceScheduleKey) -> bool:
-        self._repo.get_schedule_or_raise(key)
+    def delete_schedule(self, tank_key: TankKey, key: MaintenanceScheduleKey, *, tenant_key: str) -> bool:
+        self._schedule_of_tank(tank_key, key, tenant_key=tenant_key)
         return self._repo.delete_schedule(key)
 
     # ── Fill Events ──────────────────────────────────────────────────────

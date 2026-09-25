@@ -14,7 +14,7 @@ from app.api.v1.fertilizers.schemas import (
     StockResponse,
     StockUpdate,
 )
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_current_tenant, get_is_platform_admin, require_permission
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import DataOrigin
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
@@ -203,10 +203,10 @@ def remove_incompatibility(
     other_key: Annotated[str, Path(description="Document key of the incompatible fertilizer.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Remove a declared incompatibility between two fertilizers."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.remove_incompatibility(key, other_key)
+    """Remove a declared incompatibility — both products visible, one of them the tenant's own (#1867)."""
+    service.remove_incompatibility(key, other_key, tenant_key=ctx.tenant_key, is_platform_admin=is_platform_admin)
 
 
 @router.get("/{key}/nutrient-plans", response_model=list[NutrientPlanUsageResponse])
