@@ -907,11 +907,29 @@ def get_tenant_service() -> TenantService:
         membership_engine=MembershipEngine(),
         invitation_engine=InvitationEngine(),
         storage_adapter=get_object_storage(),
-        attachment_repo=get_attachment_repo(),
         reference_index_store=get_reference_index_store(),
         pest_image_repo=get_pest_image_repo(),
         pest_prototype_store=get_pest_prototype_store(),
+        observation_repo=get_observation_repo(),
+        tenant_erasure_executor=get_tenant_erasure_executor(),
+        tenant_erasure_repo=get_tenant_erasure_repo(),
+        tombstone_salt=settings.erasure_tombstone_salt,
+        light_mode=settings.kamerplanter_mode == "light",
     )
+
+
+def get_tenant_erasure_executor():
+    """REQ-024 / REQ-025 — the ArangoDB executor of the declared tenant-erasure inventory (#1769)."""
+    from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
+
+    return ArangoTenantErasureExecutor(get_db())
+
+
+def get_tenant_erasure_repo():
+    """The persisted proof and retry state of a tenant deletion (#1769)."""
+    from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
+
+    return ArangoTenantErasureRepository(get_db())
 
 
 def get_personal_data_repo():

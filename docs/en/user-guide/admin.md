@@ -37,10 +37,9 @@ In the **Admin > Tenants** section you can:
 - Manage a tenant's members on their behalf
 
 !!! danger "Deleting a tenant is irreversible"
-    Deleting a tenant removes its object storage (photos, attachments), its contributed recognition vectors, all memberships, open invitations and location assignments, and finally the tenant record itself. This action cannot be undone. Create a data export for the affected tenant beforehand.
+    Deleting a tenant first deactivates every membership immediately, then removes its contributed recognition vectors, its object storage (photos, attachments) and every domain record it holds — sites, plants, planting runs, diary entries, tasks, tanks, sensors and every other location-bound record — and finally the tenant record itself. Harvest and treatment documentation is exempt because it must be kept for several years under statutory law (CanG, German Plant Protection Act): those records are retained but pseudonymized. This action cannot be undone. Create a data export for the affected tenant beforehand. <!-- Issue #1769 -->
 
-!!! note "Partially available: domain-data deletion"
-    Tenant deletion today already removes the tenant's object storage, recognition vectors, memberships, invitations and location assignments. Its domain data — plants, planting runs, diary entries, tasks and other location-bound records — still remains; removing it will be added in a future version. <!-- Issue #1769 -->
+    If the deletion could not be completed fully, the action reports an error (`500`) and does not change the steps already done: the deletion stays recorded and is resumed automatically by the daily retry run — you don't need to do anything manually. If a single external service could not be reached, the action reports `502` instead. If a deletion is already running for the tenant, a second attempt reports a conflict (`409`). If the instance is not correctly configured for tenant deletion, it reports `503` — in this case nothing was changed.
 
 ---
 

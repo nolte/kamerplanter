@@ -87,17 +87,3 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
             },
         )
         return sum(1 for _ in cursor)
-
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        query = f"""
-        FOR doc IN {col.INVITATIONS}
-          FILTER doc.tenant_key == @tenant_key
-          LET inv_id = CONCAT("{col.INVITATIONS}/", doc._key)
-          LET del_edge = (
-            FOR e IN {col.HAS_INVITATION} FILTER e._to == inv_id REMOVE e IN {col.HAS_INVITATION}
-          )
-          REMOVE doc IN {col.INVITATIONS}
-          RETURN 1
-        """
-        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
-        return sum(1 for _ in cursor)

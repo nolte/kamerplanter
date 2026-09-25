@@ -100,15 +100,6 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        """REQ-024/-025 — delete every attachment metadata document of a tenant.
-
-        Removes only the ArangoDB metadata; the binary objects are purged
-        separately via ``storage_adapter.delete_prefix`` (NFR-013 §6.1).
-        Returns the number of documents deleted.
-        """
-
-    @abstractmethod
     def find_by_sha256(self, tenant_key: str, sha256: str) -> Attachment | None:
         """Return an existing attachment with a matching content hash (dedup)."""
 

@@ -55,5 +55,8 @@ class NullObservationRepository(IObservationRepository):
     ) -> int:
         return 0
 
+    def delete_by_tenant(self, tenant_key: str) -> int:
+        return 0
+
     def is_available(self) -> bool:
         return False

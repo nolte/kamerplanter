@@ -185,6 +185,8 @@ CONSENT_RECORDS = "consent_records"
 PROCESSING_RESTRICTIONS = "processing_restrictions"
 ERASURE_REQUESTS = "erasure_requests"
 EMAIL_CHANGE_REQUESTS = "email_change_requests"
+# REQ-024 / REQ-025 (#1769) — proof and retry state of a tenant deletion
+TENANT_ERASURE_RECORDS = "tenant_erasure_records"
 
 # REQ-029-A DINOv2 — diagnosis (task B, backlog) + reference-image acquisition
 DIAGNOSIS_REQUESTS = "diagnosis_requests"
@@ -330,6 +332,7 @@ DOCUMENT_COLLECTIONS = [
     PROCESSING_RESTRICTIONS,
     ERASURE_REQUESTS,
     EMAIL_CHANGE_REQUESTS,
+    TENANT_ERASURE_RECORDS,
     IDENTIFICATION_REQUESTS,
     PLANT_DIAGNOSIS_REQUESTS,
     DIAGNOSIS_REQUESTS,
@@ -2219,6 +2222,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     erasure_requests_col.add_persistent_index(fields=["user_key"], unique=False)
     erasure_requests_col.add_persistent_index(fields=["status"], unique=False)
     erasure_requests_col.add_persistent_index(fields=["hard_delete_scheduled_at"], unique=False)
+
+    # #1769 — the retry run selects open tenant-erasure records by status.
+    db.collection(TENANT_ERASURE_RECORDS).add_persistent_index(fields=["status"], unique=False)
 
     email_change_requests_col = db.collection(EMAIL_CHANGE_REQUESTS)
     email_change_requests_col.add_persistent_index(fields=["user_key"], unique=False)

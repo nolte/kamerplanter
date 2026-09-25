@@ -7,6 +7,7 @@ called by hand, though it can be::
     python3 scripts/reach/stack.py up
     python3 scripts/reach/stack.py seed --subject reach-subject
     python3 scripts/reach/stack.py seed-files --subject reach-subject
+    python3 scripts/reach/stack.py seed-tenant --tenant reach-tenant --control reach-control-tenant
     python3 scripts/reach/stack.py down
 
 ``up`` starts the E2E stack's full-mode services (``docker-compose.e2e.yml``)
@@ -16,7 +17,10 @@ working copy, waits for them, and records the host-side addresses in
 backend container and stores its record under ``.reach/subjects/``.
 ``seed-files`` runs ``seed_stored_files.py`` there for a subject ``seed`` already
 wrote — one photo with GPS EXIF per attachment category in the subject's tenant —
-and stores ``.reach/subjects/<subject>.files.json``. ``down`` removes
+and stores ``.reach/subjects/<subject>.files.json``. ``seed-tenant`` runs
+``seed_tenant_for_erasure.py`` there — a tenant and a control tenant with a row
+in every tenant-erasure inventory collection (#1769) — and stores
+``.reach/subjects/tenant-<tenant>.json``. ``down`` removes
 containers, networks and volumes and clears ``.reach/``'s run state.
 
 A reach environment target's job is to make the system exist, not to say
@@ -172,6 +176,32 @@ def seed_files(subject: str) -> None:
     log(f"seeded {len(record['files'])} stored files for {subject!r} (refused categories: {refused}) -> {path}")
 
 
+def seed_tenant(tenant: str, control: str) -> None:
+    """Seed a tenant and a control tenant into every tenant-erasure inventory collection (#1769)."""
+    read_stack()
+    scripts = repo_root() / "scripts"
+    output = run_in_backend(
+        scripts / "reach" / "seed_tenant_for_erasure.py",
+        "--tenant",
+        tenant,
+        "--control",
+        control,
+        # The model-valid row builder of the subject seed, and its import closure.
+        support=(
+            scripts / "reach" / "seed_privacy_subject.py",
+            scripts / "check_privacy_inventory.py",
+            scripts / "arango_repository_bindings.py",
+            scripts / "source_text.py",
+        ),
+        timeout=300,
+    )
+    record = json.loads(output)
+    path = subject_file(f"tenant-{tenant}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    log(f"seeded tenant {tenant!r} and control {control!r}: {len(record['rows'])} rows -> {path}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -181,6 +211,9 @@ def main(argv: list[str] | None = None) -> int:
     seed_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
     files_parser = sub.add_parser("seed-files", help="upload one GPS-EXIF photo per attachment category")
     files_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
+    tenant_parser = sub.add_parser("seed-tenant", help="seed a tenant and a control tenant for the tenant erasure")
+    tenant_parser.add_argument("--tenant", required=True)
+    tenant_parser.add_argument("--control", required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "up":
@@ -189,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
             down()
         elif args.command == "seed-files":
             seed_files(args.subject)
+        elif args.command == "seed-tenant":
+            seed_tenant(args.tenant, args.control)
         else:
             seed(args.subject)
     except ReachError as exc:
