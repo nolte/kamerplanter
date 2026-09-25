@@ -32,6 +32,7 @@ from app.domain.models.privacy import (
     ErasureExecutionReport,
     ErasureStepOutcome,
 )
+from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
 
 USER_KEY = "u-1"
@@ -86,7 +87,7 @@ def _storage(calls: list[str]) -> MagicMock:
 
     async def _delete_for_user(tenant_key, user_key, scope):
         calls.append(f"delete_for_user:{tenant_key}:{scope}")
-        return 0
+        return StorageErasureResult()
 
     async def _strip(tenant_key, user_key, scope):
         return 0

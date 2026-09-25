@@ -1531,6 +1531,8 @@ class PrivacyService:
                 pre_arango_completed_at=now,
                 reference_index_binding=pre_arango.reference_index_binding,
                 reference_index_removed=pre_arango.reference_index_removed,
+                storage_objects_removed=pre_arango.storage_objects_removed,
+                storage_objects_retained_shared=pre_arango.storage_objects_retained_shared,
                 # Only when the pest step ran: ``None`` fields are not written.
                 pest_prototype_binding=pre_arango.pest_prototype_binding,
                 pest_prototypes_removed=(
@@ -1756,6 +1758,8 @@ class PrivacyService:
             subject=self.log_subject(user_key),
             export_files_removed=report.export_files_removed,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            storage_objects_removed=report.storage_objects_removed,
+            storage_objects_retained_shared=report.storage_objects_retained_shared,
             reference_index_removed=report.reference_index_removed,
             reference_index_binding=report.reference_index_binding,
             pest_prototypes_removed=report.pest_prototypes_removed,
@@ -1813,7 +1817,7 @@ class PrivacyService:
         Returns the number of pest-image contributions removed (the count of a
         declared step delegated to this phase).
         """
-        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key)
+        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key, report)
         report.reference_index_removed = await self._run_reference_index_cleanup(user_key)
         report.reference_index_binding = self._reference_index_binding()
         return await self._run_pest_image_cleanup(user_key, report)
@@ -1860,12 +1864,17 @@ class PrivacyService:
         )
         return removed
 
-    async def _run_storage_cleanup(self, user_key: str) -> list[str]:
+    async def _run_storage_cleanup(self, user_key: str, report: AccountErasureReport | None = None) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.
 
         A user can belong to several tenants (REQ-024 membership); the
         ``attachments`` lookup is tenant-scoped, so the cleanup runs per tenant.
         Returns the list of scopes that were applied (for the audit record).
+
+        #1770 — a hard-deleted record's object is kept while another record still
+        holds it (deduplicated bytes of another member). *report* receives both
+        counts, so the erasure proves it reached the subject's records even where
+        it kept the bytes.
         """
         if self._storage_adapter is None or self._membership_repo is None:
             logger.info(
@@ -1880,17 +1889,21 @@ class PrivacyService:
         for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
             for tenant_key in tenant_keys:
                 if rule.action == "hard_delete":
-                    deleted = await self._storage_adapter.delete_for_user(
+                    result = await self._storage_adapter.delete_for_user(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
                     )
+                    if report is not None:
+                        report.storage_objects_removed += result.removed
+                        report.storage_objects_retained_shared += result.retained_shared
                     logger.info(
                         "retention.erasure.storage_hard_delete",
                         scope=rule.scope,
                         tenant_key=tenant_key,
                         subject=self.log_subject(user_key),
-                        deleted=deleted,
+                        deleted=result.removed,
+                        retained_shared=result.retained_shared,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
                     # Strip first: both halves select the photos by
@@ -2049,6 +2062,8 @@ class PrivacyService:
         reference_index_removed: int | None = None,
         pest_prototype_binding: str | None = None,
         pest_prototypes_removed: int | None = None,
+        storage_objects_removed: int | None = None,
+        storage_objects_retained_shared: int | None = None,
     ) -> None:
         """Persist an erasure-status transition as a named-field write.
 
@@ -2078,6 +2093,8 @@ class PrivacyService:
             "reference_index_removed": reference_index_removed,
             "pest_prototype_binding": pest_prototype_binding,
             "pest_prototypes_removed": pest_prototypes_removed,
+            "storage_objects_removed": storage_objects_removed,
+            "storage_objects_retained_shared": storage_objects_retained_shared,
         }
         fields.update({name: value for name, value in retry_fields.items() if value is not None})
         if status == "completed":

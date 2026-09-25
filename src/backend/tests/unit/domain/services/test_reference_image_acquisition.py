@@ -274,8 +274,19 @@ def _make_contribution_service(*, dim: int = 384):
     stored: dict[tuple, dict] = {}
 
     def _fake_upsert(**kwargs):
+        # The inference-service's ``ON CONFLICT (species_key, source,
+        # source_record_id) DO UPDATE`` keeps the row's curation flag and its
+        # *original* provenance (``is_active`` / ``contributed_by`` / ``tenant_key``
+        # / ``contributed_at`` are not in its SET list) and refreshes the rest.
+        # A double that let the last write win would certify an attribution the
+        # real index never stores (#1770).
         key = (kwargs["species_key"], kwargs["source"], kwargs.get("source_record_id"))
-        stored[key] = kwargs
+        previous = stored.get(key)
+        if previous is None:
+            stored[key] = dict(kwargs)
+        else:
+            kept = {name: previous.get(name) for name in ("is_active", "contributed_by", "tenant_key")}
+            stored[key] = {**kwargs, **kept}
         return {"status": "ok", "dim": dim}
 
     inference.upsert_reference.side_effect = _fake_upsert
@@ -322,7 +333,8 @@ def test_contribute_user_reference_quarantines_with_provenance():
     # SEC-005 — contributor + tenant provenance is stored.
     assert kwargs["contributed_by"] == "user_anna"
     assert kwargs["tenant_key"] == "tenant_anna"
-    # SEC-002 — the dedup key is the SHA-256 of the normalised image.
+    # SEC-002 — the dedup key is derived from the SHA-256 of the normalised
+    # image, per contributor (#1770).
     assert kwargs["source_record_id"].startswith("sha256:")
     # Only the embedding is indexed — no original image is forwarded/persisted.
     assert kwargs["embedding"] == [0.1] * 384
@@ -360,8 +372,8 @@ def test_contribute_user_reference_dedupes_identical_image():
     service.contribute_user_reference("species_monstera", image, user_key="u", tenant_key="t")
     service.contribute_user_reference("species_monstera", image, user_key="u", tenant_key="t")
 
-    # SEC-002 — both upserts carry the SAME source_record_id (image hash), so the
-    # pgvector UNIQUE (species, source, record) collapses them onto ONE row.
+    # SEC-002 — both upserts of one contributor carry the SAME source_record_id,
+    # so the pgvector UNIQUE (species, source, record) collapses them onto ONE row.
     first = inference.upsert_reference.call_args_list[0].kwargs["source_record_id"]
     second = inference.upsert_reference.call_args_list[1].kwargs["source_record_id"]
     assert first == second
@@ -390,3 +402,39 @@ def test_contribute_user_reference_undecodable_image_raises_validation():
 
     # SEC-006 — a corrupt image is a validation error, not an unhandled 500.
     inference.upsert_reference.assert_not_called()
+
+
+def test_identical_images_of_two_contributors_are_two_rows_each_attributed_to_its_contributor():
+    """#1770 SEC-007 — the index keeps the first contributor's provenance on conflict.
+
+    With the image hash alone as the record id, a second contributor's identical
+    photo — from any tenant — collapsed onto the first contributor's row: their
+    erasure (``contributed_by``) and their tenant's deletion (``tenant_key``)
+    reached nothing, and the first contributor's erasure removed what the second
+    one contributed. Each contributor's contribution is its own row now.
+    """
+    service, _, _, _, stored = _make_contribution_service()
+    image = _image()
+
+    service.contribute_user_reference("species_monstera", image, user_key="user_anna", tenant_key="tenant_anna")
+    service.contribute_user_reference("species_monstera", image, user_key="user_ben", tenant_key="tenant_ben")
+
+    assert len(stored) == 2
+    assert sorted((row["contributed_by"], row["tenant_key"]) for row in stored.values()) == [
+        ("user_anna", "tenant_anna"),
+        ("user_ben", "tenant_ben"),
+    ]
+
+
+def test_the_record_id_does_not_reveal_whether_another_tenant_contributed_the_image():
+    """#1770 — the id a contributor gets back is theirs alone, never shared across tenants."""
+    service, _, _, _, _ = _make_contribution_service()
+    image = _image()
+
+    anna = service.contribute_user_reference("species_monstera", image, user_key="user_anna", tenant_key="tenant_anna")
+    ben = service.contribute_user_reference("species_monstera", image, user_key="user_ben", tenant_key="tenant_ben")
+    same_user_other_tenant = service.contribute_user_reference(
+        "species_monstera", image, user_key="user_anna", tenant_key="tenant_ben"
+    )
+
+    assert len({anna["source_record_id"], ben["source_record_id"], same_user_other_tenant["source_record_id"]}) == 3

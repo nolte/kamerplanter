@@ -140,6 +140,7 @@ class TestEraserHooksWithRepo:
 
     class _FakeAttachment:
         def __init__(self, storage_key: str, mime_type: str) -> None:
+            self.key = storage_key  # one record per object here; the real key is the document key
             self.storage_key = storage_key
             self.mime_type = mime_type
 
@@ -149,6 +150,12 @@ class TestEraserHooksWithRepo:
 
         def find_by_user(self, tenant_key, user_key, categories=None):
             return self._attachments
+
+        def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):
+            # Every record this fake knows is the user's and is being erased (#1770).
+            return {
+                a.storage_key for a in self._attachments if a.storage_key in storage_keys and a.key not in excluding
+            }
 
     @pytest.mark.asyncio
     async def test_delete_for_user_deletes_user_objects(self, tmp_path):
@@ -167,7 +174,7 @@ class TestEraserHooksWithRepo:
             await adapter.put_object(att.storage_key, _stream(b"img"), att.mime_type)
 
         deleted = await adapter.delete_for_user("t-1", "u-1", "all")
-        assert deleted == 2
+        assert (deleted.removed, deleted.retained_shared) == (2, 0)
         result = await adapter.list_objects("t-1")
         assert result["keys"] == []
 

@@ -129,6 +129,10 @@ class ErasureRequest(BaseModel):
     #: The same for the contributed pest-recognition prototypes (#1759).
     pest_prototype_binding: str | None = None
     pest_prototypes_removed: int | None = Field(default=None, ge=0)
+    #: Phase 0 hard-delete outcome (#1770): stored objects deleted, and objects
+    #: kept because another member's record still holds the same bytes.
+    storage_objects_removed: int | None = Field(default=None, ge=0)
+    storage_objects_retained_shared: int | None = Field(default=None, ge=0)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -502,6 +506,11 @@ class AccountErasureReport(BaseModel):
     """
 
     storage_cleanup_scopes: list[str] = Field(default_factory=list)
+    #: Phase 0 hard-delete outcome per record of the subject (#1770): objects
+    #: deleted, and objects kept because a record outside this erasure — another
+    #: member's upload of the same bytes — still holds them.
+    storage_objects_removed: int = 0
+    storage_objects_retained_shared: int = 0
     reference_index_removed: int = 0
     #: The store Phase 0.5 ran against in *this* call (``"inference_service"`` /
     #: ``"noop"``); ``None`` when it did not run — no store wired, or a retry

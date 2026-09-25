@@ -7,6 +7,7 @@ called by hand, though it can be::
     python3 scripts/reach/stack.py up
     python3 scripts/reach/stack.py seed --subject reach-subject
     python3 scripts/reach/stack.py seed-files --subject reach-subject
+    python3 scripts/reach/stack.py seed-shared-file --subject reach-subject
     python3 scripts/reach/stack.py seed-tenant --tenant reach-tenant --control reach-control-tenant
     python3 scripts/reach/stack.py down
 
@@ -17,7 +18,10 @@ working copy, waits for them, and records the host-side addresses in
 backend container and stores its record under ``.reach/subjects/``.
 ``seed-files`` runs ``seed_stored_files.py`` there for a subject ``seed`` already
 wrote — one photo with GPS EXIF per attachment category in the subject's tenant —
-and stores ``.reach/subjects/<subject>.files.json``. ``seed-tenant`` runs
+and stores ``.reach/subjects/<subject>.files.json``. ``seed-shared-file`` runs
+``seed_shared_file.py`` there — the subject and a co-holder upload the same photo
+into a shared tenant (#1770) — and stores ``.reach/subjects/<subject>.shared.json``.
+``seed-tenant`` runs
 ``seed_tenant_for_erasure.py`` there — a tenant and a control tenant with a row
 in every tenant-erasure inventory collection (#1769) — and stores
 ``.reach/subjects/tenant-<tenant>.json``. ``down`` removes
@@ -176,6 +180,19 @@ def seed_files(subject: str) -> None:
     log(f"seeded {len(record['files'])} stored files for {subject!r} (refused categories: {refused}) -> {path}")
 
 
+def seed_shared_file(subject: str) -> None:
+    """The subject and a co-holder upload the same photo into a shared tenant (#1770)."""
+    read_stack()
+    read_subject(subject)  # the subject must exist: its erasure is what the probe observes
+    output = run_in_backend(
+        repo_root() / "scripts" / "reach" / "seed_shared_file.py", "--subject", subject, timeout=300
+    )
+    record = json.loads(output)
+    path = subject_file(subject).with_name(f"{subject}.shared.json")
+    path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    log(f"seeded a photo {subject!r} shares with {record['co_holder']!r} in tenant {record['tenant_key']!r} -> {path}")
+
+
 def seed_tenant(tenant: str, control: str) -> None:
     """Seed a tenant and a control tenant into every tenant-erasure inventory collection (#1769)."""
     read_stack()
@@ -211,6 +228,8 @@ def main(argv: list[str] | None = None) -> int:
     seed_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
     files_parser = sub.add_parser("seed-files", help="upload one GPS-EXIF photo per attachment category")
     files_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
+    shared_parser = sub.add_parser("seed-shared-file", help="the subject and a co-holder upload the same photo")
+    shared_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
     tenant_parser = sub.add_parser("seed-tenant", help="seed a tenant and a control tenant for the tenant erasure")
     tenant_parser.add_argument("--tenant", required=True)
     tenant_parser.add_argument("--control", required=True)
@@ -222,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
             down()
         elif args.command == "seed-files":
             seed_files(args.subject)
+        elif args.command == "seed-shared-file":
+            seed_shared_file(args.subject)
         elif args.command == "seed-tenant":
             seed_tenant(args.tenant, args.control)
         else:
