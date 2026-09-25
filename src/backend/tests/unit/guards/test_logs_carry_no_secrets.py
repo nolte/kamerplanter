@@ -125,7 +125,14 @@ _TOKEN_CLAIMS = (
     "payload is the HMAC-verified claim set verify(token) decoded, not the token: tenant_key and aid are "
     "claims naming the tenant and attachment; neither the token nor its signature is logged"
 )
+_STEP_UP_METHOD = (
+    "StepUpVerifier.verify returns only how the step-up was confirmed - the literal 'password' or "
+    "'echo' - after the check; the password never leaves the verifier. The taint comes from the "
+    "call's password= and authenticated_with_api_key= arguments, not from the returned label (#1813, #1814)"
+)
 _ALLOWED: dict[str, str] = {
+    "app/domain/services/privacy_service.py::PrivacyService.erase_account_by_admin::step_up": _STEP_UP_METHOD,
+    "app/domain/services/tenant_service.py::TenantService.delete_tenant::step_up": _STEP_UP_METHOD,
     "app/api/v1/attachments/token_router.py::redeem_token::tenant_key": _TOKEN_CLAIMS,
     "app/api/v1/attachments/token_router.py::redeem_token::attachment_id": _TOKEN_CLAIMS,
     "app/data_access/external/console_email_adapter.py::ConsoleEmailAdapter.send_verification_email"
