@@ -472,8 +472,9 @@ Ein eigener Docker-Compose-Stack startet die komplette Applikation plus Selenium
 # Empfohlen: Wrapper-Skript (startet Stack, sammelt Logs, räumt auf)
 ./scripts/run-e2e.sh
 
-# Oder manuell:
-docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+# Oder manuell — der Fernet-Key des Stacks wird erzeugt, nie eingecheckt:
+E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" \
+  docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 docker compose -f docker-compose.e2e.yml down -v
 ```
 

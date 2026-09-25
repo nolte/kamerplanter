@@ -154,5 +154,10 @@ tasks:
         echo "Selenium tests in the same network are unaffected."
         echo "Stop with Ctrl+C — no changes are written to docker-compose.e2e.yml."
         echo
+        # The stack's Fernet key is generated, never committed (#1838).
+        # Assigned and checked on its own: in `VAR="$(…)" cmd` form the
+        # helper's failure would be ignored and the stack start keyless.
+        E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" || exit 1
+        export E2E_FERNET_KEY
         docker compose -f docker-compose.e2e.yml \
           run --rm --service-ports --publish 127.0.0.1:8080:8080 frontend
