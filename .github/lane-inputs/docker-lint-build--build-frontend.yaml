@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: frontend
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
 replay_seconds: 4
 job_spec_sha256: 083e6517692f05f1ca35a853fa1392ffcbfca992d62666634c40b39ad7261339
 invocations:
@@ -1114,3 +1114,5 @@ reads:
 - src/frontend/tsconfig.node.json
 - src/frontend/vite.config.ts
 - src/frontend/vitest.config.ts
+test_modules: []
+readers: {}

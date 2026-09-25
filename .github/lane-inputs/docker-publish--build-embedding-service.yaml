@@ -11,8 +11,8 @@ gate:
   filter: embedding-service
 status: derived
 measured_on: '2026-09-25'
-measured_at_commit: 8c12096ad5873fdd58bab9c51fa692ecafa450f4
-replay_seconds: 4
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 1
 job_spec_sha256: 6da62fe0e5c57cc89933fe2613eac4e31e04a15e3570543bfda8a8835578a438
 invocations:
 - command: derive-docker --context docker/embedding-service --dockerfile docker/embedding-service/Dockerfile
@@ -40,3 +40,5 @@ reads:
 - docker/embedding-service/pyproject.toml
 - docker/embedding-service/tokenization.py
 - docker/embedding-service/uv.lock
+test_modules: []
+readers: {}

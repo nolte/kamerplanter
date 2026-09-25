@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 53
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 44
 job_spec_sha256: cdd19fd2744aa844284c6d1c17c2d0d50b118c18891c3b6710253930f5023264
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2725
+  untracked_reads_dropped: 2729
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -593,6 +593,7 @@ reads:
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
 - src/backend/app/domain/engines/storage/exif_stripper.py
+- src/backend/app/domain/engines/storage/export_bundle_key.py
 - src/backend/app/domain/engines/storage/magic_byte_validator.py
 - src/backend/app/domain/engines/storage/storage_key_builder.py
 - src/backend/app/domain/engines/storage/thumbnail_generator.py
@@ -664,6 +665,7 @@ reads:
 - src/backend/app/domain/interfaces/pest_detection_adapter.py
 - src/backend/app/domain/interfaces/pest_detection_repository.py
 - src/backend/app/domain/interfaces/pest_image_repository.py
+- src/backend/app/domain/interfaces/pest_prototype_store.py
 - src/backend/app/domain/interfaces/phase_repository.py
 - src/backend/app/domain/interfaces/phase_sequence_repository.py
 - src/backend/app/domain/interfaces/plant_diagnosis_repository.py
@@ -673,6 +675,7 @@ reads:
 - src/backend/app/domain/interfaces/planting_run_repository.py
 - src/backend/app/domain/interfaces/post_harvest_repository.py
 - src/backend/app/domain/interfaces/processing_restriction_repository.py
+- src/backend/app/domain/interfaces/reference_contribution_marker.py
 - src/backend/app/domain/interfaces/reference_index_store.py
 - src/backend/app/domain/interfaces/refresh_token_repository.py
 - src/backend/app/domain/interfaces/sensor_repository.py
@@ -820,6 +823,7 @@ reads:
 - src/backend/app/domain/services/propagation_service.py
 - src/backend/app/domain/services/reference_image_license.py
 - src/backend/app/domain/services/reference_image_service.py
+- src/backend/app/domain/services/retention_service.py
 - src/backend/app/domain/services/season_signal_resolver.py
 - src/backend/app/domain/services/season_state_service.py
 - src/backend/app/domain/services/sensor_service.py
@@ -861,3 +865,6 @@ reads:
 - src/backend/scripts/
 - src/backend/scripts/__init__.py
 - src/backend/scripts/export_openapi.py
+test_modules: []
+readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

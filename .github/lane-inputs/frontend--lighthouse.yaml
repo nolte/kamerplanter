@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 108
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 109
 job_spec_sha256: 0e95e8ff21de6fe933792d9a567e6899d8236b01a8ef8d67b2e43c907cf74eb3
 invocations:
 - command: npm run build
@@ -760,3 +760,6 @@ reads:
 - src/frontend/tsconfig.build.json
 - src/frontend/tsconfig.json
 - src/frontend/vite.config.ts
+test_modules: []
+readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

@@ -9,9 +9,9 @@ job: requirements
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 49
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 44
 job_spec_sha256: 069485b9a5b2e59c9e38dc728738b2aaf5978deef56ca75b97546259e1ff536f
 invocations:
 - command: task docs:venv
@@ -65,3 +65,6 @@ reads:
 - docs/requirements.in
 - docs/requirements.txt
 - src/backend/pyproject.toml
+test_modules: []
+readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
