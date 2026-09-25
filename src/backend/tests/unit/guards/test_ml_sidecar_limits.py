@@ -48,7 +48,16 @@ timeout. ``main.py``'s side — the middleware and both handlers registered,
 bounded wait, the deadline checked before every graph call — is read from its
 AST.
 
-Traces to #1725 (no TC-ID: sidecar internals are not a user-facing case).
+**The rerank budget (#1751).** The reranker's server-side deadline only fits
+so many scored characters per search. ``RERANK_SCORED_CHARS_BUDGET`` in the
+caller's config.py records the measured envelope; the Settings defaults and
+every deployment file that sets ``RERANKER_INITIAL_K`` or
+``RERANKER_MAX_DOCUMENT_CHARS`` must keep ``initial_k x max_document_chars``
+within it, so the budget cannot be raised without a reviewed re-measurement.
+Every mention of the two names in a YAML/env file must be read as a value —
+a spelling the reader does not know is red, never skipped.
+
+Traces to #1725 and #1751 (no TC-ID: sidecar internals are not a user-facing case).
 """
 
 from __future__ import annotations
@@ -326,13 +335,6 @@ class TestTheCallerIsNeverRefused:
         """Every corpus maximum below is vacuous over an empty glob."""
         assert len(_corpus_chunks()) >= 100, f"only {len(_corpus_chunks())} chunks under {_CORPUS}"
 
-    def test_the_reranker_takes_every_document_the_caller_retrieves(self) -> None:
-        fields = _class_fields(_parse(_KNOWLEDGE_SERVICE / "config.py"), "Settings")
-        initial_k = fields["reranker_initial_k"]
-        assert isinstance(initial_k, ast.Constant) and isinstance(initial_k.value, int)
-
-        assert initial_k.value <= _RERANKER.limits().MAX_DOCUMENTS
-
     def test_the_reranker_takes_every_question_the_caller_accepts(self) -> None:
         tree = _parse(_KNOWLEDGE_SERVICE / "schemas.py")
         longest = max(
@@ -397,6 +399,222 @@ class TestTheCallerIsNeverRefused:
         assert isinstance(model, ast.Constant) and isinstance(model.value, str)
 
         assert len(model.value) <= _EMBEDDING.limits().MAX_MODEL_CHARS
+
+
+# --------------------------------------------------------------------------
+# the rerank budget (#1751)
+# --------------------------------------------------------------------------
+
+_RERANK_BUDGET_VARS = ("RERANKER_INITIAL_K", "RERANKER_MAX_DOCUMENT_CHARS")
+
+#: Directories that never configure a deployment: VCS, dependencies, caches,
+#: and prose (docs/spec quote the variables in examples).
+_NOT_DEPLOYMENT_DIRS = frozenset(
+    {
+        ".git",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        "docs",
+        "spec",
+        "site",
+        "dist",
+        "build",
+        ".worktrees",
+    }
+)
+
+
+def _is_config_file(path: Path) -> bool:
+    """Every file a deployment's env can be written in: YAML (chart values, compose, CI) and env files."""
+    return path.suffix in {".yaml", ".yml", ".env"} or path.name.startswith(".env")
+
+
+def _deployment_config_files() -> list[Path]:
+    found = []
+    for directory, subdirectories, files in os.walk(_REPO_ROOT):
+        subdirectories[:] = sorted(d for d in subdirectories if d not in _NOT_DEPLOYMENT_DIRS)
+        found.extend(Path(directory) / name for name in sorted(files) if _is_config_file(Path(directory) / name))
+    return found
+
+
+def _budget_assignment_patterns(name: str) -> list[re.Pattern[str]]:
+    """The spellings a value of *name* is read in; group 1 is the integer."""
+    quoted = r"[\"']?(\d+)[\"']?"
+    return [
+        # compose interpolation with a default: NAME: ${NAME:-15}
+        re.compile(rf"\b{name}\s*[:=]\s*[\"']?\$\{{{name}:?-(\d+)\}}[\"']?"),
+        # map (NAME: "15"), env file / compose list (NAME=15, - NAME=15)
+        re.compile(rf"\b{name}\s*[:=]\s*{quoted}"),
+        # Kubernetes env list: name: NAME / value: "15"
+        re.compile(rf"\bname:\s*[\"']?{name}[\"']?\s*\n\s*value:\s*{quoted}"),
+    ]
+
+
+def _budget_settings_in(text: str) -> tuple[dict[str, list[int]], list[str]]:
+    """Values set for the two budget variables in *text*, and every mention that is not one.
+
+    Comment lines are ignored. A mention the patterns do not consume is
+    returned as unparsed, so a new spelling fails the guard instead of being
+    skipped by it.
+    """
+    body = "\n".join("" if line.lstrip().startswith("#") else line for line in text.splitlines())
+    values: dict[str, list[int]] = {}
+    unparsed: list[str] = []
+    for name in _RERANK_BUDGET_VARS:
+        covered: list[tuple[int, int]] = []
+        for pattern in _budget_assignment_patterns(name):
+            for match in pattern.finditer(body):
+                if any(start <= match.start() < end for start, end in covered):
+                    continue
+                covered.append(match.span())
+                values.setdefault(name, []).append(int(match.group(1)))
+        for mention in re.finditer(rf"\b{name}\b", body):
+            if not any(start <= mention.start() < end for start, end in covered):
+                line = body.count("\n", 0, mention.start()) + 1
+                unparsed.append(f"line {line}: {body.splitlines()[line - 1].strip()}")
+    return values, unparsed
+
+
+def _config_literal(name: str) -> int:
+    values = [
+        statement.value
+        for statement in _parse(_KNOWLEDGE_SERVICE / "config.py").body
+        if isinstance(statement, ast.Assign | ast.AnnAssign)
+        for target in (statement.targets if isinstance(statement, ast.Assign) else [statement.target])
+        if isinstance(target, ast.Name) and target.id == name
+    ]
+    assert len(values) == 1, f"no single module-level {name} in src/knowledge-service/app/config.py"
+    value = values[0]
+    assert isinstance(value, ast.Constant) and isinstance(value.value, int), f"{name} is not a literal int"
+    return value.value
+
+
+def _settings_default(field: str) -> int:
+    value = _class_fields(_parse(_KNOWLEDGE_SERVICE / "config.py"), "Settings")[field]
+    assert isinstance(value, ast.Constant) and isinstance(value.value, int), f"Settings.{field} is not a literal int"
+    return value.value
+
+
+@dataclass(frozen=True)
+class _RerankConfiguration:
+    """One place the knowledge service's rerank settings are decided: the defaults or a deployment file."""
+
+    source: str
+    initial_k: int
+    max_document_chars: int
+
+
+@dataclass(frozen=True)
+class _RerankConfigurations:
+    every: list[_RerankConfiguration]
+    files_setting: list[str]
+    unparsed: list[str]
+
+
+@functools.cache
+def _rerank_configurations() -> _RerankConfigurations:
+    """The Settings defaults plus every deployment file that sets either variable.
+
+    A file setting only one of the two combines with the other's default; a
+    file setting one several times is taken at its largest value.
+    """
+    default_k = _settings_default("reranker_initial_k")
+    default_chars = _settings_default("reranker_max_document_chars")
+    every = [_RerankConfiguration("Settings defaults (src/knowledge-service/app/config.py)", default_k, default_chars)]
+    files_setting: list[str] = []
+    unparsed: list[str] = []
+    for path in _deployment_config_files():
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError, UnicodeDecodeError:
+            continue
+        values, mentions = _budget_settings_in(text)
+        relative = path.relative_to(_REPO_ROOT).as_posix()
+        unparsed.extend(f"{relative} {mention}: not read as a value" for mention in mentions)
+        if not values:
+            continue
+        files_setting.append(relative)
+        every.append(
+            _RerankConfiguration(
+                relative,
+                max(values.get("RERANKER_INITIAL_K", [default_k])),
+                max(values.get("RERANKER_MAX_DOCUMENT_CHARS", [default_chars])),
+            )
+        )
+    return _RerankConfigurations(every, files_setting, unparsed)
+
+
+class TestTheRerankBudgetHolds:
+    def test_every_configuration_is_read(self) -> None:
+        """Non-vacuity, and no mention of either variable escapes the reader."""
+        found = _rerank_configurations()
+
+        assert "helm/kamerplanter/values-dev-ki.yaml" in found.files_setting, f"no setting found: {found.files_setting}"
+        assert not found.unparsed, "\n".join(found.unparsed)
+
+    def test_every_configuration_fits_the_budget(self) -> None:
+        budget = _config_literal("RERANK_SCORED_CHARS_BUDGET")
+        problems = [
+            f"{c.source}: {c.initial_k} x {c.max_document_chars} > {budget}"
+            for c in _rerank_configurations().every
+            if c.initial_k * c.max_document_chars > budget
+        ]
+
+        assert not problems, "re-measure before raising the rerank budget (#1751):\n" + "\n".join(problems)
+
+    def test_every_configuration_fits_the_sidecar_request_bounds(self) -> None:
+        """The caller sends ``initial_k`` documents with ``top_k=initial_k`` (service.py, head rerank).
+
+        Past either bound the sidecar answers every rerank 422 and the caller
+        falls back silently (``http_status``) — a budget-conforming
+        configuration such as 60 x 100 would pass the budget alone.
+        """
+        limits = _RERANKER.limits()
+        cap = min(limits.MAX_TOP_K, limits.MAX_DOCUMENTS)
+        problems = [
+            f"{c.source}: initial_k {c.initial_k} > {cap} (min of MAX_TOP_K, MAX_DOCUMENTS)"
+            for c in _rerank_configurations().every
+            if c.initial_k > cap
+        ]
+
+        assert not problems, "the reranker sidecar would refuse every request:\n" + "\n".join(problems)
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            (
+                'RERANKER_INITIAL_K: "15"\nRERANKER_MAX_DOCUMENT_CHARS: 500',
+                {"RERANKER_INITIAL_K": [15], "RERANKER_MAX_DOCUMENT_CHARS": [500]},
+            ),
+            ("environment:\n  - RERANKER_INITIAL_K=20", {"RERANKER_INITIAL_K": [20]}),
+            ("RERANKER_MAX_DOCUMENT_CHARS='800'", {"RERANKER_MAX_DOCUMENT_CHARS": [800]}),
+            ("RERANKER_INITIAL_K: ${RERANKER_INITIAL_K:-25}", {"RERANKER_INITIAL_K": [25]}),
+            ('- name: RERANKER_INITIAL_K\n  value: "30"', {"RERANKER_INITIAL_K": [30]}),
+            ("# RERANKER_INITIAL_K: 99 is only a comment", {}),
+        ],
+    )
+    def test_the_reader_reads_every_known_spelling(self, text: str, expected: dict[str, list[int]]) -> None:
+        values, unparsed = _budget_settings_in(text)
+
+        assert (values, unparsed) == (expected, [])
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "RERANKER_INITIAL_K: ${RERANKER_INITIAL_K}",
+            "- name: RERANKER_INITIAL_K\n  valueFrom:\n    configMapKeyRef: {name: rag, key: k}",
+            "RERANKER_MAX_DOCUMENT_CHARS: twenty",
+        ],
+    )
+    def test_a_spelling_the_reader_does_not_know_is_reported(self, text: str) -> None:
+        _, unparsed = _budget_settings_in(text)
+
+        assert unparsed
 
 
 # --------------------------------------------------------------------------
