@@ -16,7 +16,7 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserUpdate,
 )
 from app.api.v1.tenants.schemas import TenantDeleteRequest
-from app.common.auth import require_platform_admin
+from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
 from app.common.exceptions import ForbiddenError
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
@@ -233,6 +233,7 @@ def delete_tenant(
     key: Annotated[str, Path(description="Document key of the tenant.")],
     body: TenantDeleteRequest,
     user: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Delete a tenant and all its data, as the declared tenant-erasure inventory says. Platform admin only.
@@ -257,6 +258,7 @@ def delete_tenant(
     tenant_service.delete_tenant(
         key,
         requester=user,
+        authenticated_with_api_key=via_api_key,
         confirmation=body.to_confirmation(),
         origin="platform_admin",
     )

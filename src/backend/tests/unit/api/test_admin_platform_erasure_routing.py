@@ -35,11 +35,17 @@ class TestDeleteTenantRouting:
         tenant_service = MagicMock()
         admin = SimpleNamespace(key="admin-1")
 
-        mod.delete_tenant("t-1", body=_BODY, user=admin, tenant_service=tenant_service)
+        mod.delete_tenant("t-1", body=_BODY, user=admin, via_api_key=False, tenant_service=tenant_service)
 
         # The requester and the step-up reach the service, which decides (#1791).
         assert tenant_service.mock_calls == [
-            call.delete_tenant("t-1", requester=admin, confirmation=_BODY.to_confirmation(), origin="platform_admin")
+            call.delete_tenant(
+                "t-1",
+                requester=admin,
+                authenticated_with_api_key=False,
+                confirmation=_BODY.to_confirmation(),
+                origin="platform_admin",
+            )
         ]
 
     def test_tenant_route_runs_the_service_deletion_as_tenant_management(self):
@@ -48,11 +54,17 @@ class TestDeleteTenantRouting:
         service = MagicMock()
         member = SimpleNamespace(key="member-1")
 
-        tenant_router.delete_tenant(body=_BODY, ctx=SimpleNamespace(tenant_key="t-2"), user=member, service=service)
+        tenant_router.delete_tenant(
+            body=_BODY, ctx=SimpleNamespace(tenant_key="t-2"), user=member, via_api_key=False, service=service
+        )
 
         assert service.mock_calls == [
             call.delete_tenant(
-                "t-2", requester=member, confirmation=_BODY.to_confirmation(), origin="tenant_management"
+                "t-2",
+                requester=member,
+                authenticated_with_api_key=False,
+                confirmation=_BODY.to_confirmation(),
+                origin="tenant_management",
             )
         ]
 
@@ -61,7 +73,9 @@ class TestDeleteTenantRouting:
         tenant_service.delete_tenant.side_effect = ForbiddenError("The platform tenant cannot be deleted.")
 
         with pytest.raises(ForbiddenError):
-            mod.delete_tenant("t-0", body=_BODY, user=SimpleNamespace(key="admin-1"), tenant_service=tenant_service)
+            mod.delete_tenant(
+                "t-0", body=_BODY, user=SimpleNamespace(key="admin-1"), via_api_key=False, tenant_service=tenant_service
+            )
 
 
 class TestDeleteUserRouting:

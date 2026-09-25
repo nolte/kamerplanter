@@ -39,12 +39,14 @@ from app.api.v1.tenants.router import router as tenants_router
 from app.common.auth import get_current_user
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope, TenantRole
-from app.common.exceptions import KamerplanterError
+from app.common.exceptions import ForbiddenError, KamerplanterError
+from app.config.settings import settings
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
+from app.domain.models.tenant_erasure import TenantDeletionConfirmation, TenantErasureRecord
 from app.domain.models.user import User
 from tests.support.tenant_erasure_doubles import (
     SALT,
@@ -95,11 +97,16 @@ class _World:
         owner: str = OWNER,
         password_hash: str | None = PASSWORD_HASH,
         account_type: str = "human",
+        membership_active: bool = True,
+        light_mode: bool = False,
+        tenant_gone: bool = False,
     ) -> None:
         memberships = []
         if role is not None:
             memberships.append(
-                Membership(user_key=CALLER, tenant_key=TENANT_KEY, role=role, admin_scopes=scopes, is_active=True)
+                Membership(
+                    user_key=CALLER, tenant_key=TENANT_KEY, role=role, admin_scopes=scopes, is_active=membership_active
+                )
             )
         if platform_admin:
             memberships.append(Membership(user_key=CALLER, tenant_key="platform", role=TenantRole.LEAD))
@@ -107,7 +114,7 @@ class _World:
             {"_key": TENANT_KEY, "name": "Garden", "slug": SLUG, "tenant_type": "organization", "owner_user_key": owner}
         )
         tenant_repo = MagicMock()
-        tenant_repo.get_by_key.side_effect = lambda key: garden if key == TENANT_KEY else None
+        tenant_repo.get_by_key.side_effect = lambda key: garden if key == TENANT_KEY and not tenant_gone else None
         tenant_repo.get_by_slug.side_effect = lambda slug: garden if slug == SLUG else None
         self.executor = RecordingTenantErasureExecutor()
         self.records = FakeTenantErasureRepository()
@@ -117,6 +124,7 @@ class _World:
             record_repo=self.records,
             tenant_repo=tenant_repo,
             membership_repo=_Memberships(memberships),
+            light_mode=light_mode,
         )
         self.user = User.model_validate(
             {
@@ -137,11 +145,12 @@ class _World:
         app.dependency_overrides[get_tenant_service] = lambda: self.service
         return TestClient(app, raise_server_exceptions=False)
 
-    def delete(self, path: str, body: dict[str, Any] | None) -> Any:
+    def delete(self, path: str, body: dict[str, Any] | None, *, bearer: str | None = None) -> Any:
         client = self.client()
+        headers = {"Authorization": f"Bearer {bearer}"} if bearer else None
         if body is None:
-            return client.delete(path)
-        return client.request("DELETE", path, json=body)
+            return client.delete(path, headers=headers)
+        return client.request("DELETE", path, json=body, headers=headers)
 
     def nothing_erased(self) -> bool:
         return self.executor.plans == [] and self.records.records == {}
@@ -315,3 +324,89 @@ def test_the_platform_route_refuses_a_tenant_lead_who_is_no_platform_admin() -> 
 
     assert resp.status_code == 403
     assert world.nothing_erased()
+
+
+# ── #1791 review: API keys, deactivated memberships, light mode, retries ──────
+
+
+@pytest.mark.parametrize(
+    ("route", "world_kwargs"),
+    [
+        pytest.param(TENANT_ROUTE, {"role": TenantRole.LEAD, "scopes": [AdminScope.MANAGEMENT]}, id="tenant-route"),
+        pytest.param(ADMIN_ROUTE, {"role": None, "scopes": [], "platform_admin": True}, id="platform-route"),
+    ],
+)
+def test_an_api_key_of_a_human_account_cannot_delete_even_with_the_password(
+    route: str, world_kwargs: dict[str, Any]
+) -> None:
+    """Review SEC-001: every account may issue ``kp_`` keys, and they resolve to that human account.
+
+    A key sits in an integration (Home Assistant, Grafana); it is no person who
+    can re-authenticate, so it is refused whatever the body carries.
+    """
+    world = _World(**world_kwargs)
+
+    resp = world.delete(route, STEP_UP, bearer="kp_stored-in-some-integration")
+
+    assert resp.status_code == 403, resp.text
+    assert world.nothing_erased()
+
+
+def test_a_session_token_is_not_mistaken_for_an_api_key() -> None:
+    world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT])
+
+    resp = world.delete(TENANT_ROUTE, STEP_UP, bearer="eyJhbGciOiJIUzI1NiJ9.session.token")
+
+    assert resp.status_code == 200, resp.text
+
+
+def test_a_deactivated_lead_with_management_is_refused() -> None:
+    world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], membership_active=False)
+
+    resp = world.delete(TENANT_ROUTE, STEP_UP)
+
+    assert resp.status_code == 403
+    assert world.nothing_erased()
+
+
+def test_the_service_itself_refuses_a_deactivated_membership() -> None:
+    """The route refuses it in ``get_current_tenant`` already; the service must not rely on that."""
+    world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], membership_active=False)
+
+    with pytest.raises(ForbiddenError):
+        world.service.delete_tenant(
+            TENANT_KEY,
+            requester=world.user,
+            authenticated_with_api_key=False,
+            confirmation=TenantDeletionConfirmation(confirm_slug=SLUG, password=PASSWORD),
+            origin="tenant_management",
+        )
+    assert world.nothing_erased()
+
+
+def test_the_platform_route_in_light_mode_erases_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """In light mode ``require_platform_admin`` lets the sole operator through; the service still refuses."""
+    monkeypatch.setattr(settings, "kamerplanter_mode", "light")
+    world = _World(role=None, scopes=[], light_mode=True)
+
+    resp = world.delete(ADMIN_ROUTE, STEP_UP)
+
+    assert resp.status_code == 403
+    assert world.nothing_erased()
+
+
+def test_a_retry_whose_tenant_document_is_gone_echoes_the_key() -> None:
+    """An earlier attempt removed the tenant document but left the deletion open: the key is the only name left."""
+    world = _World(role=None, scopes=[], platform_admin=True, tenant_gone=True)
+    world.records.create_with_key(
+        TenantErasureRecord(
+            tenant_key=TENANT_KEY, tenant_type="organization", origin="platform_admin", status="partially_completed"
+        ),
+        TenantErasureEngine.record_key(TENANT_KEY),
+    )
+
+    refused = world.delete(ADMIN_ROUTE, STEP_UP)
+    accepted = world.delete(ADMIN_ROUTE, {"confirm_slug": TENANT_KEY, "password": PASSWORD})
+
+    assert refused.status_code == 422, refused.text
+    assert accepted.status_code == 204, accepted.text

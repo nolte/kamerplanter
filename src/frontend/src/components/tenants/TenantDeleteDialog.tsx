@@ -11,7 +11,7 @@ import Alert from '@mui/material/Alert';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { listProviders } from '@/api/endpoints/auth';
-import { parseApiError } from '@/api/errors';
+import { isApiError, parseApiError } from '@/api/errors';
 import type { TenantDeleteRequest } from '@/api/types';
 
 interface TenantDeleteDialogProps {
@@ -31,8 +31,11 @@ interface TenantDeleteDialogProps {
  * (401). The password field **fails closed**: it is shown unless the provider
  * list positively says the account is federated-only — a failed or pending load
  * must not hide it, or a local account would meet a 401 it has no field to
- * answer (the #394 dead end). A password sent for a federated account is
- * ignored by the backend.
+ * answer (the #394 dead end). An **empty** list counts as unknown too: seeded
+ * accounts carry a password hash without a `local` provider row (#1791 review
+ * SEC-003). And once the server answered 401, the field stays, whatever the
+ * list said — the backend decides on the stored hash, not on the list. A
+ * password sent for a federated account is ignored by the backend.
  */
 export default function TenantDeleteDialog({
   open,
@@ -50,14 +53,18 @@ export default function TenantDeleteDialog({
   const [error, setError] = useState('');
   // Tri-state: `null` = unknown (loading or failed) → fail closed.
   const [hasLocalPassword, setHasLocalPassword] = useState<boolean | null>(null);
-  const requiresPassword = hasLocalPassword !== false;
+  const [serverAskedForPassword, setServerAskedForPassword] = useState(false);
+  const requiresPassword = hasLocalPassword !== false || serverAskedForPassword;
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     listProviders()
       .then((list) => {
-        if (!cancelled) setHasLocalPassword(list.some((p) => p.provider === 'local'));
+        if (cancelled) return;
+        // Only a non-empty list without `local` is positive proof of a
+        // federated-only account; an empty one stays unknown (fail closed).
+        setHasLocalPassword(list.length === 0 ? null : list.some((p) => p.provider === 'local'));
       })
       .catch(() => {
         if (!cancelled) setHasLocalPassword(null);
@@ -95,6 +102,7 @@ export default function TenantDeleteDialog({
       // Stay open so the requester can correct the slug or the password.
       setError(parseApiError(err));
       setPassword('');
+      if (isApiError(err) && err.statusCode === 401) setServerAskedForPassword(true);
     } finally {
       setPending(false);
     }

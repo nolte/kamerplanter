@@ -302,6 +302,7 @@ class TenantService:
         tenant_key: str,
         *,
         requester: User,
+        authenticated_with_api_key: bool,
         confirmation: TenantDeletionConfirmation,
         origin: TenantErasureOrigin,
         now: datetime | None = None,
@@ -324,7 +325,9 @@ class TenantService:
           scope (:meth:`MembershipEngine.can_delete_tenant`, REQ-024 §1a.2);
         * ``origin="platform_admin"`` — the requester is a platform admin (an
           active ``lead`` membership in the ``platform`` tenant, REQ-049 §2.5);
-        * never a service account — an API key cannot re-authenticate;
+        * never a service account, and never a request authenticated with an API
+          key — even one a human account issued (#1791 review SEC-001): a key
+          is a stored M2M credential, not a person who can re-authenticate;
         * both: the step-up in *confirmation* — the tenant's slug typed back, and
           the current password when the account has one (a federated account
           has no local secret; the slug echo is its confirmation, as account
@@ -361,7 +364,9 @@ class TenantService:
         """
         now = now or datetime.now(UTC)
         record_key = TenantErasureEngine.record_key(tenant_key)
-        self._authorize_tenant_deletion(tenant_key, requester=requester, origin=origin)
+        self._authorize_tenant_deletion(
+            tenant_key, requester=requester, authenticated_with_api_key=authenticated_with_api_key, origin=origin
+        )
         tenant = self._tenant_repo.get_by_key(tenant_key)
         record = self._require_tenant_erasure_repo().get(record_key)
         if tenant is None and (record is None or record.status == "completed"):
@@ -412,15 +417,17 @@ class TenantService:
         self._membership_repo.deactivate_all_for_tenant(tenant_key)
         return self._run_tenant_erasure(claimed, now, raise_on_failure=True)
 
-    def _authorize_tenant_deletion(self, tenant_key: str, *, requester: User, origin: TenantErasureOrigin) -> None:
+    def _authorize_tenant_deletion(
+        self, tenant_key: str, *, requester: User, authenticated_with_api_key: bool, origin: TenantErasureOrigin
+    ) -> None:
         """Refuse a requester who may not erase *tenant_key* (403, #1791).
 
         Proven from the stored membership, not from the request context the
         router resolved: the service is the one place both routes pass, and it
         must not trust a caller-supplied role.
         """
-        if not allows_interactive_auth(requester):
-            raise ForbiddenError("A service account cannot delete a tenant.")
+        if not allows_interactive_auth(requester) or authenticated_with_api_key:
+            raise ForbiddenError("A tenant can only be deleted from a signed-in session, not with an API key.")
         user_key = requester.key or ""
         if origin == "platform_admin":
             membership = self._membership_repo.get_by_user_and_tenant(user_key, _PLATFORM_TENANT_KEY)

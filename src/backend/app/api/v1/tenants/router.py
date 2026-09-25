@@ -20,7 +20,12 @@ from app.api.v1.tenants.schemas import (
     TenantUpdateRequest,
     TenantWithRoleResponse,
 )
-from app.common.auth import get_current_tenant, get_current_user, require_admin_scope
+from app.common.auth import (
+    get_authenticated_with_api_key,
+    get_current_tenant,
+    get_current_user,
+    require_admin_scope,
+)
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
@@ -103,6 +108,7 @@ def delete_tenant(
     body: TenantDeleteRequest,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
     user: User = Depends(get_current_user),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Delete the tenant and all its data (declared tenant-erasure inventory, #1769).
@@ -123,6 +129,7 @@ def delete_tenant(
     service.delete_tenant(
         ctx.tenant_key,
         requester=user,
+        authenticated_with_api_key=via_api_key,
         confirmation=body.to_confirmation(),
         origin="tenant_management",
     )

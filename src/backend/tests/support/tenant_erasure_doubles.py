@@ -52,6 +52,7 @@ def authorized(slug: str = "t-1", *, origin: TenantErasureOrigin = "tenant_manag
     """Keyword arguments of an authorised ``delete_tenant`` call for the tenant slugged *slug*."""
     return {
         "requester": AUTHORIZED_REQUESTER,
+        "authenticated_with_api_key": False,
         "confirmation": TenantDeletionConfirmation(confirm_slug=slug),
         "origin": origin,
     }

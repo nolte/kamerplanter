@@ -212,10 +212,12 @@ def _delete_through(database, entry_point: str, tenant: str) -> None:
     body = TenantDeleteRequest(confirm_slug=tenant)
     if entry_point == "tenant_management":
         _grant(database, tenant)
-        tenant_router.delete_tenant(body=body, ctx=SimpleNamespace(tenant_key=tenant), user=REQUESTER, service=service)
+        tenant_router.delete_tenant(
+            body=body, ctx=SimpleNamespace(tenant_key=tenant), user=REQUESTER, via_api_key=False, service=service
+        )
     else:
         _grant(database, "platform")
-        admin_router.delete_tenant(tenant, body=body, user=REQUESTER, tenant_service=service)
+        admin_router.delete_tenant(tenant, body=body, user=REQUESTER, via_api_key=False, tenant_service=service)
 
 
 @pytest.fixture(scope="module")
@@ -332,6 +334,7 @@ def test_a_retry_reaches_a_child_whose_parent_the_first_attempt_deleted(database
     service.delete_tenant(
         tenant,
         requester=REQUESTER,
+        authenticated_with_api_key=False,
         confirmation=TenantDeleteRequest(confirm_slug=tenant).to_confirmation(),
         origin="platform_admin",
     )
@@ -384,6 +387,7 @@ def test_a_management_scope_viewer_erases_nothing(database, erased):
             body=TenantDeleteRequest(confirm_slug=tenant),
             ctx=SimpleNamespace(tenant_key=tenant),
             user=REQUESTER,
+            via_api_key=False,
             service=_service(database),
         )
 

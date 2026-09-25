@@ -128,6 +128,45 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
     expect(within(dialog).getByLabelText(/passwort|password/i)).toBeInTheDocument();
   });
 
+  it('still asks for the password when the account lists no provider at all', async () => {
+    // Review SEC-003: seeded accounts (demo admin, E2E platform admin) carry a
+    // password hash but no `local` provider row. An empty list is "unknown",
+    // not "federated" — hiding the field there is the #394 dead end.
+    providers([]);
+    const dialog = await openDeleteDialog();
+
+    await waitFor(() => expect(auth.listProviders).toHaveBeenCalled());
+    await userEvent.type(within(dialog).getByTestId('tenant-delete-slug').querySelector('input')!, TENANT.slug);
+    expect(within(dialog).getByLabelText(/passwort|password/i)).toBeInTheDocument();
+    expect(within(dialog).getByTestId('tenant-delete-confirm')).toBeDisabled();
+  });
+
+  it('shows the password field after the server asked for one, even for a federated-looking account', async () => {
+    providers([{ provider: 'google' }]);
+    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new ApiError(
+        {
+          error_id: 'err_2',
+          error_code: 'UNAUTHORIZED',
+          message: 'Password confirmation failed.',
+          details: [],
+          timestamp: '',
+          path: '/x',
+          method: 'DELETE',
+        },
+        401,
+      ),
+    );
+    const dialog = await openDeleteDialog();
+    const confirm = within(dialog).getByTestId('tenant-delete-confirm');
+    await userEvent.type(within(dialog).getByTestId('tenant-delete-slug').querySelector('input')!, TENANT.slug);
+    await waitFor(() => expect(confirm).toBeEnabled());
+
+    await userEvent.click(confirm);
+
+    expect(await within(dialog).findByLabelText(/passwort|password/i)).toBeInTheDocument();
+  });
+
   it('keeps the dialog open and shows a refused step-up inside it', async () => {
     providers([{ provider: 'local' }]);
     (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockRejectedValue(
