@@ -9,13 +9,17 @@
 # outside develop's history. REQ-025 is byte-identical between the two; derived_from is now the
 # squash commit, the latest commit of the declaration on develop. Observe step, targets and
 # expectation unchanged.
+#
+# Re-derived for #1770: REQ-025 v1.12 added a changelog row and AK-OS-08 / AK-OS-05b after AK-OS-07,
+# so every cited line moved +1; the cited passages are unchanged. derived_from is 4f611fc1e, the commit
+# that changed the declaration. Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-pest-prototype-cleanup
 summary: subject's contributed pest prototype and the curated control row, in pgvector pest_embeddings, after erasure
   through the real binding
 declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-  location: AK-OS-07 (L1235)
+  location: AK-OS-07 (L1236)
 tier: T2
 expected:
   kind: set
@@ -23,7 +27,7 @@ expected:
   values:
   - erased/pest_embeddings
   - kept/curated
-derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+derived_from: 4f611fc1ec8d71b8cc37455e3f0ab4443b37a62b
 environment:
 - reach:stack:up
 - reach:vectordb:up

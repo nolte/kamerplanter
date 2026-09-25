@@ -9,13 +9,17 @@
 # outside develop's history. REQ-025 is byte-identical between the two; derived_from is now the
 # squash commit, the latest commit of the declaration on develop. Observe step, targets and
 # expectation unchanged.
+#
+# Re-derived for #1770: REQ-025 v1.12 added a changelog row and AK-OS-08 / AK-OS-05b after AK-OS-07,
+# so every cited line moved +1; the cited passages are unchanged. derived_from is 4f611fc1e, the commit
+# that changed the declaration. Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-reference-index-cleanup
 summary: subject's user-contributed DINOv2 embedding and the curated control row, in pgvector, after erasure through
   the real (non-no-op) binding
 declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-  location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L266); §3.5 Phase 0.5 (L944-963); AK-OS-05 (L1230);
+  location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L267); §3.5 Phase 0.5 (L945-964); AK-OS-05 (L1231);
     AK-OS-05a (L1231)
 tier: T2
 expected:
@@ -24,7 +28,7 @@ expected:
   values:
   - erased/species_embeddings
   - kept/curated
-derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+derived_from: 4f611fc1ec8d71b8cc37455e3f0ab4443b37a62b
 environment:
 - reach:stack:up
 - reach:vectordb:up
