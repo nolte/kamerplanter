@@ -15,7 +15,7 @@ from the free text is the backfill #1669 forbids.
 
 Run with::
 
-    docker run -d --rm -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d --rm -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0056_stamp_attribution_user_keys.py -v
 """
 

@@ -8,7 +8,7 @@ with idempotency on the real store.
 
 Run with::
 
-    docker run -d --rm -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d --rm -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0058_stamp_nutrient_plan_species_relation.py -v
 """
 

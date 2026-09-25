@@ -133,7 +133,7 @@ To run them explicitly:
 # Start ArangoDB (the dev stack or a throwaway container)
 task dev:core
 # or:
-docker run -d --rm --name kp-it-arango -p 8529:8529 \
+docker run -d --rm --name kp-it-arango -p 127.0.0.1:8529:8529 \
   -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 
 # Integration tests only — the same invocation CI runs

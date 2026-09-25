@@ -86,7 +86,7 @@ Ollama ist ein Programm, das Sprachmodelle lokal auf einem Rechner oder Server a
 
     ```bash
     docker run -d --name ollama \
-      -p 11434:11434 \
+      -p 127.0.0.1:11434:11434 \
       -v ollama_data:/root/.ollama \
       ollama/ollama
     ```
@@ -96,7 +96,7 @@ Ollama ist ein Programm, das Sprachmodelle lokal auf einem Rechner oder Server a
     ```bash
     docker run -d --name ollama \
       --gpus all \
-      -p 11434:11434 \
+      -p 127.0.0.1:11434:11434 \
       -v ollama_data:/root/.ollama \
       ollama/ollama
     ```
@@ -134,6 +134,8 @@ LLM_MODEL=gemma3:4b
 
 !!! warning "Ollama auf einem anderen Host"
     Wenn Ollama auf einem anderen Rechner läuft (z.B. einem NAS), muss `LLM_API_URL` auf die IP-Adresse bzw. den DNS-Namen dieses Rechners zeigen. Port 11434 muss aus dem Netzwerk des Knowledge-Service erreichbar sein.
+
+    Die Docker-Befehle oben binden Port 11434 nur an `127.0.0.1` — Ollama hat keine eigene Authentifizierung, und so kann niemand im Netzwerk dein Modell nutzen. Läuft der Knowledge-Service auf einem anderen Rechner — oder in einem Container bzw. einem lokalen Kubernetes-Cluster auf diesem, der den Host über die Docker-Bridge und nicht über `127.0.0.1` erreicht —, veröffentliche den Port stattdessen auf der Adresse, über die er ihn anspricht, etwa `-p 192.168.1.20:11434:11434` oder `-p 172.17.0.1:11434:11434`, und nicht auf allen Schnittstellen. Noch einfacher: Starte Ollama im selben Docker-Netzwerk wie den Dienst und lass `-p` ganz weg.
 
 ---
 

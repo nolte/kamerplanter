@@ -726,7 +726,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     environment:
       - VITE_API_URL=http://localhost:8000
     depends_on:
@@ -735,7 +735,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - ARANGODB_URL=http://arangodb:8529
       - ARANGODB_DATABASE=agrotech_db
@@ -747,7 +747,7 @@ services:
   arangodb:
     image: arangodb:3.11
     ports:
-      - "8529:8529"  # Web UI & HTTP API
+      - "127.0.0.1:8529:8529"  # Web UI & HTTP API
     environment:
       - ARANGO_ROOT_PASSWORD=devpassword
     volumes:

@@ -15,7 +15,7 @@ Two further properties only a real server can supply:
 
 Run with::
 
-    docker run -d --rm -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d --rm -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0046_reconcile_photo_refs.py -v
 """
 

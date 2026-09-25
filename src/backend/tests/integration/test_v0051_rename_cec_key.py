@@ -18,7 +18,7 @@ them:
 
 Run with::
 
-    docker run -d --rm --name kp-it-1468 -p 8529:8529 \
+    docker run -d --rm --name kp-it-1468 -p 127.0.0.1:8529:8529 \
       -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0051_rename_cec_key.py -v
 """

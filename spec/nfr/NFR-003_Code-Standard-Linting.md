@@ -1363,7 +1363,7 @@ pytest
 
 ```bash
 docker build -t agrotech/backend:latest .
-docker run -p 8000:8000 agrotech/backend:latest
+docker run -p 127.0.0.1:8000:8000 agrotech/backend:latest
 ```
 
 ## Configuration

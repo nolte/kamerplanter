@@ -62,7 +62,7 @@ docker build -t kamerplanter-embedding-service .
 # Specific target (e5-small, 384 dim):
 docker build --target e5-small -t kamerplanter-embedding-service .
 
-docker run -p 8080:8080 kamerplanter-embedding-service
+docker run -p 127.0.0.1:8080:8080 kamerplanter-embedding-service
 ```
 
 > **Note:** In production this image is built and deployed via Skaffold/Helm, not manually.

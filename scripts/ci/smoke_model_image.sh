@@ -91,6 +91,9 @@ cleanup() {
 trap cleanup EXIT
 
 # Let the kernel pick the host port: several of these may run side by side.
+# Published on 127.0.0.1 only (#1750) — `-P` would bind every interface of
+# the host. `-p` publishes the port whether or not the image EXPOSEs it, so
+# the EXPOSE the old `-P` relied on is checked explicitly first.
 #
 # STARTED THE WAY THE CHART RUNS IT (#1725): read-only root filesystem, a
 # small tmpfs for /tmp (the chart's memory-backed emptyDir), no capabilities,
@@ -102,7 +105,11 @@ trap cleanup EXIT
 # ship `USER 1000` and root-owned files, so `--user 1000:1000` changes nothing
 # for them but states the expectation. The `model` form above is unchanged: it
 # runs a one-off verifier, not the server.
-CONTAINER="$(docker run -d -P \
+if ! docker image inspect --format '{{json .Config.ExposedPorts}}' "$IMAGE" | grep -q "\"$PORT/tcp\""; then
+  echo "FAIL: $IMAGE does not EXPOSE container port $PORT" >&2
+  exit 1
+fi
+CONTAINER="$(docker run -d -p "127.0.0.1::$PORT" \
   --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL \

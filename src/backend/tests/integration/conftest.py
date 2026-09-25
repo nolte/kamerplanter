@@ -70,7 +70,7 @@ def _unavailable_message(reason: str) -> str:
         "The integration tier measures the repository and AQL layer against a real "
         "server; without one it measures nothing.\n"
         "Start one with the digest the dev stack and the CI lane share:\n"
-        "    docker run -d --rm --name kp-it-arango -p 8529:8529 "
+        "    docker run -d --rm --name kp-it-arango -p 127.0.0.1:8529:8529 "
         "-e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12\n"
         "or run the dev stack (`task dev:core`). Point the tier elsewhere with "
         "ARANGODB_HOST / ARANGODB_PORT / ARANGODB_USERNAME / ARANGODB_PASSWORD."

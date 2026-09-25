@@ -16,6 +16,11 @@
 ## All credentials are read from .env (not hardcoded here).
 ## See .env.example for required variables.
 ##
+## Network exposure (#1750): every published port binds to 127.0.0.1, so
+## only this machine reaches it. To open the web UI (8080) and the API
+## (8000) to other devices, set KAMERPLANTER_BIND_ADDRESS=0.0.0.0 in .env.
+## The databases, Valkey and Ollama always stay on 127.0.0.1.
+##
 version: "3.8"
 
 services:
@@ -24,8 +29,9 @@ services:
     image: arangodb:3.12@sha256:f8e1590646f0600da50d4c8a03d0596e1a70453c24c145e54d80c792de247a43
     environment:
       ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "8529:8529"
+      - "127.0.0.1:8529:8529"
     volumes:
       - arangodb_data:/var/lib/arangodb3
     healthcheck:
@@ -37,8 +43,9 @@ services:
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
     image: valkey/valkey:9-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - valkey_data:/data
     healthcheck:
@@ -56,8 +63,9 @@ services:
       POSTGRES_DB: ${VECTORDB_DATABASE:-kamerplanter_vectors}
       POSTGRES_USER: ${VECTORDB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - vectordb_data:/var/lib/postgresql/data
     healthcheck:
@@ -75,8 +83,9 @@ services:
       OLLAMA_HOST: "0.0.0.0:11434"
       OLLAMA_NUM_PARALLEL: "1"
       OLLAMA_MAX_LOADED_MODELS: "1"
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_models:/models
     healthcheck:
@@ -93,8 +102,9 @@ services:
       POSTGRES_DB: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
       POSTGRES_USER: ${TIMESCALEDB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
     healthcheck:
@@ -178,8 +188,13 @@ services:
       VECTORDB_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
     volumes:
       - ./spec/knowledge/rag:/app/knowledge:ro
+    # LOOPBACK BY DEFAULT (#1750). The API is one of the two front doors:
+    # set KAMERPLANTER_BIND_ADDRESS=0.0.0.0 in .env to reach it from other
+    # devices (a Home Assistant host addresses this port). The data stores
+    # never follow that variable. Allow-listed, with this reason, in
+    # src/backend/tests/unit/guards/test_published_ports_bind_loopback.py.
     ports:
-      - "8000:8000"
+      - "${KAMERPLANTER_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     depends_on:
       - arangodb
       - valkey
@@ -273,8 +288,13 @@ services:
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
       SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+    # LOOPBACK BY DEFAULT (#1750). The web UI is one of the two front doors:
+    # set KAMERPLANTER_BIND_ADDRESS=0.0.0.0 in .env to reach it from other
+    # devices (phones and tablets on the home network). The data stores
+    # never follow that variable. Allow-listed, with this reason, in
+    # src/backend/tests/unit/guards/test_published_ports_bind_loopback.py.
     ports:
-      - "8080:8080"
+      - "${KAMERPLANTER_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       - backend
     healthcheck:
