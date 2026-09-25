@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.6 (Anwendungs- und Zugriffsprotokolle §3.4, #1781)
+Version: 1.7 (Einzel-Tasks statt Master-Task, Fristen aus Settings, Zeitpunktvergleich, #1782/#1784)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,6 +21,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.7 | 2026-09-25 | **#1782/#1784:** §3.1 beschreibt die Einzel-Tasks, die es gibt, statt eines Master-Tasks `enforce_retention_policy` (Begründung in §3.1). §3.2: Fristvergleiche in AQL vergleichen Zeitpunkte (`DATE_TIMESTAMP`), nie ISO-Strings — ArangoDB ordnet Strings nach ICU-Kollation, gemessen `"…00.5Z" < "…00+00:00"` → `true`. §3.3: Prometheus-Metriken als nicht implementiert gekennzeichnet (#1800). §4: die tatsächlichen Settings mit Untergrenzen; R-04, R-12, R-14, R-15 und R-16..R-18 ohne lesenden Code als nicht implementiert gekennzeichnet (#1800). AK-04 bis AK-06, AK-10 und AK-11 angepasst. |
 | 1.6 | 2026-09-25 | **#1781:** §3.4 Anwendungs- und Zugriffsprotokolle ergänzt (L-1 bis L-5): keine Kontoschlüssel, E-Mail-Adressen oder ungekürzten IP-Adressen an Log-Aufrufen der Anwendung (Zugriffsprotokolle und Tracebacks noch offen), gesalzener E-Mail-Digest, Salt-Pflicht auch für den Celery-Worker. Die Aufbewahrungsfrist der Log-Pipeline selbst ist als offene Betreiber-Frage markiert. |
 | 1.5 | 2026-09-23 | **#1663:** Die ID R-19 war doppelt vergeben (Gießdienst-Rotation in §2.1, Promotion-Audit-Log in §2.3). Das Promotion-Audit-Log heißt jetzt **R-24** (R-23 ist im `spec/knowledge/COMPLIANCE-PLAN.md` bereits für RAG-Anfragen vorgesehen); R-19 bleibt die Gießdienst-Rotation, auf die sich `spec/e2e-testcases/TC-NFR-011.md` bezieht. Die Zeilen R-19, R-19a, R-20, R-21 und R-24 sind als nicht implementiert gekennzeichnet — ihre Collections existieren im Code nicht. `quality_assessments` (R-16) wird seit #1663 über das serverseitige `assessed_by_key` anonymisiert; `yield_metrics` (R-16) trägt kein Nutzerfeld. |
 | 1.4 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** R-14 differenziert nach `Location.data_classification` (REQ-002): `OUTDOOR_OPEN` Stufe 2 = 5y, Stufe 3 = 20y (Opt-in); `GREENHOUSE` Stufe 3 = 10y (Opt-in); `INDOOR_*` und `UNKNOWN` weiterhin 5y. Forward-only-Klassifizierungs-Wechsel. Vier neue Settings. R-19a für Saison-Aggregate-Anonymisierung bei User-Löschung. |
@@ -75,15 +76,15 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-01 | Soft-Deleted User-Accounts | `users` (status: `deleted`) | 90 Tage nach Soft-Delete | Hard-Delete: Account-Daten endgültig entfernen, E-Mail-Hash für Duplikatprüfung behalten. **Der Soft-Delete selbst entfernt bereits `password_hash` und `avatar_url`** — die Frist darf kein Authentifizierungsgeheimnis überdauern (REQ-025 Szenario 3, #1525) | Art. 17 DSGVO, Art. 5(1)(e) | REQ-023 §2, REQ-025 |
 | R-02 | Unbestätigte Accounts | `users` (status: `unverified`) | 7 Tage nach Erstellung | Hard-Delete: Account und zugehörige Auth-Provider entfernen | Art. 5(1)(e), Zweckentfall | REQ-023 §3.5 |
 | R-03 | IP-Adressen in Sessions | `refresh_tokens` (Feld: `ip_address`) | 7 Tage nach Speicherung | Anonymisierung: IPv4 letztes Oktett → `0`, IPv6 → `/48`-Präfix behalten | Art. 6(1)(f) berechtigtes Interesse, Art. 5(1)(c) Datenminimierung | REQ-023 §2 |
-| R-04 | Consent Records | `consent_records` | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht | REQ-025 |
+| R-04 | Consent Records | `consent_records` | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht | REQ-025 **Nicht implementiert** (Stand #1782): Kein Task löscht `consent_records`; die IP-Adresse eines Consent Records wird ebenfalls nicht anonymisiert (#1800). |
 | R-05 | Export-Dateien | Dateisystem (Export-Verzeichnis) | 72 Stunden nach Erstellung | Datei löschen, Status auf `expired` setzen | Art. 15/20 DSGVO, Zweckentfall | REQ-025 |
 | R-06 | Erasure-Audit-Logs | `erasure_requests` | 1 Jahr nach Abschluss | **Pseudonymisierung sofort nach User-Hard-Delete (`user_key` → Tombstone-Hash via REQ-025 §3.1 Phase 2.5), anschließend Hard-Delete des Audit-Eintrags nach 1 Jahr** <!-- W-002 --> | Art. 5(2) Rechenschaftspflicht + Art. 5(1)(e) Speicherbegrenzung | REQ-025 |
-| R-07 | E-Mail-Änderungsanfragen | `email_change_requests` | 24 Stunden nach Erstellung | Hard-Delete (abgelaufene Tokens) | Zweckentfall | REQ-025 |
+| R-07 | E-Mail-Änderungsanfragen | `email_change_requests` | 24 Stunden nach Erstellung | Hard-Delete (abgelaufene Tokens) | Zweckentfall | REQ-025 **Teilweise implementiert** (Stand #1782): Nach Ablauf der Frist setzt `retention.expire_email_change_requests` den Status auf `expired`; ein Hard-Delete findet nicht statt (#1800). |
 | R-08 | Passwort-Reset-Tokens | `users` (Felder: `password_reset_token`, `password_reset_expires`) | 1 Stunde (besteht) | Token-Felder nullen | REQ-023 §1 | REQ-023 |
 | R-09 | E-Mail-Verifikations-Tokens | `users` (Felder: `email_verification_token`, `email_verification_expires`) | 24 Stunden (besteht) | Token-Felder nullen | REQ-023 §1 | REQ-023 |
 | R-10 | OAuth State | Redis | 5 Minuten (besteht, Redis TTL) | Automatische Bereinigung durch Redis | REQ-023 §3.2 | REQ-023 |
 | R-11 | Abgelaufene Refresh Tokens | `refresh_tokens` | Sofort nach Ablauf | Hard-Delete (TTL-Index besteht) | Zweckentfall | REQ-023 §2 |
-| R-12 | Einladungen (abgelaufen) | `invitations` | 30 Tage nach Ablauf | Hard-Delete | Zweckentfall | REQ-024 |
+| R-12 | Einladungen (abgelaufen) | `invitations` | 30 Tage nach Ablauf | Hard-Delete | Zweckentfall | REQ-024 **Teilweise implementiert** (Stand #1782): `cleanup_expired_invitations` setzt abgelaufene Einladungen auf `expired`; die 30-Tage-Löschung existiert nicht (#1800). |
 | R-13 | Processing Restrictions | `processing_restrictions` | Unbegrenzt (bis Aufhebung durch Betroffenen) | Nur auf expliziten Wunsch entfernen | Art. 18 DSGVO | REQ-025 |
 | R-19 | Gießdienst-Rotation (DutyRotation) | `duty_rotations` | Unbegrenzt (bei User-Löschung: User-Referenz anonymisieren) | Anonymisierung: User-Referenz auf NULL, Dienst-Zeitraum bleibt | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 **Nicht implementiert** (Stand #1663): Die Collection `duty_rotations` existiert im Code nicht; es gibt keine Regel im Löschinventar (`ErasureEngine`). |
 | R-20 | Pinnwand-Beiträge (BulletinPost/Comment) | `bulletin_posts`, `bulletin_comments` | Bei User-Löschung: User-Referenz anonymisieren, Inhalt bleibt | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 **Nicht implementiert** (Stand #1663): Die Collections `bulletin_posts`/`bulletin_comments` existieren im Code nicht; es gibt keine Regel im Löschinventar (`ErasureEngine`). |
@@ -190,46 +191,30 @@ Konsequenz: Bei Hard-Delete des Original-Treatments nach 3 Jahren werden auch al
 
 ## 3. Technische Umsetzung: Celery-Enforcement
 
-### 3.1 Master-Task
+### 3.1 Einzel-Tasks je Regel
 
-Der Master-Task `enforce_retention_policy` läuft täglich um 02:00 UTC und dispatcht Sub-Tasks für jede Datenkategorie:
+Jede Regel läuft als eigener Celery-Beat-Task mit einem Takt, der zu ihrer Frist passt. Einen Master-Task, der alle Regeln in einem Lauf orchestriert, gibt es nicht (Entscheidung #1782, v1.7):
 
-```python
-# Celery Beat Schedule
-CELERY_BEAT_SCHEDULE = {
-    "enforce-retention-policy": {
-        "task": "app.tasks.retention.enforce_retention_policy",
-        "schedule": crontab(hour=2, minute=0),  # Täglich 02:00 UTC
-    },
-}
-```
+| Regel | Celery-Task | Takt (UTC) | Frist aus |
+|-------|-------------|------------|-----------|
+| R-01 | `retention.execute_scheduled_erasures` | täglich 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` (beim Antrag in `hard_delete_scheduled_at` festgeschrieben) |
+| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | täglich | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
+| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich | `RETENTION_IP_ANONYMIZATION_DAYS` |
+| R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` (bei Fertigstellung in `expires_at` festgeschrieben) |
+| R-06 | `retention.purge_expired_erasure_records` | täglich 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
+| R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` (beim Antrag in `expires_at` festgeschrieben) |
+| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (Status `expired`; die 30-Tage-Löschung fehlt, #1800) |
 
-```python
-class RetentionMasterTask:
-    """Orchestriert alle Retention-Sub-Tasks."""
+Jede Frist wird aus genau einem Setting über `RetentionService` gelesen (§4); kein Task trägt eine eigene Zahl.
 
-    SUB_TASKS = [
-        "hard_delete_soft_deleted_accounts",    # R-01: 90 Tage
-        "hard_delete_unverified_accounts",      # R-02: 7 Tage (besteht)
-        "anonymize_session_ips",                # R-03: 7 Tage
-        "cleanup_expired_consents",             # R-04: 3 Jahre nach Widerruf
-        "cleanup_expired_exports",              # R-05: 72 Stunden
-        "cleanup_erasure_audits",               # R-06: 1 Jahr
-        "cleanup_expired_email_changes",        # R-07: 24 Stunden
-        "cleanup_expired_tokens",               # R-08/R-09/R-11
-        "cleanup_expired_invitations",          # R-12: 30 Tage nach Ablauf
-    ]
-
-    def run(self):
-        results = {}
-        for task_name in self.SUB_TASKS:
-            result = dispatch_sub_task(task_name)
-            results[task_name] = result
-        log_retention_run(results)
-        return results
-```
+**Warum kein Master-Task:** Nichts in dieser NFR verlangt einen Orchestrator als solchen. Was er leisten sollte — jede Regel wird regelmäßig durchgesetzt (AK-04), jeder Lauf protokolliert seine Zahlen (AK-05), ein Fehler in einer Regel hält keine andere auf — leisten die Einzel-Tasks bereits. Ein einheitlicher Tagestakt wäre für die stundengenauen Fristen sogar falsch: Ein Lauf um 02:00 UTC würde R-07 (24 h) um bis zu 24 Stunden überziehen und R-05 (72 h) ebenso, also länger speichern als deklariert. Die Beschreibung folgt deshalb dem Code, nicht umgekehrt.
 
 ### 3.2 Sub-Tasks (Beispiele)
+
+**Fristvergleiche vergleichen Zeitpunkte, nie Strings (#1784).** ArangoDB ordnet Strings mit `<`/`>` nach ICU-Kollation, und gespeicherte Zeitstempel haben je nach Schreibweg verschiedene Formen (`…00Z`, `…00.500000Z`, `…00+00:00`, `…00.000Z`). Gemessen auf ArangoDB 3.12.8: `"2025-09-25T04:30:00.5Z" < "2025-09-25T04:30:00+00:00"` → `true` — ein Datensatz eine halbe Sekunde *nach* dem Stichtag galt als älter. Jeder Fristvergleich in AQL MUSS deshalb beide Seiten mit `DATE_TIMESTAMP(...)` vergleichen; `null < Zahl` ist in AQL wahr, deshalb entscheidet jeder `<`/`<=`-Selektor ausdrücklich, was mit einem Datensatz ohne lesbaren Zeitstempel geschieht, und zwar nach der Richtung der Aktion: Eine **zerstörende** Aktion nach Alter (Löschen, Erasure) schließt ihn aus (`DATE_TIMESTAMP(x) != null`), denn sein Alter ist nicht belegt. Eine **minimierende** Aktion (IP-Anonymisierung R-03) schließt ihn ein, denn Anonymisieren schadet niemandem, das Behalten der vollen Adresse schon. Die Ablauf-Selektoren (`expires_at`) für Sessions, Einladungen, E-Mail-Änderungen, MCP-Idempotenz und Aktor-Overrides behandeln einen fehlenden Ablaufzeitpunkt als abgelaufen; Export und KI-Gespräch tun das noch nicht (#1806). Durchgesetzt von `src/backend/tests/unit/guards/test_aql_timestamp_comparisons_are_instants.py`. `DATE_TIMESTAMP` löst auf Millisekunden auf; bei einem strikten `<` gegen den Stichtag kann das einen Datensatz nur jünger, nie älter erscheinen lassen.
+
+Die folgenden Beispiele zeigen die Form; die tatsächlichen Selektoren liegen in den Repositories unter `src/backend/app/data_access/arango/`.
 
 **R-01: Hard-Delete Soft-Deleted Accounts (90 Tage):**
 
@@ -242,7 +227,8 @@ async def hard_delete_soft_deleted_accounts():
     accounts = await aql("""
         FOR u IN users
           FILTER u.status == 'deleted'
-          FILTER u.updated_at < @cutoff
+          FILTER DATE_TIMESTAMP(u.updated_at) != null
+          FILTER DATE_TIMESTAMP(u.updated_at) < DATE_TIMESTAMP(@cutoff)
           RETURN u._key
     """, cutoff=cutoff.isoformat())
 
@@ -270,7 +256,8 @@ async def anonymize_session_ips():
         FOR rt IN refresh_tokens
           FILTER rt.ip_address != null
           FILTER rt.ip_anonymized_at == null
-          FILTER rt.issued_at < @cutoff
+          FILTER DATE_TIMESTAMP(rt.issued_at) != null
+          FILTER DATE_TIMESTAMP(rt.issued_at) < DATE_TIMESTAMP(@cutoff)
           UPDATE rt WITH {
             ip_address: REGEX_REPLACE(rt.ip_address, '\\.[0-9]+$', '.0'),
             ip_anonymized_at: DATE_ISO8601(DATE_NOW())
@@ -291,7 +278,8 @@ async def cleanup_expired_exports():
     exports = await aql("""
         FOR e IN data_export_requests
           FILTER e.status == 'completed'
-          FILTER e.completed_at < @cutoff
+          FILTER DATE_TIMESTAMP(e.completed_at) != null
+          FILTER DATE_TIMESTAMP(e.completed_at) < DATE_TIMESTAMP(@cutoff)
           RETURN { _key: e._key, file_path: e.file_path }
     """, cutoff=cutoff.isoformat())
 
@@ -321,7 +309,9 @@ log.info(
 )
 ```
 
-**Prometheus-Metriken:**
+Tatsächlich protokolliert jeder Einzel-Task (§3.1) seine eigene Ergebniszeile, z.B. `retention.execute_scheduled_erasures.completed`, `anonymize_old_ips`, `retention.purge_expired_erasure_records` mit Zählern; eine gemeinsame Zeile `retention.run_completed` gibt es nicht.
+
+**Prometheus-Metriken:** **Nicht implementiert** (Stand #1782): Das Backend hat keine Metrik-Pipeline; die folgenden Metriken sind Zielbild (#1800).
 
 ```python
 retention_records_processed = Counter(
@@ -376,6 +366,21 @@ Helm-Chart dieses Repositorys betreibt keinen Log-Aggregator.
 ---
 
 ## 4. Konfigurierbarkeit
+
+**Umsetzungsstand (#1782, v1.7).** Die Settings-Klasse `Settings` hat kein Präfix; die Umgebungsvariablen heißen trotzdem wie unten (`RETENTION_…`). Jede Frist wird über `RetentionService` gelesen, und der Konstruktor prüft dieselben Untergrenzen noch einmal:
+
+| Setting (Umgebungsvariable) | Regel | Default | Untergrenze | Auch akzeptiert (alter Name) |
+|-----------------------------|-------|---------|-------------|------------------------------|
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | — |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | — |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 (die Frist selbst) | — |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+
+Sind beide Namen gesetzt, gilt der `RETENTION_…`-Name. **Nicht implementiert** (kein Code liest sie, #1800): `CONSENT_RETENTION_YEARS` (R-04, kein Lösch-Task), `INVITATION_RETENTION_DAYS` (R-12, keine Löschung), `SENSOR_*` (R-14; die Intervalle stehen als Literale in `src/backend/app/data_access/timescale/migrations/003_retention_policies.sql`: 90 Tage, 2 Jahre, 5 Jahre; die ADR-003-Stufen je Klassifizierung sind nicht modelliert), `ACTOR_LOG_*` (R-15, es gibt keinen Aktor-Log-Speicher) und `HARVEST_DATA_MIN_…`/`TREATMENT_MIN_…`/`INSPECTION_MIN_…` (R-16..R-18: nichts löscht diese Daten automatisch, eine Untergrenze hätte nichts zu begrenzen). `ERASURE_TOMBSTONE_SALT` heißt im Code `ERASURE_TOMBSTONE_SALT` (ohne Präfix).
+
+Zielbild (unverändert):
 
 Alle Fristen sind als Konfigurationsparameter definiert und können über Umgebungsvariablen überschrieben werden:
 
@@ -471,14 +476,14 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 | AK-01 | Soft-Deleted Accounts werden nach 90 Tagen endgültig gelöscht (inkl. Edges und verknüpfte Collections) | Integration |
 | AK-02 | IP-Adressen in `refresh_tokens` werden nach 7 Tagen anonymisiert (IPv4: letztes Oktett → 0) | Integration |
 | AK-03 | Export-Dateien werden nach 72 Stunden vom Dateisystem entfernt | Integration |
-| AK-04 | Celery-Master-Task läuft täglich um 02:00 UTC und dispatcht alle Sub-Tasks | Integration |
-| AK-05 | Jeder Retention-Lauf wird strukturiert geloggt (structlog) mit Ergebniszählen pro Kategorie | Integration |
-| AK-06 | Prometheus-Metriken (`retention_records_processed_total`) werden pro Kategorie inkrementiert | Integration |
+| AK-04 | Jede Regel aus §3.1 hat einen Celery-Beat-Eintrag mit dem dort genannten Takt (seit v1.7 statt eines Master-Tasks) | Unit |
+| AK-05 | Jeder Retention-Task protokolliert seinen Lauf strukturiert (structlog) mit Ergebniszählen | Integration |
+| AK-06 | Prometheus-Metriken (`retention_records_processed_total`) werden pro Kategorie inkrementiert — **nicht implementiert** (#1800) | Integration |
 | AK-07 | TimescaleDB Continuous Aggregates erzeugen Stunden-/Tagesmittel für Sensordaten | Integration |
 | AK-08 | TimescaleDB Retention Policies löschen Rohdaten nach 90 Tagen, Stundendaten nach 2 Jahren, Tagesdaten nach 5 Jahren | Integration |
 | AK-09 | Erntedaten und Behandlungsanwendungen werden bei Löschanfrage anonymisiert (User-Referenz entfernt), aber nicht gelöscht | Integration |
-| AK-10 | Konfigurierbare Fristen können per Umgebungsvariable überschrieben werden, unterschreiten aber nicht die gesetzlichen Mindestfristen | Unit |
-| AK-11 | Unbestätigte Accounts werden nach 7 Tagen gelöscht (bestehender Task, jetzt in Master-Task integriert) | Integration |
+| AK-10 | Konfigurierbare Fristen können per Umgebungsvariable überschrieben werden, unterschreiten aber nicht ihre Untergrenze (§4); jede Frist wird aus genau einem Setting gelesen | Unit |
+| AK-11 | Unbestätigte Accounts werden nach `RETENTION_UNVERIFIED_ACCOUNT_DAYS` (Default 7) Tagen gelöscht | Integration |
 <!-- Quelle: Widerspruchsanalyse W-002 -->
 | AK-12 | **Pflicht-Setting `ERASURE_TOMBSTONE_SALT`:** Backend startet nicht, wenn die Umgebungsvariable `RETENTION_ERASURE_TOMBSTONE_SALT` nicht gesetzt oder kürzer als 32 Zeichen ist (Pydantic `Field(..., min_length=32)`). Fehlermeldung verweist auf NFR-011 §4. | Integration |
 | AK-13 | **R-06 Phase-Reihenfolge:** Im Erasure-Lauf (REQ-025 §3.5) wird die Pseudonymisierung der `erasure_requests`-Collection AUSGEFÜHRT, bevor der User selbst hard-deleted wird. Der Hard-Delete des Audit-Eintrags selbst erfolgt erst nach Ablauf von `ERASURE_AUDIT_RETENTION_YEARS` (Default 1 Jahr). | Integration |
@@ -508,7 +513,7 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 
 | Komponente | Zweck |
 |------------|-------|
-| Celery Beat | Scheduling des Master-Tasks (täglich 02:00 UTC) |
+| Celery Beat | Scheduling der Retention-Einzel-Tasks (§3.1) |
 | TimescaleDB Continuous Aggregates | Automatische Sensordaten-Aggregierung |
 | Prometheus | Monitoring der Retention-Läufe |
 
@@ -533,7 +538,7 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 
 **Dokumenten-Ende**
 
-**Version**: 1.4
+**Version**: 1.7
 **Status**: Genehmigt
 **Datum**: 2026-02-27
 **Security-Review**: Adressiert SEC-K-001, SEC-K-002, SEC-K-005

@@ -840,7 +840,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 - **AC-S1c:** Ein Werkzeug erhaelt den Mandanten ausschliesslich aus der aufgeloesten Mitgliedschaft, nie aus dem rohen Argument — ein Werkzeug kann seinen Wirkungsbereich nicht selbst erweitern.
 - **AC-S2:** API-Keys erscheinen niemals im Audit-Log oder in Fehlermeldungen.
 - **AC-S3:** Ein Nutzer kann ueber `GET /privacy/mcp-activity` alle MCP-Aufrufe seiner eigenen Keys (und der ihm zugeordneten Service-Accounts) der letzten 90 Tage einsehen.
-- **AC-S4:** `mcp_audit_log`-Eintraege aelter als 90 Tage werden vom Retention-Master-Task (NFR-011) geloescht.
+- **AC-S4:** `mcp_audit_log`-Eintraege aelter als 90 Tage werden vom taeglichen Retention-Task `mcp.cleanup_expired_audit_log` (NFR-011, REQ-033 §4.6) geloescht.
 - **AC-S5:** Tool-Argumente werden vor dem Logging gehasht — keine Diary-Texte oder Symptom-Beschreibungen im Klartext-Log.
 - **AC-S6:** Ein Konto ohne `mcp.setup` im angesprochenen Mandanten kann dort ueber kein Tool eine `delete_location` ausloesen — selbst nicht durch indirekte Macros.
 - **AC-S7:** Kein Werkzeug liefert ein Originalbild aus. Bild-Content stammt ausschliesslich aus den WebP-Renditions (NFR-013 §8.2) und traegt daher keine EXIF-Daten — auch dann nicht, wenn der Mandant `STORAGE_KEEP_EXIF_<CATEGORY>=true` gesetzt hat (§4.3b).

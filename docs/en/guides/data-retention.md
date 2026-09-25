@@ -15,12 +15,20 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-01 | Soft-deleted user accounts | 90 days after soft-delete | Hard-delete (incl. edges, auth providers, sessions) | GDPR Art. 17 |
 | R-02 | Unconfirmed accounts | 7 days after creation | Hard-delete (`app.tasks.auth_tasks.cleanup_unverified_accounts`, daily) | Art. 5(1)(e), purpose lapse |
 | R-03 | IP addresses in sessions | 7 days after storage | Anonymization (IPv4: last octet → `0`) | Art. 5(1)(c) data minimization |
-| R-04 | Consent records | 3 years after revocation | Hard-delete | Art. 7(1) accountability |
+| R-04 | Consent records | 3 years after revocation | **Not implemented:** no task deletes `consent_records`; the IP address of a consent record is not anonymized either | Art. 7(1) accountability |
 | R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file first, then set status to `expired` | Purpose lapse |
 | R-06 | Erasure audit (completed requests) | 1 year after completion | Hard-delete (`retention.purge_expired_erasure_records`, daily at 04:30 UTC) | Art. 5(2) accountability |
-| R-07 | Email change requests | 24 hours | Hard-delete expired tokens | Purpose lapse |
+| R-07 | Email change requests | 24 hours after creation | Set status to `expired` (no hard-delete) | Purpose lapse |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
-| R-12 | Expired invitations | 30 days after expiry | Hard-delete | Purpose lapse |
+| R-12 | Expired invitations | 30 days after expiry | **Partially implemented:** status is set to `expired`; deletion after 30 days does not happen | Purpose lapse |
+
+Every period except R-11 and R-12 is read from exactly one setting (see
+[Environment Variables](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
+for the exact names). For R-01, R-05 and R-07 there were already documented, older
+variable names before this change, but they had no effect — the code used fixed values.
+These older names now actually work and remain valid as aliases in addition. Every
+period comparison compares instants rather than strings, so a record is not captured too
+early or too late by a differently spelled timestamp.
 
 ### Unconfirmed Accounts (R-02)
 
@@ -33,17 +41,23 @@ the same".
 
 ### IP Anonymization (R-03)
 
-IP addresses are automatically anonymized after 7 days — not deleted, as they may
-still be needed for detecting compromised sessions:
+IP addresses are automatically anonymized `RETENTION_IP_ANONYMIZATION_DAYS` days after
+the session was issued (default 7 days, minimum 1 day) — not deleted, as they may still
+be needed for detecting compromised sessions:
 
 - **IPv4:** Last octet set to `0` — `192.168.1.42` → `192.168.1.0`
 - **IPv6:** Truncated to `/48` prefix — `2001:db8:85a3::8a2e:370:7334` → `2001:db8:85a3::`
 
-The `ip_anonymized_at` field is set to the time of anonymization.
+The `ip_anonymized_at` field is set to the time of anonymization. This covers session IP
+addresses only — the IP address held by a consent record (see R-04 above) is not touched
+by it.
 
 ### Export files: the file first, then the status (R-05)
 
-Cleanup of an expired data export runs in a fixed order: the export file is deleted
+The period is configurable via `RETENTION_EXPORT_FILE_RETENTION_HOURS` (default 72
+hours, minimum 1 hour; the older name `PRIVACY_EXPORT_RETENTION_HOURS` remains valid as
+an alias). Cleanup of an expired data export runs in a fixed order: the export file is
+deleted
 from object storage first, and only then does the export switch to the `expired`
 status. If deleting the file fails, the export is left unchanged — the next hourly
 run retries it. Downloads are already refused once the 72-hour window has passed,
@@ -64,6 +78,14 @@ A request that is still open or only partially completed (`scheduled`, `in_progr
 `partially_completed`) is never purged — it is still owed a run. A completed request
 without a `completed_at` is kept too. The run logs only the number of purged requests,
 never an account or request key.
+
+### Email Change Requests (R-07)
+
+The hourly `retention.expire_email_change_requests` task (minute 15) sets a still
+unconfirmed email-change request to `expired` `RETENTION_EMAIL_CHANGE_RETENTION_HOURS`
+hours after the request (default 24 hours, minimum 1 hour; the older name
+`PRIVACY_EMAIL_CHANGE_TTL_HOURS` remains valid as an alias). The record is not
+hard-deleted.
 
 ---
 
@@ -412,111 +434,81 @@ happens to your personal garden](#what-happens-to-your-personal-garden)).
 
 ## Celery Enforcement: Automated Execution
 
-!!! warning "Not yet implemented"
-    There is no central `enforce_retention_policy` task that orchestrates every retention
-    rule in one shared run, as shown in the diagram below, or that produces the log line
-    and Prometheus metrics shown further down. The diagram, the JSON example and the
-    metrics table describe a planned target state.
+Each rule runs as its own Celery beat task on a schedule that matches its period.
+There is no central task that orchestrates every rule in one shared run, and none is
+planned: a single daily schedule would even be wrong for the hour-granular periods
+(R-05, R-07) — a run at 02:00 UTC would overshoot a 24-hour period by up to a day,
+keeping the record longer than declared.
 
-    Each rule actually runs as its own Celery task on its own schedule:
+| Rule | Celery task | Schedule (UTC) | Period setting |
+|------|-------------|-----------------|-----------------|
+| R-01 | `retention.execute_scheduled_erasures` | daily, 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` |
+| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | daily | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
+| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | daily | `RETENTION_IP_ANONYMIZATION_DAYS` |
+| R-05 | `retention.expire_data_exports` | hourly, minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
+| R-06 | `retention.purge_expired_erasure_records` | daily, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
+| R-07 | `retention.expire_email_change_requests` | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
+| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly | Expiry of the token |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily | Expiry of the invitation (status `expired` only) |
 
-    - R-01: `retention.execute_scheduled_erasures` (daily, 04:00 UTC)
-    - R-02: `app.tasks.auth_tasks.cleanup_unverified_accounts` (daily)
-    - R-03: `app.tasks.auth_tasks.anonymize_old_ips` (daily)
-    - R-05: `retention.expire_data_exports` (hourly, minute 20)
-    - R-06: `retention.purge_expired_erasure_records` (daily, 04:30 UTC)
-    - R-07: `retention.expire_email_change_requests` (hourly, minute 15)
-    - R-11: `app.tasks.auth_tasks.cleanup_expired_tokens` (hourly)
-    - R-12: `app.tasks.tenant_tasks.cleanup_expired_invitations` (daily)
+Each task logs its run in structured form (structlog) under its own event name with
+counters, for example:
 
-    R-04 (consent records) currently has no automated cleanup task.
+- `retention.execute_scheduled_erasures.completed` (`processed`)
+- `cleanup_unverified_accounts` (`removed`, `failed`, `deferred`, `skipped`, `blocked`)
+- `anonymize_old_ips` (`anonymized`)
+- `retention.expire_data_exports.completed` (`expired`)
+- `retention.purge_expired_erasure_records.completed` (`purged`, `held_without_tombstone`)
+- `retention.expire_email_change_requests.completed` (`expired`)
+- `cleanup_expired_tokens` (`removed`)
+- `expired_invitations_cleaned` (`count`)
 
-The Celery task `enforce_retention_policy` runs **daily at 02:00 UTC** and orchestrates
-all retention sub-tasks:
+There is no single event line that summarizes every rule.
 
-<!-- diagram-source: user-described — enforce_retention_policy Celery master task fanning out to retention sub-tasks -->
-```mermaid
-flowchart TD
-    Master["enforce_retention_policy<br/>(Celery Beat, 02:00 UTC)"]
+### Metrics
 
-    Master --> T1["hard_delete_soft_deleted_accounts<br/>(R-01: 90 days)"]
-    Master --> T2["hard_delete_unverified_accounts<br/>(R-02: 7 days)"]
-    Master --> T3["anonymize_session_ips<br/>(R-03: 7 days)"]
-    Master --> T4["cleanup_expired_consents<br/>(R-04: 3 years)"]
-    Master --> T5["cleanup_expired_exports<br/>(R-05: 72 hours)"]
-    Master --> T6["cleanup_erasure_audits<br/>(R-06: 1 year)"]
-    Master --> T7["cleanup_expired_tokens<br/>(R-11, R-12)"]
-```
-
-Each sub-task logs the number of processed records via structlog:
-
-```json
-{
-  "event": "retention.run_completed",
-  "results": {
-    "hard_delete_soft_deleted_accounts": {"deleted_count": 3},
-    "anonymize_session_ips": {"anonymized_count": 47},
-    "cleanup_expired_exports": {"expired_count": 1}
-  },
-  "duration_ms": 1234
-}
-```
-
-### Prometheus Metrics
-
-The retention task exposes the following metrics:
-
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `retention_records_processed_total` | Counter | `category`, `action` | Records processed per category and action (`delete`/`anonymize`/`expire`) |
-| `retention_run_duration_seconds` | Histogram | — | Duration of the full retention run |
-| `retention_run_errors_total` | Counter | `category` | Errors per category |
+There are currently no Prometheus metrics for the retention runs (internal reference:
+issue #1800). The only observability source is the structured log lines above, for
+example via `kubectl logs -l app=celery-beat`.
 
 ---
 
 ## Configuration via Environment Variables
 
+Every period is read from exactly one setting (`RetentionService`); its constructor
+checks the same floor again:
+
+| Setting | Rule | Default | Minimum | Older name (still valid) |
+|---------|------|---------|---------|---------------------------|
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | — |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | — |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+
+If both names of a row are set, the `RETENTION_*` name wins. The older names were
+documented before this change but had no effect — the code used fixed values; they now
+actually apply.
+
 !!! warning "Not yet implemented"
-    Of the variables in the block below, the backend currently reads only two:
-    `RETENTION_UNVERIFIED_ACCOUNT_DAYS` (R-02) and `RETENTION_ERASURE_AUDIT_RETENTION_YEARS`
-    (R-06) — both with a minimum of `1`, see [Environment Variables](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011).
-    Every other `RETENTION_*` name in this block is a planned, unified naming scheme; the
-    backend does not read it. The corresponding periods are partly configurable already,
-    but under different names: R-01 via `PRIVACY_HARD_DELETE_AFTER_DAYS`, R-05 via
-    `PRIVACY_EXPORT_RETENTION_HOURS`, R-07 via `PRIVACY_EMAIL_CHANGE_TTL_HOURS`. For R-03,
-    R-04, R-12, and the sensor-data and statutory-minimum variables below, there is
-    currently no environment variable at all; the values used in the code are hard-coded.
+    For the following rules there is no effective environment variable — no code reads
+    them (internal reference: issue #1800):
 
-All periods are configurable via environment variables. The prefix `RETENTION_` is prepended:
-
-```bash
-# Personal data
-RETENTION_SOFT_DELETE_RETENTION_DAYS=90      # R-01: Soft-deleted accounts
-RETENTION_UNVERIFIED_ACCOUNT_DAYS=7          # R-02: Unconfirmed accounts — implemented
-RETENTION_IP_ANONYMIZATION_DAYS=7            # R-03: IP anonymization
-RETENTION_CONSENT_RETENTION_YEARS=3          # R-04: Consent records
-RETENTION_EXPORT_FILE_RETENTION_HOURS=72     # R-05: Export files
-RETENTION_ERASURE_AUDIT_RETENTION_YEARS=1    # R-06: Audit logs — implemented
-RETENTION_EMAIL_CHANGE_RETENTION_HOURS=24    # R-07: Email change requests
-RETENTION_INVITATION_RETENTION_DAYS=30       # R-12: Expired invitations
-
-# Sensor data (TimescaleDB)
-RETENTION_SENSOR_RAW_RETENTION_DAYS=90       # R-14 Stage 1
-RETENTION_SENSOR_HOURLY_RETENTION_YEARS=2    # R-14 Stage 2
-RETENTION_SENSOR_DAILY_RETENTION_YEARS=5     # R-14 Stage 3
-RETENTION_ACTOR_LOG_RAW_RETENTION_DAYS=90    # R-15 Stage 1
-RETENTION_ACTOR_LOG_AGGREGATED_RETENTION_YEARS=1  # R-15 Stage 2
-```
-
-!!! warning "Statutory minimums cannot be undercut"
-    The following values can be increased but **not reduced** below the statutory
-    minimums. A validation check at application startup enforces these floors:
-
-    ```bash
-    RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS=5   # R-16, CanG — MINIMUM
-    RETENTION_TREATMENT_MIN_RETENTION_YEARS=3      # R-17, PflSchG — MINIMUM
-    RETENTION_INSPECTION_MIN_RETENTION_YEARS=3     # R-18, PflSchG — MINIMUM
-    ```
+    - **R-04** (consent records): `RETENTION_CONSENT_RETENTION_YEARS` — there is no task
+      that deletes `consent_records`.
+    - **R-12** (expired invitations): `RETENTION_INVITATION_RETENTION_DAYS` — the daily
+      task only sets expired invitations to `expired`; it does not delete them.
+    - **R-14** (sensor data): `RETENTION_SENSOR_*` — the periods (90 days / 2 years /
+      5 years) are fixed values in the TimescaleDB migration and cannot be changed via
+      an environment variable.
+    - **R-15** (actor logs): there is no actor-log store in the code, so there is no
+      `RETENTION_ACTOR_LOG_*` setting either.
+    - **R-16 through R-18** (harvest, treatment and inspection data): for these
+      statutory minimum periods there is no `_MIN_RETENTION_YEARS` setting and no
+      startup check that enforces a floor — nothing deletes these records
+      automatically, so there is nothing to bound. On account erasure they are
+      anonymized instead and kept indefinitely (see above).
 
 ---
 
@@ -605,19 +597,20 @@ are left untouched by the sweep (curation).
 ## Frequently Asked Questions
 
 ??? question "Can I extend the 90-day soft-delete period?"
-    Yes, via `RETENTION_SOFT_DELETE_RETENTION_DAYS`. Reducing it below 30 days is not
-    recommended, as users would have no opportunity to recover accidentally deleted
-    accounts.
+    Yes, via `RETENTION_SOFT_DELETE_RETENTION_DAYS` (minimum 1 day). Reducing it below
+    30 days is not recommended, as users would have no opportunity to recover
+    accidentally deleted accounts.
 
 ??? question "What happens to tenant data when the last admin of a tenant is deleted?"
     The Celery task `detect_orphaned_tenants` detects tenants without an active admin
     and sets an `orphaned_since` timestamp. A platform admin can then appoint an
     emergency admin.
 
-??? question "How can I verify that the retention task is running correctly?"
-    Check the Prometheus metric `retention_run_duration_seconds` or look in the
-    structured logs (structlog) for the event `retention.run_completed`. In the
-    Kubernetes cluster: `kubectl logs -l app=celery-beat`.
+??? question "How can I verify that the retention tasks are running correctly?"
+    There is no Prometheus metric for this. Look in the structured logs (structlog)
+    instead, for the event of the task in question, for example
+    `retention.execute_scheduled_erasures.completed` or `anonymize_old_ips` (see above).
+    In the Kubernetes cluster: `kubectl logs -l app=celery-beat`.
 
 ??? question "Are sensor data deleted when an account is deleted?"
     Sensor data in TimescaleDB has no direct user reference — it is assigned to a

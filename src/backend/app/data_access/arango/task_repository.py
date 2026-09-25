@@ -662,7 +662,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         query = (
             f"FOR doc IN {col.TASKS} "
             f"FILTER doc.tenant_key == @tenant_key "
-            f"AND doc.status == 'pending' AND doc.due_date != null AND doc.due_date < @now "
+            f"AND doc.status == 'pending' "
+            f"AND DATE_TIMESTAMP(doc.due_date) != null "
+            f"AND DATE_TIMESTAMP(doc.due_date) < DATE_TIMESTAMP(@now) "
             f"SORT doc.due_date ASC RETURN doc"
         )
         cursor = self._db.aql.execute(query, bind_vars={"now": now, "tenant_key": tenant_key})

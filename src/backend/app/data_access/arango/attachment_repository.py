@@ -649,8 +649,8 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
 {self._aql_referenced_prelude()}
         FOR att IN @@collection
           FILTER att.category == @category
-            AND att.created_at != null
-            AND att.created_at < @cutoff
+            AND DATE_TIMESTAMP(att.created_at) != null
+            AND DATE_TIMESTAMP(att.created_at) < DATE_TIMESTAMP(@cutoff)
             AND {self._aql_unreferenced("referenced", "att")}
           SORT att.created_at ASC
           LIMIT @limit

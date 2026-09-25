@@ -110,6 +110,6 @@ class TestListDueForHardDelete:
         query = mock_db.aql.execute.call_args.args[0]
         assert "'partially_completed'" in query
         assert "'in_progress'" in query
-        assert "doc.updated_at <= @stale_before" in query
+        assert "DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before)" in query
         bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
         assert bind_vars["stale_before"] == "2026-06-13T18:00:00Z"

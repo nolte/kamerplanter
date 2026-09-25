@@ -404,7 +404,7 @@ class TestListOverview:
         # The narrowing happens inside the query, so ``total`` counts the same
         # set the page is taken from.
         assert "FILTER displayed_analysis_state IN @displayed_states" in query
-        assert "doc.analysis_lease_expires_at <= @now" in query
+        assert "DATE_TIMESTAMP(doc.analysis_lease_expires_at) <= DATE_TIMESTAMP(@now)" in query
 
     def test_no_state_filter_emits_no_state_predicate(self, repo, mock_db):
         mock_db.aql.execute.side_effect = [iter([0]), iter([])]

@@ -125,5 +125,5 @@ class TestListStalePending:
 
         query = mock_db.aql.execute.call_args.args[0]
         assert 'doc.status == "pending"' in query
-        assert "doc.requested_at < @cutoff" in query
+        assert "DATE_TIMESTAMP(doc.requested_at) < DATE_TIMESTAMP(@cutoff)" in query
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["cutoff"] == "2026-06-14T00:00:00Z"

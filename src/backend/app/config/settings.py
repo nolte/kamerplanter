@@ -1,7 +1,7 @@
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from pydantic_settings import BaseSettings
 
 # What ``/api/health`` reports when no build stamped a revision into the image
@@ -671,9 +671,45 @@ class Settings(BaseSettings):
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production
     privacy_data_controller_name: str = "Kamerplanter Operator"
     privacy_data_controller_email: str = "privacy@kamerplanter.example"
-    privacy_export_retention_hours: int = 72  # NFR-011 R-05
-    privacy_hard_delete_after_days: int = 90  # NFR-011 R-01
-    privacy_email_change_ttl_hours: int = 24
+    # NFR-011 §4 periods (#1782). Each is read in exactly one place,
+    # ``RetentionService``, and applied by the flow or task named on it. The
+    # three ``PRIVACY_*`` names they carried until #1782 keep working as
+    # aliases; the documented ``RETENTION_*`` name is listed first in each
+    # ``AliasChoices`` and wins when both are set. ``ge=1``: a zero period
+    # would hard-delete at request time, expire a link or export before it
+    # could be used, or anonymise a session's IP the moment it was issued.
+    #:
+    #: NFR-011 R-01 — a soft-deleted account is hard-deleted this many days after
+    #: the erasure request (``PrivacyService.request_erasure`` schedules it,
+    #: ``retention.execute_scheduled_erasures`` runs it).
+    retention_soft_delete_retention_days: int = Field(
+        default=90,
+        ge=1,
+        validation_alias=AliasChoices("retention_soft_delete_retention_days", "privacy_hard_delete_after_days"),
+    )
+    #: NFR-011 R-03 — the IP address of a login session is anonymised this many
+    #: days after the session was issued (``auth_tasks.anonymize_old_ips``).
+    retention_ip_anonymization_days: int = Field(
+        default=7,
+        ge=1,
+        validation_alias=AliasChoices("retention_ip_anonymization_days"),
+    )
+    #: NFR-011 R-05 — a built Art. 15 bundle stays downloadable this many hours
+    #: after completion (``PrivacyService.process_data_export`` stamps
+    #: ``expires_at``, ``retention.expire_data_exports`` deletes the file).
+    retention_export_file_retention_hours: int = Field(
+        default=72,
+        ge=1,
+        validation_alias=AliasChoices("retention_export_file_retention_hours", "privacy_export_retention_hours"),
+    )
+    #: NFR-011 R-07 — an email-change confirmation link is valid this many hours
+    #: (``PrivacyService.request_email_change`` stamps ``expires_at``,
+    #: ``retention.expire_email_change_requests`` flips it to ``expired``).
+    retention_email_change_retention_hours: int = Field(
+        default=24,
+        ge=1,
+        validation_alias=AliasChoices("retention_email_change_retention_hours", "privacy_email_change_ttl_hours"),
+    )
     #: NFR-011 R-02 / §4 ``UNVERIFIED_ACCOUNT_DAYS`` and REQ-023 AK-17 — an account
     #: whose address was never confirmed is erased this many days after
     #: registration (``auth_tasks.cleanup_unverified_accounts``). The task carried

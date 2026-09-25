@@ -167,7 +167,7 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
           FILTER doc.term_slug == @term_slug
           FILTER doc.language == @language
           FILTER doc.expertise_level == @expertise_level
-          FILTER doc.valid_until == null OR doc.valid_until > @now
+          FILTER doc.valid_until == null OR DATE_TIMESTAMP(doc.valid_until) > DATE_TIMESTAMP(@now)
           SORT doc.generated_at DESC
           LIMIT 1
           RETURN doc
@@ -248,7 +248,8 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
         cutoff = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER doc.valid_until != null AND doc.valid_until < @cutoff
+          FILTER DATE_TIMESTAMP(doc.valid_until) != null
+            AND DATE_TIMESTAMP(doc.valid_until) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed

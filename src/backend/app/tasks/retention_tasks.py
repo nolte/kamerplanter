@@ -5,12 +5,16 @@ The retention concerns bundled here, all backed by REQ-025 PrivacyService:
 - ``process_data_export`` — fan-out task fired when a user requests a
   GDPR Art. 15/20 export. Walks the user's data, builds a JSON manifest,
   uploads it to object storage (NFR-013), and flips the request to
-  ``status=completed`` with a 72-hour expiry.
+  ``status=completed`` with the NFR-011 R-05 expiry (default 72 hours,
+  ``RETENTION_EXPORT_FILE_RETENTION_HOURS``).
 - ``execute_scheduled_erasures`` — daily beat task that hard-deletes
-  users whose ErasureRequest passed the 90-day soft-delete grace period
-  (REQ-025 Art. 17).
+  users whose ErasureRequest passed the NFR-011 R-01 soft-delete grace
+  period (default 90 days, ``RETENTION_SOFT_DELETE_RETENTION_DAYS``;
+  REQ-025 Art. 17).
 - ``expire_email_change_requests`` — hourly beat task that marks
-  unconfirmed email changes older than 24 h as ``status=expired``.
+  unconfirmed email changes past their NFR-011 R-07 ``expires_at``
+  (default 24 h, ``RETENTION_EMAIL_CHANGE_RETENTION_HOURS``) as
+  ``status=expired``.
 - ``expire_data_exports`` — hourly beat task that flips completed
   exports past their ``expires_at`` to ``status=expired`` and removes
   the underlying download.
@@ -105,7 +109,7 @@ async def process_data_export(attempt: TaskAttempt, export_key: str) -> dict:
     default_retry_delay=300,
 )
 async def execute_scheduled_erasures() -> dict:
-    """Hard-delete users past their 90-day soft-delete grace period.
+    """Hard-delete users past their NFR-011 R-01 soft-delete grace period.
 
     Runs daily. Picks up every ``ErasureRequest`` with
     ``hard_delete_scheduled_at <= now`` and finalises the deletion via
@@ -130,7 +134,7 @@ async def execute_scheduled_erasures() -> dict:
     default_retry_delay=300,
 )
 async def expire_email_change_requests() -> dict:
-    """Flip stale email-change requests (>24 h) to ``status=expired``."""
+    """Flip email-change requests past their R-07 ``expires_at`` to ``status=expired``."""
 
     from app.common.dependencies import get_privacy_service
 

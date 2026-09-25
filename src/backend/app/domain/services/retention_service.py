@@ -1,17 +1,26 @@
 """Retention-policy facade (REQ-025 / NFR-011 bridge).
 
-Pure-logic service that exposes the retention windows defined for REQ-025
-data-export files, hard-delete schedules, and email-change-request TTLs,
-and computes the cutoffs of the NFR-011 periods the retention tasks enforce
-from settings: R-02 (unverified accounts, ``cleanup_unverified_accounts``)
-and R-06 (erasure records, ``retention.purge_expired_erasure_records``).
-Both tasks and the Art. 13 retention summary read those two periods here, so
-the text a data subject reads cannot name a period the task does not apply
-(#1772).
+Pure-logic service and the **one place** the NFR-011 periods below are read
+from settings and turned into deadlines or cutoffs:
 
-The richer NFR-011 retention master (sensor downsampling, IP anonymisation,
-crontab schedules, etc.) is out of scope and will be wired up in a dedicated
-follow-up.
+* R-01 ``retention_soft_delete_retention_days`` — hard-delete date of an
+  erasure request (``PrivacyService.request_erasure``);
+* R-02 ``retention_unverified_account_days`` — ``cleanup_unverified_accounts``;
+* R-03 ``retention_ip_anonymization_days`` — ``anonymize_old_ips``;
+* R-05 ``retention_export_file_retention_hours`` — ``expires_at`` of a built
+  export (``PrivacyService.process_data_export``);
+* R-06 ``retention_erasure_audit_retention_years`` —
+  ``retention.purge_expired_erasure_records``;
+* R-07 ``retention_email_change_retention_hours`` — ``expires_at`` of an
+  email-change request (``PrivacyService.request_email_change``).
+
+The tasks and the Art. 13 retention summary read the periods here, so the text
+a data subject reads cannot name a period the code does not apply (#1772,
+#1782). A constructor argument overrides the setting (tests, one-off callers);
+it is held to the same floor as the setting.
+
+The remaining NFR-011 periods (consent records, invitations, sensor
+downsampling, a retention master task) are not wired here yet.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -27,20 +36,30 @@ class RetentionService:
         export_retention_hours: int | None = None,
         hard_delete_after_days: int | None = None,
         email_change_ttl_hours: int | None = None,
-        ip_anonymisation_after_days: int = 7,
+        ip_anonymisation_after_days: int | None = None,
         unverified_account_days: int | None = None,
         erasure_record_retention_years: int | None = None,
     ) -> None:
         self._export_retention_hours = (
-            export_retention_hours if export_retention_hours is not None else settings.privacy_export_retention_hours
+            export_retention_hours
+            if export_retention_hours is not None
+            else settings.retention_export_file_retention_hours
         )
         self._hard_delete_after_days = (
-            hard_delete_after_days if hard_delete_after_days is not None else settings.privacy_hard_delete_after_days
+            hard_delete_after_days
+            if hard_delete_after_days is not None
+            else settings.retention_soft_delete_retention_days
         )
         self._email_change_ttl_hours = (
-            email_change_ttl_hours if email_change_ttl_hours is not None else settings.privacy_email_change_ttl_hours
+            email_change_ttl_hours
+            if email_change_ttl_hours is not None
+            else settings.retention_email_change_retention_hours
         )
-        self._ip_anonymisation_after_days = ip_anonymisation_after_days
+        self._ip_anonymisation_after_days = (
+            ip_anonymisation_after_days
+            if ip_anonymisation_after_days is not None
+            else settings.retention_ip_anonymization_days
+        )
         self._unverified_account_days = (
             unverified_account_days
             if unverified_account_days is not None
@@ -53,12 +72,20 @@ class RetentionService:
         )
         # The settings carry the same floors (``ge=1``); a caller constructing
         # the service directly must not get past them either.
-        if self._unverified_account_days < 1:
-            msg = "NFR-011 R-02: the unverified-account period must be at least one day."
-            raise ValueError(msg)
-        if self._erasure_record_retention_years < 1:
-            msg = "NFR-011 R-06: erasure records are kept at least one year after completion."
-            raise ValueError(msg)
+        floors = (
+            (self._hard_delete_after_days, "NFR-011 R-01: the soft-delete grace period must be at least one day."),
+            (self._unverified_account_days, "NFR-011 R-02: the unverified-account period must be at least one day."),
+            (self._ip_anonymisation_after_days, "NFR-011 R-03: the IP-anonymisation period must be at least one day."),
+            (self._export_retention_hours, "NFR-011 R-05: an export file must stay available at least one hour."),
+            (
+                self._erasure_record_retention_years,
+                "NFR-011 R-06: erasure records are kept at least one year after completion.",
+            ),
+            (self._email_change_ttl_hours, "NFR-011 R-07: an email-change link must stay valid at least one hour."),
+        )
+        for period, message in floors:
+            if period < 1:
+                raise ValueError(message)
 
     # ── Deadline calculators ──────────────────────────────────────
 
@@ -71,12 +98,18 @@ class RetentionService:
         return soft_deleted_at + timedelta(days=self._hard_delete_after_days)
 
     def email_change_expires_at(self, requested_at: datetime) -> datetime:
-        """Return the moment an email-change request expires (24h default)."""
+        """Return the moment an email-change request expires (NFR-011 R-07)."""
         return requested_at + timedelta(hours=self._email_change_ttl_hours)
 
-    def ip_anonymisation_at(self, captured_at: datetime) -> datetime:
-        """Return the moment a captured IP must be anonymised (NFR-011 R-03)."""
-        return captured_at + timedelta(days=self._ip_anonymisation_after_days)
+    def ip_anonymisation_cutoff(self, now: datetime) -> datetime:
+        """Return the capture time before which an IP is anonymised (NFR-011 R-03).
+
+        ``anonymize_old_ips`` selects every session issued before it. In UTC
+        whatever offset *now* carries: the task hands the ``isoformat`` on and
+        logs it, like the R-02 cutoff (#1773 review GDPR-008). Replaces an
+        unused ``ip_anonymisation_at`` so the period has one computation.
+        """
+        return now.astimezone(UTC) - timedelta(days=self._ip_anonymisation_after_days)
 
     def unverified_account_cutoff(self, now: datetime) -> datetime:
         """Return the registration time before which an unverified account is erased (NFR-011 R-02).

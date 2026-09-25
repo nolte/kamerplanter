@@ -16,12 +16,21 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-01 | Soft-gelöschte User-Accounts | 90 Tage nach Soft-Delete | Hard-Delete (inkl. Edges, Auth-Provider, Sessions) | Art. 17 DSGVO |
 | R-02 | Unbestätigte Accounts | 7 Tage nach Erstellung | Hard-Delete (`app.tasks.auth_tasks.cleanup_unverified_accounts`, täglich) | Art. 5(1)(e), Zweckentfall |
 | R-03 | IP-Adressen in Sessions | 7 Tage nach Speicherung | Anonymisierung (IPv4: letztes Oktett → `0`) | Art. 5(1)(c) Datenminimierung |
-| R-04 | Consent Records | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht |
+| R-04 | Consent Records | 3 Jahre nach Widerruf | **Nicht implementiert:** Kein Task löscht `consent_records`; auch die IP-Adresse eines Consent Records wird nicht anonymisiert | Art. 7(1) Nachweispflicht |
 | R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
 | R-06 | Löschungs-Audit (abgeschlossene Anträge) | 1 Jahr nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
-| R-07 | E-Mail-Änderungsanfragen | 24 Stunden | Hard-Delete abgelaufener Tokens | Zweckentfall |
+| R-07 | E-Mail-Änderungsanfragen | 24 Stunden nach Erstellung | Status auf `expired` setzen (kein Hard-Delete) | Zweckentfall |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
-| R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | Hard-Delete | Zweckentfall |
+| R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | **Teilweise implementiert:** Status wird auf `expired` gesetzt, eine Löschung nach 30 Tagen findet nicht statt | Zweckentfall |
+
+Jede Frist außer R-11 und R-12 wird über genau eine Einstellung gelesen (siehe
+[Umgebungsvariablen](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
+für die genauen Namen). Für R-01, R-05 und R-07 gab es bis zu dieser Änderung bereits
+dokumentierte, ältere Variablennamen, die aber nichts bewirkten — der Code nutzte feste
+Werte. Diese älteren Namen funktionieren jetzt tatsächlich und bleiben zusätzlich als
+Alias gültig. Jeder Fristvergleich vergleicht dabei Zeitpunkte statt Zeichenketten, damit
+ein Datensatz nicht durch eine abweichende Zeitstempel-Schreibweise zu früh oder zu spät
+erfasst wird.
 
 ### Unbestätigte Accounts (R-02)
 
@@ -34,19 +43,25 @@ dazu weiter unten unter „Alle Löschwege tun dasselbe".
 
 ### IP-Anonymisierung (R-03)
 
-IP-Adressen werden nach 7 Tagen automatisch anonymisiert — nicht gelöscht, da sie
-für die Erkennung kompromittierter Sessions noch benötigt werden können:
+IP-Adressen werden `RETENTION_IP_ANONYMIZATION_DAYS` Tage nach der Ausstellung der
+Session automatisch anonymisiert (Standard 7 Tage, Minimum 1 Tag) — nicht gelöscht, da
+sie für die Erkennung kompromittierter Sessions noch benötigt werden können:
 
 - **IPv4:** Letztes Oktett wird auf `0` gesetzt — `192.168.1.42` → `192.168.1.0`
 - **IPv6:** Auf `/48`-Präfix gekürzt — `2001:db8:85a3::8a2e:370:7334` → `2001:db8:85a3::`
 
-Das Feld `ip_anonymized_at` wird auf den Zeitpunkt der Anonymisierung gesetzt.
+Das Feld `ip_anonymized_at` wird auf den Zeitpunkt der Anonymisierung gesetzt. Das
+betrifft ausschließlich die IP-Adresse einer Session — die IP-Adresse, die zu einem
+Consent Record gehört (siehe R-04 oben), wird davon nicht erfasst.
 
 ### Export-Dateien: erst die Datei, dann der Status (R-05)
 
-Beim Ablauf eines Datenexports läuft die Bereinigung in einer festen Reihenfolge: Zuerst
-wird die Export-Datei aus dem Objektspeicher gelöscht, erst danach wechselt der Export auf
-den Status `expired`. Schlägt das Löschen der Datei fehl, bleibt der Export unverändert —
+Die Frist ist über `RETENTION_EXPORT_FILE_RETENTION_HOURS` konfigurierbar (Standard
+72 Stunden, Minimum 1 Stunde; der ältere Name `PRIVACY_EXPORT_RETENTION_HOURS` bleibt
+als Alias gültig). Beim Ablauf eines Datenexports läuft die Bereinigung in einer festen
+Reihenfolge: Zuerst wird die Export-Datei aus dem Objektspeicher gelöscht, erst danach
+wechselt der Export auf den Status `expired`. Schlägt das Löschen der Datei fehl, bleibt
+der Export unverändert —
 der nächste stündliche Lauf versucht es erneut. Downloads sind ohnehin schon ab dem
 Ablauf der 72 Stunden gesperrt, unabhängig vom gespeicherten Status. Ist auf der Instanz
 kein Objektspeicher konfiguriert, kann die Datei gar nicht gelöscht werden: Der Export
@@ -66,6 +81,14 @@ Ein noch offener oder nur teilweise abgeschlossener Antrag (`scheduled`, `in_pro
 `partially_completed`) wird nie entfernt — er ist noch einen Lauf schuldig. Ein
 abgeschlossener Antrag ohne `completed_at` bleibt ebenfalls erhalten. Der Lauf
 protokolliert nur die Anzahl der entfernten Anträge, nie eine Konto- oder Antragskennung.
+
+### E-Mail-Änderungsanfragen (R-07)
+
+Der stündliche Task `retention.expire_email_change_requests` (Minute 15) setzt eine noch
+unbestätigte E-Mail-Änderungsanfrage `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` Stunden nach
+der Anfrage (Standard 24 Stunden, Minimum 1 Stunde; der ältere Name
+`PRIVACY_EMAIL_CHANGE_TTL_HOURS` bleibt als Alias gültig) auf den Status `expired`. Ein
+Hard-Delete des Datensatzes findet dabei nicht statt.
 
 ---
 
@@ -440,113 +463,82 @@ passiert](#was-mit-deinem-personlichen-garten-passiert)).
 
 ## Celery-Enforcement: Automatische Durchsetzung
 
-!!! warning "Noch nicht implementiert"
-    Einen zentralen `enforce_retention_policy`-Task, der wie im folgenden Diagramm alle
-    Retention-Regeln in einem gemeinsamen Lauf orchestriert und die darunter gezeigte
-    Log-Zeile und die Prometheus-Metriken erzeugt, gibt es nicht. Diagramm, JSON-Beispiel
-    und Metriktabelle beschreiben ein geplantes Zielbild.
+Jede Regel läuft als eigener Celery-Beat-Task mit einem Takt, der zu ihrer Frist passt.
+Einen zentralen Task, der alle Regeln in einem gemeinsamen Lauf orchestriert, gibt es
+nicht und ist auch nicht geplant: Ein einheitlicher Tagestakt wäre für die stundengenauen
+Fristen (R-05, R-07) sogar falsch — ein Lauf um 02:00 UTC würde eine 24-Stunden-Frist um
+bis zu einen Tag überziehen, also länger speichern als deklariert.
 
-    Tatsächlich läuft jede Regel als eigener Celery-Task mit eigenem Zeitplan:
+| Regel | Celery-Task | Takt (UTC) | Frist-Einstellung |
+|-------|-------------|-----------|--------------------|
+| R-01 | `retention.execute_scheduled_erasures` | täglich, 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` |
+| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | täglich | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
+| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich | `RETENTION_IP_ANONYMIZATION_DAYS` |
+| R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
+| R-06 | `retention.purge_expired_erasure_records` | täglich, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
+| R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
+| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
 
-    - R-01: `retention.execute_scheduled_erasures` (täglich, 04:00 UTC)
-    - R-02: `app.tasks.auth_tasks.cleanup_unverified_accounts` (täglich)
-    - R-03: `app.tasks.auth_tasks.anonymize_old_ips` (täglich)
-    - R-05: `retention.expire_data_exports` (stündlich, Minute 20)
-    - R-06: `retention.purge_expired_erasure_records` (täglich, 04:30 UTC)
-    - R-07: `retention.expire_email_change_requests` (stündlich, Minute 15)
-    - R-11: `app.tasks.auth_tasks.cleanup_expired_tokens` (stündlich)
-    - R-12: `app.tasks.tenant_tasks.cleanup_expired_invitations` (täglich)
+Jeder Task protokolliert seinen Lauf strukturiert (structlog) unter seinem eigenen
+Ereignisnamen mit Zählern, zum Beispiel:
 
-    Für R-04 (Consent Records) existiert derzeit kein automatischer Bereinigungs-Task.
+- `retention.execute_scheduled_erasures.completed` (`processed`)
+- `cleanup_unverified_accounts` (`removed`, `failed`, `deferred`, `skipped`, `blocked`)
+- `anonymize_old_ips` (`anonymized`)
+- `retention.expire_data_exports.completed` (`expired`)
+- `retention.purge_expired_erasure_records.completed` (`purged`, `held_without_tombstone`)
+- `retention.expire_email_change_requests.completed` (`expired`)
+- `cleanup_expired_tokens` (`removed`)
+- `expired_invitations_cleaned` (`count`)
 
-Der Celery-Task `enforce_retention_policy` läuft **täglich um 02:00 UTC** und
-orchestriert alle Retention-Sub-Tasks:
+Eine gemeinsame Ereigniszeile, die alle Regeln zusammenfasst, gibt es nicht.
 
-<!-- diagram-source: user-described — enforce_retention_policy Celery master task fanning out to retention sub-tasks -->
-```mermaid
-flowchart TD
-    Master["enforce_retention_policy<br/>(Celery Beat, 02:00 UTC)"]
+### Metriken
 
-    Master --> T1["hard_delete_soft_deleted_accounts<br/>(R-01: 90 days)"]
-    Master --> T2["hard_delete_unverified_accounts<br/>(R-02: 7 days)"]
-    Master --> T3["anonymize_session_ips<br/>(R-03: 7 days)"]
-    Master --> T4["cleanup_expired_consents<br/>(R-04: 3 years)"]
-    Master --> T5["cleanup_expired_exports<br/>(R-05: 72 hours)"]
-    Master --> T6["cleanup_erasure_audits<br/>(R-06: 1 year)"]
-    Master --> T7["cleanup_expired_tokens<br/>(R-11, R-12)"]
-```
-
-Jeder Sub-Task protokolliert Anzahl der verarbeiteten Datensätze via structlog:
-
-```json
-{
-  "event": "retention.run_completed",
-  "results": {
-    "hard_delete_soft_deleted_accounts": {"deleted_count": 3},
-    "anonymize_session_ips": {"anonymized_count": 47},
-    "cleanup_expired_exports": {"expired_count": 1}
-  },
-  "duration_ms": 1234
-}
-```
-
-### Prometheus-Metriken
-
-Der Retention-Task exponiert folgende Metriken:
-
-| Metrik | Typ | Labels | Beschreibung |
-|--------|-----|--------|-------------|
-| `retention_records_processed_total` | Counter | `category`, `action` | Verarbeitete Datensätze pro Kategorie und Aktion (`delete`/`anonymize`/`expire`) |
-| `retention_run_duration_seconds` | Histogram | — | Laufzeit des gesamten Retention-Runs |
-| `retention_run_errors_total` | Counter | `category` | Fehler pro Kategorie |
+Es gibt derzeit keine Prometheus-Metriken für die Retention-Läufe (interne Referenz:
+Issue #1800). Die einzige Beobachtungsquelle sind die strukturierten Log-Zeilen oben,
+zum Beispiel per `kubectl logs -l app=celery-beat`.
 
 ---
 
 ## Konfiguration per Umgebungsvariablen
 
+Jede Frist wird über genau eine Einstellung gelesen (`RetentionService`); der
+Konstruktor prüft dieselbe Untergrenze noch einmal:
+
+| Einstellung | Regel | Standard | Minimum | Älterer Name (weiterhin gültig) |
+|-------------|-------|---------|---------|----------------------------------|
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | — |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | — |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+
+Sind beide Namen einer Zeile gesetzt, gewinnt der `RETENTION_*`-Name. Die älteren Namen
+waren bis zu dieser Änderung zwar dokumentiert, bewirkten aber nichts — der Code nutzte
+feste Werte; jetzt werden sie tatsächlich angewendet.
+
 !!! warning "Noch nicht implementiert"
-    Von den Variablen im folgenden Block liest das Backend heute nur zwei tatsächlich:
-    `RETENTION_UNVERIFIED_ACCOUNT_DAYS` (R-02) und `RETENTION_ERASURE_AUDIT_RETENTION_YEARS`
-    (R-06) — beide mit Minimum `1`, siehe [Umgebungsvariablen](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011).
-    Alle übrigen `RETENTION_*`-Namen in diesem Block sind ein geplantes, einheitliches
-    Namensschema; das Backend liest sie nicht. Die entsprechenden Fristen sind teils schon
-    konfigurierbar, aber unter anderen Namen: R-01 über `PRIVACY_HARD_DELETE_AFTER_DAYS`,
-    R-05 über `PRIVACY_EXPORT_RETENTION_HOURS`, R-07 über `PRIVACY_EMAIL_CHANGE_TTL_HOURS`.
-    Für R-03, R-04, R-12 sowie die Sensordaten- und Mindestfristen-Variablen unten gibt es
-    derzeit keine Umgebungsvariable; die im Code verwendeten Werte sind fest verdrahtet.
+    Für die folgenden Regeln gibt es keine wirksame Umgebungsvariable — kein Code liest
+    sie (interne Referenz: Issue #1800):
 
-Alle Fristen sind über Umgebungsvariablen konfigurierbar. Das Präfix `RETENTION_`
-wird vorausgestellt:
-
-```bash
-# Personenbezogene Daten
-RETENTION_SOFT_DELETE_RETENTION_DAYS=90      # R-01: Soft-gelöschte Accounts
-RETENTION_UNVERIFIED_ACCOUNT_DAYS=7          # R-02: Unbestätigte Accounts — implementiert
-RETENTION_IP_ANONYMIZATION_DAYS=7            # R-03: IP-Anonymisierung
-RETENTION_CONSENT_RETENTION_YEARS=3          # R-04: Consent Records
-RETENTION_EXPORT_FILE_RETENTION_HOURS=72     # R-05: Export-Dateien
-RETENTION_ERASURE_AUDIT_RETENTION_YEARS=1    # R-06: Audit-Logs — implementiert
-RETENTION_EMAIL_CHANGE_RETENTION_HOURS=24    # R-07: E-Mail-Änderungsanfragen
-RETENTION_INVITATION_RETENTION_DAYS=30       # R-12: Abgelaufene Einladungen
-
-# Sensordaten (TimescaleDB)
-RETENTION_SENSOR_RAW_RETENTION_DAYS=90       # R-14 Stufe 1
-RETENTION_SENSOR_HOURLY_RETENTION_YEARS=2    # R-14 Stufe 2
-RETENTION_SENSOR_DAILY_RETENTION_YEARS=5     # R-14 Stufe 3
-RETENTION_ACTOR_LOG_RAW_RETENTION_DAYS=90    # R-15 Stufe 1
-RETENTION_ACTOR_LOG_AGGREGATED_RETENTION_YEARS=1  # R-15 Stufe 2
-```
-
-!!! warning "Gesetzliche Mindestfristen sind nicht unterschreitbar"
-    Die folgenden Werte können zwar per Umgebungsvariable erhöht, aber **nicht
-    unterschritten** werden. Ein Validierungs-Check beim Start der Anwendung erzwingt
-    die gesetzlichen Mindestfristen:
-
-    ```bash
-    RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS=5   # R-16, CanG — MINIMUM
-    RETENTION_TREATMENT_MIN_RETENTION_YEARS=3      # R-17, PflSchG — MINIMUM
-    RETENTION_INSPECTION_MIN_RETENTION_YEARS=3     # R-18, PflSchG — MINIMUM
-    ```
+    - **R-04** (Consent Records): `RETENTION_CONSENT_RETENTION_YEARS` — es gibt keinen
+      Task, der `consent_records` löscht.
+    - **R-12** (abgelaufene Einladungen): `RETENTION_INVITATION_RETENTION_DAYS` — der
+      tägliche Task setzt abgelaufene Einladungen nur auf den Status `expired`, löscht
+      sie aber nicht.
+    - **R-14** (Sensordaten): `RETENTION_SENSOR_*` — die Fristen (90 Tage / 2 Jahre /
+      5 Jahre) stehen als feste Werte in der TimescaleDB-Migration und sind nicht per
+      Umgebungsvariable änderbar.
+    - **R-15** (Aktor-Logs): Es gibt im Code keinen Aktor-Log-Speicher, deshalb auch
+      keine `RETENTION_ACTOR_LOG_*`-Einstellung.
+    - **R-16 bis R-18** (Ernte-, Behandlungs- und Inspektionsdaten): Für diese
+      gesetzlichen Mindestfristen gibt es keine `_MIN_RETENTION_YEARS`-Einstellung und
+      auch keinen Start-Check, der eine Untergrenze erzwingt — nichts löscht diese
+      Datensätze automatisch, es gibt also nichts zu begrenzen. Bei einer Konto-Löschung
+      werden sie stattdessen anonymisiert und unbegrenzt aufbewahrt (siehe oben).
 
 ---
 
@@ -635,19 +627,20 @@ fasst der Aufräumlauf nicht an (Kuration).
 ## Häufige Fragen
 
 ??? question "Kann ich die 90-Tage-Frist für Soft-Delete verlängern?"
-    Ja, per `RETENTION_SOFT_DELETE_RETENTION_DAYS`. Eine Verkürzung unter 30 Tage
-    wird nicht empfohlen, da Nutzer sonst keine Chance haben, irrtümlich gelöschte
-    Accounts wiederherzustellen.
+    Ja, per `RETENTION_SOFT_DELETE_RETENTION_DAYS` (Minimum 1 Tag). Eine Verkürzung
+    unter 30 Tage wird nicht empfohlen, da Nutzer sonst keine Chance haben, irrtümlich
+    gelöschte Accounts wiederherzustellen.
 
 ??? question "Was passiert mit Tenant-Daten wenn der letzte Admin eines Tenants gelöscht wird?"
     Der Celery-Task `detect_orphaned_tenants` erkennt Tenants ohne aktiven Admin und
     setzt einen `orphaned_since`-Timestamp. Ein Platform-Admin kann dann einen
     Notfall-Admin ernennen.
 
-??? question "Wie kann ich prüfen, ob der Retention-Task korrekt läuft?"
-    Prüfe die Prometheus-Metrik `retention_run_duration_seconds` oder
-    schau in die strukturierten Logs (structlog) nach dem Event
-    `retention.run_completed`. Im Kubernetes-Cluster: `kubectl logs -l app=celery-beat`.
+??? question "Wie kann ich prüfen, ob die Retention-Tasks korrekt laufen?"
+    Es gibt keine Prometheus-Metrik dafür. Schau stattdessen in die strukturierten Logs
+    (structlog) nach dem Ereignis des jeweiligen Tasks, zum Beispiel
+    `retention.execute_scheduled_erasures.completed` oder `anonymize_old_ips` (siehe
+    oben). Im Kubernetes-Cluster: `kubectl logs -l app=celery-beat`.
 
 ??? question "Werden Sensordaten bei einer Konto-Löschung auch gelöscht?"
     Sensordaten in TimescaleDB haben keine direkte User-Referenz — sie sind einem
