@@ -728,8 +728,9 @@ def text_publishes(path: str, text: str, document: Any) -> list[tuple[str, str]]
 
     A YAML file that parses is read scalar by scalar — a folded ``>-`` command
     is one line there, and a container's ``options:`` string is read as the
-    ``docker create`` arguments the runner makes of it. Any other file, and a
-    YAML file that does not parse (a Helm template), is read as text.
+    ``docker create`` arguments the runner makes of it — plus its comment
+    lines, which the parse drops. Any other file, and a YAML file that does not
+    parse (a Helm template), is read as text.
     """
     found: list[tuple[str, str]] = []
     if document is not None:
@@ -738,6 +739,12 @@ def text_publishes(path: str, text: str, document: Any) -> list[tuple[str, str]]
             if trail and trail[-1] == "options" and ("services" in trail or "container" in trail):
                 value = "docker create " + value
             found += [(where, spec) for _, spec in cli_publishes(value)]
+        # Comments vanish in the parse, yet a commented copy-paste command
+        # (``#   docker run -p 8529:8529 \``) is still a command someone runs.
+        comments = "\n".join(
+            re.sub(r"^\s*#+ ?", "", row) if row.lstrip().startswith("#") else "" for row in text.splitlines()
+        )
+        found += [(f"line {number}", spec) for number, spec in cli_publishes(comments)]
         return found
     found += [(f"line {number}", spec) for number, spec in cli_publishes(text)]
     if path.endswith(".py"):
@@ -1116,3 +1123,13 @@ def test_network_mode_is_resolved_before_it_is_compared() -> None:
     findings, _ = sweep_compose([YamlFile("compose.yaml", document, "")])
 
     assert [finding.raw for finding in findings] == ["network_mode: host"]
+
+
+def test_yaml_comment_commands_are_read() -> None:
+    text = (
+        "tasks:\n  x:\n    # run it by hand:\n"
+        "    #   docker run -d --name db -p 8529:8529 \\\n"
+        "    #     arangodb\n    cmds: [true]\n"
+    )
+
+    assert text_publishes("Taskfile.yaml", text, load_yaml(text)) == [("line 4", "8529:8529")]
