@@ -25,6 +25,7 @@ import structlog.testing
 
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
+from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
@@ -122,6 +123,7 @@ def _service(tmp_path: Path, **overrides: Any) -> PrivacyService:
         "attachment_repo": attachment_repo,
         "membership_repo": membership_repo,
         "pest_image_repo": pest_image_repo,
+        "pest_prototype_store": NoopPestPrototypeStore(),
         "reference_index_store": NoopReferenceIndexStore(),
         "erasure_executor": executor,
         "tombstone_salt": SALT,

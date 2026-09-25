@@ -166,6 +166,33 @@ class PestDetectionInferenceClient:
         response.raise_for_status()
         return response.json()
 
+    def erase_contributions(self, contribution_keys: list[str]) -> int:
+        """Delete the prototypes indexed from these contributions (#1759).
+
+        Active and deactivated rows alike; only ``source = 'user_contributed'``
+        rows are reached. The keys travel in the body, never in the URL (#1700).
+        Raises :class:`httpx.HTTPError` on any failure — the caller decides.
+        """
+        response = httpx.post(
+            f"{self._base_url}/pest/reference/contributions/erase",
+            json={"contribution_keys": contribution_keys},
+            headers=self._auth_headers(),
+            timeout=_DETECT_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return int(response.json()["deleted"])
+
+    def erase_tenant_contributions(self, tenant_key: str) -> int:
+        """Delete every prototype contributed within a tenant (#1759). Raises on failure."""
+        response = httpx.post(
+            f"{self._base_url}/pest/reference/contributions/erase-by-tenant",
+            json={"tenant_key": tenant_key},
+            headers=self._auth_headers(),
+            timeout=_DETECT_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return int(response.json()["deleted"])
+
     def retract_prototype(self, *, label: str, source: str, source_record_id: str) -> int:
         """Deactivate every prototype matching a provenance (idempotent).
 

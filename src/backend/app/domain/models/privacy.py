@@ -120,6 +120,9 @@ class ErasureRequest(BaseModel):
     #: the pre-ArangoDB checkpoint (#1753). Neither names the subject.
     reference_index_binding: str | None = None
     reference_index_removed: int | None = Field(default=None, ge=0)
+    #: The same for the contributed pest-recognition prototypes (#1759).
+    pest_prototype_binding: str | None = None
+    pest_prototypes_removed: int | None = Field(default=None, ge=0)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -498,6 +501,11 @@ class AccountErasureReport(BaseModel):
     #: ``"noop"``); ``None`` when it did not run — no store wired, or a retry
     #: that skipped the pre-ArangoDB phases (#1753).
     reference_index_binding: str | None = None
+    #: Contributed pest-recognition prototypes deleted, and the store that ran
+    #: (``"inference_service"`` / ``"noop"``); ``None`` when the pest-image step
+    #: did not run in this call (#1759).
+    pest_prototypes_removed: int = 0
+    pest_prototype_binding: str | None = None
     export_files_removed: int = 0
     delegated_removed: dict[str, int] = Field(default_factory=dict)
     arango: ErasureExecutionReport = Field(default_factory=ErasureExecutionReport)

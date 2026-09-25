@@ -53,7 +53,7 @@ If [pest recognition](pest-detection.md) is active and reference images for this
 
 You can add your own photos for a pest — either by **uploading a file** or by photographing the pest directly with your **camera** (smartphone or webcam). In the gallery, click **"Contribute a photo"**.
 
-- **Instantly visible, private:** Your photos appear in your gallery immediately and are visible only to your garden (tenant). You can delete your own photos at any time (trash icon on the image).
+- **Instantly visible, private:** Your photos appear in your gallery immediately and are visible only to your garden (tenant). You can delete your own photos at any time (trash icon on the image). If a photo was ever promoted by a platform admin for pest recognition, deleting it also removes the recognition vector computed from it from the recognition base; the same happens automatically if you later delete your account.
 - **Privacy:** Location data (EXIF) is removed automatically on upload; the images are stored securely in object storage.
 - **Optionally global:** A platform admin can approve especially good shots for all users — such images then carry the **"Global"** badge.
 - **Keep from recognition:** If you identified the pest via [photo recognition](pest-detection.md), you can keep the captured photo straight from the recognition dialog via **"Add this photo to the gallery"**. (Otherwise the recognition photo is not stored for privacy reasons — it only enters the gallery when you explicitly choose to.)

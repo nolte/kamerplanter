@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.domain.interfaces.pest_prototype_store import IPestPrototypeContributionMarker
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.system_settings import SystemSettings
 
@@ -23,7 +24,19 @@ IN @@collection
 """
 
 
-class ArangoSystemSettingsRepository(IReferenceContributionMarker):
+#: #1759 — the same statement for the pest-prototype marker.
+_RECORD_PEST_PROTOTYPES_QUERY = """
+UPSERT { _key: @key }
+INSERT { _key: @key, pest_prototype_contributions_since: @now, created_at: @now, updated_at: @now }
+UPDATE {
+  pest_prototype_contributions_since: OLD.pest_prototype_contributions_since == null
+    ? @now : OLD.pest_prototype_contributions_since
+}
+IN @@collection
+"""
+
+
+class ArangoSystemSettingsRepository(IReferenceContributionMarker, IPestPrototypeContributionMarker):
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
 
@@ -65,6 +78,18 @@ class ArangoSystemSettingsRepository(IReferenceContributionMarker):
     def reference_contributions_since(self) -> datetime | None:
         settings = self.get()
         return settings.reference_contributions_since if settings is not None else None
+
+    def record_pest_prototype_contributions(self, now: datetime) -> None:
+        if self.pest_prototype_contributions_since() is not None:
+            return
+        self._db.aql.execute(
+            _RECORD_PEST_PROTOTYPES_QUERY,
+            bind_vars={"@collection": col.SYSTEM_SETTINGS, "key": SINGLETON_KEY, "now": now.isoformat()},
+        )
+
+    def pest_prototype_contributions_since(self) -> datetime | None:
+        settings = self.get()
+        return settings.pest_prototype_contributions_since if settings is not None else None
 
     def delete_settings(self) -> bool:
         existing = self.collection.get(SINGLETON_KEY)

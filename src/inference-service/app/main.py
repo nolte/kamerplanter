@@ -30,6 +30,8 @@ from app.schemas import (
     DiseaseStatusResponse,
     EmbedResponse,
     EraseContributorContributionsRequest,
+    ErasePestContributionsRequest,
+    ErasePestTenantContributionsRequest,
     EraseTenantContributionsRequest,
     HealthResponse,
     MatchResponse,
@@ -517,7 +519,7 @@ def set_reference_active(
 # ``PATCH /reference/{species_key}/{embedding_id}``: a POST only matches these.
 
 
-def _erase_contributions(action: Callable[..., int], **keys: str | None) -> DeleteContributionsResponse:
+def _erase_contributions(action: Callable[..., int], **keys: object) -> DeleteContributionsResponse:
     """Run one erasure delete; a blank key is the caller's error (422), not a no-op.
 
     The repository's message names the field, never its value.
@@ -708,6 +710,35 @@ def set_pest_reference_active(label: str, prototype_id: int, body: PestSetActive
     if not updated:
         raise HTTPException(status_code=404, detail="Prototype not found.")
     return PestSetActiveResponse(status="ok", label=label, id=prototype_id, is_active=body.is_active)
+
+
+# -- GDPR erasure of contributed pest prototypes (REQ-025 / REQ-024, #1759) --
+#
+# Same shape as the reference-index erasure above: POST with the keys in a JSON
+# body (never in a path, #1700), behind the app-level service token, SQL bound
+# to ``source = 'user_contributed'``. The two-segment paths do not collide with
+# ``PATCH /pest/reference/{label}/{prototype_id}``: a POST only matches these.
+
+
+@app.post("/pest/reference/contributions/erase", response_model=DeleteContributionsResponse)
+def erase_pest_contributions(body: ErasePestContributionsRequest) -> DeleteContributionsResponse:
+    """Delete the prototypes indexed from the named contributions (Art. 17 erasure).
+
+    Deletes, not deactivates: a demoted contribution's deactivated row goes too.
+    An empty list or a blank key is refused with 422.
+    """
+    pest_repo = _require_pest_repo()
+    return _erase_contributions(pest_repo.delete_contributions, contribution_keys=body.contribution_keys)
+
+
+@app.post("/pest/reference/contributions/erase-by-tenant", response_model=DeleteContributionsResponse)
+def erase_pest_tenant_contributions(body: ErasePestTenantContributionsRequest) -> DeleteContributionsResponse:
+    """Delete every prototype contributed within a tenant (REQ-024 tenant deletion).
+
+    A blank tenant key, or one containing ``/``, is refused with 422.
+    """
+    pest_repo = _require_pest_repo()
+    return _erase_contributions(pest_repo.delete_tenant_contributions, tenant_key=body.tenant_key)
 
 
 @app.delete("/pest/reference/{label}", response_model=DeleteReferenceResponse)

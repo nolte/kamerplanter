@@ -230,6 +230,29 @@ class FakePestRepo:
         self.rows = [r for r in self.rows if r.get("label") != label]
         return before - len(self.rows)
 
+    def delete_contributions(self, contribution_keys: list[str]) -> int:
+        # Same refusals as the real repository (shared helpers), same row filter.
+        from app.vectordb.pest_repository import require_contribution_keys
+
+        keys = set(require_contribution_keys(contribution_keys))
+        before = len(self.rows)
+        self.rows = [
+            r for r in self.rows if not (r.get("source") == "user_contributed" and r.get("source_record_id") in keys)
+        ]
+        return before - len(self.rows)
+
+    def delete_tenant_contributions(self, tenant_key: str) -> int:
+        from app.vectordb.pest_repository import tenant_contribution_prefix
+
+        prefix = tenant_contribution_prefix(tenant_key)
+        before = len(self.rows)
+        self.rows = [
+            r
+            for r in self.rows
+            if not (r.get("source") == "user_contributed" and (r.get("source_url") or "").startswith(prefix))
+        ]
+        return before - len(self.rows)
+
     def count(self, label=None) -> int:
         if label:
             return sum(1 for r in self.rows if r.get("label") == label)

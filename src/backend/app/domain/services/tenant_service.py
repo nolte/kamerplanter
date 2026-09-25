@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 import structlog
 
@@ -15,6 +14,7 @@ from app.common.enums import (
 )
 from app.common.exceptions import (
     DuplicateError,
+    FeatureNotConfiguredError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -24,22 +24,19 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
-from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.location_assignment_repository import (
     ILocationAssignmentRepository,
 )
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
+from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 from app.domain.models.tenant import Tenant, TenantWithRole
-
-if TYPE_CHECKING:
-    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 
 logger = structlog.get_logger()
 
@@ -64,8 +61,7 @@ class TenantService:
         attachment_repo: IAttachmentRepository | None = None,
         reference_index_store: IReferenceIndexStore | None = None,
         pest_image_repo: IPestImageRepository | None = None,
-        ipm_repo: IIpmRepository | None = None,
-        pest_inference_client: PestDetectionInferenceClient | None = None,
+        pest_prototype_store: IPestPrototypeStore | None = None,
     ) -> None:
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
@@ -88,8 +84,7 @@ class TenantService:
         # recognition index; it is retracted on tenant deletion. Both optional so
         # non-deletion callers stay unaffected; the retract is a no-op when either
         # is unwired (it cannot resolve a label without the IPM repo).
-        self._ipm_repo = ipm_repo
-        self._pest_inference_client = pest_inference_client
+        self._pest_prototype_store = pest_prototype_store
 
     # --- Tenant CRUD ---
 
@@ -312,6 +307,25 @@ class TenantService:
                 removed=removed_vectors,
             )
 
+        # #1759 — the tenant's contributed pest-recognition prototypes go next,
+        # for the same reason: a separate service, deleted before anything in
+        # ArangoDB, so a failed delete (ExternalSourceError, HTTP 502) leaves the
+        # tenant to be retried. By tenant, not by contribution key, so a
+        # prototype whose contribution document is already gone is reached too.
+        if self._pest_prototype_store is not None:
+            removed_prototypes = run_async(self._pest_prototype_store.delete_tenant_contributions(tenant_key))
+            logger.info(
+                "tenant_pest_prototype_cleanup",
+                tenant_key=tenant_key,
+                binding=self._pest_prototype_store.binding,
+                removed=removed_prototypes,
+            )
+        elif self._pest_image_repo is not None:
+            raise FeatureNotConfiguredError(
+                "tenant_deletion",
+                "No pest-prototype store is wired, so contributed pest-recognition prototypes cannot be erased.",
+            )
+
         if self._attachment_repo is not None:
             removed_meta = self._attachment_repo.delete_all_for_tenant(tenant_key)
             logger.info(
@@ -324,12 +338,6 @@ class TenantService:
         # removed by the prefix sweep below; this removes the dangling catalog of
         # contributions so a re-created tenant key never inherits stale rows.
         if self._pest_image_repo is not None:
-            # SEC-001 — retract every *promoted* contribution's DINOv2 embedding
-            # from the recognition index BEFORE the link documents are dropped
-            # (the provenance label is resolved from each contribution's pest,
-            # which is no longer reachable once the documents are gone).
-            contributions = self._pest_image_repo.list_for_tenant(tenant_key)
-            self._retract_promoted_pest_image_embeddings(contributions)
             removed_pest_images = self._pest_image_repo.delete_for_tenant(tenant_key)
             logger.info(
                 "tenant_pest_images_deleted",
@@ -346,26 +354,6 @@ class TenantService:
                 prefix=prefix,
                 deleted=deleted_objects,
             )
-
-    def _retract_promoted_pest_image_embeddings(self, contributions) -> None:  # type: ignore[no-untyped-def]
-        """SEC-001 — retract promoted contributions' recognition-index embeddings.
-
-        No-op when the inference client or IPM repo are not wired (the retract
-        cannot resolve a label without the pest record). Best-effort — an
-        inference-service error never aborts the tenant deletion.
-        """
-        if self._pest_inference_client is None or self._ipm_repo is None:
-            return
-        from app.domain.services.pest_image_recognition_cleanup import (
-            retract_promoted_contributions,
-        )
-
-        retract_promoted_contributions(
-            list(contributions),
-            inference_client=self._pest_inference_client,
-            ipm_repo=self._ipm_repo,
-            erasure_scope="tenant",
-        )
 
     def list_my_tenants(self, user_key: str) -> list[TenantWithRole]:
         memberships = self._membership_repo.list_by_user(user_key)

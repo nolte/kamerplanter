@@ -221,6 +221,22 @@ class PestCoverageResponse(BaseModel):
     classes: list[PestCoverageItem]
 
 
+class ErasePestContributionsRequest(BaseModel):
+    """Body of ``POST /pest/reference/contributions/erase`` (#1759).
+
+    The keys travel in the body, never in the path (#1700). An optional *type*
+    so that a missing list is refused by the handler without echoing the body.
+    """
+
+    contribution_keys: list[str] | None = None
+
+
+class ErasePestTenantContributionsRequest(BaseModel):
+    """Body of ``POST /pest/reference/contributions/erase-by-tenant`` (#1759)."""
+
+    tenant_key: str | None = None
+
+
 class PestSetActiveRequest(BaseModel):
     is_active: bool
     reason: str | None = None

@@ -19,8 +19,10 @@ from typing import TYPE_CHECKING
 import structlog
 
 from app.common.enums import AttachmentCategory, PestImageStatus
+from app.common.exceptions import FeatureNotConfiguredError
 from app.domain.engines.storage.thumbnail_generator import can_render
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
+from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.ipm_service import IpmService
@@ -31,6 +33,10 @@ if TYPE_CHECKING:
     from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 
 logger = structlog.get_logger()
+
+#: Provenance of a promoted contribution in the recognition index
+#: (``app/tasks/pest_image_tasks.py``); never a renderable URL.
+_CONTRIBUTION_URL_SCHEME = "contribution://"
 
 # REQ-010 — thumbnail rendition surfaced to the gallery. Must be one of
 # ``THUMBNAIL_SIZES`` (512 is the medium "card" rendition).
@@ -117,6 +123,7 @@ class PestImageService:
         attachment_service: AttachmentService,
         ipm_service: IpmService,
         inference_client: PestDetectionInferenceClient | None = None,
+        prototype_store: IPestPrototypeStore | None = None,
     ) -> None:
         self._repo = repo
         self._attachments = attachment_service
@@ -125,6 +132,9 @@ class PestImageService:
         # gallery degrades gracefully (no recognition tiles) when it is ``None``
         # or the ``pest_detection_enabled`` feature flag is off.
         self._inference_client = inference_client
+        # #1759 — deletes a contribution's recognition prototype with it. The DI
+        # provider always wires it; ``None`` only in tests of unrelated paths.
+        self._prototype_store = prototype_store
 
     async def contribute(
         self,
@@ -294,6 +304,12 @@ class PestImageService:
             if not source_url or prototype_id is None:
                 # No external URL → nothing to render (no pixel is stored).
                 continue
+            if source_url.startswith(_CONTRIBUTION_URL_SCHEME):
+                # A promoted user contribution's provenance, not an image URL: it
+                # names the contributor's tenant and contribution key and must not
+                # reach members of other tenants (#1759 security review). The
+                # image itself is served through the promoted-content route.
+                continue
             views.append(
                 PestRecognitionImageView(
                     prototype_id=int(prototype_id),
@@ -318,6 +334,16 @@ class PestImageService:
         if contribution is None:
             return False
 
+        # #1759 — a promoted (or demoted) contribution has a prototype in the
+        # recognition index, addressed by the contribution key only. Delete it
+        # first: once the link document is gone nothing can find it again. A
+        # failure raises (502 / 503) and leaves the contribution in place.
+        if self._prototype_store is None:
+            raise FeatureNotConfiguredError(
+                "pest_image_deletion",
+                "No pest-prototype store is wired, so the recognition prototype cannot be erased.",
+            )
+        await self._prototype_store.delete_contributions([contribution_key])
         self._repo.delete(contribution_key, tenant_key)
         await self._attachments.delete(contribution.attachment_id, tenant_key)
         logger.info(
@@ -493,37 +519,6 @@ class PestImageService:
         lazy-regeneration 202 the tenant attachment endpoint uses.
         """
         return await self._attachments.open_thumbnail_stream(content.attachment, size)
-
-    # --- DSGVO erasure (REQ-025) -------------------------------------
-
-    async def delete_all_for_tenant(self, tenant_key: str) -> int:
-        """Hard-delete every contribution + attachment of a tenant (erasure).
-
-        The attachment bytes are removed via the tenant-scoped attachment
-        service (idempotent); the link documents are then dropped in one AQL
-        sweep. Returns the number of contributions removed.
-        """
-        contributions = self._repo.list_for_tenant(tenant_key)
-        for c in contributions:
-            await self._attachments.delete(c.attachment_id, tenant_key)
-        removed = self._repo.delete_for_tenant(tenant_key)
-        logger.info("pest_images_deleted_for_tenant", tenant_key=tenant_key, removed=removed)
-        return removed
-
-    async def delete_all_for_user(self, user_key: str) -> int:
-        """Hard-delete every contribution + attachment a user authored (erasure).
-
-        A user may have contributed across several tenants; each contribution's
-        attachment is deleted against its own ``tenant_key`` and the link
-        document is removed. Returns the number of contributions removed.
-        """
-        contributions = self._repo.list_for_user(user_key)
-        for c in contributions:
-            await self._attachments.delete(c.attachment_id, c.tenant_key)
-            if c.key is not None:
-                self._repo.delete(c.key, c.tenant_key)
-        logger.info("pest_images_deleted_for_user", user_key=user_key, removed=len(contributions))
-        return len(contributions)
 
     # --- helpers -----------------------------------------------------
 

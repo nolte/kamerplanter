@@ -40,6 +40,7 @@ from app.domain.engines.storage.exif_stripper import (
     is_unsupported_photo_format,
     strip_exif,
 )
+from app.domain.engines.storage.thumbnail_generator import rendition_keys
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     ObjectMetadata,
@@ -378,7 +379,8 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         """REQ-025 erasure hook — delete every stored object owned by a user.
 
         Walks the attachments catalog for ``tenant_key + created_by`` and
-        deletes each backing object. Returns the number of objects deleted.
+        deletes each backing object together with its WebP renditions (#1760).
+        Returns the number of attachments erased.
         Without a wired attachment repository this returns 0 (Lauf 2 wires it
         through the DI provider).
         """
@@ -393,6 +395,10 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         deleted = 0
         for att in attachments:
             await self.delete_object(att.storage_key)
+            # #1760 — the renditions go with the original; once the ArangoDB
+            # plan removes the attachment record nothing points at them.
+            for rendition in rendition_keys(att.storage_key, att.mime_type):
+                await self.delete_object(rendition)
             deleted += 1
         logger.info(
             "storage_delete_for_user",

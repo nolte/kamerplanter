@@ -413,7 +413,7 @@ Moderation lives in the admin area, in the **"Contributed pest images"** card:
     When [pest recognition](#enabling-pest-detection) is active (`PEST_DETECTION_ENABLED=true`), a promoted image is additionally fed into the recognition index as a few-shot reference (`source=user_contributed`) — provided the pest has a recognition class (`detection_slug`). Only the embedding and its provenance are stored, **never the original image**. Demoting retracts the reference.
 
 !!! warning "Data protection"
-    Contributed images are removed completely when a user or tenant is deleted (document **and** image file). Location data (EXIF) is stripped on upload.
+    Contributed images are removed completely when a user or tenant is deleted (document, image file, and its preview images). Location data (EXIF) is stripped on upload. If an image was ever promoted, the same deletion also removes the recognition vector computed from it from the recognition base — regardless of whether the promotion was still active or had already been reverted at the time of deletion. If the inference-service is unreachable or not configured on the celery-worker at that point, the deletion stays open, or a tenant deletion is refused, rather than leaving vectors behind — see [Setting Up Plant Identification](../deployment/inference-service.md).
 
 ---
 

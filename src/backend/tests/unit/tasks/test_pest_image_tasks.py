@@ -20,6 +20,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+import pytest
+
 import app.tasks.pest_image_tasks as task_mod
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.common.exceptions import NotFoundError
@@ -110,6 +112,16 @@ def _wire(
     client.retract_prototype.return_value = 1
     monkeypatch.setattr(task_mod, "get_pest_inference_client", lambda: client)
 
+    # #1759 — the pest-prototype marker; shares a parent mock with the client so
+    # a test can read the order of the marker write and the upsert.
+    order = MagicMock()
+    order.attach_mock(client.upsert_prototype, "upsert_prototype")
+    marker = MagicMock()
+    order.attach_mock(marker.record_pest_prototype_contributions, "record_pest_prototype_contributions")
+    monkeypatch.setattr(task_mod, "get_system_settings_repo", lambda: marker)
+    client.order = order
+    client.marker = marker
+
     return repo, ipm, attachment_service, client
 
 
@@ -180,6 +192,84 @@ class TestIndexPromoted:
         assert kwargs["source_record_id"] == CONTRIB
         assert TENANT in kwargs["source_url"]
         assert CONTRIB in kwargs["source_url"]
+
+
+class TestIndexPromotedRecordsTheMarker:
+    """#1759 — the marker is written before the prototype, and gates it."""
+
+    def test_the_marker_is_recorded_before_the_upsert(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+
+        task_mod._index_promoted(CONTRIB)
+
+        names = [call[0] for call in client.order.mock_calls]
+        assert names == ["record_pest_prototype_contributions", "upsert_prototype"]
+
+    def test_a_failed_marker_write_prevents_the_upsert(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+        client.marker.record_pest_prototype_contributions.side_effect = RuntimeError("arango down")
+
+        with pytest.raises(RuntimeError):
+            task_mod._index_promoted(CONTRIB)
+        client.upsert_prototype.assert_not_called()
+
+    def test_a_contribution_deleted_during_the_upsert_is_erased_again(self, monkeypatch):
+        """#1759 review SEC-001 — a delete between the read and the upsert must not leave a prototype."""
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        repo.get_by_key.side_effect = [_contribution(), None]
+        client.erase_contributions.return_value = 1
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome["status"] == "retracted_after_delete"
+        client.upsert_prototype.assert_called_once()
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_a_contribution_demoted_during_the_upsert_is_erased_again(self, monkeypatch):
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        demoted = _contribution()
+        demoted.status = PestImageStatus.PRIVATE
+        repo.get_by_key.side_effect = [_contribution(), demoted]
+
+        assert task_mod._index_promoted(CONTRIB)["status"] == "retracted_after_delete"
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_a_failed_undo_is_handed_to_a_retrying_task(self, monkeypatch):
+        """#1766 review — the key is the only handle on the row; the undo must not be dropped."""
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        repo.get_by_key.side_effect = [_contribution(), None]
+        client.erase_contributions.side_effect = ConnectionError("inference down")
+        queued: list[str] = []
+        monkeypatch.setattr(task_mod.erase_pest_prototype_task, "delay", queued.append)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome["status"] == "retract_after_delete_queued"
+        assert queued == [CONTRIB]
+
+    def test_the_retrying_task_erases_by_key(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+        client.erase_contributions.return_value = 1
+
+        assert task_mod.erase_pest_prototype_task.run(CONTRIB) == {"status": "erased", "deleted": 1}
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_the_retrying_task_retries_on_failure(self):
+        task = task_mod.erase_pest_prototype_task
+        assert Exception in task.autoretry_for and task.max_retries >= 10
+
+    def test_a_contribution_still_present_is_not_erased(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+
+        assert task_mod._index_promoted(CONTRIB)["status"] == "indexed"
+        client.erase_contributions.assert_not_called()
+
+    def test_a_guard_miss_records_no_marker(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch, detection_slug=None)
+
+        task_mod._index_promoted(CONTRIB)
+
+        client.marker.record_pest_prototype_contributions.assert_not_called()
 
 
 class TestRetractPromoted:

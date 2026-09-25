@@ -67,6 +67,17 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
         )
         generated += 1
 
+    # #1760 — an erasure or delete that ran while the renditions were rendered
+    # removed the original and its renditions already; the ones just written
+    # would stay with nothing pointing at them. Undo them.
+    # The record outlives Phase 0 of an Art. 17 erasure (the ArangoDB plan runs
+    # after it), so the original's presence is checked too.
+    if repo.get(attachment_id, tenant_key) is None or not await _object_exists(storage, attachment.storage_key):
+        for thumb in renditions:
+            await storage.delete_object(thumbnail_key(attachment.storage_key, thumb.size))
+        logger.info("thumbnails_discarded_after_delete", tenant_key=tenant_key, attachment_id=attachment_id)
+        return {"attachment_id": attachment_id, "generated": 0, "reason": "attachment_deleted"}
+
     logger.info(
         "thumbnails_generated",
         tenant_key=tenant_key,
@@ -74,6 +85,16 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
         generated=generated,
     )
     return {"attachment_id": attachment_id, "generated": generated}
+
+
+async def _object_exists(storage, key: str) -> bool:  # type: ignore[no-untyped-def]
+    from app.common.exceptions import NotFoundError
+
+    try:
+        await storage.head_object(key)
+    except NotFoundError:
+        return False
+    return True
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[misc]
