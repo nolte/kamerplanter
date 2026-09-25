@@ -293,3 +293,33 @@ def test_no_storage_only_erasure_entry_remains():
     runs Phase 0/0.5 and stops is an invitation to a second, partial erasure.
     """
     assert not hasattr(PrivacyService, "run_user_storage_erasure")
+
+
+@pytest.mark.asyncio
+async def test_stored_bundles_without_an_object_store_stop_the_erasure():
+    """#1767 review — without an object store the bundles cannot go; the run must not report them gone."""
+    from tests.support.privacy_doubles import FakeDataExportRepo
+
+    export_repo = FakeDataExportRepo(
+        DataExportRequest(_key="exp-1", user_key=USER_KEY, status="completed", file_path="privacy/exports/x.json")
+    )
+    calls: list[str] = []
+    service = _service(export_repo=export_repo, storage_adapter=None, erasure_executor=_executor(calls))
+
+    with pytest.raises(FeatureNotConfiguredError):
+        await service.erase_account(USER_KEY)
+
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_in_flight_exports_are_closed_before_the_bundles_are_deleted():
+    from tests.support.privacy_doubles import FakeDataExportRepo
+
+    export_repo = FakeDataExportRepo(DataExportRequest(_key="exp-1", user_key=USER_KEY, status="processing"))
+    calls: list[str] = []
+    service = _service(export_repo=export_repo, storage_adapter=_storage(calls), erasure_executor=_executor(calls))
+
+    await service.erase_account(USER_KEY)
+
+    assert export_repo.stored["exp-1"].status == "failed"

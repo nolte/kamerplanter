@@ -147,7 +147,11 @@ async def expire_email_change_requests() -> dict:
     default_retry_delay=300,
 )
 async def expire_data_exports() -> dict:
-    """Flip completed exports past their 72-hour expiry to ``status=expired``."""
+    """Delete the bundles of exports past their 72-hour expiry, then mark them ``expired``.
+
+    The order is the point (#1767 GDPR-005): a bundle whose delete failed keeps
+    its record unexpired and is retried on the next hourly run.
+    """
 
     from app.common.dependencies import get_privacy_service
 

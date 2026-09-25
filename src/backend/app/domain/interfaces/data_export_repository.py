@@ -51,16 +51,36 @@ class IDataExportRepository(ABC):
     def delete(self, key: DataExportRequestKey) -> bool: ...
 
     @abstractmethod
-    def expire_old(self, now_iso: str) -> list[DataExportRequest]:
-        """Flip every expired export to ``expired`` and return the changed records.
+    def list_expiry_due(self, now_iso: str) -> list[DataExportRequest]:
+        """Exports whose bundle NFR-011 R-05 wants gone, without changing them (#1767 GDPR-005).
 
-        Returns the records rather than a count so the caller can delete each
-        bundle's object (NFR-011 R-05 is "delete the file *and* set the
-        status"; a count cannot say which files).
+        ``completed`` exports past ``expires_at``, plus ``expired`` ones that
+        still point at a bundle — records an earlier run flipped before a
+        failed delete. The caller deletes each bundle **first** and writes
+        ``expired`` only afterwards, so the status never claims a removal
+        that did not happen.
         """
         ...
 
     @abstractmethod
     def list_stale_pending(self, cutoff_iso: str) -> list[DataExportRequest]:
         """Return pending exports requested before ``cutoff_iso`` (re-dispatch candidates)."""
+        ...
+
+    @abstractmethod
+    def complete_if_processing(self, key: DataExportRequestKey, fields: dict[str, Any]) -> DataExportRequest | None:
+        """Write the completion *fields* only while the export is still ``processing`` (#1767).
+
+        ``None`` when it is not — an account erasure closed it while the bundle
+        was being built; the caller then removes the bundle it just stored.
+        """
+        ...
+
+    @abstractmethod
+    def fail_open_for_user(self, user_key: UserKey, reason: str) -> int:
+        """Close every ``pending``/``processing`` export of *user_key* as ``failed`` (#1767).
+
+        Run by the account erasure before it deletes the stored bundles, so a
+        build still in flight can no longer complete behind it. Returns the count.
+        """
         ...

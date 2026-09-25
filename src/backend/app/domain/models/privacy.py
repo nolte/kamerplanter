@@ -17,6 +17,10 @@ type EmailChangeRequestKey = str
 
 type DataExportStatus = Literal["pending", "processing", "completed", "expired", "failed"]
 type ErasureStatus = Literal["scheduled", "in_progress", "completed", "partially_completed"]
+#: Which entry point created an erasure request (#1767). ``self_service`` is the
+#: Art. 17 request with its 90-day grace; ``platform_admin`` and
+#: ``unverified_cleanup`` are due at once but keep the same record, gate and retry.
+type ErasureOrigin = Literal["self_service", "platform_admin", "unverified_cleanup"]
 type EmailChangeStatus = Literal["pending", "confirmed", "expired"]
 type RestrictionReason = Literal[
     "accuracy_contested",
@@ -95,6 +99,8 @@ class ErasureRequest(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     user_key: str
     status: ErasureStatus = "scheduled"
+    #: Records written before #1767 carry no origin; they are all self-service.
+    origin: ErasureOrigin = "self_service"
     requested_at: datetime | None = None
     soft_deleted_at: datetime | None = None
     hard_delete_scheduled_at: datetime | None = None

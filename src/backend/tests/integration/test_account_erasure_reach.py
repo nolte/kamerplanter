@@ -42,6 +42,7 @@ from arango import ArangoClient
 
 from app.api.v1.admin.platform import router as admin_router
 from app.data_access.arango import collections as col
+from app.data_access.arango.erasure_repository import ArangoErasureRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
@@ -224,7 +225,9 @@ def _services(database) -> tuple[PrivacyService, UserService]:
         export_repo=MagicMock(),
         consent_repo=MagicMock(),
         restriction_repo=MagicMock(),
-        erasure_repo=MagicMock(),
+        # #1767 — the admin path persists its request; the real repository is
+        # where the claim and the proof are read back.
+        erasure_repo=ArangoErasureRepository(database),
         email_change_repo=MagicMock(),
         user_repo=user_repo,
         refresh_token_repo=MagicMock(),
@@ -253,8 +256,8 @@ def _admin_delete(database, captured: dict[str, Any]) -> None:
     erase = getattr(privacy_service, "erase_account", None)
     if erase is not None:
 
-        async def spy(user_key: str):
-            report = await erase(user_key)
+        async def spy(user_key: str, **kwargs: Any):
+            report = await erase(user_key, **kwargs)
             captured["report"] = report
             return report
 
@@ -399,6 +402,22 @@ def test_every_declared_step_and_rule_reached_a_row(erased):
     }
     assert set(report.arango.delegated) == delegated
     assert report.arango.absent_collections == []
+
+
+def test_the_admin_delete_persists_a_completed_request_without_the_plaintext_key(database, erased):
+    """#1767 GDPR-004 — the proof the admin path used to discard, read back from ArangoDB."""
+    rows = list(
+        database.aql.execute(
+            "FOR doc IN @@c FILTER doc.origin == 'platform_admin' RETURN doc",
+            bind_vars={"@c": col.ERASURE_REQUESTS},
+        )
+    )
+    assert len(rows) == 1
+    (row,) = rows
+    assert row["status"] == "completed"
+    assert row["completed_at"] is not None
+    assert row["user_key"] == ErasureEngine.compute_tombstone_hash(SUBJECT, SALT)
+    assert SUBJECT not in str(row)
 
 
 def test_a_second_run_finds_nothing_left_and_touches_nobody_else(database, erased):

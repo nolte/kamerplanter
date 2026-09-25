@@ -1,3 +1,5 @@
+from typing import Any
+
 from arango.database import StandardDatabase
 
 from app.common.types import UserKey
@@ -75,18 +77,20 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
         self._db.aql.execute(query, bind_vars={"export_id": export_id})
         return super().delete(key)
 
-    def expire_old(self, now_iso: str) -> list[DataExportRequest]:
-        """Flip expired exports to ``status=expired`` and return them.
+    def list_expiry_due(self, now_iso: str) -> list[DataExportRequest]:
+        """Exports due for the NFR-011 R-05 bundle delete; read-only (#1767 GDPR-005).
 
-        NFR-011 R-05 — called by the hourly Celery retention task. ``RETURN
-        NEW`` rather than a count because the caller must also delete each
-        bundle from object storage, and a count names no file.
+        Until #1767 this was ``expire_old``, which flipped ``status=expired``
+        in the same query that found the records. A bundle delete that then
+        failed left an ``expired`` record pointing at a file that still
+        existed, and no later run selected it again (the filter wanted
+        ``completed``). The second arm re-selects exactly those records.
         """
         query = """
         FOR doc IN @@collection
-          FILTER doc.status == 'completed' AND doc.expires_at != null AND doc.expires_at < @now
-          UPDATE doc WITH { status: 'expired' } IN @@collection
-          RETURN NEW
+          FILTER (doc.status == 'completed' AND doc.expires_at != null AND doc.expires_at < @now)
+            OR (doc.status == 'expired' AND doc.file_path != null)
+          RETURN doc
         """
         cursor = self._db.aql.execute(
             query,
@@ -120,3 +124,42 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
             },
         )
         return [DataExportRequest(**self._from_doc(doc)) for doc in cursor]
+
+    def complete_if_processing(self, key: str, fields: dict[str, Any]) -> DataExportRequest | None:
+        """Conditional completion write (#1767 review SEC-A); ``None`` when no longer ``processing``."""
+        data = {name: value for name, value in fields.items() if not name.startswith("_")}
+        data["updated_at"] = self._now()
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key AND doc.status == 'processing'
+          UPDATE doc WITH @fields IN @@collection OPTIONS { keepNull: true }
+          RETURN NEW
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"@collection": col.DATA_EXPORT_REQUESTS, "key": key, "fields": data},
+        )
+        docs = list(cursor)
+        if not docs:
+            return None
+        return DataExportRequest(**self._from_doc(docs[0]))
+
+    def fail_open_for_user(self, user_key: str, reason: str) -> int:
+        """Close the user's in-flight exports as ``failed`` (#1767 review SEC-A)."""
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.user_key == @user_key AND doc.status IN ['pending', 'processing']
+          UPDATE doc WITH { status: 'failed', error_message: @reason, updated_at: @now } IN @@collection
+          COLLECT WITH COUNT INTO closed
+          RETURN closed
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.DATA_EXPORT_REQUESTS,
+                "user_key": user_key,
+                "reason": reason,
+                "now": self._now(),
+            },
+        )
+        return next(iter(cursor), 0)

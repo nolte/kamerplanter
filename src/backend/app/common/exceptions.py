@@ -535,6 +535,29 @@ class FeatureNotConfiguredError(KamerplanterError):
         )
 
 
+class ErasureIncompleteError(KamerplanterError):
+    """An immediate account erasure ran but did not account for every declared step (#1767).
+
+    The platform-admin delete and the unverified-account cleanup run the erasure
+    at once instead of after the self-service grace. When the run leaves a
+    declared step unreached, the request is recorded ``partially_completed`` with
+    a backoff and the daily beat retries it — the duty is persisted, not
+    dropped — and the caller is told the account is **not** erased yet.
+    """
+
+    def __init__(self, unreached: list[str]) -> None:
+        # No request key in the answer (#1767 review SEC-C): the log line
+        # ``retention.erasure.steps_unreached`` carries it for the operator.
+        super().__init__(
+            message=(
+                "The account erasure did not finish; it is recorded and retried automatically. "
+                f"Unreached steps: {', '.join(unreached)}."
+            ),
+            error_code="ERASURE_INCOMPLETE",
+            status_code=500,
+        )
+
+
 class AiDisabledError(KamerplanterError):
     """REQ-031 §1.3 stage 2 — KI features are disabled for this tenant.
 
