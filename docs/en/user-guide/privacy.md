@@ -297,7 +297,15 @@ The same applies to your own [contributed pest photos](pest-detail.md#contribute
 
 ### Tenant Deletion
 
-When a tenant is deleted (by the platform admin or on request), all binary data for that tenant is completely removed from storage — regardless of the backend in use (local-fs or S3). This is done by deleting all objects with the prefix `t/{tenant_key}/`. Every reference-image and pest-image vector contributed by a member of that tenant is likewise removed from the recognition base. The result is documented in the audit log.
+When a tenant is deleted (by the platform admin or by a member with the Management extra permission), the system first creates a deletion record and immediately deactivates every membership — nobody has access to the tenant anymore after that. Every reference-image and pest-image vector contributed by a member of that tenant is then removed from the recognition base, followed by all binary data for that tenant — regardless of the backend in use (local-fs or S3) — by deleting all objects with the prefix `t/{tenant_key}/` — and every sensor reading of the tenant from the time-series database.
+
+A single database transaction then removes every domain record the tenant holds: sites, plants, planting runs, diary entries, tasks, tanks, sensors, feeding and watering logs, notifications, calendar feeds, its own master-data entries (e.g. species, fertilizers or nutrient plans it created itself), memberships, invitations, location assignments and API keys restricted to the tenant — together with every link to a deleted record — and finally the tenant record itself.
+
+One exception applies: harvest and treatment documentation (harvest batches, quality assessments, treatments, inspections) must be kept for several years under statutory law (CanG, German Plant Protection Act; see [Statutory Minimum Retention Periods](../guides/data-retention.md#statutory-minimum-retention-periods)). On these records, each member's account reference is replaced by the same tombstone hash account erasure uses, and name fields (harvester, applicator, inspector, assessor) are emptied — the records themselves remain. The AI call log and the MCP call log are likewise retained until their own retention window expires.
+
+After the transaction, the system checks that nothing still references the tenant. If not everything could be removed, or a step failed (e.g. an external service was unreachable), the deletion stays recorded and is retried automatically every day with a growing delay, until it completes fully. The result is documented in the deletion record.
+
+The members' own accounts are not affected — they keep their account and their memberships in other tenants. A member's personal tenant is not removed by a tenant deletion.
 
 ### Data Portability (GDPR Art. 20)
 

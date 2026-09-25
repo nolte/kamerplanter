@@ -49,6 +49,8 @@ from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_pest_inference_service import FakePestInferenceService, route_pest_requests_to
 from tests.support.privacy_doubles import RecordingErasureExecutor
+from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
+from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
 TOKEN = "svc-token-1759"
 SUBJECT = "subject-1759"
@@ -75,12 +77,6 @@ class _PestImageRepo:
 
     def delete(self, key: str, tenant_key: str) -> bool:
         return self.get(key, tenant_key) is not None and self.docs.pop(key) is not None
-
-    def delete_for_tenant(self, tenant_key: str) -> int:
-        keys = [k for k, c in self.docs.items() if c.tenant_key == tenant_key]
-        for k in keys:
-            del self.docs[k]
-        return len(keys)
 
 
 def _contribution(key: str, user: str, tenant: str, status: PestImageStatus) -> PestImageContribution:
@@ -258,18 +254,11 @@ async def test_erase_account_refuses_a_pest_image_repo_without_a_store():
 
 
 def _tenant_service(store, pest_repo, storage=None) -> TenantService:  # type: ignore[no-untyped-def]
-    tenant_repo = MagicMock()
-    tenant_repo.delete.return_value = True
-    return TenantService(
-        tenant_repo=tenant_repo,
-        membership_repo=MagicMock(),
-        invitation_repo=MagicMock(),
-        assignment_repo=MagicMock(),
-        tenant_engine=MagicMock(),
-        membership_engine=MagicMock(),
-        invitation_engine=MagicMock(),
+    """The deletion wiring of ``get_tenant_service`` (#1769: executor + record store + salt)."""
+    return tenant_service_for_deletion(
+        existing=tenant_fixture(TENANT),
+        executor=RecordingTenantErasureExecutor(),
         storage_adapter=storage,
-        attachment_repo=MagicMock(),
         reference_index_store=NoopReferenceIndexStore(),
         pest_image_repo=pest_repo,
         pest_prototype_store=store,
@@ -283,7 +272,7 @@ def test_tenant_deletion_deletes_the_tenants_prototypes_including_orphans(pest_i
     service = _tenant_service(dependencies.get_pest_prototype_store(), repo)
 
     with structlog.testing.capture_logs() as logs:
-        assert service.delete_tenant(TENANT) is True
+        assert service.delete_tenant(TENANT).status == "completed"
 
     assert sorted((r["source"], r["source_record_id"]) for r in pest_index.rows) == [
         ("gbif", "c-promoted"),
@@ -291,7 +280,10 @@ def test_tenant_deletion_deletes_the_tenants_prototypes_including_orphans(pest_i
     ]
     (event,) = [e for e in logs if e["event"] == "tenant_pest_prototype_cleanup"]
     assert (event["binding"], event["removed"]) == ("inference_service", 4)
-    assert set(repo.docs) == {"c-second-tenant"}
+    # The link documents themselves are an inventory entry of the ArangoDB run
+    # (#1769), measured in tests/integration/test_tenant_erasure_reach.py.
+    (plan,) = service._tenant_erasure_executor.plans
+    assert "pest_image_contributions" in [e.collection for e in plan.entries if e.action == "delete"]
 
 
 def test_a_failing_prototype_delete_keeps_the_tenant_and_its_data(pest_index):
@@ -306,8 +298,7 @@ def test_a_failing_prototype_delete_keeps_the_tenant_and_its_data(pest_index):
 
     assert caught.value.status_code == 502
     assert TENANT not in str(caught.value)
-    service._tenant_repo.delete.assert_not_called()
-    service._attachment_repo.delete_all_for_tenant.assert_not_called()
+    assert service._tenant_erasure_executor.plans == []
     storage.delete_prefix.assert_not_awaited()
     assert "c-promoted" in repo.docs
 
@@ -317,7 +308,8 @@ def test_tenant_deletion_refuses_a_pest_image_repo_without_a_store():
 
     with pytest.raises(FeatureNotConfiguredError):
         service.delete_tenant(TENANT)
-    service._tenant_repo.delete.assert_not_called()
+    assert service._tenant_erasure_executor.plans == []
+    assert service._tenant_erasure_repo.records == {}
 
 
 # -- single contribution delete ---------------------------------------------

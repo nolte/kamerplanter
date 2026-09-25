@@ -35,6 +35,8 @@ from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
 from tests.support.privacy_doubles import RecordingErasureExecutor
+from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
+from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
 TOKEN = "svc-token-1753"
 SUBJECT = "subject-1753"
@@ -186,18 +188,11 @@ async def test_a_skipped_phase_reports_no_binding(inference):
 
 
 def _tenant_service(store, storage=None) -> TenantService:
-    tenant_repo = MagicMock()
-    tenant_repo.delete.return_value = True
-    return TenantService(
-        tenant_repo=tenant_repo,
-        membership_repo=MagicMock(),
-        invitation_repo=MagicMock(),
-        assignment_repo=MagicMock(),
-        tenant_engine=MagicMock(),
-        membership_engine=MagicMock(),
-        invitation_engine=MagicMock(),
+    """The deletion wiring of ``get_tenant_service`` (#1769: executor + record store + salt)."""
+    return tenant_service_for_deletion(
+        existing=tenant_fixture(TENANT),
+        executor=RecordingTenantErasureExecutor(),
         storage_adapter=storage,
-        attachment_repo=MagicMock(),
         reference_index_store=store,
     )
 
@@ -206,7 +201,7 @@ def test_tenant_deletion_removes_the_tenants_contributions(inference):
     service = _tenant_service(dependencies.get_reference_index_store())
 
     with structlog.testing.capture_logs() as logs:
-        assert service.delete_tenant(TENANT) is True
+        assert service.delete_tenant(TENANT).status == "completed"
 
     assert inference.records() == {"subject-2", "curated"}
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
@@ -226,9 +221,7 @@ def test_a_failing_reference_index_keeps_the_tenant_and_its_data(inference):
     assert caught.value.status_code == 502
     assert TENANT not in str(caught.value)
     # Nothing else was removed: the delete is retryable as a whole.
-    service._tenant_repo.delete.assert_not_called()
-    service._membership_repo.delete_all_for_tenant.assert_not_called()
-    service._attachment_repo.delete_all_for_tenant.assert_not_called()
+    assert service._tenant_erasure_executor.plans == []
     storage.delete_prefix.assert_not_awaited()
     assert "other" in inference.records()
 
@@ -321,6 +314,7 @@ def test_tenant_deletion_refuses_while_contributions_are_unreachable():
     with pytest.raises(FeatureNotConfiguredError):
         service.delete_tenant(TENANT)
 
-    service._tenant_repo.delete.assert_not_called()
-    service._attachment_repo.delete_all_for_tenant.assert_not_called()
+    assert service._tenant_erasure_executor.plans == []
+    assert service._tenant_erasure_repo.records == {}
+    service._membership_repo.deactivate_all_for_tenant.assert_not_called()
     storage.delete_prefix.assert_not_awaited()

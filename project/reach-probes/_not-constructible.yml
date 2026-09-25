@@ -10,6 +10,12 @@
 # Re-derive round of 2026-09-25 (#1783), filtered to spec/req/REQ-025_Datenschutz-Betroffenenrechte.md:
 # the seven REQ-025 entries re-inventoried unchanged at c9d6d29ee (#1780's squash commit; the
 # declaration is byte-identical to the vanished branch commit e9e0c3a52), derived_from moved to it.
+#
+# Derive round of 2026-09-25 (#1769), filtered to src/backend/app/api/v1/admin/platform/router.py
+# (DELETE /admin/platform/tenants/{key}) and src/backend/app/domain/engines/tenant_erasure_engine.py:
+# three entries, all drafted and approved (endpoint-admin-tenant-delete-reaches-rows,
+# endpoint-admin-tenant-delete-persists-proof, inventory-tenant-erasure-plan-reaches-rows); no new
+# not-constructible entry.
 entries:
 - id: requirement-req025-art15-export-sources-populated
   declaration:

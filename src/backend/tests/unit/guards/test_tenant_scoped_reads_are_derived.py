@@ -847,6 +847,9 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
         "system", "the escalation Celery task re-notifies every overdue watering reminder"
     ),
+    ("ArangoTenantErasureRepository", "list_due"): Exclusion(
+        "system", "the daily tenant-erasure retry beat walks every open deletion record (#1769)"
+    ),
     ("ArangoPlantingRunRepository", "get_active_runs_with_schedule"): Exclusion(
         "system", "the watering-task generator iterates every run with an active schedule"
     ),

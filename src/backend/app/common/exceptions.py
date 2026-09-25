@@ -558,6 +558,25 @@ class ErasureIncompleteError(KamerplanterError):
         )
 
 
+class TenantErasureIncompleteError(KamerplanterError):
+    """A tenant deletion ran but something still holds the tenant (#1769).
+
+    The run is recorded ``partially_completed`` with a backoff and the daily
+    beat retries it; the caller is told the tenant is **not** fully erased yet.
+    The collection names say *where*, never whose — no tenant or account key.
+    """
+
+    def __init__(self, unreached: list[str]) -> None:
+        super().__init__(
+            message=(
+                "The tenant deletion did not finish; it is recorded and retried automatically. "
+                f"Still holding the tenant: {', '.join(unreached)}."
+            ),
+            error_code="TENANT_ERASURE_INCOMPLETE",
+            status_code=500,
+        )
+
+
 class AiDisabledError(KamerplanterError):
     """REQ-031 §1.3 stage 2 — KI features are disabled for this tenant.
 

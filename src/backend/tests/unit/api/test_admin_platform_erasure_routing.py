@@ -3,8 +3,8 @@ through the NFR-013 / REQ-025 pipelines, entirely via the service layer (#1019).
 
 The endpoint functions are exercised directly (the ``Depends`` defaults are not
 evaluated on a direct call), with the injected services mocked. After #1019 the
-router holds no ``get_db``: the tenant existence / ``is_platform`` guard reads
-through ``TenantService.get_tenant``. Since #1664 the user delete makes exactly
+router holds no ``get_db``; since #1769 the tenant existence / ``is_platform``
+guard lives in ``TenantService.delete_tenant`` itself. Since #1664 the user delete makes exactly
 one erasure call — since #1767 ``PrivacyService.erase_account_now``, which
 persists the request and runs ``erase_account``, the shared entry that runs
 the SEC-003 storage phases *and* the declared ArangoDB plan in the right order
@@ -12,7 +12,7 @@ the SEC-003 storage phases *and* the declared ArangoDB plan in the right order
 """
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -21,34 +21,35 @@ from app.common.exceptions import ForbiddenError, NotFoundError
 
 
 class TestDeleteTenantRouting:
-    """SEC-002 — admin tenant delete must go through TenantService.delete_tenant."""
+    """SEC-002 / #1769 — both tenant-delete routes run the one service entry, nothing beside it.
 
-    def test_routes_tenant_delete_through_service(self):
+    The platform-tenant refusal and the 404 live in ``TenantService.delete_tenant``
+    (``test_tenant_erasure_service.py``), so the tenant-scoped route is guarded the
+    same way — it had no platform check of its own before #1769.
+    """
+
+    def test_admin_route_runs_the_service_deletion_as_platform_admin(self):
         tenant_service = MagicMock()
-        tenant_service.get_tenant.return_value = SimpleNamespace(is_platform=False)
 
         mod.delete_tenant("t-1", _user=None, tenant_service=tenant_service)
 
-        tenant_service.get_tenant.assert_called_once_with("t-1")
-        tenant_service.delete_tenant.assert_called_once_with("t-1")
+        assert tenant_service.mock_calls == [call.delete_tenant("t-1", origin="platform_admin")]
 
-    def test_rejects_platform_tenant(self):
+    def test_tenant_route_runs_the_service_deletion_as_tenant_management(self):
+        from app.api.v1.tenants import router as tenant_router
+
+        service = MagicMock()
+
+        tenant_router.delete_tenant(ctx=SimpleNamespace(tenant_key="t-2"), service=service)
+
+        assert service.mock_calls == [call.delete_tenant("t-2", origin="tenant_management")]
+
+    def test_a_service_refusal_reaches_the_caller(self):
         tenant_service = MagicMock()
-        tenant_service.get_tenant.return_value = SimpleNamespace(is_platform=True)
+        tenant_service.delete_tenant.side_effect = ForbiddenError("The platform tenant cannot be deleted.")
 
         with pytest.raises(ForbiddenError):
             mod.delete_tenant("t-0", _user=None, tenant_service=tenant_service)
-
-        tenant_service.delete_tenant.assert_not_called()
-
-    def test_missing_tenant_raises_not_found(self):
-        tenant_service = MagicMock()
-        tenant_service.get_tenant.side_effect = NotFoundError("Tenant", "ghost")
-
-        with pytest.raises(NotFoundError):
-            mod.delete_tenant("ghost", _user=None, tenant_service=tenant_service)
-
-        tenant_service.delete_tenant.assert_not_called()
 
 
 class TestDeleteUserRouting:

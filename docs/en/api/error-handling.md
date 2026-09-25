@@ -129,8 +129,9 @@ All API errors follow a consistent JSON format. Every error response contains a 
 | Error Code | HTTP | Description |
 |-----------|------|-------------|
 | `ERASURE_INCOMPLETE` | 500 | An immediate account erasure (platform admin, cleanup of never-confirmed accounts) did not reach a declared step; the erasure request is recorded and retried automatically |
-| `WRITE_CONFLICT` | 409 | An erasure for this account is already running |
-| `FEATURE_NOT_CONFIGURED` | 503 | The instance is not configured correctly for account erasure; nothing was changed |
+| `TENANT_ERASURE_INCOMPLETE` | 500 | A tenant deletion did not reach something that still holds the tenant (the message names only collection names, never a tenant or account key); the deletion is recorded and retried automatically |
+| `WRITE_CONFLICT` | 409 | An erasure for this account or tenant is already running |
+| `FEATURE_NOT_CONFIGURED` | 503 | The instance is not configured correctly for account or tenant erasure; nothing was changed |
 
 ---
 

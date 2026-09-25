@@ -56,4 +56,5 @@ class IMembershipRepository(ABC):
         """Total number of membership documents (platform-admin statistics, #1019)."""
 
     @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int: ...
+    def deactivate_all_for_tenant(self, tenant_key: str) -> int:
+        """Deactivate every membership of the tenant (#1769: freezes a tenant being erased)."""

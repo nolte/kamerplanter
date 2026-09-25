@@ -212,7 +212,11 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
     Es gibt keine technische Begrenzung. Du kannst beliebig viele Tenants erstellen und beitreten.
 
 ??? question "Was passiert mit meinen Daten, wenn ich einen Tenant lösche?"
-    Der Dateispeicher (Fotos, Anhänge) des Tenants, die dazu beigetragenen Erkennungsvektoren, alle Mitgliedschaften, offenen Einladungen und Standort-Zuweisungen werden gelöscht, danach der Tenant-Datensatz selbst. Die fachlichen Datensätze des Tenants — Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben und weitere Standort-gebundene Daten — werden dabei aktuell noch **nicht** gelöscht und bleiben in der Datenbank zurück. <!-- Issue #1769 --> Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind von einer solchen Löschung nicht betroffen.
+    Alle Mitgliedschaften werden sofort deaktiviert — niemand hat danach noch Zugriff auf den Tenant. Anschließend werden die dazu beigetragenen Erkennungsvektoren, der Dateispeicher (Fotos, Anhänge) und sämtliche fachlichen Daten des Tenants gelöscht: Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks, Sensoren, Dünge- und Gießprotokolle und alle weiteren Standort-gebundenen Daten, danach der Tenant-Datensatz selbst. <!-- Issue #1769 -->
+
+    Eine Ausnahme gilt für Ernte- und Behandlungsdokumentation (Erntechargen, Qualitätsbewertungen, Behandlungen, Inspektionen): Diese muss aus gesetzlichen Gründen (CanG, Pflanzenschutzgesetz) einige Jahre aufbewahrt werden. Diese Datensätze bleiben deshalb erhalten, werden aber pseudonymisiert — Namensangaben von Mitgliedern werden entfernt und ihre Kontenreferenzen durch ein Pseudonym ersetzt.
+
+    Konnte beim Löschen nicht sofort alles vollständig entfernt werden, bleibt der Vorgang vorgemerkt und wird automatisch täglich wiederholt, bis er abgeschlossen ist. Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind von einer solchen Löschung nicht betroffen.
 
 ??? question "Sehen Tenant-Admins meine persönlichen Zimmerpflanzen?"
     Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn ein Admin im Gemeinschaftsgarten mehr Rechte hat, kann er niemals Daten in deinem persönlichen Tenant sehen.

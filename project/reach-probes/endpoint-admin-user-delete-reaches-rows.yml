@@ -5,6 +5,9 @@
 # batch answer. It records that the targets and the observe argv below run on the operator's
 # machine with their environment, as `task` in this repository does.
 #
+# Re-derived for #1769: router.py changed in e6af8a62d (the tenant-delete route beside this one);
+# DELETE /admin/platform/users/{key}, the erasure plan's steps and this observe step are unchanged
+# (erasure_engine.py changed since 77efb5095 only by #1786's log-subject helpers). Earlier:
 # Re-derived for #1768: the previous derived_from 2994893c9 was a #1776 branch commit the squash
 # made unreachable; the declaration last changed in the squash 77efb5095 on develop. Observe step,
 # targets and expectation unchanged (64/64 recounted against erasure_engine.py at 77efb5095).
@@ -83,7 +86,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: 77efb5095c598e68469b80916011990892d7b0e7
+derived_from: e6af8a62dfe41bcd50c22fbee0871ca029d73469
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -98,6 +101,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-25T06:03:35Z'
+  approved_at: '2026-09-25T09:19:17Z'
   approved_by: nolte
   observation_digest: 2e7df4233825e713e429ffad28c5b00a97c7b77db1556925790868093ea0b7bf

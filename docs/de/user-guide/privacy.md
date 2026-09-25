@@ -297,7 +297,15 @@ Dasselbe gilt für eigene [Schädlingsfotos, die du beigetragen hast](pest-detai
 
 ### Mandantenlöschung
 
-Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder auf Anfrage), werden alle Binärdaten des Mandanten vollständig aus dem Storage entfernt — unabhängig vom verwendeten Backend (local-fs oder S3). Das geschieht durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/`. Ebenso werden alle von Mitgliedern dieses Mandanten beigetragenen Referenzbild- und Schädlingsbild-Vektoren aus der Erkennungsbasis entfernt. Das Ergebnis wird im Audit-Log dokumentiert.
+Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder durch ein Mitglied mit der Zusatzberechtigung Verwaltung), legt das System zuerst einen Löschungs-Datensatz an und deaktiviert sofort alle Mitgliedschaften — niemand hat danach noch Zugriff auf den Mandanten. Anschließend werden alle von Mitgliedern dieses Mandanten beigetragenen Referenzbild- und Schädlingsbild-Vektoren aus der Erkennungsbasis entfernt, danach alle Binärdaten des Mandanten vollständig aus dem Storage — unabhängig vom verwendeten Backend (local-fs oder S3) — durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/` — sowie alle Sensor-Messwerte des Mandanten aus der Zeitreihen-Datenbank.
+
+Danach entfernt eine einzige Datenbank-Transaktion sämtliche fachlichen Daten des Mandanten: Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks, Sensoren, Dünge- und Gießprotokolle, Benachrichtigungen, Kalender-Feeds, eigene Stammdaten-Einträge (z. B. selbst angelegte Pflanzenarten, Dünger, Nährstoffpläne), Mitgliedschaften, Einladungen, Standort-Zuweisungen und auf den Mandanten beschränkte API-Schlüssel — zusammen mit jeder Verknüpfung zu einem gelöschten Datensatz — und zuletzt der Mandanten-Datensatz selbst.
+
+Eine Ausnahme gilt für Ernte- und Behandlungsdokumentation (Erntechargen, Qualitätsbewertungen, Behandlungen, Inspektionen): Diese muss aus gesetzlichen Gründen (CanG, Pflanzenschutzgesetz) einige Jahre aufbewahrt werden (siehe [Gesetzliche Mindestaufbewahrungsfristen](../guides/data-retention.md#gesetzliche-mindestaufbewahrungsfristen)). Auf diesen Datensätzen wird die Kontenreferenz jedes Mitglieds durch denselben Tombstone-Hash ersetzt, den auch die Konto-Löschung verwendet, und Namensfelder (Ernter, Anwender, Inspektor, Bewerter) werden geleert — die Datensätze selbst bleiben bestehen. Ebenfalls erhalten bleiben das KI-Aufruf-Protokoll und das MCP-Aufruf-Protokoll, bis ihre eigene Aufbewahrungsfrist abläuft.
+
+Nach der Transaktion prüft das System, ob wirklich nichts mehr auf den Mandanten verweist. Konnte nicht alles entfernt werden oder ist ein Schritt fehlgeschlagen (z. B. weil ein externer Dienst nicht erreichbar war), bleibt die Löschung vorgemerkt und wird automatisch täglich mit wachsendem Abstand erneut versucht, bis sie vollständig abgeschlossen ist. Das Ergebnis wird im Löschungs-Datensatz dokumentiert.
+
+Nicht betroffen sind die Konten der Mitglieder selbst — sie behalten ihr Konto und ihre Mitgliedschaften in anderen Mandanten. Der persönliche Mandant eines Mitglieds wird durch eine Mandantenlöschung nicht entfernt.
 
 ### Datenportabilität (Art. 20 DSGVO)
 
