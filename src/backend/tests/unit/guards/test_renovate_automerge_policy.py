@@ -91,7 +91,7 @@ def _mixes_dated_and_undated(rule: dict[str, Any]) -> bool:
     pattern has no enumerated members to judge, which is the residual this
     predicate does not close.
     """
-    names = [n for n in rule.get("matchPackageNames", []) if isinstance(n, str) and not n.startswith("/")]
+    names = [n for n in rule.get("matchPackageNames", []) if isinstance(n, str) and not n.startswith(("/", "!"))]
     undated = [n for n in names if n.startswith(_UNDATED_PREFIXES)]
     return bool(undated) and len(undated) < len(names)
 
@@ -170,7 +170,8 @@ class TestReleasesAgeBeforeTheyMerge:
         offenders = [
             rule.get("groupName") or rule
             for rule in _rules()
-            if "minimumReleaseAge" in rule and not _mixes_dated_and_undated(rule)
+            if "minimumReleaseAge" in rule
+            and not (rule.get("groupName") and rule["minimumReleaseAge"] is None and _mixes_dated_and_undated(rule))
         ]
         assert not offenders, (
             "a packageRules entry overrides minimumReleaseAge without being a group that mixes dated "
