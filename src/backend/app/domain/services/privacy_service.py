@@ -1800,6 +1800,14 @@ class PrivacyService:
         plan = self._erasure_engine.build_erasure_plan(user_key)
 
         report = AccountErasureReport()
+        # #1770 — the objects of the subject's hard-deleted records, taken while the
+        # records still exist (the plan removes them) and *before* the pre-ArangoDB
+        # phases: the pest-image step deletes the contributions through which
+        # ``_erasure_tenant_keys`` finds a tenant the subject has left. Phase 0 kept
+        # an object another member's record held; if that record goes before the
+        # plan, nothing holds the object once the plan has run, and this run
+        # releases it.
+        hard_deleted_objects = await self._hard_deleted_objects(user_key)
         if pre_arango_completed:
             logger.info("retention.erasure.pre_arango_phases_skipped", subject=self.log_subject(user_key))
             report.storage_cleanup_scopes = list(recorded_storage_scopes or [])
@@ -1820,11 +1828,6 @@ class PrivacyService:
             list(recorded_personal_tenant_keys or []),
             on_personal_tenants_resolved,
         )
-        # #1770 — the objects of the subject's hard-deleted records, taken while the
-        # records still exist (the plan removes them). Phase 0 kept an object
-        # another member's record held; if that record went since, nothing holds
-        # the object once the plan has run, and this run releases it.
-        hard_deleted_objects = await self._hard_deleted_objects(user_key)
         report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
         report.storage_objects_released = await self._release_unheld_objects(user_key, hard_deleted_objects)
 

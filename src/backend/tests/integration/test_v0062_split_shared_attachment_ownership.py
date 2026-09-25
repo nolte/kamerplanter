@@ -111,7 +111,7 @@ def _contribution(database, key: str, contributor: str, attachment_id: str, crea
             "pest_key": "pest-1",
             "attachment_id": attachment_id,
             "contributed_by": contributor,
-            "status": "pending",
+            "status": "private",
             "created_at": created_at,
         }
     )

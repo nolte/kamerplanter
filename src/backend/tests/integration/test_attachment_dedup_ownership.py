@@ -37,8 +37,10 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.erasure_executor import ArangoErasureExecutor
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
+from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
+from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.privacy_service import PrivacyService
@@ -121,6 +123,8 @@ def privacy(database, storage, repo) -> PrivacyService:
         membership_repo=ArangoMembershipRepository(database),
         storage_adapter=storage,
         attachment_repo=repo,
+        pest_image_repo=ArangoPestImageRepository(database),
+        pest_prototype_store=NoopPestPrototypeStore(),
         reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=ArangoErasureExecutor(database),
         # #1788 — the subject's personal tenant goes through the tenant-erasure inventory.
@@ -323,3 +327,42 @@ def test_two_contributions_of_one_photo_by_one_member_keep_their_own_records(dat
     assert asyncio.run(service.delete(first.key, TENANT)) is True
     assert repo.get(second.key, TENANT) is not None
     assert _readable(storage, second.storage_key)
+
+
+def test_a_tenant_the_subject_left_is_still_released_after_the_plan(database, service, storage, privacy, repo):
+    """#1770 /code-review — the release must see a tenant found only through a pest contribution.
+
+    The subject left the tenant but still owns a pest contribution there, so
+    ``_erasure_tenant_keys`` finds the tenant only through that contribution —
+    which the pre-ArangoDB pest-image step deletes. Reading the objects after it
+    missed the tenant, and the object outlived every record.
+    """
+    leaver, holder = "left-a", _member(database, "left-b")
+    database.collection(col.USERS).insert({"_key": leaver, "email": f"{leaver}@example.com"})
+    photo = _photo()
+    a = asyncio.run(_upload(service, user_key=leaver, data=photo, category=AttachmentCategory.PEST_REFERENCE))
+    b = asyncio.run(_upload(service, user_key=holder, data=photo, category=AttachmentCategory.PEST_REFERENCE))
+    database.collection(col.PEST_IMAGE_CONTRIBUTIONS).insert(
+        {
+            "_key": "left-contribution",
+            "tenant_key": TENANT,
+            "pest_key": "pest-1",
+            "attachment_id": a.key,
+            "contributed_by": leaver,
+            "status": "private",
+        }
+    )
+
+    executor = privacy._erasure_executor
+    real_run = executor.run_erasure_plan
+
+    def run_after_b_withdrew(plan, *, tombstone):  # type: ignore[no-untyped-def]
+        assert asyncio.run(service.delete(b.key, TENANT)) is True
+        return real_run(plan, tombstone=tombstone)
+
+    with patch.object(executor, "run_erasure_plan", side_effect=run_after_b_withdrew):
+        report = asyncio.run(privacy.erase_account(leaver))
+
+    assert report.storage_objects_retained_shared == 1
+    assert report.storage_objects_released == 1
+    assert not _readable(storage, a.storage_key)
