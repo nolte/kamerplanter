@@ -34,9 +34,11 @@ from app.schemas import (
     ErasePestTenantContributionsRequest,
     EraseTenantContributionsRequest,
     HealthResponse,
+    ListPestContributionKeysRequest,
     MatchResponse,
     MatchSuggestion,
     ModelInfoResponse,
+    PestContributionKeysResponse,
     PestCoverageItem,
     PestCoverageResponse,
     PestDetectResponse,
@@ -56,7 +58,7 @@ from app.schemas import (
 )
 from app.vectordb.config import VectorDbConfig
 from app.vectordb.connection import VectorDbConnection
-from app.vectordb.pest_repository import PestEmbeddingRepository
+from app.vectordb.pest_repository import PestEmbeddingRepository, require_page_limit
 from app.vectordb.repository import SpeciesEmbeddingRepository
 from app.vectordb.schema import run_migrations
 
@@ -739,6 +741,27 @@ def erase_pest_tenant_contributions(body: ErasePestTenantContributionsRequest) -
     """
     pest_repo = _require_pest_repo()
     return _erase_contributions(pest_repo.delete_tenant_contributions, tenant_key=body.tenant_key)
+
+
+@app.post("/pest/reference/contributions/keys", response_model=PestContributionKeysResponse)
+def list_pest_contribution_keys(body: ListPestContributionKeysRequest) -> PestContributionKeysResponse:
+    """One page of the contribution keys that have a prototype (#1771).
+
+    The backend's orphan sweep compares them with its ``pest_image_contributions``
+    documents and erases the prototypes whose document is gone — rows written
+    before #1766, when deleting a contribution left its prototype behind, and
+    rows a lost undo left over. Returns keys only (no embedding, label or
+    tenant); ascending, strictly after ``after``. A page shorter than ``limit``
+    is the last one. A ``limit`` outside ``1..1000`` is refused with 422.
+    """
+    pest_repo = _require_pest_repo()
+    try:
+        page_size = require_page_limit(body.limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    keys = pest_repo.list_contribution_keys(after=body.after, limit=page_size)
+    next_after = keys[-1] if len(keys) == page_size else None
+    return PestContributionKeysResponse(contribution_keys=keys, next_after=next_after)
 
 
 @app.delete("/pest/reference/{label}", response_model=DeleteReferenceResponse)

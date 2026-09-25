@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
-from app.domain.interfaces.pest_prototype_store import IPestPrototypeContributionMarker
+from app.domain.interfaces.pest_prototype_store import IPestPrototypeContributionMarker, IPestPrototypeOrphanSweepLog
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.system_settings import SystemSettings
 
@@ -35,8 +35,37 @@ UPDATE {
 IN @@collection
 """
 
+#: #1771 — record one orphan-sweep run on the singleton, touching only that
+#: field, so a concurrent admin save of the other settings is not overwritten.
+_RECORD_ORPHAN_SWEEP_QUERY = """
+LET run = {
+  last_run_at: @now, last_examined: @examined, last_orphaned: @orphaned,
+  last_removed: @removed, binding: @binding
+}
+UPSERT { _key: @key }
+INSERT {
+  _key: @key, created_at: @now, updated_at: @now,
+  pest_prototype_orphan_sweep: MERGE(run, { first_run_at: @now, total_removed: @removed })
+}
+UPDATE {
+  pest_prototype_orphan_sweep: MERGE(run, {
+    first_run_at: OLD.pest_prototype_orphan_sweep.first_run_at || @now,
+    total_removed: (OLD.pest_prototype_orphan_sweep.total_removed || 0) + @removed
+  })
+}
+IN @@collection
+"""
 
-class ArangoSystemSettingsRepository(IReferenceContributionMarker, IPestPrototypeContributionMarker):
+
+#: Fields only their own single-statement writers set. ``upsert`` is the admin
+#: settings' read-modify-write; carrying these back would reset a run the sweep
+#: recorded between the read and the write (code review of #1771).
+_SELF_WRITTEN_FIELDS = ("pest_prototype_orphan_sweep",)
+
+
+class ArangoSystemSettingsRepository(
+    IReferenceContributionMarker, IPestPrototypeContributionMarker, IPestPrototypeOrphanSweepLog
+):
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
 
@@ -54,6 +83,8 @@ class ArangoSystemSettingsRepository(IReferenceContributionMarker, IPestPrototyp
         now = datetime.now(UTC).isoformat()
         data = settings.model_dump(by_alias=True, exclude_none=True, mode="json")
         data.pop("_key", None)
+        for field in _SELF_WRITTEN_FIELDS:
+            data.pop(field, None)
         data["updated_at"] = now
 
         existing = self.collection.get(SINGLETON_KEY)
@@ -90,6 +121,22 @@ class ArangoSystemSettingsRepository(IReferenceContributionMarker, IPestPrototyp
     def pest_prototype_contributions_since(self) -> datetime | None:
         settings = self.get()
         return settings.pest_prototype_contributions_since if settings is not None else None
+
+    def record_pest_prototype_orphan_sweep(
+        self, *, now: datetime, examined: int, orphaned: int, removed: int, binding: str
+    ) -> None:
+        self._db.aql.execute(
+            _RECORD_ORPHAN_SWEEP_QUERY,
+            bind_vars={
+                "@collection": col.SYSTEM_SETTINGS,
+                "key": SINGLETON_KEY,
+                "now": now.isoformat(),
+                "examined": examined,
+                "orphaned": orphaned,
+                "removed": removed,
+                "binding": binding,
+            },
+        )
 
     def delete_settings(self) -> bool:
         existing = self.collection.get(SINGLETON_KEY)

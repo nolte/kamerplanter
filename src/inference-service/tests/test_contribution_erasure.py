@@ -195,6 +195,9 @@ def test_no_contribution_route_carries_a_key_in_its_path():
             # #1759 — the pest-prototype erasure follows the same rule.
             "/pest/reference/contributions/erase",
             "/pest/reference/contributions/erase-by-tenant",
+            # #1771 — the orphan sweep's key listing: its cursor is a key, so
+            # it travels in the body too.
+            "/pest/reference/contributions/keys",
         ]
     )
     assert all("{" not in path for path in paths)

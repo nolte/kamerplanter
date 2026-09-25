@@ -250,6 +250,12 @@ celery_app.conf.update(
             "task": "retention.execute_scheduled_erasures",
             "schedule": crontab(hour=4, minute=0),  # 04:00 UTC daily
         },
+        # #1771 — contributed pest prototypes whose contribution document is gone
+        # (pre-#1766 deletes, lost undos): after the erasures, idempotent.
+        "retention-sweep-orphaned-pest-prototypes-daily": {
+            "task": "pest_image.sweep_orphaned_prototypes",
+            "schedule": crontab(hour=4, minute=30),
+        },
         "retention-expire-email-changes-hourly": {
             "task": "retention.expire_email_change_requests",
             "schedule": crontab(minute=15),  # every hour at :15

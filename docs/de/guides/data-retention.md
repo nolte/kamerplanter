@@ -514,6 +514,61 @@ flowchart TD
 
 ---
 
+## Aufräumlauf: verwaiste Schädlingsbild-Prototypen
+
+Vor Issue #1766 hinterließ das Löschen eines Schädlingsfoto-Beitrags dessen
+Erkennungs-Prototyp im Referenz-Index des Inferenz-Service
+(`pest_embeddings`, `source = user_contributed`). Solche Zeilen nennen keinen
+Nutzer — die Art.-17-Kontolöschung findet Prototypen nur über die
+Beitrags-Dokumente eines Nutzers und erreicht sie deshalb nicht; nur eine
+Mandantenlöschung entfernte sie mit.
+
+Der Celery-Task `pest_image.sweep_orphaned_prototypes` (Beat-Eintrag
+`retention-sweep-orphaned-pest-prototypes-daily`, **täglich 04:30 UTC**, nach
+den planmäßigen Löschungen um 04:00 UTC) schließt diese Lücke:
+
+1. Er blättert über die Beitrags-Schlüssel, die der Index kennt
+   (`POST /pest/reference/contributions/keys` am Inferenz-Service).
+2. Er prüft in ArangoDB, für welche dieser Schlüssel noch ein
+   `pest_image_contributions`-Dokument existiert.
+3. Er löscht die Prototypen der übrigen Schlüssel — aktive und deaktivierte
+   gleichermaßen — in Batches von 500 über denselben
+   `POST /pest/reference/contributions/erase`-Endpunkt, den auch die
+   Art.-17-Löschung nutzt.
+
+**Idempotent:** Ein zweiter Lauf findet keine Waise mehr und entfernt nichts.
+**Scheitert laut:** Ist der Inferenz-Service nicht erreichbar, schlägt der
+Task fehl (Log-Ereignis `pest_prototype_orphan_sweep_failed`), es wird nichts
+vermerkt, und der nächste Beat-Lauf versucht es erneut. Ein Celery-Worker ohne
+`PEST_DETECTION_ENABLED`/`INFERENCE_SERVICE_ENABLED`, sobald jemals ein
+Schädlingsfoto-Beitrag zur Erkennungsbasis freigegeben wurde, verweigert den
+Lauf ebenso wie die planmäßige Löschung (Issue #1759). Ohne diese Flags und
+ohne Freigabe-Vermerk meldet der Task `skipped` (Log-Ereignis
+`pest_prototype_orphan_sweep_skipped`) und vermerkt **keinen** Lauf — er hat
+den Index ja nicht gesehen.
+
+Die Zähler jedes Laufs landen im Singleton-Dokument `system_settings` unter
+`pest_prototype_orphan_sweep` (`first_run_at`, `last_run_at`, `last_examined`,
+`last_orphaned`, `last_removed`, `total_removed`, `binding`) sowie als
+Log-Ereignis `pest_prototype_orphan_sweep_completed`
+(`examined`/`orphaned`/`removed`/`binding`) — beides nennt nur Zahlen, nie
+einen Schlüssel.
+
+Deaktivierte (aberkannte) Prototypen, deren Beitrags-Dokument noch existiert,
+fasst der Aufräumlauf nicht an (Kuration).
+
+??? question "Wie stoße ich den Aufräumlauf sofort an, statt auf 04:30 UTC zu warten?"
+    ```bash
+    kubectl exec deploy/<release>-celery-worker -- \
+      celery -A app.tasks call pest_image.sweep_orphaned_prototypes
+    ```
+    Der Worker braucht dieselben Flags wie die planmäßige Löschung:
+    `PEST_DETECTION_ENABLED` oder `INFERENCE_SERVICE_ENABLED` plus
+    `INFERENCE_SERVICE_URL`, sowie `INTERNAL_SERVICE_TOKEN`. Details:
+    [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
+
+---
+
 ## Häufige Fragen
 
 ??? question "Kann ich die 90-Tage-Frist für Soft-Delete verlängern?"

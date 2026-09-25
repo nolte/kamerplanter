@@ -174,6 +174,17 @@ class FakeRepo:
         return len(self.rows)
 
 
+#: Postgres ``~ '[^[:space:]]'`` under the store's en_US.UTF-8 locale (glibc
+#: ``iswspace``) treats the non-breaking spaces as text, unlike Python's
+#: ``str.isspace`` — measured against pgvector/pgvector:pg16 (#1771).
+_NON_BREAKING_SPACES = "\xa0\u2007\u202f"
+
+
+def _index_blank(value: object) -> bool:
+    """Whether the index's listing leaves *value* out as blank."""
+    return not isinstance(value, str) or all(c.isspace() and c not in _NON_BREAKING_SPACES for c in value)
+
+
 class FakePestRepo:
     """In-memory stand-in for PestEmbeddingRepository."""
 
@@ -252,6 +263,20 @@ class FakePestRepo:
             if not (r.get("source") == "user_contributed" and (r.get("source_url") or "").startswith(prefix))
         ]
         return before - len(self.rows)
+
+    def list_contribution_keys(self, *, after=None, limit=None) -> list[str]:
+        # Same refusal and row filter as the real repository (#1771).
+        from app.vectordb.pest_repository import require_page_limit
+
+        page_size = require_page_limit(limit)
+        keys = sorted(
+            {
+                r["source_record_id"]
+                for r in self.rows
+                if r.get("source") == "user_contributed" and not _index_blank(r.get("source_record_id"))
+            }
+        )
+        return [k for k in keys if after is None or k > after][:page_size]
 
     def count(self, label=None) -> int:
         if label:
