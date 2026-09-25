@@ -6,12 +6,17 @@ Lightweight embedding microservice for the Kamerplanter Knowledge API. Produces 
 
 Multiple sentence-transformer models are available as build targets (see ADR-006):
 
-| Model | Purpose | Dimensions | Build Target |
-|-------|---------|------------|--------------|
-| `multilingual-e5-base` | **Primary** — German knowledge base, hybrid search | 768 | `e5-base` (default) |
-| `multilingual-e5-small` | Fallback — resource-constrained environments | 384 | `e5-small` |
-| `multilingual-e5-large` | High-quality — maximum retrieval accuracy | 1024 | `e5-large` |
-| `paraphrase-multilingual-MiniLM-L12-v2` | Legacy baseline | 384 | `minilm` |
+| Model | Purpose | Dimensions | Token window | Build Target |
+|-------|---------|------------|--------------|--------------|
+| `multilingual-e5-base` | **Primary** — German knowledge base, hybrid search | 768 | 512 | `e5-base` (default) |
+| `multilingual-e5-small` | Fallback — resource-constrained environments | 384 | 512 | `e5-small` |
+| `multilingual-e5-large` | High-quality — maximum retrieval accuracy | 1024 | 512 | `e5-large` |
+| `paraphrase-multilingual-MiniLM-L12-v2` | Legacy baseline | 384 | 128 | `minilm` |
+
+The token window is the model's published `max_seq_length`, read at startup from
+`sentence_bert_config.json` in the model directory; each text is truncated there.
+The image fetches that file pinned and sha256-verified with the model — for MiniLM
+from the model authors' repository, because the ONNX export it ships carries none.
 
 ### E5 Prefix Convention
 
