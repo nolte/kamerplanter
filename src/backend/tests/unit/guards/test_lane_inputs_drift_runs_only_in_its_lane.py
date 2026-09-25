@@ -152,3 +152,15 @@ class TestOnlyTheLaneRunsTheRulesAndItRunsNoPullRequestCode:
         assert minting, "the propose job mints no App token — a GITHUB_TOKEN pull request starts no checks"
         for step in minting:
             assert "github.ref == 'refs/heads/develop'" in str(step.get("if", "")), step
+
+    def test_the_bot_never_overwrites_or_deletes_a_branch_carrying_someone_elses_commits(self) -> None:
+        """Review of #1804: the bot PR asks for a hand fix on its branch; the next run must not erase it."""
+        steps = _load(_LANE)["jobs"]["propose"]["steps"]
+        destructive = ("git push --force", "gh pr close")
+        runs = [str(step.get("run", "")) for step in steps if isinstance(step, dict)]
+        acting = [run for run in runs if any(action in run for action in destructive)]
+        assert len(acting) == 2, runs
+        for run in acting:
+            check = run.find('--jq "$FOREIGN_COMMITS"')
+            first_action = min(run.find(action) for action in destructive if action in run)
+            assert 0 <= check < first_action, run

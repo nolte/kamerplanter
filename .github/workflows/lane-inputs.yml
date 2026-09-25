@@ -403,6 +403,12 @@ jobs:
       contents: read
     env:
       BRANCH: bot/lane-inputs-refresh
+      # Review of #1804: a person may push a filter fix onto the bot branch (the
+      # PR body asks for exactly that when the recording alone is not enough).
+      # A commit on the bot pull request by anyone but the App is never
+      # force-pushed over and never deleted with the branch; the run comments
+      # instead. This jq counts those commits.
+      FOREIGN_COMMITS: '[.commits[].authors[].login | select(. != env.BOT_LOGIN)] | length'
       DRIFT: ${{ needs.compare.outputs.drift }}
       GUARD_RECORDED: ${{ needs.guard.outputs.recorded }}
     steps:
@@ -435,11 +441,17 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
           if [ -z "$number" ]; then
             echo "No drift and no open bot pull request — nothing to do."
+            exit 0
+          fi
+          foreign=$(gh pr view "$number" --json commits --jq "$FOREIGN_COMMITS")
+          if [ "$foreign" != "0" ]; then
+            gh pr comment "$number" --body "$RUN_URL found no drift on develop. This branch carries $foreign commit(s) by someone other than the bot, so it is left open — close it by hand if it is no longer needed."
             exit 0
           fi
           gh pr close "$number" --delete-branch --comment "Closed by $RUN_URL: develop's committed manifests agree with a fresh recording, so this refresh is no longer needed."
@@ -467,6 +479,7 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
           APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
           DOWNLOADED: ${{ runner.temp }}/downloaded
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -476,6 +489,15 @@ jobs:
           if git diff --quiet -- .github/lane-inputs; then
             echo "::warning::compare found drift but the recording changes no committed byte — nothing to propose."
             exit 0
+          fi
+          number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            foreign=$(gh pr view "$number" --json commits --jq "$FOREIGN_COMMITS")
+            if [ "$foreign" != "0" ]; then
+              gh pr comment "$number" --body "$RUN_URL recorded again and still finds drift. This branch carries $foreign commit(s) by someone other than the bot, so the new recording is NOT force-pushed over them; it is this run's \`lane-inputs\` artifact. Merge this pull request (or close it), and the next run proposes afresh."
+              echo "::warning::bot pull request #$number carries commits by a person — left untouched."
+              exit 0
+            fi
           fi
           user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
           git config user.name "${APP_SLUG}[bot]"
@@ -492,7 +514,7 @@ jobs:
           if [ "$GUARD_RECORDED" = "success" ]; then
             verdict="The guard is **green** over develop with this recording copied in, so this pull request carries \`automerge\` and merges once the required checks pass."
           else
-            verdict="The guard is **not green** over develop with this recording copied in (outcome: \`${GUARD_RECORDED:-unknown}\`). The recording alone does not restore develop: widen the relevance filter or write the gap down (\`accepted_gaps\` with a reason) on this branch, as the report below names. No \`automerge\` label until then."
+            verdict="The guard is **not green** over develop with this recording copied in (outcome: \`${GUARD_RECORDED:-unknown}\`). The recording alone does not restore develop: widen the relevance filter or write the gap down (\`accepted_gaps\` with a reason) on this branch, as the report below names — a later run leaves a branch with your commits untouched. No \`automerge\` label until then."
           fi
           body_file=$(mktemp)
           {
@@ -517,7 +539,6 @@ jobs:
             echo "Opened and updated by \`.github/workflows/lane-inputs.yml\` (\`propose\`); the next run force-updates this branch or closes this pull request when develop no longer drifts."
           } > "$body_file"
 
-          number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
           if [ -z "$number" ]; then
             gh pr create --base develop --head "$BRANCH" --title "ci(lane-inputs): refresh the recorded manifests" --body-file "$body_file" --label cicd
             number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number')
