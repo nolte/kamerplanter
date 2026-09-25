@@ -16,7 +16,7 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-02 | Unconfirmed accounts | 7 days after creation | Hard-delete | Art. 5(1)(e), purpose lapse |
 | R-03 | IP addresses in sessions | 7 days after storage | Anonymization (IPv4: last octet → `0`) | Art. 5(1)(c) data minimization |
 | R-04 | Consent records | 3 years after revocation | Hard-delete | Art. 7(1) accountability |
-| R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file, set status to `expired` | Purpose lapse |
+| R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file first, then set status to `expired` | Purpose lapse |
 | R-06 | Erasure audit logs | 1 year after completion | Hard-delete | Art. 5(2) accountability |
 | R-07 | Email change requests | 24 hours | Hard-delete expired tokens | Purpose lapse |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
@@ -31,6 +31,16 @@ still be needed for detecting compromised sessions:
 - **IPv6:** Truncated to `/48` prefix — `2001:db8:85a3::8a2e:370:7334` → `2001:db8:85a3::`
 
 The `ip_anonymized_at` field is set to the time of anonymization.
+
+### Export files: the file first, then the status (R-05)
+
+Cleanup of an expired data export runs in a fixed order: the export file is deleted
+from object storage first, and only then does the export switch to the `expired`
+status. If deleting the file fails, the export is left unchanged — the next hourly
+run retries it. Downloads are already refused once the 72-hour window has passed,
+regardless of the stored status. If no object storage is configured on the instance,
+the file cannot be deleted at all: the export is left open, and the run logs an error
+instead of flipping the status anyway.
 
 ---
 
@@ -188,7 +198,8 @@ An AI tip you dismissed stays dismissed for the other members of your garden. On
 the note that you dismissed it is replaced with `_anonymized`.
 
 Accounts that were never confirmed, and that Kamerplanter removes once the period runs
-out, go through the same full deletion as any other account deletion.
+out, go through the same full deletion as any other account deletion — with the same
+erasure request as proof and the same automatic retry if a step fails.
 
 ### What else is deleted
 
@@ -205,9 +216,11 @@ belong only to you and fall under no retention period:
 - your contributed reference-image vectors for plant recognition (curated reference images contributed by other users are unaffected)
 - your contributed pest-recognition vectors — regardless of whether your contribution was still promoted or had already been demoted at the time of deletion
 
-The daily cleanup removes accounts that were never confirmed. It now also removes their
-membership and location assignments. The personal garden of such an account is not yet
-anonymized by that cleanup.
+The daily cleanup deactivates accounts that were never confirmed right away and deletes
+them the same way. It now also removes their membership and location assignments. If a
+step fails, the erasure request is left open and — as described further below —
+automatically retried with backoff instead of being silently dropped. The personal
+garden of such an account is not yet anonymized by that cleanup.
 
 !!! info "What is deliberately left alone"
     Some fields are named "… by" but hold free text someone typed in when recording,
@@ -221,26 +234,34 @@ The log lines of an erasure do not name your account key. They carry the same
 tombstone hash as the erasure audit instead, so the lines of one erasure can be linked
 to each other without naming anyone.
 
-### Both deletion paths do the same
+### All deletion paths do the same
 
 It makes no difference whether a platform admin deletes your account through user
-management or you file an erasure request yourself: both paths run the same erasure. It
-cleans object storage (originals along with their preview images) and the recognition
-base (only your own reference-image and pest-image contributions — curated references
-stay), deletes your other records, anonymizes the ones under a retention
+management, the daily cleanup removes a never-confirmed account, or you file an erasure
+request yourself: all three paths run the same erasure, with the same erasure request as
+proof. It cleans object storage (originals along with their preview images) and the
+recognition base (only your own reference-image and pest-image contributions — curated
+references stay), deletes your other records, anonymizes the ones under a retention
 obligation as described above, and removes your account last. The database part runs as
 one unit: it is either done completely or not at all.
 
-Your own request is carried out by the daily run once the 90 days have passed. After that
-it reads `completed` and carries the tombstone hash instead of your account key. If a run
-fails, the request stays open as `partially_completed` and is retried until it succeeds.
-While a request is open, you cannot file a second one.
+The difference is timing: your own request is carried out by the daily run only once the
+90 days have passed. A deletion by a platform admin or by the cleanup for never-confirmed
+accounts instead runs at once — your account is deactivated and all sessions ended first,
+then the erasure runs without waiting. In all three cases: afterward the request reads
+`completed` and carries the tombstone hash instead of your account key. If a run fails,
+the request stays open as `partially_completed` and is retried automatically with backoff
+until it succeeds (see below). While a request is open, you cannot file a second one; a
+second deletion attempt by a platform admin instead resumes the open request at once.
 
 ??? info "For operators: retries and log levels"
     Every failed attempt is counted on the request (`attempt_count`, `last_attempt_at`),
     and the next attempt waits 1, 2, 4 and then at most 7 days (`next_attempt_at`). The
     request stays selected; until then the daily run skips it with
-    `retention.erasure.deferred` (info level). The object-storage and reference-index
+    `retention.erasure.deferred` (info level). The `origin` field (`self_service`,
+    `platform_admin`, or `unverified_cleanup`) records who triggered the request; attempt
+    counting, backoff, and log levels behave the same for all three. The object-storage
+    and reference-index
     cleanup runs only once per request: once it has finished
     (`pre_arango_completed_at`), a later attempt repeats only the database part.
 

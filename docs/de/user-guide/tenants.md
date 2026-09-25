@@ -212,7 +212,7 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
     Es gibt keine technische Begrenzung. Du kannst beliebig viele Tenants erstellen und beitreten.
 
 ??? question "Was passiert mit meinen Daten, wenn ich einen Tenant lösche?"
-    Alle Ressourcen des Tenants werden gelöscht. Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind davon nicht betroffen.
+    Der Dateispeicher (Fotos, Anhänge) des Tenants, die dazu beigetragenen Erkennungsvektoren, alle Mitgliedschaften, offenen Einladungen und Standort-Zuweisungen werden gelöscht, danach der Tenant-Datensatz selbst. Die fachlichen Datensätze des Tenants — Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben und weitere Standort-gebundene Daten — werden dabei aktuell noch **nicht** gelöscht und bleiben in der Datenbank zurück. <!-- Issue #1769 --> Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind von einer solchen Löschung nicht betroffen.
 
 ??? question "Sehen Tenant-Admins meine persönlichen Zimmerpflanzen?"
     Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn ein Admin im Gemeinschaftsgarten mehr Rechte hat, kann er niemals Daten in deinem persönlichen Tenant sehen.

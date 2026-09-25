@@ -66,6 +66,7 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `423 Locked` | Konto gesperrt | Zu viele fehlgeschlagene Loginversuche |
 | `429 Too Many Requests` | Rate Limit überschritten | Zu viele Anfragen pro Minute |
 | `502 Bad Gateway` | Externe Quelle nicht erreichbar | GBIF/Perenual-Timeout |
+| `503 Service Unavailable` | Feature nicht konfiguriert | Instanz fehlt eine für die Aktion nötige Konfiguration |
 | `500 Internal Server Error` | Interner Fehler | Unerwarteter Serverfehler |
 
 ---
@@ -122,6 +123,14 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `EXTERNAL_SOURCE_ERROR` | 502 | Externer Datendienst (GBIF, Perenual) nicht erreichbar |
 | `ADAPTER_NOT_FOUND` | 404 | Kein Adapter für die angegebene Quelle registriert |
 | `RATE_LIMIT_EXCEEDED` | 429 | Rate Limit des Servers oder eines externen Dienstes überschritten |
+
+### DSGVO- und Löschfehler
+
+| Fehlercode | HTTP | Beschreibung |
+|-----------|------|-------------|
+| `ERASURE_INCOMPLETE` | 500 | Eine sofortige Konto-Löschung (Platform-Admin, Aufräumlauf für nie bestätigte Konten) hat einen Schritt nicht erreicht; der Löschantrag ist gespeichert und wird automatisch wiederholt |
+| `WRITE_CONFLICT` | 409 | Für dieses Konto läuft bereits eine Löschung |
+| `FEATURE_NOT_CONFIGURED` | 503 | Die Instanz ist für Konto-Löschungen nicht korrekt konfiguriert; es wurde nichts geändert |
 
 ---
 

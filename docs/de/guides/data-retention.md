@@ -17,7 +17,7 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-02 | Unbestätigte Accounts | 7 Tage nach Erstellung | Hard-Delete | Art. 5(1)(e), Zweckentfall |
 | R-03 | IP-Adressen in Sessions | 7 Tage nach Speicherung | Anonymisierung (IPv4: letztes Oktett → `0`) | Art. 5(1)(c) Datenminimierung |
 | R-04 | Consent Records | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht |
-| R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei löschen, Status auf `expired` | Zweckentfall |
+| R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
 | R-06 | Löschungs-Audit-Logs | 1 Jahr nach Abschluss | Hard-Delete | Art. 5(2) Rechenschaftspflicht |
 | R-07 | E-Mail-Änderungsanfragen | 24 Stunden | Hard-Delete abgelaufener Tokens | Zweckentfall |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
@@ -32,6 +32,17 @@ für die Erkennung kompromittierter Sessions noch benötigt werden können:
 - **IPv6:** Auf `/48`-Präfix gekürzt — `2001:db8:85a3::8a2e:370:7334` → `2001:db8:85a3::`
 
 Das Feld `ip_anonymized_at` wird auf den Zeitpunkt der Anonymisierung gesetzt.
+
+### Export-Dateien: erst die Datei, dann der Status (R-05)
+
+Beim Ablauf eines Datenexports läuft die Bereinigung in einer festen Reihenfolge: Zuerst
+wird die Export-Datei aus dem Objektspeicher gelöscht, erst danach wechselt der Export auf
+den Status `expired`. Schlägt das Löschen der Datei fehl, bleibt der Export unverändert —
+der nächste stündliche Lauf versucht es erneut. Downloads sind ohnehin schon ab dem
+Ablauf der 72 Stunden gesperrt, unabhängig vom gespeicherten Status. Ist auf der Instanz
+kein Objektspeicher konfiguriert, kann die Datei gar nicht gelöscht werden: Der Export
+bleibt offen, und der Lauf protokolliert einen Fehler statt den Status trotzdem
+umzustellen.
 
 ---
 
@@ -197,7 +208,9 @@ Gartens ausgeblendet. Nur der Vermerk, dass du es warst, wird durch `_anonymized
 ersetzt.
 
 Nie bestätigte Konten, die Kamerplanter nach Ablauf der Frist entfernt, durchlaufen
-dieselbe vollständige Löschung wie jede andere Konto-Löschung.
+dieselbe vollständige Löschung wie jede andere Konto-Löschung — mit demselben
+Löschungs-Antrag als Nachweis und derselben automatischen Wiederholung, falls dabei
+ein Schritt fehlschlägt.
 
 ### Was zusätzlich gelöscht wird
 
@@ -214,9 +227,12 @@ nur dir gehören und keiner Aufbewahrungsfrist unterliegen:
 - deine beigetragenen Referenzbild-Vektoren für die Bilderkennung (kuratierte Referenzen anderer Nutzer bleiben unberührt)
 - deine beigetragenen Schädlingsbild-Vektoren für die Erkennung — unabhängig davon, ob dein Beitrag zum Zeitpunkt der Löschung noch freigegeben oder bereits zurückgenommen war
 
-Ein Konto, das nie bestätigt wurde, entfernt der tägliche Aufräumlauf. Dabei gehen
-jetzt auch die Mitgliedschaft und die Standort-Zuweisungen mit. Der persönliche Garten
-eines solchen Kontos wird dabei noch nicht anonymisiert.
+Ein Konto, das nie bestätigt wurde, deaktiviert der tägliche Aufräumlauf sofort und
+löscht es auf demselben Weg. Dabei gehen jetzt auch die Mitgliedschaft und die
+Standort-Zuweisungen mit. Schlägt dabei ein Schritt fehl, bleibt der Löschantrag offen
+und wird — wie weiter unten beschrieben — automatisch mit Backoff wiederholt, statt
+kommentarlos hängen zu bleiben. Der persönliche Garten eines solchen Kontos wird dabei
+noch nicht anonymisiert.
 
 !!! info "Was bewusst nicht angefasst wird"
     Einige Felder heißen zwar „… von“, enthalten aber Freitext, den jemand beim Erfassen
@@ -230,26 +246,37 @@ Die Protokollzeilen einer Löschung nennen deine Kontokennung nicht. Sie tragen
 stattdessen denselben Tombstone-Hash wie der Löschungs-Audit. So lassen sich die Zeilen
 einer Löschung einander zuordnen, ohne dass sie eine Person nennen.
 
-### Beide Löschwege tun dasselbe
+### Alle Löschwege tun dasselbe
 
 Es spielt keine Rolle, ob ein Platform-Admin dein Konto über die Benutzerverwaltung
-löscht oder ob du selbst einen Löschantrag stellst: Beide Wege führen dieselbe Löschung
-aus. Sie bereinigt Dateispeicher (Originale samt Vorschaubildern) und Erkennungsbasis
-(nur deine eigenen Referenzbild- und Schädlingsbild-Beiträge — kuratierte Referenzen
-bleiben), löscht deine übrigen Datensätze, anonymisiert die
-aufbewahrungspflichtigen wie oben beschrieben und entfernt zuletzt dein Konto. Der
-Datenbankteil läuft in einem Stück: Entweder ist er vollständig erledigt oder gar nicht.
+löscht, der tägliche Aufräumlauf ein nie bestätigtes Konto entfernt, oder ob du selbst
+einen Löschantrag stellst: Alle drei Wege führen dieselbe Löschung aus, mit demselben
+Löschungs-Antrag als Nachweis. Sie bereinigt Dateispeicher (Originale samt
+Vorschaubildern) und Erkennungsbasis (nur deine eigenen Referenzbild- und
+Schädlingsbild-Beiträge — kuratierte Referenzen bleiben), löscht deine übrigen
+Datensätze, anonymisiert die aufbewahrungspflichtigen wie oben beschrieben und entfernt
+zuletzt dein Konto. Der Datenbankteil läuft in einem Stück: Entweder ist er vollständig
+erledigt oder gar nicht.
 
-Deinen eigenen Antrag führt der tägliche Lauf nach Ablauf der 90 Tage aus. Danach steht
-er auf `completed` und trägt statt deiner Kontokennung den Tombstone-Hash. Schlägt ein
-Lauf fehl, bleibt der Antrag als `partially_completed` offen und wird wiederholt, bis er
-gelingt. Solange ein Antrag offen ist, kannst du keinen zweiten stellen.
+Der Unterschied liegt im Zeitpunkt: Deinen eigenen Antrag führt der tägliche Lauf erst
+nach Ablauf der 90-tägigen Frist aus. Eine Löschung durch einen Platform-Admin oder durch
+den Aufräumlauf für nie bestätigte Konten läuft dagegen sofort — dein Konto wird zuerst
+deaktiviert und alle Sitzungen beendet, danach läuft die Löschung ohne Wartezeit. In allen
+drei Fällen gilt: Danach steht der Antrag auf `completed` und trägt statt deiner
+Kontokennung den Tombstone-Hash. Schlägt ein Lauf fehl, bleibt der Antrag als
+`partially_completed` offen und wird automatisch mit Backoff wiederholt, bis er gelingt
+(siehe unten). Solange ein Antrag offen ist, kannst du keinen zweiten stellen; ein
+zweiter Löschversuch durch einen Platform-Admin stößt stattdessen sofort die Fortsetzung
+des offenen Antrags an.
 
 ??? info "Für Betreiber: Wiederholungen und Log-Level"
     Jeder fehlgeschlagene Versuch wird am Antrag gezählt (`attempt_count`,
     `last_attempt_at`), und der nächste Versuch wartet 1, 2, 4 und danach höchstens
     7 Tage (`next_attempt_at`). Der Antrag bleibt dabei ausgewählt; der tägliche Lauf
-    überspringt ihn bis dahin mit `retention.erasure.deferred` (Level info).
+    überspringt ihn bis dahin mit `retention.erasure.deferred` (Level info). Das Feld
+    `origin` (`self_service`, `platform_admin` oder `unverified_cleanup`) hält fest, wer
+    den Antrag ausgelöst hat; Versuchszähler, Backoff und Log-Level verhalten sich für
+    alle drei gleich.
     Dateispeicher- und Referenzindex-Bereinigung laufen pro Antrag nur einmal: Sind sie
     erledigt (`pre_arango_completed_at`), wiederholt ein späterer Versuch nur noch den
     Datenbankteil.
