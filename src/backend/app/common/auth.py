@@ -13,6 +13,7 @@ from app.core.permissions import Action, ResourceType
 from app.domain.engines.full_auth_provider import is_api_key_authorization
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.auth_provider import IAuthProvider
+from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
@@ -87,10 +88,25 @@ def get_refresh_token_from_cookie(
 _ACTIVE_TENANT_DENIED = "You do not have access to the requested tenant."
 
 
+def _key_scope(user: User) -> str | None:
+    """The tenant restriction of the API key *user* authenticated with, if any (#1817).
+
+    Read with ``getattr`` rather than as an attribute because the resolvers are
+    also driven with lightweight principal doubles across the test suite; a
+    double without the field stands for a session caller, which is exactly what
+    ``None`` means. A real :class:`User` always carries the field — the tests in
+    ``tests/unit/common/test_api_key_tenant_scope.py`` build real ones, so a
+    rename of the field turns them red instead of making this read inert.
+    """
+    return getattr(user, "api_key_tenant_scope", None)
+
+
 def _membership_for_slug(
     tenant_service: TenantService,
     user_key: str,
     slug: str,
+    *,
+    key_scope: str | None,
 ) -> tuple[Tenant, Membership]:
     """Resolve a caller-supplied tenant *slug* and prove their active membership in it.
 
@@ -109,18 +125,29 @@ def _membership_for_slug(
     first time one of them is edited (A-11 exists because exactly that drift was
     already shipped: the path surface answered 404, the header surface 403).
 
+    ``key_scope`` is the ``tenant_scope`` of the API key the request
+    authenticated with (``User.api_key_tenant_scope``; ``None`` for a session).
+    Keyword-only and without a default on purpose (#1817): every caller must
+    state the scope it holds, so a new call site cannot silently resolve a
+    tenant on the key owner's memberships alone — the defect this closes, where
+    a key scoped to tenant A acted in any tenant B its owner was a member of.
+
     Raises:
-        ForbiddenError: The slug names a tenant that does not exist, or one the
-            caller holds no *active* membership in — refused with the same
-            :data:`_ACTIVE_TENANT_DENIED` message, so the two cases are one
-            answer. Notably **not** the 404 ``get_tenant_by_slug`` raises: that
-            body named the entity type *and* echoed the probed slug, so it
-            answered "does this tenant exist?" for any authenticated caller.
+        ForbiddenError: The slug names a tenant that does not exist, one the
+            caller holds no *active* membership in, or one the API key's scope
+            does not admit — refused with the same :data:`_ACTIVE_TENANT_DENIED`
+            message, so the cases are one answer. Notably **not** the 404
+            ``get_tenant_by_slug`` raises: that body named the entity type *and*
+            echoed the probed slug, so it answered "does this tenant exist?" for
+            any authenticated caller.
     """
     try:
         tenant = tenant_service.get_tenant_by_slug(slug)
     except NotFoundError as exc:
         raise ForbiddenError(_ACTIVE_TENANT_DENIED) from exc
+
+    if not api_key_scope_admits(key_scope, tenant_key=tenant.key or "", tenant_slug=tenant.slug):
+        raise ForbiddenError(_ACTIVE_TENANT_DENIED)
 
     membership = tenant_service.get_membership(user_key, tenant.key or "") if user_key else None
     if not membership or not membership.is_active:
@@ -149,7 +176,7 @@ def get_current_tenant(
     alone, and the 404 body spelled out the probed slug in both its ``message``
     and its ``details``.
     """
-    tenant, membership = _membership_for_slug(tenant_service, user.key or "", tenant_slug)
+    tenant, membership = _membership_for_slug(tenant_service, user.key or "", tenant_slug, key_scope=_key_scope(user))
 
     return TenantContext(
         tenant_key=tenant.key or "",
@@ -265,6 +292,19 @@ def _resolve_active_tenant(
         if user.account_type == "service":
             return _ActiveTenant(key="", tenant=None, membership=lambda: None)
         personal = tenant_service.get_personal_tenant(user_key)
+        # An API key restricted to one tenant (#1817) keeps the personal fallback
+        # only when that *is* its tenant. The fallback names a tenant without a
+        # slug, so it never passes :func:`_membership_for_slug`; without this a
+        # key scoped to an organisation would read and write its owner's personal
+        # tenant on every header-less call. Narrowed to global scope instead —
+        # the same fail-safe a service account gets above.
+        scope = _key_scope(user)
+        if (
+            scope
+            and personal is not None
+            and not api_key_scope_admits(scope, tenant_key=personal.key or "", tenant_slug=personal.slug)
+        ):
+            return _ActiveTenant(key="", tenant=None, membership=lambda: None)
         key = personal.key if personal and personal.key else ""
         return _ActiveTenant(
             key=key,
@@ -275,7 +315,7 @@ def _resolve_active_tenant(
     # The slug came from an untrusted header, so it takes the same validated route
     # a ``/t/{slug}/`` path segment takes — including the 404→403 conversion that
     # keeps both surfaces free of a tenant-existence oracle.
-    tenant, membership = _membership_for_slug(tenant_service, user_key, slug)
+    tenant, membership = _membership_for_slug(tenant_service, user_key, slug, key_scope=_key_scope(user))
     return _ActiveTenant(key=tenant.key or "", tenant=tenant, membership=lambda: membership)
 
 
