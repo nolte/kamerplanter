@@ -14,14 +14,23 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | Ref | Datenkategorie | Frist | Aktion nach Frist | Rechtsgrundlage |
 |-----|---------------|-------|-------------------|----------------|
 | R-01 | Soft-gelöschte User-Accounts | 90 Tage nach Soft-Delete | Hard-Delete (inkl. Edges, Auth-Provider, Sessions) | Art. 17 DSGVO |
-| R-02 | Unbestätigte Accounts | 7 Tage nach Erstellung | Hard-Delete | Art. 5(1)(e), Zweckentfall |
+| R-02 | Unbestätigte Accounts | 7 Tage nach Erstellung | Hard-Delete (`app.tasks.auth_tasks.cleanup_unverified_accounts`, täglich) | Art. 5(1)(e), Zweckentfall |
 | R-03 | IP-Adressen in Sessions | 7 Tage nach Speicherung | Anonymisierung (IPv4: letztes Oktett → `0`) | Art. 5(1)(c) Datenminimierung |
 | R-04 | Consent Records | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht |
 | R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
-| R-06 | Löschungs-Audit-Logs | 1 Jahr nach Abschluss | Hard-Delete | Art. 5(2) Rechenschaftspflicht |
+| R-06 | Löschungs-Audit (abgeschlossene Anträge) | 1 Jahr nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
 | R-07 | E-Mail-Änderungsanfragen | 24 Stunden | Hard-Delete abgelaufener Tokens | Zweckentfall |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
 | R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | Hard-Delete | Zweckentfall |
+
+### Unbestätigte Accounts (R-02)
+
+Ein Konto, dessen E-Mail-Adresse nie bestätigt wurde, entfernt der tägliche Task
+`app.tasks.auth_tasks.cleanup_unverified_accounts` automatisch — `RETENTION_UNVERIFIED_ACCOUNT_DAYS`
+Tage nach der Registrierung (Standard 7 Tage, Minimum 1 Tag). Der Task führt dafür dieselbe
+vollständige Löschung aus wie ein selbst gestellter Löschantrag, mit demselben Löschungs-Antrag
+als Nachweis und derselben automatischen Wiederholung bei einem fehlgeschlagenen Schritt — mehr
+dazu weiter unten unter „Alle Löschwege tun dasselbe".
 
 ### IP-Anonymisierung (R-03)
 
@@ -43,6 +52,20 @@ Ablauf der 72 Stunden gesperrt, unabhängig vom gespeicherten Status. Ist auf de
 kein Objektspeicher konfiguriert, kann die Datei gar nicht gelöscht werden: Der Export
 bleibt offen, und der Lauf protokolliert einen Fehler statt den Status trotzdem
 umzustellen.
+
+### Löschungs-Audit-Bereinigung (R-06)
+
+Der tägliche Task `retention.purge_expired_erasure_records` (04:30 UTC, nach dem
+Löschungs-Task um 04:00 UTC) entfernt abgeschlossene Löschungs-Anträge
+(`erasure_requests`, `status=completed`), deren `completed_at` mehr als
+`RETENTION_ERASURE_AUDIT_RETENTION_YEARS` Jahre zurückliegt (Standard 1 Jahr, Minimum
+1 Jahr, gezählt in Kalenderjahren). Das gilt unabhängig davon, wer die Löschung
+ausgelöst hat (`origin`: `self_service`, `platform_admin` oder `unverified_cleanup`).
+
+Ein noch offener oder nur teilweise abgeschlossener Antrag (`scheduled`, `in_progress`,
+`partially_completed`) wird nie entfernt — er ist noch einen Lauf schuldig. Ein
+abgeschlossener Antrag ohne `completed_at` bleibt ebenfalls erhalten. Der Lauf
+protokolliert nur die Anzahl der entfernten Anträge, nie eine Konto- oder Antragskennung.
 
 ---
 
@@ -246,6 +269,27 @@ Die Protokollzeilen einer Löschung nennen deine Kontokennung nicht. Sie tragen
 stattdessen denselben Tombstone-Hash wie der Löschungs-Audit. So lassen sich die Zeilen
 einer Löschung einander zuordnen, ohne dass sie eine Person nennen.
 
+??? info "Für Betreiber: das Feld `subject=` in Protokollzeilen"
+    Protokollzeilen auf dem Datenschutz-, Authentifizierungs-, Retention- und
+    Objektspeicher-Pfad tragen ein Feld `subject=` statt einer Kontenkennung oder
+    E-Mail-Adresse. Es enthält denselben gesalzenen Tombstone-Hash (`anon_…`, aus
+    Kontoschlüssel und `ERASURE_TOMBSTONE_SALT`), den auch ein abgeschlossener
+    Löschungs-Antrag trägt — die Zeilen desselben Kontos bleiben so miteinander und mit
+    dem Löschungs-Audit korrelierbar, ohne eine Person zu nennen. Fehlt der Salt oder ist
+    er zu kurz, steht dort stattdessen die Konstante `anon_unavailable` — nie die
+    Kontenkennung im Klartext.
+
+    Registrierungs- und E-Mail-Ereignisse protokollieren zusätzlich Felder wie
+    `email_sha256` — einen SHA-256-Digest der E-Mail-Adresse, keine Adresse im Klartext.
+    Objektspeicher-Log-Zeilen (`storage_put_object`, `storage_delete_object` und
+    ähnliche) maskieren den Kontoschlüssel in Export-Bundle-Pfaden: Aus
+    `privacy/exports/<Kontoschlüssel>/<Export>.json` wird
+    `privacy/exports/<subject>/<Export>.json`.
+
+    Um eine Protokollzeile einem Konto zuzuordnen, muss ein Betreiber den Hash mit
+    demselben Salt selbst nachrechnen — ein Grep nach dem Kontoschlüssel funktioniert
+    nicht.
+
 ### Alle Löschwege tun dasselbe
 
 Es spielt keine Rolle, ob ein Platform-Admin dein Konto über die Benutzerverwaltung
@@ -313,6 +357,25 @@ des offenen Antrags an.
 
 ## Celery-Enforcement: Automatische Durchsetzung
 
+!!! warning "Noch nicht implementiert"
+    Einen zentralen `enforce_retention_policy`-Task, der wie im folgenden Diagramm alle
+    Retention-Regeln in einem gemeinsamen Lauf orchestriert und die darunter gezeigte
+    Log-Zeile und die Prometheus-Metriken erzeugt, gibt es nicht. Diagramm, JSON-Beispiel
+    und Metriktabelle beschreiben ein geplantes Zielbild.
+
+    Tatsächlich läuft jede Regel als eigener Celery-Task mit eigenem Zeitplan:
+
+    - R-01: `retention.execute_scheduled_erasures` (täglich, 04:00 UTC)
+    - R-02: `app.tasks.auth_tasks.cleanup_unverified_accounts` (täglich)
+    - R-03: `app.tasks.auth_tasks.anonymize_old_ips` (täglich)
+    - R-05: `retention.expire_data_exports` (stündlich, Minute 20)
+    - R-06: `retention.purge_expired_erasure_records` (täglich, 04:30 UTC)
+    - R-07: `retention.expire_email_change_requests` (stündlich, Minute 15)
+    - R-11: `app.tasks.auth_tasks.cleanup_expired_tokens` (stündlich)
+    - R-12: `app.tasks.tenant_tasks.cleanup_expired_invitations` (täglich)
+
+    Für R-04 (Consent Records) existiert derzeit kein automatischer Bereinigungs-Task.
+
 Der Celery-Task `enforce_retention_policy` läuft **täglich um 02:00 UTC** und
 orchestriert alle Retention-Sub-Tasks:
 
@@ -358,17 +421,28 @@ Der Retention-Task exponiert folgende Metriken:
 
 ## Konfiguration per Umgebungsvariablen
 
+!!! warning "Noch nicht implementiert"
+    Von den Variablen im folgenden Block liest das Backend heute nur zwei tatsächlich:
+    `RETENTION_UNVERIFIED_ACCOUNT_DAYS` (R-02) und `RETENTION_ERASURE_AUDIT_RETENTION_YEARS`
+    (R-06) — beide mit Minimum `1`, siehe [Umgebungsvariablen](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011).
+    Alle übrigen `RETENTION_*`-Namen in diesem Block sind ein geplantes, einheitliches
+    Namensschema; das Backend liest sie nicht. Die entsprechenden Fristen sind teils schon
+    konfigurierbar, aber unter anderen Namen: R-01 über `PRIVACY_HARD_DELETE_AFTER_DAYS`,
+    R-05 über `PRIVACY_EXPORT_RETENTION_HOURS`, R-07 über `PRIVACY_EMAIL_CHANGE_TTL_HOURS`.
+    Für R-03, R-04, R-12 sowie die Sensordaten- und Mindestfristen-Variablen unten gibt es
+    derzeit keine Umgebungsvariable; die im Code verwendeten Werte sind fest verdrahtet.
+
 Alle Fristen sind über Umgebungsvariablen konfigurierbar. Das Präfix `RETENTION_`
 wird vorausgestellt:
 
 ```bash
 # Personenbezogene Daten
 RETENTION_SOFT_DELETE_RETENTION_DAYS=90      # R-01: Soft-gelöschte Accounts
-RETENTION_UNVERIFIED_ACCOUNT_DAYS=7          # R-02: Unbestätigte Accounts
+RETENTION_UNVERIFIED_ACCOUNT_DAYS=7          # R-02: Unbestätigte Accounts — implementiert
 RETENTION_IP_ANONYMIZATION_DAYS=7            # R-03: IP-Anonymisierung
 RETENTION_CONSENT_RETENTION_YEARS=3          # R-04: Consent Records
 RETENTION_EXPORT_FILE_RETENTION_HOURS=72     # R-05: Export-Dateien
-RETENTION_ERASURE_AUDIT_RETENTION_YEARS=1    # R-06: Audit-Logs
+RETENTION_ERASURE_AUDIT_RETENTION_YEARS=1    # R-06: Audit-Logs — implementiert
 RETENTION_EMAIL_CHANGE_RETENTION_HOURS=24    # R-07: E-Mail-Änderungsanfragen
 RETENTION_INVITATION_RETENTION_DAYS=30       # R-12: Abgelaufene Einladungen
 
