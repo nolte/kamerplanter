@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
-from app.common.log_privacy import log_subject
+from app.common.log_privacy import log_subject, loggable_error, mask_url_paths
 from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
@@ -214,7 +214,9 @@ class NotificationEngine:
                         logger.warning(
                             "batch_channel_failed",
                             channel=channel_key,
-                            error=result.error,
+                            # A channel's detail can carry a push endpoint, whose
+                            # path is the device token (#1796): host only.
+                            error=loggable_error(mask_url_paths(result.error or "")),
                         )
                 except Exception:
                     total_failed += len(notifications)
