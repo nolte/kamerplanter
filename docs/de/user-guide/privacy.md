@@ -291,9 +291,11 @@ Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzl
 !!! note "Reihenfolge der Löschung"
     Die Storage-Bereinigung (Schritt 0) erfolgt vor der Datenbankbereinigung. Nur so kann das System die Metadaten noch abrufen, die für die Zuordnung Datei ↔ Nutzer nötig sind.
 
+Hast du eigene Fotos als [Referenzbild zur Bilderkennung beigetragen](plant-identification.md#foto-der-neuen-pflanze-zuordnen), werden auch diese Beiträge bei der Account-Löschung entfernt: Das System löscht den daraus berechneten Merkmalsvektor aus der Erkennungsbasis. Kuratierte Referenzbilder anderer Nutzer bleiben davon unberührt.
+
 ### Mandantenlöschung
 
-Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder auf Anfrage), werden alle Binärdaten des Mandanten vollständig aus dem Storage entfernt — unabhängig vom verwendeten Backend (local-fs oder S3). Das geschieht durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/`. Das Ergebnis wird im Audit-Log dokumentiert.
+Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder auf Anfrage), werden alle Binärdaten des Mandanten vollständig aus dem Storage entfernt — unabhängig vom verwendeten Backend (local-fs oder S3). Das geschieht durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/`. Ebenso werden alle von Mitgliedern dieses Mandanten beigetragenen Referenzbild-Vektoren aus der Erkennungsbasis entfernt. Das Ergebnis wird im Audit-Log dokumentiert.
 
 ### Datenportabilität (Art. 20 DSGVO)
 

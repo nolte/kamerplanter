@@ -468,8 +468,8 @@ These variables configure optional plant recognition by photo. If none of the AP
 | `PLANTNET_BASE_URL` | `https://my-api.plantnet.org/v2` | No | Pl@ntNet API base URL. Only change for self-hosting or test endpoints. |
 | `PLANT_ID_API_KEY` | — | No | API key for Plant.id (Kindwise) — an additional, purely operator-opt-in cloud adapter (never auto-primary, unlike Pl@ntNet). |
 | `PLANT_ID_BASE_URL` | `https://plant.id/api/v3` | No | Plant.id API base URL. |
-| `INFERENCE_SERVICE_ENABLED` | `false` | No | Enables the self-hosted DINOv2 recognition path (REQ-029-A). For the full setup (VectorDB, reference-index population, activation order) see [Setting Up Plant Identification](../deployment/inference-service.md). |
-| `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | No | Internal URL of the inference service. |
+| `INFERENCE_SERVICE_ENABLED` | `false` | No | Enables the self-hosted DINOv2 recognition path (REQ-029-A). **Must be set identically on the backend AND the celery-worker** once users can contribute their own reference images — the worker runs the scheduled Art. 17 erasure of those contributions (issue #1753); if the variable is missing there, the worker holds due erasures as a configuration error and a tenant deletion answers with HTTP 503. For the full setup (VectorDB, reference-index population, activation order) see [Setting Up Plant Identification](../deployment/inference-service.md). |
+| `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | No | Internal URL of the inference service. Also set identically on the backend and the celery-worker (see above). |
 | `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`, `local_embedding` (DINOv2, once `INFERENCE_SERVICE_ENABLED=true`). |
 | `IDENTIFICATION_HTTP_TIMEOUT` | `60` | No | HTTP timeout (seconds) for the external identification call (Pl@ntNet's upload + server-side ML inference can exceed the previous 30-second default under load). |
 | `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | No | Confidence threshold (0–1) above which a suggestion is highlighted as "very certain". |

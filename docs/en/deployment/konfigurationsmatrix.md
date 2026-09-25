@@ -66,6 +66,7 @@ This overview bundles the boot blockers across all three processes — backend, 
 | `ERASURE_TOMBSTONE_SALT` | Backend | **Always** — regardless of whether GDPR erasure requests are actively used | Must be at least 32 characters long |
 | `TIMESCALEDB_PASSWORD` | Backend | Only when `TIMESCALEDB_ENABLED=true` | Value must no longer be `changeme` |
 | `INTERNAL_SERVICE_TOKEN` | Backend | Only when `KNOWLEDGE_SERVICE_ENABLED=true` **or** `INFERENCE_SERVICE_ENABLED=true` | Must not be empty |
+| `INTERNAL_SERVICE_TOKEN` + `INFERENCE_SERVICE_ENABLED`/`-URL` | Celery Worker | Only when `INFERENCE_SERVICE_ENABLED=true` — **must be identical to the backend's value**, or the worker holds the GDPR erasure of contributed reference images as a configuration error (see the warning below) | Must not be empty |
 | `INTERNAL_SERVICE_TOKEN` | Knowledge Service | Always, whenever the process runs at all (its own gate, independent of the backend gate) | Must not be empty |
 | `VECTORDB_PASSWORD` | Knowledge Service | Always, whenever the process runs at all | Value must no longer be `changeme` |
 | `INTERNAL_SERVICE_TOKEN` | Inference Service | Always, whenever the process runs at all | Must not be empty |
@@ -90,6 +91,9 @@ This overview bundles the boot blockers across all three processes — backend, 
 | Species identity resolution/deduplication <!-- REQ-048 --> | Backend (part of the adapters above) | No dedicated switch — always runs once an identification adapter is active | — | — | No |
 
 Full setup (activation order, populating the reference index): [Setting Up Plant Identification](inference-service.md).
+
+!!! warning "`INFERENCE_SERVICE_ENABLED` also belongs on the celery-worker (GDPR erasure, internal reference: issue #1753)"
+    The row above lists only the `inference-service`/`vectordb` stack itself. Once users contribute their own photos as reference images, `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` must **also carry the same value on the celery-worker** — it runs the scheduled Art. 17 erasure of those contributions. If it is missing there, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503. Details: [Setting Up Plant Identification](inference-service.md).
 
 ---
 

@@ -15,6 +15,7 @@ from app.common.exceptions import NotFoundError, RateLimitError, ValidationError
 from app.domain.models.reference_image import MediaCandidate, ReferenceLicense
 from app.domain.services.reference_image_license import is_acceptable, normalize_license
 from app.domain.services.reference_image_service import ReferenceImageService
+from tests.support.fake_contribution_marker import FakeContributionMarker
 
 # ── License normalisation ──────────────────────────────────────────────
 
@@ -295,6 +296,8 @@ def _make_contribution_service(*, dim: int = 384):
         species_repo=species_repo,
         rate_limiter=rate_limiter,
         identification_engine=engine,
+        # #1753 — the contribution path records the marker before it writes.
+        contribution_marker=FakeContributionMarker(),
     )
     return service, inference, species_repo, rate_limiter, stored
 

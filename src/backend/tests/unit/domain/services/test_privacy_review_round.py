@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.common.exceptions import NotFoundError
+from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
@@ -24,6 +25,8 @@ USER = "u-1"
 
 def _service(**overrides) -> PrivacyService:
     deps = {
+        # #1753 — every erasure path needs a wired reference-index store.
+        "reference_index_store": NoopReferenceIndexStore(),
         "export_repo": MagicMock(),
         "consent_repo": MagicMock(),
         "restriction_repo": MagicMock(),

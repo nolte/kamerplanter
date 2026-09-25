@@ -2,10 +2,14 @@
 
 When a gallery photo is uploaded to a plant instance with a **known species**,
 this task may contribute the photo as an additional ``user_contributed``
-reference for the self-hosted DINOv2 recognition index (REQ-029-A). It is built
-now but stays a **full no-op until Phase 2** of the recognition feature: the
-default :class:`NoopReferenceIndexStore` never computes an embedding and never
-persists anything, and ``inference_service_enabled`` defaults to ``False``.
+reference for the self-hosted DINOv2 recognition index (REQ-029-A). The index
+exists — it is the inference-service's pgvector ``species_embeddings`` table,
+which the interactive contribution route writes to — but **this hook's write
+path is not activated**: no reference-index binding stores anything from
+:meth:`add_user_contribution` (the no-op store where the inference-service is
+off, and the inference-service store, whose hook methods stay inert — it
+exists for the GDPR erasure, #1753). ``inference_service_enabled`` also
+defaults to ``False``, so Guard 1 short-circuits first on most deployments.
 
 Hard guards (REQ-034 §4.1 — ALL must pass, otherwise a clean no-op / abort):
 
@@ -52,7 +56,7 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
     Returns a structured outcome (``status`` ∈ no-op / abort / stored) for the
     Celery result and the audit log. Never raises on a routine guard failure.
     """
-    # Guard 1 — inference disabled (Phase 1 default) ⇒ complete no-op (AC-10).
+    # Guard 1 — inference disabled (the default) ⇒ complete no-op (AC-10).
     if not settings.inference_service_enabled:
         return {"status": "noop", "reason": "inference_service_disabled"}
 
@@ -97,7 +101,7 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
         contributed_by=user_key,
     )
     if not stored:
-        # Store is the no-op binding (physical index absent) — Phase-1 no-op.
+        # No binding activates the hook's write path yet (see module docstring).
         return {"status": "noop", "reason": "reference_store_noop"}
     return {"status": "stored", "species_key": plant.species_key}
 

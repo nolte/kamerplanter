@@ -6,6 +6,7 @@ it over HTTP only (REQ-029-A 3.1, plan D-3).
 """
 
 import json
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,12 +22,15 @@ from app.observability.error_tracking import init_error_tracking, resolve_releas
 from app.phenotype_engine import PhenotypeEngine, PhenotypeUnavailableError
 from app.schemas import (
     BatchEmbedResponse,
+    DeleteContributionsResponse,
     DeleteReferenceResponse,
     DiseaseClassificationItem,
     DiseaseClassifyResponse,
     DiseaseModelMeta,
     DiseaseStatusResponse,
     EmbedResponse,
+    EraseContributorContributionsRequest,
+    EraseTenantContributionsRequest,
     HealthResponse,
     MatchResponse,
     MatchSuggestion,
@@ -501,6 +505,64 @@ def set_reference_active(
         id=embedding_id,
         is_active=body.is_active,
     )
+
+
+# -- GDPR erasure of user contributions (REQ-025 AK-OS-05, issue #1753) -----
+#
+# POST with a JSON body, not DELETE with the key in the path: the path is
+# written to uvicorn's access log here and to httpx's request log in the
+# backend, and neither may carry a user or tenant key (#1700). Both routes run
+# behind the app-level ``require_service_token`` dependency like every
+# non-probe route. Their two-segment paths do not collide with
+# ``PATCH /reference/{species_key}/{embedding_id}``: a POST only matches these.
+
+
+def _erase_contributions(action: Callable[..., int], **keys: str | None) -> DeleteContributionsResponse:
+    """Run one erasure delete; a blank key is the caller's error (422), not a no-op.
+
+    The repository's message names the field, never its value.
+    """
+    try:
+        deleted = action(**keys)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return DeleteContributionsResponse(status="ok", deleted=deleted)
+
+
+@app.post(
+    "/reference/contributions/erase-by-contributor",
+    response_model=DeleteContributionsResponse,
+)
+def erase_user_contributions(body: EraseContributorContributionsRequest) -> DeleteContributionsResponse:
+    """Delete one user's contributed reference embeddings (Art. 17 erasure, Phase 0.5).
+
+    Only rows with ``source = 'user_contributed'`` are reached; curated
+    references stay whoever they name. ``tenant_key`` narrows the delete to one
+    tenant; ``null`` reaches every tenant. A missing or blank contributor, or a
+    blank ``tenant_key``, is refused with 422.
+    """
+    repo = _require_repo()
+    if body.contributed_by is None:
+        raise HTTPException(status_code=422, detail="contributed_by is required")
+    return _erase_contributions(
+        repo.delete_user_contributions, contributed_by=body.contributed_by, tenant_key=body.tenant_key
+    )
+
+
+@app.post(
+    "/reference/contributions/erase-by-tenant",
+    response_model=DeleteContributionsResponse,
+)
+def erase_tenant_contributions(body: EraseTenantContributionsRequest) -> DeleteContributionsResponse:
+    """Delete every contributed reference embedding of a tenant (REQ-024 tenant deletion).
+
+    Only rows with ``source = 'user_contributed'`` are reached. A missing or
+    blank tenant key is refused with 422.
+    """
+    repo = _require_repo()
+    if body.tenant_key is None:
+        raise HTTPException(status_code=422, detail="tenant_key is required")
+    return _erase_contributions(repo.delete_tenant_contributions, tenant_key=body.tenant_key)
 
 
 @app.delete("/reference/{species_key}", response_model=DeleteReferenceResponse)

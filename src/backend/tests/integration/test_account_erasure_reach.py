@@ -45,6 +45,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
+from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.models.privacy import ErasurePlan
 from app.domain.services.privacy_service import PrivacyService
@@ -235,6 +236,8 @@ def _services(database) -> tuple[PrivacyService, UserService]:
         frontend_url="http://localhost",
         membership_repo=ArangoMembershipRepository(database),
         pest_image_repo=ArangoPestImageRepository(database),
+        # #1753 — Phase 0.5 needs a wired store; no contribution is on record here.
+        reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=ArangoErasureExecutor(database),
         tombstone_salt=SALT,
     )

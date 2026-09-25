@@ -219,10 +219,10 @@ As an alternative to Pl@ntNet, image recognition can run **entirely on your own 
 
 1. Start the service: `task dev:all` (or `task dev:recognition` alongside the running KI stack)
 2. Populate the reference index: `task recognition:acquire` (fetches license-clean reference images from GBIF/Wikimedia and indexes them)
-3. Enable it: backend environment variable `INFERENCE_SERVICE_ENABLED=true`
+3. Enable it: environment variable `INFERENCE_SERVICE_ENABLED=true` on both the backend **and** the celery-worker
 
 !!! warning "Mind the order"
-    Before the index is populated, local recognition returns no matches. Only set `INFERENCE_SERVICE_ENABLED=true` after the acquisition run — details on the [deployment page](../deployment/inference-service.md).
+    Before the index is populated, local recognition returns no matches. Only set `INFERENCE_SERVICE_ENABLED=true` after the acquisition run — details on the [deployment page](../deployment/inference-service.md). Set the variable on **both** processes: the celery-worker runs the scheduled GDPR erasure of contributed reference images and needs the same access as the backend.
 
 ---
 

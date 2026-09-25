@@ -250,3 +250,16 @@ def test_the_seed_sql_takes_subject_and_tenant_as_psql_variables_not_text(vector
     sql = vectordb.SEED_SQL
     assert ":'subject'" in sql and ":'tenant_key'" in sql
     assert "reach-subject" not in sql
+
+
+def test_the_backend_override_wires_the_api_and_the_worker_identically(vectordb):
+    """#1753 — the scheduled erasure runs in the worker; it must see the same binding as the API."""
+    import yaml
+
+    services = yaml.safe_load(vectordb.backend_override())["services"]
+    assert set(services) == {"backend-full", "celery-worker-full"}
+    envs = [services[name]["environment"] for name in sorted(services)]
+    assert envs[0] == envs[1]
+    assert envs[0]["INFERENCE_SERVICE_ENABLED"] == "true"
+    assert envs[0]["INFERENCE_SERVICE_URL"] == f"http://{vectordb.INFERENCE_ALIAS}:8000"
+    assert envs[0]["INTERNAL_SERVICE_TOKEN"] == vectordb.SERVICE_TOKEN

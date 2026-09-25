@@ -177,14 +177,16 @@ class TestErasureLogsNameNobody:
         assert _leaks(logs) == []
 
     async def test_skipped_phases_log_no_plaintext_key(self, tmp_path: Path) -> None:
-        service = _service(tmp_path, storage_adapter=None, reference_index_store=None)
+        service = _service(tmp_path, storage_adapter=None)
 
         with structlog.testing.capture_logs() as logs:
             await service.erase_account(USER_KEY)
 
+        # An unwired reference-index store is refused, not skipped (#1753
+        # SEC-002); the no-op binding logs its own line instead.
         assert {
             "retention.erasure.export_file_cleanup_skipped",
             "retention.erasure.storage_cleanup_skipped",
-            "retention.erasure.reference_index_cleanup_skipped",
+            "reference_index_cleanup_noop",
         } <= {event.get("event") for event in logs}
         assert _leaks(logs) == []

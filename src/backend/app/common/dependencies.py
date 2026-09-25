@@ -72,6 +72,7 @@ from app.domain.interfaces.device_pairing_store import IDevicePairingCodeStore
 from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottleStore
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -1923,6 +1924,7 @@ def get_reference_image_service():
         species_repo=get_species_repo(),
         rate_limiter=IdentificationRateLimiter(_get_redis_client()),
         identification_engine=identification_engine,
+        contribution_marker=get_system_settings_repo(),
     )
 
 
@@ -1945,18 +1947,43 @@ def get_attachment_service():
     )
 
 
-def get_reference_index_store():
-    """REQ-025 Phase 0.5 / REQ-029-A — DINOv2 reference-index store.
+def get_reference_index_store() -> IReferenceIndexStore:
+    """REQ-025 Phase 0.5 / REQ-024 / REQ-029-A — the DINOv2 reference-index store.
 
-    Returns the no-op store until the physical pgvector ``species_embeddings``
-    index ships (DINOv2 Phase 2). Swap the binding here once the real store
-    exists — the erasure pipeline and engine rules need no change.
+    Binds the store that reaches the index the product writes to (issue #1753):
+
+    * ``settings.inference_service_enabled`` set →
+      :class:`InferenceServiceReferenceIndexStore` (``binding =
+      "inference_service"``): the erasure and the tenant deletion delete the
+      ``user_contributed`` rows through the inference-service and fail loud
+      when they cannot.
+    * unset → :class:`NoopReferenceIndexStore` (``binding = "noop"``) with the
+      persisted contribution marker wired in.
+
+    The flag is read **per process**. A contribution is written only by
+    ``POST /t/{slug}/identification/reference``, which refuses without the flag
+    (``app/api/v1/recognition/tenant_router.py``, ``contribute_reference``), so
+    the backend process that accepted one has it. But the scheduled Art. 17
+    erasure runs in the celery-worker, whose environment is configured
+    separately, and a flag can be switched off after contributions were
+    written. The no-op binding therefore does not decide alone: it reads the
+    marker the contribution path records before its upsert, and refuses — the
+    erasure stays open, the tenant deletion is refused — while contributions
+    are on record (GDPR-001/002).
     """
+    if settings.inference_service_enabled:
+        from app.data_access.external.inference_service_client import InferenceServiceClient
+        from app.data_access.vectordb.inference_reference_index_store import (
+            InferenceServiceReferenceIndexStore,
+        )
+
+        return InferenceServiceReferenceIndexStore(InferenceServiceClient(settings.inference_service_url))
+
     from app.data_access.vectordb.noop_reference_index_store import (
         NoopReferenceIndexStore,
     )
 
-    return NoopReferenceIndexStore()
+    return NoopReferenceIndexStore(marker=get_system_settings_repo())
 
 
 def get_object_storage() -> IObjectStorageAdapter:

@@ -55,6 +55,32 @@ class DeleteReferenceResponse(BaseModel):
     deleted: int
 
 
+class EraseContributorContributionsRequest(BaseModel):
+    """Body of ``POST /reference/contributions/erase-by-contributor`` (#1753).
+
+    The keys travel in the body, never in the path: a path lands in the access
+    log of every hop (uvicorn here, httpx in the backend). Both fields are
+    optional *types* so that a missing or blank value is refused by the handler
+    with a message that does not echo the body.
+    """
+
+    contributed_by: str | None = None
+    tenant_key: str | None = None
+
+
+class EraseTenantContributionsRequest(BaseModel):
+    """Body of ``POST /reference/contributions/erase-by-tenant`` (#1753)."""
+
+    tenant_key: str | None = None
+
+
+class DeleteContributionsResponse(BaseModel):
+    """Result of erasing user-contributed reference embeddings (REQ-025 AK-OS-05)."""
+
+    status: str
+    deleted: int
+
+
 class ReferenceImageItem(BaseModel):
     """Provenance of one stored reference image (no embedding).
 

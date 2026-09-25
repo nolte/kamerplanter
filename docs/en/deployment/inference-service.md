@@ -115,15 +115,19 @@ All three endpoints require a valid admin token (`Authorization: Bearer <admin-t
 
 ### Step 3: Enable the Local Path
 
-Set the environment variable in the backend:
+Set the environment variable **on both the backend AND the celery-worker**:
 
 ```bash
-# Backend env (values-dev.yaml) or environment variable:
+# Backend env AND celery-worker env (values-dev.yaml) or environment variable:
 INFERENCE_SERVICE_ENABLED=true
+INFERENCE_SERVICE_URL=http://kamerplanter-recognition:8000
 ```
 
 !!! danger "Only enable once the index is populated"
     If `INFERENCE_SERVICE_ENABLED=true` is set and the reference index is empty, the system falls back to Pl@ntNet — but **only if a Pl@ntNet key is configured and consent has been granted**. If neither is the case, identification returns no results.
+
+!!! warning "Both processes need the same configuration (GDPR erasure, internal reference: issue #1753)"
+    Users can contribute their own photos as reference images to the recognition base (see [Assigning the Photo to the New Plant](../user-guide/plant-identification.md#assigning-the-photo-to-the-new-plant)). The scheduled Art. 17 erasure of these contributed reference vectors runs **in the celery-worker**, not the backend. If `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` is set only on the backend, the worker holds due erasures as a configuration error (`partially_completed`, no attempt spent), and a tenant deletion answers with HTTP 503. Once a contribution has been written, it is recorded permanently — switching the variable off after that first contribution therefore holds every future erasure until it is set again on both processes.
 
 ---
 
@@ -174,6 +178,12 @@ controllers:
         env:
           INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-inference-service:8000"
+  celery-worker:
+    containers:
+      main:
+        env:
+          INFERENCE_SERVICE_ENABLED: "true"
+          INFERENCE_SERVICE_URL: "http://kamerplanter-inference-service:8000"
 service:
   vectordb:
     enabled: true
@@ -188,6 +198,9 @@ networkpolicies:
   inference-service:
     enabled: true
 ```
+
+!!! warning "`INFERENCE_SERVICE_ENABLED`/`-URL` belongs on BOTH controllers"
+    The backend writes user contributions to the reference index; the celery-worker runs the scheduled Art. 17 erasure of those contributions (issue #1753) — both controllers therefore need the same value. If the `celery-worker` is missing this configuration, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503 while contributions are already on the index.
 
 Resources and security context (chart defaults — do not override unless necessary):
 
@@ -208,7 +221,7 @@ In-cluster service hostnames (release name `kamerplanter`):
 
 1. Deploy the ArgoCD Application with the `valuesObject` fields shown above (without `INFERENCE_SERVICE_ENABLED: "true"`). Wait until `kamerplanter-vectordb` and `kamerplanter-inference-service` are `Ready`.
 2. Populate the reference index (identical to Step 2 in the development path above — the `kubectl exec` target is `deploy/kamerplanter-backend`).
-3. Add `INFERENCE_SERVICE_ENABLED: "true"` to the `valuesObject` and synchronise the Application.
+3. Add `INFERENCE_SERVICE_ENABLED: "true"` (and `INFERENCE_SERVICE_URL`) **under both `controllers.backend` and `controllers.celery-worker`** in the `valuesObject` and synchronise the Application.
 
 ### Resource Requirements
 
@@ -235,11 +248,11 @@ In-cluster service hostnames (release name `kamerplanter`):
 | `CONFIDENCE_AUTO_ACCEPT` | No | `0.85` | Confidence threshold for direct acceptance |
 | `CONFIDENCE_SHOW_RESULTS` | No | `0.10` | Minimum confidence to appear in the list |
 
-| Variable (Backend) | Required | Default | Description |
+| Variable (Backend AND Celery-Worker) | Required | Default | Description |
 |--------------------|:--------:|---------|-------------|
-| `INFERENCE_SERVICE_ENABLED` | No | `false` | Enable the local inference path |
-| `INFERENCE_SERVICE_URL` | No | `http://kamerplanter-recognition:8000` | Internal URL of the inference service |
-| `PLANTNET_API_KEY` | No | — | Pl@ntNet API key for fallback (optional) |
+| `INFERENCE_SERVICE_ENABLED` | No | `false` | Enable the local inference path. **Must be set identically on the backend and the celery-worker** — the worker runs the scheduled GDPR erasure of contributed reference vectors (issue #1753) and needs the same access as the backend that writes them. |
+| `INFERENCE_SERVICE_URL` | No | `http://kamerplanter-recognition:8000` | Internal URL of the inference service. Also set identically on both processes. |
+| `PLANTNET_API_KEY` | No | — | Pl@ntNet API key for fallback (optional, backend only) |
 
 ---
 
@@ -255,9 +268,13 @@ These endpoints are only reachable within the cluster and are not exposed via th
 | `POST` | `/reference` | Store embedding + provenance in pgvector |
 | `GET` | `/reference/{species_key}` | Retrieve the indexed references for a species |
 | `DELETE` | `/reference/{species_key}` | Delete references for a species (re-index) |
+| `POST` | `/reference/contributions/erase-by-contributor` | GDPR erasure (Art. 17): removes every reference vector contributed by the named user (`source = user_contributed`), optionally scoped to one tenant. Curated references are untouched. Called by the celery-worker. |
+| `POST` | `/reference/contributions/erase-by-tenant` | Tenant deletion: removes every reference vector contributed by a tenant (`source = user_contributed`). Called by the backend during tenant deletion. |
 | `GET` | `/health` | Liveness probe |
 | `GET` | `/ready` | Readiness probe (model loaded?) |
 | `GET` | `/modelinfo` | Model name, dimensions, input size, licence, checksum |
+
+Like every non-probe endpoint, the two erasure endpoints require the shared `INTERNAL_SERVICE_TOKEN` (`Authorization: Bearer <token>`) — without a valid token they answer `401`. A blank key in the request body is rejected with `422` (the response names only the affected field, never the value).
 
 ---
 
@@ -289,6 +306,9 @@ These endpoints are only reachable within the cluster and are not exposed via th
 
 ??? question "How do I update the reference index for a single species?"
     Use the admin endpoint `POST /api/v1/admin/reference-images/acquire/{species_key}` — it triggers the `acquire_reference_images_task` Celery task for that species internally.
+
+??? question "An account or tenant deletion is stuck even though INFERENCE_SERVICE_ENABLED is set"
+    Check whether the variable is set identically on **both** processes: backend AND celery-worker. A deletion affected by contributed reference vectors stays open as a configuration error (`partially_completed`), or a tenant deletion answers with HTTP 503, as long as the celery-worker is missing the variable (issue #1753). Once you add it, the deletion runs automatically on the next daily run.
 
 ---
 

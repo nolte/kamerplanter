@@ -260,7 +260,7 @@ valkey:
 | `JWT_SECRET_KEY` | Ja | — | JWT-Signierschlüssel, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn der Chart-interne Default unverändert bleibt. |
 | `FERNET_KEY` | Ja | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn leer. |
 | `ERASURE_TOMBSTONE_SALT` | Ja | — | DSGVO-Pseudonymisierungs-Salt (≥ 32 Zeichen), aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn leer oder zu kurz. |
-| `INTERNAL_SERVICE_TOKEN` | Bedingt | — | Nur Pflicht, sobald `KNOWLEDGE_SERVICE_ENABLED=true` oder `INFERENCE_SERVICE_ENABLED=true` gesetzt ist, ebenfalls aus `kamerplanter-secrets`. |
+| `INTERNAL_SERVICE_TOKEN` | Bedingt | — | Nur Pflicht, sobald `KNOWLEDGE_SERVICE_ENABLED=true` oder `INFERENCE_SERVICE_ENABLED=true` gesetzt ist, ebenfalls aus `kamerplanter-secrets`. Bei `INFERENCE_SERVICE_ENABLED` gilt dieselbe Pflicht **auch für den Celery-Worker-Controller** — er führt die planmäßige DSGVO-Löschung beigetragener Referenzbilder aus und braucht denselben Zugang wie das Backend, das sie schreibt (siehe [Bilderkennung in Betrieb nehmen](inference-service.md)). |
 | `REDIS_URL` | Ja | — | Valkey/Redis-Verbindungs-URL |
 | `CORS_ORIGINS` | Ja | — | Erlaubte Origins als JSON-Array |
 | `DEBUG` | Nein | `false` | Debug-Modus aktivieren. Deaktiviert bei `true` zusätzlich den Boot-Blocker der fünf Zeilen oben — **niemals** in Produktion setzen. |

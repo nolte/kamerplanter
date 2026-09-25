@@ -7,21 +7,26 @@ reference contributions land there with ``source = 'user_contributed'``,
 ``contributed_by`` and ``tenant_key`` (``SpeciesEmbeddingRepository.upsert_reference``),
 and REQ-025 Phase 0.5 is the erasure step that has to remove them.
 
-The reach stack's backend is **not** wired to this store, and cannot be: Phase
-0.5 calls ``get_reference_index_store()`` (``app/common/dependencies.py``), which
-returns ``NoopReferenceIndexStore`` unconditionally — there is no setting, URL or
-binding that would point it at a database. So this helper does not plug the
-store into the backend; it stands up the store the product writes contributions
-into, so that the observation after an erasure shows what the erasure did to it
-(``observe_reference_index.py``). Wiring the backend is the product's change to
-make, not the environment's.
+Since #1753 the reach stack is wired to that store the way a deployment is.
+``up`` runs the store and the product's inference-service (built from
+``src/inference-service`` with its own Dockerfile) on the compose project's
+network, lets the inference-service apply its migrations as it does in a
+cluster, and recreates ``backend-full`` and ``celery-worker-full`` with
+``INFERENCE_SERVICE_ENABLED``, ``INFERENCE_SERVICE_URL`` and the shared
+``INTERNAL_SERVICE_TOKEN`` (an extra compose file under ``.reach/``). Phase 0.5
+of the erasure therefore binds ``InferenceServiceReferenceIndexStore`` in the
+worker and deletes through the service's erase endpoint; the observation after
+the erasure shows what that did to the rows (``observe_reference_index.py``).
+Before #1753 there was nothing to wire: ``get_reference_index_store()``
+returned ``NoopReferenceIndexStore`` unconditionally.
 
-``up`` builds ``docker/vectordb`` (PostgreSQL 18 + pgvector) from this working
-copy, runs it, waits — bounded — until the server accepts TCP connections (the
-image's init phase runs a socket-only server first), applies the
-inference-service's migrations in order with ``ON_ERROR_STOP``, and records
-``.reach/vectordb.json``. No port is published: every access goes through
-``docker exec … psql`` over the container's own socket.
+``up`` builds ``docker/vectordb`` (PostgreSQL 18 + pgvector) and the
+inference-service image from this working copy, waits — bounded — until the
+store accepts TCP connections, the inference-service answers ``/health`` and
+its migrations created ``species_embeddings``, then recreates the two backend
+services and waits for the API. It records ``.reach/vectordb.json``. No port is
+published: the helpers reach the store through ``docker exec … psql`` over the
+container's own socket.
 
 ``seed --subject`` inserts two rows: the subject's contribution, with the
 column set ``upsert_reference`` writes (``is_active = false``: contributions are
@@ -30,7 +35,9 @@ quarantined until an admin activates them), and one curated control row
 subject and its tenant go in as psql variables, never as SQL text. The row ids
 are recorded in ``.reach/subjects/<subject>.embeddings.json``.
 
-``down`` removes the container with its anonymous data volume and the record.
+``down`` removes both containers (the store with its anonymous data volume),
+the compose override and the record. The recreated backend services are removed
+with the rest of the stack by ``reach:stack:down``.
 Like every reach environment step, a failure exits non-zero and the runner
 reports the probe *not probed*.
 """
@@ -49,14 +56,22 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _reach_common import (  # noqa: E402 — sibling import after the path insert
+    BACKEND_SERVICE,
+    COMPOSE_FILES,
+    COMPOSE_PROFILE,
     DEFAULT_SUBJECT,
+    WORKER_SERVICE,
     ReachError,
+    http_json,
     log,
     project_name,
     reach_dir,
+    read_stack,
     read_subject,
     repo_root,
     run,
+    stack_file,
+    wait_until,
 )
 
 DATABASE = "kamerplanter_vectors_reach"
@@ -64,10 +79,18 @@ USER = "postgres"
 #: Test-only value for this throw-away container; nothing outside it uses it.
 PASSWORD = "reach-test-password"
 DIMENSIONS = 384
-#: A cold build compiles pgvector from source.
-BUILD_TIMEOUT_SECONDS = 1200
-READY_TIMEOUT_SECONDS = 120
+#: A cold build compiles pgvector from source; the inference-service image
+#: exports the DINOv2 ONNX model in its build.
+BUILD_TIMEOUT_SECONDS = 1800
+READY_TIMEOUT_SECONDS = 180
 PSQL_TIMEOUT_SECONDS = 60
+#: Network aliases on the compose project's network.
+VECTORDB_ALIAS = "reach-vectordb"
+INFERENCE_ALIAS = "reach-inference"
+#: Test-only shared secret between the backend services and the inference-service.
+SERVICE_TOKEN = "reach-internal-service-token-not-for-production"
+#: The backend runs the full-mode seed again when it is recreated.
+BACKEND_RECREATE_TIMEOUT_SECONDS = 840
 
 #: The columns ``SpeciesEmbeddingRepository.upsert_reference`` inserts, in its order.
 CONTRIBUTION_COLUMNS = (
@@ -120,6 +143,38 @@ def _names() -> tuple[str, str]:
     return name, f"{name}:local"
 
 
+def _inference_names() -> tuple[str, str]:
+    name = f"{project_name()}-inference"
+    return name, f"{name}:local"
+
+
+def _network() -> str:
+    """The compose project's default network, which the backend services are on."""
+    return f"{project_name()}_default"
+
+
+def override_file() -> Path:
+    return reach_dir() / "inference.override.yml"
+
+
+def backend_override() -> str:
+    """Compose override wiring the API and the worker to the reach inference-service (pure; unit-tested).
+
+    Both services get the same three values: the scheduled Art. 17 erasure runs
+    in the worker, the contribution route in the API (#1753).
+    """
+    lines = ["services:"]
+    for service in (BACKEND_SERVICE, WORKER_SERVICE):
+        lines += [
+            f"  {service}:",
+            "    environment:",
+            '      INFERENCE_SERVICE_ENABLED: "true"',
+            f'      INFERENCE_SERVICE_URL: "http://{INFERENCE_ALIAS}:8000"',
+            f'      INTERNAL_SERVICE_TOKEN: "{SERVICE_TOKEN}"',
+        ]
+    return "\n".join(lines) + "\n"
+
+
 def record_file() -> Path:
     return reach_dir() / "vectordb.json"
 
@@ -145,46 +200,114 @@ def psql(record: dict[str, Any], sql: str, variables: dict[str, str] | None = No
     return result.stdout.decode("utf-8")
 
 
+def _wait(what: str, check: list[str], timeout: float = READY_TIMEOUT_SECONDS) -> None:
+    deadline = time.monotonic() + timeout
+    while run(check, timeout=30, check=False).returncode != 0:
+        if time.monotonic() > deadline:
+            raise ReachError(f"{what} within {timeout:.0f}s")
+        time.sleep(2)
+
+
 def up() -> None:
     container, image = _names()
+    inference, inference_image = _inference_names()
+    network = _network()
     reach_dir().mkdir(parents=True, exist_ok=True)
+    if run(["docker", "network", "inspect", network], timeout=30, check=False).returncode != 0:
+        raise ReachError(f"network {network} is missing; run `task reach:stack:up` first")
+
     log(f"building docker/vectordb as {image}")
     run(["docker", "build", "-t", image, str(repo_root() / "docker" / "vectordb")], timeout=BUILD_TIMEOUT_SECONDS)
-    run(["docker", "rm", "-f", "-v", container], timeout=60, check=False)
+    log(f"building src/inference-service as {inference_image}")
+    run(
+        ["docker", "build", "-t", inference_image, str(repo_root() / "src" / "inference-service")],
+        timeout=BUILD_TIMEOUT_SECONDS,
+    )
+
+    run(["docker", "rm", "-f", "-v", inference, container], timeout=60, check=False)
     run(
         [
-            "docker",
-            "run",
-            "-d",
-            "--name",
-            container,
-            "-e",
-            f"POSTGRES_PASSWORD={PASSWORD}",
-            "-e",
-            f"POSTGRES_USER={USER}",
-            "-e",
-            f"POSTGRES_DB={DATABASE}",
+            "docker", "run", "-d", "--name", container,
+            "--network", network, "--network-alias", VECTORDB_ALIAS,
+            "-e", f"POSTGRES_PASSWORD={PASSWORD}",
+            "-e", f"POSTGRES_USER={USER}",
+            "-e", f"POSTGRES_DB={DATABASE}",
             image,
         ],
         timeout=120,
-    )
+    )  # fmt: skip
     # The entrypoint's init phase runs a server on the socket only; TCP answers
     # once the real server is up, so readiness is asked over 127.0.0.1.
-    ready = ["docker", "exec", container, "pg_isready", "-h", "127.0.0.1", "-U", USER, "-d", DATABASE]
-    deadline = time.monotonic() + READY_TIMEOUT_SECONDS
-    while run(ready, timeout=30, check=False).returncode != 0:
-        if time.monotonic() > deadline:
-            raise ReachError(f"{container} did not accept connections within {READY_TIMEOUT_SECONDS}s")
-        time.sleep(2)
-    record = {"container": container, "database": DATABASE, "user": USER}
-    migrations = sorted((repo_root() / "src" / "inference-service" / "app" / "vectordb" / "migrations").glob("*.sql"))
-    if not migrations:
-        raise ReachError("no inference-service vectordb migrations found")
-    for migration in migrations:
-        psql(record, migration.read_text(encoding="utf-8"))
-        log(f"applied {migration.name}")
+    _wait(
+        f"{container} did not accept connections",
+        ["docker", "exec", container, "pg_isready", "-h", "127.0.0.1", "-U", USER, "-d", DATABASE],
+    )
+
+    run(
+        [
+            "docker", "run", "-d", "--name", inference,
+            "--network", network, "--network-alias", INFERENCE_ALIAS,
+            "-e", f"VECTORDB_HOST={VECTORDB_ALIAS}",
+            "-e", f"VECTORDB_DATABASE={DATABASE}",
+            "-e", f"VECTORDB_USERNAME={USER}",
+            "-e", f"VECTORDB_PASSWORD={PASSWORD}",
+            "-e", f"INTERNAL_SERVICE_TOKEN={SERVICE_TOKEN}",
+            inference_image,
+        ],
+        timeout=120,
+    )  # fmt: skip
+    # /health answers once the lifespan ran — after the store connection and the
+    # service's own migrations, which is what the probe needs; the model load
+    # (non-blocking) is irrelevant to the erase endpoints.
+    health = "import sys,urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+    _wait(f"{inference} did not answer /health", ["docker", "exec", inference, "python", "-c", health])
+
+    record = {"container": container, "database": DATABASE, "user": USER, "inference": inference}
+    tables = psql(record, "SELECT to_regclass('public.species_embeddings') IS NOT NULL;").strip()
+    if tables != "t":
+        raise ReachError(f"the inference-service did not create species_embeddings (psql answered {tables!r})")
+
+    override_file().write_text(backend_override(), encoding="utf-8")
+    compose = ["docker", "compose", "-p", project_name()]
+    for name in COMPOSE_FILES:
+        compose += ["-f", str(repo_root() / name)]
+    compose += ["-f", str(override_file()), "--profile", COMPOSE_PROFILE]
+    log(f"recreating {BACKEND_SERVICE} and {WORKER_SERVICE} wired to {INFERENCE_ALIAS}")
+    run(
+        [
+            *compose, "up", "-d", "--no-deps", "--no-build", "--force-recreate",
+            "--wait", "--wait-timeout", str(BACKEND_RECREATE_TIMEOUT_SECONDS),
+            BACKEND_SERVICE, WORKER_SERVICE,
+        ],
+        timeout=BACKEND_RECREATE_TIMEOUT_SECONDS + 60,
+    )  # fmt: skip
+    _repoint_api(compose)
     record_file().write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-    log(f"reference index {container} up with {len(migrations)} migrations")
+    log(f"reference index {container} and inference-service {inference} up; backend services wired")
+
+
+def _repoint_api(compose: list[str]) -> None:
+    """Record the recreated API's new host port in ``.reach/stack.json`` and wait until it answers.
+
+    The overlay publishes ``127.0.0.1::8000``: Docker picks a fresh host port on
+    every (re)creation, so the address ``reach:stack:up`` recorded is gone.
+    """
+    result = run([*compose, "port", BACKEND_SERVICE, "8000"], timeout=30)
+    address = result.stdout.decode("utf-8").strip().splitlines()[0]
+    host, _, host_port = address.rpartition(":")
+    host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    stack = read_stack()
+    stack["api_url"] = f"http://{host}:{host_port}"
+    stack_file().write_text(json.dumps(stack, indent=2) + "\n", encoding="utf-8")
+
+    def api_live() -> bool:
+        try:
+            status, _ = http_json("GET", f"{stack['api_url']}/api/v1/health/live", timeout=5)
+        except OSError:
+            return False
+        return status == 200
+
+    wait_until(api_live, timeout=120, what="the recreated API to answer on its published port")
 
 
 def seed(subject: str) -> None:
@@ -215,15 +338,17 @@ def seed(subject: str) -> None:
 
 def down() -> None:
     container, _ = _names()
-    run(["docker", "rm", "-f", "-v", container], timeout=120, check=False)
+    inference, _ = _inference_names()
+    run(["docker", "rm", "-f", "-v", inference, container], timeout=120, check=False)
     record_file().unlink(missing_ok=True)
-    log(f"reference index container {container} removed")
+    override_file().unlink(missing_ok=True)
+    log(f"reference index container {container} and inference-service {inference} removed")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("up", help="build and start the store and apply the migrations")
+    sub.add_parser("up", help="build and start the store and the inference-service, wire the backend")
     sub.add_parser("down", help="remove the store and its record")
     seed_parser = sub.add_parser("seed", help="insert the subject's contribution and a curated control row")
     seed_parser.add_argument("--subject", default=DEFAULT_SUBJECT)

@@ -37,6 +37,7 @@ from app.data_access.arango.attachment_repository import ArangoAttachmentReposit
 from app.data_access.arango.erasure_executor import ArangoErasureExecutor
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
+from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -149,6 +150,8 @@ def erased(database, tmp_path_factory):
         membership_repo=ArangoMembershipRepository(database),
         storage_adapter=storage,
         attachment_repo=attachment_repo,
+        # #1753 — Phase 0.5 needs a wired store; no contribution is on record here.
+        reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=ArangoErasureExecutor(database),
         tombstone_salt=SALT,
     )

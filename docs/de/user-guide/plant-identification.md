@@ -219,10 +219,10 @@ Alternativ zur Pl@ntNet-Erkennung kann die Bilderkennung **vollständig auf dem 
 
 1. Dienst starten: `task dev:all` (oder `task dev:recognition` neben dem laufenden KI-Stack)
 2. Referenz-Index befüllen: `task recognition:acquire` (lädt lizenzfreie Referenzbilder von GBIF/Wikimedia und indexiert sie)
-3. Aktivieren: Backend-Umgebungsvariable `INFERENCE_SERVICE_ENABLED=true`
+3. Aktivieren: Umgebungsvariable `INFERENCE_SERVICE_ENABLED=true` auf Backend **und** Celery-Worker
 
 !!! warning "Reihenfolge beachten"
-    Vor dem Befüllen des Index liefert die lokale Erkennung keine Treffer. Aktiviere `INFERENCE_SERVICE_ENABLED=true` erst nach dem Beschaffungslauf — Details auf der [Deployment-Seite](../deployment/inference-service.md).
+    Vor dem Befüllen des Index liefert die lokale Erkennung keine Treffer. Aktiviere `INFERENCE_SERVICE_ENABLED=true` erst nach dem Beschaffungslauf — Details auf der [Deployment-Seite](../deployment/inference-service.md). Setze die Variable auf **beiden** Prozessen: Der Celery-Worker führt die planmäßige DSGVO-Löschung beigetragener Referenzbilder aus und braucht denselben Zugang wie das Backend.
 
 ---
 
