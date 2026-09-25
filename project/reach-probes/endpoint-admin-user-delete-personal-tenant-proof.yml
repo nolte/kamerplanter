@@ -1,0 +1,46 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (#1788 personal-tenant probes; re-derivation after #1823 with unchanged expectations).
+#
+# Derived for #1788 (#1829, squash 9e64aec20) against develop. Anchored on router.py like its
+# siblings on DELETE /admin/platform/users/{key}; derived_from is router.py's last develop commit
+# 499c890d0. Note: delete_user's docstring does not mention the personal-tenant step; the explicit
+# declaration is spec/nfr/NFR-011 §6 AK-PT-01 (tagged Integration + Reach (T2)) and §2.3.
+# Expectation: origin literal account_erasure (tenant_service.py _erase_tenant_for_account_erasure);
+# 3/3 recounted at 9e64aec20.
+id: endpoint-admin-user-delete-personal-tenant-proof
+summary: tenant_erasure_records after the platform-admin user delete — one completed account_erasure record for the subject's
+  sole-owned personal tenant, none containing the subject's account key
+declaration:
+  source: endpoint
+  path: src/backend/app/api/v1/admin/platform/router.py
+  location: DELETE /admin/platform/users/{key} (delete_user) — a tenant_erasure_records entry (origin account_erasure) is
+    persisted as the proof for each personal tenant the subject used alone (#1788)
+tier: T2
+expected:
+  kind: set
+  unit: observed tenant-erasure record facts
+  values:
+  - member-in-records/0
+  - record-unreached/0
+  - record/account_erasure/completed
+derived_from: 499c890d024c0e082d4c49a32a7ab386ca13a1e8
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:seed:personal-tenant
+- reach:erasure:admin-delete-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_tenant_residue.py
+  - --tenant
+  - reach-personal-tenant
+  - --records
+  timeout_seconds: 120
+approval:
+  observation_digest: a6845ddd0605ee872b59e8fd937e274a2da4bc8d4f661a8575c30fd75b442bfe
+  approved_by: nolte
+  approved_at: '2026-09-25T15:41:31Z'
