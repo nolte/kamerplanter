@@ -185,6 +185,7 @@ class TestAnonymisedSlugCannotBeSquatted:
         _insert_user(database, "squat-victim")
         personal = _tenant_service(database).create_personal_tenant("squat-victim", "Opfer Beispiel")
         # Renamed, not erased: another member still uses it (#1788).
+        _insert_user(database, "squat-neighbour")
         ArangoMembershipRepository(database).create(
             Membership(user_key="squat-neighbour", tenant_key=personal.key, role=TenantRole.GROWER)
         )

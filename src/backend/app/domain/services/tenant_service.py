@@ -426,7 +426,7 @@ class TenantService:
         * A deletion already ``completed`` for it → ``erased`` (a retry after the
           tenant went, or a deletion someone else finished).
         * Neither tenant nor deletion record → ``absent``.
-        * No deletion open yet and another account holds an **active**
+        * No deletion open yet and another **active** account holds an **active**
           membership → ``retained_other_members``: REQ-049 AK-19 lets a personal
           tenant take members, and no spec says who would take it over, so it is
           kept exactly as before #1788 (the account plan removes only the owner
@@ -457,9 +457,11 @@ class TenantService:
                 key for key in self._membership_repo.active_member_user_keys(tenant_key=tenant_key) if key != user_key
             ]
             if others:
+                # #1788 review GDPR-05 — no tenant key beside the subject digest:
+                # the key is on the pseudonymised retention rows, and joining a
+                # log line to them is what the salted ``log_subject`` prevents.
                 logger.info(
                     "tenant_erasure.personal_tenant_retained",
-                    tenant_key=tenant_key,
                     subject=log_subject(user_key),
                     other_active_members=len(others),
                 )

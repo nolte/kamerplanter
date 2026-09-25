@@ -61,6 +61,8 @@ TEST_DATABASE = run_database_name("personal_tenant_erasure_reach")
 SALT = "personal-tenant-salt-not-a-secret-0123456789"
 ADMIN = "platform-admin"
 COMPANION = "companion-user"
+#: A member whose own erasure is pending: its account is deactivated (#1788 review GDPR-01).
+DEPARTING = "departing-user"
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -83,7 +85,7 @@ def _pseudonymizations(collection: str):
     return [r for r in TenantErasureEngine().build_plan("probe").pseudonymizations if r.collection == collection]
 
 
-def _user(database, key: str) -> None:
+def _user(database, key: str, *, active: bool = True) -> None:
     database.collection(col.USERS).insert(
         {
             "_key": key,
@@ -91,7 +93,7 @@ def _user(database, key: str) -> None:
             "display_name": f"Display name of {key}",
             "password_hash": "not-a-hash",
             "email_verified": True,
-            "is_active": True,
+            "is_active": active,
             "account_type": "human",
             "created_at": "2026-09-01T00:00:00+00:00",
         }
@@ -219,6 +221,7 @@ def erased(database):
     """Per entry point: one subject with a sole-member personal tenant, a shared one and an organisation."""
     for key in (ADMIN, COMPANION):
         _user(database, key)
+    _user(database, DEPARTING, active=False)
     runs: dict[str, SimpleNamespace] = {}
     for name, erase in ENTRY_POINTS.items():
         subject = f"subject-{name}"
@@ -226,12 +229,15 @@ def erased(database):
         own = _seed_tenant(database, f"p-{name}", owner=subject, tenant_type="personal", members=[])
         shared = _seed_tenant(database, f"s-{name}", owner=subject, tenant_type="personal", members=[COMPANION])
         organisation = _seed_tenant(database, f"o-{name}", owner=subject, tenant_type="organization", members=[])
+        leaving = _seed_tenant(database, f"d-{name}", owner=subject, tenant_type="personal", members=[DEPARTING])
         before = {
             "shared": {doc_id: _read(database, doc_id) for doc_id in shared.values()},
             "organisation": {doc_id: _read(database, doc_id) for doc_id in organisation.values()},
         }
         erase(database, subject)
-        runs[name] = SimpleNamespace(subject=subject, own=own, shared=shared, organisation=organisation, before=before)
+        runs[name] = SimpleNamespace(
+            subject=subject, own=own, shared=shared, organisation=organisation, leaving=leaving, before=before
+        )
     return runs
 
 
@@ -333,3 +339,14 @@ def test_an_organisation_the_subject_owns_is_not_run_through_the_tenant_inventor
     assert database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant)) is None
     domain_rows = [run.organisation[c] for c in _entries("delete") if c not in (col.MEMBERSHIPS,) and c != col.TENANTS]
     assert [doc_id for doc_id in domain_rows if _read(database, doc_id) is None] == []
+
+
+@pytest.mark.parametrize("entry_point", list(ENTRY_POINTS))
+def test_a_member_whose_own_account_is_closing_does_not_keep_the_tenant(database, erased, entry_point):
+    """#1788 review GDPR-01 — a deactivated account is leaving; counting it would orphan the tenant for good."""
+    run = erased[entry_point]
+    tenant = f"d-{entry_point}"
+    assert _read(database, f"{col.TENANTS}/{tenant}") is None
+    assert [c for c in _entries("delete") if _read(database, run.leaving[c]) is not None] == []
+    outcomes = {item["tenant_key"]: item["outcome"] for item in _request(database, run.subject)["personal_tenants"]}
+    assert outcomes[tenant] == "erased"

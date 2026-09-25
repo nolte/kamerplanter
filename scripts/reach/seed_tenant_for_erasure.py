@@ -155,7 +155,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"seed: tenant '{tenant}' already exists; tear the stack down first", file=sys.stderr)
             return 1
     if args.personal_of is not None and not database.collection(col.USERS).has(args.personal_of):
-        print(f"seed: account '{args.personal_of}' does not exist; run reach:seed:privacy-subject first", file=sys.stderr)
+        print(
+            f"seed: account '{args.personal_of}' does not exist; run reach:seed:privacy-subject first", file=sys.stderr
+        )
         return 1
     member = args.personal_of or f"reach-member-{secrets.token_hex(4)}"
     control_member = f"reach-member-{secrets.token_hex(4)}" if args.personal_of else member

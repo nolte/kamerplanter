@@ -452,10 +452,30 @@ class Seeder:
         # are what reaches the subject's rows in it — the case the probes built on
         # this seed measure. The sole-member case has its own seed
         # (``seed_tenant_for_erasure.py --personal-of``).
+        # The companion is a real, active account: an account that no longer
+        # exists or is itself being erased does not keep a tenant (#1788 review
+        # GDPR-01). Written directly, never through ``document``: it is no row of
+        # the subject.
+        companion = f"reach-companion-{secrets.token_hex(4)}"
+        self._ensure(users)
+        self.db.collection(users).insert(
+            {
+                "_key": companion,
+                "email": f"{companion}@kamerplanter.example",
+                "display_name": "Reach Companion",
+                "password_hash": None,
+                "email_verified": True,
+                "is_active": True,
+                "account_type": "human",
+                "locale": "de",
+                "timezone": "Europe/Berlin",
+                "created_at": FIXED_TIMESTAMP,
+            }
+        )
         self._ensure(col.MEMBERSHIPS)
         self.db.collection(col.MEMBERSHIPS).insert(
             {
-                "user_key": f"reach-companion-{secrets.token_hex(4)}",
+                "user_key": companion,
                 "tenant_key": self.tenant_key,
                 "role": "grower",
                 "admin_scopes": [],

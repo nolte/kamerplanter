@@ -609,9 +609,9 @@ class PrivacyService:
             deleted_collections=self._erasure_engine.deleted_collection_names(),
             retained_reason=(
                 "Harvest records (including quality assessments), treatment and inspection records are "
-                "retained per CanG and PflSchG and will be anonymised. "
-                "Your personal garden is deleted with everything in it unless someone else is a member of it; "
-                "then it is kept for them without your name. "
+                "retained per CanG and PflSchG and will be pseudonymised. "
+                "Your personal garden is deleted with everything else in it, unless another active member "
+                "still uses it; then the garden and what you entered in it stay for them, without your name. "
                 "Diary entries in shared gardens stay with the plant record of their tenant; their author and "
                 "AI-analysis references are anonymised (REQ-050 section 7.4)."
             ),
@@ -1829,7 +1829,8 @@ class PrivacyService:
             pest_prototypes_removed=report.pest_prototypes_removed,
             pest_prototype_binding=report.pest_prototype_binding,
             delegated_removed=report.delegated_removed,
-            personal_tenants=[(item.outcome, item.tenant_erasure_record_key) for item in report.personal_tenants],
+            # Outcomes only — no tenant or record key beside the subject digest (#1788 review GDPR-05).
+            personal_tenants=[item.outcome for item in report.personal_tenants],
             arango_steps={step.collection: step.affected for step in report.arango.steps},
         )
         return report
