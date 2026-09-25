@@ -331,6 +331,8 @@ Content-Type: application/json
 }
 ```
 
+`tenant_scope` is optional and accepts either the tenant's slug or its key when creating the key. Either way, you must be an active member of the named tenant — otherwise the route answers `403 Forbidden` ("tenant_scope must name a tenant you are an active member of."), with the same message for an unknown tenant and for one you don't belong to.
+
 **Response (201 Created):**
 
 ```json
@@ -339,10 +341,12 @@ Content-Type: application/json
   "label": "Home Assistant Integration",
   "raw_key": "kp_sk_abc...xyz",
   "key_prefix": "kp_sk_abc",
-  "tenant_scope": "my-garden",
+  "tenant_scope": "t-a1b2c3d4",
   "created_at": "2026-03-17T10:00:00Z"
 }
 ```
+
+What is stored and returned is always the tenant's **key**, never the slug you entered at creation. That means renaming the tenant later (a new slug) leaves the scope unaffected, and deleting the tenant deletes the key along with it.
 
 !!! danger "Raw key visible only once"
     The `raw_key` field is only shown at creation and will not be returned again. Store the key immediately in a secure location.
@@ -356,7 +360,18 @@ Authorization: Bearer kp_sk_abc...xyz
 
 The API key is used in the same `Authorization` header as a JWT.
 
-A key created with `tenant_scope` acts only in that tenant. On every route under `/api/v1/t/{slug}/` and on every route that reads the `X-Active-Tenant` header, another tenant answers `403 Forbidden` — even if the key's owner is a member there — with the same response as a tenant the owner does not belong to. Without the header, a scoped key falls back to your personal tenant only if that is its scope; otherwise it sees the shared catalogue only. `tenant_scope` accepts the tenant's slug or its key.
+A key created with `tenant_scope` acts only in that tenant. On every route under `/api/v1/t/{slug}/` and on every route that reads the `X-Active-Tenant` header, another tenant answers `403 Forbidden` — even if the key's owner is a member there — with the same response as a tenant the owner does not belong to. Without the header, a scoped key falls back to your personal tenant only if that is its scope; otherwise it sees the shared catalogue only. The match is always against the stored tenant key (see above).
+
+### IP allowlist and rate limit per key
+
+An API key can also carry a CIDR allowlist and its own per-minute request limit. Both restrictions apply identically to the REST API and to the [MCP server](mcp-server.md) — there is **one** shared budget per key, not a separate count per surface.
+
+- If the client address is outside the allowlist or cannot be resolved, the API answers `401 Unauthorized` ("Client IP is not permitted for this API key.") — the same message the MCP server gives for this case.
+- If the per-minute budget is spent, the API answers `429 Too Many Requests`. The same response applies if the counter store itself is unreachable — a counter-store outage is never treated as "no limit".
+
+### Account-level routes and a scoped key
+
+A key created with `tenant_scope` is restricted to exactly one tenant. On routes that resolve no tenant — your own account data (`PATCH`/`DELETE /users/me`, password, sessions, linked providers), the [privacy endpoints](../user-guide/privacy.md), managing API keys themselves, device pairing, `POST /auth/logout-all`, or creating/joining a new tenant — it therefore answers `403 Forbidden` ("This API key is restricted to one tenant and cannot act on the account."). It gives the same answer on the few routes under `/t/{slug}/` that change your **account-wide** settings despite the tenant in the path: notification settings and Web Push subscriptions, user preferences, the onboarding state, and removing a favourite. They apply to all your tenants, not only the scoped one. Still admitted: `GET /users/me` (your own identity lookup), `GET /tenants` (lists only the scoped tenant), and every other route that resolves a tenant (`/t/{slug}/`, `X-Active-Tenant`) — the scope still binds there. A key without `tenant_scope` is unaffected by this restriction.
 
 ### List API keys
 

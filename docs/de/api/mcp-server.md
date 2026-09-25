@@ -42,6 +42,8 @@ Deinen persönlichen Key erstellst du dir selbst über `POST /api/v1/auth/api-ke
 !!! warning "Ein API-Key ist ein Dauerschlüssel"
     Anders als ein Login-Token läuft ein API-Key nicht nach Minuten ab — genau deshalb eignet er sich für einen dauerhaft laufenden MCP-Client. Behandle ihn wie ein Passwort: Wer ihn hat, kann alles, was du in deinen Gärten kannst. Lege für jeden Client einen eigenen Key an, dann kannst du einzelne gezielt widerrufen.
 
+Eine auf dem Key hinterlegte IP-Allowlist oder ein Anfragen-Limit pro Minute gilt für MCP-Aufrufe genauso wie für die REST-API — beide Schnittstellen teilen sich dasselbe Budget je Key (siehe [Authentifizierung — IP-Allowlist und Rate Limit je Key](authentication.md#ip-allowlist-und-rate-limit-je-key)).
+
 ### Du siehst ausschließlich deine eigenen Daten
 
 Ein Key gewährt genau die Gärten (Mandanten), in denen sein Konto **aktives Mitglied** ist — aufgelöst über dieselbe Quelle, auf die auch die normale API zugreift. Über MCP ist dadurch nichts erreichbar, was du nicht auch in der Weboberfläche siehst. Ein Garten, in dem du nicht Mitglied bist, verhält sich exakt so, als gäbe es ihn nicht (`not_found`) — die Schnittstelle verrät also nicht einmal seine Existenz.
