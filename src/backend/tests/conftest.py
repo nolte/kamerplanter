@@ -43,6 +43,41 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "reason so a new skip is identifiable."
         ),
     )
+    parser.addoption(
+        "--lane-inputs-drift",
+        action="store_true",
+        default=False,
+        help=(
+            "Run the tests marked `lane_inputs_drift` — the rules that hold the committed "
+            ".github/lane-inputs/ manifests against the live workflows. Only lane-inputs.yml "
+            "passes it (#1794); without it they are deselected, not skipped."
+        ),
+    )
+
+
+#: #1794: the marker of the manifest-against-live-workflow rules. They need a CI
+#: recording to turn green after a job changes, so a pull request cannot satisfy them
+#: without one; they run in lane-inputs.yml on `develop`, which passes the option above.
+LANE_INPUTS_DRIFT_MARKER = "lane_inputs_drift"
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Deselect the ``lane_inputs_drift`` tests unless ``--lane-inputs-drift`` asks for them (#1794).
+
+    Deselected, not skipped: a skip would count against every tier's
+    ``--max-skipped`` floor, and a deselection is reported as such. A hook rather
+    than ``-m``: the required guards lane already passes ``-m 'not advisory'``, and a
+    second ``-m`` in ``addopts`` would be overridden by it, silently.
+    """
+    if config.getoption("--lane-inputs-drift"):
+        return
+    kept: list[pytest.Item] = []
+    deselected: list[pytest.Item] = []
+    for item in items:
+        (deselected if item.get_closest_marker(LANE_INPUTS_DRIFT_MARKER) else kept).append(item)
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = kept
 
 
 def pytest_configure(config: pytest.Config) -> None:
