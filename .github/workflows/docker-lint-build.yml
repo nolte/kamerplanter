@@ -275,6 +275,23 @@ jobs:
     needs: changes
     if: needs.changes.outputs.embedding-service == 'true'
     runs-on: ubuntu-latest
+    # #1764 — EVERY PINNED MODEL, NOT ONLY THE SHIPPED ONE. This job used to
+    # build one target, the last stage (`minilm`), so the three e5 models were
+    # compared against their golden outputs nowhere: a change to the shared
+    # runtime (main.py, tokenization.py, feed.py, the lock) that broke only an
+    # e5 model passed here. One leg per final stage that ships a pinned model;
+    # src/backend/tests/unit/guards/test_every_pinned_model_is_probed_in_ci.py
+    # derives that set from the Dockerfile and fails while a leg is missing.
+    #
+    # The legs run only when this job's filter matches (the model-bearing
+    # inputs, the smoke script, the probe, this file), so the cost lands on
+    # pull requests that change the model service and nowhere else.
+    # `fail-fast: false`: one model's red leg must not cancel the evidence the
+    # other legs produce.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [minilm, e5-small, e5-base, e5-large]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -286,11 +303,16 @@ jobs:
         with:
           context: docker/embedding-service
           file: docker/embedding-service/Dockerfile
+          target: ${{ matrix.target }}
           push: false
           load: true
           tags: kp-embedding-service:pr
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # One cache scope per leg (#1764): the legs run concurrently, and
+          # legs sharing the default scope overwrite each other's cache
+          # manifest, so each would restore whichever leg exported last —
+          # mostly a miss on its own model download stage.
+          cache-from: type=gha,scope=embedding-service-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=embedding-service-${{ matrix.target }}
 
       # A build is not a start (#1609) — see the note in `build-reranker-service`.
       # `load: true` above is what lets this step `docker run` what was built.
@@ -302,8 +324,9 @@ jobs:
       # normalised vectors of the model's width), answers an empty list, and
       # refuses a request past docker/embedding-service/limits.py with a 422 —
       # started read-only, capability-free and as UID 1000, as the chart runs
-      # it. No `target:` above, so this is the last stage (`minilm`); the
-      # probe reads the width from the image's own config.json.
+      # it. The leg's `target:` above decides the model; the probe reads the
+      # width from the image's own config.json and picks the golden file by
+      # the model the image declares (`EMBEDDING_MODEL`).
       #
       # #1763 — SHAPE IS NOT CONTENT. The pre-#1758 MiniLM image passed all of
       # the above while embedding `<unk>` tokens. The probe therefore also
@@ -320,6 +343,13 @@ jobs:
     needs: changes
     if: needs.changes.outputs.reranker-service == 'true'
     runs-on: ubuntu-latest
+    # #1764 — every pinned model, as in `build-embedding-service` above: this
+    # job used to build `bge-reranker-v2-m3` only, so `ms-marco-minilm` was
+    # compared against its golden outputs nowhere.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [bge-reranker-v2-m3, ms-marco-minilm]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -331,12 +361,13 @@ jobs:
         with:
           context: docker/reranker-service
           file: docker/reranker-service/Dockerfile
-          target: bge-reranker-v2-m3
+          target: ${{ matrix.target }}
           push: false
           load: true
           tags: kp-reranker-service:pr
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # One cache scope per leg — see `build-embedding-service`.
+          cache-from: type=gha,scope=reranker-service-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=reranker-service-${{ matrix.target }}
 
       # #1609 — A BUILD IS NOT A START.
       #
