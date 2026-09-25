@@ -90,18 +90,38 @@ def compose_command(*args: str) -> list[str]:
     return [*command, *args]
 
 
-def e2e_fernet_key() -> str:
-    """The E2E stack's Fernet key, from the one helper every caller shares (#1838).
-
-    ``scripts/e2e_fernet_key.py`` keeps it per working copy, so ``stack.py up``
-    and a later ``vectordb.py up`` (which recreates the backend) agree on it.
-    """
+def _load_key_helper():  # noqa: ANN202 — a module loaded from a path
     spec = importlib.util.spec_from_file_location("e2e_fernet_key", repo_root() / "scripts" / "e2e_fernet_key.py")
     if spec is None or spec.loader is None:
         raise ReachError("scripts/e2e_fernet_key.py cannot be loaded")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.resolve()
+    return module
+
+
+def e2e_fernet_key() -> str:
+    """The E2E stack's Fernet key, from the one helper every caller shares (#1838).
+
+    ``scripts/e2e_fernet_key.py`` keeps it per working copy, so ``stack.py up``
+    and a later ``vectordb.py up`` (which recreates the backend) agree on it. Its
+    refusals (a corrupt or symlinked key file) surface as :class:`ReachError`,
+    the error every reach helper reports.
+    """
+    try:
+        return _load_key_helper().resolve()
+    except SystemExit as exc:
+        raise ReachError(str(exc)) from exc
+
+
+#: ``docker compose`` subcommands that create or start containers — the only ones
+#: whose containers read ``FERNET_KEY``. Everything else (``down``, ``ps``, ``logs``)
+#: runs without the key, so a broken key file never blocks the teardown its own
+#: message asks for.
+_STARTING_SUBCOMMANDS = frozenset({"up", "run", "create", "start", "restart"})
+
+
+def _starts_containers(command: list[str]) -> bool:
+    return command[:2] == ["docker", "compose"] and bool(_STARTING_SUBCOMMANDS.intersection(command))
 
 
 def log(message: str) -> None:
@@ -124,7 +144,7 @@ def run(
                 **os.environ,
                 STORAGE_DIR_VARIABLE: str(reach_dir() / "storage"),
                 # The stack's Fernet key is generated, never committed (#1838).
-                "E2E_FERNET_KEY": e2e_fernet_key(),
+                **({"E2E_FERNET_KEY": e2e_fernet_key()} if _starts_containers(command) else {}),
             },
             check=False,
         )

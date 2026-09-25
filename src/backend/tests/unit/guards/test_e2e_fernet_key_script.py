@@ -107,3 +107,45 @@ def test_an_exported_key_that_differs_from_the_stored_one_is_warned_about(
 
     assert mod.resolve(environ={"E2E_FERNET_KEY": other}, key_file=key_file) == other
     assert "differs" in capsys.readouterr().err
+
+
+def _reach_common():  # noqa: ANN202
+    path = _SCRIPT.parent / "reach" / "_reach_common.py"
+    spec = importlib.util.spec_from_file_location("_reach_common_under_test", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_reach_teardown_does_not_need_the_key(monkeypatch: pytest.MonkeyPatch):
+    # /code-review of #1861: a broken key file must not block `reach:stack:down` —
+    # the helper's own advice is to remove the file *with the stack down*.
+    reach = _reach_common()
+    seen: list[dict[str, str]] = []
+
+    def broken_key() -> str:
+        raise reach.ReachError("key file is corrupt")
+
+    def fake_run(command, **kwargs):  # noqa: ANN001, ANN202
+        seen.append(kwargs["env"])
+        return __import__("subprocess").CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(reach, "e2e_fernet_key", broken_key)
+    monkeypatch.setattr(reach.subprocess, "run", fake_run)
+
+    reach.run(reach.compose_command("down", "-v"), timeout=5)
+
+    assert seen and "E2E_FERNET_KEY" not in seen[0]
+
+
+def test_a_broken_key_file_surfaces_as_a_reach_error(monkeypatch: pytest.MonkeyPatch):
+    reach = _reach_common()
+
+    def refusing_helper(*_a, **_k):  # noqa: ANN002, ANN003, ANN202
+        raise SystemExit("does not hold a Fernet key")
+
+    monkeypatch.setattr(reach, "_load_key_helper", lambda: type("M", (), {"resolve": staticmethod(refusing_helper)}))
+
+    with pytest.raises(reach.ReachError):
+        reach.e2e_fernet_key()
