@@ -21,7 +21,12 @@ import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from app.common.auth import ACTIVE_TENANT_HEADER, get_active_tenant_context, get_current_tenant
+from app.common.auth import (
+    ACTIVE_TENANT_HEADER,
+    get_active_tenant_context,
+    get_current_tenant,
+    require_platform_admin,
+)
 from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler
@@ -129,6 +134,10 @@ def _client() -> TestClient:
     def header_probe(ctx: TenantContext = Depends(get_active_tenant_context)) -> dict[str, str]:
         return {"tenant_key": ctx.tenant_key}
 
+    @router.get("/admin-probe")
+    def admin_probe(user: User = Depends(require_platform_admin)) -> dict[str, str]:
+        return {"user": user.key or ""}
+
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
@@ -177,3 +186,16 @@ def test_the_control_the_same_chain_admits_what_the_scope_allows(
 
     assert response.status_code == 200, response.text
     assert response.json() == {"tenant_key": expected}
+
+
+def test_a_scoped_key_of_a_platform_admin_is_not_a_platform_admin():
+    """/code-review of #1854: platform rights are a membership in the ``platform`` tenant.
+
+    The owner here is a lead everywhere, including ``platform``. A key restricted
+    to ``club-a`` must not carry the cross-tenant admin surface with it.
+    """
+    client = _client()
+
+    assert client.get("/api/v1/admin-probe", headers=_bearer(_SCOPED_KEY)).status_code == 403
+    # Control: the same owner's unscoped key is a platform admin.
+    assert client.get("/api/v1/admin-probe", headers=_bearer(_UNSCOPED_KEY)).status_code == 200

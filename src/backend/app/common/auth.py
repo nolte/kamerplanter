@@ -446,7 +446,15 @@ def get_is_platform_admin(
     (``tenant_key == ""``). In light mode (REQ-027) the sole anonymous operator is
     treated as platform admin, so light-mode curation of the shared catalogue
     keeps working.
+
+    An API key restricted to one tenant (#1817) is never a platform admin, even
+    when its owner is: the platform role is a membership in the technical
+    ``platform`` tenant, which is not the tenant the key was restricted to, and
+    the admin surface it unlocks spans every tenant. Deciding it here also
+    covers :func:`require_platform_admin`, which resolves through this function.
     """
+    if _key_scope(user):
+        return False
     return is_platform_admin(tenant_service, user.key or "")
 
 
