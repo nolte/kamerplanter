@@ -95,9 +95,11 @@ def _preload() -> None:
     global _session, _tokenizer, _input_names, _ready
     start = time.monotonic()
 
-    # Rust `tokenizers` from `tokenizer.json`, configured to truncate to 512
-    # tokens and pad with the model's own pad token (#1752; the measured
-    # parity and the MiniLM defect this fixes are in `load_tokenizer`).
+    # Rust `tokenizers` from `tokenizer.json`, configured to truncate at the
+    # model's published `max_seq_length` (sentence_bert_config.json: 512 for
+    # the e5 models, 128 for MiniLM — #1774) and pad with the model's own pad
+    # token (#1752; the measured parity and the MiniLM defect this fixes are in
+    # `load_tokenizer`).
     tokenizer = load_tokenizer(ONNX_PATH)
 
     # Find the ONNX model file
@@ -171,7 +173,8 @@ def embed(req: EmbedRequest) -> EmbedResponse:
     # 1845 MiB, and one text per run took 24.7 s at 1650 MiB — lower memory AND
     # faster, because nothing is spent on padding — with embeddings IDENTICAL
     # to the full batch (max |Δ| 0.0). At 64 such texts the full batch was
-    # OOMKilled. The tokenizer truncates to 512 tokens (`load_tokenizer`);
+    # OOMKilled. The tokenizer truncates at the model's published window
+    # (`load_tokenizer`: 512 tokens for e5, 128 for MiniLM since #1774);
     # padding is a no-op for one text. Vectors are collected in input order.
     #
     # The encoded dict deliberately carries NO `token_type_ids`: the reference

@@ -9,10 +9,17 @@
   "files_sha256": {
     "config.json": "05b570bff786faa5c4604152aa16f19f77ed6dfc31e47dd0f3dd987078693ac7",
     "model.onnx": "185ae63f47e17a7e8d30d0e6a3cde6a6e4b79bc5b81666ecffc279a6856ca113",
+    "sentence_bert_config.json": "70f4448f31320443fe3557cacea5abf2dcc4915dda8c80646bec9f3bb0aa5a1f",
     "special_tokens_map.json": "06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f",
     "tokenizer.json": "b60b6b43406a48bf3638526314f3d232d97058bc93472ff2de930d43686fa441",
     "tokenizer_config.json": "3f5961b9ac86288cccdb97f32fb848d6187c78e1603958c53f3ea1f296b7d8a2"
   },
+  "extra_sources": [
+    {
+      "repo_id": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42"
+    }
+  ],
   "computed": {
     "by": "scripts/ci/compute_model_golden_outputs.py",
     "on": "2026-09-25",
@@ -24,6 +31,7 @@
     },
     "cpu": "Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz"
   },
+  "max_seq_length": 128,
   "prefix": "",
   "reduction": {
     "sample_size": 64,
@@ -57,14 +65,15 @@
       "name": "long-over-512-tokens",
       "text": "Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab.",
       "untruncated_tokens": 1058,
-      "sample": [0.025325, 0.06502, -0.006998, -0.108845, -0.046465, 0.054846, -0.014195, 0.046219, -0.019689, 0.013103, -0.002073, 0.05395, -0.064502, -0.045617, -0.037506, -0.068257, -0.033269, 0.075308, 0.022645, 0.015785, -0.008552, -0.0379, -0.021628, -0.040074, 0.060377, 0.012914, 0.012556, -0.055351, -0.078613, -0.043357, 0.021803, 0.002916, 0.042045, -0.10198, 0.020101, -0.049015, 0.022349, 0.046285, -0.036197, -0.001327, -0.009451, 0.001053, 0.031706, 0.037879, 0.044255, 0.013323, -0.073128, 0.092931, -0.100886, 0.020634, 0.063516, -0.034832, 0.027284, -0.043204, 0.02831, 0.012889, -0.017144, -0.104142, -0.019443, -0.049144, -0.018171, 0.046633, 0.054141, 0.002374],
-      "projection": [0.05083, -0.02286, 0.064853, -0.010661, 0.008659, 0.044716, 0.041966, 0.01445]
+      "sample": [-0.029371, 0.068615, -0.059185, -0.110548, -0.007323, 0.025754, -0.05025, -0.009476, 0.011613, -0.061847, 0.067607, 0.040835, -0.034112, 0.012825, -0.068839, 0.062081, 0.003649, 0.046827, 0.06194, 0.048508, -0.060653, -0.12019, -0.086638, -0.034112, -0.032987, -0.024812, -0.032532, 0.050039, -0.039606, 0.012661, 0.090614, 0.008462, 0.036818, -0.079675, 0.060178, -0.057231, 0.059761, 0.009255, 0.031795, -0.081935, 0.010245, -0.019366, -0.049065, 0.020651, -0.066133, 0.048742, -0.033392, -0.029537, -0.0462, 0.042508, -0.003399, -0.012262, 0.040597, 0.003759, 0.075297, -0.033765, -0.026225, -0.151556, -0.034174, -0.130769, -0.101039, 0.028556, 0.030428, 0.018555],
+      "projection": [0.114367, 0.005129, 0.089121, 0.007272, 0.034887, 0.019548, 0.074767, 0.00164]
     }
   ],
   "reference_check": {
     "against": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2@e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
     "with": "sentence-transformers 5.1.2, transformers 4.57.6, torch 2.14.0+cpu",
     "on": "2026-09-25",
-    "max_abs_delta": 1e-06
+    "max_abs_delta": 1e-06,
+    "max_seq_length": 128
   }
 }
