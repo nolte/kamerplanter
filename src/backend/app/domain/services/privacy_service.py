@@ -65,6 +65,7 @@ from app.domain.models.privacy import (
     RightInfo,
 )
 from app.domain.models.user import User, is_tombstone_email
+from app.domain.services.retention_service import RetentionService
 
 logger = structlog.get_logger()
 
@@ -159,6 +160,7 @@ class PrivacyService:
         personal_data_repo: IPersonalDataRepository | None = None,
         erasure_executor: IErasureExecutor | None = None,
         tombstone_salt: str = "",
+        retention: RetentionService | None = None,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -206,6 +208,11 @@ class PrivacyService:
         # without either, before it touches anything.
         self._erasure_executor = erasure_executor
         self._tombstone_salt = tombstone_salt
+        # NFR-011 R-02 / R-06 periods (#1772): the erasure-record purge and the
+        # Art. 13 retention summary read the same computation, so the summary
+        # cannot name a period the purge does not apply. Defaults to the
+        # settings-backed service.
+        self._retention = retention if retention is not None else RetentionService()
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -879,14 +886,30 @@ class PrivacyService:
                 retention_period="3 years (anonymised after deletion).",
             ),
             RetentionCategoryInfo(
+                category="unverified_accounts",
+                description="Accounts whose email address was never confirmed",
+                retention_period=(
+                    f"Deleted {self._retention.unverified_account_days} days after registration "
+                    "if not confirmed (NFR-011 R-02)."
+                ),
+            ),
+            RetentionCategoryInfo(
                 category="ip_addresses",
                 description="IP addresses captured during authentication / consent",
-                retention_period="Anonymised after 7 days (NFR-011 R-04).",
+                retention_period="Anonymised after 7 days (NFR-011 R-03).",
             ),
             RetentionCategoryInfo(
                 category="export_files",
                 description="Generated data-export files",
                 retention_period="72 hours after completion (NFR-011 R-05).",
+            ),
+            RetentionCategoryInfo(
+                category="erasure_records",
+                description="Record of a completed account erasure (accountability proof, Art. 5(2))",
+                retention_period=(
+                    "Pseudonymised at erasure, deleted "
+                    f"{self._retention.erasure_record_retention_years} year(s) after completion (NFR-011 R-06)."
+                ),
             ),
         ]
 
@@ -936,7 +959,7 @@ class PrivacyService:
         )
 
     # ── NFR-011 retention pipeline (Celery-driven) ─────────────────
-    # The four hooks below are called by ``app.tasks.retention_tasks``.
+    # The five hooks below are called by ``app.tasks.retention_tasks``.
     # This comment used to say that all four merely "log the work that
     # *would* happen". That stopped being true for one of them and kept
     # being true for another — the ambiguity #1645 is about. Precisely:
@@ -948,6 +971,7 @@ class PrivacyService:
     #   shares, and is recorded ``completed`` only when every declared step
     #   was reached (#1645).
     # * ``expire_email_change_requests`` and ``expire_data_exports`` run.
+    # * ``purge_expired_erasure_records`` **runs** (#1772): NFR-011 R-06.
 
     async def process_data_export(
         self,
@@ -2017,6 +2041,30 @@ class PrivacyService:
         for field, value in fields.items():
             setattr(erasure, field, value)
         self._erasure_repo.update_fields(erasure.key, _persistable(fields))
+
+    async def purge_expired_erasure_records(self, now: datetime) -> int:
+        """Hard-delete completed erasure records past the NFR-011 R-06 period.
+
+        R-06 keeps an ``erasure_requests`` record — pseudonymised when the
+        erasure ran — as the Art. 5(2) proof for one year after completion
+        (``settings.retention_erasure_audit_retention_years``), then deletes it
+        (AK-13). Until #1772 nothing deleted one and every record lived for
+        good. Only ``completed`` records are selected: a ``scheduled``,
+        ``in_progress`` or ``partially_completed`` request is still owed a run,
+        however old, and deleting it would drop the Art. 17 duty itself. The
+        cutoff counts calendar years (:meth:`RetentionService.erasure_record_purge_cutoff`).
+
+        Returns the number of records deleted in this run. The log line carries
+        counts only — no request or subject key.
+        """
+        cutoff = self._retention.erasure_record_purge_cutoff(now)
+        purged = self._erasure_repo.delete_completed_before(cutoff.isoformat())
+        logger.info(
+            "retention.purge_expired_erasure_records.completed",
+            purged=purged,
+            retention_years=self._retention.erasure_record_retention_years,
+        )
+        return purged
 
     async def expire_email_change_requests(self, now: datetime) -> int:
         """Mark unconfirmed email-change requests older than 24 h as expired."""

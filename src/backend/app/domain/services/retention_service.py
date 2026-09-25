@@ -1,14 +1,17 @@
 """Retention-policy facade (REQ-025 / NFR-011 bridge).
 
 Pure-logic service that exposes the retention windows defined for REQ-025
-data-export files, hard-delete schedules, and email-change-request TTLs.
-It centralises the constants so that the (future) NFR-011 retention-master
-Celery task can pick them up from a single place.
+data-export files, hard-delete schedules, and email-change-request TTLs,
+and computes the cutoffs of the NFR-011 periods the retention tasks enforce
+from settings: R-02 (unverified accounts, ``cleanup_unverified_accounts``)
+and R-06 (erasure records, ``retention.purge_expired_erasure_records``).
+Both tasks and the Art. 13 retention summary read those two periods here, so
+the text a data subject reads cannot name a period the task does not apply
+(#1772).
 
 The richer NFR-011 retention master (sensor downsampling, IP anonymisation,
-crontab schedules, etc.) is out of scope for this PR and will be wired up
-in a dedicated follow-up; this service intentionally keeps a small surface
-focused on the four windows REQ-025 itself defines.
+crontab schedules, etc.) is out of scope and will be wired up in a dedicated
+follow-up.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -25,6 +28,8 @@ class RetentionService:
         hard_delete_after_days: int | None = None,
         email_change_ttl_hours: int | None = None,
         ip_anonymisation_after_days: int = 7,
+        unverified_account_days: int | None = None,
+        erasure_record_retention_years: int | None = None,
     ) -> None:
         self._export_retention_hours = (
             export_retention_hours if export_retention_hours is not None else settings.privacy_export_retention_hours
@@ -36,6 +41,24 @@ class RetentionService:
             email_change_ttl_hours if email_change_ttl_hours is not None else settings.privacy_email_change_ttl_hours
         )
         self._ip_anonymisation_after_days = ip_anonymisation_after_days
+        self._unverified_account_days = (
+            unverified_account_days
+            if unverified_account_days is not None
+            else settings.retention_unverified_account_days
+        )
+        self._erasure_record_retention_years = (
+            erasure_record_retention_years
+            if erasure_record_retention_years is not None
+            else settings.retention_erasure_audit_retention_years
+        )
+        # The settings carry the same floors (``ge=1``); a caller constructing
+        # the service directly must not get past them either.
+        if self._unverified_account_days < 1:
+            msg = "NFR-011 R-02: the unverified-account period must be at least one day."
+            raise ValueError(msg)
+        if self._erasure_record_retention_years < 1:
+            msg = "NFR-011 R-06: erasure records are kept at least one year after completion."
+            raise ValueError(msg)
 
     # ── Deadline calculators ──────────────────────────────────────
 
@@ -52,8 +75,30 @@ class RetentionService:
         return requested_at + timedelta(hours=self._email_change_ttl_hours)
 
     def ip_anonymisation_at(self, captured_at: datetime) -> datetime:
-        """Return the moment a captured IP must be anonymised (NFR-011 R-04)."""
+        """Return the moment a captured IP must be anonymised (NFR-011 R-03)."""
         return captured_at + timedelta(days=self._ip_anonymisation_after_days)
+
+    def unverified_account_cutoff(self, now: datetime) -> datetime:
+        """Return the registration time before which an unverified account is erased (NFR-011 R-02)."""
+        return now - timedelta(days=self._unverified_account_days)
+
+    def erasure_record_purge_cutoff(self, now: datetime) -> datetime:
+        """Return the completion time before which an erasure record is purged (NFR-011 R-06).
+
+        Counted in **calendar years**, not ``365 * years`` days: "1 Jahr nach
+        Abschluss" must never be undercut, and 365 days back from a date after
+        a 29 February is one day short of a year. A ``now`` on 29 February
+        counts back to 28 February. The result is truncated to whole seconds:
+        the repository compares ISO strings, and a stored timestamp without a
+        fraction against a cutoff with one would order by the separator, not
+        by the instant.
+        """
+        year = now.year - self._erasure_record_retention_years
+        try:
+            cutoff = now.replace(year=year)
+        except ValueError:  # 29 February in a non-leap target year
+            cutoff = now.replace(year=year, day=28)
+        return cutoff.replace(microsecond=0)
 
     # ── Predicate helpers ────────────────────────────────────────
 
@@ -94,3 +139,11 @@ class RetentionService:
     @property
     def ip_anonymisation_after_days(self) -> int:
         return self._ip_anonymisation_after_days
+
+    @property
+    def unverified_account_days(self) -> int:
+        return self._unverified_account_days
+
+    @property
+    def erasure_record_retention_years(self) -> int:
+        return self._erasure_record_retention_years

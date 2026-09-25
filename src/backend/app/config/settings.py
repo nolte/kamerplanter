@@ -674,6 +674,18 @@ class Settings(BaseSettings):
     privacy_export_retention_hours: int = 72  # NFR-011 R-05
     privacy_hard_delete_after_days: int = 90  # NFR-011 R-01
     privacy_email_change_ttl_hours: int = 24
+    #: NFR-011 R-02 / §4 ``UNVERIFIED_ACCOUNT_DAYS`` and REQ-023 AK-17 — an account
+    #: whose address was never confirmed is erased this many days after
+    #: registration (``auth_tasks.cleanup_unverified_accounts``). The task carried
+    #: a literal 72 hours until #1772; the spec's 7 days is canonical.
+    retention_unverified_account_days: int = Field(default=7, ge=1)
+    #: NFR-011 R-06 / §4 ``ERASURE_AUDIT_RETENTION_YEARS`` — a completed erasure
+    #: request (pseudonymised at erasure) is kept this many years as the
+    #: Art. 5(2) accountability proof, then hard-deleted by
+    #: ``retention.purge_expired_erasure_records`` (#1772). The floor is the
+    #: spec's period: keeping the proof longer is a configuration choice,
+    #: shortening it below one year needs a spec / DPO decision, not an env var.
+    retention_erasure_audit_retention_years: int = Field(default=1, ge=1)
 
     # REQ-030 Notifications
     vapid_private_key: str = ""

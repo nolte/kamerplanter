@@ -145,8 +145,8 @@ class FakeDataExportRepo:
 class FakeErasureRepo:
     """In-memory :class:`IErasureRepository` with the real filters and write semantics (#1767).
 
-    ``find_active_for_user``, ``list_due_for_hard_delete`` and
-    ``claim_for_run`` mirror the AQL of ``ArangoErasureRepository`` — the
+    ``find_active_for_user``, ``list_due_for_hard_delete``,
+    ``delete_completed_before`` and ``claim_for_run`` mirror the AQL of ``ArangoErasureRepository`` — the
     claim refuses a ``completed`` request and one a *fresh* ``in_progress`` run
     holds. ``update_fields`` refuses a field the model does not declare and
     re-parses the merged document, as the driver round-trip does.
@@ -206,6 +206,26 @@ class FakeErasureRepo:
         if e.status == "in_progress" and e.updated_at is not None and e.updated_at > stale_before:
             return None
         return self.update_fields(key, {"status": "in_progress", "last_attempt_at": now_iso, "updated_at": now_iso})
+
+    def delete_completed_before(self, cutoff_iso: str) -> int:
+        """The R-06 purge (#1772): ``completed`` with a ``completed_at`` strictly before the cutoff.
+
+        The same predicate as the AQL — a request still owed a run, and a
+        completed one without a completion time, are never selected. The real
+        method also removes the ``requested_erasure`` edges; this store keeps
+        none.
+        """
+        from datetime import datetime
+
+        cutoff = datetime.fromisoformat(cutoff_iso)
+        due = [
+            key
+            for key, e in self.stored.items()
+            if e.status == "completed" and e.completed_at is not None and e.completed_at < cutoff
+        ]
+        for key in due:
+            del self.stored[key]
+        return len(due)
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> ErasureRequest:
         current = self.stored[key]

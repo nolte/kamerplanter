@@ -233,8 +233,9 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         unconditionally. #1403 made it read the provider's claim instead, which is
         correct — and a provider that omits `email_verified` (GitHub without the
         `user:email` scope, and many OIDC deployments) then produces exactly such
-        a row. The reaper would have deleted a working account 72 hours after its
-        owner signed in with it.
+        a row. The reaper would have deleted a working account once the NFR-011
+        R-02 period (``RETENTION_UNVERIFIED_ACCOUNT_DAYS``) passed after its owner
+        signed in with it.
 
         The distinction the task actually wants is "can this person still get in?",
         not "did they confirm an address". Someone who signs in through a provider

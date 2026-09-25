@@ -170,3 +170,47 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
         if not docs:
             return None
         return ErasureRequest(**self._from_doc(docs[0]))
+
+    def delete_completed_before(self, cutoff_iso: str) -> int:
+        """Hard-delete completed requests past the NFR-011 R-06 period, edges first (#1772).
+
+        Two statements, because AQL forbids reading a collection after
+        modifying it in the same query: the ``requested_erasure`` edges into
+        the selected requests are removed first, then the requests. The two
+        selections cannot diverge between the statements: a request completing
+        meanwhile carries ``completed_at = now``, never a time before a cutoff
+        a year back. ``completed_at`` is compared as an ISO string; the service
+        passes a whole-second UTC cutoff so both stored spellings (``…Z`` from
+        the model, ``…+00:00`` from ``update_fields``) order by instant.
+        """
+        # Both statements carry the same filter; keep them in step.
+        edges_query = """
+        FOR doc IN @@collection
+          FILTER doc.status == 'completed'
+            AND doc.completed_at != null
+            AND doc.completed_at < @cutoff
+          FOR edge IN @@edges
+            FILTER edge._to == doc._id
+            REMOVE edge IN @@edges
+        """
+        self._db.aql.execute(
+            edges_query,
+            bind_vars={
+                "@collection": col.ERASURE_REQUESTS,
+                "@edges": col.REQUESTED_ERASURE,
+                "cutoff": cutoff_iso,
+            },
+        )
+        docs_query = """
+        FOR doc IN @@collection
+          FILTER doc.status == 'completed'
+            AND doc.completed_at != null
+            AND doc.completed_at < @cutoff
+          REMOVE doc IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            docs_query,
+            bind_vars={"@collection": col.ERASURE_REQUESTS, "cutoff": cutoff_iso},
+        )
+        return len(list(cursor))

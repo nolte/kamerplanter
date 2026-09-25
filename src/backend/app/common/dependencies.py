@@ -1670,6 +1670,7 @@ def get_privacy_service():
         personal_data_repo=get_personal_data_repo(),
         erasure_executor=get_erasure_executor(),
         tombstone_salt=settings.erasure_tombstone_salt,
+        retention=get_retention_service(),
     )
 
 
