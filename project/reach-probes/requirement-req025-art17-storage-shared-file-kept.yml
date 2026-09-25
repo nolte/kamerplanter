@@ -5,6 +5,9 @@
 # orchestrating session — not an interactive batch answer. It records that the targets and the
 # observe argv below run on the operator's machine with their environment, as `task` in this
 # repository does.
+#
+# Re-derived for #1770 (review round): AK-OS-08 was extended in place at 7e6f8c2a6; no cited line
+# moved. Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-storage-shared-file-kept
 summary: a photo the subject and a co-holder both uploaded, after the subject's erasure — the co-holder's file and
   record stay, the subject's record is gone, the subject's unshared photo is deleted
@@ -21,7 +24,7 @@ expected:
   - holder-file/present
   - holder-link/present
   - subject-link/absent
-derived_from: 4f611fc1ec8d71b8cc37455e3f0ab4443b37a62b
+derived_from: 7e6f8c2a6308ca06b641ead0433a4e55fc6020f5
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject

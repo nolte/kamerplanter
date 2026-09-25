@@ -13,6 +13,9 @@
 # Re-derived for #1770: REQ-025 v1.12 added a changelog row and AK-OS-08 / AK-OS-05b after AK-OS-07,
 # so every cited line moved +1; the cited passages are unchanged. derived_from is 4f611fc1e, the commit
 # that changed the declaration. Observe step, targets and expectation unchanged.
+#
+# Re-derived for #1770 (review round): AK-OS-08 was extended in place at 7e6f8c2a6; no cited line
+# moved. Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-storage-cleanup-reaches-files
 summary: subject's seeded stored files after erasure — hard-deleted or anonymise-and-strip, per STORAGE_CLEANUP_RULES
   scope
@@ -33,7 +36,7 @@ expected:
   - stripped/task
   - stripped/plant
   - deleted/pest_reference
-derived_from: 4f611fc1ec8d71b8cc37455e3f0ab4443b37a62b
+derived_from: 7e6f8c2a6308ca06b641ead0433a4e55fc6020f5
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
