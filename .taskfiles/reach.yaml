@@ -90,6 +90,16 @@ tasks:
     cmds:
       - python3 scripts/reach/finalise_erasure_for_subject.py --subject {{.REACH_SUBJECT}}
 
+  reach:erasure:admin-delete-subject:
+    desc: |
+      Register a platform admin over the API, promote it with
+      app.migrations.add_platform_admin in the backend container, and send
+      DELETE /api/v1/admin/platform/users/{{.REACH_SUBJECT}} as that admin —
+      the immediate erasure entry of #1767. Brackets the call with marker
+      queries in ArangoDB's query log. Reports nothing about the result.
+    cmds:
+      - python3 scripts/reach/admin_delete_subject.py --subject {{.REACH_SUBJECT}}
+
   reach:ranking:up:
     desc: |
       Build the cross-encoder ranking service (docker/reranker-service, target

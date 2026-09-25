@@ -10,6 +10,16 @@ class IErasureRepository(ABC):
     def create(self, erasure: ErasureRequest) -> ErasureRequest: ...
 
     @abstractmethod
+    def create_with_key(self, erasure: ErasureRequest, key: ErasureRequestKey) -> ErasureRequest:
+        """Insert under a caller-chosen key; a taken key raises (#1767 SEC-003).
+
+        Raises:
+            DuplicateError: a request with this key exists.
+            WriteConflictError: a concurrent insert holds the key.
+        """
+        ...
+
+    @abstractmethod
     def get_by_key(self, key: ErasureRequestKey) -> ErasureRequest | None: ...
 
     @abstractmethod
@@ -37,3 +47,15 @@ class IErasureRepository(ABC):
 
     @abstractmethod
     def list_due_for_hard_delete(self, now_iso: str, stale_before_iso: str) -> list[ErasureRequest]: ...
+
+    @abstractmethod
+    def claim_for_run(self, key: ErasureRequestKey, *, now_iso: str, stale_before_iso: str) -> ErasureRequest | None:
+        """Atomically move an open request to ``in_progress``, or return ``None`` (#1767 SEC-003).
+
+        The request is claimed only when it is not ``completed`` and not held
+        by a *fresh* ``in_progress`` run (``updated_at`` after
+        ``stale_before_iso``). A second caller — a double admin delete, or the
+        daily beat meeting an admin delete — gets ``None`` and must not run the
+        erasure; a concurrent write on the same document counts as not claimed.
+        """
+        ...

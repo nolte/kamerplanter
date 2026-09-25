@@ -37,7 +37,10 @@ Im Bereich **Admin > Mandanten** kannst du:
 - Mitglieder eines Mandanten stellvertretend verwalten
 
 !!! danger "Mandanten löschen ist irreversibel"
-    Das Löschen eines Mandanten entfernt alle zugehörigen Daten (Pflanzen, Durchläufe, Protokolle). Diese Aktion kann nicht rückgängig gemacht werden. Erstelle vorher einen Daten-Export für den betroffenen Mandanten.
+    Das Löschen eines Mandanten entfernt seinen Dateispeicher (Fotos, Anhänge), die dazu beigetragenen Erkennungsvektoren, alle Mitgliedschaften, offenen Einladungen und Standort-Zuweisungen sowie zuletzt den Mandanten-Datensatz selbst. Diese Aktion kann nicht rückgängig gemacht werden. Erstelle vorher einen Daten-Export für den betroffenen Mandanten.
+
+!!! note "Teilweise verfügbar: Fachdaten-Löschung"
+    Die Mandanten-Löschung entfernt heute bereits Dateispeicher, Erkennungsvektoren, Mitgliedschaften, Einladungen und Standort-Zuweisungen des Mandanten. Die fachlichen Datensätze — Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben und weitere Standort-gebundene Daten — bleiben dabei noch bestehen; ihre Löschung wird in einer künftigen Version nachgezogen. <!-- Issue #1769 -->
 
 ---
 
@@ -53,6 +56,13 @@ Im Bereich **Admin > Nutzer** kannst du:
 
 !!! note "DSGVO-Anfragen"
     Betroffenenrechte nach Art. 15–21 DSGVO stehen Nutzern über die Self-Service-API unter `/api/v1/privacy/` zur Verfügung. Als Platform-Admin kannst du Anfragen im Admin-Bereich einsehen und bearbeiten. Weitere Informationen: [Datenschutz (DSGVO)](privacy.md).
+
+!!! danger "Nutzerkonto löschen ist sofort und vollständig"
+    Löschst du ein Nutzerkonto im Admin-Bereich, wird es sofort deaktiviert, alle Sitzungen werden beendet, und die vollständige Konto-Löschung läuft unmittelbar (siehe [Datenaufbewahrung & Anonymisierung](../guides/data-retention.md)). Ein Löschantrag wird dabei als Nachweis gespeichert — genau wie bei einer Löschung, die ein Nutzer selbst über sein Konto anstößt.
+
+    Konnte die Löschung nicht vollständig abgeschlossen werden, meldet die Aktion einen Fehler (`500`) und ändert nichts an den bereits erledigten Schritten: Der Löschantrag bleibt offen (`partially_completed`) und wird vom täglichen Wiederholungs-Lauf automatisch fortgesetzt — du musst nichts manuell nachholen. Konnte ein einzelner externer Dienst nicht erreicht werden, meldet die Aktion stattdessen `502`. Ein zweiter Löschversuch für dasselbe Konto stößt die Fortsetzung des offenen Antrags sofort an, statt auf den nächsten Lauf zu warten.
+
+    Läuft für das Konto bereits eine Löschung (z. B. durch den täglichen Aufräumlauf für nie bestätigte Konten), meldet die Aktion einen Konflikt (`409`). Ist die Instanz für Konto-Löschungen nicht korrekt konfiguriert, meldet sie das mit `503` — in diesem Fall wurde noch nichts geändert.
 
 ---
 

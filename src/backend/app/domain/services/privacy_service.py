@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import secrets
+import time
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, date, datetime, timedelta
 
@@ -13,12 +14,14 @@ import structlog
 from app.common.decoys import decoy_document_key, email_digest
 from app.common.exceptions import (
     DuplicateError,
+    ErasureIncompleteError,
     FeatureNotConfiguredError,
     InvalidTokenError,
     KamerplanterError,
     NotFoundError,
     UnauthorizedError,
     ValidationError,
+    WriteConflictError,
 )
 from app.common.types import UserKey
 from app.domain.engines.consent_engine import ConsentEngine
@@ -53,6 +56,7 @@ from app.domain.models.privacy import (
     DataExportRequest,
     DataSourceDefinition,
     EmailChangeRequest,
+    ErasureOrigin,
     ErasureRequest,
     PrivacyPolicyInfo,
     ProcessingRestriction,
@@ -507,26 +511,11 @@ class PrivacyService:
             raise UnauthorizedError("Password confirmation failed.")
 
         now = datetime.now(UTC)
-        erasure = ErasureRequest(
-            user_key=user_key,
-            status="scheduled",
-            requested_at=now,
-            soft_deleted_at=now,
-            hard_delete_scheduled_at=now + timedelta(days=self.HARD_DELETE_DAYS),
-            # De-duplicated: since REQ-050 one collection can carry several
-            # anonymisation rules (plant_diary_entries has three user
-            # references) and the confirmation lists categories, not rules.
-            anonymized_collections=self._erasure_engine.anonymized_collection_names(),
-            # REQ-025 AK-08a — the other half of the confirmation, off the same
-            # inventory the erasure executes. It was declared on the model and
-            # never filled, so the confirmation named no deleted category.
-            deleted_collections=self._erasure_engine.deleted_collection_names(),
-            retained_reason=(
-                "Harvest records (including quality assessments), treatment and inspection records are "
-                "retained per CanG and PflSchG and will be anonymised. "
-                "Diary entries stay with the plant record of their tenant; their author and AI-analysis "
-                "references are anonymised (REQ-050 section 7.4)."
-            ),
+        erasure = self._new_erasure_request(
+            user_key,
+            now=now,
+            hard_delete_at=now + timedelta(days=self.HARD_DELETE_DAYS),
+            origin="self_service",
         )
         created = self._erasure_repo.create(erasure)
 
@@ -552,6 +541,144 @@ class PrivacyService:
         # Hard-delete is performed by the daily beat task
         # ``retention.execute_scheduled_erasures`` (app/tasks/__init__.py).
         return created
+
+    def _new_erasure_request(
+        self,
+        user_key: UserKey,
+        *,
+        now: datetime,
+        hard_delete_at: datetime,
+        origin: ErasureOrigin,
+    ) -> ErasureRequest:
+        """The erasure record every entry point persists — one shape, one inventory (#1767)."""
+        return ErasureRequest(
+            user_key=user_key,
+            status="scheduled",
+            origin=origin,
+            requested_at=now,
+            soft_deleted_at=now,
+            hard_delete_scheduled_at=hard_delete_at,
+            # De-duplicated: since REQ-050 one collection can carry several
+            # anonymisation rules (plant_diary_entries has three user
+            # references) and the confirmation lists categories, not rules.
+            anonymized_collections=self._erasure_engine.anonymized_collection_names(),
+            # REQ-025 AK-08a — the other half of the confirmation, off the same
+            # inventory the erasure executes. It was declared on the model and
+            # never filled, so the confirmation named no deleted category.
+            deleted_collections=self._erasure_engine.deleted_collection_names(),
+            retained_reason=(
+                "Harvest records (including quality assessments), treatment and inspection records are "
+                "retained per CanG and PflSchG and will be anonymised. "
+                "Diary entries stay with the plant record of their tenant; their author and AI-analysis "
+                "references are anonymised (REQ-050 section 7.4)."
+            ),
+        )
+
+    async def erase_account_now(
+        self,
+        user_key: UserKey,
+        *,
+        origin: ErasureOrigin,
+        now: datetime | None = None,
+    ) -> ErasureRequest | None:
+        """Erase an account at once, with the same record, gate and retry as Art. 17 (#1767).
+
+        The entry of the platform-admin ``DELETE /admin/platform/users/{key}``
+        and the unverified-account cleanup. Until #1767 both called
+        :meth:`erase_account` and discarded its report: no ``unreached`` gate, no
+        persisted proof, and a failure left nothing that would retry it
+        (GDPR-004). They now run exactly the self-service finalisation:
+
+        1. **Refuse before touching anything** when the deployment cannot
+           erase (executor, tombstone salt, a derived index) — nothing is
+           created, nothing is changed (#1666 / #1753).
+        2. **Persist the request** — the user's open request is reused (its
+           due date pulled to now), otherwise one is created with ``origin``.
+        3. **Deactivate and revoke** (SEC-003): the account can no longer
+           authenticate, so no session writes new data between the storage
+           phases and the ArangoDB plan that the run would then miss.
+        4. **Claim and finalise** through :meth:`_finalize_erasure`: ``completed``
+           only when the report accounts for every declared step, otherwise
+           ``partially_completed`` with a backoff that the daily beat retries.
+           A request another run holds is refused (409), never run twice.
+
+        ``unverified_cleanup`` leaves a request in its backoff window to the
+        beat; ``platform_admin`` is an explicit operator act and retries at once.
+
+        Returns:
+            The request, ``completed`` — or, for a cleanup inside the backoff,
+            the untouched open request; ``None`` when the cleanup finds the
+            account verified (or gone) by now and leaves it alone.
+
+        Raises:
+            FeatureNotConfiguredError: the deployment cannot erase (HTTP 503).
+            WriteConflictError: another run holds the request (HTTP 409).
+            ErasureIncompleteError: the run left a declared step unreached; the
+                request is recorded and retried (HTTP 500).
+            ValueError: ``user_key`` is empty or blank.
+            Exception: whatever the run raised, after the failed attempt was
+                recorded on the request.
+        """
+        if not user_key or not user_key.strip():
+            msg = "erase_account_now needs a user key; refusing to erase with an empty one"
+            raise ValueError(msg)
+        now = now or datetime.now(UTC)
+        configuration_error = self._erasure_configuration_error() or self._derived_index_configuration_error()
+        if configuration_error is not None:
+            raise FeatureNotConfiguredError("account_erasure", configuration_error)
+
+        erasure = self._erasure_repo.find_active_for_user(user_key)
+        if erasure is not None and origin == "unverified_cleanup" and self._erasure_deferred(erasure, now):
+            return erasure
+        if origin == "unverified_cleanup" and erasure is None:
+            # The cleanup's candidate list is a snapshot; somebody who confirmed
+            # their address since is not an abandoned registration (#1767 review).
+            user = self._user_repo.get_by_key(user_key)
+            if user is None or user.email_verified:
+                return None
+
+        # The request first, so a failure after the account is closed still
+        # leaves a duty the beat retries (#1767 review SEC-D).
+        if erasure is None:
+            erasure = self._create_immediate_request(user_key, now=now, origin=origin)
+        elif erasure.key is not None and (
+            erasure.hard_delete_scheduled_at is None or erasure.hard_delete_scheduled_at > now
+        ):
+            # A self-service request still in its grace: the beat must be able
+            # to retry it at once if this run fails.
+            self._erasure_repo.update_fields(erasure.key, _persistable({"hard_delete_scheduled_at": now}))
+            erasure.hard_delete_scheduled_at = now
+
+        # SEC-003 — closed before anything is removed: no session can write new
+        # data between the storage phases and the ArangoDB plan.
+        self._user_repo.update_fields(user_key, {"is_active": False, "password_hash": None})
+        self._refresh_token_repo.revoke_all_for_user(user_key)
+
+        logger.info(
+            "erasure.immediate_requested",
+            erasure_key=erasure.key,
+            origin=origin,
+            subject=self._erasure_log_subject(user_key),
+        )
+        await self._finalize_erasure(erasure, now, raise_on_failure=True)
+        return erasure
+
+    def _create_immediate_request(self, user_key: UserKey, *, now: datetime, origin: ErasureOrigin) -> ErasureRequest:
+        """Create the immediate request under a per-subject key, or refuse (#1767 SEC-003).
+
+        Keyed by a salted, domain-separated hash of the subject
+        (:meth:`ErasureEngine.compute_request_key`) — deterministic, so two
+        callers that both found no open request cannot create two and run the
+        erasure twice (the second insert fails on the key and is answered like
+        a held claim), and deliberately **not** the audit tombstone, so the key
+        cannot link the subject to its pseudonymised audit rows.
+        """
+        key = self._erasure_engine.compute_request_key(user_key, self._tombstone_salt)
+        request = self._new_erasure_request(user_key, now=now, hard_delete_at=now, origin=origin)
+        try:
+            return self._erasure_repo.create_with_key(request, key)
+        except (DuplicateError, WriteConflictError) as exc:
+            raise WriteConflictError("ErasureRequest", "an erasure of this account is already running") from exc
 
     def get_erasure_status(self, user_key: UserKey, erasure_key: str) -> ErasureRequest:
         """Return an erasure request, enforcing ownership.
@@ -887,18 +1014,23 @@ class PrivacyService:
         # the stored value survives a clear that meant to happen; and the walk plus
         # the storage upload below sit between the read and the write, which is
         # exactly the window in which a full model goes stale.
-        export.status = "processing"
-        export.processing_started_at = datetime.now(UTC)
-        export = self._export_repo.update_fields(
+        started = self._export_repo.start_processing(
             export_key,
-            _persistable(
+            from_statuses=list(resumable),
+            fields=_persistable(
                 {
-                    "status": export.status,
-                    "processing_started_at": export.processing_started_at,
+                    "processing_started_at": datetime.now(UTC),
                     "manifest_collections": export.manifest_collections,
                 }
             ),
         )
+        if started is None:
+            # Conditional (#1767 review): an account erasure closed the request
+            # between the read above and this write; an unconditional flip would
+            # reopen it, and the build would then complete behind the erasure.
+            logger.info("retention.process_data_export.closed_meanwhile", export_key=export_key)
+            return self._export_repo.get_by_key(export_key)
+        export = started
 
         object_key = self._data_export_engine.bundle_object_key(export.user_key, export_key)
         try:
@@ -993,8 +1125,12 @@ class PrivacyService:
             # this clear actually lands; through ``update`` it would not.
             "error_message": None,
         }
-        for field, value in completion.items():
-            setattr(export, field, value)
+        completed = self._export_repo.complete_if_processing(export.key, _persistable(completion))
+        if completed is None:
+            # An account erasure closed this request while the bundle was built
+            # (#1767 review SEC-A). ``_fail_export`` removes the stored object —
+            # otherwise it would outlive the erasure with no record pointing at it.
+            raise ExportBundleUnavailableError("The export was closed before it completed; nothing was delivered.")
         logger.info(
             # Distinct from the task-level ``.completed`` in ``retention_tasks``:
             # this one is the claim that bytes exist, and it carries their size.
@@ -1003,9 +1139,9 @@ class PrivacyService:
             user_key=export.user_key,
             sources=len(sections),
             records=sum(len(rows) for _source, rows in sections),
-            file_size_bytes=export.file_size_bytes,
+            file_size_bytes=completed.file_size_bytes,
         )
-        return self._export_repo.update_fields(export.key, _persistable(completion))
+        return completed
 
     async def open_export_bundle(
         self, user_key: UserKey, export_key: str
@@ -1136,7 +1272,16 @@ class PrivacyService:
         finalised = 0
         deferred = 0
         held = 0
+        started = time.monotonic()
         for erasure in candidates:
+            # The clock of *this* candidate: a claim stamped with the run's start
+            # would look stale to a concurrent run once the loop is older than
+            # ERASURE_STALE_AFTER_HOURS (#1767 review SEC-B).
+            claim_now = now + timedelta(seconds=time.monotonic() - started)
+            if erasure.key is not None and self._erasure_engine.is_tombstone(erasure.user_key):
+                # Committed already; closed at once, not after a backoff (#1767 review GDPR-002).
+                finalised += int(self._record_committed_erasure(erasure, now))
+                continue
             if self._erasure_deferred(erasure, now):
                 deferred += 1
                 continue
@@ -1151,7 +1296,7 @@ class PrivacyService:
                     ),
                 )
                 continue
-            if await self._finalize_erasure(erasure, now):
+            if await self._finalize_erasure(erasure, now, claim_now=claim_now):
                 finalised += 1
         if held:
             logger.error(
@@ -1267,7 +1412,14 @@ class PrivacyService:
         )
         return True
 
-    async def _finalize_erasure(self, erasure: ErasureRequest, now: datetime) -> bool:
+    async def _finalize_erasure(
+        self,
+        erasure: ErasureRequest,
+        now: datetime,
+        *,
+        raise_on_failure: bool = False,
+        claim_now: datetime | None = None,
+    ) -> bool:
         """Run the account erasure for one due request and record what it did.
 
         The ArangoDB work is :meth:`erase_account` — the same entry the
@@ -1290,12 +1442,38 @@ class PrivacyService:
         plan that would remove the attachment index they rely on runs in one
         transaction, so a failed plan left it intact.
 
+        #1767 SEC-003 — the run starts with an atomic claim
+        (:meth:`IErasureRepository.claim_for_run`), not an unconditional
+        ``in_progress`` write: of the daily beat and an immediate
+        (:meth:`erase_account_now`) run meeting on one request, only one erases.
+
+        ``claim_now`` stamps the claim when it differs from the run's ``now`` —
+        the beat passes the clock of the candidate, so a claim taken late in a
+        long run does not already look stale to a concurrent run.
+
+        ``raise_on_failure`` (the immediate entry) re-raises after the attempt
+        is recorded, raises :class:`ErasureIncompleteError` for an unreached
+        step and :class:`WriteConflictError` when another run holds the claim.
+
         Returns ``True`` when the request reached ``completed``.
         """
         if erasure.key is None:
             return False
         if self._erasure_engine.is_tombstone(erasure.user_key):
             return self._record_committed_erasure(erasure, now)
+
+        claim_at = claim_now or now
+        stale_before = claim_at - timedelta(hours=self.ERASURE_STALE_AFTER_HOURS)
+        claimed = self._erasure_repo.claim_for_run(
+            erasure.key, now_iso=claim_at.isoformat(), stale_before_iso=stale_before.isoformat()
+        )
+        if claimed is None:
+            logger.info("retention.erasure.claimed_elsewhere", erasure_key=erasure.key)
+            if raise_on_failure:
+                raise WriteConflictError("ErasureRequest", "an erasure of this account is already running")
+            return False
+        erasure.status = "in_progress"
+        erasure.last_attempt_at = now
 
         def _checkpoint(pre_arango: AccountErasureReport) -> None:
             self._mark_erasure(
@@ -1313,7 +1491,6 @@ class PrivacyService:
             )
 
         try:
-            self._mark_erasure(erasure, status="in_progress", last_attempt_at=now)
             report = await self.erase_account(
                 erasure.user_key,
                 pre_arango_completed=erasure.pre_arango_completed_at is not None,
@@ -1328,6 +1505,8 @@ class PrivacyService:
                 reason=f"Erasure did not finish: {exc}",
                 error=str(exc),
             )
+            if raise_on_failure:
+                raise
             return False
 
         unreached = report.unreached(self._erasure_engine.delete_order())
@@ -1340,6 +1519,8 @@ class PrivacyService:
                 storage_cleanup_scopes=report.storage_cleanup_scopes,
                 unreached=unreached,
             )
+            if raise_on_failure:
+                raise ErasureIncompleteError(unreached)
             return False
 
         # The request is addressed by its document key only. Its ``user_key``
@@ -1374,6 +1555,11 @@ class PrivacyService:
         error line the operator learns to ignore (NFR-018 §1).
         """
         attempt = erasure.attempt_count + 1
+        if erasure.user_key and not self._erasure_engine.is_tombstone(erasure.user_key):
+            # An exception text can name the subject (``NotFoundError("User",
+            # <key>)``); the record outlives the erasure, the key must not
+            # (#1767 review GDPR-002).
+            reason = reason.replace(erasure.user_key, self._erasure_log_subject(erasure.user_key))
         delay_days = min(2 ** (attempt - 1), self.ERASURE_RETRY_MAX_DELAY_DAYS)
         # recurrence-owner-ok: a retry backoff after a failed erasure attempt, not
         # a cadence — it ends when the erasure succeeds, so there is no rule to advance.
@@ -1537,20 +1723,38 @@ class PrivacyService:
         disclosure of the erased user's data that nothing can find again
         (NFR-011 R-05 is precisely "delete the file"). A failed delete raises
         and stops the erasure before the pointer is lost; a re-run retries it.
+
+        #1767 review SEC-A — in-flight exports are closed first, so a build that
+        finishes after this point cannot complete (its conditional completion
+        write finds the request ``failed`` and removes the bundle it stored).
+        Without an object store no bundle can be deleted: a request that points
+        at one stops the erasure instead of reporting it done.
         """
+        closed = self._export_repo.fail_open_for_user(
+            user_key, "The account is being erased; this export was not delivered."
+        )
+        if closed:
+            logger.info(
+                "retention.erasure.open_exports_closed",
+                subject=self._erasure_log_subject(user_key),
+                closed=closed,
+            )
+        stored = [export.file_path for export in self._export_repo.list_by_user(user_key) if export.file_path]
         if self._storage_adapter is None:
+            if stored:
+                # Per account, not instance-wide: an ``ErasureIncompleteError``,
+                # so the unverified cleanup counts this one account ``failed``
+                # instead of blocking every other candidate (#1767 review).
+                raise ErasureIncompleteError(["data_export_requests (stored bundles; no object storage is wired)"])
             logger.info(
                 "retention.erasure.export_file_cleanup_skipped",
                 subject=self._erasure_log_subject(user_key),
                 reason="storage adapter not wired",
             )
             return 0
-        removed = 0
-        for export in self._export_repo.list_by_user(user_key):
-            if export.file_path:
-                await self._storage_adapter.delete_object(export.file_path)
-                removed += 1
-        return removed
+        for file_path in stored:
+            await self._storage_adapter.delete_object(file_path)
+        return len(stored)
 
     async def _run_pre_arango_phases(self, user_key: str, report: AccountErasureReport) -> int:
         """Phase 0, Phase 0.5 and the pest images, recorded on *report*.
@@ -1825,42 +2029,69 @@ class PrivacyService:
         return affected
 
     async def expire_data_exports(self, now: datetime) -> int:
-        """Expire exports past their 72-hour window **and delete their files**.
+        """Delete the bundles of exports past their 72-hour window, **then** expire them.
 
         NFR-011 R-05 is "delete the file, set the status to expired" — both
-        halves. Flipping the status alone would leave a full Art. 15 disclosure
-        of a user's personal data sitting in object storage for ever, which is
-        the storage-limitation breach the rule exists to prevent.
+        halves, in that order (#1767 GDPR-005). Until #1767 the status was
+        flipped first, in the query that found the records: a failed delete
+        left an ``expired`` export whose bundle — a full Art. 15 disclosure —
+        still existed, and no later run looked at it again.
+
+        Now the status is the proof: ``expired`` (with ``file_path`` cleared)
+        is written only after the object is gone. A failed delete leaves the
+        record as it was and the next hourly run retries it; downloads are
+        already refused past ``expires_at`` (:meth:`prepare_export_download`).
+        With no storage adapter wired a bundle cannot be deleted at all: the
+        records are held, not expired, and the run logs one error.
+
+        Returns the number of exports expired in this run.
         """
-        expired = self._export_repo.expire_old(now.isoformat())
-        for export in expired:
-            if not export.file_path:
+        due = self._export_repo.list_expiry_due(now.isoformat())
+        expired = 0
+        failed = 0
+        held = 0
+        for export in due:
+            if export.key is None:
                 continue
-            try:
-                if self._storage_adapter is not None:
+            if export.file_path:
+                if self._storage_adapter is None:
+                    held += 1
+                    continue
+                try:
                     await self._storage_adapter.delete_object(export.file_path)
-            except Exception as exc:  # noqa: BLE001 — one bad object must not stall the rest
-                logger.error(
-                    "retention.expire_data_exports.object_delete_failed",
-                    export_key=export.key,
-                    object_key=export.file_path,
-                    error=str(exc),
-                )
-                continue
+                except Exception as exc:  # noqa: BLE001 — one bad object must not stall the rest
+                    failed += 1
+                    logger.warning(
+                        "retention.expire_data_exports.object_delete_failed",
+                        export_key=export.key,
+                        error=str(exc),
+                    )
+                    continue
             # ``update_fields`` (``keep_none=True``), not ``update``: this
             # repository merges, so a ``None`` on a full model never reaches the
-            # payload and the record would keep pointing at an object that has
-            # just been deleted.
-            if export.key:
+            # payload and the record would keep pointing at a deleted object.
+            try:
                 self._export_repo.update_fields(
                     export.key,
-                    {"file_path": None, "file_size_bytes": None},
+                    {"status": "expired", "file_path": None, "file_size_bytes": None},
                 )
+            except NotFoundError:
+                # Removed meanwhile (an account erasure): nothing left to expire.
+                continue
+            export.status = "expired"
             export.file_path = None
             export.file_size_bytes = None
+            expired += 1
+        if failed or held:
+            logger.error(
+                "retention.expire_data_exports.bundles_not_deleted",
+                failed=failed,
+                held_no_storage=held,
+                expired=expired,
+            )
         if expired:
             logger.info(
                 "retention.expire_data_exports.completed",
-                expired=len(expired),
+                expired=expired,
             )
-        return len(expired)
+        return expired

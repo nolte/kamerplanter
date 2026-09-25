@@ -91,19 +91,21 @@ class TestDelete:
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"] == {"export_id": "data_export_requests/de1"}
 
 
-class TestExpireOld:
-    def test_returns_the_expired_records_not_a_count(self, repo, mock_db):
-        """#1645 — the caller has to delete each bundle, and a count names no file.
+class TestListExpiryDue:
+    def test_returns_the_due_records_and_writes_nothing(self, repo, mock_db):
+        """#1767 GDPR-005 — selection only; ``expired`` is written after the delete.
 
-        NFR-011 R-05 is "delete the file *and* set the status"; returning `1`
-        made the second half unimplementable, which is why the objects stayed in
-        storage after their request expired.
+        The query also re-selects ``expired`` records that still point at a
+        bundle (left by the pre-#1767 order). The filter's reach is measured in
+        ``tests/integration/test_erasure_claim_and_export_expiry.py``.
         """
         mock_db.aql.execute.return_value = iter([_doc(), _doc(_key="de2")])
 
-        expired = repo.expire_old("2026-06-14T00:00:00Z")
+        due = repo.list_expiry_due("2026-06-14T00:00:00Z")
 
-        assert [export.key for export in expired] == ["de1", "de2"]
+        assert [export.key for export in due] == ["de1", "de2"]
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "UPDATE" not in query
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"
 
 

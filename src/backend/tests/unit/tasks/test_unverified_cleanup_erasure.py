@@ -23,11 +23,15 @@ from app.common.exceptions import FeatureNotConfiguredError
 from app.tasks.auth_tasks import cleanup_unverified_accounts
 
 
+def _done(status: str = "completed") -> SimpleNamespace:
+    return SimpleNamespace(status=status)
+
+
 def _run(users: list, erase: AsyncMock) -> tuple[dict, MagicMock, MagicMock]:
     repo = MagicMock()
     repo.get_unverified_before.return_value = users
     service = MagicMock()
-    service.erase_account = erase
+    service.erase_account_now = erase
     with (
         patch("app.common.dependencies.get_user_repo", return_value=repo),
         patch("app.common.dependencies.get_privacy_service", return_value=service),
@@ -38,19 +42,32 @@ def _run(users: list, erase: AsyncMock) -> tuple[dict, MagicMock, MagicMock]:
 
 
 class TestTheCleanupErasesThroughTheFullPlan:
-    def test_every_candidate_goes_through_erase_account(self):
-        erase = AsyncMock()
+    def test_every_candidate_goes_through_erase_account_now(self):
+        erase = AsyncMock(return_value=_done())
         result, repo, _ = _run([SimpleNamespace(key="u1"), SimpleNamespace(key="u2")], erase)
 
         assert [call.args[0] for call in erase.await_args_list] == ["u1", "u2"]
+        assert {call.kwargs["origin"] for call in erase.await_args_list} == {"unverified_cleanup"}
         repo.delete.assert_not_called()
-        assert result == {"removed": 2, "failed": 0, "blocked": 0}
+        assert result == {"removed": 2, "failed": 0, "deferred": 0, "skipped": 0, "blocked": 0}
+
+    def test_an_account_verified_meanwhile_is_skipped(self):
+        erase = AsyncMock(return_value=None)
+        result, _, _ = _run([SimpleNamespace(key="u1")], erase)
+
+        assert result == {"removed": 0, "failed": 0, "deferred": 0, "skipped": 1, "blocked": 0}
+
+    def test_a_request_left_in_its_backoff_counts_as_deferred_not_removed(self):
+        erase = AsyncMock(return_value=_done("partially_completed"))
+        result, _, _ = _run([SimpleNamespace(key="u1")], erase)
+
+        assert result == {"removed": 0, "failed": 0, "deferred": 1, "skipped": 0, "blocked": 0}
 
     def test_no_candidates_needs_no_privacy_service(self):
         erase = AsyncMock()
         result, _, _ = _run([], erase)
         erase.assert_not_awaited()
-        assert result == {"removed": 0, "failed": 0, "blocked": 0}
+        assert result == {"removed": 0, "failed": 0, "deferred": 0, "skipped": 0, "blocked": 0}
 
 
 class TestAMissingSaltBlocksTheRunLoudly:
@@ -59,7 +76,14 @@ class TestAMissingSaltBlocksTheRunLoudly:
         result, repo, logger = _run([SimpleNamespace(key="u1"), SimpleNamespace(key="u2")], erase)
 
         repo.delete.assert_not_called()
-        assert result == {"removed": 0, "failed": 0, "blocked": 2, "reason": "erasure_not_configured"}
+        assert result == {
+            "removed": 0,
+            "failed": 0,
+            "deferred": 0,
+            "skipped": 0,
+            "blocked": 2,
+            "reason": "erasure_not_configured",
+        }
         assert erase.await_count == 1, "the precondition is instance-wide; retrying per account changes nothing"
         logger.error.assert_called_once()
         assert logger.error.call_args.args[0] == "cleanup_unverified_accounts_blocked"
@@ -67,10 +91,10 @@ class TestAMissingSaltBlocksTheRunLoudly:
 
 class TestOneFailingAccountDoesNotStopTheOthers:
     def test_the_failure_is_counted_and_logged_without_the_key(self):
-        erase = AsyncMock(side_effect=[RuntimeError("write to users failed for u1"), None])
+        erase = AsyncMock(side_effect=[RuntimeError("write to users failed for u1"), _done()])
         result, _, logger = _run([SimpleNamespace(key="u1"), SimpleNamespace(key="u2")], erase)
 
-        assert result == {"removed": 1, "failed": 1, "blocked": 0}
+        assert result == {"removed": 1, "failed": 1, "deferred": 0, "skipped": 0, "blocked": 0}
         (call,) = logger.error.call_args_list
         assert call.args[0] == "cleanup_unverified_account_failed"
         # #1700: erasure logs carry no plaintext account key (the error text may).
