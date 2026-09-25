@@ -36,9 +36,18 @@ against the model authors' PyTorch weights recorded in each file's
 
 The fixed inputs are ``EMBEDDING_CASES`` / ``RERANKER_CASES``: a normal English
 sentence, a German one (the language the pre-#1758 MiniLM image turned into
-``<unk>``), a mixed-language one, and a text past the 512-token window, whose
-untruncated token count is recorded so the guard can check it still exceeds
-512 for that model's tokenizer.
+``<unk>``), a mixed-language one, and a text past the model's token window,
+whose untruncated token count is recorded so the guard can check it still
+exceeds that window for that model's tokenizer.
+
+THE WINDOW (#1774). An embedding model is truncated at its published
+``max_seq_length``, which ``REFERENCE`` reads from ``sentence_bert_config.json``
+in the image's model directory — a file the Dockerfile fetches pinned and
+sha256-verifies like the graph (512 for the e5 models, 128 for MiniLM, from the
+model authors' repository because the Xenova export carries none). It reads the
+file itself rather than importing the service's ``tokenization.py``, for the
+reason above, and records the value as the golden file's ``max_seq_length``.
+The rerankers stay at 512, the reranker service's fixed ``MAX_LENGTH``.
 
 Standard library only on the host, like the probe it feeds; it imports the
 probe's reduction so the stored view and the compared view cannot drift.
@@ -48,8 +57,13 @@ the model authors' PyTorch weights — sentence-transformers for the embedding
 models, ``AutoModelForSequenceClassification`` for the rerankers, both through
 transformers 4.57.6 (the last line whose tokenizer the #1758 measurement found
 identical to ``tokenizers`` for every model) — and records the max |Δ| against
-the stored values in the file's ``reference_check`` block. It needs torch, so it
-runs from a throwaway environment, never in CI::
+the stored values in the file's ``reference_check`` block. For an embedding
+model it keeps sentence-transformers' OWN loaded ``max_seq_length`` (read from
+the source repository's ``sentence_bert_config.json``), records it as
+``reference_check.max_seq_length`` and fails if it differs from the golden
+file's: the window the image truncates at must be the one the model authors
+publish, not one this script forces on both sides. It needs torch, so it runs
+from a throwaway environment, never in CI::
 
     uv venv /tmp/xcheck && VIRTUAL_ENV=/tmp/xcheck uv pip install \
         --index-url https://download.pytorch.org/whl/cpu torch
@@ -76,8 +90,9 @@ from typing import Any
 import probe_model_service_contract as probe
 
 #: The long input. ~15 tokens a sentence in every shipped tokenizer, 48 times:
-#: well past 512 tokens (the count is measured and stored per model), well under
-#: the 16384-character bound of docker/*/limits.py.
+#: well past 512 tokens, the widest window any shipped model has (the count is
+#: measured and stored per model), well under the 16384-character bound of
+#: docker/*/limits.py.
 _LONG_SENTENCES = (
     "Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. "
     "Roots of a tomato plant need air, water and nutrients in the growing medium. "
@@ -121,17 +136,33 @@ RERANKER_CASES: list[dict[str, Any]] = [
     },
 ]
 
+#: The reranker service's fixed truncation window (docker/reranker-service/main.py
+#: ``MAX_LENGTH``). Embedding models read theirs from the image (#1774).
+RERANKER_MAX_LENGTH = 512
+
 #: Runs INSIDE the image (its own interpreter and wheels), reading
-#: {"kind", "model_dir", "cases", "prefix"} on stdin and printing one JSON object.
+#: {"kind", "model_dir", "cases", "prefix", "reranker_max_length"} on stdin and
+#: printing one JSON object. For an embedding model the window is the
+#: ``max_seq_length`` of the image's own ``sentence_bert_config.json`` — read
+#: here, not through the service's tokenization.py, and never defaulted.
 REFERENCE = r"""
 import hashlib, json, pathlib, sys
 import numpy as np, onnxruntime as ort, tokenizers
 spec = json.load(sys.stdin)
 model_dir = pathlib.Path(spec["model_dir"])
+if spec["kind"] == "embedding":
+    window_file = model_dir / "sentence_bert_config.json"
+    if not window_file.is_file():
+        sys.exit(f"{window_file} is missing: the model's max_seq_length is unknown")
+    window = json.loads(window_file.read_text(encoding="utf-8")).get("max_seq_length")
+    if isinstance(window, bool) or not isinstance(window, int) or window <= 0:
+        sys.exit(f"{window_file} declares no positive integer max_seq_length (got {window!r})")
+else:
+    window = spec["reranker_max_length"]
 tokenizer = tokenizers.Tokenizer.from_file(str(model_dir / "tokenizer.json"))
 untruncated = tokenizers.Tokenizer.from_file(str(model_dir / "tokenizer.json"))
 untruncated.no_truncation()
-tokenizer.enable_truncation(max_length=512)
+tokenizer.enable_truncation(max_length=window)
 options = ort.SessionOptions()
 options.intra_op_num_threads = 1
 options.inter_op_num_threads = 1
@@ -174,6 +205,7 @@ cpu = next(
     (line.split(":", 1)[1].strip() for line in open("/proc/cpuinfo") if line.startswith("model name")), "unknown"
 )
 print(json.dumps({
+    "max_seq_length": window,
     "outputs": outputs,
     "untruncated_tokens": tokens,
     "files_sha256": files,
@@ -183,6 +215,11 @@ print(json.dumps({
 """
 
 _STAGE = re.compile(r"^FROM\s+\S+\s+AS\s+(?P<stage>\S+)\s*$", re.IGNORECASE | re.MULTILINE)
+_FETCH_CALL = re.compile(r"\bsnapshot_download\(")
+_ALLOW_PATTERNS = re.compile(r"allow_patterns=\[(?P<patterns>[^\]]*)\]")
+#: The graph a download stage fetches. The fetch that names it is the MODEL's;
+#: every other fetch of the stage is an extra source (#1774: MiniLM's window).
+_MODEL_GRAPH = "onnx/model.onnx"
 
 
 def dockerfile_stages(text: str) -> dict[str, str]:
@@ -194,10 +231,47 @@ def dockerfile_stages(text: str) -> dict[str, str]:
     }
 
 
+def download_fetches(download: str) -> list[dict[str, Any]]:
+    """Every ``snapshot_download(...)`` in the download-stage text: repository, revision, allow_patterns.
+
+    Each call's arguments are read up to the next call, so a stage with two
+    fetches (#1774) keeps each repository with its own revision.
+    """
+    starts = [match.end() for match in _FETCH_CALL.finditer(download)]
+    fetches = []
+    for index, start in enumerate(starts):
+        call = download[start : starts[index + 1] if index + 1 < len(starts) else len(download)]
+        repo = re.search(r"repo_id='([^']+)'", call)
+        revision = re.search(r"revision='([0-9a-f]{40})'", call)
+        patterns = _ALLOW_PATTERNS.search(call)
+        if repo is None or revision is None or patterns is None:
+            raise SystemExit(
+                f"a snapshot_download carries no repo_id / 40-hex revision / allow_patterns: {call[:200]!r}"
+            )
+        fetches.append(
+            {
+                "repo_id": repo.group(1),
+                "revision": revision.group(1),
+                "allow_patterns": re.findall(r"'([^']+)'", patterns.group("patterns")),
+            }
+        )
+    return fetches
+
+
 def pin_of(kind: str, target: str) -> dict[str, Any]:
-    """What the Dockerfile pins for *target*: model name, download stage, repository, revision, file hashes."""
+    """What the Dockerfile pins for *target*: model name, download stage, repository, revision, file hashes.
+
+    ``repo_id``/``revision`` are the MODEL's fetch — the one whose
+    ``allow_patterns`` include ``onnx/model.onnx``. Any other fetch of the
+    download stage is recorded under ``extra_sources`` (sorted); the key is
+    omitted when there is none, which keeps the goldens of single-fetch stages
+    unchanged.
+    """
     dockerfile = probe.REPO_ROOT / "docker" / f"{kind}-service" / "Dockerfile"
-    stages = dockerfile_stages(dockerfile.read_text(encoding="utf-8"))
+    text = "\n".join(
+        line for line in dockerfile.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#")
+    )
+    stages = dockerfile_stages(text)
     if target not in stages:
         raise SystemExit(f"{dockerfile} has no stage {target!r} (stages: {sorted(stages)})")
     final = stages[target]
@@ -206,23 +280,39 @@ def pin_of(kind: str, target: str) -> dict[str, Any]:
     if model is None or source is None:
         raise SystemExit(f"stage {target!r} sets no {probe.MODEL_ENV[kind]} or copies no /model/ from a stage")
     download = stages[source.group(1)]
-    repo = re.search(r"repo_id='([^']+)'", download)
-    revision = re.search(r"revision='([0-9a-f]{40})'", download)
+    fetches = download_fetches(download)
+    models = [fetch for fetch in fetches if _MODEL_GRAPH in fetch["allow_patterns"]]
     hashes = {name: digest for digest, name in re.findall(r"([0-9a-f]{64})\s+/model/([^\s'\"]+)", download)}
-    if repo is None or revision is None or not hashes:
-        raise SystemExit(f"download stage {source.group(1)!r} carries no repo_id / 40-hex revision / sha256 lines")
-    return {
+    if len(models) != 1 or not hashes:
+        raise SystemExit(
+            f"download stage {source.group(1)!r} needs exactly one fetch of {_MODEL_GRAPH!r} "
+            f"(found {len(models)}) and sha256 lines"
+        )
+    pin: dict[str, Any] = {
         "model": model.group(1),
         "download_stage": source.group(1),
-        "repo_id": repo.group(1),
-        "revision": revision.group(1),
+        "repo_id": models[0]["repo_id"],
+        "revision": models[0]["revision"],
         "files_sha256": dict(sorted(hashes.items())),
     }
+    extras = sorted(
+        ({"repo_id": fetch["repo_id"], "revision": fetch["revision"]} for fetch in fetches if fetch is not models[0]),
+        key=lambda extra: (extra["repo_id"], extra["revision"]),
+    )
+    if extras:
+        pin["extra_sources"] = extras
+    return pin
 
 
 def run_reference(image: str, kind: str, model: str, cases: list[dict[str, Any]], prefix: str) -> dict[str, Any]:
     """Run ``REFERENCE`` inside *image* — hardened, offline — and return its JSON."""
-    spec = {"kind": kind, "model_dir": f"/app/models/onnx/{model}", "cases": cases, "prefix": prefix}
+    spec = {
+        "kind": kind,
+        "model_dir": f"/app/models/onnx/{model}",
+        "cases": cases,
+        "prefix": prefix,
+        "reranker_max_length": RERANKER_MAX_LENGTH,
+    }
     command = ["docker", "run", "--rm", "-i", "--network", "none", *probe.HARDENED_RUN]
     command += ["--entrypoint", "python", image, "-c", REFERENCE]
     result = subprocess.run(command, input=json.dumps(spec), capture_output=True, text=True, timeout=900, check=False)
@@ -254,14 +344,22 @@ def reference_check(kind: str, target: str, source_repo: str, source_revision: s
     golden = json.loads(path.read_text(encoding="utf-8"))
     cases = golden["cases"]
     deviation = 0.0
+    window: int | None = None
     with torch.inference_mode():
         if kind == "embedding":
             import sentence_transformers
 
             model = sentence_transformers.SentenceTransformer(source_repo, revision=source_revision, device="cpu")
-            # The service's window (tokenization.MAX_LENGTH), not the model
-            # card's: the comparison is of the same computation.
-            model.max_seq_length = 512
+            # sentence-transformers' OWN window, as the source repository
+            # publishes it — never forced (#1774). Until #1774 this line set
+            # 512 on both sides, which hid that MiniLM's authors publish 128.
+            window = int(model.max_seq_length)
+            if window != golden.get("max_seq_length"):
+                raise SystemExit(
+                    f"{source_repo}@{source_revision} truncates at {window} tokens, the golden file "
+                    f"{path.name} at {golden.get('max_seq_length')!r} — the image's sentence_bert_config.json "
+                    "is not the model authors' window"
+                )
             library = f"sentence-transformers {sentence_transformers.__version__}"
             for case in cases:
                 vector = model.encode(golden["prefix"] + case["text"], normalize_embeddings=True).tolist()
@@ -289,6 +387,8 @@ def reference_check(kind: str, target: str, source_repo: str, source_revision: s
         "on": datetime.datetime.now(tz=datetime.UTC).date().isoformat(),
         "max_abs_delta": float(f"{deviation:.3g}"),
     }
+    if window is not None:
+        golden["reference_check"]["max_seq_length"] = window
     _write_golden(path, golden)
     print(f"reference-check: {path.relative_to(probe.REPO_ROOT)} max |Δ| {deviation:.3g} against {source_repo}")
     return 0
@@ -338,6 +438,7 @@ def main(argv: list[str]) -> int:
         },
     }
     if kind == "embedding":
+        golden["max_seq_length"] = reference["max_seq_length"]
         golden["prefix"] = prefix
         golden["reduction"] = {
             "sample_size": probe.GOLDEN_SAMPLE_SIZE,

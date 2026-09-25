@@ -32,7 +32,7 @@ golden outputs (#1763)
     ``<unk>``: right width, unit norm, two different vectors — of garbage. So
     the probe also sends the fixed inputs recorded in
     ``docker/<service>-service/golden/<target>.json`` (a normal sentence, a
-    German one, a mixed-language one and a text past the 512-token window)
+    German one, a mixed-language one and a text past the model's token window)
     and requires every output to lie within ``GOLDEN_TOLERANCE`` of the value
     computed once from the pinned model files by
     ``scripts/ci/compute_model_golden_outputs.py``. The golden file is chosen

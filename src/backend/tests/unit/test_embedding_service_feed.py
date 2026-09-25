@@ -241,9 +241,19 @@ def tokenization(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
     yield module
 
 
-def _model_dir(tmp_path: Path, config: dict[str, Any]) -> Path:
+def _model_dir(tmp_path: Path, config: dict[str, Any], window: Any = 512) -> Path:
+    """A model directory with *config* as ``tokenizer_config.json``.
+
+    ``window`` is written as ``sentence_bert_config.json``'s ``max_seq_length``
+    (#1774) — the value every pinned e5 revision publishes by default.
+    """
     (tmp_path / "tokenizer_config.json").write_text(json.dumps(config), encoding="utf-8")
+    _write_sentence_bert_config(tmp_path, {"max_seq_length": window, "do_lower_case": False})
     return tmp_path
+
+
+def _write_sentence_bert_config(model_dir: Path, config: Any) -> None:
+    (model_dir / "sentence_bert_config.json").write_text(json.dumps(config), encoding="utf-8")
 
 
 class TestPadToken:
@@ -277,13 +287,18 @@ class TestLoadTokenizer:
     def test_truncates_to_512_and_pads_with_the_models_pad_token(
         self, tokenization: ModuleType, tmp_path: Path
     ) -> None:
-        """What transformers added per call: ``truncation=True, max_length=512`` and ``padding=True``."""
-        tokenizer = tokenization.load_tokenizer(_model_dir(tmp_path, {"pad_token": "<pad>"}))
+        """An e5 model: its ``sentence_bert_config.json`` says 512, and ``padding=True``."""
+        tokenizer = tokenization.load_tokenizer(_model_dir(tmp_path, {"pad_token": "<pad>"}, window=512))
 
         assert tokenizer.path == str(tmp_path / "tokenizer.json")
-        assert tokenization.MAX_LENGTH == 512
         assert tokenizer.truncation == {"max_length": 512}
         assert tokenizer.padding == {"pad_id": 1, "pad_token": "<pad>"}
+
+    def test_truncates_at_the_window_the_model_publishes(self, tokenization: ModuleType, tmp_path: Path) -> None:
+        """#1774: MiniLM publishes 128 — the service must not feed it 512 tokens."""
+        tokenizer = tokenization.load_tokenizer(_model_dir(tmp_path, {"pad_token": "<pad>"}, window=128))
+
+        assert tokenizer.truncation == {"max_length": 128}
 
     def test_a_pad_token_outside_the_vocabulary_fails_loud(self, tokenization: ModuleType, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match=r"'\[PAD\]' is not in the vocabulary"):
@@ -292,3 +307,48 @@ class TestLoadTokenizer:
     def test_a_missing_pad_token_fails_loud(self, tokenization: ModuleType, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="declares no pad_token"):
             tokenization.load_tokenizer(_model_dir(tmp_path, {}))
+
+
+class TestMaxSeqLength:
+    """#1774 — the truncation window is the model's published ``max_seq_length``, never a default.
+
+    Until #1774 every model was truncated at a hard-coded 512; MiniLM publishes
+    128 (sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2,
+    ``sentence_bert_config.json``). A missing or unusable value fails the load
+    rather than falling back: a guessed window is silently different vectors.
+    """
+
+    @pytest.mark.parametrize("window", [128, 512])
+    def test_the_published_value_is_read(self, tokenization: ModuleType, tmp_path: Path, window: int) -> None:
+        assert tokenization.max_seq_length(_model_dir(tmp_path, {"pad_token": "<pad>"}, window=window)) == window
+
+    def test_a_missing_file_fails_loud(self, tokenization: ModuleType, tmp_path: Path) -> None:
+        model_dir = _model_dir(tmp_path, {"pad_token": "<pad>"})
+        (model_dir / "sentence_bert_config.json").unlink()
+        with pytest.raises(ValueError, match="sentence_bert_config.json"):
+            tokenization.load_tokenizer(model_dir)
+
+    def test_a_file_that_is_not_json_fails_loud(self, tokenization: ModuleType, tmp_path: Path) -> None:
+        model_dir = _model_dir(tmp_path, {"pad_token": "<pad>"})
+        (model_dir / "sentence_bert_config.json").write_text("max_seq_length: 128\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="sentence_bert_config.json"):
+            tokenization.load_tokenizer(model_dir)
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            pytest.param({"do_lower_case": False}, id="missing-key"),
+            pytest.param({"max_seq_length": 0}, id="zero"),
+            pytest.param({"max_seq_length": -1}, id="negative"),
+            pytest.param({"max_seq_length": True}, id="bool"),
+            pytest.param({"max_seq_length": "128"}, id="string"),
+            pytest.param({"max_seq_length": 128.0}, id="float"),
+            pytest.param({"max_seq_length": None}, id="null"),
+            pytest.param([128], id="not-an-object"),
+        ],
+    )
+    def test_an_unusable_value_fails_loud(self, tokenization: ModuleType, tmp_path: Path, config: Any) -> None:
+        model_dir = _model_dir(tmp_path, {"pad_token": "<pad>"})
+        _write_sentence_bert_config(model_dir, config)
+        with pytest.raises(ValueError, match="sentence_bert_config.json"):
+            tokenization.load_tokenizer(model_dir)
