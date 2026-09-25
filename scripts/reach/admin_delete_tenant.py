@@ -29,12 +29,17 @@ def delete(tenant_key: str) -> int:
     stack = read_stack()
     api = stack["api_url"]
     arango = Arango(stack)
-    headers = sign_in(api, _admin(api))
+    admin = _admin(api)
+    headers = sign_in(api, admin)
     arango.mark("reach-marker:tenant-delete:begin")
+    # #1791: the deletion carries its step-up — the tenant's slug typed back
+    # (``seed_tenant_for_erasure.py`` gives the tenant its key as slug) and the
+    # admin's current password.
     status, body = http_json(
         "DELETE",
         f"{api}/api/v1/admin/platform/tenants/{tenant_key}",
         headers=headers,
+        body={"confirm_slug": tenant_key, "password": admin["password"]},
         timeout=DELETE_TIMEOUT_SECONDS,
     )
     arango.mark("reach-marker:tenant-delete:end")

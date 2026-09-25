@@ -306,6 +306,9 @@ def test_the_tenant_erasure_record_and_the_erasure_request_prove_it(database, er
     record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant))
     assert record is not None
     assert (record["status"], record["origin"], record["unreached"]) == ("completed", "account_erasure", [])
+    assert record["step_up"] == "account_erasure_no_interactive_step_up"
+    assert record["requested_by_subject"] == ErasureEngine.log_subject(run.subject, SALT)
+    assert record["slug_digest"] and run.subject not in str(record.values())
 
     request = _request(database, run.subject)
     assert request["status"] == "completed"

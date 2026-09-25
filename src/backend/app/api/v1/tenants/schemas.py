@@ -9,6 +9,7 @@ from app.common.enums import (
     TenantRole,
     TenantType,
 )
+from app.domain.models.tenant_erasure import TenantDeletionConfirmation
 
 # ── Tenant schemas ───────────────────────────────────────────────────
 
@@ -23,6 +24,33 @@ class TenantUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     max_members: int | None = Field(default=None, ge=1)
+
+
+class TenantDeleteRequest(BaseModel):
+    """The step-up a tenant deletion must carry (#1791, REQ-024 §1a.2).
+
+    Both deletion routes — ``DELETE /tenants/{slug}`` and
+    ``DELETE /admin/platform/tenants/{key}`` — take this body.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    confirm_slug: str = Field(
+        min_length=1,
+        max_length=200,
+        description="The tenant's slug, typed back by the requester to confirm which tenant is erased.",
+    )
+    password: str | None = Field(
+        default=None,
+        max_length=1024,
+        description=(
+            "The requester's current password. Required when the account has a local password; "
+            "an account that signs in only through a federated provider omits it."
+        ),
+    )
+
+    def to_confirmation(self) -> TenantDeletionConfirmation:
+        return TenantDeletionConfirmation(confirm_slug=self.confirm_slug, password=self.password)
 
 
 class TenantResponse(BaseModel):

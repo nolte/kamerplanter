@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import re
 from datetime import UTC, datetime, timedelta
 
@@ -19,6 +21,7 @@ from app.common.exceptions import (
     ForbiddenError,
     NotFoundError,
     TenantErasureIncompleteError,
+    UnauthorizedError,
     ValidationError,
     WriteConflictError,
 )
@@ -26,6 +29,7 @@ from app.common.log_privacy import log_subject
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.invitation_repository import IInvitationRepository
@@ -46,7 +50,13 @@ from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 from app.domain.models.privacy import PersonalTenantErasure
 from app.domain.models.tenant import Tenant, TenantWithRole
-from app.domain.models.tenant_erasure import TenantErasureOrigin, TenantErasureRecord
+from app.domain.models.tenant_erasure import (
+    TenantDeletionConfirmation,
+    TenantDeletionStepUp,
+    TenantErasureOrigin,
+    TenantErasureRecord,
+)
+from app.domain.models.user import User, allows_interactive_auth
 
 logger = structlog.get_logger()
 
@@ -59,6 +69,10 @@ _TENANT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:@()=;$!*',+%-]+$")
 #: Absorbs the daily beat's own jitter so a one-day backoff does not miss the
 #: next run by seconds (the account erasure's ``ERASURE_RETRY_SLACK``).
 _TENANT_ERASURE_RETRY_SLACK = timedelta(hours=1)
+
+#: Key of the technical tenant whose ``lead`` members are platform admins
+#: (REQ-049 §2.5; the same lookup ``app.common.auth.is_platform_admin`` makes).
+_PLATFORM_TENANT_KEY = "platform"
 
 
 class TenantService:
@@ -80,6 +94,7 @@ class TenantService:
         tenant_erasure_repo: ITenantErasureRepository | None = None,
         tombstone_salt: str = "",
         light_mode: bool = False,
+        password_engine: PasswordEngine | None = None,
     ) -> None:
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
@@ -114,6 +129,8 @@ class TenantService:
         self._tenant_erasure_repo = tenant_erasure_repo
         self._tombstone_salt = tombstone_salt
         self._light_mode = light_mode
+        # #1791 — the password step-up of a tenant deletion. Stateless (bcrypt).
+        self._password_engine = password_engine or PasswordEngine()
 
     # --- Tenant CRUD ---
 
@@ -286,7 +303,10 @@ class TenantService:
         self,
         tenant_key: str,
         *,
-        origin: TenantErasureOrigin = "tenant_management",
+        requester: User,
+        authenticated_with_api_key: bool,
+        confirmation: TenantDeletionConfirmation,
+        origin: TenantErasureOrigin,
         now: datetime | None = None,
     ) -> TenantErasureRecord:
         """Erase the tenant and everything it holds, and persist the proof.
@@ -298,10 +318,32 @@ class TenantService:
         ``delete`` entry and every edge touching it, pseudonymises the retention
         rows (CanG / PflSchG) and removes the tenant document.
 
+        **Who may (#1791).** Checked here, not only at the routers, so both entry
+        points share it and neither can drift (``requester``, ``confirmation``
+        and ``origin`` are keyword-only without a default for that reason):
+
+        * ``origin="tenant_management"`` — the requester holds an *active*
+          membership in the tenant with the lead role **and** the ``management``
+          scope (:meth:`MembershipEngine.can_delete_tenant`, REQ-024 §1a.2);
+        * ``origin="platform_admin"`` — the requester is a platform admin (an
+          active ``lead`` membership in the ``platform`` tenant, REQ-049 §2.5);
+        * never a service account, and never a request authenticated with an API
+          key — even one a human account issued (#1791 review SEC-001): a key
+          is a stored M2M credential, not a person who can re-authenticate;
+        * both: the step-up in *confirmation* — the tenant's slug typed back, and
+          the current password when the account has one (a federated account
+          has no local secret; the slug echo is its confirmation, as account
+          erasure does it, REQ-394).
+
+        ``origin`` is set by the router, never by the client, and it only picks
+        *which* membership is proven — claiming ``platform_admin`` without the
+        platform membership is refused like any other caller.
+
         Order of effects:
 
-        1. Refuse the platform tenant (403) and a deployment that cannot erase
-           (503) — before anything changes.
+        1. Refuse a requester without the right (403), the platform tenant (403),
+           a wrong slug echo (422), a missing or wrong password (401) and a
+           deployment that cannot erase (503) — before anything changes.
         2. Persist the record (one per tenant, so a concurrent second deletion
            collides, 409) and freeze the tenant: every membership is deactivated,
            so no member request writes into it while it is erased.
@@ -311,7 +353,10 @@ class TenantService:
 
         Raises:
             NotFoundError: no such tenant (and no open record for it).
-            ForbiddenError: the platform tenant.
+            ForbiddenError: the requester may not delete this tenant, or the
+                platform tenant / the light-mode tenant.
+            ValidationError: the echoed slug is not the tenant's (HTTP 422).
+            UnauthorizedError: the password is missing or wrong (HTTP 401).
             FeatureNotConfiguredError: the deployment cannot erase (HTTP 503).
             WriteConflictError: another run holds the deletion (HTTP 409).
             TenantErasureIncompleteError: something still holds the tenant; the
@@ -321,6 +366,9 @@ class TenantService:
         """
         now = now or datetime.now(UTC)
         record_key = TenantErasureEngine.record_key(tenant_key)
+        self._authorize_tenant_deletion(
+            tenant_key, requester=requester, authenticated_with_api_key=authenticated_with_api_key, origin=origin
+        )
         tenant = self._tenant_repo.get_by_key(tenant_key)
         record = self._require_tenant_erasure_repo().get(record_key)
         if tenant is None and (record is None or record.status == "completed"):
@@ -331,10 +379,29 @@ class TenantService:
             # #1769 review SEC-002 — in light mode the single system tenant IS the
             # installation, and the light-mode seed does not re-create it.
             raise ForbiddenError("The tenant of a light-mode installation cannot be deleted.")
+        # A tenant whose document an earlier attempt already removed has no slug
+        # left to read. The open record keeps a salted digest of it, so the slug
+        # the caller saw still confirms; the key does too (a record written
+        # before the digest existed, or a caller who only has the key).
+        step_up = self._verify_tenant_deletion_step_up(
+            tenant.slug if tenant is not None else None,
+            tenant_key=tenant_key,
+            slug_digest=record.slug_digest if record is not None else None,
+            requester=requester,
+            confirmation=confirmation,
+        )
 
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+        requested_by = ErasureEngine.log_subject(requester.key or "", self._tombstone_salt)
+        logger.info(
+            "tenant_erasure.authorized",
+            tenant_key=tenant_key,
+            origin=origin,
+            step_up=step_up,
+            subject=requested_by,
+        )
 
         if record is None:
             try:
@@ -343,6 +410,9 @@ class TenantService:
                         tenant_key=tenant_key,
                         tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
                         origin=origin,
+                        requested_by_subject=requested_by,
+                        step_up=step_up,
+                        slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
                         requested_at=now,
                     ),
                     record_key,
@@ -355,6 +425,71 @@ class TenantService:
             raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
         self._membership_repo.deactivate_all_for_tenant(tenant_key)
         return self._run_tenant_erasure(claimed, now, raise_on_failure=True)
+
+    def _authorize_tenant_deletion(
+        self, tenant_key: str, *, requester: User, authenticated_with_api_key: bool, origin: TenantErasureOrigin
+    ) -> None:
+        """Refuse a requester who may not erase *tenant_key* (403, #1791).
+
+        Proven from the stored membership, not from the request context the
+        router resolved: the service is the one place both routes pass, and it
+        must not trust a caller-supplied role.
+        """
+        if not allows_interactive_auth(requester) or authenticated_with_api_key:
+            raise ForbiddenError("A tenant can only be deleted from a signed-in session, not with an API key.")
+        user_key = requester.key or ""
+        if origin == "platform_admin":
+            membership = self._membership_repo.get_by_user_and_tenant(user_key, _PLATFORM_TENANT_KEY)
+            allowed = bool(membership and membership.is_active and membership.role == TenantRole.LEAD)
+        else:
+            membership = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
+            allowed = bool(
+                membership
+                and membership.is_active
+                and MembershipEngine.can_delete_tenant(membership.role, membership.admin_scopes)
+            )
+        if not allowed:
+            raise ForbiddenError("Deleting a tenant requires the lead role and the management scope.")
+
+    def _tenant_slug_digest(self, slug: str) -> str:
+        """Salted HMAC of a tenant slug, purpose-separated from every other use of the salt (#1791)."""
+        return hmac.new(
+            self._tombstone_salt.encode(), f"tenant-deletion-slug:{slug}".encode(), hashlib.sha256
+        ).hexdigest()
+
+    def _verify_tenant_deletion_step_up(
+        self,
+        expected_slug: str | None,
+        *,
+        tenant_key: str,
+        slug_digest: str | None,
+        requester: User,
+        confirmation: TenantDeletionConfirmation,
+    ) -> TenantDeletionStepUp:
+        """Check the step-up of a tenant deletion; return how it was confirmed (#1791).
+
+        The slug echo first — it is the same for every account and names the
+        tenant the requester believes they are erasing. Then the password, when
+        the account has one; an account without ``password_hash`` signs in only
+        through a federated provider, has no local secret to re-enter, and is
+        confirmed by the echo alone (REQ-394, ``PrivacyService.request_erasure``).
+        """
+        echoed = confirmation.confirm_slug.strip()
+        if expected_slug is not None:
+            matches = hmac.compare_digest(echoed.encode(), expected_slug.encode())
+        else:
+            matches = hmac.compare_digest(echoed.encode(), tenant_key.encode()) or (
+                slug_digest is not None and hmac.compare_digest(self._tenant_slug_digest(echoed), slug_digest)
+            )
+        if not matches:
+            raise ValidationError("The confirmation does not match the tenant's slug.")
+        if requester.password_hash is None:
+            return "slug_confirmation"
+        if not confirmation.password or not self._password_engine.verify_password(
+            confirmation.password, requester.password_hash
+        ):
+            raise UnauthorizedError("Password confirmation failed.")
+        return "password"
 
     def resume_tenant_erasures(self, now: datetime) -> dict[str, int]:
         """Retry every open tenant deletion whose backoff has passed (daily beat).
@@ -488,7 +623,9 @@ class TenantService:
                         "(#1788), so it is kept and only the owner reference is removed."
                     ),
                 )
-        finished = self._erase_tenant_for_account_erasure(tenant_key, tenant, record, now=now or datetime.now(UTC))
+        finished = self._erase_tenant_for_account_erasure(
+            tenant_key, tenant, record, subject_user_key=user_key, now=now or datetime.now(UTC)
+        )
         if finished.status != "completed":
             raise TenantErasureIncompleteError(list(finished.unreached) or [TenantErasureEngine.TENANT_COLLECTION])
         return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
@@ -499,6 +636,7 @@ class TenantService:
         tenant: Tenant | None,
         record: TenantErasureRecord | None,
         *,
+        subject_user_key: str,
         now: datetime,
     ) -> TenantErasureRecord:
         """Steps 1-3 of :meth:`delete_tenant` for a deletion the account erasure decided (#1788).
@@ -526,6 +664,12 @@ class TenantService:
                         tenant_key=tenant_key,
                         tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
                         origin="account_erasure",
+                        # #1791 provenance fields: the erased account as the salted
+                        # log reference (never its key), and an explicit statement
+                        # that no interactive step-up belongs to this deletion.
+                        requested_by_subject=ErasureEngine.log_subject(subject_user_key, self._tombstone_salt),
+                        step_up="account_erasure_no_interactive_step_up",
+                        slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
                         requested_at=now,
                     ),
                     record_key,
