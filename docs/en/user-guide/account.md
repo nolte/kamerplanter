@@ -127,6 +127,9 @@ In the **Security** tab of your account settings you manage how you sign in.
 !!! warning "Changing your password ends all sessions"
     As soon as you change your password, all active sessions are terminated — including on other devices. You will need to sign in again there.
 
+!!! note "Locked out after too many attempts"
+    Entering your current password correctly is itself a re-confirmation step (just like account or tenant deletion, see below). If you enter it wrong repeatedly, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the error message shows the remaining time. This lock only affects the confirmation, not signing in itself.
+
 ### Linked Sign-In Providers
 
 The list shows all sign-in methods linked to your account (local password, Google, GitHub, …). You can unlink a provider as long as at least one other sign-in method remains. Your last remaining sign-in method cannot be removed, so you can never be locked out of your account.
@@ -167,10 +170,15 @@ In the **API Keys** tab (access tokens for programmatic access, e.g. your own sc
 
 ## Deleting Your Account
 
-In the **Account** tab of your account settings, the red-highlighted area contains the **Delete Account** button. It immediately deactivates your account and removes your sign-in credentials — you can no longer sign in afterwards.
+In the **Account** tab of your account settings, the red-highlighted area contains the **Delete Account** button. This is the same erasure path as the Privacy area (see [Deleting Your Account (GDPR Art. 17)](privacy.md#deleting-your-account-gdpr-art-17)): your account is closed immediately — you can no longer sign in afterwards — and your personal data is permanently erased after the grace period (90 days by default). Legally protected data (harvest and treatment documentation) is anonymized instead of deleted.
 
-!!! danger "Use the Privacy area for a full GDPR (General Data Protection Regulation) erasure"
-    This quick action deactivates your account, but does not replace the full erasure process under GDPR Art. 17 with legally compliant anonymization of your harvest and treatment data. If you want your data fully and traceably erased, use the process described in [Privacy & GDPR](privacy.md#deleting-your-account-gdpr-art-17) instead.
+The confirmation dialog asks you to type your **own email address** back in. If your account has a local password, you also enter your **current password**. If you sign in exclusively through an external provider (Google, GitHub, Apple, OIDC), confirming the email is enough on its own.
+
+!!! danger "Account deletion is permanent"
+    Once you confirm, the deletion cannot be undone. Download your data export first if you want to keep a copy of your data (see [Privacy & GDPR](privacy.md)). For the full breakdown of what is deleted immediately, what is deleted after 90 days, and what is only anonymized, see [Deleting Your Account (GDPR Art. 17)](privacy.md#deleting-your-account-gdpr-art-17).
+
+!!! note "Locked out after too many attempts"
+    If you enter the password wrong repeatedly, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock only affects the deletion confirmation, not signing in: you can still sign in normally, end individual sessions in the **Sessions** tab, or reset your password via **Forgot password?**.
 
 ---
 

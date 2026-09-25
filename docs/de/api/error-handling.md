@@ -91,6 +91,7 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `FORBIDDEN` | 403 | Authentifiziert, aber ohne ausreichende Rolle |
 | `EMAIL_NOT_VERIFIED` | 403 | E-Mail-Adresse noch nicht bestätigt |
 | `ACCOUNT_LOCKED` | 423 | Konto nach zu vielen Fehlversuchen gesperrt |
+| `STEP_UP_LOCKED` | 429 | Zu viele fehlgeschlagene Bestätigungen bei einer unumkehrbaren Kontoaktion (Konto- oder Mandantenlöschung, Passwortänderung) — `details[0].retry_after_minutes` nennt die Wartezeit; betrifft nicht die Anmeldung |
 
 ### Phasen- und Statusfehler
 

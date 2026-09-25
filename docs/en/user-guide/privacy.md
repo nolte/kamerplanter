@@ -25,7 +25,7 @@ This section is aimed at technical users and self-hosters. All GDPR features des
 | `GET /api/v1/privacy/export/{export_key}/download` | Download the export |
 | `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) |
 | `POST /api/v1/privacy/email-change/confirm` | Confirm an email change via token |
-| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) |
+| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) — body `{confirm_email, password?}`, see below |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Check erasure status |
 | `POST /api/v1/privacy/restrict` | Restrict processing (Art. 18) |
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Lift a restriction |
@@ -230,13 +230,16 @@ You have the right to erasure of your data.
 
 1. Navigate to **Privacy** > the **Delete Account** tab
 2. Click **Delete Account**
-3. For accounts with a **local password login**, enter your **current password** in the confirmation dialog (to authorize the deletion). This step is skipped for accounts that sign in exclusively through an external provider (Google, GitHub, Apple …).
+3. In the confirmation dialog, type your **own email address** back in. For accounts with a **local password**, also enter your **current password** (to authorize the deletion). If you sign in exclusively through an external provider (Google, GitHub, Apple, OIDC), confirming the email is enough on its own.
 4. In the confirmation dialog, click **Yes, Delete Account**
 
-!!! info "Password confirmation"
-    For local-password accounts, entering the current password is mandatory. If the password is wrong, the dialog stays open and shows an error — the account is **not** deleted.
+!!! info "Confirming with email and password"
+    If the email you type doesn't match your own, the dialog shows an error. For local-password accounts, entering the current password is also mandatory — if it's wrong, the dialog stays open and shows an error. In both cases, the account is **not** deleted.
 
-The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` starts the deletion (for local accounts with the `password` field), `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
+!!! warning "Locked out after too many attempts"
+    After several wrong password attempts, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock applies account-wide to all confirmations of this kind (deleting your account, deleting a tenant, changing your password) together, but does **not** affect signing in: you can still sign in normally, end individual sessions in the **Sessions** tab (see [Account & Sign-In](account.md#viewing-and-ending-active-sessions)), or reset your password by email.
+
+The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` expects the same request body as `DELETE /api/v1/users/me` (see [Deleting Your Account](account.md#deleting-your-account)) — `{"confirm_email": "...", "password": "..."}`, where `password` is only required for a local password. `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 What happens next:
 

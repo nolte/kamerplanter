@@ -91,6 +91,7 @@ All API errors follow a consistent JSON format. Every error response contains a 
 | `FORBIDDEN` | 403 | Authenticated but without sufficient role |
 | `EMAIL_NOT_VERIFIED` | 403 | Email address not yet confirmed |
 | `ACCOUNT_LOCKED` | 423 | Account locked after too many failed attempts |
+| `STEP_UP_LOCKED` | 429 | Too many failed confirmations on an irreversible account action (account or tenant deletion, password change) — `details[0].retry_after_minutes` states the wait time; does not affect signing in |
 
 ### Phase and State Errors
 
