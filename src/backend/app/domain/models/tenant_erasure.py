@@ -65,6 +65,12 @@ class TenantErasureEntry(BaseModel):
     #: API key, whose tenant restriction is ``tenant_scope`` (#1769 review GDPR-007).
     tenant_field: str = "tenant_key"
     parents: tuple[TenantErasureParent, ...] = ()
+    #: Rows matching one of these equality examples are never the tenant's to
+    #: erase (a system seed the v0004 backfill stamped, ``is_system: true``).
+    keep_when: tuple[dict[str, bool | str], ...] = ()
+    #: An edge collection of access grants (``tenant_has_access``): a row another
+    #: tenant was granted stays, because that tenant's data points at it (#1638).
+    keep_if_granted_via: str | None = None
     #: Why the rows are not deleted. Required for ``pseudonymize`` and ``retain``.
     reason: str | None = None
 

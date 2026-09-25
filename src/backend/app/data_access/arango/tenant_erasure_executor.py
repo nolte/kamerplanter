@@ -97,12 +97,16 @@ class TenantErasurePlanError(ValueError):
     """The plan cannot be executed as declared — raised before any write."""
 
 
-def _match(entry: TenantErasureEntry, parent_keys: dict[str, list[str]]) -> tuple[str, dict[str, Any]]:
+def _match(
+    entry: TenantErasureEntry, parent_keys: dict[str, list[str]], tenant_collection: str
+) -> tuple[str, dict[str, Any]]:
     """The FILTER that selects the tenant's rows of *entry*, and its bind variables.
 
     A row is the tenant's when it carries the tenant's key or points at a parent
-    row of the tenant. Field names, keys and predicates are bound; the only thing
-    formatted into the string is the clause index.
+    row of the tenant — minus the rows the entry keeps: a ``keep_when`` example
+    (a system seed) and, with ``keep_if_granted_via``, a row another tenant was
+    granted access to (#1769 code review). Field names, keys and predicates are
+    bound; the only thing formatted into the string is the clause index.
     """
     clauses = ["doc[@tenant_field] == @tenant_key"]
     binds: dict[str, Any] = {"tenant_field": entry.tenant_field}
@@ -120,7 +124,19 @@ def _match(entry: TenantErasureEntry, parent_keys: dict[str, list[str]]) -> tupl
         binds[f"field{index}"] = parent.field
         binds[f"keys{index}"] = keys
         binds[f"where{index}"] = parent.where
-    return "(" + " OR ".join(clauses) + ")", binds
+    match = "(" + " OR ".join(clauses) + ")"
+    for index, example in enumerate(entry.keep_when):
+        match += f" AND NOT MATCHES(doc, @keep{index})"
+        binds[f"keep{index}"] = example
+    if entry.keep_if_granted_via is not None:
+        # A grant from any tenant but this one: that tenant's rows point here.
+        match += (
+            " AND LENGTH(FOR grant IN @@grants FILTER grant._to == doc._id"
+            " AND grant._from != CONCAT(@tenant_collection, '/', @tenant_key) LIMIT 1 RETURN 1) == 0"
+        )
+        binds["@grants"] = entry.keep_if_granted_via
+        binds["tenant_collection"] = tenant_collection
+    return match, binds
 
 
 class ArangoTenantErasureExecutor(ITenantErasureExecutor):
@@ -172,9 +188,7 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
         try:
             rows: dict[str, list[dict[str, str]]] = {}
             for entry in entries:
-                rows[entry.collection] = self._select(
-                    transaction, entry, plan.tenant_key, self._with_known(plan, parent_keys)
-                )
+                rows[entry.collection] = self._select(transaction, entry, plan, self._with_known(plan, parent_keys))
                 parent_keys[entry.collection] = [row["key"] for row in rows[entry.collection]]
 
             deleted_ids = [row["id"] for entry in entries if entry.action == "delete" for row in rows[entry.collection]]
@@ -258,10 +272,11 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
         self,
         transaction: TransactionDatabase,
         entry: TenantErasureEntry,
-        tenant_key: str,
+        plan: TenantErasurePlan,
         parent_keys: dict[str, list[str]],
     ) -> list[dict[str, str]]:
-        match, binds = _match(entry, parent_keys)
+        tenant_key = plan.tenant_key
+        match, binds = _match(entry, parent_keys, plan.tenant_collection)
         cursor = transaction.aql.execute(
             _SELECT_IDS.format(match=match),
             bind_vars={"@collection": entry.collection, "tenant_key": tenant_key, **binds},
@@ -320,7 +335,7 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
     ) -> list[str]:
         unreached: list[str] = []
         for entry in entries:
-            match, binds = _match(entry, parent_keys)
+            match, binds = _match(entry, parent_keys, plan.tenant_collection)
             binds = {"@collection": entry.collection, "tenant_key": plan.tenant_key, **binds}
             if entry.action == "delete":
                 remaining = self._counted(self._db.aql.execute(_COUNT_MATCHING.format(match=match), bind_vars=binds))

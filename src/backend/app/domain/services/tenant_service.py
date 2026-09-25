@@ -455,6 +455,7 @@ class TenantService:
                 self._tenant_erasure_engine.build_plan(record.tenant_key, known_parent_keys=record.parent_keys),
                 pseudonymize=lambda user_key: ErasureEngine.compute_tombstone_hash(user_key, salt),
             )
+            external.update(self._purge_tenant_readings(record.tenant_key))
         except Exception as exc:
             attempt = record.attempt_count + 1
             next_attempt_at = TenantErasureEngine.next_attempt_at(attempt, now)
@@ -523,6 +524,22 @@ class TenantService:
         logger.info("tenant_deleted", tenant_key=record.tenant_key, record_key=record_key)
         return updated or record
 
+    def _purge_tenant_readings(self, tenant_key: str) -> dict[str, object]:
+        """#1769 review GDPR-001 — the tenant's raw sensor readings (TimescaleDB).
+
+        Runs **after** the ArangoDB transaction committed (#1769 code review): the
+        sensors are gone by then, so ingestion — which does not depend on a
+        membership and is not stopped by the freeze — has nothing left to write
+        readings for. A failure here leaves the record open like any other step,
+        and the retry repeats it. A deployment without TimescaleDB wires the null
+        repository (0 rows).
+        """
+        if self._observation_repo is None:
+            return {}
+        removed = self._observation_repo.delete_by_tenant(tenant_key)
+        logger.info("tenant_sensor_readings_deleted", tenant_key=tenant_key, removed=removed)
+        return {"timeseries_rows_removed": removed}
+
     def _purge_tenant_storage(self, tenant_key: str) -> dict[str, object]:
         """NFR-013 §6.1 — the phase outside ArangoDB.
 
@@ -585,13 +602,6 @@ class TenantService:
         # The ``attachments`` metadata and the ``pest_image_contributions`` link
         # documents are ArangoDB rows of the tenant: the inventory removes them in
         # the transaction below, not this phase (#1769 — one path per row).
-        # #1769 review GDPR-001 — the tenant's sensor readings (TimescaleDB).
-        # A deployment without TimescaleDB wires the null repository (0 rows).
-        if self._observation_repo is not None:
-            removed_readings = self._observation_repo.delete_by_tenant(tenant_key)
-            reported["timeseries_rows_removed"] = removed_readings
-            logger.info("tenant_sensor_readings_deleted", tenant_key=tenant_key, removed=removed_readings)
-
         if self._storage_adapter is not None:
             prefix = f"t/{tenant_key}/"
             deleted_objects = run_async(self._storage_adapter.delete_prefix(prefix))

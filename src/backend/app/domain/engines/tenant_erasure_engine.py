@@ -125,8 +125,10 @@ class TenantErasureEngine:
         _delete("fish_feeding_events"),
         _delete("water_tests"),
         # ── Tenant-owned rows of the hybrid catalogues (``tenant_key == ""`` is global and never matches) ──
-        _delete("species"),
-        _delete("cultivars"),
+        # A tenant-owned species/cultivar another tenant was granted
+        # (``tenant_has_access``, #1638) stays: that tenant's plants point at it.
+        TenantErasureEntry(collection="species", action="delete", keep_if_granted_via="tenant_has_access"),
+        TenantErasureEntry(collection="cultivars", action="delete", keep_if_granted_via="tenant_has_access"),
         _delete("fertilizers"),
         _delete("fertilizer_stocks"),
         _delete("stock_transactions"),
@@ -134,8 +136,10 @@ class TenantErasureEngine:
         _delete("nutrient_plan_phase_entries", _parent("plan_key", "nutrient_plans")),
         _delete("substrates"),
         _delete("substrate_batches"),
-        _delete("activities"),
-        _delete("workflow_templates"),
+        # A system seed the v0004 backfill stamped with this tenant is not its row.
+        TenantErasureEntry(collection="activities", action="delete", keep_when=({"is_system": True},)),
+        # A system seed the v0004 backfill stamped with this tenant is not its row.
+        TenantErasureEntry(collection="workflow_templates", action="delete", keep_when=({"is_system": True},)),
         _delete("workflow_phases", _parent("workflow_template_key", "workflow_templates")),
         _delete("task_templates"),
         # ── Plants and runs ──

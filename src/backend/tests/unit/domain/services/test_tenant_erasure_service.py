@@ -73,12 +73,16 @@ class TestTheDeletionRunsTheInventory:
         storage = MagicMock()
         storage.delete_prefix = AsyncMock(side_effect=lambda prefix: order.append("storage") or 0)
         executor = RecordingTenantErasureExecutor(on_run=lambda: order.append("arango"))
-        service = tenant_service_for_deletion(executor=executor, storage_adapter=storage)
+        readings = MagicMock()
+        readings.delete_by_tenant.side_effect = lambda key: order.append("readings") or 0
+        service = tenant_service_for_deletion(executor=executor, storage_adapter=storage, observation_repo=readings)
         service._membership_repo.deactivate_all_for_tenant.side_effect = lambda key: order.append("freeze") or 1
 
         service.delete_tenant(KEY, now=NOW)
 
-        assert order == ["freeze", "storage", "arango"]
+        # Readings last: ingestion is not stopped by the freeze, only by the
+        # sensors being gone (#1769 code review).
+        assert order == ["freeze", "storage", "arango", "readings"]
         storage.delete_prefix.assert_awaited_once_with(f"t/{KEY}/")
 
     def test_the_tenants_sensor_readings_are_deleted_and_counted(self) -> None:
