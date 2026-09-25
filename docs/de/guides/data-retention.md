@@ -343,11 +343,27 @@ lassen sie sich dagegen nicht verknüpfen.
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
     die Adresse eines Dritten enthalten kann (abgelehnter E-Mail-Empfänger), steht nur
     der Fehlertyp (`error_type=`). E-Mail-Adressen in einem Fehlertext werden zu
-    `<email:…>`-Digests, Query-Strings in URLs (sie können Koordinaten oder API-Schlüssel
-    enthalten) zu `?<redacted>`.
+    `<email:…>`-Digests, Query-Strings und Fragmente in URLs (sie können Koordinaten oder
+    API-Schlüssel enthalten) zu `?<redacted>`, und Zugangsdaten direkt in einer URL
+    (`schema://nutzer:passwort@…`) werden ebenfalls maskiert. Ein unerwarteter Fehler
+    (ein Traceback) läuft durch dieselbe Bereinigung: Eine Fehlermeldung aus der
+    Anwendungslogik erscheint im Protokoll nur als Fehlerklasse und Fehlercode, jede
+    andere Ausnahme bereinigt wie eben beschrieben. Eine Kontokennung im Text einer
+    Standard- oder Bibliotheks-Ausnahme kann diese Bereinigung nicht erkennen. Das gilt für die
+    strukturierten Protokollzeilen der Anwendung ebenso wie für die Tracebacks, die
+    uvicorn und der Celery-Worker bei einem unbehandelten Fehler ausgeben.
 
     IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
-    Oktett `0`, IPv6 `/48`), als `ip_prefix=`.
+    Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Das gilt inzwischen auch für die
+    Zugriffsprotokolle: uvicorn kürzt die Client-Adresse auf dieselbe Weise und schreibt
+    vom aufgerufenen Pfad nur die festen Routen-Segmente (z. B. `/api/v1/t/{}/plants/{}`)
+    — dein Mandanten-Kürzel, dein Kontoschlüssel und ein Download-Token in der URL stehen
+    dort nicht mehr, ebenso wenig ein Query-String. Läuft die Anwendung hinter dem
+    mitgelieferten nginx, gilt dasselbe für dessen eigenes Zugriffsprotokoll
+    (`kp_redacted`): Es nennt weder `X-Forwarded-For` noch User-Agent oder Referrer, und
+    ein Link wie `/password-reset/<token>` erscheint dort nur als `/<spa-route>`. nginx'
+    Fehlerprotokoll lässt sich dagegen nicht redigieren und bleibt deshalb auf der knappen
+    Stufe `crit` beschränkt.
 
     Wie lange
     deine Log-Pipeline (Container-Runtime, Loki, `json-file`-Rotation) die Zeilen

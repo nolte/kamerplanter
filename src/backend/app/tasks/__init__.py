@@ -1,9 +1,10 @@
 import structlog
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import beat_init, celeryd_init, worker_process_init
+from celery.signals import after_setup_logger, after_setup_task_logger, beat_init, celeryd_init, worker_process_init
 
 from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
+from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
 from app.observability.error_tracking import init_error_tracking, resolve_release
@@ -52,6 +53,34 @@ def _init_worker_error_tracking(**_kwargs: object) -> None:
     )
 
 
+def _configure_worker_logging(**_kwargs: object) -> None:
+    """Give the worker and beat the API's logging setup once Celery has configured root (#1795).
+
+    ``celery -A app.tasks worker|beat`` never runs ``app.main``, so ``setup_logging``
+    never ran here: structlog printed through its defaults, and httpx logged every
+    outbound request at INFO on Celery's root handler — the OpenWeatherMap and
+    Perenual API keys included, since both carry the key in the query string.
+
+    Connected to ``after_setup_logger``, which Celery sends only from
+    ``app.log.setup`` — i.e. when the worker or beat program sets up its logging,
+    never on a mere ``import app.tasks`` (the API imports this package to
+    enqueue tasks). Celery has already put its handler on the root logger by
+    then, so ``setup_logging``'s ``basicConfig`` is a no-op and structlog's lines
+    reach Celery's handler; ``harden_library_loggers`` does the rest.
+    """
+    setup_logging(settings.debug)
+
+
+def _redact_task_logger(**_kwargs: object) -> None:
+    """Put the redacting sink filter on the ``celery.task`` handler too (#1796).
+
+    Celery creates that handler in ``setup_task_loggers`` — after
+    ``after_setup_logger`` has run — and ``celery.task`` does not propagate, so
+    the root handler's filter never sees its records.
+    """
+    install_sink_redaction()
+
+
 def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
     """Stop the worker when ``ERASURE_TOMBSTONE_SALT`` is unusable outside debug (#1781).
 
@@ -80,6 +109,9 @@ def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
 # The salt gate runs on ``celeryd_init`` only — the worker program. Beat
 # schedules, it runs no task and writes no subject reference.
 celeryd_init.connect(_refuse_worker_start_without_tombstone_salt, weak=False)
+# Worker and beat both set up logging through ``app.log.setup``; see the docstring.
+after_setup_logger.connect(_configure_worker_logging, weak=False)
+after_setup_task_logger.connect(_redact_task_logger, weak=False)
 
 # All three, because they are three different processes and none implies another:
 # ``celeryd_init`` is the worker program's first step (fires for every pool),

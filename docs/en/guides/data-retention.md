@@ -326,11 +326,26 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     replaced by the reference, and export-bundle paths are masked. Where an error text can
     contain a third party's address (a rejected email recipient), only the error type is
     logged (`error_type=`). Email addresses inside an error text become
-    `<email:…>` digests, and URL query strings (which can hold coordinates or API keys)
-    become `?<redacted>`.
+    `<email:…>` digests, and URL query strings and fragments (which can hold coordinates or
+    API keys) become `?<redacted>`, and credentials embedded directly in a URL
+    (`scheme://user:password@…`) are masked as well. An unexpected error (a traceback)
+    goes through the same cleanup: an error message from the application's own domain
+    logic appears in the log only as its error class and error code, any other exception
+    cleaned as described above. An account key inside the text of a standard or library
+    exception is something this cleanup cannot recognise. This applies to the application's
+    structured log lines as well as to the tracebacks that uvicorn and the Celery worker
+    write for an unhandled error.
 
     IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
-    `0`, IPv6 `/48`), as `ip_prefix=`.
+    `0`, IPv6 `/48`), as `ip_prefix=`. That now also applies to the access logs: uvicorn
+    truncates the client address the same way and writes only the fixed route segments of
+    the requested path (e.g. `/api/v1/t/{}/plants/{}`) — your tenant slug, your account key
+    and a download token in the URL no longer appear there, nor does a query string. If the
+    application runs behind the bundled nginx, the same holds for its own access log
+    (`kp_redacted`): it names neither `X-Forwarded-For` nor the user agent or referrer, and
+    a link such as `/password-reset/<token>` appears there only as `/<spa-route>`. nginx's
+    error log, by contrast, cannot be redacted and is therefore kept to the narrow `crit`
+    level.
 
     How long your log
     pipeline (container runtime, Loki, `json-file` rotation) keeps the lines is your

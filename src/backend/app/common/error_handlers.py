@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.common.error_ids import new_error_id
 from app.common.exceptions import KamerplanterError
+from app.common.log_privacy import loggable_path
 
 logger = structlog.get_logger()
 
@@ -17,8 +18,10 @@ async def app_error_handler(request: Request, exc: KamerplanterError) -> JSONRes
         "app_error",
         error_id=exc.error_id,
         error_code=exc.error_code,
-        message=exc.message,
-        path=request.url.path,
+        # No ``message``: a domain error's message names what it is about —
+        # NotFoundError("User", <key>) the account key (#1796). The client gets
+        # it in the response; error_id correlates the two.
+        path=loggable_path(request.url.path),
         method=request.method,
     )
     return JSONResponse(
@@ -49,7 +52,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     logger.warning(
         "validation_error",
         error_id=error_id,
-        path=request.url.path,
+        path=loggable_path(request.url.path),
         method=request.method,
         detail_count=len(details),
     )
@@ -73,7 +76,7 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     logger.error(
         "unhandled_error",
         error_id=error_id,
-        path=request.url.path,
+        path=loggable_path(request.url.path),
         method=request.method,
         exc_info=True,
     )
