@@ -145,6 +145,20 @@ class ApiKey(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+def api_key_scope_admits(scope: str | None, *, tenant_key: str, tenant_slug: str) -> bool:
+    """Whether an API key restricted to *scope* may act in the given tenant (REQ-023, #1817).
+
+    The one predicate both key-accepting surfaces decide on — the REST tenant
+    resolvers (``app.common.auth``) and the MCP authenticator — so they can never
+    disagree about which tenant a key reaches. A scope is matched on the tenant's
+    slug **or** key, since ``tenant_scope`` is stored as the caller typed it; an
+    absent or empty scope restricts nothing.
+    """
+    if not scope:
+        return True
+    return scope in (tenant_slug, tenant_key)
+
+
 class ApiKeyCreated(BaseModel):
     key: str
     label: str
