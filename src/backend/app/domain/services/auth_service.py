@@ -1,4 +1,5 @@
 import hashlib
+import re
 import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -64,6 +65,9 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
 
 
 _API_KEY_PREFIX = "kp_"
+
+#: What a tenant key or slug looks like; the shape ``create_api_key`` accepts as a scope (#1852).
+_TENANT_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}")
 
 #: The single refusal message for an account whose ``is_active`` is ``False``
 #: (#1528). All six raise sites **in this module** use it — the five entry points
@@ -1066,6 +1070,10 @@ class AuthService:
         if not self._api_key_repo:
             raise ValidationError("API keys are not configured.")
 
+        # #1852: the scope is stored as the tenant's *key*, resolved here from the
+        # slug or key the caller typed — never verbatim.
+        tenant_scope = self._canonical_tenant_scope(user_key, tenant_scope)
+
         raw_key = f"{_API_KEY_PREFIX}{secrets.token_urlsafe(32)}"
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         key_prefix = raw_key[:8]
@@ -1088,6 +1096,46 @@ class AuthService:
             tenant_scope=tenant_scope,
             created_at=created.created_at,
         )
+
+    def _canonical_tenant_scope(self, user_key: UserKey, requested: str | None) -> str | None:
+        """Resolve a requested ``tenant_scope`` to the key of a tenant the caller is active in (#1852).
+
+        Until #1852 the scope was stored as typed and matched on slug *or* key.
+        A slug is a name, not an identity: renaming a tenant re-derives it and a
+        deleted tenant's slug is issued again, so a slug-form scope re-bound to
+        whichever tenant held the name, and the tenant erasure — which deletes
+        keys whose ``tenant_scope`` equals the erased tenant's key — left it in
+        place. Resolving at creation makes the stored scope the stable key.
+
+        The caller may name the tenant by slug or by key. An unknown value, a
+        tenant the caller holds no *active* membership in, and a tenant that is
+        itself inactive are refused with one message, so the endpoint answers no
+        "does this tenant exist?" question.
+        """
+        if requested is None or not requested.strip():
+            return None
+        refusal = ForbiddenError("tenant_scope must name a tenant you are an active member of.")
+        if self._tenant_service is None:
+            raise refusal
+        value = requested.strip()
+        # Keys and slugs are both plain tokens. Anything else (a ``/`` would make
+        # the key lookup read a document *id* in another collection) is refused
+        # before it reaches a lookup.
+        if not _TENANT_REF.fullmatch(value):
+            raise refusal
+        tenant = None
+        for lookup in (self._tenant_service.get_tenant, self._tenant_service.get_tenant_by_slug):
+            try:
+                tenant = lookup(value)
+            except NotFoundError:
+                continue
+            break
+        if tenant is None or not tenant.key or not getattr(tenant, "is_active", True):
+            raise refusal
+        membership = self._tenant_service.get_membership(user_key, tenant.key)
+        if membership is None or not membership.is_active:
+            raise refusal
+        return tenant.key
 
     def list_api_keys(self, user_key: UserKey) -> list[ApiKeySummary]:
         if not self._api_key_repo:

@@ -102,7 +102,14 @@ class RefreshRequest(BaseModel):
 
 class ApiKeyCreateRequest(BaseModel):
     label: str = Field(min_length=1, max_length=100)
-    tenant_scope: str | None = None
+    tenant_scope: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "Restrict the key to one tenant, named by its slug or key. It must be a tenant you are an "
+            "active member of (403 otherwise); the key stores and returns the tenant's key."
+        ),
+    )
 
 
 class SetPasswordRequest(BaseModel):

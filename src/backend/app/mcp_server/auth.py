@@ -175,7 +175,7 @@ class McpAuthenticator:
 
         tenants = self._tenant_service.list_my_tenants(user_key)
         if tenant_scope:
-            tenants = [t for t in tenants if api_key_scope_admits(tenant_scope, tenant_key=t.key, tenant_slug=t.slug)]
+            tenants = [t for t in tenants if api_key_scope_admits(tenant_scope, tenant_key=t.key)]
         if not tenants:
             raise ForbiddenError("This account is not an active member of any tenant.")
 

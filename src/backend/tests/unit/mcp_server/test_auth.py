@@ -218,7 +218,7 @@ def test_authenticate_keeps_every_membership_when_key_is_unscoped():
 
 def test_authenticate_uses_tenant_scope_to_narrow_to_one_tenant():
     auth = _authenticator(
-        _api_key(tenant_scope="garden"),
+        _api_key(tenant_scope="garden-key"),
         _service_user(),
         [
             _TenantWithRole("home", "home", TenantRole.LEAD),

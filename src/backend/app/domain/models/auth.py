@@ -145,18 +145,23 @@ class ApiKey(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-def api_key_scope_admits(scope: str | None, *, tenant_key: str, tenant_slug: str) -> bool:
-    """Whether an API key restricted to *scope* may act in the given tenant (REQ-023, #1817).
+def api_key_scope_admits(scope: str | None, *, tenant_key: str) -> bool:
+    """Whether an API key restricted to *scope* may act in the tenant *tenant_key* (REQ-023).
 
     The one predicate both key-accepting surfaces decide on — the REST tenant
     resolvers (``app.common.auth``) and the MCP authenticator — so they can never
-    disagree about which tenant a key reaches. A scope is matched on the tenant's
-    slug **or** key, since ``tenant_scope`` is stored as the caller typed it; an
-    absent or empty scope restricts nothing.
+    disagree about which tenant a key reaches (#1817). An absent or empty scope
+    restricts nothing.
+
+    **Matched on the tenant key only (#1852).** A slug is not an identity: a
+    rename re-derives it and a deleted tenant's slug can be issued again, so a
+    slug-form scope would follow the *name* to whichever tenant holds it now.
+    ``AuthService.create_api_key`` therefore stores the resolved tenant key, and
+    migration ``v0063`` rewrote the slug-form scopes stored before.
     """
     if not scope:
         return True
-    return scope in (tenant_slug, tenant_key)
+    return scope == tenant_key
 
 
 class ApiKeyCreated(BaseModel):

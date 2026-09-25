@@ -146,7 +146,7 @@ def _membership_for_slug(
     except NotFoundError as exc:
         raise ForbiddenError(_ACTIVE_TENANT_DENIED) from exc
 
-    if not api_key_scope_admits(key_scope, tenant_key=tenant.key or "", tenant_slug=tenant.slug):
+    if not api_key_scope_admits(key_scope, tenant_key=tenant.key or ""):
         raise ForbiddenError(_ACTIVE_TENANT_DENIED)
 
     membership = tenant_service.get_membership(user_key, tenant.key or "") if user_key else None
@@ -299,11 +299,7 @@ def _resolve_active_tenant(
         # tenant on every header-less call. Narrowed to global scope instead —
         # the same fail-safe a service account gets above.
         scope = _key_scope(user)
-        if (
-            scope
-            and personal is not None
-            and not api_key_scope_admits(scope, tenant_key=personal.key or "", tenant_slug=personal.slug)
-        ):
+        if scope and personal is not None and not api_key_scope_admits(scope, tenant_key=personal.key or ""):
             return _ActiveTenant(key="", tenant=None, membership=lambda: None)
         key = personal.key if personal and personal.key else ""
         return _ActiveTenant(

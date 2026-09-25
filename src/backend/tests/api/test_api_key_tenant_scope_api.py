@@ -58,7 +58,7 @@ class _ApiKeyRepo:
             label="ha-club-a",
             key_hash=_hash(_SCOPED_KEY),
             key_prefix=_SCOPED_KEY[:8],
-            tenant_scope="club-a",
+            tenant_scope="tenant_a",
         ),
         _hash(_UNSCOPED_KEY): ApiKey(
             _key="ak-unscoped",
