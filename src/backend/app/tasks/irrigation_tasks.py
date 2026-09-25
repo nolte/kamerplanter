@@ -83,7 +83,7 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
                 solar_radiation_mj_m2=forecast.solar_radiation_mj_m2,
             )
 
-            runs = run_repo.get_runs_at_site(site.key)
+            runs = run_repo.get_runs_at_site(site.key, tenant_key=site.tenant_key)
             if not runs:
                 skipped += 1
                 continue

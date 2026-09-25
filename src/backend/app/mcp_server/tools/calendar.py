@@ -68,12 +68,9 @@ class GetSowingCalendar(ToolBase):
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         year = args.year or today_utc().year
 
-        if args.site_key:
-            # Verify the site belongs to the acting tenant before its runs and
-            # frost data are read — a foreign key must not reach the engine.
-            ctx.site_service.get_site(args.site_key, tenant_key=ctx.tenant_key)
-
-        entries, frost = ctx.calendar_service.get_sowing_calendar(args.site_key, year)
+        # The service resolves the site under the acting tenant before its runs
+        # and frost data are read (#1870) — the same check for REST and MCP.
+        entries, frost = ctx.calendar_service.get_sowing_calendar(args.site_key, year, tenant_key=ctx.tenant_key)
 
         selected = list(entries)
         if args.query:

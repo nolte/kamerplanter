@@ -262,9 +262,16 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
 
-    def get_runs_at_site(self, site_key: str) -> list[PlantingRun]:
+    def get_runs_at_site(self, site_key: str, *, tenant_key: str) -> list[PlantingRun]:
+        """Runs at a site's locations, **of one tenant** (#1870).
+
+        Keyword-only without a default: the calendar passed a caller-chosen site
+        key and read every tenant's runs there. The irrigation task passes the
+        site's own tenant.
+        """
         query = f"""
         FOR run IN {col.PLANTING_RUNS}
+          FILTER run.tenant_key == @tenant_key
           FILTER run.location_key != null
           FILTER run.status IN ['active', 'harvesting', 'completed']
           LET loc = DOCUMENT(CONCAT('{col.LOCATIONS}/', run.location_key))
@@ -272,7 +279,7 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
           SORT run.started_at DESC
           RETURN run
         """
-        cursor = self._db.aql.execute(query, bind_vars={"site_key": site_key})
+        cursor = self._db.aql.execute(query, bind_vars={"site_key": site_key, "tenant_key": tenant_key})
         return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
 
     # ── Nutrient plan assignment ───────────────────────────────────────

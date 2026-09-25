@@ -1,0 +1,100 @@
+"""The sowing calendar and season overview read only the caller's own site — #1870.
+
+``GET /t/{slug}/calendar/sowing?site_id=`` and ``…/season-overview?site_id=``
+passed the key to ``CalendarService`` unchecked: the site (frost dates, name),
+every run at its locations and their phase timelines were read for any
+tenant's key. Only the MCP tool checked first. The service now resolves the
+site under the tenant (one check for every caller), reads runs of that tenant
+only, and lists the tenant's visible species rather than every tenant's.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from unittest.mock import MagicMock
+
+import pytest
+
+from app.common.exceptions import NotFoundError
+from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
+from app.domain.models.site import Site
+from app.domain.services.calendar_service import CalendarService
+
+OWN = "t_a"
+
+
+class _Sites:
+    _sites = {
+        "site_a": Site(_key="site_a", tenant_key=OWN, name="Garten A", eisheilige_date=date(2026, 5, 11)),
+        "site_b": Site(_key="site_b", tenant_key="t_b", name="Garten B geheim", eisheilige_date=date(2026, 5, 20)),
+    }
+
+    def get_site_by_key(self, key: str):
+        return self._sites.get(key)
+
+
+class _Runs:
+    def __init__(self) -> None:
+        self.asked: list[tuple[str, str]] = []
+
+    def get_runs_at_site(self, site_key: str, *, tenant_key: str):
+        self.asked.append((site_key, tenant_key))
+        return []
+
+
+class _Species:
+    def __init__(self) -> None:
+        self.tenant_keys: list[str | None] = []
+
+    def get_all(self, offset=0, limit=50, *, tenant_key=None):
+        self.tenant_keys.append(tenant_key)
+        return [], 0
+
+
+def _service() -> tuple[CalendarService, _Runs, _Species]:
+    runs, species = _Runs(), _Species()
+    run_service = MagicMock()
+    run_service._repo = runs
+    service = CalendarService(
+        MagicMock(),
+        CalendarAggregationEngine(),
+        MagicMock(),
+        species_repo=species,  # type: ignore[arg-type]
+        site_repo=_Sites(),  # type: ignore[arg-type]
+        planting_run_service=run_service,
+    )
+    return service, runs, species
+
+
+@pytest.mark.parametrize("site", ["site_b", "no-such-site"], ids=["foreign", "unknown"])
+def test_another_tenants_site_answers_404_and_reads_nothing(site: str) -> None:
+    service, runs, species = _service()
+
+    with pytest.raises(NotFoundError):
+        service.get_sowing_calendar(site, 2026, tenant_key=OWN)
+    with pytest.raises(NotFoundError):
+        service.get_season_overview(site, 2026, tenant_key=OWN)
+
+    assert runs.asked == []
+    assert species.tenant_keys == []
+
+
+def test_the_own_site_reads_its_frost_dates_and_the_tenants_runs_and_species() -> None:
+    service, runs, species = _service()
+
+    _entries, frost = service.get_sowing_calendar("site_a", 2026, tenant_key=OWN)
+    overview = service.get_season_overview("site_a", 2026, tenant_key=OWN)
+
+    assert frost.eisheilige_date == date(2026, 5, 11)
+    assert overview.site_name == "Garten A"
+    assert runs.asked and set(runs.asked) == {("site_a", OWN)}
+    assert set(species.tenant_keys) == {OWN}
+
+
+def test_without_a_site_the_generic_calendar_still_uses_the_tenants_species() -> None:
+    service, runs, species = _service()
+
+    service.get_sowing_calendar(None, 2026, tenant_key=OWN)
+
+    assert runs.asked == []
+    assert species.tenant_keys == [OWN]
