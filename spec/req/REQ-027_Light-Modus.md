@@ -62,6 +62,8 @@ Der Light-Modus stützt sich auf die **Haushaltsausnahme** der DSGVO: Die Verord
 | DSGVO-Self-Service-Endpunkte unter `/api/v1/privacy/` | Nicht registriert |
 | Erasure-Workflow (REQ-025 §3.1) | Inaktiv (kein User → keine Löschung) |
 | Audit-Logs für personenbezogene Verarbeitung | Inaktiv |
+| Passwort des System-Kontos setzen (`POST /api/v1/users/me/password`) | Abgewiesen (403): Das Konto wird von jeder Anfrage ohne Anmeldung benutzt, ein hier gesetztes Passwort wäre nach dem Wechsel in den Full-Modus eine gültige Anmeldung für den, der es gesetzt hat |
+| Einladungen in den System-Tenant (`POST /api/v1/tenants/{slug}/invitations/{email,link}`) | Abgewiesen (403): Der Light-Modus kennt nur ein Konto; ein hier ausgestellter Einladungs-Token würde nach dem Wechsel in den Full-Modus eine Mitgliedschaft über die Betreiberdaten gewähren |
 
 **Was im Light-Modus AKTIV BLEIBT (technische Datenschutz-Maßnahmen):**
 

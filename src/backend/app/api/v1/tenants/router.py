@@ -24,6 +24,7 @@ from app.common.auth import (
     get_authenticated_with_api_key,
     get_current_tenant,
     get_current_user,
+    refuse_in_light_mode,
     require_admin_scope,
 )
 from app.common.dependencies import get_tenant_service
@@ -224,6 +225,10 @@ def list_invitations(
     "/{tenant_slug}/invitations/email",
     response_model=InvitationLinkResponse,
     status_code=201,
+    # #1844: a light-mode caller is the unauthenticated system account, which is the
+    # light tenant's lead; a token issued here would outlive the mode and admit
+    # whoever asked for it once the instance runs in full mode.
+    dependencies=[Depends(refuse_in_light_mode)],
 )
 def create_email_invitation(
     body: EmailInvitationRequest,
@@ -248,6 +253,10 @@ def create_email_invitation(
     "/{tenant_slug}/invitations/link",
     response_model=InvitationLinkResponse,
     status_code=201,
+    # #1844: a light-mode caller is the unauthenticated system account, which is the
+    # light tenant's lead; a token issued here would outlive the mode and admit
+    # whoever asked for it once the instance runs in full mode.
+    dependencies=[Depends(refuse_in_light_mode)],
 )
 def create_link_invitation(
     body: LinkInvitationRequest,

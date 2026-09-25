@@ -216,6 +216,8 @@ Content-Type: application/json
 
 A request authenticated with an API key is refused with `403 Forbidden` — an API key cannot change its own account's password.
 
+In light mode (`KAMERPLANTER_MODE=light`) the route answers `403 Forbidden`. The instance's single account is used by every request without sign-in, so a password set there would prove nothing about who set it — and it would become a working sign-in once the instance switches to full mode.
+
 ---
 
 ## Step-up Confirmation for Irreversible Account Actions
