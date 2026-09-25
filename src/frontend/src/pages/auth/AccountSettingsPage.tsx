@@ -96,7 +96,9 @@ import type {
   HATestResponse,
   PlantIdentificationTestResponse,
 } from '@/api/endpoints/adminSettings';
-import { parseApiError } from '@/api/errors';
+import { getStepUpErrorMessage, parseApiError } from '@/api/errors';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import ConnectDeviceDialog from './ConnectDeviceDialog';
 import NotificationSettingsTab from './NotificationSettingsTab';
@@ -278,6 +280,7 @@ export default function AccountSettingsPage() {
   const [plantnetSaveSuccess, setPlantnetSaveSuccess] = useState(false);
   const [plantnetResetDone, setPlantnetResetDone] = useState(false);
   const [plantnetKeyVisible, setPlantnetKeyVisible] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   const hasLocalProvider = providers.some((p) => p.provider === 'local');
 
@@ -526,7 +529,9 @@ export default function AccountSettingsPage() {
       enqueueSnackbar(t('pages.auth.passwordChanged'), { variant: 'success' });
       loadProviders();
     } catch (err) {
-      setError(parseApiError(err));
+      // A throttled step-up (429 STEP_UP_LOCKED, #1816) reads as the translated
+      // lockout with its minutes, not as the backend's English message.
+      setError(getStepUpErrorMessage(err, t));
     }
   };
 
@@ -588,14 +593,15 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!window.confirm(t('pages.auth.deleteAccountConfirm'))) return;
-    try {
-      await deleteAccount();
-      window.location.href = '/login';
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
+  // Closing the own account is a step-up (#1813): the own e-mail typed back and,
+  // for an account with a local password, the current password. A rejection
+  // propagates to the dialog, which shows it and stays open.
+  const handleDeleteAccount = async ({ echo, password }: StepUpConfirmation) => {
+    await deleteAccount(password === undefined ? { confirm_email: echo } : { confirm_email: echo, password });
+    setDeleteAccountOpen(false);
+    // Full reload, not a router navigation: the session is gone server-side and
+    // every in-memory slice belongs to the closed account.
+    window.location.href = '/login';
   };
 
   return (
@@ -1833,7 +1839,8 @@ export default function AccountSettingsPage() {
                 <Button
                   variant="outlined"
                   color="error"
-                  onClick={handleDeleteAccount}
+                  onClick={() => setDeleteAccountOpen(true)}
+                  disabled={!user?.email}
                   data-testid="delete-account-btn"
                 >
                   {t('pages.auth.deleteAccount')}
@@ -1843,6 +1850,23 @@ export default function AccountSettingsPage() {
           </Card>
         </Box>
       )}
+
+      {/* Delete Account Step-Up Dialog (#1813) */}
+      <StepUpConfirmDialog
+        open={deleteAccountOpen}
+        title={t('pages.auth.deleteAccountDialogTitle')}
+        description={t('pages.auth.deleteAccountConfirm')}
+        echoLabel={t('pages.auth.deleteAccountEmailLabel')}
+        echoHelper={t('pages.auth.deleteAccountEmailHelper', { email: user?.email ?? '' })}
+        expectedEcho={user?.email ?? ''}
+        echoMatch="caseInsensitive"
+        echoInputType="email"
+        confirmLabel={t('pages.auth.deleteAccountConfirmButton')}
+        testIdPrefix="delete-account"
+        testIds={{ echo: 'delete-account-email' }}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => setDeleteAccountOpen(false)}
+      />
 
       {/* Create API Key Dialog */}
       <Dialog fullScreen={fullScreen} open={newKeyDialogOpen} onClose={() => setNewKeyDialogOpen(false)} maxWidth="sm" fullWidth>
