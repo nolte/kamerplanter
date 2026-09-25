@@ -23,7 +23,7 @@ from app.common.exceptions import (
     WriteConflictError,
 )
 from app.common.log_privacy import log_subject
-from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
@@ -451,6 +451,20 @@ class TenantService:
         tenant = self._tenant_repo.get_by_key(tenant_key)
         if tenant is None and record is None:
             return PersonalTenantErasure(tenant_key=tenant_key, outcome="absent")
+        if (
+            record is None
+            and tenant is not None
+            and tenant.tenant_type == TenantType.PERSONAL
+            and tenant.owner_user_key == ANONYMIZED_MARKER
+        ):
+            # #1788 code review — a recorded key whose tenant the account plan
+            # already handed over (owner replaced) was retained on an earlier
+            # attempt; a retry must not fail on it and block the Art. 17 duty.
+            return PersonalTenantErasure(
+                tenant_key=tenant_key,
+                outcome="retained_other_members",
+                reason="Kept on an earlier attempt of this erasure; its owner reference is already removed.",
+            )
         if tenant is not None and (tenant.owner_user_key != user_key or tenant.tenant_type != TenantType.PERSONAL):
             raise ValidationError("The tenant recorded for this account erasure is not the subject's personal tenant.")
         if record is None:

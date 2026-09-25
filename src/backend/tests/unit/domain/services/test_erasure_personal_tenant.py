@@ -335,6 +335,17 @@ class TestTheTenantServiceDecides:
             service.erase_personal_tenant_of(USER, PERSONAL)
         delete.assert_not_called()
 
+    def test_a_retry_after_the_account_plan_handed_the_tenant_over_does_not_fail(self):
+        """#1788 code review — the plan replaced the owner of a retained tenant; the retry keeps it retained."""
+        from app.domain.engines.erasure_engine import ANONYMIZED_MARKER
+
+        service, delete = _tenant_service(tenant=_personal(owner=ANONYMIZED_MARKER), members=["u-2"])
+
+        outcome = service.erase_personal_tenant_of(USER, PERSONAL)
+
+        assert outcome.outcome == "retained_other_members"
+        delete.assert_not_called()
+
     def test_an_incomplete_deletion_is_not_reported_erased(self):
         service, delete = _tenant_service(tenant=_personal())
         delete.return_value.status = "partially_completed"
