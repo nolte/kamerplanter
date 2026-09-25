@@ -127,13 +127,32 @@ GOLDEN_PROJECTIONS = 8
 GOLDEN_DECIMALS = 6
 
 #: The largest |Δ| allowed between a stored golden value and the image's
-#: output, for every embedding component, projection and reranker score.
-#: Measured on 2026-09-25 (see the golden files' `computed` block and #1763):
-#: see `GOLDEN_TOLERANCE_MEASUREMENT` below.
+#: output, for every embedding component and projection. MEASURED, 2026-09-25
+#: (#1763), each figure the max over every stored value:
+#:
+#: - the served image against its golden file, all six targets, under
+#:   ``docker run --cpus`` 1, 2, 4 and 8 (the service sizes its intra-op
+#:   thread pool from that limit, ``limits.cpu_budget``), three runs each, on
+#:   an i7-1065G7 (AVX-512): <= 1e-6 — the outputs were bit-identical across
+#:   thread counts; what remains is the 6-decimal rounding of the file;
+#: - the same on the CI runner class (``ubuntu-latest``, the CPU printed at the
+#:   top of every probe run), for the two targets CI builds: <= 1e-6;
+#: - the golden values against the model authors' PyTorch weights
+#:   (``reference_check`` in each file): <= 1e-6.
+#:
+#: Against that noise floor the defect this exists for is enormous: the
+#: pre-#1758 MiniLM image (transformers 5, ``<unk>`` tokens) deviates by 0.107
+#: to 0.247 per input. 1e-3 sits three orders of magnitude above every measured
+#: noise source — room for a different CPU's kernels or an onnxruntime patch
+#: release — and two below the smallest deviation of the known defect.
 GOLDEN_TOLERANCE = 1e-3
 
 #: The same, for a reranker logit (magnitude ~1-12, not ~0.05 like a unit
 #: vector's component), recovered from the served score by ``score_logit``.
+#: Measured like ``GOLDEN_TOLERANCE``: <= 4.9e-6 locally (all thread counts),
+#: <= 3.6e-6 on the CI runner, <= 4.4e-6 against the PyTorch weights. Scaled
+#: with the magnitude of the values, not tightened: a logit is ~100x a
+#: component, and so is the tolerance's headroom over its noise.
 GOLDEN_LOGIT_TOLERANCE = 1e-2
 
 #: A golden logit stays inside this band so its float32 sigmoid never rounds
@@ -441,6 +460,15 @@ def probe_reranker_golden(base: str, path: Path, golden: dict[str, Any]) -> floa
     return worst
 
 
+def _host_cpu() -> str:
+    """The CPU model, printed so every CI run records the hardware its golden deviation was measured on."""
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8") as cpuinfo:
+            return next((line.split(":", 1)[1].strip() for line in cpuinfo if line.startswith("model name")), "?")
+    except OSError:
+        return "?"
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 3 or argv[2] not in PORTS:
         print(f"usage: {argv[0]} <image> {{{'|'.join(PORTS)}}}", file=sys.stderr)
@@ -456,7 +484,7 @@ def main(argv: list[str]) -> int:
     try:
         host_port = _docker("port", container, f"{port}/tcp").splitlines()[0].rsplit(":", 1)[1]
         base = f"http://127.0.0.1:{host_port}"
-        print(f"probe: {image} ({kind}) at {base}")
+        print(f"probe: {image} ({kind}) at {base} on {_host_cpu()}")
         golden_path, golden = load_golden(kind, image_model(image, kind))
         _wait_ready(base)
         if kind == "reranker":
