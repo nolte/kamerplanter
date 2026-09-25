@@ -58,6 +58,12 @@ spelling the other catches:
 * **IP addresses** (#1781): an ``ip``/``ip_address``/``remote_addr``/``*_ip``
   keyword must be a call (``ip_prefix=loggable_ip(ip)``, the NFR-011 R-03
   truncation) or a literal, never the raw address.
+* **error messages** (#1796): ``<name>.message`` as a value, under any keyword or
+  positionally (also in ``a or b``, conditionals, f-strings) — a
+  ``KamerplanterError``'s message names what it is about (``NotFoundError("User",
+  <key>)``). Log ``error_code=`` or ``loggable_error(exc)``. Measured when added:
+  3 sites (``app_error_handler``, ``OnboardingService._create_plants``,
+  ``cleanup_unverified_accounts``), all fixed.
 
 **What the selector derives**: every tracked ``*.py`` under ``app/`` and ``scripts/``
 (the operator scripts log too — ``scripts/storage/migrate.py`` walks every object key,
@@ -80,11 +86,20 @@ different line. Every entry must name a live site (``test_allowlist_entries_stil
   ``who=who``) — the AST has no data flow here;
 * ``**fields`` splats and ``extra={...}`` dicts built elsewhere;
 * an exception text reaching the logger in any other spelling than ``str(<name>)`` /
-  ``repr(<name>)`` — ``str(exc.args[0])``, ``f"{exc}"``, ``exc`` itself, a
-  ``exc_info=True`` / ``logger.exception(...)`` traceback (whose last line is the
-  text), or a text forwarded into a helper's ``**log_fields`` rather than written
-  at the log call (``PrivacyService._record_failed_attempt(..., error=...)``: the
-  call site passes ``_loggable_error(...)``, but nothing here sees that argument);
+  ``repr(<name>)`` / ``<name>.message`` — ``str(exc.args[0])``, ``f"{exc}"``,
+  ``exc`` itself, or a text forwarded into a helper's ``**log_fields`` rather than
+  written at the log call (``PrivacyService._record_failed_attempt(..., error=...)``:
+  the call site passes ``_loggable_error(...)``, but nothing here sees that
+  argument). Tracebacks (``exc_info=True``, ``logger.exception(...)``, uvicorn's
+  and Celery's own) are no longer a blind spot of the *sink*: since #1796 every
+  one is rendered by ``log_privacy.redacted_traceback`` (structlog's
+  ``ExceptionRenderer``, the handler filter in ``app.config.logging``), and the
+  handler filter also redacts an embedded ``str(exc)``/``repr(exc)`` and masks
+  addresses and URL queries in every stdlib line
+  (``test_tracebacks_carry_no_personal_data.py``). What that sink rule cannot
+  see: a subject key inside a non-domain exception text (``loggable_error``
+  without ``user_key=`` does not know the key), and a handler added after
+  ``setup_logging`` ran;
 * a raw storage key under a keyword not listed above (``path=``, ``file_path=``);
 * a logger reached under another name (``self._audit.info(...)``, an inline
   ``structlog.get_logger().info(...)``) or a level method outside ``_LOG_METHODS``;
@@ -94,7 +109,9 @@ different line. Every entry must name a live site (``test_allowlist_entries_stil
   on #1781: their findings are model-file paths and ingestion errors, no account
   identity; the knowledge service's ``query=`` free text is out of this guard's reach);
 * access-log lines written by uvicorn and nginx themselves (client address, path,
-  query string) — not log calls in this tree (#1796);
+  query string) — not log calls in this tree; redacted at runtime since #1795
+  (``uvicorn.access`` filter, nginx ``kp_redacted`` format) and held by
+  ``test_logs_carry_no_secrets_runtime.py``, not by this guard;
 * an IP under a keyword not matching ``_IP_KEYWORD`` (``host=``, ``client=``), or
   inside an ``address`` that is a *server's* resolved address (``url_safety``:
   the SSRF target a URL resolves to, not a data subject);
@@ -220,6 +237,25 @@ def _raw_exception_text(value: ast.expr) -> str | None:
     return None
 
 
+def _raw_error_message(value: ast.expr) -> str | None:
+    """``<name>.message`` handed over unwrapped (#1796): a ``KamerplanterError``'s message names what it is about.
+
+    ``NotFoundError("User", <key>).message`` is ``"User with key '<key>' not
+    found."``. Wrapped in a call (``loggable_error(exc)``, ``loggable_exception_text(exc)``)
+    it passes. Also inside ``a or b``, ``a if c else b`` and f-strings.
+    """
+    if isinstance(value, ast.Attribute) and value.attr == "message":
+        return ast.unparse(value)
+    if isinstance(value, ast.BoolOp):
+        return next((hit for part in value.values if (hit := _raw_error_message(part))), None)
+    if isinstance(value, ast.IfExp):
+        return _raw_error_message(value.body) or _raw_error_message(value.orelse)
+    if isinstance(value, ast.JoinedStr):
+        parts = [p.value for p in value.values if isinstance(p, ast.FormattedValue)]
+        return next((hit for part in parts if (hit := _raw_error_message(part))), None)
+    return None
+
+
 def _is_raw_ip(keyword: str, value: ast.expr) -> bool:
     """An IP keyword whose value is handed over as-is — not a call (``loggable_ip``), not a literal."""
     return bool(_IP_KEYWORD.search(keyword)) and not isinstance(value, ast.Call | ast.Constant)
@@ -266,7 +302,7 @@ class _LogCallVisitor(ast.NodeVisitor):
         for arg in node.args:
             if hit := _raw_identifier(arg):
                 self.findings.append(f"{where}: positional {hit}")
-            elif hit := _raw_exception_text(arg):
+            elif hit := _raw_exception_text(arg) or _raw_error_message(arg):
                 self.findings.append(f"{where}: positional {hit} (unredacted exception text)")
         for kw in node.keywords:
             if kw.arg is None:
@@ -286,6 +322,10 @@ class _LogCallVisitor(ast.NodeVisitor):
             elif hit := _raw_exception_text(kw.value):
                 self.findings.append(
                     f"{where}: {kw.arg}={hit} (unredacted exception text; log error_type= or a redaction call)"
+                )
+            elif hit := _raw_error_message(kw.value):
+                self.findings.append(
+                    f"{where}: {kw.arg}={hit} (unredacted error message; log error_code= or loggable_error(exc))"
                 )
 
 
@@ -413,6 +453,16 @@ _STORAGE = "app/data_access/storage/probe_adapter.py"
         (_SERVICE, "logger.info('pairing', ip_prefix=loggable_ip(ip_address))", False),
         (_SERVICE, "logger.info('pairing', ip_address=loggable_ip(ip_address))", False),
         (_SERVICE, "logger.info('probe', skip=skip)", False),
+        (_SERVICE, "logger.warning('e', message=exc.message)", True),
+        (_SERVICE, "logger.warning('e', reason=exc.message)", True),
+        (_SERVICE, "logger.warning('e', reason=exc.message or 'unknown')", True),
+        (_SERVICE, "logger.warning('e', reason=a if c else err.message)", True),
+        (_SERVICE, "logger.warning(f'failed: {exc.message}')", True),
+        (_SERVICE, "logger.warning('failed: %s', exc.message)", True),
+        (_SERVICE, "logger.warning('e', reason=loggable_error(exc))", False),
+        (_SERVICE, "logger.warning('e', reason=loggable_error(exc.message))", False),
+        (_SERVICE, "logger.warning('e', error_code=exc.error_code)", False),
+        (_SERVICE, "logger.warning('e', message_count=len(messages))", False),
         ("app/data_access/external/smtp_email_adapter.py", "logger.info('email_sent', to=to_email)", True),
         (
             "app/data_access/external/smtp_email_adapter.py",

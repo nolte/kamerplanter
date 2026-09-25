@@ -24,12 +24,14 @@ and to allow the channel to be mocked in tests.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 from functools import partial
+from urllib.parse import urlsplit
 
 import structlog
 
-from app.common.log_privacy import loggable_error
+from app.common.log_privacy import loggable_ip
 from app.common.url_safety import is_safe_push_endpoint
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import ChannelResult, Notification
@@ -125,8 +127,8 @@ class PwaNotificationChannel(INotificationChannel):
             # SEC-001 — defence in depth: stored subscriptions may predate the
             # subscribe-time SSRF validation. Never dial an unsafe endpoint.
             if not is_safe_push_endpoint(endpoint):
-                errors.append(f"{endpoint}: rejected (unsafe endpoint)")
-                logger.warning("pwa_endpoint_skipped_unsafe", endpoint=endpoint)
+                errors.append(f"{_endpoint_host(endpoint)}: rejected (unsafe endpoint)")
+                logger.warning("pwa_endpoint_skipped_unsafe", endpoint_host=_endpoint_host(endpoint))
                 continue
             subscription_info = {
                 "endpoint": endpoint,
@@ -150,7 +152,7 @@ class PwaNotificationChannel(INotificationChannel):
                 logger.debug(
                     "pwa_notification_sent",
                     notification_key=notification.key,
-                    endpoint=endpoint,
+                    endpoint_host=_endpoint_host(endpoint),
                 )
             except web_push_exception as exc:
                 status_code = _extract_status_code(exc)
@@ -158,24 +160,29 @@ class PwaNotificationChannel(INotificationChannel):
                     expired_endpoints.append(endpoint)
                     logger.info(
                         "pwa_subscription_expired",
-                        endpoint=endpoint,
+                        endpoint_host=_endpoint_host(endpoint),
                         status_code=status_code,
                     )
                 else:
-                    errors.append(f"{endpoint}: {exc}")
+                    errors.append(f"{_endpoint_host(endpoint)}: {type(exc).__name__} {status_code}")
                     logger.warning(
                         "pwa_notification_failed",
-                        endpoint=endpoint,
+                        endpoint_host=_endpoint_host(endpoint),
                         status_code=status_code,
-                        error=loggable_error(exc),
+                        error_type=type(exc).__name__,
                     )
+            # Never the exception text, never a traceback (review SEC-002): a
+            # requests/urllib3 error names the endpoint as a *bare path*
+            # (``Max retries exceeded with url: /fcm/send/<token>``), which no
+            # URL masking recognises, and the traceback would render it again.
+            # The ``errors`` detail is logged by the engine, so it carries the
+            # host and the type only.
             except Exception as exc:  # noqa: BLE001 — never abort the batch
-                errors.append(f"{endpoint}: {exc}")
+                errors.append(f"{_endpoint_host(endpoint)}: {type(exc).__name__}")
                 logger.error(
                     "pwa_notification_error",
-                    endpoint=endpoint,
-                    error=loggable_error(exc),
-                    exc_info=True,
+                    endpoint_host=_endpoint_host(endpoint),
+                    error_type=type(exc).__name__,
                 )
 
         return self._build_result(delivered, errors, expired_endpoints)
@@ -234,6 +241,28 @@ def _import_pywebpush():  # noqa: ANN202 — third-party objects are untyped
     from pywebpush import WebPushException, webpush  # noqa: PLC0415
 
     return webpush, WebPushException
+
+
+def _endpoint_host(endpoint: str) -> str:
+    """The push service's host — all a log line may carry of an endpoint (#1796).
+
+    A Web Push endpoint's path is the device's push token: whoever holds it (plus
+    the VAPID key) can address that device. The host (``fcm.googleapis.com``,
+    ``updates.push.services.mozilla.com``) tells an operator which push service
+    failed.
+    """
+    try:
+        host = urlsplit(endpoint).hostname
+    except ValueError:
+        return "<unparsable>"
+    if not host:
+        return "<no host>"
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    # An IP literal is truncated like any other address in a log line (review GDPR-006).
+    return loggable_ip(host) or "<no host>"
 
 
 def _extract_status_code(exc: Exception) -> int | None:

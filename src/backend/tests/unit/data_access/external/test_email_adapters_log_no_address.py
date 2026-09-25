@@ -19,10 +19,13 @@ import pytest
 import structlog.testing
 
 from app.common.decoys import email_digest
+from app.config.settings import settings
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 
 RECIPIENT = "recipient-9d2c41@example.com"
+DISPLAY_NAME = "Erika Mustermann-9d2c41"
+TOKEN = "reset-token-9d2c41"
 
 
 class _FakeSmtp:
@@ -100,3 +103,78 @@ class TestConsoleAdapter:
         assert len(logs) == 1
         assert logs[0]["to_sha256"] == email_digest(RECIPIENT)
         assert RECIPIENT not in repr(logs)
+
+
+_LINK_MAILS = [
+    pytest.param(
+        lambda a: a.send_verification_email(RECIPIENT, DISPLAY_NAME, TOKEN, "https://app.test"),
+        "email_verification",
+        "verification_url",
+        "https://app.test/verify-email/" + TOKEN,
+        id="verification",
+    ),
+    pytest.param(
+        lambda a: a.send_password_reset_email(RECIPIENT, DISPLAY_NAME, TOKEN, "https://app.test"),
+        "email_password_reset",
+        "reset_url",
+        "https://app.test/password-reset/" + TOKEN,
+        id="password-reset",
+    ),
+]
+
+
+class TestConsoleAdapterLinks:
+    """#1795: the link's token takes over the account; it is logged only in debug, the name never."""
+
+    @pytest.mark.parametrize(("send", "event", "url_field", "url"), _LINK_MAILS)
+    def test_outside_debug_the_link_is_not_logged(
+        self, monkeypatch: pytest.MonkeyPatch, send: Any, event: str, url_field: str, url: str
+    ) -> None:
+        monkeypatch.setattr(settings, "debug", False)
+
+        with structlog.testing.capture_logs() as logs:
+            send(ConsoleEmailAdapter())
+
+        (entry,) = logs
+        assert entry["event"] == event
+        assert entry["url_logged"] is False
+        assert entry["to_sha256"] == email_digest(RECIPIENT)
+        assert url_field not in entry
+        assert TOKEN not in repr(logs)
+        assert DISPLAY_NAME not in repr(logs)
+
+    @pytest.mark.parametrize(("send", "event", "url_field", "url"), _LINK_MAILS)
+    def test_in_debug_the_link_is_logged_for_the_local_operator(
+        self, monkeypatch: pytest.MonkeyPatch, send: Any, event: str, url_field: str, url: str
+    ) -> None:
+        monkeypatch.setattr(settings, "debug", True)
+
+        with structlog.testing.capture_logs() as logs:
+            send(ConsoleEmailAdapter())
+
+        (entry,) = logs
+        assert entry["event"] == event
+        assert entry["url_logged"] is True
+        assert entry[url_field] == url
+        assert DISPLAY_NAME not in repr(logs)
+
+
+class TestConsoleAdapterStartupWarning:
+    @pytest.mark.parametrize(
+        ("adapter", "debug", "warns"),
+        [("console", False, True), ("resend", False, True), ("console", True, False), ("smtp", False, False)],
+    )
+    def test_the_api_warns_when_mail_goes_to_the_console_outside_debug(
+        self, monkeypatch: pytest.MonkeyPatch, adapter: str, debug: bool, warns: bool
+    ) -> None:
+        from app.main import warn_if_console_email_adapter
+
+        monkeypatch.setattr(settings, "email_adapter", adapter)
+        monkeypatch.setattr(settings, "debug", debug)
+
+        with structlog.testing.capture_logs() as logs:
+            warned = warn_if_console_email_adapter()
+
+        assert warned is warns
+        events = [(entry["event"], entry["log_level"]) for entry in logs]
+        assert events == ([("email_adapter_console_in_production", "warning")] if warns else [])
