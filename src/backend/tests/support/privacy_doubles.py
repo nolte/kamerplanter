@@ -106,6 +106,15 @@ class FakeDataExportRepo:
     def delete(self, key: str) -> bool:
         return self.stored.pop(key, None) is not None
 
+    def start_processing(
+        self, key: str, *, from_statuses: list[str], fields: dict[str, Any]
+    ) -> DataExportRequest | None:
+        """The real conditional write: only from one of *from_statuses*."""
+        current = self.stored.get(key)
+        if current is None or current.status not in from_statuses:
+            return None
+        return self.update_fields(key, {**fields, "status": "processing"})
+
     def complete_if_processing(self, key: str, fields: dict[str, Any]) -> DataExportRequest | None:
         """The real conditional write: only while ``processing``."""
         current = self.stored.get(key)

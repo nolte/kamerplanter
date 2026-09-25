@@ -1014,18 +1014,23 @@ class PrivacyService:
         # the stored value survives a clear that meant to happen; and the walk plus
         # the storage upload below sit between the read and the write, which is
         # exactly the window in which a full model goes stale.
-        export.status = "processing"
-        export.processing_started_at = datetime.now(UTC)
-        export = self._export_repo.update_fields(
+        started = self._export_repo.start_processing(
             export_key,
-            _persistable(
+            from_statuses=list(resumable),
+            fields=_persistable(
                 {
-                    "status": export.status,
-                    "processing_started_at": export.processing_started_at,
+                    "processing_started_at": datetime.now(UTC),
                     "manifest_collections": export.manifest_collections,
                 }
             ),
         )
+        if started is None:
+            # Conditional (#1767 review): an account erasure closed the request
+            # between the read above and this write; an unconditional flip would
+            # reopen it, and the build would then complete behind the erasure.
+            logger.info("retention.process_data_export.closed_meanwhile", export_key=export_key)
+            return self._export_repo.get_by_key(export_key)
+        export = started
 
         object_key = self._data_export_engine.bundle_object_key(export.user_key, export_key)
         try:
@@ -1737,10 +1742,10 @@ class PrivacyService:
         stored = [export.file_path for export in self._export_repo.list_by_user(user_key) if export.file_path]
         if self._storage_adapter is None:
             if stored:
-                raise FeatureNotConfiguredError(
-                    "account_erasure",
-                    "Stored export bundles exist but no object storage is wired, so they cannot be deleted.",
-                )
+                # Per account, not instance-wide: an ``ErasureIncompleteError``,
+                # so the unverified cleanup counts this one account ``failed``
+                # instead of blocking every other candidate (#1767 review).
+                raise ErasureIncompleteError(["data_export_requests (stored bundles; no object storage is wired)"])
             logger.info(
                 "retention.erasure.export_file_cleanup_skipped",
                 subject=self._erasure_log_subject(user_key),

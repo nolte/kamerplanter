@@ -258,6 +258,35 @@ class TestTheBundleReachesTheUser:
         assert result.file_path is None
         assert storage.objects == {}
 
+    async def test_an_export_an_erasure_closed_before_the_build_started_is_not_reopened(self):
+        """#1767 code review — the ``pending → processing`` flip was unconditional.
+
+        An erasure that closed the request between the worker's read and its
+        flip was overwritten back to ``processing``; the build then completed
+        behind the erasure and left a bundle nothing pointed at.
+        """
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        read = svc._export_repo.get_by_key
+        calls = {"n": 0}
+
+        def _read_then_erasure_closes_it(key):
+            calls["n"] += 1
+            found = read(key)
+            if calls["n"] == 1:
+                snapshot = found.model_copy()
+                svc._export_repo.fail_open_for_user(USER, "The account is being erased.")
+                return snapshot
+            return found
+
+        svc._export_repo.get_by_key = _read_then_erasure_closes_it
+
+        result = await svc.process_data_export("exp-1")
+
+        assert result.status == "failed"
+        assert storage.objects == {}
+
     async def test_a_failed_bundle_delete_does_not_expire_the_record(self):
         """#1767 GDPR-005 — ``expired`` is written only after the bundle is gone.
 

@@ -84,3 +84,14 @@ class IDataExportRepository(ABC):
         build still in flight can no longer complete behind it. Returns the count.
         """
         ...
+
+    @abstractmethod
+    def start_processing(
+        self, key: DataExportRequestKey, *, from_statuses: list[str], fields: dict[str, Any]
+    ) -> DataExportRequest | None:
+        """Move the export to ``processing`` only while it is in *from_statuses* (#1767).
+
+        ``None`` when it is not — an account erasure closed it after the caller
+        read it; the build must not start (it would reopen the request).
+        """
+        ...

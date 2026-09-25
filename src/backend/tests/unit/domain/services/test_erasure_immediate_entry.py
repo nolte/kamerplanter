@@ -417,3 +417,28 @@ class TestReviewFindings:
 
         assert await service.execute_scheduled_erasures(NOW) == 1
         assert (committed.status, committed.error_message) == ("completed", None)
+
+    def test_stored_bundles_without_an_object_store_fail_one_account_not_the_run(self):
+        """#1767 code review — this is per account; the cleanup must not report every candidate blocked."""
+        from unittest.mock import patch
+
+        from app.domain.models.privacy import DataExportRequest
+        from app.tasks.auth_tasks import cleanup_unverified_accounts
+        from tests.support.privacy_doubles import FakeDataExportRepo
+
+        repo = FakeErasureRepo()
+        service, _ = _service(repo, RecordingErasureExecutor())
+        service._export_repo = FakeDataExportRepo(
+            DataExportRequest(_key="exp-1", user_key=USER, status="completed", file_path="privacy/exports/x.json")
+        )
+        user_repo = MagicMock()
+        user_repo.get_unverified_before.return_value = [SimpleNamespace(key=USER), SimpleNamespace(key="u-2")]
+        with (
+            patch("app.common.dependencies.get_user_repo", return_value=user_repo),
+            patch("app.common.dependencies.get_privacy_service", return_value=service),
+        ):
+            result = cleanup_unverified_accounts.run()
+
+        assert result["blocked"] == 0
+        assert result["failed"] == 1
+        assert result["removed"] == 1

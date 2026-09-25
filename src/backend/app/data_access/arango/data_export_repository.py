@@ -163,3 +163,30 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
             },
         )
         return next(iter(cursor), 0)
+
+    def start_processing(
+        self, key: str, *, from_statuses: list[str], fields: dict[str, Any]
+    ) -> DataExportRequest | None:
+        """Conditional ``→ processing`` write (#1767 review); ``None`` when the status moved on."""
+        data = {name: value for name, value in fields.items() if not name.startswith("_")}
+        data["status"] = "processing"
+        data["updated_at"] = self._now()
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key AND doc.status IN @from_statuses
+          UPDATE doc WITH @fields IN @@collection OPTIONS { keepNull: true }
+          RETURN NEW
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.DATA_EXPORT_REQUESTS,
+                "key": key,
+                "from_statuses": from_statuses,
+                "fields": data,
+            },
+        )
+        docs = list(cursor)
+        if not docs:
+            return None
+        return DataExportRequest(**self._from_doc(docs[0]))

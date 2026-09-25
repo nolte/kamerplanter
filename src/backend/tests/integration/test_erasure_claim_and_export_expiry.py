@@ -215,3 +215,17 @@ class TestTheExportCompletionGuard:
         assert refused is None
         stored = repo.get_by_key(closed_export.key)
         assert (stored.status, stored.file_path) == ("failed", None)
+
+    def test_the_processing_flip_does_not_reopen_a_closed_export(self, database):
+        repo = ArangoDataExportRepository(database)
+        pending = repo.create(_export("flip-open", status="pending", expires_at=None, file_path=None))
+        closed = repo.create(_export("flip-closed", status="pending", expires_at=None, file_path=None))
+        repo.fail_open_for_user("export-user-flip-closed", "The account is being erased.")
+
+        started = repo.start_processing(pending.key, from_statuses=["pending"], fields={"manifest_collections": []})
+        refused = repo.start_processing(closed.key, from_statuses=["pending"], fields={"manifest_collections": []})
+
+        assert started is not None
+        assert started.status == "processing"
+        assert refused is None
+        assert repo.get_by_key(closed.key).status == "failed"
