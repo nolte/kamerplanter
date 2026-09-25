@@ -76,6 +76,26 @@ def _rules() -> list[dict[str, Any]]:
     return rules
 
 
+# Registries whose Renovate datasource returns no release timestamp. Under
+# `timestamp-optional` an update from one of them never waits; measured for GHCR
+# on the Dependency Dashboard (#12, "Some release(s) did not have a
+# releaseTimestamp") and in #1762, which carried `renovate/stability-days` green
+# on the day of the release.
+_UNDATED_PREFIXES = ("ghcr.io/",)
+
+
+def _mixes_dated_and_undated(rule: dict[str, Any]) -> bool:
+    """Whether a rule's enumerated members span an undated and a dated registry.
+
+    Judged on ``matchPackageNames`` only: a rule matching by manager or by
+    pattern has no enumerated members to judge, which is the residual this
+    predicate does not close.
+    """
+    names = [n for n in rule.get("matchPackageNames", []) if isinstance(n, str) and not n.startswith(("/", "!"))]
+    undated = [n for n in names if n.startswith(_UNDATED_PREFIXES)]
+    return bool(undated) and len(undated) < len(names)
+
+
 def _workflow() -> dict[str, Any]:
     loaded = yaml.safe_load(_AUTOMERGE_WORKFLOW.read_text(encoding="utf-8"))
     assert isinstance(loaded, dict), f"{_AUTOMERGE_WORKFLOW} did not parse to a mapping"
@@ -147,8 +167,47 @@ class TestReleasesAgeBeforeTheyMerge:
         assert _config().get("minimumReleaseAge") == "3 days"
 
     def test_no_package_rule_shortens_or_lifts_the_wait(self) -> None:
-        offenders = [rule.get("groupName") or rule for rule in _rules() if "minimumReleaseAge" in rule]
-        assert not offenders, f"a packageRules entry overrides minimumReleaseAge: {offenders}"
+        offenders = [
+            rule.get("groupName") or rule
+            for rule in _rules()
+            if "minimumReleaseAge" in rule
+            and not (rule.get("groupName") and rule["minimumReleaseAge"] is None and _mixes_dated_and_undated(rule))
+        ]
+        assert not offenders, (
+            "a packageRules entry overrides minimumReleaseAge without being a group that mixes dated "
+            f"and undated members (NFR-009 §3.4): {offenders}"
+        )
+
+    def test_a_group_mixing_dated_and_undated_members_moves_as_one(self) -> None:
+        """A coupled group may not be split by the release-age wait (#1762).
+
+        Renovate judges ``minimumReleaseAge`` per UPDATE, not per group: with
+        ``internalChecksFilter: 'strict'`` a pending member is left out of the
+        group's branch while the others go ahead. Under ``timestamp-optional``
+        an undated member (GHCR) is never pending and a dated one (PyPI, GitHub
+        tags) is pending for three days, so a group mixing the two ships its
+        undated half alone — #1762 bumped ``ghcr.io/astral-sh/uv`` in six
+        Dockerfiles while ``[tool.uv].required-version`` stayed, and every image
+        build failed on ``Required uv version ==0.12.18 does not match the
+        running version 0.12.19``. The only uniform wait such a group can have
+        is none: ``minimumReleaseAge: null`` on the group rule.
+        """
+        mixed = [rule for rule in _rules() if rule.get("groupName") and _mixes_dated_and_undated(rule)]
+        names = [rule["groupName"] for rule in mixed]
+        assert "uv toolchain" in names, (
+            f"the uv toolchain rule is not recognised as mixing dated and undated members ({names}) — "
+            "the predicate broke, and this test would pass on nothing"
+        )
+        split = [
+            rule["groupName"]
+            for rule in mixed
+            if "minimumReleaseAge" not in rule or rule["minimumReleaseAge"] is not None
+        ]
+        assert not split, (
+            "a group mixing an undated (GHCR, no release timestamp) with a dated member must set "
+            "minimumReleaseAge: null, or the undated half merges three days before the rest "
+            f"(#1762): {split}"
+        )
 
     def test_security_updates_are_exempt(self) -> None:
         alerts = _config().get("vulnerabilityAlerts")
