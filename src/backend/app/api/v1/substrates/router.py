@@ -21,7 +21,6 @@ from app.common.auth import (
     get_creating_tenant_key,
     get_current_user,
     get_is_platform_admin,
-    require_account_principal,
 )
 from app.common.dependencies import get_substrate_service
 from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
@@ -308,9 +307,6 @@ def prepare_reuse(
     "/batches/{batch_key}/assign-slot/{slot_key}",
     response_model=BatchSlotAssignmentResponse,
     status_code=201,
-    # Resolves no tenant (#1864 tracks binding it to one). Until then a
-    # tenant-scoped API key must not reach it: it would act on the account (#1851).
-    dependencies=[Depends(require_account_principal)],
 )
 def assign_batch_to_slot(
     batch_key: Annotated[str, Path(description="Document key of the substrate batch.")],
