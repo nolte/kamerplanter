@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: reranker-service
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 1b8ac17a97c80267e5352c95afc5baacb62a3502
-replay_seconds: 9
+measured_on: '2026-09-25'
+measured_at_commit: 8aef0386348158cf318c98ca1a5ab19b6748e35a
+replay_seconds: 1
 job_spec_sha256: e2ebb8dbfecfd1901a6df1f2d687d2943a2c8a965321fea64ca3abe2925ea780
 invocations:
 - command: derive-docker --context docker/reranker-service --dockerfile docker/reranker-service/Dockerfile
@@ -43,6 +43,6 @@ unrecorded_invocations:
     filter; the image's inputs are the derived build context above.
 - command: scripts/ci/probe_model_service_contract.py kp-reranker-service:pr reranker
   reason: Runs against the image the job just built (`docker run` of a :pr tag that exists only on the runner); on a workstation
-    there is no such image. The script reads nothing from the tree but itself (it reads the body cap from `limits` INSIDE
-    the image), and scripts/ci/** is in this workflow's on:-level filter; the image's inputs are the derived build context
-    above.
+    there is no such image. Besides itself the script reads only the golden outputs under docker/reranker-service/golden/
+    (#1763), which this job's own filter docker/reranker-service/** covers (it reads the body cap from `limits` INSIDE the
+    image), and scripts/ci/** is in this workflow's on:-level filter; the image's inputs are the derived build context above.

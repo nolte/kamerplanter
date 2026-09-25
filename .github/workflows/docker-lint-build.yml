@@ -304,6 +304,15 @@ jobs:
       # started read-only, capability-free and as UID 1000, as the chart runs
       # it. No `target:` above, so this is the last stage (`minilm`); the
       # probe reads the width from the image's own config.json.
+      #
+      # #1763 — SHAPE IS NOT CONTENT. The pre-#1758 MiniLM image passed all of
+      # the above while embedding `<unk>` tokens. The probe therefore also
+      # requires the image's vectors for a few fixed inputs (English, German,
+      # mixed-language, >512 tokens) to match
+      # docker/embedding-service/golden/<target>.json within a measured
+      # tolerance — values computed once from the pinned model files and bound
+      # to the `revision=` pin by
+      # src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py.
       - name: Prove the embedding service serves its bounded contract
         run: scripts/ci/probe_model_service_contract.py kp-embedding-service:pr embedding
 
@@ -350,7 +359,9 @@ jobs:
       # of three first, answers `documents: []` with `{"results": []}`, and
       # refuses 101 documents and a 4097-character query with a 422
       # (docker/reranker-service/limits.py) — started read-only,
-      # capability-free and as UID 1000, as the chart runs it.
+      # capability-free and as UID 1000, as the chart runs it. Since #1763 it
+      # also requires the logits behind the scores of fixed query/document
+      # pairs to match docker/reranker-service/golden/<target>.json.
       - name: Prove the reranker serves its bounded contract
         run: scripts/ci/probe_model_service_contract.py kp-reranker-service:pr reranker
 

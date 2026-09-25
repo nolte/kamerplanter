@@ -80,6 +80,15 @@ RUN uv sync --locked --only-group build
 # here, which is the point. The guard named above also requires a
 # `sha256sum -c` in the RUN of every pinned fetch.
 #
+# AND SO DO THE GOLDEN OUTPUTS (#1763). `golden/<target>.json` holds what
+# each model computes for a few fixed inputs, taken from these bytes; the CI
+# contract probe (scripts/ci/probe_model_service_contract.py) fails an image
+# whose outputs leave them, which is what catches a right-shaped but wrong
+# answer. A re-pin regenerates them with
+# `scripts/ci/compute_model_golden_outputs.py embedding <target> <image>` (and its
+# `reference-check`); src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
+# fails while a golden file names another revision or other hashes.
+#
 # THE IMPORTS BELOW ARE QUALIFIED (`import x` + `x.f(...)`) RATHER THAN
 # `from x import f`, AND THAT IS NOT STYLE (#1554). Renovate's dockerfile
 # manager reads a CONTINUED line beginning with `from` as a `FROM`
