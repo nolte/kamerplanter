@@ -213,18 +213,23 @@ nodes:
   extraPortMappings:
   - containerPort: 80
     hostPort: 80
+    listenAddress: "127.0.0.1"
     protocol: TCP
   - containerPort: 443
     hostPort: 443
+    listenAddress: "127.0.0.1"
     protocol: TCP
   - containerPort: 8000
     hostPort: 8000
+    listenAddress: "127.0.0.1"
     protocol: TCP
   - containerPort: 3000
     hostPort: 3000
+    listenAddress: "127.0.0.1"
     protocol: TCP
   - containerPort: 8529
     hostPort: 8529
+    listenAddress: "127.0.0.1"
     protocol: TCP
 - role: worker
 - role: worker
@@ -1262,6 +1267,7 @@ Error: unable to forward port
 # extraPortMappings:
 # - containerPort: 8000
 #   hostPort: 8000
+#   listenAddress: "127.0.0.1"
 
 # Lösung 2: NodePort Service nutzen
 # values-dev.yaml:
@@ -1449,12 +1455,16 @@ nodes:
   extraPortMappings:
   - containerPort: 80
     hostPort: 80
+    listenAddress: "127.0.0.1"
   - containerPort: 443
     hostPort: 443
+    listenAddress: "127.0.0.1"
   - containerPort: 8000
     hostPort: 8000
+    listenAddress: "127.0.0.1"
   - containerPort: 3000
     hostPort: 3000
+    listenAddress: "127.0.0.1"
 - role: worker
 EOF
 
@@ -1524,14 +1534,19 @@ nodes:
   extraPortMappings:
   - containerPort: 80
     hostPort: 80
+    listenAddress: "127.0.0.1"
   - containerPort: 443
     hostPort: 443
+    listenAddress: "127.0.0.1"
   - containerPort: 8000
     hostPort: 8000
+    listenAddress: "127.0.0.1"
   - containerPort: 3000
     hostPort: 3000
+    listenAddress: "127.0.0.1"
   - containerPort: 8529
     hostPort: 8529
+    listenAddress: "127.0.0.1"
 - role: worker
 - role: worker
 EOF

@@ -38,6 +38,19 @@ kind create cluster --config kind-config.yaml --name kamerplanter
 
 The cluster only publishes the ingress ports 80 and 443 on the host. Access to the backend (8000), frontend (3000), and ArangoDB (8529) goes through Skaffold's `--port-forward` (see table below), so those host ports must be free at startup.
 
+Both ingress ports listen on `127.0.0.1` only (`listenAddress` in `kind-config.yaml`). Without it, Kind binds `0.0.0.0` — the development app would then answer on every network interface of your machine, in light mode even without a login, for every device on the same network.
+
+!!! note "The change takes effect only after recreating the cluster"
+    Kind fixes the port binding when it creates the cluster. A cluster you created before this setting keeps listening on every interface until you delete and recreate it. Check it with `docker port kamerplanter-control-plane` — the output must show `127.0.0.1:80` and `127.0.0.1:443`, not `0.0.0.0`.
+
+??? question "Reaching the cluster from a phone or another machine"
+    Kind evaluates no environment variables in its configuration, so there is no switch like `KAMERPLANTER_BIND_ADDRESS` of the Docker Compose setup. If you deliberately want to expose the development cluster on your network, create it from an untracked copy with `listenAddress` set to `0.0.0.0`:
+    ```bash
+    sed 's/listenAddress: "127.0.0.1"/listenAddress: "0.0.0.0"/' kind-config.yaml > /tmp/kind-config-lan.yaml
+    kind create cluster --config /tmp/kind-config-lan.yaml --name kamerplanter
+    ```
+    Keep in mind that every device on the network can then reach the app without any further barrier.
+
 !!! warning "Existing cluster"
     If a cluster named `kamerplanter` already exists, delete it first:
     ```bash

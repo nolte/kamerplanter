@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "service": "reranker",
+  "target": "bge-reranker-v2-m3",
+  "model": "bge-reranker-v2-m3",
+  "download_stage": "dl-bge-reranker-v2-m3",
+  "repo_id": "onnx-community/bge-reranker-v2-m3-ONNX",
+  "revision": "6f5ff65298512715a1e669753bc754d2bc8f367b",
+  "files_sha256": {
+    "config.json": "122e922dcfed6503c8721e6fe1daf090340c3d95ca7f3aa3a72730b321a51cfd",
+    "model.onnx": "faae32b124a9d54afb7e89b5e9896e03c18a9552d56d1d6b273a709a83012486",
+    "model.onnx_data": "f009aa6c6cf21986fd7e0021fa66b20ccce27abc6900a57c7109c8496811bcbe",
+    "special_tokens_map.json": "8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835",
+    "tokenizer.json": "8bf8afbfd11306bd872018c53bfdf2e160a56f8edbcf49933324404791c148d3",
+    "tokenizer_config.json": "b87c8703482b0300d3da30e201519aa641f6a450f5eb5bf1e624afbf70c74d80"
+  },
+  "computed": {
+    "by": "scripts/ci/compute_model_golden_outputs.py",
+    "on": "2026-09-25",
+    "method": "tokenizers + onnxruntime directly on the image's pinned model files, one input per run, intra_op_num_threads=1; the pair's logit (the service answers its sigmoid)",
+    "runtime": {
+      "onnxruntime": "1.30.0",
+      "tokenizers": "0.23.2",
+      "numpy": "2.5.3"
+    },
+    "cpu": "Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz"
+  },
+  "cases": [
+    {
+      "name": "normal-en",
+      "query": "How often should I water my tomato plants?",
+      "documents": [
+        "Car engines need regular oil changes to keep running smoothly.",
+        "Tomato plants need deep, regular watering, especially while their fruit is setting.",
+        "The stock market closed higher on Friday after a volatile week."
+      ],
+      "untruncated_tokens": 32,
+      "logits": [-11.031928, 1.548444, -11.028426]
+    },
+    {
+      "name": "german",
+      "query": "Wie oft muss ich Tomaten gießen?",
+      "documents": [
+        "Tomaten sollten gleichmäßig und durchdringend gegossen werden, am besten morgens.",
+        "Der Motor des Autos ist kaputt und muss in die Werkstatt.",
+        "Tomatoes should be watered deeply and evenly, ideally in the morning."
+      ],
+      "untruncated_tokens": 33,
+      "logits": [0.998253, -11.01283, -3.810994]
+    },
+    {
+      "name": "long-over-512-tokens",
+      "query": "Warum sterben die Wurzeln bei Staunässe ab?",
+      "documents": [
+        "Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab.",
+        "Die Börse schloss am Freitag im Plus."
+      ],
+      "untruncated_tokens": 1075,
+      "logits": [4.091957, -11.025364]
+    }
+  ],
+  "reference_check": {
+    "against": "BAAI/bge-reranker-v2-m3@953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+    "with": "AutoModelForSequenceClassification, transformers 4.57.6, torch 2.14.0+cpu",
+    "on": "2026-09-25",
+    "max_abs_delta": 4.38e-06
+  }
+}
