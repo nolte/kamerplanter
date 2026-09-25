@@ -240,7 +240,9 @@ def get_site_service() -> SiteService:
 
 
 def get_substrate_service() -> SubstrateService:
-    return SubstrateService(get_substrate_repo())
+    # The site repository answers the slot → location → site walk the batch→slot
+    # link needs (#1864).
+    return SubstrateService(get_substrate_repo(), slot_anchors=get_site_repo())
 
 
 def get_propagation_repo() -> PropagationRepository:
