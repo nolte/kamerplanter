@@ -112,6 +112,12 @@ markers = [
     # advisory backend.yml lanes) still runs it. Removing the marker from a file
     # is how #1683 promotes it. `grep -rn "mark.advisory" tests/` lists them.
     "advisory: runs in the unit tier but is deselected by the required guards lane until #1683",
+    # #1794 — the rules that hold the committed .github/lane-inputs/ manifests against
+    # the live workflows. A pull request cannot turn them green without a CI
+    # recording, so no pull-request lane runs them: tests/conftest.py deselects them
+    # unless `--lane-inputs-drift` is given, which only lane-inputs.yml (weekly and
+    # on dispatch, on develop) passes.
+    "lane_inputs_drift: needs a lane-inputs recording; runs only with --lane-inputs-drift (lane-inputs.yml)",
 ]
 
 [tool.black]

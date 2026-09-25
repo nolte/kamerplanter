@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: GitHub Actions, pre-commit, Docker, Helm, SLSA-Provenance
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.3
+Version: 1.4
 Autor: nolte
 Datum: 2026-08-08
 Tags: [ci, cd, pipeline, gate-integrity, reproducibility, provenance, supply-chain, vacuous-success]
@@ -20,6 +20,7 @@ Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-09-25 | §4.3: die Messung verlässt die Feature-Pull-Requests (#1794). `lane-inputs.yml` läuft wöchentlich und per Dispatch auf `develop` und schlägt Drift als Bot-Pull-Request vor; die Regeln, die eingecheckte Manifeste gegen die aktuellen Workflows halten, laufen nur dort (Marker `lane_inputs_drift`). Der überholte Übergangszustand (Register, lokale Messung) ist durch den gemessenen Stand ersetzt. |
 | 1.3 | 2026-09-23 | §4.3 (ein Relevanzfilter wird an dem gemessen, was sein Job liest — nicht an dem, was sein Workflow erwähnt, #1596) ergänzt; die Regel stand zuvor nur als Messung in den Pull-Request-Bodies von #1595 und als Kommentar über dem `guards`-Job in `backend-guards.yml`. |
 | 1.2 | 2026-09-21 | §2.3 (ein Gate entscheidet nicht anhand von Prosa) kam mit #1642 und wird hier im Changelog nachgetragen; §2.4 (Skip-Obergrenze je Tier, #1434), §2.5 (ein Ausnahmeregister muss altern können), §4.1 (ein required Check darf nicht pfadgefiltert sein, #1432/#1578) und §4.2 (was eine advisory Lane dem Default-Branch schuldet, #1547/#1617) ergänzt. Alle fünf Regeln standen zuvor nur als Kommentar in einer Workflow-, Taskfile- oder Guard-Datei oder in einem Pull-Request-Body (#1581). |
 | 1.1 | 2026-08-08 | §2.1 (Ratchet-Baselines werden berechnet, nicht versioniert — Herleitung #973, bis dahin nur ein `Taskfile.yaml`-Kommentar) und §2.2 (eine überwiegend abgebrochene Lane existiert nicht — Verallgemeinerung der Analyse aus NFR-014 §4.1, #993/#1013) ergänzt. Beide aus der Issue-Muster-Analyse vom 2026-08-08, Maßnahmen P5.6/P5.3. |
@@ -520,33 +521,58 @@ ausschließt?" in der required `static`-Lane ohne Abhängigkeiten und ohne
 Messung; diese Regel beantwortet die andere Frage. Beide sind billig, und keine
 ersetzt die andere.
 
-**Bekannte Grenze, benannt statt versteckt**: Das Manifest ist eine
-Momentaufnahme. Beginnt ein Test, eine neue Datei zu lesen, oder kommt ein
-neuer Test hinzu, ohne dass sich die Job-Definition ändert, altert das Manifest,
-bis es neu gemessen wird. Gemessen wird in CI (`lane-inputs.yml`, #1683): Die
-Lane spielt die `invocations` jedes Manifests unter `strace` nach und ihr
-`compare`-Job wird rot, wenn die Aufzeichnung einen Lesepfad außerhalb des
-Filters, eine nicht gehaltene Delegation oder einen delegierten Leser außerhalb
-der benannten Lane zeigt. Sie läuft bei Änderungen an Workflows, Manifesten und
-Recorder sowie wöchentlich — **nicht** bei jedem Pull Request, der nur einen
-Test hinzufügt; ein solcher Test fällt spätestens im wöchentlichen Lauf auf.
+**MUSS (#1794)**: Die Regeln, die die eingecheckten Manifeste gegen die
+**aktuellen** Workflows halten — Population, Wohlgeformtheit, Frische,
+Abdeckung samt Delegations- und Leserregel (#1749), Aufruf-Kohärenz —, laufen in **keinem**
+Pull-Request-Check. Ändert ein Pull Request einen Job, kann er sie nur mit einer
+CI-Messung grün machen, und diese Messung auf Pull Requests kostete 74 Läufe in
+zwei Tagen, davon 33 rot und 17 abgebrochen (gemessen 2026-09-24/25); unter
+`strict: true` ließ jeder Merge die Manifeste der übrigen offenen Pull Requests
+erneut veralten. Die Regeln tragen den pytest-Marker `lane_inputs_drift`;
+`tests/conftest.py` wählt sie ab, solange nicht `--lane-inputs-drift` übergeben
+wird, und nur `lane-inputs.yml` übergibt es. Was im Wächter keine Messung
+braucht — die Entscheidungsform required Kontexte, die gepflanzten Bäume, der
+Matcher —, läuft weiter, wo die Datei läuft. Gehalten von
+`test_lane_inputs_drift_runs_only_in_its_lane.py` in der required Guards-Lane.
 
-**Stand, benannt (#1683, #1748)**: Der Recorder läuft in CI; die beiden
-Lücken, die der Wächter einst als alternde Register führte, sind geschlossen.
-`backend-guards.yml/guards` hat ein in CI aufgezeichnetes Manifest
-(`backend-guards--guards.yaml`, `gate.kind: unfiltered`), gegen das die
-`covered_by`-Delegationen aus `backend--lint-test.yaml` gemessen, nicht
-angenommen, gehalten werden. `backend--coverage.yaml` gibt es nicht mehr: #1748
-hat den Coverage-Job zurückgebaut und sein Manifest mit ihm. Ein Manifest mit
-einer Invocation, die nicht mit 0 endete, trägt eine `allow_failure_reason`,
-die benennt, welche Lesepfade der Fehlerpfad übersprungen haben kann; ein
-`run:`-Befehl des Jobs, den kein Manifest aufgezeichnet hat, ist rot, es sei
-denn, er steht mit Begründung unter `unrecorded_invocations`. Der Wächter ist
-weiterhin **advisory**: Er trägt den pytest-Marker `advisory`, die required
-Lane `Write-route and tree guards` wählt ihn mit `-m 'not advisory'` ab, und
-`task test:backend:unit` (`pytest tests/unit/`) führt ihn aus. Ihn required zu
-machen ist eine Entscheidung auf gemessener Historie nach §4, nicht eine
-Folge dieses Abschnitts.
+**MUSS (#1794)**: `lane-inputs.yml` läuft wöchentlich und per
+`workflow_dispatch`, nicht auf `pull_request`. Der Lauf auf `develop` misst jedes
+Manifest, vergleicht (`compare`), lässt die `lane_inputs_drift`-Regeln einmal
+gegen die eingecheckten Manifeste und einmal mit der Messung darübergelegt
+laufen (`guard`) und ist bei Drift **rot**. Bei Drift öffnet oder aktualisiert
+`propose` genau einen Bot-Pull-Request (`bot/lane-inputs-refresh`), dessen
+einzige Änderung die Messung ist, wie aufgezeichnet kopiert. Er trägt das Label
+`automerge` nur, wenn der Wächter mit der Messung grün ist; sonst braucht der
+Filter eine Hand-Änderung, die der Body benennt. Ohne Drift öffnet der Lauf
+nichts und schließt einen noch offenen Bot-Pull-Request. Weil der Workflow
+keinen Pull-Request-Code ausführt, hält kein Job ein Schreibrecht, während
+Pull-Request-Code läuft (#1614): jedes `GITHUB_TOKEN` ist `contents: read`, und
+`propose` schreibt mit einem kurzlebigen GitHub-App-Token, das nur auf
+`refs/heads/develop` erzeugt wird. Ein Lauf auf einem anderen Branch meldet nur,
+was er vorschlagen würde.
+
+**Bekannte Grenze, benannt statt versteckt**: Das Manifest ist eine
+Momentaufnahme, und die Messung läuft nicht mehr im Pull Request. Ändert ein
+Pull Request einen Job oder das, was ein Job liest, sieht das erst der nächste
+Lauf auf `develop` — bis zu einer Woche später, oder sofort per Dispatch —, und
+bis der Bot-Pull-Request gemergt ist, ist `develop` gegenüber diesen Regeln rot.
+Das ist der Preis dafür, Feature-Pull-Requests nicht an eine 30–50-minütige
+Messung zu binden; er steht hier, statt versteckt zu sein.
+
+**Stand, benannt (#1683, #1748)**: `backend-guards.yml/guards` hat ein in CI
+aufgezeichnetes Manifest (`backend-guards--guards.yaml`, `gate.kind:
+unfiltered`), gegen das die `covered_by`-Delegationen aus
+`backend--lint-test.yaml` gemessen, nicht angenommen, gehalten werden;
+`backend--coverage.yaml` gibt es seit #1748 nicht mehr. Wächter und Lane sind
+**advisory**. Die Datei
+trägt weiterhin den Marker `advisory`, und die required Lane
+`Write-route and tree guards` wählt sie mit `-m 'not advisory'` ab. Ob der
+Wächter oder die Lane required wird, entscheidet #1683 an gemessener Historie
+(§4). Ein Manifest mit einer Invocation, die nicht mit 0 endete, trägt eine
+`allow_failure_reason`, die benennt, welche Lesepfade der Fehlerpfad
+übersprungen haben kann; ein `run:`-Befehl des Jobs, den kein Manifest
+aufgezeichnet hat, ist rot, es sei denn, er steht mit Begründung unter
+`unrecorded_invocations`.
 
 ---
 
