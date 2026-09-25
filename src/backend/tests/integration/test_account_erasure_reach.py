@@ -53,6 +53,8 @@ from app.domain.models.privacy import ErasurePlan
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.user_service import UserService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.privacy_doubles import admin_erasure_route_args
+from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("privacy_erasure_reach")
 
@@ -245,6 +247,8 @@ def _services(database) -> tuple[PrivacyService, UserService]:
         # #1753 — Phase 0.5 needs a wired store; no contribution is on record here.
         reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=ArangoErasureExecutor(database),
+        # #1788 — the subject's personal tenant goes through the tenant-erasure inventory.
+        tenant_service=tenant_erasure_service(database, SALT),
         tombstone_salt=SALT,
     )
     return privacy_service, UserService(user_repo, MagicMock())
@@ -252,7 +256,7 @@ def _services(database) -> tuple[PrivacyService, UserService]:
 
 def _admin_delete(database, captured: dict[str, Any]) -> None:
     """Drive ``DELETE /admin/platform/users/{key}`` exactly as the router does."""
-    privacy_service, user_service = _services(database)
+    privacy_service, _ = _services(database)
     erase = getattr(privacy_service, "erase_account", None)
     if erase is not None:
 
@@ -263,10 +267,7 @@ def _admin_delete(database, captured: dict[str, Any]) -> None:
 
         privacy_service.erase_account = spy  # type: ignore[method-assign]
     admin_router.delete_user(
-        SUBJECT,
-        current_user=SimpleNamespace(key=ADMIN),
-        privacy_service=privacy_service,
-        user_service=user_service,
+        SUBJECT, **admin_erasure_route_args(privacy_service, admin_key=ADMIN, target_email=f"{SUBJECT}@example.com")
     )
 
 

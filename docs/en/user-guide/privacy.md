@@ -264,6 +264,9 @@ After 90 days:
 !!! note "Why are harvest records not fully deleted?"
     The CanG (German Cannabis Act) and the PflSchG (German Plant Protection Act) require that harvest and treatment data be retained for audit and verification purposes. Your name and contact details are removed; the quantity and treatment data remains as anonymized records. This is legally covered by GDPR Art. 17(3)(b).
 
+!!! danger "Your personal garden is deleted with it"
+    If you are the only active member of your personal garden, it is irreversibly deleted with everything in it — unless someone else is also a member of it; then it is kept for them without your name. Details: [Data Retention — What happens to your personal garden](../guides/data-retention.md#what-happens-to-your-personal-garden).
+
 ---
 
 ## Photos and Attachments (Object Storage)

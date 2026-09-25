@@ -89,3 +89,19 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
             },
         )
         return next(cursor, 0)
+
+    def personal_tenant_keys_by_owner(self, owner_user_key: str) -> list[str]:
+        cursor = self._db.aql.execute(
+            """
+            FOR doc IN @@collection
+              FILTER doc.owner_user_key == @owner AND doc.tenant_type == @type
+              SORT doc.created_at, doc._key
+              RETURN doc._key
+            """,
+            bind_vars={
+                "@collection": col.TENANTS,
+                "owner": owner_user_key,
+                "type": TenantType.PERSONAL.value,
+            },
+        )
+        return list(cursor)

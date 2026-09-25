@@ -264,6 +264,9 @@ Nach 90 Tagen:
 !!! note "Warum werden Erntedaten nicht vollständig gelöscht?"
     Das Cannabisgesetz (CanG) und das Pflanzenschutzmittelgesetz (PflSchG) schreiben vor, dass Ernte- und Behandlungsdaten für Prüf- und Nachweiszwecke aufbewahrt werden müssen. Dein Name und deine Kontaktdaten werden entfernt, die Mengen- und Behandlungsdaten bleiben als anonymisierte Einträge erhalten. Dies ist rechtlich durch Art. 17 Abs. 3 lit. b DSGVO gedeckt.
 
+!!! danger "Dein persönlicher Garten geht mit"
+    Bist du das einzige aktive Mitglied deines persönlichen Gartens, wird er mit allem, was darin ist, unwiderruflich gelöscht — außer jemand anderes ist auch Mitglied darin; dann bleibt er für diese Person erhalten, ohne deinen Namen. Details dazu: [Datenaufbewahrung — Was mit deinem persönlichen Garten passiert](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
+
 ---
 
 ## Fotos und Anhänge (Object Storage)

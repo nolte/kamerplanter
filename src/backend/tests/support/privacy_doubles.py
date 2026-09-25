@@ -316,3 +316,104 @@ def step_up(email: str, password: str | None = None) -> dict[str, Any]:
         "authenticated_with_api_key": False,
         "client_ip": None,
     }
+
+
+class FakePersonalTenants:
+    """The :class:`TenantService` surface the account erasure uses (#1788).
+
+    ``owned`` are the personal tenants the subject still owns; ``others`` maps a
+    tenant to how many other active members it has. Like the real service, an
+    erased tenant is no longer listed by owner (its document is gone) and a
+    second call for it answers ``erased`` from its completed record; a tenant
+    neither owned nor erased is ``absent``. ``fail_with`` makes the erasure of a
+    tenant raise, as a failed :meth:`TenantService.delete_tenant` does — its
+    record then stays open, so the next call erases it.
+    """
+
+    def __init__(
+        self,
+        *owned: str,
+        others: dict[str, int] | None = None,
+        configuration_error: str | None = None,
+        fail_with: BaseException | None = None,
+        events: list[str] | None = None,
+    ) -> None:
+        self.owned = list(owned)
+        self.others = dict(others or {})
+        self.configuration_error = configuration_error
+        self.fail_with = fail_with
+        self.erased: list[str] = []
+        self.calls: list[tuple[str, str]] = []
+        self.events = events if events is not None else []
+
+    def tenant_erasure_configuration_error(self) -> str | None:
+        return self.configuration_error
+
+    def personal_tenant_keys_of(self, user_key: str) -> list[str]:
+        return list(self.owned)
+
+    def erase_personal_tenant_of(self, user_key: str, tenant_key: str, *, now: Any = None) -> Any:
+        from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+        from app.domain.models.privacy import PersonalTenantErasure
+
+        self.calls.append((user_key, tenant_key))
+        self.events.append(f"tenant:{tenant_key}")
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        if tenant_key in self.erased:
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+        if tenant_key not in self.owned:
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="absent")
+        if self.others.get(tenant_key):
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="retained_other_members", reason="others")
+        if self.fail_with is not None:
+            raise self.fail_with
+        self.owned.remove(tenant_key)
+        self.erased.append(tenant_key)
+        return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+
+
+class PlatformAdminMemberships:
+    """A membership repository that also proves *admin_key* a platform admin (#1814).
+
+    ``PrivacyService.erase_account_by_admin`` re-reads the requester's platform
+    membership from the store. Integration tests that drive the admin route over a
+    real database wrap the real repository with this instead of inserting a
+    ``platform`` membership row — such a row would itself be erasure-inventory
+    data those tests count. Every other call goes to the real repository.
+    """
+
+    def __init__(self, inner: Any, admin_key: str) -> None:
+        self._inner = inner
+        self._admin_key = admin_key
+
+    def get_by_user_and_tenant(self, user_key: str, tenant_key: str) -> Any:
+        if (user_key, tenant_key) == (self._admin_key, "platform"):
+            from app.common.enums import TenantRole
+            from app.domain.models.membership import Membership
+
+            return Membership(user_key=user_key, tenant_key="platform", role=TenantRole.LEAD)
+        return self._inner.get_by_user_and_tenant(user_key, tenant_key)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def admin_erasure_route_args(privacy_service: Any, *, admin_key: str, target_email: str) -> dict[str, Any]:
+    """Route arguments of ``DELETE /admin/platform/users/{key}`` by a proven platform admin (#1814).
+
+    The admin signs in only federated (no password hash), so the echo of the
+    target's e-mail is the whole step-up.
+    """
+    from app.api.v1.privacy.schemas import ErasureCreateRequest
+    from app.domain.models.user import User
+
+    privacy_service._membership_repo = PlatformAdminMemberships(privacy_service._membership_repo, admin_key)
+    return {
+        "body": ErasureCreateRequest(confirm_email=target_email),
+        "current_user": User.model_validate(
+            {"_key": admin_key, "email": f"{admin_key}@example.org", "display_name": "Platform Admin"}
+        ),
+        "via_api_key": False,
+        "client_ip": "203.0.113.1",
+        "privacy_service": privacy_service,
+    }
