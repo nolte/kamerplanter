@@ -1,27 +1,20 @@
-# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's standing pre-approval of every gate for the
-# autonomous issue-sweep strand #1771 (2026-09-24/25), relayed by the orchestrating session — not an
-# interactive batch answer. It records that the targets and the observe argv below run on the
-# operator's machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
 #
-# Expectation from AK-OS-07 (REQ-025 v1.11, #1768) applied to the prototypes orphaned before #1766
-# (#1771); derived_from is develop's commit of that REQ-025 change: after the orphan sweep no user_contributed prototype of a contribution
-# whose document is gone remains — active or deactivated, any tenant — while the live contribution's
-# prototype and the curated control row with an orphan's record id are kept.
-#
-# Re-derived for #1770: REQ-025 v1.12 added a changelog row and AK-OS-08 / AK-OS-05b after AK-OS-07,
-# so every cited line moved +1; the cited passages are unchanged. derived_from is 4f611fc1e, the commit
-# that changed the declaration. Observe step, targets and expectation unchanged.
-#
-# Re-derived for #1770 (review round): AK-OS-08 was extended in place at 7e6f8c2a6; no cited line
-# moved. Observe step, targets and expectation unchanged.
+# Re-anchored after #1846: derived_from 7e6f8c2a6 was #1770's branch commit, discarded by the
+# #1839 squash (0c39591f8, REQ-025 byte-identical to 7e6f8c2a6). REQ-025 last changed on develop
+# in 9cacdb752 (v1.13, #1813/#1814): one changelog row (+1 line from L19), the request_erasure
+# sketch (+2 around L664) and ErasureCreateRequest (+1 around L798), and the new rows AK-IE-04/05
+# after AK-IE-03. None of the cited passages changed; the citations moved (+1 up to §3.1.1, +4
+# from §3.5 on) and were updated.
+# Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-pest-prototype-orphan-sweep
 summary: orphaned, live and curated pest prototypes in pgvector pest_embeddings, after the daily orphan sweep
 declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-  location: AK-OS-07 (L1236) — its tenant-deletion clause already reaches prototypes whose contribution document is
+  location: AK-OS-07 (L1240) — its tenant-deletion clause already reaches prototypes whose contribution document is
     gone; applied to such rows outside a tenant deletion, which no account erasure can reach (#1771)
 tier: T2
 expected:
@@ -31,7 +24,7 @@ expected:
   - erased/orphans
   - kept/live
   - kept/curated
-derived_from: 7e6f8c2a6308ca06b641ead0433a4e55fc6020f5
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
 environment:
 - reach:stack:up
 - reach:vectordb:up
@@ -49,6 +42,6 @@ observe:
   - reach-subject
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-25T07:01:18Z'
-  approved_by: nolte
   observation_digest: 12f73ea58a9f42aefff91007b24fa3db2b969fd4089f663fe80bfd1b393be339
+  approved_by: nolte
+  approved_at: '2026-09-25T18:35:52Z'
