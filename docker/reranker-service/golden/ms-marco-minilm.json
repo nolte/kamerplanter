@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "service": "reranker",
+  "target": "ms-marco-minilm",
+  "model": "ms-marco-MiniLM-L-12-v2",
+  "download_stage": "dl-ms-marco-minilm",
+  "repo_id": "cross-encoder/ms-marco-MiniLM-L12-v2",
+  "revision": "7b0235231ca2674cb8ca8f022859a6eba2b1c968",
+  "files_sha256": {
+    "config.json": "69a745055b0307584d2903ea5cf4e1899254e511834f358be80d049918b144d8",
+    "model.onnx": "2ac389ab6abe08dcbddf2c41a69b6a18853e0dca440adbc2abc1adfcee46483f",
+    "special_tokens_map.json": "3c3507f36dff57bce437223db3b3081d1e2b52ec3e56ee55438193ecb2c94dd6",
+    "tokenizer.json": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+    "tokenizer_config.json": "a5c2e5a7b1a29a0702cd28c08a399b5ecc110c263009d17f7e3b415f25905fd8"
+  },
+  "computed": {
+    "by": "scripts/ci/compute_model_golden_outputs.py",
+    "on": "2026-09-25",
+    "method": "tokenizers + onnxruntime directly on the image's pinned model files, one input per run, intra_op_num_threads=1; the pair's logit (the service answers its sigmoid)",
+    "runtime": {
+      "onnxruntime": "1.30.0",
+      "tokenizers": "0.23.2",
+      "numpy": "2.5.3"
+    },
+    "cpu": "Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz"
+  },
+  "cases": [
+    {
+      "name": "normal-en",
+      "query": "How often should I water my tomato plants?",
+      "documents": [
+        "Car engines need regular oil changes to keep running smoothly.",
+        "Tomato plants need deep, regular watering, especially while their fruit is setting.",
+        "The stock market closed higher on Friday after a volatile week."
+      ],
+      "untruncated_tokens": 27,
+      "logits": [-11.251234, 3.129732, -11.277628]
+    },
+    {
+      "name": "german",
+      "query": "Wie oft muss ich Tomaten gießen?",
+      "documents": [
+        "Tomaten sollten gleichmäßig und durchdringend gegossen werden, am besten morgens.",
+        "Der Motor des Autos ist kaputt und muss in die Werkstatt.",
+        "Tomatoes should be watered deeply and evenly, ideally in the morning."
+      ],
+      "untruncated_tokens": 47,
+      "logits": [-1.424979, -8.783226, -11.243036]
+    },
+    {
+      "name": "long-over-512-tokens",
+      "query": "Warum sterben die Wurzeln bei Staunässe ab?",
+      "documents": [
+        "Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab.",
+        "Die Börse schloss am Freitag im Plus."
+      ],
+      "untruncated_tokens": 1188,
+      "logits": [5.151065, -11.008742]
+    }
+  ],
+  "reference_check": {
+    "against": "cross-encoder/ms-marco-MiniLM-L12-v2@7b0235231ca2674cb8ca8f022859a6eba2b1c968",
+    "with": "AutoModelForSequenceClassification, transformers 4.57.6, torch 2.14.0+cpu",
+    "on": "2026-09-25",
+    "max_abs_delta": 3.8e-06
+  }
+}
