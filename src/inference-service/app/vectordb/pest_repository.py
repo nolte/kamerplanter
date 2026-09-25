@@ -10,7 +10,47 @@ from dataclasses import dataclass
 import structlog
 from psycopg_pool import ConnectionPool
 
+from app.vectordb.repository import require_erasure_key
+
 logger = structlog.get_logger(__name__)
+
+#: How a promoted pest-image contribution is recorded (backend
+#: ``app/tasks/pest_image_tasks.py``): ``source_record_id`` is the contribution
+#: key, ``source_url`` is ``contribution://<tenant key>/<contribution key>``.
+CONTRIBUTION_URL_SCHEME = "contribution://"
+
+# Static statements: the source filter is part of the text, so no caller can
+# drop or widen it; the keys are always bind parameters (#1759).
+_DELETE_CONTRIBUTIONS_SQL = (
+    "DELETE FROM pest_embeddings WHERE source = 'user_contributed' AND source_record_id = ANY(%s)"
+)
+# ``starts_with`` and not ``LIKE``: a tenant key may contain ``%`` or ``_``.
+_DELETE_TENANT_CONTRIBUTIONS_SQL = (
+    "DELETE FROM pest_embeddings WHERE source = 'user_contributed' AND starts_with(source_url, %s)"
+)
+
+
+def tenant_contribution_prefix(tenant_key: str | None) -> str:
+    """The ``source_url`` prefix of one tenant's contributions, or refuse the key.
+
+    A blank key would widen to every tenant's rows; a key with a ``/`` could
+    reach into another tenant's prefix. Shared with the test fake.
+    """
+    key = require_erasure_key("tenant_key", tenant_key)
+    if "/" in key:
+        msg = "tenant_key must not contain '/'; refusing an unscoped erasure"
+        raise ValueError(msg)
+    return f"{CONTRIBUTION_URL_SCHEME}{key}/"
+
+
+def require_contribution_keys(contribution_keys: list[str] | None) -> list[str]:
+    """Return the keys unchanged, or refuse an empty list or a blank key."""
+    if not contribution_keys:
+        msg = "contribution_keys must name at least one contribution; refusing an unscoped erasure"
+        raise ValueError(msg)
+    for key in contribution_keys:
+        require_erasure_key("contribution_keys[]", key)
+    return list(contribution_keys)
 
 
 @dataclass
@@ -174,6 +214,39 @@ class PestEmbeddingRepository:
         with self._pool.connection() as conn:
             result = conn.execute("DELETE FROM pest_embeddings WHERE label = %s", (label,))
             return result.rowcount or 0
+
+    def delete_contributions(self, contribution_keys: list[str]) -> int:
+        """REQ-025 Art. 17 — delete the prototypes indexed from these contributions (#1759).
+
+        Removes every row with ``source = 'user_contributed'`` whose
+        ``source_record_id`` is one of *contribution_keys*, active or
+        deactivated (a demoted contribution keeps a deactivated row). Rows of
+        any other source are never touched. Returns the number deleted.
+
+        Raises:
+            ValueError: the list is empty or holds a blank key.
+        """
+        keys = require_contribution_keys(contribution_keys)
+        with self._pool.connection() as conn:
+            deleted = conn.execute(_DELETE_CONTRIBUTIONS_SQL, (keys,)).rowcount or 0
+        logger.info("pest_contributions_deleted", scope="contributions", deleted=deleted)
+        return deleted
+
+    def delete_tenant_contributions(self, tenant_key: str) -> int:
+        """REQ-024 / REQ-025 — delete every prototype contributed within a tenant (#1759).
+
+        Matches ``source = 'user_contributed'`` rows whose ``source_url`` starts
+        with ``contribution://<tenant_key>/`` — which also reaches a row whose
+        contribution document is already gone. Returns the number deleted.
+
+        Raises:
+            ValueError: ``tenant_key`` is blank or contains ``/``.
+        """
+        prefix = tenant_contribution_prefix(tenant_key)
+        with self._pool.connection() as conn:
+            deleted = conn.execute(_DELETE_TENANT_CONTRIBUTIONS_SQL, (prefix,)).rowcount or 0
+        logger.info("pest_contributions_deleted", scope="tenant", deleted=deleted)
+        return deleted
 
     def count(self, label: str | None = None) -> int:
         """Count prototypes, optionally for a single class."""
