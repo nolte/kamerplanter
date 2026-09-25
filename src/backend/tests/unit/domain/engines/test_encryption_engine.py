@@ -1,6 +1,7 @@
+import pytest
 from cryptography.fernet import Fernet
 
-from app.domain.engines.encryption_engine import EncryptionEngine
+from app.domain.engines.encryption_engine import EncryptionEngine, SecretKeyMismatchError
 
 
 class TestEncryptionEngineEnabled:
@@ -55,11 +56,30 @@ class TestDecryptionFallback:
         # decrypt should return it as-is (fallback)
         assert engine.decrypt("not-a-valid-fernet-token") == "not-a-valid-fernet-token"
 
-    def test_wrong_key_returns_input(self):
+    def test_a_token_this_key_cannot_open_is_refused_not_returned(self):
+        """#1859: a Fernet token that fails to decrypt is a key mismatch, not legacy plaintext.
+
+        It used to come back as-is, and callers handed the *ciphertext* to an
+        OIDC provider or InvenTree as the credential — silently. A value that is
+        not a Fernet token at all (plaintext stored before encryption was
+        enabled) still passes through: that fallback is what the case above
+        pins, and no migration has encrypted every such row.
+        """
         key1 = Fernet.generate_key().decode()
         key2 = Fernet.generate_key().decode()
-        engine1 = EncryptionEngine(key1)
-        engine2 = EncryptionEngine(key2)
-        ciphertext = engine1.encrypt("secret")
-        # Wrong key → InvalidToken → falls back to ciphertext
-        assert engine2.decrypt(ciphertext) == ciphertext
+        ciphertext = EncryptionEngine(key1).encrypt("hunter2-client-credential")
+
+        with pytest.raises(SecretKeyMismatchError) as refused:
+            EncryptionEngine(key2).decrypt(ciphertext)
+
+        assert ciphertext not in str(refused.value)
+        assert "hunter2" not in str(refused.value)
+
+    @pytest.mark.parametrize(
+        "legacy",
+        ["plain-client-secret", "gAAAA-looks-like-a-prefix-but-is-short", "abc123"],
+    )
+    def test_a_value_that_is_not_a_token_still_passes_through(self, legacy: str):
+        engine = EncryptionEngine(Fernet.generate_key().decode())
+
+        assert engine.decrypt(legacy) == legacy

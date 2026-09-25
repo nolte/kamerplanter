@@ -27,6 +27,7 @@ Traces to issue #991 (no TC-ID: process labelling is not a user-facing case).
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import subprocess
@@ -77,6 +78,8 @@ def fake_sentry(monkeypatch: pytest.MonkeyPatch) -> _FakeSentry:
     # A worker that reaches the labelling has passed the salt gate (#1781,
     # test_worker_salt_fail_fast): configure what a real worker starts with.
     monkeypatch.setattr(settings, "erasure_tombstone_salt", "x" * 32)
+    # ... and the Fernet-key gate (#1859, test_worker_fernet_fail_fast).
+    monkeypatch.setattr(settings, "fernet_key", base64.urlsafe_b64encode(bytes(range(32))).decode())
     return module
 
 

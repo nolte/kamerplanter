@@ -2,6 +2,7 @@ import structlog
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import after_setup_logger, after_setup_task_logger, beat_init, celeryd_init, worker_process_init
+from cryptography.fernet import Fernet
 
 from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import install_sink_redaction, setup_logging
@@ -106,9 +107,42 @@ def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
     raise SystemExit(msg)
 
 
+def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
+    """Stop the worker when ``FERNET_KEY`` is missing or malformed outside debug (#1859).
+
+    The API refuses to start without the key (``app.main.insecure_default_secrets``);
+    the worker never imports ``app.main`` and used to start regardless. It then
+    built ``EncryptionEngine("")``, whose plaintext passthrough stores the
+    encrypted-at-rest fields (OIDC client secrets, integration tokens) in clear
+    and hands ciphertext to integrations as their credential — after a single
+    warning line. A malformed key is refused too: ``Fernet(key)`` raises on it,
+    so the worker would otherwise fail on the first task touching a secret.
+
+    ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives. The message names the setting, never its value.
+    """
+    if settings.debug:
+        return
+    reason = "missing"
+    if settings.fernet_key:
+        try:
+            Fernet(settings.fernet_key.encode())
+        except ValueError, TypeError:
+            reason = "malformed"
+        else:
+            return
+    structlog.get_logger().critical("insecure_defaults", fields=["fernet_key"], reason=reason)
+    raise SystemExit(
+        f"FATAL: FERNET_KEY is {reason}. Set it to the same value as the backend before running "
+        "the worker in production (INF-S5); without it secrets are stored in plaintext."
+    )
+
+
 # The salt gate runs on ``celeryd_init`` only — the worker program. Beat
 # schedules, it runs no task and writes no subject reference.
 celeryd_init.connect(_refuse_worker_start_without_tombstone_salt, weak=False)
+# The key gate likewise: beat stores no secret (#1859).
+celeryd_init.connect(_refuse_worker_start_without_a_usable_fernet_key, weak=False)
 # Worker and beat both set up logging through ``app.log.setup``; see the docstring.
 after_setup_logger.connect(_configure_worker_logging, weak=False)
 after_setup_task_logger.connect(_redact_task_logger, weak=False)
