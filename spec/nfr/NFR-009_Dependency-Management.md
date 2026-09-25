@@ -115,7 +115,8 @@ Bis 2026-09-24 stand in der rechten Spalte für Patch, Minor, Major, Container-I
 
 „Laufend" heißt seit derselben Entscheidung: **frühestens drei Tage nach dem Release**
 der jeweiligen Version (`minimumReleaseAge: '3 days'`, §3.4). Ausgenommen sind nur
-Security-Fixes aus Vulnerability-Alerts.
+Security-Fixes aus Vulnerability-Alerts und die Gruppe `uv toolchain`, die sonst
+zerfiele (§3.4, #1762).
 
 **MUSS**: Es gibt **kein** Zeitfenster für die PR-Erstellung, und es soll keins geben
 (#1566, Betreiberentscheidung 2026-09-21). `renovate.json5` setzt weder `schedule` noch
@@ -389,7 +390,9 @@ zweiter Merger, der nur auf Pflicht-Checks wartet, würde die Entscheidung unter
 
 **MUSS — Mindestalter eines Releases (Betreiberentscheidung 2026-09-24):** Jedes Update
 wartet, bis die vorgeschlagene Version **drei Tage** alt ist (`minimumReleaseAge: '3 days'`
-auf oberster Ebene; keine `packageRules`-Regel setzt den Schlüssel). Der Grund: Wenn
+auf oberster Ebene). Eine `packageRules`-Regel setzt den Schlüssel nur in einem Fall:
+eine Gruppe, die Mitglieder mit und ohne Release-Zeitstempel mischt, setzt ihn auf
+`null` (unten, „Eine Gruppe wartet nicht als Ganzes"); heute ist das allein `uv toolchain`. Der Grund: Wenn
 niemand einen Bump vor dem Merge liest, ist Zeit die Verteidigung gegen ein
 kompromittiertes oder zurückgezogenes Release — für Sicherheitsforscher, Registries und
 Unpublish-Fenster (npm erlaubt ein Unpublish 72 Stunden lang).
@@ -418,12 +421,34 @@ Unpublish-Fenster (npm erlaubt ein Unpublish 72 Stunden lang).
   Gruppe `uv toolchain`), `ghcr.io/hadolint/hadolint` (8), `ghcr.io/zaproxy/zaproxy`
   (5), `ghcr.io/valkey-io/valkey-helm` (1). **Der Tausch:** Diese vier haben keinerlei
   zeitbasierten Schutz; ihr einziges Netz ist die Menge der Checks.
+- **Eine Gruppe wartet nicht als Ganzes** (#1762). Renovate prüft das Mindestalter je
+  **Update**, nicht je Gruppe: ein noch wartendes Mitglied fehlt im Branch der Gruppe,
+  die übrigen gehen voraus. Mischt eine Gruppe ein Mitglied ohne Zeitstempel (GHCR) mit
+  einem mit Zeitstempel (PyPI, GitHub-Tags), zerfällt sie also: die undatierte Hälfte
+  kommt am Release-Tag, die datierte drei Tage später. Gemessen an #1762: Die Gruppe
+  `uv toolchain` hob `ghcr.io/astral-sh/uv` in sechs Dockerfiles auf 0.12.19, während
+  `[tool.uv].required-version` (PyPI) und `astral-sh/setup-uv` warteten — jeder
+  Image-Build scheiterte an `Required uv version ==0.12.18 does not match the running
+  version 0.12.19`. **MUSS**: Eine solche Gruppe setzt `minimumReleaseAge: null` und
+  bewegt sich sofort und vollständig. Abgewogen und verworfen: alle Mitglieder gleich
+  lange warten lassen (setzt einen Zeitstempel für das GHCR-Image voraus, den die
+  Registry nicht liefert; `timestamp-required` für dieses Mitglied hieße Freigabe im
+  Dashboard, also den abgeschafften manuellen Schritt) und den Image-Tag aus der
+  PyPI-Version ableiten (die Dockerfiles pinnen Tag **und** Digest; ein Manager, der den
+  Tag von PyPI liest, bewegt den Digest nicht). **Der Tausch:** Die PyPI- und die
+  Action-Hälfte verlieren die drei Tage, die die GHCR-Hälfte nie hatte; beide stammen
+  von Astral, und ihr Netz sind die Image-Builds, die Lock-Hash-Guards und das Relock
+  im Pull Request. `ghcr.io/hadolint/hadolint`, `ghcr.io/zaproxy/zaproxy` und
+  `ghcr.io/valkey-io/valkey-helm` liegen in keiner solchen Gruppe und warten wie bisher
+  gar nicht.
 - **Ein CVE-Fix, der nicht als Alert kommt, wartet mit.** Kommt eine Sicherheitskorrektur
   als gewöhnlicher Bump — wie der `transformers`-Bump aus #1480 —, gilt für ihn die
   Drei-Tage-Frist. Für ihn gilt dann die Eskalation aus §4.2.
 
 Gehalten von `test_renovate_automerge_policy.py` (Wert, Ausnahme für Security,
-`timestamp-optional`).
+`timestamp-optional`, `null` für jede Gruppe, deren `matchPackageNames` GHCR- und
+Nicht-GHCR-Namen mischen). Eine Gruppe, die per Manager oder Muster statt per
+aufgezählter Namen matcht, kann der Guard nicht beurteilen — das ist sein Rest.
 
 **Die bewusst in Kauf genommenen Kosten:**
 

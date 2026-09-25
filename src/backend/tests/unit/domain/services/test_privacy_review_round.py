@@ -18,7 +18,7 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.models.privacy import DataExportRequest, ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import FakeDataExportRepo, RecordingErasureExecutor
+from tests.support.privacy_doubles import FakeDataExportRepo, FakePersonalTenants, RecordingErasureExecutor
 
 USER = "u-1"
 
@@ -41,6 +41,7 @@ def _service(**overrides) -> PrivacyService:
         "token_engine": MagicMock(),
         "email_service": MagicMock(),
         "frontend_url": "https://app.test",
+        "tenant_service": FakePersonalTenants(),
     }
     deps.update(overrides)
     return PrivacyService(**deps)

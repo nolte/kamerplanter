@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.7 (Einzel-Tasks statt Master-Task, Fristen aus Settings, Zeitpunktvergleich, #1782/#1784)
+Version: 1.8 (persönlicher Mandant einer gelöschten Person wird gelöscht, #1788)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,6 +21,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.8 | 2026-09-25 | **#1788 Persönlicher Mandant bei Kontolöschung:** Die Kontolöschung behielt den bei der Registrierung angelegten persönlichen Mandanten samt Standorten, Pflanzen, Tagebuch und Aufgaben; nur Eigentümer, Name und Kurzname wurden ersetzt. Jetzt läuft für jeden persönlichen Mandanten der Person, in dem sie das einzige aktive Mitglied (mit aktivem Konto) ist, vor dem ArangoDB-Plan das Mandanten-Löschinventar (#1769) mit `origin: account_erasure`; R-16 bis R-18 bleiben dort unter ihrem Tombstone-Hash. **Entscheidung für Mandanten mit weiteren aktiven Mitgliedern:** keine Spezifikation nennt einen Nachfolger (REQ-049 AK-19); der Mandant bleibt wie bisher erhalten, der Löschauftrag nennt den Grund (`personal_tenants[].outcome = retained_other_members`); offen in #1824. §2.3 Klarstellung, Abnahmekriterien AK-PT-01 bis AK-PT-03 in §6. REQ-025 §3.1.3 Regel 2 wird nachgezogen (#1826), gemeinsam mit den an REQ-025 verankerten Reach-Proben. |
 | 1.7 | 2026-09-25 | **#1782/#1784:** §3.1 beschreibt die Einzel-Tasks, die es gibt, statt eines Master-Tasks `enforce_retention_policy` (Begründung in §3.1). §3.2: Fristvergleiche in AQL vergleichen Zeitpunkte (`DATE_TIMESTAMP`), nie ISO-Strings — ArangoDB ordnet Strings nach ICU-Kollation, gemessen `"…00.5Z" < "…00+00:00"` → `true`. §3.3: Prometheus-Metriken als nicht implementiert gekennzeichnet (#1800). §4: die tatsächlichen Settings mit Untergrenzen; R-04, R-12, R-14, R-15 und R-16..R-18 ohne lesenden Code als nicht implementiert gekennzeichnet (#1800). AK-04 bis AK-06, AK-10 und AK-11 angepasst. |
 | 1.6 | 2026-09-25 | **#1781:** §3.4 Anwendungs- und Zugriffsprotokolle ergänzt (L-1 bis L-5): keine Kontoschlüssel, E-Mail-Adressen oder ungekürzten IP-Adressen an Log-Aufrufen der Anwendung (Zugriffsprotokolle und Tracebacks noch offen), gesalzener E-Mail-Digest, Salt-Pflicht auch für den Celery-Worker. Die Aufbewahrungsfrist der Log-Pipeline selbst ist als offene Betreiber-Frage markiert. |
 | 1.5 | 2026-09-23 | **#1663:** Die ID R-19 war doppelt vergeben (Gießdienst-Rotation in §2.1, Promotion-Audit-Log in §2.3). Das Promotion-Audit-Log heißt jetzt **R-24** (R-23 ist im `spec/knowledge/COMPLIANCE-PLAN.md` bereits für RAG-Anfragen vorgesehen); R-19 bleibt die Gießdienst-Rotation, auf die sich `spec/e2e-testcases/TC-NFR-011.md` bezieht. Die Zeilen R-19, R-19a, R-20, R-21 und R-24 sind als nicht implementiert gekennzeichnet — ihre Collections existieren im Code nicht. `quality_assessments` (R-16) wird seit #1663 über das serverseitige `assessed_by_key` anonymisiert; `yield_metrics` (R-16) trägt kein Nutzerfeld. |
@@ -178,6 +179,8 @@ Diese Daten unterliegen gesetzlichen Mindestaufbewahrungsfristen und dürfen **n
 | R-24 <!-- ADR-002; bis v1.4 doppelt als R-19 vergeben --> | Promotion-Audit-Log (Species/Cultivar tenant→global) | `promotion_audit_log` | 5 Jahre | Sortenrechts-Streitigkeiten, Art. 5(2) Rechenschaftspflicht. **Nicht implementiert** (Stand #1663): Die Collection `promotion_audit_log` existiert im Code nicht. | REQ-001 v4.1 |
 
 **Wichtig:** Bei einer Löschanfrage (Art. 17 DSGVO) durch einen Betroffenen werden diese Daten **anonymisiert** (User-Referenz entfernt), aber nicht gelöscht, solange die gesetzliche Aufbewahrungsfrist läuft (Art. 17 Abs. 3 lit. b).
+
+**Der persönliche Mandant der Person (#1788):** Die Aufbewahrungspflicht hält die Datensätze fest, nicht den Mandanten, in dem sie liegen. War die Person das einzige aktive Mitglied ihres persönlichen Mandanten, löscht die Kontolöschung den Mandanten über das Mandanten-Löschinventar (AK-PT-01 bis AK-PT-03 in §6); die Datensätze dieser Tabelle bleiben dabei unter dem Tombstone-Hash der Person erhalten, alles andere im Mandanten (Standorte, Pflanzen, Tagebuch, Aufgaben …) hat keinen Aufbewahrungsgrund und geht. Ein persönlicher Mandant mit weiteren aktiven Mitgliedern bleibt erhalten (#1824).
 
 <!-- Quelle: ADR-001 / W-009 -->
 **R-17 Klarstellung — geerbte Treatment-Edges (ADR-001):**
@@ -488,6 +491,11 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 | AK-12 | **Pflicht-Setting `ERASURE_TOMBSTONE_SALT`:** Backend startet nicht, wenn die Umgebungsvariable `RETENTION_ERASURE_TOMBSTONE_SALT` nicht gesetzt oder kürzer als 32 Zeichen ist (Pydantic `Field(..., min_length=32)`). Fehlermeldung verweist auf NFR-011 §4. | Integration |
 | AK-13 | **R-06 Phase-Reihenfolge:** Im Erasure-Lauf (REQ-025 §3.5) wird die Pseudonymisierung der `erasure_requests`-Collection AUSGEFÜHRT, bevor der User selbst hard-deleted wird. Der Hard-Delete des Audit-Eintrags selbst erfolgt erst nach Ablauf von `ERASURE_AUDIT_RETENTION_YEARS` (Default 1 Jahr). | Integration |
 <!-- /Quelle: Widerspruchsanalyse W-002 -->
+<!-- Quelle: #1788 -->
+| AK-PT-01 | **Persönlicher Mandant geht mit dem Konto:** Nach Abschluss einer Kontolöschung (Selbstbedienung, Plattform-Admin, Bereinigung unverifizierter Konten) ist von jedem persönlichen Mandanten, dessen einziges aktives Mitglied die Person war, keine Zeile mehr übrig außer den Aufbewahrungsdaten nach NFR-011 R-16 bis R-18 (Kontoschlüssel = Tombstone-Hash, Freitextnamen leer); ein `tenant_erasure_records`-Eintrag mit `origin: account_erasure` steht auf `completed`. | Integration + Reach (T2) |
+| AK-PT-02 | **Nachweis im Löschauftrag:** Der Löschauftrag nennt je persönlichem Mandanten das Ergebnis (`erased` mit Schlüssel des Mandanten-Löschnachweises, `retained_other_members` mit Grund, `absent`) und ist erst `completed`, wenn jeder dieser Mandanten gelöscht oder begründet erhalten ist. Scheitert die Mandantenlöschung, bleibt der Auftrag offen und der ArangoDB-Plan läuft nicht; die Wiederholung erreicht den Mandanten über die im Auftrag gespeicherten Schlüssel, auch wenn er nicht mehr über den Eigentümer auffindbar ist. | Unit + Integration |
+| AK-PT-03 | **Geteilter persönlicher Mandant bleibt:** Hat ein persönlicher Mandant der Person ein weiteres aktives Mitglied, bleibt er samt Daten erhalten; nur Eigentümer, Name und Kurzname werden ersetzt (REQ-025 §3.1.3 Regel 2). Kann das Deployment keinen Mandanten löschen, verweigert die Kontolöschung vor jeder Änderung (REQ-025 AK-IE-02). | Unit + Integration |
+<!-- /Quelle: #1788 -->
 
 ---
 

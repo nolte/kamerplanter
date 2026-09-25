@@ -783,6 +783,9 @@ _NOT_AUTHORISATION: dict[str, str] = {
     "require_ai_tenant_enabled": "REQ-031 feature flag, not a caller check",
     "require_ai_feature_flag": "REQ-031 operator flag, not a caller check",
     "get_is_platform_admin": "returns a bool for the caller to branch on; refuses nobody",
+    "get_authenticated_with_api_key": (
+        "returns a bool (key vs session) the tenant deletion hands its service (#1791); refuses nobody"
+    ),
     "APIKeyHeader": "scheme object with auto_error=False - extracts a header, never refuses",
     "HTTPBearer": "scheme object; extraction only, the provider decides",
     "get_auth_provider": "constructs the provider; get_current_user is what calls it",

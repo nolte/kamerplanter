@@ -159,7 +159,7 @@ const LEAD_ONLY: Record<string, string> = {
  * away a call the backend accepts, which is the mirror defect of #1467.
  */
 const NOT_LEAD_ONLY: Record<string, string> = {
-  deleteAdminTenant: 'admin/platform/router.py — require_platform_admin; page sits behind the platform-admin route guard',
+  deleteAdminTenant: 'admin/platform/router.py — require_platform_admin; page sits behind the platform-admin route guard; slug + password step-up in TenantDeleteDialog (#1791)',
   deleteAdminUser: 'admin/platform/router.py — require_platform_admin',
   removeTenantMember: 'admin/platform/router.py — require_platform_admin',
   removeUserFromTenant: 'admin/platform/router.py — require_platform_admin',
@@ -183,7 +183,7 @@ const NOT_LEAD_ONLY: Record<string, string> = {
   detachPlant: 'planting_runs POST /{key}/plants/{key}/detach — require_permission(PLANTING_RUN, UPDATE)',
   deleteConnection: 'inventree/tenant_router.py — require_admin_scope(TECHNICAL), not the domain rank',
   deleteActuator: 'actuators/tenant_router.py — require_admin_scope(TECHNICAL), not the domain rank',
-  deleteTenant: 'tenants/router.py — require_admin_scope(MANAGEMENT), the orthogonal axis',
+  deleteTenant: 'tenants/router.py — require_admin_scope(MANAGEMENT) plus, in TenantService.delete_tenant, lead role and a step-up (#1791); no UI caller today',
   removeMember: 'tenants/router.py — require_admin_scope(MANAGEMENT)',
   deleteAssignment: 'tenants/router.py — require_admin_scope(MANAGEMENT)',
   deleteApiKey: 'auth — own service-account key',
