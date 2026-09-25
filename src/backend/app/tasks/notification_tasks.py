@@ -8,6 +8,7 @@ import asyncio
 
 import structlog
 
+from app.common.log_privacy import log_subject
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -320,7 +321,7 @@ def send_daily_summary() -> dict:
         except Exception:
             logger.exception(
                 "daily_summary_send_failed",
-                user_key=user_key,
+                subject=log_subject(user_key),
             )
 
     logger.info(
@@ -382,14 +383,14 @@ def send_email_digests(self) -> dict:
             user = user_repo.get_by_key(user_key)
             to_email = user.email if user else None
         if not to_email:
-            logger.warning("email_digest_no_address", user_key=user_key)
+            logger.warning("email_digest_no_address", subject=log_subject(user_key))
             digests_failed += 1
             continue
 
         try:
             result = asyncio.run(service.send_email_digest(user_key, to_email, since))
         except Exception:
-            logger.exception("email_digest_user_failed", user_key=user_key)
+            logger.exception("email_digest_user_failed", subject=log_subject(user_key))
             digests_failed += 1
             continue
 

@@ -122,6 +122,9 @@ services:
       REDIS_URL: ${REDIS_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
       DEBUG: ${DEBUG}
+      # NFR-011 §4: >= 32 chars; the API refuses to start without it when DEBUG
+      # is false. MUST equal the celery-worker's value.
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
       KAMERPLANTER_MODE: light
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
@@ -166,6 +169,11 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      # #1781 — same DEBUG and salt as the backend: the worker refuses to start
+      # without a >= 32-char ERASURE_TOMBSTONE_SALT when DEBUG is false, like
+      # the API does, and pseudonymises log subjects with the same salt.
+      DEBUG: ${DEBUG}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"

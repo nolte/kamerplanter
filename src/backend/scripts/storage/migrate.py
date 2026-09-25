@@ -34,6 +34,8 @@ from typing import Any
 
 import structlog
 
+from app.common.log_privacy import loggable_error
+from app.domain.engines.storage.export_bundle_key import loggable_storage_key
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 
 logger = structlog.get_logger()
@@ -129,8 +131,8 @@ class StorageMigrator:
             try:
                 await self._migrate_one(key, report)
             except Exception as exc:  # noqa: BLE001 — record + continue, never abort the run
-                report.failures.append(f"{key}: {exc}")
-                logger.error("storage_migrate_object_failed", key=key, error=str(exc))
+                report.failures.append(f"{loggable_storage_key(key)}: {loggable_error(exc)}")
+                logger.error("storage_migrate_object_failed", key=loggable_storage_key(key), error=loggable_error(exc))
         logger.info("storage_migrate_completed", **report.as_dict())
         return report
 
@@ -139,7 +141,7 @@ class StorageMigrator:
             # List the operation, write nothing (AC-07 dry-run contract).
             logger.info(
                 "storage_migrate_dry_run",
-                key=key,
+                key=loggable_storage_key(key),
                 backend_from=self._backend_from,
                 backend_to=self._backend_to,
             )

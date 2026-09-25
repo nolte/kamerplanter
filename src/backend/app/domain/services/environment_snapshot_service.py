@@ -70,6 +70,7 @@ import structlog
 from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import DiaryEnvironmentOrigin, DiaryEnvironmentStatus
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.engines.live_state import reading_measured_at, sort_readings
 from app.domain.engines.sensor_metrics import is_air_temperature, is_humidity
@@ -170,7 +171,7 @@ class EnvironmentSnapshotService:
                 "diary_environment_capture_failed",
                 plant_key=plant_key,
                 tenant_key=tenant_key,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return EnvironmentSnapshot(
                 readings=[],
@@ -297,7 +298,7 @@ class EnvironmentSnapshotService:
             try:
                 live = self._sensor_service.get_live_state_for_sensors(candidates, deadline=deadline)
             except Exception as exc:  # noqa: BLE001 — never fails the write
-                logger.warning("diary_environment_live_read_failed", origin=str(origin), error=str(exc))
+                logger.warning("diary_environment_live_read_failed", origin=origin.value, error=loggable_error(exc))
                 degraded = True
         else:
             degraded = True
@@ -418,7 +419,9 @@ class EnvironmentSnapshotService:
         try:
             stored = self._observation_repo.get_latest(sensor.key, tenant_key)
         except Exception as exc:  # noqa: BLE001 — never fails the write
-            logger.warning("diary_environment_observation_read_failed", sensor_key=sensor.key, error=str(exc))
+            logger.warning(
+                "diary_environment_observation_read_failed", sensor_key=sensor.key, error=loggable_error(exc)
+            )
             return None, True
         if stored is None:
             return None, False
@@ -482,7 +485,7 @@ class EnvironmentSnapshotService:
         try:
             records = self._weather_forecast_repo.find_by_site(plant.site_key, tenant_key)
         except Exception as exc:  # noqa: BLE001 — never fails the write
-            logger.warning("diary_environment_weather_read_failed", site_key=plant.site_key, error=str(exc))
+            logger.warning("diary_environment_weather_read_failed", site_key=plant.site_key, error=loggable_error(exc))
             return [], True
 
         now = now_utc()

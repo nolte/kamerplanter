@@ -25,6 +25,7 @@ import structlog
 
 from app.common.enums import CycleType, TransitionTrigger
 from app.common.exceptions import PhaseTransitionError
+from app.common.log_privacy import loggable_error
 from app.domain.engines.cycle_resolver import resolve_effective_cycle
 
 if TYPE_CHECKING:
@@ -124,5 +125,5 @@ class SeasonPhaseCoupler:
         except PhaseTransitionError as exc:
             # e.g. "Already in phase" on a same-order target — season coupling is
             # best-effort and must never abort the site evaluation.
-            logger.info("season_phase_couple_skipped", plant_key=plant.key, reason=reason, detail=str(exc))
+            logger.info("season_phase_couple_skipped", plant_key=plant.key, reason=reason, detail=loggable_error(exc))
             return False

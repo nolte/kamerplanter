@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.data_access.external.ha_client import HomeAssistantClient
 from app.domain.engines.frost_warning_engine import (
@@ -252,7 +253,7 @@ class SensorService:
                 logger.warning(
                     "ha_live_query_failed",
                     entity_id=sensor.ha_entity_id,
-                    error=str(exc),
+                    error=loggable_error(exc),
                 )
                 errors.append(
                     {
@@ -416,7 +417,7 @@ class SensorService:
                 "forecast_source": summary["source"],
             }
         except Exception as exc:
-            logger.warning("site_weather_forecast_failed", site_key=site_key, error=str(exc))
+            logger.warning("site_weather_forecast_failed", site_key=site_key, error=loggable_error(exc))
             return empty
 
     @staticmethod

@@ -2,6 +2,7 @@ import structlog
 from httpx import Client, HTTPStatusError, RequestError
 
 from app.common.exceptions import ExternalSourceError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
 from app.domain.models.enrichment import ExternalSpeciesData
@@ -38,7 +39,7 @@ class PerenualAdapter(ExternalSourceAdapter):
             data = response.json()
             return [self._map_species(r) for r in data.get("data", []) if r.get("scientific_name")]
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("perenual_search_failed", query=query, error=str(e))
+            logger.warning("perenual_search_failed", query=query, error=loggable_error(e))
             raise ExternalSourceError("perenual", str(e)) from e
 
     def get_species_by_id(self, external_id: str) -> ExternalSpeciesData | None:
@@ -52,7 +53,7 @@ class PerenualAdapter(ExternalSourceAdapter):
                 return None
             return self._map_species(data)
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("perenual_get_species_failed", external_id=external_id, error=str(e))
+            logger.warning("perenual_get_species_failed", external_id=external_id, error=loggable_error(e))
             raise ExternalSourceError("perenual", str(e)) from e
 
     def get_species_list(self, page: int = 1, per_page: int = 30) -> tuple[list[ExternalSpeciesData], int]:
@@ -66,7 +67,7 @@ class PerenualAdapter(ExternalSourceAdapter):
             results = [self._map_species(r) for r in data.get("data", []) if r.get("scientific_name")]
             return results, total
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("perenual_list_failed", error=str(e))
+            logger.warning("perenual_list_failed", error=loggable_error(e))
             raise ExternalSourceError("perenual", str(e)) from e
 
     def health_check(self) -> bool:

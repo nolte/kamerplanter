@@ -258,8 +258,7 @@ reference instead, so the lines of one erasure can be linked to each other witho
 naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
 
 ??? info "For operators: the `subject=` field in log lines"
-    Log lines on the privacy, authentication, retention and object-storage paths carry a
-    `subject=` field instead of an account key or email address. It holds a salted,
+    Log lines carry a `subject=` field instead of an account key or email address. It holds a salted,
     purpose-separated reference (`sub_` followed by 16 hex characters, an HMAC of the
     account key keyed with `ERASURE_TOMBSTONE_SALT`). The lines of one account stay
     correlatable with each other without naming anyone. The reference is deliberately
@@ -269,7 +268,10 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     constant `anon_unavailable` instead — never the account key in the clear.
 
     Registration and email events additionally log fields such as `email_sha256` — a
-    SHA-256 digest of the email address, never the address itself. Object-storage log
+    keyed digest of the email address (an HMAC with `ERASURE_TOMBSTONE_SALT`, 16 hex
+    characters), never the address itself. A plain SHA-256 could be reversed with a
+    list of addresses; the keyed digest cannot without the salt. Without a valid salt
+    the field reads `unavailable`. Object-storage log
     lines (`storage_put_object`, `storage_delete_object`, and similar) mask the account
     segment of export-bundle keys: `privacy/exports/<account key>/<export>.json` becomes
     `privacy/exports/<subject>/<export>.json`.
@@ -277,7 +279,16 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     Error texts in these lines (`error=`) are cleaned the same way: the account key is
     replaced by the reference, and export-bundle paths are masked. Where an error text can
     contain a third party's address (a rejected email recipient), only the error type is
-    logged (`error_type=`).
+    logged (`error_type=`). Email addresses inside an error text become
+    `<email:…>` digests, and URL query strings (which can hold coordinates or API keys)
+    become `?<redacted>`.
+
+    IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
+    `0`, IPv6 `/48`), as `ip_prefix=`.
+
+    How long your log
+    pipeline (container runtime, Loki, `json-file` rotation) keeps the lines is your
+    decision as operator — set a bounded retention and record it (NFR-011 §3.4).
 
     To attribute a log line to an account, an operator must compute the reference with
     the same salt themselves — grepping for the account key does not work.

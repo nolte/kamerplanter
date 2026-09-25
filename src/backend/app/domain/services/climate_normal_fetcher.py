@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.common.async_bridge import run_async
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.climate_normal_repository import IClimateNormalRepository
 from app.domain.models.site import Site
@@ -66,7 +67,7 @@ class ClimateNormalFetcher:
             latitude, longitude = site.gps_coordinates
             normal = run_async(adapter.fetch_climate_normals(latitude=latitude, longitude=longitude))
         except Exception as exc:  # noqa: BLE001 — best-effort: a remote failure yields None, never a 500
-            logger.warning("climate_normals_ondemand_failed", site_key=site.key, error=str(exc))
+            logger.warning("climate_normals_ondemand_failed", site_key=site.key, error=loggable_error(exc))
             return None
         if normal is None:
             return None

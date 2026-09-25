@@ -41,8 +41,10 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.decoys import email_digest
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
 from app.common.enums import TenantRole, TenantType
+from app.common.log_privacy import log_subject
 from app.config.settings import settings
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
@@ -72,7 +74,7 @@ def run_seed_e2e_platform_admin() -> None:
         if email or password:
             logger.error(
                 "e2e_platform_admin_half_configured",
-                has_email=bool(email),
+                email_configured=bool(email),
                 has_password=bool(password),
             )
         return
@@ -81,7 +83,7 @@ def run_seed_e2e_platform_admin() -> None:
         logger.error(
             "e2e_platform_admin_refused",
             reason="cookie_secure is on, so this is not an E2E stack",
-            email=email,
+            email_sha256=email_digest(email),
         )
         return
 
@@ -94,12 +96,12 @@ def run_seed_e2e_platform_admin() -> None:
         # Still ensure the membership: the account can survive a database that
         # was seeded before this seed existed, or have lost the platform tenant.
         _grant_platform_admin(existing.key or "", tenant_repo, membership_repo)
-        logger.info("e2e_platform_admin_exists", email=email)
+        logger.info("e2e_platform_admin_exists", email_sha256=email_digest(email))
         return
 
     logger.warning(
         "e2e_platform_admin_seeding",
-        email=email,
+        email_sha256=email_digest(email),
         note="test-only account with full platform-admin rights",
     )
 
@@ -134,7 +136,7 @@ def run_seed_e2e_platform_admin() -> None:
     )
 
     _grant_platform_admin(user_key, tenant_repo, membership_repo)
-    logger.info("e2e_platform_admin_created", email=email, key=user_key)
+    logger.info("e2e_platform_admin_created", email_sha256=email_digest(email), subject=log_subject(user_key))
 
 
 def _grant_platform_admin(user_key: str, tenant_repo, membership_repo) -> None:  # noqa: ANN001

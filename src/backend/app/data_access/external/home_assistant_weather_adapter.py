@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 import structlog
 
 from app.common.datetimes import today_utc
+from app.common.log_privacy import loggable_error
 from app.data_access.external.ha_client import HomeAssistantClient
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import HaSensorMapping, WeatherForecast, WeatherSourceHaConfig
@@ -165,7 +166,7 @@ class HomeAssistantWeatherAdapter(WeatherAdapter):
         try:
             records = await self.fetch_daily(latitude=0.0, longitude=0.0, config=config)
         except Exception as exc:  # noqa: BLE001 — probe must never raise outward
-            logger.warning("ha_weather_health_check_failed", error=str(exc))
+            logger.warning("ha_weather_health_check_failed", error=loggable_error(exc))
             return False
         return bool(records)
 

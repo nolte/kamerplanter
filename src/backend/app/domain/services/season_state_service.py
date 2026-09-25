@@ -17,6 +17,7 @@ import structlog
 
 from app.common.enums import SeasonPhase
 from app.common.exceptions import NotFoundError, SeasonStateUnavailableError
+from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.season_state_engine import SeasonStateEngine, SeasonStateTransition
@@ -303,7 +304,7 @@ class SeasonStateService:
         try:
             fn(*args)
         except Exception as exc:  # noqa: BLE001 — resilient per-plant processing
-            logger.warning("season_side_effect_failed", plant_key=plant_key, error=str(exc))
+            logger.warning("season_side_effect_failed", plant_key=plant_key, error=loggable_error(exc))
 
     # ── Reads (API) ─────────────────────────────────────────────────────
 

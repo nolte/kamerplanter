@@ -1,4 +1,4 @@
-"""No log line on the privacy, auth, retention or storage path names a data subject (#1773).
+"""No log line anywhere under ``app/`` names a data subject (#1773, #1781).
 
 The erasure pipeline's rule since #1700 is that its log lines carry ``subject=`` —
 the salted subject reference (``ErasureEngine.log_subject``) — and never the
@@ -10,7 +10,9 @@ erasure lines and stopped; the sibling lines in the same service kept
 logging object keys that embed the account key (``privacy/exports/<user_key>/…``).
 **This guard is for the class**, not for the lines #1773 listed: it enumerates
 every log call in every module the selector below derives, and refuses one that
-hands a subject's identifier to the logger.
+hands a subject's identifier to the logger. #1781 widened the selector from the
+privacy surface to every module: the same lines lived in ``notification_service``,
+``tenant_service``, the migration seeds and ~50 other modules.
 
 One detector, :func:`_findings_in_source`, decides for the tree scan **and** for
 the parametrised self-test, so the self-test exercises the rule through the same
@@ -44,22 +46,29 @@ spelling the other catches:
   exception message can name the subject (``NotFoundError("User", <key>)``), an
   export bundle (``privacy/exports/<key>/…``) or a third party's address
   (``SMTPRecipientsRefused``). Log ``error_type=type(exc).__name__``, or the text
-  through a redaction call (``PrivacyService._loggable_error``). The AST cannot
-  tell an exception from any other name, so every ``str(<name>)`` is refused.
-  Measured when this half was added: 18 log-call sites on the surface; 6 were
-  fixed (the export path, the OAuth callback, the duplicate-registration notice),
-  the 12 whose text was read and found subject-free are allow-listed with the
-  reason (10 entries — an entry covers every line of its function and keyword).
+  through a redaction call (``app.common.log_privacy.loggable_error``,
+  ``PrivacyService._loggable_error``). The AST cannot tell an exception from any
+  other name, so every ``str(<name>)`` is refused; a non-exception value is logged
+  in a spelling that states its type (``address.compressed``, ``path.as_posix()``,
+  ``origin.value``). Measured when this half was added: 18 log-call sites on the
+  surface; 6 were fixed, the 12 whose text was read and found subject-free are
+  allow-listed with the reason (10 entries — an entry covers every line of its
+  function and keyword). #1781 routed the 101 further sites the widened selector
+  found through ``loggable_error``;
+* **IP addresses** (#1781): an ``ip``/``ip_address``/``remote_addr``/``*_ip``
+  keyword must be a call (``ip_prefix=loggable_ip(ip)``, the NFR-011 R-03
+  truncation) or a literal, never the raw address.
 
-**What the selector derives**: every tracked module under ``app/`` whose path names
-the privacy, auth, retention, erasure, data-subject or export surface, plus the
-device-pairing store (it is authentication, but its file name does not say so), the
-storage adapters, ``user_service`` (account deletion) and the e-mail adapters (they
-receive every recipient address). A new module on that
-surface is guarded by being named like it; one named otherwise is not — see below.
-``app/migrations/`` is excluded: an applied migration's source is frozen
-(``test_applied_migration_sources_are_frozen``), so a finding there could not be
-fixed without breaking that guard; its log lines are part of the residue below.
+**What the selector derives**: every tracked ``*.py`` under ``app/`` and ``scripts/``
+(the operator scripts log too — ``scripts/storage/migrate.py`` walks every object key,
+export bundles included) (#1781). Until
+then it was a path regex naming the privacy surface, so a module named otherwise —
+``notification_service``, ``tenant_service``, the migration seeds — was not
+guarded, and 45 identifier findings lived there. ``app/migrations/versions/`` is
+scanned too: its class bodies are frozen (``test_applied_migration_sources_are_frozen``
+pins exactly that directory — not the seeds, not ``framework/``, which the earlier
+docstring wrongly claimed), so a finding in an applied version is allow-listed with
+the frozen reason, and a NEW version module is guarded like any other.
 
 **Allow-list**: keyed ``path::enclosing_function::keyword`` rather than by line, so
 an unrelated edit above an entry neither orphans it nor moves the excuse onto a
@@ -81,12 +90,15 @@ different line. Every entry must name a live site (``test_allowlist_entries_stil
   ``structlog.get_logger().info(...)``) or a level method outside ``_LOG_METHODS``;
 * ``structlog.contextvars.bind_contextvars(...)``, and a ``bind`` in another
   module whose bound context later lines inherit;
-* modules outside the selector — ``migrations/``, ``notification_service``,
-  ``tenant_service`` and others still log keys/addresses; they are the recorded
-  residue of #1773 (follow-up issue), not covered here. The e-mail adapters
-  (``*_email_adapter``) joined the selector with the #1773 review (GDPR-004);
-* other personal data such as ``ip_address=`` — the guard asserts identifiers of
-  the account (key, address) only.
+* the side services ``src/inference-service`` and ``src/knowledge-service`` (measured
+  on #1781: their findings are model-file paths and ingestion errors, no account
+  identity; the knowledge service's ``query=`` free text is out of this guard's reach);
+* access-log lines written by uvicorn and nginx themselves (client address, path,
+  query string) — not log calls in this tree (#1796);
+* an IP under a keyword not matching ``_IP_KEYWORD`` (``host=``, ``client=``), or
+  inside an ``address`` that is a *server's* resolved address (``url_safety``:
+  the SSRF target a URL resolves to, not a data subject);
+* other personal data than account key, address and IP (names, free text).
 """
 
 from __future__ import annotations
@@ -100,12 +112,11 @@ import pytest
 
 BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
-#: Path fragments that put a module on the guarded surface.
-_SURFACE = re.compile(
-    r"(privacy|auth|retention|erasure|data_subject|data_export|device_pairing|/storage/|user_service|_email_adapter)"
-)
-#: Excluded with the reason in the module docstring.
-_EXCLUDED_DIRS = ("app/migrations/",)
+#: Frozen: an applied migration's class body is pinned by
+#: ``test_applied_migration_sources_are_frozen``. Still scanned — a NEW version
+#: module is guarded — but a finding in a frozen one is allow-listed with
+#: :data:`_FROZEN_MIGRATION`.
+_FROZEN_DIR = "app/migrations/versions/"
 
 _LOG_METHODS = {"debug", "info", "warning", "warn", "error", "exception", "critical", "fatal", "msg", "bind"}
 _LOGGER_RECEIVER = re.compile(r"(^|_)(logger|log)$")
@@ -119,9 +130,16 @@ _STORAGE_MODULE_KEYWORDS = {"key", "prefix", "src", "dst"}
 _STORAGE_KEY_KEYWORD = re.compile(r"(^|_)(object_key|storage_key)$")
 #: A bare conversion of a name to its text — the spelling of "log the exception message".
 _TEXT_CONVERSIONS = {"str", "repr"}
+#: A keyword that names a client/peer IP address (#1781): ``ip``, ``ip_address``,
+#: ``client_ip``, ``remote_addr`` and any ``*_ip``.
+_IP_KEYWORD = re.compile(r"(^|_)(ip|ip_address|remote_addr)$")
 
 _REDIS_OUTAGE = "a Redis client error names host/port or the command, and the key is a digest — no subject"
 _PIL_DECODE = "a Pillow decode error describes the bytes (format, truncation), never who uploaded them"
+_FROZEN_MIGRATION = (
+    "frozen: an applied migration's class body is pinned by test_applied_migration_sources_are_frozen "
+    "(editing it breaks the checksum); the text is an ArangoDB error on the collection it rewrites"
+)
 
 #: ``path::enclosing_function::keyword`` -> reason a subject identifier or an
 #: exception text may be logged there. Every #1773 identifier site could log the
@@ -150,6 +168,7 @@ _ALLOWED: dict[str, str] = {
         "an httpx error names the fixed GitHub /user/emails URL and a status; the TypeError is built from a type name"
     ),
     "app/domain/engines/storage/exif_stripper.py::strip_exif::reason": _PIL_DECODE,
+    "app/migrations/versions/v0051_rename_cec_key.py::RenameCecKeyMigration._write::error": _FROZEN_MIGRATION,
     "app/domain/engines/storage/thumbnail_generator.py::metadata_keys::reason": _PIL_DECODE,
     "app/tasks/auth_tasks.py::dispatch_duplicate_registration_notice::error": (
         "a broker error names the broker connection; the task argument is an opaque key, not in the text"
@@ -199,6 +218,11 @@ def _raw_exception_text(value: ast.expr) -> str | None:
     ):
         return ast.unparse(value)
     return None
+
+
+def _is_raw_ip(keyword: str, value: ast.expr) -> bool:
+    """An IP keyword whose value is handed over as-is — not a call (``loggable_ip``), not a literal."""
+    return bool(_IP_KEYWORD.search(keyword)) and not isinstance(value, ast.Call | ast.Constant)
 
 
 def _is_raw_storage_key(keyword: str, value: ast.expr, *, storage_module: bool) -> bool:
@@ -255,6 +279,8 @@ class _LogCallVisitor(ast.NodeVisitor):
                 self.findings.append(f"{where}: {kw.arg}= (keyword names a subject identifier)")
             elif hit := _raw_identifier(kw.value):
                 self.findings.append(f"{where}: {kw.arg}={hit} (value is a subject identifier)")
+            elif _is_raw_ip(kw.arg, kw.value):
+                self.findings.append(f"{where}: {kw.arg}= (raw IP address; log ip_prefix=loggable_ip(...))")
             elif _is_raw_storage_key(kw.arg, kw.value, storage_module=self.storage_module):
                 self.findings.append(f"{where}: {kw.arg}= (raw storage key; log it through loggable_storage_key)")
             elif hit := _raw_exception_text(kw.value):
@@ -276,13 +302,9 @@ def _findings_in_source(source: str, rel: str, allowed: dict[str, str] | None = 
 
 def _guarded_modules() -> list[pathlib.Path]:
     tracked = subprocess.run(
-        ["git", "ls-files", "app"], cwd=BACKEND_ROOT, check=True, capture_output=True, text=True
+        ["git", "ls-files", "app", "scripts"], cwd=BACKEND_ROOT, check=True, capture_output=True, text=True
     ).stdout.split()
-    return [
-        BACKEND_ROOT / rel
-        for rel in sorted(tracked)
-        if rel.endswith(".py") and _SURFACE.search("/" + rel) and not rel.startswith(_EXCLUDED_DIRS)
-    ]
+    return [BACKEND_ROOT / rel for rel in sorted(tracked) if rel.endswith(".py")]
 
 
 def _rel(path: pathlib.Path) -> str:
@@ -294,9 +316,17 @@ def _surface_scans() -> list[_LogCallVisitor]:
 
 
 def test_selector_reaches_the_surface() -> None:
-    """The selector must find the modules #1773 names — an empty population is green over nothing."""
+    """The selector must find the modules #1773 and #1781 name — an empty population is green over nothing."""
+    rels = {_rel(p) for p in _guarded_modules()}
     names = {p.name for p in _guarded_modules()}
+    assert any(rel.startswith(_FROZEN_DIR) for rel in rels), "the frozen migration versions left the scan"
+    assert "app/migrations/seed_auth.py" in rels, "the editable migration seeds left the scan"
     for expected in (
+        # #1781: modules off the privacy surface that name subjects all the same.
+        "notification_service.py",
+        "tenant_service.py",
+        "notification_engine.py",
+        "openweathermap_weather_adapter.py",
         "privacy_service.py",
         "data_subject_service.py",
         "user_service.py",
@@ -320,9 +350,10 @@ def test_the_scan_sees_log_calls() -> None:
 def test_no_log_call_names_a_data_subject() -> None:
     problems = [finding for scan in _surface_scans() for finding in scan.findings]
     assert not problems, (
-        "log calls hand a data subject's account key, address or an unredacted exception text "
-        "to the logger (#1773). Log the salted subject reference (ErasureEngine.log_subject), "
-        "email_digest(...), loggable_storage_key(...) or error_type=type(exc).__name__ "
+        "log calls hand a data subject's account key, address, IP or an unredacted exception text "
+        "to the logger (#1773, #1781). Log subject=log_subject(user_key), email_digest(...), "
+        "ip_prefix=loggable_ip(...), error=loggable_error(exc) (app.common.log_privacy), "
+        "loggable_storage_key(...) or error_type=type(exc).__name__ "
         "instead:\n  " + "\n  ".join(problems)
     )
 
@@ -371,6 +402,17 @@ _STORAGE = "app/data_access/storage/probe_adapter.py"
         (_SERVICE, "logger.error('e', error=loggable_error_text(str(exc), user_key, salt))", False),
         (_SERVICE, "logger.error('e', error_type=type(exc).__name__)", False),
         (_SERVICE, "logger.info('e', count=str(n_items))", True),
+        (_SERVICE, "logger.error('e', error=loggable_error(exc))", False),
+        (_SERVICE, "logger.error('e', error=loggable_error(exc, user_key=user_key))", False),
+        (_SERVICE, "logger.info('e', subject=log_subject(user_key))", False),
+        (_SERVICE, "logger.info('e', subject=log_subject(user.key))", False),
+        (_SERVICE, "logger.info('pairing', ip_address=ip_address)", True),
+        (_SERVICE, "logger.info('pairing', client_ip=request.client.host)", True),
+        (_SERVICE, "logger.info('pairing', source_ip=ip)", True),
+        (_SERVICE, "logger.info('pairing', remote_addr=addr)", True),
+        (_SERVICE, "logger.info('pairing', ip_prefix=loggable_ip(ip_address))", False),
+        (_SERVICE, "logger.info('pairing', ip_address=loggable_ip(ip_address))", False),
+        (_SERVICE, "logger.info('probe', skip=skip)", False),
         ("app/data_access/external/smtp_email_adapter.py", "logger.info('email_sent', to=to_email)", True),
         (
             "app/data_access/external/smtp_email_adapter.py",

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import structlog
 
 from app.common.enums import DataOrigin, SyncStatus, SyncTrigger
+from app.common.log_privacy import loggable_error
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.interfaces.enrichment_repository import IExternalMappingRepository, ISyncRunRepository
 from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
@@ -73,7 +74,7 @@ class EnrichmentEngine:
             run.finished_at = datetime.now(UTC)
 
         except Exception as e:
-            logger.error("sync_failed", source=adapter.source_key, error=str(e))
+            logger.error("sync_failed", source=adapter.source_key, error=loggable_error(e))
             run.status = SyncStatus.FAILED
             run.errors = [str(e)]
             run.finished_at = datetime.now(UTC)

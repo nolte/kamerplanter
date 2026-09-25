@@ -9,6 +9,7 @@ from app.common.dependencies import (
     get_site_repo,
 )
 from app.common.enums import CycleType, LightType, TransitionTrigger, TransitionTriggerType
+from app.common.log_privacy import loggable_error
 from app.domain.calculators.photoperiod_calculator import effective_light_hours
 from app.domain.calculators.sun_calculator import calculate_sun_times
 from app.domain.engines.cycle_resolver import resolve_effective_cycle
@@ -242,6 +243,6 @@ def check_auto_transitions() -> dict:
                     break
         except Exception as e:
             errors += 1
-            logger.error("auto_transition_error", plant_key=plant.key, error=str(e))
+            logger.error("auto_transition_error", plant_key=plant.key, error=loggable_error(e))
 
     return {"transitioned": transitioned, "errors": errors, "checked": total}

@@ -18,6 +18,7 @@ from __future__ import annotations
 import structlog
 
 from app.common.exceptions import RateLimitError
+from app.common.log_privacy import loggable_error
 
 logger = structlog.get_logger(__name__)
 
@@ -53,7 +54,7 @@ class McpRateLimiter:
             if current == 1:
                 self._redis.expire(redis_key, _WINDOW_SECONDS)
         except Exception as exc:  # noqa: BLE001 - store failure handled fail-closed
-            logger.warning("mcp_rate_limit_unavailable", error=str(exc))
+            logger.warning("mcp_rate_limit_unavailable", error=loggable_error(exc))
             # Cannot prove the caller is under quota → reject rather than let one
             # account flood the tool dispatcher on a cache outage (SEC-004).
             raise RateLimitError("mcp", retry_after=_WINDOW_SECONDS) from exc

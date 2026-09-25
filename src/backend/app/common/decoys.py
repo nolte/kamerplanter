@@ -10,7 +10,11 @@ the import.
 """
 
 import hashlib
+import hmac
 import secrets
+
+from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
+from app.config.settings import settings
 
 #: Digit count of a synthesised, never-stored ArangoDB ``_key``.
 #:
@@ -34,15 +38,37 @@ def decoy_document_key() -> str:
     return str(lower + secrets.randbelow(9 * lower))
 
 
-def email_digest(email: str) -> str:
-    """Return a stable, non-plaintext digest of an email for log correlation.
+#: What :func:`email_digest` returns without a usable salt — never the unkeyed hash.
+UNAVAILABLE_EMAIL_DIGEST = "unavailable"
 
-    Follows the pseudonymisation convention already used for audit records
-    (``ai_audit_logger.hash_question``, ``ErasureEngine.compute_tombstone_hash``):
-    truncated sha256 over the normalised address. Repeated probes of the same
-    address stay correlatable without writing the address itself into a log
-    stream that has no retention rule of its own (NFR-011) — the address in a
-    suppressed-duplicate event belongs to a third party who never consented to
-    the request that mentioned it.
+
+def email_digest(email: str) -> str:
+    """Return a keyed, non-plaintext pseudonym of an email for log correlation.
+
+    Repeated probes of the same address stay correlatable without writing the
+    address itself into a log stream that has no retention rule of its own
+    (NFR-011) — the address in a suppressed-duplicate event belongs to a third
+    party who never consented to the request that mentioned it.
+
+    **Keyed, not a plain hash** (#1781). An unkeyed sha256 over an e-mail
+    address is dictionary-reversible: addresses are a small, enumerable space,
+    so anyone holding the log stream could confirm a guessed address by hashing
+    it. The digest is 16 hex chars of an HMAC-SHA256 over the normalised
+    address, keyed with the tombstone salt under the purpose label
+    ``log-email`` — separated from the tombstone hash and from
+    ``ErasureEngine.log_subject`` (``log-subject``). An operator holding the
+    salt can still compute the digest of a given address.
+
+    Read by log calls only: no stored value or lookup depends on it, so a salt
+    rotation breaks nothing but cross-deploy log correlation.
+
+    A missing or short salt must not turn a log line into an error, and must not
+    fall back to the unkeyed hash either: it yields the constant
+    :data:`UNAVAILABLE_EMAIL_DIGEST` (cf. ``anon_unavailable`` of
+    ``ErasureEngine.log_subject``). The salt is read at call time.
     """
-    return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()[:16]
+    salt = settings.erasure_tombstone_salt
+    if not salt or len(salt) < MIN_TOMBSTONE_SALT_LENGTH:
+        return UNAVAILABLE_EMAIL_DIGEST
+    normalised = email.strip().lower()
+    return hmac.new(salt.encode("utf-8"), f"log-email:{normalised}".encode(), hashlib.sha256).hexdigest()[:16]

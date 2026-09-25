@@ -595,7 +595,10 @@ class TestAuditEvents:
         # #1773: the account by its salted reference, never the plaintext key.
         assert created[0]["subject"] == ErasureEngine.log_subject(USER_KEY, TOMBSTONE_SALT)
         assert "user_key" not in created[0]
-        assert created[0]["ip_address"] == IP
+        # #1781: the NFR-011 R-03 prefix, never the full address.
+        assert created[0]["ip_prefix"] == "203.0.113.0"
+        assert "ip_address" not in created[0]
+        assert IP not in str(created[0])
         assert created[0]["expires_at"] == expires_at.isoformat()
         assert created[0]["code_sha256"]
 
@@ -611,7 +614,10 @@ class TestAuditEvents:
         # #1773: the account by its salted reference, never the plaintext key.
         assert redeemed[0]["subject"] == ErasureEngine.log_subject(USER_KEY, TOMBSTONE_SALT)
         assert "user_key" not in redeemed[0]
-        assert redeemed[0]["ip_address"] == IP
+        # #1781: the NFR-011 R-03 prefix, never the full address.
+        assert redeemed[0]["ip_prefix"] == "203.0.113.0"
+        assert "ip_address" not in redeemed[0]
+        assert IP not in str(redeemed[0])
         assert redeemed[0]["issued_at"]
 
     def test_failed_event_names_the_address_but_no_account(self) -> None:
@@ -624,7 +630,10 @@ class TestAuditEvents:
 
         failed = _events(logs, "device_pairing_redeem_failed")
         assert len(failed) == 1
-        assert failed[0]["ip_address"] == IP
+        # #1781: the NFR-011 R-03 prefix, never the full address.
+        assert failed[0]["ip_prefix"] == "203.0.113.0"
+        assert "ip_address" not in failed[0]
+        assert IP not in str(failed[0])
         assert failed[0]["reason"] == "not_redeemable"
         assert failed[0]["failed_attempts"] == 1
         assert "user_key" not in failed[0]

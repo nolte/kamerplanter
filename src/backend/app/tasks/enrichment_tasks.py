@@ -2,6 +2,7 @@ import structlog
 
 from app.common.dependencies import get_enrichment_engine
 from app.common.enums import SyncTrigger
+from app.common.log_privacy import loggable_error
 from app.domain.services.adapter_registry import AdapterRegistry
 from app.tasks import celery_app
 
@@ -23,7 +24,7 @@ def sync_source_task(self, source_key: str, full_sync: bool = False) -> dict:  #
             "updated_mappings": run.updated_mappings,
         }
     except Exception as exc:
-        logger.error("sync_source_task_failed", source_key=source_key, error=str(exc))
+        logger.error("sync_source_task_failed", source_key=source_key, error=loggable_error(exc))
         raise self.retry(exc=exc) from exc
 
 

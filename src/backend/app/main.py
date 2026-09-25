@@ -21,6 +21,7 @@ from app.common.error_handlers import (
 )
 from app.common.exceptions import KamerplanterError
 from app.common.middleware import request_id_middleware
+from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import setup_logging
 from app.config.settings import settings
 from app.data_access.arango.collections import ensure_collections
@@ -45,8 +46,8 @@ init_error_tracking(
 register_external_adapters()
 
 # NFR-011 §4: the erasure tombstone salt must be a high-entropy secret; a value
-# shorter than this is treated as unset/insecure.
-_MIN_TOMBSTONE_SALT_LENGTH = 32
+# shorter than this is treated as unset/insecure. Shared with the worker gate.
+_MIN_TOMBSTONE_SALT_LENGTH = MIN_TOMBSTONE_SALT_LENGTH
 
 
 def insecure_default_secrets() -> list[str]:

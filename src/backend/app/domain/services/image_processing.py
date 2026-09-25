@@ -15,6 +15,8 @@ import io
 import structlog
 from PIL import Image, ImageOps
 
+from app.common.log_privacy import loggable_error
+
 logger = structlog.get_logger()
 
 # JPEG/PNG magic bytes (REQ-029 §3.5 image validation).
@@ -61,5 +63,5 @@ def strip_exif(image_data: bytes) -> bytes:
                 rgb.save(buffer, format="PNG")
             return buffer.getvalue()
     except (OSError, ValueError) as exc:
-        logger.warning("exif_strip_failed", error=str(exc))
+        logger.warning("exif_strip_failed", error=loggable_error(exc))
         raise ValueError("Image could not be decoded for EXIF stripping.") from exc
