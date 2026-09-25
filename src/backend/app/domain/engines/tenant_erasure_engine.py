@@ -10,7 +10,7 @@ behind under a ``tenant_key`` that pointed at nothing.
 
 **Complete by construction, not by memory.** Every document collection
 ``collections.py`` declares is classified exactly once: an entry of
-:attr:`TenantErasureEngine.INVENTORY` (delete / anonymise / retain), or a
+:attr:`TenantErasureEngine.INVENTORY` (delete / pseudonymize / retain), or a
 reason in :attr:`TenantErasureEngine.NOT_TENANT_SCOPED`.
 ``tests/unit/guards/test_tenant_erasure_inventory_is_complete.py`` holds both
 against ``collections.py`` and against the tenant-bearing collections derived
@@ -159,10 +159,10 @@ class TenantErasureEngine:
         _delete("irrigation_demands"),
         _delete("supplementation_events"),
         # ── Harvest and post-harvest ──
-        TenantErasureEntry(collection="harvest_batches", action="anonymize", reason=_R16),
+        TenantErasureEntry(collection="harvest_batches", action="pseudonymize", reason=_R16),
         TenantErasureEntry(
             collection="quality_assessments",
-            action="anonymize",
+            action="pseudonymize",
             parents=(_parent("batch_key", "harvest_batches"),),
             reason=_R16,
         ),
@@ -178,8 +178,8 @@ class TenantErasureEngine:
         _delete("mold_alerts", _parent("batch_key", "post_harvest_batches")),
         _delete("burping_events", _parent("batch_key", "post_harvest_batches")),
         # ── Plant protection ──
-        TenantErasureEntry(collection="treatment_applications", action="anonymize", reason=_R17),
-        TenantErasureEntry(collection="inspections", action="anonymize", reason=_R18),
+        TenantErasureEntry(collection="treatment_applications", action="pseudonymize", reason=_R17),
+        TenantErasureEntry(collection="inspections", action="pseudonymize", reason=_R18),
         _delete("pest_detections"),
         _delete("plant_diagnosis_requests"),
         _delete("identification_requests"),
@@ -205,6 +205,10 @@ class TenantErasureEngine:
         _delete("import_jobs"),
         _delete("attachments"),
         _delete("mcp_idempotency_record"),
+        # #1769 review GDPR-007 — an API key restricted to this tenant
+        # (``tenant_scope``) authorises nothing once the tenant is gone; its
+        # label and IP allowlist are the member's. Account-scoped keys stay.
+        TenantErasureEntry(collection="api_keys", action="delete", tenant_field="tenant_scope"),
         # ── Audit logs with their own retention purge ──
         TenantErasureEntry(
             collection="ai_audit_log",
@@ -238,7 +242,6 @@ class TenantErasureEngine:
         # Accounts.
         "users": _ACCOUNT,
         "auth_providers": _ACCOUNT,
-        "api_keys": _ACCOUNT,
         "refresh_tokens": _ACCOUNT,
         "consent_records": _ACCOUNT,
         "processing_restrictions": _ACCOUNT,
@@ -291,7 +294,7 @@ class TenantErasureEngine:
         """Refuse an inventory the executor would have to guess at.
 
         Each collection once; each parent declared before its child and not
-        itself reached only through ``retain``; every ``anonymize`` entry backed
+        itself reached only through ``retain``; every ``pseudonymize`` entry backed
         by at least one account-erasure ``tombstone_hash`` rule.
         """
         seen: dict[str, TenantErasureEntry] = {}
@@ -309,8 +312,8 @@ class TenantErasureEngine:
                         "which is not declared before it"
                     )
                     raise ValueError(msg)
-            if entry.action == "anonymize" and not cls._pseudonymizations_for(entry.collection):
-                msg = f"'{entry.collection}' is anonymised but the account erasure declares no tombstone rule for it"
+            if entry.action == "pseudonymize" and not cls._pseudonymizations_for(entry.collection):
+                msg = f"'{entry.collection}' is pseudonymised but the account erasure declares no tombstone rule for it"
                 raise ValueError(msg)
             seen[entry.collection] = entry
 
@@ -332,13 +335,15 @@ class TenantErasureEngine:
             if rule.collection == collection and rule.replacement_strategy == "tombstone_hash"
         ]
 
-    def build_plan(self, tenant_key: str) -> TenantErasurePlan:
+    def build_plan(
+        self, tenant_key: str, *, known_parent_keys: dict[str, list[str]] | None = None
+    ) -> TenantErasurePlan:
         """The plan for one tenant: the inventory, its pseudonymisations and the residue exemptions."""
         self.validate()
         pseudonymizations = [
             rule
             for entry in self.INVENTORY
-            if entry.action == "anonymize"
+            if entry.action == "pseudonymize"
             for rule in self._pseudonymizations_for(entry.collection)
         ]
         exempt = [entry.collection for entry in self.INVENTORY if entry.action == "retain"]
@@ -349,6 +354,7 @@ class TenantErasureEngine:
             entries=list(self.INVENTORY),
             pseudonymizations=pseudonymizations,
             residue_exempt=exempt,
+            known_parent_keys=dict(known_parent_keys or {}),
         )
 
     @classmethod

@@ -37,10 +37,9 @@ Im Bereich **Admin > Mandanten** kannst du:
 - Mitglieder eines Mandanten stellvertretend verwalten
 
 !!! danger "Mandanten löschen ist irreversibel"
-    Das Löschen eines Mandanten entfernt seinen Dateispeicher (Fotos, Anhänge), die dazu beigetragenen Erkennungsvektoren, alle Mitgliedschaften, offenen Einladungen und Standort-Zuweisungen sowie zuletzt den Mandanten-Datensatz selbst. Diese Aktion kann nicht rückgängig gemacht werden. Erstelle vorher einen Daten-Export für den betroffenen Mandanten.
+    Das Löschen eines Mandanten deaktiviert zuerst sofort alle Mitgliedschaften und entfernt dann die dazu beigetragenen Erkennungsvektoren, den Dateispeicher (Fotos, Anhänge) und sämtliche fachlichen Daten des Mandanten — Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks, Sensoren und alle weiteren Standort-gebundenen Daten — sowie zuletzt den Mandanten-Datensatz selbst. Ausgenommen ist Ernte- und Behandlungsdokumentation, die aus gesetzlichen Gründen (CanG, Pflanzenschutzgesetz) einige Jahre aufbewahrt werden muss: Diese Datensätze bleiben erhalten, werden aber pseudonymisiert. Diese Aktion kann nicht rückgängig gemacht werden. Erstelle vorher einen Daten-Export für den betroffenen Mandanten. <!-- Issue #1769 -->
 
-!!! note "Teilweise verfügbar: Fachdaten-Löschung"
-    Die Mandanten-Löschung entfernt heute bereits Dateispeicher, Erkennungsvektoren, Mitgliedschaften, Einladungen und Standort-Zuweisungen des Mandanten. Die fachlichen Datensätze — Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben und weitere Standort-gebundene Daten — bleiben dabei noch bestehen; ihre Löschung wird in einer künftigen Version nachgezogen. <!-- Issue #1769 -->
+    Konnte die Löschung nicht vollständig abgeschlossen werden, meldet die Aktion einen Fehler (`500`) und ändert nichts an den bereits erledigten Schritten: Der Löschvorgang bleibt vorgemerkt und wird vom täglichen Wiederholungs-Lauf automatisch fortgesetzt — du musst nichts manuell nachholen. Konnte ein einzelner externer Dienst nicht erreicht werden, meldet die Aktion stattdessen `502`. Läuft für den Mandanten bereits eine Löschung, meldet ein zweiter Versuch einen Konflikt (`409`). Ist die Instanz für Mandanten-Löschungen nicht korrekt konfiguriert, meldet sie das mit `503` — in diesem Fall wurde noch nichts geändert.
 
 ---
 

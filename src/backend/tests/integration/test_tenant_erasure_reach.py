@@ -15,7 +15,7 @@ account key and a free-text name. What is asserted, through both HTTP entry
 points (``DELETE /t/{slug}`` and ``DELETE /admin/platform/tenants/{key}``):
 
 * every A row of a ``delete`` entry is gone, and every edge touching one;
-* every A row of an ``anonymize`` entry survives with the member's key replaced
+* every A row of an ``pseudonymize`` entry survives with the member's key replaced
   by the member's tombstone hash and the free-text name emptied; ``retain`` rows
   survive untouched;
 * the tenant document is gone and the persisted record says ``completed``, with
@@ -34,6 +34,7 @@ Locally it needs a database::
 from __future__ import annotations
 
 import inspect
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
@@ -50,6 +51,7 @@ from app.data_access.arango.location_assignment_repository import ArangoLocation
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
+from app.data_access.timescale.null_observation_repository import NullObservationRepository
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.erasure_engine import ErasureEngine
@@ -111,7 +113,7 @@ def _seed_tenant(database, tenant: str) -> dict[str, str]:
             doc[parent.field] = ids[parent.collection].split("/", 1)[1]
             doc.update(parent.where)
         else:
-            doc["tenant_key"] = tenant
+            doc[entry.tenant_field] = tenant
         for rule in _pseudonymizations(entry.collection):
             doc[rule.user_field] = MEMBER
             doc.update(dict.fromkeys(rule.clear_fields, "Display name of the member"))
@@ -176,6 +178,7 @@ def _service(database) -> TenantService:
         "tenant_erasure_executor": ArangoTenantErasureExecutor(database),
         "tenant_erasure_repo": ArangoTenantErasureRepository(database),
         "tombstone_salt": SALT,
+        "observation_repo": NullObservationRepository(),
     }
     accepted = inspect.signature(TenantService).parameters
     return TenantService(**{name: value for name, value in kwargs.items() if name in accepted})
@@ -232,7 +235,7 @@ def test_every_row_of_a_delete_entry_and_its_edges_are_gone(database, erased, te
 def test_retention_rows_survive_pseudonymised(database, erased, tenant):
     ids = erased.seeded[tenant]
     tombstone = ErasureEngine.compute_tombstone_hash(MEMBER, SALT)
-    for collection in _entries("anonymize"):
+    for collection in _entries("pseudonymize"):
         row = _read(database, ids[collection])
         assert row is not None, collection
         for rule in _pseudonymizations(collection):
@@ -274,3 +277,39 @@ def test_an_undeclared_collection_keeps_the_deletion_open(database, erased):
     assert record["unreached"] == ["undeclared:legacy_orphans"]
     assert record["attempt_count"] == 1
     assert record["next_attempt_at"] is not None
+
+
+def test_a_foreign_child_of_the_tenants_parent_is_left_alone(database, erased):
+    """#1769 review SEC-004 — a row stamped with another tenant is never ours, whatever it points at."""
+    tenant = "t-foreign-parent"
+    ids = _seed_tenant(database, tenant)
+    site_key = ids["sites"].split("/", 1)[1]
+    foreign = database.collection("locations").insert({"site_key": site_key, "tenant_key": OTHER})["_id"]
+
+    _delete_through(database, "platform_admin", tenant)
+
+    assert _read(database, ids["locations"]) is None
+    assert _read(database, foreign) is not None
+
+
+def test_a_retry_reaches_a_child_whose_parent_the_first_attempt_deleted(database, erased):
+    """#1769 review SEC-001 — the parent keys of an attempt are persisted and fed into the retry."""
+    from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
+
+    tenant = "t-late-child"
+    ids = _seed_tenant(database, tenant)
+    site_key = ids["sites"].split("/", 1)[1]
+    service = _service(database)
+    # First attempt completes; then a location is written under the (now gone)
+    # site, as a request racing the commit would, and the record reopened.
+    service.delete_tenant(tenant, origin="platform_admin")
+    late = database.collection("locations").insert({"site_key": site_key})["_id"]
+    records = ArangoTenantErasureRepository(database)
+    key = TenantErasureEngine.record_key(tenant)
+    assert site_key in records.get(key).parent_keys["sites"]
+    records.update_fields(key, {"status": "partially_completed", "next_attempt_at": None})
+
+    result = service.resume_tenant_erasures(datetime.now(UTC))
+
+    assert result["completed"] == 1
+    assert _read(database, late) is None

@@ -12,12 +12,13 @@ For both the tenant under test and a control tenant, one model-valid row per
 entry of ``TenantErasureEngine.INVENTORY`` — the list the executing path reads,
 never a copy:
 
-* an entry without a parent carries ``tenant_key`` = the tenant;
+* an entry without a parent carries its tenant field (``tenant_key``, or
+  ``tenant_scope`` on an API key) = the tenant;
 * an entry with parents is reached **only** through its first parent: the
   foreign key names the tenant's parent row and ``tenant_key`` holds a marker,
   never the tenant (the ``locations``/``slots`` shape of #1397);
 * the deletion-record collection is skipped: its row is the act's proof;
-* an ``anonymize`` entry's account-key fields (read off the account erasure's
+* an ``pseudonymize`` entry's account-key fields (read off the account erasure's
   tombstone rules, as the engine does) hold the member's key, and their free-text
   companions a marker.
 
@@ -97,7 +98,7 @@ def _seed_one(seeder: Seeder, tenant: str, member: str, role: str) -> None:
             overrides[parent.field] = own[parent.collection]
             overrides.update(parent.where)
         else:
-            overrides["tenant_key"] = tenant
+            overrides[entry.tenant_field] = tenant
         rule = rules.get(entry.collection)
         if rule is not None:
             overrides[rule.user_field] = member

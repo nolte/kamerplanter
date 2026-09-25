@@ -138,6 +138,7 @@ def tenant_service_for_deletion(
         "tenant_erasure_executor": executor if executor is not None else RecordingTenantErasureExecutor(),
         "tenant_erasure_repo": record_repo if record_repo is not None else FakeTenantErasureRepository(),
         "tombstone_salt": salt,
+        "observation_repo": MagicMock(**{"delete_by_tenant.return_value": 0}),
     }
     kwargs.update(overrides)
     return TenantService(**kwargs)

@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.common.enums import TenantRole
 from app.common.exceptions import (
     ExternalSourceError,
     FeatureNotConfiguredError,
@@ -79,6 +80,16 @@ class TestTheDeletionRunsTheInventory:
 
         assert order == ["freeze", "storage", "arango"]
         storage.delete_prefix.assert_awaited_once_with(f"t/{KEY}/")
+
+    def test_the_tenants_sensor_readings_are_deleted_and_counted(self) -> None:
+        """#1769 review GDPR-001 — TimescaleDB sits outside the ArangoDB transaction."""
+        repo = FakeTenantErasureRepository()
+        readings = MagicMock()
+        readings.delete_by_tenant.return_value = 12
+        tenant_service_for_deletion(record_repo=repo, observation_repo=readings).delete_tenant(KEY, now=NOW)
+
+        readings.delete_by_tenant.assert_called_once_with(KEY)
+        assert _record(repo)["timeseries_rows_removed"] == 12
 
     def test_the_record_names_no_tenant_name_slug_or_owner(self) -> None:
         repo = FakeTenantErasureRepository()
@@ -147,6 +158,7 @@ class TestRefusalsBeforeAnythingChanges:
             # #1759 — the pest feature is wired but no prototype store: refused
             # before the reference vectors are removed, not after.
             ({"pest_image_repo": MagicMock(), "pest_prototype_store": None}, "pest-prototype store"),
+            ({"observation_repo": None}, "sensor-reading store"),
         ],
     )
     def test_a_deployment_that_cannot_erase_answers_503_and_changes_nothing(self, overrides, reason) -> None:
@@ -247,3 +259,47 @@ class TestTheBeatRetries:
         assert result["open"] == 1
         assert _record(repo)["attempt_count"] == 2
         assert _record(repo)["next_attempt_at"] == (NOW + timedelta(days=2)).isoformat()
+
+
+class TestNoDeletionThatBreaksTheInstallationOrLeaksAccess:
+    def test_light_mode_refuses_to_delete_its_system_tenant(self) -> None:
+        """#1769 review SEC-002 — the light-mode tenant is the installation; its seed does not re-create it."""
+        repo = FakeTenantErasureRepository()
+        service = tenant_service_for_deletion(record_repo=repo, light_mode=True)
+
+        with pytest.raises(ForbiddenError):
+            service.delete_tenant(KEY, now=NOW)
+
+        assert repo.records == {}
+
+    def test_no_new_membership_while_the_deletion_is_open(self) -> None:
+        """#1769 review SEC-006 — an invitation accepted mid-deletion would grant access to a tenant being erased."""
+        repo = FakeTenantErasureRepository()
+        repo.records[RECORD] = {
+            "tenant_key": KEY,
+            "tenant_type": "organization",
+            "origin": "tenant_management",
+            "status": "partially_completed",
+        }
+        service = tenant_service_for_deletion(record_repo=repo)
+
+        with pytest.raises(ForbiddenError):
+            service.admin_add_membership(KEY, "user-9", TenantRole.GROWER)
+        service._membership_repo.create.assert_not_called()
+
+    def test_the_retry_feeds_the_persisted_parent_keys_back(self) -> None:
+        """#1769 review SEC-001 — a child written after its parent's deletion is reached on the retry."""
+        repo = FakeTenantErasureRepository()
+        repo.records[RECORD] = {
+            "tenant_key": KEY,
+            "tenant_type": "organization",
+            "origin": "tenant_management",
+            "status": "partially_completed",
+            "parent_keys": {"sites": ["site-1"]},
+        }
+        executor = RecordingTenantErasureExecutor()
+
+        tenant_service_for_deletion(executor=executor, record_repo=repo).resume_tenant_erasures(NOW)
+
+        (plan,) = executor.plans
+        assert plan.known_parent_keys == {"sites": ["site-1"]}

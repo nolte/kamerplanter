@@ -102,3 +102,30 @@ class TestTimescaleAvailability:
         mock_pool.connection.return_value.__enter__ = MagicMock(side_effect=Exception("connection refused"))
 
         assert repo.is_available() is False
+
+
+class TestTimescaleDeleteByTenant:
+    """#1769 review GDPR-001 — tenant deletion removes the tenant's raw readings."""
+
+    def test_deletes_by_tenant_key_only_and_commits(self, repo, mock_pool):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.rowcount = 7
+        mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
+        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        mock_pool.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+        mock_pool.connection.return_value.__exit__ = MagicMock(return_value=False)
+
+        assert repo.delete_by_tenant("t-1") == 7
+
+        sql, params = mock_cursor.execute.call_args.args
+        assert "DELETE FROM sensor_readings" in sql
+        assert "tenant_key = %(tenant_key)s" in sql
+        assert "sensor_key" not in sql
+        assert params == {"tenant_key": "t-1"}
+        mock_conn.commit.assert_called_once()
+
+    def test_refuses_an_empty_key(self, repo, mock_pool):
+        with pytest.raises(ValueError):
+            repo.delete_by_tenant("")
+        mock_pool.connection.assert_not_called()

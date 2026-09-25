@@ -7,7 +7,7 @@ complete when the next collection arrives. It anchors on three sources nobody
 edits to satisfy a privacy list:
 
 * ``collections.py`` — **every** document collection must be classified exactly
-  once: an inventory entry (delete / anonymise / retain) or a reason in
+  once: an inventory entry (delete / pseudonymize / retain) or a reason in
   :attr:`TenantErasureEngine.NOT_TENANT_SCOPED`. A new collection fails here
   until someone decides. This is what catches a raw-written collection with a
   ``tenant_key`` and no model (``ha_publish_settings``), which a model-anchored
@@ -161,7 +161,7 @@ class TestRetentionRowsAreThoseTheAccountErasureKeeps:
             for rule in ErasureEngine.ANONYMIZE_COLLECTIONS
             if rule.replacement_strategy == "tombstone_hash" and rule.collection in derived.tenant_collections
         }
-        anonymized = {entry.collection for entry in TenantErasureEngine.INVENTORY if entry.action == "anonymize"}
+        anonymized = {entry.collection for entry in TenantErasureEngine.INVENTORY if entry.action == "pseudonymize"}
         assert anonymized == tombstoned
 
     def test_every_kept_entry_says_why(self) -> None:

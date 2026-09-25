@@ -11,7 +11,7 @@ verdict). For every seeded row of the tenant (``.reach/subjects/tenant-<tenant>.
 
 * ``erased/<collection>`` — a row the seed marked ``delete`` is gone (and
   ``erased/tenants`` for the tenant document);
-* ``pseudonymised/<collection>`` — an ``anonymize`` row survived, changed, and
+* ``pseudonymised/<collection>`` — an ``pseudonymize`` row survived, changed, and
   no longer contains the member's account key;
 * ``retained/<collection>`` — a ``retain`` row survived unchanged (``_rev``);
 * ``residue/<collection>``, ``lost/<collection>``, ``changed/<collection>`` — the
@@ -64,7 +64,7 @@ def members(arango: Arango, record: dict[str, Any]) -> list[str]:
         action = role.split(":", 1)[1]
         if action in ("delete", "tenant"):
             lines.add(f"{'erased' if now is None else 'residue'}/{collection}")
-        elif action == "anonymize":
+        elif action == "pseudonymize":
             retained_collections.add(collection)
             if now is None:
                 lines.add(f"lost/{collection}")

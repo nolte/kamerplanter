@@ -910,9 +910,11 @@ def get_tenant_service() -> TenantService:
         reference_index_store=get_reference_index_store(),
         pest_image_repo=get_pest_image_repo(),
         pest_prototype_store=get_pest_prototype_store(),
+        observation_repo=get_observation_repo(),
         tenant_erasure_executor=get_tenant_erasure_executor(),
         tenant_erasure_repo=get_tenant_erasure_repo(),
         tombstone_salt=settings.erasure_tombstone_salt,
+        light_mode=settings.kamerplanter_mode == "light",
     )
 
 

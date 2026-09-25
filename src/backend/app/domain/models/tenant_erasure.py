@@ -19,13 +19,13 @@ from pydantic import BaseModel, Field, model_validator
 #: What tenant deletion does with an inventoried collection's rows of the tenant.
 #:
 #: * ``delete`` — the rows go, together with every edge that touches them;
-#: * ``anonymize`` — the rows stay because a retention law keeps them (CanG,
+#: * ``pseudonymize`` — the rows stay because a retention law keeps them (CanG,
 #:   PflSchG); every account key on them becomes that account's tombstone hash
 #:   and their free-text name fields are emptied (the account erasure's
 #:   ``tombstone_hash`` rules for the same collection, not a second copy);
 #: * ``retain`` — the rows stay untouched, for the reason given (an audit log
 #:   with its own retention purge, a row that only *looks* tenant-owned).
-type TenantErasureAction = Literal["delete", "anonymize", "retain"]
+type TenantErasureAction = Literal["delete", "pseudonymize", "retain"]
 
 #: Which entry point asked for the deletion.
 type TenantErasureOrigin = Literal["tenant_management", "platform_admin"]
@@ -61,8 +61,11 @@ class TenantErasureEntry(BaseModel):
 
     collection: str
     action: TenantErasureAction
+    #: The field holding the tenant's key. ``tenant_key`` everywhere but on an
+    #: API key, whose tenant restriction is ``tenant_scope`` (#1769 review GDPR-007).
+    tenant_field: str = "tenant_key"
     parents: tuple[TenantErasureParent, ...] = ()
-    #: Why the rows are not deleted. Required for ``anonymize`` and ``retain``.
+    #: Why the rows are not deleted. Required for ``pseudonymize`` and ``retain``.
     reason: str | None = None
 
     @model_validator(mode="after")
@@ -74,7 +77,7 @@ class TenantErasureEntry(BaseModel):
 
 
 class TenantErasurePseudonymization(BaseModel):
-    """The account-key fields of an ``anonymize`` entry, read off the account erasure's rules."""
+    """The account-key fields of an ``pseudonymize`` entry, read off the account erasure's rules."""
 
     model_config = {"frozen": True}
 
@@ -95,6 +98,10 @@ class TenantErasurePlan(BaseModel):
     #: non-tenant collections. Everything else still holding such a row after the
     #: run is residue.
     residue_exempt: list[str] = Field(default_factory=list)
+    #: Parent keys an earlier attempt of this deletion resolved (#1769 review
+    #: SEC-001). A parent it deleted cannot be re-selected, so a child written
+    #: after that attempt's snapshot is reached only through these.
+    known_parent_keys: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class TenantErasureOutcome(BaseModel):
@@ -112,6 +119,9 @@ class TenantErasureReport(BaseModel):
     outcomes: list[TenantErasureOutcome] = Field(default_factory=list)
     edges_removed: int = Field(default=0, ge=0)
     tenant_document_removed: bool = False
+    #: The keys of every parent collection's rows this run resolved, merged with
+    #: :attr:`TenantErasurePlan.known_parent_keys` — persisted for the retry.
+    parent_keys: dict[str, list[str]] = Field(default_factory=dict)
     #: Inventoried collections the database does not have (they hold no rows).
     absent_collections: list[str] = Field(default_factory=list)
     #: What still holds the tenant after the commit: ``<collection>`` for an
@@ -147,10 +157,14 @@ class TenantErasureRecord(BaseModel):
     pest_prototype_binding: str | None = None
     pest_prototypes_removed: int | None = Field(default=None, ge=0)
     storage_objects_removed: int | None = Field(default=None, ge=0)
+    #: Raw sensor readings removed from TimescaleDB (#1769 review GDPR-001).
+    timeseries_rows_removed: int | None = Field(default=None, ge=0)
     #: The ArangoDB phase, as the executor reported it.
     outcomes: list[TenantErasureOutcome] = Field(default_factory=list)
     edges_removed: int | None = Field(default=None, ge=0)
     unreached: list[str] = Field(default_factory=list)
+    #: Parent keys resolved by earlier attempts (SEC-001); fed into the retry.
+    parent_keys: dict[str, list[str]] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

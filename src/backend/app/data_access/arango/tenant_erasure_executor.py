@@ -104,13 +104,19 @@ def _match(entry: TenantErasureEntry, parent_keys: dict[str, list[str]]) -> tupl
     row of the tenant. Field names, keys and predicates are bound; the only thing
     formatted into the string is the clause index.
     """
-    clauses = ["doc.tenant_key == @tenant_key"]
-    binds: dict[str, Any] = {}
+    clauses = ["doc[@tenant_field] == @tenant_key"]
+    binds: dict[str, Any] = {"tenant_field": entry.tenant_field}
     for index, parent in enumerate(entry.parents):
         keys = parent_keys.get(parent.collection) or []
         if not keys:
             continue
-        clauses.append(f"(doc[@field{index}] IN @keys{index} AND MATCHES(doc, @where{index}))")
+        # A child stamped with ANOTHER tenant that points at this tenant's parent
+        # is that tenant's row (a past cross-tenant reference), never ours to
+        # delete (#1769 review SEC-004).
+        clauses.append(
+            f"(doc[@field{index}] IN @keys{index} AND MATCHES(doc, @where{index})"
+            " AND (doc.tenant_key == null OR doc.tenant_key == '' OR doc.tenant_key == @tenant_key))"
+        )
         binds[f"field{index}"] = parent.field
         binds[f"keys{index}"] = keys
         binds[f"where{index}"] = parent.where
@@ -128,7 +134,7 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
 
     **Completion is measured, not assumed.** After the commit the executor counts,
     outside the transaction, what still holds the tenant: rows of every ``delete``
-    entry, account keys left on ``anonymize`` rows, the tenant document, and — in
+    entry, account keys left on ``pseudonymize`` rows, the tenant document, and — in
     every collection the plan does not classify — rows stamped with the tenant's
     key. A row written concurrently after the transaction's snapshot shows up
     here, as does a collection nobody declared.
@@ -160,12 +166,15 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
             writes.append(plan.tenant_collection)
         tenant_id = f"{plan.tenant_collection}/{plan.tenant_key}"
 
+        parent_collections = {parent.collection for entry in plan.entries for parent in entry.parents}
         parent_keys: dict[str, list[str]] = {}
         transaction = self._db.begin_transaction(read=reads, write=writes, allow_implicit=False)
         try:
             rows: dict[str, list[dict[str, str]]] = {}
             for entry in entries:
-                rows[entry.collection] = self._select(transaction, entry, plan.tenant_key, parent_keys)
+                rows[entry.collection] = self._select(
+                    transaction, entry, plan.tenant_key, self._with_known(plan, parent_keys)
+                )
                 parent_keys[entry.collection] = [row["key"] for row in rows[entry.collection]]
 
             deleted_ids = [row["id"] for entry in entries if entry.action == "delete" for row in rows[entry.collection]]
@@ -186,7 +195,7 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
                             _REMOVE_BY_KEYS, bind_vars={"@collection": entry.collection, "keys": keys}
                         )
                     )
-                elif keys and entry.action == "anonymize":
+                elif keys and entry.action == "pseudonymize":
                     for rule in self._rules_of(plan, entry.collection):
                         affected += self._pseudonymize(transaction, rule, keys, pseudonymize)
                 report.outcomes.append(
@@ -209,7 +218,9 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
             self._abort_quietly(transaction)
             raise
 
-        report.unreached = self._residue(plan, entries, parent_keys, existing)
+        resolved = self._with_known(plan, parent_keys)
+        report.parent_keys = {name: keys for name, keys in resolved.items() if name in parent_collections and keys}
+        report.unreached = self._residue(plan, entries, resolved, existing)
         logger.info(
             "tenant_erasure.arango_executed",
             tenant_key=plan.tenant_key,
@@ -235,7 +246,7 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
                     msg = f"'{entry.collection}' is reached via '{parent.collection}', which the plan declares later"
                     raise TenantErasurePlanError(msg)
             seen.add(entry.collection)
-        anonymized = {entry.collection for entry in plan.entries if entry.action == "anonymize"}
+        anonymized = {entry.collection for entry in plan.entries if entry.action == "pseudonymize"}
         ruled = {rule.collection for rule in plan.pseudonymizations}
         if anonymized - ruled:
             msg = f"anonymised collections without a pseudonymisation rule: {sorted(anonymized - ruled)}"
@@ -256,6 +267,14 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
             bind_vars={"@collection": entry.collection, "tenant_key": tenant_key, **binds},
         )
         return [dict(row) for row in cursor]
+
+    @staticmethod
+    def _with_known(plan: TenantErasurePlan, parent_keys: dict[str, list[str]]) -> dict[str, list[str]]:
+        """This run's parent keys united with those earlier attempts resolved (SEC-001)."""
+        merged = {name: list(keys) for name, keys in parent_keys.items()}
+        for name, keys in plan.known_parent_keys.items():
+            merged[name] = sorted({*merged.get(name, []), *keys})
+        return merged
 
     @staticmethod
     def _rules_of(plan: TenantErasurePlan, collection: str) -> list[TenantErasurePseudonymization]:
@@ -305,7 +324,7 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
             binds = {"@collection": entry.collection, "tenant_key": plan.tenant_key, **binds}
             if entry.action == "delete":
                 remaining = self._counted(self._db.aql.execute(_COUNT_MATCHING.format(match=match), bind_vars=binds))
-            elif entry.action == "anonymize":
+            elif entry.action == "pseudonymize":
                 remaining = sum(
                     self._counted(
                         self._db.aql.execute(

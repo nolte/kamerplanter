@@ -68,6 +68,11 @@ WHERE sensor_key = %(sensor_key)s
   AND tenant_key = %(tenant_key)s
 """
 
+_DELETE_BY_TENANT_SQL = """
+DELETE FROM sensor_readings
+WHERE tenant_key = %(tenant_key)s
+"""
+
 
 def _prepare_params(reading: SensorReading) -> dict:
     params = reading.model_dump()
@@ -172,6 +177,23 @@ class TimescaleObservationRepository(IObservationRepository):
         params = {"sensor_key": sensor_key, "tenant_key": tenant_key}
         with self._pool.connection() as conn, conn.cursor() as cur:
             cur.execute(_DELETE_BY_SENSOR_SQL, params)
+            count = cur.rowcount
+            conn.commit()
+        return count
+
+    def delete_by_tenant(self, tenant_key: str) -> int:
+        """#1769 — every raw reading of a deleted tenant.
+
+        An empty key would match nothing here (``tenant_key`` is ``NOT NULL`` and
+        stamped from the tenant context), but the caller validates it anyway. The
+        continuous aggregates are not refreshed by this delete (the same holds
+        for :meth:`delete_by_sensor`); see the follow-up recorded on #1769.
+        """
+        if not tenant_key:
+            msg = "delete_by_tenant needs a tenant key"
+            raise ValueError(msg)
+        with self._pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(_DELETE_BY_TENANT_SQL, {"tenant_key": tenant_key})
             count = cur.rowcount
             conn.commit()
         return count

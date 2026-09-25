@@ -34,6 +34,7 @@ from app.domain.interfaces.location_assignment_repository import (
 )
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.observation_repository import IObservationRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
@@ -73,9 +74,11 @@ class TenantService:
         reference_index_store: IReferenceIndexStore | None = None,
         pest_image_repo: IPestImageRepository | None = None,
         pest_prototype_store: IPestPrototypeStore | None = None,
+        observation_repo: IObservationRepository | None = None,
         tenant_erasure_executor: ITenantErasureExecutor | None = None,
         tenant_erasure_repo: ITenantErasureRepository | None = None,
         tombstone_salt: str = "",
+        light_mode: bool = False,
     ) -> None:
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
@@ -101,10 +104,15 @@ class TenantService:
         # #1769 — the declared tenant-erasure inventory, its executor and the
         # persisted proof. The salt pseudonymises the account keys on retained
         # harvest/treatment/inspection rows; it never leaves this service.
+        # #1769 review GDPR-001 — the tenant's raw sensor readings live in
+        # TimescaleDB, outside the ArangoDB transaction; removed in the external
+        # phase. ``None`` only where no deletion runs (other callers).
+        self._observation_repo = observation_repo
         self._tenant_erasure_engine = TenantErasureEngine()
         self._tenant_erasure_executor = tenant_erasure_executor
         self._tenant_erasure_repo = tenant_erasure_repo
         self._tombstone_salt = tombstone_salt
+        self._light_mode = light_mode
 
     # --- Tenant CRUD ---
 
@@ -318,6 +326,10 @@ class TenantService:
             raise NotFoundError("Tenant", tenant_key)
         if tenant is not None and tenant.is_platform:
             raise ForbiddenError("The platform tenant cannot be deleted.")
+        if tenant is not None and self._light_mode:
+            # #1769 review SEC-002 — in light mode the single system tenant IS the
+            # installation, and the light-mode seed does not re-create it.
+            raise ForbiddenError("The tenant of a light-mode installation cannot be deleted.")
 
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
@@ -380,6 +392,19 @@ class TenantService:
         logger.info("tenant_erasure.retry_completed", **result)
         return result
 
+    def _refuse_while_erasing(self, tenant_key: str) -> None:
+        """No new membership in a tenant whose deletion is open (#1769 review SEC-006).
+
+        The deletion deactivates every membership before it runs; a membership
+        created afterwards would grant access to a tenant being erased until the
+        transaction commits.
+        """
+        if self._tenant_erasure_repo is None:
+            return
+        record = self._tenant_erasure_repo.get(TenantErasureEngine.record_key(tenant_key))
+        if record is not None and record.status != "completed":
+            raise ForbiddenError("This tenant is being deleted.")
+
     def _require_tenant_erasure_repo(self) -> ITenantErasureRepository:
         if self._tenant_erasure_repo is None:
             raise FeatureNotConfiguredError("tenant_deletion", "No tenant-erasure record store is wired.")
@@ -399,6 +424,8 @@ class TenantService:
         """
         if self._tenant_erasure_executor is None or self._tenant_erasure_repo is None:
             return "No tenant-erasure executor or record store is wired on this deployment."
+        if self._observation_repo is None:
+            return "No sensor-reading store is wired, so the tenant's time-series data cannot be erased."
         try:
             ErasureEngine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
@@ -425,7 +452,7 @@ class TenantService:
         try:
             external = self._purge_tenant_storage(record.tenant_key)
             report = executor.run_tenant_erasure(
-                self._tenant_erasure_engine.build_plan(record.tenant_key),
+                self._tenant_erasure_engine.build_plan(record.tenant_key, known_parent_keys=record.parent_keys),
                 pseudonymize=lambda user_key: ErasureEngine.compute_tombstone_hash(user_key, salt),
             )
         except Exception as exc:
@@ -459,6 +486,7 @@ class TenantService:
             "outcomes": [outcome.model_dump() for outcome in report.outcomes],
             "edges_removed": report.edges_removed,
             "unreached": list(report.unreached),
+            "parent_keys": report.parent_keys,
         }
         if report.unreached:
             attempt = record.attempt_count + 1
@@ -557,6 +585,13 @@ class TenantService:
         # The ``attachments`` metadata and the ``pest_image_contributions`` link
         # documents are ArangoDB rows of the tenant: the inventory removes them in
         # the transaction below, not this phase (#1769 — one path per row).
+        # #1769 review GDPR-001 — the tenant's sensor readings (TimescaleDB).
+        # A deployment without TimescaleDB wires the null repository (0 rows).
+        if self._observation_repo is not None:
+            removed_readings = self._observation_repo.delete_by_tenant(tenant_key)
+            reported["timeseries_rows_removed"] = removed_readings
+            logger.info("tenant_sensor_readings_deleted", tenant_key=tenant_key, removed=removed_readings)
+
         if self._storage_adapter is not None:
             prefix = f"t/{tenant_key}/"
             deleted_objects = run_async(self._storage_adapter.delete_prefix(prefix))
@@ -655,6 +690,7 @@ class TenantService:
         if not tenant:
             raise NotFoundError("Tenant", tenant_key)
 
+        self._refuse_while_erasing(tenant_key)
         existing = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if existing:
             raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
@@ -903,6 +939,7 @@ class TenantService:
 
         is_expired = self._invitation_engine.is_expired(invitation.expires_at)
         is_pending = invitation.status == InvitationStatus.PENDING
+        self._refuse_while_erasing(invitation.tenant_key)
         existing = self._membership_repo.get_by_user_and_tenant(user_key, invitation.tenant_key)
 
         can_accept, reason = self._invitation_engine.can_accept(
