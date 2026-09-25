@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.7 (Einzel-Tasks statt Master-Task, Fristen aus Settings, Zeitpunktvergleich, #1782/#1784)
+Version: 1.8 (persönlicher Mandant einer gelöschten Person wird gelöscht, #1788)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,6 +21,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.8 | 2026-09-25 | **#1788:** §2.3 Klarstellung: Bei einer Kontolöschung gelten R-16 bis R-18 auch für die Aufbewahrungsdaten im persönlichen Mandanten der Person — der Mandant selbst wird gelöscht, wenn sie sein einziges aktives Mitglied war (REQ-025 §3.1.3, AK-PT-01), die Aufbewahrungsdaten bleiben unter ihrem Tombstone-Hash. Ein persönlicher Mandant mit weiteren Mitgliedern bleibt erhalten; wer ihn übernimmt, ist offen (#1824). |
 | 1.7 | 2026-09-25 | **#1782/#1784:** §3.1 beschreibt die Einzel-Tasks, die es gibt, statt eines Master-Tasks `enforce_retention_policy` (Begründung in §3.1). §3.2: Fristvergleiche in AQL vergleichen Zeitpunkte (`DATE_TIMESTAMP`), nie ISO-Strings — ArangoDB ordnet Strings nach ICU-Kollation, gemessen `"…00.5Z" < "…00+00:00"` → `true`. §3.3: Prometheus-Metriken als nicht implementiert gekennzeichnet (#1800). §4: die tatsächlichen Settings mit Untergrenzen; R-04, R-12, R-14, R-15 und R-16..R-18 ohne lesenden Code als nicht implementiert gekennzeichnet (#1800). AK-04 bis AK-06, AK-10 und AK-11 angepasst. |
 | 1.6 | 2026-09-25 | **#1781:** §3.4 Anwendungs- und Zugriffsprotokolle ergänzt (L-1 bis L-5): keine Kontoschlüssel, E-Mail-Adressen oder ungekürzten IP-Adressen an Log-Aufrufen der Anwendung (Zugriffsprotokolle und Tracebacks noch offen), gesalzener E-Mail-Digest, Salt-Pflicht auch für den Celery-Worker. Die Aufbewahrungsfrist der Log-Pipeline selbst ist als offene Betreiber-Frage markiert. |
 | 1.5 | 2026-09-23 | **#1663:** Die ID R-19 war doppelt vergeben (Gießdienst-Rotation in §2.1, Promotion-Audit-Log in §2.3). Das Promotion-Audit-Log heißt jetzt **R-24** (R-23 ist im `spec/knowledge/COMPLIANCE-PLAN.md` bereits für RAG-Anfragen vorgesehen); R-19 bleibt die Gießdienst-Rotation, auf die sich `spec/e2e-testcases/TC-NFR-011.md` bezieht. Die Zeilen R-19, R-19a, R-20, R-21 und R-24 sind als nicht implementiert gekennzeichnet — ihre Collections existieren im Code nicht. `quality_assessments` (R-16) wird seit #1663 über das serverseitige `assessed_by_key` anonymisiert; `yield_metrics` (R-16) trägt kein Nutzerfeld. |
@@ -178,6 +179,8 @@ Diese Daten unterliegen gesetzlichen Mindestaufbewahrungsfristen und dürfen **n
 | R-24 <!-- ADR-002; bis v1.4 doppelt als R-19 vergeben --> | Promotion-Audit-Log (Species/Cultivar tenant→global) | `promotion_audit_log` | 5 Jahre | Sortenrechts-Streitigkeiten, Art. 5(2) Rechenschaftspflicht. **Nicht implementiert** (Stand #1663): Die Collection `promotion_audit_log` existiert im Code nicht. | REQ-001 v4.1 |
 
 **Wichtig:** Bei einer Löschanfrage (Art. 17 DSGVO) durch einen Betroffenen werden diese Daten **anonymisiert** (User-Referenz entfernt), aber nicht gelöscht, solange die gesetzliche Aufbewahrungsfrist läuft (Art. 17 Abs. 3 lit. b).
+
+**Der persönliche Mandant der Person (#1788):** Die Aufbewahrungspflicht hält die Datensätze fest, nicht den Mandanten, in dem sie liegen. War die Person das einzige aktive Mitglied ihres persönlichen Mandanten, löscht die Kontolöschung den Mandanten über das Mandanten-Löschinventar (REQ-025 §3.1.3, AK-PT-01); die Datensätze dieser Tabelle bleiben dabei unter dem Tombstone-Hash der Person erhalten, alles andere im Mandanten (Standorte, Pflanzen, Tagebuch, Aufgaben …) hat keinen Aufbewahrungsgrund und geht. Ein persönlicher Mandant mit weiteren aktiven Mitgliedern bleibt erhalten (#1824).
 
 <!-- Quelle: ADR-001 / W-009 -->
 **R-17 Klarstellung — geerbte Treatment-Edges (ADR-001):**
