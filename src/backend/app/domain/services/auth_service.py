@@ -52,6 +52,7 @@ from app.domain.models.auth import (
     TokenPair,
 )
 from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
+from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
 from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
@@ -181,6 +182,7 @@ class AuthService:
         device_pairing_code_store: IDevicePairingCodeStore | None = None,
         device_pairing_throttle_store: IDevicePairingThrottleStore | None = None,
         tombstone_salt: str = "",
+        step_up_verifier: StepUpVerifier | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -219,6 +221,10 @@ class AuthService:
         # #1773 — the salt of the subject reference auth log lines carry
         # instead of the account key; see ``_log_subject``.
         self._tombstone_salt = tombstone_salt
+        # #1816 — the one throttled step-up; the password change re-checks through it.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
+            password_engine, tombstone_salt=tombstone_salt
+        )
         self._device_pairing_code_store = device_pairing_code_store
         self._device_pairing_throttle_store: IDevicePairingThrottleStore = (
             device_pairing_throttle_store
@@ -769,6 +775,9 @@ class AuthService:
         user_key: UserKey,
         current_password: str | None,
         new_password: str,
+        *,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> None:
         user = self._user_repo.get_or_raise(user_key)
 
@@ -781,15 +790,23 @@ class AuthService:
         # probe the password policy from here.
         self._refuse_interactive_credential(user)
 
-        # SSO-only users (no password_hash) can set initial password without current_password
-        if user.password_hash and (
-            not current_password
-            or not self._password_engine.verify_password(
-                current_password,
-                user.password_hash,
+        # The current password is a step-up like any other (#1816): the shared
+        # verifier refuses an API-key request (a key is not a person present),
+        # throttles the check per account and address (429 ``STEP_UP_LOCKED``) and
+        # counts into the same budget as account erasure and tenant deletion — one
+        # budget per account, not one per route. An SSO-only user (no
+        # password_hash) still sets an initial password without one (#1815).
+        try:
+            self._step_up_verifier.verify(
+                user,
+                action="password_change",
+                echo_ok=None,
+                password=current_password,
+                authenticated_with_api_key=authenticated_with_api_key,
+                client_ip=client_ip,
             )
-        ):
-            raise UnauthorizedError("Current password is incorrect.")
+        except UnauthorizedError as exc:
+            raise UnauthorizedError("Current password is incorrect.") from exc
 
         errors = self._password_engine.validate_password_policy(new_password)
         if errors:

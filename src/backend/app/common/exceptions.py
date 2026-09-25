@@ -373,6 +373,32 @@ class AccountLockedError(KamerplanterError):
         )
 
 
+class StepUpLockedError(KamerplanterError):
+    """A password step-up is locked after too many failures (#1816) — HTTP 429.
+
+    Not :class:`AccountLockedError` (423): the *account* is not locked — signing
+    in still works, only the re-confirmation of an irreversible act or a password
+    change is held back. ``details[0].retry_after_minutes`` carries the wait so a
+    client can render it in its own language.
+    """
+
+    def __init__(self, retry_after_minutes: int) -> None:
+        self.retry_after_minutes = retry_after_minutes
+        super().__init__(
+            message=f"Too many failed confirmations. Try again in {retry_after_minutes} minutes.",
+            error_code="STEP_UP_LOCKED",
+            status_code=429,
+            details=[
+                {
+                    "field": "password",
+                    "reason": f"Too many failed step-up confirmations. Locked for {retry_after_minutes} minutes.",
+                    "code": "STEP_UP_LOCKED",
+                    "retry_after_minutes": str(retry_after_minutes),
+                }
+            ],
+        )
+
+
 class PayloadTooLargeError(KamerplanterError):
     def __init__(self, max_bytes: int) -> None:
         max_mb = max_bytes / (1024 * 1024)

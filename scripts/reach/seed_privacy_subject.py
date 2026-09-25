@@ -58,13 +58,14 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import check_privacy_inventory as inventory_check  # noqa: E402 — shipped beside this file
+from arango import ArangoClient  # noqa: E402
+from pydantic import BaseModel, EmailStr, ValidationError  # noqa: E402
+
 from app.config.settings import settings  # noqa: E402
 from app.data_access.arango import collections as col  # noqa: E402
 from app.domain.engines.data_export_engine import DataExportEngine  # noqa: E402
 from app.domain.engines.erasure_engine import ErasureEngine  # noqa: E402
 from app.domain.engines.password_engine import PasswordEngine  # noqa: E402
-from arango import ArangoClient  # noqa: E402
-from pydantic import BaseModel, EmailStr, ValidationError  # noqa: E402
 
 APP_ROOT = Path("/app/app")
 MARKER_PREFIX = "reach-seed"

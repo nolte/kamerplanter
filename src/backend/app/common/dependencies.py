@@ -815,6 +815,23 @@ def get_device_pairing_throttle_store() -> IDevicePairingThrottleStore:
     return RedisDevicePairingThrottleStore(_get_redis_client())
 
 
+def get_step_up_verifier():
+    """#1816 — the one throttled step-up every irreversible account action passes.
+
+    Valkey-backed so replicas share one counter; degrades to the process-wide
+    in-memory tier when Valkey is unreachable. Failing open would reopen the
+    unthrottled password oracle a stolen session had at every step-up route.
+    """
+    from app.data_access.external.step_up_throttle import RedisStepUpThrottleStore
+    from app.domain.services.step_up_service import StepUpVerifier
+
+    return StepUpVerifier(
+        RedisStepUpThrottleStore(_get_redis_client()),
+        get_password_engine(),
+        tombstone_salt=settings.erasure_tombstone_salt,
+    )
+
+
 def get_registration_notice_store():
     """REQ-023 §3.2 suppression window of the duplicate-registration notice.
 
@@ -871,6 +888,7 @@ def get_auth_service() -> AuthService:
         device_pairing_code_store=get_device_pairing_code_store(),
         device_pairing_throttle_store=get_device_pairing_throttle_store(),
         tombstone_salt=settings.erasure_tombstone_salt,
+        step_up_verifier=get_step_up_verifier(),
     )
 
 
@@ -915,6 +933,7 @@ def get_tenant_service() -> TenantService:
         tenant_erasure_repo=get_tenant_erasure_repo(),
         tombstone_salt=settings.erasure_tombstone_salt,
         light_mode=settings.kamerplanter_mode == "light",
+        step_up_verifier=get_step_up_verifier(),
     )
 
 
@@ -1690,6 +1709,7 @@ def get_privacy_service():
         erasure_executor=get_erasure_executor(),
         tombstone_salt=settings.erasure_tombstone_salt,
         retention=get_retention_service(),
+        step_up_verifier=get_step_up_verifier(),
     )
 
 

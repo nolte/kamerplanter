@@ -43,13 +43,12 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from seed_privacy_subject import SeedError, Seeder  # noqa: E402 — shipped beside this file
+from arango import ArangoClient  # noqa: E402
+from seed_privacy_subject import Seeder, SeedError  # noqa: E402 — shipped beside this file
 
 from app.config.settings import settings  # noqa: E402
 from app.data_access.arango import collections as col  # noqa: E402
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine  # noqa: E402
-from arango import ArangoClient  # noqa: E402
-
 
 #: Values a model validator demands that a marker cannot supply, per collection.
 #: Only the shape, never the list of collections: those come off the inventory.

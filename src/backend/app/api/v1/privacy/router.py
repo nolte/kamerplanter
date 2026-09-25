@@ -25,9 +25,10 @@ from app.api.v1.privacy.schemas import (
     RetentionCategoryInfoResponse,
     RightInfoResponse,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_authenticated_with_api_key, get_current_user
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
 from app.domain.models.mcp import McpAuditLogEntry
@@ -237,10 +238,23 @@ def confirm_email_change(
 def request_erasure(
     body: ErasureCreateRequest,
     current_user: User = Depends(get_current_user),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Request account erasure (Art. 17)."""
-    erasure = service.request_erasure(current_user.key or "", body.password)
+    """Request account erasure (Art. 17).
+
+    **Step-up (#1813, #1816):** the body echoes the account's e-mail (422
+    otherwise) and carries the current password for an account that has one
+    (401 otherwise); an API-key request or a service account is refused (403);
+    too many failed confirmations answer 429 ``STEP_UP_LOCKED``.
+    """
+    erasure = service.request_erasure(
+        current_user.key or "",
+        confirmation=body.to_confirmation(),
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return _to_erasure_response(erasure)
 
 

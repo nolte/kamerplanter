@@ -29,6 +29,7 @@ from app.common.auth import (
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
+from app.common.request_ip import resolve_client_ip
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
@@ -109,6 +110,7 @@ def delete_tenant(
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
     user: User = Depends(get_current_user),
     via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Delete the tenant and all its data (declared tenant-erasure inventory, #1769).
@@ -118,7 +120,8 @@ def delete_tenant(
     from the stored membership — that the requester holds the lead role *and*
     ``management`` (403 otherwise; a service account never), that ``confirm_slug``
     is this tenant's slug (422) and, for an account with a local password, that
-    ``password`` is its current one (401).
+    ``password`` is its current one (401) — throttled per account and address,
+    429 ``STEP_UP_LOCKED`` after too many failures (#1816).
 
     Same path as ``DELETE /admin/platform/tenants/{key}``: 403 for the platform
     tenant, 409 while another deletion runs, 503 when the deployment cannot erase
@@ -132,6 +135,7 @@ def delete_tenant(
         authenticated_with_api_key=via_api_key,
         confirmation=body.to_confirmation(),
         origin="tenant_management",
+        client_ip=client_ip,
     )
     return MessageResponse(message="Tenant deleted")
 

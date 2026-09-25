@@ -1,0 +1,136 @@
+"""#1816 — the verifier's order and its burst bound, below the routes.
+
+The route suite (``tests/unit/api/test_step_up_irreversible_account_actions.py``)
+drives the rule through every HTTP entry. Two properties are only observable here:
+
+* a *concurrent* burst of wrong passwords reaches bcrypt at most threshold times —
+  the reservation happens before the check, so a request racing past the lock
+  check is refused on its own count;
+* the lock is decided by :class:`LoginThrottleEngine` (15 minutes at the login
+  threshold), not by a second constant.
+"""
+
+from __future__ import annotations
+
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+import pytest
+
+from app.common.exceptions import ForbiddenError, StepUpLockedError, UnauthorizedError, ValidationError
+from app.data_access.external.step_up_throttle import MemoryStepUpThrottleStore
+from app.domain.engines.login_throttle_engine import MAX_ATTEMPTS
+from app.domain.engines.password_engine import PasswordEngine
+from app.domain.models.user import User
+from app.domain.services.step_up_service import ACCOUNT_CEILING, StepUpVerifier, echo_matches
+
+PASSWORD = "correct horse battery staple"
+HASH = PasswordEngine().hash_password(PASSWORD)
+
+
+class _CountingEngine(PasswordEngine):
+    def __init__(self) -> None:
+        self.calls = 0
+        self._mutex = threading.Lock()
+
+    def verify_password(self, plain: str, hashed: str) -> bool:
+        with self._mutex:
+            self.calls += 1
+        return super().verify_password(plain, hashed)
+
+
+def _user(**overrides) -> User:
+    return User.model_validate(
+        {"_key": "u-1", "email": "u@example.org", "display_name": "U", "password_hash": HASH, **overrides}
+    )
+
+
+def _verify(verifier: StepUpVerifier, user: User, password: str | None, *, ip: str = "203.0.113.1", **kw):
+    return verifier.verify(
+        user,
+        action="account_erasure",
+        echo_ok=kw.get("echo_ok", True),
+        password=password,
+        authenticated_with_api_key=kw.get("api_key", False),
+        client_ip=ip,
+    )
+
+
+def test_a_concurrent_burst_reaches_bcrypt_at_most_threshold_times() -> None:
+    engine = _CountingEngine()
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore(), engine)
+    user = _user()
+
+    def attempt(_: int) -> str:
+        try:
+            _verify(verifier, user, "wrong")
+        except UnauthorizedError:
+            return "401"
+        except StepUpLockedError:
+            return "429"
+        return "ok"
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        outcomes = list(pool.map(attempt, range(24)))
+
+    assert engine.calls <= MAX_ATTEMPTS
+    assert outcomes.count("401") == engine.calls
+    assert outcomes.count("429") == 24 - engine.calls
+
+
+def test_the_first_lock_is_the_login_engines_fifteen_minutes() -> None:
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore())
+    user = _user()
+    for _ in range(MAX_ATTEMPTS):
+        with pytest.raises(UnauthorizedError):
+            _verify(verifier, user, "wrong")
+
+    with pytest.raises(StepUpLockedError) as excinfo:
+        _verify(verifier, user, PASSWORD)
+
+    assert excinfo.value.retry_after_minutes == 15
+    assert excinfo.value.status_code == 429
+
+
+def test_the_account_ceiling_is_above_the_address_threshold() -> None:
+    assert ACCOUNT_CEILING > MAX_ATTEMPTS
+
+
+def test_order_api_key_before_lock_before_echo_before_password() -> None:
+    store = MemoryStepUpThrottleStore()
+    verifier = StepUpVerifier(store)
+    user = _user()
+
+    with pytest.raises(ForbiddenError):
+        _verify(verifier, user, "wrong", api_key=True, echo_ok=False)
+    with pytest.raises(ValidationError):
+        _verify(verifier, user, "wrong", echo_ok=False)
+    assert store.reserve_attempt("account:u-1") == 1  # neither refusal above counted
+
+
+def test_a_federated_account_is_confirmed_by_the_echo_and_never_counts() -> None:
+    engine = _CountingEngine()
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore(), engine)
+
+    assert _verify(verifier, _user(password_hash=None), None) == "echo"
+    assert engine.calls == 0
+
+
+def test_a_service_account_is_refused() -> None:
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore())
+
+    with pytest.raises(ForbiddenError):
+        _verify(verifier, _user(password_hash=None, account_type="service"), None)
+
+
+@pytest.mark.parametrize(
+    ("given", "expected", "ci", "result"),
+    [
+        (" A@Example.org ", "a@example.org", True, True),
+        ("a@example.org", "b@example.org", True, False),
+        ("Garden", "garden", False, False),
+        (" garden ", "garden", False, True),
+    ],
+)
+def test_echo_matches(given: str, expected: str, ci: bool, result: bool) -> None:
+    assert echo_matches(given, expected, case_insensitive=ci) is result

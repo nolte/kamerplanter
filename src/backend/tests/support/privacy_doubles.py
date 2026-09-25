@@ -301,3 +301,18 @@ class RecordingErasureExecutor:
                     ErasureStepOutcome(collection=step.collection, kind=step.kind, executor=step.executor)
                 )
         return report
+
+
+def step_up(email: str, password: str | None = None) -> dict[str, Any]:
+    """Keyword arguments of a signed-in, correctly confirmed ``request_erasure`` call (#1813).
+
+    ``email`` is the account's own address typed back, ``password`` its current
+    password (``None`` for a federated-only account).
+    """
+    from app.domain.services.step_up_service import StepUpConfirmation
+
+    return {
+        "confirmation": StepUpConfirmation(echo=email, password=password),
+        "authenticated_with_api_key": False,
+        "client_ip": None,
+    }

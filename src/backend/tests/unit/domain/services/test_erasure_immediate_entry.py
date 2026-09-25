@@ -100,6 +100,36 @@ def _service(
     return service, recorder
 
 
+def _admin_request(service: PrivacyService, recorder: _Recorder) -> dict:
+    """Route arguments of a platform admin erasing ``USER`` with a valid step-up (#1814).
+
+    The admin signs in only federated (no hash), so the echo of the target's
+    e-mail is the whole step-up; the stored platform membership proves the admin.
+    """
+    from app.api.v1.privacy.schemas import ErasureCreateRequest
+    from app.common.enums import TenantRole
+    from app.domain.models.membership import Membership
+    from app.domain.models.user import User
+
+    recorder.user_repo.get_or_raise.return_value = User.model_validate(
+        {"_key": USER, "email": f"{USER}@example.org", "display_name": "Subject"}
+    )
+    service._membership_repo = MagicMock(  # type: ignore[attr-defined]
+        **{
+            "get_by_user_and_tenant.return_value": Membership(
+                user_key="admin-1", tenant_key="platform", role=TenantRole.LEAD
+            )
+        }
+    )
+    return {
+        "body": ErasureCreateRequest(confirm_email=f"{USER}@example.org"),
+        "current_user": User.model_validate({"_key": "admin-1", "email": "admin@example.org", "display_name": "A"}),
+        "via_api_key": False,
+        "client_ip": "203.0.113.1",
+        "privacy_service": service,
+    }
+
+
 def _only(repo: FakeErasureRepo) -> ErasureRequest:
     (request,) = repo.stored.values()
     return request
@@ -321,38 +351,26 @@ class TestTheEntryPointsGoThroughIt:
     """Red before #1767: both entry points discarded the report of an unreached step."""
 
     def test_the_admin_route_does_not_answer_success_over_an_unreached_step(self):
-        from types import SimpleNamespace
 
         from app.api.v1.admin.platform import router as admin_router
 
         repo = FakeErasureRepo()
-        service, _ = _service(repo, RecordingErasureExecutor(drop=("consent_records",)))
+        service, recorder = _service(repo, RecordingErasureExecutor(drop=("consent_records",)))
 
         with pytest.raises(ErasureIncompleteError):
-            admin_router.delete_user(
-                USER,
-                current_user=SimpleNamespace(key="admin-1"),
-                privacy_service=service,
-                user_service=MagicMock(),
-            )
+            admin_router.delete_user(USER, **_admin_request(service, recorder))
 
         request = _only(repo)
         assert (request.origin, request.status) == ("platform_admin", "partially_completed")
 
     def test_the_admin_route_persists_a_completed_record(self):
-        from types import SimpleNamespace
 
         from app.api.v1.admin.platform import router as admin_router
 
         repo = FakeErasureRepo()
-        service, _ = _service(repo, RecordingErasureExecutor())
+        service, recorder = _service(repo, RecordingErasureExecutor())
 
-        admin_router.delete_user(
-            USER,
-            current_user=SimpleNamespace(key="admin-1"),
-            privacy_service=service,
-            user_service=MagicMock(),
-        )
+        admin_router.delete_user(USER, **_admin_request(service, recorder))
 
         assert (_only(repo).origin, _only(repo).status) == ("platform_admin", "completed")
 

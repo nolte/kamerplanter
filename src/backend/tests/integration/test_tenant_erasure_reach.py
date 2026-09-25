@@ -213,11 +213,18 @@ def _delete_through(database, entry_point: str, tenant: str) -> None:
     if entry_point == "tenant_management":
         _grant(database, tenant)
         tenant_router.delete_tenant(
-            body=body, ctx=SimpleNamespace(tenant_key=tenant), user=REQUESTER, via_api_key=False, service=service
+            body=body,
+            ctx=SimpleNamespace(tenant_key=tenant),
+            user=REQUESTER,
+            via_api_key=False,
+            client_ip="203.0.113.1",
+            service=service,
         )
     else:
         _grant(database, "platform")
-        admin_router.delete_tenant(tenant, body=body, user=REQUESTER, via_api_key=False, tenant_service=service)
+        admin_router.delete_tenant(
+            tenant, body=body, user=REQUESTER, via_api_key=False, client_ip="203.0.113.1", tenant_service=service
+        )
 
 
 @pytest.fixture(scope="module")
@@ -337,6 +344,7 @@ def test_a_retry_reaches_a_child_whose_parent_the_first_attempt_deleted(database
         authenticated_with_api_key=False,
         confirmation=TenantDeleteRequest(confirm_slug=tenant).to_confirmation(),
         origin="platform_admin",
+        client_ip="203.0.113.1",
     )
     late = database.collection("locations").insert({"site_key": site_key})["_id"]
     records = ArangoTenantErasureRepository(database)
@@ -388,6 +396,7 @@ def test_a_management_scope_viewer_erases_nothing(database, erased):
             ctx=SimpleNamespace(tenant_key=tenant),
             user=REQUESTER,
             via_api_key=False,
+            client_ip="203.0.113.1",
             service=_service(database),
         )
 

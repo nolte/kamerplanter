@@ -55,6 +55,7 @@ def authorized(slug: str = "t-1", *, origin: TenantErasureOrigin = "tenant_manag
         "authenticated_with_api_key": False,
         "confirmation": TenantDeletionConfirmation(confirm_slug=slug),
         "origin": origin,
+        "client_ip": "203.0.113.10",
     }
 
 

@@ -55,6 +55,7 @@ from app.domain.models.system_settings import HomeAssistantSettings, SystemSetti
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
+from tests.support.privacy_doubles import step_up
 
 TEST_DATABASE = run_database_name("reference_index_erasure_reach")
 
@@ -126,7 +127,7 @@ def _run_beat(database) -> tuple[dict, int, dict]:
     """Seed, file the subject's request, run the daily beat past the grace period."""
     plan = reach._plan()
     seeded = reach._seed(database, plan)
-    request = _service(database).request_erasure(SUBJECT, "confirm")
+    request = _service(database).request_erasure(SUBJECT, **step_up(f"{SUBJECT}@example.com", "confirm"))
     assert request.key is not None
     # One day past the date the request itself carries: the R-01 period is a
     # setting read through RetentionService (#1782), not a class constant.

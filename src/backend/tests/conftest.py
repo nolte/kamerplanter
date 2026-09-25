@@ -221,3 +221,19 @@ def sample_substrate_data():
         "reusable": True,
         "max_reuse_cycles": 3,
     }
+
+
+@pytest.fixture(autouse=True)
+def _fresh_step_up_throttle():
+    """Start every test with an empty process-wide step-up throttle tier (#1816).
+
+    Services built without an explicit verifier count into the module-level
+    in-memory store — the point of that default is that a counter survives across
+    per-request service instances. Across *tests* it would carry one test's wrong
+    passwords into the next test's lockout, so each test starts clean.
+    """
+    from app.data_access.external.step_up_throttle import DEFAULT_STEP_UP_THROTTLE_STORE
+
+    DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()
+    yield
+    DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()

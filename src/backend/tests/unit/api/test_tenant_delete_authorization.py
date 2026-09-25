@@ -380,6 +380,7 @@ def test_the_service_itself_refuses_a_deactivated_membership() -> None:
             authenticated_with_api_key=False,
             confirmation=TenantDeletionConfirmation(confirm_slug=SLUG, password=PASSWORD),
             origin="tenant_management",
+            client_ip="203.0.113.1",
         )
     assert world.nothing_erased()
 
