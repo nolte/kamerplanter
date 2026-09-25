@@ -7,6 +7,9 @@
 #
 # The same row against the plan the executor runs: 46 step collections, 18 rule
 # collections (it carries the four cv_* edge steps REQ-025 names only in a comment).
+# Re-derived for #1767 (2994893c9 added ErasureEngine.compute_request_key; DELETE_STEPS,
+# ANONYMIZE_COLLECTIONS and PSEUDONYMIZE_AUDIT_COLLECTIONS unchanged, 64/64 observed through
+# the admin-delete probe on the same seed), under the same standing pre-approval.
 id: inventory-erasure-plan-reaches-rows
 summary: collections of the executing erasure plan left without the subject after the scheduled finalisation
 declaration:
@@ -83,7 +86,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: 18329ac36b1222a95dbedcf34125d608701d155f
+derived_from: 2994893c99d5782aff6f525b7fa220e20d501420
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
