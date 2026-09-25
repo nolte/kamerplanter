@@ -4,6 +4,9 @@
 # autonomous #1769 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
 # batch answer. It records that the targets and the observe argv below run on the operator's
 # machine with their environment, as `task` in this repository does.
+#
+# Re-derived after the /code-review fixes changed tenant_erasure_engine.py (keep rules for granted
+# species/cultivars and is_system seeds): the seeded rows and the expected set are unchanged.
 id: inventory-tenant-erasure-plan-reaches-rows
 summary: collections of the declared tenant-erasure inventory left without the tenant's rows after execution
 declaration:
@@ -111,7 +114,7 @@ expected:
   - dangling-edges/0
   - stamped-elsewhere/0
   - control-changed/0
-derived_from: d685df380f551191612fcea354d7897bab1dbd1e
+derived_from: 52cd8ed73b30cefc5deb6270d45e09218c4b2e8e
 environment:
 - reach:stack:up
 - reach:seed:erasure-tenant
