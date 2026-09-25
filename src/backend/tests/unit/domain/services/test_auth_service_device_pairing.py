@@ -55,6 +55,7 @@ from app.data_access.external.device_pairing_throttle import (
     MemoryDevicePairingThrottleStore,
 )
 from app.data_access.external.redis_device_pairing import RedisDevicePairingCodeStore
+from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.login_throttle_engine import MAX_ATTEMPTS, LoginThrottleEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
@@ -67,6 +68,8 @@ USER_KEY = "u-pairing-owner"
 USER_EMAIL = "owner@example.com"
 PASSWORD = "device-pairing-password-2024"
 IP = "203.0.113.7"
+#: Salt of the subject reference the audit lines carry (#1773).
+TOMBSTONE_SALT = "pairing-test-salt-not-a-secret-0123456789"
 OTHER_IP = "198.51.100.9"
 USER_AGENT = "Kamerplanter/1.0 (Android 15)"
 SECRET_KEY = "test-secret-key-for-unit-tests-32chars!"
@@ -213,6 +216,7 @@ def _make_harness(
         tenant_service=tenant_service,
         device_pairing_code_store=store,
         device_pairing_throttle_store=throttle,
+        tombstone_salt=TOMBSTONE_SALT,
     )
     return _Harness(
         service=service,
@@ -588,7 +592,9 @@ class TestAuditEvents:
 
         created = _events(logs, "device_pairing_created")
         assert len(created) == 1
-        assert created[0]["user_key"] == USER_KEY
+        # #1773: the account by its salted reference, never the plaintext key.
+        assert created[0]["subject"] == ErasureEngine.log_subject(USER_KEY, TOMBSTONE_SALT)
+        assert "user_key" not in created[0]
         assert created[0]["ip_address"] == IP
         assert created[0]["expires_at"] == expires_at.isoformat()
         assert created[0]["code_sha256"]
@@ -602,7 +608,9 @@ class TestAuditEvents:
 
         redeemed = _events(logs, "device_pairing_redeemed")
         assert len(redeemed) == 1
-        assert redeemed[0]["user_key"] == USER_KEY
+        # #1773: the account by its salted reference, never the plaintext key.
+        assert redeemed[0]["subject"] == ErasureEngine.log_subject(USER_KEY, TOMBSTONE_SALT)
+        assert "user_key" not in redeemed[0]
         assert redeemed[0]["ip_address"] == IP
         assert redeemed[0]["issued_at"]
 

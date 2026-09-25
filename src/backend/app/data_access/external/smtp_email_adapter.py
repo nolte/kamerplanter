@@ -4,6 +4,7 @@ from email.mime.text import MIMEText
 
 import structlog
 
+from app.common.decoys import email_digest
 from app.domain.interfaces.email_service import IEmailService
 
 logger = structlog.get_logger()
@@ -42,9 +43,18 @@ class SmtpEmailAdapter(IEmailService):
                 if self._username:
                     server.login(self._username, self._password)
                 server.sendmail(self._from_email, to_email, msg.as_string())
-            logger.info("email_sent", to=to_email, subject=subject)
-        except Exception:
-            logger.error("email_send_failed", to=to_email, subject=subject, exc_info=True)
+            logger.info("email_sent", to_sha256=email_digest(to_email), subject=subject)
+        except Exception as exc:
+            # A digest, never the address, and the exception type without its
+            # text or traceback: ``SMTPRecipientsRefused`` names the refused
+            # address, and a log stream has no retention rule (#1773 review
+            # GDPR-004). The caller receives the exception unchanged.
+            logger.error(
+                "email_send_failed",
+                to_sha256=email_digest(to_email),
+                subject=subject,
+                error_type=type(exc).__name__,
+            )
             raise
 
     def send_verification_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:

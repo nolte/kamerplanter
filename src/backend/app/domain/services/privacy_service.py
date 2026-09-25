@@ -7,6 +7,7 @@ import json
 import secrets
 import time
 from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 import structlog
@@ -29,6 +30,7 @@ from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.password_engine import PasswordEngine
+from app.domain.engines.storage.export_bundle_key import loggable_storage_key, mask_export_bundle_keys
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.consent_repository import IConsentRepository
@@ -65,6 +67,7 @@ from app.domain.models.privacy import (
     RightInfo,
 )
 from app.domain.models.user import User, is_tombstone_email
+from app.domain.services.retention_service import RetentionService
 
 logger = structlog.get_logger()
 
@@ -85,6 +88,17 @@ def _persistable(fields: dict[str, object]) -> dict[str, object]:
 async def _single_chunk(payload: bytes) -> AsyncIterator[bytes]:
     """Adapt a fully-built bundle to the adapter's streaming ``put_object``."""
     yield payload
+
+
+@dataclass(frozen=True)
+class ErasureRecordPurgeResult:
+    """Outcome of one NFR-011 R-06 purge run (#1772, #1773 review GDPR-006)."""
+
+    #: Completed, tombstoned records past the period that were hard-deleted.
+    purged: int
+    #: Completed records past the period still carrying a plaintext ``user_key``;
+    #: kept, because they may be the only trace of an unfulfilled Art. 17 duty.
+    held_without_tombstone: int
 
 
 class ExportBundleUnavailableError(RuntimeError):
@@ -159,6 +173,7 @@ class PrivacyService:
         personal_data_repo: IPersonalDataRepository | None = None,
         erasure_executor: IErasureExecutor | None = None,
         tombstone_salt: str = "",
+        retention: RetentionService | None = None,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -206,6 +221,11 @@ class PrivacyService:
         # without either, before it touches anything.
         self._erasure_executor = erasure_executor
         self._tombstone_salt = tombstone_salt
+        # NFR-011 R-02 / R-06 periods (#1772): the erasure-record purge and the
+        # Art. 13 retention summary read the same computation, so the summary
+        # cannot name a period the purge does not apply. Defaults to the
+        # settings-backed service.
+        self._retention = retention if retention is not None else RetentionService()
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -225,14 +245,14 @@ class PrivacyService:
         created = self._export_repo.create(export)
         logger.info(
             "privacy_export_requested",
-            user_key=user_key,
+            subject=self.log_subject(user_key),
             export_key=created.key,
         )
         if created.key:
-            self._dispatch_export_processing(created.key)
+            self._dispatch_export_processing(created.key, user_key)
         return created
 
-    def _dispatch_export_processing(self, export_key: str) -> None:
+    def _dispatch_export_processing(self, export_key: str, user_key: str) -> None:
         """Enqueue the export worker (NFR-011).
 
         Lazy import avoids a hard import cycle (tasks import dependencies
@@ -250,7 +270,8 @@ class PrivacyService:
             logger.error(
                 "privacy_export_dispatch_failed",
                 export_key=export_key,
-                error=str(exc),
+                error=self._loggable_error(exc, user_key),
+                error_type=type(exc).__name__,
             )
 
     def get_export_status(
@@ -293,7 +314,7 @@ class PrivacyService:
             export = self._export_repo.increment_download_count(export.key)
         logger.info(
             "privacy_export_download",
-            user_key=user_key,
+            subject=self.log_subject(user_key),
             export_key=export.key,
             download_count=export.download_count,
         )
@@ -343,11 +364,11 @@ class PrivacyService:
             )
         except NotImplementedError:
             # Console adapter / test stubs may not implement every method.
-            logger.warning("email_change_email_send_skipped", user_key=user_key)
+            logger.warning("email_change_email_send_skipped", subject=self.log_subject(user_key))
 
         logger.info(
             "privacy_email_change_requested",
-            user_key=user_key,
+            subject=self.log_subject(user_key),
             request_key=created.key,
         )
         return created
@@ -400,7 +421,7 @@ class PrivacyService:
 
         logger.info(
             "privacy_email_change_suppressed",
-            user_key=user_key,
+            subject=self.log_subject(user_key),
             new_email_sha256=email_digest(new_email),
         )
         return EmailChangeRequest(
@@ -478,9 +499,9 @@ class PrivacyService:
 
         logger.info(
             "privacy_email_change_confirmed",
-            user_key=user.key,
-            old_email=old_email,
-            new_email=user.email,
+            subject=self.log_subject(change.user_key),
+            old_email_sha256=email_digest(old_email),
+            new_email_sha256=email_digest(user.email),
         )
         return user
 
@@ -534,7 +555,7 @@ class PrivacyService:
 
         logger.info(
             "privacy_erasure_requested",
-            user_key=user_key,
+            subject=self.log_subject(user_key),
             erasure_key=created.key,
             hard_delete_at=erasure.hard_delete_scheduled_at,
         )
@@ -658,7 +679,7 @@ class PrivacyService:
             "erasure.immediate_requested",
             erasure_key=erasure.key,
             origin=origin,
-            subject=self._erasure_log_subject(user_key),
+            subject=self.log_subject(user_key),
         )
         await self._finalize_erasure(erasure, now, raise_on_failure=True)
         return erasure
@@ -716,7 +737,7 @@ class PrivacyService:
         created = self._restriction_repo.create(restriction)
         logger.info(
             "privacy_restriction_created",
-            user_key=user_key,
+            subject=self.log_subject(user_key),
             scope=scope,
             reason=reason,
         )
@@ -738,7 +759,7 @@ class PrivacyService:
             updated = self._restriction_repo.update(restriction.key, restriction)
             logger.info(
                 "privacy_restriction_lifted",
-                user_key=user_key,
+                subject=self.log_subject(user_key),
                 restriction_key=restriction.key,
             )
             return updated
@@ -770,7 +791,7 @@ class PrivacyService:
         created = self._restriction_repo.create(restriction)
         logger.info(
             "privacy_objection_filed",
-            user_key=user_key,
+            subject=self.log_subject(user_key),
             purpose=purpose,
         )
         return created
@@ -817,7 +838,7 @@ class PrivacyService:
             existing.ip_address = ip_address
             existing.user_agent = user_agent
             updated = self._consent_repo.update(existing.key, existing)
-            logger.info("privacy_consent_granted", user_key=user_key, purpose=purpose)
+            logger.info("privacy_consent_granted", subject=self.log_subject(user_key), purpose=purpose)
             return updated
 
         record = ConsentRecord(
@@ -829,7 +850,7 @@ class PrivacyService:
             user_agent=user_agent,
         )
         created = self._consent_repo.create(record)
-        logger.info("privacy_consent_granted", user_key=user_key, purpose=purpose)
+        logger.info("privacy_consent_granted", subject=self.log_subject(user_key), purpose=purpose)
         return created
 
     def revoke_consent(self, user_key: UserKey, purpose: str) -> ConsentRecord:
@@ -847,13 +868,13 @@ class PrivacyService:
                 revoked_at=datetime.now(UTC),
             )
             created = self._consent_repo.create(record)
-            logger.info("privacy_consent_revoked", user_key=user_key, purpose=purpose)
+            logger.info("privacy_consent_revoked", subject=self.log_subject(user_key), purpose=purpose)
             return created
 
         existing.granted = False
         existing.revoked_at = datetime.now(UTC)
         updated = self._consent_repo.update(existing.key, existing)
-        logger.info("privacy_consent_revoked", user_key=user_key, purpose=purpose)
+        logger.info("privacy_consent_revoked", subject=self.log_subject(user_key), purpose=purpose)
         return updated
 
     # ── Privacy policy (public) ────────────────────────────────────
@@ -879,14 +900,33 @@ class PrivacyService:
                 retention_period="3 years (anonymised after deletion).",
             ),
             RetentionCategoryInfo(
+                category="unverified_accounts",
+                description="Accounts whose email address was never confirmed",
+                retention_period=(
+                    f"Deleted {self._retention.unverified_account_days} days after registration "
+                    "if not confirmed (NFR-011 R-02)."
+                ),
+            ),
+            RetentionCategoryInfo(
                 category="ip_addresses",
-                description="IP addresses captured during authentication / consent",
-                retention_period="Anonymised after 7 days (NFR-011 R-04).",
+                # Sessions only: ``anonymize_old_ips`` walks ``refresh_tokens``;
+                # the IP on a consent record is not anonymised yet (#1782), and
+                # this text must not promise it (#1773 review GDPR-005).
+                description="IP addresses of login sessions",
+                retention_period="Anonymised after 7 days (NFR-011 R-03).",
             ),
             RetentionCategoryInfo(
                 category="export_files",
                 description="Generated data-export files",
                 retention_period="72 hours after completion (NFR-011 R-05).",
+            ),
+            RetentionCategoryInfo(
+                category="erasure_records",
+                description="Record of a completed account erasure (accountability proof, Art. 5(2))",
+                retention_period=(
+                    "Pseudonymised at erasure, deleted "
+                    f"{self._retention.erasure_record_retention_years} year(s) after completion (NFR-011 R-06)."
+                ),
             ),
         ]
 
@@ -936,7 +976,7 @@ class PrivacyService:
         )
 
     # ── NFR-011 retention pipeline (Celery-driven) ─────────────────
-    # The four hooks below are called by ``app.tasks.retention_tasks``.
+    # The five hooks below are called by ``app.tasks.retention_tasks``.
     # This comment used to say that all four merely "log the work that
     # *would* happen". That stopped being true for one of them and kept
     # being true for another — the ambiguity #1645 is about. Precisely:
@@ -948,6 +988,7 @@ class PrivacyService:
     #   shares, and is recorded ``completed`` only when every declared step
     #   was reached (#1645).
     # * ``expire_email_change_requests`` and ``expire_data_exports`` run.
+    # * ``purge_expired_erasure_records`` **runs** (#1772): NFR-011 R-06.
 
     async def process_data_export(
         self,
@@ -1045,7 +1086,7 @@ class PrivacyService:
                 "retention.process_data_export.retrying",
                 export_key=export.key,
                 error_type=type(exc).__name__,
-                error=str(exc),
+                error=self._loggable_error(exc, export.user_key),
             )
             raise
 
@@ -1136,7 +1177,7 @@ class PrivacyService:
             # this one is the claim that bytes exist, and it carries their size.
             "retention.process_data_export.delivered",
             export_key=export.key,
-            user_key=export.user_key,
+            subject=self.log_subject(export.user_key),
             sources=len(sections),
             records=sum(len(rows) for _source, rows in sections),
             file_size_bytes=completed.file_size_bytes,
@@ -1195,9 +1236,11 @@ class PrivacyService:
             logger.error(
                 "retention.process_data_export.internal_error",
                 export_key=export.key,
-                user_key=export.user_key,
+                subject=self.log_subject(export.user_key),
                 reference=reference,
-                error=str(exc),
+                # The exception text can name the storage key, which embeds the
+                # account key (``privacy/exports/<user_key>/…``, #1773).
+                error=self._loggable_error(exc, export.user_key),
                 error_type=type(exc).__name__,
             )
         export.status = "failed"
@@ -1205,8 +1248,8 @@ class PrivacyService:
         logger.error(
             "retention.process_data_export.failed",
             export_key=export.key,
-            user_key=export.user_key,
-            reason=reason,
+            subject=self.log_subject(export.user_key),
+            reason=self._loggable_error(reason, export.user_key),
         )
         if object_key and self._storage_adapter is not None:
             try:
@@ -1215,8 +1258,9 @@ class PrivacyService:
                 logger.error(
                     "retention.process_data_export.orphan_cleanup_failed",
                     export_key=export.key,
-                    object_key=object_key,
-                    error=str(cleanup_exc),
+                    object_key=loggable_storage_key(object_key),
+                    error=self._loggable_error(cleanup_exc, export.user_key),
+                    error_type=type(cleanup_exc).__name__,
                 )
         if export.key is None:  # pragma: no cover - persisted records always carry a key
             return export
@@ -1503,7 +1547,10 @@ class PrivacyService:
                 now,
                 event="retention.erasure.failed",
                 reason=f"Erasure did not finish: {exc}",
-                error=str(exc),
+                # The text can name the subject (``NotFoundError("User", <key>)``)
+                # or an export bundle (``privacy/exports/<key>/…``) — GDPR-001.
+                error=self._loggable_error(exc, erasure.user_key),
+                error_type=type(exc).__name__,
             )
             if raise_on_failure:
                 raise
@@ -1555,11 +1602,11 @@ class PrivacyService:
         error line the operator learns to ignore (NFR-018 §1).
         """
         attempt = erasure.attempt_count + 1
-        if erasure.user_key and not self._erasure_engine.is_tombstone(erasure.user_key):
-            # An exception text can name the subject (``NotFoundError("User",
-            # <key>)``); the record outlives the erasure, the key must not
-            # (#1767 review GDPR-002).
-            reason = reason.replace(erasure.user_key, self._erasure_log_subject(erasure.user_key))
+        # An exception text can name the subject (``NotFoundError("User",
+        # <key>)``) or an export bundle; the record outlives the erasure, the
+        # key must not (#1767 review GDPR-002). A tombstone needs no redaction.
+        plaintext_key = None if self._erasure_engine.is_tombstone(erasure.user_key or "") else erasure.user_key
+        reason = self._loggable_error(reason, plaintext_key)
         delay_days = min(2 ** (attempt - 1), self.ERASURE_RETRY_MAX_DELAY_DAYS)
         # recurrence-owner-ok: a retry backoff after a failed erasure attempt, not
         # a cadence — it ends when the erasure succeeds, so there is no rule to advance.
@@ -1569,7 +1616,7 @@ class PrivacyService:
         log(
             event,
             erasure_key=erasure.key,
-            subject=self._erasure_log_subject(erasure.user_key),
+            subject=self.log_subject(erasure.user_key),
             attempt=attempt,
             escalated=escalated,
             next_attempt_at=next_attempt_at.isoformat(),
@@ -1685,7 +1732,7 @@ class PrivacyService:
 
         report = AccountErasureReport()
         if pre_arango_completed:
-            logger.info("retention.erasure.pre_arango_phases_skipped", subject=self._erasure_log_subject(user_key))
+            logger.info("retention.erasure.pre_arango_phases_skipped", subject=self.log_subject(user_key))
             report.storage_cleanup_scopes = list(recorded_storage_scopes or [])
             pest_removed = 0
         else:
@@ -1702,7 +1749,7 @@ class PrivacyService:
 
         logger.info(
             "erasure.account_erased",
-            subject=self._erasure_log_subject(user_key),
+            subject=self.log_subject(user_key),
             export_files_removed=report.export_files_removed,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
             reference_index_removed=report.reference_index_removed,
@@ -1736,7 +1783,7 @@ class PrivacyService:
         if closed:
             logger.info(
                 "retention.erasure.open_exports_closed",
-                subject=self._erasure_log_subject(user_key),
+                subject=self.log_subject(user_key),
                 closed=closed,
             )
         stored = [export.file_path for export in self._export_repo.list_by_user(user_key) if export.file_path]
@@ -1748,7 +1795,7 @@ class PrivacyService:
                 raise ErasureIncompleteError(["data_export_requests (stored bundles; no object storage is wired)"])
             logger.info(
                 "retention.erasure.export_file_cleanup_skipped",
-                subject=self._erasure_log_subject(user_key),
+                subject=self.log_subject(user_key),
                 reason="storage adapter not wired",
             )
             return 0
@@ -1793,7 +1840,7 @@ class PrivacyService:
         report.pest_prototype_binding = self._pest_prototype_store.binding
         logger.info(
             "retention.erasure.pest_prototype_cleanup",
-            subject=self._erasure_log_subject(user_key),
+            subject=self.log_subject(user_key),
             binding=report.pest_prototype_binding,
             contributions=len(keys),
             removed=report.pest_prototypes_removed,
@@ -1804,7 +1851,7 @@ class PrivacyService:
                 removed += 1
         logger.info(
             "retention.erasure.pest_image_documents_cleanup",
-            subject=self._erasure_log_subject(user_key),
+            subject=self.log_subject(user_key),
             removed=removed,
         )
         return removed
@@ -1819,7 +1866,7 @@ class PrivacyService:
         if self._storage_adapter is None or self._membership_repo is None:
             logger.info(
                 "retention.erasure.storage_cleanup_skipped",
-                subject=self._erasure_log_subject(user_key),
+                subject=self.log_subject(user_key),
                 reason="storage adapter / membership repo not wired",
             )
             return []
@@ -1838,7 +1885,7 @@ class PrivacyService:
                         "retention.erasure.storage_hard_delete",
                         scope=rule.scope,
                         tenant_key=tenant_key,
-                        subject=self._erasure_log_subject(user_key),
+                        subject=self.log_subject(user_key),
                         deleted=deleted,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
@@ -1862,7 +1909,7 @@ class PrivacyService:
                         "retention.erasure.storage_anonymize",
                         scope=rule.scope,
                         tenant_key=tenant_key,
-                        subject=self._erasure_log_subject(user_key),
+                        subject=self.log_subject(user_key),
                         metadata_anonymized=anonymised,
                         exif_stripped=stripped,
                     )
@@ -1912,25 +1959,43 @@ class PrivacyService:
         )
         logger.info(
             "retention.erasure.reference_index_cleanup",
-            subject=self._erasure_log_subject(user_key),
+            subject=self.log_subject(user_key),
             binding=self._reference_index_store.binding,
             removed=removed,
         )
         return removed
 
-    def _erasure_log_subject(self, user_key: str) -> str:
-        """The reference an erasure log line carries instead of the plaintext key (#1700).
+    def log_subject(self, user_key: str) -> str:
+        """The reference a log line carries instead of the plaintext account key (#1700, #1773).
 
-        The salted tombstone hash the audit rows receive (NFR-011 R-06): every
-        line of one erasure — and the pseudonymised ``erasure_requests`` row —
-        share it, and it names nobody. The log lines outlive the account under no
-        retention rule, so the plaintext key must not be in them. A missing or
-        short salt (the case ``erase_account`` refuses) still yields no key.
+        :meth:`ErasureEngine.log_subject` under this instance's tombstone salt:
+        a salted, purpose-separated HMAC, so every line about one subject shares
+        it and it names nobody. It is deliberately **not** the tombstone the
+        pseudonymised ``erasure_requests`` and audit rows keep (#1773 review
+        GDPR-003): a log line cannot be joined to those rows without the salt.
+        Public because the services that front this one (``DataSubjectService``)
+        log about the same subject and must not keep a second implementation.
         """
-        try:
-            return self._erasure_engine.compute_tombstone_hash(user_key, self._tombstone_salt)
-        except ValueError:
-            return "anon_unavailable"
+        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
+
+    def _redact_subject(self, text: str, user_key: str) -> str:
+        """*text* with *user_key* replaced by :meth:`log_subject` (see ``ErasureEngine.redact_subject``)."""
+        return ErasureEngine.redact_subject(text, user_key, self._tombstone_salt)
+
+    def _loggable_error(self, error: BaseException | str, user_key: str | None) -> str:
+        """An exception text as it may reach a log line or a record outliving the account (#1773 review).
+
+        The single sink every error text on this service passes through
+        (GDPR-001/-002): *user_key* is replaced by :meth:`log_subject`, and the
+        account segment of any embedded export-bundle key
+        (``privacy/exports/<user_key>/…``) is masked — the latter also when the
+        segment names an account other than *user_key*, or *user_key* is
+        unknown (``None``). The text itself stays: an operator needs it.
+        """
+        text = error if isinstance(error, str) else str(error)
+        if user_key:
+            text = self._redact_subject(text, user_key)
+        return mask_export_bundle_keys(text)
 
     def _erasure_tenant_keys(self, user_key: str) -> list[str]:
         """The tenants whose object storage may hold the user's files.
@@ -2018,6 +2083,39 @@ class PrivacyService:
             setattr(erasure, field, value)
         self._erasure_repo.update_fields(erasure.key, _persistable(fields))
 
+    async def purge_expired_erasure_records(self, now: datetime) -> ErasureRecordPurgeResult:
+        """Hard-delete completed erasure records past the NFR-011 R-06 period.
+
+        R-06 keeps an ``erasure_requests`` record — pseudonymised when the
+        erasure ran — as the Art. 5(2) proof for one year after completion
+        (``settings.retention_erasure_audit_retention_years``), then deletes it
+        (AK-13). Until #1772 nothing deleted one and every record lived for
+        good. Only ``completed`` records are selected: a ``scheduled``,
+        ``in_progress`` or ``partially_completed`` request is still owed a run,
+        however old, and deleting it would drop the Art. 17 duty itself. The
+        cutoff counts calendar years (:meth:`RetentionService.erasure_record_purge_cutoff`).
+
+        A ``completed`` record whose ``user_key`` is **not** a tombstone is held,
+        not purged (#1773 review GDPR-006): the erasure rewrites the key inside
+        its transaction, so such a record is no proof of an erasure and may be
+        the only trace of one still owed. The run counts those and logs the
+        count at error level — an operator has to look at them.
+
+        The log lines carry counts only — no request or subject key.
+        """
+        cutoff = self._retention.erasure_record_purge_cutoff(now).isoformat()
+        purged = self._erasure_repo.delete_completed_before(cutoff)
+        held = self._erasure_repo.count_completed_without_tombstone_before(cutoff)
+        if held:
+            logger.error("retention.erasure_records.completed_without_tombstone", held=held)
+        logger.info(
+            "retention.purge_expired_erasure_records.completed",
+            purged=purged,
+            held_without_tombstone=held,
+            retention_years=self._retention.erasure_record_retention_years,
+        )
+        return ErasureRecordPurgeResult(purged=purged, held_without_tombstone=held)
+
     async def expire_email_change_requests(self, now: datetime) -> int:
         """Mark unconfirmed email-change requests older than 24 h as expired."""
         affected = self._email_change_repo.expire_old(now.isoformat())
@@ -2064,7 +2162,9 @@ class PrivacyService:
                     logger.warning(
                         "retention.expire_data_exports.object_delete_failed",
                         export_key=export.key,
-                        error=str(exc),
+                        # The storage error names the bundle key, which embeds the account key.
+                        error=self._loggable_error(exc, export.user_key),
+                        error_type=type(exc).__name__,
                     )
                     continue
             # ``update_fields`` (``keep_none=True``), not ``update``: this

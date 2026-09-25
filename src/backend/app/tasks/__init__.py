@@ -231,6 +231,11 @@ celery_app.conf.update(
             "task": "retention.redispatch_stale_pending_exports",
             "schedule": crontab(minute=25),  # every hour at :25
         },
+        # NFR-011 R-06 (#1772): completed erasure records past their year.
+        "retention-purge-erasure-records-daily": {
+            "task": "retention.purge_expired_erasure_records",
+            "schedule": crontab(hour=4, minute=30),  # 04:30 UTC daily, after the erasure run
+        },
     },
 )
 

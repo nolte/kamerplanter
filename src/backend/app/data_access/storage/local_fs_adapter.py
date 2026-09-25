@@ -40,6 +40,7 @@ from app.domain.engines.storage.exif_stripper import (
     is_unsupported_photo_format,
     strip_exif,
 )
+from app.domain.engines.storage.export_bundle_key import loggable_storage_key
 from app.domain.engines.storage.thumbnail_generator import rendition_keys
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
@@ -244,7 +245,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             chunks.append(chunk)
         data = b"".join(chunks)
         ref = await asyncio.to_thread(self._write_sync, path, data, mime_type, metadata or {})
-        logger.info("storage_put_object", backend=BACKEND_KEY, key=key, size_bytes=ref.size_bytes)
+        logger.info("storage_put_object", backend=BACKEND_KEY, key=loggable_storage_key(key), size_bytes=ref.size_bytes)
         return ObjectRef(key=key, etag=ref.etag, size_bytes=ref.size_bytes)
 
     async def get_object(self, key: str) -> AsyncIterator[bytes]:
@@ -274,7 +275,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
     async def delete_object(self, key: str) -> None:
         path = self._path_for(key)
         await asyncio.to_thread(self._delete_sync, path)
-        logger.info("storage_delete_object", backend=BACKEND_KEY, key=key)
+        logger.info("storage_delete_object", backend=BACKEND_KEY, key=loggable_storage_key(key))
 
     async def delete_prefix(self, prefix: str) -> int:
         # SEC-004 — block over-broad prefixes (empty key ⇒ ``t//`` ⇒ all tenants)
@@ -285,7 +286,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         if self._root != prefix_path and self._root not in prefix_path.parents:
             raise ValueError(f"Resolved prefix escapes storage root: {prefix!r}")
         count = await asyncio.to_thread(self._delete_prefix_sync, prefix_path, prefix_rel)
-        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=prefix, deleted=count)
+        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=loggable_storage_key(prefix), deleted=count)
         return count
 
     async def list_objects(self, prefix: str, page_token: str | None = None) -> dict[str, Any]:
@@ -352,7 +353,12 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         src = self._path_for(src_key)
         dst = self._path_for(dst_key)
         await asyncio.to_thread(self._copy_sync, src, dst)
-        logger.info("storage_copy_object", backend=BACKEND_KEY, src=src_key, dst=dst_key)
+        logger.info(
+            "storage_copy_object",
+            backend=BACKEND_KEY,
+            src=loggable_storage_key(src_key),
+            dst=loggable_storage_key(dst_key),
+        )
 
     async def health_check(self) -> dict[str, Any]:
         def _probe() -> tuple[bool, str | None]:

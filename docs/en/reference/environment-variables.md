@@ -72,7 +72,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
 
-<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours, retention_unverified_account_days, retention_erasure_audit_retention_years); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
@@ -82,6 +82,8 @@ These variables control the legally mandated deletion/anonymization of personal 
 | `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before automatic deletion. |
 | `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | No | Grace period before an account marked for deletion is permanently (hard-)deleted. |
 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | No | Validity of the confirmation link when changing an email address. |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | No | Number of days after registration after which a never-confirmed account is automatically deleted (NFR-011 R-02). Minimum: `1`. |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | No | Number of years a completed erasure request (`erasure_requests`, `status=completed`) is kept as the Art. 5(2) GDPR accountability proof before it is permanently deleted (NFR-011 R-06). Counted in calendar years. Minimum: `1`. |
 
 !!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
     Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used.
