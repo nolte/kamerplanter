@@ -34,6 +34,7 @@ from app.domain.models.privacy import (
 )
 from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
+from tests.support.privacy_doubles import FakePersonalTenants
 
 USER_KEY = "u-1"
 SALT = "x" * 32
@@ -59,6 +60,7 @@ def _service(**overrides) -> PrivacyService:
         "token_engine": MagicMock(),
         "email_service": MagicMock(),
         "frontend_url": "https://app.test",
+        "tenant_service": FakePersonalTenants(),
         "erasure_executor": MagicMock(),
         "tombstone_salt": SALT,
     }

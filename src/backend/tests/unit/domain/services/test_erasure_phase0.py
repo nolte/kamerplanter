@@ -18,7 +18,7 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import AccountErasureReport, ErasureRequest
 from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import RecordingErasureExecutor
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 
 
 def _membership(tenant_key: str):
@@ -61,6 +61,7 @@ def _make_service(
             # #1645 — the scheduled path runs ``erase_account``, which needs the
             # ArangoDB executor and the NFR-011 salt.
             erasure_executor=erasure_executor or RecordingErasureExecutor(),
+            tenant_service=FakePersonalTenants(),
             tombstone_salt="s" * 32,
         ),
         erasure_repo,

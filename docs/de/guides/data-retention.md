@@ -205,7 +205,8 @@ untereinander verknüpfbar bleiben müssen:
 | Manuelle Aktor-Übersteuerung | `created_by` | Markierung `_anonymized` | — |
 | KI-Protokolleintrag | `user_key` | Markierung `_anonymized` | — |
 | Schädlingsfoto, das du als Admin freigegeben hast | `promoted_by` | Markierung `_anonymized` | — |
-| Garten, den du angelegt hast | `owner_user_key` | Markierung `_anonymized` | beim persönlichen Garten zusätzlich Name und Kurzname, siehe unten |
+| Persönlicher Garten, dessen einziges aktives Mitglied du bist | — | vollständig gelöscht, siehe unten | — |
+| Gemeinschaftsgarten oder Garten mit weiteren Mitgliedern, den du angelegt hast | `owner_user_key` | Markierung `_anonymized` | beim persönlichen Garten zusätzlich Name und Kurzname, siehe unten |
 | Löschungs-Audit (ErasureRequest) | `user_key` | Tombstone-Hash `anon_…` | — |
 | MCP-Protokolleintrag eines Dienstkontos | `service_account_key` | Tombstone-Hash `anon_…` | — |
 
@@ -232,17 +233,40 @@ untereinander verknüpfbar bleiben müssen:
 
 ### Was mit deinem persönlichen Garten passiert
 
-Bei der Registrierung legt Kamerplanter einen persönlichen Garten für dich an. Sein
-Name und sein Kurzname in der Adresse stammen aus deinem Anzeigenamen. Die
-Konto-Löschung löscht diesen Garten nicht, denn er kann Datensätze mit gesetzlicher
-Aufbewahrungsfrist enthalten, zum Beispiel Ernten nach CanG. Stattdessen nennt er dich
-danach nicht mehr:
+Bei der Registrierung legt Kamerplanter einen persönlichen Garten für dich an. Was mit
+ihm bei einer Konto-Löschung passiert, hängt davon ab, ob noch jemand anderes aktives
+Mitglied ist:
 
-- Die Besitzer-Referenz wird durch `_anonymized` ersetzt.
-- Name und Kurzname werden zu `anonymized-` und einer Zeichenfolge, die sich aus
-  dem Schlüssel nicht zurückrechnen lässt. Der Kurzname bleibt dadurch eindeutig, und
-  kein neuer Garten kann ihn vorher belegen: Kurznamen, die mit `anonymized`
-  beginnen, vergibt Kamerplanter nicht.
+- **Bist du das einzige aktive Mitglied** — der Normalfall — wird der Garten
+  vollständig über das [Mandanten-Löschinventar](#mandantenloschung) gelöscht: Standorte,
+  Pflanzen, Pflanzdurchläufe, Tagebuch, Aufgaben, Tanks und alles andere darin ist danach
+  weg. Nur Ernte-, Qualitäts-, Behandlungs- und Inspektionsdaten bleiben — wie bei jeder
+  Konto-Löschung — unter deinem Tombstone-Hash erhalten, weil CanG (5 Jahre) und PflSchG
+  (3 Jahre) das verlangen; ihre Freitext-Namensfelder werden geleert. Für diese
+  Garten-Löschung wird ein eigener Löschungs-Nachweis angelegt, und dein Löschantrag
+  nennt am Ende, was aus dem Garten geworden ist.
+- **Ist noch ein anderes aktives Mitglied darin** — ein persönlicher Garten kann, wie
+  jeder Garten, weitere Mitglieder haben (siehe [Mandanten & Gärten](../user-guide/tenants.md))
+  — bleibt er wie bisher erhalten, nur deine Eigentümer-Referenz wird entfernt:
+    - Die Besitzer-Referenz wird durch `_anonymized` ersetzt.
+    - Name und Kurzname werden zu `anonymized-` und einer Zeichenfolge, die sich aus
+      dem Schlüssel nicht zurückrechnen lässt. Der Kurzname bleibt dadurch eindeutig, und
+      kein neuer Garten kann ihn vorher belegen: Kurznamen, die mit `anonymized`
+      beginnen, vergibt Kamerplanter nicht.
+    - Wer den Garten künftig übernimmt, legt Kamerplanter aktuell nicht fest.
+
+!!! danger "Das betrifft auch deine eigenen Daten unwiderruflich"
+    Es gibt keinen separaten Schalter, um beim Löschen deines Kontos nur den
+    persönlichen Garten zu behalten: Bist du dort das einzige aktive Mitglied, ist er
+    mit allem darin unwiderruflich weg — Standorte, Pflanzen, Tagebuch, Fotos,
+    Aufgaben, Tanks. Lade vorher deinen Datenexport herunter (Art. 15/20 DSGVO), wenn
+    du etwas davon sichern willst.
+
+Kann das Deployment deinen persönlichen Garten nicht löschen — zum Beispiel weil ein
+Sensor-Messwertspeicher, der Tombstone-Salt oder der Referenzindex-/
+Schädlingsbild-Speicher fehlt oder falsch konfiguriert ist — verweigert es die gesamte
+Konto-Löschung, bevor irgendetwas geändert wird, und wiederholt sie automatisch, sobald
+die Konfiguration stimmt (siehe unten, „Alle Löschwege tun dasselbe").
 
 Einen Gemeinschaftsgarten, den du gegründet hast, behält seinen Namen, denn der gehört
 der Gruppe. Nur die Besitzer-Referenz wird ersetzt. Die Besitzer-Referenz verleiht
@@ -278,7 +302,8 @@ löscht es auf demselben Weg. Dabei gehen jetzt auch die Mitgliedschaft und die
 Standort-Zuweisungen mit. Schlägt dabei ein Schritt fehl, bleibt der Löschantrag offen
 und wird — wie weiter unten beschrieben — automatisch mit Backoff wiederholt, statt
 kommentarlos hängen zu bleiben. Der persönliche Garten eines solchen Kontos wird dabei
-noch nicht anonymisiert.
+genauso behandelt wie bei jeder anderen Konto-Löschung (siehe oben, [Was mit deinem
+persönlichen Garten passiert](#was-mit-deinem-personlichen-garten-passiert)).
 
 !!! info "Was bewusst nicht angefasst wird"
     Einige Felder heißen zwar „… von“, enthalten aber Freitext, den jemand beim Erfassen
@@ -412,6 +437,16 @@ des offenen Antrags an.
     nicht erreichbar, antwortet sie stattdessen mit HTTP 502 und lässt sich erneut
     anstoßen.
 
+    Seit dieser Änderung läuft vor dem Datenbankteil einer Konto-Löschung zusätzlich das
+    [Mandanten-Löschinventar](#mandantenloschung) für jeden persönlichen Garten der
+    Person. Fehlt dafür dieselbe Konfiguration wie bei einer Mandantenlöschung
+    (Sensor-Messwertspeicher, `ERASURE_TOMBSTONE_SALT`, Referenzindex- oder
+    Schädlingsbild-Speicher), hält der tägliche Lauf den Antrag auf dieselbe Weise
+    zurück, ohne einen Versuch zu verbrauchen; ein sofortiger Löschversuch durch einen
+    Platform-Admin antwortet stattdessen mit HTTP 503. Der Löschantrag protokolliert das
+    Ergebnis je persönlichem Garten (gelöscht, mit Grund erhalten, oder bereits nicht
+    mehr vorhanden) und ist erst `completed`, wenn dieser Schritt gelaufen ist.
+
 ---
 
 ## Mandantenlöschung
@@ -470,10 +505,11 @@ weiteren Versuch zu starten.
 
 Die Konten der Mitglieder selbst bleiben erhalten — sie behalten ihr Konto und ihre
 Mitgliedschaften in anderen Mandanten. Der persönliche Mandant eines Mitglieds wird durch
-die Löschung eines anderen Mandanten nicht berührt; das gilt auch umgekehrt: Die Löschung
-des eigenen Kontos entfernt nicht den persönlichen Mandanten, sondern anonymisiert nur
-dessen Eigentümer-Referenz (siehe oben, [Was mit deinem persönlichen Garten
-passiert](#was-mit-deinem-personlichen-garten-passiert)).
+die Löschung eines *anderen* Mandanten nicht berührt. Löschst du dagegen dein eigenes
+Konto, durchläuft dein persönlicher Mandant genau dieses Mandanten-Löschinventar —
+vollständig, wenn du sein einziges aktives Mitglied bist; nur mit ersetzter
+Eigentümer-Referenz, wenn ein weiteres aktives Mitglied ihn nutzt (siehe oben, [Was mit
+deinem persönlichen Garten passiert](#was-mit-deinem-personlichen-garten-passiert)).
 
 ---
 
@@ -579,7 +615,8 @@ flowchart TD
 | Export-Dateien | Sofort löschen |
 | Erntedaten, Qualitätsbewertungen, Behandlungen, Inspektionen | Anonymisieren (Tombstone-Hash `anon_…`, Namensfelder geleert), nicht löschen (Art. 17 Abs. 3) |
 | Aufgaben, Aufgaben-Kommentare, Tagebucheinträge, Dateien, Import-Aufträge, Einstellungen und Übersteuerungen in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
-| Gärten, die du angelegt hast | Besitzer-Referenz ersetzen; beim persönlichen Garten auch Name und Kurzname |
+| Persönlicher Garten, dessen einziges aktives Mitglied du bist | Vollständig löschen (Mandanten-Löschinventar), Ernte-/Behandlungs-/Inspektionsdaten wie oben pseudonymisiert |
+| Gemeinschaftsgarten oder Garten mit weiteren Mitgliedern, den du angelegt hast | Besitzer-Referenz ersetzen; beim persönlichen Garten auch Name und Kurzname |
 | Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |
 | Mitgliedschaften, Standort-Zuweisungen, Sitzungen, API-Schlüssel, Einwilligungen, Export-Anträge, Favoriten, Schädlingserkennungen, eigene Schädlingsfotos, KI-Gespräche, Benachrichtigungen, Kalender-Feeds, Diagnose-Anfragen, angenommene Einladungen | Löschen |
 
@@ -707,8 +744,13 @@ keinen inkonsistenten Zustand: Der Split-Schlüssel ist deterministisch und wird
 
 ??? question "Werden Sensordaten bei einer Konto-Löschung auch gelöscht?"
     Sensordaten in TimescaleDB haben keine direkte User-Referenz — sie sind einem
-    Standort (`location_key`) zugeordnet. Bei Konto-Löschung bleiben Sensordaten
-    erhalten und unterliegen nur den zeitbasierten Retention-Policies (R-14).
+    Standort (`location_key`) zugeordnet, nicht einem Konto. Ist dein persönlicher
+    Garten nicht von der Löschung betroffen (weitere aktive Mitglieder, siehe [Was mit
+    deinem persönlichen Garten passiert](#was-mit-deinem-personlichen-garten-passiert)),
+    bleiben seine Sensordaten erhalten und unterliegen nur den zeitbasierten
+    Retention-Policies. Wird dein persönlicher Garten dagegen vollständig gelöscht,
+    weil du sein einziges aktives Mitglied warst, gehen auch seine Sensordaten mit —
+    wie bei jeder [Mandantenlöschung](#mandantenloschung).
 
 ## Siehe auch
 

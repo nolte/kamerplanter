@@ -35,6 +35,7 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.services.privacy_service import PrivacyService
 from app.migrations.versions.v0062_split_shared_attachment_ownership import CARRIER_CATEGORY, migration, split_key
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("v0062_split_shared_attachment")
 TENANT = "t-v0062"
@@ -250,6 +251,8 @@ def test_erasing_the_original_uploader_after_the_migration_keeps_the_other_membe
         attachment_repo=repo,
         reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=ArangoErasureExecutor(database),
+        # #1788 — the subject's personal tenant goes through the tenant-erasure inventory.
+        tenant_service=tenant_erasure_service(database, SALT),
         tombstone_salt=SALT,
     )
 

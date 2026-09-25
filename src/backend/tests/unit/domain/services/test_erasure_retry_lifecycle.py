@@ -44,7 +44,7 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import ErasureRequest
 from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import RecordingErasureExecutor
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 
 SALT = "s" * 32
 TENANT = "t-1"
@@ -237,6 +237,7 @@ async def _world(tmp_path, *, executor: RecordingErasureExecutor, salt: str = SA
         membership_repo=membership_repo,
         reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=executor,
+        tenant_service=FakePersonalTenants(),
         tombstone_salt=salt,
     )
     return service, storage, repo, erasure

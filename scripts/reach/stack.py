@@ -193,8 +193,12 @@ def seed_shared_file(subject: str) -> None:
     log(f"seeded a photo {subject!r} shares with {record['co_holder']!r} in tenant {record['tenant_key']!r} -> {path}")
 
 
-def seed_tenant(tenant: str, control: str) -> None:
-    """Seed a tenant and a control tenant into every tenant-erasure inventory collection (#1769)."""
+def seed_tenant(tenant: str, control: str, personal_of: str | None = None) -> None:
+    """Seed a tenant and a control tenant into every tenant-erasure inventory collection (#1769).
+
+    ``personal_of`` seeds the tenant as that account's personal tenant, the
+    account its only member (#1788).
+    """
     read_stack()
     scripts = repo_root() / "scripts"
     output = run_in_backend(
@@ -203,6 +207,7 @@ def seed_tenant(tenant: str, control: str) -> None:
         tenant,
         "--control",
         control,
+        *(("--personal-of", personal_of) if personal_of else ()),
         # The model-valid row builder of the subject seed, and its import closure.
         support=(
             scripts / "reach" / "seed_privacy_subject.py",
@@ -233,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
     tenant_parser = sub.add_parser("seed-tenant", help="seed a tenant and a control tenant for the tenant erasure")
     tenant_parser.add_argument("--tenant", required=True)
     tenant_parser.add_argument("--control", required=True)
+    tenant_parser.add_argument("--personal-of", default=None, help="seed it as this account's personal tenant (#1788)")
     args = parser.parse_args(argv)
     try:
         if args.command == "up":
@@ -244,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "seed-shared-file":
             seed_shared_file(args.subject)
         elif args.command == "seed-tenant":
-            seed_tenant(args.tenant, args.control)
+            seed_tenant(args.tenant, args.control, args.personal_of)
         else:
             seed(args.subject)
     except ReachError as exc:

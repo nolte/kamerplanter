@@ -32,6 +32,10 @@ vars:
   # observation steps pass the same value with --tenant.
   REACH_TENANT: reach-tenant
   REACH_CONTROL_TENANT: reach-control-tenant
+  # The personal tenant of the seeded subject, and its control, for the
+  # account-erasure probe of #1788.
+  REACH_PERSONAL_TENANT: reach-personal-tenant
+  REACH_PERSONAL_CONTROL_TENANT: reach-personal-control-tenant
 
 tasks:
   reach:stack:up:
@@ -124,6 +128,18 @@ tasks:
       tenant's rows (#1769). Writes .reach/subjects/tenant-{{.REACH_TENANT}}.json.
     cmds:
       - python3 scripts/reach/stack.py seed-tenant --tenant {{.REACH_TENANT}} --control {{.REACH_CONTROL_TENANT}}
+
+  reach:seed:personal-tenant:
+    desc: |
+      Seed a personal tenant ({{.REACH_PERSONAL_TENANT}}) of the seeded subject
+      ({{.REACH_SUBJECT}}, run reach:seed:privacy-subject first) and a control
+      tenant ({{.REACH_PERSONAL_CONTROL_TENANT}}) of another account: a
+      model-valid row in every collection of TenantErasureEngine.INVENTORY, the
+      subject the tenant's owner and only active member, the subject's key on the
+      retention rows (#1788). Writes
+      .reach/subjects/tenant-{{.REACH_PERSONAL_TENANT}}.json.
+    cmds:
+      - python3 scripts/reach/stack.py seed-tenant --tenant {{.REACH_PERSONAL_TENANT}} --control {{.REACH_PERSONAL_CONTROL_TENANT}} --personal-of {{.REACH_SUBJECT}}
 
   reach:erasure:admin-delete-tenant:
     desc: |

@@ -30,7 +30,7 @@ from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import DataExportRequest, ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import FakeDataExportRepo, RecordingErasureExecutor
+from tests.support.privacy_doubles import FakeDataExportRepo, FakePersonalTenants, RecordingErasureExecutor
 
 SALT = "s" * 32
 
@@ -53,6 +53,7 @@ def _make_service(**overrides) -> PrivacyService:
         "token_engine": MagicMock(),
         "email_service": MagicMock(),
         "frontend_url": "https://app.test",
+        "tenant_service": FakePersonalTenants(),
     }
     deps.update(overrides)
     return PrivacyService(**deps)

@@ -43,6 +43,7 @@ from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("attachment_dedup_ownership")
 
@@ -122,6 +123,8 @@ def privacy(database, storage, repo) -> PrivacyService:
         attachment_repo=repo,
         reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=ArangoErasureExecutor(database),
+        # #1788 — the subject's personal tenant goes through the tenant-erasure inventory.
+        tenant_service=tenant_erasure_service(database, SALT),
         tombstone_salt=SALT,
     )
 

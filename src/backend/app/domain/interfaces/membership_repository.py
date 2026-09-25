@@ -58,3 +58,7 @@ class IMembershipRepository(ABC):
     @abstractmethod
     def deactivate_all_for_tenant(self, tenant_key: str) -> int:
         """Deactivate every membership of the tenant (#1769: freezes a tenant being erased)."""
+
+    @abstractmethod
+    def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
+        """The distinct account keys holding an active membership of the tenant (#1788)."""
