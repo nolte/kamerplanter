@@ -49,7 +49,7 @@ These are granted **in addition** to the domain role — none, one, or both. The
 
 | Scope | Covers | Intended for |
 |-------|--------|--------------|
-| **Management** | Invite and remove members, change roles, garden settings, assign plots, service accounts, delete the garden | Board, teacher, owner |
+| **Management** | Invite and remove members, change roles, garden settings, assign plots, service accounts, delete the garden (only together with the Lead role — Management alone is not enough) | Board, teacher, owner |
 | **Technical** | Connect Home Assistant and other integrations, set up sensors and actuators, run imports, enrichment sources | Technical warden, contracted service provider |
 
 The practical gain: rights are granted **individually** rather than as a package. The board manages members without touching the sensors. The technically-minded member connects Home Assistant without seeing the member list. And a student records measurements without being able to delete a bed by accident.
@@ -95,11 +95,13 @@ The practical gain: rights are granted **individually** rather than as a package
 | Invite members, change roles, remove members | No | No | No | **Yes** | No |
 | Change garden settings | No | No | No | **Yes** | No |
 | Manage location assignments | No | No | No | **Yes** | No |
-| Delete the garden | No | No | No | **Yes** | No |
+| Delete the garden§ | No | No | No | No | No |
 | View the member list (name and role) | Yes | Yes | Yes | — | — |
 | Leave the garden yourself | Yes | Yes | Yes | Yes* | Yes |
 
 *As the only member holding **Management**, you cannot leave without handing that scope on first — otherwise the garden would be left with nobody who could invite anyone.
+
+§Unlike the other rows in this table, no single column is enough here: deleting the whole garden requires **both** the Lead role and the Management scope at the same time — a Lead without Management cannot, and neither can the secretary with Management from the example above. A service account can never do this, even with a matching role — nor can signing in with a personal API key, even one belonging to an authorized user account: a signed-in session is required. The system additionally requires re-confirmation: the garden's slug and, if the account has a local password, that password. <!-- Issue #1791 -->
 
 ‡Unlike the other rows in this table, marking an entry for AI analysis is additionally tied to **authorship**: a Grower may only mark entries they authored themselves. Only the Lead role may also mark entries from other members. See [Diary](../user-guide/plant-diary.md) for details.
 
