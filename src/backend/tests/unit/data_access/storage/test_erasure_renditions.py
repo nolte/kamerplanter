@@ -71,6 +71,14 @@ class _FakeS3Client:
     def delete_object(self, *, Bucket, Key):  # type: ignore[no-untyped-def]  # noqa: N803
         self.objects.pop(Key, None)
 
+    def head_object(self, *, Bucket, Key):  # type: ignore[no-untyped-def]  # noqa: N803
+        from botocore.exceptions import ClientError
+
+        if Key not in self.objects:
+            # The shape boto3 raises for a missing key on HEAD.
+            raise ClientError({"Error": {"Code": "404"}}, "HeadObject")
+        return {"ContentLength": len(self.objects[Key]), "ETag": '"x"', "Metadata": {}}
+
 
 def _jpeg() -> bytes:
     out = io.BytesIO()
@@ -184,3 +192,34 @@ async def test_renditions_rendered_after_the_attachment_was_erased_are_discarded
 
     assert outcome["reason"] == "attachment_deleted"
     assert await keys() == [photo.storage_key]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("build", [_local, _s3], ids=["local_fs", "s3"])
+async def test_renditions_rendered_after_phase_0_removed_the_original_are_discarded(tmp_path, build):
+    """#1766 review — the record outlives Phase 0 (the ArangoDB plan runs later); the original does not."""
+    photo = _Attachment(key="a1", storage_key=f"t/{TENANT}/pest_reference/2026/09/01J.jpg", mime_type="image/jpeg")
+    repo = _AttachmentRepo([photo])
+    adapter, keys = build(tmp_path, repo)
+    await adapter.put_object(photo.storage_key, _stream(_jpeg()), photo.mime_type)
+
+    real_put = adapter.put_object
+    calls = {"n": 0}
+
+    async def _put_then_erase(key, stream, mime_type, metadata=None):  # type: ignore[no-untyped-def]
+        ref = await real_put(key, stream, mime_type, metadata)
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # Phase 0 runs while the task renders: original (and any rendition so far) gone.
+            await adapter.delete_for_user(TENANT, USER, "all")
+        return ref
+
+    adapter.put_object = _put_then_erase  # type: ignore[method-assign]
+    with (
+        patch.object(storage_tasks, "get_object_storage", return_value=adapter),
+        patch.object(storage_tasks, "get_attachment_repo", return_value=repo),
+    ):
+        outcome = await storage_tasks._generate(photo.key, TENANT)
+
+    assert outcome["reason"] == "attachment_deleted"
+    assert await keys() == []

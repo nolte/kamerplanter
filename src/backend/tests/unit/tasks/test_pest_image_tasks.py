@@ -234,6 +234,30 @@ class TestIndexPromotedRecordsTheMarker:
         assert task_mod._index_promoted(CONTRIB)["status"] == "retracted_after_delete"
         client.erase_contributions.assert_called_once_with([CONTRIB])
 
+    def test_a_failed_undo_is_handed_to_a_retrying_task(self, monkeypatch):
+        """#1766 review — the key is the only handle on the row; the undo must not be dropped."""
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        repo.get_by_key.side_effect = [_contribution(), None]
+        client.erase_contributions.side_effect = ConnectionError("inference down")
+        queued: list[str] = []
+        monkeypatch.setattr(task_mod.erase_pest_prototype_task, "delay", queued.append)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome["status"] == "retract_after_delete_queued"
+        assert queued == [CONTRIB]
+
+    def test_the_retrying_task_erases_by_key(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+        client.erase_contributions.return_value = 1
+
+        assert task_mod.erase_pest_prototype_task.run(CONTRIB) == {"status": "erased", "deleted": 1}
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_the_retrying_task_retries_on_failure(self):
+        task = task_mod.erase_pest_prototype_task
+        assert Exception in task.autoretry_for and task.max_retries >= 10
+
     def test_a_contribution_still_present_is_not_erased(self, monkeypatch):
         _repo, _ipm, _att, client = _wire(monkeypatch)
 

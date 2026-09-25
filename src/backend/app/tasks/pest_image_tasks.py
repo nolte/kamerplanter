@@ -130,7 +130,13 @@ def _index_promoted(contribution_key: str) -> dict:
     # written would be an active prototype of a private image.
     current = get_pest_image_repo().get_by_key(contribution_key)
     if current is None or current.status != PestImageStatus.PROMOTED:
-        get_pest_inference_client().erase_contributions([contribution_key])
+        try:
+            get_pest_inference_client().erase_contributions([contribution_key])
+        except Exception:  # noqa: BLE001 — handed to a retrying task, never dropped
+            # Nothing else can find this row once the document is gone, so the
+            # undo must not die with this attempt (code review of #1766).
+            erase_pest_prototype_task.delay(contribution_key)
+            return {"status": "retract_after_delete_queued", "label": label, "contribution_key": contribution_key}
         return {"status": "retracted_after_delete", "label": label, "contribution_key": contribution_key}
     return {"status": "indexed", "label": label, "contribution_key": contribution_key}
 
@@ -220,3 +226,23 @@ def retract_promoted_pest_image_task(self, contribution_key: str) -> dict:  # ty
 
     logger.info("retract_promoted_pest_image", contribution_key=contribution_key, **_logsafe(outcome))
     return outcome
+
+
+@celery_app.task(  # type: ignore[misc]
+    bind=True,
+    max_retries=12,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=6 * 3600,
+    retry_jitter=True,
+)
+def erase_pest_prototype_task(self, contribution_key: str) -> dict:  # type: ignore[no-untyped-def]
+    """#1759 — delete a contributed prototype whose contribution is already gone.
+
+    Queued when the promotion index task re-created a prototype that a
+    concurrent delete had just erased and could not undo it inline. Retries
+    with backoff for about three days; the key is the only handle on the row.
+    """
+    deleted = get_pest_inference_client().erase_contributions([contribution_key])
+    logger.info("pest_prototype_erased_after_delete", contribution_key=contribution_key, deleted=deleted)
+    return {"status": "erased", "deleted": deleted}
