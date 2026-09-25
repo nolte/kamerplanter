@@ -124,15 +124,26 @@ _RAW_READS_WITH_REASON: dict[tuple[str, str], str] = {
 }
 
 
-def _routes(routes: list[Any], prefix: str = "", inherited: tuple[Any, ...] = ()) -> list[tuple[str, APIRoute, set]]:
+def _routes(routes: list[Any], prefix: str = "", inherited: tuple[Any, ...] = ()) -> list[tuple[str, APIRoute, list]]:
+    """Every leaf route as ``(full path, route, dependants)``.
+
+    ``dependants`` is the leaf's own dependant plus one per dependency given to
+    ``include_router(dependencies=...)`` on the way down: FastAPI keeps those on
+    the include context, not on the leaf, but their parameters reach the request
+    all the same.
+    """
+    from fastapi.dependencies.utils import get_dependant
+
     out = []
     for route in routes:
         if isinstance(route, APIRoute):
-            out.append((prefix + route.path_format, route, set(inherited)))
+            path = prefix + route.path_format
+            extra = [get_dependant(path=path, call=call) for call in inherited]
+            out.append((path, route, [route.dependant, *extra]))
         elif hasattr(route, "original_router"):
             ctx = route.include_context
-            extra = tuple(d.dependency for d in ctx.dependencies)
-            out.extend(_routes(route.original_router.routes, prefix + ctx.prefix, inherited + extra))
+            calls = tuple(d.dependency for d in ctx.dependencies)
+            out.extend(_routes(route.original_router.routes, prefix + ctx.prefix, inherited + calls))
     return out
 
 
@@ -176,11 +187,19 @@ def _parameters(dependant: Any) -> list[tuple[str, Any]]:
     return out
 
 
-def _foreign_selectors(route: APIRoute) -> set[str]:
-    """Selector names on ``route`` that no resolver declared itself."""
+def _all_parameters(dependants: list[Any]) -> list[tuple[str, Any]]:
+    return [pair for dependant in dependants for pair in _parameters(dependant)]
+
+
+def _all_calls(dependants: list[Any]) -> set[Any]:
+    return {d.call for d in dependants} | {c for d in dependants for c in _dependency_calls(d)}
+
+
+def _foreign_selectors(dependants: list[Any]) -> set[str]:
+    """Selector names on a route that no resolver declared itself."""
     resolvers = _resolvers()
     names_by_owner: dict[str, set[Any]] = {}
-    for name, owner in _parameters(route.dependant):
+    for name, owner in _all_parameters(dependants):
         if _SELECTOR.search(name):
             names_by_owner.setdefault(name, set()).add(owner)
     # A name counts as the resolver's own only if *every* declaration of it is a
@@ -190,19 +209,19 @@ def _foreign_selectors(route: APIRoute) -> set[str]:
     return {name for name, owners in names_by_owner.items() if not owners <= resolvers}
 
 
-def _selector_routes(app: Any) -> list[tuple[str, APIRoute, set]]:
+def _selector_routes(app: Any) -> list[tuple[str, APIRoute, list]]:
     return [
-        (path, route, deps)
-        for path, route, deps in _routes(app.routes)
-        if any(_SELECTOR.search(name) for name, _ in _parameters(route.dependant))
+        (path, route, dependants)
+        for path, route, dependants in _routes(app.routes)
+        if any(_SELECTOR.search(name) for name, _ in _all_parameters(dependants))
     ]
 
 
 def _unexplained(app: Any, allowed: dict[tuple[str, str], tuple[str, str]]) -> list[str]:
     out = []
-    for path, route, deps in _routes(app.routes):
-        calls = {getattr(c, "__name__", None) for c in _dependency_calls(route.dependant) | deps}
-        for name in sorted(_foreign_selectors(route)):
+    for path, route, dependants in _routes(app.routes):
+        calls = {getattr(c, "__name__", None) for c in _all_calls(dependants)}
+        for name in sorted(_foreign_selectors(dependants)):
             entry = allowed.get((path, name))
             if entry is None or entry[0] not in calls:
                 out.append(f"{sorted(route.methods)} {path} :: {name}")
@@ -221,7 +240,7 @@ def test_every_tenant_selector_is_a_resolver_parameter_or_explained() -> None:
     assert any("/species" in path for path, _, _ in selector_routes)
     # ... and it sees the selectors that are *not* a resolver's own: every
     # allowlisted one is found on its route (stale entries fail here).
-    seen = {(path, name) for path, route, _ in _routes(app.routes) for name in _foreign_selectors(route)}
+    seen = {(path, name) for path, _, dependants in _routes(app.routes) for name in _foreign_selectors(dependants)}
     assert sorted(set(_FOREIGN_SELECTORS_WITH_REASON) - seen) == []
     assert unexplained == [], (
         f"routes that take a tenant selector from the request that no resolver checks (#1853): {unexplained}"
@@ -332,11 +351,7 @@ def test_the_resolvers_own_parameter_is_admitted(where: str) -> None:
     app = FastAPI()
     app.include_router(router, dependencies=[Depends(get_current_tenant)] if where == "include" else [])
 
-    if where == "route":
-        # Include-level dependencies sit on the include context, not on the
-        # leaf's dependant, so there the slug is declared by nothing the walk
-        # reads — and there is nothing foreign to flag either.
-        assert _selector_routes(app), "the probe route must be seen as taking a selector"
+    assert _selector_routes(app), "the probe route must be seen as taking a selector"
     assert _unexplained(app, {}) == []
 
 
@@ -354,6 +369,20 @@ def test_a_sibling_selector_next_to_a_resolver_is_flagged() -> None:
     app.include_router(router)
 
     assert _unexplained(app, {}) == ["['GET'] /t/{tenant_slug}/thing :: tenant_key"]
+
+
+def test_a_selector_on_an_include_level_dependency_is_flagged() -> None:
+    # ``include_router(dependencies=...)`` keeps the dependency on the include
+    # context, not on the leaf's dependant; its parameters still reach the request.
+    router = APIRouter()
+
+    @router.get("/thing")
+    def thing() -> None: ...
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1", dependencies=[Depends(_query_dep)])
+
+    assert _unexplained(app, {}) == ["['GET'] /api/v1/thing :: tenant_key"]
 
 
 def test_an_allowlisted_selector_needs_its_gate() -> None:
@@ -382,7 +411,7 @@ def _raw_selector_reads(source: str) -> list[tuple[str, int]]:
     hits = []
     for node in ast.walk(tree):
         key = None
-        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+        if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load) and isinstance(node.slice, ast.Constant):
             key = node.slice.value
         elif (
             isinstance(node, ast.Call)
@@ -409,6 +438,18 @@ def _raw_selector_reads(source: str) -> list[tuple[str, int]]:
 )
 def test_the_raw_read_scan_flags_each_spelling(source: str) -> None:
     assert _raw_selector_reads(source) == [("h", 2 if source.count("\n") == 2 else 3)]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def h(doc, ctx):\n    doc['tenant_key'] = ctx.tenant_key\n",
+        "def h(doc):\n    del doc['tenant_key']\n",
+    ],
+)
+def test_the_raw_read_scan_ignores_writes(source: str) -> None:
+    # Stamping the resolved tenant onto a document is the correct pattern, not a read.
+    assert _raw_selector_reads(source) == []
 
 
 def test_no_api_handler_reads_a_tenant_selector_raw() -> None:
