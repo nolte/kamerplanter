@@ -13,14 +13,23 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | Ref | Data Category | Retention Period | Action after Period | Legal Basis |
 |-----|--------------|-----------------|---------------------|------------|
 | R-01 | Soft-deleted user accounts | 90 days after soft-delete | Hard-delete (incl. edges, auth providers, sessions) | GDPR Art. 17 |
-| R-02 | Unconfirmed accounts | 7 days after creation | Hard-delete | Art. 5(1)(e), purpose lapse |
+| R-02 | Unconfirmed accounts | 7 days after creation | Hard-delete (`app.tasks.auth_tasks.cleanup_unverified_accounts`, daily) | Art. 5(1)(e), purpose lapse |
 | R-03 | IP addresses in sessions | 7 days after storage | Anonymization (IPv4: last octet → `0`) | Art. 5(1)(c) data minimization |
 | R-04 | Consent records | 3 years after revocation | Hard-delete | Art. 7(1) accountability |
 | R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file first, then set status to `expired` | Purpose lapse |
-| R-06 | Erasure audit logs | 1 year after completion | Hard-delete | Art. 5(2) accountability |
+| R-06 | Erasure audit (completed requests) | 1 year after completion | Hard-delete (`retention.purge_expired_erasure_records`, daily at 04:30 UTC) | Art. 5(2) accountability |
 | R-07 | Email change requests | 24 hours | Hard-delete expired tokens | Purpose lapse |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
 | R-12 | Expired invitations | 30 days after expiry | Hard-delete | Purpose lapse |
+
+### Unconfirmed Accounts (R-02)
+
+A never-confirmed account is removed automatically by the daily
+`app.tasks.auth_tasks.cleanup_unverified_accounts` task — `RETENTION_UNVERIFIED_ACCOUNT_DAYS`
+days after registration (default 7 days, minimum 1 day). The task runs the same full erasure
+as a self-filed erasure request, with the same erasure request as proof and the same
+automatic retry on a failed step — more on this further below under "All deletion paths do
+the same".
 
 ### IP Anonymization (R-03)
 
@@ -41,6 +50,20 @@ run retries it. Downloads are already refused once the 72-hour window has passed
 regardless of the stored status. If no object storage is configured on the instance,
 the file cannot be deleted at all: the export is left open, and the run logs an error
 instead of flipping the status anyway.
+
+### Erasure Record Purge (R-06)
+
+The daily `retention.purge_expired_erasure_records` task (04:30 UTC, after the erasure
+task at 04:00 UTC) hard-deletes completed erasure requests (`erasure_requests`,
+`status=completed`) whose `completed_at` is more than `RETENTION_ERASURE_AUDIT_RETENTION_YEARS`
+years in the past (default 1 year, minimum 1 year, counted in calendar years). This applies
+regardless of who triggered the erasure (`origin`: `self_service`, `platform_admin`, or
+`unverified_cleanup`).
+
+A request that is still open or only partially completed (`scheduled`, `in_progress`,
+`partially_completed`) is never purged — it is still owed a run. A completed request
+without a `completed_at` is kept too. The run logs only the number of purged requests,
+never an account or request key.
 
 ---
 
@@ -230,9 +253,34 @@ garden of such an account is not yet anonymized by that cleanup.
 
 ### Logs of an erasure
 
-The log lines of an erasure do not name your account key. They carry the same
-tombstone hash as the erasure audit instead, so the lines of one erasure can be linked
-to each other without naming anyone.
+The log lines of an erasure do not name your account key. They carry a salted
+reference instead, so the lines of one erasure can be linked to each other without
+naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
+
+??? info "For operators: the `subject=` field in log lines"
+    Log lines on the privacy, authentication, retention and object-storage paths carry a
+    `subject=` field instead of an account key or email address. It holds a salted,
+    purpose-separated reference (`sub_` followed by 16 hex characters, an HMAC of the
+    account key keyed with `ERASURE_TOMBSTONE_SALT`). The lines of one account stay
+    correlatable with each other without naming anyone. The reference is deliberately
+    **not** the tombstone hash (`anon_…`) that the erasure audit and the anonymised
+    harvest and treatment records keep: someone holding only the logs cannot join them
+    to those retained records. If the salt is missing or too short, the line carries the
+    constant `anon_unavailable` instead — never the account key in the clear.
+
+    Registration and email events additionally log fields such as `email_sha256` — a
+    SHA-256 digest of the email address, never the address itself. Object-storage log
+    lines (`storage_put_object`, `storage_delete_object`, and similar) mask the account
+    segment of export-bundle keys: `privacy/exports/<account key>/<export>.json` becomes
+    `privacy/exports/<subject>/<export>.json`.
+
+    Error texts in these lines (`error=`) are cleaned the same way: the account key is
+    replaced by the reference, and export-bundle paths are masked. Where an error text can
+    contain a third party's address (a rejected email recipient), only the error type is
+    logged (`error_type=`).
+
+    To attribute a log line to an account, an operator must compute the reference with
+    the same salt themselves — grepping for the account key does not work.
 
 ### All deletion paths do the same
 
@@ -296,6 +344,25 @@ second deletion attempt by a platform admin instead resumes the open request at 
 
 ## Celery Enforcement: Automated Execution
 
+!!! warning "Not yet implemented"
+    There is no central `enforce_retention_policy` task that orchestrates every retention
+    rule in one shared run, as shown in the diagram below, or that produces the log line
+    and Prometheus metrics shown further down. The diagram, the JSON example and the
+    metrics table describe a planned target state.
+
+    Each rule actually runs as its own Celery task on its own schedule:
+
+    - R-01: `retention.execute_scheduled_erasures` (daily, 04:00 UTC)
+    - R-02: `app.tasks.auth_tasks.cleanup_unverified_accounts` (daily)
+    - R-03: `app.tasks.auth_tasks.anonymize_old_ips` (daily)
+    - R-05: `retention.expire_data_exports` (hourly, minute 20)
+    - R-06: `retention.purge_expired_erasure_records` (daily, 04:30 UTC)
+    - R-07: `retention.expire_email_change_requests` (hourly, minute 15)
+    - R-11: `app.tasks.auth_tasks.cleanup_expired_tokens` (hourly)
+    - R-12: `app.tasks.tenant_tasks.cleanup_expired_invitations` (daily)
+
+    R-04 (consent records) currently has no automated cleanup task.
+
 The Celery task `enforce_retention_policy` runs **daily at 02:00 UTC** and orchestrates
 all retention sub-tasks:
 
@@ -341,16 +408,27 @@ The retention task exposes the following metrics:
 
 ## Configuration via Environment Variables
 
+!!! warning "Not yet implemented"
+    Of the variables in the block below, the backend currently reads only two:
+    `RETENTION_UNVERIFIED_ACCOUNT_DAYS` (R-02) and `RETENTION_ERASURE_AUDIT_RETENTION_YEARS`
+    (R-06) — both with a minimum of `1`, see [Environment Variables](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011).
+    Every other `RETENTION_*` name in this block is a planned, unified naming scheme; the
+    backend does not read it. The corresponding periods are partly configurable already,
+    but under different names: R-01 via `PRIVACY_HARD_DELETE_AFTER_DAYS`, R-05 via
+    `PRIVACY_EXPORT_RETENTION_HOURS`, R-07 via `PRIVACY_EMAIL_CHANGE_TTL_HOURS`. For R-03,
+    R-04, R-12, and the sensor-data and statutory-minimum variables below, there is
+    currently no environment variable at all; the values used in the code are hard-coded.
+
 All periods are configurable via environment variables. The prefix `RETENTION_` is prepended:
 
 ```bash
 # Personal data
 RETENTION_SOFT_DELETE_RETENTION_DAYS=90      # R-01: Soft-deleted accounts
-RETENTION_UNVERIFIED_ACCOUNT_DAYS=7          # R-02: Unconfirmed accounts
+RETENTION_UNVERIFIED_ACCOUNT_DAYS=7          # R-02: Unconfirmed accounts — implemented
 RETENTION_IP_ANONYMIZATION_DAYS=7            # R-03: IP anonymization
 RETENTION_CONSENT_RETENTION_YEARS=3          # R-04: Consent records
 RETENTION_EXPORT_FILE_RETENTION_HOURS=72     # R-05: Export files
-RETENTION_ERASURE_AUDIT_RETENTION_YEARS=1    # R-06: Audit logs
+RETENTION_ERASURE_AUDIT_RETENTION_YEARS=1    # R-06: Audit logs — implemented
 RETENTION_EMAIL_CHANGE_RETENTION_HOURS=24    # R-07: Email change requests
 RETENTION_INVITATION_RETENTION_DAYS=30       # R-12: Expired invitations
 

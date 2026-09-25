@@ -46,7 +46,9 @@ RUN uv sync --locked --only-group build
 # and arranges them flat in /model the way main.py reads them: `model.onnx`
 # (and, for e5-large, `model.onnx_data`), `tokenizer.json`,
 # `tokenizer_config.json`, `special_tokens_map.json`, `sentencepiece.bpe.model`
-# (the e5 models only) and `config.json`.
+# (the e5 models only), `config.json` and `sentence_bert_config.json` — the
+# model's published `max_seq_length`, the truncation window
+# `tokenization.load_tokenizer` applies (#1774).
 #
 # EVERY FETCH IS PINNED TO A COMMIT SHA, AND RENOVATE WILL NOT BUMP IT — BY
 # DESIGN (#1724, following the reranker's #1480). These stages used to fetch
@@ -114,18 +116,21 @@ FROM dl-base AS dl-e5-small
 # Parity measured 2026-09-24 against the unpinned image: every kept file byte-identical (sha256),
 # and embeddings for 7 fixed inputs identical (max |delta| 0.0) through the same
 # tokenizer + ONNX Runtime path.
-# The six sha256 values below are that revision's bytes: change them only
+# `sentence_bert_config.json` (#1774) is not part of that parity: it carries no
+# weights, only the model's published `max_seq_length` (512 at this revision),
+# which `tokenization.max_seq_length` reads as the truncation window.
+# The seven sha256 values below are that revision's bytes: change them only
 # together with `revision=`.
 RUN python -c "\
 import huggingface_hub; \
 huggingface_hub.snapshot_download(\
 repo_id='intfloat/multilingual-e5-small', \
 revision='614241f622f53c4eeff9890bdc4f31cfecc418b3', \
-allow_patterns=['onnx/model.onnx', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'sentencepiece.bpe.model', 'config.json'], \
+allow_patterns=['onnx/model.onnx', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'sentencepiece.bpe.model', 'config.json', 'sentence_bert_config.json'], \
 local_dir='/dl')" && \
     mkdir /model && \
     mv /dl/onnx/model.onnx \
-       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/sentencepiece.bpe.model /dl/config.json \
+       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/sentencepiece.bpe.model /dl/config.json /dl/sentence_bert_config.json \
        /model/ && \
     printf '%s\n' \
       'ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665  /model/model.onnx' \
@@ -134,6 +139,7 @@ local_dir='/dl')" && \
       'd05497f1da52c5e09554c0cd874037a083e1dc1b9cfd48034d1c717f1afc07a7  /model/special_tokens_map.json' \
       'cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865  /model/sentencepiece.bpe.model' \
       '69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959  /model/config.json' \
+      '948201d8329907aae938fa62f9ceeed53f5694dacc2b87b9f3b78b37ee986529  /model/sentence_bert_config.json' \
       > /tmp/model.sha256 && \
     sha256sum -c --strict /tmp/model.sha256 && \
     rm -rf /dl /root/.cache /tmp/model.sha256
@@ -147,18 +153,21 @@ FROM dl-base AS dl-e5-base
 # Parity measured 2026-09-24 against the unpinned image: every kept file byte-identical (sha256),
 # and embeddings for 7 fixed inputs identical (max |delta| 0.0) through the same
 # tokenizer + ONNX Runtime path.
-# The six sha256 values below are that revision's bytes: change them only
+# `sentence_bert_config.json` (#1774) is not part of that parity: it carries no
+# weights, only the model's published `max_seq_length` (512 at this revision),
+# which `tokenization.max_seq_length` reads as the truncation window.
+# The seven sha256 values below are that revision's bytes: change them only
 # together with `revision=`.
 RUN python -c "\
 import huggingface_hub; \
 huggingface_hub.snapshot_download(\
 repo_id='intfloat/multilingual-e5-base', \
 revision='d128750597153bb5987e10b1c3493a34e5a4502a', \
-allow_patterns=['onnx/model.onnx', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'sentencepiece.bpe.model', 'config.json'], \
+allow_patterns=['onnx/model.onnx', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'sentencepiece.bpe.model', 'config.json', 'sentence_bert_config.json'], \
 local_dir='/dl')" && \
     mkdir /model && \
     mv /dl/onnx/model.onnx \
-       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/sentencepiece.bpe.model /dl/config.json \
+       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/sentencepiece.bpe.model /dl/config.json /dl/sentence_bert_config.json \
        /model/ && \
     printf '%s\n' \
       '84a4d426f7e87a6bf5bf195f0bae2c4a7d15f675b23ca96f42fab8326d7a77aa  /model/model.onnx' \
@@ -167,6 +176,7 @@ local_dir='/dl')" && \
       '06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f  /model/special_tokens_map.json' \
       'cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865  /model/sentencepiece.bpe.model' \
       '9dab198f24c8c0879e481cf7822005d5ecbceedbacb390ffafa594e28d31bac4  /model/config.json' \
+      '948201d8329907aae938fa62f9ceeed53f5694dacc2b87b9f3b78b37ee986529  /model/sentence_bert_config.json' \
       > /tmp/model.sha256 && \
     sha256sum -c --strict /tmp/model.sha256 && \
     rm -rf /dl /root/.cache /tmp/model.sha256
@@ -183,18 +193,21 @@ FROM dl-base AS dl-e5-large
 # Parity measured 2026-09-24 against the unpinned image: every kept file byte-identical (sha256),
 # and embeddings for 7 fixed inputs identical (max |delta| 0.0) through the same
 # tokenizer + ONNX Runtime path.
-# The seven sha256 values below are that revision's bytes: change them only
+# `sentence_bert_config.json` (#1774) is not part of that parity: it carries no
+# weights, only the model's published `max_seq_length` (512 at this revision),
+# which `tokenization.max_seq_length` reads as the truncation window.
+# The eight sha256 values below are that revision's bytes: change them only
 # together with `revision=`.
 RUN python -c "\
 import huggingface_hub; \
 huggingface_hub.snapshot_download(\
 repo_id='intfloat/multilingual-e5-large', \
 revision='3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3', \
-allow_patterns=['onnx/model.onnx', 'onnx/model.onnx_data', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'sentencepiece.bpe.model', 'config.json'], \
+allow_patterns=['onnx/model.onnx', 'onnx/model.onnx_data', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'sentencepiece.bpe.model', 'config.json', 'sentence_bert_config.json'], \
 local_dir='/dl')" && \
     mkdir /model && \
     mv /dl/onnx/model.onnx /dl/onnx/model.onnx_data \
-       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/sentencepiece.bpe.model /dl/config.json \
+       /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/sentencepiece.bpe.model /dl/config.json /dl/sentence_bert_config.json \
        /model/ && \
     printf '%s\n' \
       'bb5a52503a3ef35247f5b5ae6c473aaae60505dd3ffaef56d7b69e2f84683c05  /model/model.onnx' \
@@ -204,6 +217,7 @@ local_dir='/dl')" && \
       '06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f  /model/special_tokens_map.json' \
       'cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865  /model/sentencepiece.bpe.model' \
       'e42d98d0c211928d788467aa951000391017f647c76ca8ce2ef6dd8d0c9ce5ca  /model/config.json' \
+      '948201d8329907aae938fa62f9ceeed53f5694dacc2b87b9f3b78b37ee986529  /model/sentence_bert_config.json' \
       > /tmp/model.sha256 && \
     sha256sum -c --strict /tmp/model.sha256 && \
     rm -rf /dl /root/.cache /tmp/model.sha256
@@ -224,18 +238,42 @@ FROM dl-base AS dl-minilm
 # Parity measured 2026-09-24 against the unpinned image: every kept file byte-identical (sha256),
 # and embeddings for 7 fixed inputs identical (max |delta| 0.0) through the same
 # tokenizer + ONNX Runtime path.
-# The five sha256 values below are that revision's bytes: change them only
-# together with `revision=`.
+# The five sha256 values of the Xenova files below are that revision's bytes:
+# change them only together with its `revision=`.
+#
+# THE TRUNCATION WINDOW COMES FROM A SECOND, SEPARATELY PINNED REPOSITORY (#1774).
+# The Xenova export carries no `sentence_bert_config.json` — its
+# `tokenizer_config.json` says `model_max_length` 512, which is the tokenizer's
+# position limit, not the window the model was trained and published with. The
+# model authors' repository, sentence-transformers/paraphrase-multilingual-
+# MiniLM-L12-v2, publishes `max_seq_length` 128 in its
+# `sentence_bert_config.json`; sentence-transformers truncates this model at 128,
+# and until #1774 the service truncated it at 512 — tokens the model never saw
+# in training, pooled into the vector. So the stage fetches that one file from
+# the authors' repository, pinned to the commit
+# e8f8c211226b894fcb81acc59f3b34ba3efd5f42 (`main` as resolved on 2026-09-25),
+# into its own `local_dir` so nothing else of that repository can land in
+# /model, and verifies its sha256 like every other kept file (cross-checked
+# against the Hub's git blob id 5fd10429389515d3e5cccdeda08cae5fea1ae82e, the
+# `git hash-object` of the downloaded bytes). `tokenization.max_seq_length`
+# reads it; both commits are pinned, and a re-pin of either changes a reviewed
+# literal here.
 RUN python -c "\
 import huggingface_hub; \
 huggingface_hub.snapshot_download(\
 repo_id='Xenova/paraphrase-multilingual-MiniLM-L12-v2', \
 revision='2c4055b12046f11709e9df2c122e59ffbdc2f900', \
 allow_patterns=['onnx/model.onnx', 'tokenizer.json', 'tokenizer_config.json', 'special_tokens_map.json', 'config.json'], \
-local_dir='/dl')" && \
+local_dir='/dl'); \
+huggingface_hub.snapshot_download(\
+repo_id='sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2', \
+revision='e8f8c211226b894fcb81acc59f3b34ba3efd5f42', \
+allow_patterns=['sentence_bert_config.json'], \
+local_dir='/dl-st')" && \
     mkdir /model && \
     mv /dl/onnx/model.onnx \
        /dl/tokenizer.json /dl/tokenizer_config.json /dl/special_tokens_map.json /dl/config.json \
+       /dl-st/sentence_bert_config.json \
        /model/ && \
     printf '%s\n' \
       '185ae63f47e17a7e8d30d0e6a3cde6a6e4b79bc5b81666ecffc279a6856ca113  /model/model.onnx' \
@@ -243,9 +281,10 @@ local_dir='/dl')" && \
       '3f5961b9ac86288cccdb97f32fb848d6187c78e1603958c53f3ea1f296b7d8a2  /model/tokenizer_config.json' \
       '06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f  /model/special_tokens_map.json' \
       '05b570bff786faa5c4604152aa16f19f77ed6dfc31e47dd0f3dd987078693ac7  /model/config.json' \
+      '70f4448f31320443fe3557cacea5abf2dcc4915dda8c80646bec9f3bb0aa5a1f  /model/sentence_bert_config.json' \
       > /tmp/model.sha256 && \
     sha256sum -c --strict /tmp/model.sha256 && \
-    rm -rf /dl /root/.cache /tmp/model.sha256
+    rm -rf /dl /dl-st /root/.cache /tmp/model.sha256
 
 # ── Runtime environment: built with uv, shipped without it (#1725) ──
 #

@@ -28,6 +28,7 @@ from app.domain.engines.storage.exif_stripper import (
     is_unsupported_photo_format,
     strip_exif,
 )
+from app.domain.engines.storage.export_bundle_key import loggable_storage_key
 from app.domain.engines.storage.thumbnail_generator import rendition_keys
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
@@ -239,7 +240,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
             chunks.append(chunk)
         data = b"".join(chunks)
         ref = await asyncio.to_thread(self._put_sync, key, data, mime_type, metadata or {})
-        logger.info("storage_put_object", backend=BACKEND_KEY, key=key, size_bytes=ref.size_bytes)
+        logger.info("storage_put_object", backend=BACKEND_KEY, key=loggable_storage_key(key), size_bytes=ref.size_bytes)
         return ref
 
     async def get_object(self, key: str) -> AsyncIterator[bytes]:
@@ -263,7 +264,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
 
     async def delete_object(self, key: str) -> None:
         await asyncio.to_thread(self._delete_sync, key)
-        logger.info("storage_delete_object", backend=BACKEND_KEY, key=key)
+        logger.info("storage_delete_object", backend=BACKEND_KEY, key=loggable_storage_key(key))
 
     async def delete_prefix(self, prefix: str) -> int:
         # SEC-004 — mirror the local-fs guard: reject an empty / bare ``t/`` root
@@ -277,7 +278,9 @@ class S3StorageAdapter(IObjectStorageAdapter):
         # the tenant folder (``t/{key}/``) rather than sibling-key prefixes.
         safe_prefix = f"{normalized}/" if prefix.rstrip().endswith("/") else normalized
         count = await asyncio.to_thread(self._delete_prefix_sync, safe_prefix)
-        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=safe_prefix, deleted=count)
+        logger.info(
+            "storage_delete_prefix", backend=BACKEND_KEY, prefix=loggable_storage_key(safe_prefix), deleted=count
+        )
         return count
 
     async def list_objects(self, prefix: str, page_token: str | None = None) -> dict[str, Any]:
@@ -314,7 +317,12 @@ class S3StorageAdapter(IObjectStorageAdapter):
 
     async def copy_object(self, src_key: str, dst_key: str) -> None:
         await asyncio.to_thread(self._copy_sync, src_key, dst_key)
-        logger.info("storage_copy_object", backend=BACKEND_KEY, src=src_key, dst=dst_key)
+        logger.info(
+            "storage_copy_object",
+            backend=BACKEND_KEY,
+            src=loggable_storage_key(src_key),
+            dst=loggable_storage_key(dst_key),
+        )
 
     async def health_check(self) -> dict[str, Any]:
         return await asyncio.to_thread(self._health_sync)

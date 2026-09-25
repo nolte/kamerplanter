@@ -1,12 +1,14 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
 # Approval: recorded under the repository owner's standing pre-approval of every gate for the
-# autonomous #1768 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
+# autonomous #1783 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
 # batch answer. It records that the targets and the observe argv below run on the operator's
 # machine with their environment, as `task` in this repository does.
 #
-# Re-derived for #1768: REQ-025 v1.11 added AK-OS-05a/06/07 and AK-IE-01..03; derived_from is the
-# commit that made that change. Observe step, targets and expectation unchanged.
+# Re-derived for #1783: #1780 squash-merged as c9d6d29ee, leaving its branch commit e9e0c3a52
+# outside develop's history. REQ-025 is byte-identical between the two; derived_from is now the
+# squash commit, the latest commit of the declaration on develop. Observe step, targets and
+# expectation unchanged.
 id: requirement-req025-art17-storage-renditions-erased
 summary: WebP renditions of the subject's seeded stored files after erasure — gone for hard_delete scopes
 declaration:
@@ -19,7 +21,7 @@ expected:
   unit: per-category state of the seeded files' renditions after erasure finalisation
   values:
   - renditions-deleted/pest_reference
-derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -35,6 +37,6 @@ observe:
   - reach-subject
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-25T06:03:35Z'
+  approved_at: '2026-09-25T07:11:22Z'
   approved_by: nolte
   observation_digest: a4aec0d25980c17a7b1c9bafefd8bae5bd4debd8e24ed78e3713672997490620

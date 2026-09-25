@@ -499,12 +499,14 @@ def oauth_callback(
         # omits `email_verified` — the default for a GitHub provider without the
         # `user:email` scope — that would have been an ordinary path answering
         # with a message that is wrong in both halves.
-        logger.info("oauth_callback_link_requires_password", provider=slug, error=str(exc))
+        logger.info("oauth_callback_link_requires_password", provider=slug, error_type=type(exc).__name__)
         return _oauth_error_redirect(frontend_url, "link_requires_password")
     except (NotFoundError, ValidationError) as exc:
         # `as exc` keeps ruff-format from stripping the parens (which would turn
-        # this into the `except A, B:` Python-2 syntax error).
-        logger.info("oauth_callback_provider_error", provider=slug, error=str(exc))
+        # this into the `except A, B:` Python-2 syntax error). The type only: the
+        # text of a repository error on this path can name the account key
+        # (`NotFoundError("User", <key>)`, #1773 review).
+        logger.info("oauth_callback_provider_error", provider=slug, error_type=type(exc).__name__)
         return _oauth_error_redirect(frontend_url, "provider_error")
     except Exception:  # noqa: BLE001 — never surface a JSON 500 to the browser
         logger.exception("oauth_callback_failed", provider=slug)

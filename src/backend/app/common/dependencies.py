@@ -870,11 +870,12 @@ def get_auth_service() -> AuthService:
         # throttle store would still redeem codes, only without a lockout.
         device_pairing_code_store=get_device_pairing_code_store(),
         device_pairing_throttle_store=get_device_pairing_throttle_store(),
+        tombstone_salt=settings.erasure_tombstone_salt,
     )
 
 
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo())
+    return UserService(get_user_repo(), get_refresh_token_repo(), tombstone_salt=settings.erasure_tombstone_salt)
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────
@@ -1670,6 +1671,7 @@ def get_privacy_service():
         personal_data_repo=get_personal_data_repo(),
         erasure_executor=get_erasure_executor(),
         tombstone_salt=settings.erasure_tombstone_salt,
+        retention=get_retention_service(),
     )
 
 

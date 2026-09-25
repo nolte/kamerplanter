@@ -21,7 +21,12 @@ def cleanup_expired_tokens() -> dict:
 
 @celery_app.task(name="app.tasks.auth_tasks.cleanup_unverified_accounts")
 def cleanup_unverified_accounts() -> dict:
-    """Erase unverified accounts older than 72 hours through the full Art. 17 plan.
+    """Erase unverified accounts past the NFR-011 R-02 period through the full Art. 17 plan.
+
+    The period is ``settings.retention_unverified_account_days`` (default 7,
+    NFR-011 R-02 / REQ-023 AK-17), read through :class:`RetentionService`, the
+    one place the R-02 cutoff is computed. Until #1772 the task carried a
+    literal 72 hours — a period neither the spec nor a setting named.
 
     Each candidate goes through :meth:`PrivacyService.erase_account_now` (#1767):
     the same persisted erasure request, ``unreached`` gate and retry the
@@ -45,10 +50,10 @@ def cleanup_unverified_accounts() -> dict:
         ``reason`` when blocked.
     """
     from app.common.async_bridge import run_async
-    from app.common.dependencies import get_privacy_service, get_user_repo
+    from app.common.dependencies import get_privacy_service, get_retention_service, get_user_repo
     from app.common.exceptions import FeatureNotConfiguredError
 
-    cutoff = (datetime.now(UTC) - timedelta(hours=72)).isoformat()
+    cutoff = get_retention_service().unverified_account_cutoff(datetime.now(UTC)).isoformat()
     candidates = [user.key for user in get_user_repo().get_unverified_before(cutoff) if user.key]
     result: dict = {"removed": 0, "failed": 0, "deferred": 0, "skipped": 0, "blocked": 0}
     if not candidates:
@@ -240,7 +245,9 @@ def send_duplicate_registration_notice(user_key: str) -> dict:
     except Exception as exc:  # noqa: BLE001 - a delivery failure is logged, never retried
         # No retry: the window is already claimed, so a retry would return
         # "suppressed" and only cost a queue slot.
-        logger.error("duplicate_registration_notice_failed", email_sha256=digest, error=str(exc))
+        # The type only: ``SMTPRecipientsRefused`` embeds the refused address —
+        # a third party's — in its text (#1773 review GDPR-004).
+        logger.error("duplicate_registration_notice_failed", email_sha256=digest, error_type=type(exc).__name__)
         return {"status": "failed", "reason": "delivery_error"}
 
     logger.info("duplicate_registration_notice_sent", email_sha256=digest)

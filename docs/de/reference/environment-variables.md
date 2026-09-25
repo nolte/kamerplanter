@@ -72,7 +72,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anonymisierung personenbezogener Daten (siehe [Datenschutz (DSGVO)](../user-guide/privacy.md)) und sind vom Betriebsmodus unabhängig — sie gelten sowohl im Light- als auch im Full-Modus.
 
-<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours, retention_unverified_account_days, retention_erasure_audit_retention_years); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
@@ -82,6 +82,8 @@ Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anony
 | `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | Nein | Aufbewahrungsdauer eines generierten Datenexports (Art. 15/20 DSGVO), bevor er automatisch gelöscht wird. |
 | `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | Nein | Frist, nach der ein zur Löschung markiertes Konto endgültig (Hard-Delete) entfernt wird. |
 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung. |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | Nein | Anzahl Tage nach der Registrierung, nach denen ein nie bestätigtes Konto automatisch gelöscht wird (NFR-011 R-02). Minimum: `1`. |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | Nein | Anzahl Jahre, die ein abgeschlossener Löschungs-Antrag (`erasure_requests`, `status=completed`) als Rechenschaftsnachweis (Art. 5 Abs. 2 DSGVO) aufbewahrt wird, bevor er endgültig gelöscht wird (NFR-011 R-06). Gezählt in Kalenderjahren. Minimum: `1`. |
 
 !!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion"
     Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden.

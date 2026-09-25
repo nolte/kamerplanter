@@ -53,9 +53,10 @@ DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL", "multilingual-e5-base")
 #: Items in ``texts``. The caller slices to at most 32 per request.
 MAX_TEXTS = 64
 
-#: Characters per text. Tokenization truncates each text to 512 tokens anyway,
-#: so text past this bound could never change a vector; it would only cost
-#: tokenizer time. The largest corpus chunk is 3524 characters.
+#: Characters per text. Tokenization truncates each text at the model's
+#: published window anyway (512 tokens for e5, 128 for MiniLM — #1774), so text
+#: past this bound could never change a vector; it would only cost tokenizer
+#: time. The largest corpus chunk is 3524 characters.
 MAX_TEXT_CHARS = 16384
 
 #: Characters in ``prefix``. The caller sends ``"query: "`` or ``"passage: "``.

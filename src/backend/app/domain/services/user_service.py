@@ -2,6 +2,7 @@ import structlog
 
 from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
+from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User, UserProfile, UserProfileUpdate, tombstone_email
@@ -14,9 +15,13 @@ class UserService:
         self,
         user_repo: IUserRepository,
         refresh_token_repo: IRefreshTokenRepository,
+        tombstone_salt: str = "",
     ) -> None:
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
+        # #1773 — salt of the subject reference ``account_deleted`` logs instead
+        # of the account key (see ``ErasureEngine.log_subject``).
+        self._tombstone_salt = tombstone_salt
 
     def get_profile(self, user_key: UserKey) -> UserProfile:
         user = self._user_repo.get_or_raise(user_key)
@@ -119,7 +124,11 @@ class UserService:
                 "avatar_url": None,
             },
         )
-        logger.info("account_deleted", user_key=user_key)
+        logger.info("account_deleted", subject=self._log_subject(user_key))
+
+    def _log_subject(self, user_key: str) -> str:
+        """The salted reference a log line names the account by (#1773, NFR-011)."""
+        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
 
     @staticmethod
     def _to_profile(user: User) -> UserProfile:
