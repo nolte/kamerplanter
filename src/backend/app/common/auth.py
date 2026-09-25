@@ -492,6 +492,27 @@ def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
     return bool(membership and membership.is_active and membership.role == TenantRole.LEAD)
 
 
+def refuse_in_light_mode() -> None:
+    """Refuse a request that would set a credential or issue an access token in light mode (#1844).
+
+    A light-mode installation (REQ-027) has one account — the seeded system user
+    every request resolves to *without authentication* — and it has no password.
+    A credential set on it, or an invitation token issued in its name, proves
+    nothing about who asked for it: the caller was never authenticated. It is
+    inert while the instance stays in light mode and becomes a working way in —
+    a sign-in of the operator account, or a membership in its tenant — once the
+    instance runs in ``full``, for whoever asked first. The same reasoning
+    already refuses account and tenant erasure in light mode.
+
+    Read at request time rather than wired into a service, so no construction
+    site can forget the mode.
+    """
+    if settings.kamerplanter_mode == "light":
+        raise ForbiddenError(
+            "The account of a light-mode installation cannot be given sign-in credentials or invitations."
+        )
+
+
 def require_platform_admin(
     user: User = Depends(get_current_user),
     platform_admin: bool = Depends(get_is_platform_admin),

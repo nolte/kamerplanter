@@ -216,6 +216,8 @@ Content-Type: application/json
 
 Eine mit API-Key authentifizierte Anfrage wird mit `403 Forbidden` abgelehnt — ein API-Key kann das eigene Passwort nicht ändern.
 
+Im Light-Modus (`KAMERPLANTER_MODE=light`) antwortet die Route mit `403 Forbidden`. Das einzige Konto der Instanz wird von jeder Anfrage ohne Anmeldung benutzt; ein dort gesetztes Passwort sagt nichts darüber, wer es gesetzt hat — und es würde nach dem Wechsel in den Full-Modus zur gültigen Anmeldung.
+
 ---
 
 ## Step-up-Bestätigung für unumkehrbare Kontoaktionen
