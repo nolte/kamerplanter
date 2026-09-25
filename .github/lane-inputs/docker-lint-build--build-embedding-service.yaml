@@ -11,7 +11,7 @@ gate:
   filter: embedding-service
 status: derived
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
 replay_seconds: 1
 job_spec_sha256: 73548dee7b2fb3d3dcb5cca49217c0aa2ab7fdf891e1fe2a3e35bbe074bbbab1
 invocations:

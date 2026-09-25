@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
 replay_seconds: 1
 job_spec_sha256: fb788497fc80674eb8c2ed056871164c8ad65c3e971fad292abc77266e3593de
 invocations:
@@ -37,3 +37,4 @@ unrecorded_invocations:
     filter; the script itself is too.
 test_modules: []
 readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

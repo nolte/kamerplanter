@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
-replay_seconds: 1679
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+replay_seconds: 1349
 job_spec_sha256: 6b0437e7681491d6907549831063861ad4bc3ed444939473902f62dedb79c0bc
 invocations:
 - command: task lint:backend
@@ -49,7 +49,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 4888
+  untracked_reads_dropped: 4889
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -4735,6 +4735,8 @@ reads:
 - src/knowledge-service/tests/test_embedding.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
+- src/knowledge-service/tests/test_reranker_settings.py
+- src/knowledge-service/tests/test_service_rerank_budget.py
 - src/knowledge-service/tests/test_vectordb_sync_guard.py
 - src/libs/
 - src/libs/kp_errortracking/
@@ -6479,15 +6481,108 @@ readers:
   - tests/e2e/pyproject.toml
   - tests/e2e/uv.lock
   src/backend/tests/unit/guards/test_ml_sidecar_limits.py:
+  - .audits/
+  - .audits/adr-008-phase-0-inventory/
+  - .audits/agent-review/
+  - .audits/capability-reach/
+  - .audits/cicd-audit/
+  - .audits/e2e-core-function-coverage/
+  - .audits/e2e-tcid-drift/
+  - .audits/e2e-tcid-drift/2026-07-26/
+  - .audits/issue-orchestrate/
+  - .audits/issue-orchestrate/1098/
+  - .audits/issue-orchestrate/737/
+  - .audits/issue-orchestrate/749/
+  - .audits/issue-orchestrate/754/
+  - .audits/issue-orchestrate/835/
+  - .audits/issue-pattern-analysis/
+  - .audits/open-issues-execution/
+  - .audits/plans/
+  - .audits/skill-review/
+  - .audits/source-code-review/
+  - .claude/
+  - .claude/agent-memory/
+  - .claude/agent-memory/e2e-testcase-extractor/
+  - .claude/agents/
+  - .claude/plugin-adoption.yml
+  - .claude/projects/
+  - .claude/projects/-home-nolte-repos-github-kamerplanter/
+  - .claude/projects/-home-nolte-repos-github-kamerplanter/memory/
+  - .claude/skills/
+  - .claude/skills/check-architecture/
+  - .claude/skills/check-helm/
+  - .claude/skills/check-pest-data/
+  - .claude/skills/check-pest-data/examples/
+  - .claude/skills/check-pest-data/examples/fixtures/
+  - .claude/skills/check-pest-data/examples/fixtures/clean-whitefly.yaml
+  - .claude/skills/check-pest-data/examples/fixtures/honeydew-on-spider-mite.yaml
+  - .claude/skills/check-pest-data/examples/fixtures/inverted-humidity.yaml
+  - .claude/skills/check-retention/
+  - .claude/skills/check-seed-data/
+  - .claude/skills/check-slo/
+  - .claude/skills/check-ui-crud/
+  - .claude/skills/deploy-ha/
+  - .claude/skills/gen-knowledge/
+  - .claude/skills/ha-derive/
+  - .claude/skills/implement/
+  - .claude/skills/plant-lifecycle/
+  - .claude/skills/req-coverage-audit/
+  - .claude/skills/req-coverage-audit/expectations.yaml
+  - .claude/skills/review-spec/
+  - .claude/skills/spec-status/
+  - .claude/skills/verify-ha/
+  - .github/
+  - .github/boring-cyborg.yml
+  - .github/release-automation.yml
+  - .github/release-drafter.yml
+  - .github/release-skill-layer.yml
+  - .github/renovate-pins.yaml
+  - .github/settings.yml
+  - .github/stale.yml
+  - .github/styles/
+  - .github/styles/config/
+  - .github/styles/config/vocabularies/
+  - .github/styles/config/vocabularies/kamerplanter/
+  - .pre-commit-config.yaml
+  - .spectral.yaml
+  - .vscode/
+  - brand/
+  - catalog-info.yaml
   - docker/
+  - docker/knowledge/
   - docker/knowledge/Dockerfile
   - docker/reranker-service/
   - docker/reranker-service/Dockerfile
+  - docker/reranker-service/golden/
   - docker/reranker-service/limits.py
   - docker/reranker-service/main.py
   - docker/reranker-service/pyproject.toml
   - docker/reranker-service/uv.lock
+  - docker/vectordb/
   - docker/vectordb/Dockerfile
+  - kind-config.yaml
+  - mkdocs.yml
+  - project/
+  - project/features/
+  - project/maturity/
+  - project/portfolio.yml
+  - project/reach-probes/
+  - project/reach-probes/_not-constructible.yml
+  - project/reach-probes/capability-readme-reranker-endpoint-answers.yml
+  - project/reach-probes/endpoint-admin-user-delete-persists-proof.yml
+  - project/reach-probes/endpoint-admin-user-delete-reaches-rows.yml
+  - project/reach-probes/endpoint-zap-postmerge-push-runs.yml
+  - project/reach-probes/inventory-erasure-plan-reaches-rows.yml
+  - project/reach-probes/inventory-export-manifest-sources-populated.yml
+  - project/reach-probes/inventory-personal-data-inventories-execute.yml
+  - project/reach-probes/requirement-req025-art17-pest-prototype-cleanup.yml
+  - project/reach-probes/requirement-req025-art17-reference-index-cleanup.yml
+  - project/reach-probes/requirement-req025-art17-storage-cleanup-reaches-files.yml
+  - project/reach-probes/requirement-req025-art17-storage-renditions-erased.yml
+  - project/requirements/
+  - project/sprints/
+  - scripts/kami/
+  - skaffold.yaml
   - spec/knowledge/rag/
   - spec/knowledge/rag/allgemein/
   - spec/knowledge/rag/allgemein/anfaenger-erste-schritte.yaml
@@ -6562,6 +6657,142 @@ readers:
   - spec/knowledge/rag/umwelt/vpd-optimierung.yaml
   - spec/knowledge/rag/vermehrung/
   - spec/knowledge/rag/vermehrung/vermehrungsmethoden.yaml
+  - src/
+  - src/frontend/
+  - src/frontend/.env.example
+  - src/frontend/docker-entrypoint.d/
+  - src/frontend/public/
+  - src/frontend/public/icons/
+  - src/frontend/scripts/
+  - src/frontend/src/
+  - src/frontend/src/api/
+  - src/frontend/src/assets/
+  - src/frontend/src/assets/brand/
+  - src/frontend/src/assets/brand/illustrations/
+  - src/frontend/src/assets/brand/illustrations/features/
+  - src/frontend/src/assets/brand/illustrations/onboarding/
+  - src/frontend/src/assets/brand/illustrations/phases/
+  - src/frontend/src/assets/brand/illustrations/states/
+  - src/frontend/src/assets/illustrations/
+  - src/frontend/src/assets/illustrations/errors/
+  - src/frontend/src/auth/
+  - src/frontend/src/components/
+  - src/frontend/src/components/admin/
+  - src/frontend/src/components/ai/
+  - src/frontend/src/components/common/
+  - src/frontend/src/components/dashboard/
+  - src/frontend/src/components/dashboard/widgets/
+  - src/frontend/src/components/diagnosis/
+  - src/frontend/src/components/diary/
+  - src/frontend/src/components/form/
+  - src/frontend/src/components/glossary/
+  - src/frontend/src/components/ha/
+  - src/frontend/src/components/identification/
+  - src/frontend/src/components/kiosk/
+  - src/frontend/src/components/layout/
+  - src/frontend/src/components/pests/
+  - src/frontend/src/components/print/
+  - src/frontend/src/components/privacy/
+  - src/frontend/src/components/sensors/
+  - src/frontend/src/components/tanks/
+  - src/frontend/src/components/water/
+  - src/frontend/src/components/weather/
+  - src/frontend/src/config/
+  - src/frontend/src/contracts/
+  - src/frontend/src/hooks/
+  - src/frontend/src/i18n/
+  - src/frontend/src/i18n/locales/
+  - src/frontend/src/i18n/locales/de/
+  - src/frontend/src/i18n/locales/en/
+  - src/frontend/src/kiosk/
+  - src/frontend/src/layouts/
+  - src/frontend/src/lib/
+  - src/frontend/src/observability/
+  - src/frontend/src/pages/
+  - src/frontend/src/pages/admin/
+  - src/frontend/src/pages/aquaponik/
+  - src/frontend/src/pages/aufgaben/
+  - src/frontend/src/pages/auth/
+  - src/frontend/src/pages/duengung/
+  - src/frontend/src/pages/duengung/nutrient-plan-detail/
+  - src/frontend/src/pages/durchlaeufe/
+  - src/frontend/src/pages/environment/
+  - src/frontend/src/pages/ernte/
+  - src/frontend/src/pages/giessprotokoll/
+  - src/frontend/src/pages/glossar/
+  - src/frontend/src/pages/inventree/
+  - src/frontend/src/pages/kalender/
+  - src/frontend/src/pages/ki-assistent/
+  - src/frontend/src/pages/ki-diagnose/
+  - src/frontend/src/pages/ki-recognition/
+  - src/frontend/src/pages/kiosk/
+  - src/frontend/src/pages/onboarding/
+  - src/frontend/src/pages/onboarding/components/
+  - src/frontend/src/pages/onboarding/steps/
+  - src/frontend/src/pages/pflanzen/
+  - src/frontend/src/pages/pflanzen/calculations/
+  - src/frontend/src/pages/pflanzen/diary/
+  - src/frontend/src/pages/pflanzen/photos/
+  - src/frontend/src/pages/pflanzenschutz/
+  - src/frontend/src/pages/pflege/
+  - src/frontend/src/pages/pflege/components/
+  - src/frontend/src/pages/phasen/
+  - src/frontend/src/pages/post-harvest/
+  - src/frontend/src/pages/propagation/
+  - src/frontend/src/pages/stammdaten/
+  - src/frontend/src/pages/stammdaten/species-detail/
+  - src/frontend/src/pages/standorte/
+  - src/frontend/src/pages/tagebuch/
+  - src/frontend/src/pages/tenants/
+  - src/frontend/src/pages/ueberwinterung/
+  - src/frontend/src/routes/
+  - src/frontend/src/store/
+  - src/frontend/src/store/slices/
+  - src/frontend/src/styles/
+  - src/frontend/src/test/
+  - src/frontend/src/test/a11y/
+  - src/frontend/src/test/api/
+  - src/frontend/src/test/api/endpoints/
+  - src/frontend/src/test/components/
+  - src/frontend/src/test/components/admin/
+  - src/frontend/src/test/components/ai/
+  - src/frontend/src/test/components/dashboard/
+  - src/frontend/src/test/components/diagnosis/
+  - src/frontend/src/test/components/glossary/
+  - src/frontend/src/test/components/identification/
+  - src/frontend/src/test/components/layout/
+  - src/frontend/src/test/components/pests/
+  - src/frontend/src/test/components/privacy/
+  - src/frontend/src/test/components/tanks/
+  - src/frontend/src/test/config/
+  - src/frontend/src/test/contracts/
+  - src/frontend/src/test/guards/
+  - src/frontend/src/test/hooks/
+  - src/frontend/src/test/i18n/
+  - src/frontend/src/test/kiosk/
+  - src/frontend/src/test/layouts/
+  - src/frontend/src/test/lib/
+  - src/frontend/src/test/mocks/
+  - src/frontend/src/test/observability/
+  - src/frontend/src/test/pages/
+  - src/frontend/src/test/pages/onboarding/
+  - src/frontend/src/test/routes/
+  - src/frontend/src/test/store/
+  - src/frontend/src/test/theme/
+  - src/frontend/src/test/utils/
+  - src/frontend/src/test/validation/
+  - src/frontend/src/theme/
+  - src/frontend/src/types/
+  - src/frontend/src/utils/
+  - src/frontend/src/validation/
+  - src/inference-service/
+  - src/inference-service/app/
+  - src/inference-service/app/observability/
+  - src/inference-service/app/vectordb/
+  - src/inference-service/app/vectordb/migrations/
+  - src/inference-service/scripts/
+  - src/inference-service/tests/
+  - src/knowledge-service/
   - src/knowledge-service/app/
   - src/knowledge-service/app/__init__.py
   - src/knowledge-service/app/auth.py
@@ -6589,6 +6820,23 @@ readers:
   - src/knowledge-service/app/vectordb/migrations/
   - src/knowledge-service/app/vectordb/repository.py
   - src/knowledge-service/app/vectordb/schema.py
+  - src/knowledge-service/tests/
+  - src/libs/
+  - src/libs/kp_errortracking/
+  - src/libs/kp_errortracking/kp_errortracking/
+  - src/libs/kp_vectordb/
+  - src/libs/kp_vectordb/kp_vectordb/
+  - src/libs/kp_vectordb/tests/
+  - test-reports/
+  - test-reports/rag-eval/
+  - tests/
+  - tests/e2e/
+  - tests/e2e/features/
+  - tests/e2e/fixtures/
+  - tests/e2e/pages/
+  - tests/e2e_selftest/
+  - tools/
+  - tools/rag-eval/
   src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py:
   - .audits/
   - .audits/adr-008-phase-0-inventory/
@@ -8436,6 +8684,8 @@ readers:
   - src/knowledge-service/tests/test_embedding.py
   - src/knowledge-service/tests/test_prompt_engine.py
   - src/knowledge-service/tests/test_reranker.py
+  - src/knowledge-service/tests/test_reranker_settings.py
+  - src/knowledge-service/tests/test_service_rerank_budget.py
   - src/knowledge-service/tests/test_vectordb_sync_guard.py
   - src/libs/kp_errortracking/kp_errortracking/__init__.py
   - src/libs/kp_errortracking/kp_errortracking/error_tracking.py
@@ -9973,3 +10223,4 @@ readers:
   - src/frontend/src/validation/
   - src/frontend/src/validation/zodErrorMap.ts
   - src/frontend/src/vite-env.d.ts
+readers_scope_sha256: a0c131b1ebd832bd85ccf673df72a6ba0cb4c11f3ed9bb313648b83a3fe1f6ac

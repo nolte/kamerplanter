@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
-replay_seconds: 5
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+replay_seconds: 6
 job_spec_sha256: 1e40e3da4b7e855c1ee6a261c17b7335c51d7e786a521045a9454e8a66e17004
 invocations:
 - command: task deps:sync:kp-vectordb
@@ -63,3 +63,4 @@ test_modules:
 - src/libs/kp_vectordb/tests/test_connection.py
 - src/libs/kp_vectordb/tests/test_schema.py
 readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

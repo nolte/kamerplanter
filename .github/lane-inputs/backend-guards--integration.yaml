@@ -11,8 +11,8 @@ gate:
   filter: integration
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
-replay_seconds: 231
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+replay_seconds: 374
 job_spec_sha256: 22b6c7d8252f275f366c3a5a3637390a59fac1a15dd6ddd082362396b6597fac
 invocations:
 - command: task test:backend:integration
@@ -1251,3 +1251,4 @@ test_modules:
 - src/backend/tests/integration/test_v0060_mark_reference_contributions.py
 - src/backend/tests/integration/test_v0061_mark_pest_prototype_contributions.py
 readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

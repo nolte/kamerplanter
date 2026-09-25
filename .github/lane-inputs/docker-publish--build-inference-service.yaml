@@ -11,8 +11,8 @@ gate:
   filter: inference-service
 status: derived
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
-replay_seconds: 5
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+replay_seconds: 1
 job_spec_sha256: fac76ce91631a472eabe161f574fcf1e4ca9fe4232b9ffab783bd840e47f8075
 invocations:
 - command: derive-docker --context src/inference-service --dockerfile src/inference-service/Dockerfile

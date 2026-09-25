@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
-replay_seconds: 45
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+replay_seconds: 34
 job_spec_sha256: cdd19fd2744aa844284c6d1c17c2d0d50b118c18891c3b6710253930f5023264
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -865,3 +865,4 @@ reads:
 - src/backend/scripts/export_openapi.py
 test_modules: []
 readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

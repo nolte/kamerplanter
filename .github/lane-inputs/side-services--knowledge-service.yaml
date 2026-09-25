@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
 replay_seconds: 9
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
@@ -25,7 +25,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1120
+  untracked_reads_dropped: 1122
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
@@ -80,6 +80,8 @@ reads:
 - src/knowledge-service/tests/test_embedding.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
+- src/knowledge-service/tests/test_reranker_settings.py
+- src/knowledge-service/tests/test_service_rerank_budget.py
 - src/knowledge-service/tests/test_vectordb_sync_guard.py
 - src/knowledge-service/uv.lock
 - src/libs/kp_vectordb/kp_vectordb/config.py
@@ -91,5 +93,8 @@ test_modules:
 - src/knowledge-service/tests/test_embedding.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
+- src/knowledge-service/tests/test_reranker_settings.py
+- src/knowledge-service/tests/test_service_rerank_budget.py
 - src/knowledge-service/tests/test_vectordb_sync_guard.py
 readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

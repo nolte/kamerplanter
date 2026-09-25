@@ -11,7 +11,7 @@ gate:
   filter: reranker-service
 status: derived
 measured_on: '2026-09-25'
-measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
 replay_seconds: 1
 job_spec_sha256: e2ebb8dbfecfd1901a6df1f2d687d2943a2c8a965321fea64ca3abe2925ea780
 invocations:
