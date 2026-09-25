@@ -2,19 +2,21 @@
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
 # Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (#1788 personal-tenant probes; re-derivation after #1823 with unchanged expectations).
 #
-# Re-derived after #1823: #1791 squash-merged as 499c890d0 and changed router.py (delete_tenant
-# now takes a step-up body: confirm_slug + password, plus the api-key flag and a membership
-# re-proof in TenantService.delete_tenant). derived_from is now that commit. The act script
-# scripts/reach/admin_delete_tenant.py already sends the step-up; origin stays platform_admin and
-# TenantErasureEngine.INVENTORY is byte-identical to 0d7276476. Observe step, targets and
-# expectation unchanged (96/96 recounted at 9e64aec20).
-id: endpoint-admin-tenant-delete-reaches-rows
-summary: collections of the executing tenant-erasure plan left without the tenant's rows after the platform-admin tenant delete
+# Derived for #1788 (#1829, squash 9e64aec20) against develop. Anchored on router.py like its
+# siblings on DELETE /admin/platform/users/{key}; derived_from is router.py's last develop commit
+# 499c890d0. Note: delete_user's docstring does not mention the personal-tenant step; the explicit
+# declaration is spec/nfr/NFR-011 §6 AK-PT-01 (tagged Integration + Reach (T2)) and §2.3.
+# Expectation: the same 96-item set as endpoint-admin-tenant-delete-reaches-rows (same inventory,
+# origin account_erasure; recounted at 9e64aec20).
+id: endpoint-admin-user-delete-erases-personal-tenant
+summary: collections of the executing tenant-erasure inventory left without the subject's sole-owned personal tenant's rows
+  after the platform-admin user delete
 declaration:
   source: endpoint
   path: src/backend/app/api/v1/admin/platform/router.py
-  location: 'DELETE /admin/platform/tenants/{key} (delete_tenant) — runs the declared tenant-erasure inventory (TenantErasureEngine.INVENTORY,
-    #1769) via TenantService.delete_tenant'
+  location: 'DELETE /admin/platform/users/{key} (delete_user) — erases every personal tenant the subject used alone through
+    the tenant-erasure inventory before the ArangoDB plan runs (TenantService.erase_personal_tenant_of, origin account_erasure,
+    #1788)'
 tier: T2
 expected:
   kind: set
@@ -119,8 +121,9 @@ expected:
 derived_from: 499c890d024c0e082d4c49a32a7ab386ca13a1e8
 environment:
 - reach:stack:up
-- reach:seed:erasure-tenant
-- reach:erasure:admin-delete-tenant
+- reach:seed:privacy-subject
+- reach:seed:personal-tenant
+- reach:erasure:admin-delete-subject
 teardown:
 - reach:stack:down
 observe:
@@ -128,9 +131,9 @@ observe:
   - python3
   - scripts/reach/observe_tenant_residue.py
   - --tenant
-  - reach-tenant
+  - reach-personal-tenant
   timeout_seconds: 300
 approval:
-  observation_digest: 573d28565bbf85a7a0e63f16b643b286a465e9b95507b793c5621a8000401c7a
+  observation_digest: 888ee4b15ca04b4436986ed2b7620ca3e4546f01409998fadbcddba4452d81b1
   approved_by: nolte
   approved_at: '2026-09-25T15:41:31Z'
