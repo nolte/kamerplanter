@@ -1,0 +1,42 @@
+# Approved reach probe; derived by the orchestrating session for #1770, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous #1770 run (2026-09-25, capability-reach-audit gate included), relayed by the
+# orchestrating session — not an interactive batch answer. It records that the targets and the
+# observe argv below run on the operator's machine with their environment, as `task` in this
+# repository does.
+id: requirement-req025-art17-storage-shared-file-kept
+summary: a photo the subject and a co-holder both uploaded, after the subject's erasure — the co-holder's file and
+  record stay, the subject's record is gone, the subject's unshared photo is deleted
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: AK-OS-08 (L1239)
+tier: T2
+expected:
+  kind: set
+  unit: state of the shared object, its records and the subject's control object after erasure finalisation
+  values:
+  - control-file/deleted
+  - holder-file/present
+  - holder-link/present
+  - subject-link/absent
+derived_from: 4f611fc1ec8d71b8cc37455e3f0ab4443b37a62b
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:seed:shared-file
+- reach:erasure:finalise-for-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_shared_file.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-25T14:36:22Z'
+  approved_by: nolte
+  observation_digest: 4bf6a8bda34a95972899a0456799f28a9e2a37c651696a8254ca5879d4e127f2
