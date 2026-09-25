@@ -6,7 +6,9 @@ from cryptography.fernet import Fernet, InvalidToken
 logger = structlog.get_logger()
 
 #: Version byte of every Fernet token (spec: ``0x80``), base64url-encoded: every
-#: token starts with ``gAAAAA`` and is at least 57 bytes before encoding.
+#: token starts with ``gAAAAA`` and is at least 73 bytes before encoding
+#: (version 1 + timestamp 8 + IV 16 + one AES block 16 + HMAC 32), i.e. 100
+#: base64url characters.
 _FERNET_TOKEN_PREFIX = "gAAAAA"
 _MIN_FERNET_TOKEN_LENGTH = 100
 
@@ -60,6 +62,14 @@ class EncryptionEngine:
 
     def decrypt(self, ciphertext: str) -> str:
         if not self._enabled or not self._fernet:
+            # Without a key nothing can be opened — but a stored *token* is still
+            # ciphertext, and handing it out as the secret is the failure #1859
+            # closes (a DEBUG worker without FERNET_KEY passes the start gate).
+            if _looks_like_a_fernet_token(ciphertext):
+                logger.error("decryption_key_missing")
+                raise SecretKeyMismatchError(
+                    "A stored secret is encrypted but no FERNET_KEY is configured to decrypt it."
+                )
             return ciphertext
         try:
             return self._fernet.decrypt(ciphertext.encode()).decode()

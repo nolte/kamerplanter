@@ -83,3 +83,16 @@ class TestDecryptionFallback:
         engine = EncryptionEngine(Fernet.generate_key().decode())
 
         assert engine.decrypt(legacy) == legacy
+
+
+class TestPassthroughRefusesCiphertext:
+    """#1873 review: a key-less engine (a DEBUG worker) must not hand out a stored token either."""
+
+    def test_a_token_is_refused_by_an_engine_without_a_key(self):
+        ciphertext = EncryptionEngine(Fernet.generate_key().decode()).encrypt("hunter2-client-credential")
+
+        with pytest.raises(SecretKeyMismatchError):
+            EncryptionEngine("").decrypt(ciphertext)
+
+    def test_plaintext_still_passes_through_an_engine_without_a_key(self):
+        assert EncryptionEngine("").decrypt("my-plain-secret") == "my-plain-secret"
