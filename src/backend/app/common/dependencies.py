@@ -527,7 +527,9 @@ def get_tank_repo() -> ArangoTankRepository:
 
 
 def get_tank_service() -> TankService:
-    return TankService(get_tank_repo(), TankEngine(), fertilizer_repo=get_fertilizer_repo())
+    return TankService(
+        get_tank_repo(), TankEngine(), fertilizer_repo=get_fertilizer_repo(), site_anchors=get_site_repo()
+    )
 
 
 def get_task_entity_guard():

@@ -7,15 +7,39 @@ from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
 
 
 class TankService:
     def __init__(
-        self, repo: ITankRepository, engine: TankEngine, fertilizer_repo: IFertilizerRepository | None = None
+        self,
+        repo: ITankRepository,
+        engine: TankEngine,
+        fertilizer_repo: IFertilizerRepository | None = None,
+        site_anchors: SiteAnchorSource | None = None,
     ) -> None:
         self._repo = repo
         self._engine = engine
         self._fertilizer_repo = fertilizer_repo
+        # The location → site reads that decide whose a location is (L3 of the
+        # #1864 sweep). Without them a location reference is refused.
+        self._site_anchors = site_anchors
+
+    def _require_owned_location(self, location_key: str | None, tenant_key: str) -> None:
+        """Refuse a ``location_key`` that is not the tenant's (#1864 sweep, L3).
+
+        A tank's ``location_key`` was stored as given and a ``HAS_TANK`` edge
+        written from the named location — any tenant's. ``GET …/tanks/{key}/
+        active-nutrient-plans`` then read the runs at that location unscoped and
+        returned another tenant's runs, plans and fertilizers. Anchored on the
+        location's site (a location carries no usable ``tenant_key``, #1397); a
+        foreign, site-less or unknown location answers 404.
+        """
+        if not location_key or not tenant_key:
+            return
+        if self._site_anchors is None:
+            raise NotFoundError("Location", location_key)
+        resolve_owned_location(self._site_anchors, location_key, tenant_key)
 
     # ── Tank CRUD ──────────────────────────────────────────────────────
 
@@ -39,7 +63,10 @@ class TankService:
         tank: Tank,
         irrigation_system: IrrigationSystem | None = None,
         create_default_schedules: bool = True,
+        *,
+        tenant_key: str,
     ) -> Tank:
+        self._require_owned_location(tank.location_key, tenant_key)
         # Validate assignment if location has irrigation info
         if irrigation_system is not None:
             self._engine.validate_tank_assignment(tank.tank_type, irrigation_system)
@@ -61,8 +88,10 @@ class TankService:
 
         return created
 
-    def update_tank(self, key: TankKey, data: dict) -> Tank:
-        tank = self.get_tank(key)
+    def update_tank(self, key: TankKey, data: dict, *, tenant_key: str) -> Tank:
+        tank = self.get_tank(key, tenant_key)
+        if "location_key" in data:
+            self._require_owned_location(data["location_key"], tenant_key)
         allowed_fields = {
             "name",
             "tank_type",

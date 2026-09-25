@@ -95,7 +95,7 @@ def create_tank(
 ):
     """Create a tank for the tenant."""
     tank = Tank(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_tank(tank)
+    created = service.create_tank(tank, tenant_key=ctx.tenant_key)
     return _tank_response(created)
 
 
@@ -127,9 +127,8 @@ def update_tank(
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's configuration."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_tank(key, data)
+    updated = service.update_tank(key, data, tenant_key=ctx.tenant_key)
     return _tank_response(updated)
 
 

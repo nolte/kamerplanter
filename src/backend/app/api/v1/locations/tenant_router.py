@@ -75,7 +75,7 @@ def create_location(
     """Create a location within a site."""
     service.get_site(body.site_key, tenant_key=ctx.tenant_key)
     location = Location(**body.model_dump())
-    created = service.create_location(location)
+    created = service.create_location(location, tenant_key=ctx.tenant_key)
     return to_response(created, LocationResponse)
 
 
