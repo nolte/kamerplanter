@@ -101,3 +101,26 @@ class TestNotifyDuringQuietHours:
 
         assert result["status"] == "queued_quiet_hours"
         channel.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_batch_channel_logs_no_push_endpoint_path(engine, channel) -> None:
+    """#1796: a channel's error detail can carry a push endpoint whose path is the device token."""
+    import structlog.testing
+
+    token = "dEvIcE-ToKeN-1796"
+    channel.supports_batching = True
+    channel.send_batch = AsyncMock(
+        return_value=ChannelResult(
+            channel_key="home_assistant",
+            success=False,
+            error=f"expired:https://fcm.googleapis.com/fcm/send/{token} | https://push.example/x?auth={token}: boom",
+        )
+    )
+
+    with structlog.testing.capture_logs() as logs:
+        await engine.notify_batch("u1", "t1", [_notification("care_watering")])
+
+    (entry,) = [e for e in logs if e["event"] == "batch_channel_failed"]
+    assert token not in repr(logs)
+    assert "fcm.googleapis.com" in entry["error"]

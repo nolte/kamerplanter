@@ -7,6 +7,7 @@ from typing import Literal
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Query
 
+from app.access_log import install_access_log_redaction
 from app.auth import check_insecure_config, require_service_token
 from app.config import settings
 from app.embedding import EmbeddingEngine
@@ -32,6 +33,9 @@ from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
 
+# The question a person typed reaches the access log as ``/search?q=…`` (#1796).
+install_access_log_redaction()
+
 #: Single source for the version reported to OpenAPI and used as the release
 #: fallback, so the two can never disagree about which build is running.
 SERVICE_VERSION = "1.0.0"
@@ -54,6 +58,7 @@ _vec_conn: VectorDbConnection | None = None
 async def lifespan(app: FastAPI):
     """Application lifespan: connect to vectordb, build components, and cleanup on shutdown."""
     global _service, _ingestor, _vec_conn
+    install_access_log_redaction()
 
     # Fail-fast on default/missing secrets before touching any dependency (AP-4,
     # INF-S4). Skipped in debug mode for local development / tests.

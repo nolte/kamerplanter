@@ -141,7 +141,7 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log), `smtp`, `resend` |
+| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log, Link nur mit `DEBUG=true`), `smtp`, `resend` (siehe Hinweis unten) |
 | `SMTP_HOST` | `localhost` | Nein | SMTP-Server-Hostname |
 | `SMTP_PORT` | `587` | Nein | SMTP-Port |
 | `SMTP_USERNAME` | — | Nein | SMTP-Benutzername |
@@ -149,7 +149,22 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 | `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails |
 | `SMTP_USE_TLS` | `true` | Nein | STARTTLS für SMTP aktivieren |
 
-Im Entwicklungsmodus (`EMAIL_ADAPTER=console`) werden E-Mails nicht gesendet, sondern im Backend-Log ausgegeben.
+Im Entwicklungsmodus (`EMAIL_ADAPTER=console`) werden E-Mails nicht gesendet, sondern im
+Backend-Log ausgegeben. Den Bestätigungs- oder Passwort-Reset-Link enthält diese
+Protokollzeile aber nur, wenn zusätzlich `DEBUG=true` gesetzt ist — sein Token übernimmt
+sonst das Konto. Ohne `DEBUG=true` steht dort lediglich, dass keine E-Mail zugestellt
+wurde, ohne Token. Startet die API mit `EMAIL_ADAPTER=console` und `DEBUG=false` — der
+Fall bei einer produktiven Installation ohne SMTP-Konfiguration, da das Helm-Chart
+standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins Log
+(`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann nur
+`EMAIL_ADAPTER=smtp` zu konfigurieren, sonst lassen sich Registrierung und
+Passwort-Reset nicht abschließen.
+
+!!! note "Der Wert `resend` hat noch keine eigene Anbindung"
+    `EMAIL_ADAPTER=resend` wird als Konfigurationswert akzeptiert, aber aktuell ohne
+    eigenen Adapter verdrahtet: Das Backend verhält sich dabei wie `console` — keine
+    E-Mail wird versendet, es gibt nur die Log-Zeile wie oben beschrieben. Das ist eine
+    bekannte, intern verfolgte Lücke und keine unterstützte Betriebsart. <!-- #1821 -->
 
 !!! note "Wird auch vom Benachrichtigungssystem genutzt"
     Diese Variablen konfigurieren zugleich den E-Mail-Kanal des [Benachrichtigungssystems](../user-guide/notifications.md#e-mail) — es gibt keine separate SMTP-Konfiguration für Benachrichtigungen.
