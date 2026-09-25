@@ -230,6 +230,11 @@ controllers:
           TIMESCALEDB_PASSWORD: devpassword
           # REQ-029-A — reference-image acquisition calls the inference-service
           # (/embed, /reference) to build the DINOv2 pgvector index.
+          # #1753 — the scheduled Art. 17 erasure runs HERE and must reach the
+          # same index the backend writes contributions to: the flag MUST equal
+          # the backend's. Without it the worker binds the no-op store, which
+          # refuses (erasure held) once contributions are on record.
+          INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
           # AP-4 (INF-S1/S2): the celery-worker calls the recognition/knowledge
           # services (e.g. reference-image acquisition -> /embed) and must send the

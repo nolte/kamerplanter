@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import PestImageStatus
+from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.ipm import Pest
 from app.domain.models.pest_image import PestImageContribution
@@ -104,6 +105,7 @@ def _privacy_service(pest_image_repo=None, ipm_repo=None, pest_inference_client=
         token_engine=MagicMock(),
         email_service=MagicMock(),
         frontend_url="http://localhost:5173",
+        reference_index_store=NoopReferenceIndexStore(),
         pest_image_repo=pest_image_repo,
         ipm_repo=ipm_repo,
         pest_inference_client=pest_inference_client,

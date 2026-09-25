@@ -32,6 +32,11 @@ def _make_service(
     erasure_repo = MagicMock()
     erasure_repo.list_due_for_hard_delete.return_value = [erasure]
     erasure_repo.update.side_effect = lambda key, e: e
+    if isinstance(reference_index_store, MagicMock):
+        # A bare mock would answer ``configuration_error()`` with a truthy mock
+        # and hold every erasure (#1753); these doubles stand for a working store.
+        reference_index_store.configuration_error.return_value = None
+        reference_index_store.binding = "mock"
     return (
         PrivacyService(
             export_repo=MagicMock(),

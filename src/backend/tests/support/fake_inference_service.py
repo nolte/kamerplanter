@@ -5,12 +5,14 @@ reference vectors through two inference-service endpoints. Tests that drive the
 real :class:`InferenceServiceClient` need a counterpart that behaves like the
 service does, not one that accepts anything:
 
-* it serves only ``DELETE /reference/contributions/by-contributor/{key}``
-  (optional ``tenant_key`` query) and ``DELETE
-  /reference/contributions/by-tenant/{key}``; every other route is a 404;
+* it serves only ``POST /reference/contributions/erase-by-contributor`` (body
+  ``{"contributed_by", "tenant_key"}``) and ``POST
+  /reference/contributions/erase-by-tenant`` (body ``{"tenant_key"}``); every
+  other route is a 404 — in particular the retired key-in-path ``DELETE``
+  routes, whose URLs carried the key into access logs (SEC-001);
 * it refuses a request without the expected bearer token (401), as the
   service's app-level ``require_service_token`` does;
-* it refuses a blank key (422), as the service's repository does;
+* it refuses a missing or blank key (422), as the service does;
 * it deletes only rows with ``source == 'user_contributed'``, as the service's
   SQL does (the SQL itself is pinned in the inference-service's own suite).
 
@@ -20,15 +22,19 @@ fail-loud paths. ``requests`` records what reached the service.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import unquote
 
 import httpx
 
 _USER_CONTRIBUTED = "user_contributed"
-_BY_CONTRIBUTOR = "/reference/contributions/by-contributor/"
-_BY_TENANT = "/reference/contributions/by-tenant/"
+_BY_CONTRIBUTOR = "/reference/contributions/erase-by-contributor"
+_BY_TENANT = "/reference/contributions/erase-by-tenant"
+
+
+def _blank(value: object) -> bool:
+    return not isinstance(value, str) or not value.strip()
 
 
 @dataclass
@@ -55,32 +61,24 @@ class FakeInferenceService:
             return httpx.Response(self.failure_status, json={"detail": "unavailable"})
         if request.headers.get("Authorization") != f"Bearer {self.token}":
             return httpx.Response(401, json={"detail": "Invalid or missing service token."})
-        if request.method != "DELETE":
+        path = request.url.path
+        if path not in (_BY_CONTRIBUTOR, _BY_TENANT):
+            return httpx.Response(404)
+        if request.method != "POST":
             return httpx.Response(405)
-        # ``raw_path`` keeps the percent-encoding, so one encoded segment stays one
-        # segment — the way the service's router splits it.
-        path = request.url.raw_path.decode("ascii").split("?", 1)[0]
-        if path.startswith(_BY_CONTRIBUTOR):
-            contributor = self._segment(path[len(_BY_CONTRIBUTOR) :])
-            tenant_key = request.url.params.get("tenant_key")
-            if contributor is None or (tenant_key is not None and not tenant_key.strip()):
+        body = json.loads(request.content or b"{}")
+        if path == _BY_CONTRIBUTOR:
+            contributor = body.get("contributed_by")
+            tenant_key = body.get("tenant_key")
+            if _blank(contributor) or (tenant_key is not None and _blank(tenant_key)):
                 return httpx.Response(422, json={"detail": "blank key"})
             return self._delete(
                 lambda r: r["contributed_by"] == contributor and (tenant_key is None or r["tenant_key"] == tenant_key)
             )
-        if path.startswith(_BY_TENANT):
-            tenant = self._segment(path[len(_BY_TENANT) :])
-            if tenant is None:
-                return httpx.Response(422, json={"detail": "blank key"})
-            return self._delete(lambda r: r["tenant_key"] == tenant)
-        return httpx.Response(404)
-
-    @staticmethod
-    def _segment(raw: str) -> str | None:
-        if not raw or "/" in raw:
-            return None
-        value = unquote(raw)
-        return value if value.strip() else None
+        tenant = body.get("tenant_key")
+        if _blank(tenant):
+            return httpx.Response(422, json={"detail": "blank key"})
+        return self._delete(lambda r: r["tenant_key"] == tenant)
 
     def _delete(self, matches) -> httpx.Response:  # type: ignore[no-untyped-def]
         before = len(self.rows)
@@ -88,18 +86,19 @@ class FakeInferenceService:
         return httpx.Response(200, json={"status": "ok", "deleted": before - len(self.rows)})
 
 
-def route_httpx_delete_to(monkeypatch, service: FakeInferenceService) -> None:  # type: ignore[no-untyped-def]
-    """Send the client module's ``httpx.delete`` through *service*'s transport.
+def route_httpx_post_to(monkeypatch, service: FakeInferenceService) -> None:  # type: ignore[no-untyped-def]
+    """Send the client module's ``httpx.post`` through *service*'s transport.
 
-    The client calls the module-level ``httpx.delete``; this swaps exactly that
+    The client calls the module-level ``httpx.post``; this swaps exactly that
     function for one that issues the same request through an ``httpx.Client``
-    on the mock transport, so URL building, headers, ``raise_for_status`` and
-    the JSON decode are the real ones.
+    on the mock transport, so URL building, headers, body encoding,
+    ``raise_for_status``, the JSON decode — and httpx's own request log line —
+    are the real ones.
     """
     from app.data_access.external import inference_service_client as module
 
-    def _delete(url: str, **kwargs: Any) -> httpx.Response:
+    def _post(url: str, **kwargs: Any) -> httpx.Response:
         with httpx.Client(transport=service.transport()) as client:
-            return client.delete(url, **kwargs)
+            return client.post(url, **kwargs)
 
-    monkeypatch.setattr(module.httpx, "delete", _delete)
+    monkeypatch.setattr(module.httpx, "post", _post)

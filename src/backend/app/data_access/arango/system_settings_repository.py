@@ -3,12 +3,27 @@ from datetime import UTC, datetime
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.system_settings import SystemSettings
 
 SINGLETON_KEY = "default"
 
+#: #1753 — set the contribution marker on the singleton, touching only that
+#: field and only when it is unset. One statement, so two first contributions
+#: racing each other cannot interleave a read and a write, and a concurrent
+#: admin save of the other settings is not overwritten.
+_RECORD_CONTRIBUTIONS_QUERY = """
+UPSERT { _key: @key }
+INSERT { _key: @key, reference_contributions_since: @now, created_at: @now, updated_at: @now }
+UPDATE {
+  reference_contributions_since: OLD.reference_contributions_since == null
+    ? @now : OLD.reference_contributions_since
+}
+IN @@collection
+"""
 
-class ArangoSystemSettingsRepository:
+
+class ArangoSystemSettingsRepository(IReferenceContributionMarker):
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
 
@@ -37,6 +52,19 @@ class ArangoSystemSettingsRepository:
             result = self.collection.insert(data, return_new=True)
 
         return SystemSettings(**result["new"])
+
+    def record_reference_contributions(self, now: datetime) -> None:
+        if self.reference_contributions_since() is not None:
+            # The common case: one cheap read, no write per contribution.
+            return
+        self._db.aql.execute(
+            _RECORD_CONTRIBUTIONS_QUERY,
+            bind_vars={"@collection": col.SYSTEM_SETTINGS, "key": SINGLETON_KEY, "now": now.isoformat()},
+        )
+
+    def reference_contributions_since(self) -> datetime | None:
+        settings = self.get()
+        return settings.reference_contributions_since if settings is not None else None
 
     def delete_settings(self) -> bool:
         existing = self.collection.get(SINGLETON_KEY)

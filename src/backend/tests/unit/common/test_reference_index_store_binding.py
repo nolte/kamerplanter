@@ -26,7 +26,10 @@ def test_enabled_inference_service_binds_the_real_store(monkeypatch):
 
 
 def test_disabled_inference_service_binds_the_noop_store(monkeypatch):
+    from tests.support.fake_contribution_marker import FakeContributionMarker
+
     monkeypatch.setattr(settings, "inference_service_enabled", False)
+    monkeypatch.setattr(dependencies, "get_system_settings_repo", FakeContributionMarker)
 
     store = dependencies.get_reference_index_store()
 

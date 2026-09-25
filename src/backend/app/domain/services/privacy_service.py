@@ -1133,14 +1133,37 @@ class PrivacyService:
         if configuration_error is not None:
             return self._hold_erasures_for_configuration(candidates, now, configuration_error)
 
+        # #1753 — a reference index this process cannot reach while contributions
+        # exist (or no store wired at all) is a deployment fault too, but it only
+        # blocks requests that still have Phase 0.5 ahead of them.
+        reference_index_error = self._reference_index_configuration_error()
+
         finalised = 0
         deferred = 0
+        held = 0
         for erasure in candidates:
             if self._erasure_deferred(erasure, now):
                 deferred += 1
                 continue
+            if reference_index_error is not None and self._needs_reference_index(erasure):
+                held += 1
+                self._mark_erasure(
+                    erasure,
+                    status="partially_completed",
+                    error_message=(
+                        f"Erasure is not configured on this deployment: {reference_index_error} "
+                        "It runs on the first daily run after the configuration is fixed."
+                    ),
+                )
+                continue
             if await self._finalize_erasure(erasure, now):
                 finalised += 1
+        if held:
+            logger.error(
+                "retention.execute_scheduled_erasures.reference_index_not_configured",
+                reason=reference_index_error,
+                held=held,
+            )
         logger.info(
             "retention.execute_scheduled_erasures.completed",
             candidates=len(candidates),
@@ -1168,6 +1191,24 @@ class PrivacyService:
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
         return None
+
+    def _reference_index_configuration_error(self) -> str | None:
+        """Why Phase 0.5 cannot run in this process, or ``None`` when it can (#1753).
+
+        SEC-002 — an unwired store is a fault, not a skip: the phase would log
+        and the request would still be recorded ``completed``. GDPR-001/002 —
+        the store itself reports a no-op binding while contributions are on
+        record. Raises when the store cannot tell (marker unreadable).
+        """
+        if self._reference_index_store is None:
+            return "No reference-index store is wired, so contributed recognition vectors cannot be erased."
+        return self._reference_index_store.configuration_error()
+
+    def _needs_reference_index(self, erasure: ErasureRequest) -> bool:
+        """Whether this request still has Phase 0.5 ahead of it."""
+        if erasure.key is None or erasure.pre_arango_completed_at is not None:
+            return False
+        return not self._erasure_engine.is_tombstone(erasure.user_key)
 
     def _hold_erasures_for_configuration(self, candidates: list[ErasureRequest], now: datetime, reason: str) -> int:
         """Keep every due request open, untouched, while the deployment cannot erase.
@@ -1414,7 +1455,9 @@ class PrivacyService:
 
         Raises:
             FeatureNotConfiguredError: ``ERASURE_TOMBSTONE_SALT`` is missing or
-                shorter than NFR-011 §4 requires (HTTP 503).
+                shorter than NFR-011 §4 requires, or the reference index cannot
+                be reached for Phase 0.5 — no store wired, or the no-op binding
+                while contributions are on record (#1753) (HTTP 503).
             ValueError: ``user_key`` is empty or blank (#1664) — raised before
                 any phase runs.
         """
@@ -1435,6 +1478,12 @@ class PrivacyService:
                 "account_erasure",
                 "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters.",
             ) from exc
+        if not pre_arango_completed:
+            # #1753 — refuse before touching anything when Phase 0.5 cannot
+            # reach the index; a retry past the checkpoint no longer needs it.
+            reference_index_error = self._reference_index_configuration_error()
+            if reference_index_error is not None:
+                raise FeatureNotConfiguredError("account_erasure", reference_index_error)
         plan = self._erasure_engine.build_erasure_plan(user_key)
 
         report = AccountErasureReport()
@@ -1646,12 +1695,9 @@ class PrivacyService:
         records ``partially_completed`` and the ArangoDB plan does not run.
         """
         if self._reference_index_store is None:
-            logger.info(
-                "retention.erasure.reference_index_cleanup_skipped",
-                subject=self._erasure_log_subject(user_key),
-                reason="reference-index store not wired",
-            )
-            return 0
+            # Unreachable through ``erase_account``, which refuses an unwired
+            # store before any phase (SEC-002); kept loud for any other caller.
+            raise FeatureNotConfiguredError("account_erasure", "No reference-index store is wired.")
         removed = await self._reference_index_store.delete_user_contributions(
             tenant_key=None,
             user_key=user_key,

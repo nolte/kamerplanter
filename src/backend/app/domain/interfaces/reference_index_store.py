@@ -18,7 +18,9 @@ inference-service at all. Two bindings exist, chosen by
   whenever ``inference_service_enabled`` is set (issue #1753);
 * ``noop`` —
   :class:`~app.data_access.vectordb.noop_reference_index_store.NoopReferenceIndexStore`,
-  where no index is deployed and so no contribution can exist.
+  where the process reaches no index. It removes nothing only while the
+  persisted contribution marker says no contribution was ever accepted, and
+  refuses otherwise (GDPR-001/002).
 
 Every implementation names itself in :attr:`IReferenceIndexStore.binding`; the
 erasure report, the erasure record and the log lines carry that name so a run
@@ -37,6 +39,16 @@ class IReferenceIndexStore(ABC):
     #: Which physical index this store reaches, as reported by the erasure
     #: (``"inference_service"`` / ``"noop"``). Every concrete store overrides it.
     binding: ClassVar[str] = "unbound"
+
+    def configuration_error(self) -> str | None:
+        """Why this store cannot erase on this deployment, or ``None`` when it can.
+
+        Checked before an erasure touches anything, so a deployment-wide fault
+        holds the request instead of failing it phase by phase (#1753). The
+        text is operator-facing and names no subject. May raise when the
+        answer cannot be determined (e.g. the marker store is unreachable).
+        """
+        return None
 
     @abstractmethod
     async def delete_user_contributions(self, tenant_key: str | None, user_key: str) -> int:

@@ -16,8 +16,16 @@ import pytest
 
 from app.vectordb.repository import SpeciesEmbeddingRepository
 
-_BY_CONTRIBUTOR = "/reference/contributions/by-contributor"
-_BY_TENANT = "/reference/contributions/by-tenant"
+_BY_CONTRIBUTOR = "/reference/contributions/erase-by-contributor"
+_BY_TENANT = "/reference/contributions/erase-by-tenant"
+
+
+def _erase_contributor(client, contributed_by, tenant_key=None):
+    return client.post(_BY_CONTRIBUTOR, json={"contributed_by": contributed_by, "tenant_key": tenant_key})
+
+
+def _erase_tenant(client, tenant_key):
+    return client.post(_BY_TENANT, json={"tenant_key": tenant_key})
 
 
 def _seed(fake_repo) -> None:
@@ -50,7 +58,7 @@ def _remaining(fake_repo) -> list[tuple]:
 def test_delete_by_contributor_removes_only_that_users_contributions(client, fake_repo):
     _seed(fake_repo)
 
-    resp = client.delete(f"{_BY_CONTRIBUTOR}/user-a")
+    resp = _erase_contributor(client, "user-a")
 
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok", "deleted": 2}
@@ -64,7 +72,7 @@ def test_delete_by_contributor_removes_only_that_users_contributions(client, fak
 def test_delete_by_contributor_scoped_to_one_tenant_keeps_the_other_tenant(client, fake_repo):
     _seed(fake_repo)
 
-    resp = client.delete(f"{_BY_CONTRIBUTOR}/user-a", params={"tenant_key": "t-1"})
+    resp = _erase_contributor(client, "user-a", "t-1")
 
     assert resp.status_code == 200
     assert resp.json()["deleted"] == 1
@@ -76,18 +84,18 @@ def test_delete_by_contributor_scoped_to_one_tenant_keeps_the_other_tenant(clien
 def test_delete_by_contributor_with_no_rows_reports_zero(client, fake_repo):
     _seed(fake_repo)
 
-    resp = client.delete(f"{_BY_CONTRIBUTOR}/nobody")
+    resp = _erase_contributor(client, "nobody")
 
     assert resp.status_code == 200
     assert resp.json()["deleted"] == 0
     assert len(fake_repo.rows) == 5
 
 
-@pytest.mark.parametrize("path_key", ["%20", "%09"])
-def test_delete_by_contributor_refuses_a_blank_contributor(client, fake_repo, path_key):
+@pytest.mark.parametrize("blank", ["", " ", "\t", None])
+def test_delete_by_contributor_refuses_a_blank_contributor(client, fake_repo, blank):
     _seed(fake_repo)
 
-    resp = client.delete(f"{_BY_CONTRIBUTOR}/{path_key}")
+    resp = _erase_contributor(client, blank)
 
     assert resp.status_code == 422
     assert len(fake_repo.rows) == 5
@@ -96,7 +104,7 @@ def test_delete_by_contributor_refuses_a_blank_contributor(client, fake_repo, pa
 def test_delete_by_contributor_refuses_a_blank_tenant_scope(client, fake_repo):
     _seed(fake_repo)
 
-    resp = client.delete(f"{_BY_CONTRIBUTOR}/user-a", params={"tenant_key": " "})
+    resp = _erase_contributor(client, "user-a", " ")
 
     assert resp.status_code == 422
     assert len(fake_repo.rows) == 5
@@ -108,7 +116,7 @@ def test_delete_by_contributor_refuses_a_blank_tenant_scope(client, fake_repo):
 def test_delete_by_tenant_removes_only_that_tenants_contributions(client, fake_repo):
     _seed(fake_repo)
 
-    resp = client.delete(f"{_BY_TENANT}/t-1")
+    resp = _erase_tenant(client, "t-1")
 
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok", "deleted": 2}
@@ -119,10 +127,11 @@ def test_delete_by_tenant_removes_only_that_tenants_contributions(client, fake_r
     ]
 
 
-def test_delete_by_tenant_refuses_a_blank_tenant(client, fake_repo):
+@pytest.mark.parametrize("blank", ["", " ", None])
+def test_delete_by_tenant_refuses_a_blank_tenant(client, fake_repo, blank):
     _seed(fake_repo)
 
-    resp = client.delete(f"{_BY_TENANT}/%20")
+    resp = _erase_tenant(client, blank)
 
     assert resp.status_code == 422
     assert len(fake_repo.rows) == 5
@@ -141,7 +150,7 @@ def test_contribution_delete_is_not_captured_by_the_species_delete(client, fake_
     fake_repo.upsert_reference(species_key="by-tenant", source="gbif")
     fake_repo.upsert_reference(species_key="sp-a", source="user_contributed", contributed_by="u", tenant_key="t-9")
 
-    resp = client.delete(f"{_BY_TENANT}/t-9")
+    resp = _erase_tenant(client, "t-9")
 
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok", "deleted": 1}
@@ -157,13 +166,39 @@ def test_species_delete_still_resolves(client, fake_repo):
     assert resp.json()["deleted"] == 1
 
 
-@pytest.mark.parametrize("path", [f"{_BY_CONTRIBUTOR}/user-a", f"{_BY_TENANT}/t-1"])
-def test_contribution_delete_requires_the_service_token(unauth_client, fake_repo, path):
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [(_BY_CONTRIBUTOR, {"contributed_by": "user-a"}), (_BY_TENANT, {"tenant_key": "t-1"})],
+)
+def test_contribution_delete_requires_the_service_token(unauth_client, fake_repo, path, body):
     _seed(fake_repo)
 
-    resp = unauth_client.delete(path)
+    resp = unauth_client.post(path, json=body)
 
     assert resp.status_code == 401
+    assert len(fake_repo.rows) == 5
+
+
+def test_no_contribution_route_carries_a_key_in_its_path():
+    """SEC-001 (#1753) — a key in the path lands in every access log on the way.
+
+    uvicorn's access log and the backend's httpx request log both record the
+    request line. The erasure keys therefore travel in the body only.
+    """
+    from app import main
+
+    paths = [route.path for route in main.app.routes if "contributions" in getattr(route, "path", "")]
+    assert sorted(paths) == [_BY_CONTRIBUTOR, _BY_TENANT]
+    assert all("{" not in path for path in paths)
+
+
+def test_a_malformed_erasure_body_is_refused_without_echoing_a_key(client, fake_repo):
+    _seed(fake_repo)
+
+    resp = client.post(_BY_CONTRIBUTOR, json={"tenant_key": "t-secret-tenant"})
+
+    assert resp.status_code == 422
+    assert "t-secret-tenant" not in resp.text
     assert len(fake_repo.rows) == 5
 
 

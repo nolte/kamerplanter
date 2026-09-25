@@ -16,7 +16,6 @@ handlers, while acquisition runs inside synchronous Celery tasks.
 """
 
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 import structlog
@@ -31,17 +30,17 @@ _READY_TIMEOUT_SECONDS = 5.0
 _ERASURE_TIMEOUT_SECONDS = 30.0
 
 
-def _path_segment(name: str, value: str | None) -> str:
-    """Percent-encode *value* as exactly one path segment; refuse a blank key.
+def _require_key(name: str, value: str | None) -> str:
+    """Return *value*, or refuse a missing/blank erasure key before any request.
 
     A blank key would ask the service for an unscoped erasure (it refuses with
-    422 too); refusing here keeps the request from being sent at all. ``/`` is
-    encoded so a key can never address a different route.
+    422 too); refusing here keeps the request from being sent at all. The
+    message names the field, never the value.
     """
     if value is None or not value.strip():
         msg = f"{name} must be a non-blank key; refusing an unscoped erasure"
         raise ValueError(msg)
-    return quote(value, safe="")
+    return value
 
 
 class InferenceServiceClient:
@@ -261,7 +260,9 @@ class InferenceServiceClient:
 
     # ── GDPR erasure (sync, issue #1753) ───────────────────────────────
     # Both calls propagate every failure (``raise_for_status``): an erasure
-    # that cannot reach the index must not report success.
+    # that cannot reach the index must not report success. The keys travel in
+    # the JSON body — never in the URL, which httpx logs at INFO here and
+    # uvicorn logs on the service side (SEC-001, #1700).
 
     def delete_user_contributions(self, contributed_by: str, *, tenant_key: str | None = None) -> int:
         """Delete one user's ``user_contributed`` reference embeddings (REQ-025 AK-OS-05).
@@ -275,14 +276,12 @@ class InferenceServiceClient:
                 but blank. Nothing is sent.
             httpx.HTTPError: The service is unreachable or answered non-2xx.
         """
-        segment = _path_segment("contributed_by", contributed_by)
-        params: dict[str, str] = {}
+        _require_key("contributed_by", contributed_by)
         if tenant_key is not None:
-            _path_segment("tenant_key", tenant_key)
-            params["tenant_key"] = tenant_key
-        response = httpx.delete(
-            f"{self._base_url}/reference/contributions/by-contributor/{segment}",
-            params=params,
+            _require_key("tenant_key", tenant_key)
+        response = httpx.post(
+            f"{self._base_url}/reference/contributions/erase-by-contributor",
+            json={"contributed_by": contributed_by, "tenant_key": tenant_key},
             headers=self._auth_headers(),
             timeout=_ERASURE_TIMEOUT_SECONDS,
         )
@@ -298,9 +297,10 @@ class InferenceServiceClient:
             ValueError: ``tenant_key`` is blank. Nothing is sent.
             httpx.HTTPError: The service is unreachable or answered non-2xx.
         """
-        segment = _path_segment("tenant_key", tenant_key)
-        response = httpx.delete(
-            f"{self._base_url}/reference/contributions/by-tenant/{segment}",
+        _require_key("tenant_key", tenant_key)
+        response = httpx.post(
+            f"{self._base_url}/reference/contributions/erase-by-tenant",
+            json={"tenant_key": tenant_key},
             headers=self._auth_headers(),
             timeout=_ERASURE_TIMEOUT_SECONDS,
         )

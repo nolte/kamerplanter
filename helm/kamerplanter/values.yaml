@@ -756,7 +756,12 @@ controllers:
   # model baked at build). Disabled by default; the operator enables it together
   # with the vectordb (controllers.inference-service.enabled,
   # service.inference-service.enabled, networkpolicies.inference-service.enabled).
-  # INFERENCE_SERVICE_ENABLED on the backend is set in GitOps, not here.
+  # INFERENCE_SERVICE_ENABLED is set in GitOps, not here — and it MUST be set,
+  # together with INFERENCE_SERVICE_URL (INTERNAL_SERVICE_TOKEN comes from
+  # kamerplanter-secrets), on BOTH the backend AND the celery-worker (#1753):
+  # the backend writes user contributions to the index, the worker runs the
+  # scheduled Art. 17 erasure that must delete them. A worker without the flag
+  # holds every erasure while contributions are on record.
   inference-service:
     enabled: false
     type: deployment

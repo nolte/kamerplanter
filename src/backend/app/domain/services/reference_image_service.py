@@ -19,8 +19,10 @@ import io
 import structlog
 from PIL import Image, UnidentifiedImageError
 
+from app.common.datetimes import now_utc
 from app.common.exceptions import ValidationError
 from app.config.settings import settings
+from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.reference_image import (
     AcquisitionResult,
     MediaCandidate,
@@ -45,6 +47,7 @@ class ReferenceImageService:
         species_repo=None,
         rate_limiter=None,
         identification_engine=None,
+        contribution_marker: IReferenceContributionMarker | None = None,
     ) -> None:
         self._gbif = gbif_adapter
         self._media = media_client
@@ -56,6 +59,9 @@ class ReferenceImageService:
         # license-clean acquisition pipeline (WS-4) does not need them.
         self._rate_limiter = rate_limiter
         self._identification_engine = identification_engine
+        # #1753 — recorded before every contribution so a process that cannot
+        # reach the index refuses to erase instead of skipping the vectors.
+        self._contribution_marker = contribution_marker
 
     def acquire_for_species(
         self,
@@ -219,6 +225,11 @@ class ReferenceImageService:
             RateLimitError: the per-user daily quota is exhausted (429).
             httpx.HTTPError: the inference-service call failed.
         """
+        if self._contribution_marker is None:
+            raise RuntimeError(
+                "ReferenceImageService.contribute_user_reference requires a contribution_marker; "
+                "an unrecorded contribution could outlive an erasure (#1753)."
+            )
         # SEC-003 — resolve the species server-side; derive the scientific name
         # from the record and discard any client-supplied value.
         species = self._species_repo.get_or_raise(species_key)
@@ -243,6 +254,11 @@ class ReferenceImageService:
         # UNIQUE (species_key, source, source_record_id) makes a repeat upsert of
         # the same photo idempotent (one row), never a new poisoning entry.
         image_hash = self._identification_engine.compute_image_hash(clean)
+
+        # #1753 (GDPR-001/002) — record that contributions exist BEFORE writing
+        # one: a process that later erases without reaching the index must see
+        # it and refuse. A failed record raises and nothing is written.
+        self._contribution_marker.record_reference_contributions(now_utc())
 
         embedding = self._inference.embed(clean)
         response = self._inference.upsert_reference(

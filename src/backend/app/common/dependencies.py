@@ -1924,6 +1924,7 @@ def get_reference_image_service():
         species_repo=get_species_repo(),
         rate_limiter=IdentificationRateLimiter(_get_redis_client()),
         identification_engine=identification_engine,
+        contribution_marker=get_system_settings_repo(),
     )
 
 
@@ -1956,18 +1957,19 @@ def get_reference_index_store() -> IReferenceIndexStore:
       "inference_service"``): the erasure and the tenant deletion delete the
       ``user_contributed`` rows through the inference-service and fail loud
       when they cannot.
-    * unset → :class:`NoopReferenceIndexStore` (``binding = "noop"``).
+    * unset → :class:`NoopReferenceIndexStore` (``binding = "noop"``) with the
+      persisted contribution marker wired in.
 
-    Why the flag is the right discriminator: a contributed vector is written
-    only by ``POST /t/{slug}/identification/reference``, and that route refuses
-    with ``AdapterNotAvailableError`` unless the flag is set
-    (``app/api/v1/recognition/tenant_router.py``, ``contribute_reference``,
-    the ``if not settings.inference_service_enabled`` guard). The second
-    writer, the REQ-034 §4 gallery hook, stops at the same flag (Guard 1 in
-    ``app/tasks/reference_contribution_tasks.py::_evaluate``) and is inert on
-    every binding. So without the flag no contribution can exist, and binding
-    the real store there would only make every erasure fail against a service
-    that is not deployed.
+    The flag is read **per process**. A contribution is written only by
+    ``POST /t/{slug}/identification/reference``, which refuses without the flag
+    (``app/api/v1/recognition/tenant_router.py``, ``contribute_reference``), so
+    the backend process that accepted one has it. But the scheduled Art. 17
+    erasure runs in the celery-worker, whose environment is configured
+    separately, and a flag can be switched off after contributions were
+    written. The no-op binding therefore does not decide alone: it reads the
+    marker the contribution path records before its upsert, and refuses — the
+    erasure stays open, the tenant deletion is refused — while contributions
+    are on record (GDPR-001/002).
     """
     if settings.inference_service_enabled:
         from app.data_access.external.inference_service_client import InferenceServiceClient
@@ -1981,7 +1983,7 @@ def get_reference_index_store() -> IReferenceIndexStore:
         NoopReferenceIndexStore,
     )
 
-    return NoopReferenceIndexStore()
+    return NoopReferenceIndexStore(marker=get_system_settings_repo())
 
 
 def get_object_storage() -> IObjectStorageAdapter:

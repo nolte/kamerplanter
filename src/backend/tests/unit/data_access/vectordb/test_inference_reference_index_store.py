@@ -13,14 +13,18 @@ outlived the account. What is pinned:
 
 from __future__ import annotations
 
+import json
+import logging
+
 import pytest
+import structlog.testing
 
 from app.common.exceptions import ExternalSourceError
 from app.data_access.external.inference_service_client import InferenceServiceClient
 from app.data_access.vectordb.inference_reference_index_store import InferenceServiceReferenceIndexStore
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
-from tests.support.fake_inference_service import FakeInferenceService, route_httpx_delete_to
+from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
 
 TOKEN = "svc-token"
 SUBJECT = "user-subject-4711"
@@ -34,7 +38,7 @@ def service(monkeypatch) -> FakeInferenceService:
     fake.add(source="user_contributed", contributed_by="other", tenant_key=TENANT, record="other")
     fake.add(source="user_contributed", contributed_by="other", tenant_key="t-else", record="other-else")
     fake.add(source="wikimedia", contributed_by=SUBJECT, tenant_key=TENANT, record="curated")
-    route_httpx_delete_to(monkeypatch, fake)
+    route_httpx_post_to(monkeypatch, fake)
     return fake
 
 
@@ -59,7 +63,7 @@ async def test_user_delete_scoped_to_a_tenant_passes_the_scope(service):
     removed = await _store().delete_user_contributions(tenant_key="t-else", user_key=SUBJECT)
 
     assert removed == 0
-    assert service.requests[0].url.params["tenant_key"] == "t-else"
+    assert json.loads(service.requests[0].content)["tenant_key"] == "t-else"
     assert "subject" in service.records()
 
 
@@ -100,12 +104,35 @@ async def test_an_unreachable_service_raises(monkeypatch):
     def _refuse(url, **kwargs):
         raise httpx.ConnectError(f"connection refused: {url}")
 
-    monkeypatch.setattr(module.httpx, "delete", _refuse)
+    monkeypatch.setattr(module.httpx, "post", _refuse)
 
     with pytest.raises(ExternalSourceError) as caught:
         await _store().delete_user_contributions(tenant_key=None, user_key=SUBJECT)
     assert SUBJECT not in str(caught.value)
     assert "ConnectError" in str(caught.value)
+
+
+async def test_no_log_record_carries_the_keys(service, caplog):
+    """SEC-001 — every hop's request log must be free of the user and tenant key.
+
+    httpx logs each request line at INFO (``HTTP Request: POST <url> ...``);
+    before SEC-001 the URL carried the key. Captured at DEBUG on the root
+    logger, plus structlog, so a new log line anywhere on the path is covered.
+    """
+    caplog.set_level(logging.DEBUG)
+    store = _store()
+
+    with structlog.testing.capture_logs() as events:
+        await store.delete_user_contributions(tenant_key=TENANT, user_key=SUBJECT)
+        await store.delete_user_contributions(tenant_key=None, user_key=SUBJECT)
+        await store.delete_tenant_contributions(TENANT)
+
+    assert any(record.name == "httpx" for record in caplog.records), "httpx request log not captured"
+    for record in caplog.records:
+        text = record.getMessage()
+        assert SUBJECT not in text and TENANT not in text, text
+    for event in events:
+        assert not any(SUBJECT in str(v) or TENANT in str(v) for v in event.values()), event
 
 
 def test_the_gallery_hook_stays_inert(service):

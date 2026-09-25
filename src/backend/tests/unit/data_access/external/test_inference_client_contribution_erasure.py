@@ -1,17 +1,20 @@
 """Issue #1753 — the inference-service client's contribution-erasure calls.
 
 Driven through the real client over an ``httpx.MockTransport`` that behaves like
-the service (auth, blank-key refusal, ``source`` bound), so URL encoding,
+the service (auth, blank-key refusal, ``source`` bound), so body encoding,
 headers, ``raise_for_status`` and the response decode are the production ones.
+The keys travel in the JSON body, never in the URL (SEC-001).
 """
 
 from __future__ import annotations
+
+import json
 
 import httpx
 import pytest
 
 from app.data_access.external.inference_service_client import InferenceServiceClient
-from tests.support.fake_inference_service import FakeInferenceService, route_httpx_delete_to
+from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
 
 TOKEN = "svc-token"
 
@@ -23,7 +26,7 @@ def service(monkeypatch) -> FakeInferenceService:
     fake.add(source="user_contributed", contributed_by="user-a", tenant_key="t-2", record="a-t2")
     fake.add(source="user_contributed", contributed_by="user-b", tenant_key="t-1", record="b-t1")
     fake.add(source="gbif", contributed_by="user-a", tenant_key="t-1", record="curated")
-    route_httpx_delete_to(monkeypatch, fake)
+    route_httpx_post_to(monkeypatch, fake)
     return fake
 
 
@@ -35,34 +38,39 @@ def test_delete_user_contributions_removes_the_users_rows_and_returns_the_count(
     assert _client().delete_user_contributions("user-a") == 2
     assert service.records() == {"b-t1", "curated"}
     (request,) = service.requests
-    assert request.method == "DELETE"
-    assert request.url.path == "/reference/contributions/by-contributor/user-a"
-    assert "tenant_key" not in request.url.params
+    assert request.method == "POST"
+    assert request.url.path == "/reference/contributions/erase-by-contributor"
+    assert json.loads(request.content) == {"contributed_by": "user-a", "tenant_key": None}
     assert request.headers["Authorization"] == f"Bearer {TOKEN}"
 
 
 def test_delete_user_contributions_scoped_to_a_tenant(service):
     assert _client().delete_user_contributions("user-a", tenant_key="t-2") == 1
     assert service.records() == {"a-t1", "b-t1", "curated"}
-    assert service.requests[0].url.params["tenant_key"] == "t-2"
+    assert json.loads(service.requests[0].content)["tenant_key"] == "t-2"
 
 
 def test_delete_tenant_contributions(service):
     assert _client().delete_tenant_contributions("t-1") == 2
     assert service.records() == {"a-t2", "curated"}
-    assert service.requests[0].url.path == "/reference/contributions/by-tenant/t-1"
+    request = service.requests[0]
+    assert request.url.path == "/reference/contributions/erase-by-tenant"
+    assert json.loads(request.content) == {"tenant_key": "t-1"}
 
 
-def test_a_key_is_one_encoded_path_segment(service):
+def test_no_key_ever_reaches_the_url(service):
+    """SEC-001 — the URL is logged by every hop; the key must not be in it."""
     service.add(source="user_contributed", contributed_by="odd/key ?#", tenant_key="t-9", record="odd")
 
-    assert _client().delete_user_contributions("odd/key ?#") == 1
+    client = _client()
+    assert client.delete_user_contributions("odd/key ?#", tenant_key="t-9") == 1
+    client.delete_tenant_contributions("t-9")
+
     assert "odd" not in service.records()
-    assert (
-        service.requests[-1]
-        .url.raw_path.decode()
-        .startswith("/reference/contributions/by-contributor/odd%2Fkey%20%3F%23")
-    )
+    for request in service.requests:
+        url = str(request.url)
+        assert "odd" not in url and "t-9" not in url
+        assert request.url.query == b""
 
 
 @pytest.mark.parametrize("status", [401, 422, 500, 503])

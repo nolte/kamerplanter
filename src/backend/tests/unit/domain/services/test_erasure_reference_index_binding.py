@@ -24,7 +24,7 @@ import pytest
 import structlog.testing
 
 from app.common import dependencies
-from app.common.exceptions import ExternalSourceError
+from app.common.exceptions import ExternalSourceError, FeatureNotConfiguredError
 from app.config.settings import settings
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.consent_engine import ConsentEngine
@@ -33,7 +33,7 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
-from tests.support.fake_inference_service import FakeInferenceService, route_httpx_delete_to
+from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
 from tests.support.privacy_doubles import RecordingErasureExecutor
 
 TOKEN = "svc-token-1753"
@@ -53,7 +53,7 @@ def inference(monkeypatch) -> FakeInferenceService:
     fake.add(source="user_contributed", contributed_by=SUBJECT, tenant_key="other-tenant", record="subject-2")
     fake.add(source="user_contributed", contributed_by="other-user", tenant_key=TENANT, record="other")
     fake.add(source="gbif", contributed_by=SUBJECT, tenant_key=TENANT, record="curated")
-    route_httpx_delete_to(monkeypatch, fake)
+    route_httpx_post_to(monkeypatch, fake)
     return fake
 
 
@@ -163,7 +163,10 @@ async def test_a_failing_reference_index_leaves_the_duty_open_and_arangodb_untou
 
 
 async def test_the_noop_binding_is_reported_as_such(monkeypatch):
+    from tests.support.fake_contribution_marker import FakeContributionMarker
+
     monkeypatch.setattr(settings, "inference_service_enabled", False)
+    monkeypatch.setattr(dependencies, "get_system_settings_repo", FakeContributionMarker)
     service = _privacy_service(_erasure(), dependencies.get_reference_index_store(), RecordingErasureExecutor())
 
     report = await service.erase_account(SUBJECT)
@@ -172,10 +175,7 @@ async def test_the_noop_binding_is_reported_as_such(monkeypatch):
     assert report.reference_index_removed == 0
 
 
-async def test_an_unwired_store_and_a_skipped_phase_report_no_binding(inference):
-    unwired = _privacy_service(_erasure(), None, RecordingErasureExecutor())
-    assert (await unwired.erase_account(SUBJECT)).reference_index_binding is None
-
+async def test_a_skipped_phase_reports_no_binding(inference):
     wired = _privacy_service(_erasure(), dependencies.get_reference_index_store(), RecordingErasureExecutor())
     report = await wired.erase_account(SUBJECT, pre_arango_completed=True)
     assert report.reference_index_binding is None
@@ -242,3 +242,85 @@ def test_the_noop_tenant_binding_is_logged(monkeypatch):
 
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
     assert event["binding"] == "noop"
+
+
+# -- GDPR-001/002: a no-op binding while contributions exist; SEC-002: unwired ----
+
+
+def _noop_with_contributions() -> NoopReferenceIndexStore:
+    from tests.support.fake_contribution_marker import FakeContributionMarker
+
+    return NoopReferenceIndexStore(marker=FakeContributionMarker(since=datetime(2026, 9, 1, tzinfo=UTC)))
+
+
+@pytest.mark.parametrize("store_factory", [_noop_with_contributions, lambda: None], ids=["noop+marker", "unwired"])
+async def test_the_scheduled_run_holds_the_request_without_spending_an_attempt(store_factory):
+    erasure = _erasure()
+    executor = RecordingErasureExecutor()
+    service = _privacy_service(erasure, store_factory(), executor)
+
+    with structlog.testing.capture_logs() as logs:
+        finalised = await service.execute_scheduled_erasures(datetime.now(UTC))
+
+    assert finalised == 0
+    assert erasure.status == "partially_completed"
+    # A configuration fault, not a failure of this request (#1666 semantics).
+    assert erasure.attempt_count == 0
+    assert erasure.next_attempt_at is None
+    assert erasure.pre_arango_completed_at is None
+    assert executor.runs == []
+    assert "reference" in (erasure.error_message or "").lower()
+    assert [e for e in logs if e["log_level"] == "error"], "the held duty must be loud"
+
+
+@pytest.mark.parametrize("store_factory", [_noop_with_contributions, lambda: None], ids=["noop+marker", "unwired"])
+async def test_a_direct_finalize_records_a_failed_attempt(store_factory):
+    erasure = _erasure()
+    executor = RecordingErasureExecutor()
+    service = _privacy_service(erasure, store_factory(), executor)
+
+    assert await service._finalize_erasure(erasure, datetime.now(UTC)) is False
+
+    assert erasure.status == "partially_completed"
+    assert erasure.attempt_count == 1
+    assert erasure.pre_arango_completed_at is None
+    assert executor.runs == []
+
+
+@pytest.mark.parametrize("store_factory", [_noop_with_contributions, lambda: None], ids=["noop+marker", "unwired"])
+async def test_erase_account_refuses_before_touching_anything(store_factory):
+    executor = RecordingErasureExecutor()
+    storage = MagicMock()
+    storage.delete_for_user = AsyncMock(return_value=0)
+    service = _privacy_service(_erasure(), store_factory(), executor)
+    service._storage_adapter = storage
+
+    with pytest.raises(FeatureNotConfiguredError):
+        await service.erase_account(SUBJECT)
+
+    storage.delete_for_user.assert_not_awaited()
+    assert executor.runs == []
+
+
+async def test_a_retry_past_the_checkpoint_does_not_need_the_index():
+    """Phase 0.5 already ran for this request; only the ArangoDB plan is left."""
+    executor = RecordingErasureExecutor()
+    service = _privacy_service(_erasure(), _noop_with_contributions(), executor)
+
+    report = await service.erase_account(SUBJECT, pre_arango_completed=True)
+
+    assert len(executor.runs) == 1
+    assert report.reference_index_binding is None
+
+
+def test_tenant_deletion_refuses_while_contributions_are_unreachable():
+    storage = MagicMock()
+    storage.delete_prefix = AsyncMock(return_value=0)
+    service = _tenant_service(_noop_with_contributions(), storage=storage)
+
+    with pytest.raises(FeatureNotConfiguredError):
+        service.delete_tenant(TENANT)
+
+    service._tenant_repo.delete.assert_not_called()
+    service._attachment_repo.delete_all_for_tenant.assert_not_called()
+    storage.delete_prefix.assert_not_awaited()

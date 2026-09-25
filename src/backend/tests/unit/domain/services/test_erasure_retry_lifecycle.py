@@ -37,6 +37,7 @@ from structlog.testing import capture_logs
 
 from app.common.enums import AttachmentCategory
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
+from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
@@ -209,6 +210,7 @@ async def _world(tmp_path, *, executor: RecordingErasureExecutor, salt: str = SA
         storage_adapter=storage,
         attachment_repo=catalog,
         membership_repo=membership_repo,
+        reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=executor,
         tombstone_salt=salt,
     )

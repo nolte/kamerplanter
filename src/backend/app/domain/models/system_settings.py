@@ -81,6 +81,9 @@ class SystemSettings(BaseModel):
     )
     storage: StorageSettings = Field(default_factory=StorageSettings)
     weather_providers: WeatherProviderSettings = Field(default_factory=WeatherProviderSettings)
+    #: #1753 — set when the first user contribution was written to the DINOv2
+    #: reference index; never cleared. See ``IReferenceContributionMarker``.
+    reference_contributions_since: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
