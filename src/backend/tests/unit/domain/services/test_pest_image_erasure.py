@@ -26,10 +26,11 @@ from app.common.enums import PestImageStatus
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.privacy import AccountErasureReport
 from app.domain.services.privacy_service import PrivacyService
-from app.domain.services.tenant_service import TenantService
+from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
 
 
 class TestErasureEnginePlan:
@@ -46,38 +47,22 @@ class TestErasureEnginePlan:
         assert "pest_image_contributions" in ErasureEngine.delete_order()
 
 
-def _tenant_service(pest_image_repo=None):
-    return TenantService(
-        tenant_repo=MagicMock(),
-        membership_repo=MagicMock(),
-        invitation_repo=MagicMock(),
-        assignment_repo=MagicMock(),
-        tenant_engine=MagicMock(),
-        membership_engine=MagicMock(),
-        invitation_engine=MagicMock(),
-        pest_image_repo=pest_image_repo,
-        pest_prototype_store=NoopPestPrototypeStore(),
-    )
+class TestTenantDeletionDropsPestImages:
+    """REQ-010 — the tenant's pest-image link documents go with the tenant (#1769: via the inventory)."""
 
+    def test_the_inventory_deletes_the_link_documents(self):
+        (entry,) = [e for e in TenantErasureEngine.INVENTORY if e.collection == "pest_image_contributions"]
+        assert entry.action == "delete"
 
-class TestTenantPurgeDropsPestImages:
-    def test_purge_calls_delete_for_tenant(self):
-        pest_repo = MagicMock()
-        pest_repo.delete_for_tenant.return_value = 3
-        svc = _tenant_service(pest_image_repo=pest_repo)
+    def test_delete_tenant_hands_the_executor_that_entry(self):
+        executor = RecordingTenantErasureExecutor()
+        svc = tenant_service_for_deletion(
+            executor=executor, pest_image_repo=MagicMock(), pest_prototype_store=NoopPestPrototypeStore()
+        )
 
-        svc._purge_tenant_storage("t-abc")
-
-        pest_repo.delete_for_tenant.assert_called_once_with("t-abc")
-
-    def test_delete_tenant_routes_through_purge(self):
-        pest_repo = MagicMock()
-        pest_repo.delete_for_tenant.return_value = 1
-        svc = _tenant_service(pest_image_repo=pest_repo)
-        svc._tenant_repo.delete.return_value = True
-
-        assert svc.delete_tenant("t-abc") is True
-        pest_repo.delete_for_tenant.assert_called_once_with("t-abc")
+        assert svc.delete_tenant("t-1").status == "completed"
+        (plan,) = executor.plans
+        assert "pest_image_contributions" in [e.collection for e in plan.entries if e.action == "delete"]
 
 
 def _privacy_service(pest_image_repo=None):

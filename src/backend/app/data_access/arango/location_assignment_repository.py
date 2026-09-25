@@ -99,17 +99,3 @@ class ArangoLocationAssignmentRepository(BaseArangoRepository[LocationAssignment
         if not docs:
             return None
         return LocationAssignment(**self._from_doc(docs[0]))
-
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        query = f"""
-        FOR doc IN {col.LOCATION_ASSIGNMENTS}
-          FILTER doc.tenant_key == @tenant_key
-          LET aid = CONCAT("{col.LOCATION_ASSIGNMENTS}/", doc._key)
-          LET d1 = (FOR e IN {col.ASSIGNED_TO_LOCATION} FILTER e._from == aid REMOVE e IN {col.ASSIGNED_TO_LOCATION})
-          LET d2 = (FOR e IN {col.ASSIGNMENT_FOR} FILTER e._from == aid REMOVE e IN {col.ASSIGNMENT_FOR})
-          LET d3 = (FOR e IN {col.ASSIGNMENT_IN_TENANT} FILTER e._from == aid REMOVE e IN {col.ASSIGNMENT_IN_TENANT})
-          REMOVE doc IN {col.LOCATION_ASSIGNMENTS}
-          RETURN 1
-        """
-        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
-        return sum(1 for _ in cursor)

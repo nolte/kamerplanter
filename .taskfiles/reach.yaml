@@ -28,6 +28,10 @@ vars:
   # The seeded data subject's user key; the probes' observation steps pass the
   # same value with --subject.
   REACH_SUBJECT: reach-subject
+  # The seeded tenant of the tenant-erasure probes (#1769) and its control; the
+  # observation steps pass the same value with --tenant.
+  REACH_TENANT: reach-tenant
+  REACH_CONTROL_TENANT: reach-control-tenant
 
 tasks:
   reach:stack:up:
@@ -99,6 +103,26 @@ tasks:
       queries in ArangoDB's query log. Reports nothing about the result.
     cmds:
       - python3 scripts/reach/admin_delete_subject.py --subject {{.REACH_SUBJECT}}
+
+  reach:seed:erasure-tenant:
+    desc: |
+      Seed a tenant ({{.REACH_TENANT}}) and a control tenant
+      ({{.REACH_CONTROL_TENANT}}) into the running reach stack: a model-valid row
+      in every collection of TenantErasureEngine.INVENTORY (a parent-chained
+      collection reached only through its parent), the member's account key on
+      the retention rows, and one edge per graph edge definition between the
+      tenant's rows (#1769). Writes .reach/subjects/tenant-{{.REACH_TENANT}}.json.
+    cmds:
+      - python3 scripts/reach/stack.py seed-tenant --tenant {{.REACH_TENANT}} --control {{.REACH_CONTROL_TENANT}}
+
+  reach:erasure:admin-delete-tenant:
+    desc: |
+      Register a platform admin over the API, promote it, and send
+      DELETE /api/v1/admin/platform/tenants/{{.REACH_TENANT}} as that admin — the
+      tenant deletion of #1769. Brackets the call with marker queries in
+      ArangoDB's query log. Reports nothing about the result.
+    cmds:
+      - python3 scripts/reach/admin_delete_tenant.py --tenant {{.REACH_TENANT}}
 
   reach:ranking:up:
     desc: |

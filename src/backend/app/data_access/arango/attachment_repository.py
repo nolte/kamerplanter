@@ -337,22 +337,6 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return int(next(cursor, 0) or 0)
 
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        """REQ-024/-025 — delete every attachment metadata document of a tenant."""
-        query = """
-        FOR att IN @@collection
-          FILTER att.tenant_key == @tenant_key
-          REMOVE att IN @@collection
-          COLLECT WITH COUNT INTO removed
-          RETURN removed
-        """
-        bind_vars = {
-            "@collection": self._collection_name,
-            "tenant_key": tenant_key,
-        }
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return int(next(cursor, 0) or 0)
-
     def find_by_sha256(self, tenant_key: str, sha256: str) -> Attachment | None:
         query = """
         FOR att IN @@collection

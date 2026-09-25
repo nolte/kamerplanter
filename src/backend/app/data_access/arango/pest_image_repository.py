@@ -145,19 +145,3 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         if existing is None:
             return False
         return super().delete(key)
-
-    def delete_for_tenant(self, tenant_key: str) -> int:
-        query = """
-        FOR c IN @@collection
-          FILTER c.tenant_key == @tenant_key
-          REMOVE c IN @@collection
-          COLLECT WITH COUNT INTO removed
-          RETURN removed
-        """
-        bind_vars = {
-            "@collection": self._collection_name,
-            "tenant_key": tenant_key,
-        }
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        result = list(cursor)
-        return int(result[0]) if result else 0

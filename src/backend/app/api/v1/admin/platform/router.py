@@ -233,24 +233,22 @@ def delete_tenant(
     _user: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Delete a tenant and all its associated data. Platform admin only.
+    """Delete a tenant and all its data, as the declared tenant-erasure inventory says. Platform admin only.
 
-    Cannot delete the platform tenant. Routes through
-    ``TenantService.delete_tenant`` so this admin path shares the exact same
-    NFR-013 §6.1 purge as the tenant-scoped ``DELETE /t/{slug}`` endpoint:
-    object-storage prefix (``t/{key}/``) + contributed reference-index vectors
-    are removed alongside memberships, invitations and assignments (SEC-002 —
-    previously this raw-AQL path orphaned the tenant's binary data).
+    Routes through ``TenantService.delete_tenant`` — the same path as the
+    tenant-scoped ``DELETE /t/{slug}`` (#1769): the external phase (reference
+    vectors, pest prototypes, storage prefix), then one ArangoDB transaction over
+    ``TenantErasureEngine.INVENTORY`` — every tenant-scoped collection deleted,
+    CanG/PflSchG records kept with their account keys pseudonymised — and a
+    persisted ``tenant_erasure_records`` entry as proof.
 
-    The existence check and the ``is_platform`` guard read the tenant through
-    ``TenantService.get_tenant`` (#1019) instead of ``get_db()``, so the router
-    no longer touches Persistence directly (NFR-001).
+    Answers: 204 erased; 403 the platform tenant; 404 no such tenant; 409 another
+    deletion of it is running; 503 the deployment cannot erase (nothing changed);
+    502 an external store failed; 500 ``TENANT_ERASURE_INCOMPLETE`` when something
+    still holds the tenant — in every failure case after the record exists, the
+    deletion stays open and the daily beat retries it.
     """
-    tenant = tenant_service.get_tenant(key)
-    if tenant.is_platform:
-        raise ForbiddenError("The platform tenant cannot be deleted.")
-
-    tenant_service.delete_tenant(key)
+    tenant_service.delete_tenant(key, origin="platform_admin")
 
 
 @router.delete("/users/{key}", status_code=204)

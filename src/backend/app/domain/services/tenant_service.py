@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 
@@ -18,13 +18,16 @@ from app.common.exceptions import (
     FeatureNotConfiguredError,
     ForbiddenError,
     NotFoundError,
+    TenantErasureIncompleteError,
     ValidationError,
+    WriteConflictError,
 )
 from app.common.log_privacy import log_subject
+from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
-from app.domain.interfaces.attachment_repository import IAttachmentRepository
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.invitation_repository import IInvitationRepository
 from app.domain.interfaces.location_assignment_repository import (
     ILocationAssignmentRepository,
@@ -34,11 +37,14 @@ from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
+from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
+from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 from app.domain.models.tenant import Tenant, TenantWithRole
+from app.domain.models.tenant_erasure import TenantErasureOrigin, TenantErasureRecord
 
 logger = structlog.get_logger()
 
@@ -47,6 +53,10 @@ logger = structlog.get_logger()
 # so a malformed/empty key can never widen the delete prefix to ``t//`` (which
 # would otherwise collapse to ``t`` and match *every* tenant).
 _TENANT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:@()=;$!*',+%-]+$")
+
+#: Absorbs the daily beat's own jitter so a one-day backoff does not miss the
+#: next run by seconds (the account erasure's ``ERASURE_RETRY_SLACK``).
+_TENANT_ERASURE_RETRY_SLACK = timedelta(hours=1)
 
 
 class TenantService:
@@ -60,10 +70,12 @@ class TenantService:
         membership_engine: MembershipEngine,
         invitation_engine: InvitationEngine,
         storage_adapter: IObjectStorageAdapter | None = None,
-        attachment_repo: IAttachmentRepository | None = None,
         reference_index_store: IReferenceIndexStore | None = None,
         pest_image_repo: IPestImageRepository | None = None,
         pest_prototype_store: IPestPrototypeStore | None = None,
+        tenant_erasure_executor: ITenantErasureExecutor | None = None,
+        tenant_erasure_repo: ITenantErasureRepository | None = None,
+        tombstone_salt: str = "",
     ) -> None:
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
@@ -76,7 +88,6 @@ class TenantService:
         # binary data (object storage) and its contributed reference-index
         # vectors. Optional so non-deletion call sites stay unaffected.
         self._storage_adapter = storage_adapter
-        self._attachment_repo = attachment_repo
         self._reference_index_store = reference_index_store
         # REQ-010 — pest-image link documents are a separate ArangoDB collection
         # (not covered by the object-storage prefix sweep). They are dropped on
@@ -87,6 +98,13 @@ class TenantService:
         # non-deletion callers stay unaffected; the retract is a no-op when either
         # is unwired (it cannot resolve a label without the IPM repo).
         self._pest_prototype_store = pest_prototype_store
+        # #1769 — the declared tenant-erasure inventory, its executor and the
+        # persisted proof. The salt pseudonymises the account keys on retained
+        # harvest/treatment/inspection rows; it never leaves this service.
+        self._tenant_erasure_engine = TenantErasureEngine()
+        self._tenant_erasure_executor = tenant_erasure_executor
+        self._tenant_erasure_repo = tenant_erasure_repo
+        self._tombstone_salt = tombstone_salt
 
     # --- Tenant CRUD ---
 
@@ -253,34 +271,243 @@ class TenantService:
             raise NotFoundError("Tenant", tenant_key)
         return tenant
 
-    def delete_tenant(self, tenant_key: str) -> bool:
-        # NFR-013 §6.1 / REQ-025 — purge the tenant's binary data and its
-        # contributed reference-index vectors before removing the tenant record.
-        # Storage cleanup runs first so that, on a mid-delete failure, the
-        # tenant record still exists and the operation is fully retryable.
-        self._purge_tenant_storage(tenant_key)
+    # --- Tenant deletion (REQ-024 / REQ-025 / NFR-011, #1769) ---
 
-        self._assignment_repo.delete_all_for_tenant(tenant_key)
-        self._invitation_repo.delete_all_for_tenant(tenant_key)
-        self._membership_repo.delete_all_for_tenant(tenant_key)
-        deleted = self._tenant_repo.delete(tenant_key)
-        if not deleted:
+    def delete_tenant(
+        self,
+        tenant_key: str,
+        *,
+        origin: TenantErasureOrigin = "tenant_management",
+        now: datetime | None = None,
+    ) -> TenantErasureRecord:
+        """Erase the tenant and everything it holds, and persist the proof.
+
+        What goes and what stays is :attr:`TenantErasureEngine.INVENTORY`, not
+        this method: the external phase (contributed reference vectors and pest
+        prototypes, attachment metadata, pest-image links, the ``t/{key}/``
+        storage prefix) runs first, then one ArangoDB transaction deletes every
+        ``delete`` entry and every edge touching it, pseudonymises the retention
+        rows (CanG / PflSchG) and removes the tenant document.
+
+        Order of effects:
+
+        1. Refuse the platform tenant (403) and a deployment that cannot erase
+           (503) — before anything changes.
+        2. Persist the record (one per tenant, so a concurrent second deletion
+           collides, 409) and freeze the tenant: every membership is deactivated,
+           so no member request writes into it while it is erased.
+        3. Run the erasure. ``completed`` only when the executor found nothing
+           left; otherwise ``partially_completed`` with a backoff that
+           :meth:`resume_tenant_erasures` (daily beat) retries.
+
+        Raises:
+            NotFoundError: no such tenant (and no open record for it).
+            ForbiddenError: the platform tenant.
+            FeatureNotConfiguredError: the deployment cannot erase (HTTP 503).
+            WriteConflictError: another run holds the deletion (HTTP 409).
+            TenantErasureIncompleteError: something still holds the tenant; the
+                record stays open and is retried (HTTP 500).
+            Exception: whatever the run raised, after the failed attempt was
+                recorded.
+        """
+        now = now or datetime.now(UTC)
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        record = self._require_tenant_erasure_repo().get(record_key)
+        if tenant is None and (record is None or record.status == "completed"):
             raise NotFoundError("Tenant", tenant_key)
-        logger.info("tenant_deleted", tenant_key=tenant_key)
-        return True
+        if tenant is not None and tenant.is_platform:
+            raise ForbiddenError("The platform tenant cannot be deleted.")
 
-    def _purge_tenant_storage(self, tenant_key: str) -> None:
-        """NFR-013 §6.1 — delete the tenant's object-storage prefix + ref index.
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+
+        if record is None:
+            try:
+                record = self._require_tenant_erasure_repo().create_with_key(
+                    TenantErasureRecord(
+                        tenant_key=tenant_key,
+                        tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
+                        origin=origin,
+                        requested_at=now,
+                    ),
+                    record_key,
+                )
+            except (DuplicateError, WriteConflictError) as exc:
+                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
+
+        claimed = self._claim_tenant_erasure(record_key, now)
+        if claimed is None:
+            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+        self._membership_repo.deactivate_all_for_tenant(tenant_key)
+        return self._run_tenant_erasure(claimed, now, raise_on_failure=True)
+
+    def resume_tenant_erasures(self, now: datetime) -> dict[str, int]:
+        """Retry every open tenant deletion whose backoff has passed (daily beat).
+
+        A deployment that cannot erase holds every record untouched — one error
+        line, no attempt spent — so the first run after the fix executes them all
+        (#1666). A record still inside its backoff is skipped with an info line.
+        """
+        repo = self._require_tenant_erasure_repo()
+        stale_before = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+        candidates = repo.list_due(stale_before_iso=stale_before.isoformat())
+        result = {"candidates": len(candidates), "completed": 0, "open": 0, "deferred": 0, "held": 0}
+        if not candidates:
+            return result
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            result["held"] = len(candidates)
+            logger.error("tenant_erasure.retry_not_configured", reason=configuration_error, held=len(candidates))
+            return result
+        for record in candidates:
+            if record.next_attempt_at is not None and record.next_attempt_at > now + _TENANT_ERASURE_RETRY_SLACK:
+                result["deferred"] += 1
+                logger.info(
+                    "tenant_erasure.deferred",
+                    record_key=record.key,
+                    attempt_count=record.attempt_count,
+                    next_attempt_at=record.next_attempt_at.isoformat(),
+                )
+                continue
+            claimed = self._claim_tenant_erasure(record.key or "", now)
+            if claimed is None:
+                continue
+            self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
+            finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
+            result["completed" if finished.status == "completed" else "open"] += 1
+        logger.info("tenant_erasure.retry_completed", **result)
+        return result
+
+    def _require_tenant_erasure_repo(self) -> ITenantErasureRepository:
+        if self._tenant_erasure_repo is None:
+            raise FeatureNotConfiguredError("tenant_deletion", "No tenant-erasure record store is wired.")
+        return self._tenant_erasure_repo
+
+    def _claim_tenant_erasure(self, record_key: str, now: datetime) -> TenantErasureRecord | None:
+        stale_before = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+        return self._require_tenant_erasure_repo().claim_for_run(
+            record_key, now_iso=now.isoformat(), stale_before_iso=stale_before.isoformat()
+        )
+
+    def _tenant_erasure_configuration_error(self) -> str | None:
+        """Why this deployment cannot erase a tenant, or ``None`` when it can (#1666 shape).
+
+        Checked before anything changes: a configuration fault is not a property
+        of one tenant and would fail every attempt identically.
+        """
+        if self._tenant_erasure_executor is None or self._tenant_erasure_repo is None:
+            return "No tenant-erasure executor or record store is wired on this deployment."
+        try:
+            ErasureEngine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
+        except ValueError:
+            return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        if self._reference_index_store is not None:
+            reference_error = self._reference_index_store.configuration_error()
+            if reference_error is not None:
+                return reference_error
+        if self._pest_image_repo is not None and self._pest_prototype_store is None:
+            return "No pest-prototype store is wired, so contributed pest-recognition prototypes cannot be erased."
+        if self._pest_prototype_store is not None:
+            return self._pest_prototype_store.configuration_error()
+        return None
+
+    def _run_tenant_erasure(
+        self, record: TenantErasureRecord, now: datetime, *, raise_on_failure: bool
+    ) -> TenantErasureRecord:
+        """External phase, then the ArangoDB inventory; the record says what happened."""
+        record_key = record.key or TenantErasureEngine.record_key(record.tenant_key)
+        repo = self._require_tenant_erasure_repo()
+        executor = self._tenant_erasure_executor
+        assert executor is not None  # checked by _tenant_erasure_configuration_error
+        salt = self._tombstone_salt
+        try:
+            external = self._purge_tenant_storage(record.tenant_key)
+            report = executor.run_tenant_erasure(
+                self._tenant_erasure_engine.build_plan(record.tenant_key),
+                pseudonymize=lambda user_key: ErasureEngine.compute_tombstone_hash(user_key, salt),
+            )
+        except Exception as exc:
+            attempt = record.attempt_count + 1
+            next_attempt_at = TenantErasureEngine.next_attempt_at(attempt, now)
+            logger.error(
+                "tenant_erasure.attempt_failed",
+                record_key=record_key,
+                attempt=attempt,
+                error_type=type(exc).__name__,
+                next_attempt_at=next_attempt_at.isoformat(),
+            )
+            repo.update_fields(
+                record_key,
+                {
+                    "status": "partially_completed",
+                    "attempt_count": attempt,
+                    "next_attempt_at": next_attempt_at.isoformat(),
+                    "error_message": (
+                        f"Attempt {attempt} failed ({type(exc).__name__}); "
+                        f"the next one is due after {next_attempt_at.date()}."
+                    ),
+                },
+            )
+            if raise_on_failure:
+                raise
+            return record.model_copy(update={"status": "partially_completed", "attempt_count": attempt})
+
+        fields: dict[str, object] = {
+            **external,
+            "outcomes": [outcome.model_dump() for outcome in report.outcomes],
+            "edges_removed": report.edges_removed,
+            "unreached": list(report.unreached),
+        }
+        if report.unreached:
+            attempt = record.attempt_count + 1
+            next_attempt_at = TenantErasureEngine.next_attempt_at(attempt, now)
+            fields.update(
+                {
+                    "status": "partially_completed",
+                    "attempt_count": attempt,
+                    "next_attempt_at": next_attempt_at.isoformat(),
+                    "error_message": (
+                        f"Still holding the tenant after attempt {attempt}: {', '.join(report.unreached)}."
+                    ),
+                }
+            )
+            logger.error(
+                "tenant_erasure.unreached",
+                record_key=record_key,
+                attempt=attempt,
+                unreached=report.unreached,
+            )
+            updated = repo.update_fields(record_key, fields)
+            if raise_on_failure:
+                raise TenantErasureIncompleteError(list(report.unreached))
+            return updated or record
+        fields.update(
+            {
+                "status": "completed",
+                "completed_at": now.isoformat(),
+                "next_attempt_at": None,
+                "error_message": None,
+            }
+        )
+        updated = repo.update_fields(record_key, fields)
+        logger.info("tenant_deleted", tenant_key=record.tenant_key, record_key=record_key)
+        return updated or record
+
+    def _purge_tenant_storage(self, tenant_key: str) -> dict[str, object]:
+        """NFR-013 §6.1 — the phase outside ArangoDB.
 
         Steps (with audit logs):
           1. Remove the tenant's user-contributed reference-index vectors
              (inference-service; fails loud, #1753).
-          2. Delete all ``attachments`` metadata for the tenant.
-          3. Drop the tenant's ``pest_image_contributions`` link documents.
-          4. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
+          2. Remove the tenant's contributed pest prototypes (#1759).
+          3. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
 
-        Any step that raises stops the purge, and ``delete_tenant`` then never
-        reaches the tenant record, so the whole delete can be retried.
+        Any step that raises stops the purge before the ArangoDB inventory runs,
+        so the tenant document still exists and the retry starts from the same
+        state. Every step is idempotent. Returns what each step reported, for the
+        record.
 
         ``delete_prefix`` / reference-index calls are async; this method is
         invoked from a synchronous request handler, so it bridges via
@@ -296,12 +523,15 @@ class TenantService:
         if not tenant_key or not _TENANT_KEY_PATTERN.match(tenant_key):
             raise ValidationError(f"Refusing to purge storage for an invalid tenant key: {tenant_key!r}")
 
+        reported: dict[str, object] = {}
         # REQ-024 / REQ-025 AK-OS-05 — the tenant's contributed reference vectors
         # go first: they live in a separate service, and when that delete fails
         # (ExternalSourceError, HTTP 502) nothing else has been removed yet, so
         # a retry starts from the same state (#1753).
         if self._reference_index_store is not None:
             removed_vectors = run_async(self._reference_index_store.delete_tenant_contributions(tenant_key))
+            reported["reference_index_binding"] = self._reference_index_store.binding
+            reported["reference_index_removed"] = removed_vectors
             logger.info(
                 "tenant_reference_index_cleanup",
                 tenant_key=tenant_key,
@@ -309,53 +539,35 @@ class TenantService:
                 removed=removed_vectors,
             )
 
-        # #1759 — the tenant's contributed pest-recognition prototypes go next,
-        # for the same reason: a separate service, deleted before anything in
-        # ArangoDB, so a failed delete (ExternalSourceError, HTTP 502) leaves the
-        # tenant to be retried. By tenant, not by contribution key, so a
-        # prototype whose contribution document is already gone is reached too.
+        # #1759 — the tenant's contributed pest-recognition prototypes, by tenant
+        # rather than by contribution key, so a prototype whose contribution
+        # document is already gone is reached too. A missing store is refused by
+        # the configuration check before anything changes.
         if self._pest_prototype_store is not None:
             removed_prototypes = run_async(self._pest_prototype_store.delete_tenant_contributions(tenant_key))
+            reported["pest_prototype_binding"] = self._pest_prototype_store.binding
+            reported["pest_prototypes_removed"] = removed_prototypes
             logger.info(
                 "tenant_pest_prototype_cleanup",
                 tenant_key=tenant_key,
                 binding=self._pest_prototype_store.binding,
                 removed=removed_prototypes,
             )
-        elif self._pest_image_repo is not None:
-            raise FeatureNotConfiguredError(
-                "tenant_deletion",
-                "No pest-prototype store is wired, so contributed pest-recognition prototypes cannot be erased.",
-            )
 
-        if self._attachment_repo is not None:
-            removed_meta = self._attachment_repo.delete_all_for_tenant(tenant_key)
-            logger.info(
-                "tenant_storage_metadata_deleted",
-                tenant_key=tenant_key,
-                removed=removed_meta,
-            )
-
-        # REQ-010 — drop the pest-image link documents. The attachment bytes are
-        # removed by the prefix sweep below; this removes the dangling catalog of
-        # contributions so a re-created tenant key never inherits stale rows.
-        if self._pest_image_repo is not None:
-            removed_pest_images = self._pest_image_repo.delete_for_tenant(tenant_key)
-            logger.info(
-                "tenant_pest_images_deleted",
-                tenant_key=tenant_key,
-                removed=removed_pest_images,
-            )
-
+        # The ``attachments`` metadata and the ``pest_image_contributions`` link
+        # documents are ArangoDB rows of the tenant: the inventory removes them in
+        # the transaction below, not this phase (#1769 — one path per row).
         if self._storage_adapter is not None:
             prefix = f"t/{tenant_key}/"
             deleted_objects = run_async(self._storage_adapter.delete_prefix(prefix))
+            reported["storage_objects_removed"] = deleted_objects
             logger.info(
                 "tenant_storage_prefix_deleted",
                 tenant_key=tenant_key,
                 prefix=prefix,
                 deleted=deleted_objects,
             )
+        return reported
 
     def list_my_tenants(self, user_key: str) -> list[TenantWithRole]:
         memberships = self._membership_repo.list_by_user(user_key)

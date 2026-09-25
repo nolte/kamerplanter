@@ -102,8 +102,15 @@ def delete_tenant(
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Delete tenant and all associated data. Admin only."""
-    service.delete_tenant(ctx.tenant_key)
+    """Delete the tenant and all its data (declared tenant-erasure inventory, #1769). Management only.
+
+    Same path as ``DELETE /admin/platform/tenants/{key}``: 403 for the platform
+    tenant, 409 while another deletion runs, 503 when the deployment cannot erase
+    (nothing changed), 502 for a failed external store, 500
+    ``TENANT_ERASURE_INCOMPLETE`` when something still holds the tenant — the
+    deletion then stays recorded and is retried daily.
+    """
+    service.delete_tenant(ctx.tenant_key, origin="tenant_management")
     return MessageResponse(message="Tenant deleted")
 
 

@@ -37,6 +37,3 @@ class IInvitationRepository(ABC):
 
     @abstractmethod
     def cleanup_expired(self) -> int: ...
-
-    @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int: ...
