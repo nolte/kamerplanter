@@ -106,6 +106,14 @@ Im Light-Modus entfällt die Token-Authentifizierung. Die API ist ohne Anmeldung
 !!! danger "Light-Modus nicht öffentlich exponieren"
     Der Light-Modus deaktiviert alle Authentifizierungsschichten. Niemals mit einem öffentlich erreichbaren Port betreiben.
 
+### Netzwerk-Freigabe unter Docker Compose
+
+Diese Variable liest nicht das Backend, sondern Docker Compose (`docker-compose.yml` und `docker-compose.release.yml`) beim Start.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `KAMERPLANTER_BIND_ADDRESS` | `127.0.0.1` | Nein | Host-Adresse, an die Compose die Benutzeroberfläche (8080) und die API (8000) bindet. Mit `0.0.0.0` erreichen andere Geräte im Netzwerk beide Ports, siehe [Dauerbetrieb — Zugriff von anderen Geräten](../deployment/docker-dauerbetrieb.md#zugriff-von-anderen-geraten). Datenbanken, Valkey und Ollama bleiben unabhängig davon an `127.0.0.1` gebunden. |
+
 ---
 
 ## CORS-Konfiguration

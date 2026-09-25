@@ -22,7 +22,7 @@ never off a status field alone:
 The service's SQL itself is pinned in the inference-service suite. Runs against
 a real ArangoDB (see ``tests/integration/conftest.py``)::
 
-    docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_reference_index_erasure_reach.py -v
 """
 

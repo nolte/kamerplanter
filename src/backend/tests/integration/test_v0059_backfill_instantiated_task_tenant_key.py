@@ -7,7 +7,7 @@ resolution is measured here against a server rather than a fake.
 
 Run with::
 
-    docker run -d --rm -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d --rm -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0059_backfill_instantiated_task_tenant_key.py -v
 """
 

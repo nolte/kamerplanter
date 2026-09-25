@@ -8,7 +8,7 @@ The one negative that matters is measured here too: a legacy row whose free-text
 
 Run with::
 
-    docker run -d --rm -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d --rm -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0057_stamp_quality_assessor_user_key.py -v
 """
 

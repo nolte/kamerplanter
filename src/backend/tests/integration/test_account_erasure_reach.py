@@ -27,7 +27,7 @@ tier.
 
 Runs in CI against a service container; locally it needs a database::
 
-    docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_account_erasure_reach.py -v
 """
 
