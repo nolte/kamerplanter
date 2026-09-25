@@ -1086,6 +1086,8 @@ def _marker(stamp: str, name: str) -> str:
 
 
 _A, _B = "src%2Fbackend%2Ftests%2Ftest_a.py", "src%2Fbackend%2Ftests%2Ftest_b.py"
+#: A module whose only test was skipped: it was active, but no call phase executed.
+_C = "src%2Fbackend%2Ftests%2Ftest_c.py"
 _PYTEST_TRACE = (
     '100.000001 openat(AT_FDCWD</repo>, "src/backend/conftest.py", O_RDONLY) = 3</repo/src/backend/conftest.py>\n'
     + _marker("100.000002", f"collect~{_A}")
@@ -1093,7 +1095,11 @@ _PYTEST_TRACE = (
     + _marker("100.000004", "none~")
     + _marker("100.000010", f"run~{_A}")
     + '100.000011 openat(AT_FDCWD</repo>, "docs/a.md", O_RDONLY) = 5</repo/docs/a.md>\n'
+    + _marker("100.000012", f"ran~{_A}")
+    + '100.000013 openat(AT_FDCWD</repo>, "docs/a-teardown.md", O_RDONLY) = 5</repo/docs/a-teardown.md>\n'
     + _marker("100.000020", f"run~{_B}")
+    + _marker("100.000025", f"ran~{_B}")
+    + _marker("100.000026", f"run~{_C}")
     + _marker("100.000030", "none~")
     + '100.000031 openat(AT_FDCWD</repo>, "src/backend/after.py", O_RDONLY) = 5</repo/src/backend/after.py>\n'
 )
@@ -1119,7 +1125,7 @@ class TestReadsAreAttributedToTheTestModuleThatMadeThem:
     def test_a_read_belongs_to_the_module_active_when_it_happened_in_any_process(self, tmp_path: Path) -> None:
         trace = self._trace(tmp_path)
         assert trace.reader_files == {
-            "src/backend/tests/test_a.py": {"/repo/docs/at-import.md", "/repo/docs/a.md"},
+            "src/backend/tests/test_a.py": {"/repo/docs/at-import.md", "/repo/docs/a.md", "/repo/docs/a-teardown.md"},
             "src/backend/tests/test_b.py": {"/repo/docs/b.md"},
         }, "the collection read is its module's; the subprocess's read is the test's that started it"
         assert trace.reader_listings == {"src/backend/tests/test_b.py": {"/repo/docs"}}
@@ -1134,7 +1140,9 @@ class TestReadsAreAttributedToTheTestModuleThatMadeThem:
 
     def test_only_modules_whose_tests_ran_are_test_modules(self, tmp_path: Path) -> None:
         trace = self._trace(tmp_path)
-        assert trace.test_modules == {"src/backend/tests/test_a.py", "src/backend/tests/test_b.py"}
+        assert trace.test_modules == {"src/backend/tests/test_a.py", "src/backend/tests/test_b.py"}, (
+            "test_c.py was active but its test skipped — it judged nothing in this lane"
+        )
 
     def test_a_trace_without_stamps_parses_as_before_and_attributes_nothing(self, tmp_path: Path) -> None:
         trace_file = tmp_path / "trace.1"
@@ -1153,6 +1161,9 @@ class TestTheMarkerPlugin:
         root = tmp_path / "repo"
         (root / "tests").mkdir(parents=True)
         (root / "tests" / "test_one.py").write_text("def test_x():\n    pass\n")
+        (root / "tests" / "test_skipped.py").write_text(
+            "import pytest\n\n@pytest.mark.skip(reason='x')\ndef test_y():\n    pass\n"
+        )
         markers = tmp_path / "markers"
         markers.mkdir()
         env = recorder.marker_env({"PATH": "/usr/bin:/bin"}, markers)
@@ -1169,8 +1180,11 @@ class TestTheMarkerPlugin:
         assert {p.name for p in markers.iterdir()} == {
             "collect~tests%2Ftest_one.py",
             "run~tests%2Ftest_one.py",
+            "ran~tests%2Ftest_one.py",
+            "collect~tests%2Ftest_skipped.py",
+            "run~tests%2Ftest_skipped.py",
             "none~",
-        }
+        }, "a skipped test is active but never `ran`"
 
     def test_the_recorder_loads_it_into_every_pytest_and_keeps_existing_options(self) -> None:
         env = recorder.marker_env({"PYTEST_ADDOPTS": "--deselect x.py", "PYTHONPATH": "/a"}, Path("/m"))

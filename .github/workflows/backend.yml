@@ -137,7 +137,8 @@ on:
       # test_determine_chart_version.py), migrations/test_e2e_admin_env_containment.py
       # (the compose files, helm/, .env.example), test_route_consumers_check.py
       # (the frontend endpoint modules), test_embedding_service_feed.py, and three
-      # modules that import from scripts/ (Python lists a sys.path directory).
+      # modules the import system lists scripts/ for (a sys.path entry an earlier
+      # test inserted; attribution is first-touch, see scripts/ci/lane_inputs.py).
       # Until #1749 each was held "covered" because some OTHER guards-lane test
       # read the same path — which judges that test, not these. Moving them into
       # the required lane instead would cost ~2 min on a lane whose rollback
@@ -236,7 +237,8 @@ on:
       # test_determine_chart_version.py), migrations/test_e2e_admin_env_containment.py
       # (the compose files, helm/, .env.example), test_route_consumers_check.py
       # (the frontend endpoint modules), test_embedding_service_feed.py, and three
-      # modules that import from scripts/ (Python lists a sys.path directory).
+      # modules the import system lists scripts/ for (a sys.path entry an earlier
+      # test inserted; attribution is first-touch, see scripts/ci/lane_inputs.py).
       # Until #1749 each was held "covered" because some OTHER guards-lane test
       # read the same path — which judges that test, not these. Moving them into
       # the required lane instead would cost ~2 min on a lane whose rollback

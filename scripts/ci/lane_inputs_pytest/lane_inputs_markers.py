@@ -10,6 +10,13 @@ says which module is active::
     <marker dir>/run~<quoted module path>
     <marker dir>/none~
 
+and, once a test's call phase has actually executed (not skipped), ::
+
+    <marker dir>/ran~<quoted module path>
+
+which is what puts the module on the manifest's ``test_modules``: a module whose
+tests were all skipped did not judge anything in that lane.
+
 The open is a syscall like every read, with a timestamp, so the recorder can
 put each read of the whole process tree — the pytest process, its threads and
 every subprocess a test spawned — on the same timeline and attribute it to the
@@ -88,6 +95,15 @@ def pytest_make_collect_report(collector: pytest.Collector) -> Generator[None, o
     module = _module(collector.path) if isinstance(collector, pytest.Module) else None
     with _active("collect", module):
         return (yield)
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    # The active marker, not the report's path: the report is about the item
+    # `pytest_runtest_protocol` below just marked, and that marker is the one
+    # spelling of its module the recorder already reads.
+    if report.when != "call" or not _stack or not _stack[-1].startswith("run~") or not _enabled():
+        return
+    _mark("ran~" + _stack[-1].removeprefix("run~"))
 
 
 @pytest.hookimpl(wrapper=True)

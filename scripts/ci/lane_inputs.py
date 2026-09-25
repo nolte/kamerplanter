@@ -254,14 +254,28 @@ _ARGV_ITEM = re.compile(r'"((?:[^"\\]|\\.)*)"')
 # it — in whichever process of the tree it happened, so a subprocess or a thread
 # a test started is the test's read too. What is recorded:
 #
-# * `test_modules` — every module of which at least one test RAN (a deselected
-#   or skipped-at-collection module is not in it: it did not run there);
+# * `test_modules` — every module of which at least one test's call phase
+#   executed (a deselected module, or one whose tests all skipped, is not in it:
+#   it judged nothing there);
 # * `readers` — `{module: [reads]}`, only the reads the job's own relevance
 #   filter does NOT select: the only reads an accepted gap can explain, so the
 #   only ones a delegation can be about.
 #
 # Reads outside any test (pytest start-up, conftest collection, a non-pytest
 # invocation) have no reader and stay held by path only.
+#
+# What the attribution cannot see, named rather than hidden (review of #1749):
+# it is FIRST-TOUCH. A read happens once per process and is then served from a
+# cache — an imported module, the import system's directory listings, a
+# `functools.cache`, a session fixture — so it is credited to whichever module
+# touched it first, and a later module depending on the same cached content is
+# not credited at all. A new test that reads a delegated file itself (the tree
+# guards open their inputs per test) is attributed; one that reaches it only
+# through a helper an earlier module already warmed is not. Closing that needs
+# a process per module (~2–3 s of interpreter and app import each, over ~860
+# modules of the unit suite), which the recording legs do not pay. Coverage is
+# also per MODULE: a module that runs in the covering lane counts for all its
+# tests, including one that lane deselects (`-m 'not advisory'`).
 
 #: Where the marker plugin lives; put on PYTHONPATH for a recording, and its own
 #: reads (the import, the directory listing) are the instrument's, not the job's.
@@ -388,6 +402,8 @@ def marker_timeline(trace_files: list[Path], marker_dir: Path) -> MarkerTimeline
                 if not match or not match.group("path").startswith(prefix) or match.group("ts") is None:
                     continue
                 kind, _, quoted = match.group("path")[len(prefix) :].partition("~")
+                if kind == "ran":
+                    continue  # says a test executed; it does not change which module is active
                 module = urllib.parse.unquote(quoted) if kind in ("collect", "run") else NO_READER
                 timeline.stamps.append(float(match.group("ts")))
                 timeline.readers.append(module)
@@ -502,7 +518,7 @@ def _parse_trace_file(
                 opened = _clean(match.group("path"))
                 if marker_prefix is not None and opened.startswith(marker_prefix):
                     kind, _, quoted = opened[len(marker_prefix) :].partition("~")
-                    if kind == "run":
+                    if kind == "ran":
                         trace.test_modules.add(urllib.parse.unquote(quoted))
                     continue  # the instrument's own marker, not a read
                 trace.files.add(opened)

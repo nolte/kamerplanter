@@ -493,7 +493,15 @@ nicht unter den `test_modules` der benannten Lane steht, ist rot — im Wächter
 Ein Manifest ohne diese Felder ist rot, nicht grün: Es wurde vor der Zuordnung
 aufgezeichnet, und „kein Leser bekannt" ist nicht „kein Leser". Lesezugriffe
 außerhalb jedes Tests (pytest-Start, `conftest`-Sammlung, ein Aufruf ohne
-pytest) haben keinen Leser und bleiben allein am Pfad gehalten.
+pytest) haben keinen Leser und bleiben allein am Pfad gehalten. Zwei Grenzen
+der Zuordnung, benannt statt versteckt: Sie ist **Erstzugriff** — was ein
+Prozess einmal liest und danach aus einem Cache bedient (importiertes Modul,
+Verzeichnisliste des Import-Systems, `functools.cache`, Session-Fixture), zählt
+für das Modul, das zuerst zugriff; ein späteres Modul, das nur den Cache nutzt,
+gilt nicht als Leser. Und sie ist **modulgenau**: Ein Modul, das in der
+benannten Lane läuft, deckt alle seine Tests, auch einen, den diese Lane
+abwählt. Beides zu schließen hieße ein Prozess je Testmodul in der
+Aufzeichnung.
 
 **MUSS**: Für einen required Kontext, dessen Relevanz **im Job** entschieden
 wird (§4.1, die Bauform von `backend-guards.yml`), hält der Wächter zusätzlich
