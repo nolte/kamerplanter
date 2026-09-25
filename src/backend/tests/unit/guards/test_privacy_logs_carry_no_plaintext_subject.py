@@ -42,6 +42,7 @@ spelling the other catches:
 
 **What the selector derives**: every tracked module under ``app/`` whose path names
 the privacy, auth, retention, erasure, data-subject or export surface, plus the
+device-pairing store (it is authentication, but its file name does not say so), the
 storage adapters and ``user_service`` (account deletion). A new module on that
 surface is guarded by being named like it; one named otherwise is not — see below.
 ``app/migrations/`` is excluded: an applied migration's source is frozen
@@ -84,7 +85,9 @@ import pytest
 BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 #: Path fragments that put a module on the guarded surface.
-_SURFACE = re.compile(r"(privacy|auth|retention|erasure|data_subject|data_export|/storage/|user_service)")
+_SURFACE = re.compile(
+    r"(privacy|auth|retention|erasure|data_subject|data_export|device_pairing|/storage/|user_service)"
+)
 #: Excluded with the reason in the module docstring.
 _EXCLUDED_DIRS = ("app/migrations/",)
 
@@ -233,6 +236,7 @@ def test_selector_reaches_the_surface() -> None:
         "retention_tasks.py",
         "s3_adapter.py",
         "local_fs_adapter.py",
+        "redis_device_pairing.py",
     ):
         assert expected in names, f"selector lost {expected}"
 
