@@ -77,40 +77,35 @@ This file then asserts, over the real tree:
    skipped, or is a finding; a ``covered_by`` delegation to a job that has no
    manifest is a finding, never a silent pass.
 
-WHERE THE MANIFESTS COME FROM (#1683).
+WHERE THE MANIFESTS COME FROM (#1683, #1794).
 
 The recorder runs in CI: ``.github/workflows/lane-inputs.yml`` replays every
-manifest's own ``invocations`` under ``strace`` on ``ubuntu-latest`` and its
+manifest's own ``invocations`` under ``strace`` on ``ubuntu-latest``, weekly and
+on dispatch against ``develop`` — never on a pull request (#1794). Its
 ``compare`` job fails when the committed ``reads``, ``job_spec_sha256``,
-``status`` or ``invocations`` differ from what it recorded — so a hand-edited
-``reads:`` has no path to green there. To refresh a manifest, do not re-measure
-on a workstation; run that lane (a pull request touching ``.github/workflows/``,
-``.github/lane-inputs/``, ``scripts/ci/lane_inputs.py`` or this file does, as
-does ``gh workflow run lane-inputs.yml --ref <branch>``) and commit what it
-recorded::
-
-    gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
-    cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
+``status`` or ``invocations`` differ from what it recorded, so a hand-edited
+``reads:`` has no path to green there; on drift its ``propose`` job opens one
+bot pull request (``bot/lane-inputs-refresh``) carrying the recording as
+recorded. Nobody refreshes a manifest by hand or from a workstation.
 
 A ``covered_by`` target with no manifest is recorded by the same lane from the
 job's own ``run:`` lines (``replay WORKFLOW/JOB``); its manifest declares
 ``gate.kind: unfiltered``, which this file accepts only for a job that really
 has no filter.
 
-WHERE THIS FILE RUNS, AND WHY NOT IN THE REQUIRED LANE (#1683).
+WHERE THIS FILE RUNS (#1794).
 
-The two gaps this file once held open in aging registers — no manifest for
-``backend-guards.yml/guards``, and ``backend--coverage.yaml`` recorded from one
-test file (``status: partial``) — are closed: both manifests are now CI
-recordings from ``lane-inputs.yml`` (#1683), so the registers are gone and
-every finding on the real tree is red. The file still carries
-``pytestmark = pytest.mark.advisory``, and the required ``Write-route and tree
-guards`` lane deselects it with ``-m 'not advisory'`` (``backend-guards.yml``);
-``task test:backend:unit`` — ``pytest tests/unit/`` — still collects it, so the
-advisory ``backend.yml`` lanes carry the verdict. A manifest's read set moves
-whenever a file is added under a directory a job enumerates, so the manifests
-go stale between two recordings by construction; promoting this file and the
-lane is a decision on their measured history (NFR-018 §4), not an edit of this
+The rules 1, 2, 3 and 5 above hold the COMMITTED manifests against the LIVE
+workflows. A pull request that changes a job can only satisfy them with a
+recording, so they carry the ``lane_inputs_drift`` marker and run only where
+the recording is made: the ``guard`` job of ``lane-inputs.yml`` passes
+``--lane-inputs-drift``, and ``tests/conftest.py`` deselects them in every other
+run (``test_lane_inputs_drift_runs_only_in_its_lane.py`` holds both halves).
+Rule 4, the planted trees and the matcher need no recording and run wherever
+this file runs. The file as a whole still carries ``pytestmark =
+pytest.mark.advisory``, which the required ``Write-route and tree guards`` lane
+deselects with ``-m 'not advisory'``; whether any of it becomes required is
+#1683's decision on measured history (NFR-018 §4), not an edit of this
 paragraph.
 
 THE MATCHER, AND WHY IT IS ALLOWED TO EXIST HERE.
@@ -147,8 +142,8 @@ import yaml
 
 from tests.support.repo_scripts import find_repo_root, load_repo_script
 
-#: Deselected by the required lane (`-m 'not advisory'` in backend-guards.yml) until
-#: the recorder runs in CI (#1683); see the module docstring. `pytest tests/unit/` runs it.
+#: Deselected by the required lane (`-m 'not advisory'` in backend-guards.yml); promotion
+#: is #1683's decision. `pytest tests/unit/` runs the rules that need no recording (#1794).
 pytestmark = pytest.mark.advisory
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
@@ -1110,17 +1105,29 @@ def real() -> Sweep:
 # --------------------------------------------------------------- real tree
 
 
+#: The rules that hold the COMMITTED manifests against the LIVE workflows — population,
+#: well-formedness, freshness, coverage (with the delegation rule), invocation coherence
+#: — need a recording to turn green after a job changes. They run only where the
+#: recording is made: ``lane-inputs.yml`` on ``develop`` passes ``--lane-inputs-drift``
+#: (#1794); every other run deselects them (``tests/conftest.py``). The decision-shape
+#: rule below needs no recording and runs wherever this file runs.
+_needs_a_recording = pytest.mark.lane_inputs_drift
+
+
 class TestTheRealTree:
+    @_needs_a_recording
     def test_every_filtered_job_and_every_filter_name_is_measured(self, real: Sweep) -> None:
         findings = missing_manifests(real)
         assert not findings, "A relevance filter without a measured read set is an opt-in list:\n  " + "\n  ".join(
             findings
         )
 
+    @_needs_a_recording
     def test_every_manifest_is_well_formed_and_names_a_live_job(self, real: Sweep) -> None:
         findings = malformed_manifests(real)
         assert not findings, "\n  ".join(findings)
 
+    @_needs_a_recording
     def test_no_manifest_is_older_than_its_job(self, real: Sweep) -> None:
         findings = stale_manifests(real)
         assert not findings, (
@@ -1128,6 +1135,7 @@ class TestTheRealTree:
             "(the invocations are listed in the file):\n  " + "\n  ".join(findings)
         )
 
+    @_needs_a_recording
     def test_every_read_is_selected_by_every_filter_that_gates_its_job(self, real: Sweep) -> None:
         findings = [finding for m in real.manifests for finding in coverage_findings(real, m)]
         assert not findings, (
@@ -1137,6 +1145,7 @@ class TestTheRealTree:
             + "\n  ".join(findings)
         )
 
+    @_needs_a_recording
     def test_every_held_invocation_of_a_job_is_the_one_its_manifest_recorded(self, real: Sweep) -> None:
         findings = [finding for m in real.manifests for finding in invocation_findings(real, m)]
         assert not findings, (

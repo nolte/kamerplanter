@@ -428,7 +428,7 @@ Gehalten von `test_renovate_automerge_policy.py` (Wert, Ausnahme für Security,
 **Die bewusst in Kauf genommenen Kosten:**
 
 - Ein wackeliger oder roter **nicht-pflichtiger** Check (Coverage, Docker-Builds mit
-  Smoke, E2E-Smoke, `Lane inputs` …) hält einen Renovate-Pull-Request an, bis er neu
+  Smoke, E2E-Smoke …) hält einen Renovate-Pull-Request an, bis er neu
   gestartet oder repariert ist.
 - Majors werden gemergt, ohne dass ein Mensch sie gelesen hat. Das Netz ist die
   Check-Menge, allen voran `E2E smoke (compose, light)`.
