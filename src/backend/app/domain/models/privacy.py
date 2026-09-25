@@ -21,6 +21,11 @@ type ErasureStatus = Literal["scheduled", "in_progress", "completed", "partially
 #: Art. 17 request with its 90-day grace; ``platform_admin`` and
 #: ``unverified_cleanup`` are due at once but keep the same record, gate and retry.
 type ErasureOrigin = Literal["self_service", "platform_admin", "unverified_cleanup"]
+#: How the person who asked for an erasure re-authenticated (#1813, #1814):
+#: ``password`` — the requester's current password; ``echo`` — an account without
+#: a local password typed the target's e-mail back (REQ-394, real re-auth #1815).
+#: ``None`` on records of the unverified-account cleanup and on older records.
+type ErasureStepUp = Literal["password", "echo"]
 #: What an account erasure did with one personal tenant of the subject (#1788).
 #: ``erased`` — the subject was its only active member, and the tenant-erasure
 #: inventory (#1769) completed on it; ``retained_other_members`` — another active
@@ -150,6 +155,12 @@ class ErasureRequest(BaseModel):
     #: The same for the contributed pest-recognition prototypes (#1759).
     pest_prototype_binding: str | None = None
     pest_prototypes_removed: int | None = Field(default=None, ge=0)
+    #: The step-up the request was confirmed with (#1813, #1814).
+    step_up: ErasureStepUp | None = None
+    #: Who asked, when it was not the subject (``platform_admin``): the salted
+    #: ``ErasureEngine.log_subject`` reference, never the account key — the record
+    #: outlives both accounts (#1814, the #1791 shape).
+    requested_by_subject: str | None = None
     #: Phase 0 hard-delete outcome (#1770): stored objects deleted, and objects
     #: kept because another member's record still holds the same bytes.
     storage_objects_removed: int | None = Field(default=None, ge=0)

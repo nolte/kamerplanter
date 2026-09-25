@@ -568,10 +568,10 @@
       "erasureDescription": "Exercise the right to be forgotten (Art. 17 GDPR) here. After confirmation, your account is deactivated immediately; the final deletion happens once retention periods expire.",
       "erasureRequestButton": "Delete account",
       "erasureDialogTitle": "Delete account?",
-      "erasureDialogText": "Do you really want to delete your account permanently? This action cannot be undone.",
+      "erasureDialogText": "Your account is closed immediately and you are signed out. Once the deletion period has passed, your data is permanently deleted. This action cannot be undone.",
       "erasureDialogConfirm": "Yes, delete account",
       "erasureDialogPasswordLabel": "Current password",
-      "erasureDialogPasswordHelper": "Confirm your identity with your current password to authorize the deletion.",
+      "erasureDialogPasswordHelper": "Confirm with your current password that it is really you.",
       "erasurePasswordRequired": "Please enter your current password.",
       "erasureRequested": "Erasure request has been received.",
       "restrictHeading": "Restrict processing",
@@ -589,7 +589,9 @@
         "unlawful_processing": "Unlawful processing",
         "purpose_expired": "Purpose expired",
         "objection_pending": "Objection pending"
-      }
+      },
+      "erasureDialogEmailLabel": "Your email address to confirm",
+      "erasureDialogEmailHelper": "Type your email address \"{{email}}\" to confirm that you want to delete your account."
     },
     "activities": {
       "title": "Activities",
@@ -830,9 +832,9 @@
         "continueInBrowser": "Continue in the browser"
       },
       "dangerZone": "Danger Zone",
-      "deleteAccountWarning": "Deleting your account cannot be undone. All data will be permanently removed.",
+      "deleteAccountWarning": "Deleting your account cannot be undone. Your account is closed immediately, and your data is permanently removed once the deletion period has passed.",
       "deleteAccount": "Delete Account",
-      "deleteAccountConfirm": "Are you sure you want to delete your account? This cannot be undone.",
+      "deleteAccountConfirm": "Your account is closed immediately and you are signed out. Once the deletion period has passed, your data is permanently deleted. Harvest and treatment records are kept only as long as the law requires and name no one afterwards.",
       "logout": "Log out",
       "accountMenu": "Account Menu",
       "rememberMe": "Remember me",
@@ -879,8 +881,21 @@
       "timezoneHelper": "e.g. Europe/Berlin, America/New_York",
       "emailReadOnly": "Your email address cannot be changed here.",
       "unlinkProvider": "Unlink provider",
-      "deleteAccountDescription": "Your account and all your data will be permanently deleted. This action cannot be undone.",
-      "tabDashboard": "Dashboard"
+      "deleteAccountDescription": "Your account is closed immediately; your data is permanently deleted once the deletion period has passed. This action cannot be undone.",
+      "tabDashboard": "Dashboard",
+      "stepUpLocked": "Too many failed confirmations. Try again in {{minutes}} minutes.",
+      "stepUpLockedNoMinutes": "Too many failed confirmations. Try again later.",
+      "stepUpPasswordLabel": "Your current password",
+      "stepUpPasswordHelper": "For your security, confirm this step with your password.",
+      "deleteAccountDialogTitle": "Delete account permanently",
+      "deleteAccountEmailLabel": "Your email address to confirm",
+      "deleteAccountEmailHelper": "Type your email address \"{{email}}\" to confirm that you want to delete your account.",
+      "deleteAccountConfirmButton": "Delete account",
+      "adminDeleteUserDialogTitle": "Delete user permanently",
+      "adminDeleteUserEmailLabel": "User's email address to confirm",
+      "adminDeleteUserEmailHelper": "Type the email address \"{{email}}\" of the user you are deleting.",
+      "adminDeleteUserPasswordLabel": "Your own current password",
+      "adminDeleteUserPasswordHelper": "Confirm with your own admin password, not the user's."
     },
     "tenants": {
       "selectTenant": "Select Garden",

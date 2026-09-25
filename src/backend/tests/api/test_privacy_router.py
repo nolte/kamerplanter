@@ -196,13 +196,24 @@ class TestErasureEndpoints:
 
         response = client.post(
             "/api/v1/privacy/erasure",
-            json={"password": "very-strong-pass"},
+            json={"confirm_email": "user@example.com", "password": "very-strong-pass"},
         )
 
         assert response.status_code == 201
+        # The step-up reaches the service, which decides (#1813).
+        kwargs = service.request_erasure.call_args.kwargs
+        assert kwargs["confirmation"].echo == "user@example.com"
+        assert kwargs["confirmation"].password == "very-strong-pass"
+        assert kwargs["authenticated_with_api_key"] is False
         body = response.json()
         assert body["status"] == "scheduled"
         assert "harvest_batches" in body["anonymized_collections"]
+
+    def test_request_erasure_without_the_e_mail_echo_is_422(self, client: TestClient, service: MagicMock) -> None:
+        response = client.post("/api/v1/privacy/erasure", json={"password": "very-strong-pass"})
+
+        assert response.status_code == 422
+        service.request_erasure.assert_not_called()
 
 
 class TestRestrictionEndpoints:

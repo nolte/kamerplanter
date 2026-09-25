@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import i18n from 'i18next';
 import { ApiError } from '@/api/errors';
 import { createTestStore, renderWithProviders } from '@/test/helpers';
 
@@ -165,6 +166,33 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
     await userEvent.click(confirm);
 
     expect(await within(dialog).findByLabelText(/passwort|password/i)).toBeInTheDocument();
+  });
+
+  it('shows the lockout with its minutes on 429 STEP_UP_LOCKED (#1816)', async () => {
+    providers([{ provider: 'local' }]);
+    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'err_3',
+          error_code: 'STEP_UP_LOCKED',
+          message: 'Too many failed confirmations. Try again in 15 minutes.',
+          details: [{ field: 'password', reason: 'locked', code: 'STEP_UP_LOCKED', retry_after_minutes: '15' }],
+          timestamp: '',
+          path: '/x',
+          method: 'DELETE',
+        },
+        429,
+      ),
+    );
+    const dialog = await openDeleteDialog();
+
+    await userEvent.type(within(dialog).getByTestId('tenant-delete-slug').querySelector('input')!, TENANT.slug);
+    await userEvent.type(within(dialog).getByLabelText(/passwort|password/i), 'wrong');
+    await userEvent.click(within(dialog).getByTestId('tenant-delete-confirm'));
+
+    expect(await within(dialog).findByTestId('tenant-delete-error')).toHaveTextContent(
+      i18n.t('pages.auth.stepUpLocked', { minutes: '15' }),
+    );
   });
 
   it('keeps the dialog open and shows a refused step-up inside it', async () => {

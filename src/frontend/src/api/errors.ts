@@ -95,3 +95,39 @@ export function getFieldViolations(error: unknown): FieldViolation[] {
       code: detail.code,
     }));
 }
+
+/** Backend error code of a throttled step-up confirmation (429, #1816). */
+const STEP_UP_LOCKED = 'STEP_UP_LOCKED';
+
+/**
+ * Minutes until a locked step-up may be retried, or `null` when the error is
+ * not a `STEP_UP_LOCKED` refusal.
+ *
+ * Read from `details[].retry_after_minutes` (a string on the wire). A lockout
+ * that carries no parseable wait still returns a value — the empty string — so
+ * the caller shows the lockout rather than the backend's English message.
+ */
+export function getStepUpLockedMinutes(error: unknown): string | null {
+  if (!isApiError(error)) return null;
+  const detail = error.details.find((d) => d.code === STEP_UP_LOCKED);
+  if (error.errorCode !== STEP_UP_LOCKED && !detail) return null;
+  return detail?.retry_after_minutes ?? '';
+}
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+/**
+ * The message a step-up surface shows for a failed confirmation.
+ *
+ * One place for every irreversible action guarded by a step-up (tenant and
+ * account deletion, the Art. 17 erasure request, the password change): a
+ * `STEP_UP_LOCKED` refusal becomes the translated lockout with its minutes,
+ * anything else falls back to {@link parseApiError}.
+ */
+export function getStepUpErrorMessage(error: unknown, t: Translate): string {
+  const minutes = getStepUpLockedMinutes(error);
+  if (minutes === null) return parseApiError(error);
+  return minutes
+    ? t('pages.auth.stepUpLocked', { minutes })
+    : t('pages.auth.stepUpLockedNoMinutes');
+}

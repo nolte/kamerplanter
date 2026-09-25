@@ -66,12 +66,14 @@ Admin-Panel.
 
 **Testschritte**:
 1. Nutzer navigiert zu `/settings` und oeffnet den Tab "Konto"
-2. Nutzer liest den Warnhinweis "Das Loeschen Ihres Kontos kann nicht rueckgaengig gemacht werden. Alle Daten werden unwiderruflich entfernt."
+2. Nutzer liest den Warnhinweis: das Konto wird sofort geschlossen, die Daten nach Ablauf der Loeschfrist endgueltig geloescht
 3. Nutzer klickt auf den Button "Konto loeschen" (`data-testid="delete-account-btn"`)
-4. Ein Browser-Bestaedigungsdialog erscheint mit dem Text: "Sind Sie sicher, dass Sie Ihr Konto loeschen moechten? Dies kann nicht rueckgaengig gemacht werden."
-5. Nutzer klickt auf "OK"
+4. Ein Bestaetigungsdialog (`data-testid="delete-account-dialog"`) erscheint (Step-up, REQ-023 §3.9 — #1813)
+5. Nutzer tippt die eigene E-Mail-Adresse ein (`data-testid="delete-account-email"`) und — bei lokalem Konto — das aktuelle Passwort (`data-testid="delete-account-password"`)
+6. Nutzer klickt auf den Bestaetigungs-Button (`data-testid="delete-account-confirm"`)
 
 **Erwartete Ergebnisse**:
+- Der Bestaetigungs-Button bleibt deaktiviert, solange die E-Mail nicht der eigenen entspricht
 - Der Bestaedigungsdialog schliesst sich
 - Der Browser navigiert automatisch zur Seite `/login`
 - Auf der Login-Seite ist der Nutzer ausgeloggt — kein Name, kein Avatar in der Navigation
@@ -97,8 +99,8 @@ Admin-Panel.
 
 **Testschritte**:
 1. Nutzer klickt auf den Button "Konto loeschen" (`data-testid="delete-account-btn"`)
-2. Ein Browser-Bestaedigungsdialog erscheint mit Text "Sind Sie sicher...?"
-3. Nutzer klickt auf "Abbrechen"
+2. Der Bestaetigungsdialog (`data-testid="delete-account-dialog"`) erscheint
+3. Nutzer klickt auf "Abbrechen" (`data-testid="delete-account-cancel"`)
 
 **Erwartete Ergebnisse**:
 - Der Dialog schliesst sich ohne Aktion
@@ -127,8 +129,9 @@ Admin-Panel.
 2. Admin sucht den Testnutzer in der Nutzerliste und klickt auf seinen Namen oder den Bearbeiten-Button
 3. Auf der Nutzer-Detailseite scrollt Admin nach unten bis zur "Danger Zone"
 4. Admin klickt auf den Button "Benutzer loeschen" (`data-testid="delete-user-btn"`)
-5. Ein roter Bestaetigungsbereich erscheint mit dem Text: "Möchtest du den Benutzer 'Testnutzer' (test-delete@kamerplanter.local) und alle zugehoerigen Daten unwiderruflich loeschen moechten?"
-6. Admin klickt auf den roten Button "Endgueltig loeschen" (`data-testid="confirm-delete-user-btn"`)
+5. Ein Bestaetigungsdialog (`data-testid="delete-user-dialog"`) erscheint (Step-up, REQ-023 §3.9 — #1814)
+6. Admin tippt die E-Mail-Adresse des **Testnutzers** ein (`data-testid="delete-user-email"`) und — bei lokalem Admin-Konto — sein **eigenes** Admin-Passwort (`data-testid="delete-user-password"`)
+7. Admin klickt auf den roten Button "Endgueltig loeschen" (`data-testid="confirm-delete-user-btn"`)
 
 **Erwartete Ergebnisse**:
 - Die Seite zeigt eine Erfolgs-Snackbar: "Benutzer geloescht"
@@ -155,11 +158,11 @@ Admin-Panel.
 
 **Testschritte**:
 1. Admin oeffnet die Nutzer-Detailseite und klickt auf "Benutzer loeschen" (`data-testid="delete-user-btn"`)
-2. Der rote Bestaetigungsbereich erscheint
-3. Admin klickt auf "Abbrechen"
+2. Der Bestaetigungsdialog (`data-testid="delete-user-dialog"`) erscheint
+3. Admin klickt auf "Abbrechen" (`data-testid="delete-user-cancel"`)
 
 **Erwartete Ergebnisse**:
-- Der rote Bestaetigungsbereich verschwindet
+- Der Bestaetigungsdialog schliesst sich
 - Der Button "Benutzer loeschen" erscheint wieder
 - Der Nutzer ist weiterhin in der Datenbank sichtbar (kein Seiteneffekt)
 

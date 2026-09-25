@@ -8,14 +8,17 @@ from app.api.v1.auth.schemas import (
     SessionResponse,
     UserProfileResponse,
 )
+from app.api.v1.privacy.schemas import ErasureCreateRequest
 from app.api.v1.users.schemas import ChangePasswordRequest, ProfileUpdateRequest
-from app.common.auth import get_current_user
+from app.common.auth import get_authenticated_with_api_key, get_current_user
 from app.common.auth import is_platform_admin as _is_platform_admin
-from app.common.dependencies import get_auth_service, get_tenant_service, get_user_service
+from app.common.dependencies import get_auth_service, get_privacy_service, get_tenant_service, get_user_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.request_ip import resolve_client_ip
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.user import User, UserProfileUpdate
 from app.domain.services.auth_service import AuthService
+from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 
@@ -77,10 +80,23 @@ def unlink_provider(
 def change_password(
     body: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    """Change the current user's password and revoke all sessions."""
-    auth_service.change_password(current_user.key or "", body.current_password, body.new_password)
+    """Change the current user's password and revoke all sessions.
+
+    The current password is a step-up (#1816): refused from an API-key request
+    (403), throttled per account and address — 429 ``STEP_UP_LOCKED`` after too
+    many failures, in the same budget as account erasure and tenant deletion.
+    """
+    auth_service.change_password(
+        current_user.key or "",
+        body.current_password,
+        body.new_password,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return MessageResponse(message="Password changed. All sessions revoked.")
 
 
@@ -109,9 +125,29 @@ def revoke_session(
 
 @router.delete("/me", response_model=MessageResponse)
 def delete_account(
+    body: ErasureCreateRequest,
     current_user: User = Depends(get_current_user),
-    service: UserService = Depends(get_user_service),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
+    service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Delete the current user's account."""
-    service.delete_account(current_user.key or "")
-    return MessageResponse(message="Account deleted.")
+    """Request the erasure of the current user's account (REQ-025 Art. 17).
+
+    The same act as ``POST /privacy/erasure`` and the same service entry (#1813).
+    Until #1813 this route tombstoned the user document on a bare session — no
+    password, no erasure record, and every personal record left behind. It now
+    opens the Art. 17 request: the account is closed at once and hard-deleted after
+    the grace period (``RETENTION_SOFT_DELETE_RETENTION_DAYS``).
+
+    **Step-up:** the body echoes the account's e-mail (422) and carries the current
+    password for an account that has one (401); an API-key request or a service
+    account is refused (403); 429 ``STEP_UP_LOCKED`` after too many failures
+    (#1816).
+    """
+    service.request_erasure(
+        current_user.key or "",
+        confirmation=body.to_confirmation(),
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
+    return MessageResponse(message="Account erasure requested.")

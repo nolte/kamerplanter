@@ -26,6 +26,7 @@ from app.domain.models.privacy import (
     ProcessingRestriction,
     RestrictionReason,
 )
+from app.domain.services.step_up_service import StepUpConfirmation
 
 if TYPE_CHECKING:
     from app.domain.services.privacy_service import PrivacyService
@@ -58,11 +59,19 @@ class DataSubjectService:
     def erase(
         self,
         user_key: UserKey,
-        password_confirmation: str | None,
+        *,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> ErasureRequest:
-        """Art. 17: request account erasure (soft + scheduled hard delete)."""
+        """Art. 17: request account erasure (soft + scheduled hard delete), behind the step-up (#1813)."""
         logger.info("data_subject_right_invoked", article="17", subject=self._privacy.log_subject(user_key))
-        return self._privacy.request_erasure(user_key, password_confirmation)
+        return self._privacy.request_erasure(
+            user_key,
+            confirmation=confirmation,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
     # ── Art. 18: right to restriction ─────────────────────────────
 

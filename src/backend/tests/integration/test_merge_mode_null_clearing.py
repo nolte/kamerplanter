@@ -51,6 +51,7 @@ import pytest
 from arango import ArangoClient
 
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.privacy_doubles import step_up
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
@@ -147,12 +148,13 @@ def user_key(db) -> str:
     return _USER_KEY
 
 
-def _user_service(db):
-    """The real service on the real repositories — the production write path."""
-    from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
-    from app.domain.services.user_service import UserService
+def _erase_with_step_up(db, user_key: str) -> None:
+    """The Art. 17 self-service request (#1813 replaced the tombstone-only soft delete)."""
+    from app.data_access.arango import collections as col
+    from app.domain.engines.password_engine import PasswordEngine
 
-    return UserService(_user_repo(db), ArangoRefreshTokenRepository(db))
+    db.collection(col.USERS).update({"_key": user_key, "password_hash": PasswordEngine().hash_password("step-up")})
+    _privacy_service(db).request_erasure(user_key, **step_up(_STORED_USER["email"], "step-up"))
 
 
 def _privacy_service(db):
@@ -204,30 +206,6 @@ def _privacy_service(db):
 class TestTheSoftDeleteRemovesTheCredential:
     """#1525: the two soft-delete paths, measured on the stored document."""
 
-    @pytest.mark.parametrize("field", ["password_hash", "avatar_url"])
-    def test_delete_account_clears_it(self, db, user_key, field):
-        """Against the merge-mode repository both assertions failed with the stored value."""
-        from app.data_access.arango import collections as col
-
-        _user_service(db).delete_account(user_key)
-
-        _assert_cleared(_raw(db, col.USERS, user_key), field, f"a deleted account kept its {field}")
-
-    def test_delete_account_still_writes_the_fields_that_always_landed(self, db, user_key):
-        """The three fields that *did* land are what made the record read as deleted.
-
-        Asserted here so "the clear works now" cannot be bought by breaking the
-        rest of the same write.
-        """
-        from app.data_access.arango import collections as col
-
-        _user_service(db).delete_account(user_key)
-
-        stored = _raw(db, col.USERS, user_key)
-        assert stored["is_active"] is False
-        assert stored["email"] == f"deleted_{user_key}@deleted.example.com"
-        assert stored["display_name"] == "Deleted User"
-
     def test_request_erasure_clears_the_credential(self, db, user_key):
         """DSGVO Art. 17: the hash may not outlive the request by the 90-day window.
 
@@ -241,7 +219,7 @@ class TestTheSoftDeleteRemovesTheCredential:
         password = "correct horse battery staple"
         db.collection(col.USERS).update({"_key": user_key, "password_hash": PasswordEngine().hash_password(password)})
 
-        _privacy_service(db).request_erasure(user_key, password)
+        _privacy_service(db).request_erasure(user_key, **step_up(_STORED_USER["email"], password))
 
         stored = _raw(db, col.USERS, user_key)
         _assert_cleared(stored, "password_hash", "an account awaiting erasure kept its credential")
@@ -272,7 +250,7 @@ class TestTheSoftDeleteRemovesTheCredential:
         """Full-replace removes an explicit ``null``; it does not replace the document."""
         from app.data_access.arango import collections as col
 
-        _user_service(db).delete_account(user_key)
+        _erase_with_step_up(db, user_key)
 
         stored = _raw(db, col.USERS, user_key)
         assert stored["legacy_attr"] == _UNDECLARED["legacy_attr"]
@@ -287,7 +265,7 @@ class TestTheSoftDeleteRemovesTheCredential:
         """
         from app.data_access.arango import collections as col
 
-        _user_service(db).delete_account(user_key)
+        _erase_with_step_up(db, user_key)
 
         stored = _raw(db, col.USERS, user_key)
         assert stored["locale"] == "de"

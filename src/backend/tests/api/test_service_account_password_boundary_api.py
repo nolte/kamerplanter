@@ -135,11 +135,16 @@ def test_an_api_key_reaches_the_route_and_is_refused() -> None:
     assert user_repo.user.password_hash is None
 
 
-def test_the_same_key_on_an_interactive_account_still_sets_the_password() -> None:
+def test_the_same_key_on_an_interactive_account_is_refused_by_the_step_up_instead() -> None:
     """The control for the premise: resolution and the route work.
 
     Without this, the 403 above is equally consistent with a route that refuses
-    every API-key caller for some unrelated reason.
+    every API-key caller for some unrelated reason. Until #1816 an interactive
+    account's key set the password here; since then the current password is a
+    step-up, and a step-up refuses every API-key request — a key is a stored
+    machine credential, not the person re-authenticating. So the control now
+    tells the two refusals apart by their message: the service-account boundary
+    (#1559) above, the step-up's API-key refusal here.
     """
     client, user_repo = _client("human")
 
@@ -149,5 +154,6 @@ def test_the_same_key_on_an_interactive_account_still_sets_the_password() -> Non
         headers={"Authorization": f"Bearer {_RAW_KEY}"},
     )
 
-    assert response.status_code == 200
-    assert user_repo.user.password_hash is not None
+    assert response.status_code == 403
+    assert "API key" in response.json()["message"]
+    assert user_repo.writes == []

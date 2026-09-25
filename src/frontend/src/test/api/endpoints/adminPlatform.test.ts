@@ -66,10 +66,12 @@ describe('adminPlatform endpoints — stats, tenants, users', () => {
     });
   });
 
-  it('deleteAdminUser deletes encoded user key', async () => {
+  it("deleteAdminUser deletes encoded user key and carries the target's e-mail step-up (#1814)", async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await admin.deleteAdminUser('u1');
-    expect(client.delete).toHaveBeenCalledWith('/admin/platform/users/u1');
+    await admin.deleteAdminUser('u/1', { confirm_email: 'target@example.org', password: 'admin-pw' });
+    expect(client.delete).toHaveBeenCalledWith('/admin/platform/users/u%2F1', {
+      data: { confirm_email: 'target@example.org', password: 'admin-pw' },
+    });
   });
 });
 

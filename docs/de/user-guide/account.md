@@ -127,6 +127,9 @@ Im Tab **Sicherheit** der Kontoeinstellungen verwaltest du, wie du dich anmeldes
 !!! warning "Passwortänderung beendet alle Sitzungen"
     Sobald du dein Passwort änderst, werden alle aktiven Sitzungen beendet — auch auf anderen Geräten. Du musst dich dort erneut anmelden.
 
+!!! note "Nach zu vielen Fehlversuchen gesperrt"
+    Dein aktuelles Passwort korrekt einzugeben ist bei einer Passwortänderung eine erneute Bestätigung (genau wie bei der Konto- oder Mandantenlöschung, siehe unten). Tippst du es mehrfach falsch ein, sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; die Fehlermeldung zeigt die verbleibende Zeit. Diese Sperre betrifft nur die Bestätigung, nicht die Anmeldung selbst.
+
 ### Verknüpfte Anmeldeanbieter
 
 Die Liste zeigt alle mit deinem Konto verknüpften Anmeldewege (lokales Passwort, Google, GitHub, …). Du kannst einen Anbieter trennen, solange danach mindestens ein weiterer Anmeldeweg bestehen bleibt. Dein letzter Anmeldeweg lässt sich nicht entfernen, damit du nicht aus deinem Konto ausgesperrt wirst.
@@ -167,10 +170,15 @@ Im Tab **API-Schlüssel** (Zugangsschlüssel für automatisierte Zugriffe, z. B.
 
 ## Konto löschen
 
-Im Tab **Konto** der Kontoeinstellungen findest du im rot markierten Bereich die Schaltfläche **Konto löschen**. Sie deaktiviert dein Konto sofort und entfernt deine Anmeldedaten — du kannst dich danach nicht mehr anmelden.
+Im Tab **Konto** der Kontoeinstellungen findest du im rot markierten Bereich die Schaltfläche **Konto löschen**. Das ist derselbe Löschweg wie im Datenschutz-Bereich (siehe [Konto löschen (Art. 17 DSGVO)](privacy.md#account-loschen-art-17-dsgvo)): Dein Konto wird sofort geschlossen — du kannst dich danach nicht mehr anmelden —, und deine personenbezogenen Daten werden nach Ablauf der Karenzzeit (standardmäßig 90 Tage) endgültig gelöscht. Gesetzlich geschützte Daten (Ernte- und Behandlungsdokumentation) werden stattdessen anonymisiert, nicht gelöscht.
 
-!!! danger "Für die vollständige DSGVO-Löschung (Datenschutz-Grundverordnung) nutze den Datenschutz-Bereich"
-    Diese Schnellfunktion deaktiviert dein Konto, ersetzt aber nicht den vollständigen Löschprozess nach Art. 17 DSGVO mit rechtssicherer Anonymisierung deiner Ernte- und Behandlungsdaten. Möchtest du deine Daten vollständig und nachvollziehbar löschen lassen, nutze stattdessen den in [Datenschutz & DSGVO](privacy.md#account-loschen-art-17-dsgvo) beschriebenen Weg.
+Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut eintippst. Hat dein Konto ein lokales Passwort, gibst du zusätzlich dein **aktuelles Passwort** ein. Meldest du dich ausschließlich über einen externen Anbieter (Google, GitHub, Apple, OIDC) an, genügt die E-Mail-Bestätigung allein.
+
+!!! danger "Konto-Löschung ist endgültig"
+    Sobald du bestätigst, ist die Löschung nicht mehr rückgängig zu machen. Lade vorher deinen Datenexport herunter, wenn du deine Daten sichern möchtest (siehe [Datenschutz & DSGVO](privacy.md)). Die vollständige Aufschlüsselung, welche Daten sofort bzw. nach 90 Tagen gelöscht und welche nur anonymisiert werden, findest du unter [Konto löschen (Art. 17 DSGVO)](privacy.md#account-loschen-art-17-dsgvo).
+
+!!! note "Nach zu vielen Fehlversuchen gesperrt"
+    Tippst du das Passwort mehrfach falsch ein, sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt dir die verbleibende Wartezeit an. Diese Sperre betrifft nur die Bestätigung der Löschung, nicht die Anmeldung: Du kannst dich weiterhin normal anmelden, im Tab **Sitzungen** einzelne Sitzungen beenden oder dein Passwort über **Passwort vergessen?** zurücksetzen.
 
 ---
 

@@ -62,7 +62,7 @@ def service(user_repo: MagicMock) -> AuthService:
 
 
 def test_change_password_clears_the_outstanding_reset_token(service: AuthService, user_repo: MagicMock) -> None:
-    service.change_password("u1", CURRENT_PASSWORD, NEW_PASSWORD)
+    service.change_password("u1", CURRENT_PASSWORD, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
 
     key, fields = user_repo.update_fields.call_args[0]
     assert key == "u1"
@@ -80,7 +80,7 @@ def test_sso_user_setting_an_initial_password_also_clears_it(
     """An SSO-only account may set its first password without the current one."""
     user_repo.get_or_raise.return_value = _user(with_password=False)
 
-    service.change_password("u1", None, NEW_PASSWORD)
+    service.change_password("u1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
 
     _, fields = user_repo.update_fields.call_args[0]
     assert fields["password_reset_token"] is None
@@ -90,6 +90,6 @@ def test_sso_user_setting_an_initial_password_also_clears_it(
 def test_a_rejected_change_leaves_the_token_untouched(service: AuthService, user_repo: MagicMock) -> None:
     """A wrong current password must not touch the stored credentials at all."""
     with pytest.raises(UnauthorizedError):
-        service.change_password("u1", "wrong-password", NEW_PASSWORD)
+        service.change_password("u1", "wrong-password", NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
 
     user_repo.update_fields.assert_not_called()

@@ -52,8 +52,8 @@ from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStor
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.services.privacy_service import PrivacyService
-from app.domain.services.user_service import UserService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.privacy_doubles import admin_erasure_route_args, step_up
 from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("personal_tenant_erasure_reach")
@@ -185,14 +185,12 @@ def _privacy_service(database) -> PrivacyService:
 def _admin_delete(database, subject: str) -> None:
     admin_router.delete_user(
         subject,
-        current_user=SimpleNamespace(key=ADMIN),
-        privacy_service=_privacy_service(database),
-        user_service=UserService(ArangoUserRepository(database), MagicMock()),
+        **admin_erasure_route_args(_privacy_service(database), admin_key=ADMIN, target_email=f"{subject}@example.com"),
     )
 
 
 def _scheduled_erasure(database, subject: str) -> None:
-    request = _privacy_service(database).request_erasure(subject, "confirm")
+    request = _privacy_service(database).request_erasure(subject, **step_up(f"{subject}@example.com", "confirm"))
     assert request.hard_delete_scheduled_at is not None
     beat_clock = request.hard_delete_scheduled_at + timedelta(days=1)
     asyncio.run(_privacy_service(database).execute_scheduled_erasures(beat_clock))

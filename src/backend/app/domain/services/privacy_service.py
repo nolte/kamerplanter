@@ -15,14 +15,15 @@ import structlog
 from pydantic import BaseModel
 
 from app.common.decoys import decoy_document_key, email_digest
+from app.common.enums import TenantRole
 from app.common.exceptions import (
     DuplicateError,
     ErasureIncompleteError,
     FeatureNotConfiguredError,
+    ForbiddenError,
     InvalidTokenError,
     KamerplanterError,
     NotFoundError,
-    UnauthorizedError,
     ValidationError,
     WriteConflictError,
 )
@@ -62,6 +63,7 @@ from app.domain.models.privacy import (
     EmailChangeRequest,
     ErasureOrigin,
     ErasureRequest,
+    ErasureStepUp,
     PersonalTenantErasure,
     PrivacyPolicyInfo,
     ProcessingRestriction,
@@ -71,11 +73,20 @@ from app.domain.models.privacy import (
 )
 from app.domain.models.user import User, is_tombstone_email
 from app.domain.services.retention_service import RetentionService
+from app.domain.services.step_up_service import (
+    StepUpConfirmation,
+    StepUpVerifier,
+    default_step_up_verifier,
+    echo_matches,
+)
 
 if TYPE_CHECKING:
     from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
+
+#: The tenant whose ``lead`` membership makes a platform admin (REQ-049 §2.5).
+_PLATFORM_TENANT_KEY = "platform"
 
 
 def _persistable(fields: dict[str, object]) -> dict[str, object]:
@@ -188,6 +199,8 @@ class PrivacyService:
         tenant_service: TenantService | None = None,
         tombstone_salt: str = "",
         retention: RetentionService | None = None,
+        step_up_verifier: StepUpVerifier | None = None,
+        light_mode: bool = False,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -245,6 +258,13 @@ class PrivacyService:
         # cannot name a period the purge does not apply. Defaults to the
         # settings-backed service.
         self._retention = retention if retention is not None else RetentionService()
+        # Review SEC-003 — in light mode (REQ-027) every caller is the one system
+        # account, so no request may erase it (as ``TenantService.delete_tenant``).
+        self._light_mode = light_mode
+        # #1813 / #1814 / #1816 — the one throttled step-up of every irreversible account act.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
+            password_engine, tombstone_salt=tombstone_salt
+        )
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -529,27 +549,40 @@ class PrivacyService:
     def request_erasure(
         self,
         user_key: UserKey,
-        password_confirmation: str | None,
+        *,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> ErasureRequest:
         """Create an erasure request, soft-delete the user and revoke sessions.
 
         Hard-delete is scheduled the NFR-011 R-01 grace period into the future
         (``RETENTION_SOFT_DELETE_RETENTION_DAYS``, default 90). The actual
         deletion runs in a Celery task.
+
+        The entry of both self-service routes, ``POST /privacy/erasure`` and
+        ``DELETE /users/me`` (#1813). The step-up is the shared
+        :class:`StepUpVerifier` (keyword-only, no defaults, so a new route cannot
+        skip it): a signed-in session of a person, never an API key or a service
+        account (403); the account's own e-mail typed back (422); the current
+        password when the account has one (401) — throttled per account and
+        address (429 ``STEP_UP_LOCKED``, #1816). A federated-only account confirms
+        with the echo alone (REQ-394; real re-authentication #1815).
         """
+        self._refuse_in_light_mode()
         user = self._user_repo.get_or_raise(user_key)
+        step_up = self._step_up_verifier.verify(
+            user,
+            action="account_erasure",
+            echo_ok=echo_matches(confirmation.echo, user.email, case_insensitive=True),
+            password=confirmation.password,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
         existing = self._erasure_repo.find_active_for_user(user_key)
         if existing is not None:
             raise ValidationError("An erasure request is already in progress.")
-
-        # Local accounts: require password re-auth. OAuth-only accounts must
-        # confirm via a different upstream flow that is out of scope here.
-        if user.password_hash is not None and (
-            not password_confirmation
-            or not self._password_engine.verify_password(password_confirmation, user.password_hash)
-        ):
-            raise UnauthorizedError("Password confirmation failed.")
 
         now = datetime.now(UTC)
         erasure = self._new_erasure_request(
@@ -558,6 +591,7 @@ class PrivacyService:
             hard_delete_at=self._retention.hard_delete_at(now),
             origin="self_service",
         )
+        erasure.step_up = "password" if step_up == "password" else "echo"
         created = self._erasure_repo.create(erasure)
 
         # Immediate effects: soft-delete the user and revoke all sessions.
@@ -623,6 +657,8 @@ class PrivacyService:
         *,
         origin: ErasureOrigin,
         now: datetime | None = None,
+        step_up: ErasureStepUp | None = None,
+        requested_by_subject: str | None = None,
     ) -> ErasureRequest | None:
         """Erase an account at once, with the same record, gate and retry as Art. 17 (#1767).
 
@@ -683,8 +719,17 @@ class PrivacyService:
         # The request first, so a failure after the account is closed still
         # leaves a duty the beat retries (#1767 review SEC-D).
         if erasure is None:
-            erasure = self._create_immediate_request(user_key, now=now, origin=origin)
-        elif erasure.key is not None and (
+            erasure = self._create_immediate_request(
+                user_key, now=now, origin=origin, step_up=step_up, requested_by_subject=requested_by_subject
+            )
+        elif step_up is not None and erasure.key is not None:
+            # An admin erasing an account whose own request is still open: the
+            # record now also names the admin act that pulled it forward (#1814).
+            self._erasure_repo.update_fields(
+                erasure.key, {"step_up": step_up, "requested_by_subject": requested_by_subject}
+            )
+            erasure.step_up, erasure.requested_by_subject = step_up, requested_by_subject
+        if erasure.key is not None and (
             erasure.hard_delete_scheduled_at is None or erasure.hard_delete_scheduled_at > now
         ):
             # A self-service request still in its grace: the beat must be able
@@ -706,7 +751,94 @@ class PrivacyService:
         await self._finalize_erasure(erasure, now, raise_on_failure=True)
         return erasure
 
-    def _create_immediate_request(self, user_key: UserKey, *, now: datetime, origin: ErasureOrigin) -> ErasureRequest:
+    async def erase_account_by_admin(
+        self,
+        user_key: UserKey,
+        *,
+        requester: User,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+        now: datetime | None = None,
+    ) -> ErasureRequest | None:
+        """A platform admin erases another account at once — with a step-up (#1814).
+
+        The entry of ``DELETE /admin/platform/users/{key}``. Until #1814 the route
+        called :meth:`erase_account_now` behind ``require_platform_admin`` alone, so
+        a hijacked admin session erased any account with one request. Checked here,
+        not at the router, so the rule cannot drift from the route (the arguments
+        are keyword-only without defaults for that reason):
+
+        1. not the requester's own account (403) — that is the self-service path;
+        2. the requester is a platform admin *by the stored membership* (an active
+           ``lead`` membership in the ``platform`` tenant), not by the router's say (403);
+        3. the shared :class:`StepUpVerifier`: a signed-in session of a person,
+           never an API key (403); the **target's** e-mail typed back (422); the
+           **admin's own** current password when the admin has one (401),
+           throttled per admin and address (429, #1816).
+
+        Then :meth:`erase_account_now`, whose record carries the step-up and the
+        admin as a salted reference.
+        """
+        self._refuse_in_light_mode()
+        if requester.key == user_key:
+            raise ForbiddenError("You cannot delete your own account from the admin panel.")
+        self._require_platform_admin_membership(requester)
+        target = self._user_repo.get_or_raise(user_key)
+        step_up = self._step_up_verifier.verify(
+            requester,
+            action="admin_account_erasure",
+            echo_ok=echo_matches(confirmation.echo, target.email, case_insensitive=True),
+            password=confirmation.password,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        requested_by = self.log_subject(requester.key or "")
+        logger.info(
+            "erasure.admin_authorized",
+            subject=self.log_subject(user_key),
+            requested_by=requested_by,
+            step_up=step_up,
+        )
+        return await self.erase_account_now(
+            user_key,
+            origin="platform_admin",
+            now=now,
+            step_up="password" if step_up == "password" else "echo",
+            requested_by_subject=requested_by,
+        )
+
+    def _refuse_in_light_mode(self) -> None:
+        """No account erasure through a request in light mode (review SEC-003).
+
+        A light-mode installation has one account, the system user every request
+        resolves to without authentication (REQ-027), and its address is public in
+        the seed. The echo alone confirms an account without a password, so an
+        erasure request here would let anyone who reaches the instance schedule
+        the erasure of the installation itself.
+        """
+        if self._light_mode:
+            raise ForbiddenError("The account of a light-mode installation cannot be erased.")
+
+    def _require_platform_admin_membership(self, requester: User) -> None:
+        """Refuse unless the stored membership proves a platform admin (fail closed without a repo)."""
+        membership = (
+            self._membership_repo.get_by_user_and_tenant(requester.key or "", _PLATFORM_TENANT_KEY)
+            if self._membership_repo is not None
+            else None
+        )
+        if not (membership and membership.is_active and membership.role == TenantRole.LEAD):
+            raise ForbiddenError("Platform admin role required.")
+
+    def _create_immediate_request(
+        self,
+        user_key: UserKey,
+        *,
+        now: datetime,
+        origin: ErasureOrigin,
+        step_up: ErasureStepUp | None = None,
+        requested_by_subject: str | None = None,
+    ) -> ErasureRequest:
         """Create the immediate request under a per-subject key, or refuse (#1767 SEC-003).
 
         Keyed by a salted, domain-separated hash of the subject
@@ -718,6 +850,8 @@ class PrivacyService:
         """
         key = self._erasure_engine.compute_request_key(user_key, self._tombstone_salt)
         request = self._new_erasure_request(user_key, now=now, hard_delete_at=now, origin=origin)
+        request.step_up = step_up
+        request.requested_by_subject = requested_by_subject
         try:
             return self._erasure_repo.create_with_key(request, key)
         except (DuplicateError, WriteConflictError) as exc:

@@ -184,6 +184,11 @@ export interface ApiErrorDetail {
    * branch on when the two cases mean different things (#1437).
    */
   entity?: string;
+  /**
+   * Minutes until a throttled step-up may be retried, as a **string** (e.g.
+   * `"15"`). Set only on the `STEP_UP_LOCKED` detail of a 429 (#1816).
+   */
+  retry_after_minutes?: string;
 }
 
 // Botanical Families
@@ -4907,6 +4912,17 @@ export interface TaskTemplateUpdateRequest {
  */
 export interface TenantDeleteRequest {
   confirm_slug: string;
+  password?: string;
+}
+
+/**
+ * Step-up body of the three account-erasure routes (#1813, #1814):
+ * `DELETE /users/me`, `POST /privacy/erasure`, `DELETE /admin/platform/users/{key}`.
+ * `confirm_email` is the e-mail of the account being erased; `password` is the
+ * *requester's* current password, omitted by a federated-only account.
+ */
+export interface AccountErasureRequest {
+  confirm_email: string;
   password?: string;
 }
 

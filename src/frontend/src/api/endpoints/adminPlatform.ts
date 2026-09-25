@@ -1,5 +1,6 @@
 import apiClient from '@/api/client';
 import type {
+  AccountErasureRequest,
   AdminAddMemberRequest,
   AdminAddUserToTenantRequest,
   AdminPlatformStats,
@@ -54,8 +55,13 @@ export async function deleteAdminTenant(key: string, stepUp: TenantDeleteRequest
   await apiClient.delete(`/admin/platform/tenants/${encodeURIComponent(key)}`, { data: stepUp });
 }
 
-export async function deleteAdminUser(key: string): Promise<void> {
-  await apiClient.delete(`/admin/platform/users/${encodeURIComponent(key)}`);
+/**
+ * Erase another account at once (#1814). The body echoes the **target's**
+ * e-mail and carries the **admin's own** current password when the admin's
+ * account has one.
+ */
+export async function deleteAdminUser(key: string, stepUp: AccountErasureRequest): Promise<void> {
+  await apiClient.delete(`/admin/platform/users/${encodeURIComponent(key)}`, { data: stepUp });
 }
 
 export async function fetchTenantMembers(tenantKey: string): Promise<AdminTenantMember[]> {

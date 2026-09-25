@@ -32,7 +32,7 @@ from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.retention_service import RetentionService
-from tests.support.privacy_doubles import FakeDataExportRepo
+from tests.support.privacy_doubles import FakeDataExportRepo, step_up
 
 USER_KEY = "u-1782"
 PASSWORD = "correct-horse-battery-staple"
@@ -109,7 +109,9 @@ def _service(retention: RetentionService | None, **overrides: Any) -> PrivacySer
 class TestR01TheHardDeleteIsScheduledAfterTheConfiguredPeriod:
     def test_the_injected_period_schedules_the_hard_delete(self):
         before = datetime.now(UTC)
-        erasure = _service(RetentionService(hard_delete_after_days=45)).request_erasure(USER_KEY, PASSWORD)
+        erasure = _service(RetentionService(hard_delete_after_days=45)).request_erasure(
+            USER_KEY, **step_up("subject@example.com", PASSWORD)
+        )
 
         assert erasure.hard_delete_scheduled_at is not None
         assert abs(erasure.hard_delete_scheduled_at - (before + timedelta(days=45))) < _CLOCK_SLACK
@@ -118,7 +120,7 @@ class TestR01TheHardDeleteIsScheduledAfterTheConfiguredPeriod:
     def test_the_setting_schedules_the_hard_delete(self, monkeypatch):
         monkeypatch.setattr(settings, "retention_soft_delete_retention_days", 30)
 
-        erasure = _service(None).request_erasure(USER_KEY, PASSWORD)
+        erasure = _service(None).request_erasure(USER_KEY, **step_up("subject@example.com", PASSWORD))
 
         assert erasure.hard_delete_scheduled_at - erasure.soft_deleted_at == timedelta(days=30)
 

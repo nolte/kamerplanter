@@ -27,6 +27,7 @@ from app.domain.models.privacy import (
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from tests.conftest import wire_get_or_raise
+from tests.support.privacy_doubles import step_up
 
 USER_KEY = "u1"
 USER_EMAIL = "user@example.com"
@@ -349,7 +350,7 @@ class TestErasure:
         service,
     ):
         with pytest.raises(UnauthorizedError):
-            service.request_erasure(USER_KEY, password_confirmation="wrong-password")
+            service.request_erasure(USER_KEY, **step_up(USER_EMAIL, "wrong-password"))
 
     def test_erasure_soft_deletes_and_revokes_sessions(
         self,
@@ -358,10 +359,7 @@ class TestErasure:
         user_repo,
         refresh_token_repo,
     ):
-        erasure = service.request_erasure(
-            USER_KEY,
-            password_confirmation=USER_PASSWORD,
-        )
+        erasure = service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         assert erasure.status == "scheduled"
         assert erasure.soft_deleted_at is not None
@@ -385,7 +383,7 @@ class TestErasure:
         ``deleted_collections`` was declared on the model and never filled, so the
         confirmation named no deleted category at all (#1645).
         """
-        erasure = service.request_erasure(USER_KEY, password_confirmation=USER_PASSWORD)
+        erasure = service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         engine = ErasureEngine()
         assert erasure.deleted_collections == engine.deleted_collection_names()
@@ -417,7 +415,7 @@ class TestErasure:
         )
 
         with pytest.raises(ValidationError):
-            service.request_erasure(USER_KEY, password_confirmation=USER_PASSWORD)
+            service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
 
 # ── Restriction ────────────────────────────────────────────────────
@@ -579,7 +577,7 @@ class TestDataSubjectServiceFacade:
         from app.domain.services.data_subject_service import DataSubjectService
 
         facade = DataSubjectService(service)
-        erasure = facade.erase(USER_KEY, password_confirmation=USER_PASSWORD)
+        erasure = facade.erase(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         assert erasure.status == "scheduled"
 

@@ -7,8 +7,8 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.12 (#1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
-Abhängigkeit: REQ-023 v1.13 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.5 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
+Version: 1.13 (#1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
+Abhängigkeit: REQ-023 v1.14 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.5 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
 
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.13 | 2026-09-25 | **#1813/#1814 Step-up auf jeder Kontolöschung:** `POST /privacy/erasure` und `DELETE /users/me` nehmen denselben Body `{confirm_email, password?}` — die eigene E-Mail wird zurückgetippt (422), das aktuelle Passwort bei lokalem Konto (401), API-Key/Service Account 403, gedrosselt nach REQ-023 §3.9 (429 `STEP_UP_LOCKED`). `DELETE /users/me` schrieb bis dahin nur einen Tombstone ohne Löschauftrag und ließ alle personenbezogenen Daten liegen; es eröffnet jetzt den Art.-17-Auftrag mit Karenz. `DELETE /admin/platform/users/{key}` verlangt die E-Mail des Zielkontos und das Passwort des Admins; der Auftrag hält `step_up` und `requested_by_subject`. Neue **AK-IE-04**, **AK-IE-05**. |
 | 1.12 | 2026-09-25 | **#1770 Deduplizierte Inhalte haben keinen einzelnen Eigentümer mehr:** Bisher erhielt ein zweiter Upload identischer Bytes im Mandanten den Anhang-Datensatz des *ersten* Hochladers (`created_by` blieb dieser), und ein zweiter Beitrag desselben Fotos zum Referenz-Index fiel — mandantenübergreifend — auf die Zeile des ersten Beitragenden. Die Löschung des ersten traf damit Inhalte des zweiten, die des zweiten erreichte nichts. **AK-OS-08:** Jeder Hochlader hat einen eigenen Anhang-Datensatz; identische Bytes liegen einmal im Object Storage und werden erst mit dem letzten Datensatz gelöscht, der sie hält. Phase 0 zählt entfernte und wegen Teilung behaltene Objekte (`storage_objects_removed` / `storage_objects_retained_shared`). Keine mandantenübergreifende Teilung. **AK-OS-05b:** Die Datensatz-ID eines Referenz-Beitrags ist pro Mandant und Beitragendem eindeutig; identische Fotos zweier Beitragender sind zwei Zeilen. Migration **v0062** gibt bestehenden Schädlingsbild-Beiträgen einen eigenen Datensatz. |
 | 1.11 | 2026-09-25 | **#1768 Gelandeter Löschumfang als Abnahmekriterien:** Die Spec nennt jetzt, was #1761, #1766 und #1776 im Code bereits umgesetzt haben. **AK-OS-05a** (#1761/#1753): Der Referenz-Index wird über eine echte Bindung gelöscht; die No-op-Bindung verweigert, sobald Beiträge existieren, statt `0` zu melden, und der Löschauftrag nennt Bindung und Anzahl. **AK-OS-06** (#1760): Ein hart gelöschtes Original nimmt seine WebP-Vorschaubilder mit. **AK-OS-07** (#1759): Beigesteuerte Schädlings-Prototypen im pgvector-Index `pest_embeddings` werden bei Kontolöschung (jeder Status) und Mandantenlöschung gelöscht, nicht nur deaktiviert. **AK-IE-01..03** (#1767): Die Kontolöschung durch Plattform-Admins und die Bereinigung unverifizierter Konten laufen über dieselbe Finalisierung wie Art. 17 — persistierter Löschauftrag mit `origin` als Nachweis, `completed` nur ohne unerreichten Schritt, Wiederholung, Konfigurationsprüfung vor jeder Änderung, ein Lauf pro Konto. Die REQ-025-Reach-Proben unter `project/reach-probes/` sind in derselben Änderung neu abgeleitet. |
 | 1.10 | 2026-09-24 | **#1719 Offenlegung folgt der Löschung, Inventare nur im Code:** Guard-Regel R2 in `scripts/check_privacy_inventory.py` prüft jetzt beide Richtungen: Jede Collection, die die Löschung als Daten der Person entfernt oder anonymisiert, steht im Art.-15-Manifest oder mit Begründung in `DataExportEngine.EXCLUDED_FROM_DISCLOSURE`. Vorher gemessen: 20 Collections ohne Offenlegung. **Neu offengelegt:** `user_favorites` (die Kantenzeile selbst, gefiltert über `_from`), `api_keys` (ohne `key_hash`), `user_preferences`, `onboarding_states`, `pest_detections` (ohne `image_hash`); `plant_diagnosis_requests` zusätzlich mit `inspection_key`, `harvest_observation_key`, `phenotype`, `confirmed_labels`, `created_at`. **Begründet ausgeschlossen:** 15 Kanten, deren Endpunkte offengelegte Dokumente sind und deren Attribute (falls vorhanden) offengelegte Felder kopieren (`has_api_key`, `has_membership`, `membership_in`, drei Standort-Zuweisungs-Kanten, drei Schädlingserkennungs-Kanten, `notification_for_run`, vier `cv_*`-Kanten, `has_invitation`). §3.1 führt keine Abschrift der beiden Inventare mehr, sondern die Regeln (Offenlegung, Löschung/Anonymisierung/Pseudonymisierung mit Aufbewahrungsgründen, Ausschlussprinzip) und Verweise auf `data_export_engine.py` / `erasure_engine.py`. Neues Abnahmekriterium AK-01a. |
@@ -661,8 +662,10 @@ class PrivacyService:
         # 7. Setzt Request status: confirmed
 
     # --- Art. 17: Kontolöschung ---
-    async def request_erasure(self, user_key: str, password_confirmation: str) -> ErasureRequest: ...
-        # 1. Verifiziert Passwort (oder OAuth re-auth)
+    def request_erasure(self, user_key: str, *, confirmation: StepUpConfirmation,
+                        authenticated_with_api_key: bool, client_ip: str | None) -> ErasureRequest: ...
+        # 1. Step-up nach REQ-023 §3.9 (StepUpVerifier): eigene E-Mail zurückgetippt,
+        #    Passwort bei lokalem Konto, kein API-Key, gedrosselt
         # 2. Erstellt ErasurePlan (ErasureEngine)
         # 3. Sofort: Soft-Delete (User.status → deleted)
         # 4. Sofort: Alle Refresh Tokens invalidieren
@@ -792,9 +795,10 @@ class EmailChangeConfirmRequest(BaseModel):
     token: str
 
 # --- Löschung (Art. 17) ---
-class ErasureCreateRequest(BaseModel):
-    password: Optional[str] = None  # Für lokale Accounts
-    # Für OAuth-only Accounts: Re-Auth über separaten Flow
+class ErasureCreateRequest(BaseModel):  # auch Body von DELETE /users/me und DELETE /admin/platform/users/{key}
+    confirm_email: str                 # E-Mail des zu löschenden Kontos, zurückgetippt (Pflicht, jedes Konto)
+    password: Optional[str] = None     # aktuelles Passwort der handelnden Person — Pflicht bei lokalem Passwort
+    # Föderierte Konten bestätigen mit dem Echo allein; echte Re-Auth beim Provider: #1815
 
 class ErasureResponse(BaseModel):
     key: str
@@ -1086,7 +1090,7 @@ def check_processing_restriction(scope: str):
 **Tab "Account löschen":**
 - Warnhinweis: "Diese Aktion ist nach 90 Tagen unwiderruflich"
 - **Transparente Aufschlüsselung:** Welche Daten vollständig gelöscht werden (Profil, Sessions, Einwilligungen, Aufgaben) und welche nur anonymisiert werden (Erntedokumentation, IPM-Behandlungsnachweise — gesetzliche Aufbewahrungspflicht nach CanG/PflSchG). <!-- Quelle: Widerspruchsanalyse W-001 -->
-- Passwort-Bestätigung (oder OAuth Re-Auth Button)
+- Bestätigung: die eigene E-Mail-Adresse zurücktippen und — bei lokalem Konto — das aktuelle Passwort (REQ-023 §3.9); nach zu vielen Fehlversuchen zeigt der Dialog die Wartezeit (429 `STEP_UP_LOCKED`)
 - Bestätigungs-Dialog mit Checkbox "Ich verstehe, dass mein Account gelöscht wird und gesetzlich geschützte Daten anonymisiert aufbewahrt bleiben"
 
 **Tab "Verarbeitungseinschränkung":**
@@ -1244,6 +1248,10 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-IE-02 | **Erst prüfen, dann schließen, dann löschen:** Kann das Deployment nicht löschen (Executor, Tombstone-Salt, abgeleiteter Index nach AK-OS-05a/AK-OS-07), verweigert die Sofortlöschung mit 503, bevor irgendetwas angelegt oder geändert ist. Andernfalls ist das Konto deaktiviert und alle Sitzungen widerrufen, bevor Phase 0 beginnt. Die Bereinigung unverifizierter Konten lässt ein inzwischen verifiziertes Konto unberührt. | 17, 32 | Unit + Integration |
 | AK-IE-03 | **Ein Lauf pro Konto:** Von Admin-Löschung, Bereinigung und täglichem Lauf löscht höchstens einer dasselbe Konto (atomarer Claim; der Sofortauftrag trägt einen gesalzenen, deterministischen Schlüssel, der nicht mit dem Audit-Tombstone verknüpfbar ist). Ein zweiter Aufruf, während ein Lauf den Auftrag hält, wird mit 409 abgewiesen. | 17, 32 | Unit + Integration |
 <!-- /Quelle: #1776 (#1767 GDPR-004, SEC-003) -->
+<!-- Quelle: #1813, #1814 (REQ-023 §3.9) -->
+| AK-IE-04 | **Keine Kontolöschung ohne Step-up:** `POST /privacy/erasure`, `DELETE /users/me` und `DELETE /admin/platform/users/{key}` löschen nichts und schreiben keinen Löschauftrag, solange der Body die E-Mail des Zielkontos nicht zurücktippt (422), das Passwort der handelnden Person bei lokalem Konto fehlt oder falsch ist (401), die Anfrage mit einem API-Key authentifiziert ist oder von einem Service Account kommt (403), die Installation im Light-Modus läuft (403 — jede Anfrage ist dort das eine Systemkonto) oder der Step-up gesperrt ist (429). `DELETE /users/me` eröffnet denselben Art.-17-Auftrag wie `POST /privacy/erasure`, nie nur einen Tombstone. | 17, 32 | Unit (Route) |
+| AK-IE-05 | **Admin-Löschung mit Nachweis der Bestätigung:** Die Plattform-Admin-Löschung prüft die Admin-Mitgliedschaft im Service erneut, verweigert das eigene Konto (403) und verlangt das Passwort des **Admins**; der Löschauftrag hält `step_up` und `requested_by_subject` (gesalzene Referenz, nie der Kontoschlüssel). | 17, 5(2) | Unit (Route) |
+<!-- /Quelle: #1813, #1814 (REQ-023 §3.9) -->
 <!-- Quelle: REQ-050 §7.4 -->
 | AK-DA-01 | **Tagebuch-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_entries` die Felder `created_by`, `analysis_requested_by` und `analysis_claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Das Eintragsdokument selbst — Freitext, Tags, Messwerte, `photo_refs` und ein vorhandenes `analysis`-Ergebnis — bleibt vollstaendig erhalten. Dies schliesst die Luecke, dass bislang nur die **Anhaenge** (AK-OS-02), nicht aber das Eintragsdokument geregelt waren. | 17 | Integration |
 | AK-DA-02 | **Auskunft umfasst Tagebuch:** Der Datenexport nach Art. 15/20 enthaelt die Tagebuch-Eintraege des Nutzers samt vorhandener KI-Analyse-Ergebnisse (REQ-050). | 15/20 | Integration |

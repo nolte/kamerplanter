@@ -39,7 +39,6 @@ from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.data_subject_service import DataSubjectService
 from app.domain.services.privacy_service import PrivacyService
-from app.domain.services.user_service import UserService
 from tests.support.privacy_doubles import FakeDataExportRepo
 
 #: Distinctive, so a substring hit cannot be a coincidence.
@@ -310,26 +309,6 @@ class TestFacadeAndAccountLinesNameNobody:
 
         assert _event(logs, "data_subject_right_invoked")["subject"] == SUBJECT
 
-    def test_account_deleted_logs_the_subject_reference(self) -> None:
-        service = UserService(MagicMock(), MagicMock(), tombstone_salt=SALT)
-
-        with structlog.testing.capture_logs() as logs:
-            service.delete_account(USER_KEY)
-
-        assert _leaks(logs, USER_KEY) == []
-
-        assert _event(logs, "account_deleted")["subject"] == SUBJECT
-
-    def test_without_a_salt_the_line_carries_a_constant_never_the_key(self) -> None:
-        service = UserService(MagicMock(), MagicMock())
-
-        with structlog.testing.capture_logs() as logs:
-            service.delete_account(USER_KEY)
-
-        assert _leaks(logs, USER_KEY) == []
-
-        assert _event(logs, "account_deleted")["subject"] == "anon_unavailable"
-
 
 def _auth_service(user_repo: MagicMock) -> AuthService:
     return AuthService(
@@ -376,7 +355,9 @@ class TestAuthLinesNameNobody:
         service = _auth_service(user_repo)
 
         with structlog.testing.capture_logs() as logs, pytest.raises(ForbiddenError):
-            service.change_password(USER_KEY, None, "a-sufficiently-long-password-2024")
+            service.change_password(
+                USER_KEY, None, "a-sufficiently-long-password-2024", authenticated_with_api_key=False, client_ip=None
+            )
 
         assert _leaks(logs, USER_KEY, OLD_EMAIL) == []
 

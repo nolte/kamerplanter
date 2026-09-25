@@ -70,7 +70,10 @@ def finalise(subject_key: str) -> str:
     arango.mark("reach-marker:erasure:begin")
     headers = sign_in(api, subject)
     status, body = http_json(
-        "POST", f"{api}/api/v1/privacy/erasure", body={"password": subject["password"]}, headers=headers
+        "POST",
+        f"{api}/api/v1/privacy/erasure",
+        body={"confirm_email": subject["email"], "password": subject["password"]},
+        headers=headers,
     )
     if status != 201 or not isinstance(body, dict) or not body.get("key"):
         raise ReachError(f"POST /privacy/erasure answered {status}: {body}")
