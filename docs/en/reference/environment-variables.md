@@ -167,15 +167,16 @@ These variables configure the optional cross-encoder re-ranker of the Knowledge 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `RERANKER_URL` | `` (empty) | No | HTTP URL of the reranker microservice, e.g. `http://reranker-service:8081`. Empty = re-ranking disabled. |
-| `RERANKER_INITIAL_K` | `20` | No | Number of chunks retrieved from the Hybrid Search step (over-retrieval). |
+| `RERANKER_INITIAL_K` | `15` | No | Number of candidates from the Hybrid Search step that are at most re-scored by the cross-encoder (a scoring cap, not a limit on the number of results — see [AI Architecture](../architecture/ai-architecture.md#fallback-reasons-and-time-budget)). |
+| `RERANKER_MAX_DOCUMENT_CHARS` | `500` | No | Maximum character count of `title\ncontent` per candidate chunk before it is sent to the reranker sidecar. The chunk handed to the LLM keeps its full text — only the reranker input is truncated. |
 | `RERANKER_TOP_K` | `5` | No | Number of chunks passed to the LLM context after re-ranking. |
 | `RERANKER_MODEL` | `bge-reranker-v2-m3` | No | ONNX model name in the reranker service container (directory under `/app/models/onnx/`). |
 
 !!! note "RERANKER_MODEL belongs to the reranker service, not the knowledge service"
-    `RERANKER_MODEL` is set as an environment variable on the `reranker-service` container — not on the `knowledge-service`. The other three variables (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_TOP_K`) belong to the Knowledge Service.
+    `RERANKER_MODEL` is set as an environment variable on the `reranker-service` container — not on the `knowledge-service`. The other four variables (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_MAX_DOCUMENT_CHARS`, `RERANKER_TOP_K`) belong to the Knowledge Service.
 
-!!! tip "Resource requirements"
-    The reranker service requires 1.5–4 GB RAM (depending on the model) and adds ~500ms latency per request. For Raspberry Pi and resource-constrained environments, it is recommended to leave `RERANKER_URL` empty.
+!!! tip "Resource requirements and time budget"
+    The reranker service requires 1.5–4 GB RAM (depending on the model) and adds latency per request. On `bge-reranker-v2-m3` at the Helm chart's 2-CPU limit, a (query, document) pair of 512 tokens costs about 3 seconds; the sidecar aborts a rerank request server-side after 25 seconds (fallback reason `deadline`, see [AI Architecture](../architecture/ai-architecture.md)). A real HTTP probe over all 100 benchmark questions shows: with the defaults `RERANKER_INITIAL_K=15` and `RERANKER_MAX_DOCUMENT_CHARS=500` (pair median 166 tokens, max 222), all 100 requests succeeded — p50 12.9 seconds, p90 15.0 seconds, max 16.0 seconds, within the 25-second budget. A CI guard checks, for the defaults and for every deployment file in the repository that sets either variable, that `RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7,500` holds (`RERANK_SCORED_CHARS_BUDGET` in `config.py`) and that `RERANKER_INITIAL_K` is at most 50 (the sidecar's request bound). The defaults use up the budget exactly (15 × 500 = 7,500). The guard does not see values you set outside the repository. Raising either value past that product requires re-measuring latency first. For Raspberry Pi and resource-constrained environments, it is still recommended to leave `RERANKER_URL` empty.
 
 ---
 
@@ -701,7 +702,8 @@ HA_ACCESS_TOKEN=
 
 # Knowledge Service — Re-Ranking (empty = disabled)
 RERANKER_URL=
-RERANKER_INITIAL_K=20
+RERANKER_INITIAL_K=15
+RERANKER_MAX_DOCUMENT_CHARS=500
 RERANKER_TOP_K=5
 
 # AI Assistant (disabled instance-wide unless explicitly enabled)
