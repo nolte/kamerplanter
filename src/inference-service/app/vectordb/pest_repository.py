@@ -28,6 +28,16 @@ _DELETE_CONTRIBUTIONS_SQL = (
 _DELETE_TENANT_CONTRIBUTIONS_SQL = (
     "DELETE FROM pest_embeddings WHERE source = 'user_contributed' AND starts_with(source_url, %s)"
 )
+# #1771 — one keyset page of the distinct contribution keys in the index. The
+# cursor is the last key of the previous page; ``NULL`` starts at the beginning.
+# A blank key is left out: the erase route refuses it (422), so listing it would
+# stop every sweep on the first page for good (GDPR review of #1771).
+_LIST_CONTRIBUTION_KEYS_SQL = (
+    "SELECT DISTINCT source_record_id FROM pest_embeddings"
+    " WHERE source = 'user_contributed' AND source_record_id IS NOT NULL AND source_record_id ~ '[^[:space:]]'"
+    " AND (%(after)s::text IS NULL OR source_record_id > %(after)s::text)"
+    " ORDER BY source_record_id LIMIT %(limit)s"
+)
 
 
 def tenant_contribution_prefix(tenant_key: str | None) -> str:
@@ -45,6 +55,21 @@ def tenant_contribution_prefix(tenant_key: str | None) -> str:
 
 #: Upper bound of keys per erase request; the backend sends batches below it.
 MAX_CONTRIBUTION_KEYS = 1000
+
+
+def require_page_limit(limit: int | None) -> int:
+    """Return a page size in ``1..MAX_CONTRIBUTION_KEYS`` or refuse it (#1771).
+
+    Checked here, not as a schema bound, for the same reason as
+    :func:`require_contribution_keys`: FastAPI's 422 echoes the body, and the
+    body carries a contribution key as its cursor.
+    """
+    if limit is None:
+        return MAX_CONTRIBUTION_KEYS
+    if limit < 1 or limit > MAX_CONTRIBUTION_KEYS:
+        msg = f"limit must be between 1 and {MAX_CONTRIBUTION_KEYS}"
+        raise ValueError(msg)
+    return limit
 
 
 def require_contribution_keys(contribution_keys: list[str] | None) -> list[str]:
@@ -258,6 +283,23 @@ class PestEmbeddingRepository:
             deleted = conn.execute(_DELETE_TENANT_CONTRIBUTIONS_SQL, (prefix,)).rowcount or 0
         logger.info("pest_contributions_deleted", scope="tenant", deleted=deleted)
         return deleted
+
+    def list_contribution_keys(self, *, after: str | None = None, limit: int | None = None) -> list[str]:
+        """REQ-025 — one page of the contribution keys that have a prototype (#1771).
+
+        Distinct ``source_record_id`` values of ``source = 'user_contributed'``
+        rows, active or deactivated, ascending, strictly after *after* (keyset
+        paging, stable while rows are deleted). Lets the backend find the
+        prototypes whose contribution document is gone; nothing else about a
+        row is returned.
+
+        Raises:
+            ValueError: *limit* is outside ``1..MAX_CONTRIBUTION_KEYS``.
+        """
+        page_size = require_page_limit(limit)
+        with self._pool.connection() as conn:
+            rows = conn.execute(_LIST_CONTRIBUTION_KEYS_SQL, {"after": after, "limit": page_size}).fetchall()
+        return [row[0] for row in rows]
 
     def count(self, label: str | None = None) -> int:
         """Count prototypes, optionally for a single class."""

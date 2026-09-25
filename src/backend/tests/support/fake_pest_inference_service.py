@@ -12,6 +12,10 @@ behaves like it:
 * ``GET /pest/reference/{label}`` and ``PATCH /pest/reference/{label}/{id}``,
   the curation routes the erasure used before #1759 (list + deactivate), so
   the pre-#1759 code path can be measured against the same rows;
+* ``POST /pest/reference/contributions/keys`` (``{"after", "limit"}``, #1771)
+  lists the distinct non-blank ``source_record_id`` of ``user_contributed`` rows,
+  ascending, strictly after ``after``, at most ``limit`` (default and maximum
+  1000, below 1 is 422); ``next_after`` is the last key of a full page;
 * a request without the service token is 401; ``failure_status`` makes every
   request answer that status.
 
@@ -29,10 +33,23 @@ import httpx
 _USER_CONTRIBUTED = "user_contributed"
 _ERASE = "/pest/reference/contributions/erase"
 _ERASE_BY_TENANT = "/pest/reference/contributions/erase-by-tenant"
+_KEYS = "/pest/reference/contributions/keys"
+_MAX_KEYS = 1000
 
 
 def _blank(value: object) -> bool:
     return not isinstance(value, str) or not value.strip()
+
+
+#: Postgres ``~ '[^[:space:]]'`` under the store's en_US.UTF-8 locale (glibc
+#: ``iswspace``) treats the non-breaking spaces as text, unlike Python's
+#: ``str.isspace`` — measured against pgvector/pgvector:pg16 (#1771).
+_NON_BREAKING_SPACES = "\xa0\u2007\u202f"
+
+
+def _index_blank(value: object) -> bool:
+    """Whether the index's listing leaves *value* out as blank."""
+    return not isinstance(value, str) or all(c.isspace() and c not in _NON_BREAKING_SPACES for c in value)
 
 
 @dataclass
@@ -93,6 +110,22 @@ class FakePestInferenceService:
             if _blank(tenant) or "/" in tenant:
                 return httpx.Response(422, json={"detail": "blank key"})
             return self._delete(lambda r: r["source_url"].startswith(f"contribution://{tenant}/"))
+        if request.method == "POST" and path == _KEYS:
+            body = json.loads(request.content or b"{}")
+            limit = _MAX_KEYS if body.get("limit") is None else body["limit"]
+            if not 1 <= limit <= _MAX_KEYS:
+                return httpx.Response(422, json={"detail": "limit out of bounds"})
+            after = body.get("after")
+            keys = sorted(
+                {
+                    r["source_record_id"]
+                    for r in self.rows
+                    if r["source"] == _USER_CONTRIBUTED and not _index_blank(r["source_record_id"])
+                }
+            )
+            page = [k for k in keys if after is None or k > after][:limit]
+            next_after = page[-1] if len(page) == limit else None
+            return httpx.Response(200, json={"contribution_keys": page, "next_after": next_after})
         parts = path.strip("/").split("/")
         if request.method == "GET" and len(parts) == 3 and parts[:2] == ["pest", "reference"]:
             images = [dict(r) for r in self.rows if r["label"] == parts[2]]

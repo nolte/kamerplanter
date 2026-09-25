@@ -144,6 +144,28 @@ tasks:
     cmds:
       - python3 scripts/reach/vectordb.py seed-pest --subject {{.REACH_SUBJECT}}
 
+  reach:seed:pest-orphans:
+    desc: |
+      Insert contributed pest-recognition prototypes into the inference-service's
+      pest_embeddings (run reach:seed:privacy-subject and reach:vectordb:up
+      first): three orphaned contribution keys whose pest_image_contributions
+      document does not exist (active, deactivated, and one in another tenant
+      with rows under two labels), the live prototype of the subject's own
+      contribution, and a curated control row sharing an orphan's record id
+      (#1771). Refuses when an orphan key names a document or the live key names
+      none. Writes .reach/subjects/{{.REACH_SUBJECT}}.pest-orphans.json.
+    cmds:
+      - python3 scripts/reach/vectordb.py seed-pest-orphans --subject {{.REACH_SUBJECT}}
+
+  reach:sweep:pest-orphans:
+    desc: |
+      Send pest_image.sweep_orphaned_prototypes — the task the beat schedules
+      daily at 04:30 UTC — through the broker from the worker container and wait
+      until the sweep records a new run in system_settings (#1771). Reports
+      nothing about the result.
+    cmds:
+      - python3 scripts/reach/sweep_orphan_pest_prototypes.py
+
   reach:seed:reference-embedding:
     desc: |
       Insert one user_contributed embedding of the seeded subject

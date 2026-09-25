@@ -193,6 +193,23 @@ class PestDetectionInferenceClient:
         response.raise_for_status()
         return int(response.json()["deleted"])
 
+    def list_contribution_keys(self, *, after: str | None, limit: int) -> tuple[list[str], str | None]:
+        """One page of the contribution keys that have a prototype (#1771).
+
+        Returns ``(keys, next_after)``; ``next_after`` is ``None`` on the last
+        page. The cursor travels in the body, never in the URL (#1700).
+        Raises :class:`httpx.HTTPError` on any failure — the caller decides.
+        """
+        response = httpx.post(
+            f"{self._base_url}/pest/reference/contributions/keys",
+            json={"after": after, "limit": limit},
+            headers=self._auth_headers(),
+            timeout=_DETECT_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        body = response.json()
+        return [str(key) for key in body["contribution_keys"]], body.get("next_after")
+
     def retract_prototype(self, *, label: str, source: str, source_record_id: str) -> int:
         """Deactivate every prototype matching a provenance (idempotent).
 

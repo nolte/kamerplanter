@@ -41,9 +41,11 @@ from app.common.dependencies import (
     get_ipm_service,
     get_pest_image_repo,
     get_pest_inference_client,
+    get_pest_prototype_orphan_sweep_service,
     get_system_settings_repo,
 )
 from app.common.enums import PestImageStatus
+from app.common.exceptions import KamerplanterError
 from app.config.settings import settings
 from app.domain.models.pest_taxonomy import get_taxon
 from app.tasks import celery_app
@@ -246,3 +248,29 @@ def erase_pest_prototype_task(self, contribution_key: str) -> dict:  # type: ign
     deleted = get_pest_inference_client().erase_contributions([contribution_key])
     logger.info("pest_prototype_erased_after_delete", contribution_key=contribution_key, deleted=deleted)
     return {"status": "erased", "deleted": deleted}
+
+
+@celery_app.task(name="pest_image.sweep_orphaned_prototypes")  # type: ignore[misc]
+def sweep_orphaned_pest_prototypes_task() -> dict[str, object]:
+    """#1771 — delete contributed pest prototypes whose contribution document is gone.
+
+    Daily on the retention beat, after the scheduled erasures. Idempotent: a run
+    that finds no orphan removes nothing. Fails loud — an unreachable index or a
+    refusing configuration raises (the task is recorded as failed, the next beat
+    tries again) and nothing is recorded as done. Counts only, never a key.
+    """
+    try:
+        result = run_async(get_pest_prototype_orphan_sweep_service().run())
+    except Exception as exc:
+        # Our own errors carry an operator hint and never a key (#1700); any
+        # other error's text is not ours to vouch for, so only its class is logged.
+        reason = str(exc) if isinstance(exc, KamerplanterError) else None
+        logger.error("pest_prototype_orphan_sweep_failed", error=type(exc).__name__, reason=reason)
+        raise
+    return {
+        "status": result.status,
+        "examined": result.examined,
+        "orphaned": result.orphaned,
+        "removed": result.removed,
+        "binding": result.binding,
+    }

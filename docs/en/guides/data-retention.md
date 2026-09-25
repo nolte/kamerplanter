@@ -479,6 +479,61 @@ flowchart TD
 
 ---
 
+## Sweep: Orphaned Pest-Recognition Prototypes
+
+Before issue #1766, deleting a pest-photo contribution left its recognition
+prototype behind in the inference service's reference index
+(`pest_embeddings`, `source = user_contributed`). Such rows name no user —
+the Art. 17 account erasure finds prototypes only through a user's
+contribution documents and therefore cannot reach them; only a tenant
+deletion removed them along the way.
+
+The Celery task `pest_image.sweep_orphaned_prototypes` (beat entry
+`retention-sweep-orphaned-pest-prototypes-daily`, **daily at 04:30 UTC**,
+after the scheduled erasures at 04:00 UTC) closes this gap:
+
+1. It pages through the contribution keys the index holds
+   (`POST /pest/reference/contributions/keys` on the inference service).
+2. It checks in ArangoDB which of those keys still have a
+   `pest_image_contributions` document.
+3. It deletes the prototypes of the others — active and deactivated rows
+   alike — in batches of 500 through the same
+   `POST /pest/reference/contributions/erase` endpoint the Art. 17 erasure
+   uses.
+
+**Idempotent:** a second run finds no orphan left and removes nothing.
+**Fails loud:** if the inference service is unreachable, the task fails (log
+event `pest_prototype_orphan_sweep_failed`), nothing is recorded, and the
+next beat run retries. A celery-worker missing both
+`PEST_DETECTION_ENABLED`/`INFERENCE_SERVICE_ENABLED`, once a pest-photo
+contribution has ever been promoted into the recognition base, refuses the
+run just like the scheduled erasure does (issue #1759). Without those flags
+and without that promotion marker the task reports `skipped` (log event
+`pest_prototype_orphan_sweep_skipped`) and records **no** run — it never saw
+the index.
+
+Each run's counts are recorded in the `system_settings` singleton document
+under `pest_prototype_orphan_sweep` (`first_run_at`, `last_run_at`,
+`last_examined`, `last_orphaned`, `last_removed`, `total_removed`,
+`binding`) and as the log event `pest_prototype_orphan_sweep_completed`
+(`examined`/`orphaned`/`removed`/`binding`) — both name counts only, never a
+key.
+
+Deactivated (demoted) prototypes whose contribution document still exists
+are left untouched by the sweep (curation).
+
+??? question "How do I trigger the sweep immediately instead of waiting for 04:30 UTC?"
+    ```bash
+    kubectl exec deploy/<release>-celery-worker -- \
+      celery -A app.tasks call pest_image.sweep_orphaned_prototypes
+    ```
+    The worker needs the same flags as the scheduled erasure:
+    `PEST_DETECTION_ENABLED` or `INFERENCE_SERVICE_ENABLED` plus
+    `INFERENCE_SERVICE_URL`, and `INTERNAL_SERVICE_TOKEN`. Details:
+    [Setting Up Plant Identification](../deployment/inference-service.md).
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Can I extend the 90-day soft-delete period?"

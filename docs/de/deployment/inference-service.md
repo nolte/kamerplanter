@@ -274,6 +274,7 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 | `POST` | `/reference/contributions/erase-by-tenant` | Mandantenlöschung: entfernt alle von einem Mandanten beigetragenen Referenzvektoren (`source = user_contributed`). Vom Backend bei der Mandantenlöschung aufgerufen. |
 | `POST` | `/pest/reference/contributions/erase` | DSGVO-Löschung (Art. 17, Issue #1759): entfernt die angegebenen beigetragenen Schädlingsbild-Vektoren (`source = user_contributed`) anhand ihrer Beitrags-Schlüssel — unabhängig davon, ob der Beitrag freigegeben oder zurückgenommen war. Vom Celery-Worker sowie beim Löschen eines einzelnen eigenen Schädlingsfotos aufgerufen. |
 | `POST` | `/pest/reference/contributions/erase-by-tenant` | Mandantenlöschung (Issue #1759): entfernt alle von einem Mandanten beigetragenen Schädlingsbild-Vektoren (`source = user_contributed`). Vom Backend bei der Mandantenlöschung aufgerufen. |
+| `POST` | `/pest/reference/contributions/keys` | Aufräumlauf für verwaiste Prototypen (Issue #1771): liefert eine Seite der Beitrags-Schlüssel im Index (`source = user_contributed`), aufsteigend sortiert, Cursor im Body (`after`, `limit` 1–1000, Standard 1000) statt in der URL. Vom Celery-Worker aufgerufen, um Schlüssel ohne zugehöriges `pest_image_contributions`-Dokument zu finden — siehe [Aufräumlauf: verwaiste Schädlingsbild-Prototypen](../guides/data-retention.md). |
 | `GET` | `/health` | Liveness-Probe |
 | `GET` | `/ready` | Readiness-Probe (Modell geladen?) |
 | `GET` | `/modelinfo` | Modellname, Dimension, Eingabegröße, Lizenz, Prüfsumme |
@@ -313,6 +314,9 @@ Wie alle nicht-Probe-Endpunkte erfordern auch die vier Lösch-Endpunkte den geme
 
 ??? question "Eine Konto- oder Mandantenlöschung bleibt hängen, obwohl `INFERENCE_SERVICE_ENABLED` gesetzt ist"
     Prüfe, ob die Variable auf **beiden** Prozessen identisch gesetzt ist: Backend UND Celery-Worker. Eine Löschung, die von beigetragenen Referenzvektoren betroffen ist, bleibt als Konfigurationsfehler (`partially_completed`) offen bzw. eine Mandantenlöschung antwortet mit HTTP 503, solange der Celery-Worker die Variable nicht hat (Issue #1753). Dasselbe gilt für beigetragene Schädlingsbild-Vektoren, wenn dem Celery-Worker sowohl `PEST_DETECTION_ENABLED` als auch `INFERENCE_SERVICE_ENABLED` fehlen (Issue #1759). Nach dem Nachtragen läuft die Löschung beim nächsten täglichen Lauf automatisch nach.
+
+??? question "Ein vor Issue #1766 gelöschter Schädlingsfoto-Beitrag hat noch einen Prototyp im Index — wie wird der entfernt?"
+    Ein täglicher Aufräumlauf (`pest_image.sweep_orphaned_prototypes`, 04:30 UTC) findet und löscht solche verwaisten Prototypen automatisch. Details, Log-Ereignisse und der manuelle Trigger-Befehl: [Aufräumlauf: verwaiste Schädlingsbild-Prototypen](../guides/data-retention.md).
 
 ---
 
