@@ -1,10 +1,16 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the operator's explicit approval of the gate for re-deriving the
-# probes #1721 made stale (#1717), relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the
-# operator's machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
+# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
+# orchestrating session — not an interactive batch answer. It records that the targets and the
+# observe argv below run on the operator's machine with their environment, as `task` in this
+# repository does.
 #
+# Re-derived after #1786 (16667ac9a) changed data_export_engine.py: one import line was added (bundle_object_key
+# delegates to export_bundle_key), so the cited lines moved +1.
+# The declared content, order and count are unchanged; derived_from is now 16667ac9a, the
+# declaration's latest commit on develop. Observe step, targets and expectation unchanged.
+# Earlier:
 # Spec row "Two personal-data inventories, one executing" (T2), re-derived after #1721
 # changed its single-path anchor; content unchanged. The enumeration the code actually
 # runs is observed in ArangoDB's query log while the real export and the real erasure
@@ -17,7 +23,7 @@ summary: declared personal-data inventories that the executing export and erasur
 declaration:
   source: inventory
   path: src/backend/app/domain/engines/data_export_engine.py
-  location: DataExportEngine.USER_DATA_MANIFEST (L40) and ErasureEngine.build_erasure_plan (#1622)
+  location: DataExportEngine.USER_DATA_MANIFEST (L41) and ErasureEngine.build_erasure_plan (#1622)
 tier: T2
 expected:
   kind: set
@@ -25,7 +31,7 @@ expected:
   values:
   - export-manifest
   - erasure-plan
-derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+derived_from: 16667ac9ae0fc8c6c2018351388e8d8b5f328ff8
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -41,6 +47,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-24T15:38:25Z'
+  approved_at: '2026-09-25T11:41:19Z'
   approved_by: nolte
   observation_digest: 38c1d41959f0f33b1c9090366a04800fe2915708cf664d44001ab7b93b4fcc87

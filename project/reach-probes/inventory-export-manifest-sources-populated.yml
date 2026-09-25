@@ -1,10 +1,16 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the operator's explicit approval of the gate for re-deriving the
-# probes #1721 made stale (#1717), relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the
-# operator's machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
+# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
+# orchestrating session — not an interactive batch answer. It records that the targets and the
+# observe argv below run on the operator's machine with their environment, as `task` in this
+# repository does.
 #
+# Re-derived after #1786 (16667ac9a) changed data_export_engine.py: one import line was added (bundle_object_key
+# delegates to export_bundle_key), so the cited lines moved +1.
+# The declared content, order and count are unchanged; derived_from is now 16667ac9a, the
+# declaration's latest commit on develop. Observe step, targets and expectation unchanged.
+# Earlier:
 # Re-derived after #1721 (#1719): the manifest the export walk executes now has 38
 # collections and 7 edges (new: api_keys, onboarding_states, pest_detections,
 # user_favorites, user_preferences). location_assignments is declared with a
@@ -15,7 +21,7 @@ summary: sources of the executing export manifest whose seeded rows reach the su
 declaration:
   source: inventory
   path: src/backend/app/domain/engines/data_export_engine.py
-  location: DataExportEngine.USER_DATA_MANIFEST (L40)
+  location: DataExportEngine.USER_DATA_MANIFEST (L41)
 tier: T2
 expected:
   kind: set
@@ -66,7 +72,7 @@ expected:
   - edge/requested_email_change
   - edge/requested_erasure
   - edge/requested_export
-derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
+derived_from: 16667ac9ae0fc8c6c2018351388e8d8b5f328ff8
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -81,6 +87,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-24T15:38:25Z'
+  approved_at: '2026-09-25T11:41:19Z'
   approved_by: nolte
   observation_digest: 17281a965c090fdf0d4e4a3b73f6e4f4ab96d7690503b7c71280c6699879d8e4
