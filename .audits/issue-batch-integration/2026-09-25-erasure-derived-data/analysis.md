@@ -60,8 +60,16 @@
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
+| #1760 | no matching specialist dispatched — orchestrating generalist (small adapter fix) | `pytest tests/unit/data_access/storage/test_erasure_renditions.py` before fix | `2 failed, 2 passed` (renditions left in local_fs and s3) |
+| #1760 | same | same after fix | `98 passed` (storage dir) |
+| #1759 | orchestrating generalist; docs `mkdocs-documentation`; reviews `nolte-engineering:code-security-reviewer`, `nolte-engineering:gdpr-data-protection-reviewer` | old-path red measurement (scratch test against pre-fix backend, fake pest service) | `4 failed` — rows remain deactivated, erasure `completed` despite 503, single delete orphans, tenant deletion leaves rows |
+| #1759 | same | inference-service `uv run pytest` | `151 passed` |
+| #1759 | same | real SQL against pgvector/pgvector:pg16 | by keys 2, by tenant 1; remaining gbif c-1, t-10 and t_1 rows |
+| group | — | backend `tests/unit` at tip | `11422 passed, 1 skipped` |
+| group | — | guards lane `--max-skipped 0 -m 'not advisory'` | `1709 passed, 59 deselected` |
 
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
+| #1759 | local adaptation | Single contribution delete and index-task race also fixed (same class); spec text change reverted because it marks all REQ-025 reach probes stale. |
