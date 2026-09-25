@@ -1,28 +1,35 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (#1788 personal-tenant probes; re-derivation after #1823 with unchanged expectations).
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
 #
-# Re-derived after #1823: router.py last changed in 499c890d0, which touched only delete_tenant;
-# delete_user's clause is byte-identical, derived_from moves to that commit. #1829 (#1788) added
-# the personal-tenant step to erase_account, but seed_privacy_subject.py gives the subject's own
-# tenant a second active member, so it keeps the retained_other_members path; erasure_engine.py is
-# byte-identical to 0d7276476. Observe step, targets and expectation unchanged (2/2 recounted
-# at 9e64aec20).
+# Re-derived after #1846 (#1813/#1814/#1816, squash 9cacdb752): router.py's delete_user now
+# takes a step-up body (confirm_email = the target's e-mail, password = the admin's own current
+# password), refuses an API key (403) and goes through PrivacyService.erase_account_by_admin,
+# which calls erase_account_now with origin platform_admin, step_up and a salted
+# requested_by_subject. derived_from moves to 9cacdb752. The act script
+# scripts/reach/admin_delete_subject.py already sends that body over a bearer session (no API
+# key) since #1846; targets unchanged.
+# Expectation EXTENDED because the declaration changed: the docstring now declares the proof
+# record carries the step-up and the admin as a salted requested_by_subject (never the key).
+# observe_erasure_records.py now also emits step-up/<origin>/<step_up>,
+# requested-by/<origin>/<n> and requester-in-records/<n>; the two earlier values are kept.
 id: endpoint-admin-user-delete-persists-proof
-summary: erasure records after the platform-admin user delete — one completed platform_admin record, none naming the subject
+summary: erasure records after the platform-admin user delete — one completed platform_admin record confirmed by the admin password step-up and naming the admin only salted, none naming the subject
 declaration:
   source: endpoint
   path: src/backend/app/api/v1/admin/platform/router.py
-  location: DELETE /admin/platform/users/{key} (delete_user) — an erasure request (origin platform_admin) is persisted as
-    the proof (#1767 GDPR-004)
+  location: 'DELETE /admin/platform/users/{key} (delete_user) — an erasure request (origin platform_admin, with step_up and the admin as a salted requested_by_subject) is persisted as the proof (#1767 GDPR-004, #1814)'
 tier: T2
 expected:
   kind: set
   unit: observed erasure-record facts
   values:
   - record/platform_admin/completed
+  - requested-by/platform_admin/1
+  - requester-in-records/0
+  - step-up/platform_admin/password
   - subject-in-records/0
-derived_from: 499c890d024c0e082d4c49a32a7ab386ca13a1e8
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -39,4 +46,4 @@ observe:
 approval:
   observation_digest: fe814f713d7729b1c4193deff99ca704d264974b061764aa33f8ec45be7eee5d
   approved_by: nolte
-  approved_at: '2026-09-25T15:41:31Z'
+  approved_at: '2026-09-25T18:35:52Z'
