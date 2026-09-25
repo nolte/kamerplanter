@@ -399,7 +399,7 @@ class TenantService:
         """Why this deployment cannot erase a tenant, or ``None`` (#1788).
 
         The account erasure holds on it before touching anything: it erases the
-        subject's personal tenant through :meth:`delete_tenant`, so a deployment
+        subject's personal tenant through the tenant-erasure inventory, so a deployment
         that cannot erase a tenant cannot finish an account erasure either.
         """
         return self._tenant_erasure_configuration_error()
@@ -433,10 +433,11 @@ class TenantService:
           reference) and the reason is recorded.
         * Otherwise — the subject is its only active member, or a deletion of it
           is already open (its memberships are frozen then) — the tenant-erasure
-          inventory runs through :meth:`delete_tenant` with origin
-          ``account_erasure``: same inventory, same persisted record, same retry.
+          inventory runs with origin ``account_erasure``
+          (:meth:`_erase_tenant_for_account_erasure`): same inventory, same
+          persisted record, same retry as :meth:`delete_tenant`.
 
-        Raises whatever :meth:`delete_tenant` raises (the record stays open and
+        Raises what a failed tenant deletion raises (the record stays open and
         the daily tenant beat retries it too), :class:`TenantErasureIncompleteError`
         when it did not complete, and :class:`ValidationError` when the tenant is
         no longer a personal tenant of *user_key* — a state no write path
@@ -473,10 +474,55 @@ class TenantService:
                         "(#1788), so it is kept and only the owner reference is removed."
                     ),
                 )
-        finished = self.delete_tenant(tenant_key, origin="account_erasure", now=now)
+        finished = self._erase_tenant_for_account_erasure(tenant_key, tenant, record, now=now or datetime.now(UTC))
         if finished.status != "completed":
             raise TenantErasureIncompleteError(list(finished.unreached) or [TenantErasureEngine.TENANT_COLLECTION])
         return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+
+    def _erase_tenant_for_account_erasure(
+        self,
+        tenant_key: str,
+        tenant: Tenant | None,
+        record: TenantErasureRecord | None,
+        *,
+        now: datetime,
+    ) -> TenantErasureRecord:
+        """Steps 1-3 of :meth:`delete_tenant` for a deletion the account erasure decided (#1788).
+
+        Not :meth:`delete_tenant` itself: that is the entry of a *person* deleting
+        a tenant, and #1791 puts the requester's authorisation and step-up there.
+        Here nobody is asking — the account erasure (itself authorised by the
+        subject's re-authenticated request, a platform admin or the unverified
+        cleanup) decided the tenant goes. Everything that makes the deletion
+        provable is the same: the configuration hold, the one-per-tenant record
+        (``origin: account_erasure``), the atomic claim, the membership freeze
+        and :meth:`_run_tenant_erasure` with its residue check and backoff; the
+        daily :meth:`resume_tenant_erasures` retries the record like any other.
+        """
+        if tenant is not None and (tenant.is_platform or self._light_mode):
+            raise ForbiddenError("This tenant cannot be deleted.")
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        if record is None:
+            try:
+                self._require_tenant_erasure_repo().create_with_key(
+                    TenantErasureRecord(
+                        tenant_key=tenant_key,
+                        tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
+                        origin="account_erasure",
+                        requested_at=now,
+                    ),
+                    record_key,
+                )
+            except (DuplicateError, WriteConflictError) as exc:
+                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
+        claimed = self._claim_tenant_erasure(record_key, now)
+        if claimed is None:
+            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+        self._membership_repo.deactivate_all_for_tenant(tenant_key)
+        return self._run_tenant_erasure(claimed, now, raise_on_failure=True)
 
     def _refuse_while_erasing(self, tenant_key: str) -> None:
         """No new membership in a tenant whose deletion is open (#1769 review SEC-006).

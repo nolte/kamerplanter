@@ -37,8 +37,10 @@ from app.common.enums import TenantType
 from app.common.exceptions import (
     ExternalSourceError,
     FeatureNotConfiguredError,
+    ForbiddenError,
     TenantErasureIncompleteError,
     ValidationError,
+    WriteConflictError,
 )
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.consent_engine import ConsentEngine
@@ -263,7 +265,7 @@ def _tenant_service(
         return_value=TenantErasureRecord(tenant_key=PERSONAL, tenant_type="personal", origin="account_erasure")
     )
     delete.return_value.status = "completed"
-    service.delete_tenant = delete  # type: ignore[method-assign]
+    service._erase_tenant_for_account_erasure = delete  # type: ignore[method-assign]
     return service, delete
 
 
@@ -279,12 +281,13 @@ class TestTheTenantServiceDecides:
         assert service.personal_tenant_keys_of(USER) == [PERSONAL]
         service._tenant_repo.personal_tenant_keys_by_owner.assert_called_once_with(USER)
 
-    def test_the_sole_member_tenant_goes_through_delete_tenant_as_account_erasure(self):
-        service, delete = _tenant_service(tenant=_personal(), members=[USER])
+    def test_the_sole_member_tenant_goes_through_the_tenant_inventory(self):
+        tenant = _personal()
+        service, delete = _tenant_service(tenant=tenant, members=[USER])
 
         outcome = service.erase_personal_tenant_of(USER, PERSONAL, now=NOW)
 
-        delete.assert_called_once_with(PERSONAL, origin="account_erasure", now=NOW)
+        delete.assert_called_once_with(PERSONAL, tenant, None, now=NOW)
         assert (outcome.outcome, outcome.tenant_erasure_record_key) == (
             "erased",
             TenantErasureEngine.record_key(PERSONAL),
@@ -339,3 +342,85 @@ class TestTheTenantServiceDecides:
 
         with pytest.raises(TenantErasureIncompleteError):
             service.erase_personal_tenant_of(USER, PERSONAL)
+
+
+class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
+    """``_erase_tenant_for_account_erasure`` — the record, claim, freeze and run of ``delete_tenant``."""
+
+    def _service(self, *, light_mode: bool = False, configuration_error: str | None = None):
+        erasure_repo = MagicMock()
+        claimed = TenantErasureRecord(tenant_key=PERSONAL, tenant_type="personal", origin="account_erasure")
+        erasure_repo.claim_for_run.return_value = claimed
+        membership_repo = MagicMock()
+        service = TenantService(
+            tenant_repo=MagicMock(),
+            membership_repo=membership_repo,
+            invitation_repo=MagicMock(),
+            assignment_repo=MagicMock(),
+            tenant_engine=MagicMock(),
+            membership_engine=MagicMock(),
+            invitation_engine=MagicMock(),
+            tenant_erasure_executor=MagicMock(),
+            tenant_erasure_repo=erasure_repo,
+            tombstone_salt=SALT,
+            light_mode=light_mode,
+        )
+        service._tenant_erasure_configuration_error = MagicMock(return_value=configuration_error)  # type: ignore[method-assign]
+        run = MagicMock(return_value=claimed.model_copy(update={"status": "completed"}))
+        service._run_tenant_erasure = run  # type: ignore[method-assign]
+        return service, erasure_repo, membership_repo, run, claimed
+
+    def test_it_persists_an_account_erasure_record_then_claims_freezes_and_runs(self):
+        service, erasure_repo, membership_repo, run, claimed = self._service()
+
+        finished = service._erase_tenant_for_account_erasure(PERSONAL, _personal(), None, now=NOW)
+
+        (created, key), _ = erasure_repo.create_with_key.call_args
+        assert (created.origin, created.tenant_key, key) == (
+            "account_erasure",
+            PERSONAL,
+            TenantErasureEngine.record_key(PERSONAL),
+        )
+        membership_repo.deactivate_all_for_tenant.assert_called_once_with(PERSONAL)
+        run.assert_called_once_with(claimed, NOW, raise_on_failure=True)
+        assert finished.status == "completed"
+
+    def test_an_open_record_is_resumed_not_recreated(self):
+        service, erasure_repo, _, run, _ = self._service()
+        open_record = TenantErasureRecord(
+            tenant_key=PERSONAL, tenant_type="personal", origin="account_erasure", status="partially_completed"
+        )
+
+        service._erase_tenant_for_account_erasure(PERSONAL, None, open_record, now=NOW)
+
+        erasure_repo.create_with_key.assert_not_called()
+        run.assert_called_once()
+
+    def test_a_deployment_that_cannot_erase_changes_nothing(self):
+        service, erasure_repo, membership_repo, run, _ = self._service(configuration_error="no store")
+
+        with pytest.raises(FeatureNotConfiguredError):
+            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), None, now=NOW)
+
+        erasure_repo.create_with_key.assert_not_called()
+        membership_repo.deactivate_all_for_tenant.assert_not_called()
+        run.assert_not_called()
+
+    def test_a_held_claim_is_a_conflict_and_nothing_runs(self):
+        service, erasure_repo, membership_repo, run, _ = self._service()
+        erasure_repo.claim_for_run.return_value = None
+
+        with pytest.raises(WriteConflictError):
+            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), None, now=NOW)
+
+        membership_repo.deactivate_all_for_tenant.assert_not_called()
+        run.assert_not_called()
+
+    def test_the_light_mode_tenant_is_refused(self):
+        service, erasure_repo, _, run, _ = self._service(light_mode=True)
+
+        with pytest.raises(ForbiddenError):
+            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), None, now=NOW)
+
+        erasure_repo.create_with_key.assert_not_called()
+        run.assert_not_called()
