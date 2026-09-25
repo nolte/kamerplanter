@@ -7,6 +7,10 @@ measured against a real ArangoDB in
 ``tests/integration/test_retention_instant_comparisons.py``; this file pins the
 wiring: the cutoff the task hands over, and that every selected session is
 written back anonymised with one shared timestamp.
+
+#1782 — the period is NFR-011 R-03 ``RETENTION_IP_ANONYMIZATION_DAYS``, read
+through :class:`RetentionService`; the task carried a literal
+``timedelta(days=7)`` no setting reached.
 """
 
 from __future__ import annotations
@@ -16,7 +20,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.common import dependencies
+from app.config.settings import settings
+from app.domain.services.retention_service import RetentionService
 from app.tasks import auth_tasks
+
+#: Slack for the wall clock between the task's ``now`` and the test's.
+_CLOCK_SLACK = timedelta(seconds=30)
 
 
 class _RecordingRepo:
@@ -55,6 +64,35 @@ def test_the_cutoff_is_seven_days_before_now(repo: _RecordingRepo):
 
     (cutoff,) = repo.cutoffs
     assert before - timedelta(days=7) <= datetime.fromisoformat(cutoff) <= after - timedelta(days=7)
+
+
+def test_a_configured_period_moves_the_cutoff(monkeypatch, repo: _RecordingRepo):
+    """The task reads the R-03 period from the retention service it is wired to."""
+    monkeypatch.setattr(dependencies, "get_retention_service", lambda: RetentionService(ip_anonymisation_after_days=3))
+
+    auth_tasks.anonymize_old_ips()
+
+    (cutoff,) = repo.cutoffs
+    expected = datetime.now(UTC) - timedelta(days=3)
+    assert abs(datetime.fromisoformat(cutoff) - expected) < _CLOCK_SLACK
+
+
+def test_the_setting_reaches_the_cutoff(monkeypatch, repo: _RecordingRepo):
+    """End to end from ``settings.retention_ip_anonymization_days`` to the selection."""
+    monkeypatch.setattr(settings, "retention_ip_anonymization_days", 4)
+
+    auth_tasks.anonymize_old_ips()
+
+    (cutoff,) = repo.cutoffs
+    expected = datetime.now(UTC) - timedelta(days=4)
+    assert abs(datetime.fromisoformat(cutoff) - expected) < _CLOCK_SLACK
+
+
+def test_the_cutoff_is_written_in_utc(repo: _RecordingRepo):
+    auth_tasks.anonymize_old_ips()
+
+    (cutoff,) = repo.cutoffs
+    assert datetime.fromisoformat(cutoff).utcoffset() == timedelta(0)
 
 
 def test_the_task_holds_no_database_handle_of_its_own(monkeypatch, repo: _RecordingRepo):

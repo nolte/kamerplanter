@@ -120,16 +120,15 @@ class PrivacyService:
 
     Heavy work runs in Celery (``app.tasks.retention_tasks``): export
     processing is dispatched by :meth:`request_data_export`, hard-delete
-    after the 90-day grace period runs via the daily
+    after the NFR-011 R-01 grace period runs via the daily
     ``retention.execute_scheduled_erasures`` beat task (NFR-011).
     """
 
     PRIVACY_POLICY_VERSION = "1.0"
     PRIVACY_POLICY_EFFECTIVE_DATE = date(2026, 4, 27)
-    EMAIL_CHANGE_TTL_HOURS = 24
-    #: NFR-011 R-05 — how long a built Art. 15 bundle stays downloadable.
-    EXPORT_TTL_HOURS = 72
-    HARD_DELETE_DAYS = 90
+    # NFR-011 R-01 / R-05 / R-07 periods are not class constants: they are read
+    # from their settings through ``self._retention`` (#1782), the same service
+    # the Art. 13 summary names them from.
     # SEC-001 staleness guard: an ``in_progress`` erasure is only re-picked when
     # its last update is older than this window. The erasure beat task runs
     # daily, so 6 h is well beyond a single healthy run yet short enough to
@@ -350,7 +349,7 @@ class PrivacyService:
             verification_token_hash=token_hash,
             status="pending",
             requested_at=now,
-            expires_at=now + timedelta(hours=self.EMAIL_CHANGE_TTL_HOURS),
+            expires_at=self._retention.email_change_expires_at(now),
         )
         created = self._email_change_repo.create(change)
 
@@ -433,7 +432,7 @@ class PrivacyService:
             verification_token_hash="",
             status="pending",
             requested_at=now,
-            expires_at=now + timedelta(hours=self.EMAIL_CHANGE_TTL_HOURS),
+            expires_at=self._retention.email_change_expires_at(now),
         )
 
     def _notify_email_change_target(self, target_email: str, requester_display_name: str) -> None:
@@ -514,8 +513,9 @@ class PrivacyService:
     ) -> ErasureRequest:
         """Create an erasure request, soft-delete the user and revoke sessions.
 
-        Hard-delete is scheduled 90 days into the future. The actual deletion
-        runs in a Celery task (NFR-011 R-01).
+        Hard-delete is scheduled the NFR-011 R-01 grace period into the future
+        (``RETENTION_SOFT_DELETE_RETENTION_DAYS``, default 90). The actual
+        deletion runs in a Celery task.
         """
         user = self._user_repo.get_or_raise(user_key)
 
@@ -535,7 +535,7 @@ class PrivacyService:
         erasure = self._new_erasure_request(
             user_key,
             now=now,
-            hard_delete_at=now + timedelta(days=self.HARD_DELETE_DAYS),
+            hard_delete_at=self._retention.hard_delete_at(now),
             origin="self_service",
         )
         created = self._erasure_repo.create(erasure)
@@ -887,7 +887,11 @@ class PrivacyService:
             RetentionCategoryInfo(
                 category="account_data",
                 description="Profile, email and authentication records",
-                retention_period="Until account deletion (NFR-011 R-01).",
+                retention_period=(
+                    "Until account deletion; deleted "
+                    f"{self._retention.hard_delete_after_days} days after a self-service erasure request "
+                    "(NFR-011 R-01)."
+                ),
             ),
             RetentionCategoryInfo(
                 category="harvest_records",
@@ -913,12 +917,12 @@ class PrivacyService:
                 # the IP on a consent record is not anonymised yet (#1782), and
                 # this text must not promise it (#1773 review GDPR-005).
                 description="IP addresses of login sessions",
-                retention_period="Anonymised after 7 days (NFR-011 R-03).",
+                retention_period=f"Anonymised after {self._retention.ip_anonymisation_after_days} days (NFR-011 R-03).",
             ),
             RetentionCategoryInfo(
                 category="export_files",
                 description="Generated data-export files",
-                retention_period="72 hours after completion (NFR-011 R-05).",
+                retention_period=f"{self._retention.export_retention_hours} hours after completion (NFR-011 R-05).",
             ),
             RetentionCategoryInfo(
                 category="erasure_records",
@@ -1160,7 +1164,7 @@ class PrivacyService:
             "file_size_bytes": len(payload),
             "status": "completed",
             "completed_at": now,
-            "expires_at": now + timedelta(hours=self.EXPORT_TTL_HOURS),
+            "expires_at": self._retention.export_expires_at(now),
             # A retry after a failed run must not complete while still carrying
             # the old reason. ``update_fields`` writes ``keep_none=True``, so
             # this clear actually lands; through ``update`` it would not.
@@ -1270,7 +1274,7 @@ class PrivacyService:
         )
 
     async def execute_scheduled_erasures(self, now: datetime) -> int:
-        """Hard-delete users whose 90-day soft-delete grace expired.
+        """Hard-delete users whose NFR-011 R-01 soft-delete grace expired.
 
         Returns the number of erasures *finalised* in this run. Each candidate
         runs :meth:`erase_account`, which keeps the W-007 phase order:
@@ -2117,7 +2121,11 @@ class PrivacyService:
         return ErasureRecordPurgeResult(purged=purged, held_without_tombstone=held)
 
     async def expire_email_change_requests(self, now: datetime) -> int:
-        """Mark unconfirmed email-change requests older than 24 h as expired."""
+        """Mark unconfirmed email-change requests past their ``expires_at`` as expired (NFR-011 R-07).
+
+        ``expires_at`` was stamped at request time from
+        ``RETENTION_EMAIL_CHANGE_RETENTION_HOURS`` (:meth:`request_email_change`).
+        """
         affected = self._email_change_repo.expire_old(now.isoformat())
         if affected:
             logger.info(
@@ -2127,7 +2135,10 @@ class PrivacyService:
         return affected
 
     async def expire_data_exports(self, now: datetime) -> int:
-        """Delete the bundles of exports past their 72-hour window, **then** expire them.
+        """Delete the bundles of exports past their R-05 window, **then** expire them.
+
+        The window is the ``expires_at`` stamped at completion from
+        ``RETENTION_EXPORT_FILE_RETENTION_HOURS`` (:meth:`process_data_export`).
 
         NFR-011 R-05 is "delete the file, set the status to expired" — both
         halves, in that order (#1767 GDPR-005). Until #1767 the status was

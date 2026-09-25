@@ -8,8 +8,8 @@ half a second *later* — retention sweeps deleted records that were not due and
 kept ones that were (#1786 was the first measured instance, #1784 the other 30
 sites). A sibling of the same class: an AQL date function that returns a
 **string** (``DATE_ADD``, ``DATE_ISO8601``, …) compared with ``DATE_NOW()``, a
-number — AQL orders every string above every number, so the Karenz list showed
-every treatment ever applied as an active waiting period.
+number — AQL orders every string above every number, so the Karenz list shows
+every treatment ever applied as an active waiting period (open: #1798).
 
 **The rule, stated as a rule and not as today's sites.** In a string expression
 anywhere in ``app/``, an ordering operator (``<``, ``<=``, ``>``, ``>=``) whose
@@ -108,7 +108,7 @@ _PLACEHOLDER = "__EXPR__"
 #: from outliving its site — the repair of a listed site must delete its entry.
 _ALLOWLIST: dict[tuple[str, str], str] = {
     ("data_access/arango/ipm_repository.py", "get_active_karenz_periods"): (
-        "KNOWN DEFECT, tracked separately from #1784 by operator decision: "
+        "KNOWN DEFECT, tracked in #1798 (kept out of #1784 by operator decision): "
         "DATE_ADD(...) > DATE_NOW() orders a string against a number and is true for every "
         "application, so GET .../karenz lists ended waiting periods as active. The harvest gate "
         "(check_harvest_safety) re-checks in Python and is not affected."

@@ -79,3 +79,29 @@ class TestTheRetentionSummary:
 
         assert "consent" not in entry.description.lower()
         assert "session" in entry.description.lower()
+
+
+class TestThePeriodsWiredIn1782:
+    """#1782 — R-03 and R-05 are read from the service the tasks use, like R-02/R-06."""
+
+    def test_the_ip_period_follows_the_configuration(self):
+        summary = _policy(RetentionService(ip_anonymisation_after_days=3))
+
+        assert summary["ip_addresses"] == "Anonymised after 3 days (NFR-011 R-03)."
+
+    def test_the_export_period_follows_the_configuration(self):
+        summary = _policy(RetentionService(export_retention_hours=12))
+
+        assert summary["export_files"] == "12 hours after completion (NFR-011 R-05)."
+
+    def test_the_default_texts_name_the_spec_periods(self):
+        summary = _policy(RetentionService(ip_anonymisation_after_days=7, export_retention_hours=72))
+
+        assert summary["ip_addresses"] == "Anonymised after 7 days (NFR-011 R-03)."
+        assert summary["export_files"] == "72 hours after completion (NFR-011 R-05)."
+
+    def test_the_account_entry_names_the_r01_grace_period(self):
+        summary = _policy(RetentionService(hard_delete_after_days=45))
+
+        assert "45 days" in summary["account_data"]
+        assert "R-01" in summary["account_data"]

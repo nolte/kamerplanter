@@ -128,7 +128,10 @@ def _run_beat(database) -> tuple[dict, int, dict]:
     seeded = reach._seed(database, plan)
     request = _service(database).request_erasure(SUBJECT, "confirm")
     assert request.key is not None
-    beat_clock = datetime.now(UTC) + timedelta(days=PrivacyService.HARD_DELETE_DAYS + 1)
+    # One day past the date the request itself carries: the R-01 period is a
+    # setting read through RetentionService (#1782), not a class constant.
+    assert request.hard_delete_scheduled_at is not None
+    beat_clock = request.hard_delete_scheduled_at + timedelta(days=1)
     finalised = asyncio.run(_service(database).execute_scheduled_erasures(beat_clock))
     record = database.collection(col.ERASURE_REQUESTS).get(request.key)
     return seeded, finalised, record

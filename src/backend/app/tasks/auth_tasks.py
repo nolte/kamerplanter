@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import structlog
 
@@ -96,16 +96,19 @@ _anonymize_ip = loggable_ip
 
 @celery_app.task(name="app.tasks.auth_tasks.anonymize_old_ips")
 def anonymize_old_ips() -> dict:
-    """Anonymize IP addresses in refresh tokens older than 7 days (SEC-K-002).
+    """Anonymize the IP address of every login session past NFR-011 R-03 (SEC-K-002).
 
-    Selection and write go through the refresh-token repository; the task holds
-    no AQL of its own (NFR-001).
+    The period is ``settings.retention_ip_anonymization_days``
+    (``RETENTION_IP_ANONYMIZATION_DAYS``, default 7), read through
+    :meth:`RetentionService.ip_anonymisation_cutoff` — until #1782 it was a
+    literal no setting reached. Selection and write go through the
+    refresh-token repository; the task holds no AQL of its own (NFR-001).
     """
-    from app.common.dependencies import get_refresh_token_repo
+    from app.common.dependencies import get_refresh_token_repo, get_retention_service
 
     repo = get_refresh_token_repo()
     now = datetime.now(UTC)
-    cutoff = (now - timedelta(days=7)).isoformat()
+    cutoff = get_retention_service().ip_anonymisation_cutoff(now).isoformat()
     anonymized_at = now.isoformat()
 
     count = 0
