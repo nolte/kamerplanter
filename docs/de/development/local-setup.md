@@ -38,6 +38,19 @@ kind create cluster --config kind-config.yaml --name kamerplanter
 
 Der Cluster veröffentlicht auf dem Host-System nur die Ingress-Ports 80 und 443. Der Zugriff auf Backend (8000), Frontend (3000) und ArangoDB (8529) läuft über Skaffolds `--port-forward` (siehe Tabelle unten) — diese Host-Ports müssen beim Start also frei sein.
 
+Beide Ingress-Ports lauschen nur auf `127.0.0.1` (`listenAddress` in `kind-config.yaml`). Ohne diese Angabe bindet Kind auf `0.0.0.0` — dann wäre die Entwicklungs-App auf jeder Netzwerkschnittstelle deines Rechners erreichbar, im Light-Modus sogar ohne Anmeldung, für jedes Gerät im selben Netz.
+
+!!! note "Änderung greift erst nach dem Neuanlegen"
+    Kind legt die Port-Bindung beim Erstellen des Clusters fest. Ein Cluster, den du vor dieser Einstellung angelegt hast, lauscht weiter auf allen Schnittstellen, bis du ihn löschst und neu erstellst. Prüfen kannst du das mit `docker port kamerplanter-control-plane` — die Ausgabe muss `127.0.0.1:80` und `127.0.0.1:443` zeigen, nicht `0.0.0.0`.
+
+??? question "Cluster vom Smartphone oder einem anderen Rechner aus erreichen"
+    Kind wertet in seiner Konfiguration keine Umgebungsvariablen aus, deshalb gibt es keinen Schalter wie `KAMERPLANTER_BIND_ADDRESS` beim Docker-Compose-Betrieb. Wenn du den Entwicklungs-Cluster bewusst im Netz freigeben willst, lege ihn aus einer nicht eingecheckten Kopie an, in der `listenAddress` auf `0.0.0.0` steht:
+    ```bash
+    sed 's/listenAddress: "127.0.0.1"/listenAddress: "0.0.0.0"/' kind-config.yaml > /tmp/kind-config-lan.yaml
+    kind create cluster --config /tmp/kind-config-lan.yaml --name kamerplanter
+    ```
+    Bedenke dabei, dass jedes Gerät im Netz die App dann ohne weitere Hürde erreicht.
+
 !!! warning "Bereits vorhandener Cluster"
     Falls ein Cluster mit dem Namen `kamerplanter` existiert, lösche ihn zunächst:
     ```bash
