@@ -62,6 +62,21 @@ class MembershipEngine:
         return role == TenantRole.LEAD
 
     @staticmethod
+    def can_delete_tenant(role: TenantRole, admin_scopes: list[AdminScope]) -> bool:
+        """Deleting the whole tenant takes **both** axes: the lead role *and* ``management`` (#1791).
+
+        REQ-024 §1a.2 / REQ-049 §4.2. Since #1769 a tenant deletion erases every
+        tenant-scoped collection irreversibly, so it sits on the irreversibility
+        boundary of axis 1 (:meth:`can_delete_resource`, REQ-049 §2.3) *and* is an
+        administrative act of axis 2. The two conditions are intersected, not
+        united: a viewer holding ``management`` — the club secretary REQ-049 §2.4
+        describes — keeps the member list but cannot erase the garden, and a lead
+        without ``management`` cannot either. Ownership (``owner_user_key``) is
+        provenance, not a right, and plays no part.
+        """
+        return MembershipEngine.can_delete_resource(role) and AdminScope.MANAGEMENT in admin_scopes
+
+    @staticmethod
     def can_view_resource(role: TenantRole) -> bool:
         """Every domain role may read."""
         return role in ROLE_HIERARCHY

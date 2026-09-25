@@ -9,6 +9,7 @@ import type {
   AdminUser,
   AdminUserMembership,
   AdminUserUpdate,
+  TenantDeleteRequest,
   TenantRole,
 } from '@/api/types';
 
@@ -49,8 +50,8 @@ export async function updateAdminUser(
   return data;
 }
 
-export async function deleteAdminTenant(key: string): Promise<void> {
-  await apiClient.delete(`/admin/platform/tenants/${encodeURIComponent(key)}`);
+export async function deleteAdminTenant(key: string, stepUp: TenantDeleteRequest): Promise<void> {
+  await apiClient.delete(`/admin/platform/tenants/${encodeURIComponent(key)}`, { data: stepUp });
 }
 
 export async function deleteAdminUser(key: string): Promise<void> {

@@ -31,6 +31,7 @@ from tests.support.tenant_erasure_doubles import (
     SALT,
     FakeTenantErasureRepository,
     RecordingTenantErasureExecutor,
+    authorized,
     tenant,
     tenant_service_for_deletion,
 )
@@ -50,7 +51,7 @@ class TestTheDeletionRunsTheInventory:
         repo = FakeTenantErasureRepository()
         service = tenant_service_for_deletion(executor=executor, record_repo=repo)
 
-        result = service.delete_tenant(KEY, origin="platform_admin", now=NOW)
+        result = service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
 
         (plan,) = executor.plans
         assert plan.tenant_key == KEY
@@ -64,7 +65,7 @@ class TestTheDeletionRunsTheInventory:
         executor = RecordingTenantErasureExecutor(account_keys=["member-1"])
         service = tenant_service_for_deletion(executor=executor)
 
-        service.delete_tenant(KEY, now=NOW)
+        service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         assert executor.pseudonyms == {"member-1": ErasureEngine.compute_tombstone_hash("member-1", SALT)}
 
@@ -78,7 +79,7 @@ class TestTheDeletionRunsTheInventory:
         service = tenant_service_for_deletion(executor=executor, storage_adapter=storage, observation_repo=readings)
         service._membership_repo.deactivate_all_for_tenant.side_effect = lambda key: order.append("freeze") or 1
 
-        service.delete_tenant(KEY, now=NOW)
+        service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         # Readings last: ingestion is not stopped by the freeze, only by the
         # sensors being gone (#1769 code review).
@@ -90,14 +91,16 @@ class TestTheDeletionRunsTheInventory:
         repo = FakeTenantErasureRepository()
         readings = MagicMock()
         readings.delete_by_tenant.return_value = 12
-        tenant_service_for_deletion(record_repo=repo, observation_repo=readings).delete_tenant(KEY, now=NOW)
+        tenant_service_for_deletion(record_repo=repo, observation_repo=readings).delete_tenant(
+            KEY, **authorized(KEY), now=NOW
+        )
 
         readings.delete_by_tenant.assert_called_once_with(KEY)
         assert _record(repo)["timeseries_rows_removed"] == 12
 
     def test_the_record_names_no_tenant_name_slug_or_owner(self) -> None:
         repo = FakeTenantErasureRepository()
-        tenant_service_for_deletion(record_repo=repo).delete_tenant(KEY, now=NOW)
+        tenant_service_for_deletion(record_repo=repo).delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         assert {"name", "slug", "owner_user_key"}.isdisjoint(_record(repo))
 
@@ -109,7 +112,7 @@ class TestCompletionDependsOnWhatWasRemoved:
         service = tenant_service_for_deletion(executor=executor, record_repo=repo)
 
         with pytest.raises(TenantErasureIncompleteError) as raised:
-            service.delete_tenant(KEY, now=NOW)
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         assert raised.value.status_code == 500
         assert KEY not in raised.value.message
@@ -129,7 +132,7 @@ class TestCompletionDependsOnWhatWasRemoved:
         service = tenant_service_for_deletion(executor=executor, record_repo=repo, reference_index_store=store)
 
         with pytest.raises(ExternalSourceError):
-            service.delete_tenant(KEY, now=NOW)
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         assert executor.plans == []
         assert _record(repo)["status"] == "partially_completed"
@@ -142,7 +145,7 @@ class TestRefusalsBeforeAnythingChanges:
         service = tenant_service_for_deletion(existing=tenant(KEY, is_platform=True), record_repo=repo)
 
         with pytest.raises(ForbiddenError):
-            service.delete_tenant(KEY, origin="tenant_management", now=NOW)
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         assert repo.records == {}
         service._membership_repo.deactivate_all_for_tenant.assert_not_called()
@@ -152,7 +155,7 @@ class TestRefusalsBeforeAnythingChanges:
         service._tenant_repo.get_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.delete_tenant("ghost", now=NOW)
+            service.delete_tenant("ghost", **authorized("ghost"), now=NOW)
 
     @pytest.mark.parametrize(
         ("overrides", "reason"),
@@ -176,7 +179,7 @@ class TestRefusalsBeforeAnythingChanges:
         service = tenant_service_for_deletion(record_repo=repo, reference_index_store=store, **overrides)
 
         with pytest.raises(FeatureNotConfiguredError, match=reason):
-            service.delete_tenant(KEY, now=NOW)
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         store.delete_tenant_contributions.assert_not_awaited()
         assert repo.records == {}
@@ -195,7 +198,7 @@ class TestRefusalsBeforeAnythingChanges:
         }
 
         with pytest.raises(WriteConflictError):
-            service.delete_tenant(KEY, now=NOW)
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
     @pytest.mark.parametrize("bad_key", ["", "t/x", "../etc", "a b"])
     def test_a_malformed_key_never_builds_a_storage_prefix(self, bad_key) -> None:
@@ -272,7 +275,7 @@ class TestNoDeletionThatBreaksTheInstallationOrLeaksAccess:
         service = tenant_service_for_deletion(record_repo=repo, light_mode=True)
 
         with pytest.raises(ForbiddenError):
-            service.delete_tenant(KEY, now=NOW)
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         assert repo.records == {}
 

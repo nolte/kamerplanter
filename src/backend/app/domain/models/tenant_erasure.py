@@ -32,6 +32,26 @@ type TenantErasureOrigin = Literal["tenant_management", "platform_admin"]
 
 type TenantErasureStatus = Literal["in_progress", "completed", "partially_completed"]
 
+#: How the requester of a tenant deletion confirmed it was really them (#1791):
+#: ``password`` — the current password of an account that has one; for an account
+#: without a local password (federated sign-in only) the echoed slug is the
+#: confirmation, ``slug_confirmation`` (the REQ-394 precedent of account erasure).
+type TenantDeletionStepUp = Literal["password", "slug_confirmation"]
+
+
+class TenantDeletionConfirmation(BaseModel):
+    """The step-up a tenant deletion carries in its request body (#1791).
+
+    ``confirm_slug`` is the tenant's slug typed back by the requester — for every
+    account; ``password`` is the requester's current password, required when the
+    account has one. Checked by ``TenantService.delete_tenant`` for both routes.
+    """
+
+    model_config = {"frozen": True}
+
+    confirm_slug: str
+    password: str | None = None
+
 
 class TenantErasureParent(BaseModel):
     """A row belongs to the tenant because its parent row does.
@@ -150,6 +170,16 @@ class TenantErasureRecord(BaseModel):
     tenant_key: str
     tenant_type: str
     origin: TenantErasureOrigin
+    #: Who asked, as the salted log reference (``ErasureEngine.log_subject``) —
+    #: never the account key: the record outlives the tenant and possibly the
+    #: account (#1791). ``None`` on records written before #1791.
+    requested_by_subject: str | None = None
+    #: How the requester confirmed the deletion (#1791).
+    step_up: TenantDeletionStepUp | None = None
+    #: Salted HMAC of the tenant's slug — never the slug, which for a personal
+    #: tenant is its owner's name. Lets a retry confirm with the slug the caller
+    #: saw after an earlier attempt already removed the tenant document (#1791).
+    slug_digest: str | None = None
     status: TenantErasureStatus = "in_progress"
     requested_at: datetime | None = None
     completed_at: datetime | None = None

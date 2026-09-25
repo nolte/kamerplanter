@@ -30,7 +30,7 @@ from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.privacy import AccountErasureReport
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
+from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, authorized, tenant_service_for_deletion
 
 
 class TestErasureEnginePlan:
@@ -60,7 +60,7 @@ class TestTenantDeletionDropsPestImages:
             executor=executor, pest_image_repo=MagicMock(), pest_prototype_store=NoopPestPrototypeStore()
         )
 
-        assert svc.delete_tenant("t-1").status == "completed"
+        assert svc.delete_tenant("t-1", **authorized("t-1")).status == "completed"
         (plan,) = executor.plans
         assert "pest_image_contributions" in [e.collection for e in plan.entries if e.action == "delete"]
 
