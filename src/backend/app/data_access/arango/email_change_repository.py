@@ -58,9 +58,20 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
         return [EmailChangeRequest(**self._from_doc(doc)) for doc in cursor]
 
     def expire_old(self, now_iso: str) -> int:
+        """Flip every pending request past its ``expires_at`` to ``expired``.
+
+        Compared as instants (see :mod:`app.data_access.arango.query_builder`).
+        ``expires_at`` is required on :class:`EmailChangeRequest`; a request whose
+        expiry is missing or unreadable is treated as expired, as the string
+        comparison did for ``null``.
+        """
         query = """
         FOR doc IN @@collection
-          FILTER doc.status == 'pending' AND doc.expires_at < @now
+          FILTER doc.status == 'pending'
+            AND (
+              DATE_TIMESTAMP(doc.expires_at) == null
+              OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
+            )
           UPDATE doc WITH { status: 'expired', updated_at: @now } IN @@collection
           RETURN 1
         """

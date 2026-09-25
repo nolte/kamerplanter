@@ -164,7 +164,7 @@ class TestListForUserSince:
         query = call.args[0]
         bind_vars = call.kwargs["bind_vars"]
         assert "doc.user_key == @user_key" in query
-        assert "doc.created_at >= @since" in query
+        assert "DATE_TIMESTAMP(doc.created_at) >= DATE_TIMESTAMP(@since)" in query
         assert "SORT doc.created_at DESC" in query
         assert bind_vars["user_key"] == "u1"
         assert bind_vars["since"] == since.isoformat()

@@ -252,7 +252,7 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
             FOR pi IN plant_instances
                 FILTER pi._key == hb.plant_key
                 FILTER pi.species_key == @species_key
-                FILTER hb.harvest_date >= @cutoff
+                FILTER DATE_TIMESTAMP(hb.harvest_date) >= DATE_TIMESTAMP(@cutoff)
                 FOR ym IN yield_metrics
                     FILTER ym.batch_key == hb._key
                     COLLECT species = @species_key

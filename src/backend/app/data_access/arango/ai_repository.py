@@ -93,7 +93,8 @@ class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):
         cutoff = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER doc.expires_at != null AND doc.expires_at < @cutoff
+          FILTER DATE_TIMESTAMP(doc.expires_at) != null
+            AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed
@@ -130,7 +131,7 @@ class ArangoAiTipCacheRepository(BaseArangoRepository[AiTipCard]):
           FILTER doc.context_type == @context_type
           FILTER doc.context_key == @context_key
           FILTER doc.dismissed_at == null
-          FILTER doc.valid_until == null OR doc.valid_until > @now
+          FILTER doc.valid_until == null OR DATE_TIMESTAMP(doc.valid_until) > DATE_TIMESTAMP(@now)
           SORT doc.priority ASC, doc.generated_at DESC
           RETURN doc
         """
@@ -192,7 +193,8 @@ class ArangoAiAuditRepository(BaseArangoRepository[AiAuditLogEntry]):
         """Remove audit entries created before ``cutoff``. Returns count."""
         query = """
         FOR doc IN @@collection
-          FILTER doc.created_at != null AND doc.created_at < @cutoff
+          FILTER DATE_TIMESTAMP(doc.created_at) != null
+            AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed

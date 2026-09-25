@@ -96,40 +96,21 @@ _anonymize_ip = loggable_ip
 
 @celery_app.task(name="app.tasks.auth_tasks.anonymize_old_ips")
 def anonymize_old_ips() -> dict:
-    """Anonymize IP addresses in refresh tokens older than 7 days (SEC-K-002)."""
-    from app.common.dependencies import get_db
-    from app.data_access.arango import collections as col
+    """Anonymize IP addresses in refresh tokens older than 7 days (SEC-K-002).
 
-    db = get_db()
-    cutoff = (datetime.now(UTC) - timedelta(days=7)).isoformat()
-    now = datetime.now(UTC).isoformat()
-
-    # Find tokens with non-anonymized IPs older than 7 days
-    query = """
-    FOR doc IN @@collection
-      FILTER doc.ip_address != null
-        AND doc.ip_anonymized_at == null
-        AND doc.created_at < @cutoff
-      RETURN { _key: doc._key, ip_address: doc.ip_address }
+    Selection and write go through the refresh-token repository; the task holds
+    no AQL of its own (NFR-001).
     """
-    cursor = db.aql.execute(
-        query,
-        bind_vars={
-            "@collection": col.REFRESH_TOKENS,
-            "cutoff": cutoff,
-        },
-    )
-    tokens = list(cursor)
+    from app.common.dependencies import get_refresh_token_repo
+
+    repo = get_refresh_token_repo()
+    now = datetime.now(UTC)
+    cutoff = (now - timedelta(days=7)).isoformat()
+    anonymized_at = now.isoformat()
+
     count = 0
-    for token in tokens:
-        anonymized = _anonymize_ip(token["ip_address"])
-        db.collection(col.REFRESH_TOKENS).update(
-            {
-                "_key": token["_key"],
-                "ip_address": anonymized,
-                "ip_anonymized_at": now,
-            }
-        )
+    for key, ip_address in repo.list_unanonymized_ips_before(cutoff):
+        repo.mark_ip_anonymized(key, _anonymize_ip(ip_address), anonymized_at)
         count += 1
 
     logger.info("anonymize_old_ips", anonymized=count)

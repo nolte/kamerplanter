@@ -88,7 +88,11 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
         """
         query = """
         FOR doc IN @@collection
-          FILTER (doc.status == 'completed' AND doc.expires_at != null AND doc.expires_at < @now)
+          FILTER (
+              doc.status == 'completed'
+              AND DATE_TIMESTAMP(doc.expires_at) != null
+              AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
+            )
             OR (doc.status == 'expired' AND doc.file_path != null)
           RETURN doc
         """
@@ -111,7 +115,8 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
         query = """
         FOR doc IN @@collection
           FILTER doc.status == "pending"
-          FILTER doc.requested_at != null AND doc.requested_at < @cutoff
+          FILTER DATE_TIMESTAMP(doc.requested_at) != null
+            AND DATE_TIMESTAMP(doc.requested_at) < DATE_TIMESTAMP(@cutoff)
           SORT doc.requested_at ASC
           LIMIT 100
           RETURN doc

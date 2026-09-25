@@ -82,13 +82,14 @@ class ArangoMcpAuditRepository:
         )
         return [McpAuditLogEntry(**doc) for doc in cursor]
 
-    def delete_expired(self, *, retention_days: int = 90) -> int:
+    def delete_expired(self, *, retention_days: int = 90, now: datetime | None = None) -> int:
         """Delete audit entries older than the retention window (NFR-011, AC-S4)."""
 
-        cutoff = (datetime.now(UTC) - timedelta(days=retention_days)).isoformat()
+        cutoff = ((now or datetime.now(UTC)) - timedelta(days=retention_days)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER doc.created_at < @cutoff
+          FILTER DATE_TIMESTAMP(doc.created_at) != null
+            AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed
@@ -164,20 +165,26 @@ class ArangoMcpIdempotencyRepository:
         self._db.collection(col.MCP_IDEMPOTENCY_RECORD).insert(doc, overwrite=True)
         return record
 
-    def delete_expired(self) -> int:
-        """Delete idempotency records past their TTL (AC-22)."""
+    def delete_expired(self, *, now: datetime | None = None) -> int:
+        """Delete idempotency records past their TTL (AC-22).
 
-        now = datetime.now(UTC).isoformat()
+        Compared as instants (see :mod:`app.data_access.arango.query_builder`).
+        :meth:`store` always stamps ``expires_at``; a record whose expiry is
+        missing or unreadable is treated as expired, as before.
+        """
+
+        stamp = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER doc.expires_at < @now
+          FILTER DATE_TIMESTAMP(doc.expires_at) == null
+            OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": col.MCP_IDEMPOTENCY_RECORD, "now": now},
+            bind_vars={"@collection": col.MCP_IDEMPOTENCY_RECORD, "now": stamp},
         )
         result = list(cursor)
         return int(result[0]) if result else 0

@@ -343,7 +343,7 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
             stale_clause = (
                 "FILTER doc.analysis_state == @requested_state "
                 "OR doc.analysis_lease_expires_at == null "
-                "OR doc.analysis_lease_expires_at <= @now "
+                "OR DATE_TIMESTAMP(doc.analysis_lease_expires_at) <= DATE_TIMESTAMP(@now) "
             )
             bind_vars["requested_state"] = DiaryAnalysisState.REQUESTED.value
             bind_vars["now"] = moment
@@ -455,7 +455,8 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
             clauses.append(
                 "LET displayed_analysis_state = ("
                 "doc.analysis_state == @in_progress_state "
-                "AND (doc.analysis_lease_expires_at == null OR doc.analysis_lease_expires_at <= @now)"
+                "AND (doc.analysis_lease_expires_at == null "
+                "OR DATE_TIMESTAMP(doc.analysis_lease_expires_at) <= DATE_TIMESTAMP(@now))"
                 ") ? @requested_state : NOT_NULL(doc.analysis_state, @none_state)"
             )
             clauses.append("FILTER displayed_analysis_state IN @displayed_states")
