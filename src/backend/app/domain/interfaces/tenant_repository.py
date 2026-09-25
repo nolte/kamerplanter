@@ -49,3 +49,12 @@ class ITenantRepository(ABC):
 
     @abstractmethod
     def count_organizations_by_owner(self, owner_user_key: str) -> int: ...
+
+    @abstractmethod
+    def personal_tenant_keys_by_owner(self, owner_user_key: str) -> list[str]:
+        """The keys of every ``personal`` tenant *owner_user_key* owns, oldest first (#1788).
+
+        Keys only, filtered in the query: the account erasure must reach a
+        personal tenant even when a document of it would not pass model
+        validation, and never loads the owner's organisations to find it.
+        """

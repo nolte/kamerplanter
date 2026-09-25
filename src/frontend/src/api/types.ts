@@ -4899,6 +4899,17 @@ export interface TaskTemplateUpdateRequest {
 
 // ── Admin Platform Types ──────────────────────────────────────────────
 
+/**
+ * The step-up every tenant deletion carries (#1791) — `DELETE /tenants/{slug}`
+ * and `DELETE /admin/platform/tenants/{key}` alike. `confirm_slug` is the
+ * tenant's slug typed back; `password` is the requester's current password,
+ * omitted only by an account that signs in through a federated provider alone.
+ */
+export interface TenantDeleteRequest {
+  confirm_slug: string;
+  password?: string;
+}
+
 export interface AdminTenant {
   key: string;
   name: string;

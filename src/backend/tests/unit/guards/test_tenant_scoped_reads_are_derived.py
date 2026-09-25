@@ -243,6 +243,7 @@ ANCHOR_TARGETS: dict[str, str | None] = {
     "user_key": None,  # an account; spans every tenant it is a member of
     "owner_user_key": None,
     "default_tenant_key": None,  # a tenant id, not a document of one
+    "personal_tenant_keys": None,  # tenant ids an account erasure recorded (#1788), not documents of one
     "gbif_taxon_key": None,  # external taxonomy id
     "internal_key": None,  # ExternalMapping -> species / cultivar, both catalogue
     "source_key": None,  # external source registry

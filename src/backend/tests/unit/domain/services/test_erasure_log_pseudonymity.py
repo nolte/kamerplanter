@@ -37,6 +37,7 @@ from app.domain.models.membership import Membership
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.privacy import ErasureExecutionReport, ErasureRequest, ErasureStepOutcome
 from app.domain.services.privacy_service import PrivacyService
+from tests.support.privacy_doubles import FakePersonalTenants
 
 #: Distinctive, so a substring hit cannot be a coincidence.
 USER_KEY = "subject-7f3a91"
@@ -122,6 +123,7 @@ def _service(tmp_path: Path, **overrides: Any) -> PrivacyService:
         "token_engine": MagicMock(),
         "email_service": MagicMock(),
         "frontend_url": "https://app.test",
+        "tenant_service": FakePersonalTenants(),
         "storage_adapter": storage,
         "attachment_repo": attachment_repo,
         "membership_repo": membership_repo,

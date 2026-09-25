@@ -21,6 +21,13 @@ type ErasureStatus = Literal["scheduled", "in_progress", "completed", "partially
 #: Art. 17 request with its 90-day grace; ``platform_admin`` and
 #: ``unverified_cleanup`` are due at once but keep the same record, gate and retry.
 type ErasureOrigin = Literal["self_service", "platform_admin", "unverified_cleanup"]
+#: What an account erasure did with one personal tenant of the subject (#1788).
+#: ``erased`` — the subject was its only active member, and the tenant-erasure
+#: inventory (#1769) completed on it; ``retained_other_members`` — another active
+#: member uses it, so it is kept and only the owner reference goes (the spec names
+#: no successor, #1788); ``absent`` — neither the tenant nor a deletion record of
+#: it exists any more.
+type PersonalTenantOutcome = Literal["erased", "retained_other_members", "absent"]
 type EmailChangeStatus = Literal["pending", "confirmed", "expired"]
 type RestrictionReason = Literal[
     "accuracy_contested",
@@ -93,6 +100,20 @@ class ProcessingRestriction(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class PersonalTenantErasure(BaseModel):
+    """One personal tenant of an erased account, and what the erasure did with it (#1788).
+
+    Carries no name, slug or owner: a personal tenant is named after its owner.
+    ``tenant_erasure_record_key`` points at the tenant deletion's own proof
+    (``tenant_erasure_records``), which outlives the tenant.
+    """
+
+    tenant_key: str
+    outcome: PersonalTenantOutcome
+    tenant_erasure_record_key: str | None = None
+    reason: str | None = None
+
+
 class ErasureRequest(BaseModel):
     """Art. 17: Account-deletion request, executed asynchronously after 90d."""
 
@@ -129,6 +150,13 @@ class ErasureRequest(BaseModel):
     #: The same for the contributed pest-recognition prototypes (#1759).
     pest_prototype_binding: str | None = None
     pest_prototypes_removed: int | None = Field(default=None, ge=0)
+    #: The subject's personal tenants, resolved (by owner) before the first one
+    #: is erased (#1788). Persisted first because the account plan replaces the
+    #: owner reference and a deleted tenant cannot be listed again, so a retry
+    #: still knows which tenant deletions this request depends on.
+    personal_tenant_keys: list[str] = Field(default_factory=list)
+    #: What the erasure did with each of them; written with ``completed``.
+    personal_tenants: list[PersonalTenantErasure] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -514,6 +542,10 @@ class AccountErasureReport(BaseModel):
     pest_prototype_binding: str | None = None
     export_files_removed: int = 0
     delegated_removed: dict[str, int] = Field(default_factory=dict)
+    #: The personal-tenant phase (#1788): one entry per personal tenant of the
+    #: subject. ``None`` when the phase did not run — an erasure that skipped it
+    #: must not be recorded ``completed``.
+    personal_tenants: list[PersonalTenantErasure] | None = None
     arango: ErasureExecutionReport = Field(default_factory=ErasureExecutionReport)
 
     def affected(self, collection: str) -> int:

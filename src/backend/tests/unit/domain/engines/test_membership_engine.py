@@ -71,6 +71,25 @@ class TestCanDeleteResource:
         assert MembershipEngine.can_delete_resource(TenantRole.VIEWER) is False
 
 
+class TestCanDeleteTenant:
+    """#1791 — both axes, intersected: lead **and** management (REQ-024 §1a.2)."""
+
+    def test_lead_with_management_can_delete_the_tenant(self):
+        assert MembershipEngine.can_delete_tenant(TenantRole.LEAD, [AdminScope.MANAGEMENT]) is True
+
+    def test_every_other_combination_cannot(self):
+        allowed = [
+            (role, scopes)
+            for role in TenantRole
+            for scopes in ([], [AdminScope.MANAGEMENT], [AdminScope.TECHNICAL], list(AdminScope))
+            if MembershipEngine.can_delete_tenant(role, scopes)
+        ]
+        assert allowed == [
+            (TenantRole.LEAD, [AdminScope.MANAGEMENT]),
+            (TenantRole.LEAD, list(AdminScope)),
+        ]
+
+
 class TestCanViewResource:
     def test_every_domain_role_can_view(self):
         for role in (TenantRole.VIEWER, TenantRole.GROWER, TenantRole.LEAD):

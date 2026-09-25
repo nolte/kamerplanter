@@ -199,3 +199,27 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
         )
         return int(next(cursor, 0))
+
+    def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
+        """The distinct accounts that still use the tenant: an active membership of an active account (#1788).
+
+        "Active" membership is what :meth:`deactivate_all_for_tenant` switches
+        off (``is_active != false``), so a missing flag counts as active, as the
+        model default says. The **account** must exist and be active too: an
+        account whose own erasure is pending is deactivated when it is requested
+        (#1788 review GDPR-01) — counting it would keep a tenant for someone who
+        is leaving, and nobody would reach that tenant again once both are gone.
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false
+              COLLECT user_key = m.user_key
+              RETURN user_key
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        return list(cursor)

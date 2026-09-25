@@ -10,6 +10,7 @@ from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
+from app.domain.engines.full_auth_provider import is_api_key_authorization
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.models.membership import Membership
@@ -43,6 +44,19 @@ def get_current_user(
 ) -> User:
     """Extract and validate user from Bearer token, API key, or system user."""
     return auth_provider.resolve_user(_raw_authorization(credentials))
+
+
+def get_authenticated_with_api_key(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> bool:
+    """Whether this request authenticated with an API key rather than a session (#1791 review SEC-001).
+
+    ``get_current_user`` resolves a ``kp_`` key to the account that owns it —
+    a *human* account too, since every account may issue keys. An action that
+    demands a step-up re-authentication must refuse such a request: the key is
+    a long-lived credential stored in some integration, not a person present.
+    """
+    return is_api_key_authorization(_raw_authorization(credentials))
 
 
 def get_current_user_optional(
