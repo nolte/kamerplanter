@@ -96,8 +96,19 @@ kwarg that names or passes an account key or address.
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
+| #1772 | nolte-engineering:fullstack-developer (082839189) | new tests on 77efb5095 code | `19 failed, 2 passed` (the 2 floor tests were inert, fixed to red); R-02 task cutoff off by exactly 4 days |
+| #1772 | same | new tests after fix | 21 passed; integration purge 3 passed |
+| #1773 | nolte-engineering:fullstack-developer (14bf3ce59, +40890e1a5 by orchestrator) | class guard on 9f40b34a5 / 082839189 | 46 / 47 findings -> 0; `1 failed, 11 passed` red |
+| #1773 | same | per-line tests on 082839189 | `15 failed, 35 passed` -> `50 passed` |
+| both | nolte-engineering:gdpr-data-protection-reviewer | review | 1 critical, 6 warning, 4 suggestion, 4 info |
+| both | nolte-engineering:fullstack-developer (adbd3ddf4) | review fixes F1-F9 red/green | `31 failed, 143 passed` -> `174 passed`; F8 measured ICU string collation defect |
+| both | mkdocs-documentation (9667d06ea) | `mkdocs build --strict` | 45 warnings, identical with and without the change (pre-existing) |
+| group | quality-gate on adbd3ddf4 | task lint:backend / test:backend:unit / :api / :contracts / :integration; guards lane | All checks passed / 11695 passed, 1 skipped / 1595 passed / 30 passed / 547 passed / 1885 passed, 59 deselected — all EXIT:0 |
 
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
+| #1772 | local adaptation | periods computed in the existing RetentionService (injected into PrivacyService) instead of a constructor int |
+| #1773 | local adaptation | selector widened by `device_pairing` and `_email_adapter`; guard extended to exception texts (`str(exc)`); log subject changed from tombstone hash to purpose-separated HMAC `sub_…` (GDPR-003) |
+| #1772 | local adaptation | purge compares instants (`DATE_TIMESTAMP`), holds completed records without a tombstone (GDPR-006); follow-up #1784 for the ICU class |
