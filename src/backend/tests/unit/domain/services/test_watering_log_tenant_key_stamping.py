@@ -214,8 +214,11 @@ def test_confirm_watering_stamps_tenant_key_and_is_visible_in_both_views() -> No
     run_repo = MagicMock()
     run_repo.get_run_nutrient_plan_key.return_value = None
     run_repo.get_run_plants.return_value = [{"_key": PLANT_KEY, "slot_key": "slot-1"}]
+    # The confirmed run and task are the confirming tenant's: #1864 (L8)
+    # resolves both before anything is written.
+    run_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
     task_repo = MagicMock()
-    task_repo.get_by_key.return_value = None
+    task_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
 
     service = WateringLogService(
         log_repo,

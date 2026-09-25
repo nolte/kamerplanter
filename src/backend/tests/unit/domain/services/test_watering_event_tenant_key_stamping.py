@@ -20,6 +20,7 @@ here too, since it is the same defect in the same family.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -80,8 +81,11 @@ def _service() -> tuple[WateringService, FakeWateringRepo, FakeFeedingRepo]:
     plan_repo = MagicMock()
     plan_repo.get_by_key.return_value = NutrientPlan(_key="plan-1", tenant_key=TENANT, name="Plan")
 
+    # The confirmed run and task are the confirming tenant's: #1864 (L8)
+    # resolves both before anything is written.
+    run_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
     task_repo = MagicMock()
-    task_repo.get_by_key.return_value = None
+    task_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
 
     service = WateringService(
         repo=watering_repo,
