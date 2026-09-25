@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -58,7 +59,7 @@ def ingest_ha_readings() -> dict:
                     )
                 )
         except Exception as exc:
-            logger.warning("sensor_ingest_ha_error", entity_id=doc.get("ha_entity_id"), error=str(exc))
+            logger.warning("sensor_ingest_ha_error", entity_id=doc.get("ha_entity_id"), error=loggable_error(exc))
             errors.append({"entity_id": doc.get("ha_entity_id"), "error": str(exc)})
 
     inserted = 0

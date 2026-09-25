@@ -1,6 +1,7 @@
 import structlog
 
 from app.common.exceptions import DuplicateError, WriteConflictError
+from app.common.log_privacy import log_subject
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.models.user_preference import DashboardLayout, UserPreference
 from app.domain.services.dashboard_widget_catalog import WIDGET_BY_KEY
@@ -167,7 +168,7 @@ class UserPreferenceService:
         # level, the field most sensitive to concurrent-writer surprises).
         logger.info(
             "user_preferences_updated",
-            user_key=user_key,
+            subject=log_subject(user_key),
             keys=sorted(fields),
             experience_level=fields.get("experience_level"),
         )

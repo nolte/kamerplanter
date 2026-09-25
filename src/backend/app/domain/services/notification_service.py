@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 
 import structlog
 
+from app.common.log_privacy import log_subject, loggable_error
 from app.common.url_safety import validate_push_endpoint
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
@@ -269,19 +270,19 @@ class NotificationService:
 
         channel = self._engine._channel_registry.get("email")
         if channel is None:
-            logger.warning("email_digest_channel_unavailable", user_key=user_key)
+            logger.warning("email_digest_channel_unavailable", subject=log_subject(user_key))
             return {"status": "failed", "count": 0}
 
         result = await channel.send_batch(notifications, {"email": to_email})
         if not result.success:
             logger.warning(
                 "email_digest_send_failed",
-                user_key=user_key,
-                error=result.error,
+                subject=log_subject(user_key),
+                error=loggable_error(result.error or "", user_key=user_key),
             )
             return {"status": "failed", "count": len(notifications)}
 
-        logger.info("email_digest_sent", user_key=user_key, count=len(notifications))
+        logger.info("email_digest_sent", subject=log_subject(user_key), count=len(notifications))
         return {"status": "sent", "count": len(notifications)}
 
     # ── Read operations ───────────────────────────────────────────────
@@ -451,7 +452,7 @@ class NotificationService:
             subscriptions = subscriptions[-MAX_PWA_SUBSCRIPTIONS_PER_USER:]
             logger.info(
                 "pwa_subscriptions_evicted",
-                user_key=user_key,
+                subject=log_subject(user_key),
                 evicted=len(evicted),
                 cap=MAX_PWA_SUBSCRIPTIONS_PER_USER,
             )
@@ -460,7 +461,7 @@ class NotificationService:
         channel_pref.enabled = True
 
         self.update_preferences(user_key, prefs)
-        logger.info("pwa_subscription_added", user_key=user_key, endpoint=endpoint)
+        logger.info("pwa_subscription_added", subject=log_subject(user_key), endpoint=endpoint)
         return endpoint
 
     def unsubscribe_pwa(self, user_key: str, endpoint: str) -> bool:
@@ -485,7 +486,7 @@ class NotificationService:
 
         channel_pref.config["subscriptions"] = remaining
         self.update_preferences(user_key, prefs)
-        logger.info("pwa_subscription_removed", user_key=user_key, endpoint=endpoint)
+        logger.info("pwa_subscription_removed", subject=log_subject(user_key), endpoint=endpoint)
         return True
 
     # ── Channel status ────────────────────────────────────────────────

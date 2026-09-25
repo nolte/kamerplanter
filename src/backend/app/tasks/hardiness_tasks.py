@@ -17,6 +17,7 @@ import structlog
 
 from app.common.enums import WEATHER_RELEVANT_SITE_TYPES
 from app.common.exceptions import ValidationError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -67,7 +68,7 @@ def refresh_site_hardiness_zones(self) -> dict:  # noqa: ANN001 — Celery bound
             # No usable climate normals yet — retried on the next beat.
             skipped += 1
         except Exception as exc:  # noqa: BLE001 — per-site isolation: one failure never aborts the run
-            logger.warning("hardiness_zone_site_failed", site_key=site.key, error=str(exc))
+            logger.warning("hardiness_zone_site_failed", site_key=site.key, error=loggable_error(exc))
             errors.append({"site_key": site.key, "error": str(exc)})
             continue
 

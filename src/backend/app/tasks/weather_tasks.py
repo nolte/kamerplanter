@@ -10,6 +10,7 @@ observed). Guarded by the ``weather_enabled`` kill-switch.
 import structlog
 
 from app.common.async_bridge import run_async
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -76,7 +77,7 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
         try:
             forecasts = run_async(resolver.resolve_daily(site, config))
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
-            logger.warning("weather_fetch_site_failed", site_key=config.site_key, error=str(exc))
+            logger.warning("weather_fetch_site_failed", site_key=config.site_key, error=loggable_error(exc))
             errors.append({"site_key": config.site_key, "error": str(exc)})
             continue
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.data_access.external.ha_client import HomeAssistantClient
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import (
@@ -146,7 +147,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"fire_event failed: {exc}"
-            logger.error("ha_fire_event_failed", error=str(exc), exc_info=True)
+            logger.error("ha_fire_event_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     async def _create_persistent(
@@ -167,7 +168,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"persistent_notification failed: {exc}"
-            logger.error("ha_persistent_notification_failed", error=str(exc), exc_info=True)
+            logger.error("ha_persistent_notification_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     async def _send_mobile_push(
@@ -205,7 +206,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"mobile_push failed: {exc}"
-            logger.error("ha_mobile_push_failed", error=str(exc), exc_info=True)
+            logger.error("ha_mobile_push_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     async def _send_tts(
@@ -229,7 +230,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"tts failed: {exc}"
-            logger.error("ha_tts_failed", error=str(exc), exc_info=True)
+            logger.error("ha_tts_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     @staticmethod

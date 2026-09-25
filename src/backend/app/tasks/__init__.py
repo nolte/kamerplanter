@@ -1,7 +1,9 @@
+import structlog
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import beat_init, celeryd_init, worker_process_init
 
+from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
 from app.observability.error_tracking import init_error_tracking, resolve_release
@@ -49,6 +51,35 @@ def _init_worker_error_tracking(**_kwargs: object) -> None:
         release=resolve_release("kamerplanter-worker", settings.app_version),
     )
 
+
+def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
+    """Stop the worker when ``ERASURE_TOMBSTONE_SALT`` is unusable outside debug (#1781).
+
+    The API refuses to start in that configuration (``app.main.
+    insecure_default_secrets``); the worker never imports ``app.main`` and used
+    to start regardless. It then ran the scheduled erasure (which refuses
+    without the salt) and wrote every subject reference as ``anon_unavailable``
+    — the log lines of different accounts became indistinguishable, silently.
+
+    **Raises ``SystemExit``, deliberately not an ``Exception``.** Celery's
+    ``Signal.send`` catches ``Exception`` from a receiver and only logs it, so
+    the worker would start anyway; ``SystemExit`` propagates out of the signal
+    and ends the worker program (``test_worker_salt_fail_fast``).
+    """
+    if settings.debug or len(settings.erasure_tombstone_salt) >= MIN_TOMBSTONE_SALT_LENGTH:
+        return
+    msg = (
+        "FATAL: ERASURE_TOMBSTONE_SALT is missing or shorter than "
+        f"{MIN_TOMBSTONE_SALT_LENGTH} characters (NFR-011 §4). Set it to the same "
+        "value as the backend before running the worker in production."
+    )
+    structlog.get_logger().critical("insecure_defaults", fields=["erasure_tombstone_salt"])
+    raise SystemExit(msg)
+
+
+# The salt gate runs on ``celeryd_init`` only — the worker program. Beat
+# schedules, it runs no task and writes no subject reference.
+celeryd_init.connect(_refuse_worker_start_without_tombstone_salt, weak=False)
 
 # All three, because they are three different processes and none implies another:
 # ``celeryd_init`` is the worker program's first step (fires for every pool),

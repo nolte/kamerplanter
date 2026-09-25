@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.common.decoys import email_digest
 from app.common.enums import (
     AdminScope,
     InvitationStatus,
@@ -19,6 +20,7 @@ from app.common.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.common.log_privacy import log_subject
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
@@ -115,7 +117,7 @@ class TenantService:
         )
         self._membership_repo.create(membership)
 
-        logger.info("personal_tenant_created", user_key=user_key, tenant_key=tenant.key)
+        logger.info("personal_tenant_created", subject=log_subject(user_key), tenant_key=tenant.key)
         return tenant
 
     def create_organization(
@@ -156,7 +158,7 @@ class TenantService:
         )
         self._membership_repo.create(membership)
 
-        logger.info("organization_created", user_key=user_key, tenant_key=tenant.key)
+        logger.info("organization_created", subject=log_subject(user_key), tenant_key=tenant.key)
         return tenant
 
     def get_tenant(self, tenant_key: str) -> Tenant:
@@ -635,7 +637,7 @@ class TenantService:
         )
         invitation = self._invitation_repo.create(invitation)
 
-        logger.info("email_invitation_created", tenant_key=tenant_key, email=email)
+        logger.info("email_invitation_created", tenant_key=tenant_key, email_sha256=email_digest(email))
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
@@ -722,7 +724,7 @@ class TenantService:
         logger.info(
             "invitation_accepted",
             tenant_key=invitation.tenant_key,
-            user_key=user_key,
+            subject=log_subject(user_key),
         )
         return membership
 

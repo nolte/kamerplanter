@@ -32,6 +32,7 @@ from app.common.enums import (
     TaskPriority,
 )
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.data_access.arango.actuator_repository import ArangoActuatorRepository
 from app.domain.engines.actuator_control_engine import (
@@ -306,7 +307,7 @@ class ActuatorService:
                 "actuator_ha_call_failed",
                 actuator=actuator.key,
                 entity=actuator.ha_entity_id,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return False, f"Home Assistant call failed: {exc}"
 
@@ -337,7 +338,7 @@ class ActuatorService:
         try:
             self._task_repo.create_task(task)
         except Exception as exc:  # noqa: BLE001 — a failed fallback task must not break dispatch
-            logger.warning("actuator_fallback_task_failed", actuator=actuator.key, error=str(exc))
+            logger.warning("actuator_fallback_task_failed", actuator=actuator.key, error=loggable_error(exc))
 
     # ── Manual override ──────────────────────────────────────────────────
 
@@ -589,7 +590,7 @@ class ActuatorService:
             client.list_sensor_entities()
             return {"configured": True, "reachable": True}
         except Exception as exc:  # noqa: BLE001 — status endpoint must never 500 on HA outage
-            logger.warning("actuator_ha_status_failed", error=str(exc))
+            logger.warning("actuator_ha_status_failed", error=loggable_error(exc))
             return {"configured": True, "reachable": False, "reason": "unreachable"}
 
     def ha_entities(self) -> list[dict[str, Any]]:
@@ -602,7 +603,7 @@ class ActuatorService:
         try:
             return client.list_sensor_entities()
         except Exception as exc:  # noqa: BLE001 — degrade to empty list on HA outage
-            logger.warning("actuator_ha_entities_failed", error=str(exc))
+            logger.warning("actuator_ha_entities_failed", error=loggable_error(exc))
             return []
 
     # ── Emergency stop ───────────────────────────────────────────────────
@@ -659,7 +660,7 @@ class ActuatorService:
                     "actuator_emergency_stop_failed",
                     actuator=actuator.key,
                     scenario=scenario,
-                    error=str(exc),
+                    error=loggable_error(exc, user_key=user),
                 )
                 failed.append(actuator.key or "")
         return {"scenario": scenario, "stopped": stopped, "forced_on": forced_on, "failed": failed}

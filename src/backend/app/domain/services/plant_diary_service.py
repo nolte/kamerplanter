@@ -46,6 +46,7 @@ from app.common.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.common.log_privacy import log_subject, loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter, IPlantDiaryRepository
@@ -515,7 +516,7 @@ class PlantDiaryService:
                 "diary_environment_service_unavailable",
                 plant_key=plant_key,
                 tenant_key=tenant_key,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return self._degraded_snapshot()
         if environment_service is None:
@@ -527,7 +528,7 @@ class PlantDiaryService:
                 "diary_environment_capture_skipped",
                 plant_key=plant_key,
                 tenant_key=tenant_key,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return self._degraded_snapshot()
 
@@ -810,7 +811,7 @@ class PlantDiaryService:
             },
             expected_rev=rev,
         )
-        logger.info("diary_analysis_requested", entry_key=key, tenant_key=tenant_key, user_key=user_key)
+        logger.info("diary_analysis_requested", entry_key=key, tenant_key=tenant_key, subject=log_subject(user_key))
         return updated
 
     def cancel_analysis_request(
@@ -845,7 +846,9 @@ class PlantDiaryService:
             },
             expected_rev=rev,
         )
-        logger.info("diary_analysis_request_cancelled", entry_key=key, tenant_key=tenant_key, user_key=user_key)
+        logger.info(
+            "diary_analysis_request_cancelled", entry_key=key, tenant_key=tenant_key, subject=log_subject(user_key)
+        )
         return updated
 
     # ── REQ-050 analysis: agent-driven transitions ───────────────────────────

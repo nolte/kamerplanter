@@ -20,6 +20,7 @@ import structlog
 
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.common.exceptions import FeatureNotConfiguredError
+from app.common.log_privacy import log_subject, loggable_error
 from app.domain.engines.storage.thumbnail_generator import can_render
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
@@ -178,7 +179,7 @@ class PestImageService:
         logger.info(
             "pest_image_contributed",
             tenant_key=tenant_key,
-            user_key=user_key,
+            subject=log_subject(user_key),
             pest_key=pest_key,
             contribution_id=created.key,
             attachment_id=attachment.key,
@@ -293,7 +294,7 @@ class PestImageService:
                 "pest_recognition_images_unavailable",
                 pest_key=pest_key,
                 detection_slug=detection_slug,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return []
 
@@ -349,7 +350,7 @@ class PestImageService:
         logger.info(
             "pest_image_deleted",
             tenant_key=tenant_key,
-            user_key=user_key,
+            subject=log_subject(user_key),
             pest_key=contribution.pest_key,
             contribution_id=contribution_key,
             attachment_id=contribution.attachment_id,
@@ -401,7 +402,7 @@ class PestImageService:
             tenant_key=updated.tenant_key,
             pest_key=updated.pest_key,
             status=updated.status.value,
-            admin_user_key=admin_user_key,
+            admin_subject=log_subject(admin_user_key),
         )
         # Only fire the side-effect on an actual transition (idempotent calls
         # that don't change the status do not re-enqueue recognition work).
@@ -434,7 +435,7 @@ class PestImageService:
                 tenant_key=updated.tenant_key,
                 pest_key=updated.pest_key,
                 is_active=updated.is_active,
-                admin_user_key=admin_user_key,
+                admin_subject=log_subject(admin_user_key),
             )
         return self._to_view(updated, self._resolve_mime(updated.attachment_id, updated.tenant_key), is_own=False)
 

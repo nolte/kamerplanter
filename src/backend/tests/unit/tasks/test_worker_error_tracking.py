@@ -39,6 +39,7 @@ import pytest
 from celery.signals import beat_init, celeryd_init, worker_process_init
 
 import app.tasks  # noqa: F401  importing the package is what connects the receivers
+from app.config.settings import settings
 
 _DSN = "https://key@tracker.example/1"
 
@@ -73,6 +74,9 @@ def fake_sentry(monkeypatch: pytest.MonkeyPatch) -> _FakeSentry:
     # A deployment sets this from the image tag and it would then shadow the
     # component-derived fallback the release assertions read.
     monkeypatch.delenv("SENTRY_RELEASE", raising=False)
+    # A worker that reaches the labelling has passed the salt gate (#1781,
+    # test_worker_salt_fail_fast): configure what a real worker starts with.
+    monkeypatch.setattr(settings, "erasure_tombstone_salt", "x" * 32)
     return module
 
 
