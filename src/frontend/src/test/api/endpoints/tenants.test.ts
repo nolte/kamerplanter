@@ -52,10 +52,12 @@ describe('tenants endpoints — tenant CRUD', () => {
     expect(client.patch).toHaveBeenCalledWith('/tenants/org', payload);
   });
 
-  it('deleteTenant deletes tenant by slug', async () => {
+  it('deleteTenant deletes tenant by slug and carries the step-up (#1791)', async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await tenants.deleteTenant('org');
-    expect(client.delete).toHaveBeenCalledWith('/tenants/org');
+    await tenants.deleteTenant('org', { confirm_slug: 'org', password: 'pw' });
+    expect(client.delete).toHaveBeenCalledWith('/tenants/org', {
+      data: { confirm_slug: 'org', password: 'pw' },
+    });
   });
 });
 

@@ -49,7 +49,7 @@ from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_pest_inference_service import FakePestInferenceService, route_pest_requests_to
 from tests.support.privacy_doubles import RecordingErasureExecutor
-from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
+from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, authorized, tenant_service_for_deletion
 from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
 TOKEN = "svc-token-1759"
@@ -272,7 +272,7 @@ def test_tenant_deletion_deletes_the_tenants_prototypes_including_orphans(pest_i
     service = _tenant_service(dependencies.get_pest_prototype_store(), repo)
 
     with structlog.testing.capture_logs() as logs:
-        assert service.delete_tenant(TENANT).status == "completed"
+        assert service.delete_tenant(TENANT, **authorized(TENANT)).status == "completed"
 
     assert sorted((r["source"], r["source_record_id"]) for r in pest_index.rows) == [
         ("gbif", "c-promoted"),
@@ -294,7 +294,7 @@ def test_a_failing_prototype_delete_keeps_the_tenant_and_its_data(pest_index):
     service = _tenant_service(dependencies.get_pest_prototype_store(), repo, storage=storage)
 
     with pytest.raises(ExternalSourceError) as caught:
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
 
     assert caught.value.status_code == 502
     assert TENANT not in str(caught.value)
@@ -307,7 +307,7 @@ def test_tenant_deletion_refuses_a_pest_image_repo_without_a_store():
     service = _tenant_service(None, _repo())
 
     with pytest.raises(FeatureNotConfiguredError):
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
     assert service._tenant_erasure_executor.plans == []
     assert service._tenant_erasure_repo.records == {}
 

@@ -199,7 +199,7 @@ You can leave a tenant as long as you are not the only admin:
 2. Confirm
 
 !!! warning "If you are the only admin"
-    If you are the only admin, you must either promote another member to admin first, or delete the tenant.
+    If you are the only admin, you must either promote another member to admin first, or delete the tenant — the latter additionally requires that you hold both the Lead role and the Management scope there. See [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) for details. <!-- Issue #1791 -->
 
 ---
 
@@ -212,6 +212,8 @@ You can leave a tenant as long as you are not the only admin:
     There is no technical limit. You can create and join as many tenants as you like.
 
 ??? question "What happens to my data when I delete a tenant?"
+    Only a member who holds both the Lead role and the Management scope in the affected tenant may delete it — Management alone is not enough (see [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) for details) — and only from a signed-in session; a personal API key is not enough for this. As a safeguard, the system also asks you to re-enter the tenant's slug and, if the account has a local password, that password; an account that signs in only through a federated provider (Google, GitHub, Apple, OIDC) confirms with the slug alone. <!-- Issue #1791 -->
+
     All memberships are deactivated immediately — nobody has access to the tenant anymore after that. Its contributed recognition vectors, its object storage (photos, attachments) and every domain record it holds are then deleted: sites, plants, planting runs, diary entries, tasks, tanks, sensors, feeding and watering logs, and every other location-bound record, then the tenant record itself. <!-- Issue #1769 -->
 
     One exception applies: harvest and treatment documentation (harvest batches, quality assessments, treatments, inspections) must be kept for several years under statutory law (CanG, German Plant Protection Act). These records are therefore retained but pseudonymized — members' names are removed from them and their account references replaced by a pseudonym.
