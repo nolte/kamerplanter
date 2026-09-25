@@ -354,6 +354,8 @@ Authorization: Bearer kp_sk_abc...xyz
 
 Der API-Key wird im selben `Authorization`-Header wie ein JWT verwendet.
 
+Ein Key mit `tenant_scope` handelt nur in diesem Tenant. Auf jeder Route unter `/api/v1/t/{slug}/` und auf jeder Route, die den Header `X-Active-Tenant` liest, antwortet ein anderer Tenant mit `403 Forbidden` — auch wenn der Besitzer des Keys dort Mitglied ist — und zwar mit derselben Antwort wie ein Tenant, in dem der Besitzer nicht Mitglied ist. Ohne den Header fällt ein begrenzter Key nur dann auf deinen persönlichen Tenant zurück, wenn dieser sein Scope ist; sonst sieht er nur den gemeinsamen Katalog. `tenant_scope` akzeptiert den Slug oder den Key des Tenants.
+
 ### API-Keys auflisten
 
 ```http

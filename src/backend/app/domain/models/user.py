@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, PrivateAttr
 
 from app.common.validators import DisplayName
 
@@ -72,8 +72,33 @@ class User(BaseModel):
     timezone: str = "Europe/Berlin"
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    #: The ``tenant_scope`` of the API key this request authenticated with (#1817).
+    #:
+    #: Request state, not account state: a *private* attribute, so no stored
+    #: document or validated payload can set it (``model_validate`` ignores it)
+    #: and no ``model_dump`` can persist it. Only
+    #: :meth:`with_api_key_tenant_scope` sets it, which
+    #: ``AuthService.authenticate_api_key`` calls for a ``kp_`` bearer; every other
+    #: resolution leaves it ``None`` (a session is never tenant-restricted). The
+    #: tenant resolvers in ``app.common.auth`` refuse any tenant it does not admit.
+    _api_key_tenant_scope: str | None = PrivateAttr(default=None)
 
     model_config = {"populate_by_name": True}
+
+    @property
+    def api_key_tenant_scope(self) -> str | None:
+        """The authenticating API key's tenant restriction, ``None`` for a session (#1817)."""
+        return self._api_key_tenant_scope
+
+    def with_api_key_tenant_scope(self, scope: str | None) -> User:
+        """A copy of this account carrying one request's API-key tenant restriction.
+
+        A copy, so an account object a repository hands out (and may cache) is
+        never marked with one request's credential.
+        """
+        principal = self.model_copy()
+        principal._api_key_tenant_scope = scope
+        return principal
 
 
 def allows_interactive_auth(user: User) -> bool:

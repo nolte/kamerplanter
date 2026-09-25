@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from app.common.exceptions import ForbiddenError, UnauthorizedError
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.user_repository import IUserRepository
-from app.domain.models.auth import ApiKey
+from app.domain.models.auth import ApiKey, api_key_scope_admits
 from app.domain.services.tenant_service import TenantService
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.rate_limit import McpRateLimiter
@@ -175,7 +175,7 @@ class McpAuthenticator:
 
         tenants = self._tenant_service.list_my_tenants(user_key)
         if tenant_scope:
-            tenants = [t for t in tenants if t.slug == tenant_scope or t.key == tenant_scope]
+            tenants = [t for t in tenants if api_key_scope_admits(tenant_scope, tenant_key=t.key, tenant_slug=t.slug)]
         if not tenants:
             raise ForbiddenError("This account is not an active member of any tenant.")
 
