@@ -1,13 +1,17 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (#1788 personal-tenant probes; re-derivation after #1823 with unchanged expectations).
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
 #
-# Derived for #1788 (#1829, squash 9e64aec20) against develop. Anchored on router.py like its
-# siblings on DELETE /admin/platform/users/{key}; derived_from is router.py's last develop commit
-# 499c890d0. Note: delete_user's docstring does not mention the personal-tenant step; the explicit
-# declaration is spec/nfr/NFR-011 §6 AK-PT-01 (tagged Integration + Reach (T2)) and §2.3.
-# Expectation: the same 96-item set as endpoint-admin-tenant-delete-reaches-rows (same inventory,
-# origin account_erasure; recounted at 9e64aec20).
+# Re-derived after #1846 (#1813/#1814/#1816, squash 9cacdb752): router.py's delete_user now
+# takes a step-up body (confirm_email = the target's e-mail, password = the admin's own current
+# password), refuses an API key (403) and goes through PrivacyService.erase_account_by_admin,
+# which calls erase_account_now with origin platform_admin, step_up and a salted
+# requested_by_subject. derived_from moves to 9cacdb752. The act script
+# scripts/reach/admin_delete_subject.py already sends that body over a bearer session (no API
+# key) since #1846; targets unchanged.
+# Observe step and expectation unchanged: erase_account_now's personal-tenant phase (#1788)
+# and the tenant-erasure inventory are untouched by #1846. delete_user's docstring still does
+# not name the personal-tenant step; the explicit declaration stays NFR-011 §6 AK-PT-01.
 id: endpoint-admin-user-delete-erases-personal-tenant
 summary: collections of the executing tenant-erasure inventory left without the subject's sole-owned personal tenant's rows
   after the platform-admin user delete
@@ -118,7 +122,7 @@ expected:
   - dangling-edges/0
   - stamped-elsewhere/0
   - control-changed/0
-derived_from: 499c890d024c0e082d4c49a32a7ab386ca13a1e8
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -136,4 +140,4 @@ observe:
 approval:
   observation_digest: 888ee4b15ca04b4436986ed2b7620ca3e4546f01409998fadbcddba4452d81b1
   approved_by: nolte
-  approved_at: '2026-09-25T15:41:31Z'
+  approved_at: '2026-09-25T18:35:52Z'
