@@ -264,10 +264,10 @@ class VectorChunkRepository:
 ### Position in the pipeline
 
 ```text
-Query → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
+Query → Hybrid Search (max(RERANKER_INITIAL_K, top_k) candidates) → Cross-Encoder scores only the first RERANKER_INITIAL_K → rest appended in hybrid order → top top_k passed to LLM
 ```
 
-The re-ranker sits **between retrieval and LLM generation**. Hybrid Search deliberately retrieves more chunks than are ultimately passed to the LLM (over-retrieval strategy): 20 candidates are retrieved, re-ordered by semantic relevance using the cross-encoder, and only the best 5 reach the LLM context window.
+The re-ranker sits **between retrieval and LLM generation**. Hybrid Search deliberately retrieves more candidates than are ultimately re-scored (over-retrieval strategy): it retrieves `max(RERANKER_INITIAL_K, top_k)` candidates. Of those, only the first `RERANKER_INITIAL_K` (default 15) are re-ordered by semantic relevance using the cross-encoder — the sidecar's time budget does not stretch further (see below). If a caller asks for more results than were scored — e.g. the MCP endpoint with up to 20, or `/search` with up to 50 — the remaining candidates are appended unchanged, in hybrid order. This scoring cap therefore **never** bounds how many results a caller gets, only how many candidates run through the cross-encoder. Each scored candidate is additionally truncated to `RERANKER_MAX_DOCUMENT_CHARS` characters for the cross-encoder call (default 500, applied to `title\ncontent`); the chunk that is subsequently passed to the LLM context keeps its full text — only the reranker input is shortened.
 
 ### Why a cross-encoder?
 
@@ -288,17 +288,39 @@ sequenceDiagram
     participant KS as Knowledge Service
     participant RE as Reranker Service<br/>(Port 8081)
 
-    KS->>KS: Hybrid Search → 20 candidates
-    KS->>RE: POST /rerank<br/>{query, documents[20], top_k: 5}
-    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, ~500ms
-    RE-->>KS: {results: [{index, score, text}×5]}
-    KS->>KS: Sort chunks by score
-    KS->>KS: Build context for LLM
+    KS->>KS: Hybrid Search → max(15, top_k) candidates
+    KS->>RE: POST /rerank<br/>{query, documents[head, ≤15], top_k: len(head)}
+    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, p50 ~13s
+    RE-->>KS: {results: [{index, score}×len(head)]}
+    KS->>KS: Reranked head + hybrid-order tail
+    KS->>KS: Truncate to top_k, build context for LLM
 ```
 
 ### Graceful degradation
 
-When `RERANKER_URL` is empty or not set, `RerankerEngine.available` returns `False`. In that case the original chunk list is truncated to `top_k` entries and passed directly to the LLM context. A timeout or HTTP error from the reranker service also triggers this fallback — with a `WARNING` log entry (`reranker_fallback`).
+When `RERANKER_URL` is empty or not set, `RerankerEngine.available` returns `False`. In that case the original chunk list is truncated to `top_k` entries and passed directly to the LLM context. A timeout or HTTP error from the reranker service triggers the same fallback for the scored head: `RerankerEngine.rerank()` then returns the head unchanged, so the overall result of `KnowledgeService.search()` is entirely the un-reranked hybrid order — with exactly one `WARNING` log entry (`reranker_fallback`).
+
+### Fallback Reasons and Time Budget {#fallback-reasons-and-time-budget}
+
+Every fallback logs exactly one structured `reranker_fallback` warning with the fields `reason`, `status_code`, `documents`, `elapsed_s` and `error`. `reason` comes from a closed set of values:
+
+| `reason` | Trigger |
+|----------|---------|
+| `deadline` | Sidecar answers HTTP 503 `{"status": "timeout"}` — the reranker service's server-side 25-second time limit has expired. |
+| `busy` | Sidecar answers HTTP 503 `{"status": "busy"}` — the inference lock was not obtained within 10 seconds. |
+| `loading` | Sidecar answers HTTP 503 while the model is still loading. |
+| `http_status` | Any other non-2xx answer, including a 503 with an unknown or unparsable body. |
+| `client_timeout` | The Knowledge Service client's own 30-second timeout expired. |
+| `transport` | Connection, DNS or protocol error at the HTTP level. |
+| `malformed_response` | A 2xx answer whose body has no usable `results` field. |
+
+A successful rerank instead logs `reranker_complete` with `elapsed_s`. Operators can, for example, track the frequency of `reason=deadline` to see how often the deadline actually fires.
+
+Background of the `deadline` case (measured on 2026-09-25): `bge-reranker-v2-m3` costs about 3 seconds per (query, document) pair of 512 tokens at the Helm chart's 2-CPU limit. Corpus chunks are a median of about 430 tokens. A real HTTP probe over all 100 benchmark questions confirms this for the original default (`RERANKER_INITIAL_K=20`, full-length documents up to 512 tokens): every request hit the server-side 25-second deadline (503 after about 27 seconds); the equivalent full-length cost works out to about 54 seconds — reranking never completed in practice, and every search waited about 27 seconds for nothing.
+
+With the current defaults `RERANKER_INITIAL_K=15` and `RERANKER_MAX_DOCUMENT_CHARS=500` (pair median 166 tokens, max 222), the same test had all 100 requests succeed — p50 12.9 seconds, p90 15.0 seconds, max 16.0 seconds, within the 25-second budget. Together, the two defaults exactly meet the reranker service's character-budget constraint (`RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7,500`, see [Environment Variables](../reference/environment-variables.md)); raising either value past that requires re-measuring latency first.
+
+Context quality (share of the benchmark's expected topics found in the returned context, measured over 54 questions across 9 categories) depends on the requested `top_k`: at `top_k=5` — e.g. the AI terminology glossary — it rises from 0.927 without re-ranking to 0.974 with the new defaults (an unbounded rerank of every candidate would reach 0.982 but does not fit the deadline). At the chat default `top_k=10` the gain is much smaller: 0.978 without re-ranking versus 0.979 with the new defaults (unbounded: 0.995). The larger benefit of re-ranking is therefore for callers requesting few chunks (glossary `top_k=5`, diagnosis assistant `top_k=8`) — not for chat at `top_k=10`.
 
 ### Request Limits and Threading (Reranker Service)
 
@@ -311,7 +333,7 @@ When `RERANKER_URL` is empty or not set, `RerankerEngine.available` returns `Fal
 | `documents[i]` (characters per document) | at most 16,384 |
 | `top_k` | 1 to 50 (default 5, unchanged) |
 
-An empty `documents` list is valid and returns HTTP 200 with an empty result list. The Knowledge Service sends at most `reranker_initial_k` (default 20) documents per request, staying under the limit.
+An empty `documents` list is valid and returns HTTP 200 with an empty result list. The Knowledge Service sends at most `reranker_initial_k` (default 15) documents per request and truncates each document to `reranker_max_document_chars` characters beforehand (default 500) — both stay well under the server-side limits of 100 documents and 16,384 characters per document.
 
 An ASGI middleware guards against oversized requests before validation: a body larger than 19,775,488 bytes (~19.8 MB, derived from the limits above) is refused with HTTP 413 before it is even parsed. A 422 validation error now carries only `loc`, `type` and `msg` per error — the offending input itself is no longer echoed back. Because every request shares one inference lock, a request waits at most 10 seconds for the lock (then HTTP 503 `{"status": "busy"}` with `Retry-After: 10`) and is aborted after at most 25 seconds overall (HTTP 503 `{"status": "timeout"}`). `/health` and `/ready` do not share the lock and stay reachable under load. The Knowledge Service treats a reranker HTTP 503 like any other error and falls back to the un-reranked chunk list (see "Graceful degradation" above).
 
@@ -321,7 +343,7 @@ As with the embedding service, the number of inference threads (`intra_op_num_th
 
 | Scenario | RAM | CPU | Latency/query |
 |----------|-----|-----|--------------|
-| Reranker active (20→5) | 1.5–4 GB | 1–2 cores | +~500ms |
+| Reranker active (scoring ≤15 candidates, measured 2026-09-25) | 1.5–4 GB | up to 2 cores (chart limit) | p50 ~12.9s, p90 ~15s, max ~16s |
 | Reranker disabled | 0 | 0 | 0ms |
 
 !!! tip "First Docker build"

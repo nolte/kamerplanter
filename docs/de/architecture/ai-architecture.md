@@ -264,10 +264,10 @@ class VectorChunkRepository:
 ### Einordnung in die Pipeline
 
 ```text
-Anfrage → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
+Anfrage → Hybrid Search (max(RERANKER_INITIAL_K, top_k) Kandidaten) → Cross-Encoder bewertet nur die ersten RERANKER_INITIAL_K → Rest in Hybrid-Reihenfolge angehängt → oberste top_k an LLM
 ```
 
-Der Re-Ranker sitzt **zwischen Retrieval und LLM-Generation**. Die Hybrid-Search ruft bewusst mehr Chunks ab als letztlich an den LLM übergeben werden (Over-Retrieval-Strategie): 20 Kandidaten werden abgerufen, durch den Cross-Encoder nach semantischer Relevanz neu sortiert, und nur die besten 5 landen im Kontext-Fenster des LLM.
+Der Re-Ranker sitzt **zwischen Retrieval und LLM-Generation**. Die Hybrid-Search liefert bewusst mehr Kandidaten, als letztlich neu bewertet werden (Over-Retrieval-Strategie): `max(RERANKER_INITIAL_K, top_k)` Kandidaten werden abgerufen. Von diesen werden nur die ersten `RERANKER_INITIAL_K` (Default 15) durch den Cross-Encoder nach semantischer Relevanz neu sortiert — mehr passt nicht in das Zeitbudget des Sidecars (siehe unten). Fragt ein Aufrufer mehr Ergebnisse an, als bewertet wurden — etwa der MCP-Endpunkt mit bis zu 20 oder `/search` mit bis zu 50 —, werden die restlichen Kandidaten unverändert in ihrer Hybrid-Reihenfolge angehängt. Diese Bewertungs-Obergrenze bestimmt also **nie**, wie viele Ergebnisse ein Aufrufer erhält, sondern nur, wie viele Kandidaten durch den Cross-Encoder laufen. Jeder bewertete Kandidat wird für den Cross-Encoder-Aufruf zusätzlich auf `RERANKER_MAX_DOCUMENT_CHARS` Zeichen gekürzt (Default 500, angewendet auf `titel\ninhalt`); der Chunk, der anschließend an den LLM-Kontext übergeben wird, behält seinen vollständigen Text — nur die Reranker-Eingabe wird verkürzt.
 
 ### Warum Cross-Encoder?
 
@@ -288,17 +288,39 @@ sequenceDiagram
     participant KS as Knowledge Service
     participant RE as Reranker Service<br/>(Port 8081)
 
-    KS->>KS: Hybrid Search → 20 candidates
-    KS->>RE: POST /rerank<br/>{query, documents[20], top_k: 5}
-    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, ~500ms
-    RE-->>KS: {results: [{index, score, text}×5]}
-    KS->>KS: Sort chunks by score
-    KS->>KS: Build context for LLM
+    KS->>KS: Hybrid Search → max(15, top_k) candidates
+    KS->>RE: POST /rerank<br/>{query, documents[head, ≤15], top_k: len(head)}
+    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, p50 ~13s
+    RE-->>KS: {results: [{index, score}×len(head)]}
+    KS->>KS: Reranked head + hybrid-order tail
+    KS->>KS: Truncate to top_k, build context for LLM
 ```
 
 ### Graceful Degradation
 
-Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `False` zurück. In diesem Fall wird die ursprüngliche Chunk-Liste auf `top_k` Einträge gekürzt und direkt an den LLM-Kontext übergeben. Ein Timeout oder HTTP-Fehler des Re-Ranker-Service löst ebenfalls diesen Fallback aus — mit einem `WARNING`-Logeintrag (`reranker_fallback`).
+Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `False` zurück. In diesem Fall wird die ursprüngliche Chunk-Liste auf `top_k` Einträge gekürzt und direkt an den LLM-Kontext übergeben. Ein Timeout oder HTTP-Fehler des Re-Ranker-Service löst denselben Fallback für den bewerteten Kopf aus: `RerankerEngine.rerank()` liefert dann den unveränderten Kopf zurück, sodass das Gesamtergebnis von `KnowledgeService.search()` vollständig der ungerankten Hybrid-Reihenfolge entspricht — mit genau einem `WARNING`-Logeintrag (`reranker_fallback`).
+
+### Fallback-Gründe und Zeitbudget {#fallback-gruende-und-zeitbudget}
+
+Jeder Fallback loggt strukturiert genau eine `reranker_fallback`-Warnung mit den Feldern `reason`, `status_code`, `documents`, `elapsed_s` und `error`. `reason` stammt aus einer geschlossenen Menge von Werten:
+
+| `reason` | Auslöser |
+|----------|----------|
+| `deadline` | Sidecar antwortet mit HTTP 503 `{"status": "timeout"}` — das serverseitige 25-Sekunden-Zeitlimit des Re-Ranker-Service ist abgelaufen. |
+| `busy` | Sidecar antwortet mit HTTP 503 `{"status": "busy"}` — die Inferenz-Sperre wurde nicht innerhalb von 10 Sekunden erlangt. |
+| `loading` | Sidecar antwortet mit HTTP 503, während das Modell noch lädt. |
+| `http_status` | Jede andere Nicht-2xx-Antwort, einschließlich eines 503 mit unbekanntem oder nicht parsbarem Body. |
+| `client_timeout` | Der eigene 30-Sekunden-Timeout des Knowledge-Service-Clients ist abgelaufen. |
+| `transport` | Verbindungs-, DNS- oder Protokollfehler auf HTTP-Ebene. |
+| `malformed_response` | Eine 2xx-Antwort, deren Body kein verwertbares `results`-Feld enthält. |
+
+Ein erfolgreicher Re-Rank loggt stattdessen `reranker_complete` mit `elapsed_s`. Betreiber können z. B. die Häufigkeit von `reason=deadline` auswerten, um zu erkennen, wie oft das Zeitlimit tatsächlich greift.
+
+Hintergrund des `deadline`-Falls (gemessen am 2026-09-25): `bge-reranker-v2-m3` kostet am 2-CPU-Limit des Helm-Charts rund 3 Sekunden je (Query, Dokument)-Paar mit 512 Tokens. Die Chunks im Korpus haben median rund 430 Tokens. Ein realer HTTP-Test über alle 100 Benchmark-Fragen bestätigt das für den ursprünglichen Default (`RERANKER_INITIAL_K=20`, volle Dokumente bis 512 Tokens): Jede Anfrage traf die serverseitige 25-Sekunden-Deadline (503 nach rund 27 Sekunden), rechnerisch entspräche das rund 54 Sekunden Gesamtaufwand — Re-Ranking lief in der Praxis nie durch, und jede Suche wartete rund 27 Sekunden lang auf nichts.
+
+Mit den aktuellen Standardwerten `RERANKER_INITIAL_K=15` und `RERANKER_MAX_DOCUMENT_CHARS=500` (Paar-Median 166 Tokens, maximal 222) waren im selben Test alle 100 Anfragen erfolgreich — p50 12,9 Sekunden, p90 15,0 Sekunden, maximal 16,0 Sekunden, innerhalb des 25-Sekunden-Budgets. Beide Werte erfüllen zusammen exakt die Zeichenbudget-Grenze des Reranker-Service (`RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7.500`, siehe [Umgebungsvariablen](../reference/environment-variables.md)); wer einen der beiden Werte darüber hinaus erhöht, muss die Latenz vorher neu messen.
+
+Die Kontextqualität (Anteil der von der Benchmark erwarteten Themen im zurückgegebenen Kontext, gemessen über 54 Fragen in 9 Kategorien) hängt vom angeforderten `top_k` ab: Bei `top_k=5` — etwa beim KI-Fachbegriff-Glossar — steigt sie von 0,927 ohne Re-Ranking auf 0,974 mit den neuen Standardwerten (ein ungebremstes Re-Ranking aller Kandidaten läge bei 0,982, passt aber nicht in die Deadline). Beim Chat-Standardwert `top_k=10` ist der Gewinn deutlich kleiner: 0,978 ohne Re-Ranking gegenüber 0,979 mit den neuen Standardwerten (ungebremst 0,995). Der größere Nutzen des Re-Rankings liegt also bei Aufrufern, die wenige Chunks anfordern (Glossar `top_k=5`, Diagnose-Assistent `top_k=8`) — nicht beim Chat mit `top_k=10`.
 
 ### Anfragelimits und Threading (Reranker-Service)
 
@@ -311,7 +333,7 @@ Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `Fal
 | `documents[i]` (Zeichen je Dokument) | höchstens 16.384 |
 | `top_k` | 1 bis 50 (Default 5, unverändert) |
 
-Eine leere `documents`-Liste ist gültig und liefert HTTP 200 mit einer leeren Ergebnisliste. Der Knowledge-Service sendet höchstens `reranker_initial_k` (Default 20) Dokumente pro Anfrage und bleibt damit unter dem Limit.
+Eine leere `documents`-Liste ist gültig und liefert HTTP 200 mit einer leeren Ergebnisliste. Der Knowledge-Service sendet höchstens `reranker_initial_k` (Default 15) Dokumente pro Anfrage und kürzt jedes Dokument vorher auf `reranker_max_document_chars` Zeichen (Default 500) — beides bleibt weit unter den serverseitigen Limits von 100 Dokumenten bzw. 16.384 Zeichen je Dokument.
 
 Vor der Validierung schützt eine ASGI-Middleware vor übergroßen Anfragen: ein Body über 19.775.488 Bytes (~19,8 MB, aus den obigen Limits abgeleitet) wird mit HTTP 413 abgelehnt, bevor er überhaupt geparst wird. Ein 422-Validierungsfehler enthält nur noch `loc`, `type` und `msg` je Fehler — die fehlerhafte Eingabe selbst wird nicht mehr gespiegelt. Da alle Anfragen dieselbe Inferenz-Sperre teilen, wartet eine Anfrage höchstens 10 Sekunden auf die Sperre (danach HTTP 503 `{"status": "busy"}` mit `Retry-After: 10`) und wird nach insgesamt höchstens 25 Sekunden abgebrochen (HTTP 503 `{"status": "timeout"}`). `/health` und `/ready` teilen die Sperre nicht und bleiben auch unter Last erreichbar. Der Knowledge-Service behandelt ein HTTP 503 des Re-Rankers wie jeden anderen Fehler und fällt auf die ungerankte Chunk-Liste zurück (siehe „Graceful Degradation" oben).
 
@@ -321,7 +343,7 @@ Wie beim Embedding-Service richtet sich die Anzahl der Inferenz-Threads (`intra_
 
 | Szenario | RAM | CPU | Latenz/Query |
 |----------|-----|-----|-------------|
-| Re-Ranker aktiv (20→5) | 1,5–4 GB | 1–2 Kerne | +~500ms |
+| Re-Ranker aktiv (Bewertung ≤15 Kandidaten, gemessen 2026-09-25) | 1,5–4 GB | bis zu 2 Kerne (Chart-Limit) | p50 ~12,9s, p90 ~15s, max ~16s |
 | Re-Ranker deaktiviert | 0 | 0 | 0ms |
 
 !!! tip "Erster Docker-Build"
