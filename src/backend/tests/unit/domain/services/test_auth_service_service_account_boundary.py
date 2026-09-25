@@ -111,7 +111,7 @@ class TestTheReportedChain:
         service, user_repo = _service(account)
 
         with pytest.raises(ForbiddenError):
-            service.change_password("acc-1", None, NEW_PASSWORD)
+            service.change_password("acc-1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
 
         # Nothing was written: not the hash, and not the LOCAL provider that
         # would have made the account a login candidate on its own.
@@ -144,7 +144,7 @@ class TestTheInteractiveAccountIsUnaffected:
         account = _account(account_type="human", email=USER_EMAIL)
         service, user_repo = _service(account)
 
-        service.change_password("acc-1", None, NEW_PASSWORD)
+        service.change_password("acc-1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
 
         assert user_repo.update_fields.call_count == 1
         assert account.password_hash is not None
@@ -153,7 +153,7 @@ class TestTheInteractiveAccountIsUnaffected:
         account = _account(account_type="human", email=USER_EMAIL)
         service, _ = _service(account)
 
-        service.change_password("acc-1", None, NEW_PASSWORD)
+        service.change_password("acc-1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
         pair, raw_refresh, _ = service.login_local(USER_EMAIL, NEW_PASSWORD)
 
         assert pair.access_token

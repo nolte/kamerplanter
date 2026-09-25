@@ -15,14 +15,21 @@ from app.api.v1.tenants.schemas import (
     MemberInfoResponse,
     MessageResponse,
     TenantCreateRequest,
+    TenantDeleteRequest,
     TenantResponse,
     TenantUpdateRequest,
     TenantWithRoleResponse,
 )
-from app.common.auth import get_current_tenant, get_current_user, require_admin_scope
+from app.common.auth import (
+    get_authenticated_with_api_key,
+    get_current_tenant,
+    get_current_user,
+    require_admin_scope,
+)
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
+from app.common.request_ip import resolve_client_ip
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
@@ -99,10 +106,22 @@ def update_tenant(
 
 @router.delete("/{tenant_slug}", response_model=MessageResponse)
 def delete_tenant(
+    body: TenantDeleteRequest,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
+    user: User = Depends(get_current_user),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Delete the tenant and all its data (declared tenant-erasure inventory, #1769). Management only.
+    """Delete the tenant and all its data (declared tenant-erasure inventory, #1769).
+
+    **Lead role and management scope, plus a step-up (#1791).** The management
+    scope gate here is the first filter; ``TenantService.delete_tenant`` decides —
+    from the stored membership — that the requester holds the lead role *and*
+    ``management`` (403 otherwise; a service account never), that ``confirm_slug``
+    is this tenant's slug (422) and, for an account with a local password, that
+    ``password`` is its current one (401) — throttled per account and address,
+    429 ``STEP_UP_LOCKED`` after too many failures (#1816).
 
     Same path as ``DELETE /admin/platform/tenants/{key}``: 403 for the platform
     tenant, 409 while another deletion runs, 503 when the deployment cannot erase
@@ -110,7 +129,14 @@ def delete_tenant(
     ``TENANT_ERASURE_INCOMPLETE`` when something still holds the tenant — the
     deletion then stays recorded and is retried daily.
     """
-    service.delete_tenant(ctx.tenant_key, origin="tenant_management")
+    service.delete_tenant(
+        ctx.tenant_key,
+        requester=user,
+        authenticated_with_api_key=via_api_key,
+        confirmation=body.to_confirmation(),
+        origin="tenant_management",
+        client_ip=client_ip,
+    )
     return MessageResponse(message="Tenant deleted")
 
 

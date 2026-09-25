@@ -31,11 +31,12 @@ from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import ErasureRequest
+from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
-from tests.support.privacy_doubles import RecordingErasureExecutor
-from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
+from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, authorized, tenant_service_for_deletion
 from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
 TOKEN = "svc-token-1753"
@@ -79,6 +80,7 @@ def _privacy_service(erasure: ErasureRequest, store, executor: RecordingErasureE
         frontend_url="https://app.test",
         reference_index_store=store,
         erasure_executor=executor,
+        tenant_service=FakePersonalTenants(),
         tombstone_salt=SALT,
     )
 
@@ -137,6 +139,9 @@ async def test_the_checkpoint_persists_the_binding_and_the_count(inference):
             "pre_arango_completed_at": checkpoint[0]["pre_arango_completed_at"],
             "reference_index_binding": "inference_service",
             "reference_index_removed": 2,
+            # #1770 — Phase 0's hard-delete outcome travels with the checkpoint.
+            "storage_objects_removed": 0,
+            "storage_objects_retained_shared": 0,
         }
     ]
 
@@ -201,7 +206,7 @@ def test_tenant_deletion_removes_the_tenants_contributions(inference):
     service = _tenant_service(dependencies.get_reference_index_store())
 
     with structlog.testing.capture_logs() as logs:
-        assert service.delete_tenant(TENANT).status == "completed"
+        assert service.delete_tenant(TENANT, **authorized(TENANT)).status == "completed"
 
     assert inference.records() == {"subject-2", "curated"}
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
@@ -216,7 +221,7 @@ def test_a_failing_reference_index_keeps_the_tenant_and_its_data(inference):
     service = _tenant_service(dependencies.get_reference_index_store(), storage=storage)
 
     with pytest.raises(ExternalSourceError) as caught:
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
 
     assert caught.value.status_code == 502
     assert TENANT not in str(caught.value)
@@ -231,7 +236,7 @@ def test_the_noop_tenant_binding_is_logged(monkeypatch):
     service = _tenant_service(NoopReferenceIndexStore())
 
     with structlog.testing.capture_logs() as logs:
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
 
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
     assert event["binding"] == "noop"
@@ -284,7 +289,7 @@ async def test_a_direct_finalize_records_a_failed_attempt(store_factory):
 async def test_erase_account_refuses_before_touching_anything(store_factory):
     executor = RecordingErasureExecutor()
     storage = MagicMock()
-    storage.delete_for_user = AsyncMock(return_value=0)
+    storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=0))
     service = _privacy_service(_erasure(), store_factory(), executor)
     service._storage_adapter = storage
 
@@ -312,7 +317,7 @@ def test_tenant_deletion_refuses_while_contributions_are_unreachable():
     service = _tenant_service(_noop_with_contributions(), storage=storage)
 
     with pytest.raises(FeatureNotConfiguredError):
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
 
     assert service._tenant_erasure_executor.plans == []
     assert service._tenant_erasure_repo.records == {}

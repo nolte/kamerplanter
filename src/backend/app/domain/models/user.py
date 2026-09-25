@@ -29,7 +29,12 @@ DELETED_EMAIL_DOMAIN = "deleted.example.com"
 
 
 def tombstone_email(user_key: str) -> str:
-    """The address ``UserService.delete_account`` parks a soft-deleted account under."""
+    """The address ``UserService.delete_account`` parked a soft-deleted account under.
+
+    That method is gone (#1813 — ``DELETE /users/me`` now opens the Art. 17
+    request), but accounts it tombstoned still carry this address, so the domain
+    stays reserved (:func:`is_tombstone_email`).
+    """
     return f"deleted_{user_key}@{DELETED_EMAIL_DOMAIN}"
 
 

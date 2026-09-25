@@ -2,10 +2,9 @@ import structlog
 
 from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
-from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
-from app.domain.models.user import User, UserProfile, UserProfileUpdate, tombstone_email
+from app.domain.models.user import User, UserProfile, UserProfileUpdate
 
 logger = structlog.get_logger()
 
@@ -19,8 +18,8 @@ class UserService:
     ) -> None:
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
-        # #1773 — salt of the subject reference ``account_deleted`` logs instead
-        # of the account key (see ``ErasureEngine.log_subject``).
+        # #1773 — kept for the DI signature; the only line that used it
+        # (``account_deleted``) left with ``delete_account`` in #1813.
         self._tombstone_salt = tombstone_salt
 
     def get_profile(self, user_key: UserKey) -> UserProfile:
@@ -99,36 +98,6 @@ class UserService:
     def count_users(self, *, active_only: bool = False) -> int:
         """Number of users; ``active_only`` counts only ``is_active`` ones (#1019)."""
         return self._user_repo.count(active_only=active_only)
-
-    def delete_account(self, user_key: UserKey) -> None:
-        self._user_repo.get_or_raise(user_key)
-
-        # Revoke all sessions
-        self._refresh_token_repo.revoke_all_for_user(user_key)
-
-        # A *narrow* write, not a full-model one (#1525 SCR-003). Since
-        # `ArangoUserRepository` became full-replace, a full model read before the
-        # session revocation and written after it does not merely lose a concurrent
-        # change — it **removes** the attribute, because the stale model carries
-        # `None` for a `password_reset_token` a parallel request set in between.
-        # `update_fields` re-reads the stored user inside the call, so the window
-        # shrinks to that call. It does not vanish: see
-        # `ArangoUserRepository.update_fields`, which is itself read-modify-write.
-        self._user_repo.update_fields(
-            user_key,
-            {
-                "is_active": False,
-                "email": tombstone_email(user_key),
-                "display_name": "Deleted User",
-                "password_hash": None,
-                "avatar_url": None,
-            },
-        )
-        logger.info("account_deleted", subject=self._log_subject(user_key))
-
-    def _log_subject(self, user_key: str) -> str:
-        """The salted reference a log line names the account by (#1773, NFR-011)."""
-        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
 
     @staticmethod
     def _to_profile(user: User) -> UserProfile:

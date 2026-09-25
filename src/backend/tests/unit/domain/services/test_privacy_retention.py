@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.support.privacy_doubles import FakeDataExportRepo
+from tests.support.privacy_doubles import FakeDataExportRepo, FakePersonalTenants
 
 
 def _make_service(**overrides):
@@ -37,6 +37,7 @@ def _make_service(**overrides):
         "token_engine": MagicMock(),
         "email_service": MagicMock(),
         "frontend_url": "https://app.test",
+        "tenant_service": FakePersonalTenants(),
         "data_controller_name": "Acme",
         "data_controller_email": "privacy@acme.test",
     }

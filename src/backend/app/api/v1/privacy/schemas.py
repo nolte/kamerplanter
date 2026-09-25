@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.domain.services.step_up_service import StepUpConfirmation
+
 # ── Data export (Art. 15 / 20) ─────────────────────────────────────
 
 
@@ -46,7 +48,33 @@ class EmailChangeResponse(BaseModel):
 
 
 class ErasureCreateRequest(BaseModel):
-    password: str | None = None
+    """The step-up an account erasure carries (#1813, #1814, REQ-025 Art. 17).
+
+    Taken by the three routes that erase an account — ``POST /privacy/erasure``,
+    ``DELETE /users/me`` (the account's own) and ``DELETE /admin/platform/users/{key}``
+    (a platform admin erasing another account). ``confirm_email`` is the e-mail of
+    the account being erased, typed back; ``password`` is the *requester's* current
+    password, required when the requester's account has one.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    confirm_email: str = Field(
+        min_length=1,
+        max_length=320,
+        description="The e-mail address of the account being erased, typed back to confirm which account it is.",
+    )
+    password: str | None = Field(
+        default=None,
+        max_length=1024,
+        description=(
+            "The requester's current password. Required when the requester's account has a local password; "
+            "an account that signs in only through a federated provider omits it."
+        ),
+    )
+
+    def to_confirmation(self) -> StepUpConfirmation:
+        return StepUpConfirmation(echo=self.confirm_email, password=self.password)
 
 
 class ErasureResponse(BaseModel):

@@ -12,12 +12,17 @@ class LoginThrottleEngine:
         """Check if a login attempt is allowed."""
         return not (locked_until is not None and datetime.now(UTC) < locked_until)
 
-    def calculate_lockout(self, failed_attempts: int) -> datetime | None:
-        """Calculate lockout expiry after a failed attempt. Returns None if no lockout needed."""
-        if failed_attempts < MAX_ATTEMPTS:
+    def calculate_lockout(self, failed_attempts: int, *, threshold: int = MAX_ATTEMPTS) -> datetime | None:
+        """Calculate lockout expiry after a failed attempt. Returns None if no lockout needed.
+
+        ``threshold`` is the attempt count at which the first lockout starts. Every
+        caller except the account-wide step-up ceiling (#1816) uses the login
+        threshold; the backoff curve after it is the same for all of them.
+        """
+        if failed_attempts < threshold:
             return None
         # Exponential backoff: 15min, 30min, 60min, 120min, 240min (cap)
-        exponent = failed_attempts - MAX_ATTEMPTS
+        exponent = failed_attempts - threshold
         minutes = min(BASE_LOCKOUT_MINUTES * (2**exponent), MAX_LOCKOUT_MINUTES)
         return datetime.now(UTC) + timedelta(minutes=minutes)
 

@@ -8,6 +8,7 @@ import structlog
 from app.common.datetimes import today_utc
 from app.common.enums import SiteType
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
+from app.common.log_privacy import loggable_error
 from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
 from app.domain.engines.onboarding_engine import OnboardingEngine
 from app.domain.models.onboarding import OnboardingState, PlantConfig
@@ -309,7 +310,8 @@ class OnboardingService:
                         "onboarding_plant_skipped_unresolvable_reference",
                         species_key=species_key,
                         instance_id=instance_id,
-                        reason=exc.message,
+                        # Names the catalogue key that did not resolve — not a person.
+                        reason=loggable_error(exc),
                     )
                     skipped.append({"entity_type": "plant_instance", "key": species_key, "reason": exc.message})
                     continue

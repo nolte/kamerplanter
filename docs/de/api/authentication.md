@@ -199,6 +199,76 @@ Content-Type: application/json
 
 ---
 
+## Passwort ändern (angemeldet)
+
+```http
+POST /api/v1/users/me/password
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "altes-passwort-2026",
+  "new_password": "neues-passwort-2026"
+}
+```
+
+`current_password` entfällt nur, wenn das Konto noch **kein** lokales Passwort hat (ein reines SSO-Konto, das erstmals eines setzt). Existiert bereits ein lokales Passwort, muss es korrekt mitgeschickt werden — es ist ein Step-up (siehe unten). Bei Erfolg werden alle aktiven Sitzungen des Nutzers beendet.
+
+Eine mit API-Key authentifizierte Anfrage wird mit `403 Forbidden` abgelehnt — ein API-Key kann das eigene Passwort nicht ändern.
+
+---
+
+## Step-up-Bestätigung für unumkehrbare Kontoaktionen
+
+Vier Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person:
+
+| Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort |
+|---|---|---|---|
+| Eigenes Konto löschen (Art. 17 DSGVO) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes, sofern lokal vorhanden |
+| Anderes Konto löschen (Plattform-Admin) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos (`confirm_email`) | das des Admins |
+| Mandant löschen | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes, sofern lokal vorhanden |
+| Passwort ändern | `POST /users/me/password` | — | aktuelles (`current_password`) |
+
+Beispiel-Body für die Kontolöschung:
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "password": "aktuelles-passwort-2026"
+}
+```
+
+**Prüfreihenfolge:**
+
+1. Eine Anfrage mit API-Key oder von einem Service Account wird mit `403 Forbidden` abgelehnt — bevor irgendetwas geprüft oder gezählt wird.
+2. Ist die Bestätigung gesperrt (siehe unten), antwortet die Route sofort `429 Too Many Requests`, ohne das Passwort zu prüfen.
+3. Stimmt das zurückgetippte Ziel nicht (E-Mail ohne Groß-/Kleinschreibung, Slug exakt), antwortet die Route `422 Unprocessable Entity`. Ein falsches Echo zählt **nicht** als Fehlversuch.
+4. Hat das betroffene Konto ein lokales Passwort, muss das Passwortfeld korrekt gesetzt sein, sonst `401 Unauthorized`. Ein rein föderiertes Konto (nur Google/GitHub/Apple/OIDC) bestätigt allein mit dem Echo.
+
+**Drosselung:** Nach 5 falschen Passworteingaben derselben Kombination aus Konto und Client-Adresse sperrt das System weitere Bestätigungen für **15 Minuten**; bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis auf **4 Stunden**. Zusätzlich gilt eine kontoweite Obergrenze von 15 Fehlversuchen über beliebig viele Client-Adressen hinweg. Alle vier Aktionen teilen sich dasselbe Fehlversuchs-Budget je Konto — ein erfolgreicher Step-up leert es wieder.
+
+Eine gesperrte Bestätigung antwortet mit dem Fehlercode `STEP_UP_LOCKED`:
+
+```json
+{
+  "error_code": "STEP_UP_LOCKED",
+  "message": "Too many failed confirmations. Try again in 15 minutes.",
+  "details": [
+    {
+      "field": "password",
+      "reason": "Too many failed confirmations.",
+      "code": "STEP_UP_LOCKED",
+      "retry_after_minutes": 15
+    }
+  ]
+}
+```
+
+!!! note "Die Login-Sperre bleibt unberührt"
+    Diese Sperre betrifft ausschließlich die vier oben genannten Bestätigungen und wirkt sich nicht auf `POST /auth/login` aus. Wer eine dieser Bestätigungen sperrt — etwa jemand mit einer gestohlenen Sitzung —, kann sich trotzdem weiterhin anmelden, Sitzungen im Tab **Sitzungen** beenden und das Passwort per E-Mail zurücksetzen.
+
+---
+
 ## OAuth 2.0 / OIDC (Federated Login)
 
 !!! note "Stub-Implementierung"

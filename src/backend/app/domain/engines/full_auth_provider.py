@@ -9,6 +9,17 @@ from app.domain.services.auth_service import AuthService
 _API_KEY_PREFIX = "kp_"
 
 
+def is_api_key_authorization(authorization: str | None) -> bool:
+    """Whether *authorization* (the raw header value) carries an API key, not a session token.
+
+    The one place outside :meth:`FullAuthProvider.resolve_user` that tells the two
+    apart, for an action that must refuse a key even when it belongs to a human
+    account (#1791 review SEC-001): an API key is a long-lived M2M credential
+    that cannot re-authenticate, whoever owns it.
+    """
+    return bool(authorization) and authorization.startswith(f"Bearer {_API_KEY_PREFIX}")
+
+
 class FullAuthProvider(IAuthProvider):
     def __init__(
         self,

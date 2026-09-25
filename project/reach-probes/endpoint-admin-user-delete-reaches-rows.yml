@@ -1,21 +1,13 @@
-# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
-# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
-# orchestrating session — not an interactive batch answer. It records that the targets and the
-# observe argv below run on the operator's machine with their environment, as `task` in this
-# repository does.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (#1788 personal-tenant probes; re-derivation after #1823 with unchanged expectations).
 #
-# Re-derived after #1797: #1769 squash-merged as 0d7276476, leaving the branch commit e6af8a62d
-# outside develop's history. router.py last changed in that squash; derived_from is
-# now it. Observe step, targets and expectation unchanged (64/64 recounted at 0d7276476).
-# Earlier:
-# Re-derived for #1769: router.py changed in e6af8a62d (the tenant-delete route beside this one);
-# DELETE /admin/platform/users/{key}, the erasure plan's steps and this observe step are unchanged
-# (erasure_engine.py changed since 77efb5095 only by #1786's log-subject helpers). Earlier:
-# Re-derived for #1768: the previous derived_from 2994893c9 was a #1776 branch commit the squash
-# made unreachable; the declaration last changed in the squash 77efb5095 on develop. Observe step,
-# targets and expectation unchanged (64/64 recounted against erasure_engine.py at 77efb5095).
+# Re-derived after #1823: router.py last changed in 499c890d0, which touched only delete_tenant;
+# delete_user's clause is byte-identical, derived_from moves to that commit. #1829 (#1788) added
+# the personal-tenant step to erase_account, but seed_privacy_subject.py gives the subject's own
+# tenant a second active member, so it keeps the retained_other_members path; erasure_engine.py is
+# byte-identical to 0d7276476. Observe step, targets and expectation unchanged (64/64 recounted
+# at 9e64aec20).
 id: endpoint-admin-user-delete-reaches-rows
 summary: collections of the executing erasure plan left without the subject after the platform-admin user delete
 declaration:
@@ -91,7 +83,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: 0d7276476da5fd808dace49d4c3df932eb2a50b9
+derived_from: 499c890d024c0e082d4c49a32a7ab386ca13a1e8
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -106,6 +98,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-25T11:41:19Z'
-  approved_by: nolte
   observation_digest: 2e7df4233825e713e429ffad28c5b00a97c7b77db1556925790868093ea0b7bf
+  approved_by: nolte
+  approved_at: '2026-09-25T15:41:31Z'

@@ -7,6 +7,7 @@ import type {
   Membership,
   Tenant,
   TenantCreate,
+  TenantDeleteRequest,
   TenantUpdate,
   TenantWithRole,
 } from '../types';
@@ -35,8 +36,8 @@ export async function updateTenant(slug: string, data: TenantUpdate): Promise<Te
   return res.data;
 }
 
-export async function deleteTenant(slug: string): Promise<void> {
-  await client.delete(`${BASE}/${slug}`);
+export async function deleteTenant(slug: string, stepUp: TenantDeleteRequest): Promise<void> {
+  await client.delete(`${BASE}/${slug}`, { data: stepUp });
 }
 
 // ── Members ─────────────────────────────────────────────────────────

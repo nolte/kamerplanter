@@ -32,7 +32,9 @@ from app.domain.models.privacy import (
     ErasureExecutionReport,
     ErasureStepOutcome,
 )
+from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
+from tests.support.privacy_doubles import FakePersonalTenants
 
 USER_KEY = "u-1"
 SALT = "x" * 32
@@ -58,6 +60,7 @@ def _service(**overrides) -> PrivacyService:
         "token_engine": MagicMock(),
         "email_service": MagicMock(),
         "frontend_url": "https://app.test",
+        "tenant_service": FakePersonalTenants(),
         "erasure_executor": MagicMock(),
         "tombstone_salt": SALT,
     }
@@ -86,7 +89,7 @@ def _storage(calls: list[str]) -> MagicMock:
 
     async def _delete_for_user(tenant_key, user_key, scope):
         calls.append(f"delete_for_user:{tenant_key}:{scope}")
-        return 0
+        return StorageErasureResult()
 
     async def _strip(tenant_key, user_key, scope):
         return 0

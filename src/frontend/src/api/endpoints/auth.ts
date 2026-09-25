@@ -1,5 +1,6 @@
 import client from '../client';
 import type {
+  AccountErasureRequest,
   ApiKeyCreate,
   ApiKeyCreated,
   ApiKeySummary,
@@ -112,8 +113,13 @@ export async function revokeSession(sessionKey: string): Promise<void> {
   await client.delete(`${USERS}/me/sessions/${sessionKey}`);
 }
 
-export async function deleteAccount(): Promise<void> {
-  await client.delete(`${USERS}/me`);
+/**
+ * Close the own account (#1813): opens the Art. 17 erasure request — the account
+ * is closed at once and hard-deleted after the grace period. The body echoes the
+ * own e-mail and, for an account with a local password, the current password.
+ */
+export async function deleteAccount(stepUp: AccountErasureRequest): Promise<void> {
+  await client.delete(`${USERS}/me`, { data: stepUp });
 }
 
 // ── API Keys ──────────────────────────────────────────────────────

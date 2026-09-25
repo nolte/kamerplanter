@@ -424,21 +424,22 @@ describe('AccountSettingsPage — Pl@ntNet field interaction', () => {
 });
 
 describe('AccountSettingsPage — account tab', () => {
-  it('aborts deletion when the confirm prompt is dismissed', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('aborts deletion when the step-up dialog is cancelled', async () => {
     let deleteCalled = false;
     server.use(
       http.delete('/api/v1/users/me', () => {
         deleteCalled = true;
-        return new HttpResponse(null, { status: 204 });
+        return HttpResponse.json({ message: 'ok' });
       }),
     );
     const user = userEvent.setup();
     renderAt('/account#account');
 
     await user.click(await screen.findByTestId('delete-account-btn'));
-    expect(confirmSpy).toHaveBeenCalled();
+    const dialog = await screen.findByTestId('delete-account-dialog');
+    await user.click(within(dialog).getByTestId('delete-account-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('delete-account-dialog')).not.toBeInTheDocument());
     expect(deleteCalled).toBe(false);
-    confirmSpy.mockRestore();
   });
+
 });

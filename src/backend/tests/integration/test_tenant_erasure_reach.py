@@ -44,7 +44,8 @@ from arango import ArangoClient
 
 from app.api.v1.admin.platform import router as admin_router
 from app.api.v1.tenants import router as tenant_router
-from app.common.exceptions import KamerplanterError
+from app.api.v1.tenants.schemas import TenantDeleteRequest
+from app.common.exceptions import ForbiddenError, KamerplanterError
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
@@ -56,6 +57,7 @@ from app.data_access.vectordb.noop_reference_index_store import NoopReferenceInd
 from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -184,12 +186,45 @@ def _service(database) -> TenantService:
     return TenantService(**{name: value for name, value in kwargs.items() if name in accepted})
 
 
+#: The requester of every deletion here (#1791): a federated account (no
+#: password — the slug echo is its step-up) whose right is proven from a real
+#: membership row, the way the service reads it.
+REQUESTER = User.model_validate({"_key": "requester-1", "email": "requester@example.org", "display_name": "R"})
+
+
+def _grant(database, tenant: str) -> None:
+    """The membership that lets :data:`REQUESTER` delete *tenant*: lead + management, or platform lead."""
+    database.collection("memberships").insert(
+        {
+            "_key": f"grant-{tenant}",
+            "user_key": REQUESTER.key,
+            "tenant_key": tenant,
+            "role": "lead",
+            "admin_scopes": [] if tenant == "platform" else ["management"],
+            "is_active": True,
+        },
+        overwrite=True,
+    )
+
+
 def _delete_through(database, entry_point: str, tenant: str) -> None:
     service = _service(database)
+    body = TenantDeleteRequest(confirm_slug=tenant)
     if entry_point == "tenant_management":
-        tenant_router.delete_tenant(ctx=SimpleNamespace(tenant_key=tenant), service=service)
+        _grant(database, tenant)
+        tenant_router.delete_tenant(
+            body=body,
+            ctx=SimpleNamespace(tenant_key=tenant),
+            user=REQUESTER,
+            via_api_key=False,
+            client_ip="203.0.113.1",
+            service=service,
+        )
     else:
-        admin_router.delete_tenant(tenant, _user=None, tenant_service=service)
+        _grant(database, "platform")
+        admin_router.delete_tenant(
+            tenant, body=body, user=REQUESTER, via_api_key=False, client_ip="203.0.113.1", tenant_service=service
+        )
 
 
 @pytest.fixture(scope="module")
@@ -302,7 +337,15 @@ def test_a_retry_reaches_a_child_whose_parent_the_first_attempt_deleted(database
     service = _service(database)
     # First attempt completes; then a location is written under the (now gone)
     # site, as a request racing the commit would, and the record reopened.
-    service.delete_tenant(tenant, origin="platform_admin")
+    _grant(database, "platform")
+    service.delete_tenant(
+        tenant,
+        requester=REQUESTER,
+        authenticated_with_api_key=False,
+        confirmation=TenantDeleteRequest(confirm_slug=tenant).to_confirmation(),
+        origin="platform_admin",
+        client_ip="203.0.113.1",
+    )
     late = database.collection("locations").insert({"site_key": site_key})["_id"]
     records = ArangoTenantErasureRepository(database)
     key = TenantErasureEngine.record_key(tenant)
@@ -331,3 +374,32 @@ def test_a_granted_species_and_a_system_seed_outlive_the_tenant(database, erased
     assert _read(database, ids["workflow_templates"]) is None
     record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant))
     assert record["status"] == "completed"
+
+
+def test_a_management_scope_viewer_erases_nothing(database, erased):
+    """#1791 — the right is proven from the stored membership: ``management`` without ``lead`` is refused.
+
+    The membership row is the real shape the tenant route reads; the refusal
+    comes before any record is written or any row is touched.
+    """
+    from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
+
+    tenant = "t-secretary"
+    _seed_tenant(database, tenant)
+    database.collection("memberships").insert(
+        {"user_key": REQUESTER.key, "tenant_key": tenant, "role": "viewer", "admin_scopes": ["management"]}
+    )
+
+    with pytest.raises(ForbiddenError):
+        tenant_router.delete_tenant(
+            body=TenantDeleteRequest(confirm_slug=tenant),
+            ctx=SimpleNamespace(tenant_key=tenant),
+            user=REQUESTER,
+            via_api_key=False,
+            client_ip="203.0.113.1",
+            service=_service(database),
+        )
+
+    assert database.collection("tenants").has(tenant)
+    assert database.collection("sites").has(_key("sites", tenant))
+    assert ArangoTenantErasureRepository(database).get(TenantErasureEngine.record_key(tenant)) is None

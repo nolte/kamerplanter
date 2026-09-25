@@ -169,10 +169,10 @@ describe('auth endpoints', () => {
     expect(client.delete).toHaveBeenCalledWith('/users/me/sessions/s1');
   });
 
-  it('deleteAccount deletes /users/me', async () => {
+  it('deleteAccount deletes /users/me and carries the own e-mail step-up (#1813)', async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await auth.deleteAccount();
-    expect(client.delete).toHaveBeenCalledWith('/users/me');
+    await auth.deleteAccount({ confirm_email: 'me@example.org' });
+    expect(client.delete).toHaveBeenCalledWith('/users/me', { data: { confirm_email: 'me@example.org' } });
   });
 
   it('createApiKey posts to /auth/api-keys', async () => {

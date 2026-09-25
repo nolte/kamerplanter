@@ -205,7 +205,8 @@ untereinander verknüpfbar bleiben müssen:
 | Manuelle Aktor-Übersteuerung | `created_by` | Markierung `_anonymized` | — |
 | KI-Protokolleintrag | `user_key` | Markierung `_anonymized` | — |
 | Schädlingsfoto, das du als Admin freigegeben hast | `promoted_by` | Markierung `_anonymized` | — |
-| Garten, den du angelegt hast | `owner_user_key` | Markierung `_anonymized` | beim persönlichen Garten zusätzlich Name und Kurzname, siehe unten |
+| Persönlicher Garten, dessen einziges aktives Mitglied du bist | — | vollständig gelöscht, siehe unten | — |
+| Gemeinschaftsgarten oder Garten mit weiteren Mitgliedern, den du angelegt hast | `owner_user_key` | Markierung `_anonymized` | beim persönlichen Garten zusätzlich Name und Kurzname, siehe unten |
 | Löschungs-Audit (ErasureRequest) | `user_key` | Tombstone-Hash `anon_…` | — |
 | MCP-Protokolleintrag eines Dienstkontos | `service_account_key` | Tombstone-Hash `anon_…` | — |
 
@@ -232,17 +233,40 @@ untereinander verknüpfbar bleiben müssen:
 
 ### Was mit deinem persönlichen Garten passiert
 
-Bei der Registrierung legt Kamerplanter einen persönlichen Garten für dich an. Sein
-Name und sein Kurzname in der Adresse stammen aus deinem Anzeigenamen. Die
-Konto-Löschung löscht diesen Garten nicht, denn er kann Datensätze mit gesetzlicher
-Aufbewahrungsfrist enthalten, zum Beispiel Ernten nach CanG. Stattdessen nennt er dich
-danach nicht mehr:
+Bei der Registrierung legt Kamerplanter einen persönlichen Garten für dich an. Was mit
+ihm bei einer Konto-Löschung passiert, hängt davon ab, ob noch jemand anderes aktives
+Mitglied ist:
 
-- Die Besitzer-Referenz wird durch `_anonymized` ersetzt.
-- Name und Kurzname werden zu `anonymized-` und einer Zeichenfolge, die sich aus
-  dem Schlüssel nicht zurückrechnen lässt. Der Kurzname bleibt dadurch eindeutig, und
-  kein neuer Garten kann ihn vorher belegen: Kurznamen, die mit `anonymized`
-  beginnen, vergibt Kamerplanter nicht.
+- **Bist du das einzige aktive Mitglied** — der Normalfall — wird der Garten
+  vollständig über das [Mandanten-Löschinventar](#mandantenloschung) gelöscht: Standorte,
+  Pflanzen, Pflanzdurchläufe, Tagebuch, Aufgaben, Tanks und alles andere darin ist danach
+  weg. Nur Ernte-, Qualitäts-, Behandlungs- und Inspektionsdaten bleiben — wie bei jeder
+  Konto-Löschung — unter deinem Tombstone-Hash erhalten, weil CanG (5 Jahre) und PflSchG
+  (3 Jahre) das verlangen; ihre Freitext-Namensfelder werden geleert. Für diese
+  Garten-Löschung wird ein eigener Löschungs-Nachweis angelegt, und dein Löschantrag
+  nennt am Ende, was aus dem Garten geworden ist.
+- **Ist noch ein anderes aktives Mitglied darin** — ein persönlicher Garten kann, wie
+  jeder Garten, weitere Mitglieder haben (siehe [Mandanten & Gärten](../user-guide/tenants.md))
+  — bleibt er wie bisher erhalten, nur deine Eigentümer-Referenz wird entfernt:
+    - Die Besitzer-Referenz wird durch `_anonymized` ersetzt.
+    - Name und Kurzname werden zu `anonymized-` und einer Zeichenfolge, die sich aus
+      dem Schlüssel nicht zurückrechnen lässt. Der Kurzname bleibt dadurch eindeutig, und
+      kein neuer Garten kann ihn vorher belegen: Kurznamen, die mit `anonymized`
+      beginnen, vergibt Kamerplanter nicht.
+    - Wer den Garten künftig übernimmt, legt Kamerplanter aktuell nicht fest.
+
+!!! danger "Das betrifft auch deine eigenen Daten unwiderruflich"
+    Es gibt keinen separaten Schalter, um beim Löschen deines Kontos nur den
+    persönlichen Garten zu behalten: Bist du dort das einzige aktive Mitglied, ist er
+    mit allem darin unwiderruflich weg — Standorte, Pflanzen, Tagebuch, Fotos,
+    Aufgaben, Tanks. Lade vorher deinen Datenexport herunter (Art. 15/20 DSGVO), wenn
+    du etwas davon sichern willst.
+
+Kann das Deployment deinen persönlichen Garten nicht löschen — zum Beispiel weil ein
+Sensor-Messwertspeicher, der Tombstone-Salt oder der Referenzindex-/
+Schädlingsbild-Speicher fehlt oder falsch konfiguriert ist — verweigert es die gesamte
+Konto-Löschung, bevor irgendetwas geändert wird, und wiederholt sie automatisch, sobald
+die Konfiguration stimmt (siehe unten, „Alle Löschwege tun dasselbe").
 
 Einen Gemeinschaftsgarten, den du gegründet hast, behält seinen Namen, denn der gehört
 der Gruppe. Nur die Besitzer-Referenz wird ersetzt. Die Besitzer-Referenz verleiht
@@ -278,7 +302,8 @@ löscht es auf demselben Weg. Dabei gehen jetzt auch die Mitgliedschaft und die
 Standort-Zuweisungen mit. Schlägt dabei ein Schritt fehl, bleibt der Löschantrag offen
 und wird — wie weiter unten beschrieben — automatisch mit Backoff wiederholt, statt
 kommentarlos hängen zu bleiben. Der persönliche Garten eines solchen Kontos wird dabei
-noch nicht anonymisiert.
+genauso behandelt wie bei jeder anderen Konto-Löschung (siehe oben, [Was mit deinem
+persönlichen Garten passiert](#was-mit-deinem-personlichen-garten-passiert)).
 
 !!! info "Was bewusst nicht angefasst wird"
     Einige Felder heißen zwar „… von“, enthalten aber Freitext, den jemand beim Erfassen
@@ -318,11 +343,27 @@ lassen sie sich dagegen nicht verknüpfen.
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
     die Adresse eines Dritten enthalten kann (abgelehnter E-Mail-Empfänger), steht nur
     der Fehlertyp (`error_type=`). E-Mail-Adressen in einem Fehlertext werden zu
-    `<email:…>`-Digests, Query-Strings in URLs (sie können Koordinaten oder API-Schlüssel
-    enthalten) zu `?<redacted>`.
+    `<email:…>`-Digests, Query-Strings und Fragmente in URLs (sie können Koordinaten oder
+    API-Schlüssel enthalten) zu `?<redacted>`, und Zugangsdaten direkt in einer URL
+    (`schema://nutzer:passwort@…`) werden ebenfalls maskiert. Ein unerwarteter Fehler
+    (ein Traceback) läuft durch dieselbe Bereinigung: Eine Fehlermeldung aus der
+    Anwendungslogik erscheint im Protokoll nur als Fehlerklasse und Fehlercode, jede
+    andere Ausnahme bereinigt wie eben beschrieben. Eine Kontokennung im Text einer
+    Standard- oder Bibliotheks-Ausnahme kann diese Bereinigung nicht erkennen. Das gilt für die
+    strukturierten Protokollzeilen der Anwendung ebenso wie für die Tracebacks, die
+    uvicorn und der Celery-Worker bei einem unbehandelten Fehler ausgeben.
 
     IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
-    Oktett `0`, IPv6 `/48`), als `ip_prefix=`.
+    Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Das gilt inzwischen auch für die
+    Zugriffsprotokolle: uvicorn kürzt die Client-Adresse auf dieselbe Weise und schreibt
+    vom aufgerufenen Pfad nur die festen Routen-Segmente (z. B. `/api/v1/t/{}/plants/{}`)
+    — dein Mandanten-Kürzel, dein Kontoschlüssel und ein Download-Token in der URL stehen
+    dort nicht mehr, ebenso wenig ein Query-String. Läuft die Anwendung hinter dem
+    mitgelieferten nginx, gilt dasselbe für dessen eigenes Zugriffsprotokoll
+    (`kp_redacted`): Es nennt weder `X-Forwarded-For` noch User-Agent oder Referrer, und
+    ein Link wie `/password-reset/<token>` erscheint dort nur als `/<spa-route>`. nginx'
+    Fehlerprotokoll lässt sich dagegen nicht redigieren und bleibt deshalb auf der knappen
+    Stufe `crit` beschränkt.
 
     Wie lange
     deine Log-Pipeline (Container-Runtime, Loki, `json-file`-Rotation) die Zeilen
@@ -344,6 +385,22 @@ Schädlingsbild-Beiträge — kuratierte Referenzen bleiben), löscht deine übr
 Datensätze, anonymisiert die aufbewahrungspflichtigen wie oben beschrieben und entfernt
 zuletzt dein Konto. Der Datenbankteil läuft in einem Stück: Entweder ist er vollständig
 erledigt oder gar nicht.
+
+Anhänge sind pro Mandant über den SHA-256-Hash der Datei dedupliziert (Issue #1770): Lädt
+ein zweites Mitglied exakt dieselbe Datei hoch (oder du selbst in einer anderen Kategorie),
+entsteht ein eigener Datensatz, aber die Bytes werden nur einmal gespeichert und von beiden
+Datensätzen referenziert. Die Storage-Bereinigung (Phase 0) löscht die Datei deshalb nur,
+wenn kein anderer Datensatz mehr darauf zeigt; zeigt noch ein Datensatz eines anderen
+Mitglieds darauf, bleibt das Objekt erhalten. Der Löschungs-Antrag (`erasure_requests`)
+zählt beides: `storage_objects_removed` (tatsächlich gelöschte Objekte) und
+`storage_objects_retained_shared` (Objekte, die wegen eines noch bestehenden Datensatzes
+eines anderen Mitglieds erhalten bleiben). Dieselben Zahlen protokolliert die Zeile
+`retention.erasure.storage_hard_delete` als `deleted` und `retained_shared`, pro Scope und
+Mandant. Löscht das andere Mitglied seinen Datensatz, während deine Löschung läuft, hält
+nach dem ArangoDB-Schritt niemand mehr das Objekt: Die Löschung fragt deshalb danach noch
+einmal nach und entfernt es. Das zählt `storage_objects_released`, gespeichert mit dem
+Status `completed`; ein Fehler dabei erscheint als
+`retention.erasure.shared_object_release_failed`.
 
 Der Unterschied liegt im Zeitpunkt: Deinen eigenen Antrag führt der tägliche Lauf erst
 nach Ablauf der 90-tägigen Frist aus. Eine Löschung durch einen Platform-Admin oder durch
@@ -395,6 +452,16 @@ des offenen Antrags an.
     abgelehnt statt Vektoren zurückzulassen; ist der Inferenz-Service nur vorübergehend
     nicht erreichbar, antwortet sie stattdessen mit HTTP 502 und lässt sich erneut
     anstoßen.
+
+    Seit dieser Änderung läuft vor dem Datenbankteil einer Konto-Löschung zusätzlich das
+    [Mandanten-Löschinventar](#mandantenloschung) für jeden persönlichen Garten der
+    Person. Fehlt dafür dieselbe Konfiguration wie bei einer Mandantenlöschung
+    (Sensor-Messwertspeicher, `ERASURE_TOMBSTONE_SALT`, Referenzindex- oder
+    Schädlingsbild-Speicher), hält der tägliche Lauf den Antrag auf dieselbe Weise
+    zurück, ohne einen Versuch zu verbrauchen; ein sofortiger Löschversuch durch einen
+    Platform-Admin antwortet stattdessen mit HTTP 503. Der Löschantrag protokolliert das
+    Ergebnis je persönlichem Garten (gelöscht, mit Grund erhalten, oder bereits nicht
+    mehr vorhanden) und ist erst `completed`, wenn dieser Schritt gelaufen ist.
 
 ---
 
@@ -454,10 +521,11 @@ weiteren Versuch zu starten.
 
 Die Konten der Mitglieder selbst bleiben erhalten — sie behalten ihr Konto und ihre
 Mitgliedschaften in anderen Mandanten. Der persönliche Mandant eines Mitglieds wird durch
-die Löschung eines anderen Mandanten nicht berührt; das gilt auch umgekehrt: Die Löschung
-des eigenen Kontos entfernt nicht den persönlichen Mandanten, sondern anonymisiert nur
-dessen Eigentümer-Referenz (siehe oben, [Was mit deinem persönlichen Garten
-passiert](#was-mit-deinem-personlichen-garten-passiert)).
+die Löschung eines *anderen* Mandanten nicht berührt. Löschst du dagegen dein eigenes
+Konto, durchläuft dein persönlicher Mandant genau dieses Mandanten-Löschinventar —
+vollständig, wenn du sein einziges aktives Mitglied bist; nur mit ersetzter
+Eigentümer-Referenz, wenn ein weiteres aktives Mitglied ihn nutzt (siehe oben, [Was mit
+deinem persönlichen Garten passiert](#was-mit-deinem-personlichen-garten-passiert)).
 
 ---
 
@@ -563,7 +631,8 @@ flowchart TD
 | Export-Dateien | Sofort löschen |
 | Erntedaten, Qualitätsbewertungen, Behandlungen, Inspektionen | Anonymisieren (Tombstone-Hash `anon_…`, Namensfelder geleert), nicht löschen (Art. 17 Abs. 3) |
 | Aufgaben, Aufgaben-Kommentare, Tagebucheinträge, Dateien, Import-Aufträge, Einstellungen und Übersteuerungen in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
-| Gärten, die du angelegt hast | Besitzer-Referenz ersetzen; beim persönlichen Garten auch Name und Kurzname |
+| Persönlicher Garten, dessen einziges aktives Mitglied du bist | Vollständig löschen (Mandanten-Löschinventar), Ernte-/Behandlungs-/Inspektionsdaten wie oben pseudonymisiert |
+| Gemeinschaftsgarten oder Garten mit weiteren Mitgliedern, den du angelegt hast | Besitzer-Referenz ersetzen; beim persönlichen Garten auch Name und Kurzname |
 | Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |
 | Mitgliedschaften, Standort-Zuweisungen, Sitzungen, API-Schlüssel, Einwilligungen, Export-Anträge, Favoriten, Schädlingserkennungen, eigene Schädlingsfotos, KI-Gespräche, Benachrichtigungen, Kalender-Feeds, Diagnose-Anfragen, angenommene Einladungen | Löschen |
 
@@ -624,6 +693,53 @@ fasst der Aufräumlauf nicht an (Kuration).
 
 ---
 
+## Migration v0062: geteilte Anhänge in eigene Einträge aufteilen
+
+Vor Issue #1770 bekam ein zweiter Upload derselben Bytes innerhalb eines Mandanten den
+Datensatz des **ersten** Uploaders zurück — auch über Kategoriegrenzen hinweg, zum
+Beispiel zwischen einem Schädlingsfoto-Beitrag und einem dokumentierenden Foto (Tagebuch,
+Aufgabe, Inspektion, Ernte-/Lager-Beobachtung, Pflanzengalerie). Löschte der erste
+Uploader seinen Account, wurde damit auch der Datensatz des zweiten Mitglieds hart
+gelöscht oder anonymisiert; löschte der zweite Uploader seinen Account, erreichte die
+Löschung dessen Beitrag gar nicht, weil ihm kein eigener Datensatz gehörte.
+
+Die Migration `v0062_split_shared_attachment_ownership` bringt bestehenden Bestand so weit
+wie rekonstruierbar in die neue Form:
+
+1. **Der eindeutige Index auf `attachments.storage_key` entfällt.** Mehrere Uploader
+   teilen sich jetzt eine gespeicherte Datei; ein nicht-eindeutiger Index ersetzt ihn.
+2. **Jeder Schädlingsfoto-Beitrag bekommt einen eigenen `pest_reference`-Datensatz**,
+   sofern der Datensatz, auf den er zeigte, nicht schon sein eigener war: Ein neuer
+   Datensatz mit dem deterministischen Schlüssel `pic-<Beitrags-Schlüssel>` entsteht über
+   derselben gespeicherten Datei, benannt nach dem Beitragenden; der Beitrag wird darauf
+   umgehängt. Der Dateiname des ursprünglichen Uploaders wird dabei nicht übernommen.
+3. **Ein `pest_reference`-Datensatz, auf den ein dokumentierender Träger zeigt**
+   (Tagebuch, Aufgabe, Inspektion, Ernte-/Lager-Beobachtung, Pflanzengalerie), wird zu
+   einem Datensatz dieser Kategorie umkategorisiert — sonst würde er beim Löschen des
+   Schädlingsfoto-Eigentümers hart gelöscht statt wie ein dokumentierendes Foto
+   anonymisiert und behalten zu werden.
+
+Ausführung wie jede Migration über `python -m app.migrations upgrade`; `--dry-run`
+berechnet alle Änderungen und protokolliert sie (`split_shared_attachment_ownership_dry_run`
+mit denselben Zählern), ohne etwas zu schreiben. Ein unterbrochener Lauf hinterlässt
+keinen inkonsistenten Zustand: Der Split-Schlüssel ist deterministisch und wird per
+`UPSERT` geschrieben, ein erneuter Lauf setzt genau dort fort.
+
+!!! danger "Nicht reversibel"
+    Ein Rollback würde genau die geteilte Eigentümerschaft wiederherstellen, die diese
+    Migration auflöst.
+
+!!! warning "Was die Migration nicht rekonstruieren kann"
+    Zwei identische **dokumentierende** Fotos (z. B. zwei Tagebuch-Uploads derselben Datei
+    durch zwei Mitglieder) hinterließen vor #1770 nur einen Datensatz und keine Spur des
+    zweiten Uploaders — die tragenden Datensätze (Tagebuch, Aufgabe, …) kennen meist
+    keinen Foto-Eigentümer. Solche Datensätze bleiben unverändert; ihre Datei wird nie
+    hart gelöscht, weil die Dokumentations-Regel sie anonymisiert und behält — es geht
+    also nichts verloren. Der Datenexport (Art. 15) des zweiten Uploaders listet aber
+    keinen Eintrag, den er nie besaß.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Kann ich die 90-Tage-Frist für Soft-Delete verlängern?"
@@ -644,8 +760,13 @@ fasst der Aufräumlauf nicht an (Kuration).
 
 ??? question "Werden Sensordaten bei einer Konto-Löschung auch gelöscht?"
     Sensordaten in TimescaleDB haben keine direkte User-Referenz — sie sind einem
-    Standort (`location_key`) zugeordnet. Bei Konto-Löschung bleiben Sensordaten
-    erhalten und unterliegen nur den zeitbasierten Retention-Policies (R-14).
+    Standort (`location_key`) zugeordnet, nicht einem Konto. Ist dein persönlicher
+    Garten nicht von der Löschung betroffen (weitere aktive Mitglieder, siehe [Was mit
+    deinem persönlichen Garten passiert](#was-mit-deinem-personlichen-garten-passiert)),
+    bleiben seine Sensordaten erhalten und unterliegen nur den zeitbasierten
+    Retention-Policies. Wird dein persönlicher Garten dagegen vollständig gelöscht,
+    weil du sein einziges aktives Mitglied warst, gehen auch seine Sensordaten mit —
+    wie bei jeder [Mandantenlöschung](#mandantenloschung).
 
 ## Siehe auch
 

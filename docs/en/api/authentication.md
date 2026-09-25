@@ -199,6 +199,76 @@ Content-Type: application/json
 
 ---
 
+## Changing Your Password (Signed In)
+
+```http
+POST /api/v1/users/me/password
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "old-password-2026",
+  "new_password": "new-password-2026"
+}
+```
+
+`current_password` may be omitted only when the account has **no** local password yet (an SSO-only account setting one for the first time). If a local password already exists, it must be supplied correctly — it is a step-up (see below). On success, all of the user's active sessions are terminated.
+
+A request authenticated with an API key is refused with `403 Forbidden` — an API key cannot change its own account's password.
+
+---
+
+## Step-up Confirmation for Irreversible Account Actions
+
+Four actions require re-confirmation by the signed-in person, in addition to a valid access token:
+
+| Action | Route(s) | Typed-back target (body field) | Password |
+|---|---|---|---|
+| Delete own account (GDPR Art. 17) | `DELETE /users/me`, `POST /privacy/erasure` | own email (`confirm_email`) | own, if a local one exists |
+| Delete another account (platform admin) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own |
+| Delete a tenant | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | slug (`confirm_slug`) | own, if a local one exists |
+| Change password | `POST /users/me/password` | — | current (`current_password`) |
+
+Example body for account erasure:
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "password": "current-password-2026"
+}
+```
+
+**Check order:**
+
+1. A request authenticated with an API key or coming from a service account is refused with `403 Forbidden` — before anything is checked or counted.
+2. If the confirmation is locked (see below), the route immediately answers `429 Too Many Requests` without checking the password.
+3. If the typed-back target doesn't match (email case-insensitively, slug exactly), the route answers `422 Unprocessable Entity`. A wrong echo does **not** count as a failed attempt.
+4. If the affected account has a local password, the password field must be correct, otherwise `401 Unauthorized`. A purely federated account (Google/GitHub/Apple/OIDC only) confirms with the echo alone.
+
+**Throttling:** After 5 wrong password attempts for the same account-and-client-address combination, the system locks further confirmations for **15 minutes**; repeated failures double the wait time up to **4 hours**. An additional account-wide cap of 15 failed attempts applies across any number of client addresses. All four actions share the same failed-attempt budget per account — a successful step-up clears it.
+
+A locked confirmation responds with the error code `STEP_UP_LOCKED`:
+
+```json
+{
+  "error_code": "STEP_UP_LOCKED",
+  "message": "Too many failed confirmations. Try again in 15 minutes.",
+  "details": [
+    {
+      "field": "password",
+      "reason": "Too many failed confirmations.",
+      "code": "STEP_UP_LOCKED",
+      "retry_after_minutes": 15
+    }
+  ]
+}
+```
+
+!!! note "The login lockout is unaffected"
+    This lock only applies to the four confirmations above and has no effect on `POST /auth/login`. Anyone who locks one of these confirmations — for example, someone with a stolen session — can still sign in normally, end sessions in the **Sessions** tab, and reset the password by email.
+
+---
+
 ## OAuth 2.0 / OIDC (Federated Login)
 
 !!! note "Stub implementation"

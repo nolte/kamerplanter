@@ -19,15 +19,60 @@ from collections.abc import Callable
 from typing import Any
 from unittest.mock import MagicMock
 
+from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import DuplicateError
 from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
 from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
+from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
-from app.domain.models.tenant_erasure import TenantErasurePlan, TenantErasureRecord, TenantErasureReport
+from app.domain.models.tenant_erasure import (
+    TenantDeletionConfirmation,
+    TenantErasureOrigin,
+    TenantErasurePlan,
+    TenantErasureRecord,
+    TenantErasureReport,
+)
+from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 
 #: NFR-011 §4 wants >= 32 characters. Synthetic, test-only.
 SALT = "unit-tenant-erasure-salt-0123456789abcdef"
+
+#: The requester every deletion test that is *not* about authorisation uses: a
+#: federated account (no password to verify — bcrypt is slow and beside the
+#: point there) holding lead + management in every tenant it is asked about, and
+#: the platform-admin membership (#1791). The authorisation itself is pinned
+#: through the routes in ``tests/unit/api/test_tenant_delete_authorization.py``.
+AUTHORIZED_REQUESTER = User.model_validate(
+    {"_key": "requester-1", "email": "requester@example.org", "display_name": "Requester"}
+)
+
+
+def authorized(slug: str = "t-1", *, origin: TenantErasureOrigin = "tenant_management") -> dict[str, Any]:
+    """Keyword arguments of an authorised ``delete_tenant`` call for the tenant slugged *slug*."""
+    return {
+        "requester": AUTHORIZED_REQUESTER,
+        "authenticated_with_api_key": False,
+        "confirmation": TenantDeletionConfirmation(confirm_slug=slug),
+        "origin": origin,
+        "client_ip": "203.0.113.10",
+    }
+
+
+def authorizing_membership_repo() -> MagicMock:
+    """A membership repo granting :data:`AUTHORIZED_REQUESTER` lead + management everywhere."""
+    repo = MagicMock()
+    repo.get_by_user_and_tenant.side_effect = lambda user_key, tenant_key: (
+        Membership(
+            user_key=user_key,
+            tenant_key=tenant_key,
+            role=TenantRole.LEAD,
+            admin_scopes=[AdminScope.MANAGEMENT],
+        )
+        if user_key == AUTHORIZED_REQUESTER.key
+        else None
+    )
+    return repo
 
 
 class FakeTenantErasureRepository(ITenantErasureRepository):
@@ -129,7 +174,7 @@ def tenant_service_for_deletion(
     tenant_repo.get_by_key.return_value = existing if existing is not None else tenant()
     kwargs: dict[str, Any] = {
         "tenant_repo": tenant_repo,
-        "membership_repo": MagicMock(),
+        "membership_repo": authorizing_membership_repo(),
         "invitation_repo": MagicMock(),
         "assignment_repo": MagicMock(),
         "tenant_engine": MagicMock(),

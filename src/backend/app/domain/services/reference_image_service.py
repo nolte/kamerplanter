@@ -14,6 +14,7 @@ For a given species this service:
 Runs synchronously (invoked from a Celery task, WS-4).
 """
 
+import hashlib
 import io
 
 import structlog
@@ -204,9 +205,10 @@ class ReferenceImageService:
           client-supplied name is ignored. An unknown species raises 404 before
           any embedding is computed.
         * SEC-002 — the per-user daily contribution quota is enforced (Redis),
-          and the SHA-256 of the normalised image is used as the dedup key
-          (``source_record_id``) so re-submitting the same photo collapses onto
-          one index row instead of poisoning the index with duplicates.
+          and a key derived from the SHA-256 of the normalised image and the
+          contributor is used as the dedup key (``source_record_id``) so
+          re-submitting the same photo collapses onto one index row instead of
+          poisoning the index with duplicates — one row per contributor (#1770).
         * SEC-001 — the reference is written **quarantined** (``is_active=False``,
           ``source="user_contributed"``): it does NOT enter the active global
           recognition index until a platform admin activates it via the existing
@@ -251,10 +253,17 @@ class ReferenceImageService:
                 details=[{"field": "image", "reason": "Undecodable image.", "code": "INVALID_IMAGE"}],
             ) from exc
 
-        # SEC-002 — SHA-256 of the normalised image is the dedup key. The index'
-        # UNIQUE (species_key, source, source_record_id) makes a repeat upsert of
-        # the same photo idempotent (one row), never a new poisoning entry.
-        image_hash = self._identification_engine.compute_image_hash(clean)
+        # SEC-002 — the dedup key is derived from the SHA-256 of the normalised
+        # image. The index' UNIQUE (species_key, source, source_record_id) makes a
+        # repeat upsert of the same photo idempotent (one row), never a new
+        # poisoning entry.
+        # #1770 SEC-007 — and it is per contributor: the index keeps the first
+        # row's provenance on conflict, so a key shared by every contributor of an
+        # identical photo attributed all of them — across tenants — to the first,
+        # and only the first one's erasure reached it.
+        record_id = self.contribution_record_id(
+            self._identification_engine.compute_image_hash(clean), tenant_key=tenant_key, user_key=user_key
+        )
 
         # #1753 (GDPR-001/002) — record that contributions exist BEFORE writing
         # one: a process that later erases without reaching the index must see
@@ -266,7 +275,7 @@ class ReferenceImageService:
             species_key=species_key,
             scientific_name=scientific_name,
             source="user_contributed",
-            source_record_id=image_hash,
+            source_record_id=record_id,
             embedding=embedding,
             is_active=False,
             contributed_by=user_key,
@@ -284,8 +293,23 @@ class ReferenceImageService:
             "pending_review": True,
             "species_key": species_key,
             "dim": response.get("dim"),
-            "source_record_id": image_hash,
+            "source_record_id": record_id,
         }
+
+    @staticmethod
+    def contribution_record_id(image_hash: str, *, tenant_key: str, user_key: str) -> str:
+        """The index record id of one contributor's contribution of one image (#1770).
+
+        Deterministic per (tenant, contributor, image), so a re-submission still
+        collapses onto its row (SEC-002), and distinct for anyone else, so no two
+        contributors share a row — nor learn from the id whether someone in
+        another tenant contributed the same photo. The parts are joined with a
+        separator no key contains, under a version label, before hashing.
+        """
+        digest = hashlib.sha256(
+            "\x00".join(("kamerplanter/reference-contribution/v1", tenant_key, user_key, image_hash)).encode("utf-8")
+        ).hexdigest()
+        return f"sha256:{digest[:32]}"
 
     def _passes_quality(self, image_data: bytes) -> bool:
         """Reject images below the minimum resolution or with extreme aspect."""

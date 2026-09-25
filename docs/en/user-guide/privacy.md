@@ -25,7 +25,7 @@ This section is aimed at technical users and self-hosters. All GDPR features des
 | `GET /api/v1/privacy/export/{export_key}/download` | Download the export |
 | `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) |
 | `POST /api/v1/privacy/email-change/confirm` | Confirm an email change via token |
-| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) |
+| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) — body `{confirm_email, password?}`, see below |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Check erasure status |
 | `POST /api/v1/privacy/restrict` | Restrict processing (Art. 18) |
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Lift a restriction |
@@ -230,13 +230,16 @@ You have the right to erasure of your data.
 
 1. Navigate to **Privacy** > the **Delete Account** tab
 2. Click **Delete Account**
-3. For accounts with a **local password login**, enter your **current password** in the confirmation dialog (to authorize the deletion). This step is skipped for accounts that sign in exclusively through an external provider (Google, GitHub, Apple …).
+3. In the confirmation dialog, type your **own email address** back in. For accounts with a **local password**, also enter your **current password** (to authorize the deletion). If you sign in exclusively through an external provider (Google, GitHub, Apple, OIDC), confirming the email is enough on its own.
 4. In the confirmation dialog, click **Yes, Delete Account**
 
-!!! info "Password confirmation"
-    For local-password accounts, entering the current password is mandatory. If the password is wrong, the dialog stays open and shows an error — the account is **not** deleted.
+!!! info "Confirming with email and password"
+    If the email you type doesn't match your own, the dialog shows an error. For local-password accounts, entering the current password is also mandatory — if it's wrong, the dialog stays open and shows an error. In both cases, the account is **not** deleted.
 
-The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` starts the deletion (for local accounts with the `password` field), `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
+!!! warning "Locked out after too many attempts"
+    After several wrong password attempts, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock applies account-wide to all confirmations of this kind (deleting your account, deleting a tenant, changing your password) together, but does **not** affect signing in: you can still sign in normally, end individual sessions in the **Sessions** tab (see [Account & Sign-In](account.md#viewing-and-ending-active-sessions)), or reset your password by email.
+
+The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` expects the same request body as `DELETE /api/v1/users/me` (see [Deleting Your Account](account.md#deleting-your-account)) — `{"confirm_email": "...", "password": "..."}`, where `password` is only required for a local password. `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 What happens next:
 
@@ -260,6 +263,9 @@ After 90 days:
 
 !!! note "Why are harvest records not fully deleted?"
     The CanG (German Cannabis Act) and the PflSchG (German Plant Protection Act) require that harvest and treatment data be retained for audit and verification purposes. Your name and contact details are removed; the quantity and treatment data remains as anonymized records. This is legally covered by GDPR Art. 17(3)(b).
+
+!!! danger "Your personal garden is deleted with it"
+    If you are the only active member of your personal garden, it is irreversibly deleted with everything in it — unless someone else is also a member of it; then it is kept for them without your name. Details: [Data Retention — What happens to your personal garden](../guides/data-retention.md#what-happens-to-your-personal-garden).
 
 ---
 
@@ -287,6 +293,9 @@ When you delete your account, the system distinguishes between two photo types:
 | **Documentary photos** (diary entries, IPM inspections, harvest photos, plant photos) | Retained but decoupled from your account — `created by` is set to `_anonymized`. If EXIF data is present, it is stripped at this step. |
 
 Files are retained because they belong to the plant record and may be subject to statutory retention obligations (CanG, PflSchG). Your name is no longer linked to the photos after anonymization.
+
+!!! note "When another member uploaded the identical file"
+    If another member of your garden uploads exactly the same file (identical byte content), each person gets their own entry — but the file itself is stored once and shared. If you delete your account, only your own entry is affected: the stored file and its preview images remain in place as long as at least one other member's entry still points to them, and are only removed once the last entry pointing to them is deleted. Your own entries are always reached by account deletion — regardless of who uploaded the file first.
 
 !!! note "Order of deletion"
     Storage cleanup (step 0) happens before database cleanup. This is the only way the system can still retrieve the metadata needed to map file to user.

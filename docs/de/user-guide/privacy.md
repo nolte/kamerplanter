@@ -25,7 +25,7 @@ Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten b
 | `GET /api/v1/privacy/export/{export_key}/download` | Export herunterladen |
 | `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) |
 | `POST /api/v1/privacy/email-change/confirm` | E-Mail-Änderung per Token bestätigen |
-| `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) |
+| `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) — Body `{confirm_email, password?}`, siehe unten |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Löschstatus abfragen |
 | `POST /api/v1/privacy/restrict` | Verarbeitung einschränken (Art. 18) |
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Einschränkung aufheben |
@@ -230,13 +230,16 @@ Du hast das Recht auf Löschung deiner Daten.
 
 1. Zu **Datenschutz** > Tab **Konto löschen** navigieren
 2. Auf **Konto löschen** klicken
-3. Bei Konten mit **lokalem Passwort-Login** im Bestätigungsdialog das **aktuelle Passwort** eingeben (zur Autorisierung der Löschung). Bei Konten, die ausschließlich über einen externen Anbieter (Google, GitHub, Apple …) angemeldet sind, entfällt dieser Schritt.
+3. Im Bestätigungsdialog deine **eigene E-Mail-Adresse** erneut eintippen. Hat dein Konto ein **lokales Passwort**, zusätzlich dein **aktuelles Passwort** eingeben (zur Autorisierung der Löschung). Meldest du dich ausschließlich über einen externen Anbieter (Google, GitHub, Apple, OIDC) an, genügt die E-Mail-Bestätigung allein.
 4. Im Bestätigungsdialog auf **Ja, Konto löschen** klicken
 
-!!! info "Passwortbestätigung"
-    Für Konten mit lokalem Passwort ist die Eingabe des aktuellen Passworts verpflichtend. Ist das Passwort falsch, bleibt der Dialog geöffnet und zeigt einen Fehlerhinweis — das Konto wird dann **nicht** gelöscht.
+!!! info "Bestätigung per E-Mail und Passwort"
+    Stimmt die eingetippte E-Mail-Adresse nicht mit deiner eigenen überein, meldet der Dialog einen Fehler. Für Konten mit lokalem Passwort ist zusätzlich die Eingabe des aktuellen Passworts verpflichtend — ist es falsch, bleibt der Dialog offen und zeigt einen Fehlerhinweis. In beiden Fällen wird das Konto **nicht** gelöscht.
 
-Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` startet die Löschung (bei lokalen Konten mit dem Feld `password`), `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
+!!! warning "Nach zu vielen Fehlversuchen gesperrt"
+    Nach mehreren falschen Passworteingaben sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt die verbleibende Wartezeit an. Diese Sperre gilt kontoweit für alle Bestätigungen dieser Art (Konto löschen, Mandant löschen, Passwort ändern) gemeinsam, betrifft aber **nicht** die Anmeldung: Du kannst dich weiterhin normal anmelden, im Tab **Sitzungen** (siehe [Konto & Anmeldung](account.md#aktive-sitzungen-einsehen-und-beenden)) einzelne Sitzungen beenden oder dein Passwort per E-Mail zurücksetzen.
+
+Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` erwartet denselben Anfragekörper wie `DELETE /api/v1/users/me` (siehe [Konto löschen](account.md#konto-loschen)) — `{"confirm_email": "...", "password": "..."}`, wobei `password` nur bei lokalem Passwort nötig ist. `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
 Was dann passiert:
 
@@ -260,6 +263,9 @@ Nach 90 Tagen:
 
 !!! note "Warum werden Erntedaten nicht vollständig gelöscht?"
     Das Cannabisgesetz (CanG) und das Pflanzenschutzmittelgesetz (PflSchG) schreiben vor, dass Ernte- und Behandlungsdaten für Prüf- und Nachweiszwecke aufbewahrt werden müssen. Dein Name und deine Kontaktdaten werden entfernt, die Mengen- und Behandlungsdaten bleiben als anonymisierte Einträge erhalten. Dies ist rechtlich durch Art. 17 Abs. 3 lit. b DSGVO gedeckt.
+
+!!! danger "Dein persönlicher Garten geht mit"
+    Bist du das einzige aktive Mitglied deines persönlichen Gartens, wird er mit allem, was darin ist, unwiderruflich gelöscht — außer jemand anderes ist auch Mitglied darin; dann bleibt er für diese Person erhalten, ohne deinen Namen. Details dazu: [Datenaufbewahrung — Was mit deinem persönlichen Garten passiert](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
 
 ---
 
@@ -287,6 +293,9 @@ Wenn du deinen Account löschst, unterscheidet das System zwischen zwei Foto-Typ
 | **Dokumentierende Fotos** (Tagebucheinträge, IPM-Inspektionen, Erntefotos, Pflanzenfotos) | Bleiben erhalten, werden aber von deinem Account entkoppelt — `erstellt von` wird auf `_anonymized` gesetzt. Sind EXIF-Daten vorhanden, werden sie in diesem Schritt ebenfalls entfernt. |
 
 Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzlichen Aufbewahrungspflichten (CanG, PflSchG) unterliegen. Dein Name ist nach der Anonymisierung nicht mehr mit den Fotos verknüpft.
+
+!!! note "Wenn ein anderes Mitglied dieselbe Datei hochgeladen hat"
+    Lädt ein anderes Mitglied deines Gartens exakt dieselbe Datei hoch (identischer Byte-Inhalt), bekommt jede Person einen eigenen Eintrag — gespeichert wird die Datei aber nur einmal und geteilt. Löschst du deinen Account, geht nur dein eigener Eintrag: Die gespeicherte Datei samt Vorschaubildern bleibt erhalten, solange noch mindestens ein Eintrag eines anderen Mitglieds darauf zeigt, und wird erst entfernt, wenn der letzte darauf zeigende Eintrag gelöscht wird. Deine eigenen Einträge erreicht die Account-Löschung dabei immer — unabhängig davon, wer die Datei zuerst hochgeladen hat.
 
 !!! note "Reihenfolge der Löschung"
     Die Storage-Bereinigung (Schritt 0) erfolgt vor der Datenbankbereinigung. Nur so kann das System die Metadaten noch abrufen, die für die Zuordnung Datei ↔ Nutzer nötig sind.

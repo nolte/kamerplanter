@@ -164,5 +164,5 @@ class TestSharedAdapterContract:
 
     @pytest.mark.asyncio
     async def test_erasure_hooks_return_zero_without_repo(self, adapter):
-        assert await adapter.delete_for_user("t-1", "u-1", "all") == 0
+        assert (await adapter.delete_for_user("t-1", "u-1", "all")).removed == 0
         assert await adapter.strip_exif_for_user("t-1", "u-1", "all") == 0

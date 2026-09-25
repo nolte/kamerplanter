@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.13 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.14 (Step-up für unumkehrbare Kontoaktionen, gedrosselt — #1813/#1814/#1816)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.14 | 2026-09-25 | **Step-up für unumkehrbare Kontoaktionen (#1813, #1814, #1816):** Neuer §3.9. Eine einzige Prüfung (`StepUpVerifier`) für Kontolöschung (`DELETE /users/me`, `POST /privacy/erasure`), Konto-Sofortlöschung durch Plattform-Admins (`DELETE /admin/platform/users/{key}`), Mandantenlöschung (REQ-024 AK-44d) und Passwortänderung: nur aus einer angemeldeten Sitzung eines Menschen (kein API-Key, kein Service Account — 403), Ziel wird zurückgetippt (E-Mail bzw. Slug — 422), das eigene aktuelle Passwort bei lokalem Konto (401). Fehlgeschlagene Passwort-Step-ups werden je Konto **und** Client-Adresse gezählt (Valkey, In-Process-Fallback) und über denselben `LoginThrottleEngine` gesperrt (429 `STEP_UP_LOCKED`), zusätzlich mit kontoweiter Obergrenze; die Login-Sperre bleibt bewusst unberührt. `DELETE /users/me` setzt nicht mehr nur einen Tombstone, sondern eröffnet den Art.-17-Löschauftrag (REQ-025). |
 | 1.12 | 2026-08-12 | **QR-Gerätekopplung für native Clients (#1118):** Neuer §3.8 — eine per QR-Code gekoppelte App tauscht einen Einmalcode gegen das **bestehende** REQ-023-Token-Paar (keine neue Token-Klasse, kein neuer Claim). Der Code liegt ausschließlich in Redis (kein neuer ArangoDB-Node, keine neue Collection); die Prüfspur sind structlog-Events, kein persistiertes Protokoll (§9). Einlösung ist rate-limitiert (`rate_limit_device_pairing_redeem`, Default 10/min) und zusätzlich per Quell-IP über den `LoginThrottleEngine` gesperrt — dieselbe Engine wie `login_local` —, wobei die Sperre **vor** dem Code-Store greift. `POST /auth/refresh` erhält einen Body-Transport (`{"refresh_token": …}`) für Clients ohne Cookie-Jar: Body schlägt Cookie, CSRF entfällt auf dem Body-Pfad (die Double-Submit-Tabelle in §1 ist entsprechend präzisiert). Neuer Frontend-Dialog „Gerät verbinden" im Sessions-Tab (§4.6). TTL `device_pairing_ttl_seconds` (Default 90, validiert 60–120). |
 | 1.11 | 2026-08-07 | **SEC-H-009 Info-Mail gebaut (#958):** Die in §3.2 seit v1.8 geforderte Info-Mail an die bereits registrierte Adresse ist implementiert — aber unter zwei Bedingungen, die §3.2 jetzt ausformuliert, weil die naive Variante genau das Enumeration-Orakel wieder öffnet, das #957 geschlossen hat: (1) **asynchrone Zustellung** über den Celery-Task `app.tasks.auth_tasks.send_duplicate_registration_notice`, eingereiht in einem FastAPI-Background-Task, also erst nachdem die Antwort geschrieben ist; (2) **Sperrfenster je Empfängeradresse** (24 h, `IRegistrationNoticeStore`) statt je Absender-IP. Zusätzlich: `POST /api/v1/privacy/email-change` erhält ein eigenes Rate-Limit (`rate_limit_email_change`, Default 5/hour). |
 | 1.10 | 2026-04-27 | **W-015:** §3.7 M2M-Auth um Light-Modus-Hinweis ergänzt — Service Accounts und API-Keys sind im Light-Modus deaktiviert (REQ-027 §2.1). Bei Mode-Switch Light→Full müssen externe Integrationen neue Keys generieren. |
@@ -1050,10 +1051,10 @@ dass er nichts schreibt.
 | PATCH | `/users/me` | Eigenes Profil aktualisieren | Ja |
 | GET | `/users/me/providers` | Verknüpfte Auth-Provider auflisten | Ja |
 | DELETE | `/users/me/providers/{provider_key}` | Provider-Verknüpfung entfernen | Ja |
-| POST | `/users/me/password` | Lokales Passwort setzen/ändern | Ja |
+| POST | `/users/me/password` | Lokales Passwort setzen/ändern; das aktuelle Passwort ist ein Step-up nach §3.9 (gedrosselt, kein API-Key) | Ja |
 | GET | `/users/me/sessions` | Aktive Sessions auflisten | Ja |
 | DELETE | `/users/me/sessions/{session_key}` | Einzelne Session beenden | Ja |
-| DELETE | `/users/me` | Account löschen (Soft-Delete) | Ja |
+| DELETE | `/users/me` | Konto löschen — eröffnet den Art.-17-Löschauftrag wie `POST /privacy/erasure` (REQ-025); Body `{confirm_email, password?}`, Step-up nach §3.9 | Ja |
 
 **Router: `/api/v1/admin/oidc-providers`** — OIDC-Provider-Verwaltung (nur System-Admin):
 
@@ -1143,6 +1144,35 @@ Die Ausgabe-Endpunkte:
 
 Beide Endpunkte hängen am `auth_router` (nicht am `api_keys_router`) und sind daher im Light-Modus (REQ-027) nicht gemountet — eine Light-Instanz antwortet auf beide mit **404**.
 <!-- /Quelle: Issue #1118 -->
+
+### 3.9 Step-up-Re-Authentifizierung für unumkehrbare Kontoaktionen (#1813, #1814, #1816)
+
+Unumkehrbare Kontoaktionen verlangen eine erneute Bestätigung durch die handelnde Person. Alle laufen durch **eine** Prüfung (`StepUpVerifier`, `app/domain/services/step_up_service.py`), die im Service erzwungen wird — die Einstiegspunkte nehmen den Step-up als Keyword-Argumente ohne Default, sodass eine neue Route ihn nicht vergessen kann.
+
+| Aktion | Route(n) | Zurückgetipptes Ziel | Passwort |
+|---|---|---|---|
+| Eigenes Konto löschen (Art. 17, Karenz) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes |
+| Anderes Konto sofort löschen (Plattform-Admin) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos | das des **Admins** |
+| Mandant löschen (REQ-024 AK-44d) | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes |
+| Passwort ändern | `POST /users/me/password` | — | aktuelles |
+
+**Reihenfolge der Prüfung:**
+
+1. **Wer:** nur die angemeldete Sitzung eines Menschen. Ein Service Account oder eine Anfrage mit `kp_`-API-Key — auch einem, den ein menschliches Konto ausgestellt hat — wird mit 403 abgewiesen, **bevor** etwas gezählt wird.
+2. **Sperre:** ist der Step-up gesperrt, antwortet die Route 429 `STEP_UP_LOCKED` (`details[0].retry_after_minutes`), ohne das Passwort zu prüfen.
+3. **Ziel:** das zurückgetippte Ziel muss passen (E-Mail ohne Groß-/Kleinschreibung, Slug exakt) — sonst 422. Ein falsches Echo wird **nicht** gezählt; es prüft kein Geheimnis.
+4. **Passwort:** bei einem Konto mit lokalem Passwort das aktuelle — sonst 401. Ein ausschließlich föderiertes Konto bestätigt mit dem Echo allein (REQ-394-Präzedenz); echte Re-Authentifizierung beim Provider ist #1815.
+
+**Drosselung.** Jeder Passwortversuch wird **vor** der bcrypt-Prüfung atomar reserviert (Valkey `INCR`, In-Process-Fallback bei Ausfall — nie fail-open). Zwei Zähler, beide über denselben `LoginThrottleEngine` wie der Login (ab 5 Fehlversuchen 15 Minuten, verdoppelnd bis 4 Stunden):
+
+- je **(Konto, Client-Adresse)** mit der Login-Schwelle 5;
+- je **Konto** mit der Obergrenze 15 (drei Adress-Budgets) gegen Adress-Rotation.
+
+Nach Ablauf einer Sperre wird genau ein weiterer Versuch geprüft; schlägt er fehl, sperrt er sofort wieder mit doppelter Dauer (wie beim Login). Anfragen, die gleichzeitig über das Budget hinaus reserviert haben, werden ohne Passwortprüfung abgewiesen; Sperre, Zählung der Sperren und Rücksetzen des Zählers geschehen in einem Schritt (eine Valkey-Transaktion). Die Zähler gelten für alle Step-up-Aktionen eines Kontos gemeinsam (kein Budget je Route). Ein erfolgreicher Step-up leert beide. Im Light-Modus wird keine Kontolöschung per Anfrage angenommen (403) — dort ist jede Anfrage das eine Systemkonto.
+
+**Warum nicht die Login-Sperre.** Einen Step-up-Fehlversuch für ein Konto kann nur erzeugen, wer eine Sitzung dieses Kontos hält — geprüft wird immer das Passwort der handelnden Person, API-Keys werden vor dem Zählen abgewiesen. Ein Außenstehender kann ein Opfer über diesen Weg also nicht sperren. Flössen die Fehlversuche in `failed_login_attempts`, könnte aber ein Sitzungsdieb die Eigentümerin von der **Anmeldung** aussperren — genau dem Schritt, mit dem sie die gestohlene Sitzung sieht und widerruft. Umgekehrt würde das Lesen der Login-Sperre einem nicht angemeldeten Angreifer (der jede bekannte Adresse am Login sperren kann) erlauben, auch die Step-ups der Eigentümerin zu blockieren. Die Step-up-Sperre hält deshalb nur Step-ups auf. Restrisiko: ein Sitzungsdieb kann den kontoweiten Zähler gesperrt halten; die Eigentümerin kann sich trotzdem anmelden, Sitzungen widerrufen und das Passwort per E-Mail zurücksetzen. Letzteres trägt nur, solange die E-Mail-Adresse selbst hinter einem Step-up liegt — die E-Mail-Änderung (`POST /privacy/email-change`) ist es noch nicht (#1841).
+
+**Nachweis.** Der Löschauftrag (`erasure_requests`) hält `step_up` (`password` / `echo`); bei einer Admin-Löschung zusätzlich `requested_by_subject` — die gesalzene Referenz des Admins, nie dessen Kontoschlüssel.
 
 ## 4. Frontend
 

@@ -186,7 +186,7 @@ class RerankerEngine:
 
         logger.info(
             "reranker_complete",
-            query=query[:80],
+            query_length=len(query),
             input_chunks=len(chunks),
             output_chunks=len(reranked),
             top_score=reranked[0].score if reranked else 0.0,

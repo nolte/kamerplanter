@@ -43,6 +43,8 @@ import {
 } from '@/api/endpoints/adminPlatform';
 import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import type { AdminUser, AdminUserMembership, AdminTenant, TenantRole } from '@/api/types';
 
 const GRID_2COL = {
@@ -68,7 +70,6 @@ export default function AdminEditUserPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   // Memberships
   const [memberships, setMemberships] = useState<AdminUserMembership[]>([]);
@@ -165,18 +166,18 @@ export default function AdminEditUserPage() {
     }
   };
 
-  const handleDelete = async () => {
+  // Erasing another account is a step-up (#1814): the TARGET's e-mail typed
+  // back and the admin's OWN current password. A rejection propagates to the
+  // dialog, which shows it inside itself and stays open.
+  const handleDelete = async ({ echo, password }: StepUpConfirmation) => {
     if (!user) return;
-    setDeleting(true);
-    try {
-      await deleteAdminUser(user.key);
-      enqueueSnackbar(t('pages.auth.adminUserDeleted'), { variant: 'success' });
-      navigate('/settings#platform');
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    } finally {
-      setDeleting(false);
-    }
+    await deleteAdminUser(
+      user.key,
+      password === undefined ? { confirm_email: echo } : { confirm_email: echo, password },
+    );
+    setConfirmDelete(false);
+    enqueueSnackbar(t('pages.auth.adminUserDeleted'), { variant: 'success' });
+    navigate('/settings#platform');
   };
 
   const handleAddToTenant = async () => {
@@ -309,24 +310,26 @@ export default function AdminEditUserPage() {
             <Typography variant="subtitle2" color="error" gutterBottom>
               {t('pages.auth.dangerZone')}
             </Typography>
-            {!confirmDelete ? (
-              <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-user-btn">
-                {t('pages.auth.adminDeleteUser')}
-              </Button>
-            ) : (
-              <Alert severity="error">
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  {t('pages.auth.adminDeleteUserConfirm', { name: user.display_name, email: user.email })}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="contained" color="error" size="small" onClick={handleDelete} disabled={deleting}
-                    startIcon={deleting ? <CircularProgress size={14} /> : undefined} data-testid="confirm-delete-user-btn">
-                    {t('pages.auth.adminConfirmDelete')}
-                  </Button>
-                  <Button size="small" onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</Button>
-                </Box>
-              </Alert>
-            )}
+            <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-user-btn">
+              {t('pages.auth.adminDeleteUser')}
+            </Button>
+            <StepUpConfirmDialog
+              open={confirmDelete}
+              title={t('pages.auth.adminDeleteUserDialogTitle')}
+              description={t('pages.auth.adminDeleteUserConfirm', { name: user.display_name, email: user.email })}
+              echoLabel={t('pages.auth.adminDeleteUserEmailLabel')}
+              echoHelper={t('pages.auth.adminDeleteUserEmailHelper', { email: user.email })}
+              expectedEcho={user.email}
+              echoMatch="caseInsensitive"
+              echoInputType="email"
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminConfirmDelete')}
+              testIdPrefix="delete-user"
+              testIds={{ echo: 'delete-user-email', confirm: 'confirm-delete-user-btn' }}
+              onConfirm={handleDelete}
+              onCancel={() => setConfirmDelete(false)}
+            />
           </CardContent>
         </Card>
 

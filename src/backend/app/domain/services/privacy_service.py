@@ -9,18 +9,21 @@ import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import structlog
+from pydantic import BaseModel
 
 from app.common.decoys import decoy_document_key, email_digest
+from app.common.enums import TenantRole
 from app.common.exceptions import (
     DuplicateError,
     ErasureIncompleteError,
     FeatureNotConfiguredError,
+    ForbiddenError,
     InvalidTokenError,
     KamerplanterError,
     NotFoundError,
-    UnauthorizedError,
     ValidationError,
     WriteConflictError,
 )
@@ -60,6 +63,8 @@ from app.domain.models.privacy import (
     EmailChangeRequest,
     ErasureOrigin,
     ErasureRequest,
+    ErasureStepUp,
+    PersonalTenantErasure,
     PrivacyPolicyInfo,
     ProcessingRestriction,
     RestrictionReason,
@@ -68,8 +73,20 @@ from app.domain.models.privacy import (
 )
 from app.domain.models.user import User, is_tombstone_email
 from app.domain.services.retention_service import RetentionService
+from app.domain.services.step_up_service import (
+    StepUpConfirmation,
+    StepUpVerifier,
+    default_step_up_verifier,
+    echo_matches,
+)
+
+if TYPE_CHECKING:
+    from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
+
+#: The tenant whose ``lead`` membership makes a platform admin (REQ-049 §2.5).
+_PLATFORM_TENANT_KEY = "platform"
 
 
 def _persistable(fields: dict[str, object]) -> dict[str, object]:
@@ -82,7 +99,15 @@ def _persistable(fields: dict[str, object]) -> dict[str, object]:
     serialised *differently* would be worse, because the same field would then
     round-trip as one type when written narrowly and another when written whole.
     """
-    return {key: (value.isoformat() if isinstance(value, datetime) else value) for key, value in fields.items()}
+    return {key: _persistable_value(value) for key, value in fields.items()}
+
+
+def _persistable_value(value: object) -> object:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, list) and any(isinstance(item, BaseModel) for item in value):
+        return [item.model_dump(mode="json") if isinstance(item, BaseModel) else item for item in value]
+    return value
 
 
 async def _single_chunk(payload: bytes) -> AsyncIterator[bytes]:
@@ -171,8 +196,11 @@ class PrivacyService:
         pest_prototype_store: IPestPrototypeStore | None = None,
         personal_data_repo: IPersonalDataRepository | None = None,
         erasure_executor: IErasureExecutor | None = None,
+        tenant_service: TenantService | None = None,
         tombstone_salt: str = "",
         retention: RetentionService | None = None,
+        step_up_verifier: StepUpVerifier | None = None,
+        light_mode: bool = False,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -219,12 +247,24 @@ class PrivacyService:
         # for the same reason as above; :meth:`erase_account` refuses to start
         # without either, before it touches anything.
         self._erasure_executor = erasure_executor
+        # REQ-025 Art. 17 / #1788 — the account erasure erases the subject's
+        # personal tenant through the tenant-erasure inventory (#1769) when
+        # nobody else uses it. Optional like the executor: a deployment without
+        # it cannot erase an account and is refused before anything changes.
+        self._tenant_service = tenant_service
         self._tombstone_salt = tombstone_salt
         # NFR-011 R-02 / R-06 periods (#1772): the erasure-record purge and the
         # Art. 13 retention summary read the same computation, so the summary
         # cannot name a period the purge does not apply. Defaults to the
         # settings-backed service.
         self._retention = retention if retention is not None else RetentionService()
+        # Review SEC-003 — in light mode (REQ-027) every caller is the one system
+        # account, so no request may erase it (as ``TenantService.delete_tenant``).
+        self._light_mode = light_mode
+        # #1813 / #1814 / #1816 — the one throttled step-up of every irreversible account act.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
+            password_engine, tombstone_salt=tombstone_salt
+        )
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -509,27 +549,40 @@ class PrivacyService:
     def request_erasure(
         self,
         user_key: UserKey,
-        password_confirmation: str | None,
+        *,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> ErasureRequest:
         """Create an erasure request, soft-delete the user and revoke sessions.
 
         Hard-delete is scheduled the NFR-011 R-01 grace period into the future
         (``RETENTION_SOFT_DELETE_RETENTION_DAYS``, default 90). The actual
         deletion runs in a Celery task.
+
+        The entry of both self-service routes, ``POST /privacy/erasure`` and
+        ``DELETE /users/me`` (#1813). The step-up is the shared
+        :class:`StepUpVerifier` (keyword-only, no defaults, so a new route cannot
+        skip it): a signed-in session of a person, never an API key or a service
+        account (403); the account's own e-mail typed back (422); the current
+        password when the account has one (401) — throttled per account and
+        address (429 ``STEP_UP_LOCKED``, #1816). A federated-only account confirms
+        with the echo alone (REQ-394; real re-authentication #1815).
         """
+        self._refuse_in_light_mode()
         user = self._user_repo.get_or_raise(user_key)
+        step_up = self._step_up_verifier.verify(
+            user,
+            action="account_erasure",
+            echo_ok=echo_matches(confirmation.echo, user.email, case_insensitive=True),
+            password=confirmation.password,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
         existing = self._erasure_repo.find_active_for_user(user_key)
         if existing is not None:
             raise ValidationError("An erasure request is already in progress.")
-
-        # Local accounts: require password re-auth. OAuth-only accounts must
-        # confirm via a different upstream flow that is out of scope here.
-        if user.password_hash is not None and (
-            not password_confirmation
-            or not self._password_engine.verify_password(password_confirmation, user.password_hash)
-        ):
-            raise UnauthorizedError("Password confirmation failed.")
 
         now = datetime.now(UTC)
         erasure = self._new_erasure_request(
@@ -538,6 +591,7 @@ class PrivacyService:
             hard_delete_at=self._retention.hard_delete_at(now),
             origin="self_service",
         )
+        erasure.step_up = "password" if step_up == "password" else "echo"
         created = self._erasure_repo.create(erasure)
 
         # Immediate effects: soft-delete the user and revoke all sessions.
@@ -589,9 +643,11 @@ class PrivacyService:
             deleted_collections=self._erasure_engine.deleted_collection_names(),
             retained_reason=(
                 "Harvest records (including quality assessments), treatment and inspection records are "
-                "retained per CanG and PflSchG and will be anonymised. "
-                "Diary entries stay with the plant record of their tenant; their author and AI-analysis "
-                "references are anonymised (REQ-050 section 7.4)."
+                "retained per CanG and PflSchG and will be pseudonymised. "
+                "Your personal garden is deleted with everything else in it, unless another active member "
+                "still uses it; then the garden and what you entered in it stay for them, without your name. "
+                "Diary entries in shared gardens stay with the plant record of their tenant; their author and "
+                "AI-analysis references are anonymised (REQ-050 section 7.4)."
             ),
         )
 
@@ -601,6 +657,8 @@ class PrivacyService:
         *,
         origin: ErasureOrigin,
         now: datetime | None = None,
+        step_up: ErasureStepUp | None = None,
+        requested_by_subject: str | None = None,
     ) -> ErasureRequest | None:
         """Erase an account at once, with the same record, gate and retry as Art. 17 (#1767).
 
@@ -661,8 +719,17 @@ class PrivacyService:
         # The request first, so a failure after the account is closed still
         # leaves a duty the beat retries (#1767 review SEC-D).
         if erasure is None:
-            erasure = self._create_immediate_request(user_key, now=now, origin=origin)
-        elif erasure.key is not None and (
+            erasure = self._create_immediate_request(
+                user_key, now=now, origin=origin, step_up=step_up, requested_by_subject=requested_by_subject
+            )
+        elif step_up is not None and erasure.key is not None:
+            # An admin erasing an account whose own request is still open: the
+            # record now also names the admin act that pulled it forward (#1814).
+            self._erasure_repo.update_fields(
+                erasure.key, {"step_up": step_up, "requested_by_subject": requested_by_subject}
+            )
+            erasure.step_up, erasure.requested_by_subject = step_up, requested_by_subject
+        if erasure.key is not None and (
             erasure.hard_delete_scheduled_at is None or erasure.hard_delete_scheduled_at > now
         ):
             # A self-service request still in its grace: the beat must be able
@@ -684,7 +751,94 @@ class PrivacyService:
         await self._finalize_erasure(erasure, now, raise_on_failure=True)
         return erasure
 
-    def _create_immediate_request(self, user_key: UserKey, *, now: datetime, origin: ErasureOrigin) -> ErasureRequest:
+    async def erase_account_by_admin(
+        self,
+        user_key: UserKey,
+        *,
+        requester: User,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+        now: datetime | None = None,
+    ) -> ErasureRequest | None:
+        """A platform admin erases another account at once — with a step-up (#1814).
+
+        The entry of ``DELETE /admin/platform/users/{key}``. Until #1814 the route
+        called :meth:`erase_account_now` behind ``require_platform_admin`` alone, so
+        a hijacked admin session erased any account with one request. Checked here,
+        not at the router, so the rule cannot drift from the route (the arguments
+        are keyword-only without defaults for that reason):
+
+        1. not the requester's own account (403) — that is the self-service path;
+        2. the requester is a platform admin *by the stored membership* (an active
+           ``lead`` membership in the ``platform`` tenant), not by the router's say (403);
+        3. the shared :class:`StepUpVerifier`: a signed-in session of a person,
+           never an API key (403); the **target's** e-mail typed back (422); the
+           **admin's own** current password when the admin has one (401),
+           throttled per admin and address (429, #1816).
+
+        Then :meth:`erase_account_now`, whose record carries the step-up and the
+        admin as a salted reference.
+        """
+        self._refuse_in_light_mode()
+        if requester.key == user_key:
+            raise ForbiddenError("You cannot delete your own account from the admin panel.")
+        self._require_platform_admin_membership(requester)
+        target = self._user_repo.get_or_raise(user_key)
+        step_up = self._step_up_verifier.verify(
+            requester,
+            action="admin_account_erasure",
+            echo_ok=echo_matches(confirmation.echo, target.email, case_insensitive=True),
+            password=confirmation.password,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        requested_by = self.log_subject(requester.key or "")
+        logger.info(
+            "erasure.admin_authorized",
+            subject=self.log_subject(user_key),
+            requested_by=requested_by,
+            step_up=step_up,
+        )
+        return await self.erase_account_now(
+            user_key,
+            origin="platform_admin",
+            now=now,
+            step_up="password" if step_up == "password" else "echo",
+            requested_by_subject=requested_by,
+        )
+
+    def _refuse_in_light_mode(self) -> None:
+        """No account erasure through a request in light mode (review SEC-003).
+
+        A light-mode installation has one account, the system user every request
+        resolves to without authentication (REQ-027), and its address is public in
+        the seed. The echo alone confirms an account without a password, so an
+        erasure request here would let anyone who reaches the instance schedule
+        the erasure of the installation itself.
+        """
+        if self._light_mode:
+            raise ForbiddenError("The account of a light-mode installation cannot be erased.")
+
+    def _require_platform_admin_membership(self, requester: User) -> None:
+        """Refuse unless the stored membership proves a platform admin (fail closed without a repo)."""
+        membership = (
+            self._membership_repo.get_by_user_and_tenant(requester.key or "", _PLATFORM_TENANT_KEY)
+            if self._membership_repo is not None
+            else None
+        )
+        if not (membership and membership.is_active and membership.role == TenantRole.LEAD):
+            raise ForbiddenError("Platform admin role required.")
+
+    def _create_immediate_request(
+        self,
+        user_key: UserKey,
+        *,
+        now: datetime,
+        origin: ErasureOrigin,
+        step_up: ErasureStepUp | None = None,
+        requested_by_subject: str | None = None,
+    ) -> ErasureRequest:
         """Create the immediate request under a per-subject key, or refuse (#1767 SEC-003).
 
         Keyed by a salted, domain-separated hash of the subject
@@ -696,6 +850,8 @@ class PrivacyService:
         """
         key = self._erasure_engine.compute_request_key(user_key, self._tombstone_salt)
         request = self._new_erasure_request(user_key, now=now, hard_delete_at=now, origin=origin)
+        request.step_up = step_up
+        request.requested_by_subject = requested_by_subject
         try:
             return self._erasure_repo.create_with_key(request, key)
         except (DuplicateError, WriteConflictError) as exc:
@@ -1378,7 +1534,19 @@ class PrivacyService:
             self._erasure_engine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
-        return None
+        return self._personal_tenant_configuration_error()
+
+    def _personal_tenant_configuration_error(self) -> str | None:
+        """Why the personal-tenant phase cannot run on this deployment, or ``None`` (#1788).
+
+        The account erasure erases the subject's personal tenant through
+        :meth:`TenantService.delete_tenant`; a deployment that cannot erase a
+        tenant is held like one without an executor — before anything changes,
+        no attempt spent (#1666).
+        """
+        if self._tenant_service is None:
+            return "No tenant service is wired, so the subject's personal tenant cannot be erased."
+        return self._tenant_service.tenant_erasure_configuration_error()
 
     def _derived_index_configuration_error(self) -> str | None:
         """Why a derived-index delete cannot run in this process, or ``None`` when it can.
@@ -1531,6 +1699,8 @@ class PrivacyService:
                 pre_arango_completed_at=now,
                 reference_index_binding=pre_arango.reference_index_binding,
                 reference_index_removed=pre_arango.reference_index_removed,
+                storage_objects_removed=pre_arango.storage_objects_removed,
+                storage_objects_retained_shared=pre_arango.storage_objects_retained_shared,
                 # Only when the pest step ran: ``None`` fields are not written.
                 pest_prototype_binding=pre_arango.pest_prototype_binding,
                 pest_prototypes_removed=(
@@ -1538,12 +1708,17 @@ class PrivacyService:
                 ),
             )
 
+        def _record_personal_tenants(keys: list[str]) -> None:
+            self._mark_erasure(erasure, status="in_progress", personal_tenant_keys=keys)
+
         try:
             report = await self.erase_account(
                 erasure.user_key,
                 pre_arango_completed=erasure.pre_arango_completed_at is not None,
                 recorded_storage_scopes=erasure.storage_cleanup_scopes,
                 on_pre_arango_complete=_checkpoint,
+                recorded_personal_tenant_keys=erasure.personal_tenant_keys,
+                on_personal_tenants_resolved=_record_personal_tenants,
             )
         except Exception as exc:  # noqa: BLE001 — any failure leaves the duty open for a later run
             self._record_failed_attempt(
@@ -1561,6 +1736,9 @@ class PrivacyService:
             return False
 
         unreached = report.unreached(self._erasure_engine.delete_order())
+        if report.personal_tenants is None:
+            # #1788 — the personal-tenant phase is a declared step like the others.
+            unreached.append("personal_tenants")
         if unreached:
             self._record_failed_attempt(
                 erasure,
@@ -1583,6 +1761,8 @@ class PrivacyService:
             status="completed",
             completed_at=now,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            storage_objects_released=report.storage_objects_released,
+            personal_tenants=report.personal_tenants,
         )
         return True
 
@@ -1662,6 +1842,8 @@ class PrivacyService:
         pre_arango_completed: bool = False,
         recorded_storage_scopes: list[str] | None = None,
         on_pre_arango_complete: Callable[[AccountErasureReport], None] | None = None,
+        recorded_personal_tenant_keys: list[str] | None = None,
+        on_personal_tenants_resolved: Callable[[list[str]], None] | None = None,
     ) -> AccountErasureReport:
         """Erase one account: every declared phase, then the ArangoDB plan (#1664).
 
@@ -1677,8 +1859,14 @@ class PrivacyService:
            documents are the only pointer to a stored Art. 15 bundle, and step 4
            removes them.
         3. **Phase 0 / 0.5 / pest images** (:meth:`_run_pre_arango_phases`):
-           they resolve the user's tenants through the memberships step 4 removes.
-        4. **The ArangoDB plan** via :class:`IErasureExecutor`, in one
+           they resolve the user's tenants through the memberships step 5 removes.
+        4. **The subject's personal tenants** (:meth:`_erase_personal_tenants`,
+           #1788): each one nobody else uses goes through the tenant-erasure
+           inventory (:meth:`TenantService.delete_tenant`, origin
+           ``account_erasure``). Runs on every attempt — each tenant is resumed
+           from its own deletion record — and before step 5, which replaces the
+           owner reference the tenants are found by.
+        5. **The ArangoDB plan** via :class:`IErasureExecutor`, in one
            transaction: edges and documents removed, retained rows anonymised,
            audit rows pseudonymised, the user document last.
 
@@ -1697,6 +1885,13 @@ class PrivacyService:
                 finished, before the ArangoDB plan — the scheduled path records
                 its marker here, so a failing plan does not make the next
                 attempt repeat the storage work.
+            recorded_personal_tenant_keys: The personal tenants an earlier
+                attempt of the same request resolved (#1788); step 4 handles
+                them as well as every personal tenant the subject still owns.
+            on_personal_tenants_resolved: Called with the tenant keys step 4
+                will handle, before the first is erased, whenever they differ
+                from ``recorded_personal_tenant_keys`` — the request records
+                them there, so a retry still knows a tenant that is gone.
 
         Returns:
             Per-phase and per-step counts. Logged without the rows' content.
@@ -1726,6 +1921,10 @@ class PrivacyService:
                 "account_erasure",
                 "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters.",
             ) from exc
+        personal_tenant_error = self._personal_tenant_configuration_error()
+        if personal_tenant_error is not None:
+            # #1788 — step 4 runs on every attempt, so this is checked on every one.
+            raise FeatureNotConfiguredError("account_erasure", personal_tenant_error)
         if not pre_arango_completed:
             # #1753 — refuse before touching anything when Phase 0.5 cannot
             # reach the index; a retry past the checkpoint no longer needs it.
@@ -1735,6 +1934,14 @@ class PrivacyService:
         plan = self._erasure_engine.build_erasure_plan(user_key)
 
         report = AccountErasureReport()
+        # #1770 — the objects of the subject's hard-deleted records, taken while the
+        # records still exist (the plan removes them) and *before* the pre-ArangoDB
+        # phases: the pest-image step deletes the contributions through which
+        # ``_erasure_tenant_keys`` finds a tenant the subject has left. Phase 0 kept
+        # an object another member's record held; if that record goes before the
+        # plan, nothing holds the object once the plan has run, and this run
+        # releases it.
+        hard_deleted_objects = await self._hard_deleted_objects(user_key)
         if pre_arango_completed:
             logger.info("retention.erasure.pre_arango_phases_skipped", subject=self.log_subject(user_key))
             report.storage_cleanup_scopes = list(recorded_storage_scopes or [])
@@ -1749,21 +1956,62 @@ class PrivacyService:
         for step in plan.steps:
             if step.executor == "pest_image_cleanup":
                 report.delegated_removed[step.collection] = pest_removed
+        report.personal_tenants = await asyncio.to_thread(
+            self._erase_personal_tenants,
+            user_key,
+            list(recorded_personal_tenant_keys or []),
+            on_personal_tenants_resolved,
+        )
         report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
+        report.storage_objects_released = await self._release_unheld_objects(user_key, hard_deleted_objects)
 
         logger.info(
             "erasure.account_erased",
             subject=self.log_subject(user_key),
             export_files_removed=report.export_files_removed,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            storage_objects_removed=report.storage_objects_removed,
+            storage_objects_retained_shared=report.storage_objects_retained_shared,
             reference_index_removed=report.reference_index_removed,
             reference_index_binding=report.reference_index_binding,
             pest_prototypes_removed=report.pest_prototypes_removed,
             pest_prototype_binding=report.pest_prototype_binding,
             delegated_removed=report.delegated_removed,
+            storage_objects_released=report.storage_objects_released,
+            # Outcomes only — no tenant or record key beside the subject digest (#1788 review GDPR-05).
+            personal_tenants=[item.outcome for item in report.personal_tenants],
             arango_steps={step.collection: step.affected for step in report.arango.steps},
         )
         return report
+
+    def _erase_personal_tenants(
+        self,
+        user_key: str,
+        recorded_keys: list[str],
+        on_resolved: Callable[[list[str]], None] | None,
+    ) -> list[PersonalTenantErasure]:
+        """Step 4 of :meth:`erase_account` — the subject's personal tenants (#1788).
+
+        The personal tenant created at registration (REQ-024) holds the
+        subject's own garden: sites with coordinates, plants, diary text, tasks.
+        Before #1788 the account plan kept it with the owner reference replaced,
+        and nothing ever deleted it. Each personal tenant is now handed to
+        :meth:`TenantService.erase_personal_tenant_of`, which runs the declared
+        tenant-erasure inventory unless another account is an active member.
+
+        The keys are recorded (``on_resolved``) before the first tenant is
+        erased: the plan in step 5 replaces the owner reference they are found
+        by, and a deleted tenant is not listed again, so the record is what a
+        retry reads. Any failure propagates — the request stays open and is
+        retried; the tenant's own deletion record is retried by its beat too.
+        """
+        tenant_service = self._tenant_service
+        if tenant_service is None:  # pragma: no cover - refused by the configuration check
+            raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        keys = list(dict.fromkeys([*recorded_keys, *tenant_service.personal_tenant_keys_of(user_key)]))
+        if on_resolved is not None and keys != recorded_keys:
+            on_resolved(keys)
+        return [tenant_service.erase_personal_tenant_of(user_key, tenant_key) for tenant_key in keys]
 
     async def _run_export_file_cleanup(self, user_key: str) -> int:
         """Delete the stored Art. 15 bundles of *user_key* before their records go.
@@ -1813,7 +2061,7 @@ class PrivacyService:
         Returns the number of pest-image contributions removed (the count of a
         declared step delegated to this phase).
         """
-        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key)
+        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key, report)
         report.reference_index_removed = await self._run_reference_index_cleanup(user_key)
         report.reference_index_binding = self._reference_index_binding()
         return await self._run_pest_image_cleanup(user_key, report)
@@ -1860,12 +2108,17 @@ class PrivacyService:
         )
         return removed
 
-    async def _run_storage_cleanup(self, user_key: str) -> list[str]:
+    async def _run_storage_cleanup(self, user_key: str, report: AccountErasureReport | None = None) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.
 
         A user can belong to several tenants (REQ-024 membership); the
         ``attachments`` lookup is tenant-scoped, so the cleanup runs per tenant.
         Returns the list of scopes that were applied (for the audit record).
+
+        #1770 — a hard-deleted record's object is kept while another record still
+        holds it (deduplicated bytes of another member). *report* receives both
+        counts, so the erasure proves it reached the subject's records even where
+        it kept the bytes.
         """
         if self._storage_adapter is None or self._membership_repo is None:
             logger.info(
@@ -1880,17 +2133,21 @@ class PrivacyService:
         for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
             for tenant_key in tenant_keys:
                 if rule.action == "hard_delete":
-                    deleted = await self._storage_adapter.delete_for_user(
+                    result = await self._storage_adapter.delete_for_user(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
                     )
+                    if report is not None:
+                        report.storage_objects_removed += result.removed
+                        report.storage_objects_retained_shared += result.retained_shared
                     logger.info(
                         "retention.erasure.storage_hard_delete",
                         scope=rule.scope,
                         tenant_key=tenant_key,
                         subject=self.log_subject(user_key),
-                        deleted=deleted,
+                        deleted=result.removed,
+                        retained_shared=result.retained_shared,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
                     # Strip first: both halves select the photos by
@@ -1919,6 +2176,86 @@ class PrivacyService:
                     )
             applied_scopes.append(rule.scope)
         return applied_scopes
+
+    async def _hard_deleted_objects(self, user_key: str) -> list[tuple[str, str, str]]:
+        """``(tenant, storage key, mime type)`` of the subject's records in hard-delete scopes.
+
+        Read before the ArangoDB plan removes those records (#1770), on a retry
+        as on the first run: the plan runs in one transaction, so a failed one
+        left them in place.
+        """
+        if self._storage_adapter is None or self._attachment_repo is None or self._membership_repo is None:
+            return []
+        from app.data_access.storage.local_fs_adapter import _scope_to_categories
+
+        objects: set[tuple[str, str, str]] = set()
+        tenant_keys = self._erasure_tenant_keys(user_key)
+        for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
+            if rule.action != "hard_delete":
+                continue
+            categories = _scope_to_categories(rule.scope)
+            if categories is not None and not categories:
+                continue
+            for tenant_key in tenant_keys:
+                for attachment in self._attachment_repo.find_by_user(tenant_key, user_key, categories):
+                    objects.add((tenant_key, attachment.storage_key, attachment.mime_type))
+        return sorted(objects)
+
+    async def _release_unheld_objects(self, user_key: str, objects: list[tuple[str, str, str]]) -> int:
+        """Delete the objects of *objects* no record holds any more, with their renditions (#1770).
+
+        Phase 0 keeps an object another member's record still holds. That record
+        can go between Phase 0 and the plan — its own delete then saw the
+        subject's record, not yet removed, as the holder and kept the object too.
+        Asked again after the plan, no one holds it and nothing else ever would
+        delete it.
+
+        Runs after the plan committed, so a failure cannot reopen the erasure (the
+        next run finds the tombstone and closes it). It is logged at error level
+        with a count and no key, and the objects stay for the operator.
+        """
+        if not objects or self._storage_adapter is None or self._attachment_repo is None:
+            return 0
+        from app.common.exceptions import NotFoundError
+        from app.domain.engines.storage.thumbnail_generator import rendition_keys
+
+        released = 0
+        try:
+            by_tenant: dict[str, list[tuple[str, str]]] = {}
+            for tenant_key, storage_key, mime_type in objects:
+                by_tenant.setdefault(tenant_key, []).append((storage_key, mime_type))
+            for tenant_key, entries in by_tenant.items():
+                held = self._attachment_repo.storage_keys_held_elsewhere(
+                    tenant_key=tenant_key, storage_keys=[key for key, _ in entries], excluding=[]
+                )
+                for storage_key, mime_type in entries:
+                    if storage_key in held:
+                        continue
+                    try:
+                        await self._storage_adapter.head_object(storage_key)
+                    except NotFoundError:
+                        continue  # Phase 0 deleted it — the common case.
+                    await self._storage_adapter.delete_object(storage_key)
+                    for rendition in rendition_keys(storage_key, mime_type):
+                        await self._storage_adapter.delete_object(rendition)
+                    released += 1
+        except Exception as exc:  # noqa: BLE001 — the plan committed; the error must not reopen it
+            logger.error(
+                "retention.erasure.shared_object_release_failed",
+                subject=self.log_subject(user_key),
+                objects=len(objects),
+                released=released,
+                error=self._loggable_error(exc, user_key),
+                error_type=type(exc).__name__,
+            )
+            return released
+        if released:
+            logger.info(
+                "retention.erasure.shared_objects_released",
+                subject=self.log_subject(user_key),
+                released=released,
+            )
+        return released
 
     async def _anonymize_attachment_metadata(self, tenant_key: str, user_key: str, scope: str) -> int:
         """Set ``created_by = '_anonymized'`` for the scope's categories."""
@@ -2049,6 +2386,11 @@ class PrivacyService:
         reference_index_removed: int | None = None,
         pest_prototype_binding: str | None = None,
         pest_prototypes_removed: int | None = None,
+        storage_objects_removed: int | None = None,
+        storage_objects_retained_shared: int | None = None,
+        storage_objects_released: int | None = None,
+        personal_tenant_keys: list[str] | None = None,
+        personal_tenants: list[PersonalTenantErasure] | None = None,
     ) -> None:
         """Persist an erasure-status transition as a named-field write.
 
@@ -2078,6 +2420,11 @@ class PrivacyService:
             "reference_index_removed": reference_index_removed,
             "pest_prototype_binding": pest_prototype_binding,
             "pest_prototypes_removed": pest_prototypes_removed,
+            "storage_objects_removed": storage_objects_removed,
+            "storage_objects_retained_shared": storage_objects_retained_shared,
+            "storage_objects_released": storage_objects_released,
+            "personal_tenant_keys": personal_tenant_keys,
+            "personal_tenants": personal_tenants,
         }
         fields.update({name: value for name, value in retry_fields.items() if value is not None})
         if status == "completed":

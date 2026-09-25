@@ -16,8 +16,9 @@ from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import AccountErasureReport, ErasureRequest
+from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import RecordingErasureExecutor
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 
 
 def _membership(tenant_key: str):
@@ -60,6 +61,7 @@ def _make_service(
             # #1645 — the scheduled path runs ``erase_account``, which needs the
             # ArangoDB executor and the NFR-011 salt.
             erasure_executor=erasure_executor or RecordingErasureExecutor(),
+            tenant_service=FakePersonalTenants(),
             tombstone_salt="s" * 32,
         ),
         erasure_repo,
@@ -72,7 +74,7 @@ class TestErasurePhase0:
         """AK-OS-01 / AK-OS-02 — both storage scopes run per tenant."""
         erasure = ErasureRequest(key="er-1", user_key="u-1", status="scheduled")
         storage = MagicMock()
-        storage.delete_for_user = AsyncMock(return_value=2)
+        storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=2))
         storage.strip_exif_for_user = AsyncMock(return_value=1)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 3
@@ -114,7 +116,7 @@ class TestErasurePhase0:
         """AK-OS-05 — user-contributed embeddings cleanup runs before delete."""
         erasure = ErasureRequest(key="er-2", user_key="u-2", status="scheduled")
         storage = MagicMock()
-        storage.delete_for_user = AsyncMock(return_value=0)
+        storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=0))
         storage.strip_exif_for_user = AsyncMock(return_value=0)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 0
@@ -145,7 +147,7 @@ class TestErasurePhase0:
 
         erasure = ErasureRequest(key="er-3", user_key="u-3", status="scheduled")
         storage = MagicMock()
-        storage.delete_for_user = AsyncMock(return_value=0)
+        storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=0))
         storage.strip_exif_for_user = AsyncMock(return_value=0)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 0
@@ -210,7 +212,9 @@ class TestErasurePhase0:
         storage = MagicMock()
         # Run 1 aborts on the first hard-delete scope (1 call). Run 2 succeeds
         # across both hard-delete scopes (user_personal + pest reference images).
-        storage.delete_for_user = AsyncMock(side_effect=[RuntimeError("S3 down"), 0, 0])
+        storage.delete_for_user = AsyncMock(
+            side_effect=[RuntimeError("S3 down"), StorageErasureResult(), StorageErasureResult()]
+        )
         storage.strip_exif_for_user = AsyncMock(return_value=0)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 0
@@ -254,7 +258,7 @@ class TestErasurePhase0:
         """AK-OS-05 — Phase 0.5 failure ⇒ partially_completed (retryable)."""
         erasure = ErasureRequest(key="er-5", user_key="u-5", status="scheduled")
         storage = MagicMock()
-        storage.delete_for_user = AsyncMock(return_value=0)
+        storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=0))
         storage.strip_exif_for_user = AsyncMock(return_value=0)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 0
@@ -287,7 +291,7 @@ class TestErasurePhase0:
         """
         erasure = ErasureRequest(key="er-helper", user_key="u-helper", status="scheduled")
         storage = MagicMock()
-        storage.delete_for_user = AsyncMock(return_value=1)
+        storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=1))
         storage.strip_exif_for_user = AsyncMock(return_value=1)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 1
@@ -322,7 +326,7 @@ class TestErasurePhase0:
         """A user in several tenants is cleaned up in each tenant's storage."""
         erasure = ErasureRequest(key="er-6", user_key="u-6", status="scheduled")
         storage = MagicMock()
-        storage.delete_for_user = AsyncMock(return_value=0)
+        storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=0))
         storage.strip_exif_for_user = AsyncMock(return_value=0)
         attachment_repo = MagicMock()
         attachment_repo.anonymize_user_metadata.return_value = 0

@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 5.9
 Status: Entwurf
-Version: 1.5 (§3.1: persönliche Datensätze bekommen keinen eigenen Begriff)
+Version: 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
 Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hier im Vokabular abgelöst und im Rollenumfang erweitert), REQ-023 (Authentifizierung — Kontoart, Dienstkonten), REQ-027 (Light-Modus — Einzelkonto), REQ-030 (Benachrichtigungssystem — übernimmt die Empfängerregel §2.8), REQ-022 (Pflegeerinnerungen — dieselbe Empfängerregel), REQ-046 (Wetterdienste — wandern auf die globale Ebene §2.9), REQ-005 + REQ-018 (Home Assistant — wandert auf die Mandantenebene §2.9), NFR-001 (Schichtenarchitektur), NFR-015 (OWASP-ZAP — Permission-Matrix-Tests), NFR-016 (Versioniertes Migrations-Framework — Datenmigration der Mitgliedschaften)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.6 | 2026-09-25 | **Mandant löschen (#1791):** Die einzige Aktion, die **beide** Achsen verlangt — Verwaltung (§2.4) **und** Leitung (§2.3) —, weil sie seit #1769 alle Daten des Mandanten unwiderruflich vernichtet. Das ist eine Schnittmenge, keine Vermischung: keine der beiden Achsen öffnet die Aktion allein. Dazu ein Step-up (Kurzname zurücktippen, Passwort bei lokalem Konto), Einzelheiten in REQ-024 §1a.2. §2.4 und §4.2 nachgeführt. |
 | 1.5 | 2026-08-15 | **§2.11 (Dienstkonten):** Ein Dienstkonto (`account_type: 'service'`, REQ-023) nimmt über ein echtes Membership teil wie ein interaktiver Aufrufer, hat aber **keinen** Rückfall auf einen persönlichen Mandanten — ohne Header globaler Scope `""`. Normativ festgehalten, weil das heutige Verhalten sonst nur durch die Datenlage entsteht und ein später angelegter persönlicher Mandant es ohne Codeänderung erweitern würde. Schließt #1122 (Folge-F-4 aus #1091). |
 | 1.4 | 2026-08-11 | **ADR-009:** Neue §2.11 (Aktiver Mandant auf globalen Routen): Ein `X-Active-Tenant`-Header trägt auf globalen, mandantenbewussten Routen den Mandanten-Slug, in dem der Aufrufer handelt; ein Resolver löst Read, Write-Stamping und Rolle identisch auf, die Rolle stammt aus dem Membership im *aktiven* Mandanten (§2.7). Fail-safe: abwesender Header → persönlich/global wie bisher, ungültiger Header → orakelfreies `403`, nie ein stiller Rückfall. Schließt damit die offene Designfrage **A1** aus #808 (Auflösung des Mandanten auf global-aber-mandantenbewussten Routen). **AK-09** von `404` auf `403` korrigiert: Nach der Angleichung der `/t/{slug}/`-Pfadroute (Package A-11) verweigert `get_current_tenant` einem Nicht-Member — auch einem Plattform-Admin ohne Mitgliedschaft — orakelfrei mit `403` **vor** jedem Datenzugriff; beide Mandantengrenzen (Pfad und Header) sind damit orakelfrei. |
 | 1.3 | 2026-07-25 | Offenen Punkt aus §2.9 entschieden und als §2.10 ausgeführt: Trennung von **Angebot** (global, Plattform-Admin), **Anbindung** (pro Mandant, Technik) und **Auswahl** (pro Standort, Leitung). Ein global eingerichteter Dienst ist auswählbar, wirkt aber nur, wo er ausgewählt wurde. Das globale Angebot darf leer sein — Home-Assistant-Sensoren sind eine vollwertige Wetterquelle ohne jeden externen Dienst, und umgekehrt. AK-23 korrigiert (Angebot ≠ automatische Wirkung), AK-25 bis AK-29 ergänzt. |
@@ -108,7 +109,7 @@ Diese Berechtigungen werden **zusätzlich** zur fachlichen Rolle vergeben. Ein M
 
 | Zusatzberechtigung | Schlüssel | Umfasst | Typische Besetzung |
 |--------------------|-----------|---------|--------------------|
-| **Verwaltung** | `management` | Mitglieder einladen, Rollen ändern, Mitglieder entfernen; Einladungslinks erstellen und widerrufen; Mandanten-Einstellungen (Name, Kurzname, Stammdaten-Zuweisung); Standort-Zuweisungen; Dienstkonten; Mandanten löschen | Vorstand, Lehrkraft, Inhaber, Schriftführer |
+| **Verwaltung** | `management` | Mitglieder einladen, Rollen ändern, Mitglieder entfernen; Einladungslinks erstellen und widerrufen; Mandanten-Einstellungen (Name, Kurzname, Stammdaten-Zuweisung); Standort-Zuweisungen; Dienstkonten; Mandanten löschen — nur zusammen mit der Rolle **Leitung** und einem Step-up (§4.2, REQ-024 §1a.2) | Vorstand, Lehrkraft, Inhaber, Schriftführer |
 | **Technik** | `technical` | **Mandanteneigene** Integrationen einrichten: die Home-Assistant-Instanz dieses Mandanten, MQTT, InvenTree; Sensoren und Aktoren konfigurieren (nicht: bedienen); CSV-Import ausführen; Anreicherungsquellen und Sync-Trigger; KI-Provider des Mandanten; Benachrichtigungskanäle des Mandanten | Technikwart, IT-Verantwortlicher, betreuender Dienstleister |
 
 Nicht enthalten sind **global konfigurierte** externe Dienste — sie gehören zur Plattform-Ebene (§2.5) und folgen der Regel aus §2.9.
@@ -380,7 +381,7 @@ Diese Tabelle ist die anwenderseitige Umkehrung von §2 — sortiert nach Tätig
 | Namen, Kurznamen oder Stammdaten-Zuweisung ändern | Verwaltung |
 | Eine Parzelle einem Mitglied zuweisen | Verwaltung |
 | Ein Dienstkonto anlegen | Verwaltung |
-| Den Mandanten löschen | Verwaltung |
+| Den Mandanten löschen | Verwaltung **und** Leitung, dazu Kurzname und Passwort zur Bestätigung |
 | Die Home-Assistant-Instanz **dieses Gartens** anbinden | Technik |
 | MQTT oder InvenTree anbinden | Technik |
 | Einen Sensor oder Aktor **konfigurieren** (nicht bedienen) | Technik |

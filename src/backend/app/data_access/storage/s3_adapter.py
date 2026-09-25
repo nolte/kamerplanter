@@ -29,13 +29,13 @@ from app.domain.engines.storage.exif_stripper import (
     strip_exif,
 )
 from app.domain.engines.storage.export_bundle_key import loggable_storage_key
-from app.domain.engines.storage.thumbnail_generator import rendition_keys
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     S3_DEFAULT_CAPABILITIES,
     ObjectMetadata,
     ObjectRef,
     StorageCapabilities,
+    StorageErasureResult,
 )
 
 logger = structlog.get_logger()
@@ -327,36 +327,25 @@ class S3StorageAdapter(IObjectStorageAdapter):
     async def health_check(self) -> dict[str, Any]:
         return await asyncio.to_thread(self._health_sync)
 
-    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
-        """REQ-025 erasure hook — delete every stored object owned by a user.
+    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> StorageErasureResult:
+        """REQ-025 erasure hook — delete the objects of a user's records.
 
-        Each original goes together with its WebP renditions (#1760). Returns
-        the number of attachments erased; 0 until an attachment repository is wired (Lauf 2 DI provider).
+        Each object goes together with its WebP renditions (#1760), unless another
+        record still holds it (#1770, :func:`erase_user_objects`). Nothing is
+        reached until an attachment repository is wired (Lauf 2 DI provider).
         """
-        if self._attachment_repo is None:
-            return 0
-        from app.data_access.storage.local_fs_adapter import _scope_to_categories
+        from app.data_access.storage.local_fs_adapter import erase_user_objects
 
-        categories = _scope_to_categories(scope)
-        if categories is not None and not categories:
-            return 0
-        attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
-        deleted = 0
-        for att in attachments:
-            await self.delete_object(att.storage_key)
-            # #1760 — the renditions go with the original; once the ArangoDB
-            # plan removes the attachment record nothing points at them.
-            for rendition in rendition_keys(att.storage_key, att.mime_type):
-                await self.delete_object(rendition)
-            deleted += 1
+        result = await erase_user_objects(self, self._attachment_repo, tenant_key, user_key, scope)
         logger.info(
             "storage_delete_for_user",
             backend=BACKEND_KEY,
             tenant_key=tenant_key,
             scope=scope,
-            deleted=deleted,
+            deleted=result.removed,
+            retained_shared=result.retained_shared,
         )
-        return deleted
+        return result
 
     async def strip_exif_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
         """REQ-025 erasure hook — strip EXIF from a user's images.
