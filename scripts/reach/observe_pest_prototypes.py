@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _reach_common import DEFAULT_SUBJECT, ReachError  # noqa: E402
 from vectordb import pest_file, psql, read_record  # noqa: E402
 
+
 _STATE = """
 SELECT EXISTS (SELECT 1 FROM pest_embeddings WHERE id = ANY(string_to_array(:'contributed_ids', ',')::integer[])),
        (SELECT count(*) FROM pest_embeddings

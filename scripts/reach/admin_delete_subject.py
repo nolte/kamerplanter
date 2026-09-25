@@ -55,9 +55,7 @@ def _admin(api: str) -> dict[str, str]:
     if status != 201:
         raise ReachError(f"POST /auth/register for the admin answered {status}: {body}")
     run(
-        compose_command(
-            "exec", "-T", BACKEND_SERVICE, "python", "-m", "app.migrations.add_platform_admin", ADMIN_EMAIL
-        ),
+        compose_command("exec", "-T", BACKEND_SERVICE, "python", "-m", "app.migrations.add_platform_admin", ADMIN_EMAIL),
         timeout=120,
     )
     return {"email": ADMIN_EMAIL, "password": password}

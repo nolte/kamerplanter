@@ -57,11 +57,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _reach_common import (  # noqa: E402 — sibling import after the path insert
     BACKEND_SERVICE,
+    Arango,
     COMPOSE_FILES,
     COMPOSE_PROFILE,
     DEFAULT_SUBJECT,
     WORKER_SERVICE,
-    Arango,
     ReachError,
     http_json,
     log,

@@ -58,14 +58,13 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import check_privacy_inventory as inventory_check  # noqa: E402 — shipped beside this file
-from arango import ArangoClient  # noqa: E402
-from pydantic import BaseModel, EmailStr, ValidationError  # noqa: E402
-
 from app.config.settings import settings  # noqa: E402
 from app.data_access.arango import collections as col  # noqa: E402
 from app.domain.engines.data_export_engine import DataExportEngine  # noqa: E402
 from app.domain.engines.erasure_engine import ErasureEngine  # noqa: E402
 from app.domain.engines.password_engine import PasswordEngine  # noqa: E402
+from arango import ArangoClient  # noqa: E402
+from pydantic import BaseModel, EmailStr, ValidationError  # noqa: E402
 
 APP_ROOT = Path("/app/app")
 MARKER_PREFIX = "reach-seed"
@@ -445,6 +444,45 @@ class Seeder:
         )
         self.tenant_key = tenant["key"]
         self.covered.add((col.TENANTS, tenant_field, "{}"))
+        # A second, active member of that tenant — another account, not the
+        # subject, so it is no row of the subject and not recorded. Since #1788 an
+        # account erasure erases a personal tenant the subject used alone through
+        # the tenant-erasure inventory; with a companion the tenant is kept and the
+        # account plan's own rules (anonymise the tenant, the tasks, the diary …)
+        # are what reaches the subject's rows in it — the case the probes built on
+        # this seed measure. The sole-member case has its own seed
+        # (``seed_tenant_for_erasure.py --personal-of``).
+        # The companion is a real, active account: an account that no longer
+        # exists or is itself being erased does not keep a tenant (#1788 review
+        # GDPR-01). Written directly, never through ``document``: it is no row of
+        # the subject.
+        companion = f"reach-companion-{secrets.token_hex(4)}"
+        self._ensure(users)
+        self.db.collection(users).insert(
+            {
+                "_key": companion,
+                "email": f"{companion}@kamerplanter.example",
+                "display_name": "Reach Companion",
+                "password_hash": None,
+                "email_verified": True,
+                "is_active": True,
+                "account_type": "human",
+                "locale": "de",
+                "timezone": "Europe/Berlin",
+                "created_at": FIXED_TIMESTAMP,
+            }
+        )
+        self._ensure(col.MEMBERSHIPS)
+        self.db.collection(col.MEMBERSHIPS).insert(
+            {
+                "user_key": companion,
+                "tenant_key": self.tenant_key,
+                "role": "grower",
+                "admin_scopes": [],
+                "is_active": True,
+                "joined_at": FIXED_TIMESTAMP,
+            }
+        )
 
         # Document steps, parents before the rows reached through them.
         documents = [step for step in plan.steps if step.kind == "document"]
