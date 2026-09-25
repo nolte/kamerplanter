@@ -189,6 +189,11 @@ def test_the_request_the_subject_filed_ends_completed_under_the_hash(database, e
     assert doc.get("error_message") is None
     assert [field for field, value in doc.items() if value == SUBJECT] == []
     assert erased.finalised == 1
+    # #1813 — the step-up the subject confirmed with survives the finalisation,
+    # beside the fields the run itself writes (#1770 storage counters).
+    assert doc["step_up"] == "password"
+    assert doc.get("requested_by_subject") is None
+    assert "storage_objects_removed" in doc
 
 
 def test_every_row_of_the_other_user_is_unchanged(database, erased):

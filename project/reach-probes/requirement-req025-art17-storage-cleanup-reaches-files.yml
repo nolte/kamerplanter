@@ -9,13 +9,20 @@
 # outside develop's history. REQ-025 is byte-identical between the two; derived_from is now the
 # squash commit, the latest commit of the declaration on develop. Observe step, targets and
 # expectation unchanged.
+#
+# Re-derived for #1770: REQ-025 v1.12 added a changelog row and AK-OS-08 / AK-OS-05b after AK-OS-07,
+# so every cited line moved +1; the cited passages are unchanged. derived_from is 4f611fc1e, the commit
+# that changed the declaration. Observe step, targets and expectation unchanged.
+#
+# Re-derived for #1770 (review round): AK-OS-08 was extended in place at 7e6f8c2a6; no cited line
+# moved. Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-storage-cleanup-reaches-files
 summary: subject's seeded stored files after erasure — hard-deleted or anonymise-and-strip, per STORAGE_CLEANUP_RULES
   scope
 declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-  location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L266); §3.5 Phase 0 (L900-942); AK-OS-01..04 (L1224-1227)
+  location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L267); §3.5 Phase 0 (L901-943); AK-OS-01..04 (L1225-1228)
 tier: T2
 expected:
   kind: set
@@ -29,7 +36,7 @@ expected:
   - stripped/task
   - stripped/plant
   - deleted/pest_reference
-derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+derived_from: 7e6f8c2a6308ca06b641ead0433a4e55fc6020f5
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject

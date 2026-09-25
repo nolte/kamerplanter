@@ -131,6 +131,7 @@ class _FakeAttachmentService:
         mime_type: str,
         original_filename: str,
         category: AttachmentCategory,
+        reuse_own_record: bool = True,
     ) -> Attachment:
         self.upload_calls.append(
             {
@@ -139,6 +140,7 @@ class _FakeAttachmentService:
                 "category": category,
                 "mime_type": mime_type,
                 "filename": original_filename,
+                "reuse_own_record": reuse_own_record,
             }
         )
         self._seq += 1
@@ -286,6 +288,10 @@ class TestContribute:
         assert len(attachments.upload_calls) == 1
         assert attachments.upload_calls[0]["category"] == AttachmentCategory.PEST_REFERENCE
         assert attachments.upload_calls[0]["tenant_key"] == "t1"
+        # #1770 — one attachment record per contribution: withdrawing one
+        # contribution deletes its record, so two contributions of one photo must
+        # not share one.
+        assert attachments.upload_calls[0]["reuse_own_record"] is False
         # Contribution persisted and linked to the attachment.
         assert len(repo.store) == 1
         contribution = view.contribution

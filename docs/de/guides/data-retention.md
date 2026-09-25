@@ -386,6 +386,22 @@ Datensätze, anonymisiert die aufbewahrungspflichtigen wie oben beschrieben und 
 zuletzt dein Konto. Der Datenbankteil läuft in einem Stück: Entweder ist er vollständig
 erledigt oder gar nicht.
 
+Anhänge sind pro Mandant über den SHA-256-Hash der Datei dedupliziert (Issue #1770): Lädt
+ein zweites Mitglied exakt dieselbe Datei hoch (oder du selbst in einer anderen Kategorie),
+entsteht ein eigener Datensatz, aber die Bytes werden nur einmal gespeichert und von beiden
+Datensätzen referenziert. Die Storage-Bereinigung (Phase 0) löscht die Datei deshalb nur,
+wenn kein anderer Datensatz mehr darauf zeigt; zeigt noch ein Datensatz eines anderen
+Mitglieds darauf, bleibt das Objekt erhalten. Der Löschungs-Antrag (`erasure_requests`)
+zählt beides: `storage_objects_removed` (tatsächlich gelöschte Objekte) und
+`storage_objects_retained_shared` (Objekte, die wegen eines noch bestehenden Datensatzes
+eines anderen Mitglieds erhalten bleiben). Dieselben Zahlen protokolliert die Zeile
+`retention.erasure.storage_hard_delete` als `deleted` und `retained_shared`, pro Scope und
+Mandant. Löscht das andere Mitglied seinen Datensatz, während deine Löschung läuft, hält
+nach dem ArangoDB-Schritt niemand mehr das Objekt: Die Löschung fragt deshalb danach noch
+einmal nach und entfernt es. Das zählt `storage_objects_released`, gespeichert mit dem
+Status `completed`; ein Fehler dabei erscheint als
+`retention.erasure.shared_object_release_failed`.
+
 Der Unterschied liegt im Zeitpunkt: Deinen eigenen Antrag führt der tägliche Lauf erst
 nach Ablauf der 90-tägigen Frist aus. Eine Löschung durch einen Platform-Admin oder durch
 den Aufräumlauf für nie bestätigte Konten läuft dagegen sofort — dein Konto wird zuerst
@@ -674,6 +690,53 @@ fasst der Aufräumlauf nicht an (Kuration).
     `PEST_DETECTION_ENABLED` oder `INFERENCE_SERVICE_ENABLED` plus
     `INFERENCE_SERVICE_URL`, sowie `INTERNAL_SERVICE_TOKEN`. Details:
     [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
+
+---
+
+## Migration v0062: geteilte Anhänge in eigene Einträge aufteilen
+
+Vor Issue #1770 bekam ein zweiter Upload derselben Bytes innerhalb eines Mandanten den
+Datensatz des **ersten** Uploaders zurück — auch über Kategoriegrenzen hinweg, zum
+Beispiel zwischen einem Schädlingsfoto-Beitrag und einem dokumentierenden Foto (Tagebuch,
+Aufgabe, Inspektion, Ernte-/Lager-Beobachtung, Pflanzengalerie). Löschte der erste
+Uploader seinen Account, wurde damit auch der Datensatz des zweiten Mitglieds hart
+gelöscht oder anonymisiert; löschte der zweite Uploader seinen Account, erreichte die
+Löschung dessen Beitrag gar nicht, weil ihm kein eigener Datensatz gehörte.
+
+Die Migration `v0062_split_shared_attachment_ownership` bringt bestehenden Bestand so weit
+wie rekonstruierbar in die neue Form:
+
+1. **Der eindeutige Index auf `attachments.storage_key` entfällt.** Mehrere Uploader
+   teilen sich jetzt eine gespeicherte Datei; ein nicht-eindeutiger Index ersetzt ihn.
+2. **Jeder Schädlingsfoto-Beitrag bekommt einen eigenen `pest_reference`-Datensatz**,
+   sofern der Datensatz, auf den er zeigte, nicht schon sein eigener war: Ein neuer
+   Datensatz mit dem deterministischen Schlüssel `pic-<Beitrags-Schlüssel>` entsteht über
+   derselben gespeicherten Datei, benannt nach dem Beitragenden; der Beitrag wird darauf
+   umgehängt. Der Dateiname des ursprünglichen Uploaders wird dabei nicht übernommen.
+3. **Ein `pest_reference`-Datensatz, auf den ein dokumentierender Träger zeigt**
+   (Tagebuch, Aufgabe, Inspektion, Ernte-/Lager-Beobachtung, Pflanzengalerie), wird zu
+   einem Datensatz dieser Kategorie umkategorisiert — sonst würde er beim Löschen des
+   Schädlingsfoto-Eigentümers hart gelöscht statt wie ein dokumentierendes Foto
+   anonymisiert und behalten zu werden.
+
+Ausführung wie jede Migration über `python -m app.migrations upgrade`; `--dry-run`
+berechnet alle Änderungen und protokolliert sie (`split_shared_attachment_ownership_dry_run`
+mit denselben Zählern), ohne etwas zu schreiben. Ein unterbrochener Lauf hinterlässt
+keinen inkonsistenten Zustand: Der Split-Schlüssel ist deterministisch und wird per
+`UPSERT` geschrieben, ein erneuter Lauf setzt genau dort fort.
+
+!!! danger "Nicht reversibel"
+    Ein Rollback würde genau die geteilte Eigentümerschaft wiederherstellen, die diese
+    Migration auflöst.
+
+!!! warning "Was die Migration nicht rekonstruieren kann"
+    Zwei identische **dokumentierende** Fotos (z. B. zwei Tagebuch-Uploads derselben Datei
+    durch zwei Mitglieder) hinterließen vor #1770 nur einen Datensatz und keine Spur des
+    zweiten Uploaders — die tragenden Datensätze (Tagebuch, Aufgabe, …) kennen meist
+    keinen Foto-Eigentümer. Solche Datensätze bleiben unverändert; ihre Datei wird nie
+    hart gelöscht, weil die Dokumentations-Regel sie anonymisiert und behält — es geht
+    also nichts verloren. Der Datenexport (Art. 15) des zweiten Uploaders listet aber
+    keinen Eintrag, den er nie besaß.
 
 ---
 

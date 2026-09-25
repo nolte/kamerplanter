@@ -2273,7 +2273,10 @@ def ensure_collections(db: StandardDatabase) -> None:
     attachments_col.add_persistent_index(fields=["tenant_key", "created_by"], unique=False)
     attachments_col.add_persistent_index(fields=["tenant_key", "sha256"], unique=False)
     attachments_col.add_persistent_index(fields=["tenant_key", "category"], unique=False)
-    attachments_col.add_persistent_index(fields=["storage_key"], unique=True)
+    # Not unique (#1770): deduplicated uploads give every uploader a record of
+    # their own over one stored object, so several records share a storage key.
+    # v0062 drops the unique index an existing volume still carries.
+    attachments_col.add_persistent_index(fields=["storage_key"], unique=False)
 
     # REQ-046 Weather data sources indexes
     weather_forecasts_col = db.collection(WEATHER_FORECASTS)

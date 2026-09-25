@@ -419,6 +419,12 @@ def test_the_admin_delete_persists_a_completed_request_without_the_plaintext_key
     assert row["completed_at"] is not None
     assert row["user_key"] == ErasureEngine.compute_tombstone_hash(SUBJECT, SALT)
     assert SUBJECT not in str(row)
+    # #1814 — the step-up and the requesting admin (salted, never the key) reach the store
+    # beside the fields other entries write (#1770 storage counters, #1788 personal tenants).
+    assert row["step_up"] == "echo"
+    assert row["requested_by_subject"] == ErasureEngine.log_subject(ADMIN, SALT)
+    assert ADMIN not in str(row)
+    assert {"storage_objects_removed", "personal_tenants"} <= row.keys()
 
 
 def test_a_second_run_finds_nothing_left_and_touches_nobody_else(database, erased):

@@ -48,6 +48,11 @@ class _AttachmentRepo:
     def find_by_user(self, tenant_key, user_key, categories=None):  # type: ignore[no-untyped-def]
         return list(self._attachments)
 
+    def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):  # type: ignore[no-untyped-def]
+        # As the repository answers it (#1770): records other than *excluding*
+        # still pointing at one of *storage_keys*.
+        return {a.storage_key for a in self._attachments if a.storage_key in storage_keys and a.key not in excluding}
+
 
 class _FakeS3Client:
     """In-memory stand-in for the boto3 calls the adapter makes."""
@@ -148,7 +153,7 @@ async def test_delete_for_user_removes_the_renditions_the_thumbnail_task_wrote(t
 
     assert await keys() == []
     # The count stays "attachments erased", not "objects erased".
-    assert deleted == 2
+    assert (deleted.removed, deleted.retained_shared) == (2, 0)
 
 
 @pytest.mark.asyncio
@@ -160,7 +165,7 @@ async def test_delete_for_user_tolerates_renditions_that_were_never_generated(tm
     adapter, keys = build(tmp_path, repo)
     await adapter.put_object(photo.storage_key, _stream(b"png"), photo.mime_type)
 
-    assert await adapter.delete_for_user(TENANT, USER, "all") == 1
+    assert (await adapter.delete_for_user(TENANT, USER, "all")).removed == 1
     assert await keys() == []
 
 

@@ -1699,6 +1699,8 @@ class PrivacyService:
                 pre_arango_completed_at=now,
                 reference_index_binding=pre_arango.reference_index_binding,
                 reference_index_removed=pre_arango.reference_index_removed,
+                storage_objects_removed=pre_arango.storage_objects_removed,
+                storage_objects_retained_shared=pre_arango.storage_objects_retained_shared,
                 # Only when the pest step ran: ``None`` fields are not written.
                 pest_prototype_binding=pre_arango.pest_prototype_binding,
                 pest_prototypes_removed=(
@@ -1759,6 +1761,7 @@ class PrivacyService:
             status="completed",
             completed_at=now,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            storage_objects_released=report.storage_objects_released,
             personal_tenants=report.personal_tenants,
         )
         return True
@@ -1931,6 +1934,14 @@ class PrivacyService:
         plan = self._erasure_engine.build_erasure_plan(user_key)
 
         report = AccountErasureReport()
+        # #1770 — the objects of the subject's hard-deleted records, taken while the
+        # records still exist (the plan removes them) and *before* the pre-ArangoDB
+        # phases: the pest-image step deletes the contributions through which
+        # ``_erasure_tenant_keys`` finds a tenant the subject has left. Phase 0 kept
+        # an object another member's record held; if that record goes before the
+        # plan, nothing holds the object once the plan has run, and this run
+        # releases it.
+        hard_deleted_objects = await self._hard_deleted_objects(user_key)
         if pre_arango_completed:
             logger.info("retention.erasure.pre_arango_phases_skipped", subject=self.log_subject(user_key))
             report.storage_cleanup_scopes = list(recorded_storage_scopes or [])
@@ -1952,17 +1963,21 @@ class PrivacyService:
             on_personal_tenants_resolved,
         )
         report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
+        report.storage_objects_released = await self._release_unheld_objects(user_key, hard_deleted_objects)
 
         logger.info(
             "erasure.account_erased",
             subject=self.log_subject(user_key),
             export_files_removed=report.export_files_removed,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            storage_objects_removed=report.storage_objects_removed,
+            storage_objects_retained_shared=report.storage_objects_retained_shared,
             reference_index_removed=report.reference_index_removed,
             reference_index_binding=report.reference_index_binding,
             pest_prototypes_removed=report.pest_prototypes_removed,
             pest_prototype_binding=report.pest_prototype_binding,
             delegated_removed=report.delegated_removed,
+            storage_objects_released=report.storage_objects_released,
             # Outcomes only — no tenant or record key beside the subject digest (#1788 review GDPR-05).
             personal_tenants=[item.outcome for item in report.personal_tenants],
             arango_steps={step.collection: step.affected for step in report.arango.steps},
@@ -2046,7 +2061,7 @@ class PrivacyService:
         Returns the number of pest-image contributions removed (the count of a
         declared step delegated to this phase).
         """
-        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key)
+        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key, report)
         report.reference_index_removed = await self._run_reference_index_cleanup(user_key)
         report.reference_index_binding = self._reference_index_binding()
         return await self._run_pest_image_cleanup(user_key, report)
@@ -2093,12 +2108,17 @@ class PrivacyService:
         )
         return removed
 
-    async def _run_storage_cleanup(self, user_key: str) -> list[str]:
+    async def _run_storage_cleanup(self, user_key: str, report: AccountErasureReport | None = None) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.
 
         A user can belong to several tenants (REQ-024 membership); the
         ``attachments`` lookup is tenant-scoped, so the cleanup runs per tenant.
         Returns the list of scopes that were applied (for the audit record).
+
+        #1770 — a hard-deleted record's object is kept while another record still
+        holds it (deduplicated bytes of another member). *report* receives both
+        counts, so the erasure proves it reached the subject's records even where
+        it kept the bytes.
         """
         if self._storage_adapter is None or self._membership_repo is None:
             logger.info(
@@ -2113,17 +2133,21 @@ class PrivacyService:
         for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
             for tenant_key in tenant_keys:
                 if rule.action == "hard_delete":
-                    deleted = await self._storage_adapter.delete_for_user(
+                    result = await self._storage_adapter.delete_for_user(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
                     )
+                    if report is not None:
+                        report.storage_objects_removed += result.removed
+                        report.storage_objects_retained_shared += result.retained_shared
                     logger.info(
                         "retention.erasure.storage_hard_delete",
                         scope=rule.scope,
                         tenant_key=tenant_key,
                         subject=self.log_subject(user_key),
-                        deleted=deleted,
+                        deleted=result.removed,
+                        retained_shared=result.retained_shared,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
                     # Strip first: both halves select the photos by
@@ -2152,6 +2176,86 @@ class PrivacyService:
                     )
             applied_scopes.append(rule.scope)
         return applied_scopes
+
+    async def _hard_deleted_objects(self, user_key: str) -> list[tuple[str, str, str]]:
+        """``(tenant, storage key, mime type)`` of the subject's records in hard-delete scopes.
+
+        Read before the ArangoDB plan removes those records (#1770), on a retry
+        as on the first run: the plan runs in one transaction, so a failed one
+        left them in place.
+        """
+        if self._storage_adapter is None or self._attachment_repo is None or self._membership_repo is None:
+            return []
+        from app.data_access.storage.local_fs_adapter import _scope_to_categories
+
+        objects: set[tuple[str, str, str]] = set()
+        tenant_keys = self._erasure_tenant_keys(user_key)
+        for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
+            if rule.action != "hard_delete":
+                continue
+            categories = _scope_to_categories(rule.scope)
+            if categories is not None and not categories:
+                continue
+            for tenant_key in tenant_keys:
+                for attachment in self._attachment_repo.find_by_user(tenant_key, user_key, categories):
+                    objects.add((tenant_key, attachment.storage_key, attachment.mime_type))
+        return sorted(objects)
+
+    async def _release_unheld_objects(self, user_key: str, objects: list[tuple[str, str, str]]) -> int:
+        """Delete the objects of *objects* no record holds any more, with their renditions (#1770).
+
+        Phase 0 keeps an object another member's record still holds. That record
+        can go between Phase 0 and the plan — its own delete then saw the
+        subject's record, not yet removed, as the holder and kept the object too.
+        Asked again after the plan, no one holds it and nothing else ever would
+        delete it.
+
+        Runs after the plan committed, so a failure cannot reopen the erasure (the
+        next run finds the tombstone and closes it). It is logged at error level
+        with a count and no key, and the objects stay for the operator.
+        """
+        if not objects or self._storage_adapter is None or self._attachment_repo is None:
+            return 0
+        from app.common.exceptions import NotFoundError
+        from app.domain.engines.storage.thumbnail_generator import rendition_keys
+
+        released = 0
+        try:
+            by_tenant: dict[str, list[tuple[str, str]]] = {}
+            for tenant_key, storage_key, mime_type in objects:
+                by_tenant.setdefault(tenant_key, []).append((storage_key, mime_type))
+            for tenant_key, entries in by_tenant.items():
+                held = self._attachment_repo.storage_keys_held_elsewhere(
+                    tenant_key=tenant_key, storage_keys=[key for key, _ in entries], excluding=[]
+                )
+                for storage_key, mime_type in entries:
+                    if storage_key in held:
+                        continue
+                    try:
+                        await self._storage_adapter.head_object(storage_key)
+                    except NotFoundError:
+                        continue  # Phase 0 deleted it — the common case.
+                    await self._storage_adapter.delete_object(storage_key)
+                    for rendition in rendition_keys(storage_key, mime_type):
+                        await self._storage_adapter.delete_object(rendition)
+                    released += 1
+        except Exception as exc:  # noqa: BLE001 — the plan committed; the error must not reopen it
+            logger.error(
+                "retention.erasure.shared_object_release_failed",
+                subject=self.log_subject(user_key),
+                objects=len(objects),
+                released=released,
+                error=self._loggable_error(exc, user_key),
+                error_type=type(exc).__name__,
+            )
+            return released
+        if released:
+            logger.info(
+                "retention.erasure.shared_objects_released",
+                subject=self.log_subject(user_key),
+                released=released,
+            )
+        return released
 
     async def _anonymize_attachment_metadata(self, tenant_key: str, user_key: str, scope: str) -> int:
         """Set ``created_by = '_anonymized'`` for the scope's categories."""
@@ -2282,6 +2386,9 @@ class PrivacyService:
         reference_index_removed: int | None = None,
         pest_prototype_binding: str | None = None,
         pest_prototypes_removed: int | None = None,
+        storage_objects_removed: int | None = None,
+        storage_objects_retained_shared: int | None = None,
+        storage_objects_released: int | None = None,
         personal_tenant_keys: list[str] | None = None,
         personal_tenants: list[PersonalTenantErasure] | None = None,
     ) -> None:
@@ -2313,6 +2420,9 @@ class PrivacyService:
             "reference_index_removed": reference_index_removed,
             "pest_prototype_binding": pest_prototype_binding,
             "pest_prototypes_removed": pest_prototypes_removed,
+            "storage_objects_removed": storage_objects_removed,
+            "storage_objects_retained_shared": storage_objects_retained_shared,
+            "storage_objects_released": storage_objects_released,
             "personal_tenant_keys": personal_tenant_keys,
             "personal_tenants": personal_tenants,
         }
