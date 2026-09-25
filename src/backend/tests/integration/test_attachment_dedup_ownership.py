@@ -262,3 +262,61 @@ def test_shared_bytes_count_once_against_the_quota(database, service, repo):
     )
 
     assert repo.sum_bytes_by_tenant("t-dedup-quota") == a.byte_size
+
+
+def test_a_holder_deleted_between_phase_0_and_the_plan_does_not_strand_the_object(
+    database, service, storage, privacy, repo
+):
+    """#1770 review GDPR-001 — Phase 0 kept the object for B; B's record went before A's plan ran.
+
+    B's own delete saw A's record, not yet removed, as the holder and kept the
+    object too. Without the release after the plan no record would hold the
+    object and nothing would ever delete it.
+    """
+    first, second = _member(database, "window-a"), _member(database, "window-b")
+    photo = _photo()
+    asyncio.run(_upload(service, user_key=first, data=photo, category=AttachmentCategory.PEST_REFERENCE))
+    b = asyncio.run(_upload(service, user_key=second, data=photo, category=AttachmentCategory.PEST_REFERENCE))
+
+    executor = privacy._erasure_executor
+    real_run = executor.run_erasure_plan
+
+    def run_after_b_withdrew(plan, *, tombstone):  # type: ignore[no-untyped-def]
+        # Runs in the erasure's worker thread, after Phase 0 kept the object.
+        assert asyncio.run(service.delete(b.key, TENANT)) is True
+        assert _readable(storage, b.storage_key), "B's delete must still see A's record as the holder"
+        return real_run(plan, tombstone=tombstone)
+
+    with patch.object(executor, "run_erasure_plan", side_effect=run_after_b_withdrew):
+        report = asyncio.run(privacy.erase_account(first))
+
+    assert report.storage_objects_retained_shared == 1
+    assert report.storage_objects_released == 1
+    assert not _readable(storage, b.storage_key), "the object outlived every record that held it"
+
+
+def test_two_contributions_of_one_photo_by_one_member_keep_their_own_records(database, service, storage, repo):
+    """#1770 review GDPR-002 / SEC-002 — withdrawing one must not take the other's image."""
+    user = _member(database, "twice-a")
+    photo = _photo()
+
+    async def contribute():
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            return await service.upload(
+                tenant_key=TENANT,
+                user_key=user,
+                data=photo,
+                mime_type="image/jpeg",
+                original_filename="pest.jpg",
+                category=AttachmentCategory.PEST_REFERENCE,
+                reuse_own_record=False,
+            )
+
+    first = asyncio.run(contribute())
+    second = asyncio.run(contribute())
+    assert second.key != first.key
+    assert second.storage_key == first.storage_key
+
+    assert asyncio.run(service.delete(first.key, TENANT)) is True
+    assert repo.get(second.key, TENANT) is not None
+    assert _readable(storage, second.storage_key)

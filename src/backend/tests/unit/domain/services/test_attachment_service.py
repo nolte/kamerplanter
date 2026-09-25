@@ -387,6 +387,67 @@ class TestDedup:
         assert await service.delete(first.key, "t-1") is True
         assert (await adapter.list_objects("t/t-1/"))["keys"] == []
 
+    async def test_bytes_stored_under_another_type_are_not_linked_to(self, service, repo, adapter):
+        """#1770 review SEC-003 — a linked record is served with the object's type, so it must be this upload's."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        repo._store[first.key] = first.model_copy(update={"mime_type": "image/png"})
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="b.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        assert second.storage_key != first.storage_key
+        assert second.mime_type == "image/jpeg"
+
+    async def test_two_deletes_of_the_last_two_holders_do_not_strand_the_object(self, service, repo, adapter):
+        """#1770 review SEC-001 — each delete saw the other record; the one asking again after its own sees none."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="b.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        real = repo.storage_keys_held_elsewhere
+        calls = 0
+
+        def concurrent_delete_of_the_other(**kwargs):  # type: ignore[no-untyped-def]
+            nonlocal calls
+            calls += 1
+            answer = real(**kwargs)
+            if calls == 1:
+                # The other request removes its record right after this one asked.
+                repo._store.pop(second.key)
+            return answer
+
+        repo.storage_keys_held_elsewhere = concurrent_delete_of_the_other
+        assert await service.delete(first.key, "t-1") is True
+        assert (await adapter.list_objects("t/t-1/"))["keys"] == []
+
     async def test_a_record_whose_object_is_gone_is_not_linked_to(self, service, repo, adapter):
         """#1770 — a held record whose object vanished is no object to share; the upload stores its own."""
         jpeg = _make_jpeg()

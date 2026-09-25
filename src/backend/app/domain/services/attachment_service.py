@@ -118,8 +118,16 @@ class AttachmentService:
         original_filename: str,
         category: AttachmentCategory,
         capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
+        reuse_own_record: bool = True,
     ) -> Attachment:
-        """Run the full upload pipeline and return the persisted attachment."""
+        """Run the full upload pipeline and return the persisted attachment.
+
+        ``reuse_own_record=False`` gives this upload a record of its own even when
+        the uploader already holds one for these bytes in this category — for a
+        caller whose record's lifetime is one carrier's (a pest-image
+        contribution deletes its attachment record when it is withdrawn, so two
+        contributions of one photo must not share one record, #1770).
+        """
         mime_type = (mime_type or "").lower().strip()
         max_bytes = self._settings.storage_max_file_size_mb * 1024 * 1024
 
@@ -153,8 +161,10 @@ class AttachmentService:
         #    Erasure selects records by ``created_by`` and ``category``, and bytes
         #    go only when the last record holding them does.
         sha256 = hashlib.sha256(data).hexdigest()
-        own = self._repo.find_own_by_sha256(
-            tenant_key=tenant_key, sha256=sha256, created_by=user_key, category=category
+        own = (
+            self._repo.find_own_by_sha256(tenant_key=tenant_key, sha256=sha256, created_by=user_key, category=category)
+            if reuse_own_record
+            else None
         )
         if own is not None:
             logger.info(
@@ -166,7 +176,10 @@ class AttachmentService:
             )
             return own
         held = self._repo.find_by_sha256(tenant_key, sha256)
-        if held is not None and await self._object_exists(held.storage_key):
+        # Only an object stored under the type this upload was validated as: the
+        # linked record is served with the object's type, and the whitelist and
+        # magic-byte check above ran for *this* category and type.
+        if held is not None and held.mime_type == mime_type and await self._object_exists(held.storage_key):
             return await self._link_to_stored_object(
                 held,
                 tenant_key=tenant_key,
@@ -476,11 +489,20 @@ class AttachmentService:
             tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[attachment_id]
         )
         if not shared:
-            await self._storage.delete_object(attachment.storage_key)
-            for rendition in rendition_keys(attachment.storage_key, attachment.mime_type, self._thumbnails.sizes):
-                await self._storage.delete_object(rendition)
+            for key in self._object_keys(attachment):
+                await self._storage.delete_object(key)
 
         deleted = self._repo.delete(attachment_id, tenant_key)
+        if shared and attachment.storage_key not in self._repo.storage_keys_held_elsewhere(
+            tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[]
+        ):
+            # The other holder went meanwhile — two deletes of an object's last two
+            # records each saw the other one. Asked again once this record is gone,
+            # at least one of them sees no holder, so the object does not outlive
+            # every record (#1770 review SEC-001).
+            for key in self._object_keys(attachment):
+                await self._storage.delete_object(key)
+            shared = False
         logger.info(
             "attachment_deleted",
             tenant_key=tenant_key,
@@ -489,6 +511,13 @@ class AttachmentService:
             shared_object_retained=shared,
         )
         return deleted
+
+    def _object_keys(self, attachment: Attachment) -> list[str]:
+        """The stored object of *attachment* and its renditions."""
+        return [
+            attachment.storage_key,
+            *rendition_keys(attachment.storage_key, attachment.mime_type, self._thumbnails.sizes),
+        ]
 
     def deletable_from_task(
         self, attachment_id: str, task_key: str, tenant_key: str, *, actor_key: str, is_lead: bool

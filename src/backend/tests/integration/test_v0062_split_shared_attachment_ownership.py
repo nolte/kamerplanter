@@ -80,7 +80,7 @@ def storage(database, tmp_path_factory) -> LocalFsStorageAdapter:
     )
 
 
-def _record(database, storage, key: str, owner: str, category: str, shade: int) -> str:
+def _record(database, storage, key: str, owner: str, category: str, shade: int, device: str = "unknown") -> str:
     photo = _jpeg(shade)
     storage_key = f"t/{TENANT}/{category}/2026/01/{key}.jpg"
     storage._write_sync(storage._path_for(storage_key), photo, "image/jpeg", {})
@@ -95,6 +95,7 @@ def _record(database, storage, key: str, owner: str, category: str, shade: int) 
             "created_by": owner,
             "category": category,
             "storage_key": storage_key,
+            "capture_device": device,
             "created_at": "2026-01-01T00:00:00+00:00",
         }
     )
@@ -122,19 +123,25 @@ def legacy(database, storage):
         database.collection(col.MEMBERSHIPS).insert({"user_key": user, "tenant_key": TENANT, "role": "grower"})
     keys = {
         # A's pest reference, contributed by A and — deduplicated — by B.
-        "shared": _record(database, storage, "r-shared", "leg-a", "pest_reference", 10),
+        "shared": _record(database, storage, "r-shared", "leg-a", "pest_reference", 10, device="usb_microscope"),
         # A's diary photo, contributed by C as a pest reference.
         "diary": _record(database, storage, "r-diary", "leg-a", "diary", 60),
         # A's pest reference that a diary entry also shows.
         "shown": _record(database, storage, "r-shown", "leg-a", "pest_reference", 110),
         # A's pest reference, only A's contribution: already in shape.
         "own": _record(database, storage, "r-own", "leg-a", "pest_reference", 160),
+        # A's pest reference that only a stray diary entry of *another* tenant names.
+        "stray": _record(database, storage, "r-stray", "leg-a", "pest_reference", 210),
     }
     _contribution(database, "c-a1", "leg-a", "r-shared", "2026-01-02T00:00:00+00:00")
     _contribution(database, "c-b1", "leg-b", "r-shared", "2026-01-03T00:00:00+00:00")
     _contribution(database, "c-c1", "leg-c", "r-diary", "2026-01-04T00:00:00+00:00")
     _contribution(database, "c-a2", "leg-a", "r-shown", "2026-01-05T00:00:00+00:00")
     _contribution(database, "c-a3", "leg-a", "r-own", "2026-01-06T00:00:00+00:00")
+    _contribution(database, "c-a4", "leg-a", "r-stray", "2026-01-07T00:00:00+00:00")
+    database.collection(col.PLANT_DIARY_ENTRIES).insert(
+        {"_key": "entry-foreign", "tenant_key": "t-elsewhere", "photo_refs": ["r-stray"], "created_by": "leg-x"}
+    )
     database.collection(col.PLANT_DIARY_ENTRIES).insert(
         {"_key": "entry-1", "tenant_key": TENANT, "photo_refs": ["r-shown"], "created_by": "leg-b"}
     )
@@ -179,7 +186,7 @@ def test_the_dry_run_reports_the_plan_and_writes_nothing(migrated):
     assert migrated["indexes_after_dry"] == [False, True]
     assert migrated["dry"].details == {
         "unique_storage_key_indexes_dropped": 1,
-        "contributions_scanned": 5,
+        "contributions_scanned": 6,
         "contributions_unresolved": 0,
         "records_recategorised": 1,
         "records_split": 3,
@@ -199,12 +206,18 @@ def test_every_contribution_points_at_its_contributors_own_pest_reference(databa
     b_record = attachments.get(split_key("c-b1"))
     assert b_record["storage_key"] == legacy["shared"]
     assert b_record["original_filename"] == "", "another member's filename was copied"
+    assert b_record["capture_device"] == "unknown", "another member's device hint was copied"
     assert database.collection(col.PEST_IMAGE_CONTRIBUTIONS).get("c-a1")["attachment_id"] == "r-shared"
     assert database.collection(col.PEST_IMAGE_CONTRIBUTIONS).get("c-a3")["attachment_id"] == "r-own"
 
 
 def test_a_pest_reference_a_diary_entry_shows_becomes_a_diary_record(database, migrated):
     assert database.collection(col.ATTACHMENTS).get("r-shown")["category"] == "diary"
+
+
+def test_a_reference_from_another_tenant_does_not_recategorise(database, migrated):
+    """#1770 review GDPR-003 — recategorising turns a hard-delete into keep; a stray foreign ref must not."""
+    assert database.collection(col.ATTACHMENTS).get("r-stray")["category"] == "pest_reference"
 
 
 def test_a_second_run_changes_nothing(migrated):
@@ -251,9 +264,10 @@ def test_erasing_the_original_uploader_after_the_migration_keeps_the_other_membe
     # C's contribution over A's diary photo survives, and so does the photo.
     assert repo.get(split_key("c-c1"), TENANT).created_by == "leg-c"
     assert storage._path_for(legacy["diary"]).exists()
-    # A's exclusively own pest reference is gone, bytes and record.
-    assert repo.get("r-own", TENANT) is None
-    assert not storage._path_for(legacy["own"]).exists()
+    # A's exclusively own pest references are gone, bytes and record.
+    for key in ("own", "stray"):
+        assert repo.get(f"r-{key}", TENANT) is None
+        assert not storage._path_for(legacy[key]).exists()
     # A's pest-reference records: r-shared (kept for B), pic-c-a2 (kept for the
-    # diary record), r-own (deleted).
-    assert (report.storage_objects_removed, report.storage_objects_retained_shared) == (1, 2)
+    # diary record), r-own and r-stray (deleted).
+    assert (report.storage_objects_removed, report.storage_objects_retained_shared) == (2, 2)

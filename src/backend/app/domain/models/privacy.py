@@ -133,6 +133,9 @@ class ErasureRequest(BaseModel):
     #: kept because another member's record still holds the same bytes.
     storage_objects_removed: int | None = Field(default=None, ge=0)
     storage_objects_retained_shared: int | None = Field(default=None, ge=0)
+    #: Of those kept, objects no record held any more after the ArangoDB plan,
+    #: released then (#1770); recorded with ``completed``.
+    storage_objects_released: int | None = Field(default=None, ge=0)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -511,6 +514,9 @@ class AccountErasureReport(BaseModel):
     #: member's upload of the same bytes — still holds them.
     storage_objects_removed: int = 0
     storage_objects_retained_shared: int = 0
+    #: Objects Phase 0 kept for another member whose record went before the
+    #: ArangoDB plan; released after the plan (#1770).
+    storage_objects_released: int = 0
     reference_index_removed: int = 0
     #: The store Phase 0.5 ran against in *this* call (``"inference_service"`` /
     #: ``"noop"``); ``None`` when it did not run — no store wired, or a retry

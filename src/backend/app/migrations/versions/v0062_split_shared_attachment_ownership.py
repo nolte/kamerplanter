@@ -46,7 +46,9 @@ by two members left one record and no trace of the second uploader: the
 carriers hold record keys, and most carry no per-photo owner. Those records
 stay as they are — their bytes are never hard-deleted (the documentation
 rule anonymises and keeps), so nothing is lost; the second uploader's Art. 15
-export simply does not list a record they never had.
+export simply does not list a record they never had. Where uploads keep their
+EXIF (``STORAGE_STRIP_EXIF=false``), the second uploader's erasure does not strip
+such a shared photo either — the first uploader's erasure does.
 
 **Idempotent (M-3).** The split key is deterministic and written with an
 ``UPSERT``; a contribution already pointing at its own ``pest_reference``
@@ -74,6 +76,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import (
+    TENANT_SCOPED_REF_COLLECTIONS,
     aql_photo_ref_candidates,
     aql_storage_key_stem,
 )
@@ -147,15 +150,25 @@ class SplitSharedAttachmentOwnershipMigration(Migration):
         """The category of the first documentation carrier referencing *attachment*, if any.
 
         Matched as the orphan sweep matches (``aql_photo_ref_candidates`` against
-        the record key and the storage-key stem), over every tenant: a carrier
-        protecting a photo is the safe direction to over-read.
+        the record key and the storage-key stem). A carrier that carries a tenant
+        counts only in the record's tenant (or unstamped, as the interactive
+        delete route reads it): recategorising turns a hard-delete into
+        anonymise-and-keep, so a stray reference from another tenant must not
+        decide it. Carriers without a ``tenant_key`` (harvest and storage
+        observations) count wherever they are.
         """
         stem = aql_storage_key_stem("@storage_key")
         for collection, category in CARRIER_CATEGORY.items():
             if not db.has_collection(collection):
                 continue
+            tenant_filter = (
+                'FILTER d.tenant_key == @tenant_key OR d.tenant_key == null OR d.tenant_key == ""'
+                if collection in TENANT_SCOPED_REF_COLLECTIONS
+                else ""
+            )
             query = f"""
             FOR d IN @@carrier
+              {tenant_filter}
               LET refs = APPEND(d.photo_refs || [], d.cover_photo_ref == null ? [] : [d.cover_photo_ref])
               FILTER LENGTH(refs) > 0
               FILTER LENGTH(
@@ -173,6 +186,8 @@ class SplitSharedAttachmentOwnershipMigration(Migration):
                 "key": attachment["_key"],
                 "storage_key": attachment.get("storage_key"),
             }
+            if tenant_filter:
+                bind_vars["tenant_key"] = attachment.get("tenant_key")
             if next(iter(db.aql.execute(query, bind_vars=bind_vars)), None) is not None:
                 return category
         return None
@@ -238,7 +253,8 @@ class SplitSharedAttachmentOwnershipMigration(Migration):
             "created_by": contribution["contributed_by"],
             "category": _PEST_REFERENCE,
             "storage_key": attachment.get("storage_key"),
-            "capture_device": attachment.get("capture_device", "unknown"),
+            # Like the filename, the other member's device hint is theirs.
+            "capture_device": attachment.get("capture_device", "unknown") if same_owner else "unknown",
             "created_at": contribution.get("created_at") or attachment.get("created_at"),
         }
 
