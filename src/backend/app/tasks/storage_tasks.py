@@ -67,6 +67,15 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
         )
         generated += 1
 
+    # #1760 — an erasure or delete that ran while the renditions were rendered
+    # removed the original and its renditions already; the ones just written
+    # would stay with nothing pointing at them. Undo them.
+    if repo.get(attachment_id, tenant_key) is None:
+        for thumb in renditions:
+            await storage.delete_object(thumbnail_key(attachment.storage_key, thumb.size))
+        logger.info("thumbnails_discarded_after_delete", tenant_key=tenant_key, attachment_id=attachment_id)
+        return {"attachment_id": attachment_id, "generated": 0, "reason": "attachment_deleted"}
+
     logger.info(
         "thumbnails_generated",
         tenant_key=tenant_key,

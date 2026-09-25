@@ -94,6 +94,17 @@ def test_erase_by_keys_refuses_an_empty_or_blank_filter(client, fake_pest_repo, 
     assert len(fake_pest_repo.rows) == 6
 
 
+def test_erase_by_keys_refuses_an_oversized_list_without_echoing_it(client, fake_pest_repo):
+    _seed(fake_pest_repo)
+    keys = [f"c-secret-{i}" for i in range(1001)]
+
+    resp = client.post(_BY_KEYS, json={"contribution_keys": keys})
+
+    assert resp.status_code == 422
+    assert "c-secret" not in resp.text
+    assert len(fake_pest_repo.rows) == 6
+
+
 # -- by tenant (REQ-024 tenant deletion) --------------------------------------
 
 

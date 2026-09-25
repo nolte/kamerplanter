@@ -2,7 +2,8 @@
 
 The pest-prototype marker is written by the promotion index task from #1759 on.
 Deployments that indexed promotions before have none; v0061 sets it where the
-backend reaches the inference-service and a contribution was ever promoted.
+backend reaches the inference-service and any contribution exists (``promoted_at``
+is cleared on demotion while the deactivated prototype stays).
 Pinned against a fake that answers the "any promoted" read and records the
 write; the statement semantics are measured against a server in
 ``tests/integration/test_v0061_mark_pest_prototype_contributions.py``.
@@ -48,7 +49,7 @@ class _Db:
         return _C()
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):  # type: ignore[no-untyped-def]
-        if "promoted_at != null" in query:
+        if "LIMIT 1 RETURN 1" in query and "UPSERT" not in query:
             assert bind_vars == {"@collection": col.PEST_IMAGE_CONTRIBUTIONS}
             return iter([self._promoted])
         self.writes.append((query, dict(bind_vars or {})))
@@ -69,7 +70,7 @@ def test_metadata():
 
 
 @pytest.mark.parametrize(("pest", "inference"), [(True, False), (False, True)])
-def test_a_reaching_process_with_a_promoted_contribution_sets_the_marker(monkeypatch, pest, inference):
+def test_a_reaching_process_with_a_contribution_sets_the_marker(monkeypatch, pest, inference):
     monkeypatch.setattr(settings, "pest_detection_enabled", pest)
     monkeypatch.setattr(settings, "inference_service_enabled", inference)
     db = _Db()
@@ -82,13 +83,13 @@ def test_a_reaching_process_with_a_promoted_contribution_sets_the_marker(monkeyp
     assert report.changed == 1 and report.details["marked"] is True
 
 
-def test_no_promoted_contribution_marks_nothing(pest_enabled):
+def test_no_contribution_marks_nothing(pest_enabled):
     db = _Db(promoted=False)
 
     report = migration.up(db)
 
     assert db.writes == []
-    assert report.details["reason"] == "no_promoted_contribution"
+    assert report.details["reason"] == "no_contribution"
 
 
 def test_a_missing_contributions_collection_marks_nothing(pest_enabled):
@@ -97,7 +98,7 @@ def test_a_missing_contributions_collection_marks_nothing(pest_enabled):
     report = migration.up(db)
 
     assert db.writes == [] and db.created == []
-    assert report.details["reason"] == "no_promoted_contribution"
+    assert report.details["reason"] == "no_contribution"
 
 
 def test_an_existing_marker_is_left_alone(pest_enabled):

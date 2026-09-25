@@ -47,17 +47,17 @@ def enabled(monkeypatch):
     monkeypatch.setattr(settings, "pest_detection_enabled", True)
 
 
-def _contributions(db, *, promoted: bool) -> None:  # type: ignore[no-untyped-def]
+def _contributions(db, *, any_contribution: bool) -> None:  # type: ignore[no-untyped-def]
     # Both exist on every initialised database; the schema bootstrap creates them.
     db.create_collection(col.SYSTEM_SETTINGS)
     db.create_collection(col.PEST_IMAGE_CONTRIBUTIONS)
-    db.collection(col.PEST_IMAGE_CONTRIBUTIONS).insert({"_key": "private", "promoted_at": None})
-    if promoted:
-        db.collection(col.PEST_IMAGE_CONTRIBUTIONS).insert({"_key": "p", "promoted_at": "2026-05-01T00:00:00+00:00"})
+    if any_contribution:
+        # Demoted: ``promoted_at`` cleared, the deactivated prototype may remain.
+        db.collection(col.PEST_IMAGE_CONTRIBUTIONS).insert({"_key": "demoted", "promoted_at": None})
 
 
-def test_marks_when_a_contribution_was_promoted(db, enabled) -> None:
-    _contributions(db, promoted=True)
+def test_marks_when_a_demoted_contribution_exists(db, enabled) -> None:
+    _contributions(db, any_contribution=True)
     db.collection(col.SYSTEM_SETTINGS).insert({"_key": "default", "home_assistant": {"ha_url": "http://ha.local"}})
 
     report = migration.up(db)
@@ -68,17 +68,17 @@ def test_marks_when_a_contribution_was_promoted(db, enabled) -> None:
     assert db.collection(col.SYSTEM_SETTINGS).get("default")["home_assistant"] == {"ha_url": "http://ha.local"}
 
 
-def test_does_not_mark_without_a_promoted_contribution(db, enabled) -> None:
-    _contributions(db, promoted=False)
+def test_does_not_mark_without_a_contribution(db, enabled) -> None:
+    _contributions(db, any_contribution=False)
 
     report = migration.up(db)
 
-    assert report.details["reason"] == "no_promoted_contribution"
+    assert report.details["reason"] == "no_contribution"
     assert ArangoSystemSettingsRepository(db).pest_prototype_contributions_since() is None
 
 
 def test_keeps_an_existing_marker_and_the_repository_write_is_idempotent(db, enabled) -> None:
-    _contributions(db, promoted=True)
+    _contributions(db, any_contribution=True)
     repo = ArangoSystemSettingsRepository(db)
     first = datetime(2026, 3, 1, tzinfo=UTC)
     repo.record_pest_prototype_contributions(first)

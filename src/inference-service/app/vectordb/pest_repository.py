@@ -43,10 +43,21 @@ def tenant_contribution_prefix(tenant_key: str | None) -> str:
     return f"{CONTRIBUTION_URL_SCHEME}{key}/"
 
 
+#: Upper bound of keys per erase request; the backend sends batches below it.
+MAX_CONTRIBUTION_KEYS = 1000
+
+
 def require_contribution_keys(contribution_keys: list[str] | None) -> list[str]:
-    """Return the keys unchanged, or refuse an empty list or a blank key."""
+    """Return the keys unchanged, or refuse an empty/oversized list or a blank key.
+
+    The size check lives here and not as a schema ``max_length``: FastAPI's 422
+    for a schema violation echoes the input, and the input is a list of keys.
+    """
     if not contribution_keys:
         msg = "contribution_keys must name at least one contribution; refusing an unscoped erasure"
+        raise ValueError(msg)
+    if len(contribution_keys) > MAX_CONTRIBUTION_KEYS:
+        msg = f"contribution_keys holds more than {MAX_CONTRIBUTION_KEYS} keys; send them in batches"
         raise ValueError(msg)
     for key in contribution_keys:
         require_erasure_key("contribution_keys[]", key)

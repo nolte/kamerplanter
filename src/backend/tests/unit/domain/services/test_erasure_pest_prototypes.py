@@ -23,6 +23,7 @@ service's rows:
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -353,6 +354,28 @@ async def test_a_failing_prototype_delete_keeps_the_contribution(pest_index):
 
     assert "c-promoted" in repo.docs
     service._attachments.delete.assert_not_awaited()
+
+
+async def test_a_delete_without_a_wired_store_refuses_and_keeps_the_contribution():
+    repo = _repo()
+    service = _pest_image_service(repo, None)
+
+    with pytest.raises(FeatureNotConfiguredError):
+        await service.delete(TENANT, SUBJECT, "c-promoted")
+    assert "c-promoted" in repo.docs
+
+
+async def test_many_contributions_are_erased_in_bounded_requests(pest_index):
+    keys = [f"c-bulk-{i}" for i in range(1203)]
+    for key in keys:
+        pest_index.add_contribution(label="aphid", tenant_key=TENANT, contribution_key=key)
+    store = dependencies.get_pest_prototype_store()
+    before = len(pest_index.requests)
+
+    assert await store.delete_contributions(keys) == 1203
+
+    sizes = [len(json.loads(r.content)["contribution_keys"]) for r in pest_index.requests[before:]]
+    assert sizes == [500, 500, 203]
 
 
 # -- binding --------------------------------------------------------------------

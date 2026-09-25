@@ -43,6 +43,7 @@ from app.common.dependencies import (
     get_pest_inference_client,
     get_system_settings_repo,
 )
+from app.common.enums import PestImageStatus
 from app.config.settings import settings
 from app.domain.models.pest_taxonomy import get_taxon
 from app.tasks import celery_app
@@ -122,6 +123,15 @@ def _index_promoted(contribution_key: str) -> dict:
         source_record_id=contribution_key,
         source_url=f"contribution://{contribution.tenant_key}/{contribution_key}",
     )
+    # #1759 — a deletion (single, Art. 17 or tenant) that ran between the read
+    # above and the upsert has already erased the prototype, so the upsert just
+    # re-created it with nothing left to find it by. Re-check and undo.
+    # A demotion in the same window already ran its retract; the row just
+    # written would be an active prototype of a private image.
+    current = get_pest_image_repo().get_by_key(contribution_key)
+    if current is None or current.status != PestImageStatus.PROMOTED:
+        get_pest_inference_client().erase_contributions([contribution_key])
+        return {"status": "retracted_after_delete", "label": label, "contribution_key": contribution_key}
     return {"status": "indexed", "label": label, "contribution_key": contribution_key}
 
 
@@ -190,8 +200,9 @@ def index_promoted_pest_image_task(self, contribution_key: str) -> dict:  # type
 def retract_promoted_pest_image_task(self, contribution_key: str) -> dict:  # type: ignore[no-untyped-def]
     """REQ-010 P2 — retract a demoted user pest image from the few-shot index.
 
-    The inference-service has no delete-by-provenance route, so the retract
-    deactivates the matching prototype(s) (curation gate). Same best-effort
+    Demotion is a curation decision, not an erasure: the retract deactivates
+    the matching prototype(s) (curation gate); deletion by provenance is the
+    erasure's job (#1759). Same best-effort
     semantics as :func:`index_promoted_pest_image_task`.
     """
     try:

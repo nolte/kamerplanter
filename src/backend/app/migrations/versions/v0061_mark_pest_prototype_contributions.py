@@ -14,8 +14,9 @@ It marks when both facts available here hold:
 * the migrating process (the backend) has ``pest_detection_enabled`` or
   ``inference_service_enabled`` set — without either no process of this
   deployment is expected to have reached the index; and
-* at least one ``pest_image_contributions`` document carries ``promoted_at`` —
-  only a promotion triggers the index task.
+* at least one ``pest_image_contributions`` document exists — only a promotion
+  triggers the index task, but ``promoted_at`` is cleared on demotion while the
+  deactivated prototype stays, so the promotion itself leaves no reliable trace.
 
 A false positive only makes a process without the flags hold erasures loudly
 with an operator hint. A deployment that switched both flags off before
@@ -49,13 +50,13 @@ class MarkPestPrototypeContributionsMigration(Migration):
     version = "0061"
     name = "mark_pest_prototype_contributions"
     description = (
-        "Record that promoted pest-image contributions may have been indexed as recognition prototypes, "
+        "Record that pest-image contributions may have been indexed as recognition prototypes, "
         "so a process without the inference-service holds erasures instead of skipping them (#1759)."
     )
     reversible = False
 
-    _ANY_PROMOTED_QUERY = """
-    RETURN LENGTH(FOR c IN @@collection FILTER c.promoted_at != null LIMIT 1 RETURN 1) > 0
+    _ANY_CONTRIBUTION_QUERY = """
+    RETURN LENGTH(FOR c IN @@collection LIMIT 1 RETURN 1) > 0
     """
 
     _MARK_QUERY = """
@@ -68,10 +69,10 @@ class MarkPestPrototypeContributionsMigration(Migration):
     IN @@collection
     """
 
-    def _any_promoted(self, db: StandardDatabase) -> bool:
+    def _any_contribution(self, db: StandardDatabase) -> bool:
         if not db.has_collection(col.PEST_IMAGE_CONTRIBUTIONS):
             return False
-        cursor = db.aql.execute(self._ANY_PROMOTED_QUERY, bind_vars={"@collection": col.PEST_IMAGE_CONTRIBUTIONS})
+        cursor = db.aql.execute(self._ANY_CONTRIBUTION_QUERY, bind_vars={"@collection": col.PEST_IMAGE_CONTRIBUTIONS})
         return bool(next(iter(cursor), False))
 
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
@@ -84,8 +85,8 @@ class MarkPestPrototypeContributionsMigration(Migration):
             (doc := db.collection(col.SYSTEM_SETTINGS).get(_SINGLETON_KEY)) is not None and doc.get(_FIELD) is not None
         ):
             reason = "marker_present"
-        elif not self._any_promoted(db):
-            reason = "no_promoted_contribution"
+        elif not self._any_contribution(db):
+            reason = "no_contribution"
 
         marked = reason is None
         if marked and not dry_run:

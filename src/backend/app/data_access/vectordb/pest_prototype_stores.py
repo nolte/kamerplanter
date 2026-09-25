@@ -28,6 +28,9 @@ logger = structlog.get_logger()
 
 _SOURCE = "inference_service"
 
+#: Keys per erase request; the inference-service refuses more than 1000.
+ERASE_BATCH_SIZE = 500
+
 
 def _erasure_failure(exc: httpx.HTTPError, scope: str) -> ExternalSourceError:
     cause = f"HTTP {exc.response.status_code}" if isinstance(exc, httpx.HTTPStatusError) else type(exc).__name__
@@ -43,12 +46,16 @@ class InferenceServicePestPrototypeStore(IPestPrototypeStore):
         self._client = client
 
     async def delete_contributions(self, contribution_keys: list[str]) -> int:
-        if not contribution_keys:
-            return 0
+        keys = list(contribution_keys)
+        removed = 0
         try:
-            return await asyncio.to_thread(self._client.erase_contributions, list(contribution_keys))
+            # Bounded requests: the service refuses more than ERASE_BATCH_SIZE keys.
+            for start in range(0, len(keys), ERASE_BATCH_SIZE):
+                batch = keys[start : start + ERASE_BATCH_SIZE]
+                removed += await asyncio.to_thread(self._client.erase_contributions, batch)
         except httpx.HTTPError as exc:
             raise _erasure_failure(exc, "contribution") from exc
+        return removed
 
     async def delete_tenant_contributions(self, tenant_key: str) -> int:
         try:

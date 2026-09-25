@@ -154,3 +154,33 @@ async def test_delete_for_user_tolerates_renditions_that_were_never_generated(tm
 
     assert await adapter.delete_for_user(TENANT, USER, "all") == 1
     assert await keys() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("build", [_local, _s3], ids=["local_fs", "s3"])
+async def test_renditions_rendered_after_the_attachment_was_erased_are_discarded(tmp_path, build):
+    """#1760 review — the thumbnail task can finish after the erasure removed the attachment."""
+    photo = _Attachment(key="a1", storage_key=f"t/{TENANT}/pest_reference/2026/09/01J.jpg", mime_type="image/jpeg")
+    repo = _AttachmentRepo([photo])
+    adapter, keys = build(tmp_path, repo)
+    await adapter.put_object(photo.storage_key, _stream(_jpeg()), photo.mime_type)
+
+    class _VanishingRepo(_AttachmentRepo):
+        """The record is there when the task starts and gone when it finishes."""
+
+        def __init__(self) -> None:
+            super().__init__([photo])
+            self.reads = 0
+
+        def get(self, attachment_id, tenant_key):  # type: ignore[no-untyped-def]
+            self.reads += 1
+            return photo if self.reads == 1 else None
+
+    with (
+        patch.object(storage_tasks, "get_object_storage", return_value=adapter),
+        patch.object(storage_tasks, "get_attachment_repo", return_value=_VanishingRepo()),
+    ):
+        outcome = await storage_tasks._generate(photo.key, TENANT)
+
+    assert outcome["reason"] == "attachment_deleted"
+    assert await keys() == [photo.storage_key]

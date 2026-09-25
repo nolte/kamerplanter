@@ -213,6 +213,33 @@ class TestIndexPromotedRecordsTheMarker:
             task_mod._index_promoted(CONTRIB)
         client.upsert_prototype.assert_not_called()
 
+    def test_a_contribution_deleted_during_the_upsert_is_erased_again(self, monkeypatch):
+        """#1759 review SEC-001 — a delete between the read and the upsert must not leave a prototype."""
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        repo.get_by_key.side_effect = [_contribution(), None]
+        client.erase_contributions.return_value = 1
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome["status"] == "retracted_after_delete"
+        client.upsert_prototype.assert_called_once()
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_a_contribution_demoted_during_the_upsert_is_erased_again(self, monkeypatch):
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        demoted = _contribution()
+        demoted.status = PestImageStatus.PRIVATE
+        repo.get_by_key.side_effect = [_contribution(), demoted]
+
+        assert task_mod._index_promoted(CONTRIB)["status"] == "retracted_after_delete"
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_a_contribution_still_present_is_not_erased(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+
+        assert task_mod._index_promoted(CONTRIB)["status"] == "indexed"
+        client.erase_contributions.assert_not_called()
+
     def test_a_guard_miss_records_no_marker(self, monkeypatch):
         _repo, _ipm, _att, client = _wire(monkeypatch, detection_slug=None)
 
