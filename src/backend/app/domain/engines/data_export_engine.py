@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Any
 
+from app.domain.engines.storage.export_bundle_key import export_bundle_key
 from app.domain.models.privacy import DataExportRequest, DataSourceDefinition, DisclosureExclusion
 
 #: Why the three legally-retained categories are only *partly* disclosable.
@@ -676,11 +677,11 @@ class DataExportEngine:
     def bundle_object_key(user_key: str, export_key: str) -> str:
         """Storage key of one export bundle.
 
-        Outside the ``t/{tenant}/...`` attachment namespace on purpose: the
-        bundle spans every tenant the user belongs to and belongs to the user,
-        not to any one of them.
+        The shape lives in :mod:`app.domain.engines.storage.export_bundle_key`,
+        next to the redaction the storage adapters log it through (#1773), so
+        the builder and the redaction cannot drift apart.
         """
-        return f"privacy/exports/{user_key}/{export_key}.json"
+        return export_bundle_key(user_key, export_key)
 
     def validate_export_request(
         self,

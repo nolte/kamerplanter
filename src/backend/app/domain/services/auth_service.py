@@ -24,6 +24,7 @@ from app.data_access.external.device_pairing_throttle import DEFAULT_DEVICE_PAIR
 from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
 from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOUNT_STORE
 from app.domain.engines.encryption_engine import EncryptionEngine
+from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.oauth_engine import OAuthEngine
 from app.domain.engines.password_engine import PasswordEngine
@@ -139,23 +140,6 @@ def _decoy_password_hash(password_engine: PasswordEngine) -> str:
     return _DECOY_PASSWORD_HASH
 
 
-def _refuse_interactive_credential(user: User) -> None:
-    """Refuse to grant ``user`` a password it is not allowed to hold (#1559).
-
-    One helper for both write paths (``change_password``, ``reset_password``)
-    rather than the same ``if`` twice, so the two cannot answer differently. The
-    predicate itself is :func:`~app.domain.models.user.allows_interactive_auth`;
-    nothing here decides what a service account is.
-
-    Raises:
-        ForbiddenError: 403, the account is a service account.
-    """
-    if allows_interactive_auth(user):
-        return
-    logger.warning("service_account_interactive_credential_refused", user_key=user.key)
-    raise ForbiddenError(_SERVICE_ACCOUNT_CREDENTIAL_MESSAGE)
-
-
 def _code_fingerprint(code: str) -> str:
     """Return a short sha256 prefix of a pairing code, for audit lines.
 
@@ -195,6 +179,7 @@ class AuthService:
         unknown_account_store: IUnknownAccountStore | None = None,
         device_pairing_code_store: IDevicePairingCodeStore | None = None,
         device_pairing_throttle_store: IDevicePairingThrottleStore | None = None,
+        tombstone_salt: str = "",
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -230,12 +215,47 @@ class AuthService:
         # * the throttle store is never ``None`` — it is the *guard*, and a
         #   missing one would not disable the feature, it would silently unbound
         #   guessing against it. Same reasoning as ``_unknown_account_store``.
+        # #1773 — the salt of the subject reference auth log lines carry
+        # instead of the account key; see ``_log_subject``.
+        self._tombstone_salt = tombstone_salt
         self._device_pairing_code_store = device_pairing_code_store
         self._device_pairing_throttle_store: IDevicePairingThrottleStore = (
             device_pairing_throttle_store
             if device_pairing_throttle_store is not None
             else DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
         )
+
+    def _log_subject(self, user_key: str) -> str:
+        """The reference an auth log line carries instead of the account key (#1773).
+
+        :meth:`ErasureEngine.log_subject` under the tombstone salt: the log
+        stream has no retention rule (NFR-011) and outlives the account, so the
+        lines name the subject by the same salted reference its pseudonymised
+        audit rows get after an erasure (R-06). Without a salt every line
+        carries the constant ``anon_unavailable`` — never the key.
+        """
+        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
+
+    def _refuse_interactive_credential(self, user: User) -> None:
+        """Refuse to grant ``user`` a password it is not allowed to hold (#1559).
+
+        One helper for both write paths (``change_password``, ``reset_password``)
+        rather than the same ``if`` twice, so the two cannot answer differently. The
+        predicate itself is :func:`~app.domain.models.user.allows_interactive_auth`;
+        nothing here decides what a service account is. A method rather than a
+        module function since #1773, because the refusal is logged under the
+        salted subject reference, which needs the instance's salt.
+
+        Raises:
+            ForbiddenError: 403, the account is a service account.
+        """
+        if allows_interactive_auth(user):
+            return
+        logger.warning(
+            "service_account_interactive_credential_refused",
+            subject=self._log_subject(user.key or ""),
+        )
+        raise ForbiddenError(_SERVICE_ACCOUNT_CREDENTIAL_MESSAGE)
 
     # ── Registration ────────────────────────────────────────────────────
 
@@ -372,7 +392,7 @@ class AuthService:
                 frontend_url=self._frontend_url,
             )
 
-        logger.info("user_registered", email=email, verified=skip_verification)
+        logger.info("user_registered", email_sha256=email_digest(email), verified=skip_verification)
         return self._to_profile(created)
 
     # ── Login ───────────────────────────────────────────────────────────
@@ -595,7 +615,7 @@ class AuthService:
                     "email_verification_expires": None,
                 },
             )
-            logger.info("email_verified", email=user.email)
+            logger.info("email_verified", email_sha256=email_digest(user.email))
             return self._to_profile(updated)
         raise InvalidTokenError("verification token")
 
@@ -652,7 +672,7 @@ class AuthService:
         # converted to ``service`` while a token was outstanding. This is the second
         # door into the same write and is gated on its own rather than on the
         # unreachability of the first (#1559).
-        _refuse_interactive_credential(user)
+        self._refuse_interactive_credential(user)
 
         user.password_hash = self._password_engine.hash_password(new_password)
         user.password_reset_token = None
@@ -672,7 +692,7 @@ class AuthService:
             )
             # Revoke all sessions for security
             self._refresh_token_repo.revoke_all_for_user(user.key)
-            logger.info("password_reset", email=user.email)
+            logger.info("password_reset", email_sha256=email_digest(user.email))
 
     # ── Logout ──────────────────────────────────────────────────────────
 
@@ -756,7 +776,7 @@ class AuthService:
         # branch below, which waives ``current_password`` for any account with no
         # hash. Refused before the policy check, so a service account cannot even
         # probe the password policy from here.
-        _refuse_interactive_credential(user)
+        self._refuse_interactive_credential(user)
 
         # SSO-only users (no password_hash) can set initial password without current_password
         if user.password_hash and (
@@ -950,7 +970,7 @@ class AuthService:
         if user.key:
             self._user_repo.update_fields(user.key, {"last_login_at": _iso(user.last_login_at)})
 
-        logger.info("oauth_login", provider=provider_slug, email=oauth_user.email)
+        logger.info("oauth_login", provider=provider_slug, email_sha256=email_digest(oauth_user.email))
         return self._create_tokens(user, user_agent, ip_address, is_persistent=True)
 
     def _register_oauth_user(self, oauth_user: OAuthUserInfo) -> User:
@@ -982,7 +1002,7 @@ class AuthService:
         created = self._user_repo.create(user)
         if self._tenant_service and created.key:
             self._tenant_service.create_personal_tenant(created.key, created.display_name)
-        logger.info("oauth_user_registered", email=oauth_user.email, provider=oauth_user.provider)
+        logger.info("oauth_user_registered", email_sha256=email_digest(oauth_user.email), provider=oauth_user.provider)
         return created
 
     def _create_oauth_provider(
@@ -1039,7 +1059,7 @@ class AuthService:
         )
         created = self._api_key_repo.create(api_key)
 
-        logger.info("api_key_created", user_key=user_key, label=label, prefix=key_prefix)
+        logger.info("api_key_created", subject=self._log_subject(user_key), label=label, prefix=key_prefix)
         return ApiKeyCreated(
             key=created.key or "",
             label=created.label,
@@ -1075,7 +1095,7 @@ class AuthService:
         if api_key.user_key != user_key:
             raise ValidationError("API key does not belong to this user.")
         self._api_key_repo.revoke(key_id)
-        logger.info("api_key_revoked", key_id=key_id, user_key=user_key)
+        logger.info("api_key_revoked", key_id=key_id, subject=self._log_subject(user_key))
 
     def authenticate_api_key(self, raw_key: str) -> User | None:
         """Authenticate a request via API key. Returns the user or None."""
@@ -1133,7 +1153,7 @@ class AuthService:
         expires_at = store.issue(code, user_key)
         logger.info(
             "device_pairing_created",
-            user_key=user_key,
+            subject=self._log_subject(user_key),
             ip_address=ip_address,
             # Never the code, not even a prefix of it — see ``_code_fingerprint``.
             code_sha256=_code_fingerprint(code),
@@ -1247,7 +1267,7 @@ class AuthService:
 
         logger.info(
             "device_pairing_redeemed",
-            user_key=record.user_key,
+            subject=self._log_subject(record.user_key),
             ip_address=ip_address,
             code_sha256=_code_fingerprint(code),
             issued_at=record.issued_at.isoformat(),
