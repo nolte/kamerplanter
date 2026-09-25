@@ -410,3 +410,24 @@ def test_a_retry_whose_tenant_document_is_gone_echoes_the_key() -> None:
 
     assert refused.status_code == 422, refused.text
     assert accepted.status_code == 204, accepted.text
+
+
+def test_a_retry_after_the_document_went_still_accepts_the_slug_the_dialog_sends() -> None:
+    """/code-review finding: the first attempt removed the tenant document, then failed (502/500).
+
+    The admin dialog stays open and resends the slug it showed. The record keeps
+    a salted digest of that slug (never the slug itself — a personal tenant's
+    slug is its owner's name), so the retry is recognised.
+    """
+    world = _World(role=None, scopes=[], platform_admin=True)
+    world.executor._raises = RuntimeError("storage phase failed after the ArangoDB commit")
+    first = world.delete(ADMIN_ROUTE, STEP_UP)
+    assert first.status_code == 500, first.text
+    assert SLUG not in str(world.record())
+
+    world.executor._raises = None
+    world.service._tenant_repo.get_by_key.side_effect = lambda key: None  # the document is gone now
+    retry = world.delete(ADMIN_ROUTE, STEP_UP)
+
+    assert retry.status_code == 204, retry.text
+    assert world.record()["status"] == "completed"

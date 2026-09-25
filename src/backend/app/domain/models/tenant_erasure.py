@@ -176,6 +176,10 @@ class TenantErasureRecord(BaseModel):
     requested_by_subject: str | None = None
     #: How the requester confirmed the deletion (#1791).
     step_up: TenantDeletionStepUp | None = None
+    #: Salted HMAC of the tenant's slug — never the slug, which for a personal
+    #: tenant is its owner's name. Lets a retry confirm with the slug the caller
+    #: saw after an earlier attempt already removed the tenant document (#1791).
+    slug_digest: str | None = None
     status: TenantErasureStatus = "in_progress"
     requested_at: datetime | None = None
     completed_at: datetime | None = None

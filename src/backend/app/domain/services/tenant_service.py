@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import hmac
 import re
 from datetime import UTC, datetime, timedelta
@@ -378,9 +379,15 @@ class TenantService:
             # installation, and the light-mode seed does not re-create it.
             raise ForbiddenError("The tenant of a light-mode installation cannot be deleted.")
         # A tenant whose document an earlier attempt already removed has no slug
-        # left to echo; its key is the only name the (platform) caller still sees.
+        # left to read. The open record keeps a salted digest of it, so the slug
+        # the caller saw still confirms; the key does too (a record written
+        # before the digest existed, or a caller who only has the key).
         step_up = self._verify_tenant_deletion_step_up(
-            tenant.slug if tenant is not None else tenant_key, requester=requester, confirmation=confirmation
+            tenant.slug if tenant is not None else None,
+            tenant_key=tenant_key,
+            slug_digest=record.slug_digest if record is not None else None,
+            requester=requester,
+            confirmation=confirmation,
         )
 
         configuration_error = self._tenant_erasure_configuration_error()
@@ -404,6 +411,7 @@ class TenantService:
                         origin=origin,
                         requested_by_subject=requested_by,
                         step_up=step_up,
+                        slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
                         requested_at=now,
                     ),
                     record_key,
@@ -442,8 +450,20 @@ class TenantService:
         if not allowed:
             raise ForbiddenError("Deleting a tenant requires the lead role and the management scope.")
 
+    def _tenant_slug_digest(self, slug: str) -> str:
+        """Salted HMAC of a tenant slug, purpose-separated from every other use of the salt (#1791)."""
+        return hmac.new(
+            self._tombstone_salt.encode(), f"tenant-deletion-slug:{slug}".encode(), hashlib.sha256
+        ).hexdigest()
+
     def _verify_tenant_deletion_step_up(
-        self, expected_slug: str, *, requester: User, confirmation: TenantDeletionConfirmation
+        self,
+        expected_slug: str | None,
+        *,
+        tenant_key: str,
+        slug_digest: str | None,
+        requester: User,
+        confirmation: TenantDeletionConfirmation,
     ) -> TenantDeletionStepUp:
         """Check the step-up of a tenant deletion; return how it was confirmed (#1791).
 
@@ -453,7 +473,14 @@ class TenantService:
         through a federated provider, has no local secret to re-enter, and is
         confirmed by the echo alone (REQ-394, ``PrivacyService.request_erasure``).
         """
-        if not hmac.compare_digest(confirmation.confirm_slug.strip().encode(), expected_slug.encode()):
+        echoed = confirmation.confirm_slug.strip()
+        if expected_slug is not None:
+            matches = hmac.compare_digest(echoed.encode(), expected_slug.encode())
+        else:
+            matches = hmac.compare_digest(echoed.encode(), tenant_key.encode()) or (
+                slug_digest is not None and hmac.compare_digest(self._tenant_slug_digest(echoed), slug_digest)
+            )
+        if not matches:
             raise ValidationError("The confirmation does not match the tenant's slug.")
         if requester.password_hash is None:
             return "slug_confirmation"
