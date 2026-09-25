@@ -370,8 +370,11 @@ SELECTORS: tuple[Selector, ...] = (
         field="created_at",
         selects="before",
         run=_returned_keys(lambda db, cut: ArangoRefreshTokenRepository(db).list_unanonymized_ips_before(cut)),
-        undated_selected=False,
-        why_undated="age-based: a session whose age cannot be read is not proven old enough",
+        undated_selected=True,
+        why_undated=(
+            "minimising, not destructive (#1784 review GDPR-001): anonymising an IP of unknown age "
+            "harms nobody, keeping it plain until the token expires (up to 30 days) does"
+        ),
     ),
     Selector(
         name="ai_conversation.delete_expired",

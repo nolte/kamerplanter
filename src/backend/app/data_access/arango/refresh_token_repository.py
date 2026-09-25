@@ -130,15 +130,19 @@ class ArangoRefreshTokenRepository(BaseArangoRepository[RefreshToken], IRefreshT
         anonymisation must reach a document even when some other field of it no
         longer validates, and it needs nothing but the key and the address.
         ``created_at`` is compared as an instant (see
-        :mod:`app.data_access.arango.query_builder`); a session whose age cannot
-        be read is not selected.
+        :mod:`app.data_access.arango.query_builder`). A session whose age cannot
+        be read **is** selected: anonymising is the minimising action, so an IP of
+        unknown age is anonymised rather than kept in full until the token expires
+        (#1784 review GDPR-001). Destructive selectors go the other way.
         """
         query = """
         FOR doc IN @@collection
           FILTER doc.ip_address != null
             AND doc.ip_anonymized_at == null
-            AND DATE_TIMESTAMP(doc.created_at) != null
-            AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
+            AND (
+              DATE_TIMESTAMP(doc.created_at) == null
+              OR DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
+            )
           RETURN { _key: doc._key, ip_address: doc.ip_address }
         """
         cursor = self._db.aql.execute(

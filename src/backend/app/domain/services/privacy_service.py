@@ -914,7 +914,7 @@ class PrivacyService:
             RetentionCategoryInfo(
                 category="ip_addresses",
                 # Sessions only: ``anonymize_old_ips`` walks ``refresh_tokens``;
-                # the IP on a consent record is not anonymised yet (#1782), and
+                # the IP on a consent record is not anonymised yet (#1800), and
                 # this text must not promise it (#1773 review GDPR-005).
                 description="IP addresses of login sessions",
                 retention_period=f"Anonymised after {self._retention.ip_anonymisation_after_days} days (NFR-011 R-03).",
