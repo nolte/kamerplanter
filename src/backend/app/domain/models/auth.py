@@ -1,3 +1,4 @@
+import ipaddress
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -162,6 +163,32 @@ def api_key_scope_admits(scope: str | None, *, tenant_key: str) -> bool:
     if not scope:
         return True
     return scope == tenant_key
+
+
+def api_key_ip_admits(allowlist: list[str] | None, client_ip: str | None) -> bool:
+    """Whether a request from *client_ip* passes an API key's ``ip_allowlist`` (SEC-004).
+
+    An empty or absent allowlist admits every address. A configured one fails
+    **closed**: an unresolvable or unparsable client IP, and an address outside
+    every listed range, are refused. A malformed entry never widens access — it
+    is skipped, not read as "everything".
+    """
+    if not allowlist:
+        return True
+    if not client_ip:
+        return False
+    try:
+        addr = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    for entry in allowlist:
+        try:
+            network = ipaddress.ip_network(entry, strict=False)
+        except ValueError:
+            continue
+        if addr in network:
+            return True
+    return False
 
 
 class ApiKeyCreated(BaseModel):

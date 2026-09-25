@@ -14,12 +14,12 @@ from app.domain.models.user import User
 class _HeaderAuthProvider(IAuthProvider):
     """Refuses an absent Authorization header, accepts any present one (#1402)."""
 
-    def resolve_user(self, authorization: str | None) -> User:
+    def resolve_user(self, authorization: str | None, *, client_ip: str | None = None) -> User:
         if not authorization:
             raise UnauthorizedError("Missing credentials.")
         return User(key="user-a", email="caller@example.org", display_name="Caller", email_verified=True)
 
-    def resolve_user_optional(self, authorization: str | None) -> User | None:
+    def resolve_user_optional(self, authorization: str | None, *, client_ip: str | None = None) -> User | None:
         return self.resolve_user(authorization) if authorization else None
 
     def is_authentication_required(self) -> bool:

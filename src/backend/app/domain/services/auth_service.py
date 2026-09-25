@@ -53,6 +53,7 @@ from app.domain.models.auth import (
     TokenPair,
 )
 from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
+from app.domain.services.api_key_controls import ApiKeyRateLimiter, enforce_api_key_controls
 from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
 from app.domain.services.tenant_service import TenantService
 
@@ -187,6 +188,7 @@ class AuthService:
         device_pairing_throttle_store: IDevicePairingThrottleStore | None = None,
         tombstone_salt: str = "",
         step_up_verifier: StepUpVerifier | None = None,
+        api_key_rate_limiter: ApiKeyRateLimiter | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -204,6 +206,7 @@ class AuthService:
         self._oauth_engine = oauth_engine
         self._oauth_state_store = oauth_state_store
         self._api_key_repo = api_key_repo
+        self._api_key_rate_limiter = api_key_rate_limiter
         self._oidc_config_repo = oidc_config_repo
         self._encryption_engine = encryption_engine
         # Never ``None``: a missing store would make the SEC-H-010 login guard
@@ -1165,8 +1168,17 @@ class AuthService:
         self._api_key_repo.revoke(key_id)
         logger.info("api_key_revoked", key_id=key_id, subject=self._log_subject(user_key))
 
-    def authenticate_api_key(self, raw_key: str) -> User | None:
-        """Authenticate a request via API key. Returns the user or None."""
+    def authenticate_api_key(self, raw_key: str, *, client_ip: str | None) -> User | None:
+        """Authenticate a request via API key. Returns the user or None.
+
+        ``None`` for an unknown, revoked or expired key and an inactive owner.
+        The key's own network controls raise instead (#1850): a request from
+        outside its ``ip_allowlist`` is a 401 and a spent
+        ``rate_limit_per_minute`` budget a 429, decided by
+        :func:`~app.domain.services.api_key_controls.enforce_api_key_controls` —
+        the implementation the MCP authenticator uses, so the two surfaces
+        cannot disagree about what a key may do.
+        """
         if not self._api_key_repo:
             return None
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
@@ -1176,6 +1188,7 @@ class AuthService:
         # Check expiry
         if api_key.expires_at and api_key.expires_at < datetime.now(UTC):
             return None
+        enforce_api_key_controls(api_key, client_ip=client_ip, rate_limiter=self._api_key_rate_limiter)
         # Update last_used_at
         if api_key.key:
             self._api_key_repo.update_last_used(api_key.key)

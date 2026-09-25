@@ -2,12 +2,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Cookie, Depends, Header, Path
+from fastapi import Cookie, Depends, Header, Path, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
+from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.engines.full_auth_provider import is_api_key_authorization
@@ -40,11 +41,17 @@ def _raw_authorization(credentials: HTTPAuthorizationCredentials | None) -> str 
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User:
-    """Extract and validate user from Bearer token, API key, or system user."""
-    return auth_provider.resolve_user(_raw_authorization(credentials))
+    """Extract and validate user from Bearer token, API key, or system user.
+
+    The client address is resolved here and handed to the provider (#1850): an
+    API key's ``ip_allowlist`` is decided on it, through the same implementation
+    the MCP authenticator uses.
+    """
+    return _resolve_principal(request, credentials, auth_provider, optional=False)  # type: ignore[return-value]
 
 
 def get_authenticated_with_api_key(
@@ -61,11 +68,45 @@ def get_authenticated_with_api_key(
 
 
 def get_current_user_optional(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User | None:
     """Extract user from Bearer token, or return None if no token."""
-    return auth_provider.resolve_user_optional(_raw_authorization(credentials))
+    return _resolve_principal(request, credentials, auth_provider, optional=True)
+
+
+#: Where one request keeps the principal it resolved (#1850).
+_PRINCIPAL_STATE = "kp_principal"
+
+
+def _resolve_principal(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
+    auth_provider: IAuthProvider,
+    *,
+    optional: bool,
+) -> User | None:
+    """Resolve the request's principal once, whichever of the two dependencies asks first.
+
+    FastAPI caches a dependency per request, but ``get_current_user`` and
+    ``get_current_user_optional`` are two dependencies: a route whose tree holds
+    both would authenticate twice, and an API key's ``rate_limit_per_minute``
+    would count one request as two (#1850). The resolved principal is therefore
+    kept on the request for the header it was resolved from. A required
+    resolution after an optional one that found nobody still raises.
+    """
+    authorization = _raw_authorization(credentials)
+    cached = getattr(request.state, _PRINCIPAL_STATE, None)
+    if cached is not None and cached[0] == authorization and (optional or cached[1] is not None):
+        return cached[1]
+    client_ip = resolve_client_ip(request)
+    if optional:
+        user = auth_provider.resolve_user_optional(authorization, client_ip=client_ip)
+    else:
+        user = auth_provider.resolve_user(authorization, client_ip=client_ip)
+    setattr(request.state, _PRINCIPAL_STATE, (authorization, user))
+    return user
 
 
 def get_refresh_token_from_cookie(
