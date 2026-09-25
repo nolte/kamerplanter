@@ -141,6 +141,19 @@ class _ErasureRepo:
             return [e]
         return []
 
+    def claim_for_run(self, key: str, *, now_iso: str, stale_before_iso: str) -> ErasureRequest | None:
+        """The atomic claim (#1767): refused for ``completed`` and a fresh ``in_progress``."""
+        e = self.erasure
+        if e.status == "completed":
+            return None
+        if (
+            e.status == "in_progress"
+            and e.updated_at is not None
+            and e.updated_at > datetime.fromisoformat(stale_before_iso)
+        ):
+            return None
+        return self.update_fields(key, {"status": "in_progress", "last_attempt_at": now_iso, "updated_at": now_iso})
+
     def update_fields(self, key: str, fields: dict[str, Any]) -> ErasureRequest:
         for field in fields:
             if field not in ErasureRequest.model_fields:

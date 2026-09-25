@@ -157,17 +157,18 @@ class TestRetentionPipeline:
         assert result == 7
         email_repo.expire_old.assert_called_once()
 
-    async def test_expire_data_exports_delegates_to_repo(self):
+    async def test_expire_data_exports_expires_every_due_record(self):
         from app.domain.models.privacy import DataExportRequest
 
         export_repo = MagicMock()
-        # #1645 — `expire_old` now hands back the records it expired, because the
-        # caller must delete each bundle from object storage (NFR-011 R-05).
-        export_repo.expire_old.return_value = [
-            DataExportRequest(key=f"e-{i}", user_key="u-1", status="expired") for i in range(4)
+        # #1767 — the repository only selects; the service writes ``expired``
+        # after each bundle is gone (these records point at none).
+        export_repo.list_expiry_due.return_value = [
+            DataExportRequest(key=f"e-{i}", user_key="u-1", status="completed") for i in range(4)
         ]
         svc = _make_service(export_repo=export_repo)
 
         result = await svc.expire_data_exports(datetime.now(UTC))
         assert result == 4
-        export_repo.expire_old.assert_called_once()
+        export_repo.list_expiry_due.assert_called_once()
+        assert export_repo.update_fields.call_count == 4

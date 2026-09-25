@@ -23,23 +23,26 @@ def cleanup_expired_tokens() -> dict:
 def cleanup_unverified_accounts() -> dict:
     """Erase unverified accounts older than 72 hours through the full Art. 17 plan.
 
-    Each candidate goes through :meth:`PrivacyService.erase_account`, the entry
-    both account-deletion paths share (#1700 review). Until then this task used
-    ``ArangoUserRepository.delete`` — the ``account_cascade`` slice only — and
-    the personal tenant registration created survived with the display name as
-    ``name``/``slug`` and the key as ``owner_user_key``.
+    Each candidate goes through :meth:`PrivacyService.erase_account_now` (#1767):
+    the same persisted erasure request, ``unreached`` gate and retry the
+    self-service path has. Until #1767 the task called ``erase_account`` and
+    kept only a counter — a run that skipped a declared step counted as
+    ``removed``, and a failed one left nothing that would retry it (GDPR-004).
+    A failed account now stays an open ``partially_completed`` request the
+    daily erasure beat retries with backoff; one inside its backoff is left to
+    the beat and counted ``deferred``. An account that confirmed its address
+    after the candidate list was read is left alone and counted ``skipped``.
 
-    The full entry needs the NFR-011 §4 tombstone salt, which the narrow delete
-    did not. A missing salt is instance-wide, so the run stops at the first
-    :class:`FeatureNotConfiguredError`, deletes nothing, logs an error and
+    A deployment that cannot erase (tombstone salt, a derived index) is
+    instance-wide, so the run stops at the first
+    :class:`FeatureNotConfiguredError`, changes nothing, logs an error and
     reports every remaining candidate as ``blocked``; the next run retries them
-    once the salt is set. Falling back to the narrow delete would recreate the
-    orphan, and skipping quietly would hide a misconfiguration that also blocks
-    every self-service erasure. Any other failure is per account: counted,
-    logged without the key (#1700), and the loop moves on.
+    once the configuration is fixed. Any other failure is per account:
+    counted, logged without the key (#1700), and the loop moves on.
 
     Returns:
-        ``{"removed", "failed", "blocked"}`` counts, plus ``reason`` when blocked.
+        ``{"removed", "failed", "deferred", "skipped", "blocked"}`` counts, plus
+        ``reason`` when blocked.
     """
     from app.common.async_bridge import run_async
     from app.common.dependencies import get_privacy_service, get_user_repo
@@ -47,7 +50,7 @@ def cleanup_unverified_accounts() -> dict:
 
     cutoff = (datetime.now(UTC) - timedelta(hours=72)).isoformat()
     candidates = [user.key for user in get_user_repo().get_unverified_before(cutoff) if user.key]
-    result: dict = {"removed": 0, "failed": 0, "blocked": 0}
+    result: dict = {"removed": 0, "failed": 0, "deferred": 0, "skipped": 0, "blocked": 0}
     if not candidates:
         logger.info("cleanup_unverified_accounts", **result)
         return result
@@ -55,7 +58,7 @@ def cleanup_unverified_accounts() -> dict:
     privacy_service = get_privacy_service()
     for position, user_key in enumerate(candidates):
         try:
-            run_async(privacy_service.erase_account(user_key))
+            erasure = run_async(privacy_service.erase_account_now(user_key, origin="unverified_cleanup"))
         except FeatureNotConfiguredError as exc:
             result["blocked"] = len(candidates) - position
             result["reason"] = "erasure_not_configured"
@@ -70,7 +73,13 @@ def cleanup_unverified_accounts() -> dict:
             result["failed"] += 1
             logger.error("cleanup_unverified_account_failed", error_type=type(exc).__name__)
             continue
-        result["removed"] += 1
+        if erasure is None:
+            # Verified (or gone) since the candidate list was read.
+            result["skipped"] += 1
+        elif erasure.status == "completed":
+            result["removed"] += 1
+        else:
+            result["deferred"] += 1
     logger.info("cleanup_unverified_accounts", **result)
     return result
 

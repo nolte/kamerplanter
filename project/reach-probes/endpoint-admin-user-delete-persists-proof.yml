@@ -1,0 +1,42 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous #1767 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
+#
+# Until #1767 the admin delete persisted no erasure record at all (GDPR-004); the record must
+# close as completed and, once the plan ran, no longer contain the subject key.
+id: endpoint-admin-user-delete-persists-proof
+summary: erasure records after the platform-admin user delete — one completed platform_admin record, none
+  naming the subject
+declaration:
+  source: endpoint
+  path: src/backend/app/api/v1/admin/platform/router.py
+  location: DELETE /admin/platform/users/{key} (delete_user) — an erasure request (origin platform_admin)
+    is persisted as the proof (#1767 GDPR-004)
+tier: T2
+expected:
+  kind: set
+  unit: observed erasure-record facts
+  values:
+  - record/platform_admin/completed
+  - subject-in-records/0
+derived_from: 2994893c99d5782aff6f525b7fa220e20d501420
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:erasure:admin-delete-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_erasure_records.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-25T03:47:21Z'
+  approved_by: nolte
+  observation_digest: fe814f713d7729b1c4193deff99ca704d264974b061764aa33f8ec45be7eee5d

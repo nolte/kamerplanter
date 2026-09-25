@@ -66,6 +66,7 @@ All API errors follow a consistent JSON format. Every error response contains a 
 | `423 Locked` | Account locked | Too many failed login attempts |
 | `429 Too Many Requests` | Rate limit exceeded | Too many requests per minute |
 | `502 Bad Gateway` | External source unreachable | GBIF/Perenual timeout |
+| `503 Service Unavailable` | Feature not configured | Instance is missing configuration required for the action |
 | `500 Internal Server Error` | Internal error | Unexpected server error |
 
 ---
@@ -122,6 +123,14 @@ All API errors follow a consistent JSON format. Every error response contains a 
 | `EXTERNAL_SOURCE_ERROR` | 502 | External data service (GBIF, Perenual) not reachable |
 | `ADAPTER_NOT_FOUND` | 404 | No adapter registered for the specified source |
 | `RATE_LIMIT_EXCEEDED` | 429 | Rate limit of the server or an external service exceeded |
+
+### GDPR and Erasure Errors
+
+| Error Code | HTTP | Description |
+|-----------|------|-------------|
+| `ERASURE_INCOMPLETE` | 500 | An immediate account erasure (platform admin, cleanup of never-confirmed accounts) did not reach a declared step; the erasure request is recorded and retried automatically |
+| `WRITE_CONFLICT` | 409 | An erasure for this account is already running |
+| `FEATURE_NOT_CONFIGURED` | 503 | The instance is not configured correctly for account erasure; nothing was changed |
 
 ---
 

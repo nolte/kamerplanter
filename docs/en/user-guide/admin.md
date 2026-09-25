@@ -37,7 +37,10 @@ In the **Admin > Tenants** section you can:
 - Manage a tenant's members on their behalf
 
 !!! danger "Deleting a tenant is irreversible"
-    Deleting a tenant removes all associated data (plants, runs, logs). This action cannot be undone. Create a data export for the affected tenant beforehand.
+    Deleting a tenant removes its object storage (photos, attachments), its contributed recognition vectors, all memberships, open invitations and location assignments, and finally the tenant record itself. This action cannot be undone. Create a data export for the affected tenant beforehand.
+
+!!! note "Partially available: domain-data deletion"
+    Tenant deletion today already removes the tenant's object storage, recognition vectors, memberships, invitations and location assignments. Its domain data — plants, planting runs, diary entries, tasks and other location-bound records — still remains; removing it will be added in a future version. <!-- Issue #1769 -->
 
 ---
 
@@ -53,6 +56,13 @@ In the **Admin > Users** section you can:
 
 !!! note "GDPR requests"
     Data subject rights under GDPR Art. 15–21 are available to users via the self-service API at `/api/v1/privacy/`. As a platform admin, you can view and process requests in the admin area. See [Privacy (GDPR)](privacy.md) for details.
+
+!!! danger "Deleting a user account is immediate and complete"
+    Deleting a user account in the admin area deactivates it at once, ends all sessions, and runs the full account erasure immediately (see [Data Retention & Anonymization](../guides/data-retention.md)). An erasure request is persisted as proof — the same as when a user deletes their own account.
+
+    If the erasure could not be fully completed, the action reports an error (`500`) and leaves the steps already done untouched: the erasure request stays open (`partially_completed`) and is automatically resumed by the daily retry run — you do not need to redo anything manually. If a single external service could not be reached, the action instead reports `502`. A second deletion attempt for the same account resumes the open request at once instead of waiting for the next run.
+
+    If a deletion for that account is already running (for example, through the daily cleanup for never-confirmed accounts), the action reports a conflict (`409`). If the instance is not configured correctly for account erasure, it reports `503` — in that case nothing was changed.
 
 ---
 

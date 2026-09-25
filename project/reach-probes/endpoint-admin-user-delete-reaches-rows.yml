@@ -1,22 +1,20 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the operator's standing pre-approval of the gate for the
-# autonomous #1680 run, relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the
-# operator's machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous #1767 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
 #
-# The same row against the plan the executor runs: 46 step collections, 18 rule
-# collections (it carries the four cv_* edge steps REQ-025 names only in a comment).
-# Re-derived for #1767 (2994893c9 added ErasureEngine.compute_request_key; DELETE_STEPS,
-# ANONYMIZE_COLLECTIONS and PSEUDONYMIZE_AUDIT_COLLECTIONS unchanged, 64/64 observed through
-# the admin-delete probe on the same seed), under the same standing pre-approval.
-id: inventory-erasure-plan-reaches-rows
-summary: collections of the executing erasure plan left without the subject after the scheduled finalisation
+# The same row as inventory-erasure-plan-reaches-rows, reached through the immediate admin
+# entry instead of the scheduled finalisation (#1767 GDPR-004 / SEC-003).
+id: endpoint-admin-user-delete-reaches-rows
+summary: collections of the executing erasure plan left without the subject after the platform-admin user
+  delete
 declaration:
-  source: inventory
-  path: src/backend/app/domain/engines/erasure_engine.py
-  location: ErasureEngine.DELETE_STEPS (L391), ANONYMIZE_COLLECTIONS (L66), PSEUDONYMIZE_AUDIT_COLLECTIONS
-    (L679)
+  source: endpoint
+  path: src/backend/app/api/v1/admin/platform/router.py
+  location: 'DELETE /admin/platform/users/{key} (delete_user) — runs the declared REQ-025 erasure plan
+    (#1664, #1767)'
 tier: T2
 expected:
   kind: set
@@ -90,7 +88,7 @@ derived_from: 2994893c99d5782aff6f525b7fa220e20d501420
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
-- reach:erasure:finalise-for-subject
+- reach:erasure:admin-delete-subject
 teardown:
 - reach:stack:down
 observe:
@@ -101,6 +99,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-24T04:46:06Z'
+  approved_at: '2026-09-25T03:47:21Z'
   approved_by: nolte
-  observation_digest: 584da5deab1a64e149f8a3f1e6fc9081a4ba4fb13aa522276966e372999ac96f
+  observation_digest: 2e7df4233825e713e429ffad28c5b00a97c7b77db1556925790868093ea0b7bf

@@ -93,6 +93,19 @@ class _InMemoryStorage:
         self.objects.pop(key, None)
 
 
+class _FailingDeleteStorage(_InMemoryStorage):
+    """Storage whose delete fails until ``fail`` is cleared — a transient outage."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail = True
+
+    async def delete_object(self, key: str) -> None:
+        if self.fail:
+            raise ConnectionError("object store unavailable")
+        await super().delete_object(key)
+
+
 def _make_service(export: DataExportRequest, storage, personal_data_repo, **overrides) -> PrivacyService:
     # A faithful double, not a MagicMock: this repository *merges*, so `update`
     # drops a `None` and `update_fields` keeps it. A MagicMock has neither
@@ -213,12 +226,127 @@ class TestTheBundleReachesTheUser:
         await svc.process_data_export("exp-1")
         assert storage.objects
 
-        export.status = "expired"
-        svc._export_repo.expire_old_result = [export]
         await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
 
         assert storage.objects == {}
         assert export.file_path is None
+        assert export.status == "expired"
+
+    async def test_a_bundle_finished_after_an_erasure_closed_the_export_is_removed(self):
+        """#1767 review SEC-A — the erasure's export cleanup ran while this bundle was built.
+
+        Before the fix the completion write was unconditional: it landed on the
+        record the erasure had already passed over, the ArangoDB plan then
+        removed the record, and the bundle sat in storage with nothing pointing
+        at it.
+        """
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        put = storage.put_object
+
+        async def _put_while_erasing(key, stream, mime_type, metadata=None):
+            result = await put(key, stream, mime_type, metadata)
+            svc._export_repo.fail_open_for_user(USER, "The account is being erased.")
+            return result
+
+        storage.put_object = _put_while_erasing
+
+        result = await svc.process_data_export("exp-1")
+
+        assert result.status == "failed"
+        assert result.file_path is None
+        assert storage.objects == {}
+
+    async def test_an_export_an_erasure_closed_before_the_build_started_is_not_reopened(self):
+        """#1767 code review — the ``pending → processing`` flip was unconditional.
+
+        An erasure that closed the request between the worker's read and its
+        flip was overwritten back to ``processing``; the build then completed
+        behind the erasure and left a bundle nothing pointed at.
+        """
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        read = svc._export_repo.get_by_key
+        calls = {"n": 0}
+
+        def _read_then_erasure_closes_it(key):
+            calls["n"] += 1
+            found = read(key)
+            if calls["n"] == 1:
+                snapshot = found.model_copy()
+                svc._export_repo.fail_open_for_user(USER, "The account is being erased.")
+                return snapshot
+            return found
+
+        svc._export_repo.get_by_key = _read_then_erasure_closes_it
+
+        result = await svc.process_data_export("exp-1")
+
+        assert result.status == "failed"
+        assert storage.objects == {}
+
+    async def test_a_failed_bundle_delete_does_not_expire_the_record(self):
+        """#1767 GDPR-005 — ``expired`` is written only after the bundle is gone.
+
+        Before #1767 the status was flipped first; the failed delete left an
+        ``expired`` record with the bundle still in storage, and the next run's
+        filter (``completed``) never picked it up again.
+        """
+        storage = _FailingDeleteStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        bundle = export.file_path
+
+        expired = await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
+
+        assert expired == 0
+        assert bundle in storage.objects
+        assert export.status == "completed", "the status must not claim a removal that did not happen"
+        assert export.file_path == bundle
+
+    async def test_the_next_run_deletes_a_bundle_an_earlier_failure_left(self):
+        storage = _FailingDeleteStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        later = datetime.now(UTC) + timedelta(hours=73)
+        await svc.expire_data_exports(later)
+
+        storage.fail = False
+        expired = await svc.expire_data_exports(later + timedelta(hours=1))
+
+        assert expired == 1
+        assert storage.objects == {}
+        assert (export.status, export.file_path) == ("expired", None)
+
+    async def test_a_legacy_expired_record_still_pointing_at_its_bundle_is_repaired(self):
+        """Records the pre-#1767 order already flipped keep being selected until the file is gone."""
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        export.status = "expired"
+
+        await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
+
+        assert storage.objects == {}
+        assert export.file_path is None
+
+    async def test_without_a_storage_adapter_the_record_is_held_not_expired(self):
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        svc._storage_adapter = None
+
+        expired = await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
+
+        assert expired == 0
+        assert export.status == "completed"
+        assert export.file_path in storage.objects
 
     async def test_an_expired_export_cannot_be_downloaded(self):
         storage = _InMemoryStorage()

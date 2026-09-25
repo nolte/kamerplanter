@@ -276,6 +276,15 @@ def delete_user(
     cascade separately; neither applied an anonymisation rule, and consents,
     export requests, restrictions, favourites, identification requests and
     pest detections of the deleted user were left behind.
+
+    #1767 — the run goes through ``PrivacyService.erase_account_now``: the
+    account is deactivated and its sessions revoked first, an erasure request
+    (``origin="platform_admin"``) is persisted as the proof, and 204 is answered
+    only when the report accounts for every declared step. Otherwise the request
+    stays ``partially_completed`` and the daily beat retries it; the answer is
+    the run's error (500 ``ERASURE_INCOMPLETE``, 502 for a failed external
+    delete), 409 while another run holds the request, 503 when the deployment
+    cannot erase — then nothing was changed.
     """
     from app.common.async_bridge import run_async
 
@@ -284,7 +293,7 @@ def delete_user(
     if current_user.key == key:
         raise ForbiddenError("You cannot delete your own account from the admin panel.")
 
-    run_async(privacy_service.erase_account(key))
+    run_async(privacy_service.erase_account_now(key, origin="platform_admin"))
 
 
 # ── Tenant membership management ──────────────────────────────────────

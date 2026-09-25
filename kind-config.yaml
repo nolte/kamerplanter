@@ -18,12 +18,21 @@ nodes:
     # publishing the same host ports here collided with it and forced Skaffold
     # onto 8001/3001/8530. The services are ClusterIP (no NodePort), so these
     # mappings pointed at non-existent NodePorts anyway.
+    #
+    # listenAddress pins each mapping to the loopback interface (#1756). kind's
+    # default is 0.0.0.0, which put the dev ingress — the app, in light mode
+    # without a login — on every interface of the workstation. kind reads no
+    # environment variables here, so there is no opt-in switch: to reach the
+    # cluster from a phone, create it from an untracked copy with 0.0.0.0.
+    # A running cluster keeps its old binding until it is recreated.
     extraPortMappings:
       - containerPort: 80
         hostPort: 80
+        listenAddress: "127.0.0.1"
         protocol: TCP
       - containerPort: 443
         hostPort: 443
+        listenAddress: "127.0.0.1"
         protocol: TCP
   - role: worker
   - role: worker

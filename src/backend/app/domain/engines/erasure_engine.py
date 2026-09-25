@@ -1,6 +1,7 @@
 """Pure logic for REQ-025 erasure orchestration (Art. 17)."""
 
 import hashlib
+import hmac
 import re
 
 from app.domain.models.privacy import (
@@ -857,6 +858,27 @@ class ErasureEngine:
             raise ValueError(msg)
         digest = hashlib.sha256(f"{tombstone}:{row_key}".encode()).hexdigest()
         return f"{ANONYMIZED_KEY_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def compute_request_key(user_key: str, salt: str) -> str:
+        """The document key of an immediate erasure request for *user_key* (#1767).
+
+        Format: ``erq_`` + 32 hex chars of an HMAC-SHA256 over the user key,
+        keyed with the tombstone salt and a purpose label. Deterministic, so two
+        concurrent immediate erasures of one account collide on the key instead
+        of creating two requests; domain-separated from
+        :meth:`compute_tombstone_hash`, so knowing a request key (it reaches the
+        admin who triggered it) does not link the subject to its pseudonymised
+        audit rows or to :meth:`anonymized_rename_value`.
+
+        Raises:
+          ValueError: if salt is empty or shorter than 32 characters.
+        """
+        if not salt or len(salt) < 32:
+            msg = "ERASURE_TOMBSTONE_SALT must be at least 32 characters (see NFR-011 section 4)."
+            raise ValueError(msg)
+        digest = hmac.new(salt.encode(), f"erasure-request-key:{user_key}".encode(), hashlib.sha256).hexdigest()
+        return f"erq_{digest[:32]}"
 
     @staticmethod
     def compute_tombstone_hash(user_key: str, salt: str) -> str:

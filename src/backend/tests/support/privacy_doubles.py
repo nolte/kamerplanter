@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.domain.models.privacy import DataExportRequest
+from app.domain.models.privacy import DataExportRequest, ErasureRequest
 
 
 class FakeDataExportRepo:
@@ -34,7 +34,6 @@ class FakeDataExportRepo:
 
     def __init__(self, export: DataExportRequest | None = None) -> None:
         self.stored: dict[str, DataExportRequest] = {}
-        self.expire_old_result: list[DataExportRequest] = []
         #: How often the full-model `update` was used — the write that cannot
         #: clear a field and can resurrect a record (#1662 SCR-005).
         self.full_model_updates = 0
@@ -107,8 +106,117 @@ class FakeDataExportRepo:
     def delete(self, key: str) -> bool:
         return self.stored.pop(key, None) is not None
 
-    def expire_old(self, now_iso: str) -> list[DataExportRequest]:
-        return self.expire_old_result
+    def start_processing(
+        self, key: str, *, from_statuses: list[str], fields: dict[str, Any]
+    ) -> DataExportRequest | None:
+        """The real conditional write: only from one of *from_statuses*."""
+        current = self.stored.get(key)
+        if current is None or current.status not in from_statuses:
+            return None
+        return self.update_fields(key, {**fields, "status": "processing"})
+
+    def complete_if_processing(self, key: str, fields: dict[str, Any]) -> DataExportRequest | None:
+        """The real conditional write: only while ``processing``."""
+        current = self.stored.get(key)
+        if current is None or current.status != "processing":
+            return None
+        return self.update_fields(key, fields)
+
+    def fail_open_for_user(self, user_key: str, reason: str) -> int:
+        open_exports = [e for e in self.list_by_user(user_key) if e.status in ("pending", "processing")]
+        for export in open_exports:
+            export.status = "failed"
+            export.error_message = reason
+        return len(open_exports)
+
+    def list_expiry_due(self, now_iso: str) -> list[DataExportRequest]:
+        """The real AQL filter: ``completed`` past expiry, or ``expired`` still pointing at a bundle."""
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        return [
+            e
+            for e in self.stored.values()
+            if (e.status == "completed" and e.expires_at is not None and e.expires_at < now)
+            or (e.status == "expired" and e.file_path is not None)
+        ]
+
+
+class FakeErasureRepo:
+    """In-memory :class:`IErasureRepository` with the real filters and write semantics (#1767).
+
+    ``find_active_for_user``, ``list_due_for_hard_delete`` and
+    ``claim_for_run`` mirror the AQL of ``ArangoErasureRepository`` — the
+    claim refuses a ``completed`` request and one a *fresh* ``in_progress`` run
+    holds. ``update_fields`` refuses a field the model does not declare and
+    re-parses the merged document, as the driver round-trip does.
+    """
+
+    def __init__(self, *requests: ErasureRequest) -> None:
+        self.stored: dict[str, ErasureRequest] = {}
+        for request in requests:
+            self.create(request)
+
+    def create(self, erasure: ErasureRequest) -> ErasureRequest:
+        erasure.key = erasure.key or f"er-{len(self.stored) + 1}"
+        self.stored[erasure.key] = erasure
+        return erasure
+
+    def create_with_key(self, erasure: ErasureRequest, key: str) -> ErasureRequest:
+        from app.common.exceptions import DuplicateError
+
+        if key in self.stored:
+            raise DuplicateError("erasure_requests", "_key", key)
+        erasure.key = key
+        self.stored[key] = erasure
+        return erasure
+
+    def get_by_key(self, key: str) -> ErasureRequest | None:
+        return self.stored.get(key)
+
+    def list_by_user(self, user_key: str) -> list[ErasureRequest]:
+        return [e for e in self.stored.values() if e.user_key == user_key]
+
+    def find_active_for_user(self, user_key: str) -> ErasureRequest | None:
+        open_states = ("scheduled", "in_progress", "partially_completed")
+        return next((e for e in self.list_by_user(user_key) if e.status in open_states), None)
+
+    def list_due_for_hard_delete(self, now_iso: str, stale_before_iso: str) -> list[ErasureRequest]:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        stale_before = datetime.fromisoformat(stale_before_iso)
+        due = []
+        for e in self.stored.values():
+            if e.hard_delete_scheduled_at is None or e.hard_delete_scheduled_at > now:
+                continue
+            if e.status in ("scheduled", "partially_completed") or (
+                e.status == "in_progress" and (e.updated_at is None or e.updated_at <= stale_before)
+            ):
+                due.append(e)
+        return due
+
+    def claim_for_run(self, key: str, *, now_iso: str, stale_before_iso: str) -> ErasureRequest | None:
+        from datetime import datetime
+
+        e = self.stored.get(key)
+        if e is None or e.status == "completed":
+            return None
+        stale_before = datetime.fromisoformat(stale_before_iso)
+        if e.status == "in_progress" and e.updated_at is not None and e.updated_at > stale_before:
+            return None
+        return self.update_fields(key, {"status": "in_progress", "last_attempt_at": now_iso, "updated_at": now_iso})
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> ErasureRequest:
+        current = self.stored[key]
+        for field in fields:
+            if field not in ErasureRequest.model_fields:
+                msg = f"'{field}' is not a field of ErasureRequest; the real write would be a silent no-op."
+                raise AttributeError(msg)
+        merged = ErasureRequest.model_validate({**current.model_dump(by_alias=True), **fields})
+        for field in ErasureRequest.model_fields:
+            setattr(current, field, getattr(merged, field))
+        return current
 
 
 class RecordingErasureExecutor:
