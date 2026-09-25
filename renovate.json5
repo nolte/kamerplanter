@@ -97,11 +97,19 @@
   // would re-introduce the manual step the automerge decision removed, so this
   // file sets `timestamp-optional`: such an update skips the age wait and
   // merges like everything else once ALL checks are green. Measured affected
-  // references (GHCR publishes no timestamps): `ghcr.io/astral-sh/uv` (16 —
-  // the whole `uv toolchain` group moves with it), `ghcr.io/hadolint/hadolint`
-  // (8), `ghcr.io/zaproxy/zaproxy` (5), `ghcr.io/valkey-io/valkey-helm` (1).
-  // THE TRADE, stated: those four get no time-based protection at all; the
-  // check set is their only net.
+  // references (GHCR publishes no timestamps): `ghcr.io/astral-sh/uv` (16),
+  // `ghcr.io/hadolint/hadolint` (8), `ghcr.io/zaproxy/zaproxy` (5),
+  // `ghcr.io/valkey-io/valkey-helm` (1). THE TRADE, stated: those four get no
+  // time-based protection at all; the check set is their only net.
+  //
+  // A GROUP DOES NOT WAIT AS ONE (#1762). Renovate judges the age per UPDATE:
+  // a pending member is left out of the group's branch while the others go
+  // ahead. So a group that mixes an undated member with a dated one splits —
+  // the undated half lands at once, the dated half three days later. For the
+  // `uv toolchain` group that broke every image build (the GHCR image moved,
+  // `[tool.uv].required-version` from PyPI did not), so that group carries
+  // `minimumReleaseAge: null` and moves immediately and whole; the rule below
+  // says why. hadolint, zaproxy and valkey-helm are in no such group.
   //
   // SECURITY UPDATES DO NOT WAIT. `vulnerabilityAlerts` is a mergeable object
   // whose Renovate default already carries `minimumReleaseAge: null`; it is
@@ -311,8 +319,30 @@
     // still builds — is what the lock-hash guards and the image builds on the
     // pull request measure. The group itself stays, because both halves of the
     // resolver path still have to land in ONE pull request.
+    //
+    // NO RELEASE-AGE WAIT FOR THIS GROUP (#1762). The top-level three days are
+    // applied per update, and this group mixes an undated datasource (GHCR,
+    // `ghcr.io/astral-sh/uv`, never pending under `timestamp-optional`) with
+    // two dated ones (PyPI `uv`, github-tags `astral-sh/setup-uv`). With the
+    // wait in force Renovate shipped the Dockerfiles alone on release day, and
+    // every image build failed on `Required uv version ==0.12.18 does not match
+    // the running version 0.12.19` — the split this group exists to prevent.
+    // `null` is the only uniform wait available: the alternatives were weighed
+    // and rejected —
+    //   * wait for all members: needs a timestamp for the GHCR image, which the
+    //     registry does not publish; `timestamp-required` on that member would
+    //     hold it for a dashboard approval, the manual step #1744 removed;
+    //   * derive the image tag from the PyPI pin (one source of truth): the
+    //     Dockerfiles pin tag AND digest, and a manager reading the tag from
+    //     PyPI cannot move the digest — it would trade this split for a stale
+    //     digest in six images.
+    // What `null` costs, stated: the PyPI and action halves lose the three
+    // days the GHCR half never had. uv and setup-uv are both published by
+    // Astral; the image builds, the lock-hash guards and the relock on this
+    // pull request are the net.
     {
       groupName: 'uv toolchain',
+      minimumReleaseAge: null,
       matchDatasources: [
         'pypi',
         'docker',
