@@ -41,8 +41,12 @@ class PlantingRunService:
         care_profile_bootstrap: Callable[[Any], None] | None = None,
         rotation_validator: CropRotationValidator | None = None,
         companion_engine: CompanionPlantingEngine | None = None,
+        substrate_batch_resolver: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = run_repo
+        # ``SubstrateService.get_batch``-shaped: ``resolver(key, tenant_key=...)``
+        # answers the batch or raises 404 for one that is not the tenant's (#1868).
+        self._substrate_batch_resolver = substrate_batch_resolver
         self._plant_repo = plant_repo
         self._engine = engine
         self._schedule_engine = watering_schedule_engine or WateringScheduleEngine()
@@ -116,6 +120,9 @@ class PlantingRunService:
         # your own tenant that points at a foreign location, and the new run
         # inherits it. Here the check sees whichever key the run ends up with.
         self._require_owned_location(run)
+        # After the clone config for the same reason as the location: the check
+        # sees whichever key the run ends up with, inherited or supplied (#1868).
+        self._require_owned_substrate_batch(run)
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
@@ -207,6 +214,24 @@ class PlantingRunService:
         if not tenant_key or not location_key or self._site_repo is None:
             return
         resolve_owned_location(self._site_repo, location_key, tenant_key)
+
+    def _require_owned_substrate_batch(self, run: PlantingRun) -> None:
+        """Refuse a ``substrate_batch_key`` that is not the run's tenant's (#1868).
+
+        The key came from the request body or a cloned template and was stored
+        as given; the repository then wrote a ``run_uses_substrate`` edge to the
+        batch it named — any tenant's. A batch has exactly one owner (#1195), so
+        it is resolved strictly under the run's tenant. Without a wired resolver
+        a batch reference is refused, never waved through.
+
+        Skipped for a run with no tenant (seeds, migrations, light mode) and for
+        a run with no batch, like the location rule.
+        """
+        if not run.tenant_key or not run.substrate_batch_key:
+            return
+        if self._substrate_batch_resolver is None:
+            raise NotFoundError("SubstrateBatch", run.substrate_batch_key)
+        self._substrate_batch_resolver(run.substrate_batch_key, tenant_key=run.tenant_key)
 
     def update_run(self, key: PlantingRunKey, data: dict) -> PlantingRun:
         run = self.get_run(key)

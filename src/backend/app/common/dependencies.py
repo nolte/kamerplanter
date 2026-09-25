@@ -482,6 +482,11 @@ def get_plant_diary_service():
     )
 
 
+def _resolve_substrate_batch(key: str, *, tenant_key: str):
+    """The batch ``key`` of ``tenant_key`` or 404 — the resolver runs are checked through (#1868)."""
+    return get_substrate_service().get_batch(key, tenant_key=tenant_key)
+
+
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
@@ -500,6 +505,8 @@ def get_planting_run_service() -> PlantingRunService:
         phase_seq_repo=get_phase_sequence_repo(),
         rotation_validator=rotation_validator,
         companion_engine=companion_engine,
+        # #1868 — a run's substrate batch is resolved strictly under its tenant.
+        substrate_batch_resolver=_resolve_substrate_batch,
     )
 
 
