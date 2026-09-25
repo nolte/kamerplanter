@@ -42,7 +42,7 @@ class KnowledgeService:
         prompt_engine: PromptEngine,
         *,
         reranker: RerankerEngine | None = None,
-        reranker_initial_k: int = 20,
+        reranker_initial_k: int = 15,
         reranker_top_k: int = 5,
         max_tokens: int = 1024,
         temperature: float = 0.3,
@@ -73,8 +73,14 @@ class KnowledgeService:
         """Perform hybrid semantic + full-text search over the knowledge base."""
         effective_lang = doc_language or self._default_doc_language
 
-        # Over-retrieve when reranker is available so it has more candidates
-        retrieve_k = self._reranker_initial_k if self._reranker and self._reranker.available else top_k
+        # Invariant (#1751): the rerank budget bounds how many candidates are
+        # SCORED, never how many results a caller gets. The sidecar's 25 s
+        # deadline fits only ``reranker_initial_k`` documents, so only that head
+        # is reranked; callers asking for more (MCP up to 20, /search up to 50)
+        # get the rest in hybrid order behind it. On a reranker fallback the head
+        # comes back unchanged, so the result is the plain hybrid order.
+        use_reranker = self._reranker is not None and self._reranker.available
+        retrieve_k = max(self._reranker_initial_k, top_k) if use_reranker else top_k
 
         logger.debug("knowledge_search", query=query, top_k=top_k, retrieve_k=retrieve_k, doc_language=effective_lang)
         embedding = self._embedding.embed(query, prefix="query: ")
@@ -82,9 +88,10 @@ class KnowledgeService:
             embedding, query, top_k=retrieve_k, language=effective_lang, vector_weight=0.4
         )
 
-        # Re-rank if available
-        if self._reranker and self._reranker.available:
-            chunks = self._reranker.rerank(query, chunks, top_k=top_k)
+        if use_reranker and self._reranker is not None:
+            head = chunks[: self._reranker_initial_k]
+            tail = chunks[self._reranker_initial_k :]
+            chunks = (self._reranker.rerank(query, head, top_k=len(head)) + tail)[:top_k]
         else:
             chunks = chunks[:top_k]
 
