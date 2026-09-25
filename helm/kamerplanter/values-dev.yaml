@@ -236,6 +236,11 @@ controllers:
           # refuses (erasure held) once contributions are on record.
           INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
+          # REQ-010 / #1767 — the pest-image promotion index task
+          # (`pest_image_tasks`) runs HERE and is a no-op without this switch,
+          # so contributed pest images were never indexed in dev. MUST equal the
+          # backend's PEST_DETECTION_ENABLED above.
+          PEST_DETECTION_ENABLED: "true"
           # AP-4 (INF-S1/S2): the celery-worker calls the recognition/knowledge
           # services (e.g. reference-image acquisition -> /embed) and must send the
           # SAME shared M2M token they expect. The backend sets this inline too;
