@@ -34,7 +34,7 @@ from app.domain.models.privacy import ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
-from tests.support.privacy_doubles import RecordingErasureExecutor
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
 from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
@@ -79,6 +79,7 @@ def _privacy_service(erasure: ErasureRequest, store, executor: RecordingErasureE
         frontend_url="https://app.test",
         reference_index_store=store,
         erasure_executor=executor,
+        tenant_service=FakePersonalTenants(),
         tombstone_salt=SALT,
     )
 

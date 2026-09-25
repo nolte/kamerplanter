@@ -44,6 +44,7 @@ from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
+from app.domain.models.privacy import PersonalTenantErasure
 from app.domain.models.tenant import Tenant, TenantWithRole
 from app.domain.models.tenant_erasure import TenantErasureOrigin, TenantErasureRecord
 
@@ -391,6 +392,89 @@ class TenantService:
             result["completed" if finished.status == "completed" else "open"] += 1
         logger.info("tenant_erasure.retry_completed", **result)
         return result
+
+    # --- Personal tenants of an erased account (REQ-025 Art. 17, #1788) ---
+
+    def tenant_erasure_configuration_error(self) -> str | None:
+        """Why this deployment cannot erase a tenant, or ``None`` (#1788).
+
+        The account erasure holds on it before touching anything: it erases the
+        subject's personal tenant through :meth:`delete_tenant`, so a deployment
+        that cannot erase a tenant cannot finish an account erasure either.
+        """
+        return self._tenant_erasure_configuration_error()
+
+    def personal_tenant_keys_of(self, user_key: str) -> list[str]:
+        """Every ``PERSONAL`` tenant *user_key* owns — normally the one of registration.
+
+        By owner and type, like :meth:`get_personal_tenant`, but all of them, not
+        the newest: an account erasure must not leave a second one behind.
+        """
+        return self._tenant_repo.personal_tenant_keys_by_owner(user_key)
+
+    def erase_personal_tenant_of(
+        self, user_key: str, tenant_key: str, *, now: datetime | None = None
+    ) -> PersonalTenantErasure:
+        """Erase *tenant_key*, a personal tenant of the erased account *user_key*, unless someone else uses it.
+
+        The account erasure calls this for every personal tenant of the subject
+        before its own ArangoDB plan runs (#1788). Until #1788 that plan only
+        replaced the owner reference and renamed the tenant, and the tenant's
+        sites, plants, diary, tasks … outlived the account — the subject's own
+        data, kept without purpose (Art. 5(1)(e), Art. 17).
+
+        * A deletion already ``completed`` for it → ``erased`` (a retry after the
+          tenant went, or a deletion someone else finished).
+        * Neither tenant nor deletion record → ``absent``.
+        * No deletion open yet and another account holds an **active**
+          membership → ``retained_other_members``: REQ-049 AK-19 lets a personal
+          tenant take members, and no spec says who would take it over, so it is
+          kept exactly as before #1788 (the account plan removes only the owner
+          reference) and the reason is recorded.
+        * Otherwise — the subject is its only active member, or a deletion of it
+          is already open (its memberships are frozen then) — the tenant-erasure
+          inventory runs through :meth:`delete_tenant` with origin
+          ``account_erasure``: same inventory, same persisted record, same retry.
+
+        Raises whatever :meth:`delete_tenant` raises (the record stays open and
+        the daily tenant beat retries it too), :class:`TenantErasureIncompleteError`
+        when it did not complete, and :class:`ValidationError` when the tenant is
+        no longer a personal tenant of *user_key* — a state no write path
+        produces, so it stops the account erasure instead of erasing a tenant
+        that is not the subject's.
+        """
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        record = self._require_tenant_erasure_repo().get(record_key)
+        if record is not None and record.status == "completed":
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None and record is None:
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="absent")
+        if tenant is not None and (tenant.owner_user_key != user_key or tenant.tenant_type != TenantType.PERSONAL):
+            raise ValidationError("The tenant recorded for this account erasure is not the subject's personal tenant.")
+        if record is None:
+            others = [
+                key for key in self._membership_repo.active_member_user_keys(tenant_key=tenant_key) if key != user_key
+            ]
+            if others:
+                logger.info(
+                    "tenant_erasure.personal_tenant_retained",
+                    tenant_key=tenant_key,
+                    subject=log_subject(user_key),
+                    other_active_members=len(others),
+                )
+                return PersonalTenantErasure(
+                    tenant_key=tenant_key,
+                    outcome="retained_other_members",
+                    reason=(
+                        f"{len(others)} other active member(s) use this tenant; no successor is specified "
+                        "(#1788), so it is kept and only the owner reference is removed."
+                    ),
+                )
+        finished = self.delete_tenant(tenant_key, origin="account_erasure", now=now)
+        if finished.status != "completed":
+            raise TenantErasureIncompleteError(list(finished.unreached) or [TenantErasureEngine.TENANT_COLLECTION])
+        return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
 
     def _refuse_while_erasing(self, tenant_key: str) -> None:
         """No new membership in a tenant whose deletion is open (#1769 review SEC-006).

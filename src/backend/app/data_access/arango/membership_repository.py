@@ -199,3 +199,22 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
         )
         return int(next(cursor, 0))
+
+    def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
+        """The distinct account keys holding an active membership of the tenant (#1788).
+
+        "Active" is what :meth:`deactivate_all_for_tenant` switches off
+        (``is_active != false``), so a missing flag counts as active, as the
+        model default says. A membership without an account key is not a member.
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              COLLECT user_key = m.user_key
+              RETURN user_key
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+        )
+        return list(cursor)

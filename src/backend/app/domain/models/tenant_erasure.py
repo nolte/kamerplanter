@@ -27,8 +27,9 @@ from pydantic import BaseModel, Field, model_validator
 #:   with its own retention purge, a row that only *looks* tenant-owned).
 type TenantErasureAction = Literal["delete", "pseudonymize", "retain"]
 
-#: Which entry point asked for the deletion.
-type TenantErasureOrigin = Literal["tenant_management", "platform_admin"]
+#: Which entry point asked for the deletion. ``account_erasure`` is the erasure of
+#: the tenant's owner when nobody else is an active member of it (#1788).
+type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "account_erasure"]
 
 type TenantErasureStatus = Literal["in_progress", "completed", "partially_completed"]
 

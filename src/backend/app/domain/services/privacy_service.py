@@ -9,8 +9,10 @@ import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import structlog
+from pydantic import BaseModel
 
 from app.common.decoys import decoy_document_key, email_digest
 from app.common.exceptions import (
@@ -60,6 +62,7 @@ from app.domain.models.privacy import (
     EmailChangeRequest,
     ErasureOrigin,
     ErasureRequest,
+    PersonalTenantErasure,
     PrivacyPolicyInfo,
     ProcessingRestriction,
     RestrictionReason,
@@ -68,6 +71,9 @@ from app.domain.models.privacy import (
 )
 from app.domain.models.user import User, is_tombstone_email
 from app.domain.services.retention_service import RetentionService
+
+if TYPE_CHECKING:
+    from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
 
@@ -82,7 +88,15 @@ def _persistable(fields: dict[str, object]) -> dict[str, object]:
     serialised *differently* would be worse, because the same field would then
     round-trip as one type when written narrowly and another when written whole.
     """
-    return {key: (value.isoformat() if isinstance(value, datetime) else value) for key, value in fields.items()}
+    return {key: _persistable_value(value) for key, value in fields.items()}
+
+
+def _persistable_value(value: object) -> object:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, list) and any(isinstance(item, BaseModel) for item in value):
+        return [item.model_dump(mode="json") if isinstance(item, BaseModel) else item for item in value]
+    return value
 
 
 async def _single_chunk(payload: bytes) -> AsyncIterator[bytes]:
@@ -171,6 +185,7 @@ class PrivacyService:
         pest_prototype_store: IPestPrototypeStore | None = None,
         personal_data_repo: IPersonalDataRepository | None = None,
         erasure_executor: IErasureExecutor | None = None,
+        tenant_service: TenantService | None = None,
         tombstone_salt: str = "",
         retention: RetentionService | None = None,
     ) -> None:
@@ -219,6 +234,11 @@ class PrivacyService:
         # for the same reason as above; :meth:`erase_account` refuses to start
         # without either, before it touches anything.
         self._erasure_executor = erasure_executor
+        # REQ-025 Art. 17 / #1788 — the account erasure erases the subject's
+        # personal tenant through the tenant-erasure inventory (#1769) when
+        # nobody else uses it. Optional like the executor: a deployment without
+        # it cannot erase an account and is refused before anything changes.
+        self._tenant_service = tenant_service
         self._tombstone_salt = tombstone_salt
         # NFR-011 R-02 / R-06 periods (#1772): the erasure-record purge and the
         # Art. 13 retention summary read the same computation, so the summary
@@ -590,8 +610,10 @@ class PrivacyService:
             retained_reason=(
                 "Harvest records (including quality assessments), treatment and inspection records are "
                 "retained per CanG and PflSchG and will be anonymised. "
-                "Diary entries stay with the plant record of their tenant; their author and AI-analysis "
-                "references are anonymised (REQ-050 section 7.4)."
+                "Your personal garden is deleted with everything in it unless someone else is a member of it; "
+                "then it is kept for them without your name. "
+                "Diary entries in shared gardens stay with the plant record of their tenant; their author and "
+                "AI-analysis references are anonymised (REQ-050 section 7.4)."
             ),
         )
 
@@ -1378,7 +1400,19 @@ class PrivacyService:
             self._erasure_engine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
-        return None
+        return self._personal_tenant_configuration_error()
+
+    def _personal_tenant_configuration_error(self) -> str | None:
+        """Why the personal-tenant phase cannot run on this deployment, or ``None`` (#1788).
+
+        The account erasure erases the subject's personal tenant through
+        :meth:`TenantService.delete_tenant`; a deployment that cannot erase a
+        tenant is held like one without an executor — before anything changes,
+        no attempt spent (#1666).
+        """
+        if self._tenant_service is None:
+            return "No tenant service is wired, so the subject's personal tenant cannot be erased."
+        return self._tenant_service.tenant_erasure_configuration_error()
 
     def _derived_index_configuration_error(self) -> str | None:
         """Why a derived-index delete cannot run in this process, or ``None`` when it can.
@@ -1538,12 +1572,17 @@ class PrivacyService:
                 ),
             )
 
+        def _record_personal_tenants(keys: list[str]) -> None:
+            self._mark_erasure(erasure, status="in_progress", personal_tenant_keys=keys)
+
         try:
             report = await self.erase_account(
                 erasure.user_key,
                 pre_arango_completed=erasure.pre_arango_completed_at is not None,
                 recorded_storage_scopes=erasure.storage_cleanup_scopes,
                 on_pre_arango_complete=_checkpoint,
+                recorded_personal_tenant_keys=erasure.personal_tenant_keys,
+                on_personal_tenants_resolved=_record_personal_tenants,
             )
         except Exception as exc:  # noqa: BLE001 — any failure leaves the duty open for a later run
             self._record_failed_attempt(
@@ -1561,6 +1600,9 @@ class PrivacyService:
             return False
 
         unreached = report.unreached(self._erasure_engine.delete_order())
+        if report.personal_tenants is None:
+            # #1788 — the personal-tenant phase is a declared step like the others.
+            unreached.append("personal_tenants")
         if unreached:
             self._record_failed_attempt(
                 erasure,
@@ -1583,6 +1625,7 @@ class PrivacyService:
             status="completed",
             completed_at=now,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            personal_tenants=report.personal_tenants,
         )
         return True
 
@@ -1662,6 +1705,8 @@ class PrivacyService:
         pre_arango_completed: bool = False,
         recorded_storage_scopes: list[str] | None = None,
         on_pre_arango_complete: Callable[[AccountErasureReport], None] | None = None,
+        recorded_personal_tenant_keys: list[str] | None = None,
+        on_personal_tenants_resolved: Callable[[list[str]], None] | None = None,
     ) -> AccountErasureReport:
         """Erase one account: every declared phase, then the ArangoDB plan (#1664).
 
@@ -1677,8 +1722,14 @@ class PrivacyService:
            documents are the only pointer to a stored Art. 15 bundle, and step 4
            removes them.
         3. **Phase 0 / 0.5 / pest images** (:meth:`_run_pre_arango_phases`):
-           they resolve the user's tenants through the memberships step 4 removes.
-        4. **The ArangoDB plan** via :class:`IErasureExecutor`, in one
+           they resolve the user's tenants through the memberships step 5 removes.
+        4. **The subject's personal tenants** (:meth:`_erase_personal_tenants`,
+           #1788): each one nobody else uses goes through the tenant-erasure
+           inventory (:meth:`TenantService.delete_tenant`, origin
+           ``account_erasure``). Runs on every attempt — each tenant is resumed
+           from its own deletion record — and before step 5, which replaces the
+           owner reference the tenants are found by.
+        5. **The ArangoDB plan** via :class:`IErasureExecutor`, in one
            transaction: edges and documents removed, retained rows anonymised,
            audit rows pseudonymised, the user document last.
 
@@ -1697,6 +1748,13 @@ class PrivacyService:
                 finished, before the ArangoDB plan — the scheduled path records
                 its marker here, so a failing plan does not make the next
                 attempt repeat the storage work.
+            recorded_personal_tenant_keys: The personal tenants an earlier
+                attempt of the same request resolved (#1788); step 4 handles
+                them as well as every personal tenant the subject still owns.
+            on_personal_tenants_resolved: Called with the tenant keys step 4
+                will handle, before the first is erased, whenever they differ
+                from ``recorded_personal_tenant_keys`` — the request records
+                them there, so a retry still knows a tenant that is gone.
 
         Returns:
             Per-phase and per-step counts. Logged without the rows' content.
@@ -1726,6 +1784,10 @@ class PrivacyService:
                 "account_erasure",
                 "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters.",
             ) from exc
+        personal_tenant_error = self._personal_tenant_configuration_error()
+        if personal_tenant_error is not None:
+            # #1788 — step 4 runs on every attempt, so this is checked on every one.
+            raise FeatureNotConfiguredError("account_erasure", personal_tenant_error)
         if not pre_arango_completed:
             # #1753 — refuse before touching anything when Phase 0.5 cannot
             # reach the index; a retry past the checkpoint no longer needs it.
@@ -1749,6 +1811,12 @@ class PrivacyService:
         for step in plan.steps:
             if step.executor == "pest_image_cleanup":
                 report.delegated_removed[step.collection] = pest_removed
+        report.personal_tenants = await asyncio.to_thread(
+            self._erase_personal_tenants,
+            user_key,
+            list(recorded_personal_tenant_keys or []),
+            on_personal_tenants_resolved,
+        )
         report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
 
         logger.info(
@@ -1761,9 +1829,39 @@ class PrivacyService:
             pest_prototypes_removed=report.pest_prototypes_removed,
             pest_prototype_binding=report.pest_prototype_binding,
             delegated_removed=report.delegated_removed,
+            personal_tenants=[(item.outcome, item.tenant_erasure_record_key) for item in report.personal_tenants],
             arango_steps={step.collection: step.affected for step in report.arango.steps},
         )
         return report
+
+    def _erase_personal_tenants(
+        self,
+        user_key: str,
+        recorded_keys: list[str],
+        on_resolved: Callable[[list[str]], None] | None,
+    ) -> list[PersonalTenantErasure]:
+        """Step 4 of :meth:`erase_account` — the subject's personal tenants (#1788).
+
+        The personal tenant created at registration (REQ-024) holds the
+        subject's own garden: sites with coordinates, plants, diary text, tasks.
+        Before #1788 the account plan kept it with the owner reference replaced,
+        and nothing ever deleted it. Each personal tenant is now handed to
+        :meth:`TenantService.erase_personal_tenant_of`, which runs the declared
+        tenant-erasure inventory unless another account is an active member.
+
+        The keys are recorded (``on_resolved``) before the first tenant is
+        erased: the plan in step 5 replaces the owner reference they are found
+        by, and a deleted tenant is not listed again, so the record is what a
+        retry reads. Any failure propagates — the request stays open and is
+        retried; the tenant's own deletion record is retried by its beat too.
+        """
+        tenant_service = self._tenant_service
+        if tenant_service is None:  # pragma: no cover - refused by the configuration check
+            raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        keys = list(dict.fromkeys([*recorded_keys, *tenant_service.personal_tenant_keys_of(user_key)]))
+        if on_resolved is not None and keys != recorded_keys:
+            on_resolved(keys)
+        return [tenant_service.erase_personal_tenant_of(user_key, tenant_key) for tenant_key in keys]
 
     async def _run_export_file_cleanup(self, user_key: str) -> int:
         """Delete the stored Art. 15 bundles of *user_key* before their records go.
@@ -2049,6 +2147,8 @@ class PrivacyService:
         reference_index_removed: int | None = None,
         pest_prototype_binding: str | None = None,
         pest_prototypes_removed: int | None = None,
+        personal_tenant_keys: list[str] | None = None,
+        personal_tenants: list[PersonalTenantErasure] | None = None,
     ) -> None:
         """Persist an erasure-status transition as a named-field write.
 
@@ -2078,6 +2178,8 @@ class PrivacyService:
             "reference_index_removed": reference_index_removed,
             "pest_prototype_binding": pest_prototype_binding,
             "pest_prototypes_removed": pest_prototypes_removed,
+            "personal_tenant_keys": personal_tenant_keys,
+            "personal_tenants": personal_tenants,
         }
         fields.update({name: value for name, value in retry_fields.items() if value is not None})
         if status == "completed":
