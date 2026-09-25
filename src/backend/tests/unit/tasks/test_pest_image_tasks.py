@@ -20,6 +20,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+import pytest
+
 import app.tasks.pest_image_tasks as task_mod
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.common.exceptions import NotFoundError
@@ -110,6 +112,16 @@ def _wire(
     client.retract_prototype.return_value = 1
     monkeypatch.setattr(task_mod, "get_pest_inference_client", lambda: client)
 
+    # #1759 — the pest-prototype marker; shares a parent mock with the client so
+    # a test can read the order of the marker write and the upsert.
+    order = MagicMock()
+    order.attach_mock(client.upsert_prototype, "upsert_prototype")
+    marker = MagicMock()
+    order.attach_mock(marker.record_pest_prototype_contributions, "record_pest_prototype_contributions")
+    monkeypatch.setattr(task_mod, "get_system_settings_repo", lambda: marker)
+    client.order = order
+    client.marker = marker
+
     return repo, ipm, attachment_service, client
 
 
@@ -180,6 +192,33 @@ class TestIndexPromoted:
         assert kwargs["source_record_id"] == CONTRIB
         assert TENANT in kwargs["source_url"]
         assert CONTRIB in kwargs["source_url"]
+
+
+class TestIndexPromotedRecordsTheMarker:
+    """#1759 — the marker is written before the prototype, and gates it."""
+
+    def test_the_marker_is_recorded_before_the_upsert(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+
+        task_mod._index_promoted(CONTRIB)
+
+        names = [call[0] for call in client.order.mock_calls]
+        assert names == ["record_pest_prototype_contributions", "upsert_prototype"]
+
+    def test_a_failed_marker_write_prevents_the_upsert(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+        client.marker.record_pest_prototype_contributions.side_effect = RuntimeError("arango down")
+
+        with pytest.raises(RuntimeError):
+            task_mod._index_promoted(CONTRIB)
+        client.upsert_prototype.assert_not_called()
+
+    def test_a_guard_miss_records_no_marker(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch, detection_slug=None)
+
+        task_mod._index_promoted(CONTRIB)
+
+        client.marker.record_pest_prototype_contributions.assert_not_called()
 
 
 class TestRetractPromoted:

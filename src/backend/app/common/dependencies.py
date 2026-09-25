@@ -641,6 +641,7 @@ def get_pest_image_service():
         attachment_service=get_attachment_service(),
         ipm_service=get_ipm_service(),
         inference_client=get_pest_inference_client(),
+        prototype_store=get_pest_prototype_store(),
     )
 
 
@@ -908,8 +909,7 @@ def get_tenant_service() -> TenantService:
         attachment_repo=get_attachment_repo(),
         reference_index_store=get_reference_index_store(),
         pest_image_repo=get_pest_image_repo(),
-        ipm_repo=get_ipm_repo(),
-        pest_inference_client=get_pest_inference_client(),
+        pest_prototype_store=get_pest_prototype_store(),
     )
 
 
@@ -1666,8 +1666,7 @@ def get_privacy_service():
         membership_repo=get_membership_repo(),
         reference_index_store=get_reference_index_store(),
         pest_image_repo=get_pest_image_repo(),
-        ipm_repo=get_ipm_repo(),
-        pest_inference_client=get_pest_inference_client(),
+        pest_prototype_store=get_pest_prototype_store(),
         personal_data_repo=get_personal_data_repo(),
         erasure_executor=get_erasure_executor(),
         tombstone_salt=settings.erasure_tombstone_salt,
@@ -1984,6 +1983,30 @@ def get_reference_index_store() -> IReferenceIndexStore:
     )
 
     return NoopReferenceIndexStore(marker=get_system_settings_repo())
+
+
+def get_pest_prototype_store():
+    """REQ-025 / REQ-024 — the store the erasure deletes contributed pest prototypes through (#1759).
+
+    * ``pest_detection_enabled`` or ``inference_service_enabled`` set — the
+      process reaches the inference-service, whose ``pest_embeddings`` the
+      promotion index task writes to: :class:`InferenceServicePestPrototypeStore`
+      (fails loud).
+    * neither — :class:`NoopPestPrototypeStore`, which refuses once the
+      persisted marker says a prototype was ever indexed.
+
+    Read per process, like :func:`get_reference_index_store`: the index task and
+    the scheduled erasure run in the celery-worker, the admin and tenant
+    deletions in the backend.
+    """
+    from app.data_access.vectordb.pest_prototype_stores import (
+        InferenceServicePestPrototypeStore,
+        NoopPestPrototypeStore,
+    )
+
+    if settings.pest_detection_enabled or settings.inference_service_enabled:
+        return InferenceServicePestPrototypeStore(get_pest_inference_client())
+    return NoopPestPrototypeStore(marker=get_system_settings_repo())
 
 
 def get_object_storage() -> IObjectStorageAdapter:

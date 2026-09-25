@@ -84,6 +84,10 @@ class SystemSettings(BaseModel):
     #: #1753 — set when the first user contribution was written to the DINOv2
     #: reference index; never cleared. See ``IReferenceContributionMarker``.
     reference_contributions_since: datetime | None = None
+    #: #1759 — set before the first promoted pest-image contribution was
+    #: indexed as a recognition prototype; never cleared. See
+    #: ``IPestPrototypeContributionMarker``.
+    pest_prototype_contributions_since: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

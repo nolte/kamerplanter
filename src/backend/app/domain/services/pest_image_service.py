@@ -21,6 +21,7 @@ import structlog
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.domain.engines.storage.thumbnail_generator import can_render
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
+from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.ipm_service import IpmService
@@ -117,6 +118,7 @@ class PestImageService:
         attachment_service: AttachmentService,
         ipm_service: IpmService,
         inference_client: PestDetectionInferenceClient | None = None,
+        prototype_store: IPestPrototypeStore | None = None,
     ) -> None:
         self._repo = repo
         self._attachments = attachment_service
@@ -125,6 +127,9 @@ class PestImageService:
         # gallery degrades gracefully (no recognition tiles) when it is ``None``
         # or the ``pest_detection_enabled`` feature flag is off.
         self._inference_client = inference_client
+        # #1759 — deletes a contribution's recognition prototype with it. The DI
+        # provider always wires it; ``None`` only in tests of unrelated paths.
+        self._prototype_store = prototype_store
 
     async def contribute(
         self,
@@ -318,6 +323,12 @@ class PestImageService:
         if contribution is None:
             return False
 
+        # #1759 — a promoted (or demoted) contribution has a prototype in the
+        # recognition index, addressed by the contribution key only. Delete it
+        # first: once the link document is gone nothing can find it again. A
+        # failure raises (502 / 503) and leaves the contribution in place.
+        if self._prototype_store is not None:
+            await self._prototype_store.delete_contributions([contribution_key])
         self._repo.delete(contribution_key, tenant_key)
         await self._attachments.delete(contribution.attachment_id, tenant_key)
         logger.info(

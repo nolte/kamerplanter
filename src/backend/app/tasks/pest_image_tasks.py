@@ -31,6 +31,8 @@ clear no-op rather than guessing a class.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import structlog
 
 from app.common.async_bridge import run_async
@@ -39,6 +41,7 @@ from app.common.dependencies import (
     get_ipm_service,
     get_pest_image_repo,
     get_pest_inference_client,
+    get_system_settings_repo,
 )
 from app.config.settings import settings
 from app.domain.models.pest_taxonomy import get_taxon
@@ -107,6 +110,10 @@ def _index_promoted(contribution_key: str) -> dict:
     attachment = attachment_service.get_attachment(contribution.attachment_id, contribution.tenant_key)
     image_data = run_async(_read_attachment_bytes(attachment_service, attachment))
 
+    # #1759 — record that a contributed prototype may now exist before writing
+    # it, so a process that cannot reach the index refuses to report an erasure
+    # as complete. A failed marker write fails the index attempt.
+    get_system_settings_repo().record_pest_prototype_contributions(datetime.now(UTC))
     get_pest_inference_client().upsert_prototype(
         image_data,
         label=label,

@@ -7,7 +7,6 @@ import json
 import secrets
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, date, datetime, timedelta
-from typing import TYPE_CHECKING
 
 import structlog
 
@@ -35,11 +34,11 @@ from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_executor import IErasureExecutor
 from app.domain.interfaces.erasure_repository import IErasureRepository
-from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
+from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.interfaces.processing_restriction_repository import (
     IProcessingRestrictionRepository,
 )
@@ -62,9 +61,6 @@ from app.domain.models.privacy import (
     RightInfo,
 )
 from app.domain.models.user import User, is_tombstone_email
-
-if TYPE_CHECKING:
-    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 
 logger = structlog.get_logger()
 
@@ -155,8 +151,7 @@ class PrivacyService:
         membership_repo: IMembershipRepository | None = None,
         reference_index_store: IReferenceIndexStore | None = None,
         pest_image_repo: IPestImageRepository | None = None,
-        ipm_repo: IIpmRepository | None = None,
-        pest_inference_client: PestDetectionInferenceClient | None = None,
+        pest_prototype_store: IPestPrototypeStore | None = None,
         personal_data_repo: IPersonalDataRepository | None = None,
         erasure_executor: IErasureExecutor | None = None,
         tombstone_salt: str = "",
@@ -188,13 +183,13 @@ class PrivacyService:
         # the object-storage sweep; their bytes are hard-deleted by the
         # ``user_pest_reference_images`` storage rule, this repo drops the docs.
         self._pest_image_repo = pest_image_repo
-        # SEC-001 — a promoted contribution also has a DINOv2 embedding in the
-        # recognition index (``source="user_contributed"``). It must be retracted
-        # before the link documents are dropped (the label is resolved from the
-        # contribution's pest while it still exists). Both optional so non-erasure
-        # callers stay unaffected; the retract is a no-op when either is unwired.
-        self._ipm_repo = ipm_repo
-        self._pest_inference_client = pest_inference_client
+        # #1759 — a promoted (or once-promoted, now demoted) contribution has a
+        # DINOv2 prototype in the inference-service's ``pest_embeddings``. It is
+        # deleted by contribution key before the link documents that carry the
+        # keys are dropped; a failure raises like Phase 0.5. Optional so
+        # non-erasure callers stay unaffected; ``erase_account`` refuses when a
+        # pest-image repo is wired without it.
+        self._pest_prototype_store = pest_prototype_store
         # REQ-025 Art. 15 — the read side of the declared export manifest.
         # Optional so non-export callers (and the many tests that construct a
         # PrivacyService for one unrelated method) stay unaffected; when it is
@@ -1136,7 +1131,7 @@ class PrivacyService:
         # #1753 — a reference index this process cannot reach while contributions
         # exist (or no store wired at all) is a deployment fault too, but it only
         # blocks requests that still have Phase 0.5 ahead of them.
-        reference_index_error = self._reference_index_configuration_error()
+        reference_index_error = self._derived_index_configuration_error()
 
         finalised = 0
         deferred = 0
@@ -1192,17 +1187,28 @@ class PrivacyService:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
         return None
 
-    def _reference_index_configuration_error(self) -> str | None:
-        """Why Phase 0.5 cannot run in this process, or ``None`` when it can (#1753).
+    def _derived_index_configuration_error(self) -> str | None:
+        """Why a derived-index delete cannot run in this process, or ``None`` when it can.
 
-        SEC-002 — an unwired store is a fault, not a skip: the phase would log
-        and the request would still be recorded ``completed``. GDPR-001/002 —
-        the store itself reports a no-op binding while contributions are on
-        record. Raises when the store cannot tell (marker unreadable).
+        Covers Phase 0.5 (reference index, #1753) and the contributed pest
+        prototypes (#1759). SEC-002 — an unwired store is a fault, not a skip:
+        the phase would log and the request would still be recorded
+        ``completed``. GDPR-001/002 — a store reports a no-op binding while its
+        marker says contributions are on record. Raises when a store cannot
+        tell (marker unreadable).
         """
         if self._reference_index_store is None:
             return "No reference-index store is wired, so contributed recognition vectors cannot be erased."
-        return self._reference_index_store.configuration_error()
+        reference_error = self._reference_index_store.configuration_error()
+        if reference_error is not None:
+            return reference_error
+        # #1759 — the pest-prototype index is the same kind of derived store,
+        # checked at the same point, held the same way.
+        if self._pest_image_repo is not None and self._pest_prototype_store is None:
+            return "No pest-prototype store is wired, so contributed pest-recognition prototypes cannot be erased."
+        if self._pest_prototype_store is not None:
+            return self._pest_prototype_store.configuration_error()
+        return None
 
     def _needs_reference_index(self, erasure: ErasureRequest) -> bool:
         """Whether this request still has Phase 0.5 ahead of it."""
@@ -1299,6 +1305,11 @@ class PrivacyService:
                 pre_arango_completed_at=now,
                 reference_index_binding=pre_arango.reference_index_binding,
                 reference_index_removed=pre_arango.reference_index_removed,
+                # Only when the pest step ran: ``None`` fields are not written.
+                pest_prototype_binding=pre_arango.pest_prototype_binding,
+                pest_prototypes_removed=(
+                    pre_arango.pest_prototypes_removed if pre_arango.pest_prototype_binding is not None else None
+                ),
             )
 
         try:
@@ -1481,7 +1492,7 @@ class PrivacyService:
         if not pre_arango_completed:
             # #1753 — refuse before touching anything when Phase 0.5 cannot
             # reach the index; a retry past the checkpoint no longer needs it.
-            reference_index_error = self._reference_index_configuration_error()
+            reference_index_error = self._derived_index_configuration_error()
             if reference_index_error is not None:
                 raise FeatureNotConfiguredError("account_erasure", reference_index_error)
         plan = self._erasure_engine.build_erasure_plan(user_key)
@@ -1493,10 +1504,7 @@ class PrivacyService:
             pest_removed = 0
         else:
             report.export_files_removed = await self._run_export_file_cleanup(user_key)
-            scopes, reference_removed, pest_removed = await self._run_pre_arango_phases(user_key)
-            report.storage_cleanup_scopes = scopes
-            report.reference_index_removed = reference_removed
-            report.reference_index_binding = self._reference_index_binding()
+            pest_removed = await self._run_pre_arango_phases(user_key, report)
             if on_pre_arango_complete is not None:
                 on_pre_arango_complete(report)
         # The pest-image cleanup removes the rows of the step attributed to it;
@@ -1513,6 +1521,8 @@ class PrivacyService:
             storage_cleanup_scopes=report.storage_cleanup_scopes,
             reference_index_removed=report.reference_index_removed,
             reference_index_binding=report.reference_index_binding,
+            pest_prototypes_removed=report.pest_prototypes_removed,
+            pest_prototype_binding=report.pest_prototype_binding,
             delegated_removed=report.delegated_removed,
             arango_steps={step.collection: step.affected for step in report.arango.steps},
         )
@@ -1542,35 +1552,48 @@ class PrivacyService:
                 removed += 1
         return removed
 
-    async def _run_pre_arango_phases(self, user_key: str) -> tuple[list[str], int, int]:
-        """Phase 0, Phase 0.5 and the pest-image documents, with their counts.
+    async def _run_pre_arango_phases(self, user_key: str, report: AccountErasureReport) -> int:
+        """Phase 0, Phase 0.5 and the pest images, recorded on *report*.
 
-        Returns ``(storage scopes applied, reference vectors removed, pest-image
-        contributions removed)``.
+        Returns the number of pest-image contributions removed (the count of a
+        declared step delegated to this phase).
         """
-        scopes = await self._run_storage_cleanup(user_key)
-        reference_removed = await self._run_reference_index_cleanup(user_key)
-        pest_removed = self._run_pest_image_document_cleanup(user_key)
-        return scopes, reference_removed, pest_removed
+        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key)
+        report.reference_index_removed = await self._run_reference_index_cleanup(user_key)
+        report.reference_index_binding = self._reference_index_binding()
+        return await self._run_pest_image_cleanup(user_key, report)
 
-    def _run_pest_image_document_cleanup(self, user_key: str) -> int:
-        """REQ-010 — drop the user's ``pest_image_contributions`` link documents.
+    async def _run_pest_image_cleanup(self, user_key: str, report: AccountErasureReport) -> int:
+        """REQ-010 — the user's pest-image prototypes, then their link documents.
 
         The attachment *bytes* are hard-deleted by the
         ``user_pest_reference_images`` storage-cleanup rule; this removes the
         accompanying link documents (no legal retention basis — a *promoted*
-        contribution is deleted too). No-op when the repo is not wired.
+        contribution is deleted too).
 
-        SEC-001: a *promoted* contribution also has a DINOv2 embedding in the
-        recognition index. Its provenance label is resolved from the
-        contribution's pest, so the retract must run **before** the link
-        documents are dropped (afterwards ``pest_key`` is gone). Best-effort —
-        an inference-service error never aborts the erasure.
+        #1759 — every contribution's recognition prototype is deleted first,
+        whatever its status: a promoted one has an active row, a demoted one a
+        deactivated row, and the contribution key that addresses both lives only
+        in the link document. A failing delete raises, so the documents stay and
+        a retry finds the keys again. Returns the number of documents removed.
         """
         if self._pest_image_repo is None:
             return 0
         contributions = self._pest_image_repo.list_for_user(user_key)
-        self._retract_promoted_pest_image_embeddings(contributions, erasure_scope="user")
+        keys = [c.key for c in contributions if c.key is not None]
+        if self._pest_prototype_store is None:
+            # Unreachable through ``erase_account``, which refuses this wiring
+            # before any phase; kept loud for any other caller.
+            raise FeatureNotConfiguredError("account_erasure", "No pest-prototype store is wired.")
+        report.pest_prototypes_removed = await self._pest_prototype_store.delete_contributions(keys)
+        report.pest_prototype_binding = self._pest_prototype_store.binding
+        logger.info(
+            "retention.erasure.pest_prototype_cleanup",
+            subject=self._erasure_log_subject(user_key),
+            binding=report.pest_prototype_binding,
+            contributions=len(keys),
+            removed=report.pest_prototypes_removed,
+        )
         removed = 0
         for c in contributions:
             if c.key is not None and self._pest_image_repo.delete(c.key, c.tenant_key):
@@ -1581,25 +1604,6 @@ class PrivacyService:
             removed=removed,
         )
         return removed
-
-    def _retract_promoted_pest_image_embeddings(self, contributions, erasure_scope: str) -> None:  # type: ignore[no-untyped-def]
-        """SEC-001 — retract promoted contributions' recognition-index embeddings.
-
-        No-op when the inference client or IPM repo are not wired (the retract
-        cannot resolve a label without the pest record). Best-effort.
-        """
-        if self._pest_inference_client is None or self._ipm_repo is None:
-            return
-        from app.domain.services.pest_image_recognition_cleanup import (
-            retract_promoted_contributions,
-        )
-
-        retract_promoted_contributions(
-            list(contributions),
-            inference_client=self._pest_inference_client,
-            ipm_repo=self._ipm_repo,
-            erasure_scope=erasure_scope,
-        )
 
     async def _run_storage_cleanup(self, user_key: str) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.
@@ -1770,6 +1774,8 @@ class PrivacyService:
         pre_arango_completed_at: datetime | None = None,
         reference_index_binding: str | None = None,
         reference_index_removed: int | None = None,
+        pest_prototype_binding: str | None = None,
+        pest_prototypes_removed: int | None = None,
     ) -> None:
         """Persist an erasure-status transition as a named-field write.
 
@@ -1797,6 +1803,8 @@ class PrivacyService:
             "pre_arango_completed_at": pre_arango_completed_at,
             "reference_index_binding": reference_index_binding,
             "reference_index_removed": reference_index_removed,
+            "pest_prototype_binding": pest_prototype_binding,
+            "pest_prototypes_removed": pest_prototypes_removed,
         }
         fields.update({name: value for name, value in retry_fields.items() if value is not None})
         if status == "completed":
