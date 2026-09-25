@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: knowledge-service
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 1
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 4
 job_spec_sha256: 29f845bad286885ca2a0b700d8917fe42834a7884c03d6b9865686d75b3e085b
 invocations:
 - command: derive-docker --context src/knowledge-service --dockerfile src/knowledge-service/Dockerfile
@@ -58,3 +58,5 @@ reads:
 - src/knowledge-service/app/vectordb/schema.py
 - src/knowledge-service/pyproject.toml
 - src/knowledge-service/uv.lock
+test_modules: []
+readers: {}

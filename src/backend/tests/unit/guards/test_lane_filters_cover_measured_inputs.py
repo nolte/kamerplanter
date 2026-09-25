@@ -47,7 +47,13 @@ This file then asserts, over the real tree:
    down as an ``accepted_gaps`` entry with a reason and, where the argument is
    "another lane runs it", the name of that lane — which must then really be
    unfiltered, and, when it carries a manifest of its own, really read those
-   paths. A gap entry that matches nothing uncovered is stale and fails.
+   paths — and run the TEST that reads them (#1749): the recorder attributes
+   each read of a pytest invocation to the test module that made it
+   (``readers``) and lists the modules that ran (``test_modules``), and every
+   module that makes a delegated read must be among the covering lane's
+   ``test_modules``. Another covering-lane test reading the same path judges
+   its own assertions, not the new one's. A gap entry that matches nothing
+   uncovered is stale and fails.
 3. **Freshness.** Each manifest records a hash of the PARSED job it measured.
    Change a step and the manifest describes a job that no longer exists;
    the check demands a re-measurement. Comments do not count. This is what
@@ -101,8 +107,9 @@ WHERE THIS FILE RUNS, AND WHY NOT IN THE REQUIRED LANE (#1683).
 
 The two gaps this file once held open in aging registers — no manifest for
 ``backend-guards.yml/guards``, and ``backend--coverage.yaml`` recorded from one
-test file (``status: partial``) — are closed: both manifests are now CI
-recordings from ``lane-inputs.yml`` (#1683), so the registers are gone and
+test file (``status: partial``) — are closed: the guards manifest is a CI
+recording from ``lane-inputs.yml`` (#1683) and the coverage job and its
+manifest were retired in #1748, so the registers are gone and
 every finding on the real tree is red. The file still carries
 ``pytestmark = pytest.mark.advisory``, and the required ``Write-route and tree
 guards`` lane deselects it with ``-m 'not advisory'`` (``backend-guards.yml``);
@@ -458,6 +465,12 @@ class Manifest:
     problems: list[str] = field(default_factory=list)
     #: `_ABSENT` when the key is missing, so a written `replay_seconds: null` is told apart from no key.
     replay_seconds: Any = None
+    #: #1749: the test modules that ran in the recording; ``None`` when the manifest predates the key.
+    test_modules: frozenset[str] | None = None
+    #: #1749: ``module -> reads outside the job's filter`` it made; ``None`` when the manifest predates the key.
+    readers: dict[str, frozenset[str]] | None = None
+    #: #1749 review: the fingerprint of the reads the filter rejected when `readers` was scoped.
+    readers_scope_sha256: str | None = None
 
 
 _ABSENT = object()
@@ -502,6 +515,22 @@ def load_manifests(manifest_dir: Path) -> list[Manifest]:
                 invocations=_dict_entries(document.get("invocations")),
                 unrecorded_invocations=_dict_entries(document.get("unrecorded_invocations")),
                 replay_seconds=document.get("replay_seconds", _ABSENT),
+                test_modules=(
+                    frozenset(str(entry) for entry in document["test_modules"] or [])
+                    if "test_modules" in document
+                    else None
+                ),
+                readers=(
+                    {
+                        str(module): frozenset(str(entry) for entry in paths or [])
+                        for module, paths in (document["readers"] or {}).items()
+                    }
+                    if isinstance(document.get("readers"), dict)
+                    else None
+                ),
+                readers_scope_sha256=(
+                    str(document["readers_scope_sha256"]) if document.get("readers_scope_sha256") else None
+                ),
             )
         )
     return manifests
@@ -798,6 +827,58 @@ def _delegation_findings(s: Sweep, m: Manifest, index: int, covered_by: str, pat
             findings.append(
                 f"{prefix} does not read {unread[:5]}{'…' if len(unread) > 5 else ''} according to its own manifest"
             )
+    findings += _reader_findings(s, m, prefix, covering_manifests, paths)
+    return findings
+
+
+def _readers_scope_sha256(outside: list[str]) -> str:
+    """``readers_scope_sha256`` of scripts/ci/lane_inputs.py, over the reads the live filter rejects."""
+    return hashlib.sha256("\n".join(sorted(outside)).encode("utf-8")).hexdigest()
+
+
+def _reader_findings(
+    s: Sweep, m: Manifest, prefix: str, covering_manifests: list[Manifest], paths: list[str]
+) -> list[str]:
+    """#1749: the modules that make a delegated read must run in the covering lane, not merely its path be read there.
+
+    Without this, a NEW test in the delegating lane that reads a path one of the
+    covering lane's tests already reads left the path rule green while the new
+    test ran only behind the delegating lane's filter — which by construction
+    does not start for a change to that path.
+    """
+    if not paths:
+        return []
+    if m.test_modules is None or m.readers is None:
+        return [
+            f"{prefix}: {m.path.name} carries no `test_modules`/`readers` (recorded before #1749), so which test "
+            f"makes each delegated read is unknown and the delegation is held by path only — commit a CI recording"
+        ]
+    if m.readers_scope_sha256 != _readers_scope_sha256(list(uncovered_reads(s, m))):
+        # `readers` lists only reads the filter rejected WHEN it was recorded; the
+        # job hash ignores filter patterns, so a narrowed filter would put reads
+        # outside it that no reader was ever recorded for — silence, not absence.
+        return [
+            f"{prefix}: the reads {m.workflow}'s filter rejects are not the set `readers` was recorded against "
+            f"(`readers_scope_sha256`) — the filter moved since the recording; commit a CI recording"
+        ]
+    findings: list[str] = []
+    delegated = set(paths)
+    for covering in covering_manifests:
+        if covering.test_modules is None:
+            findings.append(
+                f"{prefix}: {covering.path.name} carries no `test_modules` (recorded before #1749), so whether the "
+                f"covering lane runs the reading tests is unknown — commit a CI recording"
+            )
+            continue
+        for module, reads in sorted(m.readers.items()):
+            owed = sorted(reads & delegated)
+            if owed and module not in covering.test_modules:
+                findings.append(
+                    f"{prefix}: test module {module} reads {owed[:3]}{'…' if len(owed) > 3 else ''} but "
+                    f"{covering.path.name} does not run it — another test of that lane reading the same path does "
+                    f"not judge this one; add the module to the lane's invocation or select the path in "
+                    f"{m.workflow}'s filter"
+                )
     return findings
 
 
@@ -1288,6 +1369,10 @@ def _manifest(
     invocations: list[dict[str, Any]] | None = None,
     unrecorded: list[dict[str, Any]] | None = None,
     replay_seconds: object = 120,
+    test_modules: list[str] | None = None,
+    readers: dict[str, list[str]] | None = None,
+    attributed: bool = True,
+    outside: list[str] | None = None,
 ) -> str:
     gate: dict[str, Any] = {"kind": gate_kind}
     if filters:
@@ -1310,6 +1395,13 @@ def _manifest(
     if invocations and replay_seconds is not _NO_DURATION:
         # What `replay` writes after the last invocation (#1683 per-leg timeout).
         document["replay_seconds"] = replay_seconds
+    if attributed:
+        # What the recorder writes since #1749; `attributed=False` is a manifest recorded before it.
+        document["test_modules"] = test_modules or []
+        document["readers"] = readers or {}
+        if outside is not None:
+            # What the recorder writes: the fingerprint of the reads the filter rejected.
+            document["readers_scope_sha256"] = _readers_scope_sha256(outside)
     return yaml.safe_dump(document, sort_keys=False)
 
 
@@ -1819,6 +1911,7 @@ class TestTheReviewRoundRulesCanGoRed:
                 reads=["src/a.py", "renovate.json5"],
                 job_hash=_hash_of(github, "w.yml", "build"),
                 gaps=[{"pattern": "renovate.json5", "reason": reason, "covered_by": "guards.yml/guards"}],
+                outside=["renovate.json5"],
             ),
         )
         s = sweep(github, manifests)
@@ -2171,3 +2264,116 @@ class TestTheReplayDurationRuleCanGoRed:
         document["empty_reads_reason"] = "checkout and paths-filter only; nothing under the tree is opened"
         _plant(manifests, "w--build.yaml", yaml.safe_dump(document, sort_keys=False))
         assert malformed_manifests(sweep(github, manifests)) == []
+
+
+class TestADelegatedReadIsHeldByItsReader:
+    """#1749: a delegated read's READER must run in the covering lane, not only its path be read there.
+
+    The scenario of the issue, planted: the guards lane runs ``test_old.py``,
+    which reads ``src/frontend/types.ts``; the filtered lane gains
+    ``test_new.py``, which reads the same file and is not in the guards lane.
+    The path rule is satisfied — the guards lane does read the file — and was
+    the whole check before this class.
+    """
+
+    @pytest.fixture
+    def tree(self, tmp_path: Path) -> tuple[Path, Path]:
+        github, manifests = tmp_path / ".github", tmp_path / ".github" / "lane-inputs"
+        _plant(github, "workflows/w.yml", _workflow_with_on_filter(["src/backend/**"]))
+        _plant(
+            github,
+            "workflows/guards.yml",
+            """
+            name: guards
+            on:
+              pull_request:
+            jobs:
+              guards:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: pytest tests/unit/guards
+            """,
+        )
+        return github, manifests
+
+    _REASON = "read by the tree guards, which the unfiltered required lane runs on every pull request"
+    _OLD = "src/backend/tests/unit/guards/test_old.py"
+    _NEW = "src/backend/tests/unit/test_new.py"
+    _READ = "src/frontend/types.ts"
+
+    def _findings(
+        self,
+        tree: tuple[Path, Path],
+        *,
+        covering_modules: list[str],
+        delegating_attributed: bool = True,
+        covering_attributed: bool = True,
+        scope: list[str] | None = None,
+    ) -> list[str]:
+        github, manifests = tree
+        _plant(
+            manifests,
+            "w--build.yaml",
+            _manifest(
+                "w.yml",
+                "build",
+                reads=["src/backend/app.py", self._READ],
+                job_hash=_hash_of(github, "w.yml", "build"),
+                gaps=[{"pattern": "src/frontend/**", "reason": self._REASON, "covered_by": "guards.yml/guards"}],
+                test_modules=[self._OLD, self._NEW],
+                readers={self._OLD: [self._READ], self._NEW: [self._READ]},
+                attributed=delegating_attributed,
+                outside=scope if scope is not None else [self._READ],
+            ),
+        )
+        _plant(
+            manifests,
+            "guards--guards.yaml",
+            _manifest(
+                "guards.yml",
+                "guards",
+                gate_kind="unfiltered",
+                reads=[self._READ, self._OLD],
+                job_hash=_hash_of(github, "guards.yml", "guards"),
+                test_modules=covering_modules,
+                attributed=covering_attributed,
+            ),
+        )
+        s = sweep(github, manifests)
+        return coverage_findings(s, next(m for m in s.manifests if m.job == "build"))
+
+    def test_a_reader_the_covering_lane_does_not_run_is_a_finding_though_the_path_is_read_there(
+        self, tree: tuple[Path, Path]
+    ) -> None:
+        findings = self._findings(tree, covering_modules=[self._OLD])
+        assert not any("does not read" in f for f in findings), "the path rule is satisfied — that was the gap"
+        assert len(findings) == 1, findings
+        assert f"test module {self._NEW} reads ['{self._READ}']" in findings[0]
+        assert "guards--guards.yaml does not run it" in findings[0]
+
+    def test_the_same_reader_added_to_the_covering_lane_clears_it(self, tree: tuple[Path, Path]) -> None:
+        assert self._findings(tree, covering_modules=[self._OLD, self._NEW]) == []
+
+    def test_a_delegating_manifest_recorded_before_the_readers_is_a_finding_not_a_pass(
+        self, tree: tuple[Path, Path]
+    ) -> None:
+        (finding,) = self._findings(tree, covering_modules=[self._OLD, self._NEW], delegating_attributed=False)
+        assert "carries no `test_modules`/`readers` (recorded before #1749)" in finding
+
+    def test_a_covering_manifest_recorded_before_the_readers_is_a_finding_not_a_pass(
+        self, tree: tuple[Path, Path]
+    ) -> None:
+        (finding,) = self._findings(tree, covering_modules=[], covering_attributed=False)
+        assert "guards--guards.yaml carries no `test_modules`" in finding
+
+    def test_a_filter_narrowed_after_the_recording_is_a_finding_not_a_silent_reader_gap(
+        self, tree: tuple[Path, Path]
+    ) -> None:
+        """Review of #1749: `readers` covers only reads outside the filter AT RECORDING TIME.
+
+        Recorded while the filter also selected ``src/backend/app.py`` would give
+        an empty outside set; the live filter rejects ``src/frontend/types.ts``,
+        so the scope moved and a reader of it may never have been recorded.
+        """
+        (finding,) = self._findings(tree, covering_modules=[self._OLD, self._NEW], scope=[])
+        assert "`readers_scope_sha256`" in finding and "the filter moved since the recording" in finding

@@ -153,6 +153,7 @@ not a user-facing case).
 from __future__ import annotations
 
 import argparse
+import bisect
 import datetime as dt
 import functools
 import glob as globmodule
@@ -167,6 +168,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -229,11 +231,62 @@ REPLAY_SECONDS_MAX = TIMEOUT_CAP_MINUTES * 60
 #: ``git ls-files`` entry actually stores.
 _TRACED_SYSCALLS = "openat,open,openat2,getdents64,execve,execveat,readlink,readlinkat"
 
-_OPEN_LINE = re.compile(r"^(?:\d+\s+)?(?:open|openat|openat2)\((?P<args>.*)\)\s*=\s*(?P<fd>\d+)<(?P<path>[^>]*)>")
-_GETDENTS_LINE = re.compile(r"^(?:\d+\s+)?getdents64\((?P<fd>\d+)<(?P<path>[^>]*)>")
-_EXECVE_LINE = re.compile(r'^(?:\d+\s+)?execve(?:at)?\((?:\d+<[^>]*>,\s*)?"(?P<program>[^"]*)",\s*\[(?P<argv>.*?)\],')
-_READLINK_LINE = re.compile(r'^(?:\d+\s+)?readlink(?:at)?\((?:(?:AT_FDCWD|\d+<[^>]*>),\s*)?"(?P<path>[^"]*)",')
+#: ``-ttt`` puts a ``<seconds>.<microseconds>`` stamp before every call (#1749);
+#: a pid prefix only appears without ``-ff``. Both are optional so a trace
+#: written by either spelling parses.
+_PREFIX = r"^(?:\d+\s+)?(?:(?P<ts>\d+\.\d+)\s+)?"
+_OPEN_LINE = re.compile(_PREFIX + r"(?:open|openat|openat2)\((?P<args>.*)\)\s*=\s*(?P<fd>\d+)<(?P<path>[^>]*)>")
+_GETDENTS_LINE = re.compile(_PREFIX + r"getdents64\((?P<fd>\d+)<(?P<path>[^>]*)>")
+_EXECVE_LINE = re.compile(_PREFIX + r'execve(?:at)?\((?:\d+<[^>]*>,\s*)?"(?P<program>[^"]*)",\s*\[(?P<argv>.*?)\],')
+_READLINK_LINE = re.compile(_PREFIX + r'readlink(?:at)?\((?:(?:AT_FDCWD|\d+<[^>]*>),\s*)?"(?P<path>[^"]*)",')
 _ARGV_ITEM = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+# ------------------------------------------------------- per-test attribution
+#
+# #1749: a delegated read (`accepted_gaps[].covered_by`) used to be held against
+# the covering lane by PATH — "the guards lane reads it too". A new test in the
+# delegating lane that reads a path some covering-lane test already reads kept
+# that green while the new test itself ran only in the filtered lane. The
+# recorder therefore attributes every read of a pytest invocation to the test
+# MODULE that was active when it happened: the plugin below opens a marker file
+# at each collection and each test (`scripts/ci/lane_inputs_pytest/`), strace
+# stamps every call with `-ttt`, and a read belongs to the last marker before
+# it — in whichever process of the tree it happened, so a subprocess or a thread
+# a test started is the test's read too. What is recorded:
+#
+# * `test_modules` — every module of which at least one test's call phase
+#   executed (a deselected module, or one whose tests all skipped, is not in it:
+#   it judged nothing there);
+# * `readers` — `{module: [reads]}`, only the reads the job's own relevance
+#   filter does NOT select: the only reads an accepted gap can explain, so the
+#   only ones a delegation can be about.
+#
+# Reads outside any test (pytest start-up, conftest collection, a non-pytest
+# invocation) have no reader and stay held by path only.
+#
+# What the attribution cannot see, named rather than hidden (review of #1749):
+# it is FIRST-TOUCH. A read happens once per process and is then served from a
+# cache — an imported module, the import system's directory listings, a
+# `functools.cache`, a session fixture — so it is credited to whichever module
+# touched it first, and a later module depending on the same cached content is
+# not credited at all. A new test that reads a delegated file itself (the tree
+# guards open their inputs per test) is attributed; one that reaches it only
+# through a helper an earlier module already warmed is not. Closing that needs
+# a process per module (~2–3 s of interpreter and app import each, over ~860
+# modules of the unit suite), which the recording legs do not pay. Coverage is
+# also per MODULE: a module that runs in the covering lane counts for all its
+# tests, including one that lane deselects (`-m 'not advisory'`).
+
+#: Where the marker plugin lives; put on PYTHONPATH for a recording, and its own
+#: reads (the import, the directory listing) are the instrument's, not the job's.
+MARKER_PLUGIN_DIR = REPO_ROOT / "scripts" / "ci" / "lane_inputs_pytest"
+MARKER_PLUGIN = "lane_inputs_markers"
+_MARKER_PLUGIN_PREFIX = MARKER_PLUGIN_DIR.relative_to(REPO_ROOT).as_posix() + "/"
+_MARKERS_ENV = "LANE_INPUTS_MARKERS"
+_MARKER_ROOT_ENV = "LANE_INPUTS_REPO_ROOT"
+_MARKER_OWNER_ENV = "LANE_INPUTS_MARKER_PID"
+#: A reader key for reads no test module made.
+NO_READER = ""
 
 EXIT_OK = 0
 EXIT_FINDINGS = 1
@@ -303,6 +356,59 @@ class Trace:
     listings: set[str] = field(default_factory=set)
     execs: list[list[str]] = field(default_factory=list)
     returncode: int = 0
+    #: #1749: repo-relative test modules at least one test of which ran.
+    test_modules: set[str] = field(default_factory=set)
+    #: #1749: ``module -> raw paths`` it opened / listed while it was the active module.
+    reader_files: dict[str, set[str]] = field(default_factory=dict)
+    reader_listings: dict[str, set[str]] = field(default_factory=dict)
+
+
+@dataclass
+class MarkerTimeline:
+    """The marker plugin's markers in the order the marking process set them (#1749)."""
+
+    stamps: list[float] = field(default_factory=list)
+    readers: list[str] = field(default_factory=list)
+
+    def reader_at(self, stamp: float | None) -> str:
+        """The module active at *stamp*: the last marker set at or before it."""
+        if stamp is None or not self.stamps:
+            return NO_READER
+        index = bisect.bisect_right(self.stamps, stamp) - 1
+        return self.readers[index] if index >= 0 else NO_READER
+
+
+def marker_env(env: dict[str, str], marker_dir: Path) -> dict[str, str]:
+    """*env* with the marker plugin loaded into every pytest the invocation starts."""
+    out = dict(env)
+    out[_MARKERS_ENV] = str(marker_dir)
+    out[_MARKER_ROOT_ENV] = str(REPO_ROOT)
+    out.pop(_MARKER_OWNER_ENV, None)
+    out["PYTHONPATH"] = os.pathsep.join(p for p in (str(MARKER_PLUGIN_DIR), out.get("PYTHONPATH", "")) if p)
+    out["PYTEST_ADDOPTS"] = " ".join(p for p in (out.get("PYTEST_ADDOPTS", "").strip(), f"-p {MARKER_PLUGIN}") if p)
+    return out
+
+
+def marker_timeline(trace_files: list[Path], marker_dir: Path) -> MarkerTimeline:
+    """Every marker the plugin opened, from the one process that sets them, in its own order."""
+    prefix = f"{marker_dir}/"
+    timeline = MarkerTimeline()
+    for path in trace_files:
+        with path.open("r", encoding="utf-8", errors="surrogateescape") as handle:
+            for line in handle:
+                if prefix not in line:
+                    continue
+                match = _OPEN_LINE.match(line)
+                if not match or not match.group("path").startswith(prefix) or match.group("ts") is None:
+                    continue
+                kind, _, quoted = match.group("path")[len(prefix) :].partition("~")
+                if kind == "ran":
+                    continue  # says a test executed; it does not change which module is active
+                module = urllib.parse.unquote(quoted) if kind in ("collect", "run") else NO_READER
+                timeline.stamps.append(float(match.group("ts")))
+                timeline.readers.append(module)
+    order = sorted(range(len(timeline.stamps)), key=lambda i: timeline.stamps[i])
+    return MarkerTimeline([timeline.stamps[i] for i in order], [timeline.readers[i] for i in order])
 
 
 # --------------------------------------------------------------------------- git
@@ -351,23 +457,28 @@ def strace_binary() -> str:
 
 
 def run_traced(command: list[str], *, cwd: Path, env: dict[str, str]) -> Trace:
-    """Run *command* under ``strace -ff -y -z`` and parse every per-thread trace file.
+    """Run *command* under ``strace -ff -y -z -ttt`` and parse every per-thread trace file.
 
     ``-ff`` writes one file per thread, so no line is ever split into
     ``<unfinished ...>`` / ``<... resumed>`` halves; ``-y`` decorates every file
     descriptor with the path it resolves to, which is how a relative ``openat``
     against a ``dirfd`` becomes an absolute path without re-implementing the
     kernel's resolution; ``-z`` keeps only successful calls, so a probe for a
-    file that does not exist is never mistaken for a read of one.
+    file that does not exist is never mistaken for a read of one; ``-ttt``
+    stamps every call, which is what puts the reads of every process on the
+    marker plugin's timeline (#1749).
     """
     strace = strace_binary()
     with tempfile.TemporaryDirectory(prefix="lane-inputs-") as scratch:
         prefix = Path(scratch) / "trace"
+        marker_dir = Path(scratch) / "markers"
+        marker_dir.mkdir()
         argv = [
             strace,
             "-ff",
             "-y",
             "-z",
+            "-ttt",
             "-qq",
             "-s",
             "512",
@@ -380,25 +491,48 @@ def run_traced(command: list[str], *, cwd: Path, env: dict[str, str]) -> Trace:
             "--",
             *command,
         ]
-        completed = subprocess.run(argv, cwd=cwd, env=env, check=False)
+        completed = subprocess.run(argv, cwd=cwd, env=marker_env(env, marker_dir), check=False)
         trace = Trace(returncode=completed.returncode)
-        for trace_file in sorted(Path(scratch).glob("trace.*")):
-            _parse_trace_file(trace_file, trace)
+        trace_files = sorted(Path(scratch).glob("trace.*"))
+        timeline = marker_timeline(trace_files, marker_dir)
+        for trace_file in trace_files:
+            _parse_trace_file(trace_file, trace, timeline=timeline, marker_dir=marker_dir)
     return trace
 
 
-def _parse_trace_file(path: Path, trace: Trace) -> None:
+def _stamp(match: re.Match[str]) -> float | None:
+    return float(match.group("ts")) if match.group("ts") else None
+
+
+def _parse_trace_file(
+    path: Path, trace: Trace, *, timeline: MarkerTimeline | None = None, marker_dir: Path | None = None
+) -> None:
+    timeline = timeline or MarkerTimeline()
+    marker_prefix = f"{marker_dir}/" if marker_dir is not None else None
     with path.open("r", encoding="utf-8", errors="surrogateescape") as handle:
         for line in handle:
             match = _OPEN_LINE.match(line)
             if match:
                 if "O_DIRECTORY" in match.group("args"):
                     continue  # a directory open is a lookup; its listing is the getdents below
-                trace.files.add(_clean(match.group("path")))
+                opened = _clean(match.group("path"))
+                if marker_prefix is not None and opened.startswith(marker_prefix):
+                    kind, _, quoted = opened[len(marker_prefix) :].partition("~")
+                    if kind == "ran":
+                        trace.test_modules.add(urllib.parse.unquote(quoted))
+                    continue  # the instrument's own marker, not a read
+                trace.files.add(opened)
+                reader = timeline.reader_at(_stamp(match))
+                if reader != NO_READER:
+                    trace.reader_files.setdefault(reader, set()).add(opened)
                 continue
             match = _GETDENTS_LINE.match(line)
             if match:
-                trace.listings.add(_clean(match.group("path")))
+                listed = _clean(match.group("path"))
+                trace.listings.add(listed)
+                reader = timeline.reader_at(_stamp(match))
+                if reader != NO_READER:
+                    trace.reader_listings.setdefault(reader, set()).add(listed)
                 continue
             match = _EXECVE_LINE.match(line)
             if match:
@@ -604,6 +738,8 @@ def _fresh_manifest(args: argparse.Namespace, document: dict[str, Any]) -> dict[
         "subprocesses": [],
         "accepted_gaps": [],
         "reads": [],
+        "test_modules": [],
+        "readers": {},
     }
 
 
@@ -631,6 +767,30 @@ def program_label(argv: list[str], *, cwd: Path, repo_root: Path = REPO_ROOT) ->
         return candidate.name
 
 
+def readers_scope_sha256(reads: list[str], rejects: Any) -> str:
+    """The fingerprint of the read set `readers` was scoped to: every read the job's filter did not select.
+
+    `readers` holds only reads OUTSIDE the filter (the whole read set per module
+    would be hundreds of thousands of entries). A later pull request that
+    narrows the filter moves reads outside it that `readers` never looked at —
+    and the job hash deliberately ignores filter patterns — so the guard
+    recomputes this over the committed reads and the LIVE filter and refuses a
+    mismatch instead of reading "no reader recorded" as "no reader" (review of
+    #1749). The guard's ``_readers_scope_sha256`` is the same function.
+    """
+    outside = sorted(read for read in reads if rejects(read))
+    return hashlib.sha256("\n".join(outside).encode("utf-8")).hexdigest()
+
+
+def tracked_reads(
+    files: set[str], listings: set[str], *, tracked: frozenset[str], directories: frozenset[str]
+) -> set[str]:
+    """Repo-relative opens and listings → the manifest's read entries, minus the marker plugin's own."""
+    reads = {entry for entry in files if entry in tracked}
+    reads |= {f"{entry}/" if entry else "./" for entry in listings if entry in directories}
+    return {read for read in reads if not read.startswith(_MARKER_PLUGIN_PREFIX)}
+
+
 def _merge_into(
     manifest: dict[str, Any],
     *,
@@ -638,10 +798,22 @@ def _merge_into(
     reads: set[str],
     execs: list[list[str]],
     cwd: Path = REPO_ROOT,
+    test_modules: set[str] | None = None,
+    readers: dict[str, set[str]] | None = None,
 ) -> None:
     manifest["invocations"].append(invocation)
     known = set(manifest.get("reads") or [])
     manifest["reads"] = sorted(known | reads)
+    # #1749: always written, empty included — a manifest without the keys was
+    # recorded before per-test attribution existed, which the guard refuses to
+    # read as "no test read anything".
+    manifest["test_modules"] = sorted(set(manifest.get("test_modules") or []) | (test_modules or set()))
+    merged: dict[str, set[str]] = {
+        str(module): set(paths or []) for module, paths in (manifest.get("readers") or {}).items()
+    }
+    for module, paths in (readers or {}).items():
+        merged.setdefault(module, set()).update(paths)
+    manifest["readers"] = {module: sorted(merged[module]) for module in sorted(merged)}
     programs = {str(entry) for entry in manifest.get("subprocesses") or [] if isinstance(entry, str)}
     programs |= {program_label(argv, cwd=cwd) for argv in execs}
     manifest["subprocesses"] = sorted(programs)
@@ -711,8 +883,7 @@ def command_record(args: argparse.Namespace) -> int:
     directories = implied_directories(tracked)
     files = to_repo_relative(trace.files, repo_root=REPO_ROOT, cwd=cwd)
     listings = to_repo_relative(trace.listings, repo_root=REPO_ROOT, cwd=cwd)
-    reads = {entry for entry in files if entry in tracked}
-    reads |= {f"{entry}/" if entry else "./" for entry in listings if entry in directories}
+    reads = tracked_reads(files, listings, tracked=tracked, directories=directories)
     dropped_untracked = len(files - tracked)
 
     target = _target(args)
@@ -738,7 +909,28 @@ def command_record(args: argparse.Namespace) -> int:
         invocation["scratch_inputs"] = scratch_inputs
     if trace.returncode != 0:
         invocation["allow_failure_reason"] = args.allow_failure.strip()
-    _merge_into(manifest, invocation=invocation, reads=reads, execs=trace.execs, cwd=cwd)
+    live = relevance_filter(document, manifest)
+    readers: dict[str, set[str]] = {}
+    for module in set(trace.reader_files) | set(trace.reader_listings):
+        read_by_module = tracked_reads(
+            to_repo_relative(trace.reader_files.get(module, set()), repo_root=REPO_ROOT, cwd=cwd),
+            to_repo_relative(trace.reader_listings.get(module, set()), repo_root=REPO_ROOT, cwd=cwd),
+            tracked=tracked,
+            directories=directories,
+        )
+        outside = {read for read in read_by_module if live.rejects(read)}
+        if outside:
+            readers[module] = outside
+    _merge_into(
+        manifest,
+        invocation=invocation,
+        reads=reads,
+        execs=trace.execs,
+        cwd=cwd,
+        test_modules=trace.test_modules,
+        readers=readers,
+    )
+    manifest["readers_scope_sha256"] = readers_scope_sha256(manifest["reads"], live.rejects)
     if args.partial is not None:
         manifest["status"] = "partial"
         manifest["partial_reason"] = args.partial.strip()
@@ -1161,6 +1353,9 @@ def _replay_base(committed: dict[str, Any]) -> dict[str, Any]:
     base["invocations"] = []
     base["subprocesses"] = []
     base["reads"] = []
+    base["test_modules"] = []
+    base["readers"] = {}
+    base.pop("readers_scope_sha256", None)
     base["status"] = "measured"
     # Written under the recorder's contract, not the committed file's.
     base["schema"] = SCHEMA
@@ -1184,6 +1379,8 @@ def _bootstrap_base(workflow: str, job: str) -> dict[str, Any]:
         "subprocesses": [],
         "accepted_gaps": [],
         "reads": [],
+        "test_modules": [],
+        "readers": {},
     }
 
 
@@ -1663,15 +1860,23 @@ def read_drift(
         if not failed:
             inside += 1
             continue
-        gap = next((g for g in gaps if gap_matches(g, read)), None)
-        if gap is None:
+        matching = [g for g in gaps if gap_matches(g, read)]
+        if not matching:
             outside.append(f"{read} ({' and '.join(failed)})")
             continue
-        covered_by = gap.get("covered_by")
-        if covered_by is not None:
-            target_workflow, _, target_job = str(covered_by).partition("/")
-            if read not in reads_of.get((target_workflow, target_job), set()):
-                undelegated.append(f"{read} (covered_by {covered_by})")
+        # Every matching gap, not the first (#1683 review of #1747): the guard's
+        # coverage rule holds each gap's delegation, so two overlapping gaps
+        # naming different lanes owe the read to BOTH.
+        lanes = sorted(
+            {
+                str(gap["covered_by"])
+                for gap in matching
+                if gap.get("covered_by") is not None
+                and read not in reads_of.get(tuple(str(gap["covered_by"]).partition("/")[::2]), set())
+            }
+        )
+        if lanes:  # one entry per read, however many overlapping gaps owe it
+            undelegated.append(f"{read} (covered_by {', '.join(lanes)})")
     if outside:
         findings.append(
             f"{name}: the CI run read {len(outside)} path(s) the job's relevance filter does not select and no "
@@ -1706,12 +1911,57 @@ def delegated_reads(
         for read in (str(entry) for entry in manifest.get("reads") or []):
             if not live.rejects(read):
                 continue
-            for gap in gaps:
+            for gap in gaps:  # every matching gap: each one's lane owes the read
                 if gap_matches(gap, read):
                     target_workflow, _, target_job = str(gap["covered_by"]).partition("/")
                     owed.setdefault((target_workflow, target_job), {}).setdefault(read, name)
-                    break
     return owed
+
+
+def stray_readers(
+    name: str,
+    committed: dict[str, Any],
+    recorded: dict[str, Any],
+    *,
+    modules_of: dict[tuple[str, str], set[str]],
+    workflow_dir: Path = WORKFLOW_DIR,
+) -> list[str]:
+    """Test modules of this run that make a delegated read while the covering lane does not run them (#1749).
+
+    A ``covered_by`` gap says "a change to this path is judged in that lane".
+    That holds for a read only if the TEST that makes it runs there: another
+    test of the covering lane reading the same path judges its own assertions,
+    not the new one's. ``modules_of`` is each lane's ``test_modules`` as this
+    run recorded them (the committed ones where it recorded none).
+    """
+    gaps = [g for g in committed.get("accepted_gaps") or [] if isinstance(g, dict) and g.get("covered_by")]
+    readers = recorded.get("readers") or {}
+    workflow = workflow_dir / str(committed.get("workflow"))
+    if not gaps or not readers or not workflow.is_file():
+        return []
+    live = relevance_filter(yaml.safe_load(workflow.read_text()) or {}, committed)
+    stray: dict[str, list[str]] = {}
+    for module, paths in sorted(readers.items()):
+        for read in sorted({str(entry) for entry in paths or []}):
+            if not live.rejects(read):
+                continue
+            # One entry per read, naming every lane it is owed to (two overlapping gaps are one read).
+            lanes = sorted(
+                {
+                    str(gap["covered_by"])
+                    for gap in gaps
+                    if gap_matches(gap, read)
+                    and module not in modules_of.get(tuple(str(gap["covered_by"]).partition("/")[::2]), set())
+                }
+            )
+            if lanes:
+                stray.setdefault(module, []).append(f"{read} (covered_by {', '.join(lanes)})")
+    return [
+        f"{name}: test module {module} makes {len(owed)} delegated read(s) but the covering lane does not run it, "
+        f"so a change there is judged by no required test of that module — add the module to that lane's "
+        f"invocation, or select the path in this job's filter: {_sample(owed, 5)}"
+        for module, owed in stray.items()
+    ]
 
 
 def compare_manifests(
@@ -1745,10 +1995,12 @@ def compare_manifests(
     notes: list[str] = []
     # A covered_by lane's reads as this run recorded them, the committed ones where it recorded none.
     reads_of: dict[tuple[str, str], set[str]] = {}
+    modules_of: dict[tuple[str, str], set[str]] = {}
     for source in (committed, recorded):
         for manifest in source.values():
             key = (str(manifest.get("workflow")), str(manifest.get("job")))
             reads_of[key] = {str(entry) for entry in manifest.get("reads") or []}
+            modules_of[key] = {str(entry) for entry in manifest.get("test_modules") or []}
     delegated = delegated_reads(committed, workflow_dir=workflow_dir)
     for name, manifest in committed.items():
         if not any(isinstance(entry, dict) for entry in manifest.get("invocations") or []):
@@ -1767,6 +2019,7 @@ def compare_manifests(
         )
         findings += read_findings
         notes += read_notes
+        findings += stray_readers(name, manifest, counterpart, modules_of=modules_of, workflow_dir=workflow_dir)
         # Review of #1747: a covering lane that stops reading a path another lane
         # delegates to it would keep the stale committed read, and the guard's
         # delegation rule (which reads committed manifests) would stay green.

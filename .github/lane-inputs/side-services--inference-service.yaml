@@ -9,9 +9,9 @@ job: inference-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 10
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 8
 job_spec_sha256: 389cb2b83565365d6d683550d65978eff6b112470a929266e47fad572c3ad28b
 invocations:
 - command: task deps:sync:inference-service
@@ -25,7 +25,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1259
+  untracked_reads_dropped: 1262
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
@@ -76,10 +76,12 @@ reads:
 - src/inference-service/tests/test_api.py
 - src/inference-service/tests/test_auth.py
 - src/inference-service/tests/test_confidence.py
+- src/inference-service/tests/test_contribution_erasure.py
 - src/inference-service/tests/test_disease_api.py
 - src/inference-service/tests/test_disease_classifier.py
 - src/inference-service/tests/test_embedder.py
 - src/inference-service/tests/test_pest_api.py
+- src/inference-service/tests/test_pest_contribution_erasure.py
 - src/inference-service/tests/test_preprocessing.py
 - src/inference-service/tests/test_repository.py
 - src/inference-service/tests/test_vectordb_sync_guard.py
@@ -87,3 +89,18 @@ reads:
 - src/libs/kp_vectordb/kp_vectordb/config.py
 - src/libs/kp_vectordb/kp_vectordb/connection.py
 - src/libs/kp_vectordb/kp_vectordb/schema.py
+test_modules:
+- src/inference-service/tests/test_api.py
+- src/inference-service/tests/test_auth.py
+- src/inference-service/tests/test_confidence.py
+- src/inference-service/tests/test_contribution_erasure.py
+- src/inference-service/tests/test_disease_api.py
+- src/inference-service/tests/test_disease_classifier.py
+- src/inference-service/tests/test_embedder.py
+- src/inference-service/tests/test_pest_api.py
+- src/inference-service/tests/test_pest_contribution_erasure.py
+- src/inference-service/tests/test_preprocessing.py
+- src/inference-service/tests/test_repository.py
+- src/inference-service/tests/test_vectordb_sync_guard.py
+readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
