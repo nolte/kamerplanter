@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
-replay_seconds: 53
+measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+replay_seconds: 56
 job_spec_sha256: 9e7d5315a110d4963a55509bc4739ed17eb1b202de979be7450e1a4ae639ad56
 invocations:
 - command: helm dependency build helm/kamerplanter
@@ -37,7 +37,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 340
+  untracked_reads_dropped: 341
 - command: scripts/ci/skaffold_render_verify.sh /tmp/lane-inputs-scratch/rendered-manifests.yaml
   cwd: .
   recorder: strace -ff -y -z
@@ -73,7 +73,6 @@ reads:
 - .audits/e2e-tcid-drift/2026-07-26/
 - .audits/issue-orchestrate/
 - .audits/issue-orchestrate/1098/
-- .audits/issue-orchestrate/1749/
 - .audits/issue-orchestrate/737/
 - .audits/issue-orchestrate/749/
 - .audits/issue-orchestrate/754/
@@ -129,6 +128,7 @@ reads:
 - docker/embedding-service/.dockerignore
 - docker/embedding-service/Dockerfile
 - docker/embedding-service/feed.py
+- docker/embedding-service/golden/
 - docker/embedding-service/limits.py
 - docker/embedding-service/main.py
 - docker/embedding-service/pyproject.toml
@@ -139,6 +139,7 @@ reads:
 - docker/reranker-service/
 - docker/reranker-service/.dockerignore
 - docker/reranker-service/Dockerfile
+- docker/reranker-service/golden/
 - docker/reranker-service/limits.py
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
@@ -1618,6 +1619,7 @@ reads:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
@@ -2051,6 +2053,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_immediate_entry.py
 - src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_pest_prototypes.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
@@ -2209,6 +2212,7 @@ reads:
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
 - src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py

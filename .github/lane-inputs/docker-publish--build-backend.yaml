@@ -11,7 +11,7 @@ gate:
   filter: backend
 status: derived
 measured_on: '2026-09-25'
-measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
+measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
 replay_seconds: 2
 job_spec_sha256: f309815c7e3b6f3122deec77f4fe73d4629688b8300ddba7a11248db7b53a9e8
 invocations:
@@ -24,7 +24,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 2003
+  context_files_after_dockerignore: 2006
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -1215,6 +1215,7 @@ reads:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
@@ -1631,6 +1632,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_immediate_entry.py
 - src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_pest_prototypes.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
@@ -1786,6 +1788,7 @@ reads:
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
 - src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py

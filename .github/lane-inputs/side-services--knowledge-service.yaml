@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
-replay_seconds: 5
+measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+replay_seconds: 9
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
 - command: task deps:sync:knowledge-service

@@ -1162,7 +1162,8 @@ class TestTheMarkerPlugin:
         (root / "tests").mkdir(parents=True)
         (root / "tests" / "test_one.py").write_text("def test_x():\n    pass\n")
         (root / "tests" / "test_skipped.py").write_text(
-            "import pytest\n\n@pytest.mark.skip(reason='x')\ndef test_y():\n    pass\n"
+            "import pytest\n\n@pytest.mark.skip(reason='x')\ndef test_y():\n    pass\n\n"
+            "def test_z():\n    pytest.skip('inside the body: still a call phase, not an executed test')\n"
         )
         markers = tmp_path / "markers"
         markers.mkdir()
@@ -1342,3 +1343,43 @@ def test_a_read_two_overlapping_gaps_delegate_is_named_once(tmp_path: Path) -> N
         workflow_dir=tmp_path,
     )
     assert "makes 1 delegated read(s)" in finding and finding.endswith("docs/x/a.md (covered_by g.yml/guards)")
+
+
+class TestTheReadersScopeIsTheSameFunctionInBothFiles:
+    """Review of #1749: the guard recomputes the recorder's scope fingerprint; both must hash the same set."""
+
+    def test_the_fingerprint_over_the_same_outside_set_agrees(self, guard: ModuleType) -> None:
+        reads = ["src/backend/a.py", "docs/b.md", "renovate.json5", "docs/"]
+        rejects = lambda read: not read.startswith("src/backend/")  # noqa: E731
+        assert recorder.readers_scope_sha256(reads, rejects) == guard._readers_scope_sha256(
+            ["docs/b.md", "renovate.json5", "docs/"]
+        )
+
+    def test_the_committed_delegating_manifest_matches_its_live_filter(self, guard: ModuleType) -> None:
+        real = guard.sweep(guard._DOT_GITHUB, guard._MANIFEST_DIR)
+        delegating = [m for m in real.manifests if any(g.get("covered_by") for g in m.accepted_gaps)]
+        assert delegating, "backend--lint-test delegates to the guards lane"
+        for m in delegating:
+            assert m.readers_scope_sha256 == guard._readers_scope_sha256(list(guard.uncovered_reads(real, m))), (
+                m.path.name
+            )
+
+
+def test_a_read_two_overlapping_gaps_leave_undelegated_is_counted_once(tmp_path: Path) -> None:
+    """Review of #1749: `src/**` and `src/frontend/**` both delegate to the guards lane; one read, one entry."""
+    (tmp_path / "w.yml").write_text(_ON_PATHS_WORKFLOW)
+    gaps = [
+        {"pattern": "docs/**", "reason": "r" * 50, "covered_by": "g.yml/guards"},
+        {"pattern": "docs/x/**", "reason": "r" * 50, "covered_by": "g.yml/guards"},
+    ]
+    findings, _ = recorder.read_drift(
+        "w--j.yaml",
+        _committed(accepted_gaps=gaps, reads=["src/backend/a.py"]),
+        _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "docs/x/new.md"]),
+        reads_of={("g.yml", "guards"): set()},
+        workflow_dir=tmp_path,
+    )
+    assert findings == [
+        "w--j.yaml: 1 new read(s) fall under an accepted gap whose covered_by lane did not read them in this "
+        "run: docs/x/new.md (covered_by g.yml/guards)"
+    ]

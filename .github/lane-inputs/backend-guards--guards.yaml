@@ -10,8 +10,8 @@ gate:
   kind: unfiltered
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
-replay_seconds: 646
+measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+replay_seconds: 780
 job_spec_sha256: f9cdc5641067ea7a8f0cf5dc41aaed27566c5468ef44ab321723c9046aebea71
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints
@@ -24,7 +24,7 @@ invocations:
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 4789
+  untracked_reads_dropped: 4791
 subprocesses:
 - awk
 - bash
@@ -83,8 +83,6 @@ reads:
 - .audits/issue-orchestrate/
 - .audits/issue-orchestrate/1098/
 - .audits/issue-orchestrate/1098/analysis.md
-- .audits/issue-orchestrate/1749/
-- .audits/issue-orchestrate/1749/analysis.md
 - .audits/issue-orchestrate/737/
 - .audits/issue-orchestrate/737/analysis.md
 - .audits/issue-orchestrate/749/
@@ -330,6 +328,11 @@ reads:
 - docker/embedding-service/Dockerfile
 - docker/embedding-service/README.md
 - docker/embedding-service/feed.py
+- docker/embedding-service/golden/
+- docker/embedding-service/golden/e5-base.json
+- docker/embedding-service/golden/e5-large.json
+- docker/embedding-service/golden/e5-small.json
+- docker/embedding-service/golden/minilm.json
 - docker/embedding-service/limits.py
 - docker/embedding-service/main.py
 - docker/embedding-service/pyproject.toml
@@ -340,6 +343,9 @@ reads:
 - docker/knowledge/README.md
 - docker/reranker-service/
 - docker/reranker-service/Dockerfile
+- docker/reranker-service/golden/
+- docker/reranker-service/golden/bge-reranker-v2-m3.json
+- docker/reranker-service/golden/ms-marco-minilm.json
 - docker/reranker-service/limits.py
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
@@ -679,6 +685,8 @@ reads:
 - project/reach-probes/
 - project/reach-probes/_not-constructible.yml
 - project/reach-probes/capability-readme-reranker-endpoint-answers.yml
+- project/reach-probes/endpoint-admin-user-delete-persists-proof.yml
+- project/reach-probes/endpoint-admin-user-delete-reaches-rows.yml
 - project/reach-probes/endpoint-zap-postmerge-push-runs.yml
 - project/reach-probes/inventory-erasure-plan-reaches-rows.yml
 - project/reach-probes/inventory-export-manifest-sources-populated.yml
@@ -758,6 +766,7 @@ reads:
 - scripts/ci/check_release_assets.py
 - scripts/ci/check_release_lag.py
 - scripts/ci/check_renovate_dashboard.py
+- scripts/ci/compute_model_golden_outputs.py
 - scripts/ci/determine_chart_version.sh
 - scripts/ci/lane_inputs.py
 - scripts/ci/pin_chart_image_digests.sh
@@ -782,8 +791,10 @@ reads:
 - scripts/precommit_sibling_notice.sh
 - scripts/reach/
 - scripts/reach/_reach_common.py
+- scripts/reach/admin_delete_subject.py
 - scripts/reach/declared_privacy_inventories.py
 - scripts/reach/finalise_erasure_for_subject.py
+- scripts/reach/observe_erasure_records.py
 - scripts/reach/observe_erasure_residue.py
 - scripts/reach/observe_executing_inventory.py
 - scripts/reach/observe_export_archive.py
@@ -2820,6 +2831,7 @@ reads:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
@@ -3253,6 +3265,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_immediate_entry.py
 - src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_pest_prototypes.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
@@ -3411,6 +3424,7 @@ reads:
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
 - src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py
@@ -4755,6 +4769,7 @@ test_modules:
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
 - src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py

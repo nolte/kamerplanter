@@ -13,8 +13,8 @@ gate:
   - e2e_infra
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
-replay_seconds: 8
+measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+replay_seconds: 4
 job_spec_sha256: c1307a00172c85c88d04bec5f70520877cf1895e6f523953238e85b0fe138bb1
 invocations:
 - command: docker compose -f docker-compose.e2e.yml --profile smoke config --quiet
@@ -38,7 +38,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 2003
+  context_files_after_dockerignore: 2006
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
   cwd: .
   recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
@@ -1271,6 +1271,7 @@ reads:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
@@ -1687,6 +1688,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_immediate_entry.py
 - src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_pest_prototypes.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
@@ -1842,6 +1844,7 @@ reads:
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
 - src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py

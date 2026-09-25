@@ -11,8 +11,8 @@ gate:
   filter: integration
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
-replay_seconds: 373
+measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+replay_seconds: 231
 job_spec_sha256: 22b6c7d8252f275f366c3a5a3637390a59fac1a15dd6ddd082362396b6597fac
 invocations:
 - command: task test:backend:integration
@@ -24,7 +24,7 @@ invocations:
   - ARANGODB_PASSWORD=rootpassword
   - ARANGODB_PORT=8529
   - ARANGODB_USERNAME=root
-  untracked_reads_dropped: 4038
+  untracked_reads_dropped: 4039
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -1164,6 +1164,7 @@ reads:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
@@ -1215,6 +1216,7 @@ test_modules:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py

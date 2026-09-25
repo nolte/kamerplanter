@@ -101,7 +101,8 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     # The active marker, not the report's path: the report is about the item
     # `pytest_runtest_protocol` below just marked, and that marker is the one
     # spelling of its module the recorder already reads.
-    if report.when != "call" or not _stack or not _stack[-1].startswith("run~") or not _enabled():
+    # `skipped` covers a `pytest.skip()` inside the test body, which still reports a call phase.
+    if report.when != "call" or report.skipped or not _stack or not _stack[-1].startswith("run~") or not _enabled():
         return
     _mark("ran~" + _stack[-1].removeprefix("run~"))
 

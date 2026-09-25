@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
-replay_seconds: 1918
+measured_at_commit: 04c1bd04d1215f2b3a9738b90146345f1e952ac3
+replay_seconds: 1679
 job_spec_sha256: 6b0437e7681491d6907549831063861ad4bc3ed444939473902f62dedb79c0bc
 invocations:
 - command: task lint:backend
@@ -49,7 +49,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 4885
+  untracked_reads_dropped: 4888
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -360,8 +360,6 @@ reads:
 - .audits/issue-orchestrate/
 - .audits/issue-orchestrate/1098/
 - .audits/issue-orchestrate/1098/analysis.md
-- .audits/issue-orchestrate/1749/
-- .audits/issue-orchestrate/1749/analysis.md
 - .audits/issue-orchestrate/737/
 - .audits/issue-orchestrate/737/analysis.md
 - .audits/issue-orchestrate/749/
@@ -607,6 +605,11 @@ reads:
 - docker/embedding-service/Dockerfile
 - docker/embedding-service/README.md
 - docker/embedding-service/feed.py
+- docker/embedding-service/golden/
+- docker/embedding-service/golden/e5-base.json
+- docker/embedding-service/golden/e5-large.json
+- docker/embedding-service/golden/e5-small.json
+- docker/embedding-service/golden/minilm.json
 - docker/embedding-service/limits.py
 - docker/embedding-service/main.py
 - docker/embedding-service/pyproject.toml
@@ -617,6 +620,9 @@ reads:
 - docker/knowledge/README.md
 - docker/reranker-service/
 - docker/reranker-service/Dockerfile
+- docker/reranker-service/golden/
+- docker/reranker-service/golden/bge-reranker-v2-m3.json
+- docker/reranker-service/golden/ms-marco-minilm.json
 - docker/reranker-service/limits.py
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
@@ -956,6 +962,8 @@ reads:
 - project/reach-probes/
 - project/reach-probes/_not-constructible.yml
 - project/reach-probes/capability-readme-reranker-endpoint-answers.yml
+- project/reach-probes/endpoint-admin-user-delete-persists-proof.yml
+- project/reach-probes/endpoint-admin-user-delete-reaches-rows.yml
 - project/reach-probes/endpoint-zap-postmerge-push-runs.yml
 - project/reach-probes/inventory-erasure-plan-reaches-rows.yml
 - project/reach-probes/inventory-export-manifest-sources-populated.yml
@@ -1035,6 +1043,7 @@ reads:
 - scripts/ci/check_release_assets.py
 - scripts/ci/check_release_lag.py
 - scripts/ci/check_renovate_dashboard.py
+- scripts/ci/compute_model_golden_outputs.py
 - scripts/ci/determine_chart_version.sh
 - scripts/ci/lane_inputs.py
 - scripts/ci/pin_chart_image_digests.sh
@@ -1059,8 +1068,10 @@ reads:
 - scripts/precommit_sibling_notice.sh
 - scripts/reach/
 - scripts/reach/_reach_common.py
+- scripts/reach/admin_delete_subject.py
 - scripts/reach/declared_privacy_inventories.py
 - scripts/reach/finalise_erasure_for_subject.py
+- scripts/reach/observe_erasure_records.py
 - scripts/reach/observe_erasure_residue.py
 - scripts/reach/observe_executing_inventory.py
 - scripts/reach/observe_export_archive.py
@@ -3097,6 +3108,7 @@ reads:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
@@ -3530,6 +3542,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_immediate_entry.py
 - src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_pest_prototypes.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
@@ -3688,6 +3701,7 @@ reads:
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
 - src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py
@@ -5452,6 +5466,7 @@ test_modules:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_immediate_entry.py
 - src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
 - src/backend/tests/unit/domain/services/test_erasure_pest_prototypes.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
@@ -5599,6 +5614,7 @@ test_modules:
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
 - src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py
@@ -5845,68 +5861,6 @@ readers:
   - src/frontend/src/i18n/locales/de/enums.json
   - src/frontend/src/i18n/locales/en/enums.json
   - src/frontend/src/pages/pflege/components/CareProfileForm.tsx
-  src/backend/tests/unit/api/test_frontend_endpoints_are_served.py:
-  - src/frontend/src/api/endpoints/
-  - src/frontend/src/api/endpoints/activities.ts
-  - src/frontend/src/api/endpoints/activityPlans.ts
-  - src/frontend/src/api/endpoints/adminPestRecognition.ts
-  - src/frontend/src/api/endpoints/adminPlatform.ts
-  - src/frontend/src/api/endpoints/adminReferenceImages.ts
-  - src/frontend/src/api/endpoints/adminSettings.ts
-  - src/frontend/src/api/endpoints/adminWeatherProviders.ts
-  - src/frontend/src/api/endpoints/ai.ts
-  - src/frontend/src/api/endpoints/aquaponik.ts
-  - src/frontend/src/api/endpoints/auth.ts
-  - src/frontend/src/api/endpoints/botanicalFamilies.ts
-  - src/frontend/src/api/endpoints/calculations.ts
-  - src/frontend/src/api/endpoints/calendar.ts
-  - src/frontend/src/api/endpoints/careReminders.ts
-  - src/frontend/src/api/endpoints/companionPlanting.ts
-  - src/frontend/src/api/endpoints/cropRotation.ts
-  - src/frontend/src/api/endpoints/dashboard.ts
-  - src/frontend/src/api/endpoints/diagnose.ts
-  - src/frontend/src/api/endpoints/diary.ts
-  - src/frontend/src/api/endpoints/environment.ts
-  - src/frontend/src/api/endpoints/favorites.ts
-  - src/frontend/src/api/endpoints/feeding-events.ts
-  - src/frontend/src/api/endpoints/fertilizers.ts
-  - src/frontend/src/api/endpoints/glossary.ts
-  - src/frontend/src/api/endpoints/haPublish.ts
-  - src/frontend/src/api/endpoints/harvest.ts
-  - src/frontend/src/api/endpoints/identification.ts
-  - src/frontend/src/api/endpoints/import.ts
-  - src/frontend/src/api/endpoints/inventree.ts
-  - src/frontend/src/api/endpoints/ipm.ts
-  - src/frontend/src/api/endpoints/notifications.ts
-  - src/frontend/src/api/endpoints/nutrient-calculations.ts
-  - src/frontend/src/api/endpoints/nutrient-plans.ts
-  - src/frontend/src/api/endpoints/observations.ts
-  - src/frontend/src/api/endpoints/onboarding.ts
-  - src/frontend/src/api/endpoints/overwinteringProfiles.ts
-  - src/frontend/src/api/endpoints/pestDetection.ts
-  - src/frontend/src/api/endpoints/phaseSequences.ts
-  - src/frontend/src/api/endpoints/phases.ts
-  - src/frontend/src/api/endpoints/plantInstances.ts
-  - src/frontend/src/api/endpoints/plantPhotos.ts
-  - src/frontend/src/api/endpoints/plantingRuns.ts
-  - src/frontend/src/api/endpoints/postHarvest.ts
-  - src/frontend/src/api/endpoints/print.ts
-  - src/frontend/src/api/endpoints/privacy.ts
-  - src/frontend/src/api/endpoints/propagation.ts
-  - src/frontend/src/api/endpoints/season.ts
-  - src/frontend/src/api/endpoints/sites.ts
-  - src/frontend/src/api/endpoints/species.ts
-  - src/frontend/src/api/endpoints/starterKits.ts
-  - src/frontend/src/api/endpoints/substrates.ts
-  - src/frontend/src/api/endpoints/successionPlans.ts
-  - src/frontend/src/api/endpoints/tanks.ts
-  - src/frontend/src/api/endpoints/tasks.ts
-  - src/frontend/src/api/endpoints/tenants.ts
-  - src/frontend/src/api/endpoints/userPreferences.ts
-  - src/frontend/src/api/endpoints/watering-events.ts
-  - src/frontend/src/api/endpoints/watering-logs.ts
-  - src/frontend/src/api/endpoints/wateringConfirm.ts
-  - src/frontend/src/api/endpoints/weatherSources.ts
   src/backend/tests/unit/domain/services/test_oauth_auto_link_claim.py:
   - src/frontend/src/i18n/locales/de/pages.json
   - src/frontend/src/i18n/locales/en/pages.json
@@ -5914,10 +5868,6 @@ readers:
   src/backend/tests/unit/entrypoints/test_error_tracking_csp_script.py:
   - src/frontend/docker-entrypoint.d/30-error-tracking-csp.sh
   - src/frontend/nginx-security-headers.inc
-  src/backend/tests/unit/guards/test_care_profile_single_writer.py:
-  - scripts/source_text.py
-  src/backend/tests/unit/guards/test_docker_lint_build_coverage.py:
-  - .github/workflows/docker-lint-build.yml
   src/backend/tests/unit/guards/test_docs_requirements_hash_verification.py:
   - docs/requirements.txt
   src/backend/tests/unit/guards/test_docs_requirements_source_bounds.py:
@@ -5931,7 +5881,6 @@ readers:
   - .audits/e2e-tcid-drift/2026-07-26/
   - .audits/issue-orchestrate/
   - .audits/issue-orchestrate/1098/
-  - .audits/issue-orchestrate/1749/
   - .audits/issue-orchestrate/737/
   - .audits/issue-orchestrate/749/
   - .audits/issue-orchestrate/754/
@@ -5968,21 +5917,16 @@ readers:
   - .claude/skills/spec-status/
   - .claude/skills/verify-ha/
   - .github/
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/setup-skaffold/
-  - .github/lane-inputs/
   - .github/styles/
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
-  - .github/workflows/
   - .vscode/
   - brand/
   - docker/
-  - docker/embedding-service/
   - docker/knowledge/
   - docker/reranker-service/
+  - docker/reranker-service/golden/
   - docker/vectordb/
   - docs/
   - docs/assets/
@@ -6021,16 +5965,12 @@ readers:
   - docs/requirements.txt
   - docs/security/
   - docs/stylesheets/
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/templates/
   - project/
   - project/features/
   - project/maturity/
   - project/reach-probes/
   - project/requirements/
   - project/sprints/
-  - scripts/
   - scripts/docs/
   - scripts/kami/
   - spec/
@@ -6078,7 +6018,6 @@ readers:
   - src/frontend/scripts/
   - src/frontend/src/
   - src/frontend/src/api/
-  - src/frontend/src/api/endpoints/
   - src/frontend/src/assets/
   - src/frontend/src/assets/brand/
   - src/frontend/src/assets/brand/illustrations/
@@ -6230,45 +6169,6 @@ readers:
   - tools/rag-eval/
   src/backend/tests/unit/guards/test_entity_name_vocabulary.py:
   - spec/nfr/NFR-006_API-Fehlerbehandlung.md
-  src/backend/tests/unit/guards/test_execution_guards.py:
-  - .env.example
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
-  - docker-compose.e2e.ci.yml
-  - docker-compose.e2e.yml
-  - docker-compose.reach.yml
-  - docker-compose.release.yml
-  - docker-compose.security.override.yml
-  - docker-compose.yml
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/Chart.yaml
-  - helm/kamerplanter/templates/
-  - helm/kamerplanter/templates/common.yaml
-  - helm/kamerplanter/values-dev-ki.yaml
-  - helm/kamerplanter/values-dev-recognition.yaml
-  - helm/kamerplanter/values-dev.yaml
-  - helm/kamerplanter/values.yaml
   src/backend/tests/unit/guards/test_hf_model_fetches_pin_a_revision.py:
   - .audits/
   - .audits/adr-008-phase-0-inventory/
@@ -6280,7 +6180,6 @@ readers:
   - .audits/e2e-tcid-drift/2026-07-26/
   - .audits/issue-orchestrate/
   - .audits/issue-orchestrate/1098/
-  - .audits/issue-orchestrate/1749/
   - .audits/issue-orchestrate/737/
   - .audits/issue-orchestrate/749/
   - .audits/issue-orchestrate/754/
@@ -6317,24 +6216,18 @@ readers:
   - .claude/skills/spec-status/
   - .claude/skills/verify-ha/
   - .github/
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/setup-skaffold/
-  - .github/lane-inputs/
   - .github/styles/
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
-  - .github/workflows/
   - .vscode/
   - brand/
   - docker/
-  - docker/embedding-service/
-  - docker/embedding-service/Dockerfile
   - docker/knowledge/
   - docker/knowledge/Dockerfile
   - docker/reranker-service/
   - docker/reranker-service/Dockerfile
+  - docker/reranker-service/golden/
   - docker/vectordb/
   - docker/vectordb/Dockerfile
   - docs/
@@ -6372,16 +6265,12 @@ readers:
   - docs/javascripts/
   - docs/security/
   - docs/stylesheets/
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/templates/
   - project/
   - project/features/
   - project/maturity/
   - project/reach-probes/
   - project/requirements/
   - project/sprints/
-  - scripts/
   - scripts/docs/
   - scripts/kami/
   - spec/
@@ -6430,7 +6319,6 @@ readers:
   - src/frontend/scripts/
   - src/frontend/src/
   - src/frontend/src/api/
-  - src/frontend/src/api/endpoints/
   - src/frontend/src/assets/
   - src/frontend/src/assets/brand/
   - src/frontend/src/assets/brand/illustrations/
@@ -6583,12 +6471,6 @@ readers:
   - tests/e2e_selftest/
   - tools/
   - tools/rag-eval/
-  src/backend/tests/unit/guards/test_inference_flag_parity.py:
-  - helm/kamerplanter/
-  - helm/kamerplanter/values-dev-ki.yaml
-  - helm/kamerplanter/values-dev-recognition.yaml
-  - helm/kamerplanter/values-dev.yaml
-  - helm/kamerplanter/values.yaml
   src/backend/tests/unit/guards/test_library_lock_hash_verification.py:
   - src/libs/kp_errortracking/pyproject.toml
   - src/libs/kp_errortracking/uv.lock
@@ -6597,15 +6479,7 @@ readers:
   - tests/e2e/pyproject.toml
   - tests/e2e/uv.lock
   src/backend/tests/unit/guards/test_ml_sidecar_limits.py:
-  - docker-compose.yml
   - docker/
-  - docker/embedding-service/
-  - docker/embedding-service/Dockerfile
-  - docker/embedding-service/limits.py
-  - docker/embedding-service/main.py
-  - docker/embedding-service/pyproject.toml
-  - docker/embedding-service/tokenization.py
-  - docker/embedding-service/uv.lock
   - docker/knowledge/Dockerfile
   - docker/reranker-service/
   - docker/reranker-service/Dockerfile
@@ -6715,9 +6589,7 @@ readers:
   - src/knowledge-service/app/vectordb/migrations/
   - src/knowledge-service/app/vectordb/repository.py
   - src/knowledge-service/app/vectordb/schema.py
-  src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py:
-  - .github/workflows/backend-guards.yml
-  src/backend/tests/unit/guards/test_model_images_prove_readiness.py:
+  src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py:
   - .audits/
   - .audits/adr-008-phase-0-inventory/
   - .audits/agent-review/
@@ -6728,7 +6600,6 @@ readers:
   - .audits/e2e-tcid-drift/2026-07-26/
   - .audits/issue-orchestrate/
   - .audits/issue-orchestrate/1098/
-  - .audits/issue-orchestrate/1749/
   - .audits/issue-orchestrate/737/
   - .audits/issue-orchestrate/749/
   - .audits/issue-orchestrate/754/
@@ -6765,27 +6636,20 @@ readers:
   - .claude/skills/spec-status/
   - .claude/skills/verify-ha/
   - .github/
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/setup-skaffold/
-  - .github/lane-inputs/
   - .github/styles/
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
-  - .github/workflows/
-  - .github/workflows/docker-lint-build.yml
   - .vscode/
   - brand/
   - docker/
-  - docker/embedding-service/
-  - docker/embedding-service/Dockerfile
-  - docker/embedding-service/main.py
   - docker/knowledge/
   - docker/knowledge/Dockerfile
   - docker/reranker-service/
   - docker/reranker-service/Dockerfile
-  - docker/reranker-service/main.py
+  - docker/reranker-service/golden/
+  - docker/reranker-service/golden/bge-reranker-v2-m3.json
+  - docker/reranker-service/golden/ms-marco-minilm.json
   - docker/vectordb/
   - docker/vectordb/Dockerfile
   - docs/
@@ -6823,16 +6687,12 @@ readers:
   - docs/javascripts/
   - docs/security/
   - docs/stylesheets/
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/templates/
   - project/
   - project/features/
   - project/maturity/
   - project/reach-probes/
   - project/requirements/
   - project/sprints/
-  - scripts/
   - scripts/docs/
   - scripts/kami/
   - spec/
@@ -6881,7 +6741,309 @@ readers:
   - src/frontend/scripts/
   - src/frontend/src/
   - src/frontend/src/api/
-  - src/frontend/src/api/endpoints/
+  - src/frontend/src/assets/
+  - src/frontend/src/assets/brand/
+  - src/frontend/src/assets/brand/illustrations/
+  - src/frontend/src/assets/brand/illustrations/features/
+  - src/frontend/src/assets/brand/illustrations/onboarding/
+  - src/frontend/src/assets/brand/illustrations/phases/
+  - src/frontend/src/assets/brand/illustrations/states/
+  - src/frontend/src/assets/illustrations/
+  - src/frontend/src/assets/illustrations/errors/
+  - src/frontend/src/auth/
+  - src/frontend/src/components/
+  - src/frontend/src/components/admin/
+  - src/frontend/src/components/ai/
+  - src/frontend/src/components/common/
+  - src/frontend/src/components/dashboard/
+  - src/frontend/src/components/dashboard/widgets/
+  - src/frontend/src/components/diagnosis/
+  - src/frontend/src/components/diary/
+  - src/frontend/src/components/form/
+  - src/frontend/src/components/glossary/
+  - src/frontend/src/components/ha/
+  - src/frontend/src/components/identification/
+  - src/frontend/src/components/kiosk/
+  - src/frontend/src/components/layout/
+  - src/frontend/src/components/pests/
+  - src/frontend/src/components/print/
+  - src/frontend/src/components/privacy/
+  - src/frontend/src/components/sensors/
+  - src/frontend/src/components/tanks/
+  - src/frontend/src/components/water/
+  - src/frontend/src/components/weather/
+  - src/frontend/src/config/
+  - src/frontend/src/contracts/
+  - src/frontend/src/hooks/
+  - src/frontend/src/i18n/
+  - src/frontend/src/i18n/locales/
+  - src/frontend/src/i18n/locales/de/
+  - src/frontend/src/i18n/locales/en/
+  - src/frontend/src/kiosk/
+  - src/frontend/src/layouts/
+  - src/frontend/src/lib/
+  - src/frontend/src/observability/
+  - src/frontend/src/pages/
+  - src/frontend/src/pages/admin/
+  - src/frontend/src/pages/aquaponik/
+  - src/frontend/src/pages/aufgaben/
+  - src/frontend/src/pages/auth/
+  - src/frontend/src/pages/duengung/
+  - src/frontend/src/pages/duengung/nutrient-plan-detail/
+  - src/frontend/src/pages/durchlaeufe/
+  - src/frontend/src/pages/environment/
+  - src/frontend/src/pages/ernte/
+  - src/frontend/src/pages/giessprotokoll/
+  - src/frontend/src/pages/glossar/
+  - src/frontend/src/pages/inventree/
+  - src/frontend/src/pages/kalender/
+  - src/frontend/src/pages/ki-assistent/
+  - src/frontend/src/pages/ki-diagnose/
+  - src/frontend/src/pages/ki-recognition/
+  - src/frontend/src/pages/kiosk/
+  - src/frontend/src/pages/onboarding/
+  - src/frontend/src/pages/onboarding/components/
+  - src/frontend/src/pages/onboarding/steps/
+  - src/frontend/src/pages/pflanzen/
+  - src/frontend/src/pages/pflanzen/calculations/
+  - src/frontend/src/pages/pflanzen/diary/
+  - src/frontend/src/pages/pflanzen/photos/
+  - src/frontend/src/pages/pflanzenschutz/
+  - src/frontend/src/pages/pflege/
+  - src/frontend/src/pages/pflege/components/
+  - src/frontend/src/pages/phasen/
+  - src/frontend/src/pages/post-harvest/
+  - src/frontend/src/pages/propagation/
+  - src/frontend/src/pages/stammdaten/
+  - src/frontend/src/pages/stammdaten/species-detail/
+  - src/frontend/src/pages/standorte/
+  - src/frontend/src/pages/tagebuch/
+  - src/frontend/src/pages/tenants/
+  - src/frontend/src/pages/ueberwinterung/
+  - src/frontend/src/routes/
+  - src/frontend/src/store/
+  - src/frontend/src/store/slices/
+  - src/frontend/src/styles/
+  - src/frontend/src/test/
+  - src/frontend/src/test/a11y/
+  - src/frontend/src/test/api/
+  - src/frontend/src/test/api/endpoints/
+  - src/frontend/src/test/components/
+  - src/frontend/src/test/components/admin/
+  - src/frontend/src/test/components/ai/
+  - src/frontend/src/test/components/dashboard/
+  - src/frontend/src/test/components/diagnosis/
+  - src/frontend/src/test/components/glossary/
+  - src/frontend/src/test/components/identification/
+  - src/frontend/src/test/components/layout/
+  - src/frontend/src/test/components/pests/
+  - src/frontend/src/test/components/privacy/
+  - src/frontend/src/test/components/tanks/
+  - src/frontend/src/test/config/
+  - src/frontend/src/test/contracts/
+  - src/frontend/src/test/guards/
+  - src/frontend/src/test/hooks/
+  - src/frontend/src/test/i18n/
+  - src/frontend/src/test/kiosk/
+  - src/frontend/src/test/layouts/
+  - src/frontend/src/test/lib/
+  - src/frontend/src/test/mocks/
+  - src/frontend/src/test/observability/
+  - src/frontend/src/test/pages/
+  - src/frontend/src/test/pages/onboarding/
+  - src/frontend/src/test/routes/
+  - src/frontend/src/test/store/
+  - src/frontend/src/test/theme/
+  - src/frontend/src/test/utils/
+  - src/frontend/src/test/validation/
+  - src/frontend/src/theme/
+  - src/frontend/src/types/
+  - src/frontend/src/utils/
+  - src/frontend/src/validation/
+  - src/inference-service/
+  - src/inference-service/Dockerfile
+  - src/inference-service/app/
+  - src/inference-service/app/observability/
+  - src/inference-service/app/vectordb/
+  - src/inference-service/app/vectordb/migrations/
+  - src/inference-service/scripts/
+  - src/inference-service/tests/
+  - src/knowledge-service/
+  - src/knowledge-service/Dockerfile
+  - src/knowledge-service/app/
+  - src/knowledge-service/app/llm/
+  - src/knowledge-service/app/observability/
+  - src/knowledge-service/app/vectordb/
+  - src/knowledge-service/app/vectordb/migrations/
+  - src/knowledge-service/tests/
+  - src/libs/
+  - src/libs/kp_errortracking/
+  - src/libs/kp_errortracking/kp_errortracking/
+  - src/libs/kp_vectordb/
+  - src/libs/kp_vectordb/kp_vectordb/
+  - src/libs/kp_vectordb/tests/
+  - test-reports/
+  - test-reports/rag-eval/
+  - tests/
+  - tests/e2e/
+  - tests/e2e/Dockerfile
+  - tests/e2e/features/
+  - tests/e2e/fixtures/
+  - tests/e2e/pages/
+  - tests/e2e_selftest/
+  - tools/
+  - tools/rag-eval/
+  src/backend/tests/unit/guards/test_model_images_prove_readiness.py:
+  - .audits/
+  - .audits/adr-008-phase-0-inventory/
+  - .audits/agent-review/
+  - .audits/capability-reach/
+  - .audits/cicd-audit/
+  - .audits/e2e-core-function-coverage/
+  - .audits/e2e-tcid-drift/
+  - .audits/e2e-tcid-drift/2026-07-26/
+  - .audits/issue-orchestrate/
+  - .audits/issue-orchestrate/1098/
+  - .audits/issue-orchestrate/737/
+  - .audits/issue-orchestrate/749/
+  - .audits/issue-orchestrate/754/
+  - .audits/issue-orchestrate/835/
+  - .audits/issue-pattern-analysis/
+  - .audits/open-issues-execution/
+  - .audits/plans/
+  - .audits/skill-review/
+  - .audits/source-code-review/
+  - .claude/
+  - .claude/agent-memory/
+  - .claude/agent-memory/e2e-testcase-extractor/
+  - .claude/agents/
+  - .claude/projects/
+  - .claude/projects/-home-nolte-repos-github-kamerplanter/
+  - .claude/projects/-home-nolte-repos-github-kamerplanter/memory/
+  - .claude/skills/
+  - .claude/skills/check-architecture/
+  - .claude/skills/check-helm/
+  - .claude/skills/check-pest-data/
+  - .claude/skills/check-pest-data/examples/
+  - .claude/skills/check-pest-data/examples/fixtures/
+  - .claude/skills/check-retention/
+  - .claude/skills/check-seed-data/
+  - .claude/skills/check-slo/
+  - .claude/skills/check-ui-crud/
+  - .claude/skills/deploy-ha/
+  - .claude/skills/gen-knowledge/
+  - .claude/skills/ha-derive/
+  - .claude/skills/implement/
+  - .claude/skills/plant-lifecycle/
+  - .claude/skills/req-coverage-audit/
+  - .claude/skills/review-spec/
+  - .claude/skills/spec-status/
+  - .claude/skills/verify-ha/
+  - .github/
+  - .github/styles/
+  - .github/styles/config/
+  - .github/styles/config/vocabularies/
+  - .github/styles/config/vocabularies/kamerplanter/
+  - .vscode/
+  - brand/
+  - docker/
+  - docker/knowledge/
+  - docker/knowledge/Dockerfile
+  - docker/reranker-service/
+  - docker/reranker-service/Dockerfile
+  - docker/reranker-service/golden/
+  - docker/reranker-service/main.py
+  - docker/vectordb/
+  - docker/vectordb/Dockerfile
+  - docs/
+  - docs/assets/
+  - docs/assets/images/
+  - docs/de/
+  - docs/de/adr/
+  - docs/de/api/
+  - docs/de/architecture/
+  - docs/de/changelog/
+  - docs/de/deployment/
+  - docs/de/development/
+  - docs/de/development/testing/
+  - docs/de/development/testing/stufen/
+  - docs/de/getting-started/
+  - docs/de/guides/
+  - docs/de/reference/
+  - docs/de/user-guide/
+  - docs/en/
+  - docs/en/adr/
+  - docs/en/api/
+  - docs/en/architecture/
+  - docs/en/changelog/
+  - docs/en/deployment/
+  - docs/en/development/
+  - docs/en/development/testing/
+  - docs/en/development/testing/stufen/
+  - docs/en/getting-started/
+  - docs/en/guides/
+  - docs/en/reference/
+  - docs/en/user-guide/
+  - docs/img/
+  - docs/img/ha_integration/
+  - docs/includes/
+  - docs/javascripts/
+  - docs/security/
+  - docs/stylesheets/
+  - project/
+  - project/features/
+  - project/maturity/
+  - project/reach-probes/
+  - project/requirements/
+  - project/sprints/
+  - scripts/docs/
+  - scripts/kami/
+  - spec/
+  - spec/analysis/
+  - spec/analysis/code-review-fable5-plans/
+  - spec/betriebsmodelle/
+  - spec/decisions/
+  - spec/design/
+  - spec/dev-tooling/
+  - spec/feature-requests/
+  - spec/knowledge/
+  - spec/knowledge/diagnostik/
+  - spec/knowledge/nutrient-plans/
+  - spec/knowledge/outdoor/
+  - spec/knowledge/pflege/
+  - spec/knowledge/pflege/arten/
+  - spec/knowledge/pflege/gemuese/
+  - spec/knowledge/pflege/obst/
+  - spec/knowledge/products/
+  - spec/knowledge/rag/
+  - spec/knowledge/rag/allgemein/
+  - spec/knowledge/rag/bewaesserung/
+  - spec/knowledge/rag/diagnostik/
+  - spec/knowledge/rag/duengung/
+  - spec/knowledge/rag/outdoor/
+  - spec/knowledge/rag/outdoor/balkon/
+  - spec/knowledge/rag/pflege/
+  - spec/knowledge/rag/pflege/vermehrung/
+  - spec/knowledge/rag/phasen/
+  - spec/knowledge/rag/substrat/
+  - spec/knowledge/rag/umwelt/
+  - spec/knowledge/rag/vermehrung/
+  - spec/nfr/
+  - spec/rag-eval/
+  - spec/req/
+  - spec/style-guides/
+  - spec/target-audiences/
+  - spec/ui-nfr/
+  - spec/ui-nfr/assets/
+  - src/
+  - src/frontend/
+  - src/frontend/Dockerfile
+  - src/frontend/docker-entrypoint.d/
+  - src/frontend/public/
+  - src/frontend/public/icons/
+  - src/frontend/scripts/
+  - src/frontend/src/
+  - src/frontend/src/api/
   - src/frontend/src/assets/
   - src/frontend/src/assets/brand/
   - src/frontend/src/assets/brand/illustrations/
@@ -7036,38 +7198,7 @@ readers:
   - tools/rag-eval/
   src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py:
   - .github/renovate-pins.yaml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
   - renovate.json5
-  src/backend/tests/unit/guards/test_paths_filter_quantifier.py:
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/ephemeral-stack/action.yml
-  - .github/actions/setup-skaffold/
-  - .github/actions/setup-skaffold/action.yml
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
   src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py:
   - .pre-commit-config.yaml
   - src/inference-service/pyproject.toml
@@ -7086,7 +7217,6 @@ readers:
   - .audits/e2e-tcid-drift/2026-07-26/
   - .audits/issue-orchestrate/
   - .audits/issue-orchestrate/1098/
-  - .audits/issue-orchestrate/1749/
   - .audits/issue-orchestrate/737/
   - .audits/issue-orchestrate/749/
   - .audits/issue-orchestrate/754/
@@ -7123,21 +7253,16 @@ readers:
   - .claude/skills/spec-status/
   - .claude/skills/verify-ha/
   - .github/
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/setup-skaffold/
-  - .github/lane-inputs/
   - .github/styles/
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
-  - .github/workflows/
   - .vscode/
   - brand/
   - docker/
-  - docker/embedding-service/
   - docker/knowledge/
   - docker/reranker-service/
+  - docker/reranker-service/golden/
   - docker/vectordb/
   - docs/
   - docs/assets/
@@ -7174,19 +7299,14 @@ readers:
   - docs/javascripts/
   - docs/security/
   - docs/stylesheets/
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/templates/
   - project/
   - project/features/
   - project/maturity/
   - project/reach-probes/
   - project/requirements/
   - project/sprints/
-  - scripts/
   - scripts/docs/
   - scripts/kami/
-  - scripts/precommit_sibling_notice.sh
   - spec/
   - spec/analysis/
   - spec/analysis/code-review-fable5-plans/
@@ -7233,7 +7353,6 @@ readers:
   - src/frontend/scripts/
   - src/frontend/src/
   - src/frontend/src/api/
-  - src/frontend/src/api/endpoints/
   - src/frontend/src/assets/
   - src/frontend/src/assets/brand/
   - src/frontend/src/assets/brand/illustrations/
@@ -7391,7 +7510,6 @@ readers:
   - .audits/e2e-core-function-coverage/2026-07-14-core-function-coverage.md
   - .audits/e2e-tcid-drift/2026-07-26/inventory.md
   - .audits/issue-orchestrate/1098/analysis.md
-  - .audits/issue-orchestrate/1749/analysis.md
   - .audits/issue-orchestrate/737/analysis.md
   - .audits/issue-orchestrate/749/analysis.md
   - .audits/issue-orchestrate/754/analysis.md
@@ -7464,59 +7582,7 @@ readers:
   - .claude/skills/review-spec/SKILL.md
   - .claude/skills/spec-status/SKILL.md
   - .claude/skills/verify-ha/SKILL.md
-  - .env.example
-  - .github/actions/ephemeral-stack/action.yml
-  - .github/actions/setup-skaffold/action.yml
   - .github/boring-cyborg.yml
-  - .github/lane-inputs/api-docs--openapi-export-lint.yaml
-  - .github/lane-inputs/backend--dependency-gates.yaml
-  - .github/lane-inputs/backend--lint-test.yaml
-  - .github/lane-inputs/backend-guards--guards.yaml
-  - .github/lane-inputs/backend-guards--integration.yaml
-  - .github/lane-inputs/docker-lint-build--build-backend.yaml
-  - .github/lane-inputs/docker-lint-build--build-embedding-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-frontend.yaml
-  - .github/lane-inputs/docker-lint-build--build-inference-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-knowledge-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-knowledge.yaml
-  - .github/lane-inputs/docker-lint-build--build-reranker-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-vectordb.yaml
-  - .github/lane-inputs/docker-lint-build--changes.yaml
-  - .github/lane-inputs/docker-publish--build-backend.yaml
-  - .github/lane-inputs/docker-publish--build-embedding-service.yaml
-  - .github/lane-inputs/docker-publish--build-frontend.yaml
-  - .github/lane-inputs/docker-publish--build-inference-service.yaml
-  - .github/lane-inputs/docker-publish--build-knowledge-service.yaml
-  - .github/lane-inputs/docker-publish--build-knowledge.yaml
-  - .github/lane-inputs/docker-publish--build-reranker-service.yaml
-  - .github/lane-inputs/docker-publish--build-vectordb.yaml
-  - .github/lane-inputs/docker-publish--changes.yaml
-  - .github/lane-inputs/docker-publish--publish-helm-charts.yaml
-  - .github/lane-inputs/docker-publish--update-release-assets.yaml
-  - .github/lane-inputs/docs-requirements--requirements.yaml
-  - .github/lane-inputs/e2e-smoke--changes.yaml
-  - .github/lane-inputs/e2e-smoke--report.yaml
-  - .github/lane-inputs/e2e-smoke--smoke.yaml
-  - .github/lane-inputs/frontend--bundle-budget.yaml
-  - .github/lane-inputs/frontend--changes.yaml
-  - .github/lane-inputs/frontend--coverage.yaml
-  - .github/lane-inputs/frontend--deadcode.yaml
-  - .github/lane-inputs/frontend--dependency-gates.yaml
-  - .github/lane-inputs/frontend--lighthouse.yaml
-  - .github/lane-inputs/frontend--lint-test-build.yaml
-  - .github/lane-inputs/frontend--npm-audit-dev.yaml
-  - .github/lane-inputs/lane-inputs--compare.yaml
-  - .github/lane-inputs/lane-inputs--plan.yaml
-  - .github/lane-inputs/lane-inputs--record.yaml
-  - .github/lane-inputs/security-nuclei-postmerge--nuclei-scan.yaml
-  - .github/lane-inputs/security-nuclei-postmerge--report-findings.yaml
-  - .github/lane-inputs/security-nuclei-templates--validate.yaml
-  - .github/lane-inputs/security-zap-postmerge--report-findings.yaml
-  - .github/lane-inputs/security-zap-postmerge--zap-scan.yaml
-  - .github/lane-inputs/side-services--inference-service.yaml
-  - .github/lane-inputs/side-services--knowledge-service.yaml
-  - .github/lane-inputs/side-services--libs.yaml
-  - .github/lane-inputs/skaffold-verify--verify.yaml
   - .github/release-automation.yml
   - .github/release-drafter.yml
   - .github/release-skill-layer.yml
@@ -7524,27 +7590,6 @@ readers:
   - .github/settings.yml
   - .github/stale.yml
   - .github/styles/config/vocabularies/kamerplanter/accept.txt
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
   - .mcp.json
   - .pre-commit-config.yaml
   - .spectral.yaml
@@ -7559,21 +7604,11 @@ readers:
   - README.md
   - catalog-info.yaml
   - debug_form_submit.py
-  - docker-compose.e2e.ci.yml
-  - docker-compose.e2e.yml
-  - docker-compose.reach.yml
-  - docker-compose.release.yml
-  - docker-compose.security.override.yml
-  - docker-compose.yml
-  - docker/embedding-service/Dockerfile
-  - docker/embedding-service/README.md
-  - docker/embedding-service/limits.py
-  - docker/embedding-service/main.py
-  - docker/embedding-service/pyproject.toml
-  - docker/embedding-service/tokenization.py
   - docker/knowledge/Dockerfile
   - docker/knowledge/README.md
   - docker/reranker-service/Dockerfile
+  - docker/reranker-service/golden/bge-reranker-v2-m3.json
+  - docker/reranker-service/golden/ms-marco-minilm.json
   - docker/reranker-service/limits.py
   - docker/reranker-service/main.py
   - docker/reranker-service/pyproject.toml
@@ -7843,12 +7878,6 @@ readers:
   - docs/security/nuclei-triage.md
   - docs/security/zap-auth-bypass-impl.md
   - docs/wichtige-prompts.md
-  - helm/kamerplanter/Chart.yaml
-  - helm/kamerplanter/templates/common.yaml
-  - helm/kamerplanter/values-dev-ki.yaml
-  - helm/kamerplanter/values-dev-recognition.yaml
-  - helm/kamerplanter/values-dev.yaml
-  - helm/kamerplanter/values.yaml
   - kind-config.yaml
   - mkdocs.yml
   - project/features/atomic-completion-transition.md
@@ -7868,6 +7897,8 @@ readers:
   - project/portfolio.yml
   - project/reach-probes/_not-constructible.yml
   - project/reach-probes/capability-readme-reranker-endpoint-answers.yml
+  - project/reach-probes/endpoint-admin-user-delete-persists-proof.yml
+  - project/reach-probes/endpoint-admin-user-delete-reaches-rows.yml
   - project/reach-probes/endpoint-zap-postmerge-push-runs.yml
   - project/reach-probes/inventory-erasure-plan-reaches-rows.yml
   - project/reach-probes/inventory-export-manifest-sources-populated.yml
@@ -7910,22 +7941,9 @@ readers:
   - project/roadmap.md
   - project/sprints/0001-pflanzenfoto-galerie.md
   - project/sprints/0002-species-catalogue-tenant-isolation.md
-  - scripts/arango_repository_bindings.py
-  - scripts/dev-setup.sh
-  - scripts/dev-teardown.sh
   - scripts/docs/gen_catalog.py
   - scripts/docs/gen_fact_tables.py
-  - scripts/frontend_hook.sh
-  - scripts/guard_nested_worktree.sh
-  - scripts/guard_resume_files.sh
-  - scripts/import_monstera.sh
   - scripts/kami/README.md
-  - scripts/precommit_sibling_notice.sh
-  - scripts/resume_sessions.py
-  - scripts/run-e2e.sh
-  - scripts/skaffold-dev.sh
-  - scripts/source_text.py
-  - scripts/worktree_add.sh
   - skaffold.yaml
   - spec/analysis/REQ-034-security-review.md
   - spec/analysis/agrobiology-seed-data-review.md
@@ -8626,7 +8644,6 @@ readers:
   - tools/rag-eval/eval_rag.py
   - tools/rag-eval/requirements.txt
   src/backend/tests/unit/guards/test_renovate_automerge_policy.py:
-  - .github/workflows/automerge.yaml
   - renovate.json5
   src/backend/tests/unit/guards/test_renovate_dashboard_parser.py:
   - .audits/
@@ -8639,7 +8656,6 @@ readers:
   - .audits/e2e-tcid-drift/2026-07-26/
   - .audits/issue-orchestrate/
   - .audits/issue-orchestrate/1098/
-  - .audits/issue-orchestrate/1749/
   - .audits/issue-orchestrate/737/
   - .audits/issue-orchestrate/749/
   - .audits/issue-orchestrate/754/
@@ -8676,47 +8692,18 @@ readers:
   - .claude/skills/spec-status/
   - .claude/skills/verify-ha/
   - .github/
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/ephemeral-stack/action.yml
-  - .github/actions/setup-skaffold/
-  - .github/actions/setup-skaffold/action.yml
-  - .github/lane-inputs/
   - .github/styles/
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
   - .vscode/
   - brand/
   - docker/
-  - docker/embedding-service/
-  - docker/embedding-service/Dockerfile
   - docker/knowledge/
   - docker/knowledge/Dockerfile
   - docker/reranker-service/
   - docker/reranker-service/Dockerfile
+  - docker/reranker-service/golden/
   - docker/vectordb/
   - docker/vectordb/Dockerfile
   - docs/
@@ -8755,9 +8742,6 @@ readers:
   - docs/requirements.txt
   - docs/security/
   - docs/stylesheets/
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/templates/
   - project/
   - project/features/
   - project/maturity/
@@ -8765,7 +8749,6 @@ readers:
   - project/requirements/
   - project/sprints/
   - renovate.json5
-  - scripts/
   - scripts/docs/
   - scripts/kami/
   - spec/
@@ -8814,7 +8797,6 @@ readers:
   - src/frontend/scripts/
   - src/frontend/src/
   - src/frontend/src/api/
-  - src/frontend/src/api/endpoints/
   - src/frontend/src/assets/
   - src/frontend/src/assets/brand/
   - src/frontend/src/assets/brand/illustrations/
@@ -8970,28 +8952,6 @@ readers:
   - tools/rag-eval/requirements.txt
   src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py:
   - .github/settings.yml
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
   src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py:
   - .pre-commit-config.yaml
   src/backend/tests/unit/guards/test_settings_labels_fit_api.py:
@@ -9074,31 +9034,7 @@ readers:
   - spec/req/REQ-050_KI-Analyse-Tagebucheintraege.md
   - spec/req/REQ-051_Pflanzen-Tagebuch.md
   - spec/req/REQ-052_Bilderfassung.md
-  src/backend/tests/unit/guards/test_tenant_scoped_reads_are_derived.py:
-  - scripts/arango_repository_bindings.py
   src/backend/tests/unit/guards/test_uv_pin_is_single.py:
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
   - src/inference-service/pyproject.toml
   - src/knowledge-service/pyproject.toml
   - src/libs/kp_vectordb/pyproject.toml
@@ -9113,7 +9049,6 @@ readers:
   - .audits/e2e-tcid-drift/2026-07-26/
   - .audits/issue-orchestrate/
   - .audits/issue-orchestrate/1098/
-  - .audits/issue-orchestrate/1749/
   - .audits/issue-orchestrate/737/
   - .audits/issue-orchestrate/749/
   - .audits/issue-orchestrate/754/
@@ -9150,22 +9085,16 @@ readers:
   - .claude/skills/spec-status/
   - .claude/skills/verify-ha/
   - .github/
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/setup-skaffold/
-  - .github/lane-inputs/
   - .github/styles/
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
-  - .github/workflows/
   - .vscode/
   - brand/
   - docker/
-  - docker/embedding-service/
-  - docker/embedding-service/pyproject.toml
   - docker/knowledge/
   - docker/reranker-service/
+  - docker/reranker-service/golden/
   - docker/reranker-service/pyproject.toml
   - docker/vectordb/
   - docs/
@@ -9203,9 +9132,6 @@ readers:
   - docs/javascripts/
   - docs/security/
   - docs/stylesheets/
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/templates/
   - project/
   - project/features/
   - project/maturity/
@@ -9213,7 +9139,6 @@ readers:
   - project/requirements/
   - project/sprints/
   - renovate.json5
-  - scripts/
   - scripts/docs/
   - scripts/kami/
   - spec/
@@ -9261,7 +9186,6 @@ readers:
   - src/frontend/scripts/
   - src/frontend/src/
   - src/frontend/src/api/
-  - src/frontend/src/api/endpoints/
   - src/frontend/src/assets/
   - src/frontend/src/assets/brand/
   - src/frontend/src/assets/brand/illustrations/
@@ -9416,92 +9340,9 @@ readers:
   - tests/e2e_selftest/
   - tools/
   - tools/rag-eval/
-  src/backend/tests/unit/guards/test_workflow_install_bounds.py:
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/ephemeral-stack/action.yml
-  - .github/actions/setup-skaffold/
-  - .github/actions/setup-skaffold/action.yml
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
   src/backend/tests/unit/guards/test_zap_rule_suppressions.py:
   - .github/
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/ephemeral-stack/action.yml
-  - .github/actions/setup-skaffold/
-  - .github/actions/setup-skaffold/action.yml
   - .github/boring-cyborg.yml
-  - .github/lane-inputs/
-  - .github/lane-inputs/api-docs--openapi-export-lint.yaml
-  - .github/lane-inputs/backend--dependency-gates.yaml
-  - .github/lane-inputs/backend--lint-test.yaml
-  - .github/lane-inputs/backend-guards--guards.yaml
-  - .github/lane-inputs/backend-guards--integration.yaml
-  - .github/lane-inputs/docker-lint-build--build-backend.yaml
-  - .github/lane-inputs/docker-lint-build--build-embedding-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-frontend.yaml
-  - .github/lane-inputs/docker-lint-build--build-inference-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-knowledge-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-knowledge.yaml
-  - .github/lane-inputs/docker-lint-build--build-reranker-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-vectordb.yaml
-  - .github/lane-inputs/docker-lint-build--changes.yaml
-  - .github/lane-inputs/docker-publish--build-backend.yaml
-  - .github/lane-inputs/docker-publish--build-embedding-service.yaml
-  - .github/lane-inputs/docker-publish--build-frontend.yaml
-  - .github/lane-inputs/docker-publish--build-inference-service.yaml
-  - .github/lane-inputs/docker-publish--build-knowledge-service.yaml
-  - .github/lane-inputs/docker-publish--build-knowledge.yaml
-  - .github/lane-inputs/docker-publish--build-reranker-service.yaml
-  - .github/lane-inputs/docker-publish--build-vectordb.yaml
-  - .github/lane-inputs/docker-publish--changes.yaml
-  - .github/lane-inputs/docker-publish--publish-helm-charts.yaml
-  - .github/lane-inputs/docker-publish--update-release-assets.yaml
-  - .github/lane-inputs/docs-requirements--requirements.yaml
-  - .github/lane-inputs/e2e-smoke--changes.yaml
-  - .github/lane-inputs/e2e-smoke--report.yaml
-  - .github/lane-inputs/e2e-smoke--smoke.yaml
-  - .github/lane-inputs/frontend--bundle-budget.yaml
-  - .github/lane-inputs/frontend--changes.yaml
-  - .github/lane-inputs/frontend--coverage.yaml
-  - .github/lane-inputs/frontend--deadcode.yaml
-  - .github/lane-inputs/frontend--dependency-gates.yaml
-  - .github/lane-inputs/frontend--lighthouse.yaml
-  - .github/lane-inputs/frontend--lint-test-build.yaml
-  - .github/lane-inputs/frontend--npm-audit-dev.yaml
-  - .github/lane-inputs/lane-inputs--compare.yaml
-  - .github/lane-inputs/lane-inputs--plan.yaml
-  - .github/lane-inputs/lane-inputs--record.yaml
-  - .github/lane-inputs/security-nuclei-postmerge--nuclei-scan.yaml
-  - .github/lane-inputs/security-nuclei-postmerge--report-findings.yaml
-  - .github/lane-inputs/security-nuclei-templates--validate.yaml
-  - .github/lane-inputs/security-zap-postmerge--report-findings.yaml
-  - .github/lane-inputs/security-zap-postmerge--zap-scan.yaml
-  - .github/lane-inputs/side-services--inference-service.yaml
-  - .github/lane-inputs/side-services--knowledge-service.yaml
-  - .github/lane-inputs/side-services--libs.yaml
-  - .github/lane-inputs/skaffold-verify--verify.yaml
   - .github/release-automation.yml
   - .github/release-drafter.yml
   - .github/release-skill-layer.yml
@@ -9512,73 +9353,6 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
-  src/backend/tests/unit/migrations/test_e2e_admin_env_containment.py:
-  - .env.example
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
-  - docker-compose.e2e.ci.yml
-  - docker-compose.e2e.yml
-  - docker-compose.reach.yml
-  - docker-compose.release.yml
-  - docker-compose.security.override.yml
-  - docker-compose.yml
-  - helm/
-  - helm/kamerplanter/
-  - helm/kamerplanter/Chart.yaml
-  - helm/kamerplanter/templates/
-  - helm/kamerplanter/templates/common.yaml
-  - helm/kamerplanter/values-dev-ki.yaml
-  - helm/kamerplanter/values-dev-recognition.yaml
-  - helm/kamerplanter/values-dev.yaml
-  - helm/kamerplanter/values.yaml
-  src/backend/tests/unit/test_build_revision_wiring.py:
-  - .github/workflows/docker-publish.yml
-  src/backend/tests/unit/test_delivery_run_alert_workflow.py:
-  - .github/workflows/docker-publish.yml
-  src/backend/tests/unit/test_determine_chart_version.py:
-  - .github/workflows/docker-publish.yml
   src/backend/tests/unit/test_e2e_a11y_helpers.py:
   - tests/e2e/_a11y_helpers.py
   src/backend/tests/unit/test_e2e_seed_log_redaction.py:
@@ -9587,158 +9361,9 @@ readers:
   src/backend/tests/unit/test_e2e_tc_id_scope.py:
   - tests/e2e/conftest.py
   - tests/e2e/protocol_plugin.py
-  src/backend/tests/unit/test_embedding_service_feed.py:
-  - docker/embedding-service/Dockerfile
-  - docker/embedding-service/main.py
-  - docker/embedding-service/tokenization.py
-  src/backend/tests/unit/test_gate_text_assertions_check.py:
-  - scripts/
-  - scripts/source_text.py
   src/backend/tests/unit/test_gherkin_line_classification.py:
   - tests/e2e/_gherkin.py
   - tests/e2e/conftest.py
-  src/backend/tests/unit/test_lane_inputs_recorder.py:
-  - .github/actions/
-  - .github/actions/ephemeral-stack/
-  - .github/actions/ephemeral-stack/action.yml
-  - .github/actions/setup-skaffold/
-  - .github/actions/setup-skaffold/action.yml
-  - .github/lane-inputs/
-  - .github/lane-inputs/api-docs--openapi-export-lint.yaml
-  - .github/lane-inputs/backend--dependency-gates.yaml
-  - .github/lane-inputs/backend--lint-test.yaml
-  - .github/lane-inputs/backend-guards--guards.yaml
-  - .github/lane-inputs/backend-guards--integration.yaml
-  - .github/lane-inputs/docker-lint-build--build-backend.yaml
-  - .github/lane-inputs/docker-lint-build--build-embedding-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-frontend.yaml
-  - .github/lane-inputs/docker-lint-build--build-inference-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-knowledge-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-knowledge.yaml
-  - .github/lane-inputs/docker-lint-build--build-reranker-service.yaml
-  - .github/lane-inputs/docker-lint-build--build-vectordb.yaml
-  - .github/lane-inputs/docker-lint-build--changes.yaml
-  - .github/lane-inputs/docker-publish--build-backend.yaml
-  - .github/lane-inputs/docker-publish--build-embedding-service.yaml
-  - .github/lane-inputs/docker-publish--build-frontend.yaml
-  - .github/lane-inputs/docker-publish--build-inference-service.yaml
-  - .github/lane-inputs/docker-publish--build-knowledge-service.yaml
-  - .github/lane-inputs/docker-publish--build-knowledge.yaml
-  - .github/lane-inputs/docker-publish--build-reranker-service.yaml
-  - .github/lane-inputs/docker-publish--build-vectordb.yaml
-  - .github/lane-inputs/docker-publish--changes.yaml
-  - .github/lane-inputs/docker-publish--publish-helm-charts.yaml
-  - .github/lane-inputs/docker-publish--update-release-assets.yaml
-  - .github/lane-inputs/docs-requirements--requirements.yaml
-  - .github/lane-inputs/e2e-smoke--changes.yaml
-  - .github/lane-inputs/e2e-smoke--report.yaml
-  - .github/lane-inputs/e2e-smoke--smoke.yaml
-  - .github/lane-inputs/frontend--bundle-budget.yaml
-  - .github/lane-inputs/frontend--changes.yaml
-  - .github/lane-inputs/frontend--coverage.yaml
-  - .github/lane-inputs/frontend--deadcode.yaml
-  - .github/lane-inputs/frontend--dependency-gates.yaml
-  - .github/lane-inputs/frontend--lighthouse.yaml
-  - .github/lane-inputs/frontend--lint-test-build.yaml
-  - .github/lane-inputs/frontend--npm-audit-dev.yaml
-  - .github/lane-inputs/lane-inputs--compare.yaml
-  - .github/lane-inputs/lane-inputs--plan.yaml
-  - .github/lane-inputs/lane-inputs--record.yaml
-  - .github/lane-inputs/security-nuclei-postmerge--nuclei-scan.yaml
-  - .github/lane-inputs/security-nuclei-postmerge--report-findings.yaml
-  - .github/lane-inputs/security-nuclei-templates--validate.yaml
-  - .github/lane-inputs/security-zap-postmerge--report-findings.yaml
-  - .github/lane-inputs/security-zap-postmerge--zap-scan.yaml
-  - .github/lane-inputs/side-services--inference-service.yaml
-  - .github/lane-inputs/side-services--knowledge-service.yaml
-  - .github/lane-inputs/side-services--libs.yaml
-  - .github/lane-inputs/skaffold-verify--verify.yaml
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
-  src/backend/tests/unit/test_plant_scoped_route_tenant_check.py:
-  - scripts/
-  src/backend/tests/unit/test_route_consumers_check.py:
-  - src/frontend/src/api/endpoints/
-  - src/frontend/src/api/endpoints/activities.ts
-  - src/frontend/src/api/endpoints/activityPlans.ts
-  - src/frontend/src/api/endpoints/adminPestRecognition.ts
-  - src/frontend/src/api/endpoints/adminPlatform.ts
-  - src/frontend/src/api/endpoints/adminReferenceImages.ts
-  - src/frontend/src/api/endpoints/adminSettings.ts
-  - src/frontend/src/api/endpoints/adminWeatherProviders.ts
-  - src/frontend/src/api/endpoints/ai.ts
-  - src/frontend/src/api/endpoints/aquaponik.ts
-  - src/frontend/src/api/endpoints/auth.ts
-  - src/frontend/src/api/endpoints/botanicalFamilies.ts
-  - src/frontend/src/api/endpoints/calculations.ts
-  - src/frontend/src/api/endpoints/calendar.ts
-  - src/frontend/src/api/endpoints/careReminders.ts
-  - src/frontend/src/api/endpoints/companionPlanting.ts
-  - src/frontend/src/api/endpoints/cropRotation.ts
-  - src/frontend/src/api/endpoints/dashboard.ts
-  - src/frontend/src/api/endpoints/diagnose.ts
-  - src/frontend/src/api/endpoints/diary.ts
-  - src/frontend/src/api/endpoints/environment.ts
-  - src/frontend/src/api/endpoints/favorites.ts
-  - src/frontend/src/api/endpoints/feeding-events.ts
-  - src/frontend/src/api/endpoints/fertilizers.ts
-  - src/frontend/src/api/endpoints/glossary.ts
-  - src/frontend/src/api/endpoints/haPublish.ts
-  - src/frontend/src/api/endpoints/harvest.ts
-  - src/frontend/src/api/endpoints/identification.ts
-  - src/frontend/src/api/endpoints/import.ts
-  - src/frontend/src/api/endpoints/inventree.ts
-  - src/frontend/src/api/endpoints/ipm.ts
-  - src/frontend/src/api/endpoints/notifications.ts
-  - src/frontend/src/api/endpoints/nutrient-calculations.ts
-  - src/frontend/src/api/endpoints/nutrient-plans.ts
-  - src/frontend/src/api/endpoints/observations.ts
-  - src/frontend/src/api/endpoints/onboarding.ts
-  - src/frontend/src/api/endpoints/overwinteringProfiles.ts
-  - src/frontend/src/api/endpoints/pestDetection.ts
-  - src/frontend/src/api/endpoints/phaseSequences.ts
-  - src/frontend/src/api/endpoints/phases.ts
-  - src/frontend/src/api/endpoints/plantInstances.ts
-  - src/frontend/src/api/endpoints/plantPhotos.ts
-  - src/frontend/src/api/endpoints/plantingRuns.ts
-  - src/frontend/src/api/endpoints/postHarvest.ts
-  - src/frontend/src/api/endpoints/print.ts
-  - src/frontend/src/api/endpoints/privacy.ts
-  - src/frontend/src/api/endpoints/propagation.ts
-  - src/frontend/src/api/endpoints/season.ts
-  - src/frontend/src/api/endpoints/sites.ts
-  - src/frontend/src/api/endpoints/species.ts
-  - src/frontend/src/api/endpoints/starterKits.ts
-  - src/frontend/src/api/endpoints/substrates.ts
-  - src/frontend/src/api/endpoints/successionPlans.ts
-  - src/frontend/src/api/endpoints/tanks.ts
-  - src/frontend/src/api/endpoints/tasks.ts
-  - src/frontend/src/api/endpoints/tenants.ts
-  - src/frontend/src/api/endpoints/userPreferences.ts
-  - src/frontend/src/api/endpoints/watering-events.ts
-  - src/frontend/src/api/endpoints/watering-logs.ts
-  - src/frontend/src/api/endpoints/wateringConfirm.ts
-  - src/frontend/src/api/endpoints/weatherSources.ts
   src/backend/tests/unit/test_route_role_guards_check.py:
   - src/frontend/src/routes/AppRoutes.tsx
   - src/frontend/src/routes/roleGuardedRoutes.ts
@@ -9748,67 +9373,6 @@ readers:
   - src/frontend/src/api/
   - src/frontend/src/api/catalogueRevision.ts
   - src/frontend/src/api/client.ts
-  - src/frontend/src/api/endpoints/
-  - src/frontend/src/api/endpoints/activities.ts
-  - src/frontend/src/api/endpoints/activityPlans.ts
-  - src/frontend/src/api/endpoints/adminPestRecognition.ts
-  - src/frontend/src/api/endpoints/adminPlatform.ts
-  - src/frontend/src/api/endpoints/adminReferenceImages.ts
-  - src/frontend/src/api/endpoints/adminSettings.ts
-  - src/frontend/src/api/endpoints/adminWeatherProviders.ts
-  - src/frontend/src/api/endpoints/ai.ts
-  - src/frontend/src/api/endpoints/aquaponik.ts
-  - src/frontend/src/api/endpoints/auth.ts
-  - src/frontend/src/api/endpoints/botanicalFamilies.ts
-  - src/frontend/src/api/endpoints/calculations.ts
-  - src/frontend/src/api/endpoints/calendar.ts
-  - src/frontend/src/api/endpoints/careReminders.ts
-  - src/frontend/src/api/endpoints/companionPlanting.ts
-  - src/frontend/src/api/endpoints/cropRotation.ts
-  - src/frontend/src/api/endpoints/dashboard.ts
-  - src/frontend/src/api/endpoints/diagnose.ts
-  - src/frontend/src/api/endpoints/diary.ts
-  - src/frontend/src/api/endpoints/environment.ts
-  - src/frontend/src/api/endpoints/favorites.ts
-  - src/frontend/src/api/endpoints/feeding-events.ts
-  - src/frontend/src/api/endpoints/fertilizers.ts
-  - src/frontend/src/api/endpoints/glossary.ts
-  - src/frontend/src/api/endpoints/haPublish.ts
-  - src/frontend/src/api/endpoints/harvest.ts
-  - src/frontend/src/api/endpoints/identification.ts
-  - src/frontend/src/api/endpoints/import.ts
-  - src/frontend/src/api/endpoints/inventree.ts
-  - src/frontend/src/api/endpoints/ipm.ts
-  - src/frontend/src/api/endpoints/notifications.ts
-  - src/frontend/src/api/endpoints/nutrient-calculations.ts
-  - src/frontend/src/api/endpoints/nutrient-plans.ts
-  - src/frontend/src/api/endpoints/observations.ts
-  - src/frontend/src/api/endpoints/onboarding.ts
-  - src/frontend/src/api/endpoints/overwinteringProfiles.ts
-  - src/frontend/src/api/endpoints/pestDetection.ts
-  - src/frontend/src/api/endpoints/phaseSequences.ts
-  - src/frontend/src/api/endpoints/phases.ts
-  - src/frontend/src/api/endpoints/plantInstances.ts
-  - src/frontend/src/api/endpoints/plantPhotos.ts
-  - src/frontend/src/api/endpoints/plantingRuns.ts
-  - src/frontend/src/api/endpoints/postHarvest.ts
-  - src/frontend/src/api/endpoints/print.ts
-  - src/frontend/src/api/endpoints/privacy.ts
-  - src/frontend/src/api/endpoints/propagation.ts
-  - src/frontend/src/api/endpoints/season.ts
-  - src/frontend/src/api/endpoints/sites.ts
-  - src/frontend/src/api/endpoints/species.ts
-  - src/frontend/src/api/endpoints/starterKits.ts
-  - src/frontend/src/api/endpoints/substrates.ts
-  - src/frontend/src/api/endpoints/successionPlans.ts
-  - src/frontend/src/api/endpoints/tanks.ts
-  - src/frontend/src/api/endpoints/tasks.ts
-  - src/frontend/src/api/endpoints/tenants.ts
-  - src/frontend/src/api/endpoints/userPreferences.ts
-  - src/frontend/src/api/endpoints/watering-events.ts
-  - src/frontend/src/api/endpoints/watering-logs.ts
-  - src/frontend/src/api/endpoints/wateringConfirm.ts
-  - src/frontend/src/api/endpoints/weatherSources.ts
   - src/frontend/src/api/errors.ts
   - src/frontend/src/api/index.ts
   - src/frontend/src/api/paginate.ts
@@ -10409,76 +9973,3 @@ readers:
   - src/frontend/src/validation/
   - src/frontend/src/validation/zodErrorMap.ts
   - src/frontend/src/vite-env.d.ts
-  src/backend/tests/unit/test_untrusted_checkout_permissions_check.py:
-  - .github/actions/ephemeral-stack/action.yml
-  - .github/actions/setup-skaffold/action.yml
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
-  src/backend/tests/unit/test_workflow_gate_integrity_check.py:
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
-  src/backend/tests/unit/test_workflow_path_filter_coverage_check.py:
-  - .github/workflows/
-  - .github/workflows/api-docs.yml
-  - .github/workflows/automerge.yaml
-  - .github/workflows/backend-guards.yml
-  - .github/workflows/build-static-tests.yaml
-  - .github/workflows/docker-lint-build.yml
-  - .github/workflows/docker-publish.yml
-  - .github/workflows/docs-requirements.yml
-  - .github/workflows/e2e-nightly.yml
-  - .github/workflows/e2e-smoke.yml
-  - .github/workflows/frontend.yml
-  - .github/workflows/lane-inputs.yml
-  - .github/workflows/release-cd-deliver-docs.yml
-  - .github/workflows/release-cd-refresh-master.yml
-  - .github/workflows/release-drafter.yml
-  - .github/workflows/release-publish.yml
-  - .github/workflows/renovate-health.yml
-  - .github/workflows/security-nuclei-nightly.yml
-  - .github/workflows/security-nuclei-postmerge.yml
-  - .github/workflows/security-nuclei-templates.yml
-  - .github/workflows/side-services.yml
-  - .github/workflows/skaffold-verify.yml
-  src/backend/tests/unit/timescale/test_observation_repository.py:
-  - scripts/

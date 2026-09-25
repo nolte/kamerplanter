@@ -767,6 +767,21 @@ def program_label(argv: list[str], *, cwd: Path, repo_root: Path = REPO_ROOT) ->
         return candidate.name
 
 
+def readers_scope_sha256(reads: list[str], rejects: Any) -> str:
+    """The fingerprint of the read set `readers` was scoped to: every read the job's filter did not select.
+
+    `readers` holds only reads OUTSIDE the filter (the whole read set per module
+    would be hundreds of thousands of entries). A later pull request that
+    narrows the filter moves reads outside it that `readers` never looked at —
+    and the job hash deliberately ignores filter patterns — so the guard
+    recomputes this over the committed reads and the LIVE filter and refuses a
+    mismatch instead of reading "no reader recorded" as "no reader" (review of
+    #1749). The guard's ``_readers_scope_sha256`` is the same function.
+    """
+    outside = sorted(read for read in reads if rejects(read))
+    return hashlib.sha256("\n".join(outside).encode("utf-8")).hexdigest()
+
+
 def tracked_reads(
     files: set[str], listings: set[str], *, tracked: frozenset[str], directories: frozenset[str]
 ) -> set[str]:
@@ -915,6 +930,7 @@ def command_record(args: argparse.Namespace) -> int:
         test_modules=trace.test_modules,
         readers=readers,
     )
+    manifest["readers_scope_sha256"] = readers_scope_sha256(manifest["reads"], live.rejects)
     if args.partial is not None:
         manifest["status"] = "partial"
         manifest["partial_reason"] = args.partial.strip()
@@ -1339,6 +1355,7 @@ def _replay_base(committed: dict[str, Any]) -> dict[str, Any]:
     base["reads"] = []
     base["test_modules"] = []
     base["readers"] = {}
+    base.pop("readers_scope_sha256", None)
     base["status"] = "measured"
     # Written under the recorder's contract, not the committed file's.
     base["schema"] = SCHEMA
@@ -1850,13 +1867,16 @@ def read_drift(
         # Every matching gap, not the first (#1683 review of #1747): the guard's
         # coverage rule holds each gap's delegation, so two overlapping gaps
         # naming different lanes owe the read to BOTH.
-        for gap in matching:
-            covered_by = gap.get("covered_by")
-            if covered_by is None:
-                continue
-            target_workflow, _, target_job = str(covered_by).partition("/")
-            if read not in reads_of.get((target_workflow, target_job), set()):
-                undelegated.append(f"{read} (covered_by {covered_by})")
+        lanes = sorted(
+            {
+                str(gap["covered_by"])
+                for gap in matching
+                if gap.get("covered_by") is not None
+                and read not in reads_of.get(tuple(str(gap["covered_by"]).partition("/")[::2]), set())
+            }
+        )
+        if lanes:  # one entry per read, however many overlapping gaps owe it
+            undelegated.append(f"{read} (covered_by {', '.join(lanes)})")
     if outside:
         findings.append(
             f"{name}: the CI run read {len(outside)} path(s) the job's relevance filter does not select and no "
