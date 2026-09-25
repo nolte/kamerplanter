@@ -274,7 +274,7 @@ def readiness_gaps(document: dict[str, Any], dockerfiles: dict[str, str]) -> dic
         if not call.loads_the_model_directly and call.port and call.port not in exposed_ports(text):
             findings[path] = (
                 f"the smoke step probes port {call.port}, which this Dockerfile does not EXPOSE "
-                f"({sorted(exposed_ports(text))}) — `docker run -P` would publish nothing"
+                f"({sorted(exposed_ports(text))}) — smoke_model_image.sh refuses an image that does not EXPOSE it"
             )
             continue
 

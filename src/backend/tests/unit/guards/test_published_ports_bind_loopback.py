@@ -520,12 +520,31 @@ _CONTAINER_CLI = re.compile(
     r"(?P<middle>.*?)(?<![\w-])(?:run|create)(?![\w-])(?P<tail>.*)"
 )
 _SHELL_END = re.compile(r"&&|\|\||;|(?<![|])\|(?![|])")
-_PUBLISH = re.compile(
-    r"(?<!\S)(?:--publish(?:=|\s+)(?P<long>\S+)"
-    r"|-[dit]*p(?:(?:=|\s+)(?P<spaced>\S+)|(?P<attached>[\"'\[\d$]\S*)))"
+_TOKEN = re.compile(r"\"[^\"]*\"|'[^']*'|\S+")
+
+#: Options of ``docker run|create``, ``docker compose run``, ``docker service
+#: create``, podman and nerdctl that take NO value. The walk stops at the first
+#: token that is not an option — the image or service — so a ``-p`` that belongs
+#: to the program in the container (``psql -p 5432``) is never read as a
+#: publish. An option missing from this table is assumed to take a value: the
+#: walk then reads one token too far rather than stopping early, so its error
+#: is a false alarm, never a missed publish.
+_BOOLEAN_LONG = frozenset(
+    {
+        *("--rm", "--detach", "--interactive", "--tty", "--init", "--privileged", "--read-only"),
+        *("--publish-all", "--service-ports", "--no-deps", "--use-aliases", "--build", "--remove-orphans"),
+        *(
+            "--quiet-pull",
+            "--no-TTY",
+            "--no-healthcheck",
+            "--oom-kill-disable",
+            "--sig-proxy",
+            "--disable-content-trust",
+        ),
+        *("--replace", "--quiet", "--help"),
+    }
 )
-_PUBLISH_ALL = re.compile(r"(?<!\S)(?:--publish-all(?:=(?P<value>\S+))?|-[dit]*P[dit]*)(?=\s|$)")
-_HOST_NETWORK = re.compile(r"(?<!\S)--net(?:work)?(?:=|\s+)[\"']?host[\"']?(?=[\s)]|$)")
+_BOOLEAN_SHORT = frozenset("ditPTq")
 
 #: The two non-address results a CLI sweep can report.
 PUBLISH_ALL = "-P"
@@ -559,26 +578,77 @@ def _clean_spec(spec: str) -> str:
     return spec.strip("\"'`),;")
 
 
+def publishes_in_options(tokens: list[str | None]) -> list[str]:
+    """The publishes among the options of one container-starting command.
+
+    ``tokens`` are the arguments after ``run`` / ``create``; ``None`` is an
+    argument whose value is unknown (a Python variable). The walk ends at the
+    first literal that is not an option — the image or the service.
+    """
+    found: list[str] = []
+    index = 0
+
+    def following() -> str | None:
+        nonlocal index
+        index += 1
+        return tokens[index] if index < len(tokens) else None
+
+    while index < len(tokens):
+        token = tokens[index]
+        if token is None:
+            index += 1
+            continue
+        if token == "--" or not token.startswith("-") or token == "-":
+            break
+        name, has_value, value = token.partition("=")
+        if name.startswith("--"):
+            if name == "--publish":
+                spec = value if has_value else following()
+                found.append(spec if spec is not None else "<non-literal>")
+            elif name == "--publish-all":
+                if not has_value or value.strip("\"'").lower() not in ("false", "0"):
+                    found.append(PUBLISH_ALL)
+            elif name in ("--network", "--net"):
+                if (value if has_value else following()) == "host":
+                    found.append(HOST_NETWORK)
+            elif not has_value and name not in _BOOLEAN_LONG:
+                following()
+        else:
+            letters = token[1:]
+            for position, letter in enumerate(letters):
+                if letter in _BOOLEAN_SHORT:
+                    if letter == "P":
+                        found.append(PUBLISH_ALL)
+                    continue
+                attached = letters[position + 1 :].removeprefix("=")
+                argument = attached or following()
+                if letter == "p":
+                    found.append(argument if argument is not None else "<non-literal>")
+                break
+        index += 1
+    return found
+
+
+def _unquote(token: str) -> str:
+    return token.strip("\"'`")
+
+
 def cli_publishes(text: str) -> list[tuple[int, str]]:
     """Every publish in a ``docker|podman|nerdctl … run|create`` command: (line, spec).
 
-    ``-P`` / ``--publish-all`` report as :data:`PUBLISH_ALL`, ``--network host``
-    / ``--net=host`` as :data:`HOST_NETWORK`.
+    Every command of a line is read (``a && docker run …; docker run …``), and
+    each only up to its image. ``-P`` / ``--publish-all`` report as
+    :data:`PUBLISH_ALL`, ``--network host`` / ``--net=host`` as
+    :data:`HOST_NETWORK`.
     """
     found = []
     for number, line in logical_lines(text):
-        match = _CONTAINER_CLI.search(line)
-        if not match:
-            continue
-        tail = _SHELL_END.split(match.group("tail"), maxsplit=1)[0]
-        for publish in _PUBLISH.finditer(tail):
-            spec = publish.group("long") or publish.group("spaced") or publish.group("attached")
-            found.append((number, _clean_spec(spec)))
-        for publish_all in _PUBLISH_ALL.finditer(tail):
-            if (publish_all.group("value") or "").strip("\"'").lower() not in ("false", "0"):
-                found.append((number, PUBLISH_ALL))
-        for _ in _HOST_NETWORK.finditer(tail):
-            found.append((number, HOST_NETWORK))
+        for segment in _SHELL_END.split(line):
+            match = _CONTAINER_CLI.search(segment)
+            if not match:
+                continue
+            tokens: list[str | None] = [_unquote(token) for token in _TOKEN.findall(match.group("tail"))]
+            found += [(number, _clean_spec(spec)) for spec in publishes_in_options(tokens)]
     return found
 
 
@@ -607,8 +677,6 @@ def _callee_name(node: ast.Call) -> str:
 
 
 _ENGINES = ("docker", "podman", "nerdctl")
-_ARGV_PUBLISH = re.compile(r"^-[dit]*p$")
-_ARGV_PUBLISH_ATTACHED = re.compile(r"^-[dit]*p(?P<spec>.+)$")
 
 
 def argv_publishes(source: str) -> list[tuple[int, str]]:
@@ -633,22 +701,7 @@ def argv_publishes(source: str) -> list[tuple[int, str]]:
         verbs = [index for index, value in enumerate(strings) if value in ("run", "create")]
         if not verbs or not (engine_callee or any(value in _ENGINES for value in strings)):
             continue
-        for index in range(verbs[0] + 1, len(strings)):
-            value = strings[index]
-            following = strings[index + 1] if index + 1 < len(strings) else None
-            line = elements[index].lineno
-            if value is None:
-                continue
-            if value == "--publish" or _ARGV_PUBLISH.match(value):
-                found.append((line, following if following is not None else "<non-literal>"))
-            elif value.startswith("--publish="):
-                found.append((line, value.partition("=")[2]))
-            elif attached := _ARGV_PUBLISH_ATTACHED.match(value):
-                found.append((line, attached.group("spec")))
-            elif value in ("-P", "--publish-all") or re.match(r"^--publish-all=(?!false$|0$)", value):
-                found.append((line, PUBLISH_ALL))
-            elif (value in ("--network", "--net") and following == "host") or value in ("--network=host", "--net=host"):
-                found.append((line, HOST_NETWORK))
+        found += [(elements[verbs[0]].lineno, spec) for spec in publishes_in_options(strings[verbs[0] + 1 :])]
     return found
 
 
@@ -976,6 +1029,10 @@ def test_compose_found_by_shape_not_only_by_name() -> None:
         ("docker compose -p proj up -d", []),
         ("docker run -P app", ["-P"]),
         ("docker run app && psql -p 5432", []),
+        ("docker run -d --name a img && docker run -d -p 6379:6379 valkey", ["6379:6379"]),
+        ("docker run --rm postgres:16 psql -h db -p 5432 -U x", []),
+        ("docker run -e A=1 -v x:/y --name db -p 127.0.0.1:1:1 img -p 9", ["127.0.0.1:1:1"]),
+        ("docker run --unknown-flag value -p 80:80 img", ["80:80"]),
         ("docker run -d -p8529:8529 arangodb", ["8529:8529"]),
         ("docker run -dp8529:8529 arangodb", ["8529:8529"]),
         ("docker create -p 80:80 app", ["80:80"]),
