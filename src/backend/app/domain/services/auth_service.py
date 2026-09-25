@@ -1134,7 +1134,9 @@ class AuthService:
         user = self._user_repo.get_by_key(api_key.user_key)
         if user is None or not user.is_active:
             return None
-        return user
+        # The key's tenant restriction travels with the principal (#1817): the
+        # tenant resolvers refuse every tenant it does not admit.
+        return user.with_api_key_tenant_scope(api_key.tenant_scope)
 
     # ── Device pairing (REQ-023 / #1118) ────────────────────────────────
 

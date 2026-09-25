@@ -356,6 +356,8 @@ Authorization: Bearer kp_sk_abc...xyz
 
 The API key is used in the same `Authorization` header as a JWT.
 
+A key created with `tenant_scope` acts only in that tenant. On every route under `/api/v1/t/{slug}/` and on every route that reads the `X-Active-Tenant` header, another tenant answers `403 Forbidden` — even if the key's owner is a member there — with the same response as a tenant the owner does not belong to. Without the header, a scoped key falls back to your personal tenant only if that is its scope; otherwise it sees the shared catalogue only. `tenant_scope` accepts the tenant's slug or its key.
+
 ### List API keys
 
 ```http

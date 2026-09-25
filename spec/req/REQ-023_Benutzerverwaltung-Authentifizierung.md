@@ -948,6 +948,8 @@ kp_<48 hex characters>
 
 Die Middleware erkennt anhand des `kp_`-Prefix automatisch, ob ein API-Key oder JWT vorliegt. API-Keys werden gegen den gespeicherten Hash validiert und `last_used_at` wird aktualisiert.
 
+**`tenant_scope` gilt auf REST und MCP gleich:** Ein Key mit `tenant_scope` wird auf jedem Tenant abgewiesen, den der Scope nicht zulässt (Abgleich auf Slug oder Key des Tenants), auch wenn sein Besitzer dort Mitglied ist. Auf REST geschieht das in der Tenant-Auflösung (`/t/{slug}/`-Pfad und `X-Active-Tenant`-Header) mit derselben 403-Antwort wie für einen fremden Tenant; der header-lose Fallback auf den persönlichen Tenant greift nur, wenn dieser der Scope ist, sonst gilt nur der globale Katalog. Routen, die keinen Tenant auflösen (Konto-, Plattform-Admin- und Tenant-Lebenszyklus-Routen), sind davon noch nicht erfasst.
+
 <!-- Quelle: Service Accounts v1.7 -->
 **Erweiterter Flow bei Service-Account-API-Keys:**
 
