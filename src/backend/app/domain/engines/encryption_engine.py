@@ -19,6 +19,17 @@ class SecretKeyMismatchError(RuntimeError):
     """
 
 
+def is_usable_fernet_key(key: str) -> bool:
+    """Whether ``key`` is a key ``Fernet`` accepts — the one check both start gates use (#1859)."""
+    if not key:
+        return False
+    try:
+        Fernet(key.encode())
+    except ValueError:  # malformed base64 or not 32 bytes
+        return False
+    return True
+
+
 def _looks_like_a_fernet_token(value: str) -> bool:
     return value.startswith(_FERNET_TOKEN_PREFIX) and len(value) >= _MIN_FERNET_TOKEN_LENGTH
 

@@ -2,12 +2,12 @@ import structlog
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import after_setup_logger, after_setup_task_logger, beat_init, celeryd_init, worker_process_init
-from cryptography.fernet import Fernet
 
 from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
+from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
 
 # The Celery worker/beat boot via ``celery -A app.tasks`` and never import
@@ -123,14 +123,9 @@ def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
     """
     if settings.debug:
         return
-    reason = "missing"
-    if settings.fernet_key:
-        try:
-            Fernet(settings.fernet_key.encode())
-        except ValueError, TypeError:
-            reason = "malformed"
-        else:
-            return
+    if is_usable_fernet_key(settings.fernet_key):
+        return
+    reason = "malformed" if settings.fernet_key else "missing"
     structlog.get_logger().critical("insecure_defaults", fields=["fernet_key"], reason=reason)
     raise SystemExit(
         f"FATAL: FERNET_KEY is {reason}. Set it to the same value as the backend before running "
