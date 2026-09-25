@@ -40,9 +40,9 @@ files the defect was found in:
   in any tracked YAML file, fenced YAML block or shell heredoc (#1756): every
   ``extraPortMappings`` entry is a host publish of the node container and must
   name a loopback ``listenAddress`` (kind's default is ``0.0.0.0``), and an
-  explicit ``networking.apiServerAddress`` must be loopback. An
-  ``apiVersion: kind.x-k8s.io/…`` line that does not sit in a config this
-  module could read fails.
+  explicit ``networking.apiServerAddress`` must be loopback. Any mention of
+  ``kind.x-k8s.io/`` that does not sit in a config this module could read
+  fails.
 
 This module itself is not read: its text is its fixtures.
 
@@ -866,7 +866,7 @@ def sweep_markdown(root: Path, tracked: list[str]) -> tuple[list[Finding], set]:
 #: kind interpolates no environment variable in its config, so there is no
 #: overridable spelling and no allow-list here.
 _KIND_API_VERSION = "kind.x-k8s.io/"
-_KIND_API_LINE = re.compile(r"^[ \t]*apiVersion:[ \t]*[\"']?kind\.x-k8s\.io/", re.MULTILINE)
+_KIND_API_MENTION = re.compile(r"kind\.x-k8s\.io/")
 _KIND_MAPPING_KEYS = {"containerPort", "hostPort", "listenAddress", "protocol"}
 _HEREDOC = re.compile(
     r"<<-?[ \t]*(?P<quote>['\"]?)(?P<tag>[A-Za-z_]\w*)(?P=quote)[^\n]*\n(?P<body>.*?)^[ \t]*(?P=tag)[ \t]*$",
@@ -885,14 +885,13 @@ def is_kind_cluster(document: Any) -> bool:
 def _yaml_regions(path: str, text: str) -> list[tuple[int, int, str]]:
     """``(start, end, body)`` of every place a YAML document can sit in ``text``.
 
-    A YAML file is one region. Any other text contributes its fenced YAML
-    blocks (de-indented as in :func:`markdown_compose_blocks`) and its shell
-    heredoc bodies — a spec that tells a developer to ``cat > kind-config.yaml
-    <<EOF`` is a config as surely as the file.
+    A YAML or JSON file (kind reads JSON: it is YAML) is one region. Every text — a YAML file too, whose Taskfile
+    command may carry one — contributes its fenced YAML blocks (de-indented as
+    in :func:`markdown_compose_blocks`) and its shell heredoc bodies: a spec that
+    tells a developer to ``cat > kind-config.yaml <<EOF`` is a config as surely
+    as the file.
     """
-    if path.endswith((".yml", ".yaml")):
-        return [(0, len(text), text)]
-    regions = []
+    regions = [(0, len(text), text)] if path.endswith((".yml", ".yaml", ".json")) else []
     for match in _FENCE.finditer(text):
         indent = match.group("indent")
         body = "\n".join(row[len(indent) :] for row in match.group("body").splitlines())
@@ -908,10 +907,11 @@ def _line_of(text: str, offset: int) -> int:
 def kind_clusters(path: str, text: str) -> tuple[list[tuple[str, dict[str, Any]]], list[str]]:
     """The kind cluster configs written in ``text``, and every one this guard cannot read.
 
-    Fail closed: each ``apiVersion: kind.x-k8s.io/…`` line must lie inside a
-    region that parsed into a kind ``Cluster`` document; one that does not — a
-    region that does not parse, a config embedded in a form not read here — is
-    reported, never skipped.
+    Fail closed: every mention of ``kind.x-k8s.io/`` — whatever its spelling
+    (a block key, a flow mapping, a quoted JSON key, a Python dict) — must lie
+    inside a region that parsed into a kind ``Cluster`` document; one that does
+    not — a region that does not parse, a config embedded in a form not read
+    here, prose naming the API group — is reported, never skipped.
     """
     clusters: list[tuple[str, dict[str, Any]]] = []
     covered: list[tuple[int, int]] = []
@@ -930,7 +930,7 @@ def kind_clusters(path: str, text: str) -> tuple[list[tuple[str, dict[str, Any]]
         clusters += [(where, document) for document in found]
     broken = [
         f"{path}:{_line_of(text, match.start())}: a kind cluster config this guard cannot read"
-        for match in _KIND_API_LINE.finditer(text)
+        for match in _KIND_API_MENTION.finditer(text)
         if not any(start <= match.start() < end for start, end in covered)
     ]
     return clusters, broken
@@ -1392,6 +1392,41 @@ def test_kind_config_this_guard_cannot_read_fails_closed() -> None:
 
     assert clusters == []
     assert broken == ["make_cluster.py:3: a kind cluster config this guard cannot read"]
+
+
+def test_kind_config_in_a_taskfile_heredoc_is_read() -> None:
+    text = (
+        "tasks:\n  cluster:\n    cmds:\n      - |\n        kind create cluster --config - <<EOF\n"
+        "        kind: Cluster\n        apiVersion: kind.x-k8s.io/v1alpha4\n        nodes:\n"
+        "          - role: control-plane\n            extraPortMappings:\n              - containerPort: 80\n"
+        "        EOF\n"
+    )
+
+    clusters, broken = kind_clusters("Taskfile.yml", text)
+
+    assert not broken
+    assert [where for where, _ in clusters] == ["Taskfile.yml:5"]
+
+
+def test_kind_config_as_json_is_read() -> None:
+    text = (
+        '{"kind": "Cluster", "apiVersion": "kind.x-k8s.io/v1alpha4", "nodes": '
+        '[{"role": "control-plane", "extraPortMappings": [{"containerPort": 80, "hostPort": 80}]}]}\n'
+    )
+
+    clusters, broken = kind_clusters("kind-config.json", text)
+
+    assert not broken
+    assert [len(judge_kind_cluster(where, document)) for where, document in clusters] == [1]
+
+
+def test_kind_api_group_in_a_quoted_key_outside_a_readable_config_fails_closed() -> None:
+    text = 'CONFIG = {"kind": "Cluster", "apiVersion": "kind.x-k8s.io/v1alpha4"}\n'
+
+    clusters, broken = kind_clusters("make_cluster.py", text)
+
+    assert clusters == []
+    assert broken == ["make_cluster.py:1: a kind cluster config this guard cannot read"]
 
 
 def test_a_non_kind_cluster_document_is_not_read() -> None:
