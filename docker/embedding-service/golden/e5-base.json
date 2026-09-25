@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "service": "embedding",
+  "target": "e5-base",
+  "model": "multilingual-e5-base",
+  "download_stage": "dl-e5-base",
+  "repo_id": "intfloat/multilingual-e5-base",
+  "revision": "d128750597153bb5987e10b1c3493a34e5a4502a",
+  "files_sha256": {
+    "config.json": "9dab198f24c8c0879e481cf7822005d5ecbceedbacb390ffafa594e28d31bac4",
+    "model.onnx": "84a4d426f7e87a6bf5bf195f0bae2c4a7d15f675b23ca96f42fab8326d7a77aa",
+    "sentencepiece.bpe.model": "cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865",
+    "special_tokens_map.json": "06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f",
+    "tokenizer.json": "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626",
+    "tokenizer_config.json": "efb5c0d09722e5fe59a462cd2a9976ee216d55b037597d997cd3fe833216da15"
+  },
+  "computed": {
+    "by": "scripts/ci/compute_model_golden_outputs.py",
+    "on": "2026-09-25",
+    "method": "tokenizers + onnxruntime directly on the image's pinned model files, one input per run, intra_op_num_threads=1; mean pooling over the attention mask, L2-normalised",
+    "runtime": {
+      "onnxruntime": "1.30.0",
+      "tokenizers": "0.23.2",
+      "numpy": "2.5.3"
+    },
+    "cpu": "Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz"
+  },
+  "prefix": "passage: ",
+  "reduction": {
+    "sample_size": 64,
+    "projections": 8,
+    "decimals": 6
+  },
+  "dimensions": 768,
+  "cases": [
+    {
+      "name": "normal-en",
+      "text": "Tomato plants need deep, regular watering while their fruit is setting.",
+      "untruncated_tokens": 20,
+      "sample": [-0.019071, 0.088768, 0.051205, -0.043228, -0.030765, 0.021558, 0.03923, -0.012062, 0.036578, 0.065684, 0.004318, -0.023537, -0.005425, -0.074715, -0.011931, -0.025377, -0.027199, 0.011551, 0.032403, 0.015827, -0.029695, 0.03288, -0.015677, -0.030998, -0.08104, -0.001494, -0.026595, 0.018134, -0.023708, -0.033452, -0.041552, -0.003743, -0.031045, 0.006168, 0.004325, -0.04772, 0.018063, -0.023541, 0.04201, 0.047132, -0.021438, 0.016575, -0.054752, -0.042495, 0.00856, -0.038447, -0.043739, -0.030779, -0.027326, -0.204767, -0.005091, -0.058373, -0.028621, -0.023522, 0.010516, -0.048871, -0.009032, 0.013216, -0.027613, -0.015457, 0.044471, -0.050173, 0.013458, 0.000574],
+      "projection": [0.005404, 0.043768, -0.034792, 0.025698, 0.022836, -0.008005, 0.036785, 0.014626]
+    },
+    {
+      "name": "german",
+      "text": "Tomaten sind Starkzehrer und brauchen während der Fruchtbildung viel Kalium.",
+      "untruncated_tokens": 23,
+      "sample": [-0.022844, 0.081221, 0.059625, -0.052831, -0.017916, 0.01467, 0.045981, 0.000498, 0.034333, 0.054254, -0.0306, -0.025011, -0.002877, -0.078679, -0.038786, -0.03928, -0.003675, 0.014977, 0.037058, 0.003118, -0.017052, 0.041476, -0.009852, -0.025016, -0.038399, -0.039293, -0.070028, 0.02235, -0.023765, -0.051734, -0.05629, -0.03247, 0.005757, 0.013371, -0.000953, -0.037027, 0.03745, -0.048529, 0.050897, 0.047463, -0.016146, 0.01112, -0.08806, -0.042649, 0.002483, -0.030195, -0.026416, -0.004553, -0.007255, -0.204006, -0.012584, -0.032244, -0.014316, -0.039692, 0.035521, -0.009392, -0.023167, 0.039467, -0.002147, -0.021491, 0.039293, -0.016905, 0.0232, 0.010521],
+      "projection": [0.02645, 0.050227, -0.006428, 0.014017, -0.002423, -0.002765, 0.044384, 0.04543]
+    },
+    {
+      "name": "multilingual",
+      "text": "Basil (Ocimum basilicum) liebt Wärme; el suelo debe drenar bien et rester légèrement humide.",
+      "untruncated_tokens": 31,
+      "sample": [-0.00133, 0.078114, 0.035496, -0.020998, 0.004485, 0.008001, 0.044919, 0.02324, 0.020308, 0.065408, 0.009807, -0.006523, 0.030683, -0.048753, -0.041669, -0.050821, -0.001305, 0.01593, 0.020473, 0.005467, -0.013151, 0.043545, -0.000597, -0.045712, -0.035117, -0.02953, -0.064029, 0.042917, -0.035428, -0.049945, -0.033845, -0.034875, 0.011526, 0.025245, -0.013209, -0.032005, -0.002447, -0.040713, 0.055307, 0.035128, -0.017949, 0.005849, -0.06857, -0.022682, 0.016647, -0.022782, -0.008184, -0.010394, 0.002876, -0.20125, -0.001608, -0.027413, -0.020405, -0.010632, 0.033714, -0.034373, -0.020778, 0.023196, -0.028982, -0.014848, 0.020617, -0.039741, 0.017711, 0.000558],
+      "projection": [0.037625, 0.039433, -0.0319, 0.00844, 0.019357, -0.005632, 0.032065, 0.047898]
+    },
+    {
+      "name": "long-over-512-tokens",
+      "text": "Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab. Die Wurzeln einer Tomatenpflanze brauchen Luft, Wasser und Nährstoffe im Substrat. Roots of a tomato plant need air, water and nutrients in the growing medium. Staunässe verdrängt den Sauerstoff, und die Feinwurzeln sterben ab.",
+      "untruncated_tokens": 1060,
+      "sample": [-0.025728, 0.10431, 0.040082, -0.025997, 0.000741, 0.006566, 0.079184, 0.015498, 0.014736, 0.020701, -0.025389, 0.00345, -0.002142, -0.07029, -0.020357, -0.048484, -0.00064, 0.005596, 0.050239, 0.012259, -0.018007, 0.063508, 0.000483, -0.033196, -0.041748, -0.025925, -0.046725, 0.035627, -0.044956, -0.07957, -0.04452, -0.033845, -0.025729, 0.010944, 0.006639, -0.049021, 0.012226, -0.057676, 0.040489, 0.029508, 0.024183, -0.000467, -0.046095, -0.010378, -0.018663, -0.019514, -0.028705, -0.037175, -0.00709, -0.190305, -0.016399, -0.037312, -0.001454, -0.038467, 0.038411, 0.011908, -0.013542, -0.006321, -0.015184, -0.023265, 0.037831, -0.005286, 0.04337, 0.028016],
+      "projection": [0.050101, 0.020379, -0.000615, 0.04784, 0.012519, -0.003604, 0.055488, -0.002426]
+    }
+  ],
+  "reference_check": {
+    "against": "intfloat/multilingual-e5-base@d128750597153bb5987e10b1c3493a34e5a4502a",
+    "with": "sentence-transformers 5.1.2, transformers 4.57.6, torch 2.14.0+cpu",
+    "on": "2026-09-25",
+    "max_abs_delta": 1e-06
+  }
+}
