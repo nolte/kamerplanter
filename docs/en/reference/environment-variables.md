@@ -512,7 +512,7 @@ These variables configure the optional image-based pest detection feature. The f
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
-| `PEST_DETECTION_ENABLED` | `false` | No | Master switch. Set to `true` to enable the feature. |
+| `PEST_DETECTION_ENABLED` | `false` | No | Master switch. Set to `true` to enable the feature. **Must be set on the backend AND the celery-worker (`INFERENCE_SERVICE_ENABLED` also satisfies this)** once a platform admin has promoted a contributed pest photo into the recognition base — the worker runs the scheduled GDPR Art. 17 erasure of those contributions (issue #1759); if both are missing there, the worker holds due erasures as a configuration error and a tenant deletion answers with HTTP 503. Details: [Setting Up Plant Identification](../deployment/inference-service.md). |
 | `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | No | Damage pattern / symptom detection (mode 2) on/off. Active when `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_DETECTOR_ENABLED` | `false` | No | Direct detector (mode 1, Phase 2) on/off. Requires a trained ONNX detector. |
 | `PEST_DETECTION_DEMO_ENABLED` | `false` | No | Demo adapter (no external service, no real model). Previews the full UI flow with clearly-labelled placeholder findings while the trained backend is externally blocked. Preview only — not for real decisions. Active when `PEST_DETECTION_ENABLED=true` is also set. |

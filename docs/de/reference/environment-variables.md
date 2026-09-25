@@ -512,7 +512,7 @@ Diese Variablen konfigurieren die optionale bildbasierte Schädlingserkennung. D
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `PEST_DETECTION_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. |
+| `PEST_DETECTION_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. **Muss auf Backend UND Celery-Worker gesetzt sein (alternativ `INFERENCE_SERVICE_ENABLED`)**, sobald ein Platform-Admin ein beigetragenes Schädlingsfoto zur Erkennungsbasis freigegeben hat — der Worker führt die planmäßige DSGVO-Art.-17-Löschung dieser Beiträge aus (Issue #1759); fehlt beides dort, hält der Worker fällige Löschungen als Konfigurationsfehler zurück und eine Mandantenlöschung antwortet mit HTTP 503. Details: [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md). |
 | `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | Nein | Schadbild-/Symptom-Erkennung (Modus 2) ein/aus. Aktiv wenn `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_DETECTOR_ENABLED` | `false` | Nein | Direkt-Detektor (Modus 1, Phase 2) ein/aus. Erfordert trainierten ONNX-Detektor. |
 | `PEST_DETECTION_DEMO_ENABLED` | `false` | Nein | Demo-Adapter (kein externer Service, kein echtes Modell). Zeigt den kompletten UI-Ablauf mit klar gekennzeichneten Platzhalter-Befunden, während das trainierte Backend extern blockiert ist. Nur zur Vorschau — nicht für echte Entscheidungen. Aktiv, wenn zusätzlich `PEST_DETECTION_ENABLED=true`. |

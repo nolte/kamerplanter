@@ -53,7 +53,7 @@ Sofern die [Schädlingserkennung](pest-detection.md) aktiv ist und für diesen S
 
 Du kannst eigene Fotos zu einem Schädling hinzufügen — entweder per **Datei-Upload** oder indem du den Schädling direkt mit der **Kamera** fotografierst (Smartphone oder Webcam). Klicke dazu in der Galerie auf **„Eigenes Foto beitragen"**.
 
-- **Sofort sichtbar, privat:** Deine Fotos erscheinen unmittelbar in deiner Galerie und sind nur für deinen Garten (Tenant) sichtbar. Du kannst eigene Fotos jederzeit wieder löschen (Mülleimer-Symbol auf dem Bild).
+- **Sofort sichtbar, privat:** Deine Fotos erscheinen unmittelbar in deiner Galerie und sind nur für deinen Garten (Tenant) sichtbar. Du kannst eigene Fotos jederzeit wieder löschen (Mülleimer-Symbol auf dem Bild). Wurde ein Foto bereits von einem Platform-Admin für die Schädlingserkennung freigegeben, entfernt das Löschen auch den daraus berechneten Erkennungsvektor aus der Erkennungsbasis; dasselbe passiert automatisch, wenn du später deinen Account löschst.
 - **Datenschutz:** Standortdaten (EXIF) werden beim Hochladen automatisch entfernt; die Bilder werden sicher im Object-Storage abgelegt.
 - **Optional global:** Ein Platform-Admin kann besonders gute Aufnahmen für alle Nutzer freigeben — solche Bilder tragen dann das Kennzeichen **„Global"**.
 - **Aus der Erkennung übernehmen:** Hast du den Schädling über die [Foto-Erkennung](pest-detection.md) bestimmt, kannst du das aufgenommene Foto direkt im Erkennungs-Dialog per **„Dieses Foto zur Galerie hinzufügen"** übernehmen. (Das Erkennungs-Foto wird sonst aus Datenschutzgründen nicht gespeichert — es landet nur dann in der Galerie, wenn du das bewusst auslöst.)

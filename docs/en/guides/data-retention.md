@@ -201,8 +201,9 @@ belong only to you and fall under no retention period:
 - your plant-disease diagnosis requests
 - your location assignments in gardens you were a member of
 - invitations you accepted (they name your email address)
-- the file entries of your own pest photos whose files are already deleted
+- the file entries of your own pest photos — the original file and its preview images (WebP, 128/512/1280 px) are already deleted at this point
 - your contributed reference-image vectors for plant recognition (curated reference images contributed by other users are unaffected)
+- your contributed pest-recognition vectors — regardless of whether your contribution was still promoted or had already been demoted at the time of deletion
 
 The daily cleanup removes accounts that were never confirmed. It now also removes their
 membership and location assignments. The personal garden of such an account is not yet
@@ -224,8 +225,9 @@ to each other without naming anyone.
 
 It makes no difference whether a platform admin deletes your account through user
 management or you file an erasure request yourself: both paths run the same erasure. It
-cleans object storage and the reference index (only your own contributions — curated
-references stay), deletes your other records, anonymizes the ones under a retention
+cleans object storage (originals along with their preview images) and the recognition
+base (only your own reference-image and pest-image contributions — curated references
+stay), deletes your other records, anonymizes the ones under a retention
 obligation as described above, and removes your account last. The database part runs as
 one unit: it is either done completely or not at all.
 
@@ -260,6 +262,14 @@ While a request is open, you cannot file a second one.
     `retention.execute_scheduled_erasures.reference_index_not_configured` line at error
     level. See [Setting Up Plant Identification](../deployment/inference-service.md) for
     the configuration.
+
+    The same check applies to contributed pest-recognition vectors (issue #1759): if
+    neither `PEST_DETECTION_ENABLED` nor `INFERENCE_SERVICE_ENABLED` is set on the
+    celery-worker while a pest-photo contribution was ever promoted into the recognition
+    base, the worker holds the affected requests the same way, with the same log line. A
+    tenant deletion is refused with HTTP 503 in this case instead of leaving vectors
+    behind; if the inference-service is merely unreachable at the moment, it instead
+    responds with HTTP 502 and can be retried.
 
 ---
 
