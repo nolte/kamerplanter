@@ -283,7 +283,7 @@ When you delete your account, the system distinguishes between two photo types:
 
 | Photo type | What happens |
 |-----------|-------------|
-| **Personal photos** (profile picture, private notes) | Hard deleted — both the file in storage and the metadata entry are removed |
+| **Personal photos** (profile picture, private notes) | Hard deleted — the original file, its generated preview images (WebP, 128/512/1280 px) and the metadata entry are removed |
 | **Documentary photos** (diary entries, IPM inspections, harvest photos, plant photos) | Retained but decoupled from your account — `created by` is set to `_anonymized`. If EXIF data is present, it is stripped at this step. |
 
 Files are retained because they belong to the plant record and may be subject to statutory retention obligations (CanG, PflSchG). Your name is no longer linked to the photos after anonymization.
@@ -293,9 +293,11 @@ Files are retained because they belong to the plant record and may be subject to
 
 If you [contributed your own photos as reference images for plant recognition](plant-identification.md#assigning-the-photo-to-the-new-plant), those contributions are removed on account deletion too: the system deletes the feature vector computed from them from the recognition base. Curated reference images contributed by other users are unaffected.
 
+The same applies to your own [contributed pest photos](pest-detail.md#contribute-your-own-photos): if such a photo was ever promoted by a platform admin for pest recognition, account deletion removes the recognition vector computed from it — regardless of whether the promotion was still active or had already been reverted at the time of deletion.
+
 ### Tenant Deletion
 
-When a tenant is deleted (by the platform admin or on request), all binary data for that tenant is completely removed from storage — regardless of the backend in use (local-fs or S3). This is done by deleting all objects with the prefix `t/{tenant_key}/`. Every reference-image vector contributed by a member of that tenant is likewise removed from the recognition base. The result is documented in the audit log.
+When a tenant is deleted (by the platform admin or on request), all binary data for that tenant is completely removed from storage — regardless of the backend in use (local-fs or S3). This is done by deleting all objects with the prefix `t/{tenant_key}/`. Every reference-image and pest-image vector contributed by a member of that tenant is likewise removed from the recognition base. The result is documented in the audit log.
 
 ### Data Portability (GDPR Art. 20)
 

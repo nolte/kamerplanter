@@ -1,0 +1,41 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous 2026-09-25-erasure-derived-data group run (#1759/#1760), relayed by the orchestrating
+# session — not an interactive batch answer. It records that the targets and the observe argv
+# below run on the operator's machine with their environment, as `task` in this repository does.
+#
+# Expectation from REQ-025 §3.1.1 as written: a hard_delete scope removes the stored image, and a
+# rendition is the same image (#1760). Categories under anonymize_metadata_and_strip_exif keep
+# their photos and so their renditions; their lines are observed but deliberately not expected.
+id: requirement-req025-art17-storage-renditions-erased
+summary: WebP renditions of the subject's seeded stored files after erasure — gone for hard_delete scopes
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L265); §3.5 Phase 0 (L899-941); AK-OS-01..04 (L1223-1226)
+tier: T2
+expected:
+  kind: set
+  unit: per-category state of the seeded files' renditions after erasure finalisation
+  values:
+  - renditions-deleted/pest_reference
+derived_from: e4631b9625c5ec4fdf22f0896abbf731513c048f
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:seed:stored-files
+- reach:erasure:finalise-for-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_rendition_residue.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-25T00:00:00Z'
+  approved_by: nolte
+  observation_digest: a4aec0d25980c17a7b1c9bafefd8bae5bd4debd8e24ed78e3713672997490620

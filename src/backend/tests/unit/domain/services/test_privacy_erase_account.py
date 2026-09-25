@@ -20,12 +20,18 @@ import pytest
 
 from app.common.exceptions import FeatureNotConfiguredError
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
+from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.membership import Membership
 from app.domain.models.pest_image import PestImageContribution
-from app.domain.models.privacy import DataExportRequest, ErasureExecutionReport, ErasureStepOutcome
+from app.domain.models.privacy import (
+    AccountErasureReport,
+    DataExportRequest,
+    ErasureExecutionReport,
+    ErasureStepOutcome,
+)
 from app.domain.services.privacy_service import PrivacyService
 
 USER_KEY = "u-1"
@@ -36,6 +42,8 @@ def _service(**overrides) -> PrivacyService:
     deps = {
         # #1753 — every erasure path needs a wired reference-index store.
         "reference_index_store": NoopReferenceIndexStore(),
+        # #1759 — and a pest-prototype store wherever pest images are wired.
+        "pest_prototype_store": NoopPestPrototypeStore(),
         "export_repo": MagicMock(),
         "consent_repo": MagicMock(),
         "restriction_repo": MagicMock(),
@@ -272,9 +280,10 @@ async def test_the_pre_arango_phases_report_the_applied_scopes():
     membership_repo.list_by_user.return_value = [Membership(user_key=USER_KEY, tenant_key="t-1", role="grower")]
     service = _service(storage_adapter=_storage(calls), membership_repo=membership_repo, attachment_repo=MagicMock())
 
-    scopes, _, _ = await service._run_pre_arango_phases(USER_KEY)
+    report = AccountErasureReport()
+    await service._run_pre_arango_phases(USER_KEY, report)
 
-    assert scopes == [rule.scope for rule in ErasureEngine.STORAGE_CLEANUP_RULES]
+    assert report.storage_cleanup_scopes == [rule.scope for rule in ErasureEngine.STORAGE_CLEANUP_RULES]
 
 
 def test_no_storage_only_erasure_entry_remains():

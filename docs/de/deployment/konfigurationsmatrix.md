@@ -107,6 +107,9 @@ Vollständige Inbetriebnahme (Aktivierungsreihenfolge, Referenz-Index befüllen)
 | Demo-Adapter (Platzhalter-Befunde, kein echtes Modell) | keine | `PEST_DETECTION_DEMO_ENABLED=true` (Default `false`) — **nicht** für echte Entscheidungen | — | keine | Nein |
 | Cloud-Adapter (Kindwise `plant.health`) | Backend (externer HTTP-Call) | `PEST_DETECTION_CLOUD_ENABLED=true` **und** `PEST_DETECTION_CLOUD_API_KEY` gesetzt | `PEST_DETECTION_CLOUD_API_KEY` | keine zusätzlichen Pods | Nein |
 
+!!! warning "`PEST_DETECTION_ENABLED`/`INFERENCE_SERVICE_ENABLED` gehört auch auf den Celery-Worker (DSGVO-Löschung, interne Referenz: Issue #1759)"
+    Sobald ein Platform-Admin ein beigetragenes Nutzer-Schädlingsfoto zur Erkennungsbasis freigegeben hat, muss `PEST_DETECTION_ENABLED` **oder** `INFERENCE_SERVICE_ENABLED` zusammen mit `INFERENCE_SERVICE_URL` **zusätzlich auf dem Celery-Worker** stehen — er führt die planmäßige Art.-17-Löschung dieser Beiträge aus (unabhängig davon, ob die Freigabe noch aktiv ist). Fehlt das dort, hält der Worker fällige Löschungen als Konfigurationsfehler zurück, und eine Mandantenlöschung antwortet mit HTTP 503. Ist der Inferenz-Service nur vorübergehend nicht erreichbar, antwortet sie stattdessen mit HTTP 502. Details: [Bilderkennung in Betrieb nehmen](inference-service.md).
+
 ---
 
 ## CV-Krankheitsdiagnose <!-- REQ-038 --> {#cv-krankheitsdiagnose-req-038}

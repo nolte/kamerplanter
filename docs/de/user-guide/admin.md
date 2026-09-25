@@ -413,7 +413,7 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
     Wenn die [Schädlingserkennung](#schaedlingserkennung-aktivieren) aktiv ist (`PEST_DETECTION_ENABLED=true`), wird ein freigegebenes Bild zusätzlich als Few-Shot-Referenz (`source=user_contributed`) in den Erkennungs-Index aufgenommen — sofern der Schädling eine Erkennungsklasse (`detection_slug`) hat. Es wird nur das Embedding samt Herkunft gespeichert, **kein Originalbild**. Das Zurücknehmen deaktiviert die Referenz wieder.
 
 !!! warning "Datenschutz"
-    Beigesteuerte Bilder werden beim Löschen eines Nutzers oder Mandanten vollständig entfernt (Dokument **und** Bilddatei). Standortdaten (EXIF) werden bereits beim Hochladen entfernt.
+    Beigesteuerte Bilder werden beim Löschen eines Nutzers oder Mandanten vollständig entfernt (Dokument, Bilddatei samt Vorschaubildern). Standortdaten (EXIF) werden bereits beim Hochladen entfernt. Wurde ein Bild jemals freigegeben, entfernt dieselbe Löschung auch den daraus berechneten Erkennungsvektor aus der Erkennungsbasis — unabhängig davon, ob die Freigabe zum Zeitpunkt der Löschung noch aktiv oder bereits zurückgenommen war. Ist der Inferenz-Service dabei nicht erreichbar oder auf dem Celery-Worker nicht konfiguriert, bleibt die Löschung offen bzw. eine Mandantenlöschung wird abgelehnt, statt Vektoren zurückzulassen — siehe [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
 
 ---
 

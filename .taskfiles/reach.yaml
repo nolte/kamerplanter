@@ -65,7 +65,9 @@ tasks:
       subject's tenant, with EXIF stripping at ingest switched off (standing in
       for STORAGE_STRIP_EXIF=false). Categories whose whitelist refuses
       image/jpeg are recorded as refused. Fails when a stored file carries no
-      EXIF. Writes .reach/subjects/{{.REACH_SUBJECT}}.files.json.
+      EXIF. Then renders each file's WebP renditions with the production
+      thumbnail task body and records their keys (#1760). Writes
+      .reach/subjects/{{.REACH_SUBJECT}}.files.json.
     cmds:
       - python3 scripts/reach/stack.py seed-files --subject {{.REACH_SUBJECT}}
 
@@ -118,6 +120,19 @@ tasks:
     desc: Remove the reference-index and inference-service containers, the store's data volume, the backend override and .reach/vectordb.json.
     cmds:
       - python3 scripts/reach/vectordb.py down
+
+  reach:seed:pest-prototype:
+    desc: |
+      Insert a pest-recognition prototype for the seeded subject's
+      pest_image_contributions row ({{.REACH_SUBJECT}}, run
+      reach:seed:privacy-subject and reach:vectordb:up first) into the
+      inference-service's pest_embeddings, the way the promotion index task
+      writes it (source user_contributed, source_record_id = contribution key,
+      source_url contribution://<tenant>/<key>) but deactivated, plus a curated
+      control row with the same record id (#1759). Writes the row ids to
+      .reach/subjects/{{.REACH_SUBJECT}}.pest-prototypes.json.
+    cmds:
+      - python3 scripts/reach/vectordb.py seed-pest --subject {{.REACH_SUBJECT}}
 
   reach:seed:reference-embedding:
     desc: |

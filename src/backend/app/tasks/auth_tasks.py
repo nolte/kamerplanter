@@ -56,12 +56,13 @@ def cleanup_unverified_accounts() -> dict:
     for position, user_key in enumerate(candidates):
         try:
             run_async(privacy_service.erase_account(user_key))
-        except FeatureNotConfiguredError:
+        except FeatureNotConfiguredError as exc:
             result["blocked"] = len(candidates) - position
             result["reason"] = "erasure_not_configured"
             logger.error(
                 "cleanup_unverified_accounts_blocked",
-                reason="ERASURE_TOMBSTONE_SALT is missing or too short (NFR-011 section 4)",
+                # The salt, a derived index (#1753 / #1759) — the error says which.
+                reason=exc.message,
                 **{k: v for k, v in result.items() if k != "reason"},
             )
             return result

@@ -49,6 +49,7 @@ from app.data_access.arango.membership_repository import ArangoMembershipReposit
 from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
 from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
+from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.system_settings import HomeAssistantSettings, SystemSettings
 from app.domain.services.privacy_service import PrivacyService
@@ -113,6 +114,8 @@ def _service(database) -> PrivacyService:
         frontend_url="http://localhost",
         membership_repo=ArangoMembershipRepository(database),
         pest_image_repo=ArangoPestImageRepository(database),
+        # #1759 — the pest step needs a wired store; no prototype was ever indexed here.
+        pest_prototype_store=NoopPestPrototypeStore(),
         reference_index_store=get_reference_index_store(),
         erasure_executor=ArangoErasureExecutor(database),
         tombstone_salt=SALT,

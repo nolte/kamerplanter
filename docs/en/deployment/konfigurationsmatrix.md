@@ -107,6 +107,9 @@ Full setup (activation order, populating the reference index): [Setting Up Plant
 | Demo adapter (placeholder findings, no real model) | none | `PEST_DETECTION_DEMO_ENABLED=true` (default `false`) — **not** for real decisions | — | none | No |
 | Cloud adapter (Kindwise `plant.health`) | Backend (external HTTP call) | `PEST_DETECTION_CLOUD_ENABLED=true` **and** `PEST_DETECTION_CLOUD_API_KEY` set | `PEST_DETECTION_CLOUD_API_KEY` | no additional pods | No |
 
+!!! warning "`PEST_DETECTION_ENABLED`/`INFERENCE_SERVICE_ENABLED` also belongs on the celery-worker (GDPR erasure, internal reference: issue #1759)"
+    Once a platform admin has promoted a contributed user pest photo into the recognition base, `PEST_DETECTION_ENABLED` **or** `INFERENCE_SERVICE_ENABLED` together with `INFERENCE_SERVICE_URL` must **also be set on the celery-worker** — it runs the scheduled Art. 17 erasure of those contributions (regardless of whether the promotion is still active). If it is missing there, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503. If the inference-service is merely unreachable, it instead answers with HTTP 502. Details: [Setting Up Plant Identification](inference-service.md).
+
 ---
 
 ## CV Disease Diagnosis <!-- REQ-038 --> {#cv-krankheitsdiagnose-req-038}

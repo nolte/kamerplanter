@@ -15,7 +15,7 @@ import pytest
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
-from app.domain.models.privacy import ErasureRequest
+from app.domain.models.privacy import AccountErasureReport, ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.privacy_doubles import RecordingErasureExecutor
 
@@ -304,7 +304,9 @@ class TestErasurePhase0:
             reference_index_store=ref_store,
         )
 
-        scopes, _, _ = await svc._run_pre_arango_phases("u-helper")
+        report = AccountErasureReport()
+        await svc._run_pre_arango_phases("u-helper", report)
+        scopes = report.storage_cleanup_scopes
 
         hard_delete_scopes = {c.kwargs["scope"] for c in storage.delete_for_user.await_args_list}
         assert hard_delete_scopes == {"user_personal", "user_pest_reference_images"}

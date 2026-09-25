@@ -49,6 +49,7 @@ from app.domain.engines.storage.storage_key_builder import StorageKeyBuilder
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
     can_render,
+    rendition_keys,
     thumbnail_key,
 )
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
@@ -364,9 +365,8 @@ class AttachmentService:
             return False
 
         await self._storage.delete_object(attachment.storage_key)
-        if can_render(attachment.mime_type):
-            for thumb in self._thumbnails.sizes:
-                await self._storage.delete_object(thumbnail_key(attachment.storage_key, thumb))
+        for rendition in rendition_keys(attachment.storage_key, attachment.mime_type, self._thumbnails.sizes):
+            await self._storage.delete_object(rendition)
 
         deleted = self._repo.delete(attachment_id, tenant_key)
         logger.info(

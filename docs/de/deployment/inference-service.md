@@ -129,6 +129,8 @@ INFERENCE_SERVICE_URL=http://kamerplanter-recognition:8000
 !!! warning "Beide Prozesse brauchen dieselbe Konfiguration (DSGVO-Löschung, interne Referenz: Issue #1753)"
     Nutzer können eigene Fotos als Referenzbild zur Erkennungsbasis beitragen (siehe [Foto der neuen Pflanze zuordnen](../user-guide/plant-identification.md#foto-der-neuen-pflanze-zuordnen)). Die planmäßige Art.-17-Löschung dieser beigetragenen Referenzvektoren läuft **im Celery-Worker**, nicht im Backend. Ist `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` nur auf dem Backend gesetzt, hält der Worker fällige Löschungen als Konfigurationsfehler zurück (`partially_completed`, kein Löschversuch wird verbraucht), und eine Mandantenlöschung antwortet mit HTTP 503. Ein einmal geschriebener Beitrag wird dauerhaft vermerkt — das Deaktivieren der Variable nach dem ersten Beitrag hält also alle künftigen Löschungen an, bis sie auf beiden Prozessen wieder gesetzt ist.
 
+    Dasselbe gilt für beigetragene Schädlingsbild-Vektoren (Issue #1759): Sobald ein Platform-Admin ein Nutzer-Schädlingsfoto zur Erkennungsbasis freigegeben hat, benötigt der Celery-Worker `PEST_DETECTION_ENABLED` **oder** `INFERENCE_SERVICE_ENABLED` zusammen mit `INFERENCE_SERVICE_URL`, um die planmäßige Löschung auszuführen — unabhängig davon, ob die Freigabe noch aktiv ist. Fehlt beides auf dem Worker, gilt dieselbe Zurückhaltung; das Löschen eines einzelnen eigenen Schädlingsfotos schlägt zusätzlich mit HTTP 502 fehl und das Foto bleibt bestehen, solange der Inferenz-Service nicht erreichbar ist.
+
 ---
 
 ## Helm-Konfiguration
@@ -200,7 +202,7 @@ networkpolicies:
 ```
 
 !!! warning "`INFERENCE_SERVICE_ENABLED`/`-URL` gehört auf BEIDE Controller"
-    Das Backend schreibt Nutzerbeiträge in den Referenz-Index, der Celery-Worker führt die planmäßige Art.-17-Löschung dieser Beiträge aus (Issue #1753) — beide Controller brauchen deshalb denselben Wert. Fehlt die Konfiguration auf dem `celery-worker`, hält der Worker fällige Löschungen als Konfigurationsfehler zurück und eine Mandantenlöschung antwortet mit HTTP 503, solange bereits Beiträge auf dem Index liegen.
+    Das Backend schreibt Nutzerbeiträge in den Referenz-Index, der Celery-Worker führt die planmäßige Art.-17-Löschung dieser Beiträge aus (Issue #1753) — beide Controller brauchen deshalb denselben Wert. Fehlt die Konfiguration auf dem `celery-worker`, hält der Worker fällige Löschungen als Konfigurationsfehler zurück und eine Mandantenlöschung antwortet mit HTTP 503, solange bereits Beiträge auf dem Index liegen. Dasselbe gilt für beigetragene, freigegebene Schädlingsbild-Vektoren (Issue #1759) — hier genügt alternativ `PEST_DETECTION_ENABLED` auf beiden Controllern.
 
 Ressourcen und Sicherheitskontext (Chart-Defaults, nicht überschreiben sofern nicht nötig):
 
@@ -250,7 +252,7 @@ Service-Hostnamen im Cluster (Release-Name `kamerplanter`):
 
 | Variable (Backend UND Celery-Worker) | Pflicht | Standard | Beschreibung |
 |--------------------|:-------:|----------|-------------|
-| `INFERENCE_SERVICE_ENABLED` | Nein | `false` | Lokalen Inferenz-Pfad aktivieren. **Muss auf Backend und Celery-Worker identisch gesetzt sein** — der Worker führt die planmäßige DSGVO-Löschung beigetragener Referenzvektoren aus (Issue #1753) und braucht denselben Zugang wie das Backend, das sie schreibt. |
+| `INFERENCE_SERVICE_ENABLED` | Nein | `false` | Lokalen Inferenz-Pfad aktivieren. **Muss auf Backend und Celery-Worker identisch gesetzt sein** — der Worker führt die planmäßige DSGVO-Löschung beigetragener Referenzvektoren (Issue #1753) und beigetragener Schädlingsbild-Vektoren (Issue #1759, alternativ über `PEST_DETECTION_ENABLED`) aus und braucht denselben Zugang wie das Backend, das sie schreibt. |
 | `INFERENCE_SERVICE_URL` | Nein | `http://kamerplanter-recognition:8000` | Interne URL des Inferenz-Service. Ebenfalls auf beiden Prozessen identisch setzen. |
 | `PLANTNET_API_KEY` | Nein | — | Pl@ntNet API-Key für Fallback (optional, nur Backend) |
 
@@ -270,11 +272,13 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 | `DELETE` | `/reference/{species_key}` | Referenzen einer Art löschen (Re-Index) |
 | `POST` | `/reference/contributions/erase-by-contributor` | DSGVO-Löschung (Art. 17): entfernt alle vom angegebenen Nutzer beigetragenen Referenzvektoren (`source = user_contributed`), optional auf einen Mandanten eingeschränkt. Kuratierte Referenzen bleiben unberührt. Vom Celery-Worker aufgerufen. |
 | `POST` | `/reference/contributions/erase-by-tenant` | Mandantenlöschung: entfernt alle von einem Mandanten beigetragenen Referenzvektoren (`source = user_contributed`). Vom Backend bei der Mandantenlöschung aufgerufen. |
+| `POST` | `/pest/reference/contributions/erase` | DSGVO-Löschung (Art. 17, Issue #1759): entfernt die angegebenen beigetragenen Schädlingsbild-Vektoren (`source = user_contributed`) anhand ihrer Beitrags-Schlüssel — unabhängig davon, ob der Beitrag freigegeben oder zurückgenommen war. Vom Celery-Worker sowie beim Löschen eines einzelnen eigenen Schädlingsfotos aufgerufen. |
+| `POST` | `/pest/reference/contributions/erase-by-tenant` | Mandantenlöschung (Issue #1759): entfernt alle von einem Mandanten beigetragenen Schädlingsbild-Vektoren (`source = user_contributed`). Vom Backend bei der Mandantenlöschung aufgerufen. |
 | `GET` | `/health` | Liveness-Probe |
 | `GET` | `/ready` | Readiness-Probe (Modell geladen?) |
 | `GET` | `/modelinfo` | Modellname, Dimension, Eingabegröße, Lizenz, Prüfsumme |
 
-Wie alle nicht-Probe-Endpunkte erfordern auch die beiden Lösch-Endpunkte den gemeinsamen `INTERNAL_SERVICE_TOKEN` (`Authorization: Bearer <token>`) — ohne gültiges Token antworten sie mit `401`. Ein leerer bzw. blanker Schlüssel im Request-Body wird mit `422` abgelehnt (die Antwort nennt nur das betroffene Feld, nie den Wert).
+Wie alle nicht-Probe-Endpunkte erfordern auch die vier Lösch-Endpunkte den gemeinsamen `INTERNAL_SERVICE_TOKEN` (`Authorization: Bearer <token>`) — ohne gültiges Token antworten sie mit `401`. Ein leerer bzw. blanker Schlüssel im Request-Body wird mit `422` abgelehnt (die Antwort nennt nur das betroffene Feld, nie den Wert).
 
 ---
 
@@ -308,7 +312,7 @@ Wie alle nicht-Probe-Endpunkte erfordern auch die beiden Lösch-Endpunkte den ge
     Nutze den Admin-Endpoint `POST /api/v1/admin/reference-images/acquire/{species_key}` — er löst intern den Celery-Task `acquire_reference_images_task` für die Art aus.
 
 ??? question "Eine Konto- oder Mandantenlöschung bleibt hängen, obwohl `INFERENCE_SERVICE_ENABLED` gesetzt ist"
-    Prüfe, ob die Variable auf **beiden** Prozessen identisch gesetzt ist: Backend UND Celery-Worker. Eine Löschung, die von beigetragenen Referenzvektoren betroffen ist, bleibt als Konfigurationsfehler (`partially_completed`) offen bzw. eine Mandantenlöschung antwortet mit HTTP 503, solange der Celery-Worker die Variable nicht hat (Issue #1753). Nach dem Nachtragen läuft die Löschung beim nächsten täglichen Lauf automatisch nach.
+    Prüfe, ob die Variable auf **beiden** Prozessen identisch gesetzt ist: Backend UND Celery-Worker. Eine Löschung, die von beigetragenen Referenzvektoren betroffen ist, bleibt als Konfigurationsfehler (`partially_completed`) offen bzw. eine Mandantenlöschung antwortet mit HTTP 503, solange der Celery-Worker die Variable nicht hat (Issue #1753). Dasselbe gilt für beigetragene Schädlingsbild-Vektoren, wenn dem Celery-Worker sowohl `PEST_DETECTION_ENABLED` als auch `INFERENCE_SERVICE_ENABLED` fehlen (Issue #1759). Nach dem Nachtragen läuft die Löschung beim nächsten täglichen Lauf automatisch nach.
 
 ---
 

@@ -31,6 +31,8 @@ clear no-op rather than guessing a class.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import structlog
 
 from app.common.async_bridge import run_async
@@ -39,7 +41,9 @@ from app.common.dependencies import (
     get_ipm_service,
     get_pest_image_repo,
     get_pest_inference_client,
+    get_system_settings_repo,
 )
+from app.common.enums import PestImageStatus
 from app.config.settings import settings
 from app.domain.models.pest_taxonomy import get_taxon
 from app.tasks import celery_app
@@ -107,6 +111,10 @@ def _index_promoted(contribution_key: str) -> dict:
     attachment = attachment_service.get_attachment(contribution.attachment_id, contribution.tenant_key)
     image_data = run_async(_read_attachment_bytes(attachment_service, attachment))
 
+    # #1759 — record that a contributed prototype may now exist before writing
+    # it, so a process that cannot reach the index refuses to report an erasure
+    # as complete. A failed marker write fails the index attempt.
+    get_system_settings_repo().record_pest_prototype_contributions(datetime.now(UTC))
     get_pest_inference_client().upsert_prototype(
         image_data,
         label=label,
@@ -115,6 +123,21 @@ def _index_promoted(contribution_key: str) -> dict:
         source_record_id=contribution_key,
         source_url=f"contribution://{contribution.tenant_key}/{contribution_key}",
     )
+    # #1759 — a deletion (single, Art. 17 or tenant) that ran between the read
+    # above and the upsert has already erased the prototype, so the upsert just
+    # re-created it with nothing left to find it by. Re-check and undo.
+    # A demotion in the same window already ran its retract; the row just
+    # written would be an active prototype of a private image.
+    current = get_pest_image_repo().get_by_key(contribution_key)
+    if current is None or current.status != PestImageStatus.PROMOTED:
+        try:
+            get_pest_inference_client().erase_contributions([contribution_key])
+        except Exception:  # noqa: BLE001 — handed to a retrying task, never dropped
+            # Nothing else can find this row once the document is gone, so the
+            # undo must not die with this attempt (code review of #1766).
+            erase_pest_prototype_task.delay(contribution_key)
+            return {"status": "retract_after_delete_queued", "label": label, "contribution_key": contribution_key}
+        return {"status": "retracted_after_delete", "label": label, "contribution_key": contribution_key}
     return {"status": "indexed", "label": label, "contribution_key": contribution_key}
 
 
@@ -183,8 +206,9 @@ def index_promoted_pest_image_task(self, contribution_key: str) -> dict:  # type
 def retract_promoted_pest_image_task(self, contribution_key: str) -> dict:  # type: ignore[no-untyped-def]
     """REQ-010 P2 — retract a demoted user pest image from the few-shot index.
 
-    The inference-service has no delete-by-provenance route, so the retract
-    deactivates the matching prototype(s) (curation gate). Same best-effort
+    Demotion is a curation decision, not an erasure: the retract deactivates
+    the matching prototype(s) (curation gate); deletion by provenance is the
+    erasure's job (#1759). Same best-effort
     semantics as :func:`index_promoted_pest_image_task`.
     """
     try:
@@ -202,3 +226,23 @@ def retract_promoted_pest_image_task(self, contribution_key: str) -> dict:  # ty
 
     logger.info("retract_promoted_pest_image", contribution_key=contribution_key, **_logsafe(outcome))
     return outcome
+
+
+@celery_app.task(  # type: ignore[misc]
+    bind=True,
+    max_retries=12,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=6 * 3600,
+    retry_jitter=True,
+)
+def erase_pest_prototype_task(self, contribution_key: str) -> dict:  # type: ignore[no-untyped-def]
+    """#1759 — delete a contributed prototype whose contribution is already gone.
+
+    Queued when the promotion index task re-created a prototype that a
+    concurrent delete had just erased and could not undo it inline. Retries
+    with backoff for about three days; the key is the only handle on the row.
+    """
+    deleted = get_pest_inference_client().erase_contributions([contribution_key])
+    logger.info("pest_prototype_erased_after_delete", contribution_key=contribution_key, deleted=deleted)
+    return {"status": "erased", "deleted": deleted}

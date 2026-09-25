@@ -210,8 +210,9 @@ nur dir gehören und keiner Aufbewahrungsfrist unterliegen:
 - deine Diagnose-Anfragen für Pflanzenkrankheiten
 - deine Standort-Zuweisungen in Gärten, in denen du Mitglied warst
 - Einladungen, die du angenommen hast (sie nennen deine E-Mail-Adresse)
-- die Dateieinträge deiner eigenen Schädlingsfotos, deren Dateien schon gelöscht sind
+- die Dateieinträge deiner eigenen Schädlingsfotos — die Originaldatei und ihre Vorschaubilder (WebP, 128/512/1280 px) sind zu diesem Zeitpunkt schon gelöscht
 - deine beigetragenen Referenzbild-Vektoren für die Bilderkennung (kuratierte Referenzen anderer Nutzer bleiben unberührt)
+- deine beigetragenen Schädlingsbild-Vektoren für die Erkennung — unabhängig davon, ob dein Beitrag zum Zeitpunkt der Löschung noch freigegeben oder bereits zurückgenommen war
 
 Ein Konto, das nie bestätigt wurde, entfernt der tägliche Aufräumlauf. Dabei gehen
 jetzt auch die Mitgliedschaft und die Standort-Zuweisungen mit. Der persönliche Garten
@@ -233,8 +234,9 @@ einer Löschung einander zuordnen, ohne dass sie eine Person nennen.
 
 Es spielt keine Rolle, ob ein Platform-Admin dein Konto über die Benutzerverwaltung
 löscht oder ob du selbst einen Löschantrag stellst: Beide Wege führen dieselbe Löschung
-aus. Sie bereinigt Dateispeicher und Referenzindex (nur deine eigenen Beiträge —
-kuratierte Referenzen bleiben), löscht deine übrigen Datensätze, anonymisiert die
+aus. Sie bereinigt Dateispeicher (Originale samt Vorschaubildern) und Erkennungsbasis
+(nur deine eigenen Referenzbild- und Schädlingsbild-Beiträge — kuratierte Referenzen
+bleiben), löscht deine übrigen Datensätze, anonymisiert die
 aufbewahrungspflichtigen wie oben beschrieben und entfernt zuletzt dein Konto. Der
 Datenbankteil läuft in einem Stück: Entweder ist er vollständig erledigt oder gar nicht.
 
@@ -270,6 +272,15 @@ gelingt. Solange ein Antrag offen ist, kannst du keinen zweiten stellen.
     der Lauf schreibt zusätzlich eine Zeile
     `retention.execute_scheduled_erasures.reference_index_not_configured` auf Level error.
     Details zur Konfiguration: [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
+
+    Dieselbe Prüfung trifft beigetragene Schädlingsbild-Vektoren (Issue #1759): Fehlen
+    sowohl `PEST_DETECTION_ENABLED` als auch `INFERENCE_SERVICE_ENABLED` auf dem
+    Celery-Worker, während jemals ein Schädlingsfoto-Beitrag zur Erkennungsbasis
+    freigegeben wurde, hält der Worker die betroffenen Anträge auf dieselbe Weise und mit
+    derselben Log-Zeile zurück. Eine Mandantenlöschung wird in diesem Fall mit HTTP 503
+    abgelehnt statt Vektoren zurückzulassen; ist der Inferenz-Service nur vorübergehend
+    nicht erreichbar, antwortet sie stattdessen mit HTTP 502 und lässt sich erneut
+    anstoßen.
 
 ---
 

@@ -188,7 +188,15 @@ def test_no_contribution_route_carries_a_key_in_its_path():
     from app import main
 
     paths = [route.path for route in main.app.routes if "contributions" in getattr(route, "path", "")]
-    assert sorted(paths) == [_BY_CONTRIBUTOR, _BY_TENANT]
+    assert sorted(paths) == sorted(
+        [
+            _BY_CONTRIBUTOR,
+            _BY_TENANT,
+            # #1759 — the pest-prototype erasure follows the same rule.
+            "/pest/reference/contributions/erase",
+            "/pest/reference/contributions/erase-by-tenant",
+        ]
+    )
     assert all("{" not in path for path in paths)
 
 

@@ -283,7 +283,7 @@ Wenn du deinen Account löschst, unterscheidet das System zwischen zwei Foto-Typ
 
 | Foto-Typ | Was passiert |
 |----------|-------------|
-| **Persönliche Fotos** (Profilbild, private Notizen) | Hart gelöscht — sowohl die Datei im Storage als auch der Metadateneintrag werden entfernt |
+| **Persönliche Fotos** (Profilbild, private Notizen) | Hart gelöscht — die Originaldatei, ihre erzeugten Vorschaubilder (WebP, 128/512/1280 px) und der Metadateneintrag werden entfernt |
 | **Dokumentierende Fotos** (Tagebucheinträge, IPM-Inspektionen, Erntefotos, Pflanzenfotos) | Bleiben erhalten, werden aber von deinem Account entkoppelt — `erstellt von` wird auf `_anonymized` gesetzt. Sind EXIF-Daten vorhanden, werden sie in diesem Schritt ebenfalls entfernt. |
 
 Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzlichen Aufbewahrungspflichten (CanG, PflSchG) unterliegen. Dein Name ist nach der Anonymisierung nicht mehr mit den Fotos verknüpft.
@@ -293,9 +293,11 @@ Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzl
 
 Hast du eigene Fotos als [Referenzbild zur Bilderkennung beigetragen](plant-identification.md#foto-der-neuen-pflanze-zuordnen), werden auch diese Beiträge bei der Account-Löschung entfernt: Das System löscht den daraus berechneten Merkmalsvektor aus der Erkennungsbasis. Kuratierte Referenzbilder anderer Nutzer bleiben davon unberührt.
 
+Dasselbe gilt für eigene [Schädlingsfotos, die du beigetragen hast](pest-detail.md#eigene-fotos-beitragen): Wurde ein solches Foto jemals von einem Platform-Admin für die Schädlingserkennung freigegeben, entfernt die Account-Löschung den daraus berechneten Erkennungsvektor — unabhängig davon, ob die Freigabe zum Zeitpunkt der Löschung noch aktiv war oder bereits zurückgenommen wurde.
+
 ### Mandantenlöschung
 
-Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder auf Anfrage), werden alle Binärdaten des Mandanten vollständig aus dem Storage entfernt — unabhängig vom verwendeten Backend (local-fs oder S3). Das geschieht durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/`. Ebenso werden alle von Mitgliedern dieses Mandanten beigetragenen Referenzbild-Vektoren aus der Erkennungsbasis entfernt. Das Ergebnis wird im Audit-Log dokumentiert.
+Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder auf Anfrage), werden alle Binärdaten des Mandanten vollständig aus dem Storage entfernt — unabhängig vom verwendeten Backend (local-fs oder S3). Das geschieht durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/`. Ebenso werden alle von Mitgliedern dieses Mandanten beigetragenen Referenzbild- und Schädlingsbild-Vektoren aus der Erkennungsbasis entfernt. Das Ergebnis wird im Audit-Log dokumentiert.
 
 ### Datenportabilität (Art. 20 DSGVO)
 

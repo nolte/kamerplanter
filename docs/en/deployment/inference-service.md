@@ -129,6 +129,8 @@ INFERENCE_SERVICE_URL=http://kamerplanter-recognition:8000
 !!! warning "Both processes need the same configuration (GDPR erasure, internal reference: issue #1753)"
     Users can contribute their own photos as reference images to the recognition base (see [Assigning the Photo to the New Plant](../user-guide/plant-identification.md#assigning-the-photo-to-the-new-plant)). The scheduled Art. 17 erasure of these contributed reference vectors runs **in the celery-worker**, not the backend. If `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` is set only on the backend, the worker holds due erasures as a configuration error (`partially_completed`, no attempt spent), and a tenant deletion answers with HTTP 503. Once a contribution has been written, it is recorded permanently — switching the variable off after that first contribution therefore holds every future erasure until it is set again on both processes.
 
+    The same applies to contributed pest-recognition vectors (issue #1759): once a platform admin has promoted a user's pest photo into the recognition base, the celery-worker needs `PEST_DETECTION_ENABLED` **or** `INFERENCE_SERVICE_ENABLED` together with `INFERENCE_SERVICE_URL` to run the scheduled erasure — regardless of whether the promotion is still active. If both are missing on the worker, the same hold applies; deleting a single own pest photo additionally fails with HTTP 502 and the photo stays in place while the inference-service is unreachable.
+
 ---
 
 ## Helm Configuration
@@ -200,7 +202,7 @@ networkpolicies:
 ```
 
 !!! warning "`INFERENCE_SERVICE_ENABLED`/`-URL` belongs on BOTH controllers"
-    The backend writes user contributions to the reference index; the celery-worker runs the scheduled Art. 17 erasure of those contributions (issue #1753) — both controllers therefore need the same value. If the `celery-worker` is missing this configuration, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503 while contributions are already on the index.
+    The backend writes user contributions to the reference index; the celery-worker runs the scheduled Art. 17 erasure of those contributions (issue #1753) — both controllers therefore need the same value. If the `celery-worker` is missing this configuration, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503 while contributions are already on the index. The same applies to promoted, contributed pest-recognition vectors (issue #1759) — `PEST_DETECTION_ENABLED` on both controllers satisfies this too.
 
 Resources and security context (chart defaults — do not override unless necessary):
 
@@ -250,7 +252,7 @@ In-cluster service hostnames (release name `kamerplanter`):
 
 | Variable (Backend AND Celery-Worker) | Required | Default | Description |
 |--------------------|:--------:|---------|-------------|
-| `INFERENCE_SERVICE_ENABLED` | No | `false` | Enable the local inference path. **Must be set identically on the backend and the celery-worker** — the worker runs the scheduled GDPR erasure of contributed reference vectors (issue #1753) and needs the same access as the backend that writes them. |
+| `INFERENCE_SERVICE_ENABLED` | No | `false` | Enable the local inference path. **Must be set identically on the backend and the celery-worker** — the worker runs the scheduled GDPR erasure of contributed reference vectors (issue #1753) and contributed pest-recognition vectors (issue #1759, `PEST_DETECTION_ENABLED` also satisfies this) and needs the same access as the backend that writes them. |
 | `INFERENCE_SERVICE_URL` | No | `http://kamerplanter-recognition:8000` | Internal URL of the inference service. Also set identically on both processes. |
 | `PLANTNET_API_KEY` | No | — | Pl@ntNet API key for fallback (optional, backend only) |
 
@@ -270,11 +272,13 @@ These endpoints are only reachable within the cluster and are not exposed via th
 | `DELETE` | `/reference/{species_key}` | Delete references for a species (re-index) |
 | `POST` | `/reference/contributions/erase-by-contributor` | GDPR erasure (Art. 17): removes every reference vector contributed by the named user (`source = user_contributed`), optionally scoped to one tenant. Curated references are untouched. Called by the celery-worker. |
 | `POST` | `/reference/contributions/erase-by-tenant` | Tenant deletion: removes every reference vector contributed by a tenant (`source = user_contributed`). Called by the backend during tenant deletion. |
+| `POST` | `/pest/reference/contributions/erase` | GDPR erasure (Art. 17, issue #1759): removes the given contributed pest-recognition vectors (`source = user_contributed`) by their contribution keys — regardless of whether the contribution was promoted or demoted. Called by the celery-worker and when a single own pest photo is deleted. |
+| `POST` | `/pest/reference/contributions/erase-by-tenant` | Tenant deletion (issue #1759): removes every pest-recognition vector contributed by a tenant (`source = user_contributed`). Called by the backend during tenant deletion. |
 | `GET` | `/health` | Liveness probe |
 | `GET` | `/ready` | Readiness probe (model loaded?) |
 | `GET` | `/modelinfo` | Model name, dimensions, input size, licence, checksum |
 
-Like every non-probe endpoint, the two erasure endpoints require the shared `INTERNAL_SERVICE_TOKEN` (`Authorization: Bearer <token>`) — without a valid token they answer `401`. A blank key in the request body is rejected with `422` (the response names only the affected field, never the value).
+Like every non-probe endpoint, all four erasure endpoints require the shared `INTERNAL_SERVICE_TOKEN` (`Authorization: Bearer <token>`) — without a valid token they answer `401`. A blank key in the request body is rejected with `422` (the response names only the affected field, never the value).
 
 ---
 
@@ -308,7 +312,7 @@ Like every non-probe endpoint, the two erasure endpoints require the shared `INT
     Use the admin endpoint `POST /api/v1/admin/reference-images/acquire/{species_key}` — it triggers the `acquire_reference_images_task` Celery task for that species internally.
 
 ??? question "An account or tenant deletion is stuck even though INFERENCE_SERVICE_ENABLED is set"
-    Check whether the variable is set identically on **both** processes: backend AND celery-worker. A deletion affected by contributed reference vectors stays open as a configuration error (`partially_completed`), or a tenant deletion answers with HTTP 503, as long as the celery-worker is missing the variable (issue #1753). Once you add it, the deletion runs automatically on the next daily run.
+    Check whether the variable is set identically on **both** processes: backend AND celery-worker. A deletion affected by contributed reference vectors stays open as a configuration error (`partially_completed`), or a tenant deletion answers with HTTP 503, as long as the celery-worker is missing the variable (issue #1753). The same applies to contributed pest-recognition vectors when the celery-worker is missing both `PEST_DETECTION_ENABLED` and `INFERENCE_SERVICE_ENABLED` (issue #1759). Once you add it, the deletion runs automatically on the next daily run.
 
 ---
 
