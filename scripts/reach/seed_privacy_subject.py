@@ -444,6 +444,25 @@ class Seeder:
         )
         self.tenant_key = tenant["key"]
         self.covered.add((col.TENANTS, tenant_field, "{}"))
+        # A second, active member of that tenant — another account, not the
+        # subject, so it is no row of the subject and not recorded. Since #1788 an
+        # account erasure erases a personal tenant the subject used alone through
+        # the tenant-erasure inventory; with a companion the tenant is kept and the
+        # account plan's own rules (anonymise the tenant, the tasks, the diary …)
+        # are what reaches the subject's rows in it — the case the probes built on
+        # this seed measure. The sole-member case has its own seed
+        # (``seed_tenant_for_erasure.py --personal-of``).
+        self._ensure(col.MEMBERSHIPS)
+        self.db.collection(col.MEMBERSHIPS).insert(
+            {
+                "user_key": f"reach-companion-{secrets.token_hex(4)}",
+                "tenant_key": self.tenant_key,
+                "role": "grower",
+                "admin_scopes": [],
+                "is_active": True,
+                "joined_at": FIXED_TIMESTAMP,
+            }
+        )
 
         # Document steps, parents before the rows reached through them.
         documents = [step for step in plan.steps if step.kind == "document"]
