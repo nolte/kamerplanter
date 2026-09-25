@@ -9,9 +9,9 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 9
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
+replay_seconds: 5
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
 - command: task deps:sync:knowledge-service
@@ -25,7 +25,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1118
+  untracked_reads_dropped: 1120
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
@@ -77,6 +77,7 @@ reads:
 - src/knowledge-service/tests/conftest.py
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
+- src/knowledge-service/tests/test_embedding.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
 - src/knowledge-service/tests/test_vectordb_sync_guard.py
@@ -84,3 +85,11 @@ reads:
 - src/libs/kp_vectordb/kp_vectordb/config.py
 - src/libs/kp_vectordb/kp_vectordb/connection.py
 - src/libs/kp_vectordb/kp_vectordb/schema.py
+test_modules:
+- src/knowledge-service/tests/test_auth.py
+- src/knowledge-service/tests/test_chunk_response.py
+- src/knowledge-service/tests/test_embedding.py
+- src/knowledge-service/tests/test_prompt_engine.py
+- src/knowledge-service/tests/test_reranker.py
+- src/knowledge-service/tests/test_vectordb_sync_guard.py
+readers: {}

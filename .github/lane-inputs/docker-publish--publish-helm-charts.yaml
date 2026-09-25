@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: helm
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
 replay_seconds: 2
 job_spec_sha256: cfa02745b53b25a9832ef566db0161995a81fc1e5ccae3a3d8df94ef7ce170e4
 invocations:
@@ -79,3 +79,5 @@ unrecorded_invocations:
 - command: scripts/ci/publish_release_asset.sh "$TAG" tar-content "$CHART"-*.tgz
   reason: Runs only on a release tag against the GitHub release of that tag (gh auth, an existing release). It reads the packaged
     chart archive from the working directory, not a tracked file; the script itself is in the on:-level filter.
+test_modules: []
+readers: {}

@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: reranker-service
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 1b8ac17a97c80267e5352c95afc5baacb62a3502
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
 replay_seconds: 4
 job_spec_sha256: 5375fc65eaad109254098a86c02218da53fd94525d2f3c579dd88ad5abbb75a7
 invocations:
@@ -36,3 +36,5 @@ reads:
 - docker/reranker-service/main.py
 - docker/reranker-service/pyproject.toml
 - docker/reranker-service/uv.lock
+test_modules: []
+readers: {}

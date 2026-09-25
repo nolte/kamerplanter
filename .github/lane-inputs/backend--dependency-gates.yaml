@@ -9,9 +9,9 @@ job: dependency-gates
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 11
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
+replay_seconds: 10
 job_spec_sha256: 12f8314c394f484dd60d2b5dbd1436e1d1e0057128f8641d2595745eefe665e2
 invocations:
 - command: task deps:check
@@ -34,7 +34,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 26
+  untracked_reads_dropped: 27
 - command: uv export --locked --no-emit-project --format requirements.txt -o /tmp/lane-inputs-scratch/requirements.txt
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -108,3 +108,6 @@ not_measured:
 - pip-audit --strict --desc --no-deps --requirement /tmp/requirements(-dev).txt — reads the exported files under /tmp and
   the network; nothing tracked
 - uv pip install pip-licenses / pip-licenses --from=mixed … — reads the virtual environment only; nothing tracked
+test_modules:
+- src/backend/tests/unit/guards/test_lock_hash_verification.py
+readers: {}

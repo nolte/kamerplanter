@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 4
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
+replay_seconds: 1
 job_spec_sha256: 083e6517692f05f1ca35a853fa1392ffcbfca992d62666634c40b39ad7261339
 invocations:
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
@@ -1114,3 +1114,5 @@ reads:
 - src/frontend/tsconfig.node.json
 - src/frontend/vite.config.ts
 - src/frontend/vitest.config.ts
+test_modules: []
+readers: {}

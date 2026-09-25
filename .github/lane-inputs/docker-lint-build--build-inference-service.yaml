@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: inference-service
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
 replay_seconds: 1
 job_spec_sha256: 935e5ef0d0e586f27fcd508b55d3b7ad423ca83da4cfe68272e0ec3f969ad45e
 invocations:
@@ -62,3 +62,5 @@ unrecorded_invocations:
   reason: Runs against the image the job just built (`docker run` of a :pr tag that exists only on the runner); on a workstation
     there is no such image. The script reads nothing from the tree but itself, and scripts/ci/** is in this workflow's on:-level
     filter; the image's inputs are the derived build context above.
+test_modules: []
+readers: {}

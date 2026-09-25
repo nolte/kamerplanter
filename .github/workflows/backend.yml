@@ -126,6 +126,31 @@ on:
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
+      # #1749: the lane-inputs recorder attributes every read to the test MODULE
+      # that made it, and a read delegated to the guards lane counts as covered
+      # only when that module runs there. The paths below are read by unit tests
+      # the required guards lane does NOT run (measured, lane-inputs run
+      # 36094119498) — the workflow, action and manifest checks
+      # (test_workflow_gate_integrity_check.py, test_workflow_path_filter_coverage_check.py,
+      # test_untrusted_checkout_permissions_check.py, test_lane_inputs_recorder.py,
+      # test_delivery_run_alert_workflow.py, test_build_revision_wiring.py,
+      # test_determine_chart_version.py), migrations/test_e2e_admin_env_containment.py
+      # (the compose files, helm/, .env.example), test_route_consumers_check.py
+      # (the frontend endpoint modules), test_embedding_service_feed.py, and three
+      # modules that import from scripts/ (Python lists a sys.path directory).
+      # Until #1749 each was held "covered" because some OTHER guards-lane test
+      # read the same path — which judges that test, not these. Moving them into
+      # the required lane instead would cost ~2 min on a lane whose rollback
+      # trigger is a 200 s median (.github/settings.yml).
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/lane-inputs/**'
+      - '.env.example'
+      - 'docker-compose*.yml'
+      - 'helm/**'
+      - 'docker/embedding-service/**'
+      - 'src/frontend/src/api/endpoints/**'
+      - 'scripts/*'
   pull_request:
     branches: [develop]
     paths:
@@ -200,6 +225,31 @@ on:
       - 'scripts/route_consumer_exemptions.yaml'
       - 'spec/e2e-testcases/**'
       - 'spec/knowledge/explain-templates/**'
+      # #1749: the lane-inputs recorder attributes every read to the test MODULE
+      # that made it, and a read delegated to the guards lane counts as covered
+      # only when that module runs there. The paths below are read by unit tests
+      # the required guards lane does NOT run (measured, lane-inputs run
+      # 36094119498) — the workflow, action and manifest checks
+      # (test_workflow_gate_integrity_check.py, test_workflow_path_filter_coverage_check.py,
+      # test_untrusted_checkout_permissions_check.py, test_lane_inputs_recorder.py,
+      # test_delivery_run_alert_workflow.py, test_build_revision_wiring.py,
+      # test_determine_chart_version.py), migrations/test_e2e_admin_env_containment.py
+      # (the compose files, helm/, .env.example), test_route_consumers_check.py
+      # (the frontend endpoint modules), test_embedding_service_feed.py, and three
+      # modules that import from scripts/ (Python lists a sys.path directory).
+      # Until #1749 each was held "covered" because some OTHER guards-lane test
+      # read the same path — which judges that test, not these. Moving them into
+      # the required lane instead would cost ~2 min on a lane whose rollback
+      # trigger is a 200 s median (.github/settings.yml).
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/lane-inputs/**'
+      - '.env.example'
+      - 'docker-compose*.yml'
+      - 'helm/**'
+      - 'docker/embedding-service/**'
+      - 'src/frontend/src/api/endpoints/**'
+      - 'scripts/*'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.

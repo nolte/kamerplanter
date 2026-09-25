@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 53
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
+replay_seconds: 50
 job_spec_sha256: cdd19fd2744aa844284c6d1c17c2d0d50b118c18891c3b6710253930f5023264
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2725
+  untracked_reads_dropped: 2727
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -664,6 +664,7 @@ reads:
 - src/backend/app/domain/interfaces/pest_detection_adapter.py
 - src/backend/app/domain/interfaces/pest_detection_repository.py
 - src/backend/app/domain/interfaces/pest_image_repository.py
+- src/backend/app/domain/interfaces/pest_prototype_store.py
 - src/backend/app/domain/interfaces/phase_repository.py
 - src/backend/app/domain/interfaces/phase_sequence_repository.py
 - src/backend/app/domain/interfaces/plant_diagnosis_repository.py
@@ -673,6 +674,7 @@ reads:
 - src/backend/app/domain/interfaces/planting_run_repository.py
 - src/backend/app/domain/interfaces/post_harvest_repository.py
 - src/backend/app/domain/interfaces/processing_restriction_repository.py
+- src/backend/app/domain/interfaces/reference_contribution_marker.py
 - src/backend/app/domain/interfaces/reference_index_store.py
 - src/backend/app/domain/interfaces/refresh_token_repository.py
 - src/backend/app/domain/interfaces/sensor_repository.py
@@ -861,3 +863,5 @@ reads:
 - src/backend/scripts/
 - src/backend/scripts/__init__.py
 - src/backend/scripts/export_openapi.py
+test_modules: []
+readers: {}

@@ -46,3 +46,5 @@ unrecorded_invocations:
     there is no such image. Besides itself the script reads only the golden outputs under docker/reranker-service/golden/
     (#1763), which this job's own filter docker/reranker-service/** covers (it reads the body cap from `limits` INSIDE the
     image), and scripts/ci/** is in this workflow's on:-level filter; the image's inputs are the derived build context above.
+test_modules: []
+readers: {}

@@ -9,8 +9,8 @@ job: update-release-assets
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
 replay_seconds: 1
 job_spec_sha256: fb788497fc80674eb8c2ed056871164c8ad65c3e971fad292abc77266e3593de
 invocations:
@@ -35,3 +35,5 @@ unrecorded_invocations:
   reason: Runs only on a release tag against the GitHub release of that tag (gh auth, an existing release). Its inputs are
     the two files the recorded `bash -c` step templated from docker-compose.release.yml and .env.example, both in the on:-level
     filter; the script itself is too.
+test_modules: []
+readers: {}

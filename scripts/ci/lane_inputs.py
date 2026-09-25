@@ -1906,13 +1906,20 @@ def stray_readers(
     live = relevance_filter(yaml.safe_load(workflow.read_text()) or {}, committed)
     stray: dict[str, list[str]] = {}
     for module, paths in sorted(readers.items()):
-        for read in (str(entry) for entry in paths or []):
+        for read in sorted({str(entry) for entry in paths or []}):
             if not live.rejects(read):
                 continue
-            for gap in gaps:
-                target_workflow, _, target_job = str(gap["covered_by"]).partition("/")
-                if gap_matches(gap, read) and module not in modules_of.get((target_workflow, target_job), set()):
-                    stray.setdefault(module, []).append(f"{read} (covered_by {gap['covered_by']})")
+            # One entry per read, naming every lane it is owed to (two overlapping gaps are one read).
+            lanes = sorted(
+                {
+                    str(gap["covered_by"])
+                    for gap in gaps
+                    if gap_matches(gap, read)
+                    and module not in modules_of.get(tuple(str(gap["covered_by"]).partition("/")[::2]), set())
+                }
+            )
+            if lanes:
+                stray.setdefault(module, []).append(f"{read} (covered_by {', '.join(lanes)})")
     return [
         f"{name}: test module {module} makes {len(owed)} delegated read(s) but the covering lane does not run it, "
         f"so a change there is judged by no required test of that module — add the module to that lane's "

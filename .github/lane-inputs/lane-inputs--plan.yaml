@@ -9,9 +9,9 @@ job: plan
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 2
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
+replay_seconds: 3
 job_spec_sha256: d9c46d94139e55a1e0d0afd42244547d026ef39df384f7a0791cbc8622fea03c
 invocations:
 - command: python3 scripts/ci/lane_inputs.py plan --github-output /tmp/lane-inputs-scratch/github_output
@@ -80,3 +80,5 @@ reads:
 - .github/lane-inputs/skaffold-verify--verify.yaml
 - scripts/ci/
 - scripts/ci/lane_inputs.py
+test_modules: []
+readers: {}

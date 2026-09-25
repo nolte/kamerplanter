@@ -9,8 +9,8 @@ job: npm-audit-dev
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+measured_on: '2026-09-25'
+measured_at_commit: f363639288d781ebe6c992ea228aeacf4162834e
 replay_seconds: 3
 job_spec_sha256: b37af46f8e47cf65d0a0c9b70ca64d6df022be27dab5cdcae7a4f6340202175c
 invocations:
@@ -36,3 +36,5 @@ reads:
 - src/frontend/package-lock.json
 - src/frontend/package.json
 - tests/security/npm-audit-allowlist.yaml
+test_modules: []
+readers: {}

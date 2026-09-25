@@ -1311,3 +1311,20 @@ class TestTheMergeWritesTheAttribution:
     def test_a_replay_starts_from_no_attribution(self) -> None:
         base = recorder._replay_base(_committed(test_modules=["x"], readers={"x": ["y"]}))
         assert base["test_modules"] == [] and base["readers"] == {}
+
+
+def test_a_read_two_overlapping_gaps_delegate_is_named_once(tmp_path: Path) -> None:
+    """Measured on the first CI recording (run 36094119498): `src/**` and `src/frontend/**` listed each read twice."""
+    (tmp_path / "w.yml").write_text(_ON_PATHS_WORKFLOW)
+    gaps = [
+        {"pattern": "docs/**", "reason": "r" * 50, "covered_by": "g.yml/guards"},
+        {"pattern": "docs/x/**", "reason": "r" * 50, "covered_by": "g.yml/guards"},
+    ]
+    (finding,) = recorder.stray_readers(
+        "w--j.yaml",
+        _committed(accepted_gaps=gaps),
+        {"readers": {"t/test_new.py": ["docs/x/a.md"]}},
+        modules_of={("g.yml", "guards"): set()},
+        workflow_dir=tmp_path,
+    )
+    assert "makes 1 delegated read(s)" in finding and finding.endswith("docs/x/a.md (covered_by g.yml/guards)")
