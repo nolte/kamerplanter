@@ -374,6 +374,20 @@ the request stays open as `partially_completed` and is retried automatically wit
 until it succeeds (see below). While a request is open, you cannot file a second one; a
 second deletion attempt by a platform admin instead resumes the open request at once.
 
+Attachments are deduplicated per tenant by the file's SHA-256 hash (issue #1770): if a
+second member uploads exactly the same file (or you do, in another category), a record
+of its own is created, but the bytes are stored once and referenced by both records. Storage cleanup
+(Phase 0) therefore only deletes the file once no other record still points to it; if a
+record belonging to another member still points to it, the object is kept. The erasure
+request (`erasure_requests`) counts both: `storage_objects_removed` (objects actually
+deleted) and `storage_objects_retained_shared` (objects kept because another member's
+record still holds them). The same numbers are logged by the
+`retention.erasure.storage_hard_delete` line as `deleted` and `retained_shared`, per scope
+and tenant. If the other member deletes their record while your erasure is running, no one
+holds the object once the ArangoDB step has run, so the erasure asks again afterwards and
+removes it. That is counted as `storage_objects_released`, stored with the `completed`
+status; a failure there is logged as `retention.erasure.shared_object_release_failed`.
+
 ??? info "For operators: retries and log levels"
     Every failed attempt is counted on the request (`attempt_count`, `last_attempt_at`),
     and the next attempt waits 1, 2, 4 and then at most 7 days (`next_attempt_at`). The
@@ -641,6 +655,51 @@ are left untouched by the sweep (curation).
     `PEST_DETECTION_ENABLED` or `INFERENCE_SERVICE_ENABLED` plus
     `INFERENCE_SERVICE_URL`, and `INTERNAL_SERVICE_TOKEN`. Details:
     [Setting Up Plant Identification](../deployment/inference-service.md).
+
+---
+
+## Migration v0062: Splitting Shared Attachments Into Owned Records
+
+Before issue #1770, a second upload of the same bytes within a tenant got back the
+**first** uploader's record — even across categories, for example between a
+pest-image contribution and a documentary photo (diary, task, inspection,
+harvest/storage observation, plant gallery). If the first uploader deleted their
+account, the second member's record was hard-deleted or anonymized along with it; if the
+second uploader deleted their account, the erasure never reached their contribution
+because no record belonged to them.
+
+The migration `v0062_split_shared_attachment_ownership` brings existing data as close to
+the new shape as the data allows to reconstruct:
+
+1. **The unique index on `attachments.storage_key` is dropped.** Several uploaders now
+   share one stored file; a non-unique index replaces it.
+2. **Every pest-image contribution gets its own `pest_reference` record**, unless the
+   record it pointed to was already its own: a new record with the deterministic key
+   `pic-<contribution key>` is created over the same stored file, named after the
+   contributor, and the contribution is repointed to it. The original uploader's filename
+   is not carried over.
+3. **A `pest_reference` record that a documentation carrier references** (diary entry,
+   task, inspection, harvest/storage observation, plant gallery) is recategorized into a
+   record of that category — otherwise it would be hard-deleted when the pest-image
+   owner is erased, instead of being anonymized and retained like every other
+   documentary photo.
+
+Run it like any migration via `python -m app.migrations upgrade`; `--dry-run` computes
+every change and logs it (`split_shared_attachment_ownership_dry_run`, with the same
+counters) without writing anything. An interrupted run leaves no inconsistent state: the
+split key is deterministic and written with an `UPSERT`, so a re-run picks up exactly
+where it left off.
+
+!!! danger "Not reversible"
+    Rolling back would re-create exactly the shared ownership this migration removes.
+
+!!! warning "What the migration cannot reconstruct"
+    Two identical **documentary** photos (e.g. two diary uploads of the same file by two
+    members) left only one record and no trace of the second uploader before #1770 — the
+    carrying records (diary, task, …) mostly have no per-photo owner field. Such records
+    are left unchanged; their file is never hard-deleted, because the documentation rule
+    anonymizes and retains it — so nothing is lost. The second uploader's Art. 15 data
+    export, however, will not list a record they never had.
 
 ---
 

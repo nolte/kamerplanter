@@ -291,6 +291,9 @@ Wenn du deinen Account löschst, unterscheidet das System zwischen zwei Foto-Typ
 
 Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzlichen Aufbewahrungspflichten (CanG, PflSchG) unterliegen. Dein Name ist nach der Anonymisierung nicht mehr mit den Fotos verknüpft.
 
+!!! note "Wenn ein anderes Mitglied dieselbe Datei hochgeladen hat"
+    Lädt ein anderes Mitglied deines Gartens exakt dieselbe Datei hoch (identischer Byte-Inhalt), bekommt jede Person einen eigenen Eintrag — gespeichert wird die Datei aber nur einmal und geteilt. Löschst du deinen Account, geht nur dein eigener Eintrag: Die gespeicherte Datei samt Vorschaubildern bleibt erhalten, solange noch mindestens ein Eintrag eines anderen Mitglieds darauf zeigt, und wird erst entfernt, wenn der letzte darauf zeigende Eintrag gelöscht wird. Deine eigenen Einträge erreicht die Account-Löschung dabei immer — unabhängig davon, wer die Datei zuerst hochgeladen hat.
+
 !!! note "Reihenfolge der Löschung"
     Die Storage-Bereinigung (Schritt 0) erfolgt vor der Datenbankbereinigung. Nur so kann das System die Metadaten noch abrufen, die für die Zuordnung Datei ↔ Nutzer nötig sind.
 

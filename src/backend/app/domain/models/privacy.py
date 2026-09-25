@@ -150,6 +150,13 @@ class ErasureRequest(BaseModel):
     #: The same for the contributed pest-recognition prototypes (#1759).
     pest_prototype_binding: str | None = None
     pest_prototypes_removed: int | None = Field(default=None, ge=0)
+    #: Phase 0 hard-delete outcome (#1770): stored objects deleted, and objects
+    #: kept because another member's record still holds the same bytes.
+    storage_objects_removed: int | None = Field(default=None, ge=0)
+    storage_objects_retained_shared: int | None = Field(default=None, ge=0)
+    #: Of those kept, objects no record held any more after the ArangoDB plan,
+    #: released then (#1770); recorded with ``completed``.
+    storage_objects_released: int | None = Field(default=None, ge=0)
     #: The subject's personal tenants, resolved (by owner) before the first one
     #: is erased (#1788). Persisted first because the account plan replaces the
     #: owner reference and a deleted tenant cannot be listed again, so a retry
@@ -530,6 +537,14 @@ class AccountErasureReport(BaseModel):
     """
 
     storage_cleanup_scopes: list[str] = Field(default_factory=list)
+    #: Phase 0 hard-delete outcome per record of the subject (#1770): objects
+    #: deleted, and objects kept because a record outside this erasure — another
+    #: member's upload of the same bytes — still holds them.
+    storage_objects_removed: int = 0
+    storage_objects_retained_shared: int = 0
+    #: Objects Phase 0 kept for another member whose record went before the
+    #: ArangoDB plan; released after the plan (#1770).
+    storage_objects_released: int = 0
     reference_index_removed: int = 0
     #: The store Phase 0.5 ran against in *this* call (``"inference_service"`` /
     #: ``"noop"``); ``None`` when it did not run — no store wired, or a retry

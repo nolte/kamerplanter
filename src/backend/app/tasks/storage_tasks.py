@@ -73,7 +73,16 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
     # would stay with nothing pointing at them. Undo them.
     # The record outlives Phase 0 of an Art. 17 erasure (the ArangoDB plan runs
     # after it), so the original's presence is checked too.
-    if repo.get(attachment_id, tenant_key) is None or not await _object_exists(storage, attachment.storage_key):
+    # #1770 — the renditions belong to the *object*, which other uploaders'
+    # records may share: this record being gone discards them only when no
+    # other record holds the object either.
+    if not await _object_exists(storage, attachment.storage_key) or (
+        repo.get(attachment_id, tenant_key) is None
+        and attachment.storage_key
+        not in repo.storage_keys_held_elsewhere(
+            tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[attachment_id]
+        )
+    ):
         for thumb in renditions:
             await storage.delete_object(thumbnail_key(attachment.storage_key, thumb.size))
         logger.info("thumbnails_discarded_after_delete", tenant_key=tenant_key, attachment_id=attachment_id)

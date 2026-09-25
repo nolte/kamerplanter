@@ -263,3 +263,36 @@ def test_the_backend_override_wires_the_api_and_the_worker_identically(vectordb)
     assert envs[0]["INFERENCE_SERVICE_ENABLED"] == "true"
     assert envs[0]["INFERENCE_SERVICE_URL"] == f"http://{vectordb.INFERENCE_ALIAS}:8000"
     assert envs[0]["INTERNAL_SERVICE_TOKEN"] == vectordb.SERVICE_TOKEN
+
+
+# ── #1770: the shared-file observation ──────────────────────────────────────
+
+
+def test_the_shared_file_observation_names_every_member_even_when_nothing_survived():
+    observer = _load("reach/observe_shared_file")
+
+    kept = observer.members(
+        holder_file="holder-file/present",
+        control_file="control-file/deleted",
+        owners=["reach-subject-co-holder"],
+        subject="reach-subject",
+        holder="reach-subject-co-holder",
+    )
+    lost = observer.members(
+        holder_file="holder-file/deleted",
+        control_file="control-file/deleted",
+        owners=[],
+        subject="reach-subject",
+        holder="reach-subject-co-holder",
+    )
+
+    assert kept == ["control-file/deleted", "holder-file/present", "holder-link/present", "subject-link/absent"]
+    # The defect #1770 closes: the co-holder's upload was the subject's record.
+    assert lost == ["control-file/deleted", "holder-file/deleted", "holder-link/absent", "subject-link/absent"]
+
+
+def test_the_shared_file_seed_uploads_distinct_shared_and_control_photos():
+    seed = _load("reach/seed_shared_file")
+
+    assert seed.seed_jpeg(7) != seed.seed_jpeg(11)
+    assert seed.co_holder_key("reach-subject") != "reach-subject"

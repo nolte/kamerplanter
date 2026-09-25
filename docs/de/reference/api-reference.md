@@ -908,7 +908,7 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 | `429` | Tages-Kontingent für Beiträge (`REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY`) ausgeschöpft |
 
 !!! note "Sicherheitsmodell (Quarantäne, Provenienz, Dedup)"
-    Jeder Beitrag wird mit `source="user_contributed"`, `is_active=false` sowie beitragendem Nutzer und Mandant als Provenienz gespeichert — er beeinflusst die Erkennung anderer Mandanten daher nicht, bevor ein Platform-Admin ihn geprüft hat. Ein erneuter Beitrag desselben Fotos (SHA-256-Hash des normalisierten Bilds) aktualisiert den bestehenden Eintrag statt einen weiteren anzulegen. Das Originalbild selbst wird nie persistiert — nur das Embedding.
+    Jeder Beitrag wird mit `source="user_contributed"`, `is_active=false` sowie beitragendem Nutzer und Mandant als Provenienz gespeichert — er beeinflusst die Erkennung anderer Mandanten daher nicht, bevor ein Platform-Admin ihn geprüft hat. Der Dedup-Schlüssel (`source_record_id`) wird aus Mandant, beitragendem Nutzer und dem SHA-256-Hash des normalisierten Bilds gebildet: Reichst du dasselbe Foto erneut ein, aktualisiert das deinen eigenen Eintrag statt einen weiteren anzulegen. Trägt eine andere Person dasselbe Bild bei — auch mandantenübergreifend —, bekommt sie seit Issue #1770 eine eigene Zeile; davor führte ein reiner Bild-Hash als Schlüssel dazu, dass ein solcher Beitrag auf der Zeile der zuerst beitragenden Person landete, wodurch deren Löschung auch den fremden Beitrag entfernte und die Löschung der zweiten Person ins Leere lief. Das Originalbild selbst wird nie persistiert — nur das Embedding.
 
 ### Siehe auch
 

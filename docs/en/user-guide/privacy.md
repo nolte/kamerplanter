@@ -291,6 +291,9 @@ When you delete your account, the system distinguishes between two photo types:
 
 Files are retained because they belong to the plant record and may be subject to statutory retention obligations (CanG, PflSchG). Your name is no longer linked to the photos after anonymization.
 
+!!! note "When another member uploaded the identical file"
+    If another member of your garden uploads exactly the same file (identical byte content), each person gets their own entry — but the file itself is stored once and shared. If you delete your account, only your own entry is affected: the stored file and its preview images remain in place as long as at least one other member's entry still points to them, and are only removed once the last entry pointing to them is deleted. Your own entries are always reached by account deletion — regardless of who uploaded the file first.
+
 !!! note "Order of deletion"
     Storage cleanup (step 0) happens before database cleanup. This is the only way the system can still retrieve the metadata needed to map file to user.
 
