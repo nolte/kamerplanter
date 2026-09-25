@@ -17,13 +17,18 @@ from app.vectordb.repository import VectorChunk
 INITIAL_K = 10
 
 
+def _hybrid_score(position: int) -> float:
+    """An RRF-sized score (``hybrid_search`` scores are at most ~0.016), falling with the position."""
+    return round(0.016 - position * 0.0001, 6)
+
+
 def _chunk(position: int) -> VectorChunk:
     return VectorChunk(
         source_key=f"h{position}",
         source_type="care_rule",
         title=f"T{position}",
         content=f"content {position}",
-        score=1.0 - position / 100,
+        score=_hybrid_score(position),
         metadata={},
         language="de",
     )
@@ -124,3 +129,11 @@ class TestRerankBudget:
 
         assert repo.requested_top_k == [top_k]
         assert _keys(result) == [f"h{i}" for i in range(top_k)]
+
+    def test_the_tail_keeps_its_hybrid_score_and_the_head_carries_the_reranker_score(self, sidecar):
+        """Scores are not invented: the unscored tail keeps its RRF score, far below any citable threshold."""
+        result = _service(_FakeRepo(), RerankerEngine("http://reranker:8081")).search("q", top_k=20)
+
+        # The fake sidecar scores ``T<n>`` as ``n``: the head h9..h0 carries 9.0..0.0.
+        assert [chunk.score for chunk in result[:INITIAL_K]] == [float(i) for i in range(9, -1, -1)]
+        assert [chunk.score for chunk in result[INITIAL_K:]] == [_hybrid_score(i) for i in range(10, 20)]

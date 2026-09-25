@@ -91,6 +91,10 @@ class KnowledgeService:
         if use_reranker and self._reranker is not None:
             head = chunks[: self._reranker_initial_k]
             tail = chunks[self._reranker_initial_k :]
+            # The head carries cross-encoder scores (0..1); the tail keeps its
+            # hybrid RRF score (at most ~0.016). The two are not comparable, and
+            # the tail's is deliberately left below any citable threshold (e.g.
+            # the MCP tool's min_score) — it was never scored, so none is invented.
             chunks = (self._reranker.rerank(query, head, top_k=len(head)) + tail)[:top_k]
         else:
             chunks = chunks[:top_k]

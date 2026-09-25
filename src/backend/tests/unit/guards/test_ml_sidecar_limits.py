@@ -335,13 +335,6 @@ class TestTheCallerIsNeverRefused:
         """Every corpus maximum below is vacuous over an empty glob."""
         assert len(_corpus_chunks()) >= 100, f"only {len(_corpus_chunks())} chunks under {_CORPUS}"
 
-    def test_the_reranker_takes_every_document_the_caller_retrieves(self) -> None:
-        fields = _class_fields(_parse(_KNOWLEDGE_SERVICE / "config.py"), "Settings")
-        initial_k = fields["reranker_initial_k"]
-        assert isinstance(initial_k, ast.Constant) and isinstance(initial_k.value, int)
-
-        assert initial_k.value <= _RERANKER.limits().MAX_DOCUMENTS
-
     def test_the_reranker_takes_every_question_the_caller_accepts(self) -> None:
         tree = _parse(_KNOWLEDGE_SERVICE / "schemas.py")
         longest = max(
@@ -507,41 +500,89 @@ def _settings_default(field: str) -> int:
     return value.value
 
 
+@dataclass(frozen=True)
+class _RerankConfiguration:
+    """One place the knowledge service's rerank settings are decided: the defaults or a deployment file."""
+
+    source: str
+    initial_k: int
+    max_document_chars: int
+
+
+@dataclass(frozen=True)
+class _RerankConfigurations:
+    every: list[_RerankConfiguration]
+    files_setting: list[str]
+    unparsed: list[str]
+
+
+@functools.cache
+def _rerank_configurations() -> _RerankConfigurations:
+    """The Settings defaults plus every deployment file that sets either variable.
+
+    A file setting only one of the two combines with the other's default; a
+    file setting one several times is taken at its largest value.
+    """
+    default_k = _settings_default("reranker_initial_k")
+    default_chars = _settings_default("reranker_max_document_chars")
+    every = [_RerankConfiguration("Settings defaults (src/knowledge-service/app/config.py)", default_k, default_chars)]
+    files_setting: list[str] = []
+    unparsed: list[str] = []
+    for path in _deployment_config_files():
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError, UnicodeDecodeError:
+            continue
+        values, mentions = _budget_settings_in(text)
+        relative = path.relative_to(_REPO_ROOT).as_posix()
+        unparsed.extend(f"{relative} {mention}: not read as a value" for mention in mentions)
+        if not values:
+            continue
+        files_setting.append(relative)
+        every.append(
+            _RerankConfiguration(
+                relative,
+                max(values.get("RERANKER_INITIAL_K", [default_k])),
+                max(values.get("RERANKER_MAX_DOCUMENT_CHARS", [default_chars])),
+            )
+        )
+    return _RerankConfigurations(every, files_setting, unparsed)
+
+
 class TestTheRerankBudgetHolds:
-    def test_the_defaults_fit_the_budget(self) -> None:
+    def test_every_configuration_is_read(self) -> None:
+        """Non-vacuity, and no mention of either variable escapes the reader."""
+        found = _rerank_configurations()
+
+        assert "helm/kamerplanter/values-dev-ki.yaml" in found.files_setting, f"no setting found: {found.files_setting}"
+        assert not found.unparsed, "\n".join(found.unparsed)
+
+    def test_every_configuration_fits_the_budget(self) -> None:
         budget = _config_literal("RERANK_SCORED_CHARS_BUDGET")
-        initial_k = _settings_default("reranker_initial_k")
-        chars = _settings_default("reranker_max_document_chars")
+        problems = [
+            f"{c.source}: {c.initial_k} x {c.max_document_chars} > {budget}"
+            for c in _rerank_configurations().every
+            if c.initial_k * c.max_document_chars > budget
+        ]
 
-        assert initial_k * chars <= budget, f"{initial_k} x {chars} > {budget}: re-measure before raising (#1751)"
-
-    def test_every_deployment_file_fits_the_budget(self) -> None:
-        budget = _config_literal("RERANK_SCORED_CHARS_BUDGET")
-        defaults = {
-            "RERANKER_INITIAL_K": _settings_default("reranker_initial_k"),
-            "RERANKER_MAX_DOCUMENT_CHARS": _settings_default("reranker_max_document_chars"),
-        }
-        setting: dict[str, dict[str, list[int]]] = {}
-        problems: list[str] = []
-        for path in _deployment_config_files():
-            try:
-                text = path.read_text(encoding="utf-8")
-            except OSError, UnicodeDecodeError:
-                continue
-            values, unparsed = _budget_settings_in(text)
-            relative = path.relative_to(_REPO_ROOT).as_posix()
-            problems.extend(f"{relative} {mention}: not read as a value" for mention in unparsed)
-            if not values:
-                continue
-            setting[relative] = values
-            # A file setting only one of the two combines with the other's default.
-            initial_k = max(values.get("RERANKER_INITIAL_K", [defaults["RERANKER_INITIAL_K"]]))
-            chars = max(values.get("RERANKER_MAX_DOCUMENT_CHARS", [defaults["RERANKER_MAX_DOCUMENT_CHARS"]]))
-            if initial_k * chars > budget:
-                problems.append(f"{relative}: {initial_k} x {chars} > {budget}")
-
-        assert "helm/kamerplanter/values-dev-ki.yaml" in setting, f"the reader found no setting: {sorted(setting)}"
         assert not problems, "re-measure before raising the rerank budget (#1751):\n" + "\n".join(problems)
+
+    def test_every_configuration_fits_the_sidecar_request_bounds(self) -> None:
+        """The caller sends ``initial_k`` documents with ``top_k=initial_k`` (service.py, head rerank).
+
+        Past either bound the sidecar answers every rerank 422 and the caller
+        falls back silently (``http_status``) — a budget-conforming
+        configuration such as 60 x 100 would pass the budget alone.
+        """
+        limits = _RERANKER.limits()
+        cap = min(limits.MAX_TOP_K, limits.MAX_DOCUMENTS)
+        problems = [
+            f"{c.source}: initial_k {c.initial_k} > {cap} (min of MAX_TOP_K, MAX_DOCUMENTS)"
+            for c in _rerank_configurations().every
+            if c.initial_k > cap
+        ]
+
+        assert not problems, "the reranker sidecar would refuse every request:\n" + "\n".join(problems)
 
     @pytest.mark.parametrize(
         ("text", "expected"),
