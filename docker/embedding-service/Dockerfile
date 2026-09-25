@@ -277,10 +277,12 @@ LABEL org.opencontainers.image.title="kamerplanter-embedding-service" \
 RUN /usr/local/bin/python3 -m pip uninstall --yes --root-user-action=ignore pip
 
 # `--no-dev` leaves the `build` group out, but huggingface-hub still ships:
-# transformers depends on it. main.py never fetches — AutoTokenizer reads the
-# model directory on disk — and `HF_HUB_OFFLINE=1` turns any future accidental
-# hub call (a `from_pretrained` of a hub id, a stray `snapshot_download`) into
-# an error instead of a silent download of an unpinned model at runtime.
+# `tokenizers` depends on it (uv.lock, #1752 — transformers, which used to pull
+# it in as well, is gone). main.py never fetches — `tokenization.load_tokenizer`
+# reads `tokenizer.json` from the model directory on disk — and
+# `HF_HUB_OFFLINE=1` turns any future accidental hub call (a `from_pretrained`
+# of a hub id, a stray `snapshot_download`) into an error instead of a silent
+# download of an unpinned model at runtime.
 #
 # `PYTHONDONTWRITEBYTECODE=1`: the root filesystem is read-only in the chart
 # and in CI (#1725), and nothing under /app belongs to the serving UID, so
@@ -302,7 +304,7 @@ WORKDIR /app
 # grants the read: the build context's own mode bits would otherwise decide
 # whether UID 1000 can import the code (a checkout under umask 077 would ship
 # 0600 files and a server that cannot start).
-COPY --chmod=0644 main.py limits.py feed.py ./
+COPY --chmod=0644 main.py limits.py feed.py tokenization.py ./
 RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app
 EXPOSE 8080
 # THE HEALTHCHECK ASSERTS READINESS, NOT A SOCKET (#1609).

@@ -9,24 +9,46 @@ name = "kamerplanter-embedding-service"
 version = "1.0.0"
 description = "ONNX multilingual text-embedding service for Kamerplanter's RAG pipeline (ADR-006)"
 requires-python = ">=3.14"
-# Carried over unchanged from the requirements.txt this file replaces; Renovate
-# ages them from here through the lock (`rangeStrategy: update-lockfile`).
+# Renovate ages these from here through the lock (`rangeStrategy:
+# update-lockfile`).
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "onnxruntime>=1.20.0",
-    "transformers>=4.46.0",
+    # The tokenizer is the Rust `tokenizers` library, read straight from the
+    # model's `tokenizer.json` (tokenization.py) — NOT transformers, and that
+    # is #1752, following the reranker's #1480.
+    #
+    # The service called exactly one thing from transformers, `AutoTokenizer`,
+    # whose fast path IS this library; tokenization.py configures the
+    # truncation and padding transformers used to add per call. Measured
+    # 2026-09-25 against transformers 5.17.0 (the version this lock held): the
+    # three e5 models tokenize identically (39 tensors each, 0 differ). For
+    # paraphrase-multilingual-MiniLM-L12-v2 the swap FIXES the image:
+    # transformers 5.17.0 built a WordPiece backend from that export's Unigram
+    # vocabulary and mapped almost every word to `<unk>`; this library (and
+    # transformers 4.57.6's BertTokenizerFast) tokenize it correctly. Details
+    # in `tokenization.load_tokenizer`.
+    #
+    # `sentencepiece` and `protobuf` left with it. sentencepiece was the slow
+    # tokenizer's backend, which `tokenizer.json` never touches; protobuf is
+    # onnxruntime's own dependency and stays in the lock through it, it is just
+    # no longer something this service claims to import.
+    "tokenizers>=0.22.0",
     "numpy",
-    "sentencepiece",
-    "protobuf",
 ]
 
-# The model-download stage's toolchain. A PEP 735 group, so `uv sync` in the
-# runtime stage leaves it out and the shipped image stays free of it.
+# The model-download stage's toolchain. A PEP 735 group, so `uv sync --no-dev`
+# in the runtime stage does not install it FROM HERE — but huggingface-hub
+# still ships: `tokenizers` above depends on it, and it arrives transitively
+# (with hf-xet, httpx, fsspec, filelock). The runtime never calls it; the
+# Dockerfile sets `HF_HUB_OFFLINE=1` so it cannot download anything either.
+# The group is a downloader and nothing else: the download stages only run
+# `huggingface_hub.snapshot_download` of pre-exported ONNX files, so
+# `sentencepiece`, which used to sit here too, was never imported and is gone.
 [dependency-groups]
 build = [
     "huggingface-hub",
-    "sentencepiece",
 ]
 
 [tool.uv]

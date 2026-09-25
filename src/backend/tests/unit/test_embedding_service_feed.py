@@ -5,23 +5,32 @@ every ``POST /embed`` a 500 — the graph declares ``token_type_ids``, the
 XLM-RoBERTa tokenizer never returns it, and the feed was built from the
 tokenizer's output. ``docker/embedding-service/feed.py`` now builds the feed
 from the graph's input names; it imports only numpy, so it is loaded here by
-path and exercised without onnxruntime, transformers or a model.
+path and exercised without onnxruntime, tokenizers or a model.
 
-``main.py`` itself cannot be imported here (onnxruntime and transformers are not
+#1752 — the tokenizer is Rust ``tokenizers`` read from ``tokenizer.json``, no
+longer transformers. ``docker/embedding-service/tokenization.py`` holds the
+pad-token lookup and the truncation/padding configuration; ``tokenizers`` is not
+a backend dependency, so the module is loaded here against a stand-in
+``tokenizers`` module that records how it is configured.
+
+``main.py`` itself cannot be imported here (onnxruntime and tokenizers are not
 backend dependencies), so the wiring — ``_preload`` refuses unfeedable inputs
 and publishes ``_ready`` last, ``/embed`` gates on ``_ready`` and runs the feed
 ``build_feed`` returns — is asserted on its AST.
 
-Traces to #1724 (no TC-ID: sidecar internals are not a user-facing case).
+Traces to #1724 and #1752 (no TC-ID: sidecar internals are not a user-facing case).
 """
 
 from __future__ import annotations
 
 import ast
 import importlib.util
+import json
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import numpy as np
 import pytest
@@ -145,3 +154,141 @@ class TestMainWiring:
         assert len(runs) == 1, "`embed` must run the session exactly once"
         fed = runs[0].args[1]
         assert isinstance(fed, ast.Call) and ast.unparse(fed.func) == "build_feed", ast.unparse(fed)
+
+    def test_preload_loads_the_tokenizer_from_tokenization(self) -> None:
+        """#1752: ``tokenization.load_tokenizer``, not ``AutoTokenizer.from_pretrained``."""
+        assert "load_tokenizer" in _called_names(_function(self._TREE, "_preload"))
+        imported = {
+            node.module if isinstance(node, ast.ImportFrom) else alias.name
+            for node in ast.walk(self._TREE)
+            if isinstance(node, ast.Import | ast.ImportFrom)
+            for alias in node.names
+        }
+        assert "transformers" not in imported, imported
+
+    def test_embed_passes_no_token_type_ids(self) -> None:
+        """The reference pipeline omits them, so ``build_feed`` feeds zeros as before #1752."""
+        keys = {
+            key.value
+            for node in ast.walk(_function(self._TREE, "embed"))
+            if isinstance(node, ast.Dict)
+            for key in node.keys
+            if isinstance(key, ast.Constant)
+        }
+        assert keys >= {"input_ids", "attention_mask"}, keys
+        assert "token_type_ids" not in keys, keys
+
+    def test_every_local_module_main_imports_ships_in_the_image(self) -> None:
+        """An image without ``tokenization.py`` (or ``feed.py``, ``limits.py``) never starts."""
+        local = {
+            node.module
+            for node in self._TREE.body
+            if isinstance(node, ast.ImportFrom) and node.module and (_SERVICE / f"{node.module}.py").is_file()
+        }
+        copies = [
+            line.split()
+            for line in (_SERVICE / "Dockerfile").read_text(encoding="utf-8").splitlines()
+            if line.startswith("COPY ") and "main.py" in line.split()
+        ]
+        assert len(copies) == 1, copies
+        assert {"tokenization", "feed", "limits"} <= local, local
+        assert {f"{module}.py" for module in local} <= set(copies[0]), copies[0]
+
+
+# --------------------------------------------------------------------------
+# tokenization.py (#1752)
+# --------------------------------------------------------------------------
+
+
+class _FakeTokenizer:
+    """Stand-in for ``tokenizers.Tokenizer``: a vocabulary and the calls made on it.
+
+    ``token_to_id`` returns ``None`` for a token outside the vocabulary, as the
+    real one does.
+    """
+
+    VOCAB = {"<s>": 0, "<pad>": 1, "</s>": 2, "<unk>": 3}
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self.truncation: dict[str, Any] | None = None
+        self.padding: dict[str, Any] | None = None
+
+    @classmethod
+    def from_file(cls, path: str) -> _FakeTokenizer:
+        return cls(path)
+
+    def token_to_id(self, token: str) -> int | None:
+        return self.VOCAB.get(token)
+
+    def enable_truncation(self, **kwargs: Any) -> None:
+        self.truncation = kwargs
+
+    def enable_padding(self, **kwargs: Any) -> None:
+        self.padding = kwargs
+
+
+@pytest.fixture
+def tokenization(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
+    """``tokenization.py`` loaded by path against the stand-in ``tokenizers``."""
+    fake = ModuleType("tokenizers")
+    fake.Tokenizer = _FakeTokenizer  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "tokenizers", fake)
+    spec = importlib.util.spec_from_file_location("_embedding_service_tokenization", _SERVICE / "tokenization.py")
+    assert spec is not None and spec.loader is not None, "docker/embedding-service/tokenization.py is not loadable"
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    yield module
+
+
+def _model_dir(tmp_path: Path, config: dict[str, Any]) -> Path:
+    (tmp_path / "tokenizer_config.json").write_text(json.dumps(config), encoding="utf-8")
+    return tmp_path
+
+
+class TestPadToken:
+    def test_a_plain_string_is_read(self, tokenization: ModuleType, tmp_path: Path) -> None:
+        """The spelling all four pinned revisions use."""
+        assert tokenization.pad_token(_model_dir(tmp_path, {"pad_token": "<pad>"})) == "<pad>"
+
+    def test_the_added_token_dict_form_is_read(self, tokenization: ModuleType, tmp_path: Path) -> None:
+        config = {"pad_token": {"content": "<pad>", "lstrip": False, "normalized": True, "special": True}}
+        assert tokenization.pad_token(_model_dir(tmp_path, config)) == "<pad>"
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            pytest.param({}, id="missing"),
+            pytest.param({"pad_token": None}, id="null"),
+            pytest.param({"pad_token": ""}, id="empty"),
+            pytest.param({"pad_token": {"content": ""}}, id="empty-dict"),
+            pytest.param({"pad_token": {"lstrip": False}}, id="dict-without-content"),
+        ],
+    )
+    def test_no_usable_pad_token_fails_loud(
+        self, tokenization: ModuleType, tmp_path: Path, config: dict[str, Any]
+    ) -> None:
+        """Never a default: a guessed token that is a real word piece shifts every vector."""
+        with pytest.raises(ValueError, match="declares no pad_token"):
+            tokenization.pad_token(_model_dir(tmp_path, config))
+
+
+class TestLoadTokenizer:
+    def test_truncates_to_512_and_pads_with_the_models_pad_token(
+        self, tokenization: ModuleType, tmp_path: Path
+    ) -> None:
+        """What transformers added per call: ``truncation=True, max_length=512`` and ``padding=True``."""
+        tokenizer = tokenization.load_tokenizer(_model_dir(tmp_path, {"pad_token": "<pad>"}))
+
+        assert tokenizer.path == str(tmp_path / "tokenizer.json")
+        assert tokenization.MAX_LENGTH == 512
+        assert tokenizer.truncation == {"max_length": 512}
+        assert tokenizer.padding == {"pad_id": 1, "pad_token": "<pad>"}
+
+    def test_a_pad_token_outside_the_vocabulary_fails_loud(self, tokenization: ModuleType, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match=r"'\[PAD\]' is not in the vocabulary"):
+            tokenization.load_tokenizer(_model_dir(tmp_path, {"pad_token": "[PAD]"}))
+
+    def test_a_missing_pad_token_fails_loud(self, tokenization: ModuleType, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="declares no pad_token"):
+            tokenization.load_tokenizer(_model_dir(tmp_path, {}))
