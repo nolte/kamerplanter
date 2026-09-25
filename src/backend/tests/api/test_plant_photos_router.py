@@ -100,6 +100,20 @@ class _FakeAttachmentRepo:
                 return a
         return None
 
+    def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):
+        # As the repository answers it (#1770): the uploader's own record only.
+        for a in self._store.values():
+            if (a.tenant_key, a.sha256, a.created_by, a.category) == (tenant_key, sha256, created_by, category):
+                return a
+        return None
+
+    def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):
+        return {
+            a.storage_key
+            for a in self._store.values()
+            if a.tenant_key == tenant_key and a.storage_key in storage_keys and a.key not in excluding
+        }
+
     def sum_bytes_by_tenant(self, tenant_key):
         return sum(a.byte_size for a in self._store.values())
 
