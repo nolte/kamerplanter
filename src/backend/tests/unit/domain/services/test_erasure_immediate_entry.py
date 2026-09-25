@@ -40,7 +40,7 @@ from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import ErasureRequest
 from app.domain.services.privacy_service import PrivacyService
-from tests.support.privacy_doubles import FakeErasureRepo, RecordingErasureExecutor
+from tests.support.privacy_doubles import FakeErasureRepo, FakePersonalTenants, RecordingErasureExecutor
 
 SALT = "s" * 32
 USER = "u-1"
@@ -95,6 +95,7 @@ def _service(
         frontend_url="https://app.test",
         reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=executor,
+        tenant_service=FakePersonalTenants(),
         tombstone_salt=salt,
     )
     return service, recorder

@@ -41,6 +41,7 @@ from app.data_access.vectordb.noop_reference_index_store import NoopReferenceInd
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("privacy_erasure_exif")
 
@@ -153,6 +154,8 @@ def erased(database, tmp_path_factory):
         # #1753 — Phase 0.5 needs a wired store; no contribution is on record here.
         reference_index_store=NoopReferenceIndexStore(),
         erasure_executor=ArangoErasureExecutor(database),
+        # #1788 — the subject's personal tenant goes through the tenant-erasure inventory.
+        tenant_service=tenant_erasure_service(database, SALT),
         tombstone_salt=SALT,
     )
     asyncio.run(service.erase_account(SUBJECT))

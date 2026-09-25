@@ -43,7 +43,8 @@ import {
 } from '@/api/endpoints/adminPlatform';
 import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
-import type { AdminTenant, AdminTenantMember, AdminUser, TenantRole } from '@/api/types';
+import type { AdminTenant, AdminTenantMember, AdminUser, TenantDeleteRequest, TenantRole } from '@/api/types';
+import TenantDeleteDialog from '@/components/tenants/TenantDeleteDialog';
 
 const GRID_2COL = {
   display: 'grid',
@@ -68,7 +69,6 @@ export default function AdminEditTenantPage() {
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   // Members
   const [members, setMembers] = useState<AdminTenantMember[]>([]);
@@ -167,18 +167,14 @@ export default function AdminEditTenantPage() {
     }
   };
 
-  const handleDelete = async () => {
+  // #1791 — the deletion carries its step-up (slug echo + current password);
+  // a refusal is thrown back to the dialog, which shows it and stays open.
+  const handleDelete = async (stepUp: TenantDeleteRequest) => {
     if (!tenant || isPlatform) return;
-    setDeleting(true);
-    try {
-      await deleteAdminTenant(tenant.key);
-      enqueueSnackbar(t('pages.auth.adminTenantDeleted'), { variant: 'success' });
-      navigate('/settings#platform');
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    } finally {
-      setDeleting(false);
-    }
+    await deleteAdminTenant(tenant.key, stepUp);
+    setConfirmDelete(false);
+    enqueueSnackbar(t('pages.auth.adminTenantDeleted'), { variant: 'success' });
+    navigate('/settings#platform');
   };
 
   const handleAddMember = async () => {
@@ -315,24 +311,16 @@ export default function AdminEditTenantPage() {
                 <Typography variant="subtitle2" color="error" gutterBottom>
                   {t('pages.auth.dangerZone')}
                 </Typography>
-                {!confirmDelete ? (
-                  <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-tenant-btn">
-                    {t('pages.auth.adminDeleteTenant')}
-                  </Button>
-                ) : (
-                  <Alert severity="error">
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      {t('pages.auth.adminDeleteTenantConfirm', { name: tenant.name })}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button variant="contained" color="error" size="small" onClick={handleDelete} disabled={deleting}
-                        startIcon={deleting ? <CircularProgress size={14} /> : undefined} data-testid="confirm-delete-tenant-btn">
-                        {t('pages.auth.adminConfirmDelete')}
-                      </Button>
-                      <Button size="small" onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</Button>
-                    </Box>
-                  </Alert>
-                )}
+                <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-tenant-btn">
+                  {t('pages.auth.adminDeleteTenant')}
+                </Button>
+                <TenantDeleteDialog
+                  open={confirmDelete}
+                  tenantName={tenant.name}
+                  tenantSlug={tenant.slug}
+                  onConfirm={handleDelete}
+                  onCancel={() => setConfirmDelete(false)}
+                />
               </>
             )}
           </CardContent>

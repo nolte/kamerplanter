@@ -49,7 +49,7 @@ Diese erhältst du **zusätzlich** zur fachlichen Rolle — keine, eine oder bei
 
 | Zusatzberechtigung | Umfasst | Gedacht für |
 |--------------------|---------|-------------|
-| **Verwaltung** | Mitglieder einladen und entfernen, Rollen ändern, Garteneinstellungen, Parzellen zuordnen, Dienstkonten, Garten löschen | Vorstand, Lehrkraft, Inhaberin |
+| **Verwaltung** | Mitglieder einladen und entfernen, Rollen ändern, Garteneinstellungen, Parzellen zuordnen, Dienstkonten, Garten löschen (nur zusammen mit der Rolle Leitung — Verwaltung allein reicht dafür nicht) | Vorstand, Lehrkraft, Inhaberin |
 | **Technik** | Home Assistant und andere Integrationen anbinden, Sensoren und Aktoren einrichten, Import ausführen, Anreicherungsquellen | Technikwart, betreuender Dienstleister |
 
 Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vorstand verwaltet Mitglieder, ohne die Sensorik anzufassen. Das technikaffine Mitglied bindet Home Assistant an, ohne die Mitgliederliste zu sehen. Und ein Schüler dokumentiert Messwerte, ohne versehentlich ein Beet löschen zu können.
@@ -95,11 +95,13 @@ Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vo
 | Mitglieder einladen, Rollen ändern, entfernen | Nein | Nein | Nein | **Ja** | Nein |
 | Garteneinstellungen ändern | Nein | Nein | Nein | **Ja** | Nein |
 | Standort-Zuweisungen verwalten | Nein | Nein | Nein | **Ja** | Nein |
-| Garten löschen | Nein | Nein | Nein | **Ja** | Nein |
+| Garten löschen§ | Nein | Nein | Nein | Nein | Nein |
 | Mitgliederliste einsehen (Name und Rolle) | Ja | Ja | Ja | — | — |
 | Den Garten selbst verlassen | Ja | Ja | Ja | Ja* | Ja |
 
 *Als einziges Mitglied mit **Verwaltung** kannst du den Garten nicht verlassen, ohne die Berechtigung vorher weiterzugeben — sonst bliebe der Garten ohne jemanden zurück, der noch jemanden einladen könnte.
+
+§Anders als die übrigen Zeilen dieser Tabelle genügt hier keine einzelne Spalte: Den ganzen Garten löschen darf nur, wer **gleichzeitig** die Rolle Leitung und die Zusatzberechtigung Verwaltung hat — eine Leitung ohne Verwaltung nicht, und die Schriftführerin mit Verwaltung aus dem Beispiel oben auch nicht. Ein Dienstkonto darf das nie, selbst mit passender Rolle — ebenso wenig eine Anmeldung mit einem persönlichen API-Schlüssel, auch wenn er zu einem berechtigten Nutzerkonto gehört: Nötig ist eine angemeldete Sitzung. Zusätzlich verlangt das System eine erneute Bestätigung: den Kurznamen des Gartens sowie, sofern das Konto ein lokales Passwort hat, dieses Passwort. <!-- Issue #1791 -->
 
 ‡Anders als die übrigen Zeilen dieser Tabelle ist das Markieren zur KI-Analyse zusätzlich an die **Autorschaft** gebunden: Ein Gärtner darf ausschließlich Einträge markieren, die er selbst verfasst hat. Nur die Rolle Leitung darf auch Einträge anderer Mitglieder markieren. Details unter [Tagebuch](../user-guide/plant-diary.md).
 
