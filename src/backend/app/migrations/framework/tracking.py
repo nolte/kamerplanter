@@ -26,6 +26,7 @@ from arango.exceptions import (
     DocumentRevisionError,
 )
 
+from app.common.log_privacy import loggable_error
 from app.data_access.arango.collections import SCHEMA_MIGRATIONS
 from app.migrations.framework.report import MigrationLockError
 
@@ -105,7 +106,7 @@ def _is_stale(lock_doc: dict[str, Any], now: datetime) -> bool:
     try:
         acquired_at = datetime.fromisoformat(raw)
     except (TypeError, ValueError) as exc:
-        logger.debug("migration_lock_acquired_at_unparseable", value=raw, error=str(exc))
+        logger.debug("migration_lock_acquired_at_unparseable", value=raw, error=loggable_error(exc))
         return True
     if acquired_at.tzinfo is None:
         acquired_at = acquired_at.replace(tzinfo=UTC)
@@ -186,4 +187,4 @@ def release_lock(db: StandardDatabase, owner: str) -> None:
     except (DocumentDeleteError, DocumentRevisionError) as exc:
         # Raced with a concurrent takeover between our read and delete — the
         # lock is no longer ours to free.
-        logger.debug("migration_lock_release_race", error=str(exc))
+        logger.debug("migration_lock_release_race", error=loggable_error(exc))

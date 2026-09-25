@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.5 (Eindeutige Retention-IDs, Umsetzungsstand markiert, #1663)
+Version: 1.6 (Anwendungs- und Zugriffsprotokolle §3.4, #1781)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,6 +21,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.6 | 2026-09-25 | **#1781:** §3.4 Anwendungs- und Zugriffsprotokolle ergänzt (L-1 bis L-5): keine Kontoschlüssel, E-Mail-Adressen oder ungekürzten IP-Adressen an Log-Aufrufen der Anwendung (Zugriffsprotokolle und Tracebacks noch offen), gesalzener E-Mail-Digest, Salt-Pflicht auch für den Celery-Worker. Die Aufbewahrungsfrist der Log-Pipeline selbst ist als offene Betreiber-Frage markiert. |
 | 1.5 | 2026-09-23 | **#1663:** Die ID R-19 war doppelt vergeben (Gießdienst-Rotation in §2.1, Promotion-Audit-Log in §2.3). Das Promotion-Audit-Log heißt jetzt **R-24** (R-23 ist im `spec/knowledge/COMPLIANCE-PLAN.md` bereits für RAG-Anfragen vorgesehen); R-19 bleibt die Gießdienst-Rotation, auf die sich `spec/e2e-testcases/TC-NFR-011.md` bezieht. Die Zeilen R-19, R-19a, R-20, R-21 und R-24 sind als nicht implementiert gekennzeichnet — ihre Collections existieren im Code nicht. `quality_assessments` (R-16) wird seit #1663 über das serverseitige `assessed_by_key` anonymisiert; `yield_metrics` (R-16) trägt kein Nutzerfeld. |
 | 1.4 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** R-14 differenziert nach `Location.data_classification` (REQ-002): `OUTDOOR_OPEN` Stufe 2 = 5y, Stufe 3 = 20y (Opt-in); `GREENHOUSE` Stufe 3 = 10y (Opt-in); `INDOOR_*` und `UNKNOWN` weiterhin 5y. Forward-only-Klassifizierungs-Wechsel. Vier neue Settings. R-19a für Saison-Aggregate-Anonymisierung bei User-Löschung. |
 | 1.3 | 2026-04-27 | **ADR-002 (W-006 Promotion-Audit):** R-19 (seit v1.5: R-24) ergänzt — `promotion_audit_log`-Collection mit 5 Jahren Aufbewahrung. Begründung: Bei Sortenrechts-Streitigkeiten relevant; konsistent mit Erntedaten-Retention (R-16). |
@@ -252,7 +253,7 @@ async def hard_delete_soft_deleted_accounts():
         await delete_collection_docs("refresh_tokens", user_key)
         await delete_collection_docs("consent_records", user_key)
         await delete_user(user_key)
-        log.info("retention.hard_delete_account", user_key=user_key)
+        log.info("retention.hard_delete_account", subject=log_subject(user_key))  # §3.4 L-1
 
     return {"deleted_count": len(accounts)}
 ```
@@ -340,6 +341,37 @@ retention_run_errors = Counter(
     ['category']
 )
 ```
+
+### 3.4 Anwendungs- und Zugriffsprotokolle (Log-Pipeline) <!-- #1781 -->
+
+Die Retention-Matrix (§2) regelt Datenbank-Collections und Dateien. Protokollzeilen
+fallen nicht darunter: Was die Anwendung auf `stdout` schreibt, liegt so lange vor, wie
+die Log-Pipeline des Betreibers es aufbewahrt (Container-Runtime, Node-Rotation, ein
+Log-Aggregator wie Loki). Eine Kennung, die dort landet, überdauert deshalb das Konto,
+seine Löschung und den Löschnachweis (R-06). Die Anwendung stellt darum sicher, dass
+ihre Protokolle keine direkte Kennung einer betroffenen Person enthalten:
+
+| ID | Anforderung | Durchsetzung |
+|----|-------------|--------------|
+| L-1 | Keine Protokollzeile nennt den Kontoschlüssel. An seiner Stelle steht `subject=` — ein HMAC-SHA256 über den Schlüssel mit `ERASURE_TOMBSTONE_SALT` und dem Zweck-Label `log-subject` (`sub_…`, zweckgetrennt vom Tombstone-Hash). | Guard `test_privacy_logs_carry_no_plaintext_subject.py`, Selektor: die gesamten Bäume `src/backend/app/` und `src/backend/scripts/` |
+| L-2 | Keine Protokollzeile nennt eine E-Mail-Adresse. An ihrer Stelle steht ein **gesalzener** Digest (`email_sha256=`, HMAC mit demselben Salt, Zweck-Label `log-email`) — ein ungesalzener SHA-256 wäre per Wörterbuch umkehrbar. | derselbe Guard |
+| L-3 | Fehlertexte (`error=`) laufen durch eine Bereinigung: Kontoschlüssel → Referenz, Export-Bundle-Pfade maskiert, E-Mail-Adressen → Digest, Query-Strings aus URLs entfernt. | derselbe Guard (`str(exc)` am Log-Aufruf wird abgelehnt) |
+| L-4 | IP-Adressen erscheinen in Anwendungsprotokollen höchstens in der R-03-Kürzung (IPv4 letztes Oktett `0`, IPv6 `/48`, Feld `ip_prefix=`). Eine Protokollzeile hält damit nie mehr, als die Datenbank nach sieben Tagen behält. **Offen:** Die Zugriffsprotokolle von nginx und uvicorn (volle Client-Adresse, `X-Forwarded-For`, User-Agent, Pfad mit Query-String) sowie Tracebacks (`exc_info`) fallen noch nicht darunter — #1796 (Tokens/API-Schlüssel: #1795). | Guard (IP-Schlüsselwörter an Log-Aufrufen) |
+| L-5 | API **und** Celery-Worker starten in Produktion (`DEBUG=false`) nicht ohne gültigen `ERASURE_TOMBSTONE_SALT` — ohne ihn fiele jede Referenz auf eine Konstante zurück. | `app/main.py::insecure_default_secrets`, `app/tasks/__init__.py` |
+
+**Aufbewahrung der Log-Pipeline — Betreiberpflicht, offen.** Auch pseudonyme Referenzen
+sind personenbezogene Daten (Erwägungsgrund 26 DSGVO), solange der Salt existiert. Die
+Aufbewahrungsdauer der Log-Pipeline MUSS deshalb begrenzt und dokumentiert sein. Sie ist
+eine Infrastruktur-Entscheidung des Betreibers (Kubernetes-Log-Rotation, Loki-Retention,
+Docker-`json-file`-Rotation) und wird von der Anwendung weder gesetzt noch geprüft; das
+Helm-Chart dieses Repositorys betreibt keinen Log-Aggregator.
+
+!!! question "Offene Frage (Betreiber / Datenschutzbeauftragte:r) — #1781"
+    Welche Höchstfrist gilt für die Log-Pipeline? Vorschlag zur Entscheidung: **30 Tage**
+    für Anwendungs- und Zugriffsprotokolle (Fehleranalyse und Sicherheitsvorfälle), mit
+    einer Rotation, die ältere Zeilen löscht statt archiviert. Bis zur Entscheidung gilt
+    die Frist als nicht festgelegt; sie ist im Verzeichnis der Verarbeitungstätigkeiten
+    (Art. 30 DSGVO) nachzutragen.
 
 ---
 

@@ -35,6 +35,7 @@ import structlog
 from arango.database import StandardDatabase
 
 from app.common.enums import PhaseName
+from app.common.log_privacy import loggable_error
 from app.data_access.arango import collections as col
 
 logger = structlog.get_logger()
@@ -64,7 +65,7 @@ def _is_flush(npk_ratio: Any) -> bool:
         return all(float(value) == 0.0 for value in npk_ratio)
     except (TypeError, ValueError) as exc:
         # Malformed npk_ratio — treat as feeding (ripening) rather than guessing a flush.
-        logger.debug("nutrient_phase_harvest_malformed_npk", npk_ratio=npk_ratio, error=str(exc))
+        logger.debug("nutrient_phase_harvest_malformed_npk", npk_ratio=npk_ratio, error=loggable_error(exc))
         return False
 
 

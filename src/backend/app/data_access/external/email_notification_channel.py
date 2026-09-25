@@ -9,6 +9,8 @@ from html import escape
 
 import structlog
 
+from app.common.decoys import email_digest
+from app.common.log_privacy import loggable_error
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import (
@@ -72,16 +74,18 @@ class EmailNotificationChannel(INotificationChannel):
             self._email.send_notification_email(to_email, subject, html_body)
             logger.debug(
                 "email_notification_sent",
-                to=to_email,
+                to_sha256=email_digest(to_email),
                 notification_key=notification.key,
             )
             return ChannelResult(channel_key=self.channel_key, success=True)
         except Exception as exc:
             logger.error(
                 "email_notification_failed",
-                to=to_email,
-                error=str(exc),
-                exc_info=True,
+                to_sha256=email_digest(to_email),
+                error=loggable_error(exc),
+                # No traceback: its last line is the raw text, and an SMTP
+                # refusal names the recipient's address (#1781).
+                error_type=type(exc).__name__,
             )
             return ChannelResult(
                 channel_key=self.channel_key,
@@ -112,16 +116,18 @@ class EmailNotificationChannel(INotificationChannel):
             self._email.send_notification_email(to_email, subject, html_body)
             logger.debug(
                 "email_notification_batch_sent",
-                to=to_email,
+                to_sha256=email_digest(to_email),
                 count=len(notifications),
             )
             return ChannelResult(channel_key=self.channel_key, success=True)
         except Exception as exc:
             logger.error(
                 "email_notification_batch_failed",
-                to=to_email,
-                error=str(exc),
-                exc_info=True,
+                to_sha256=email_digest(to_email),
+                error=loggable_error(exc),
+                # No traceback: its last line is the raw text, and an SMTP
+                # refusal names the recipient's address (#1781).
+                error_type=type(exc).__name__,
             )
             return ChannelResult(
                 channel_key=self.channel_key,

@@ -77,7 +77,7 @@ def _load_templates() -> dict[str, ExplainTemplate]:
     """Load and cache all explain templates keyed by ``id``."""
     templates: dict[str, ExplainTemplate] = {}
     if not _TEMPLATES_DIR.exists():
-        logger.warning("explain_templates_dir_missing", path=str(_TEMPLATES_DIR))
+        logger.warning("explain_templates_dir_missing", path=_TEMPLATES_DIR.as_posix())
         return templates
     for path in sorted(_TEMPLATES_DIR.glob("*.yaml")):
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or []

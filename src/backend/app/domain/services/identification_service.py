@@ -13,6 +13,7 @@ from app.common.exceptions import (
     FeatureNotConfiguredError,
     NotFoundError,
 )
+from app.common.log_privacy import log_subject
 from app.common.tenant_guard import verify_tenant_ownership
 from app.config.settings import settings
 from app.domain.engines.consent_engine import ConsentEngine
@@ -272,7 +273,7 @@ class IdentificationService:
         logger.info(
             "photo_quality_assessment_requested",
             tenant_key=tenant_key,
-            user_key=user_key,
+            subject=log_subject(user_key),
             adapter=adapter.adapter_key,
             external=self._is_external(adapter_key),
         )

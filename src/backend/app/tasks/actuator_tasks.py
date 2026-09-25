@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -33,7 +34,7 @@ def _resolve_location_readings(sensor_repo, ha_client, location_key: str) -> dic
     try:
         sensors = sensor_repo.find_by_location(location_key)
     except Exception as exc:  # noqa: BLE001 — a lookup failure must not abort the loop
-        logger.warning("actuator_sensor_lookup_failed", location=location_key, error=str(exc))
+        logger.warning("actuator_sensor_lookup_failed", location=location_key, error=loggable_error(exc))
         return readings
     if ha_client is None:
         return readings
@@ -79,7 +80,7 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
                 dispatched += 1
         except Exception as exc:  # noqa: BLE001 — isolate a single bad actuator
             errors += 1
-            logger.warning("actuator_evaluation_failed", actuator=actuator.key, error=str(exc))
+            logger.warning("actuator_evaluation_failed", actuator=actuator.key, error=loggable_error(exc))
 
     logger.info("actuator_control_rules_evaluated", evaluated=evaluated, dispatched=dispatched, errors=errors)
     return {"status": "ok", "evaluated": evaluated, "dispatched": dispatched, "errors": errors}

@@ -22,6 +22,7 @@ from collections.abc import Sequence
 import structlog
 from PIL import Image
 
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.calculators.image_preprocessor import strip_exif_and_normalize
 from app.domain.interfaces.pest_media_source import PestMediaSource
@@ -97,7 +98,7 @@ class PestDatasetAcquisitionService:
                 )
             except Exception as exc:
                 rejected_error += 1
-                logger.info("pest_prototype_index_failed", label=taxon.slug, error=str(exc))
+                logger.info("pest_prototype_index_failed", label=taxon.slug, error=loggable_error(exc))
                 continue
             accepted += 1
             manifest.append(
@@ -154,7 +155,7 @@ class PestDatasetAcquisitionService:
                     "pest_source_list_failed",
                     label=taxon.slug,
                     source=getattr(source, "source_key", type(source).__name__),
-                    error=str(exc),
+                    error=loggable_error(exc),
                 )
                 continue
             for candidate in candidates:

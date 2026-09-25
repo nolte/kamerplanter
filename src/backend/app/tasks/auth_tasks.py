@@ -1,8 +1,8 @@
-import ipaddress
 from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.log_privacy import loggable_ip
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -89,20 +89,9 @@ def cleanup_unverified_accounts() -> dict:
     return result
 
 
-def _anonymize_ip(ip_str: str) -> str:
-    """Anonymize IP address: IPv4 → last octet=0, IPv6 → /48 prefix."""
-    try:
-        addr = ipaddress.ip_address(ip_str)
-        if isinstance(addr, ipaddress.IPv4Address):
-            parts = ip_str.split(".")
-            parts[-1] = "0"
-            return ".".join(parts)
-        else:
-            # IPv6: zero out everything after /48 (first 3 groups)
-            net = ipaddress.IPv6Network(f"{ip_str}/48", strict=False)
-            return str(net.network_address)
-    except ValueError:
-        return "0.0.0.0"
+#: NFR-011 R-03 truncation (IPv4 last octet 0, IPv6 /48). One implementation,
+#: shared with the log lines (#1781): a log never holds more than the DB keeps.
+_anonymize_ip = loggable_ip
 
 
 @celery_app.task(name="app.tasks.auth_tasks.anonymize_old_ips")

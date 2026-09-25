@@ -9,3 +9,9 @@ seed_data/substrate_defaults.yaml.
 
 # Default rotation window in years
 DEFAULT_ROTATION_WINDOW_YEARS: int = 3
+
+# NFR-011 §4: the erasure tombstone salt (ERASURE_TOMBSTONE_SALT) must be a
+# high-entropy secret; a value shorter than this is treated as unset/insecure.
+# Read by the API start-up gate (app.main), the worker start-up gate
+# (app.tasks) and the log pseudonyms (app.common.decoys.email_digest).
+MIN_TOMBSTONE_SALT_LENGTH: int = 32

@@ -2,8 +2,10 @@
 
 import structlog
 
+from app.common.decoys import email_digest
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
 from app.common.enums import AdminScope, TenantRole, TenantType
+from app.common.log_privacy import log_subject
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import Membership
@@ -28,7 +30,7 @@ def run_seed_auth() -> None:
 
     existing = user_repo.get_by_email(demo["email"])
     if existing:
-        logger.info("demo_user_exists", email=demo["email"])
+        logger.info("demo_user_exists", email_sha256=email_digest(demo["email"]))
         return
 
     user = User(
@@ -40,7 +42,7 @@ def run_seed_auth() -> None:
     )
     created_user = user_repo.create(user)
     user_key = created_user.key or ""
-    logger.info("demo_user_created", email=demo["email"], key=user_key)
+    logger.info("demo_user_created", email_sha256=email_digest(demo["email"]), subject=log_subject(user_key))
 
     slug = tenant_engine.generate_slug(demo["display_name"])
     tenant = Tenant(
@@ -69,7 +71,7 @@ def run_seed_auth() -> None:
 
     logger.info(
         "demo_seed_complete",
-        email=demo["email"],
+        email_sha256=email_digest(demo["email"]),
         tenant_slug=slug,
     )
 
@@ -115,7 +117,7 @@ def _ensure_platform_admin(
             is_active=True,
         )
         membership_repo.create(membership)
-        logger.info("platform_admin_membership_created", user_key=user_key)
+        logger.info("platform_admin_membership_created", subject=log_subject(user_key))
 
 
 def ensure_platform_admin_for_user(user_key: str) -> None:

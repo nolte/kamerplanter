@@ -31,6 +31,7 @@ import structlog
 from pydantic import BaseModel, Field
 
 from app.common.exceptions import ForbiddenError, NotFoundError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.models.weather import (
     HaSensorMapping,
@@ -332,7 +333,7 @@ class WeatherSourceService:
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
             return WeatherTestResult(reachable=False, error=str(exc))
         except Exception as exc:  # noqa: BLE001 — the test endpoint must never surface a 500
-            logger.warning("weather_source_test_failed", source=entry.source_name, error=str(exc))
+            logger.warning("weather_source_test_failed", source=entry.source_name, error=loggable_error(exc))
             return WeatherTestResult(reachable=False, error=str(exc))
 
         if not reachable:
@@ -347,7 +348,7 @@ class WeatherSourceService:
             except (httpx.HTTPError, httpx.TimeoutException) as exc:
                 return WeatherTestResult(reachable=False, error=str(exc))
             except Exception as exc:  # noqa: BLE001 — preview failure must never surface a 500
-                logger.warning("weather_source_preview_failed", source=entry.source_name, error=str(exc))
+                logger.warning("weather_source_preview_failed", source=entry.source_name, error=loggable_error(exc))
                 return WeatherTestResult(reachable=False, error=str(exc))
         return WeatherTestResult(reachable=True, preview=preview)
 
@@ -368,5 +369,5 @@ class WeatherSourceService:
         try:
             return reader(ha_client)
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
-            logger.warning("ha_weather_entities_failed", error=str(exc))
+            logger.warning("ha_weather_entities_failed", error=loggable_error(exc))
             return []

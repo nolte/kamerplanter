@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
+from app.common.log_privacy import log_subject
 from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
@@ -79,7 +80,7 @@ class NotificationEngine:
         7. Set dedup key in Redis
         """
         log = logger.bind(
-            user_key=user_key,
+            subject=log_subject(user_key),
             tenant_key=tenant_key,
             notification_type=notification.notification_type,
         )

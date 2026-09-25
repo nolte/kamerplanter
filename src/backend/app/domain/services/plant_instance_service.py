@@ -14,6 +14,7 @@ from app.common.enums import (
     TransitionTrigger,
 )
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
@@ -868,7 +869,7 @@ class PlantInstanceService:
                 return
             self._overwintering_materializer.materialize(plant, site)
         except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
-            logger.warning("overwintering_materialize_failed", plant_key=plant.key, error=str(exc))
+            logger.warning("overwintering_materialize_failed", plant_key=plant.key, error=loggable_error(exc))
 
     def _sync_overwintering_on_move(self, plant: PlantInstance, old_site_key: str | None) -> None:
         """Keep the winter profile in sync when a plant changes site (REQ-047 §3.4).
@@ -897,7 +898,7 @@ class PlantInstanceService:
                 # Moved indoors / lost its site: drop an auto-generated profile only.
                 self._overwintering_service.remove_auto_profile_for_plant(plant.key, tenant_key=plant.tenant_key)
         except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
-            logger.warning("overwintering_move_sync_failed", plant_key=plant.key, error=str(exc))
+            logger.warning("overwintering_move_sync_failed", plant_key=plant.key, error=loggable_error(exc))
 
     def _load_plant_location(self, plant: PlantInstance) -> Location | None:
         """Load the plant's :class:`Location` for the frost-exposure resolver (#706).

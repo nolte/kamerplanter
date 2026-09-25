@@ -271,8 +271,7 @@ zuordnen, ohne dass sie eine Person nennen. Mit dem pseudonymisierten Löschungs
 lassen sie sich dagegen nicht verknüpfen.
 
 ??? info "Für Betreiber: das Feld `subject=` in Protokollzeilen"
-    Protokollzeilen auf dem Datenschutz-, Authentifizierungs-, Retention- und
-    Objektspeicher-Pfad tragen ein Feld `subject=` statt einer Kontenkennung oder
+    Protokollzeilen tragen ein Feld `subject=` statt einer Kontenkennung oder
     E-Mail-Adresse. Es enthält eine gesalzene, zweckgetrennte Referenz (`sub_` plus
     16 Hex-Zeichen, ein HMAC aus Kontoschlüssel und `ERASURE_TOMBSTONE_SALT`). Die
     Zeilen desselben Kontos bleiben so miteinander korrelierbar, ohne eine Person zu
@@ -283,7 +282,10 @@ lassen sie sich dagegen nicht verknüpfen.
     Konstante `anon_unavailable` — nie die Kontenkennung im Klartext.
 
     Registrierungs- und E-Mail-Ereignisse protokollieren zusätzlich Felder wie
-    `email_sha256` — einen SHA-256-Digest der E-Mail-Adresse, keine Adresse im Klartext.
+    `email_sha256` — einen gesalzenen Digest der E-Mail-Adresse (HMAC mit
+    `ERASURE_TOMBSTONE_SALT`, 16 Hex-Zeichen), keine Adresse im Klartext. Ein einfacher
+    SHA-256 ließe sich mit einer Adressliste zurückrechnen, der gesalzene Digest ohne den
+    Salt nicht. Ohne gültigen Salt steht dort `unavailable`.
     Objektspeicher-Log-Zeilen (`storage_put_object`, `storage_delete_object` und
     ähnliche) maskieren den Kontoschlüssel in Export-Bundle-Pfaden: Aus
     `privacy/exports/<Kontoschlüssel>/<Export>.json` wird
@@ -292,7 +294,17 @@ lassen sie sich dagegen nicht verknüpfen.
     Fehlertexte in diesen Zeilen (`error=`) sind ebenso bereinigt: Der Kontoschlüssel
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
     die Adresse eines Dritten enthalten kann (abgelehnter E-Mail-Empfänger), steht nur
-    der Fehlertyp (`error_type=`).
+    der Fehlertyp (`error_type=`). E-Mail-Adressen in einem Fehlertext werden zu
+    `<email:…>`-Digests, Query-Strings in URLs (sie können Koordinaten oder API-Schlüssel
+    enthalten) zu `?<redacted>`.
+
+    IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
+    Oktett `0`, IPv6 `/48`), als `ip_prefix=`.
+
+    Wie lange
+    deine Log-Pipeline (Container-Runtime, Loki, `json-file`-Rotation) die Zeilen
+    aufbewahrt, entscheidest du als Betreiber. Setze eine begrenzte Frist und
+    dokumentiere sie (NFR-011 §3.4).
 
     Um eine Protokollzeile einem Konto zuzuordnen, muss ein Betreiber die Referenz mit
     demselben Salt selbst nachrechnen — ein Grep nach dem Kontoschlüssel funktioniert

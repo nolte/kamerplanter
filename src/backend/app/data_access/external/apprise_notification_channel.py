@@ -18,6 +18,7 @@ from functools import partial
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import (
     ChannelResult,
@@ -105,7 +106,7 @@ class AppriseNotificationChannel(INotificationChannel):
         except Exception as exc:
             logger.error(
                 "apprise_notification_failed",
-                error=str(exc),
+                error=loggable_error(exc),
                 exc_info=True,
             )
             return ChannelResult(
@@ -174,7 +175,7 @@ class AppriseNotificationChannel(INotificationChannel):
                 error="Apprise batch notify returned failure",
             )
         except Exception as exc:
-            logger.error("apprise_batch_failed", error=str(exc), exc_info=True)
+            logger.error("apprise_batch_failed", error=loggable_error(exc), exc_info=True)
             return ChannelResult(
                 channel_key=self.channel_key,
                 success=False,

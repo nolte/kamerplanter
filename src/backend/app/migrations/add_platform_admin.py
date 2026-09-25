@@ -11,8 +11,10 @@ import sys
 
 import structlog
 
+from app.common.decoys import email_digest
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
 from app.common.enums import AdminScope, TenantRole, TenantType
+from app.common.log_privacy import log_subject
 from app.config.logging import setup_logging
 from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
@@ -27,7 +29,7 @@ def add_platform_admin(email: str) -> None:
 
     user = user_repo.get_by_email(email)
     if not user:
-        logger.error("user_not_found", email=email)
+        logger.error("user_not_found", email_sha256=email_digest(email))
         print(f"User with email '{email}' not found.")
 
         # List all users to help find the right one
@@ -46,7 +48,7 @@ def add_platform_admin(email: str) -> None:
         return
 
     user_key = user.key or ""
-    logger.info("user_found", email=email, key=user_key)
+    logger.info("user_found", email_sha256=email_digest(email), subject=log_subject(user_key))
 
     # Ensure platform tenant exists
     # Resolved by slug as well as by key, and the order matters. ``_key`` is
@@ -104,7 +106,7 @@ def add_platform_admin(email: str) -> None:
     )
     membership_repo.create(membership)
     print(f"User '{email}' is now a platform admin.")
-    logger.info("platform_admin_added", email=email, user_key=user_key)
+    logger.info("platform_admin_added", email_sha256=email_digest(email), subject=log_subject(user_key))
 
 
 if __name__ == "__main__":

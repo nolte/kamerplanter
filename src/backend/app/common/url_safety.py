@@ -150,7 +150,7 @@ def validate_server_side_url(url: str, *, field: str = "url") -> str:
 
     for address in addresses:
         if _is_blocked_address(address):
-            logger.warning("server_side_url_rejected_ssrf", host=host, address=str(address), field=field)
+            logger.warning("server_side_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "URL resolves to a non-routable address.",
                 details=[
@@ -235,7 +235,7 @@ def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", a
     for address in addresses:
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
         if _is_metadata_or_link_local(address):
-            logger.warning("storage_endpoint_rejected_ssrf", host=host, address=str(address), field=field)
+            logger.warning("storage_endpoint_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Storage endpoint resolves to a blocked address.",
                 details=[
@@ -248,7 +248,7 @@ def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", a
             )
         # Private / loopback — blocked unless the operator opted in.
         if (address.is_private or address.is_loopback) and not allow_private:
-            logger.warning("storage_endpoint_rejected_private", host=host, address=str(address), field=field)
+            logger.warning("storage_endpoint_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Storage endpoint resolves to a private address.",
                 details=[
@@ -328,7 +328,7 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
     for address in addresses:
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
         if _is_metadata_or_link_local(address):
-            logger.warning("ha_url_rejected_ssrf", host=host, address=str(address), field=field)
+            logger.warning("ha_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Home Assistant URL resolves to a blocked address.",
                 details=[
@@ -341,7 +341,7 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
             )
         # Private / loopback — blocked unless the operator opted in.
         if _is_blocked_address(address) and not allow_private:
-            logger.warning("ha_url_rejected_private", host=host, address=str(address), field=field)
+            logger.warning("ha_url_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Home Assistant URL resolves to a private address.",
                 details=[
@@ -420,7 +420,7 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
     for address in addresses:
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
         if _is_metadata_or_link_local(address):
-            logger.warning("inventree_url_rejected_ssrf", host=host, address=str(address), field=field)
+            logger.warning("inventree_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "InvenTree URL resolves to a blocked address.",
                 details=[
@@ -433,7 +433,7 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
             )
         # Private / loopback — blocked unless the operator opted in.
         if _is_blocked_address(address) and not allow_private:
-            logger.warning("inventree_url_rejected_private", host=host, address=str(address), field=field)
+            logger.warning("inventree_url_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "InvenTree URL resolves to a private address.",
                 details=[
@@ -510,7 +510,7 @@ def validate_push_endpoint(endpoint: str) -> str:
 
     for address in addresses:
         if _is_blocked_address(address):
-            logger.warning("pwa_endpoint_rejected_ssrf", host=host, address=str(address))
+            logger.warning("pwa_endpoint_rejected_ssrf", host=host, address=address.compressed)
             raise ValidationError(
                 "Push endpoint resolves to a non-routable address.",
                 details=[

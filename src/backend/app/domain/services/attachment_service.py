@@ -41,6 +41,7 @@ from app.common.exceptions import (
     ValidationError,
     VirusScanRejectedError,
 )
+from app.common.log_privacy import log_subject
 from app.common.url_safety import validate_server_side_url
 from app.config.settings import Settings
 from app.domain.engines.storage.exif_stripper import ExifStripper
@@ -196,7 +197,7 @@ class AttachmentService:
         logger.info(
             "attachment_uploaded",
             tenant_key=tenant_key,
-            user_key=user_key,
+            subject=log_subject(user_key),
             attachment_id=created.key,
             category=category.value,
             byte_size=created.byte_size,

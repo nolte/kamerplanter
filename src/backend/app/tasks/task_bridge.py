@@ -17,6 +17,7 @@ from typing import Any
 import structlog
 
 from app.common.async_bridge import run_async
+from app.common.log_privacy import loggable_error
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -88,10 +89,10 @@ def run_async_task(name: str, **task_kwargs: Any):
                         f"{name}.attempt_failed",
                         attempt=attempt.number,
                         error_type=type(exc).__name__,
-                        error=str(exc),
+                        error=loggable_error(exc),
                     )
                 else:
-                    logger.exception(f"{name}.failed", error=str(exc))
+                    logger.exception(f"{name}.failed", error=loggable_error(exc))
                 raise
 
         return wrapper
