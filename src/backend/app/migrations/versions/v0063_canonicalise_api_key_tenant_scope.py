@@ -113,9 +113,13 @@ class CanonicaliseApiKeyTenantScopeMigration(Migration):
       RETURN {{_key: k._key, user_key: k.user_key, tenant_scope: k.tenant_scope, revoked: k.revoked}}
     """
     _TENANTS_QUERY = f"FOR t IN {col.TENANTS} RETURN {{_key: t._key, slug: t.slug}}"
+    #: ``!= false`` rather than ``== true``: a membership written before the flag
+    #: existed carries none, and the runtime reads it as active (the model
+    #: default; ``membership_repository``). ``== true`` would revoke a key that
+    #: works today (/code-review of #1866).
     _MEMBERSHIPS_QUERY = f"""
     FOR m IN {col.MEMBERSHIPS}
-      FILTER m.is_active == true
+      FILTER m.is_active != false
       RETURN [m.user_key, m.tenant_key]
     """
 

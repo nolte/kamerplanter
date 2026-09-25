@@ -201,6 +201,8 @@ _REFUSED = [
     ("POST", "/api/v1/t/club-a/onboarding/reset"),
     ("PATCH", "/api/v1/t/club-a/onboarding/state"),
     ("DELETE", "/api/v1/t/club-a/favorites/sp1"),
+    # The favourite list is the account's across every tenant (/code-review of #1866).
+    ("GET", "/api/v1/t/club-a/favorites"),
 ]
 
 

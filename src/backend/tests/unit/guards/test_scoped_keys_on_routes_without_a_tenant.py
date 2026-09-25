@@ -217,13 +217,28 @@ def test_an_undecided_route_is_flagged_through_an_include_level_dependency() -> 
     assert _undecided(app) == ([("GET", "/api/v1/me/thing")], 2)
 
 
+#: ``/t/{slug}/`` READS of account-wide data a tenant-scoped key may keep: the
+#: account's own UI settings, which carry no other tenant's data.
+_ACCOUNT_WIDE_READS_ADMITTED: dict[tuple[str, str], str] = {
+    ("GET", "/api/v1/t/{tenant_slug}/dashboard/widgets/catalog"): "the widget catalogue with per-user availability",
+    ("GET", "/api/v1/t/{tenant_slug}/onboarding/state"): "the account's onboarding progress",
+    ("GET", "/api/v1/t/{tenant_slug}/notifications/preferences"): "the account's own delivery settings",
+    ("GET", "/api/v1/t/{tenant_slug}/user-preferences"): "the account's own UI preferences",
+}
+
+
 def _account_wide_tenant_writes(app: Any) -> tuple[list[tuple[str, str]], int]:
-    """``/t/{slug}/`` writes whose handler reads ``ctx.user_key`` and no tenant key, not refusing scoped keys."""
+    """``/t/{slug}/`` routes whose handler reads ``ctx.user_key`` and no tenant key, not refusing scoped keys.
+
+    Writes always; reads unless listed in :data:`_ACCOUNT_WIDE_READS_ADMITTED`
+    (a read of the account's favourites returns keys from every tenant).
+    """
     from app.common import auth
 
     offenders, tenant_writes = [], 0
     for path, route, dependants in _routes(app.routes):
-        methods = sorted(route.methods - {"GET", "HEAD", "OPTIONS"})
+        methods = sorted(route.methods - {"HEAD", "OPTIONS"})
+        methods = [m for m in methods if (m, path) not in _ACCOUNT_WIDE_READS_ADMITTED]
         if "{tenant_slug}" not in path or not methods:
             continue
         tenant_writes += 1
@@ -245,9 +260,9 @@ def test_account_wide_writes_under_a_tenant_refuse_scoped_keys() -> None:
 
     offenders, tenant_writes = _account_wide_tenant_writes(app)
 
-    assert tenant_writes > 150, tenant_writes  # non-vacuity: the walk reaches the /t/ routers
+    assert tenant_writes > 300, tenant_writes  # non-vacuity: the walk reaches the /t/ routers
     assert offenders == [], (
-        "tenant-scoped routes that write the caller's account-wide settings without refusing a "
+        "tenant-scoped routes that write (or read, unlisted) the caller's account-wide data without refusing a "
         f"tenant-scoped API key (#1851): {offenders}"
     )
 

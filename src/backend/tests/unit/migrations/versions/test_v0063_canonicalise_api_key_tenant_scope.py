@@ -71,9 +71,14 @@ class _Collection:
 
 
 class _Db:
-    def __init__(self, keys: dict[str, dict[str, Any]]) -> None:
+    def __init__(self, keys: dict[str, dict[str, Any]], memberships: list[dict[str, Any]] | None = None) -> None:
         self.keys = _Collection(keys)
         self.aql = self
+        self.memberships = (
+            memberships
+            if memberships is not None
+            else [{"user_key": u, "tenant_key": t, "is_active": True} for u, t in sorted(_MEMBERS)]
+        )
 
     def has_collection(self, name: str) -> bool:
         return name in {"api_keys", "tenants", "memberships"}
@@ -92,8 +97,18 @@ class _Db:
             ]
         if q.startswith("FOR t IN tenants"):
             return list(_TENANTS)
-        if q.startswith("FOR m IN memberships") and "m.is_active == true" in q:
-            return [list(pair) for pair in _MEMBERS]
+        if q.startswith("FOR m IN memberships"):
+            # Evaluate the filter the migration wrote against documents in the
+            # three shapes that exist: flag true, flag false, flag absent. The
+            # runtime (``Membership.is_active`` defaults to True; the repository
+            # treats a missing flag as active) admits the absent one too.
+            if "m.is_active != false" in q:
+                admit = lambda doc: doc.get("is_active") is not False  # noqa: E731
+            elif "m.is_active == true" in q:
+                admit = lambda doc: doc.get("is_active") is True  # noqa: E731
+            else:
+                raise AssertionError(f"unexpected membership filter: {q}")
+            return [[d["user_key"], d["tenant_key"]] for d in self.memberships if admit(d)]
         raise AssertionError(f"unexpected query: {q}")
 
 
@@ -132,3 +147,31 @@ def test_dry_run_writes_nothing() -> None:
     assert db.keys.docs == before
     assert report.changed == 0
     assert report.details["rewritten"] == 1
+
+
+def test_a_membership_without_the_flag_counts_as_active_as_at_runtime() -> None:
+    # /code-review of #1866: a legacy membership document carries no ``is_active``;
+    # the runtime reads it as active, so the key works today. The migration must
+    # rewrite its slug scope, not revoke it.
+    db = _Db(
+        {"k": {"user_key": "owner", "tenant_scope": "club-b", "revoked": False}},
+        memberships=[
+            {"user_key": "owner", "tenant_key": "t_b"},
+            {"user_key": "owner", "tenant_key": "t_a", "is_active": False},
+        ],
+    )
+
+    CanonicaliseApiKeyTenantScopeMigration().up(db)  # type: ignore[arg-type]
+
+    assert db.keys.docs["k"] == {"user_key": "owner", "tenant_scope": "t_b", "revoked": False}
+
+
+def test_an_explicitly_inactive_membership_does_not_rescue_the_key() -> None:
+    db = _Db(
+        {"k": {"user_key": "owner", "tenant_scope": "club-a", "revoked": False}},
+        memberships=[{"user_key": "owner", "tenant_key": "t_a", "is_active": False}],
+    )
+
+    CanonicaliseApiKeyTenantScopeMigration().up(db)  # type: ignore[arg-type]
+
+    assert db.keys.docs["k"]["revoked"] is True

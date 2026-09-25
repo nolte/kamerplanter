@@ -39,7 +39,7 @@ def _edge_to_response(edge: dict) -> FavoriteResponse:
     )
 
 
-@router.get("", response_model=list[FavoriteResponse])
+@router.get("", response_model=list[FavoriteResponse], dependencies=[Depends(require_account_principal)])
 def list_favorites(
     type: str | None = Query(default=None, description="Filter by entity type: species, nutrient_plans, fertilizers"),
     ctx: TenantContext = Depends(get_current_tenant),
