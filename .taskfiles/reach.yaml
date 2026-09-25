@@ -104,16 +104,18 @@ tasks:
 
   reach:vectordb:up:
     desc: |
-      Build the pgvector reference index (docker/vectordb) from this working
-      copy, run it without a published port (access via docker exec psql),
-      apply the inference-service's species_embeddings migrations and record
-      the container in .reach/vectordb.json. The backend is not wired to it:
-      get_reference_index_store() has no binding to wire.
+      Build the pgvector reference index (docker/vectordb) and the
+      inference-service from this working copy, run both on the reach stack's
+      network without a published port (the helpers use docker exec psql), let
+      the inference-service apply its species_embeddings migrations, recreate
+      backend-full and celery-worker-full with INFERENCE_SERVICE_ENABLED, the
+      service URL and the shared token (#1753), and record the containers in
+      .reach/vectordb.json. Run after reach:stack:up.
     cmds:
       - python3 scripts/reach/vectordb.py up
 
   reach:vectordb:down:
-    desc: Remove the reference-index container with its data volume and .reach/vectordb.json.
+    desc: Remove the reference-index and inference-service containers, the store's data volume, the backend override and .reach/vectordb.json.
     cmds:
       - python3 scripts/reach/vectordb.py down
 
