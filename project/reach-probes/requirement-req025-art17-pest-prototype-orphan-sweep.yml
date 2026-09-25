@@ -1,0 +1,47 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous issue-sweep strand #1771 (2026-09-24/25), relayed by the orchestrating session — not an
+# interactive batch answer. It records that the targets and the observe argv below run on the
+# operator's machine with their environment, as `task` in this repository does.
+#
+# Expectation from AK-OS-07 (REQ-025 v1.11, #1768) applied to the prototypes orphaned before #1766
+# (#1771); derived_from is develop's commit of that REQ-025 change: after the orphan sweep no user_contributed prototype of a contribution
+# whose document is gone remains — active or deactivated, any tenant — while the live contribution's
+# prototype and the curated control row with an orphan's record id are kept.
+id: requirement-req025-art17-pest-prototype-orphan-sweep
+summary: orphaned, live and curated pest prototypes in pgvector pest_embeddings, after the daily orphan sweep
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: AK-OS-07 (L1235) — its tenant-deletion clause already reaches prototypes whose contribution document is
+    gone; applied to such rows outside a tenant deletion, which no account erasure can reach (#1771)
+tier: T2
+expected:
+  kind: set
+  unit: pgvector pest_embeddings state after the orphan sweep
+  values:
+  - erased/orphans
+  - kept/live
+  - kept/curated
+derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+environment:
+- reach:stack:up
+- reach:vectordb:up
+- reach:seed:privacy-subject
+- reach:seed:pest-orphans
+- reach:sweep:pest-orphans
+teardown:
+- reach:vectordb:down
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_orphan_pest_prototypes.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-25T07:01:18Z'
+  approved_by: nolte
+  observation_digest: 12f73ea58a9f42aefff91007b24fa3db2b969fd4089f663fe80bfd1b393be339

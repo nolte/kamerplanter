@@ -1,5 +1,6 @@
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -41,6 +42,6 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
                     chill_days=plant.chill_days_accumulated,
                 )
         except Exception as e:
-            logger.error("vernalization_error", plant_key=plant.key, error=str(e))
+            logger.error("vernalization_error", plant_key=plant.key, error=loggable_error(e))
 
     return {"cold_day": is_cold, "plants_tracked": updated}

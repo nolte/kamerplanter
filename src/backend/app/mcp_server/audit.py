@@ -16,6 +16,7 @@ from typing import Any
 import structlog
 
 from app.common.enums import McpToolStatus
+from app.common.log_privacy import loggable_error
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
 from app.domain.models.mcp import McpAuditLog
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
@@ -76,4 +77,4 @@ class MCPAuditLogger:
         try:
             self._repo.record(entry)
         except Exception as exc:  # noqa: BLE001 — audit must never break the request
-            logger.warning("mcp_audit_write_failed", tool=tool_name, error=str(exc))
+            logger.warning("mcp_audit_write_failed", tool=tool_name, error=loggable_error(exc))

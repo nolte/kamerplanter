@@ -29,6 +29,7 @@ from functools import partial
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.common.url_safety import is_safe_push_endpoint
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import ChannelResult, Notification
@@ -166,14 +167,14 @@ class PwaNotificationChannel(INotificationChannel):
                         "pwa_notification_failed",
                         endpoint=endpoint,
                         status_code=status_code,
-                        error=str(exc),
+                        error=loggable_error(exc),
                     )
             except Exception as exc:  # noqa: BLE001 — never abort the batch
                 errors.append(f"{endpoint}: {exc}")
                 logger.error(
                     "pwa_notification_error",
                     endpoint=endpoint,
-                    error=str(exc),
+                    error=loggable_error(exc),
                     exc_info=True,
                 )
 

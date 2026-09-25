@@ -5,6 +5,7 @@ import structlog
 from app.common.datetimes import today_utc
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.domain.engines.watering_engine import WateringEngine
@@ -452,7 +453,7 @@ class WateringService:
         try:
             runs = self._run_repo.get_runs_for_plant(plant_key)
         except Exception as exc:  # noqa: BLE001 — never fail volume suggestion on lookup error
-            logger.warning("irrigation_demand_run_lookup_failed", plant_key=plant_key, error=str(exc))
+            logger.warning("irrigation_demand_run_lookup_failed", plant_key=plant_key, error=loggable_error(exc))
             return None
         for run in runs:
             if not run.key:
@@ -507,7 +508,7 @@ class WateringService:
                 "soil_moisture_sensor_lookup_failed",
                 plant_key=plant_key,
                 location_key=slot.location_key,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return None
         moisture_sensors = [

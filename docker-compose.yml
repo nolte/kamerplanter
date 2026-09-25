@@ -166,6 +166,9 @@ services:
       REDIS_URL: ${REDIS_URL}
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
       DEBUG: ${DEBUG}
+      # NFR-011 §4: >= 32 chars; the API refuses to start without it when DEBUG
+      # is false. MUST equal the celery-worker's value.
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
       KAMERPLANTER_MODE: light
       # #777 — optional error tracking. Unset by default: no DSN, no SDK
@@ -216,6 +219,11 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      # #1781 — same DEBUG and salt as the backend: the worker refuses to start
+      # without a >= 32-char ERASURE_TOMBSTONE_SALT when DEBUG is false, like
+      # the API does, and pseudonymises log subjects with the same salt.
+      DEBUG: ${DEBUG}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
       # #777 — optional error tracking. Unset by default: no DSN, no SDK
       # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
       SENTRY_DSN: ${SENTRY_DSN:-}

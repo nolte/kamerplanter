@@ -16,6 +16,7 @@ import httpx
 import structlog
 
 from app.common.datetimes import today_utc
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import WeatherForecast
@@ -206,6 +207,6 @@ class DwdWeatherAdapter(WeatherAdapter):
         try:
             records = await self.fetch_daily(latitude=_HEALTH_LAT, longitude=_HEALTH_LON)
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
-            logger.warning("dwd_health_check_failed", error=str(exc))
+            logger.warning("dwd_health_check_failed", error=loggable_error(exc))
             return False
         return bool(records)

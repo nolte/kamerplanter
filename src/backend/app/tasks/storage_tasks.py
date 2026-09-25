@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
@@ -107,7 +108,7 @@ def generate_thumbnails(self, attachment_id: str, tenant_key: str) -> dict:  # t
             "generate_thumbnails_failed",
             attachment_id=attachment_id,
             tenant_key=tenant_key,
-            error=str(exc),
+            error=loggable_error(exc),
         )
         raise self.retry(exc=exc) from exc
 
@@ -159,7 +160,7 @@ def migrate_storage(  # type: ignore[no-untyped-def]
             "storage_migrate_failed",
             backend_from=backend_from,
             backend_to=backend_to,
-            error=str(exc),
+            error=loggable_error(exc),
         )
         raise self.retry(exc=exc) from exc
 
@@ -187,7 +188,7 @@ def migrate_photo_refs(self, *, dry_run: bool = True) -> dict:  # type: ignore[n
     try:
         report = run(dry_run=dry_run)
     except Exception as exc:  # noqa: BLE001 — retry on transient DB errors
-        logger.error("migrate_photo_refs_failed", error=str(exc))
+        logger.error("migrate_photo_refs_failed", error=loggable_error(exc))
         raise self.retry(exc=exc) from exc
 
     result = report.as_dict()
@@ -235,7 +236,7 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
                 "orphan_photo_delete_failed",
                 attachment_id=attachment.key,
                 tenant_key=attachment.tenant_key,
-                error=str(exc),
+                error=loggable_error(exc),
             )
     return {
         "found": len(orphans),
@@ -283,7 +284,7 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
     try:
         result = asyncio.run(_cleanup_orphaned_task_photos(hours, limit))
     except Exception as exc:  # noqa: BLE001 — retry on any transient failure
-        logger.error("cleanup_orphaned_task_photos_failed", error=str(exc))
+        logger.error("cleanup_orphaned_task_photos_failed", error=loggable_error(exc))
         raise self.retry(exc=exc) from exc
 
     logger.info("cleanup_orphaned_task_photos_audit", **result)

@@ -12,6 +12,7 @@ duplicates side effects.
 import structlog
 
 from app.common.enums import OVERWINTERING_SITE_TYPES
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -53,7 +54,7 @@ def evaluate_season_states(self) -> dict:  # noqa: ANN001 — Celery bound-task 
             site = Site(**doc)
             state, changed = service.evaluate_site_detailed(site)
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
-            logger.warning("season_evaluate_site_failed", site_key=doc.get("_key"), error=str(exc))
+            logger.warning("season_evaluate_site_failed", site_key=doc.get("_key"), error=loggable_error(exc))
             errors += 1
             continue
         if state is None:
@@ -101,7 +102,7 @@ def evaluate_quarter_climate(self) -> dict:  # noqa: ANN001 — Celery bound-tas
             if service.evaluate_plant(plant.key) is not None:
                 warnings += 1
         except Exception as exc:  # noqa: BLE001 — one bad plant must not abort the run
-            logger.warning("quarter_climate_evaluate_failed", plant_key=plant.key, error=str(exc))
+            logger.warning("quarter_climate_evaluate_failed", plant_key=plant.key, error=loggable_error(exc))
             errors += 1
 
     logger.info("quarter_climate_evaluate_complete", evaluated=evaluated, warnings=warnings, errors=errors)

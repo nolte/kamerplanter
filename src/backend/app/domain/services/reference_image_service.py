@@ -21,6 +21,7 @@ from PIL import Image, UnidentifiedImageError
 
 from app.common.datetimes import now_utc
 from app.common.exceptions import ValidationError
+from app.common.log_privacy import log_subject, loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.reference_image import (
@@ -88,7 +89,7 @@ class ReferenceImageService:
                     license=result.representative_license,
                 )
             except Exception as exc:  # noqa: BLE001 — indexing succeeded; thumbnail is best-effort
-                logger.info("reference_set_representative_failed", species_key=species_key, error=str(exc))
+                logger.info("reference_set_representative_failed", species_key=species_key, error=loggable_error(exc))
 
         return self._persist(result)
 
@@ -111,13 +112,13 @@ class ReferenceImageService:
             else:
                 logger.info("reference_acquire_no_taxon", scientific_name=scientific_name)
         except Exception as exc:  # noqa: BLE001 — one source must not abort the run
-            logger.info("reference_gbif_failed", scientific_name=scientific_name, error=str(exc))
+            logger.info("reference_gbif_failed", scientific_name=scientific_name, error=loggable_error(exc))
 
         if self._wikimedia is not None:
             try:
                 candidates.extend(self._wikimedia.list_media(scientific_name, limit=limit))
             except Exception as exc:  # noqa: BLE001
-                logger.info("reference_wikimedia_failed", scientific_name=scientific_name, error=str(exc))
+                logger.info("reference_wikimedia_failed", scientific_name=scientific_name, error=loggable_error(exc))
 
         seen: set[str] = set()
         deduped: list[MediaCandidate] = []
@@ -148,7 +149,7 @@ class ReferenceImageService:
         try:
             image_data = self._download(candidate)
         except Exception as exc:  # noqa: BLE001 — one bad image must not abort the run
-            logger.info("reference_download_failed", url=candidate.url, error=str(exc))
+            logger.info("reference_download_failed", url=candidate.url, error=loggable_error(exc))
             result.rejected_error += 1
             return
 
@@ -171,7 +172,7 @@ class ReferenceImageService:
                 embedding=embedding,
             )
         except Exception as exc:  # noqa: BLE001 — keep acquiring the rest
-            logger.info("reference_embed_failed", url=candidate.url, error=str(exc))
+            logger.info("reference_embed_failed", url=candidate.url, error=loggable_error(exc))
             result.rejected_error += 1
             return
 
@@ -275,7 +276,7 @@ class ReferenceImageService:
             "reference_user_contribution_quarantined",
             species_key=species_key,
             tenant_key=tenant_key,
-            contributed_by=user_key,
+            contributed_by=log_subject(user_key),
             dim=response.get("dim"),
         )
         return {

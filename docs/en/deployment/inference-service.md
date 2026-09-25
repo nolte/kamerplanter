@@ -274,6 +274,7 @@ These endpoints are only reachable within the cluster and are not exposed via th
 | `POST` | `/reference/contributions/erase-by-tenant` | Tenant deletion: removes every reference vector contributed by a tenant (`source = user_contributed`). Called by the backend during tenant deletion. |
 | `POST` | `/pest/reference/contributions/erase` | GDPR erasure (Art. 17, issue #1759): removes the given contributed pest-recognition vectors (`source = user_contributed`) by their contribution keys — regardless of whether the contribution was promoted or demoted. Called by the celery-worker and when a single own pest photo is deleted. |
 | `POST` | `/pest/reference/contributions/erase-by-tenant` | Tenant deletion (issue #1759): removes every pest-recognition vector contributed by a tenant (`source = user_contributed`). Called by the backend during tenant deletion. |
+| `POST` | `/pest/reference/contributions/keys` | Orphan-prototype sweep (issue #1771): returns one page of the contribution keys held in the index (`source = user_contributed`), ascending, cursor in the body (`after`, `limit` 1–1000, default 1000) rather than the URL. Called by the celery-worker to find keys without a matching `pest_image_contributions` document — see [Sweep: Orphaned Pest-Recognition Prototypes](../guides/data-retention.md). |
 | `GET` | `/health` | Liveness probe |
 | `GET` | `/ready` | Readiness probe (model loaded?) |
 | `GET` | `/modelinfo` | Model name, dimensions, input size, licence, checksum |
@@ -313,6 +314,9 @@ Like every non-probe endpoint, all four erasure endpoints require the shared `IN
 
 ??? question "An account or tenant deletion is stuck even though INFERENCE_SERVICE_ENABLED is set"
     Check whether the variable is set identically on **both** processes: backend AND celery-worker. A deletion affected by contributed reference vectors stays open as a configuration error (`partially_completed`), or a tenant deletion answers with HTTP 503, as long as the celery-worker is missing the variable (issue #1753). The same applies to contributed pest-recognition vectors when the celery-worker is missing both `PEST_DETECTION_ENABLED` and `INFERENCE_SERVICE_ENABLED` (issue #1759). Once you add it, the deletion runs automatically on the next daily run.
+
+??? question "A pest-photo contribution deleted before issue #1766 still has a prototype in the index — how is it removed?"
+    A daily sweep (`pest_image.sweep_orphaned_prototypes`, 04:30 UTC) finds and deletes such orphaned prototypes automatically. Details, log events, and the manual trigger command: [Sweep: Orphaned Pest-Recognition Prototypes](../guides/data-retention.md).
 
 ---
 

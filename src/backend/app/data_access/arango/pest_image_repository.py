@@ -80,6 +80,16 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PestImageContribution(**self._from_doc(doc)) for doc in cursor]
 
+    def existing_keys(self, keys: list[str]) -> set[str]:
+        if not keys:
+            return set()
+        # Primary-index lookup; returns keys only, never a document.
+        cursor = self._db.aql.execute(
+            "FOR c IN @@col FILTER c._key IN @keys RETURN c._key",
+            bind_vars={"@col": col.PEST_IMAGE_CONTRIBUTIONS, "keys": list(keys)},
+        )
+        return set(cursor)
+
     def list_all_for_pest(self, pest_key: str) -> list[PestImageContribution]:
         query = """
         FOR c IN @@collection

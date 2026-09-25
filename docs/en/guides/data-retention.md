@@ -258,8 +258,7 @@ reference instead, so the lines of one erasure can be linked to each other witho
 naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
 
 ??? info "For operators: the `subject=` field in log lines"
-    Log lines on the privacy, authentication, retention and object-storage paths carry a
-    `subject=` field instead of an account key or email address. It holds a salted,
+    Log lines carry a `subject=` field instead of an account key or email address. It holds a salted,
     purpose-separated reference (`sub_` followed by 16 hex characters, an HMAC of the
     account key keyed with `ERASURE_TOMBSTONE_SALT`). The lines of one account stay
     correlatable with each other without naming anyone. The reference is deliberately
@@ -269,7 +268,10 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     constant `anon_unavailable` instead — never the account key in the clear.
 
     Registration and email events additionally log fields such as `email_sha256` — a
-    SHA-256 digest of the email address, never the address itself. Object-storage log
+    keyed digest of the email address (an HMAC with `ERASURE_TOMBSTONE_SALT`, 16 hex
+    characters), never the address itself. A plain SHA-256 could be reversed with a
+    list of addresses; the keyed digest cannot without the salt. Without a valid salt
+    the field reads `unavailable`. Object-storage log
     lines (`storage_put_object`, `storage_delete_object`, and similar) mask the account
     segment of export-bundle keys: `privacy/exports/<account key>/<export>.json` becomes
     `privacy/exports/<subject>/<export>.json`.
@@ -277,7 +279,16 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     Error texts in these lines (`error=`) are cleaned the same way: the account key is
     replaced by the reference, and export-bundle paths are masked. Where an error text can
     contain a third party's address (a rejected email recipient), only the error type is
-    logged (`error_type=`).
+    logged (`error_type=`). Email addresses inside an error text become
+    `<email:…>` digests, and URL query strings (which can hold coordinates or API keys)
+    become `?<redacted>`.
+
+    IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
+    `0`, IPv6 `/48`), as `ip_prefix=`.
+
+    How long your log
+    pipeline (container runtime, Loki, `json-file` rotation) keeps the lines is your
+    decision as operator — set a bounded retention and record it (NFR-011 §3.4).
 
     To attribute a log line to an account, an operator must compute the reference with
     the same salt themselves — grepping for the account key does not work.
@@ -476,6 +487,61 @@ flowchart TD
 | Gardens you created | Replace the owner reference; for your personal garden also its name and short name |
 | Erasure audit | Replace the account reference with the tombstone hash, keep for 1 year |
 | Memberships, location assignments, sessions, API keys, consents, export requests, favorites, pest detections, own pest photos, AI conversations, notifications, calendar feeds, diagnosis requests, accepted invitations | Delete |
+
+---
+
+## Sweep: Orphaned Pest-Recognition Prototypes
+
+Before issue #1766, deleting a pest-photo contribution left its recognition
+prototype behind in the inference service's reference index
+(`pest_embeddings`, `source = user_contributed`). Such rows name no user —
+the Art. 17 account erasure finds prototypes only through a user's
+contribution documents and therefore cannot reach them; only a tenant
+deletion removed them along the way.
+
+The Celery task `pest_image.sweep_orphaned_prototypes` (beat entry
+`retention-sweep-orphaned-pest-prototypes-daily`, **daily at 04:30 UTC**,
+after the scheduled erasures at 04:00 UTC) closes this gap:
+
+1. It pages through the contribution keys the index holds
+   (`POST /pest/reference/contributions/keys` on the inference service).
+2. It checks in ArangoDB which of those keys still have a
+   `pest_image_contributions` document.
+3. It deletes the prototypes of the others — active and deactivated rows
+   alike — in batches of 500 through the same
+   `POST /pest/reference/contributions/erase` endpoint the Art. 17 erasure
+   uses.
+
+**Idempotent:** a second run finds no orphan left and removes nothing.
+**Fails loud:** if the inference service is unreachable, the task fails (log
+event `pest_prototype_orphan_sweep_failed`), nothing is recorded, and the
+next beat run retries. A celery-worker missing both
+`PEST_DETECTION_ENABLED`/`INFERENCE_SERVICE_ENABLED`, once a pest-photo
+contribution has ever been promoted into the recognition base, refuses the
+run just like the scheduled erasure does (issue #1759). Without those flags
+and without that promotion marker the task reports `skipped` (log event
+`pest_prototype_orphan_sweep_skipped`) and records **no** run — it never saw
+the index.
+
+Each run's counts are recorded in the `system_settings` singleton document
+under `pest_prototype_orphan_sweep` (`first_run_at`, `last_run_at`,
+`last_examined`, `last_orphaned`, `last_removed`, `total_removed`,
+`binding`) and as the log event `pest_prototype_orphan_sweep_completed`
+(`examined`/`orphaned`/`removed`/`binding`) — both name counts only, never a
+key.
+
+Deactivated (demoted) prototypes whose contribution document still exists
+are left untouched by the sweep (curation).
+
+??? question "How do I trigger the sweep immediately instead of waiting for 04:30 UTC?"
+    ```bash
+    kubectl exec deploy/<release>-celery-worker -- \
+      celery -A app.tasks call pest_image.sweep_orphaned_prototypes
+    ```
+    The worker needs the same flags as the scheduled erasure:
+    `PEST_DETECTION_ENABLED` or `INFERENCE_SERVICE_ENABLED` plus
+    `INFERENCE_SERVICE_URL`, and `INTERNAL_SERVICE_TOKEN`. Details:
+    [Setting Up Plant Identification](../deployment/inference-service.md).
 
 ---
 

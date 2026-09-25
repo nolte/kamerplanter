@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -107,7 +108,7 @@ def evaluate_forecast_frost_warnings(self) -> dict:  # noqa: ANN001 — Celery b
             else:
                 skipped += 1
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
-            logger.warning("frost_forecast_site_failed", site_key=config.site_key, error=str(exc))
+            logger.warning("frost_forecast_site_failed", site_key=config.site_key, error=loggable_error(exc))
             errors.append({"site_key": config.site_key, "error": str(exc)})
             continue
 

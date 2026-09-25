@@ -18,6 +18,7 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.common.log_privacy import loggable_ip
 from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.external.device_pairing_throttle import DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
@@ -1156,7 +1157,7 @@ class AuthService:
         logger.info(
             "device_pairing_created",
             subject=self._log_subject(user_key),
-            ip_address=ip_address,
+            ip_prefix=loggable_ip(ip_address),
             # Never the code, not even a prefix of it — see ``_code_fingerprint``.
             code_sha256=_code_fingerprint(code),
             expires_at=expires_at.isoformat(),
@@ -1231,7 +1232,7 @@ class AuthService:
             logger.info(
                 "device_pairing_redeem_failed",
                 reason="locked_out",
-                ip_address=ip_address,
+                ip_prefix=loggable_ip(ip_address),
                 failed_attempts=failed_attempts,
                 retry_after_minutes=minutes,
             )
@@ -1250,7 +1251,7 @@ class AuthService:
             logger.info(
                 "device_pairing_redeem_failed",
                 reason="not_redeemable",
-                ip_address=ip_address,
+                ip_prefix=loggable_ip(ip_address),
                 code_sha256=_code_fingerprint(code),
                 failed_attempts=failed_attempts,
             )
@@ -1270,7 +1271,7 @@ class AuthService:
         logger.info(
             "device_pairing_redeemed",
             subject=self._log_subject(record.user_key),
-            ip_address=ip_address,
+            ip_prefix=loggable_ip(ip_address),
             code_sha256=_code_fingerprint(code),
             issued_at=record.issued_at.isoformat(),
             device_name_supplied=device_name is not None,

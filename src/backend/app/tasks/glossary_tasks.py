@@ -24,6 +24,7 @@ import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
 from app.common.dependencies import get_glossary_service
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.glossary_repository import ArangoGlossaryTermCacheRepository
@@ -195,7 +196,9 @@ def warm_glossary_cache() -> dict:
                 except Exception as exc:  # noqa: BLE001 — one term must not abort the run
                     errors += 1
                     consecutive += 1
-                    logger.warning("glossary_warm_cache_term_failed", slug=slug, language=language, error=str(exc))
+                    logger.warning(
+                        "glossary_warm_cache_term_failed", slug=slug, language=language, error=loggable_error(exc)
+                    )
                     if consecutive >= _MAX_CONSECUTIVE_FAILURES:
                         logger.warning(
                             "glossary_warm_cache_aborted",

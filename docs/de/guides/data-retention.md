@@ -271,8 +271,7 @@ zuordnen, ohne dass sie eine Person nennen. Mit dem pseudonymisierten Löschungs
 lassen sie sich dagegen nicht verknüpfen.
 
 ??? info "Für Betreiber: das Feld `subject=` in Protokollzeilen"
-    Protokollzeilen auf dem Datenschutz-, Authentifizierungs-, Retention- und
-    Objektspeicher-Pfad tragen ein Feld `subject=` statt einer Kontenkennung oder
+    Protokollzeilen tragen ein Feld `subject=` statt einer Kontenkennung oder
     E-Mail-Adresse. Es enthält eine gesalzene, zweckgetrennte Referenz (`sub_` plus
     16 Hex-Zeichen, ein HMAC aus Kontoschlüssel und `ERASURE_TOMBSTONE_SALT`). Die
     Zeilen desselben Kontos bleiben so miteinander korrelierbar, ohne eine Person zu
@@ -283,7 +282,10 @@ lassen sie sich dagegen nicht verknüpfen.
     Konstante `anon_unavailable` — nie die Kontenkennung im Klartext.
 
     Registrierungs- und E-Mail-Ereignisse protokollieren zusätzlich Felder wie
-    `email_sha256` — einen SHA-256-Digest der E-Mail-Adresse, keine Adresse im Klartext.
+    `email_sha256` — einen gesalzenen Digest der E-Mail-Adresse (HMAC mit
+    `ERASURE_TOMBSTONE_SALT`, 16 Hex-Zeichen), keine Adresse im Klartext. Ein einfacher
+    SHA-256 ließe sich mit einer Adressliste zurückrechnen, der gesalzene Digest ohne den
+    Salt nicht. Ohne gültigen Salt steht dort `unavailable`.
     Objektspeicher-Log-Zeilen (`storage_put_object`, `storage_delete_object` und
     ähnliche) maskieren den Kontoschlüssel in Export-Bundle-Pfaden: Aus
     `privacy/exports/<Kontoschlüssel>/<Export>.json` wird
@@ -292,7 +294,17 @@ lassen sie sich dagegen nicht verknüpfen.
     Fehlertexte in diesen Zeilen (`error=`) sind ebenso bereinigt: Der Kontoschlüssel
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
     die Adresse eines Dritten enthalten kann (abgelehnter E-Mail-Empfänger), steht nur
-    der Fehlertyp (`error_type=`).
+    der Fehlertyp (`error_type=`). E-Mail-Adressen in einem Fehlertext werden zu
+    `<email:…>`-Digests, Query-Strings in URLs (sie können Koordinaten oder API-Schlüssel
+    enthalten) zu `?<redacted>`.
+
+    IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
+    Oktett `0`, IPv6 `/48`), als `ip_prefix=`.
+
+    Wie lange
+    deine Log-Pipeline (Container-Runtime, Loki, `json-file`-Rotation) die Zeilen
+    aufbewahrt, entscheidest du als Betreiber. Setze eine begrenzte Frist und
+    dokumentiere sie (NFR-011 §3.4).
 
     Um eine Protokollzeile einem Konto zuzuordnen, muss ein Betreiber die Referenz mit
     demselben Salt selbst nachrechnen — ein Grep nach dem Kontoschlüssel funktioniert
@@ -499,6 +511,61 @@ flowchart TD
 | Gärten, die du angelegt hast | Besitzer-Referenz ersetzen; beim persönlichen Garten auch Name und Kurzname |
 | Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |
 | Mitgliedschaften, Standort-Zuweisungen, Sitzungen, API-Schlüssel, Einwilligungen, Export-Anträge, Favoriten, Schädlingserkennungen, eigene Schädlingsfotos, KI-Gespräche, Benachrichtigungen, Kalender-Feeds, Diagnose-Anfragen, angenommene Einladungen | Löschen |
+
+---
+
+## Aufräumlauf: verwaiste Schädlingsbild-Prototypen
+
+Vor Issue #1766 hinterließ das Löschen eines Schädlingsfoto-Beitrags dessen
+Erkennungs-Prototyp im Referenz-Index des Inferenz-Service
+(`pest_embeddings`, `source = user_contributed`). Solche Zeilen nennen keinen
+Nutzer — die Art.-17-Kontolöschung findet Prototypen nur über die
+Beitrags-Dokumente eines Nutzers und erreicht sie deshalb nicht; nur eine
+Mandantenlöschung entfernte sie mit.
+
+Der Celery-Task `pest_image.sweep_orphaned_prototypes` (Beat-Eintrag
+`retention-sweep-orphaned-pest-prototypes-daily`, **täglich 04:30 UTC**, nach
+den planmäßigen Löschungen um 04:00 UTC) schließt diese Lücke:
+
+1. Er blättert über die Beitrags-Schlüssel, die der Index kennt
+   (`POST /pest/reference/contributions/keys` am Inferenz-Service).
+2. Er prüft in ArangoDB, für welche dieser Schlüssel noch ein
+   `pest_image_contributions`-Dokument existiert.
+3. Er löscht die Prototypen der übrigen Schlüssel — aktive und deaktivierte
+   gleichermaßen — in Batches von 500 über denselben
+   `POST /pest/reference/contributions/erase`-Endpunkt, den auch die
+   Art.-17-Löschung nutzt.
+
+**Idempotent:** Ein zweiter Lauf findet keine Waise mehr und entfernt nichts.
+**Scheitert laut:** Ist der Inferenz-Service nicht erreichbar, schlägt der
+Task fehl (Log-Ereignis `pest_prototype_orphan_sweep_failed`), es wird nichts
+vermerkt, und der nächste Beat-Lauf versucht es erneut. Ein Celery-Worker ohne
+`PEST_DETECTION_ENABLED`/`INFERENCE_SERVICE_ENABLED`, sobald jemals ein
+Schädlingsfoto-Beitrag zur Erkennungsbasis freigegeben wurde, verweigert den
+Lauf ebenso wie die planmäßige Löschung (Issue #1759). Ohne diese Flags und
+ohne Freigabe-Vermerk meldet der Task `skipped` (Log-Ereignis
+`pest_prototype_orphan_sweep_skipped`) und vermerkt **keinen** Lauf — er hat
+den Index ja nicht gesehen.
+
+Die Zähler jedes Laufs landen im Singleton-Dokument `system_settings` unter
+`pest_prototype_orphan_sweep` (`first_run_at`, `last_run_at`, `last_examined`,
+`last_orphaned`, `last_removed`, `total_removed`, `binding`) sowie als
+Log-Ereignis `pest_prototype_orphan_sweep_completed`
+(`examined`/`orphaned`/`removed`/`binding`) — beides nennt nur Zahlen, nie
+einen Schlüssel.
+
+Deaktivierte (aberkannte) Prototypen, deren Beitrags-Dokument noch existiert,
+fasst der Aufräumlauf nicht an (Kuration).
+
+??? question "Wie stoße ich den Aufräumlauf sofort an, statt auf 04:30 UTC zu warten?"
+    ```bash
+    kubectl exec deploy/<release>-celery-worker -- \
+      celery -A app.tasks call pest_image.sweep_orphaned_prototypes
+    ```
+    Der Worker braucht dieselben Flags wie die planmäßige Löschung:
+    `PEST_DETECTION_ENABLED` oder `INFERENCE_SERVICE_ENABLED` plus
+    `INFERENCE_SERVICE_URL`, sowie `INTERNAL_SERVICE_TOKEN`. Details:
+    [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
 
 ---
 

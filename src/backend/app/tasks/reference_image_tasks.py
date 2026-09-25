@@ -8,6 +8,7 @@ default beat schedule — acquisition is an explicit, operator-triggered batch
 import structlog
 
 from app.common.dependencies import get_reference_image_service, get_species_repo
+from app.common.log_privacy import loggable_error
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -28,7 +29,7 @@ def acquire_reference_images_task(self, species_key: str, scientific_name: str) 
             "usable_for_recognition": result.usable_for_recognition,
         }
     except Exception as exc:
-        logger.error("acquire_reference_images_failed", species_key=species_key, error=str(exc))
+        logger.error("acquire_reference_images_failed", species_key=species_key, error=loggable_error(exc))
         raise self.retry(exc=exc) from exc
 
 

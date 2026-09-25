@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 import httpx
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import (
     WeatherForecast,
@@ -144,7 +145,7 @@ class WeatherSourceResolver:
             try:
                 forecasts = await adapter.fetch_daily(latitude=latitude, longitude=longitude, config=entry.config)
             except (httpx.HTTPError, httpx.TimeoutException) as exc:
-                logger.warning("weather_source_fetch_failed", source=entry.source_name, error=str(exc))
+                logger.warning("weather_source_fetch_failed", source=entry.source_name, error=loggable_error(exc))
                 continue
             if forecasts:
                 return forecasts

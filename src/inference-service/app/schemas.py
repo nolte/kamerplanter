@@ -237,6 +237,26 @@ class ErasePestTenantContributionsRequest(BaseModel):
     tenant_key: str | None = None
 
 
+class ListPestContributionKeysRequest(BaseModel):
+    """Body of ``POST /pest/reference/contributions/keys`` (#1771).
+
+    POST and not GET: the cursor is a contribution key, and a query string is
+    written to the access log (#1700). Optional types so that a malformed body
+    is refused by the handler without echoing it.
+    """
+
+    after: str | None = None
+    limit: int | None = None
+
+
+class PestContributionKeysResponse(BaseModel):
+    """One page of the contribution keys that have a prototype in ``pest_embeddings``."""
+
+    contribution_keys: list[str]
+    #: Cursor for the next page (the last key of this one), ``None`` on the last page.
+    next_after: str | None = None
+
+
 class PestSetActiveRequest(BaseModel):
     is_active: bool
     reason: str | None = None

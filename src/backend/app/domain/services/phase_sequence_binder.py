@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.domain.engines.cycle_resolver import resolve_effective_cycle
 from app.domain.engines.phase_sequence_resolver import (
     INDOOR_DEFAULT_SEQUENCE,
@@ -142,7 +143,7 @@ class PhaseSequenceBinder:
                 "phase_sequence_binding_failed",
                 species_key=species_key,
                 scientific_name=species.scientific_name,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return None
         return resolved_name

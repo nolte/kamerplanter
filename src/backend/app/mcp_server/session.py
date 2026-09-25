@@ -23,6 +23,8 @@ import secrets
 
 import structlog
 
+from app.common.log_privacy import loggable_error
+
 logger = structlog.get_logger(__name__)
 
 #: Session lifetime. Long enough for a working day of LLM-client usage, short
@@ -51,7 +53,7 @@ class McpSessionStore:
         try:
             self._redis.setex(f"{_KEY_PREFIX}{session_id}", _TTL_SECONDS, account_key)
         except Exception as exc:  # noqa: BLE001 - degrade to stateless, see module docstring
-            logger.warning("mcp_session_store_unavailable", op="create", error=str(exc))
+            logger.warning("mcp_session_store_unavailable", op="create", error=loggable_error(exc))
             return None
         return session_id
 
@@ -67,7 +69,7 @@ class McpSessionStore:
         try:
             owner = self._redis.get(f"{_KEY_PREFIX}{session_id}")
         except Exception as exc:  # noqa: BLE001 - degrade open, see module docstring
-            logger.warning("mcp_session_store_unavailable", op="get", error=str(exc))
+            logger.warning("mcp_session_store_unavailable", op="get", error=loggable_error(exc))
             return True
         if owner is None:
             return False
@@ -80,4 +82,4 @@ class McpSessionStore:
         try:
             self._redis.delete(f"{_KEY_PREFIX}{session_id}")
         except Exception as exc:  # noqa: BLE001
-            logger.warning("mcp_session_store_unavailable", op="delete", error=str(exc))
+            logger.warning("mcp_session_store_unavailable", op="delete", error=loggable_error(exc))
