@@ -72,18 +72,24 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anonymisierung personenbezogener Daten (siehe [Datenschutz (DSGVO)](../user-guide/privacy.md)) und sind vom Betriebsmodus unabhängig — sie gelten sowohl im Light- als auch im Full-Modus.
 
-<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours, retention_unverified_account_days, retention_erasure_audit_retention_years); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `ERASURE_TOMBSTONE_SALT` | — | Ja | Hochentropisches Geheimnis (mindestens 32 Zeichen) zur Pseudonymisierung gelöschter Nutzerkonten (Tombstone-Hashing, NFR-011 §4). **Der Startup-Gate verweigert den Produktionsstart**, wenn der Wert leer oder kürzer als 32 Zeichen ist — unabhängig vom Betriebsmodus. Erzeugen mit `openssl rand -hex 32`. |
 | `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | Nein | Name des datenschutzrechtlich Verantwortlichen, erscheint in Export- und Auskunftsdokumenten. |
 | `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | Nein | Kontakt-E-Mail des Verantwortlichen für DSGVO-Anfragen. |
-| `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | Nein | Aufbewahrungsdauer eines generierten Datenexports (Art. 15/20 DSGVO), bevor er automatisch gelöscht wird. |
-| `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | Nein | Frist, nach der ein zur Löschung markiertes Konto endgültig (Hard-Delete) entfernt wird. |
-| `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung. |
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | `90` | Nein | Frist, nach der ein zur Löschung markiertes (soft-gelöschtes) Konto endgültig (Hard-Delete) entfernt wird (NFR-011 R-01). Minimum: `1`. Älterer Name `PRIVACY_HARD_DELETE_AFTER_DAYS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | Nein | Anzahl Tage nach der Registrierung, nach denen ein nie bestätigtes Konto automatisch gelöscht wird (NFR-011 R-02). Minimum: `1`. |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | `7` | Nein | Anzahl Tage nach Ausstellung einer Session, nach denen ihre IP-Adresse anonymisiert wird (IPv4: letztes Oktett → `0`; NFR-011 R-03). Minimum: `1`. Betrifft nur Session-IP-Adressen, nicht die IP-Adresse eines Consent Records. |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | Nein | Aufbewahrungsdauer eines generierten Datenexports (Art. 15/20 DSGVO), bevor die Datei automatisch gelöscht wird (NFR-011 R-05). Minimum: `1`. Älterer Name `PRIVACY_EXPORT_RETENTION_HOURS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | Nein | Anzahl Jahre, die ein abgeschlossener Löschungs-Antrag (`erasure_requests`, `status=completed`) als Rechenschaftsnachweis (Art. 5 Abs. 2 DSGVO) aufbewahrt wird, bevor er endgültig gelöscht wird (NFR-011 R-06). Gezählt in Kalenderjahren. Minimum: `1`. |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung (NFR-011 R-07); danach wird die Anfrage auf den Status `expired` gesetzt, ein Hard-Delete findet nicht statt. Minimum: `1`. Älterer Name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
+
+Für `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` und
+`RETENTION_EMAIL_CHANGE_RETENTION_HOURS` waren die älteren `PRIVACY_*`-Namen zwar bereits
+dokumentiert, hatten aber keine Wirkung — der Code nutzte feste Werte. Sie funktionieren
+jetzt tatsächlich und bleiben zusätzlich als Alias gültig.
 
 !!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion"
     Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden. Dasselbe gilt für den Celery-Worker: Er bildet mit diesem Salt die Kontenreferenzen und E-Mail-Digests in seinen Protokollzeilen und beendet sich beim Start, wenn der Salt fehlt. Gib ihm deshalb denselben Wert und dieselbe `DEBUG`-Einstellung wie dem Backend.
