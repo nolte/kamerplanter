@@ -731,8 +731,20 @@ def clone_task(
     body: TaskCloneRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
+    entity_guard: TaskEntityGuard = Depends(get_task_entity_guard),
 ):
     """Clone a task, optionally onto another entity and with a due-date offset."""
+    # SEC-I01 applies to a clone as to a create (#1864 sweep): a retargeted clone
+    # binds a caller-supplied entity and writes a `has_task` edge from it. The
+    # pair the clone will carry — target, or the source's for what the body
+    # leaves out — is verified before the task is built.
+    if body.target_entity_key or body.target_entity_type:
+        source = service.get_task(key, tenant_key=ctx.tenant_key)
+        entity_guard.verify(
+            body.target_entity_type or source.entity_type,
+            body.target_entity_key or source.entity_key,
+            tenant_key=ctx.tenant_key,
+        )
     cloned = service.clone_task(
         key,
         due_date_offset_days=body.due_date_offset_days,
