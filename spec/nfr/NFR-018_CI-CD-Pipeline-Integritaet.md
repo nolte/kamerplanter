@@ -477,6 +477,24 @@ Job, und — trägt sie ein eigenes Manifest — liest sie die delegierten Pfade
 tatsächlich. Ein Eintrag, der keinen ungedeckten Lesepfad mehr trifft, ist
 veraltet und rot (§2.5).
 
+**MUSS**: Die Delegation gilt dem **lesenden Test**, nicht nur dem Pfad
+(#1749). Liest in der delegierenden Lane ein Test einen delegierten Pfad, muss
+genau dieses Testmodul in der benannten Lane laufen; dass dort ein *anderer*
+Test dieselbe Datei liest, prüft dessen Zusicherungen, nicht die des neuen.
+Der Recorder ordnet darum jeden Lesezugriff eines pytest-Aufrufs dem Testmodul
+zu, das gerade aktiv war — ein pytest-Plugin öffnet vor jeder Sammlung und
+jedem Test eine Markerdatei, `strace -ttt` stellt Marker und Lesezugriffe
+aller Prozesse (auch Subprozesse und Threads, die ein Test startet) auf
+dieselbe Zeitachse — und hält `test_modules` (die Module, von denen mindestens
+ein Test lief) und `readers` (je Modul die Lesepfade außerhalb des eigenen
+Filters) im Manifest fest. Ein Modul, das einen delegierten Pfad liest und
+nicht unter den `test_modules` der benannten Lane steht, ist rot — im Wächter
+über die committeten Manifeste und in `compare` über die frische Aufzeichnung.
+Ein Manifest ohne diese Felder ist rot, nicht grün: Es wurde vor der Zuordnung
+aufgezeichnet, und „kein Leser bekannt" ist nicht „kein Leser". Lesezugriffe
+außerhalb jedes Tests (pytest-Start, `conftest`-Sammlung, ein Aufruf ohne
+pytest) haben keinen Leser und bleiben allein am Pfad gehalten.
+
 **MUSS**: Für einen required Kontext, dessen Relevanz **im Job** entschieden
 wird (§4.1, die Bauform von `backend-guards.yml`), hält der Wächter zusätzlich
 die drei Eigenschaften, die die Bauform tragen und bis dahin nur ein Kommentar
@@ -495,28 +513,32 @@ Messung; diese Regel beantwortet die andere Frage. Beide sind billig, und keine
 ersetzt die andere.
 
 **Bekannte Grenze, benannt statt versteckt**: Das Manifest ist eine
-Momentaufnahme. Beginnt ein Test, eine neue Datei zu lesen, ohne dass sich die
-Job-Definition ändert, altert das Manifest unbemerkt, bis es neu gemessen wird.
-Die Messung läuft lokal, nicht in der Lane; eine Lane, die sich bei jedem
-Lauf selbst misst und bei Drift rot wird, ist die nächste Stufe und ein
-eigener Posten (#1683).
+Momentaufnahme. Beginnt ein Test, eine neue Datei zu lesen, oder kommt ein
+neuer Test hinzu, ohne dass sich die Job-Definition ändert, altert das Manifest,
+bis es neu gemessen wird. Gemessen wird in CI (`lane-inputs.yml`, #1683): Die
+Lane spielt die `invocations` jedes Manifests unter `strace` nach und ihr
+`compare`-Job wird rot, wenn die Aufzeichnung einen Lesepfad außerhalb des
+Filters, eine nicht gehaltene Delegation oder einen delegierten Leser außerhalb
+der benannten Lane zeigt. Sie läuft bei Änderungen an Workflows, Manifesten und
+Recorder sowie wöchentlich — **nicht** bei jedem Pull Request, der nur einen
+Test hinzufügt; ein solcher Test fällt spätestens im wöchentlichen Lauf auf.
 
-**Übergangszustand, benannt (Review-Runde zu #1682)**: Solange der Recorder
-nicht in CI läuft, ist der Wächter **advisory**: Er trägt den pytest-Marker
-`advisory`, die required Lane `Write-route and tree guards` wählt ihn mit
-`-m 'not advisory'` ab, und `task test:backend:unit` (`pytest tests/unit/`)
-führt ihn weiter aus. Zwei Lücken sind dabei bekannt und stehen als alternde
-Register im Wächter selbst (§2.5): `backend-guards.yml/guards` hat noch kein
-Manifest — die 28 `covered_by`-Delegationen dorthin sind **angenommen, nicht
-gemessen**, und der Wächter sagt das als Befund —, und
-`backend--coverage.yaml` ist `status: partial` (aus einer einzelnen Testdatei
-aufgezeichnet) und bescheinigt dem Filter des Coverage-Jobs nichts. Ein
-Manifest mit einer Invocation, die nicht mit 0 endete, trägt eine
-`allow_failure_reason`, die benennt, welche Lesepfade der Fehlerpfad
-übersprungen haben kann; ein `run:`-Befehl des Jobs, den kein Manifest
-aufgezeichnet hat, ist rot, es sei denn, er steht mit Begründung unter
-`unrecorded_invocations`. #1683 nimmt beide Manifeste in CI auf, löscht die
-Register und den Marker und macht den Wächter damit required.
+**Stand, benannt (#1683, #1748)**: Der Recorder läuft in CI; die beiden
+Lücken, die der Wächter einst als alternde Register führte, sind geschlossen.
+`backend-guards.yml/guards` hat ein in CI aufgezeichnetes Manifest
+(`backend-guards--guards.yaml`, `gate.kind: unfiltered`), gegen das die
+`covered_by`-Delegationen aus `backend--lint-test.yaml` gemessen, nicht
+angenommen, gehalten werden. `backend--coverage.yaml` gibt es nicht mehr: #1748
+hat den Coverage-Job zurückgebaut und sein Manifest mit ihm. Ein Manifest mit
+einer Invocation, die nicht mit 0 endete, trägt eine `allow_failure_reason`,
+die benennt, welche Lesepfade der Fehlerpfad übersprungen haben kann; ein
+`run:`-Befehl des Jobs, den kein Manifest aufgezeichnet hat, ist rot, es sei
+denn, er steht mit Begründung unter `unrecorded_invocations`. Der Wächter ist
+weiterhin **advisory**: Er trägt den pytest-Marker `advisory`, die required
+Lane `Write-route and tree guards` wählt ihn mit `-m 'not advisory'` ab, und
+`task test:backend:unit` (`pytest tests/unit/`) führt ihn aus. Ihn required zu
+machen ist eine Entscheidung auf gemessener Historie nach §4, nicht eine
+Folge dieses Abschnitts.
 
 ---
 

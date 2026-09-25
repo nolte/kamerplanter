@@ -1070,3 +1070,244 @@ class TestACoveringLaneThatStopsReadingADelegatedPathIsDrift:
         findings, notes = self._tree(tmp_path, ["docs/a.md"])
         assert findings == []
         assert "g--guards.yaml: 1 committed read(s) not made in this run (not drift)" in notes
+
+
+# ------------------------------------------------------ per-test attribution (#1749)
+
+#: The marker directory a recording uses, and two trace files of one recording:
+#: the pytest process (pid 10) setting markers, and a subprocess (pid 11) one of
+#: its tests started. ``-ttt`` stamps put both on one timeline.
+_MARKERS = "/tmp/lane-inputs-x/markers"
+
+
+def _marker(stamp: str, name: str) -> str:
+    path = f"{_MARKERS}/{name}"
+    return f'{stamp} openat(AT_FDCWD, "{path}", O_WRONLY|O_CREAT|O_CLOEXEC, 0600) = 4<{path}>\n'
+
+
+_A, _B = "src%2Fbackend%2Ftests%2Ftest_a.py", "src%2Fbackend%2Ftests%2Ftest_b.py"
+_PYTEST_TRACE = (
+    '100.000001 openat(AT_FDCWD</repo>, "src/backend/conftest.py", O_RDONLY) = 3</repo/src/backend/conftest.py>\n'
+    + _marker("100.000002", f"collect~{_A}")
+    + '100.000003 openat(AT_FDCWD</repo>, "docs/at-import.md", O_RDONLY) = 5</repo/docs/at-import.md>\n'
+    + _marker("100.000004", "none~")
+    + _marker("100.000010", f"run~{_A}")
+    + '100.000011 openat(AT_FDCWD</repo>, "docs/a.md", O_RDONLY) = 5</repo/docs/a.md>\n'
+    + _marker("100.000020", f"run~{_B}")
+    + _marker("100.000030", "none~")
+    + '100.000031 openat(AT_FDCWD</repo>, "src/backend/after.py", O_RDONLY) = 5</repo/src/backend/after.py>\n'
+)
+_SUBPROCESS_TRACE = """\
+100.000021 execve("/usr/bin/cat", ["cat", "/repo/docs/b.md"], 0x7ffe /* 85 vars */) = 0
+100.000022 openat(AT_FDCWD</repo>, "/repo/docs/b.md", O_RDONLY) = 3</repo/docs/b.md>
+100.000023 getdents64(3</repo/docs>, 0x5d7e /* 4 entries */, 32768) = 96
+"""
+
+
+class TestReadsAreAttributedToTheTestModuleThatMadeThem:
+    def _trace(self, tmp_path: Path):
+        pytest_file, subprocess_file = tmp_path / "trace.10", tmp_path / "trace.11"
+        pytest_file.write_text(_PYTEST_TRACE)
+        subprocess_file.write_text(_SUBPROCESS_TRACE)
+        marker_dir = Path(_MARKERS)
+        timeline = recorder.marker_timeline([pytest_file, subprocess_file], marker_dir)
+        trace = recorder.Trace()
+        for path in (pytest_file, subprocess_file):
+            recorder._parse_trace_file(path, trace, timeline=timeline, marker_dir=marker_dir)
+        return trace
+
+    def test_a_read_belongs_to_the_module_active_when_it_happened_in_any_process(self, tmp_path: Path) -> None:
+        trace = self._trace(tmp_path)
+        assert trace.reader_files == {
+            "src/backend/tests/test_a.py": {"/repo/docs/at-import.md", "/repo/docs/a.md"},
+            "src/backend/tests/test_b.py": {"/repo/docs/b.md"},
+        }, "the collection read is its module's; the subprocess's read is the test's that started it"
+        assert trace.reader_listings == {"src/backend/tests/test_b.py": {"/repo/docs"}}
+
+    def test_reads_outside_any_test_have_no_reader_and_markers_are_not_reads(self, tmp_path: Path) -> None:
+        trace = self._trace(tmp_path)
+        assert "/repo/src/backend/conftest.py" in trace.files
+        assert "/repo/src/backend/after.py" in trace.files
+        assert not any(path.startswith(_MARKERS) for path in trace.files)
+        attributed = set().union(*trace.reader_files.values())
+        assert "/repo/src/backend/conftest.py" not in attributed and "/repo/src/backend/after.py" not in attributed
+
+    def test_only_modules_whose_tests_ran_are_test_modules(self, tmp_path: Path) -> None:
+        trace = self._trace(tmp_path)
+        assert trace.test_modules == {"src/backend/tests/test_a.py", "src/backend/tests/test_b.py"}
+
+    def test_a_trace_without_stamps_parses_as_before_and_attributes_nothing(self, tmp_path: Path) -> None:
+        trace_file = tmp_path / "trace.1"
+        trace_file.write_text(_TRACE)
+        trace = recorder.Trace()
+        recorder._parse_trace_file(trace_file, trace, timeline=recorder.MarkerTimeline(), marker_dir=Path(_MARKERS))
+        assert "/repo/Taskfile.yaml" in trace.files and trace.reader_files == {}
+
+
+class TestTheMarkerPlugin:
+    """The plugin the recorder loads, run in a real pytest process with the environment the recorder gives it."""
+
+    def test_it_marks_collection_each_test_and_the_gaps_between(self, tmp_path: Path) -> None:
+        import subprocess
+
+        root = tmp_path / "repo"
+        (root / "tests").mkdir(parents=True)
+        (root / "tests" / "test_one.py").write_text("def test_x():\n    pass\n")
+        markers = tmp_path / "markers"
+        markers.mkdir()
+        env = recorder.marker_env({"PATH": "/usr/bin:/bin"}, markers)
+        env[recorder._MARKER_ROOT_ENV] = str(root)
+        completed = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(root / "tests")],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stdout + completed.stderr
+        assert {p.name for p in markers.iterdir()} == {
+            "collect~tests%2Ftest_one.py",
+            "run~tests%2Ftest_one.py",
+            "none~",
+        }
+
+    def test_the_recorder_loads_it_into_every_pytest_and_keeps_existing_options(self) -> None:
+        env = recorder.marker_env({"PYTEST_ADDOPTS": "--deselect x.py", "PYTHONPATH": "/a"}, Path("/m"))
+        assert env["PYTEST_ADDOPTS"] == f"--deselect x.py -p {recorder.MARKER_PLUGIN}"
+        assert env["PYTHONPATH"].split(":") == [str(recorder.MARKER_PLUGIN_DIR), "/a"]
+        assert (recorder.MARKER_PLUGIN_DIR / f"{recorder.MARKER_PLUGIN}.py").is_file()
+
+    def test_the_plugins_own_reads_are_not_the_jobs(self) -> None:
+        prefix = recorder._MARKER_PLUGIN_PREFIX
+        tracked = frozenset({f"{prefix}{recorder.MARKER_PLUGIN}.py", "src/backend/a.py"})
+        reads = recorder.tracked_reads(
+            {f"{prefix}{recorder.MARKER_PLUGIN}.py", "src/backend/a.py"},
+            {prefix.rstrip("/")},
+            tracked=tracked,
+            directories=recorder.implied_directories(tracked),
+        )
+        assert reads == {"src/backend/a.py"}
+
+
+class TestCompareHoldsADelegatedReadByItsReader:
+    """#1749 in `compare`: a module of THIS run that makes a delegated read must run in the covering lane."""
+
+    def _compare(self, tmp_path: Path, covering_modules: list[str]) -> list[str]:
+        (tmp_path / "workflows").mkdir(exist_ok=True)
+        (tmp_path / "workflows" / "w.yml").write_text(_ON_PATHS_WORKFLOW)
+        (tmp_path / "workflows" / "g.yml").write_text("on: [pull_request]\njobs:\n  guards:\n    steps: []\n")
+        gaps = [{"pattern": "docs/**", "reason": "r" * 50, "covered_by": "g.yml/guards"}]
+        old, new = "src/backend/tests/guards/test_old.py", "src/backend/tests/test_new.py"
+        delegating = _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "docs/a.md"])
+        recorded = {**delegating, "test_modules": [old, new], "readers": {old: ["docs/a.md"], new: ["docs/a.md"]}}
+        covering = _committed(
+            workflow="g.yml", job="guards", gate={"kind": "unfiltered"}, reads=["docs/a.md"], test_modules=[old]
+        )
+        _write(tmp_path / "committed", "w--j.yaml", delegating)
+        _write(tmp_path / "recorded", "w--j.yaml", recorded)
+        _write(tmp_path / "committed", "g--guards.yaml", covering)
+        _write(tmp_path / "recorded", "g--guards.yaml", {**covering, "test_modules": covering_modules})
+        findings, _ = recorder.compare_manifests(
+            tmp_path / "committed", tmp_path / "recorded", workflow_dir=tmp_path / "workflows"
+        )
+        return findings
+
+    def test_a_new_reader_outside_the_covering_lane_is_a_finding_though_the_path_is_read_there(
+        self, tmp_path: Path
+    ) -> None:
+        (finding,) = self._compare(tmp_path, ["src/backend/tests/guards/test_old.py"])
+        assert finding.startswith(
+            "w--j.yaml: test module src/backend/tests/test_new.py makes 1 delegated read(s) but the covering lane "
+            "does not run it"
+        )
+        assert finding.endswith("docs/a.md (covered_by g.yml/guards)")
+
+    def test_the_reader_running_in_the_covering_lane_clears_it(self, tmp_path: Path) -> None:
+        both = ["src/backend/tests/guards/test_old.py", "src/backend/tests/test_new.py"]
+        assert self._compare(tmp_path, both) == []
+
+
+class TestEveryMatchingGapIsHeldNotTheFirst:
+    """#1683 review of #1747: `read_drift`/`delegated_reads` took the first matching gap; the guard takes each."""
+
+    def _tree(self, tmp_path: Path, *, a_reads: list[str], b_reads: list[str]) -> tuple:
+        (tmp_path / "workflows").mkdir()
+        (tmp_path / "workflows" / "w.yml").write_text(_ON_PATHS_WORKFLOW)
+        for lane in ("a", "b"):
+            (tmp_path / "workflows" / f"{lane}.yml").write_text("on: [pull_request]\njobs:\n  guards:\n    steps: []\n")
+        gaps = [
+            {"pattern": "docs/**", "reason": "r" * 50, "covered_by": "a.yml/guards"},
+            {"pattern": "docs/x/**", "reason": "r" * 50, "covered_by": "b.yml/guards"},
+        ]
+        _write(tmp_path / "committed", "w--j.yaml", _committed(accepted_gaps=gaps, reads=["src/backend/a.py"]))
+        _write(
+            tmp_path / "recorded",
+            "w--j.yaml",
+            _committed(accepted_gaps=gaps, reads=["src/backend/a.py", "docs/x/new.md"]),
+        )
+        for lane, reads in (("a", a_reads), ("b", b_reads)):
+            covering = _committed(workflow=f"{lane}.yml", job="guards", gate={"kind": "unfiltered"}, reads=reads)
+            _write(tmp_path / "committed", f"{lane}--guards.yaml", covering)
+            _write(tmp_path / "recorded", f"{lane}--guards.yaml", covering)
+        return recorder.compare_manifests(
+            tmp_path / "committed", tmp_path / "recorded", workflow_dir=tmp_path / "workflows"
+        )
+
+    def test_the_second_gaps_lane_must_read_it_too(self, tmp_path: Path) -> None:
+        findings, _ = self._tree(tmp_path, a_reads=["docs/x/new.md"], b_reads=["y"])
+        assert findings == [
+            "w--j.yaml: 1 new read(s) fall under an accepted gap whose covered_by lane did not read them in this "
+            "run: docs/x/new.md (covered_by b.yml/guards)"
+        ]
+
+    def test_both_lanes_reading_it_is_green(self, tmp_path: Path) -> None:
+        findings, _ = self._tree(tmp_path, a_reads=["docs/x/new.md"], b_reads=["docs/x/new.md"])
+        assert findings == []
+
+    def test_each_lane_owes_the_committed_read(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as scratch:
+            workflows = Path(scratch)
+            (workflows / "w.yml").write_text(_ON_PATHS_WORKFLOW)
+            gaps = [
+                {"pattern": "docs/**", "reason": "r" * 50, "covered_by": "a.yml/guards"},
+                {"pattern": "docs/x/**", "reason": "r" * 50, "covered_by": "b.yml/guards"},
+            ]
+            owed = recorder.delegated_reads(
+                {"w--j.yaml": _committed(accepted_gaps=gaps, reads=["docs/x/new.md"])}, workflow_dir=workflows
+            )
+        assert owed == {
+            ("a.yml", "guards"): {"docs/x/new.md": "w--j.yaml"},
+            ("b.yml", "guards"): {"docs/x/new.md": "w--j.yaml"},
+        }
+
+
+class TestTheMergeWritesTheAttribution:
+    def test_test_modules_and_readers_are_written_even_when_empty_and_merged_on_append(self) -> None:
+        manifest = {"invocations": [], "reads": [], "subprocesses": []}
+        recorder._merge_into(manifest, invocation={"command": "task lint"}, reads={"a"}, execs=[])
+        assert manifest["test_modules"] == [] and manifest["readers"] == {}
+        recorder._merge_into(
+            manifest,
+            invocation={"command": "pytest"},
+            reads={"b"},
+            execs=[],
+            test_modules={"t/test_b.py"},
+            readers={"t/test_b.py": {"docs/b.md"}},
+        )
+        recorder._merge_into(
+            manifest,
+            invocation={"command": "pytest"},
+            reads={"c"},
+            execs=[],
+            test_modules={"t/test_c.py"},
+            readers={"t/test_b.py": {"docs/a.md"}},
+        )
+        assert manifest["test_modules"] == ["t/test_b.py", "t/test_c.py"]
+        assert manifest["readers"] == {"t/test_b.py": ["docs/a.md", "docs/b.md"]}
+
+    def test_a_replay_starts_from_no_attribution(self) -> None:
+        base = recorder._replay_base(_committed(test_modules=["x"], readers={"x": ["y"]}))
+        assert base["test_modules"] == [] and base["readers"] == {}

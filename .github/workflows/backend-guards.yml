@@ -155,10 +155,13 @@ jobs:
   # `paths:` filter. Its manifest names them as `accepted_gaps` with
   # `covered_by: backend-guards.yml/guards`, and
   # `test_lane_filters_cover_measured_inputs.py` holds both halves of that
-  # claim: the delegate is unfiltered and decides no relevance of its own, and
-  # every delegated path appears in this job's own CI-recorded manifest
+  # claim: the delegate is unfiltered and decides no relevance of its own, every
+  # delegated path appears in this job's own CI-recorded manifest
   # (.github/lane-inputs/backend-guards--guards.yaml, recorded since #1683 — the
-  # "no manifest yet" state described above is history).
+  # "no manifest yet" state described above is history), and every test module
+  # that makes a delegated read in `lint-test` is one this job runs (#1749:
+  # `readers` there against `test_modules` here). A new test that reads the
+  # frontend or the e2e helpers therefore belongs in the invocation below.
   guards:
     name: Write-route and tree guards
     runs-on: ubuntu-latest
