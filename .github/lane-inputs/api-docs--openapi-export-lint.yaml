@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
-replay_seconds: 34
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 44
 job_spec_sha256: cdd19fd2744aa844284c6d1c17c2d0d50b118c18891c3b6710253930f5023264
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2727
+  untracked_reads_dropped: 2729
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -593,6 +593,7 @@ reads:
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
 - src/backend/app/domain/engines/storage/exif_stripper.py
+- src/backend/app/domain/engines/storage/export_bundle_key.py
 - src/backend/app/domain/engines/storage/magic_byte_validator.py
 - src/backend/app/domain/engines/storage/storage_key_builder.py
 - src/backend/app/domain/engines/storage/thumbnail_generator.py
@@ -822,6 +823,7 @@ reads:
 - src/backend/app/domain/services/propagation_service.py
 - src/backend/app/domain/services/reference_image_license.py
 - src/backend/app/domain/services/reference_image_service.py
+- src/backend/app/domain/services/retention_service.py
 - src/backend/app/domain/services/season_signal_resolver.py
 - src/backend/app/domain/services/season_state_service.py
 - src/backend/app/domain/services/sensor_service.py

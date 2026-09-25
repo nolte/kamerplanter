@@ -11,7 +11,7 @@ gate:
   filter: helm
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
 replay_seconds: 3
 job_spec_sha256: cfa02745b53b25a9832ef566db0161995a81fc1e5ccae3a3d8df94ef7ce170e4
 invocations:

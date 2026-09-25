@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
 replay_seconds: 11
 job_spec_sha256: e214bf4d2c7e2199fd067ffffda2e4e963dedf6b6f061ee839113bed723eab8d
 invocations:

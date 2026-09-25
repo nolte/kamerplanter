@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
-replay_seconds: 2
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 1
 job_spec_sha256: b0d88bf6512a460fe8104ec7a94db13c49dec70db34197e591e1f5c70bae25a8
 invocations:
 - command: yq e .nuclei_templates_commit .github/renovate-pins.yaml

@@ -11,7 +11,7 @@ gate:
   filter: integration
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
 replay_seconds: 374
 job_spec_sha256: 22b6c7d8252f275f366c3a5a3637390a59fac1a15dd6ddd082362396b6597fac
 invocations:
@@ -24,7 +24,7 @@ invocations:
   - ARANGODB_PASSWORD=rootpassword
   - ARANGODB_PORT=8529
   - ARANGODB_USERNAME=root
-  untracked_reads_dropped: 4039
+  untracked_reads_dropped: 4042
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -677,6 +677,7 @@ reads:
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
 - src/backend/app/domain/engines/storage/exif_stripper.py
+- src/backend/app/domain/engines/storage/export_bundle_key.py
 - src/backend/app/domain/engines/storage/magic_byte_validator.py
 - src/backend/app/domain/engines/storage/storage_key_builder.py
 - src/backend/app/domain/engines/storage/thumbnail_generator.py
@@ -1168,6 +1169,7 @@ reads:
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
+- src/backend/tests/integration/test_erasure_record_purge.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_reference_tenant_visibility.py
 - src/backend/tests/integration/test_location_label_projection.py
@@ -1220,6 +1222,7 @@ test_modules:
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
+- src/backend/tests/integration/test_erasure_record_purge.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_reference_tenant_visibility.py
 - src/backend/tests/integration/test_location_label_projection.py

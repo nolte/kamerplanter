@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
-replay_seconds: 7
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 4
 job_spec_sha256: 015536c383150b8cb1e9987952b417458ec35cdf34d5a4abc31d8fa9a36fe250
 invocations:
 - command: docker compose -f docker-compose.e2e.yml -f docker-compose.security.override.yml config --quiet
@@ -53,7 +53,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 2006
+  context_files_after_dockerignore: 2016
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
   cwd: .
   recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
@@ -619,6 +619,7 @@ reads:
 - src/backend/app/domain/engines/sowing_calendar_engine.py
 - src/backend/app/domain/engines/storage/__init__.py
 - src/backend/app/domain/engines/storage/exif_stripper.py
+- src/backend/app/domain/engines/storage/export_bundle_key.py
 - src/backend/app/domain/engines/storage/magic_byte_validator.py
 - src/backend/app/domain/engines/storage/storage_key_builder.py
 - src/backend/app/domain/engines/storage/thumbnail_generator.py
@@ -1281,6 +1282,7 @@ reads:
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
+- src/backend/tests/integration/test_erasure_record_purge.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_reference_tenant_visibility.py
 - src/backend/tests/integration/test_location_label_projection.py
@@ -1474,6 +1476,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_write_funnel_revalidation.py
 - src/backend/tests/unit/data_access/external/test_demo_pest_adapter.py
 - src/backend/tests/unit/data_access/external/test_device_pairing_throttle.py
+- src/backend/tests/unit/data_access/external/test_email_adapters_log_no_address.py
 - src/backend/tests/unit/data_access/external/test_gbif_media_client.py
 - src/backend/tests/unit/data_access/external/test_idigbio_media_client.py
 - src/backend/tests/unit/data_access/external/test_inaturalist_media_client.py
@@ -1491,6 +1494,7 @@ reads:
 - src/backend/tests/unit/data_access/storage/test_registry.py
 - src/backend/tests/unit/data_access/storage/test_s3_adapter.py
 - src/backend/tests/unit/data_access/storage/test_storage_adapters.py
+- src/backend/tests/unit/data_access/storage/test_storage_logs_redact_the_account_key.py
 - src/backend/tests/unit/data_access/storage/test_storage_migrate.py
 - src/backend/tests/unit/data_access/test_care_task_dedup_index.py
 - src/backend/tests/unit/data_access/test_cultivar_reference_guards_live.py
@@ -1770,6 +1774,8 @@ reads:
 - src/backend/tests/unit/domain/services/test_privacy_erase_account.py
 - src/backend/tests/unit/domain/services/test_privacy_executor_truthfulness.py
 - src/backend/tests/unit/domain/services/test_privacy_export_bundle.py
+- src/backend/tests/unit/domain/services/test_privacy_logs_name_no_subject.py
+- src/backend/tests/unit/domain/services/test_privacy_policy_retention_summary.py
 - src/backend/tests/unit/domain/services/test_privacy_retention.py
 - src/backend/tests/unit/domain/services/test_privacy_review_round.py
 - src/backend/tests/unit/domain/services/test_privacy_service.py
@@ -1837,6 +1843,7 @@ reads:
 - src/backend/tests/unit/guards/test_docs_requirements_hash_verification.py
 - src/backend/tests/unit/guards/test_docs_requirements_source_bounds.py
 - src/backend/tests/unit/guards/test_entity_name_vocabulary.py
+- src/backend/tests/unit/guards/test_every_pinned_model_is_probed_in_ci.py
 - src/backend/tests/unit/guards/test_execution_guards.py
 - src/backend/tests/unit/guards/test_favoritable_collections_declare_ownership.py
 - src/backend/tests/unit/guards/test_fertilizer_references_are_verified_on_write.py
@@ -1856,6 +1863,7 @@ reads:
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py
 - src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py
 - src/backend/tests/unit/guards/test_precommit_sibling_notice.py
+- src/backend/tests/unit/guards/test_privacy_logs_carry_no_plaintext_subject.py
 - src/backend/tests/unit/guards/test_published_ports_bind_loopback.py
 - src/backend/tests/unit/guards/test_renovate_automerge_policy.py
 - src/backend/tests/unit/guards/test_renovate_dashboard_parser.py
@@ -2004,6 +2012,7 @@ reads:
 - src/backend/tests/unit/tasks/test_dormancy_checks.py
 - src/backend/tests/unit/tasks/test_duplicate_registration_notice.py
 - src/backend/tests/unit/tasks/test_enrichment_tasks.py
+- src/backend/tests/unit/tasks/test_erasure_record_purge.py
 - src/backend/tests/unit/tasks/test_frost_forecast_tasks.py
 - src/backend/tests/unit/tasks/test_hardiness_tasks.py
 - src/backend/tests/unit/tasks/test_inventree_tasks.py
@@ -2021,6 +2030,7 @@ reads:
 - src/backend/tests/unit/tasks/test_tank_maintenance_tasks.py
 - src/backend/tests/unit/tasks/test_tenant_tasks.py
 - src/backend/tests/unit/tasks/test_unverified_cleanup_erasure.py
+- src/backend/tests/unit/tasks/test_unverified_cleanup_retention_period.py
 - src/backend/tests/unit/tasks/test_vernalization_updates.py
 - src/backend/tests/unit/tasks/test_watering_tasks.py
 - src/backend/tests/unit/tasks/test_weather_tasks.py
