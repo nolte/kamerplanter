@@ -48,7 +48,7 @@ from app.domain.services.pest_image_service import PestImageService
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_pest_inference_service import FakePestInferenceService, route_pest_requests_to
-from tests.support.privacy_doubles import RecordingErasureExecutor
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, authorized, tenant_service_for_deletion
 from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
@@ -145,6 +145,7 @@ def _privacy_service(erasure: ErasureRequest, pest_repo, store, executor) -> Pri
         pest_image_repo=pest_repo,
         pest_prototype_store=store,
         erasure_executor=executor,
+        tenant_service=FakePersonalTenants(),
         tombstone_salt=SALT,
     )
 

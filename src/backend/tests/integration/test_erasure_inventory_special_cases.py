@@ -6,13 +6,15 @@ consequence holds on rows written by the real repositories into a database
 built by the real ``ensure_collections`` (unique indexes included):
 
 * a calendar feed's token stops serving once its owner is erased (REQ-015);
-* the personal tenant survives, still readable through its model and its unique
-  ``slug`` index, but no longer carries the owner's key or display name; an
-  organisation tenant the subject founded keeps its name and loses only the
-  owner reference, and its other member is untouched (REQ-024);
+* a personal tenant another member still uses survives, readable through its
+  model and its unique ``slug`` index, but no longer carries the owner's key or
+  display name (a personal tenant only the subject used is erased with its data
+  since #1788); an organisation tenant the subject founded keeps its name and
+  loses only the owner reference, and its other member is untouched (REQ-024);
 * the narrow ``account_cascade`` delete removes the membership registration
   created, and the location assignment hanging off it; the unverified-account
-  cleanup task itself runs the full erasure and anonymises the personal tenant;
+  cleanup task itself runs the full erasure and, since #1788, erases the
+  personal tenant of the reaped registration;
 * a slug squatted under the old ``anonymized-<key>`` rule no longer blocks an
   erasure, and a tip dismissed for the tenant stays dismissed.
 
@@ -40,6 +42,7 @@ from app.domain.engines.erasure_engine import ANONYMIZED_KEY_PREFIX, ANONYMIZED_
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.calendar import CalendarFeed
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import Membership
@@ -117,6 +120,9 @@ class TestTenantsOfAnErasedOwner:
         _insert_user(database, OTHER)
         service = _tenant_service(database)
         personal = service.create_personal_tenant(SUBJECT, DISPLAY_NAME)
+        # #1788 — only a personal tenant someone else still uses is kept; one the
+        # subject used alone is erased (``test_personal_tenant_erasure_reach``).
+        service.admin_add_membership(personal.key, OTHER, TenantRole.GROWER)
         organisation = service.create_organization(SUBJECT, "Gemeinschaftsgarten Nord")
         service.admin_add_membership(organisation.key, OTHER, TenantRole.GROWER)
         other_membership = ArangoMembershipRepository(database).get_by_user_and_tenant(OTHER, organisation.key)
@@ -125,11 +131,11 @@ class TestTenantsOfAnErasedOwner:
         _erase(database, SUBJECT)
         return personal, organisation, before_other
 
-    def test_the_personal_tenant_stays_readable_and_names_nobody(self, database, tenants):
+    def test_the_shared_personal_tenant_stays_readable_and_names_nobody(self, database, tenants):
         personal, _, _ = tenants
         after = ArangoTenantRepository(database).get_by_key(personal.key)
 
-        assert after is not None, "the personal tenant is retained (it may hold CanG-retained harvests)"
+        assert after is not None, "a personal tenant another member uses is retained (#1788)"
         assert after.owner_user_key == ANONYMIZED_MARKER
         expected = ErasureEngine.anonymized_rename_value(
             ErasureEngine.compute_tombstone_hash(SUBJECT, reach.SALT), personal.key
@@ -178,6 +184,11 @@ class TestAnonymisedSlugCannotBeSquatted:
     def test_a_slug_squatted_under_the_old_rule_does_not_block_the_erasure(self, database):
         _insert_user(database, "squat-victim")
         personal = _tenant_service(database).create_personal_tenant("squat-victim", "Opfer Beispiel")
+        # Renamed, not erased: another member still uses it (#1788).
+        _insert_user(database, "squat-neighbour")
+        ArangoMembershipRepository(database).create(
+            Membership(user_key="squat-neighbour", tenant_key=personal.key, role=TenantRole.GROWER)
+        )
         old_rule_slug = f"{ANONYMIZED_KEY_PREFIX}{personal.key}"
         database.collection(col.TENANTS).insert(
             {
@@ -226,14 +237,16 @@ class TestADismissedTipStaysDismissedForTheTenant:
         assert after["dismissed_by"] == ANONYMIZED_MARKER
 
 
-class TestUnverifiedCleanupAnonymisesThePersonalTenant:
+class TestUnverifiedCleanupErasesThePersonalTenant:
     """#1700 review — the cleanup task used the narrow delete and left a name-bearing tenant.
 
     Drives the Celery task itself (``cleanup_unverified_accounts``) with its two
-    dependencies bound to this database.
+    dependencies bound to this database. Since #1788 the personal tenant of the
+    reaped registration — used by nobody else — is erased through the tenant
+    inventory, not only renamed.
     """
 
-    def test_the_personal_tenant_of_a_reaped_account_names_nobody(self, database, monkeypatch):
+    def test_the_personal_tenant_of_a_reaped_account_is_gone(self, database, monkeypatch):
         from app.tasks.auth_tasks import cleanup_unverified_accounts
 
         _insert_user(database, "reaped", verified=False)
@@ -247,11 +260,10 @@ class TestUnverifiedCleanupAnonymisesThePersonalTenant:
 
         assert result["removed"] >= 1
         assert database.collection(col.USERS).get("reaped") is None
-        after = database.collection(col.TENANTS).get(tenant.key)
-        assert after["owner_user_key"] == ANONYMIZED_MARKER
-        assert "Verlassene" not in after["name"]
-        assert "verlassene" not in after["slug"]
-        assert "reaped" not in str(after.values())
+        assert database.collection(col.TENANTS).get(tenant.key) is None
+        record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant.key))
+        assert (record["status"], record["origin"]) == ("completed", "account_erasure")
+        assert "reaped" not in str(record.values())
 
 
 class TestUnverifiedCleanupRemovesTheRegistrationMembership:

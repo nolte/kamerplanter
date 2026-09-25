@@ -27,8 +27,9 @@ from pydantic import BaseModel, Field, model_validator
 #:   with its own retention purge, a row that only *looks* tenant-owned).
 type TenantErasureAction = Literal["delete", "pseudonymize", "retain"]
 
-#: Which entry point asked for the deletion.
-type TenantErasureOrigin = Literal["tenant_management", "platform_admin"]
+#: Which entry point asked for the deletion. ``account_erasure`` is the erasure of
+#: the tenant's owner when nobody else is an active member of it (#1788).
+type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "account_erasure"]
 
 type TenantErasureStatus = Literal["in_progress", "completed", "partially_completed"]
 
@@ -36,7 +37,11 @@ type TenantErasureStatus = Literal["in_progress", "completed", "partially_comple
 #: ``password`` — the current password of an account that has one; for an account
 #: without a local password (federated sign-in only) the echoed slug is the
 #: confirmation, ``slug_confirmation`` (the REQ-394 precedent of account erasure).
-type TenantDeletionStepUp = Literal["password", "slug_confirmation"]
+#: ``account_erasure_no_interactive_step_up`` — nobody asked interactively: the
+#: tenant is a personal tenant the erased account used alone, and the account
+#: erasure that decided it (itself re-authenticated, a platform admin, or the
+#: unverified cleanup) took no step-up for the tenant (#1788).
+type TenantDeletionStepUp = Literal["password", "slug_confirmation", "account_erasure_no_interactive_step_up"]
 
 
 class TenantDeletionConfirmation(BaseModel):

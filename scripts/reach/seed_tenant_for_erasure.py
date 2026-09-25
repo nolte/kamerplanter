@@ -30,6 +30,14 @@ from retained rows to deleted ones, and the control tenant has the same.
 
 A row stamped with the tenant in a collection nobody declared is **not** seeded:
 that would make the probe measure a failure it constructs itself.
+
+``--personal-of <subject>`` (#1788) makes the tenant under test the subject's
+**personal** tenant instead of an organisation: owned by the subject (an account
+``reach:seed:privacy-subject`` wrote), the inventory's membership row the
+subject's own and its only active one, the retention rows carrying the subject's
+key. The control tenant keeps a member of its own, so an account erasure of the
+subject has no business changing it. The act is then the subject's account
+erasure, not a tenant deletion.
 """
 
 from __future__ import annotations
@@ -78,12 +86,12 @@ SHAPE_OVERRIDES: dict[str, Any] = {
 }
 
 
-def _seed_one(seeder: Seeder, tenant: str, member: str, role: str) -> None:
+def _seed_one(seeder: Seeder, tenant: str, member: str, role: str, *, personal: bool = False) -> None:
     plan = TenantErasureEngine().build_plan(tenant)
     rules = {rule.collection: rule for rule in plan.pseudonymizations}
     seeder.document(
         plan.tenant_collection,
-        {"slug": tenant, "owner_user_key": member, "tenant_type": "organization"},
+        {"slug": tenant, "owner_user_key": member, "tenant_type": "personal" if personal else "organization"},
         role=f"{role}:tenant",
         key=tenant,
     )
@@ -108,6 +116,9 @@ def _seed_one(seeder: Seeder, tenant: str, member: str, role: str) -> None:
         rule = rules.get(entry.collection)
         if rule is not None:
             overrides[rule.user_field] = member
+        if personal and entry.collection == col.MEMBERSHIPS:
+            # The owner's own membership, and the only active one (#1788).
+            overrides.update({"user_key": member, "is_active": True})
         row = seeder.document(entry.collection, overrides, role=f"{role}:{entry.action}")
         own[entry.collection] = row["key"]
 
@@ -126,6 +137,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--tenant", required=True)
     parser.add_argument("--control", required=True)
+    parser.add_argument(
+        "--personal-of",
+        default=None,
+        help="seed the tenant as this (already seeded) account's personal tenant, it the only member (#1788)",
+    )
     args = parser.parse_args(argv)
 
     client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
@@ -138,11 +154,17 @@ def main(argv: list[str] | None = None) -> int:
         if database.collection(TenantErasureEngine.TENANT_COLLECTION).has(tenant):
             print(f"seed: tenant '{tenant}' already exists; tear the stack down first", file=sys.stderr)
             return 1
-    member = f"reach-member-{secrets.token_hex(4)}"
+    if args.personal_of is not None and not database.collection(col.USERS).has(args.personal_of):
+        print(
+            f"seed: account '{args.personal_of}' does not exist; run reach:seed:privacy-subject first", file=sys.stderr
+        )
+        return 1
+    member = args.personal_of or f"reach-member-{secrets.token_hex(4)}"
+    control_member = f"reach-member-{secrets.token_hex(4)}" if args.personal_of else member
     seeder = Seeder(database, member)
     try:
-        _seed_one(seeder, args.tenant, member, "tenant")
-        _seed_one(seeder, args.control, member, "control")
+        _seed_one(seeder, args.tenant, member, "tenant", personal=args.personal_of is not None)
+        _seed_one(seeder, args.control, control_member, "control")
     except SeedError as exc:
         print(f"seed: {exc}", file=sys.stderr)
         return 1
