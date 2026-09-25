@@ -62,8 +62,11 @@ class ApiKeyRateLimiter:
         redis_key = f"api_key_ratelimit:{api_key_key}"
         try:
             current = self._redis.incr(redis_key)
-            if current == 1:
-                self._redis.expire(redis_key, _WINDOW_SECONDS)
+            # ``NX`` on every call rather than "only when INCR returned 1": INCR and
+            # EXPIRE are two commands, and a failure between them used to leave a
+            # counter without expiry that locked the key out for good (security
+            # review of #1850). ``NX`` never extends a running window.
+            self._redis.expire(redis_key, _WINDOW_SECONDS, nx=True)
         except Exception as exc:  # noqa: BLE001 - store failure handled fail-closed
             logger.warning("api_key_rate_limit_unavailable", error=loggable_error(exc))
             # Cannot prove the caller is under quota → reject rather than let one

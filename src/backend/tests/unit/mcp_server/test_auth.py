@@ -122,7 +122,7 @@ class _FakeRedis:
         self.counters[key] = self.counters.get(key, 0) + 1
         return self.counters[key]
 
-    def expire(self, key: str, seconds: int) -> None:  # pragma: no cover - trivial
+    def expire(self, key: str, seconds: int, nx: bool = False) -> None:  # pragma: no cover - trivial
         pass
 
     def ttl(self, key: str) -> int:  # pragma: no cover - trivial

@@ -24,9 +24,13 @@ from app.common.auth import SCOPED_KEY_ON_ACCOUNT_ROUTE
 from app.common.dependencies import (
     get_auth_provider,
     get_auth_service,
+    get_favorites_service,
+    get_notification_service,
+    get_onboarding_service,
     get_privacy_service,
     get_substrate_service,
     get_tenant_service,
+    get_user_preference_service,
     get_user_service,
 )
 from app.common.enums import TenantRole, TenantType
@@ -97,10 +101,25 @@ class _TenantService:
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
         return SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[], is_active=True)
 
+    def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
+        return SimpleNamespace(key={"club-a": "t_a", "club-b": "t_b"}[slug], slug=slug)
+
 
 @pytest.fixture
 def services() -> dict[str, MagicMock]:
-    return {name: MagicMock(name=name) for name in ("auth", "privacy", "substrate", "user")}
+    return {
+        name: MagicMock(name=name)
+        for name in (
+            "auth",
+            "privacy",
+            "substrate",
+            "user",
+            "notification",
+            "onboarding",
+            "favorites",
+            "user_preference",
+        )
+    }
 
 
 @pytest.fixture
@@ -140,6 +159,10 @@ def client(services: dict[str, MagicMock]) -> Iterator[TestClient]:
     app.dependency_overrides[get_privacy_service] = lambda: services["privacy"]
     app.dependency_overrides[get_substrate_service] = lambda: services["substrate"]
     app.dependency_overrides[get_user_service] = lambda: services["user"]
+    app.dependency_overrides[get_notification_service] = lambda: services["notification"]
+    app.dependency_overrides[get_onboarding_service] = lambda: services["onboarding"]
+    app.dependency_overrides[get_favorites_service] = lambda: services["favorites"]
+    app.dependency_overrides[get_user_preference_service] = lambda: services["user_preference"]
     try:
         # The unscoped control reaches the doubled services, whose MagicMock answers
         # fail response validation; a 500 there is fine — only the gate is asserted.
@@ -168,6 +191,16 @@ _REFUSED = [
     ("POST", "/api/v1/privacy/erasure"),
     ("GET", "/api/v1/privacy/consents"),
     ("POST", "/api/v1/substrates/batches/b1/assign-slot/s1"),
+    # Account-wide writes inside the scoped tenant's own surface (security review):
+    # a key for club-a must not redirect the notifications of every tenant.
+    ("PUT", "/api/v1/t/club-a/notifications/preferences"),
+    ("POST", "/api/v1/t/club-a/notifications/pwa/subscribe"),
+    ("POST", "/api/v1/t/club-a/notifications/pwa/unsubscribe"),
+    ("PATCH", "/api/v1/t/club-a/user-preferences"),
+    ("POST", "/api/v1/t/club-a/onboarding/skip"),
+    ("POST", "/api/v1/t/club-a/onboarding/reset"),
+    ("PATCH", "/api/v1/t/club-a/onboarding/state"),
+    ("DELETE", "/api/v1/t/club-a/favorites/sp1"),
 ]
 
 

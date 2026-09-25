@@ -95,7 +95,7 @@ class _Redis:
         self.counters[key] = self.counters.get(key, 0) + 1
         return self.counters[key]
 
-    def expire(self, key: str, seconds: int) -> None:
+    def expire(self, key: str, seconds: int, nx: bool = False) -> None:
         return None
 
     def ttl(self, key: str) -> int:

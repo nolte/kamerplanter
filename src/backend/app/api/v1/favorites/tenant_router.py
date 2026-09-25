@@ -15,11 +15,14 @@ from app.api.v1.favorites.schemas import (
     FavoriteResponse,
     NutrientPlanMatchResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_account_principal
 from app.common.dependencies import get_favorites_service
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.favorites_service import FavoritesService
 
+# Writes of the caller's ACCOUNT-WIDE settings below depend on
+# ``require_account_principal``: the tenant in the path admits a tenant-scoped API
+# key, but these settings span every tenant of its owner (#1851).
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
 
@@ -63,7 +66,9 @@ def add_favorite(
     return _edge_to_response(edge)
 
 
-@router.delete("/{target_key}", response_model=FavoriteRemovedResponse)
+@router.delete(
+    "/{target_key}", response_model=FavoriteRemovedResponse, dependencies=[Depends(require_account_principal)]
+)
 def remove_favorite(
     target_key: Annotated[str, Path(description="Document key of the favorited entity.")],
     cascade_cleanup: bool = Query(default=True, description="Also remove cascaded favorites (e.g. plan fertilizers)."),

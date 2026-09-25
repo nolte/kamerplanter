@@ -20,7 +20,7 @@ class _FakeRedis:
         self.counters[key] = self.counters.get(key, 0) + 1
         return self.counters[key]
 
-    def expire(self, key: str, seconds: int) -> None:
+    def expire(self, key: str, seconds: int, nx: bool = False) -> None:
         self.expired.append((key, seconds))
 
     def ttl(self, key: str) -> int:
@@ -62,3 +62,42 @@ def test_counter_is_scoped_per_key():
     # A different key has its own window and is unaffected.
     limiter.check_and_increment(api_key_key="ak-2", limit=1)
     assert redis.counters == {"api_key_ratelimit:ak-1": 1, "api_key_ratelimit:ak-2": 1}
+
+
+class _TtlRedis:
+    """INCR/EXPIRE/TTL with real TTL bookkeeping; ``expire`` can fail once."""
+
+    def __init__(self, *, fail_first_expire: bool) -> None:
+        self.counters: dict[str, int] = {}
+        self.ttls: dict[str, int] = {}
+        self._fail_next_expire = fail_first_expire
+
+    def incr(self, key: str) -> int:
+        self.counters[key] = self.counters.get(key, 0) + 1
+        return self.counters[key]
+
+    def expire(self, key: str, seconds: int, nx: bool = False) -> bool:
+        if self._fail_next_expire:
+            self._fail_next_expire = False
+            raise ConnectionError("blip between INCR and EXPIRE")
+        if nx and key in self.ttls:
+            return False
+        self.ttls[key] = seconds
+        return True
+
+    def ttl(self, key: str) -> int:
+        return self.ttls.get(key, -1)
+
+
+def test_a_counter_left_without_expiry_gets_one_on_the_next_call():
+    # Security review of #1850 (SEC-004): INCR and EXPIRE are two commands. If
+    # EXPIRE failed after INCR, the counter used to live forever (EXPIRE ran only
+    # when INCR returned 1), locking the key out for good once it reached the limit.
+    redis = _TtlRedis(fail_first_expire=True)
+    limiter = ApiKeyRateLimiter(redis)
+
+    with pytest.raises(RateLimitError):  # the blip itself fails closed
+        limiter.check_and_increment(api_key_key="ak-1", limit=5)
+    limiter.check_and_increment(api_key_key="ak-1", limit=5)
+
+    assert redis.ttls == {"api_key_ratelimit:ak-1": 60}

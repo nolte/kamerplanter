@@ -18,6 +18,14 @@ The decision per route class (recorded in REQ-023):
   the scope), and global reference data that carries no tenant's and no
   account's data.
 
+A second class sits *inside* the tenant surface (security review of #1851): a
+``/t/{slug}/`` write whose handler reads only ``ctx.user_key`` and never a tenant
+key changes the caller's **account-wide** settings — notification delivery
+targets, Web Push endpoints, preferences, onboarding state. The resolver admits a
+scoped key for its own tenant, so without a refusal a key for tenant A redirects
+the digest of every tenant of its owner. Those routes must depend on
+``require_account_principal`` as well (``test_account_wide_writes_under_a_tenant_refuse_scoped_keys``).
+
 This guard walks every leaf route of the assembled app (through the nested
 ``_IncludedRouter`` wrappers, include-level dependencies included) that depends
 on ``get_current_user`` / ``get_current_user_optional``. Each must be refused,
@@ -27,6 +35,9 @@ that no longer exists fails too, so the list cannot rot.
 
 from __future__ import annotations
 
+import ast
+import inspect
+import textwrap
 from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI
@@ -204,3 +215,61 @@ def test_an_undecided_route_is_flagged_through_an_include_level_dependency() -> 
     app.include_router(router, prefix="/api/v1", dependencies=[Depends(get_current_user)])
 
     assert _undecided(app) == ([("GET", "/api/v1/me/thing")], 2)
+
+
+def _account_wide_tenant_writes(app: Any) -> tuple[list[tuple[str, str]], int]:
+    """``/t/{slug}/`` writes whose handler reads ``ctx.user_key`` and no tenant key, not refusing scoped keys."""
+    from app.common import auth
+
+    offenders, tenant_writes = [], 0
+    for path, route, dependants in _routes(app.routes):
+        methods = sorted(route.methods - {"GET", "HEAD", "OPTIONS"})
+        if "{tenant_slug}" not in path or not methods:
+            continue
+        tenant_writes += 1
+        tree = ast.parse(textwrap.dedent(inspect.getsource(route.endpoint)))
+        attrs = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+        names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | {
+            a.arg for n in ast.walk(tree) if isinstance(n, ast.keyword) for a in [n] if a.arg
+        }
+        if "user_key" not in attrs or "tenant_key" in attrs or "tenant_key" in names:
+            continue
+        if auth.require_account_principal in _calls(dependants):
+            continue
+        offenders.extend((method, path) for method in methods)
+    return offenders, tenant_writes
+
+
+def test_account_wide_writes_under_a_tenant_refuse_scoped_keys() -> None:
+    from app.main import app
+
+    offenders, tenant_writes = _account_wide_tenant_writes(app)
+
+    assert tenant_writes > 150, tenant_writes  # non-vacuity: the walk reaches the /t/ routers
+    assert offenders == [], (
+        "tenant-scoped routes that write the caller's account-wide settings without refusing a "
+        f"tenant-scoped API key (#1851): {offenders}"
+    )
+
+
+def test_the_account_wide_write_scan_sees_user_only_handlers() -> None:
+    from app.common.auth import get_current_tenant, require_account_principal
+
+    router = APIRouter()
+
+    @router.put("/t/{tenant_slug}/prefs")
+    def prefs(ctx: Any = Depends(get_current_tenant)) -> None:
+        return ctx.user_key
+
+    @router.put("/t/{tenant_slug}/scoped")
+    def scoped(ctx: Any = Depends(get_current_tenant)) -> None:
+        return (ctx.user_key, ctx.tenant_key)
+
+    @router.put("/t/{tenant_slug}/refused", dependencies=[Depends(require_account_principal)])
+    def refused(ctx: Any = Depends(get_current_tenant)) -> None:
+        return ctx.user_key
+
+    app = FastAPI()
+    app.include_router(router)
+
+    assert _account_wide_tenant_writes(app) == ([("PUT", "/t/{tenant_slug}/prefs")], 3)

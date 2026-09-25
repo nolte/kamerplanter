@@ -23,7 +23,7 @@ from app.api.v1.notifications.schemas import (
     UnreadCountResponse,
     VapidPublicKeyResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_account_principal
 from app.common.dependencies import get_care_reminder_service, get_notification_service
 from app.common.enums import ReminderType
 from app.common.exceptions import ForbiddenError, NotFoundError
@@ -50,6 +50,9 @@ _CARE_CONFIRM_ACTIONS: frozenset[str] = frozenset({"confirm", "confirm_watering"
 #: only answer 403, or a grower refused one (SEC-006 of the #1443 review).
 _CARE_TYPE_PREFIX = "care."
 
+# Writes of the caller's ACCOUNT-WIDE settings below depend on
+# ``require_account_principal``: the tenant in the path admits a tenant-scoped API
+# key, but these settings span every tenant of its owner (#1851).
 router = APIRouter(prefix="/notifications", tags=["notifications"], responses=NOT_FOUND_RESPONSE)
 
 
@@ -247,7 +250,9 @@ def get_preferences(
     )
 
 
-@router.put("/preferences", response_model=NotificationPreferencesResponse)
+@router.put(
+    "/preferences", response_model=NotificationPreferencesResponse, dependencies=[Depends(require_account_principal)]
+)
 def update_preferences(
     body: NotificationPreferencesRequest,
     ctx: TenantContext = Depends(get_current_tenant),
@@ -352,7 +357,7 @@ def get_vapid_public_key(
     return VapidPublicKeyResponse(vapid_public_key=settings.vapid_public_key)
 
 
-@router.post("/pwa/subscribe", response_model=PwaSubscribeResponse)
+@router.post("/pwa/subscribe", response_model=PwaSubscribeResponse, dependencies=[Depends(require_account_principal)])
 def subscribe_pwa(
     body: PwaSubscribeRequest,
     ctx: TenantContext = Depends(get_current_tenant),
@@ -369,7 +374,9 @@ def subscribe_pwa(
     return PwaSubscribeResponse(endpoint=endpoint)
 
 
-@router.post("/pwa/unsubscribe", response_model=PwaUnsubscribeResponse)
+@router.post(
+    "/pwa/unsubscribe", response_model=PwaUnsubscribeResponse, dependencies=[Depends(require_account_principal)]
+)
 def unsubscribe_pwa(
     body: PwaUnsubscribeRequest,
     ctx: TenantContext = Depends(get_current_tenant),
