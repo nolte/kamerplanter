@@ -11,9 +11,9 @@ gate:
   filter: reranker-service
 status: derived
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
-replay_seconds: 1
-job_spec_sha256: e2ebb8dbfecfd1901a6df1f2d687d2943a2c8a965321fea64ca3abe2925ea780
+measured_at_commit: 1e825cdab0c1721a41951ad5b1b97da9ef8df17a
+replay_seconds: 4
+job_spec_sha256: 093e26e3c696b8020969c892795e23dae475fbc52c82ebec98f015ed3cf0a6e7
 invocations:
 - command: derive-docker --context docker/reranker-service --dockerfile docker/reranker-service/Dockerfile
   cwd: .
@@ -46,5 +46,3 @@ unrecorded_invocations:
     there is no such image. Besides itself the script reads only the golden outputs under docker/reranker-service/golden/
     (#1763), which this job's own filter docker/reranker-service/** covers (it reads the body cap from `limits` INSIDE the
     image), and scripts/ci/** is in this workflow's on:-level filter; the image's inputs are the derived build context above.
-test_modules: []
-readers: {}

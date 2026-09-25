@@ -9,6 +9,7 @@
   "files_sha256": {
     "config.json": "9dab198f24c8c0879e481cf7822005d5ecbceedbacb390ffafa594e28d31bac4",
     "model.onnx": "84a4d426f7e87a6bf5bf195f0bae2c4a7d15f675b23ca96f42fab8326d7a77aa",
+    "sentence_bert_config.json": "948201d8329907aae938fa62f9ceeed53f5694dacc2b87b9f3b78b37ee986529",
     "sentencepiece.bpe.model": "cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865",
     "special_tokens_map.json": "06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f",
     "tokenizer.json": "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626",
@@ -25,6 +26,7 @@
     },
     "cpu": "Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz"
   },
+  "max_seq_length": 512,
   "prefix": "passage: ",
   "reduction": {
     "sample_size": 64,
@@ -66,6 +68,7 @@
     "against": "intfloat/multilingual-e5-base@d128750597153bb5987e10b1c3493a34e5a4502a",
     "with": "sentence-transformers 5.1.2, transformers 4.57.6, torch 2.14.0+cpu",
     "on": "2026-09-25",
-    "max_abs_delta": 1e-06
+    "max_abs_delta": 1e-06,
+    "max_seq_length": 512
   }
 }

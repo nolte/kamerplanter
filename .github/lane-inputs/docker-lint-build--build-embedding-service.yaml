@@ -11,9 +11,9 @@ gate:
   filter: embedding-service
 status: derived
 measured_on: '2026-09-25'
-measured_at_commit: c58248f03e803375a3f8a0919ff9717721c8f0f4
-replay_seconds: 1
-job_spec_sha256: 73548dee7b2fb3d3dcb5cca49217c0aa2ab7fdf891e1fe2a3e35bbe074bbbab1
+measured_at_commit: 1e825cdab0c1721a41951ad5b1b97da9ef8df17a
+replay_seconds: 8
+job_spec_sha256: 1078532dd1d7f2915990d25d12fe89734e0463f3452d64c02a3a27e344e95b9c
 invocations:
 - command: derive-docker --context docker/embedding-service --dockerfile docker/embedding-service/Dockerfile
   cwd: .
@@ -50,5 +50,3 @@ unrecorded_invocations:
     there is no such image. Besides itself the script reads only the golden outputs under docker/embedding-service/golden/
     (#1763), which this job's own filter docker/embedding-service/** covers (it reads the body cap from `limits` INSIDE the
     image), and scripts/ci/** is in this workflow's on:-level filter; the image's inputs are the derived build context above.
-test_modules: []
-readers: {}

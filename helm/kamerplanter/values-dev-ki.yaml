@@ -76,7 +76,10 @@ controllers:
           LLM_MAX_TOKENS: "2048"
           LLM_TEMPERATURE: "0.1"
           RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
-          RERANKER_INITIAL_K: "20"
+          # 15 x 500 chars fit the sidecar's 25 s deadline (#1751); product capped by
+          # RERANK_SCORED_CHARS_BUDGET in src/knowledge-service/app/config.py.
+          RERANKER_INITIAL_K: "15"
+          RERANKER_MAX_DOCUMENT_CHARS: "500"
           RERANKER_TOP_K: "5"
           ANSWER_VERIFICATION: "false"
           KNOWLEDGE_PATH: "/app/knowledge"

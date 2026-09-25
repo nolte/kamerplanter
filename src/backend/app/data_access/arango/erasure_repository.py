@@ -1,9 +1,12 @@
+from typing import Any
+
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentInsertError
 
 from app.common.types import UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.domain.engines.erasure_engine import TOMBSTONE_FULLMATCH_REGEX
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.models.privacy import ErasureRequest
 
@@ -170,3 +173,76 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
         if not docs:
             return None
         return ErasureRequest(**self._from_doc(docs[0]))
+
+    #: The purge predicate, shared by every statement below so they cannot drift.
+    #: ``completed_at`` is compared as an **instant** (``DATE_TIMESTAMP``), not as
+    #: a string: ArangoDB orders strings by ICU collation, under which
+    #: ``…:00.5Z`` sorts *before* ``…:00+00:00`` — a completion half a second
+    #: after the cutoff was purged (#1773 review GDPR-009, measured). An
+    #: unparsable value yields ``null``, which AQL orders below every number, so
+    #: it is excluded explicitly rather than read as "long ago".
+    _PURGE_DUE = """
+          FILTER doc.status == 'completed'
+            AND DATE_TIMESTAMP(doc.completed_at) != null
+            AND DATE_TIMESTAMP(doc.completed_at) < DATE_TIMESTAMP(@cutoff)
+    """
+    #: Only a record whose ``user_key`` is already the tombstone is proof of a
+    #: finished erasure (#1773 review GDPR-006): the erasure transaction rewrites
+    #: the key. A ``completed`` record still naming its subject may be the only
+    #: trace of an Art. 17 duty that was never fulfilled.
+    _IS_TOMBSTONED = "REGEX_TEST(TO_STRING(doc.user_key), @tombstone)"
+
+    def delete_completed_before(self, cutoff_iso: str) -> int:
+        """Hard-delete completed, tombstoned requests past the NFR-011 R-06 period, edges first (#1772).
+
+        Two statements, because AQL forbids reading a collection after
+        modifying it in the same query: the ``requested_erasure`` edges into
+        the selected requests are removed first, then the requests. The two
+        selections cannot diverge between the statements: a request completing
+        meanwhile carries ``completed_at = now``, never a time before a cutoff
+        a year back, and a ``user_key`` becomes a tombstone only inside the
+        erasure transaction, never back. Both carry the tombstone filter — the
+        edge statement too, or a held record would lose its edge.
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": col.ERASURE_REQUESTS,
+            "cutoff": cutoff_iso,
+            "tombstone": TOMBSTONE_FULLMATCH_REGEX,
+        }
+        edges_query = f"""
+        FOR doc IN @@collection
+          {self._PURGE_DUE}
+          FILTER {self._IS_TOMBSTONED}
+          FOR edge IN @@edges
+            FILTER edge._to == doc._id
+            REMOVE edge IN @@edges
+        """
+        self._db.aql.execute(edges_query, bind_vars={**bind_vars, "@edges": col.REQUESTED_ERASURE})
+        docs_query = f"""
+        FOR doc IN @@collection
+          {self._PURGE_DUE}
+          FILTER {self._IS_TOMBSTONED}
+          REMOVE doc IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(docs_query, bind_vars=bind_vars)
+        return len(list(cursor))
+
+    def count_completed_without_tombstone_before(self, cutoff_iso: str) -> int:
+        """Count the requests the purge holds back: due, but ``user_key`` is no tombstone (GDPR-006)."""
+        query = f"""
+        FOR doc IN @@collection
+          {self._PURGE_DUE}
+          FILTER !{self._IS_TOMBSTONED}
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.ERASURE_REQUESTS,
+                "cutoff": cutoff_iso,
+                "tombstone": TOMBSTONE_FULLMATCH_REGEX,
+            },
+        )
+        return int(next(iter(cursor), 0))

@@ -84,3 +84,18 @@ Seit 2026-09-24 exportiert der `reranker-service` beim Docker-Build keine Modell
 Die API (`/rerank`, `/health`, `/ready`) ist unverändert — mit einer Ausnahme: Eine leere `documents`-Liste liefert seither ein leeres Ergebnis statt eines Fehlers.
 
 Die eigentliche Entscheidung dieses ADRs — Cross-Encoder Re-Ranking mit `bge-reranker-v2-m3` als Standardmodell — sowie ihre Begründung bleiben unverändert; geändert hat sich nur der Beschaffungsweg der ONNX-Datei.
+
+## Nachtrag (2026-09-25): `RERANKER_INITIAL_K`-Default gesenkt, neue Zeichenobergrenze pro Dokument
+
+Der ursprünglich angenommene Aufwand von „~500ms für 20 Paare" (siehe „Warum separater Service statt In-Process?" oben) hat sich am 2-CPU-Limit des Helm-Charts als deutlich zu niedrig erwiesen: `bge-reranker-v2-m3` kostet dort real ~3 Sekunden je (Query, Dokument)-Paar mit 512 Tokens. Ein realer HTTP-Test über alle 100 Benchmark-Fragen gegen den Reranker-Sidecar bestätigt das für den ursprünglichen Default `RERANKER_INITIAL_K=20` mit vollständigen Dokumenten bis 512 Tokens: Jede Anfrage traf die serverseitige 25-Sekunden-Deadline (`{"status": "timeout"}` nach ~27 Sekunden; rechnerisch entspräche das ~54 Sekunden Gesamtaufwand). In der Praxis lief Re-Ranking dadurch nie durch; jede Suche wartete zusätzlich ~27 Sekunden auf einen Fallback, der ohnehin eintrat.
+
+Seit diesem Datum gilt:
+
+- `RERANKER_INITIAL_K` hat den Default **15** (statt 20).
+- Neue Umgebungsvariable `RERANKER_MAX_DOCUMENT_CHARS` (Default **500**): Jeder Kandidaten-Chunk (`titel\ninhalt`) wird vor dem Versand an den Reranker-Sidecar auf diese Zeichenzahl gekürzt (Paar-Median 166 Tokens, maximal 222). Der an das LLM übergebene Chunk behält seinen vollständigen Text — nur die Reranker-Eingabe wird verkürzt.
+- Beide Werte erfüllen zusammen exakt das vom Reranker-Service erzwungene Zeichenbudget `RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7.500` (`RERANK_SCORED_CHARS_BUDGET` in `config.py`, 15 × 500 = 7.500).
+- Die Budget-Grenze bestimmt nur, wie viele Kandidaten neu bewertet werden — nie, wie viele Ergebnisse ein Aufrufer erhält: `KnowledgeService.search()` ruft `max(RERANKER_INITIAL_K, top_k)` Kandidaten ab, bewertet nur den Kopf der Länge `RERANKER_INITIAL_K` neu und hängt den Rest unverändert in Hybrid-Reihenfolge an. Bei einem Fallback entspricht das Gesamtergebnis vollständig der ungerankten Hybrid-Reihenfolge.
+
+Mit den neuen Standardwerten waren im selben Test alle 100 Anfragen erfolgreich (p50 12,9 Sekunden, p90 15,0 Sekunden, maximal 16,0 Sekunden — innerhalb des 25-Sekunden-Budgets). Die Kontextqualität (Anteil der erwarteten Themen im zurückgegebenen Kontext, 54 Fragen/9 Kategorien) hängt vom angeforderten `top_k` ab: Bei `top_k=5` steigt sie von 0,927 ohne Re-Ranking auf 0,974 mit den neuen Standardwerten (ungebremstes Re-Ranking aller Kandidaten: 0,982, passt aber nicht in die Deadline); beim Chat-Standardwert `top_k=10` ist der Gewinn klein (0,978 → 0,979, ungebremst 0,995) — der größere Nutzen liegt bei Aufrufern mit wenigen angeforderten Chunks wie dem Glossar (`top_k=5`) oder dem Diagnose-Assistenten (`top_k=8`). Details zu den Fallback-Gründen (`reranker_fallback`, u. a. `reason=deadline`) stehen in der [KI-Architektur](../architecture/ai-architecture.md#fallback-gruende-und-zeitbudget).
+
+Die Entscheidung für Cross-Encoder Re-Ranking mit `bge-reranker-v2-m3` bleibt unverändert; geändert haben sich nur die Standardwerte für Over-Retrieval, eine neue, zusätzliche Zeichenobergrenze pro Dokument und die explizite Bewertungs-Invariante.

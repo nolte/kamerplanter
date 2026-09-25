@@ -11,6 +11,7 @@ rather than left to the reader of the docstrings:
   without the per-recipient window an attacker owns somebody else's inbox.
 """
 
+import smtplib
 from unittest.mock import MagicMock
 
 import pytest
@@ -191,6 +192,28 @@ class TestQuietPaths:
         result = auth_tasks.send_duplicate_registration_notice(USER_KEY)
 
         assert result == {"status": "failed", "reason": "delivery_error"}
+
+    def test_a_refused_recipient_is_logged_by_type_not_by_address(
+        self,
+        wired: MagicMock,
+        email_service: MagicMock,
+    ) -> None:
+        """GDPR-004 (#1773 review): ``SMTPRecipientsRefused`` carries the third party's address.
+
+        ``error=str(exc)`` wrote it into the log stream — the address of somebody
+        who never consented to the request that mentioned it.
+        """
+        email_service.send_notification_email.side_effect = smtplib.SMTPRecipientsRefused(
+            {RECIPIENT: (550, b"5.1.1 <victim@example.com>: Recipient address rejected")}
+        )
+
+        with structlog.testing.capture_logs() as logs:
+            result = auth_tasks.send_duplicate_registration_notice(USER_KEY)
+
+        assert result == {"status": "failed", "reason": "delivery_error"}
+        failed = next(entry for entry in logs if entry["event"] == "duplicate_registration_notice_failed")
+        assert failed["error_type"] == "SMTPRecipientsRefused"
+        assert RECIPIENT not in repr(logs)
 
     def test_adapter_without_notification_support_is_reported_not_raised(
         self,

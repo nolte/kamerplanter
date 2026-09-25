@@ -31,6 +31,18 @@ ANONYMIZED_KEY_PREFIX = "anonymized-"
 #: The exact shape :meth:`ErasureEngine.compute_tombstone_hash` produces.
 _TOMBSTONE_PATTERN = re.compile(r"anon_[0-9a-f]{16}")
 
+#: :data:`_TOMBSTONE_PATTERN` anchored for an AQL ``REGEX_TEST`` (which searches,
+#: not full-matches). Derived, so the repository cannot spell the shape differently.
+TOMBSTONE_FULLMATCH_REGEX = f"^{_TOMBSTONE_PATTERN.pattern}$"
+
+#: Prefix of :meth:`ErasureEngine.log_subject` — deliberately not ``anon_``, so a
+#: log reference can never be mistaken for (or tested as) a tombstone.
+LOG_SUBJECT_PREFIX = "sub_"
+
+#: What :meth:`ErasureEngine.log_subject` returns when no usable salt is
+#: configured — a constant, never the plaintext key it stands in for.
+UNAVAILABLE_LOG_SUBJECT = "anon_unavailable"
+
 
 class ErasureEngine:
     """Defines the deletion order, anonymisation rules and storage-cleanup steps.
@@ -902,3 +914,49 @@ class ErasureEngine:
             raise ValueError(msg)
         digest = hashlib.sha256((user_key + salt).encode("utf-8")).hexdigest()
         return f"anon_{digest[:16]}"
+
+    @staticmethod
+    def log_subject(user_key: str, salt: str) -> str:
+        """The reference a log line carries instead of a data subject's account key (#1700, #1773).
+
+        A log stream has no retention rule of its own (NFR-011): whatever it
+        receives outlives the account it names, the erasure that removed the
+        account, and the erasure record that proves it (R-06). Log lines on the
+        privacy, auth, retention and storage paths therefore name the subject by
+        this reference: ``sub_`` + 16 hex chars of an HMAC-SHA256 over the
+        account key, keyed with the tombstone salt and the purpose label
+        ``log-subject``. The lines of one subject stay correlatable with each
+        other, and name nobody.
+
+        **Purpose-separated from** :meth:`compute_tombstone_hash` (#1773 review
+        GDPR-003). The tombstone is what the pseudonymised rows keep after an
+        erasure (``erasure_requests.user_key``, the CanG/PflSchG harvest and
+        treatment rows). A log reference equal to it would let anyone holding
+        the log stream join those retained rows to a live account's lines — and
+        through an e-mail digest or an IP on such a line, to a person — without
+        knowing the salt. Distinct from :meth:`compute_request_key` as well. An
+        operator who holds the salt can still compute the reference for a given
+        account key.
+
+        A missing or short salt (the configuration ``erase_account`` refuses)
+        must not turn a log line into an error, and must not fall back to the
+        plaintext key either: it yields the constant ``anon_unavailable``.
+        """
+        if not salt or len(salt) < 32:
+            return UNAVAILABLE_LOG_SUBJECT
+        digest = hmac.new(salt.encode(), f"log-subject:{user_key}".encode(), hashlib.sha256).hexdigest()
+        return f"{LOG_SUBJECT_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def redact_subject(text: str, user_key: str, salt: str) -> str:
+        """*text* with every occurrence of *user_key* replaced by :meth:`log_subject`.
+
+        For free text that reaches a log line or a record outliving the account —
+        an exception message can name the subject (``NotFoundError("User",
+        <key>)``) or a storage key embedding it (``privacy/exports/<key>/…``).
+        An empty key redacts nothing: ``str.replace("", …)`` would splice the
+        reference between every character.
+        """
+        if not user_key:
+            return text
+        return text.replace(user_key, ErasureEngine.log_subject(user_key, salt))

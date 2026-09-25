@@ -72,7 +72,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anonymisierung personenbezogener Daten (siehe [Datenschutz (DSGVO)](../user-guide/privacy.md)) und sind vom Betriebsmodus unabhängig — sie gelten sowohl im Light- als auch im Full-Modus.
 
-<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours, retention_unverified_account_days, retention_erasure_audit_retention_years); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
@@ -82,6 +82,8 @@ Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anony
 | `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | Nein | Aufbewahrungsdauer eines generierten Datenexports (Art. 15/20 DSGVO), bevor er automatisch gelöscht wird. |
 | `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | Nein | Frist, nach der ein zur Löschung markiertes Konto endgültig (Hard-Delete) entfernt wird. |
 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung. |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | Nein | Anzahl Tage nach der Registrierung, nach denen ein nie bestätigtes Konto automatisch gelöscht wird (NFR-011 R-02). Minimum: `1`. |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | Nein | Anzahl Jahre, die ein abgeschlossener Löschungs-Antrag (`erasure_requests`, `status=completed`) als Rechenschaftsnachweis (Art. 5 Abs. 2 DSGVO) aufbewahrt wird, bevor er endgültig gelöscht wird (NFR-011 R-06). Gezählt in Kalenderjahren. Minimum: `1`. |
 
 !!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion"
     Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden.
@@ -167,15 +169,16 @@ Diese Variablen konfigurieren den optionalen Cross-Encoder-Re-Ranker des Knowled
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `RERANKER_URL` | `` (leer) | Nein | HTTP-URL des Reranker-Microservice, z. B. `http://reranker-service:8081`. Leer = Re-Ranking deaktiviert. |
-| `RERANKER_INITIAL_K` | `20` | Nein | Anzahl der Chunks, die aus dem Hybrid-Search-Schritt abgerufen werden (Over-Retrieval). |
+| `RERANKER_INITIAL_K` | `15` | Nein | Anzahl der Kandidaten aus dem Hybrid-Search-Schritt, die höchstens durch den Cross-Encoder neu bewertet werden (Bewertungs-Obergrenze, kein Limit für die Ergebnisanzahl — siehe [KI-Architektur](../architecture/ai-architecture.md#fallback-gruende-und-zeitbudget)). |
+| `RERANKER_MAX_DOCUMENT_CHARS` | `500` | Nein | Maximale Zeichenzahl von `titel\ninhalt` je Kandidaten-Chunk, bevor er an den Reranker-Sidecar geschickt wird. Der an das LLM übergebene Chunk behält seinen vollständigen Text — nur die Reranker-Eingabe wird gekürzt. |
 | `RERANKER_TOP_K` | `5` | Nein | Anzahl der Chunks, die nach dem Re-Ranking an den LLM-Kontext übergeben werden. |
 | `RERANKER_MODEL` | `bge-reranker-v2-m3` | Nein | ONNX-Modellname im Reranker-Service-Container (Verzeichnis unter `/app/models/onnx/`). |
 
 !!! note "RERANKER_MODEL gehört zum Reranker-Service, nicht zum Knowledge Service"
-    `RERANKER_MODEL` wird als Umgebungsvariable am `reranker-service`-Container gesetzt — nicht am `knowledge-service`. Die anderen drei Variablen (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_TOP_K`) gehören zum Knowledge Service.
+    `RERANKER_MODEL` wird als Umgebungsvariable am `reranker-service`-Container gesetzt — nicht am `knowledge-service`. Die anderen vier Variablen (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_MAX_DOCUMENT_CHARS`, `RERANKER_TOP_K`) gehören zum Knowledge Service.
 
-!!! tip "Ressourcenbedarf"
-    Der Reranker-Service benötigt 1,5–4 GB RAM (je nach Modell) und addiert ~500ms Latenz pro Anfrage. Für Raspberry Pi und ressourcenarme Umgebungen empfiehlt sich, `RERANKER_URL` leer zu lassen.
+!!! tip "Ressourcenbedarf und Zeitbudget"
+    Der Reranker-Service benötigt 1,5–4 GB RAM (je nach Modell) und addiert Latenz pro Anfrage. Bei `bge-reranker-v2-m3` am 2-CPU-Limit des Helm-Charts kostet ein (Query, Dokument)-Paar mit 512 Tokens ca. 3 Sekunden; der Sidecar bricht eine Re-Ranking-Anfrage nach 25 Sekunden serverseitig ab (Fallback-Grund `deadline`, siehe [KI-Architektur](../architecture/ai-architecture.md)). Ein realer HTTP-Test über alle 100 Benchmark-Fragen zeigt: Mit den Standardwerten `RERANKER_INITIAL_K=15` und `RERANKER_MAX_DOCUMENT_CHARS=500` (Paar-Median 166 Tokens, maximal 222) waren alle 100 Anfragen erfolgreich — p50 12,9 Sekunden, p90 15,0 Sekunden, maximal 16,0 Sekunden, innerhalb des 25-Sekunden-Budgets. Ein CI-Guard prüft für die Standardwerte und für jede Deployment-Datei im Repository, die eine der beiden Variablen setzt, dass `RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7.500` gilt (`RERANK_SCORED_CHARS_BUDGET` in `config.py`) und `RERANKER_INITIAL_K` höchstens 50 beträgt (die Anfragegrenze des Sidecars). Die Standardwerte schöpfen das Budget mit 15 × 500 = 7.500 exakt aus. Werte, die du außerhalb des Repositorys setzt, sieht der Guard nicht. Wer einen der beiden Werte über dieses Produkt hinaus anheben will, muss die Latenz vorher neu messen. Für Raspberry Pi und ressourcenarme Umgebungen empfiehlt sich weiterhin, `RERANKER_URL` leer zu lassen.
 
 ---
 
@@ -701,7 +704,8 @@ HA_ACCESS_TOKEN=
 
 # Knowledge Service — Re-Ranking (leer = deaktiviert)
 RERANKER_URL=
-RERANKER_INITIAL_K=20
+RERANKER_INITIAL_K=15
+RERANKER_MAX_DOCUMENT_CHARS=500
 RERANKER_TOP_K=5
 
 # KI-Assistent (instanzweit deaktiviert, solange nicht explizit aktiviert)

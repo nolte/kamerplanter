@@ -72,7 +72,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
 
-<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours, retention_unverified_account_days, retention_erasure_audit_retention_years); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
@@ -82,6 +82,8 @@ These variables control the legally mandated deletion/anonymization of personal 
 | `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before automatic deletion. |
 | `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | No | Grace period before an account marked for deletion is permanently (hard-)deleted. |
 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | No | Validity of the confirmation link when changing an email address. |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | No | Number of days after registration after which a never-confirmed account is automatically deleted (NFR-011 R-02). Minimum: `1`. |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | No | Number of years a completed erasure request (`erasure_requests`, `status=completed`) is kept as the Art. 5(2) GDPR accountability proof before it is permanently deleted (NFR-011 R-06). Counted in calendar years. Minimum: `1`. |
 
 !!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
     Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used.
@@ -167,15 +169,16 @@ These variables configure the optional cross-encoder re-ranker of the Knowledge 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `RERANKER_URL` | `` (empty) | No | HTTP URL of the reranker microservice, e.g. `http://reranker-service:8081`. Empty = re-ranking disabled. |
-| `RERANKER_INITIAL_K` | `20` | No | Number of chunks retrieved from the Hybrid Search step (over-retrieval). |
+| `RERANKER_INITIAL_K` | `15` | No | Number of candidates from the Hybrid Search step that are at most re-scored by the cross-encoder (a scoring cap, not a limit on the number of results — see [AI Architecture](../architecture/ai-architecture.md#fallback-reasons-and-time-budget)). |
+| `RERANKER_MAX_DOCUMENT_CHARS` | `500` | No | Maximum character count of `title\ncontent` per candidate chunk before it is sent to the reranker sidecar. The chunk handed to the LLM keeps its full text — only the reranker input is truncated. |
 | `RERANKER_TOP_K` | `5` | No | Number of chunks passed to the LLM context after re-ranking. |
 | `RERANKER_MODEL` | `bge-reranker-v2-m3` | No | ONNX model name in the reranker service container (directory under `/app/models/onnx/`). |
 
 !!! note "RERANKER_MODEL belongs to the reranker service, not the knowledge service"
-    `RERANKER_MODEL` is set as an environment variable on the `reranker-service` container — not on the `knowledge-service`. The other three variables (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_TOP_K`) belong to the Knowledge Service.
+    `RERANKER_MODEL` is set as an environment variable on the `reranker-service` container — not on the `knowledge-service`. The other four variables (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_MAX_DOCUMENT_CHARS`, `RERANKER_TOP_K`) belong to the Knowledge Service.
 
-!!! tip "Resource requirements"
-    The reranker service requires 1.5–4 GB RAM (depending on the model) and adds ~500ms latency per request. For Raspberry Pi and resource-constrained environments, it is recommended to leave `RERANKER_URL` empty.
+!!! tip "Resource requirements and time budget"
+    The reranker service requires 1.5–4 GB RAM (depending on the model) and adds latency per request. On `bge-reranker-v2-m3` at the Helm chart's 2-CPU limit, a (query, document) pair of 512 tokens costs about 3 seconds; the sidecar aborts a rerank request server-side after 25 seconds (fallback reason `deadline`, see [AI Architecture](../architecture/ai-architecture.md)). A real HTTP probe over all 100 benchmark questions shows: with the defaults `RERANKER_INITIAL_K=15` and `RERANKER_MAX_DOCUMENT_CHARS=500` (pair median 166 tokens, max 222), all 100 requests succeeded — p50 12.9 seconds, p90 15.0 seconds, max 16.0 seconds, within the 25-second budget. A CI guard checks, for the defaults and for every deployment file in the repository that sets either variable, that `RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7,500` holds (`RERANK_SCORED_CHARS_BUDGET` in `config.py`) and that `RERANKER_INITIAL_K` is at most 50 (the sidecar's request bound). The defaults use up the budget exactly (15 × 500 = 7,500). The guard does not see values you set outside the repository. Raising either value past that product requires re-measuring latency first. For Raspberry Pi and resource-constrained environments, it is still recommended to leave `RERANKER_URL` empty.
 
 ---
 
@@ -701,7 +704,8 @@ HA_ACCESS_TOKEN=
 
 # Knowledge Service — Re-Ranking (empty = disabled)
 RERANKER_URL=
-RERANKER_INITIAL_K=20
+RERANKER_INITIAL_K=15
+RERANKER_MAX_DOCUMENT_CHARS=500
 RERANKER_TOP_K=5
 
 # AI Assistant (disabled instance-wide unless explicitly enabled)

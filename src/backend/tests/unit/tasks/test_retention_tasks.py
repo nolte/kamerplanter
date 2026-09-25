@@ -175,6 +175,7 @@ class TestRetryHardening:
             "expire_email_change_requests",
             "expire_data_exports",
             "redispatch_stale_pending_exports",
+            "purge_expired_erasure_records",
         ],
     )
     def test_beat_tasks_retry_on_transient_transport_errors(self, task_name):

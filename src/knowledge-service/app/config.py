@@ -1,6 +1,28 @@
 """Configuration via environment variables."""
 
+from typing import Final
+
 from pydantic_settings import BaseSettings
+
+#: Characters the reranker may score per search: ``reranker_initial_k`` x
+#: ``reranker_max_document_chars`` (15 x 500), the measured envelope that fits
+#: the sidecar's 25 s deadline (docker/reranker-service/limits.py
+#: MAX_INFERENCE_SECONDS) at the chart's 2 CPUs. Raise it only with a new
+#: measurement — the backend guard tests/unit/guards/test_ml_sidecar_limits.py
+#: holds the defaults and every deployment file to it.
+#:
+#: Measured 2026-09-25 (#1751). Cost is model compute, ~6 ms per pair token.
+#: The old 20 full documents (pairs capped at 512 tokens; 44 % of the real
+#: pairs hit that cap) needed ~54 s: 10/10 HTTP probes answered 503 timeout
+#: after 25.6-28.6 s, so reranking never ran and every search paid the wait.
+#: 500 characters give pairs of median 166, max 222 tokens; a real HTTP probe
+#: with all 100 benchmark questions (bge image, ``--cpus 2 -m 4g``) answered
+#: 100/100 with 200, p50 12.9 s, p90 15.0 s, max 16.0 s. 10 x 800 answered
+#: 100/100 too, but at max 24.4 s under host load — no margin.
+#: Topic recall of the returned context over 54 benchmark questions:
+#: top_k=5 — no rerank 0.927, 10 x 800 0.969, 15 x 500 0.974, unbounded
+#: (512 tokens, k=20) 0.982; top_k=10 — 0.978, 0.978, 0.979, 0.995.
+RERANK_SCORED_CHARS_BUDGET: Final = 7500
 
 
 class Settings(BaseSettings):
@@ -45,7 +67,11 @@ class Settings(BaseSettings):
 
     # Reranker service (optional — disabled when URL is empty)
     reranker_url: str = ""
-    reranker_initial_k: int = 20
+    # Budget (#1751): see RERANK_SCORED_CHARS_BUDGET above. Both must stay
+    # literal ints: the backend guard tests/unit/guards/test_ml_sidecar_limits.py
+    # reads them from this file's AST and holds their product to the budget.
+    reranker_initial_k: int = 15
+    reranker_max_document_chars: int = 500
     reranker_top_k: int = 5
 
     # Answer verification (optional second LLM pass)

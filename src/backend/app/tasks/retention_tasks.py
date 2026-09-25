@@ -1,6 +1,6 @@
 """Celery tasks for NFR-011 retention policy enforcement.
 
-Three concerns are bundled here, all backed by REQ-025 PrivacyService:
+The retention concerns bundled here, all backed by REQ-025 PrivacyService:
 
 - ``process_data_export`` — fan-out task fired when a user requests a
   GDPR Art. 15/20 export. Walks the user's data, builds a JSON manifest,
@@ -17,6 +17,9 @@ Three concerns are bundled here, all backed by REQ-025 PrivacyService:
 - ``redispatch_stale_pending_exports`` — hourly safety-net beat task
   that re-enqueues ``process_data_export`` for exports whose original
   dispatch was lost (broker outage or legacy ``pending`` records).
+- ``purge_expired_erasure_records`` — daily beat task that hard-deletes
+  completed erasure records past the NFR-011 R-06 period (default one
+  year after completion, ``RETENTION_ERASURE_AUDIT_RETENTION_YEARS``).
 
 The actual data-walk, manifest-build, soft/hard-delete and expiry
 logic lives in ``PrivacyService``; these tasks are thin schedulers
@@ -162,6 +165,29 @@ async def expire_data_exports() -> dict:
         expired=expired,
     )
     return {"expired": expired}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_erasure_records",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_erasure_records() -> dict:
+    """Hard-delete completed erasure records past the NFR-011 R-06 period (#1772).
+
+    Only ``completed`` records whose completion lies more than
+    ``settings.retention_erasure_audit_retention_years`` back go; an open
+    request is never touched, nor a completed one still carrying a plaintext
+    ``user_key`` (held and counted, #1773 review GDPR-006). The service logs
+    the counts, never a key.
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    result = await service.purge_expired_erasure_records(now=datetime.now(UTC))
+    return {"purged": result.purged, "held_without_tombstone": result.held_without_tombstone}
 
 
 @celery_app.task(  # type: ignore[misc]
