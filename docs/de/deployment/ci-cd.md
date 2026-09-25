@@ -43,7 +43,7 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 | `release-cd-refresh-master.yml` | Veröffentlichtes Release | `main`-Branch auf den Release-Stand aktualisieren |
 | `release-lag.yml` | Zeitplan, täglich 09:00 UTC (+ manuell) | Meldet, wenn `develop` Commits trägt, die kein **veröffentlichtes** Release enthält |
 | `renovate-health.yml` | Zeitplan, täglich 09:20 UTC (+ manuell) | Liest das Dependency Dashboard (#12) und meldet, wenn Renovate ein Problem berichtet oder die Manager-Inventur abweicht |
-| `lane-inputs.yml` | PR auf `develop` (Workflows, Manifeste, Recorder, Guard), wöchentlich, manuell | Misst, welche Dateien die gefilterten Jobs lesen, und vergleicht mit `.github/lane-inputs/` ([Details](#lane-inputs)) |
+| `lane-inputs.yml` | wöchentlich auf `develop`, manuell | Misst, welche Dateien die gefilterten Jobs lesen, vergleicht mit `.github/lane-inputs/` und schlägt Abweichungen als Bot-Pull-Request vor ([Details](#lane-inputs)) |
 
 ---
 
@@ -248,7 +248,7 @@ helm/**         →  publish-helm-charts
 Bei einem `v*`-Tag oder manuellem Auslösen wird das Filtern übersprungen — es werden immer alle Komponenten gebaut.
 
 !!! info "Woran ein Filter gemessen wird"
-    Jeder Pfadfilter — ob an `on:` eines Workflows oder als `dorny/paths-filter`-Schritt — wird nicht an dem geprüft, was der Workflow-Text *erwähnt*, sondern an dem, was der Job tatsächlich *liest*. `scripts/ci/lane_inputs.py` zeichnet die Lesemenge eines Jobs unter `strace` auf (Subprozesse eingeschlossen) und legt sie als Manifest unter `.github/lane-inputs/` ab; der Guard `test_lane_filters_cover_measured_inputs.py` hält jeden Filter dagegen und wird rot, wenn ein gefilterter Job kein Manifest hat, das Manifest älter ist als der Job oder ein gelesener Pfad außerhalb des Filters liegt. Die Regel steht in NFR-018 §4.3. Bis der Recorder in CI läuft (#1683), ist der Guard advisory: Er läuft in `pytest tests/unit/`, nicht in der required Guards-Lane.
+    Jeder Pfadfilter — ob an `on:` eines Workflows oder als `dorny/paths-filter`-Schritt — wird nicht an dem geprüft, was der Workflow-Text *erwähnt*, sondern an dem, was der Job tatsächlich *liest*. `scripts/ci/lane_inputs.py` zeichnet die Lesemenge eines Jobs unter `strace` auf (Subprozesse eingeschlossen) und legt sie als Manifest unter `.github/lane-inputs/` ab; der Guard `test_lane_filters_cover_measured_inputs.py` hält jeden Filter dagegen und wird rot, wenn ein gefilterter Job kein Manifest hat, das Manifest älter ist als der Job oder ein gelesener Pfad außerhalb des Filters liegt. Die Regel steht in NFR-018 §4.3. Diese Prüfungen brauchen eine frische Messung, sobald sich ein Job ändert. Deshalb laufen sie nur im wöchentlichen Lauf von `lane-inputs.yml` auf `develop` und in keinem Pull-Request-Check; eine Abweichung behebt dort ein Bot-Pull-Request ([Details](#lane-inputs)).
 
 ### Backend-Image
 
@@ -483,29 +483,29 @@ Der Workflow `lane-inputs.yml` misst die Lesemengen dort, wo die Jobs selbst lau
 1. **plan** liest alle Manifeste und erzeugt pro Manifest einen Matrix-Eintrag. Eine zweite Liste der Jobs gibt es nicht.
 2. **record** führt die im Manifest festgehaltenen Befehle unter `strace` erneut aus und schreibt ein frisches Manifest. Die Umgebung des echten Jobs wird aus dessen Workflow abgeleitet (zum Beispiel ein per `$GITHUB_PATH` eingehängtes `.venv/bin`). Fehlt ein Werkzeug oder schlägt ein Befehl fehl, wird kein kürzeres Manifest geschrieben, sondern der Eintrag schlägt fehl.
 3. **compare** vergleicht die eingecheckten Manifeste mit der Messung (Lesemenge, Job-Hash, Status, Befehle) und schlägt bei jeder Abweichung an.
+4. **guard** lässt die Regeln des Guards laufen, die eingecheckte Manifeste gegen die aktuellen Workflows halten — einmal gegen den Stand auf `develop` und einmal mit der frischen Messung darübergelegt.
+5. **propose** öffnet bei einer Abweichung einen Bot-Pull-Request auf dem Branch `bot/lane-inputs-refresh`, der genau die Messung enthält. Ist der Guard mit der Messung grün, trägt er das Label `automerge` und wird gemergt, sobald die Pflicht-Checks grün sind. Gibt es keine Abweichung, öffnet er nichts und schließt einen noch offenen Bot-Pull-Request.
 
-Er läuft bei Pull Requests, die Workflows, Manifeste, den Recorder oder den Guard ändern, wöchentlich auf `develop` und auf Abruf. Workflow und Guard sind **nicht verpflichtend** (advisory); über eine Hochstufung wird anhand ihrer gemessenen Historie entschieden (NFR-018 §4).
+Er läuft wöchentlich auf `develop` und auf Abruf, **nicht** bei Pull Requests. Ein Pull Request, der einen Workflow-Job oder die Eingaben eines gefilterten Jobs ändert, braucht also keine Messung: Die Regeln, die dafür eine Messung bräuchten, laufen in keinem Pull-Request-Check. Die Abweichung zeigt der nächste Lauf auf `develop`, und der Bot-Pull-Request behebt sie. Workflow und Guard sind **nicht verpflichtend** (advisory); über eine Hochstufung wird anhand ihrer gemessenen Historie entschieden (NFR-018 §4).
 
-!!! note "Warum `compare` auch ohne eigenen Fehler rot werden kann"
-    Viele Jobs listen Verzeichnisse auf. Kommt dort eine Datei hinzu, wächst ihre Lesemenge — das eingecheckte Manifest ist dann veraltet, obwohl niemand etwas falsch gemacht hat. Genau das soll der wöchentliche Lauf sichtbar machen.
+!!! note "Warum der wöchentliche Lauf auch ohne eigenen Fehler rot werden kann"
+    Viele Jobs listen Verzeichnisse auf. Kommt dort eine Datei hinzu, wächst ihre Lesemenge — das eingecheckte Manifest ist dann veraltet, obwohl niemand etwas falsch gemacht hat. Genau das soll der wöchentliche Lauf sichtbar machen; der Bot-Pull-Request bringt die Manifeste danach wieder auf den gemessenen Stand.
 
-### Ein Manifest aus einem CI-Lauf auffrischen
+### Wenn der Bot-Pull-Request nicht automatisch gemergt wird
 
-`reads:` wird nie von Hand bearbeitet. Stattdessen übernimmst du, was CI gemessen hat:
+`reads:` wird nie von Hand bearbeitet. Trägt der Bot-Pull-Request kein `automerge`, reicht die Messung allein nicht: Der Job liest einen Pfad, den sein Filter nicht auswählt. Dann erweiterst du auf dem Bot-Branch den Pfadfilter im Workflow — oder begründest die Lücke unter `accepted_gaps`. Der Body des Bot-Pull-Requests nennt die Pfade. Ändert sich dabei die Job-Definition (nicht nur die Filtermuster, die im Job-Hash nicht enthalten sind), stößt du danach einen neuen Lauf an:
 
 ```bash
-# Workflow für deinen Branch starten (ein passender PR tut das auch)
-gh workflow run lane-inputs.yml --ref <branch>
-
-# nach dem Lauf: Messung herunterladen und übernehmen
-gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
-cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
-
-# danach den Guard laufen lassen (aus src/backend)
-python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py
+gh workflow run lane-inputs.yml --ref develop
 ```
 
-Meldet der Guard danach einen gelesenen Pfad außerhalb des Filters, erweiterst du den Pfadfilter im Workflow. Ändert sich dadurch die Job-Definition (nicht nur die Filtermuster, die im Job-Hash nicht enthalten sind), lässt du `lane-inputs.yml` erneut laufen und übernimmst die neue Messung.
+Den Guard mit diesen Regeln startest du lokal so (aus `src/backend`):
+
+```bash
+python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift
+```
+
+Ein Lauf auf einem anderen Branch als `develop` misst diesen Branch und meldet nur, was er vorschlagen würde; einen Pull Request öffnet er nicht.
 
 ---
 

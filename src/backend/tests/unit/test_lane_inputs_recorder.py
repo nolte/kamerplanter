@@ -267,6 +267,27 @@ def _write(directory: Path, name: str, manifest: dict) -> None:
     (directory / name).write_text(yaml.safe_dump(manifest, sort_keys=False))
 
 
+def _planted_replay_manifest(directory: Path, job: str, commands: list[str]) -> Path:
+    """A manifest of a live ``lane-inputs.yml`` job whose invocations only run the recorder itself.
+
+    The lane's own jobs carried committed manifests until #1794 took the lane off
+    pull requests; without a path filter they need none, so the replay tests plant
+    the shape instead of reading it from `.github/lane-inputs/`.
+    """
+    manifest = _committed(
+        workflow="lane-inputs.yml",
+        job=job,
+        invocations=[
+            {"command": command, "cwd": ".", "recorder": "strace -ff -y -z", "exit_code": 0, "env": []}
+            for command in commands
+        ],
+        subprocesses=["python3"],
+        reads=["scripts/ci/lane_inputs.py"],
+    )
+    _write(directory, f"lane-inputs--{job}.yaml", manifest)
+    return directory / f"lane-inputs--{job}.yaml"
+
+
 class TestScratchPathsAreOneToken:
     def test_a_workstation_scratchpad_and_the_ci_scratch_dir_normalise_to_the_same_path(self) -> None:
         workstation = "uv export -o /tmp/claude-1000/-home-x/abc/scratchpad/requirements.txt"
@@ -365,8 +386,15 @@ class TestCompare:
         assert code == recorder.EXIT_FINDINGS
         assert "gh run download 42 -n lane-inputs -D /tmp/lane-inputs-42" in out
 
+    @pytest.mark.lane_inputs_drift
     def test_the_committed_tree_compared_with_itself_is_green(self) -> None:
-        """The recorded invocation of lane-inputs.yml/compare — it must stay replayable anywhere."""
+        """`compare` of the committed tree against itself finds nothing.
+
+        Since #1749 that holds only while the committed ``readers`` agree with the
+        LIVE relevance filters (`stray_readers` reads the workflow), so a pull
+        request that moves a filter could turn it red without a recording. It runs
+        where the recording is made: lane-inputs.yml's `guard` job (#1794).
+        """
         findings, _ = recorder.compare_manifests(recorder.MANIFEST_DIR, recorder.MANIFEST_DIR)
         assert findings == []
 
@@ -668,7 +696,12 @@ class TestTheReplayMeasuresItsOwnDuration:
         clock = iter([1000.0, 1242.2])
         monkeypatch.setattr(recorder.time, "monotonic", lambda: next(clock))
         out = tmp_path / "out"
-        code = recorder.main(["replay", "--out-dir", str(out), ".github/lane-inputs/lane-inputs--plan.yaml"])
+        planted = _planted_replay_manifest(
+            tmp_path / "committed",
+            "plan",
+            ["python3 scripts/ci/lane_inputs.py plan --github-output /tmp/lane-inputs-scratch/github_output"],
+        )
+        code = recorder.main(["replay", "--out-dir", str(out), str(planted)])
         assert code == recorder.EXIT_OK
         manifest = recorder.load_manifest(out / "lane-inputs--plan.yaml")
         assert manifest["replay_seconds"] == 243
@@ -843,7 +876,17 @@ class TestTheReplayDoesNotRunTheManifestGuardAgainstTheManifestsItReplaces:
 
         monkeypatch.setattr(recorder, "run_traced", fake_trace)
         monkeypatch.setenv("PYTEST_ADDOPTS", "-p no:randomly")
-        code = recorder.main(["replay", "--out-dir", str(tmp_path), ".github/lane-inputs/lane-inputs--record.yaml"])
+        planted = _planted_replay_manifest(
+            tmp_path / "committed",
+            "record",
+            [
+                "python3 scripts/ci/lane_inputs.py replay --dry-run --out-dir /tmp/lane-inputs-scratch/recorded "
+                ".github/lane-inputs/side-services--libs.yaml",
+                "python3 scripts/ci/lane_inputs.py replay --dry-run --out-dir /tmp/lane-inputs-scratch/recorded "
+                "backend-guards.yml/guards",
+            ],
+        )
+        code = recorder.main(["replay", "--out-dir", str(tmp_path / "out"), str(planted)])
         assert code == recorder.EXIT_OK
         assert len(seen) == 2
         assert all(

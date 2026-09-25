@@ -43,7 +43,7 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-cd-refresh-master.yml` | Published release | Update `main` branch to release state |
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
 | `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
-| `lane-inputs.yml` | PR to `develop` (workflows, manifests, recorder, guard), weekly, manual | Measures which files the filtered jobs read and compares with `.github/lane-inputs/` ([details](#lane-inputs)) |
+| `lane-inputs.yml` | weekly on `develop`, manual | Measures which files the filtered jobs read, compares with `.github/lane-inputs/` and proposes differences as a bot pull request ([details](#lane-inputs)) |
 
 ---
 
@@ -248,7 +248,7 @@ helm/**         →  publish-helm-charts
 On a `v*` tag or manual trigger, the filtering is skipped — all components are always built.
 
 !!! info "What a filter is measured against"
-    Every path filter — at a workflow's `on:` or as a `dorny/paths-filter` step — is checked against what the job actually *reads*, not against what the workflow text *mentions*. `scripts/ci/lane_inputs.py` records a job's read set under `strace` (subprocesses included) and stores it as a manifest under `.github/lane-inputs/`; the guard `test_lane_filters_cover_measured_inputs.py` holds every filter against it and goes red when a filtered job has no manifest, the manifest is older than the job, or a read path lies outside the filter. The rule is NFR-018 §4.3. Until the recorder runs in CI (#1683) the guard is advisory: it runs in `pytest tests/unit/`, not in the required guards lane.
+    Every path filter — at a workflow's `on:` or as a `dorny/paths-filter` step — is checked against what the job actually *reads*, not against what the workflow text *mentions*. `scripts/ci/lane_inputs.py` records a job's read set under `strace` (subprocesses included) and stores it as a manifest under `.github/lane-inputs/`; the guard `test_lane_filters_cover_measured_inputs.py` holds every filter against it and goes red when a filtered job has no manifest, the manifest is older than the job, or a read path lies outside the filter. The rule is NFR-018 §4.3. These checks need a fresh measurement as soon as a job changes, so they run only in the weekly `lane-inputs.yml` run on `develop` and in no pull-request check; a bot pull request fixes a drift there ([details](#lane-inputs)).
 
 ### Backend image
 
@@ -478,29 +478,29 @@ The workflow `lane-inputs.yml` measures the read sets where the jobs themselves 
 1. **plan** reads every manifest and emits one matrix entry per manifest. There is no second list of jobs.
 2. **record** re-runs the commands recorded in the manifest under `strace` and writes a fresh manifest. The real job's environment is derived from its workflow (for example a `.venv/bin` added via `$GITHUB_PATH`). If a tool is missing or a command fails, no shorter manifest is written — the entry fails instead.
 3. **compare** compares the committed manifests with the measurement (read set, job hash, status, commands) and fails on any difference.
+4. **guard** runs the guard's rules that hold committed manifests against the live workflows — once against the state on `develop`, once with the fresh measurement laid over it.
+5. **propose** opens a bot pull request on the branch `bot/lane-inputs-refresh` when there is a difference; it contains exactly the measurement. If the guard is green with the measurement, it carries the `automerge` label and merges once the required checks are green. Without a difference it opens nothing and closes a bot pull request that is still open.
 
-It runs on pull requests that change workflows, manifests, the recorder or the guard, weekly on `develop`, and on demand. The workflow and the guard are **not required** (advisory); promoting them is decided on their measured history (NFR-018 §4).
+It runs weekly on `develop` and on demand, **not** on pull requests. A pull request that changes a workflow job or the inputs of a filtered job therefore needs no measurement: the rules that would need one run in no pull-request check. The next run on `develop` shows the difference, and the bot pull request fixes it. The workflow and the guard are **not required** (advisory); promoting them is decided on their measured history (NFR-018 §4).
 
-!!! note "Why `compare` can turn red without anyone's mistake"
-    Many jobs list directories. When a file is added there, the job's read set grows — the committed manifest is then stale although nobody did anything wrong. Surfacing exactly that is what the weekly run is for.
+!!! note "Why the weekly run can turn red without anyone's mistake"
+    Many jobs list directories. When a file is added there, the job's read set grows — the committed manifest is then stale although nobody did anything wrong. Surfacing exactly that is what the weekly run is for; the bot pull request then brings the manifests back to the measured state.
 
-### Refreshing a manifest from a CI run
+### When the bot pull request does not merge on its own
 
-`reads:` is never edited by hand. Instead, take over what CI measured:
+`reads:` is never edited by hand. If the bot pull request carries no `automerge`, the measurement alone is not enough: the job reads a path its filter does not select. Widen the path filter in the workflow on the bot branch — or give the gap a reason under `accepted_gaps`. The bot pull request's body names the paths. If that changes the job definition (not just the filter patterns, which are not part of the job hash), start a new run afterwards:
 
 ```bash
-# start the workflow for your branch (a matching PR does this too)
-gh workflow run lane-inputs.yml --ref <branch>
-
-# after the run: download the measurement and take it over
-gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
-cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
-
-# then run the guard (from src/backend)
-python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py
+gh workflow run lane-inputs.yml --ref develop
 ```
 
-If the guard then reports a read path outside the filter, widen the path filter in the workflow. If that changes the job definition (not just the filter patterns, which are not part of the job hash), run `lane-inputs.yml` again and take over the new measurement.
+To run the guard with these rules locally (from `src/backend`):
+
+```bash
+python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift
+```
+
+A run on any branch other than `develop` measures that branch and only reports what it would propose; it opens no pull request.
 
 ---
 

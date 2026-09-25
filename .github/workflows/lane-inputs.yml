@@ -5,11 +5,8 @@ name: Lane inputs
 # Every relevance filter in `.github/` is held against a MEASURED read set, one
 # manifest per job under `.github/lane-inputs/`, by the guard
 # `src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py`
-# (#1596). Until this lane those manifests were recorded by hand — on Linux,
-# under `strace`, with Docker and a running ArangoDB — and the freshness hash
-# they carry (`job_spec_sha256`) is computable from the workflow, so a stale
-# manifest could be brought back to green without measuring anything. This lane
-# is where the instrument runs instead:
+# (#1596). This lane is where those read sets are measured — on the runner the
+# jobs themselves run on, never on a workstation:
 #
 #   plan     reads every manifest and emits one matrix leg per manifest with
 #            invocations, plus one per `covered_by` delegation target that has
@@ -32,46 +29,58 @@ name: Lane inputs
 #            varies run to run); a replayed manifest without a plausible one is
 #            a finding. A hand-trimmed `reads:` that drops a path outside the
 #            filter therefore still has no path to green.
+#   guard    runs the guard's `lane_inputs_drift` rules (population, freshness,
+#            coverage with the delegation rule, invocation coherence) twice:
+#            over the committed manifests — red whenever `develop` has drifted —
+#            and over the committed manifests with this run's recording copied
+#            in, which says whether the recording ALONE brings `develop` back to
+#            green or a filter needs a hand edit as well.
+#   propose  when `compare` found drift: opens, or force-updates, ONE bot pull
+#            request on `bot/lane-inputs-refresh` whose only change is this
+#            run's recording, copied as recorded. It carries the `automerge`
+#            label only when `guard` was green over the recording, so the
+#            repository's own automerge flow merges it once the required checks
+#            pass; otherwise it waits for the filter fix its body names. When
+#            `compare` found no drift, it closes a bot pull request that is
+#            still open (it describes an older `develop`), and opens nothing.
 #
-# HOW TO REFRESH A MANIFEST. Not on a workstation. Run this lane (a pull request
-# that touches the paths below does, or `gh workflow run lane-inputs.yml --ref
-# <branch>`), then commit what it recorded:
+# WHEN IT RUNS, AND WHY NOT ON PULL REQUESTS (#1794, operator decision
+# 2026-09-25). Weekly and on `workflow_dispatch`, against the ref it is started
+# on — `develop` for the schedule. It ran on every pull request that touched a
+# workflow until then: 74 runs in two days, 33 failed and 17 cancelled, each
+# recording 30–50 minutes, and every merge under `strict: true` staled the other
+# open pull requests' manifests again. The recordings found filter drift, never a
+# product defect. So a feature pull request no longer needs a recording, and no
+# check a pull request runs holds the committed manifests against the live
+# workflows: the `lane_inputs_drift` rules are deselected everywhere except in the
+# `guard` job below (`--lane-inputs-drift`, tests/conftest.py). A change that
+# alters some job's reads, or a job's definition, is therefore caught by the next
+# run of this lane on `develop` — red here, refreshed by the bot pull request —
+# not by its own pull request. That is the price, stated here rather than hidden.
+#
+# NOT REQUIRED. Nothing here is a required context; whether the guard or this
+# lane should become one is #1683's question, decided on measured history
+# (NFR-018 §4), not by editing this comment.
+#
+# SECURITY (#1614: no job holds a write scope while pull-request code runs).
+# No trigger of this workflow runs pull-request code: `record` replays the code
+# of the ref the run was started on. Every job's GITHUB_TOKEN holds
+# `contents: read` and nothing else. `propose` writes through a short-lived
+# GitHub-App installation token (the one `automerge.yaml` merges with), minted
+# only on `refs/heads/develop` and scoped to `contents` and `pull-requests`; on
+# any other ref it mints nothing and only reports what it would have proposed.
+# The App token is also load-bearing: a pull request opened with GITHUB_TOKEN
+# starts no workflow (GitHub's loop guard), so its required checks would never
+# report and it could never merge.
+#
+# REFRESHING BY HAND is no longer the path. If the bot pull request cannot be
+# used (the App is unavailable), the recording is still the run's `lane-inputs`
+# artifact:
 #
 #   gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
 #   cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
-#
-# NOT REQUIRED, AND WHY. This lane and the guard are advisory until the lane has
-# a measured history (NFR-018 §4): promotion is a decision made on recorded
-# runs, not by editing this comment. It also does not run on every pull request:
-# a full recording replays every filtered job of the repository under ptrace,
-# which costs an order of magnitude more than the jobs themselves. It runs when
-# the things that define the manifests change (below), weekly on `develop`, and
-# on demand. A change elsewhere that alters some job's reads is therefore caught
-# by the next scheduled run, not by its own pull request — that is the price of
-# not running this everywhere, stated here rather than hidden.
-#
-# SECURITY. Every job holds `contents: read` and nothing else (#1644: no job
-# holds a write scope while pull-request code runs). `record` executes the pull
-# request's code by design — that is what it measures — so it gets no secret
-# and no write token; the manifests leave the job only as an artifact.
 
 on:
-  pull_request:
-    branches: [develop]
-    # gate-integrity-ok: src/backend/pyproject.toml is read only for the uv
-    # version (`version-file:`), src/backend/uv.lock, src/frontend/package-lock.json
-    # and .github/renovate-pins.yaml only to install the toolchain a leg replays
-    # with, and src/backend / src/frontend are working directories of those
-    # installs. None of them decides what is recorded or compared; a change to
-    # any of them that alters a job's reads is caught by the weekly schedule,
-    # which is the stated cost of not running this lane on every pull request.
-    paths:
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - '.github/lane-inputs/**'
-      - 'scripts/ci/lane_inputs.py'
-      - 'scripts/ci/lane_inputs_pytest/**'
-      - 'src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py'
   schedule:
     - cron: '37 3 * * 1'
   workflow_dispatch:
@@ -79,7 +88,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: lane-inputs-${{ github.head_ref || github.ref }}
+  group: lane-inputs-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -252,6 +261,11 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    outputs:
+      # `true` when compare found drift, `false` when it did not, empty when it
+      # could not decide (the step broke before writing it). Set before the step
+      # exits, so a red compare still hands `propose` its verdict.
+      drift: ${{ steps.compare.outputs.drift }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -272,4 +286,270 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: Compare
-        run: python3 scripts/ci/lane_inputs.py compare recorded/lane-inputs --run-id "$GITHUB_RUN_ID"
+        id: compare
+        env:
+          REPORT: ${{ runner.temp }}/lane-inputs-report/compare.txt
+        run: |
+          mkdir -p "$(dirname "$REPORT")"
+          set +e
+          python3 scripts/ci/lane_inputs.py compare recorded/lane-inputs --run-id "$GITHUB_RUN_ID" > "$REPORT" 2>&1
+          status=$?
+          set -e
+          cat "$REPORT"
+          # Exit 1 is "findings" (EXIT_FINDINGS in lane_inputs.py); anything else
+          # non-zero is a crash, which proposes nothing.
+          case "$status" in
+            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+          exit "$status"
+      - name: Keep the compare report for the bot pull request
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: report-lane-inputs-compare
+          path: ${{ runner.temp }}/lane-inputs-report/compare.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  guard:
+    name: Hold the manifests against the live workflows
+    needs: [plan, record]
+    # Like compare: a failed leg leaves its committed manifest in place, and the
+    # guard says what that means instead of not running.
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      # `success` when the recording alone brings the committed tree back to
+      # green — the bot pull request is then safe to automerge.
+      recorded: ${{ steps.recorded.outcome }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+      - name: Backend environment
+        working-directory: src/backend
+        run: |
+          uv sync --locked --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Download every leg's recording
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: lane-inputs-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/recorded
+      - name: The guard over the committed manifests
+        # Red whenever `develop` has drifted from what its jobs read. The rules
+        # are opted in with `--lane-inputs-drift`; every other run deselects them
+        # (tests/conftest.py, #1794). The same command, verbatim, is what the
+        # guard's own tests hold this workflow to.
+        id: committed
+        working-directory: src/backend
+        env:
+          REPORT: ${{ runner.temp }}/lane-inputs-report/guard-committed.txt
+        run: |
+          set -o pipefail  # the default `bash -e` would take tee's exit code
+          mkdir -p "$(dirname "$REPORT")"
+          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
+      - name: The guard over the committed manifests with this recording copied in
+        # What the bot pull request would contain. Green here means the recording
+        # alone restores the tree; red means a filter or an accepted gap needs a
+        # hand edit, and the bot pull request says which.
+        id: recorded
+        if: ${{ !cancelled() }}
+        working-directory: src/backend
+        env:
+          RECORDED: ${{ runner.temp }}/recorded
+          REPORT: ${{ runner.temp }}/lane-inputs-report/guard-recorded.txt
+        run: |
+          set -o pipefail
+          cp "$RECORDED"/*.yaml ../../.github/lane-inputs/
+          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
+      - name: Keep the guard reports for the bot pull request
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: report-lane-inputs-guard
+          path: ${{ runner.temp }}/lane-inputs-report/*.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  # gate-integrity-ok: propose is not a check — the verdicts are compare's and
+  # guard's own conclusions, which stay red; this job only acts on them, and a
+  # failed guard withholds the automerge label through its output.
+  propose:
+    name: Propose the recording as a bot pull request
+    needs: [compare, guard]
+    # Only when compare decided (`true` or `false`); a compare that crashed or
+    # never ran proposes nothing and closes nothing.
+    if: ${{ always() && (needs.compare.outputs.drift == 'true' || needs.compare.outputs.drift == 'false') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      BRANCH: bot/lane-inputs-refresh
+      # Review of #1804: a person may push a filter fix onto the bot branch (the
+      # PR body asks for exactly that when the recording alone is not enough).
+      # A commit on the bot pull request by anyone but the App is never
+      # force-pushed over and never deleted with the branch; the run comments
+      # instead. This jq counts those commits.
+      FOREIGN_COMMITS: '[.commits[].authors[].login | select(. != env.BOT_LOGIN)] | length'
+      DRIFT: ${{ needs.compare.outputs.drift }}
+      GUARD_RECORDED: ${{ needs.guard.outputs.recorded }}
+    steps:
+      - name: Report only, off develop
+        # A dispatch on a feature branch measures that branch; proposing its
+        # recording against develop would commit reads of code develop does not
+        # have. It says what it would have done, and mints no token.
+        if: ${{ github.ref != 'refs/heads/develop' }}
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$DRIFT" = "true" ]; then
+            action="open or update the bot pull request on $BRANCH (automerge: $([ "$GUARD_RECORDED" = "success" ] && echo yes || echo no))"
+          else
+            action="open nothing and close an open bot pull request on $BRANCH"
+          fi
+          echo "::notice::$REF is not refs/heads/develop — this run would $action; it proposes nothing."
+          echo "**Report only** ($REF is not \`develop\`): this run would $action." >> "$GITHUB_STEP_SUMMARY"
+      - name: Mint the App token
+        if: ${{ github.ref == 'refs/heads/develop' }}
+        id: app
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.PORTFOLIO_APP_ID }}
+          private-key: ${{ secrets.PORTFOLIO_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Close a bot pull request that describes an older develop
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'false' }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            echo "No drift and no open bot pull request — nothing to do."
+            exit 0
+          fi
+          foreign=$(gh pr view "$number" --json commits --jq "$FOREIGN_COMMITS")
+          if [ "$foreign" != "0" ]; then
+            gh pr comment "$number" --body "$RUN_URL found no drift on develop. This branch carries $foreign commit(s) by someone other than the bot, so it is left open — close it by hand if it is no longer needed."
+            exit 0
+          fi
+          gh pr close "$number" --delete-branch --comment "Closed by $RUN_URL: develop's committed manifests agree with a fresh recording, so this refresh is no longer needed."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        with:
+          persist-credentials: false
+      - name: Download the recording
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          # The one artifact compare published from every leg — named apart from
+          # the reports so no `lane-inputs-*` pattern above ever picks them up.
+          name: lane-inputs
+          path: ${{ runner.temp }}/downloaded/lane-inputs
+      - name: Download the reports
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: report-lane-inputs-*
+          path: ${{ runner.temp }}/downloaded
+      - name: Open or update the bot pull request
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          DOWNLOADED: ${{ runner.temp }}/downloaded
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Exactly the recording, copied as recorded (#1794): the combined
+          # `lane-inputs` artifact compare published, never a hand edit.
+          cp "$DOWNLOADED"/lane-inputs/*.yaml .github/lane-inputs/
+          if git diff --quiet -- .github/lane-inputs; then
+            echo "::warning::compare found drift but the recording changes no committed byte — nothing to propose."
+            exit 0
+          fi
+          number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            foreign=$(gh pr view "$number" --json commits --jq "$FOREIGN_COMMITS")
+            if [ "$foreign" != "0" ]; then
+              gh pr comment "$number" --body "$RUN_URL recorded again and still finds drift. This branch carries $foreign commit(s) by someone other than the bot, so the new recording is NOT force-pushed over them; it is this run's \`lane-inputs\` artifact. Merge this pull request (or close it), and the next run proposes afresh."
+              echo "::warning::bot pull request #$number carries commits by a person — left untouched."
+              exit 0
+            fi
+          fi
+          user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add .github/lane-inputs
+          git commit -q -m "ci(lane-inputs): refresh the recorded manifests" -m "Recorded by $RUN_URL at develop $GITHUB_SHA."
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:refs/heads/$BRANCH"
+
+          report() {
+            local file="$DOWNLOADED/$1/$2"
+            if [ -f "$file" ]; then tail -n 60 "$file" | cut -c1-400; else echo "(no report: $2)"; fi
+          }
+          if [ "$GUARD_RECORDED" = "success" ]; then
+            verdict="The guard is **green** over develop with this recording copied in, so this pull request carries \`automerge\` and merges once the required checks pass."
+          else
+            verdict="The guard is **not green** over develop with this recording copied in (outcome: \`${GUARD_RECORDED:-unknown}\`). The recording alone does not restore develop: widen the relevance filter or write the gap down (\`accepted_gaps\` with a reason) on this branch, as the report below names — a later run leaves a branch with your commits untouched. No \`automerge\` label until then."
+          fi
+          body_file=$(mktemp)
+          {
+            echo "## Summary"
+            echo
+            echo "The weekly lane-input recording ($RUN_URL) disagrees with the manifests committed on \`develop\`. This pull request is that recording, copied as recorded — no hand edit (#1794)."
+            echo
+            echo "$verdict"
+            echo
+            echo "## Compare"
+            echo
+            echo '```'
+            report report-lane-inputs-compare compare.txt
+            echo '```'
+            echo
+            echo "## Guard over the recording"
+            echo
+            echo '```'
+            report report-lane-inputs-guard guard-recorded.txt
+            echo '```'
+            echo
+            echo "Opened and updated by \`.github/workflows/lane-inputs.yml\` (\`propose\`); the next run force-updates this branch or closes this pull request when develop no longer drifts."
+          } > "$body_file"
+
+          if [ -z "$number" ]; then
+            gh pr create --base develop --head "$BRANCH" --title "ci(lane-inputs): refresh the recorded manifests" --body-file "$body_file" --label cicd
+            number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number')
+          else
+            gh pr edit "$number" --body-file "$body_file"
+          fi
+          if [ "$GUARD_RECORDED" = "success" ]; then
+            gh pr edit "$number" --add-label automerge
+          else
+            if gh pr view "$number" --json labels --jq '.labels[].name' | grep -qx automerge; then
+              gh pr edit "$number" --remove-label automerge
+            fi
+          fi
+          echo "Bot pull request: #$number" >> "$GITHUB_STEP_SUMMARY"

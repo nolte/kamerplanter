@@ -236,15 +236,17 @@ jobs:
         # would leave the required lane green. The failure names every skip
         # reason; raising the number belongs in the commit that justifies it.
         #
-        # `-m 'not advisory'` deselects the guards whose measuring instrument does
-        # not run in CI yet — today exactly `test_lane_filters_cover_measured_inputs.py`
-        # (#1596), whose manifests are recorded on a workstation until #1683 records
-        # them here. A required context red on a known, dated gap blocks every
-        # merge over a fact no pull request can change; `task test:backend:unit`
-        # (`pytest tests/unit/`) still runs it, so the verdict is visible in the
-        # advisory backend.yml lanes. The marker is registered in pyproject.toml;
-        # `grep -rn "mark.advisory" tests/` names every file the flag excludes.
-        # Deselected is not skipped: `--max-skipped 0` still counts every skip.
+        # `-m 'not advisory'` deselects the guards not promoted to this lane —
+        # today exactly `test_lane_filters_cover_measured_inputs.py` (#1596);
+        # promoting it is #1683's decision. Its rules that hold the committed
+        # manifests against the live workflows need a recording and run in NO
+        # pull-request lane (#1794): tests/conftest.py deselects the
+        # `lane_inputs_drift` marker unless `--lane-inputs-drift` is given, which
+        # only lane-inputs.yml (weekly/dispatch on develop) passes. The rest of the
+        # file runs in `task test:backend:unit` (`pytest tests/unit/`). The markers
+        # are registered in pyproject.toml; `grep -rn "mark.advisory" tests/` names
+        # every file the flag excludes. Deselected is not skipped: `--max-skipped 0`
+        # still counts every skip.
         #
         # THE NAMED FILES AFTER THE TWO DIRECTORIES (#1741) are the tests of the
         # unit, contract and API tiers that read the frontend tree or the e2e
