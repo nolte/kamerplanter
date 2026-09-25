@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.7 (Nachführung auf REQ-049 v1.4 — die Standort-Zuweisung ist keine Schreibgrenze)
+Version: 1.8 (Mandant löschen: Verwaltung **und** Leitung plus Step-up, #1791)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.8 | 2026-09-25 | **Mandant löschen verlangt beide Achsen und einen Step-up (#1791).** Seit #1769 löscht die Mandantenlöschung jede mandantenbezogene Collection unwiderruflich. Bis v1.7 hing sie allein an **Verwaltung** — eine Schriftführerin mit der Rolle Beobachter konnte damit einen ganzen Gemeinschaftsgarten mit einer Anfrage löschen. Neu: **Verwaltung und Leitung** (Schnittmenge, keine Vermischung der Achsen — die Irreversibilitätsgrenze aus REQ-049 §2.3 gilt auch hier), dazu ein **Step-up** im Anfragekörper: der Kurzname des Mandanten wird zurückgetippt, und ein Konto mit lokalem Passwort gibt es erneut ein; ein nur föderiert angemeldetes Konto bestätigt über den Kurznamen (Muster der Kontolöschung, REQ-394). Eigentümerschaft (`owner_user_key`) ist kein Recht und spielt keine Rolle. Dienstkonten löschen nie einen Mandanten. Der Plattform-Admin-Weg (`DELETE /admin/platform/tenants/{key}`) verlangt denselben Step-up. Geprüft wird im Dienst, nicht nur am Router, sodass beide Wege dieselbe Regel haben; der Löschnachweis hält `step_up` und den Anfragenden als salzgehashte Log-Referenz fest. §1a.2, Rollentabelle §1, API §5 und **AK-44d** nachgeführt. |
 | 1.7 | 2026-08-16 | **Nachführung auf REQ-049 v1.4 — die zuweisungsbasierte Write-Kontrolle ist weg.** v1.6 hatte die *Spaltenüberschriften* der Matrix auf das Zwei-Achsen-Vokabular umgestellt, die *Zellinhalte* aber nicht: §1a.1 trug weiterhin `U own+community`, `U own` und `U assigned+own`, §1.1 Szenario 2 beschrieb Parzellen als Schreibgrenze, und §1a.5 stand als Historie im Dokument. Genau das hat REQ-049 §3.5 abgeschafft — die Standort-Zuweisung ist Koordination, kein Recht — und REQ-049 §3.2 führt „Zugewiesene" als Rechteangabe seither unter den **verbotenen Begriffen**. Ein Leser, der nur REQ-024 kannte, baute die falsche Regel; der Code (`MembershipEngine`) tat es nie. Nachgeführt: Rollentabelle §1 (Zwei-Achsen-Modell, `admin` → `lead` + Zusatzberechtigungen), Matrix §1a.1 (alle Zellen auf reine Rangprüfung, Löschen durchgängig 🔒 Leitung), §1a.5 auf einen Grabstein reduziert, §1a.6 auf die drei **tatsächlich gebauten** Dependencies (`require_permission(resource, action)`, `require_tenant_role`, `require_admin_scope`) statt des nie so gebauten `ROLE_PERMISSIONS`-Dicts, Szenarien §1.1, Datenmodell §2, AQL, Engine §3.1, Middleware §3.3, Frontend §4.4/§4.5, Seeds §5, Abnahmekriterien §6 und Scope §8. **Verhaltensänderung gegenüber v1.6:** Das Löschen von Pflanzenfotos war für Gärtner als `D own+community` ausgewiesen und ist jetzt Leitung — die Irreversibilitätsgrenze kennt keine Foto-Ausnahme. |
 | 1.6 | 2026-07-29 | **Zwei-Achsen-Rollenmodell (REQ-049, Issue #780):** Die Permission-Matrix (§1a) folgt jetzt dem verbindlichen Vokabular aus REQ-049. Der Wert `admin` ist stillgelegt — er stand in dieser Matrix überwiegend für „darf löschen" (jetzt fachliche Rolle **Leitung**) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt Zusatzberechtigung **Verwaltung**). §1a.2 hängt vollständig an der Verwaltung statt an einem Rang; technische Konfiguration innerhalb des Mandanten hängt an der Zusatzberechtigung **Technik**. §1a.4 hält fest, dass die Plattform-Rolle über `lead` im Mandanten `platform` abgebildet wird. Die „letzter Admin"-Regel wird zu INV-1 („letzte Verwaltung") und greift auch beim Herabstufen, nicht nur beim Entfernen. Migration `v0032` bildet jeden Bestandswert verlustfrei ab. |
 | 1.5 | 2026-06-19 | **Pflanzenfoto-Galerie (REQ-034 Security-Review SR-002):** Permission-Matrix (§1a.1) um die Ressourcen-Zeile **Plant Instance Photos** (`category=plant`) erweitert. Upload/Cover/Löschen laufen über die generischen `CREATE_/UPDATE_/DELETE_RESOURCE`-Permissions mit Zuweisungs-Write-Kontrolle (§1a.5); Viewer nur lesend; DINOv2-Referenz-Freigabe bleibt Platform-Admin (REQ-029-A §4.5). Klärt die in NFR-013 §5.1 abstrakt notierte `attachment:create`-Anforderung gegen den realen `Permission`-Enum-Vertrag. |
@@ -89,7 +90,7 @@ Ein User hat pro Tenant genau **eine fachliche Rolle** (Achse 1) und **keine, ei
 
 | Zusatzberechtigung | Schlüssel | Was sie am Mandanten erlaubt |
 |--------------------|-----------|------------------------------|
-| **Verwaltung** | `management` | Mitglieder einladen, Rollen ändern, entfernen; Einladungslinks; Mandanten-Einstellungen; Standort-Zuweisungen; Dienstkonten; Mandant löschen |
+| **Verwaltung** | `management` | Mitglieder einladen, Rollen ändern, entfernen; Einladungslinks; Mandanten-Einstellungen; Standort-Zuweisungen; Dienstkonten; Mandant löschen (nur zusammen mit **Leitung** und Step-up, §1a.2) |
 | **Technik** | `technical` | Home-Assistant- und InvenTree-Anbindung, MQTT, Sensor- und Aktor-Einrichtung, Import, Anreicherungs- und Wetterquellen |
 
 Die beiden Achsen sind **unabhängig**: Ein Beobachter kann Verwaltung halten (Schriftführerin, die nicht gärtnert), eine Leitung kann ohne Technik auskommen. Der frühere Wert `admin` ist stillgelegt — er stand in dieser Matrix überwiegend für „darf löschen" (jetzt `lead`) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt `management`). Migration `v0032` bildet jeden Bestandswert verlustfrei auf `lead` plus **beide** Zusatzberechtigungen ab.
@@ -154,7 +155,9 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 
 #### 1a.2 Tenant-Verwaltungs-Permissions
 
-Diese Aktionen hängen ausschließlich an der Zusatzberechtigung **Verwaltung** (REQ-049 §2.4) — die fachliche Rolle spielt keine Rolle. Eine Schriftführerin mit der Rolle Beobachter verwaltet die Mitgliederliste; eine Leitung ohne Verwaltung nicht.
+Diese Aktionen hängen an der Zusatzberechtigung **Verwaltung** (REQ-049 §2.4) — die fachliche Rolle spielt keine Rolle. Eine Schriftführerin mit der Rolle Beobachter verwaltet die Mitgliederliste; eine Leitung ohne Verwaltung nicht.
+
+**Eine Ausnahme: Mandant löschen (#1791).** Die Löschung vernichtet seit #1769 alle Daten des Mandanten unwiderruflich und liegt damit zugleich auf der Irreversibilitätsgrenze der fachlichen Achse (REQ-049 §2.3). Sie verlangt deshalb **Verwaltung und Leitung** — beide, nicht eine von beiden — und einen **Step-up** im Anfragekörper: `confirm_slug` (der Kurzname des Mandanten, zurückgetippt) und, bei einem Konto mit lokalem Passwort, `password` (das aktuelle Passwort). Ein nur föderiert angemeldetes Konto hat kein lokales Geheimnis und bestätigt über den Kurznamen (wie die Kontolöschung, REQ-394). Antworten: `403` ohne beide Achsen oder als Dienstkonto, `422` bei falschem Kurznamen, `401` bei fehlendem oder falschem Passwort — jeweils bevor sich etwas ändert. Eigentümerschaft (`owner_user_key`) ist Herkunft, kein Recht: Sie genügt nicht und wird nicht verlangt, sonst wäre ein Garten unlöschbar, sobald sein Gründer ihn verlässt. Der Plattform-Admin löscht über `DELETE /admin/platform/tenants/{key}` mit demselben Step-up.
 
 | Aktion | Verwaltung | ohne Verwaltung |
 |--------|------------|-----------------|
@@ -170,7 +173,7 @@ Diese Aktionen hängen ausschließlich an der Zusatzberechtigung **Verwaltung** 
 | **LocationAssignment ändern** | ✅ | ❌ |
 | **LocationAssignment entfernen** | ✅ | ❌ |
 | **Service Accounts verwalten** | ✅ (REQ-023 v1.7) | ❌ |
-| **Tenant löschen** | ✅ (Soft-Delete) | ❌ |
+| **Tenant löschen** | ✅ nur mit **Leitung** + Step-up (Kurzname, Passwort) — siehe oben | ❌ |
 | **Eigene Membership verlassen** | ✅ (INV-1: nicht die letzte Verwaltung) | ✅ |
 
 Technische Konfiguration innerhalb des Mandanten — Home-Assistant- und InvenTree-Anbindung, MQTT, Sensor- und Aktor-Einrichtung, Import, Anreicherungs- und Wetterquellen — hängt an der Zusatzberechtigung **Technik** und ist in REQ-049 §2.4 abschließend aufgeführt. Sie steht bewusst getrennt von der Verwaltung: Wer die Sensorik betreut, braucht deshalb keinen Zugriff auf die Mitgliederliste.
@@ -1085,7 +1088,7 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 | POST | `/tenants` | Neuen Org-Tenant erstellen | Ja |
 | GET | `/tenants/{slug}` | Tenant-Details abrufen | Alle Rollen |
 | PATCH | `/tenants/{slug}` | Tenant aktualisieren | Verwaltung |
-| DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete) | Verwaltung |
+| DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete); Körper `{confirm_slug, password?}` | Verwaltung **und** Leitung + Step-up (§1a.2) |
 
 **Router: `/api/v1/tenants/{slug}/members`** — Mitgliederverwaltung:
 
@@ -1403,6 +1406,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-44a | Ein Mitglied mit `role: viewer` und `admin_scopes: ['management']` kann Mitglieder einladen und Rollen ändern, aber keine Pflanze anlegen. Ein Mitglied mit `role: lead` ohne `management` kann löschen, aber keine Mitglieder verwalten. Damit ist die Unabhängigkeit der beiden Achsen nachgewiesen | Integration |
 | AK-44b | Kein Router gatet eine administrative Aktion über `require_permission`/`require_tenant_role` oder eine fachliche über `require_admin_scope`. Ein statischer Test über die Router-Signaturen weist das nach — ein Mitglied mit `lead` + beiden Zusatzberechtigungen käme sonst durch beide Wächter und der Fehler bliebe unsichtbar | Unit |
 | AK-44c | Die beschreibende Matrix in `app/core/permissions.py` stimmt mit §1a.1 überein; insbesondere ist das Löschrecht der Pflanzendomäne dort auf Leitung beschränkt. Ein Test vergleicht beide Quellen, statt sie unabhängig zu pflegen | Unit |
+| AK-44d | **Mandant löschen (#1791):** Über `DELETE /tenants/{slug}` löscht nur ein aktives Mitglied mit Rolle **Leitung und** Zusatzberechtigung **Verwaltung**; Beobachter oder Gärtner mit Verwaltung, eine Leitung ohne Verwaltung und jedes Dienstkonto erhalten `403`. Fehlt der Kurzname oder ist er falsch → `422`; fehlt bei einem Konto mit lokalem Passwort das Passwort oder ist es falsch → `401`; ein föderiertes Konto bestätigt über den Kurznamen allein. In keinem abgelehnten Fall wird ein Löschnachweis angelegt oder eine Zeile gelöscht. Der Plattform-Admin-Weg verlangt denselben Step-up. Der Löschnachweis nennt den Step-up und den Anfragenden nur als salzgehashte Referenz | Unit (Route) + Integration |
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 <!-- Quelle: Tenant-Notfallverwaltung v1.4 -->
 | AK-45 | Der Platform-Admin kann die Mitgliederliste eines fremden Mandanten einsehen — die einzige Cross-Tenant-Leseerlaubnis der Plattform-Ebene | Integration |

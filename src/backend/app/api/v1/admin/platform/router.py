@@ -15,6 +15,7 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserTenantRole,
     AdminUserUpdate,
 )
+from app.api.v1.tenants.schemas import TenantDeleteRequest
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
 from app.common.exceptions import ForbiddenError
@@ -230,7 +231,8 @@ def update_user(
 @router.delete("/tenants/{key}", status_code=204)
 def delete_tenant(
     key: Annotated[str, Path(description="Document key of the tenant.")],
-    _user: User = Depends(require_platform_admin),
+    body: TenantDeleteRequest,
+    user: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Delete a tenant and all its data, as the declared tenant-erasure inventory says. Platform admin only.
@@ -242,13 +244,22 @@ def delete_tenant(
     CanG/PflSchG records kept with their account keys pseudonymised — and a
     persisted ``tenant_erasure_records`` entry as proof.
 
+    **Step-up (#1791):** the body echoes the tenant's slug (422 otherwise) and
+    carries the admin's current password when the account has one (401
+    otherwise); the service re-proves the platform-admin membership.
+
     Answers: 204 erased; 403 the platform tenant; 404 no such tenant; 409 another
     deletion of it is running; 503 the deployment cannot erase (nothing changed);
     502 an external store failed; 500 ``TENANT_ERASURE_INCOMPLETE`` when something
     still holds the tenant — in every failure case after the record exists, the
     deletion stays open and the daily beat retries it.
     """
-    tenant_service.delete_tenant(key, origin="platform_admin")
+    tenant_service.delete_tenant(
+        key,
+        requester=user,
+        confirmation=body.to_confirmation(),
+        origin="platform_admin",
+    )
 
 
 @router.delete("/users/{key}", status_code=204)

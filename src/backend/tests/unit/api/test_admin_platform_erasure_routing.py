@@ -17,7 +17,10 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from app.api.v1.admin.platform import router as mod
+from app.api.v1.tenants.schemas import TenantDeleteRequest
 from app.common.exceptions import ForbiddenError, NotFoundError
+
+_BODY = TenantDeleteRequest(confirm_slug="garden", password="pw")
 
 
 class TestDeleteTenantRouting:
@@ -30,26 +33,35 @@ class TestDeleteTenantRouting:
 
     def test_admin_route_runs_the_service_deletion_as_platform_admin(self):
         tenant_service = MagicMock()
+        admin = SimpleNamespace(key="admin-1")
 
-        mod.delete_tenant("t-1", _user=None, tenant_service=tenant_service)
+        mod.delete_tenant("t-1", body=_BODY, user=admin, tenant_service=tenant_service)
 
-        assert tenant_service.mock_calls == [call.delete_tenant("t-1", origin="platform_admin")]
+        # The requester and the step-up reach the service, which decides (#1791).
+        assert tenant_service.mock_calls == [
+            call.delete_tenant("t-1", requester=admin, confirmation=_BODY.to_confirmation(), origin="platform_admin")
+        ]
 
     def test_tenant_route_runs_the_service_deletion_as_tenant_management(self):
         from app.api.v1.tenants import router as tenant_router
 
         service = MagicMock()
+        member = SimpleNamespace(key="member-1")
 
-        tenant_router.delete_tenant(ctx=SimpleNamespace(tenant_key="t-2"), service=service)
+        tenant_router.delete_tenant(body=_BODY, ctx=SimpleNamespace(tenant_key="t-2"), user=member, service=service)
 
-        assert service.mock_calls == [call.delete_tenant("t-2", origin="tenant_management")]
+        assert service.mock_calls == [
+            call.delete_tenant(
+                "t-2", requester=member, confirmation=_BODY.to_confirmation(), origin="tenant_management"
+            )
+        ]
 
     def test_a_service_refusal_reaches_the_caller(self):
         tenant_service = MagicMock()
         tenant_service.delete_tenant.side_effect = ForbiddenError("The platform tenant cannot be deleted.")
 
         with pytest.raises(ForbiddenError):
-            mod.delete_tenant("t-0", _user=None, tenant_service=tenant_service)
+            mod.delete_tenant("t-0", body=_BODY, user=SimpleNamespace(key="admin-1"), tenant_service=tenant_service)
 
 
 class TestDeleteUserRouting:

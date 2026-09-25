@@ -35,7 +35,7 @@ from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
 from tests.support.privacy_doubles import RecordingErasureExecutor
-from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, tenant_service_for_deletion
+from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, authorized, tenant_service_for_deletion
 from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
 TOKEN = "svc-token-1753"
@@ -201,7 +201,7 @@ def test_tenant_deletion_removes_the_tenants_contributions(inference):
     service = _tenant_service(dependencies.get_reference_index_store())
 
     with structlog.testing.capture_logs() as logs:
-        assert service.delete_tenant(TENANT).status == "completed"
+        assert service.delete_tenant(TENANT, **authorized(TENANT)).status == "completed"
 
     assert inference.records() == {"subject-2", "curated"}
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
@@ -216,7 +216,7 @@ def test_a_failing_reference_index_keeps_the_tenant_and_its_data(inference):
     service = _tenant_service(dependencies.get_reference_index_store(), storage=storage)
 
     with pytest.raises(ExternalSourceError) as caught:
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
 
     assert caught.value.status_code == 502
     assert TENANT not in str(caught.value)
@@ -231,7 +231,7 @@ def test_the_noop_tenant_binding_is_logged(monkeypatch):
     service = _tenant_service(NoopReferenceIndexStore())
 
     with structlog.testing.capture_logs() as logs:
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
 
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
     assert event["binding"] == "noop"
@@ -312,7 +312,7 @@ def test_tenant_deletion_refuses_while_contributions_are_unreachable():
     service = _tenant_service(_noop_with_contributions(), storage=storage)
 
     with pytest.raises(FeatureNotConfiguredError):
-        service.delete_tenant(TENANT)
+        service.delete_tenant(TENANT, **authorized(TENANT))
 
     assert service._tenant_erasure_executor.plans == []
     assert service._tenant_erasure_repo.records == {}
