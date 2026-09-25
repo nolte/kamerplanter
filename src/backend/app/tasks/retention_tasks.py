@@ -178,14 +178,16 @@ async def purge_expired_erasure_records() -> dict:
 
     Only ``completed`` records whose completion lies more than
     ``settings.retention_erasure_audit_retention_years`` back go; an open
-    request is never touched. The service logs the count, never a key.
+    request is never touched, nor a completed one still carrying a plaintext
+    ``user_key`` (held and counted, #1773 review GDPR-006). The service logs
+    the counts, never a key.
     """
 
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    purged = await service.purge_expired_erasure_records(now=datetime.now(UTC))
-    return {"purged": purged}
+    result = await service.purge_expired_erasure_records(now=datetime.now(UTC))
+    return {"purged": result.purged, "held_without_tombstone": result.held_without_tombstone}
 
 
 @celery_app.task(  # type: ignore[misc]

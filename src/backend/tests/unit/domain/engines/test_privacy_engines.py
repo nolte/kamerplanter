@@ -1,5 +1,6 @@
 """Tests for REQ-025 privacy engines: DataExport / Erasure / Consent."""
 
+import re
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
@@ -422,6 +423,29 @@ class TestErasureEngine:
     def test_tombstone_hash_distinct_users(self):
         salt = "x" * 32
         assert ErasureEngine.compute_tombstone_hash("u1", salt) != ErasureEngine.compute_tombstone_hash("u2", salt)
+
+    def test_the_log_subject_is_purpose_separated_from_the_tombstone_and_the_request_key(self):
+        """GDPR-003 (#1773 review): a log reference must not join a pseudonymised audit row.
+
+        The tombstone is what ``erasure_requests.user_key`` and the CanG/PflSchG
+        rows keep after the erasure. A log line equal to it, next to an unsalted
+        e-mail digest or an IP on a live account's line, would re-identify those
+        retained rows without anyone knowing the salt.
+        """
+        salt = "x" * 32
+        subject = ErasureEngine.log_subject("u1", salt)
+
+        assert subject != ErasureEngine.compute_tombstone_hash("u1", salt)
+        assert subject != ErasureEngine.compute_request_key("u1", salt)
+        assert not ErasureEngine.is_tombstone(subject)
+        assert re.fullmatch(r"sub_[0-9a-f]{16}", subject), subject
+        assert subject == ErasureEngine.log_subject("u1", salt), "must stay correlatable across lines"
+        assert subject != ErasureEngine.log_subject("u2", salt)
+        assert subject != ErasureEngine.log_subject("u1", "y" * 32), "keyed with the salt"
+
+    def test_the_log_subject_without_a_usable_salt_is_a_constant(self):
+        assert ErasureEngine.log_subject("u1", "short") == "anon_unavailable"
+        assert ErasureEngine.log_subject("u1", "") == "anon_unavailable"
 
     def test_delete_order_includes_identification_requests(self):
         """GDPR-001: Art. 17 erasure must hard-delete plant identification requests.

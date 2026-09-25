@@ -65,10 +65,18 @@ class IErasureRepository(ABC):
         """Hard-delete ``completed`` requests whose ``completed_at`` is before the cutoff (NFR-011 R-06).
 
         Only ``status == 'completed'`` with a ``completed_at`` strictly before
-        ``cutoff_iso`` qualifies; a request still owed a run (``scheduled``,
-        ``in_progress``, ``partially_completed``) and a completed one without a
-        completion time are never selected. The ``requested_erasure`` edges
-        pointing at a deleted request go with it. Returns the number of
-        requests deleted.
+        ``cutoff_iso`` — compared as instants — **and** a ``user_key`` that is
+        already a tombstone (``anon_`` + 16 hex) qualifies. A request still owed
+        a run (``scheduled``, ``in_progress``, ``partially_completed``), a
+        completed one without a completion time, and a completed one still
+        carrying a plaintext key (possibly the only trace of an unfulfilled
+        Art. 17 duty, #1773 review GDPR-006) are never selected. The
+        ``requested_erasure`` edges pointing at a deleted request go with it.
+        Returns the number of requests deleted.
         """
+        ...
+
+    @abstractmethod
+    def count_completed_without_tombstone_before(self, cutoff_iso: str) -> int:
+        """Count the ``completed`` requests past the cutoff that the purge holds: no tombstone key."""
         ...

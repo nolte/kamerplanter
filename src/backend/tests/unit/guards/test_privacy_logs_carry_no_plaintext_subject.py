@@ -1,7 +1,7 @@
 """No log line on the privacy, auth, retention or storage path names a data subject (#1773).
 
 The erasure pipeline's rule since #1700 is that its log lines carry ``subject=`` —
-the salted tombstone reference (``ErasureEngine.log_subject``) — and never the
+the salted subject reference (``ErasureEngine.log_subject``) — and never the
 account key: a log stream has no retention rule of its own (NFR-011), so whatever
 it receives outlives the account it names, the erasure that removed the account,
 and the erasure record that proves it (R-06). #1700 applied that rule to the
@@ -38,12 +38,24 @@ spelling the other catches:
   ``dst`` keyword, and anywhere on the surface an ``*object_key``/``*storage_key``
   keyword, must be a call (``loggable_storage_key``) or a literal, never the raw
   key — the key shape is decided by the caller, and the export bundle's embeds the
-  account key.
+  account key;
+* **exception texts** (#1773 review GDPR-001/-002/-004): ``str(<name>)`` or
+  ``repr(<name>)`` handed to the logger, under any keyword or positionally. An
+  exception message can name the subject (``NotFoundError("User", <key>)``), an
+  export bundle (``privacy/exports/<key>/…``) or a third party's address
+  (``SMTPRecipientsRefused``). Log ``error_type=type(exc).__name__``, or the text
+  through a redaction call (``PrivacyService._loggable_error``). The AST cannot
+  tell an exception from any other name, so every ``str(<name>)`` is refused.
+  Measured when this half was added: 18 log-call sites on the surface; 6 were
+  fixed (the export path, the OAuth callback, the duplicate-registration notice),
+  the 12 whose text was read and found subject-free are allow-listed with the
+  reason (10 entries — an entry covers every line of its function and keyword).
 
 **What the selector derives**: every tracked module under ``app/`` whose path names
 the privacy, auth, retention, erasure, data-subject or export surface, plus the
 device-pairing store (it is authentication, but its file name does not say so), the
-storage adapters and ``user_service`` (account deletion). A new module on that
+storage adapters, ``user_service`` (account deletion) and the e-mail adapters (they
+receive every recipient address). A new module on that
 surface is guarded by being named like it; one named otherwise is not — see below.
 ``app/migrations/`` is excluded: an applied migration's source is frozen
 (``test_applied_migration_sources_are_frozen``), so a finding there could not be
@@ -58,17 +70,21 @@ different line. Every entry must name a live site (``test_allowlist_entries_stil
 * a value laundered through a neutral local first (``who = user.key`` then
   ``who=who``) — the AST has no data flow here;
 * ``**fields`` splats and ``extra={...}`` dicts built elsewhere;
-* identifiers inside an exception message (``error=str(exc)`` where the exception
-  text embeds a key or address) — the export failure path redacts its exception
-  text (``PrivacyService._redact_subject``), but nothing here enforces that;
+* an exception text reaching the logger in any other spelling than ``str(<name>)`` /
+  ``repr(<name>)`` — ``str(exc.args[0])``, ``f"{exc}"``, ``exc`` itself, a
+  ``exc_info=True`` / ``logger.exception(...)`` traceback (whose last line is the
+  text), or a text forwarded into a helper's ``**log_fields`` rather than written
+  at the log call (``PrivacyService._record_failed_attempt(..., error=...)``: the
+  call site passes ``_loggable_error(...)``, but nothing here sees that argument);
 * a raw storage key under a keyword not listed above (``path=``, ``file_path=``);
 * a logger reached under another name (``self._audit.info(...)``, an inline
   ``structlog.get_logger().info(...)``) or a level method outside ``_LOG_METHODS``;
 * ``structlog.contextvars.bind_contextvars(...)``, and a ``bind`` in another
   module whose bound context later lines inherit;
-* modules outside the selector — ``migrations/``, ``notification_service``, the
-  e-mail adapters, ``tenant_service`` and others still log keys/addresses; they are
-  the recorded residue of #1773 (follow-up issue), not covered here;
+* modules outside the selector — ``migrations/``, ``notification_service``,
+  ``tenant_service`` and others still log keys/addresses; they are the recorded
+  residue of #1773 (follow-up issue), not covered here. The e-mail adapters
+  (``*_email_adapter``) joined the selector with the #1773 review (GDPR-004);
 * other personal data such as ``ip_address=`` — the guard asserts identifiers of
   the account (key, address) only.
 """
@@ -86,7 +102,7 @@ BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 #: Path fragments that put a module on the guarded surface.
 _SURFACE = re.compile(
-    r"(privacy|auth|retention|erasure|data_subject|data_export|device_pairing|/storage/|user_service)"
+    r"(privacy|auth|retention|erasure|data_subject|data_export|device_pairing|/storage/|user_service|_email_adapter)"
 )
 #: Excluded with the reason in the module docstring.
 _EXCLUDED_DIRS = ("app/migrations/",)
@@ -101,11 +117,44 @@ _IDENTIFIER_NAME = re.compile(r"(^|_)(user_key|email)$")
 _SUBJECT_OWNERS = {"user", "account", "current_user", "subject_user", "created_user"}
 _STORAGE_MODULE_KEYWORDS = {"key", "prefix", "src", "dst"}
 _STORAGE_KEY_KEYWORD = re.compile(r"(^|_)(object_key|storage_key)$")
+#: A bare conversion of a name to its text — the spelling of "log the exception message".
+_TEXT_CONVERSIONS = {"str", "repr"}
 
-#: ``path::enclosing_function::keyword`` -> reason a subject identifier may be
-#: logged there. Empty on purpose: every site #1773 found could log the salted
-#: reference instead, so none needed an excuse.
-_ALLOWED: dict[str, str] = {}
+_REDIS_OUTAGE = "a Redis client error names host/port or the command, and the key is a digest — no subject"
+_PIL_DECODE = "a Pillow decode error describes the bytes (format, truncation), never who uploaded them"
+
+#: ``path::enclosing_function::keyword`` -> reason a subject identifier or an
+#: exception text may be logged there. Every #1773 identifier site could log the
+#: salted reference instead, so none needed an excuse; the entries below are the
+#: exception-text sites (#1773 review) whose text was read and found subject-free.
+_ALLOWED: dict[str, str] = {
+    "app/data_access/arango/erasure_executor.py::ArangoErasureExecutor._abort_quietly::error": (
+        "an ArangoDB transaction-abort error names the transaction id, not the plan's subject"
+    ),
+    "app/data_access/external/device_pairing_throttle.py::RedisDevicePairingThrottleStore.get_failure_state::error": (
+        _REDIS_OUTAGE + "; the corrupt-entry branch's decode error names the counter format, not the IP"
+    ),
+    "app/data_access/external/device_pairing_throttle.py::RedisDevicePairingThrottleStore.record_failure::error": (
+        _REDIS_OUTAGE
+    ),
+    "app/data_access/external/device_pairing_throttle.py::RedisDevicePairingThrottleStore.clear::error": (
+        _REDIS_OUTAGE
+    ),
+    "app/data_access/external/redis_device_pairing.py::RedisDevicePairingCodeStore.consume::error": (
+        _REDIS_OUTAGE + "; the corrupt-entry branch's error names a JSON position or a missing field name"
+    ),
+    "app/data_access/storage/s3_adapter.py::S3StorageAdapter._health_sync::detail": (
+        "the health probe touches the bucket, not an object: the text names endpoint/bucket, no account key"
+    ),
+    "app/domain/engines/oauth_engine.py::OAuthEngine._fetch_github_user_info::error": (
+        "an httpx error names the fixed GitHub /user/emails URL and a status; the TypeError is built from a type name"
+    ),
+    "app/domain/engines/storage/exif_stripper.py::strip_exif::reason": _PIL_DECODE,
+    "app/domain/engines/storage/thumbnail_generator.py::metadata_keys::reason": _PIL_DECODE,
+    "app/tasks/auth_tasks.py::dispatch_duplicate_registration_notice::error": (
+        "a broker error names the broker connection; the task argument is an opaque key, not in the text"
+    ),
+}
 
 
 def _is_log_call(node: ast.Call) -> bool:
@@ -136,6 +185,19 @@ def _raw_identifier(value: ast.expr) -> str | None:
     if isinstance(value, ast.JoinedStr):
         parts = [p.value for p in value.values if isinstance(p, ast.FormattedValue)]
         return next((hit for part in parts if (hit := _raw_identifier(part))), None)
+    return None
+
+
+def _raw_exception_text(value: ast.expr) -> str | None:
+    """``str(<name>)`` / ``repr(<name>)``: a text the logger receives unredacted, if any."""
+    if (
+        isinstance(value, ast.Call)
+        and isinstance(value.func, ast.Name)
+        and value.func.id in _TEXT_CONVERSIONS
+        and len(value.args) == 1
+        and isinstance(value.args[0], ast.Name)
+    ):
+        return ast.unparse(value)
     return None
 
 
@@ -180,6 +242,8 @@ class _LogCallVisitor(ast.NodeVisitor):
         for arg in node.args:
             if hit := _raw_identifier(arg):
                 self.findings.append(f"{where}: positional {hit}")
+            elif hit := _raw_exception_text(arg):
+                self.findings.append(f"{where}: positional {hit} (unredacted exception text)")
         for kw in node.keywords:
             if kw.arg is None:
                 continue
@@ -193,6 +257,10 @@ class _LogCallVisitor(ast.NodeVisitor):
                 self.findings.append(f"{where}: {kw.arg}={hit} (value is a subject identifier)")
             elif _is_raw_storage_key(kw.arg, kw.value, storage_module=self.storage_module):
                 self.findings.append(f"{where}: {kw.arg}= (raw storage key; log it through loggable_storage_key)")
+            elif hit := _raw_exception_text(kw.value):
+                self.findings.append(
+                    f"{where}: {kw.arg}={hit} (unredacted exception text; log error_type= or a redaction call)"
+                )
 
 
 def _scan_source(source: str, rel: str, allowed: dict[str, str] | None = None) -> _LogCallVisitor:
@@ -237,6 +305,8 @@ def test_selector_reaches_the_surface() -> None:
         "s3_adapter.py",
         "local_fs_adapter.py",
         "redis_device_pairing.py",
+        "smtp_email_adapter.py",
+        "console_email_adapter.py",
     ):
         assert expected in names, f"selector lost {expected}"
 
@@ -250,9 +320,10 @@ def test_the_scan_sees_log_calls() -> None:
 def test_no_log_call_names_a_data_subject() -> None:
     problems = [finding for scan in _surface_scans() for finding in scan.findings]
     assert not problems, (
-        "log calls hand a data subject's account key or address to the logger (#1773). "
-        "Log the salted subject reference (ErasureEngine.log_subject), email_digest(...) "
-        "or loggable_storage_key(...) instead:\n  " + "\n  ".join(problems)
+        "log calls hand a data subject's account key, address or an unredacted exception text "
+        "to the logger (#1773). Log the salted subject reference (ErasureEngine.log_subject), "
+        "email_digest(...), loggable_storage_key(...) or error_type=type(exc).__name__ "
+        "instead:\n  " + "\n  ".join(problems)
     )
 
 
@@ -291,6 +362,21 @@ _STORAGE = "app/data_access/storage/probe_adapter.py"
         (_SERVICE, "logger.info('e', export_key=export.key)", False),
         (_SERVICE, "logger.error('e', object_key=loggable_storage_key(object_key))", False),
         (_SERVICE, "send(user_key=k, email=addr)", False),
+        (_SERVICE, "logger.error('e', error=str(exc))", True),
+        (_SERVICE, "logger.warning('e', reason=str(err), error_type=type(err).__name__)", True),
+        (_SERVICE, "logger.error('e', detail=repr(exc))", True),
+        (_SERVICE, "logger.error('failed: %s', str(exc))", True),
+        (_SERVICE, "log('e', error=str(exc))", True),
+        (_SERVICE, "logger.error('e', error=self._loggable_error(exc, user_key))", False),
+        (_SERVICE, "logger.error('e', error=loggable_error_text(str(exc), user_key, salt))", False),
+        (_SERVICE, "logger.error('e', error_type=type(exc).__name__)", False),
+        (_SERVICE, "logger.info('e', count=str(n_items))", True),
+        ("app/data_access/external/smtp_email_adapter.py", "logger.info('email_sent', to=to_email)", True),
+        (
+            "app/data_access/external/smtp_email_adapter.py",
+            "logger.info('email_sent', to_sha256=email_digest(to_email))",
+            False,
+        ),
     ],
 )
 def test_detector_sees_each_spelling(rel: str, source: str, caught: bool) -> None:

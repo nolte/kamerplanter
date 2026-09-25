@@ -14,6 +14,8 @@ shape elsewhere could drift from the builder without either side noticing.
 
 from __future__ import annotations
 
+import re
+
 #: Namespace of the export bundles; the segment after it is the account key.
 EXPORT_BUNDLE_NAMESPACE = "privacy/exports/"
 
@@ -48,3 +50,20 @@ def loggable_storage_key(key: str) -> str:
         return key
     _subject, separator, rest = remainder.partition("/")
     return f"{EXPORT_BUNDLE_NAMESPACE}{REDACTED_SUBJECT_SEGMENT}{separator}{rest}"
+
+
+#: An export-bundle key (or prefix) inside free text: the namespace and the
+#: account segment up to the next separator a path or a quoted message uses.
+_EMBEDDED_BUNDLE_KEY = re.compile(re.escape(EXPORT_BUNDLE_NAMESPACE) + r"[^/\s'\"]+")
+
+
+def mask_export_bundle_keys(text: str) -> str:
+    """*text* with the account segment of every embedded export-bundle key masked (#1773 review).
+
+    For free text — an exception message — that reaches a log line: a storage
+    error names the object it failed on (``[Errno 2] No such file or directory:
+    '/data/privacy/exports/<user_key>/<export>.json'``). Masked the same way as
+    :func:`loggable_storage_key`, whatever account the segment names; text
+    without a bundle key is returned unchanged.
+    """
+    return _EMBEDDED_BUNDLE_KEY.sub(f"{EXPORT_BUNDLE_NAMESPACE}{REDACTED_SUBJECT_SEGMENT}", text)

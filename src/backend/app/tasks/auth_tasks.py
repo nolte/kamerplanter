@@ -245,7 +245,9 @@ def send_duplicate_registration_notice(user_key: str) -> dict:
     except Exception as exc:  # noqa: BLE001 - a delivery failure is logged, never retried
         # No retry: the window is already claimed, so a retry would return
         # "suppressed" and only cost a queue slot.
-        logger.error("duplicate_registration_notice_failed", email_sha256=digest, error=str(exc))
+        # The type only: ``SMTPRecipientsRefused`` embeds the refused address —
+        # a third party's — in its text (#1773 review GDPR-004).
+        logger.error("duplicate_registration_notice_failed", email_sha256=digest, error_type=type(exc).__name__)
         return {"status": "failed", "reason": "delivery_error"}
 
     logger.info("duplicate_registration_notice_sent", email_sha256=digest)

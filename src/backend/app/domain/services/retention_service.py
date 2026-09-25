@@ -79,8 +79,12 @@ class RetentionService:
         return captured_at + timedelta(days=self._ip_anonymisation_after_days)
 
     def unverified_account_cutoff(self, now: datetime) -> datetime:
-        """Return the registration time before which an unverified account is erased (NFR-011 R-02)."""
-        return now - timedelta(days=self._unverified_account_days)
+        """Return the registration time before which an unverified account is erased (NFR-011 R-02).
+
+        In UTC whatever offset *now* carries: the caller passes the ``isoformat``
+        to a string comparison against UTC timestamps (#1773 review GDPR-008).
+        """
+        return now.astimezone(UTC) - timedelta(days=self._unverified_account_days)
 
     def erasure_record_purge_cutoff(self, now: datetime) -> datetime:
         """Return the completion time before which an erasure record is purged (NFR-011 R-06).
@@ -88,11 +92,14 @@ class RetentionService:
         Counted in **calendar years**, not ``365 * years`` days: "1 Jahr nach
         Abschluss" must never be undercut, and 365 days back from a date after
         a 29 February is one day short of a year. A ``now`` on 29 February
-        counts back to 28 February. The result is truncated to whole seconds:
-        the repository compares ISO strings, and a stored timestamp without a
-        fraction against a cutoff with one would order by the separator, not
-        by the instant.
+        counts back to 28 February. The result is truncated to whole seconds
+        and normalised to UTC (#1773 review GDPR-008): the purge repository
+        compares instants (``DATE_TIMESTAMP``), but the cutoff is also what the
+        run logs and hands on as an ISO string, and a string that kept
+        ``+02:00`` or a fraction would be read — and, by any string comparison,
+        ordered — two hours or a separator off.
         """
+        now = now.astimezone(UTC)
         year = now.year - self._erasure_record_retention_years
         try:
             cutoff = now.replace(year=year)

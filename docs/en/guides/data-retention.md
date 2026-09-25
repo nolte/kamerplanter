@@ -253,18 +253,20 @@ garden of such an account is not yet anonymized by that cleanup.
 
 ### Logs of an erasure
 
-The log lines of an erasure do not name your account key. They carry the same
-tombstone hash as the erasure audit instead, so the lines of one erasure can be linked
-to each other without naming anyone.
+The log lines of an erasure do not name your account key. They carry a salted
+reference instead, so the lines of one erasure can be linked to each other without
+naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
 
 ??? info "For operators: the `subject=` field in log lines"
     Log lines on the privacy, authentication, retention and object-storage paths carry a
-    `subject=` field instead of an account key or email address. It holds the same salted
-    tombstone hash (`anon_…`, derived from the account key and `ERASURE_TOMBSTONE_SALT`)
-    that a completed erasure request carries — the lines of one account stay correlatable
-    with each other and with the erasure audit, without naming anyone. If the salt is
-    missing or too short, the line carries the constant `anon_unavailable` instead — never
-    the account key in the clear.
+    `subject=` field instead of an account key or email address. It holds a salted,
+    purpose-separated reference (`sub_` followed by 16 hex characters, an HMAC of the
+    account key keyed with `ERASURE_TOMBSTONE_SALT`). The lines of one account stay
+    correlatable with each other without naming anyone. The reference is deliberately
+    **not** the tombstone hash (`anon_…`) that the erasure audit and the anonymised
+    harvest and treatment records keep: someone holding only the logs cannot join them
+    to those retained records. If the salt is missing or too short, the line carries the
+    constant `anon_unavailable` instead — never the account key in the clear.
 
     Registration and email events additionally log fields such as `email_sha256` — a
     SHA-256 digest of the email address, never the address itself. Object-storage log
@@ -272,8 +274,13 @@ to each other without naming anyone.
     segment of export-bundle keys: `privacy/exports/<account key>/<export>.json` becomes
     `privacy/exports/<subject>/<export>.json`.
 
-    To attribute a log line to an account, an operator must compute the hash with the
-    same salt themselves — grepping for the account key does not work.
+    Error texts in these lines (`error=`) are cleaned the same way: the account key is
+    replaced by the reference, and export-bundle paths are masked. Where an error text can
+    contain a third party's address (a rejected email recipient), only the error type is
+    logged (`error_type=`).
+
+    To attribute a log line to an account, an operator must compute the reference with
+    the same salt themselves — grepping for the account key does not work.
 
 ### All deletion paths do the same
 

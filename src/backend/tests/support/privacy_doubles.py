@@ -207,25 +207,40 @@ class FakeErasureRepo:
             return None
         return self.update_fields(key, {"status": "in_progress", "last_attempt_at": now_iso, "updated_at": now_iso})
 
-    def delete_completed_before(self, cutoff_iso: str) -> int:
-        """The R-06 purge (#1772): ``completed`` with a ``completed_at`` strictly before the cutoff.
-
-        The same predicate as the AQL — a request still owed a run, and a
-        completed one without a completion time, are never selected. The real
-        method also removes the ``requested_erasure`` edges; this store keeps
-        none.
-        """
+    def _purge_due(self, cutoff_iso: str) -> list[str]:
+        """The AQL predicate: ``completed``, with a ``completed_at`` strictly before the cutoff instant."""
         from datetime import datetime
 
         cutoff = datetime.fromisoformat(cutoff_iso)
-        due = [
+        return [
             key
             for key, e in self.stored.items()
             if e.status == "completed" and e.completed_at is not None and e.completed_at < cutoff
         ]
+
+    def delete_completed_before(self, cutoff_iso: str) -> int:
+        """The R-06 purge (#1772): due **and** already tombstoned (#1773 review GDPR-006).
+
+        The same predicate as the AQL — a request still owed a run, a completed
+        one without a completion time, and one whose ``user_key`` is no
+        tombstone are never selected. The real method also removes the
+        ``requested_erasure`` edges; this store keeps none.
+        """
+        from app.domain.engines.erasure_engine import ErasureEngine
+
+        due = [
+            key for key in self._purge_due(cutoff_iso) if ErasureEngine.is_tombstone(self.stored[key].user_key or "")
+        ]
         for key in due:
             del self.stored[key]
         return len(due)
+
+    def count_completed_without_tombstone_before(self, cutoff_iso: str) -> int:
+        from app.domain.engines.erasure_engine import ErasureEngine
+
+        return sum(
+            1 for key in self._purge_due(cutoff_iso) if not ErasureEngine.is_tombstone(self.stored[key].user_key or "")
+        )
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> ErasureRequest:
         current = self.stored[key]

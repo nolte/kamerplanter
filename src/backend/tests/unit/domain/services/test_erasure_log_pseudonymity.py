@@ -4,9 +4,11 @@
 storage / reference-index events logged ``user_key=<key>``. The account is gone
 afterwards, but the log lines outlive it under no retention rule, and a key is
 enough to re-link them to everything else a log shipper holds. The events now
-carry ``subject`` — the same salted ``anon_…`` tombstone hash the audit rows get
-(NFR-011 R-06) — so the lines of one erasure stay correlatable to each other and
-to the pseudonymised ``erasure_requests`` row, and name nobody.
+carry ``subject`` — a salted reference (``ErasureEngine.log_subject``) — so the
+lines of one erasure stay correlatable to each other and name nobody. Since the
+#1773 review (GDPR-003) that reference is purpose-separated from the tombstone
+the audit rows get (NFR-011 R-06): a log line cannot be joined to the
+pseudonymised ``erasure_requests`` row without the salt.
 
 What is asserted is the absence of the plaintext key in **every** captured event
 value, not the presence of one field: a new log line that reintroduces the key
@@ -23,6 +25,7 @@ from unittest.mock import MagicMock
 import pytest
 import structlog.testing
 
+from app.common.exceptions import NotFoundError
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
@@ -156,7 +159,12 @@ class TestErasureLogsNameNobody:
         } <= events
         assert _leaks(logs) == []
 
-    async def test_the_erasure_events_carry_the_tombstone_as_their_subject(self, tmp_path: Path) -> None:
+    async def test_the_erasure_events_carry_the_log_subject_not_the_tombstone(self, tmp_path: Path) -> None:
+        """The reference is purpose-separated from the tombstone (#1773 review GDPR-003).
+
+        A log line equal to the tombstone could be joined to the pseudonymised
+        audit rows by anyone holding the log stream — no salt needed.
+        """
         service = _service(tmp_path)
         tombstone = ErasureEngine.compute_tombstone_hash(USER_KEY, SALT)
 
@@ -164,7 +172,8 @@ class TestErasureLogsNameNobody:
             await service.erase_account(USER_KEY)
 
         erased = next(event for event in logs if event.get("event") == "erasure.account_erased")
-        assert erased["subject"] == tombstone
+        assert erased["subject"] == ErasureEngine.log_subject(USER_KEY, SALT)
+        assert tombstone not in repr(logs)
 
     async def test_a_failed_erasure_logs_no_plaintext_key(self, tmp_path: Path) -> None:
         executor = MagicMock()
@@ -177,6 +186,40 @@ class TestErasureLogsNameNobody:
 
         assert "retention.erasure.failed" in {event.get("event") for event in logs}
         assert _leaks(logs) == []
+
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            NotFoundError("User", USER_KEY),
+            FileNotFoundError(f"[Errno 2] No such file or directory: '/data/privacy/exports/{USER_KEY}/exp-1.json'"),
+            OSError(f"cannot remove privacy/exports/{USER_KEY}/"),
+        ],
+        ids=["not-found-names-the-key", "storage-error-names-the-bundle", "storage-error-names-the-prefix"],
+    )
+    async def test_a_failure_whose_text_names_the_subject_logs_no_plaintext_key(
+        self, tmp_path: Path, failure: Exception
+    ) -> None:
+        """GDPR-001 (#1773 review): ``error=`` carried the exception text unredacted.
+
+        Only ``reason`` (the record's ``error_message``) was redacted; the log
+        line beside it kept ``str(exc)``, and a storage error names the export
+        bundle ``privacy/exports/<user_key>/…``.
+        """
+        executor = MagicMock()
+        executor.run_erasure_plan.side_effect = failure
+        erasure_repo = MagicMock()
+        service = _service(tmp_path, erasure_executor=executor, erasure_repo=erasure_repo)
+        request = ErasureRequest(_key="e-1", user_key=USER_KEY, status="scheduled")
+
+        with structlog.testing.capture_logs() as logs:
+            assert await service._finalize_erasure(request, datetime(2026, 9, 24, tzinfo=UTC)) is False
+
+        failed = next(event for event in logs if event.get("event") == "retention.erasure.failed")
+        assert _leaks(logs) == []
+        assert failed["error"], "the line keeps the (redacted) text for the operator"
+        assert failed["error_type"] == type(failure).__name__
+        # The record outlives the account as well (R-06).
+        assert USER_KEY not in str(erasure_repo.update_fields.call_args_list)
 
     async def test_skipped_phases_log_no_plaintext_key(self, tmp_path: Path) -> None:
         service = _service(tmp_path, storage_adapter=None)

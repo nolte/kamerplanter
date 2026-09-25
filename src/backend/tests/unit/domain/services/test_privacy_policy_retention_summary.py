@@ -13,11 +13,16 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from app.domain.engines.consent_engine import ConsentEngine
+from app.domain.models.privacy import PrivacyPolicyInfo
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.retention_service import RetentionService
 
 
 def _policy(retention: RetentionService) -> dict[str, str]:
+    return {entry.category: entry.retention_period for entry in _full_policy(retention).retention_summary}
+
+
+def _full_policy(retention: RetentionService) -> PrivacyPolicyInfo:
     service = PrivacyService(
         export_repo=MagicMock(),
         consent_repo=MagicMock(),
@@ -35,7 +40,7 @@ def _policy(retention: RetentionService) -> dict[str, str]:
         frontend_url="http://frontend.invalid",
         retention=retention,
     )
-    return {entry.category: entry.retention_period for entry in service.get_privacy_policy().retention_summary}
+    return service.get_privacy_policy()
 
 
 class TestTheRetentionSummary:
@@ -61,3 +66,16 @@ class TestTheRetentionSummary:
         summary = _policy(RetentionService())
 
         assert summary["ip_addresses"] == "Anonymised after 7 days (NFR-011 R-03)."
+
+    def test_the_ip_entry_names_only_what_the_anonymisation_reaches(self):
+        """GDPR-005 (#1773 review): ``anonymize_old_ips`` walks ``refresh_tokens`` only.
+
+        The entry claimed IPs "captured during authentication / consent" are
+        anonymised after 7 days; the consent records' IPs are not touched by any
+        task (#1782). Art. 13 text must not promise what the code does not do.
+        """
+        policy = _full_policy(RetentionService())
+        entry = next(e for e in policy.retention_summary if e.category == "ip_addresses")
+
+        assert "consent" not in entry.description.lower()
+        assert "session" in entry.description.lower()

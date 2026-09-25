@@ -266,18 +266,21 @@ noch nicht anonymisiert.
 ### Protokolle der Löschung
 
 Die Protokollzeilen einer Löschung nennen deine Kontokennung nicht. Sie tragen
-stattdessen denselben Tombstone-Hash wie der Löschungs-Audit. So lassen sich die Zeilen
-einer Löschung einander zuordnen, ohne dass sie eine Person nennen.
+stattdessen eine gesalzene Referenz. So lassen sich die Zeilen einer Löschung einander
+zuordnen, ohne dass sie eine Person nennen. Mit dem pseudonymisierten Löschungs-Audit
+lassen sie sich dagegen nicht verknüpfen.
 
 ??? info "Für Betreiber: das Feld `subject=` in Protokollzeilen"
     Protokollzeilen auf dem Datenschutz-, Authentifizierungs-, Retention- und
     Objektspeicher-Pfad tragen ein Feld `subject=` statt einer Kontenkennung oder
-    E-Mail-Adresse. Es enthält denselben gesalzenen Tombstone-Hash (`anon_…`, aus
-    Kontoschlüssel und `ERASURE_TOMBSTONE_SALT`), den auch ein abgeschlossener
-    Löschungs-Antrag trägt — die Zeilen desselben Kontos bleiben so miteinander und mit
-    dem Löschungs-Audit korrelierbar, ohne eine Person zu nennen. Fehlt der Salt oder ist
-    er zu kurz, steht dort stattdessen die Konstante `anon_unavailable` — nie die
-    Kontenkennung im Klartext.
+    E-Mail-Adresse. Es enthält eine gesalzene, zweckgetrennte Referenz (`sub_` plus
+    16 Hex-Zeichen, ein HMAC aus Kontoschlüssel und `ERASURE_TOMBSTONE_SALT`). Die
+    Zeilen desselben Kontos bleiben so miteinander korrelierbar, ohne eine Person zu
+    nennen. Die Referenz ist bewusst **nicht** der Tombstone-Hash (`anon_…`), den der
+    Löschungs-Audit und die anonymisierten Ernte- und Behandlungsdaten behalten: Wer
+    nur die Protokolle hat, kann sie mit diesen aufbewahrten Datensätzen nicht
+    verknüpfen. Fehlt der Salt oder ist er zu kurz, steht dort stattdessen die
+    Konstante `anon_unavailable` — nie die Kontenkennung im Klartext.
 
     Registrierungs- und E-Mail-Ereignisse protokollieren zusätzlich Felder wie
     `email_sha256` — einen SHA-256-Digest der E-Mail-Adresse, keine Adresse im Klartext.
@@ -286,7 +289,12 @@ einer Löschung einander zuordnen, ohne dass sie eine Person nennen.
     `privacy/exports/<Kontoschlüssel>/<Export>.json` wird
     `privacy/exports/<subject>/<Export>.json`.
 
-    Um eine Protokollzeile einem Konto zuzuordnen, muss ein Betreiber den Hash mit
+    Fehlertexte in diesen Zeilen (`error=`) sind ebenso bereinigt: Der Kontoschlüssel
+    ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
+    die Adresse eines Dritten enthalten kann (abgelehnter E-Mail-Empfänger), steht nur
+    der Fehlertyp (`error_type=`).
+
+    Um eine Protokollzeile einem Konto zuzuordnen, muss ein Betreiber die Referenz mit
     demselben Salt selbst nachrechnen — ein Grep nach dem Kontoschlüssel funktioniert
     nicht.
 

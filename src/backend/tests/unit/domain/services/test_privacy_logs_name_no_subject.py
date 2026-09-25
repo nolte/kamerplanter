@@ -1,7 +1,7 @@
 """#1773 — privacy, auth and account log lines name no data subject.
 
 #1700 moved the erasure log lines from ``user_key=<key>`` to ``subject=`` — the
-salted tombstone reference (``ErasureEngine.log_subject``) — and stopped there.
+salted subject reference (``ErasureEngine.log_subject``) — and stopped there.
 The sibling lines kept the plaintext: the export pipeline's ``delivered`` /
 ``failed`` / ``internal_error`` lines logged ``user_key=export.user_key``, the
 Art. 16 confirmation logged the old **and** the new address, registration
@@ -48,7 +48,9 @@ OLD_EMAIL = "old-address-5c81e2@example.com"
 NEW_EMAIL = "new-address-5c81e2@example.com"
 SALT = "log-test-salt-not-a-secret-0123456789"
 EXPORT_KEY = "exp-1"
-TOMBSTONE = ErasureEngine.compute_tombstone_hash(USER_KEY, SALT)
+#: The salted, purpose-separated log reference — deliberately NOT the tombstone
+#: the pseudonymised audit rows keep (#1773 review GDPR-003).
+SUBJECT = ErasureEngine.log_subject(USER_KEY, SALT)
 
 
 def _values(value: Any) -> list[str]:
@@ -148,7 +150,7 @@ class TestExportPipelineLogsNameNobody:
         assert _leaks(logs, USER_KEY) == []
 
         assert result is not None and result.status == "completed"
-        assert _event(logs, "retention.process_data_export.delivered")["subject"] == TOMBSTONE
+        assert _event(logs, "retention.process_data_export.delivered")["subject"] == SUBJECT
         # The bundle upload goes through the adapter's own log line as well.
         _event(logs, "storage_put_object")
 
@@ -162,7 +164,7 @@ class TestExportPipelineLogsNameNobody:
         assert _leaks(logs, USER_KEY) == []
 
         assert result is not None and result.status == "failed"
-        assert _event(logs, "retention.process_data_export.failed")["subject"] == TOMBSTONE
+        assert _event(logs, "retention.process_data_export.failed")["subject"] == SUBJECT
 
     async def test_internal_error_and_the_orphan_cleanup_name_nobody(self, tmp_path: Path) -> None:
         """The stored bundle is removed again; the cleanup's own line logs the bundle key."""
@@ -175,9 +177,9 @@ class TestExportPipelineLogsNameNobody:
 
         assert result is not None and result.status == "failed"
         internal = _event(logs, "retention.process_data_export.internal_error")
-        assert internal["subject"] == TOMBSTONE
+        assert internal["subject"] == SUBJECT
         # The exception text named the subject; the line keeps the text, redacted.
-        assert TOMBSTONE in internal["error"]
+        assert SUBJECT in internal["error"]
         _event(logs, "retention.process_data_export.failed")
         deleted = _event(logs, "storage_delete_object")
         assert deleted["key"].endswith(f"/{EXPORT_KEY}.json"), "the export key stays for correlation"
@@ -195,6 +197,77 @@ class TestExportPipelineLogsNameNobody:
 
         cleanup = _event(logs, "retention.process_data_export.orphan_cleanup_failed")
         assert cleanup["object_key"].endswith(f"/{EXPORT_KEY}.json")
+
+
+class _PutFailsLocalFs(LocalFsStorageAdapter):
+    """The real adapter whose upload fails naming the bundle key, as a backend error would."""
+
+    async def put_object(self, key: str, stream: Any, mime_type: str, metadata: Any = None) -> Any:
+        raise OSError(f"[Errno 28] No space left on device: '/data/{key}'")
+
+
+BUNDLE = f"privacy/exports/{USER_KEY}/{EXPORT_KEY}.json"
+
+
+@pytest.mark.asyncio
+class TestExceptionTextsOnTheExportPathNameNobody:
+    """GDPR-002 (#1773 review): the ``error=`` of three sinks was ``str(exc)``, unredacted.
+
+    A storage error names the object it failed on, and the export bundle's key
+    embeds the account key. Each test drives the real service method with such
+    an error and asserts the key is absent from every captured value while the
+    line still carries a text and the exception type for the operator.
+    """
+
+    async def test_a_retried_build_names_nobody(self, tmp_path: Path) -> None:
+        service = _privacy(storage_adapter=_storage(tmp_path, _PutFailsLocalFs), export_repo=_export_repo())
+
+        with structlog.testing.capture_logs() as logs, pytest.raises(OSError):
+            await service.process_data_export(EXPORT_KEY, final_attempt=False)
+
+        retrying = _event(logs, "retention.process_data_export.retrying")
+        assert _leaks(logs, USER_KEY) == []
+        assert retrying["error_type"] == "OSError"
+        assert f"privacy/exports/<subject>/{EXPORT_KEY}.json" in retrying["error"]
+
+    async def test_a_failed_bundle_delete_at_expiry_names_nobody(self, tmp_path: Path) -> None:
+        now = datetime.now(UTC)
+        expired = DataExportRequest(
+            key=EXPORT_KEY,
+            user_key=USER_KEY,
+            status="completed",
+            requested_at=now - timedelta(days=4),
+            completed_at=now - timedelta(days=4),
+            expires_at=now - timedelta(days=1),
+            file_path=BUNDLE,
+        )
+        service = _privacy(
+            storage_adapter=_storage(tmp_path, _UndeletableLocalFs), export_repo=FakeDataExportRepo(expired)
+        )
+
+        with structlog.testing.capture_logs() as logs:
+            assert await service.expire_data_exports(now) == 0
+
+        failed = _event(logs, "retention.expire_data_exports.object_delete_failed")
+        assert _leaks(logs, USER_KEY) == []
+        assert failed["error_type"] == "ConnectionError"
+        assert f"privacy/exports/<subject>/{EXPORT_KEY}.json" in failed["error"]
+
+    async def test_a_failed_dispatch_names_nobody(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from app.tasks import retention_tasks
+
+        def _broker_down(export_key: str) -> None:
+            raise ConnectionError(f"broker refused task for {BUNDLE}")
+
+        monkeypatch.setattr(retention_tasks.process_data_export, "delay", _broker_down)
+        service = _privacy(export_repo=FakeDataExportRepo())
+
+        with structlog.testing.capture_logs() as logs:
+            service.request_data_export(USER_KEY)
+
+        failed = _event(logs, "privacy_export_dispatch_failed")
+        assert _leaks(logs, USER_KEY) == []
+        assert failed["error_type"] == "ConnectionError"
 
 
 class TestEmailChangeConfirmationNamesNobody:
@@ -220,7 +293,7 @@ class TestEmailChangeConfirmationNamesNobody:
         assert _leaks(logs, USER_KEY, OLD_EMAIL, NEW_EMAIL) == []
 
         confirmed = _event(logs, "privacy_email_change_confirmed")
-        assert confirmed["subject"] == TOMBSTONE
+        assert confirmed["subject"] == SUBJECT
         assert confirmed["old_email_sha256"] == email_digest(OLD_EMAIL)
         assert confirmed["new_email_sha256"] == email_digest(NEW_EMAIL)
 
@@ -235,7 +308,7 @@ class TestFacadeAndAccountLinesNameNobody:
 
         assert _leaks(logs, USER_KEY) == []
 
-        assert _event(logs, "data_subject_right_invoked")["subject"] == TOMBSTONE
+        assert _event(logs, "data_subject_right_invoked")["subject"] == SUBJECT
 
     def test_account_deleted_logs_the_subject_reference(self) -> None:
         service = UserService(MagicMock(), MagicMock(), tombstone_salt=SALT)
@@ -245,7 +318,7 @@ class TestFacadeAndAccountLinesNameNobody:
 
         assert _leaks(logs, USER_KEY) == []
 
-        assert _event(logs, "account_deleted")["subject"] == TOMBSTONE
+        assert _event(logs, "account_deleted")["subject"] == SUBJECT
 
     def test_without_a_salt_the_line_carries_a_constant_never_the_key(self) -> None:
         service = UserService(MagicMock(), MagicMock())
@@ -307,4 +380,4 @@ class TestAuthLinesNameNobody:
 
         assert _leaks(logs, USER_KEY, OLD_EMAIL) == []
 
-        assert _event(logs, "service_account_interactive_credential_refused")["subject"] == TOMBSTONE
+        assert _event(logs, "service_account_interactive_credential_refused")["subject"] == SUBJECT

@@ -230,9 +230,11 @@ class AuthService:
 
         :meth:`ErasureEngine.log_subject` under the tombstone salt: the log
         stream has no retention rule (NFR-011) and outlives the account, so the
-        lines name the subject by the same salted reference its pseudonymised
-        audit rows get after an erasure (R-06). Without a salt every line
-        carries the constant ``anon_unavailable`` — never the key.
+        lines name the subject by a salted reference — purpose-separated from
+        the tombstone its pseudonymised audit rows get after an erasure (R-06),
+        so a log line cannot be joined to those rows without the salt (#1773
+        review GDPR-003). Without a salt every line carries the constant
+        ``anon_unavailable`` — never the key.
         """
         return ErasureEngine.log_subject(user_key, self._tombstone_salt)
 
