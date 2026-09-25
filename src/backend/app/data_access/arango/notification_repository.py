@@ -116,7 +116,8 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc.user_key == @user_key "
-            f"AND doc.created_at != null AND doc.created_at >= @since "
+            f"AND DATE_TIMESTAMP(doc.created_at) != null "
+            f"AND DATE_TIMESTAMP(doc.created_at) >= DATE_TIMESTAMP(@since) "
             f"SORT doc.created_at DESC "
             f"LIMIT @limit "
             f"RETURN doc"
@@ -172,7 +173,8 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER STARTS_WITH(doc.notification_type, 'care.watering') "
             f"AND doc.acted_at == null "
-            f"AND doc.created_at < @cutoff "
+            f"AND DATE_TIMESTAMP(doc.created_at) != null "
+            f"AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff) "
             f"AND doc.escalation_level == @level "
             f"RETURN doc"
         )

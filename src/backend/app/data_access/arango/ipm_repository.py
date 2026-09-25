@@ -254,7 +254,7 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
         query = """
         FOR ta IN treatment_applications
             FILTER ta.plant_key == @plant_key
-            FILTER ta.applied_at >= @cutoff
+            FILTER DATE_TIMESTAMP(ta.applied_at) >= DATE_TIMESTAMP(@cutoff)
             FOR t IN treatments
                 FILTER t._key == ta.treatment_key
                 RETURN {

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from app.domain.models.invitation import Invitation
 
@@ -36,4 +37,4 @@ class IInvitationRepository(ABC):
     def list_by_tenant(self, tenant_key: str) -> list[Invitation]: ...
 
     @abstractmethod
-    def cleanup_expired(self) -> int: ...
+    def cleanup_expired(self, *, now: datetime | None = None) -> int: ...

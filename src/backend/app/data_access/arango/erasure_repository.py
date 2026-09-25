@@ -111,16 +111,25 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
 
         ``stale_before_iso`` is ``now - run_interval`` (the staleness guard). All
         candidates additionally require ``hard_delete_scheduled_at <= now``.
+
+        Both are compared as instants (#1784, see
+        :mod:`app.data_access.arango.query_builder`). An ``updated_at`` that is
+        missing **or unreadable** counts as stale: ``DATE_TIMESTAMP`` yields
+        ``null`` for both, and ``null <= n`` is true — the same answer the
+        explicit ``== null`` arm gives, on purpose.
         """
         query = """
         FOR doc IN @@collection
-          FILTER doc.hard_delete_scheduled_at != null
-            AND doc.hard_delete_scheduled_at <= @now
+          FILTER DATE_TIMESTAMP(doc.hard_delete_scheduled_at) != null
+            AND DATE_TIMESTAMP(doc.hard_delete_scheduled_at) <= DATE_TIMESTAMP(@now)
             AND (
               doc.status IN ['scheduled', 'partially_completed']
               OR (
                 doc.status == 'in_progress'
-                AND (doc.updated_at == null OR doc.updated_at <= @stale_before)
+                AND (
+                  doc.updated_at == null
+                  OR DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before)
+                )
               )
             )
           RETURN doc
@@ -150,7 +159,7 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
             AND (
               doc.status != 'in_progress'
               OR doc.updated_at == null
-              OR doc.updated_at <= @stale_before
+              OR DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before)
             )
           UPDATE doc WITH { status: 'in_progress', last_attempt_at: @now, updated_at: @now } IN @@collection
           RETURN NEW

@@ -261,10 +261,12 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
             "tank_key": tank_key,
         }
         if start_date:
-            filters.append("doc.filled_at >= @start_date")
+            filters.append("DATE_TIMESTAMP(doc.filled_at) >= DATE_TIMESTAMP(@start_date)")
             bind_vars["start_date"] = start_date
         if end_date:
-            filters.append("doc.filled_at <= @end_date")
+            filters.append(
+                "DATE_TIMESTAMP(doc.filled_at) != null AND DATE_TIMESTAMP(doc.filled_at) <= DATE_TIMESTAMP(@end_date)"
+            )
             bind_vars["end_date"] = end_date
         filter_clause = " AND ".join(filters)
         query = f"""

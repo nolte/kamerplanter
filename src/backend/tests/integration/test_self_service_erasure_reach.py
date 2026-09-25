@@ -30,7 +30,7 @@ Runs in CI against a service container; locally it needs a database::
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
@@ -119,7 +119,10 @@ def erased(database):
     service = _service(database)
     request = service.request_erasure(SUBJECT, "confirm")
     assert request.key is not None
-    beat_clock = datetime.now(UTC) + timedelta(days=PrivacyService.HARD_DELETE_DAYS + 1)
+    # One day past the date the request itself carries: the R-01 period is a
+    # setting read through RetentionService (#1782), not a class constant.
+    assert request.hard_delete_scheduled_at is not None
+    beat_clock = request.hard_delete_scheduled_at + timedelta(days=1)
     finalised = asyncio.run(_service(database).execute_scheduled_erasures(beat_clock))
     return SimpleNamespace(
         plan=plan,

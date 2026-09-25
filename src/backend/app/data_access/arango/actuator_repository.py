@@ -238,10 +238,20 @@ class ArangoActuatorRepository(BaseArangoRepository[Actuator]):
         return sum(1 for _ in cursor)
 
     def expire_overrides(self, now_iso: str) -> int:
-        """Deactivate every active override whose ``expires_at`` has passed."""
+        """Deactivate every active override whose ``expires_at`` has passed.
+
+        Compared as instants (``DATE_TIMESTAMP``, see
+        :mod:`app.data_access.arango.query_builder`). ``expires_at`` is required
+        on :class:`ManualOverride`; an override whose expiry is missing or
+        unreadable is treated as expired rather than left active for good.
+        """
         query = f"""
         FOR doc IN {col.MANUAL_OVERRIDES}
-          FILTER doc.is_active == true AND doc.expires_at <= @now
+          FILTER doc.is_active == true
+            AND (
+              DATE_TIMESTAMP(doc.expires_at) == null
+              OR DATE_TIMESTAMP(doc.expires_at) <= DATE_TIMESTAMP(@now)
+            )
           UPDATE doc WITH {{ is_active: false }} IN {col.MANUAL_OVERRIDES}
           RETURN 1
         """

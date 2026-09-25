@@ -248,7 +248,7 @@ Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | Maßnahme | Spezifikation | Referenz |
 |-----------|---------------|----------|
 | **IP-Anonymisierung** | IPv4 letztes Oktett → 0, IPv6 → /48-Präfix, nach 7 Tagen | NFR-011 R-03 |
-| **Retention Enforcement** | Celery Master-Task, tägliche Ausführung | NFR-011 §3 |
+| **Retention Enforcement** | Celery-Beat-Einzel-Tasks je Regel (täglich bzw. stündlich) | NFR-011 §3 |
 | **Sensordaten-Downsampling** | 90d raw → 2y hourly → 5y daily | NFR-011 §2.2 |
 | **Consent-Middleware** | Optionale Features nur mit aktiver Einwilligung | REQ-025 |
 | **Betroffenenrechte** | Self-Service API /api/v1/privacy/ (Art. 15–21) | REQ-025 |

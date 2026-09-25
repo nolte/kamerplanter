@@ -48,7 +48,7 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
               doc.status != 'in_progress'
               OR doc.last_attempt_at == null
               OR doc.updated_at == null
-              OR doc.updated_at <= @stale_before
+              OR DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before)
             )
           UPDATE doc WITH { status: 'in_progress', last_attempt_at: @now, updated_at: @now } IN @@collection
           RETURN NEW
@@ -77,7 +77,10 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
         query = """
         FOR doc IN @@collection
           FILTER doc.status == 'partially_completed'
-            OR (doc.status == 'in_progress' AND (doc.updated_at == null OR doc.updated_at <= @stale_before))
+            OR (
+              doc.status == 'in_progress'
+              AND (doc.updated_at == null OR DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before))
+            )
           SORT doc.requested_at ASC
           RETURN doc
         """

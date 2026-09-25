@@ -241,10 +241,17 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         not "did they confirm an address". Someone who signs in through a provider
         can, today and every day after, so they are not an abandoned registration
         whatever `email_verified` says.
+
+        ``created_at`` is compared as an instant (#1784, see
+        :mod:`app.data_access.arango.query_builder`); an account whose creation
+        time is missing or unreadable is not selected — its age is unknown, and
+        every account this returns is erased.
         """
         query = """
         FOR doc IN @@collection
-          FILTER doc.email_verified == false AND doc.created_at < @cutoff
+          FILTER doc.email_verified == false
+            AND DATE_TIMESTAMP(doc.created_at) != null
+            AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
           LET linked = LENGTH(
             FOR provider IN @@providers
               FILTER provider.user_key == doc._key

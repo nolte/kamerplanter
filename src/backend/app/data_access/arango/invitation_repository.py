@@ -70,11 +70,23 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
     def list_by_tenant(self, tenant_key: str) -> list[Invitation]:
         return self.find_by_field("tenant_key", tenant_key, sort="created_at", sort_direction="DESC")
 
-    def cleanup_expired(self) -> int:
-        now = datetime.now(UTC).isoformat()
+    def cleanup_expired(self, *, now: datetime | None = None) -> int:
+        """Flip every pending invitation past its ``expires_at`` to ``expired``.
+
+        ``now`` defaults to the wall clock; the parameter exists so the cutoff can
+        be pinned in a test. Compared as instants (see
+        :mod:`app.data_access.arango.query_builder`); ``expires_at`` is required
+        on :class:`Invitation`, so one that is missing or unreadable is treated
+        as expired rather than left acceptable for good.
+        """
+        stamp = (now or datetime.now(UTC)).isoformat()
         query = f"""
         FOR doc IN {col.INVITATIONS}
-          FILTER doc.status == @pending AND doc.expires_at < @now
+          FILTER doc.status == @pending
+            AND (
+              DATE_TIMESTAMP(doc.expires_at) == null
+              OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
+            )
           UPDATE doc WITH {{ status: @expired, updated_at: @now }} IN {col.INVITATIONS}
           RETURN 1
         """
@@ -83,7 +95,7 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
             bind_vars={
                 "pending": InvitationStatus.PENDING.value,
                 "expired": InvitationStatus.EXPIRED.value,
-                "now": now,
+                "now": stamp,
             },
         )
         return sum(1 for _ in cursor)

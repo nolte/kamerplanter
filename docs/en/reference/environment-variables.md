@@ -72,18 +72,24 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
 
-<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours, retention_unverified_account_days, retention_erasure_audit_retention_years); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hashing, NFR-011 §4). **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
 | `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | No | Name of the data controller, shown in export and disclosure documents. |
 | `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | No | Contact email of the controller for GDPR requests. |
-| `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before automatic deletion. |
-| `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | No | Grace period before an account marked for deletion is permanently (hard-)deleted. |
-| `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | No | Validity of the confirmation link when changing an email address. |
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | `90` | No | Grace period before an account marked for deletion (soft-deleted) is permanently (hard-)deleted (NFR-011 R-01). Minimum: `1`. The older name `PRIVACY_HARD_DELETE_AFTER_DAYS` is still accepted; if both are set, the new name wins. |
 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | No | Number of days after registration after which a never-confirmed account is automatically deleted (NFR-011 R-02). Minimum: `1`. |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | `7` | No | Number of days after a session was issued after which its IP address is anonymized (IPv4: last octet → `0`; NFR-011 R-03). Minimum: `1`. Covers session IP addresses only, not the IP address of a consent record. |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before the file is automatically deleted (NFR-011 R-05). Minimum: `1`. The older name `PRIVACY_EXPORT_RETENTION_HOURS` is still accepted; if both are set, the new name wins. |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | No | Number of years a completed erasure request (`erasure_requests`, `status=completed`) is kept as the Art. 5(2) GDPR accountability proof before it is permanently deleted (NFR-011 R-06). Counted in calendar years. Minimum: `1`. |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | No | Validity of the confirmation link when changing an email address (NFR-011 R-07); after that the request is set to `expired`, no hard-delete happens. Minimum: `1`. The older name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` is still accepted; if both are set, the new name wins. |
+
+For `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` and
+`RETENTION_EMAIL_CHANGE_RETENTION_HOURS`, the older `PRIVACY_*` names were already
+documented but had no effect — the code used fixed values. They now actually work and
+remain valid as aliases in addition.
 
 !!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
     Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. The same applies to the Celery worker: it keys the account references and email digests in its log lines with this salt and exits at startup when the salt is missing. Give it the same value and the same `DEBUG` setting as the backend.

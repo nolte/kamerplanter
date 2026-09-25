@@ -13,6 +13,11 @@ creates them on every boot), so switching is no longer blocked on a migration �
 but it is a behaviour change (phase definitions and sequence entries instead of
 growth phases), not a move, and it is left to its own change so this module's
 queries stay identical to the ones they replaced.
+
+**Window bounds compare instants** (#1784): ``DATE_TIMESTAMP`` on both sides,
+see :mod:`app.data_access.arango.query_builder`. Compared as text, an entry half
+a second inside a bound spelled ``…:00.5Z`` fell outside a bound spelled
+``…:00+00:00``.
 """
 
 from arango.database import StandardDatabase
@@ -31,8 +36,9 @@ class ArangoCalendarSourceRepository(ICalendarSourceRepository):
     def list_tasks_due(self, start: str, end: str, *, tenant_key: str) -> list[dict]:
         aql = f"""
         FOR t IN {col.TASKS}
-          FILTER t.due_date != null
-          FILTER t.due_date >= @start AND t.due_date <= @end
+          FILTER DATE_TIMESTAMP(t.due_date) != null
+          FILTER DATE_TIMESTAMP(t.due_date) >= DATE_TIMESTAMP(@start)
+            AND DATE_TIMESTAMP(t.due_date) <= DATE_TIMESTAMP(@end)
           FILTER t.tenant_key == @tenant_key
           RETURN t
         """
@@ -93,8 +99,9 @@ class ArangoCalendarSourceRepository(ICalendarSourceRepository):
         # tank router stamps from the request context on create (#1704).
         aql = f"""
         FOR m IN {col.MAINTENANCE_LOGS}
-          FILTER m.performed_at != null
-          FILTER m.performed_at >= @start AND m.performed_at <= @end
+          FILTER DATE_TIMESTAMP(m.performed_at) != null
+          FILTER DATE_TIMESTAMP(m.performed_at) >= DATE_TIMESTAMP(@start)
+            AND DATE_TIMESTAMP(m.performed_at) <= DATE_TIMESTAMP(@end)
           LET tank = DOCUMENT(CONCAT("{col.TANKS}/", m.tank_key))
           FILTER tank != null AND tank.tenant_key == @tenant_key
           RETURN m
@@ -109,8 +116,9 @@ class ArangoCalendarSourceRepository(ICalendarSourceRepository):
         # foreign plant's name either (#1704).
         aql = f"""
         FOR w IN {col.WATERING_LOGS}
-          FILTER w.logged_at != null
-          FILTER w.logged_at >= @start AND w.logged_at <= @end
+          FILTER DATE_TIMESTAMP(w.logged_at) != null
+          FILTER DATE_TIMESTAMP(w.logged_at) >= DATE_TIMESTAMP(@start)
+            AND DATE_TIMESTAMP(w.logged_at) <= DATE_TIMESTAMP(@end)
           FILTER w.tenant_key == @tenant_key
           LET plant_names = (
             FOR pk IN (w.plant_keys || [])

@@ -59,4 +59,5 @@ class TestTheReaperQueryExcludesFederatedAccounts:
         """The control: a query that returns nothing is as wrong as one that returns everything."""
         source = _query_source()
         assert "doc.email_verified == false" in source
-        assert "doc.created_at < @cutoff" in source
+        # An instant comparison (#1784): as text, ``…:00.5Z`` sorts before ``…:00+00:00``.
+        assert "DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)" in source
