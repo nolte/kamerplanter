@@ -66,6 +66,7 @@ Diese Übersicht bündelt die Boot-Blocker aus allen drei Prozessen — Backend,
 | `ERASURE_TOMBSTONE_SALT` | Backend | **Immer** — unabhängig davon, ob aktiv DSGVO-Löschanfragen gestellt werden | Muss mindestens 32 Zeichen lang sein |
 | `TIMESCALEDB_PASSWORD` | Backend | Nur wenn `TIMESCALEDB_ENABLED=true` | Wert darf nicht mehr `changeme` sein |
 | `INTERNAL_SERVICE_TOKEN` | Backend | Nur wenn `KNOWLEDGE_SERVICE_ENABLED=true` **oder** `INFERENCE_SERVICE_ENABLED=true` | Darf nicht leer sein |
+| `INTERNAL_SERVICE_TOKEN` + `INFERENCE_SERVICE_ENABLED`/`-URL` | Celery-Worker | Nur wenn `INFERENCE_SERVICE_ENABLED=true` — **muss identisch mit dem Backend-Wert sein**, sonst hält der Worker die DSGVO-Löschung beigetragener Referenzbilder als Konfigurationsfehler zurück (siehe Warnhinweis unten) | Darf nicht leer sein |
 | `INTERNAL_SERVICE_TOKEN` | Knowledge Service | Immer, wenn der Prozess überhaupt läuft (eigener Gate, unabhängig vom Backend-Gate) | Darf nicht leer sein |
 | `VECTORDB_PASSWORD` | Knowledge Service | Immer, wenn der Prozess überhaupt läuft | Wert darf nicht mehr `changeme` sein |
 | `INTERNAL_SERVICE_TOKEN` | Inference Service | Immer, wenn der Prozess überhaupt läuft | Darf nicht leer sein |
@@ -90,6 +91,9 @@ Diese Übersicht bündelt die Boot-Blocker aus allen drei Prozessen — Backend,
 | Spezies-Identitätsauflösung/Deduplizierung <!-- REQ-048 --> | Backend (Teil der obigen Adapter) | Kein eigener Schalter — läuft immer mit, sobald ein Identifikations-Adapter aktiv ist | — | — | Nein |
 
 Vollständige Inbetriebnahme (Aktivierungsreihenfolge, Referenz-Index befüllen): [Bilderkennung in Betrieb nehmen](inference-service.md).
+
+!!! warning "`INFERENCE_SERVICE_ENABLED` gehört auch auf den Celery-Worker (DSGVO-Löschung, interne Referenz: Issue #1753)"
+    Die obige Zeile listet nur den `inference-service`/`vectordb`-Stack selbst. Sobald Nutzer eigene Fotos als Referenzbild beitragen, muss `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` **zusätzlich mit demselben Wert auf dem Celery-Worker** stehen — er führt die planmäßige Art.-17-Löschung dieser Beiträge aus. Fehlt das dort, hält der Worker fällige Löschungen als Konfigurationsfehler zurück, und eine Mandantenlöschung antwortet mit HTTP 503. Details: [Bilderkennung in Betrieb nehmen](inference-service.md).
 
 ---
 

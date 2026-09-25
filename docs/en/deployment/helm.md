@@ -259,7 +259,7 @@ valkey:
 | `JWT_SECRET_KEY` | Yes | — | JWT signing key, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if the chart-internal default is left unchanged. |
 | `FERNET_KEY` | Yes | — | Encryption key for OIDC provider secrets, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty. |
 | `ERASURE_TOMBSTONE_SALT` | Yes | — | GDPR pseudonymization salt (≥ 32 characters), from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or too short. |
-| `INTERNAL_SERVICE_TOKEN` | Conditional | — | Only required once `KNOWLEDGE_SERVICE_ENABLED=true` or `INFERENCE_SERVICE_ENABLED=true` is set, also from `kamerplanter-secrets`. |
+| `INTERNAL_SERVICE_TOKEN` | Conditional | — | Only required once `KNOWLEDGE_SERVICE_ENABLED=true` or `INFERENCE_SERVICE_ENABLED=true` is set, also from `kamerplanter-secrets`. For `INFERENCE_SERVICE_ENABLED`, the same requirement applies **to the celery-worker controller too** — it runs the scheduled GDPR erasure of contributed reference images and needs the same access as the backend that writes them (see [Setting Up Plant Identification](inference-service.md)). |
 | `REDIS_URL` | Yes | — | Valkey/Redis connection URL |
 | `CORS_ORIGINS` | Yes | — | Allowed origins as JSON array |
 | `DEBUG` | No | `false` | Enable debug mode. Setting `true` also disables the boot blocker for the five rows above — **never** set this in production. |

@@ -202,6 +202,7 @@ belong only to you and fall under no retention period:
 - your location assignments in gardens you were a member of
 - invitations you accepted (they name your email address)
 - the file entries of your own pest photos whose files are already deleted
+- your contributed reference-image vectors for plant recognition (curated reference images contributed by other users are unaffected)
 
 The daily cleanup removes accounts that were never confirmed. It now also removes their
 membership and location assignments. The personal garden of such an account is not yet
@@ -223,9 +224,10 @@ to each other without naming anyone.
 
 It makes no difference whether a platform admin deletes your account through user
 management or you file an erasure request yourself: both paths run the same erasure. It
-cleans object storage and the reference index, deletes your other records, anonymizes the
-ones under a retention obligation as described above, and removes your account last. The
-database part runs as one unit: it is either done completely or not at all.
+cleans object storage and the reference index (only your own contributions — curated
+references stay), deletes your other records, anonymizes the ones under a retention
+obligation as described above, and removes your account last. The database part runs as
+one unit: it is either done completely or not at all.
 
 Your own request is carried out by the daily run once the 90 days have passed. After that
 it reads `completed` and carries the tombstone hash instead of your account key. If a run
@@ -249,6 +251,15 @@ While a request is open, you cannot file a second one.
     one `retention.execute_scheduled_erasures.not_configured` line at error level, spends
     no attempt and touches no data. Once it is fixed, all open requests run on the next
     daily run.
+
+    A missing `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` **on the celery-worker**
+    while reference-image contributions already exist on the index is a configuration
+    error too (issue #1753) — but it only holds requests that have not yet passed Phase
+    0.5 (reference-index cleanup). Those requests stay `partially_completed` with an
+    operator-facing message, spending no attempt; the run also writes one
+    `retention.execute_scheduled_erasures.reference_index_not_configured` line at error
+    level. See [Setting Up Plant Identification](../deployment/inference-service.md) for
+    the configuration.
 
 ---
 

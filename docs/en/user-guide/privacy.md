@@ -291,9 +291,11 @@ Files are retained because they belong to the plant record and may be subject to
 !!! note "Order of deletion"
     Storage cleanup (step 0) happens before database cleanup. This is the only way the system can still retrieve the metadata needed to map file to user.
 
+If you [contributed your own photos as reference images for plant recognition](plant-identification.md#assigning-the-photo-to-the-new-plant), those contributions are removed on account deletion too: the system deletes the feature vector computed from them from the recognition base. Curated reference images contributed by other users are unaffected.
+
 ### Tenant Deletion
 
-When a tenant is deleted (by the platform admin or on request), all binary data for that tenant is completely removed from storage — regardless of the backend in use (local-fs or S3). This is done by deleting all objects with the prefix `t/{tenant_key}/`. The result is documented in the audit log.
+When a tenant is deleted (by the platform admin or on request), all binary data for that tenant is completely removed from storage — regardless of the backend in use (local-fs or S3). This is done by deleting all objects with the prefix `t/{tenant_key}/`. Every reference-image vector contributed by a member of that tenant is likewise removed from the recognition base. The result is documented in the audit log.
 
 ### Data Portability (GDPR Art. 20)
 

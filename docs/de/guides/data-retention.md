@@ -211,6 +211,7 @@ nur dir gehören und keiner Aufbewahrungsfrist unterliegen:
 - deine Standort-Zuweisungen in Gärten, in denen du Mitglied warst
 - Einladungen, die du angenommen hast (sie nennen deine E-Mail-Adresse)
 - die Dateieinträge deiner eigenen Schädlingsfotos, deren Dateien schon gelöscht sind
+- deine beigetragenen Referenzbild-Vektoren für die Bilderkennung (kuratierte Referenzen anderer Nutzer bleiben unberührt)
 
 Ein Konto, das nie bestätigt wurde, entfernt der tägliche Aufräumlauf. Dabei gehen
 jetzt auch die Mitgliedschaft und die Standort-Zuweisungen mit. Der persönliche Garten
@@ -232,10 +233,10 @@ einer Löschung einander zuordnen, ohne dass sie eine Person nennen.
 
 Es spielt keine Rolle, ob ein Platform-Admin dein Konto über die Benutzerverwaltung
 löscht oder ob du selbst einen Löschantrag stellst: Beide Wege führen dieselbe Löschung
-aus. Sie bereinigt Dateispeicher und Referenzindex, löscht deine übrigen Datensätze,
-anonymisiert die aufbewahrungspflichtigen wie oben beschrieben und entfernt zuletzt dein
-Konto. Der Datenbankteil läuft in einem Stück: Entweder ist er vollständig erledigt oder
-gar nicht.
+aus. Sie bereinigt Dateispeicher und Referenzindex (nur deine eigenen Beiträge —
+kuratierte Referenzen bleiben), löscht deine übrigen Datensätze, anonymisiert die
+aufbewahrungspflichtigen wie oben beschrieben und entfernt zuletzt dein Konto. Der
+Datenbankteil läuft in einem Stück: Entweder ist er vollständig erledigt oder gar nicht.
 
 Deinen eigenen Antrag führt der tägliche Lauf nach Ablauf der 90 Tage aus. Danach steht
 er auf `completed` und trägt statt deiner Kontokennung den Tombstone-Hash. Schlägt ein
@@ -260,6 +261,15 @@ gelingt. Solange ein Antrag offen ist, kannst du keinen zweiten stellen.
     genau eine Zeile `retention.execute_scheduled_erasures.not_configured` auf Level
     error, verbraucht keinen Versuch und fasst keine Daten an. Nach der Korrektur laufen
     alle offenen Anträge beim nächsten täglichen Lauf.
+
+    Fehlt `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` **auf dem Celery-Worker**,
+    während bereits Referenzbild-Beiträge auf dem Index liegen, ist das ebenfalls ein
+    Konfigurationsfehler (Issue #1753) — allerdings nur für Anträge, die noch nicht bei
+    Phase 0.5 (Referenzindex-Bereinigung) vorbei sind. Diese Anträge bleiben als
+    `partially_completed` mit einer Betreiber-Meldung offen, kein Versuch wird verbraucht;
+    der Lauf schreibt zusätzlich eine Zeile
+    `retention.execute_scheduled_erasures.reference_index_not_configured` auf Level error.
+    Details zur Konfiguration: [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
 
 ---
 
