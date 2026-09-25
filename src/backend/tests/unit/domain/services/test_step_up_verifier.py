@@ -134,3 +134,91 @@ def test_a_service_account_is_refused() -> None:
 )
 def test_echo_matches(given: str, expected: str, ci: bool, result: bool) -> None:
     assert echo_matches(given, expected, case_insensitive=ci) is result
+
+
+# ── security review SEC-001 / SEC-007: the lock ends, and the next try is tested ──
+
+
+class _Clock:
+    def __init__(self) -> None:
+        from datetime import UTC, datetime
+
+        self.now = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, minutes: int) -> None:
+        from datetime import timedelta
+
+        self.now += timedelta(minutes=minutes)
+
+
+def _fail_until_locked(verifier: StepUpVerifier, user: User, *, ip: str = "203.0.113.1") -> None:
+    for _ in range(MAX_ATTEMPTS):
+        with pytest.raises(UnauthorizedError):
+            _verify(verifier, user, "wrong", ip=ip)
+
+
+def test_after_the_lock_ends_the_correct_password_is_accepted_again() -> None:
+    """Review SEC-001: the sixth reservation used to be refused forever, without bcrypt."""
+    clock = _Clock()
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore(clock=clock))
+    user = _user()
+    _fail_until_locked(verifier, user)
+
+    clock.advance(16)
+
+    assert _verify(verifier, user, PASSWORD) == "password"
+
+
+def test_after_the_lock_ends_one_wrong_try_locks_again_for_twice_as_long() -> None:
+    """The login curve: after a lock, each further failure locks at once, doubling."""
+    clock = _Clock()
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore(clock=clock))
+    user = _user()
+    _fail_until_locked(verifier, user)
+    clock.advance(16)
+
+    with pytest.raises(UnauthorizedError):
+        _verify(verifier, user, "wrong")
+    with pytest.raises(StepUpLockedError) as excinfo:
+        _verify(verifier, user, PASSWORD)
+
+    assert excinfo.value.retry_after_minutes == 30
+
+
+def test_after_the_lock_ends_a_burst_still_reaches_bcrypt_only_once() -> None:
+    clock = _Clock()
+    engine = _CountingEngine()
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore(clock=clock), engine)
+    user = _user()
+    _fail_until_locked(verifier, user)
+    clock.advance(16)
+    before = engine.calls
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda _: _safe_verify(verifier, user), range(16)))
+
+    assert engine.calls - before == 1
+
+
+def _safe_verify(verifier: StepUpVerifier, user: User) -> str:
+    try:
+        return _verify(verifier, user, "wrong")
+    except (UnauthorizedError, StepUpLockedError) as exc:
+        return type(exc).__name__
+
+
+def test_an_account_wide_lock_reports_its_own_wait() -> None:
+    """Review SEC-007: the refusal named the address bucket's wait (or a flat minute)."""
+    clock = _Clock()
+    verifier = StepUpVerifier(MemoryStepUpThrottleStore(clock=clock))
+    user = _user()
+    for n in range(3):
+        _fail_until_locked(verifier, user, ip=f"192.0.2.{n + 1}")
+
+    with pytest.raises(StepUpLockedError) as excinfo:
+        _verify(verifier, user, PASSWORD, ip="192.0.2.99")
+
+    assert excinfo.value.retry_after_minutes >= 15

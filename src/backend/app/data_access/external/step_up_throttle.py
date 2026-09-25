@@ -11,7 +11,9 @@ The shape of the other lockout stores (``device_pairing_throttle``,
 * :class:`RedisStepUpThrottleStore` — the shared tier (Valkey in production), so
   replicas share one counter. On a Redis error it degrades to the in-process map
   rather than fail open: failing open would reopen the unthrottled password
-  oracle this store exists to close.
+  oracle this store exists to close. A lock is read from **both** tiers, so a lock
+  recorded locally during an outage still holds after the shared tier is back
+  (security review SEC-008).
 
 Its own key namespace (``kp:auth:stepup:``): sharing the pairing or unknown-account
 keys would let one guard's traffic overwrite the other's state.
@@ -23,8 +25,10 @@ subject carries an account key and a client address.
 import hashlib
 import threading
 from collections import OrderedDict
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol
 
 import structlog
 
@@ -33,11 +37,12 @@ from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 logger = structlog.get_logger()
 
 _COUNT_PREFIX = "kp:auth:stepup:count:"
+_STRIKE_PREFIX = "kp:auth:stepup:strikes:"
 _LOCK_PREFIX = "kp:auth:stepup:lock:"
 
-#: Window of one subject's attempt counter, renewed on every attempt. 24 h, above
-#: the 4 h maximum lockout (``login_throttle_engine.MAX_LOCKOUT_MINUTES``), so the
-#: backoff keeps growing across consecutive lockouts instead of restarting.
+#: Window of one subject's attempt and strike counters, renewed on every write.
+#: 24 h, above the 4 h maximum lockout (``login_throttle_engine.MAX_LOCKOUT_MINUTES``),
+#: so the backoff keeps growing across consecutive lockouts instead of restarting.
 DEFAULT_TTL_SECONDS = 86_400
 
 #: Entry cap of the in-process tier. Subjects are derived from authenticated
@@ -49,11 +54,7 @@ _FALLBACK_CAPACITY = 4096
 class _StringRedis(Protocol):
     """The Redis calls this store makes, typed so a fake can stand in."""
 
-    def incr(self, name: str) -> int: ...
-
-    def expire(self, name: str, time: int) -> object: ...
-
-    def set(self, name: str, value: str, ex: int | None = ...) -> object: ...
+    def pipeline(self, transaction: bool = ...) -> Any: ...
 
     def ttl(self, name: str) -> int: ...
 
@@ -65,6 +66,14 @@ def _digest(subject: str) -> str:
     return hashlib.sha256(subject.strip().lower().encode("utf-8")).hexdigest()
 
 
+@dataclass
+class _Entry:
+    count: int = 0
+    strikes: int = 0
+    expires_at: datetime | None = None
+    locked_until: datetime | None = None
+
+
 class MemoryStepUpThrottleStore(IStepUpThrottleStore):
     """Bounded, TTL'd in-process counters, safe under concurrent request threads.
 
@@ -73,53 +82,69 @@ class MemoryStepUpThrottleStore(IStepUpThrottleStore):
     replica count but does not remove it.
     """
 
-    def __init__(self, ttl_seconds: int = DEFAULT_TTL_SECONDS, capacity: int = _FALLBACK_CAPACITY) -> None:
+    def __init__(
+        self,
+        ttl_seconds: int = DEFAULT_TTL_SECONDS,
+        capacity: int = _FALLBACK_CAPACITY,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self._ttl = timedelta(seconds=ttl_seconds)
         self._capacity = capacity
+        self._clock = clock or (lambda: datetime.now(UTC))
         self._mutex = threading.Lock()
-        # digest -> (count, count_expires_at, locked_until)
-        self._entries: OrderedDict[str, tuple[int, datetime, datetime | None]] = OrderedDict()
+        self._entries: OrderedDict[str, _Entry] = OrderedDict()
 
-    def _live(self, key: str, now: datetime) -> tuple[int, datetime, datetime | None] | None:
-        entry = self._entries.get(key)
-        if entry is None:
-            return None
-        count, expires_at, locked_until = entry
-        if expires_at <= now and (locked_until is None or locked_until <= now):
-            self._entries.pop(key, None)
-            return None
-        if expires_at <= now:
-            return 0, expires_at, locked_until
+    def _entry(self, key: str, now: datetime) -> _Entry:
+        """The live entry for *key*, created or aged as needed; moved to the young end."""
+        entry = self._entries.pop(key, None) or _Entry()
+        if entry.expires_at is not None and entry.expires_at <= now:
+            entry.count, entry.strikes, entry.expires_at = 0, 0, None
+        if entry.locked_until is not None and entry.locked_until <= now:
+            entry.locked_until = None
+        self._entries[key] = entry
+        while len(self._entries) > self._capacity:
+            self._entries.popitem(last=False)
         return entry
 
     def lock_remaining_seconds(self, subject: str) -> int:
-        now = datetime.now(UTC)
+        now = self._clock()
         with self._mutex:
-            entry = self._live(_digest(subject), now)
-        if entry is None or entry[2] is None or entry[2] <= now:
+            entry = self._entries.get(_digest(subject))
+            locked_until = entry.locked_until if entry else None
+        if locked_until is None or locked_until <= now:
             return 0
-        return max(1, int((entry[2] - now).total_seconds()))
+        return max(1, int((locked_until - now).total_seconds()))
 
     def reserve_attempt(self, subject: str) -> int:
-        key = _digest(subject)
-        now = datetime.now(UTC)
+        now = self._clock()
         with self._mutex:
-            entry = self._live(key, now)
-            count = (entry[0] if entry else 0) + 1
-            locked_until = entry[2] if entry else None
-            self._entries.pop(key, None)
-            self._entries[key] = (count, now + self._ttl, locked_until)
-            while len(self._entries) > self._capacity:
-                self._entries.popitem(last=False)
-        return count
+            entry = self._entry(_digest(subject), now)
+            entry.count += 1
+            entry.expires_at = now + self._ttl
+            return entry.count
+
+    def release_attempt(self, subject: str) -> None:
+        now = self._clock()
+        with self._mutex:
+            entry = self._entry(_digest(subject), now)
+            entry.count = max(0, entry.count - 1)
+
+    def strike(self, subject: str, *, rearm_to: int) -> int:
+        now = self._clock()
+        with self._mutex:
+            entry = self._entry(_digest(subject), now)
+            entry.strikes += 1
+            entry.count = rearm_to
+            entry.expires_at = now + self._ttl
+            return entry.strikes
 
     def lock(self, subject: str, seconds: int) -> None:
-        key = _digest(subject)
-        now = datetime.now(UTC)
+        now = self._clock()
         with self._mutex:
-            entry = self._live(key, now)
-            count, expires_at = (entry[0], entry[1]) if entry else (0, now + self._ttl)
-            self._entries[key] = (count, expires_at, now + timedelta(seconds=seconds))
+            entry = self._entry(_digest(subject), now)
+            entry.locked_until = now + timedelta(seconds=seconds)
+            if entry.expires_at is None:
+                entry.expires_at = now + self._ttl
 
     def clear(self, subject: str) -> None:
         with self._mutex:
@@ -133,7 +158,12 @@ DEFAULT_STEP_UP_THROTTLE_STORE = MemoryStepUpThrottleStore()
 
 
 class RedisStepUpThrottleStore(IStepUpThrottleStore):
-    """Valkey/Redis-backed counters shared across replicas, with an in-process fallback."""
+    """Valkey/Redis-backed counters shared across replicas, with an in-process fallback.
+
+    Every counter write and its expiry go out in one ``MULTI``/``EXEC``
+    transaction (security review SEC-005): an ``INCR`` that landed without its
+    ``EXPIRE`` would leave a counter that never ages out.
+    """
 
     def __init__(
         self,
@@ -146,39 +176,65 @@ class RedisStepUpThrottleStore(IStepUpThrottleStore):
         self._fallback = fallback if fallback is not None else DEFAULT_STEP_UP_THROTTLE_STORE
 
     def _unavailable(self, operation: str, exc: Exception) -> None:
-        logger.warning("step_up_throttle_store_unavailable", operation=operation, error=str(exc))
+        logger.warning("step_up_throttle_store_unavailable", operation=operation, error_type=type(exc).__name__)
 
     def lock_remaining_seconds(self, subject: str) -> int:
+        local = self._fallback.lock_remaining_seconds(subject)
         try:
             remaining = int(self._redis.ttl(f"{_LOCK_PREFIX}{_digest(subject)}"))
         except Exception as exc:  # noqa: BLE001 - any Redis failure degrades to the local tier
             self._unavailable("ttl", exc)
-            return self._fallback.lock_remaining_seconds(subject)
+            return local
         # -2: no key, -1: a key without expiry (never written by this store) — not a lock.
-        return remaining if remaining > 0 else 0
+        return max(local, remaining if remaining > 0 else 0)
 
     def reserve_attempt(self, subject: str) -> int:
         key = f"{_COUNT_PREFIX}{_digest(subject)}"
         try:
-            count = int(self._redis.incr(key))
-            self._redis.expire(key, self._ttl_seconds)
+            count, _ = self._redis.pipeline(transaction=True).incr(key).expire(key, self._ttl_seconds).execute()
         except Exception as exc:  # noqa: BLE001 - see lock_remaining_seconds
             self._unavailable("incr", exc)
             return self._fallback.reserve_attempt(subject)
-        return count
+        return int(count)
+
+    def release_attempt(self, subject: str) -> None:
+        key = f"{_COUNT_PREFIX}{_digest(subject)}"
+        try:
+            self._redis.pipeline(transaction=True).incr(key, -1).expire(key, self._ttl_seconds).execute()
+        except Exception as exc:  # noqa: BLE001 - see lock_remaining_seconds
+            self._unavailable("decr", exc)
+            self._fallback.release_attempt(subject)
+
+    def strike(self, subject: str, *, rearm_to: int) -> int:
+        digest = _digest(subject)
+        strikes_key = f"{_STRIKE_PREFIX}{digest}"
+        try:
+            strikes, *_ = (
+                self._redis.pipeline(transaction=True)
+                .incr(strikes_key)
+                .expire(strikes_key, self._ttl_seconds)
+                .set(f"{_COUNT_PREFIX}{digest}", str(rearm_to), ex=self._ttl_seconds)
+                .execute()
+            )
+        except Exception as exc:  # noqa: BLE001 - see lock_remaining_seconds
+            self._unavailable("strike", exc)
+            return self._fallback.strike(subject, rearm_to=rearm_to)
+        return int(strikes)
 
     def lock(self, subject: str, seconds: int) -> None:
         try:
-            self._redis.set(f"{_LOCK_PREFIX}{_digest(subject)}", "1", ex=max(1, seconds))
+            self._redis.pipeline(transaction=True).set(
+                f"{_LOCK_PREFIX}{_digest(subject)}", "1", ex=max(1, seconds)
+            ).execute()
         except Exception as exc:  # noqa: BLE001 - see lock_remaining_seconds
             self._unavailable("set", exc)
             self._fallback.lock(subject, seconds)
 
     def clear(self, subject: str) -> None:
-        """Drop counter and lock in **both** tiers (an outage must not resurrect a cleared lock)."""
+        """Drop counters and lock in **both** tiers (an outage must not resurrect a cleared lock)."""
         digest = _digest(subject)
         try:
-            self._redis.delete(f"{_COUNT_PREFIX}{digest}", f"{_LOCK_PREFIX}{digest}")
+            self._redis.delete(f"{_COUNT_PREFIX}{digest}", f"{_STRIKE_PREFIX}{digest}", f"{_LOCK_PREFIX}{digest}")
         except Exception as exc:  # noqa: BLE001 - see lock_remaining_seconds
             self._unavailable("delete", exc)
         self._fallback.clear(subject)

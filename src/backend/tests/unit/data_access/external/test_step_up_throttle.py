@@ -30,13 +30,39 @@ class _FakeRedis:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
         self.ttls: dict[str, int] = {}
+        self.transactions: list[list[str]] = []
         self._mutex = threading.Lock()
 
-    def incr(self, name: str) -> int:
+    def incr(self, name: str, amount: int = 1) -> int:
         with self._mutex:
-            value = int(self.values.get(name, "0")) + 1
+            value = int(self.values.get(name, "0")) + amount
             self.values[name] = str(value)
             return value
+
+    def pipeline(self, transaction: bool = True):
+        outer = self
+
+        class _Pipe:
+            def __init__(self) -> None:
+                self.ops: list[tuple[str, tuple]] = []
+
+            def incr(self, name: str, amount: int = 1):
+                self.ops.append(("incr", (name, amount)))
+                return self
+
+            def expire(self, name: str, time: int):
+                self.ops.append(("expire", (name, time)))
+                return self
+
+            def set(self, name: str, value: str, ex: int | None = None):
+                self.ops.append(("set", (name, value, ex)))
+                return self
+
+            def execute(self):
+                outer.transactions.append([op for op, _ in self.ops])
+                return [getattr(outer, op)(*args) for op, args in self.ops]
+
+        return _Pipe()
 
     def expire(self, name: str, time: int) -> bool:
         self.ttls[name] = time
@@ -61,6 +87,9 @@ class _FakeRedis:
 
 
 class _BrokenRedis:
+    def pipeline(self, transaction: bool = True):
+        raise ConnectionError("valkey is down")
+
     def incr(self, name: str) -> int:
         raise ConnectionError("valkey is down")
 
@@ -155,3 +184,54 @@ def test_the_local_tier_is_bounded() -> None:
         store.reserve_attempt(f"account:user-{n}")
 
     assert len(store._entries) == 8
+
+
+# ── security review SEC-005 / SEC-008 ─────────────────────────────────────────
+
+
+_PipelineRedis = _FakeRedis
+
+
+def test_the_counter_and_its_expiry_are_written_in_one_transaction() -> None:
+    """Review SEC-005: an INCR that lands without its EXPIRE would never age out."""
+    redis = _PipelineRedis()
+    store = RedisStepUpThrottleStore(redis, fallback=MemoryStepUpThrottleStore())
+
+    store.reserve_attempt(SUBJECT)
+
+    assert ["incr", "expire"] in redis.transactions
+
+
+def test_a_lock_set_during_an_outage_still_holds_after_recovery() -> None:
+    """Review SEC-008: the recovered tier did not know the lock the fallback recorded."""
+    fallback = MemoryStepUpThrottleStore()
+    RedisStepUpThrottleStore(_BrokenRedis(), fallback=fallback).lock(SUBJECT, 600)
+
+    recovered = RedisStepUpThrottleStore(_PipelineRedis(), fallback=fallback)
+
+    assert recovered.lock_remaining_seconds(SUBJECT) > 0
+
+
+def test_strike_rearms_the_counter_and_counts_the_locks() -> None:
+    for store in (
+        MemoryStepUpThrottleStore(),
+        RedisStepUpThrottleStore(_PipelineRedis(), fallback=MemoryStepUpThrottleStore()),
+    ):
+        for _ in range(5):
+            store.reserve_attempt(SUBJECT)
+
+        assert store.strike(SUBJECT, rearm_to=4) == 1
+        assert store.reserve_attempt(SUBJECT) == 5
+        assert store.strike(SUBJECT, rearm_to=4) == 2
+
+
+def test_release_gives_a_refused_reservation_back() -> None:
+    for store in (
+        MemoryStepUpThrottleStore(),
+        RedisStepUpThrottleStore(_PipelineRedis(), fallback=MemoryStepUpThrottleStore()),
+    ):
+        store.reserve_attempt(SUBJECT)
+        store.reserve_attempt(SUBJECT)
+        store.release_attempt(SUBJECT)
+
+        assert store.reserve_attempt(SUBJECT) == 2

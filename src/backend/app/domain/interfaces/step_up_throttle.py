@@ -46,11 +46,34 @@ class IStepUpThrottleStore(ABC):
         ...
 
     @abstractmethod
+    def release_attempt(self, subject: str) -> None:
+        """Give back a reservation that was refused without testing a password.
+
+        A burst that raced past the lock check is refused on its own count; if that
+        refusal kept its reservation, the count would drift above the number of
+        passwords actually tested, and the attempt after the next lock would be
+        refused too (security review SEC-001).
+        """
+        ...
+
+    @abstractmethod
+    def strike(self, subject: str, *, rearm_to: int) -> int:
+        """Record one more lock for the subject and return how many it has had.
+
+        Sets the attempt counter back to *rearm_to*, so that once the lock ends the
+        next attempt is tested again — one try, as after a login lockout — instead
+        of being refused on a count that only ever grows (security review
+        SEC-001). The strike count lives for the counter window and drives the
+        doubling backoff.
+        """
+        ...
+
+    @abstractmethod
     def lock(self, subject: str, seconds: int) -> None:
         """Lock the subject for *seconds* (a longer existing lock is replaced)."""
         ...
 
     @abstractmethod
     def clear(self, subject: str) -> None:
-        """Drop counter and lock after a *successful* step-up (proof of possession)."""
+        """Drop counter, strikes and lock after a *successful* step-up (proof of possession)."""
         ...

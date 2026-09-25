@@ -64,7 +64,7 @@ from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.user_service import UserService
-from tests.support.privacy_doubles import FakeErasureRepo
+from tests.support.privacy_doubles import FakeErasureRepo, FakePersonalTenants
 from tests.support.tenant_erasure_doubles import (
     SALT,
     FakeTenantErasureRepository,
@@ -192,6 +192,9 @@ class _World:
             membership_repo=self.memberships,
             reference_index_store=NoopReferenceIndexStore(),
             erasure_executor=MagicMock(),
+            # #1788 — an account erasure also erases the personal tenant; wired so
+            # the deployment counts as able to erase.
+            tenant_service=FakePersonalTenants(),
             tombstone_salt=SALT,
         )
         # The immediate erasure run itself is pinned elsewhere
@@ -619,3 +622,36 @@ def test_a_success_clears_the_counter() -> None:
             {"current_password": "wrong", "new_password": "Yet-an0ther-long-passphrase!"},
         )
         assert resp.status_code == 401, resp.text
+
+
+# ── security review SEC-003: light mode has one shared system account ────────
+
+
+@pytest.mark.parametrize("route", SELF_ROUTES)
+def test_light_mode_never_opens_an_erasure_of_its_system_account(route) -> None:
+    """In light mode every caller *is* the system user; its e-mail is public in the seed.
+
+    ``DELETE /users/me`` is mounted in light mode too, and the echo alone confirms
+    an account without a password — so anyone reaching the instance could schedule
+    the erasure of the installation's only account. Refused like the light-mode
+    tenant deletion (#1769 review SEC-002).
+    """
+    world = _World(password_hash=None)
+    world.privacy._light_mode = True  # type: ignore[attr-defined]
+    method, path = route
+
+    resp = world.call(method, path, {"confirm_email": world.caller_email})
+
+    assert resp.status_code == 403, resp.text
+    assert not world.erasures.stored
+    assert world.users.rows[world.caller_key].is_active
+
+
+def test_light_mode_never_runs_an_admin_account_erasure() -> None:
+    world = _World(platform_admin=True)
+    world.privacy._light_mode = True  # type: ignore[attr-defined]
+
+    resp = world.call("DELETE", _admin_route(world), world.admin_step_up())
+
+    assert resp.status_code == 403, resp.text
+    assert world.account_untouched(world.target_key)

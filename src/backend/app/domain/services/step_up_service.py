@@ -45,7 +45,9 @@ the login lock the other way round would let an unauthenticated outsider (who ca
 already lock any known address at ``/auth/login``) block the owner's step-ups too.
 So the step-up lock holds step-ups only. The residual: a session thief can keep
 the account-wide step-up bucket locked; the owner still signs in, revokes sessions
-and can reset the password by mail, which kills the thief's refresh token.
+and can reset the password by mail, which kills the thief's refresh token. That
+last step holds only while the e-mail itself is behind a step-up — the e-mail
+change is not yet (#1841).
 """
 
 from __future__ import annotations
@@ -173,15 +175,20 @@ class StepUpVerifier:
         pair_attempts = self._store.reserve_attempt(pair)
         account_attempts = self._store.reserve_attempt(account)
         if pair_attempts > MAX_ATTEMPTS or account_attempts > ACCOUNT_CEILING:
-            # A burst that raced past the lock check: its reservation is over the
-            # threshold, so the password is not tested at all.
-            self._lock(pair, pair_attempts, MAX_ATTEMPTS)
-            self._lock(account, account_attempts, ACCOUNT_CEILING)
-            self._refuse_locked(action, user_key, self._store.lock_remaining_seconds(pair) or 60)
+            # Over this window's budget: a burst racing the attempt that is being
+            # tested. Refused without bcrypt, and the reservations are given back,
+            # so the count stays the number of passwords actually tested — the
+            # attempt after the next lock must be tested again (review SEC-001).
+            self._store.release_attempt(pair)
+            self._store.release_attempt(account)
+            remaining = max(self._store.lock_remaining_seconds(pair), self._store.lock_remaining_seconds(account))
+            self._refuse_locked(action, user_key, remaining or 60)
 
         if not self._password_engine.verify_password(password, requester.password_hash):
-            self._lock(pair, pair_attempts, MAX_ATTEMPTS)
-            self._lock(account, account_attempts, ACCOUNT_CEILING)
+            if pair_attempts >= MAX_ATTEMPTS:
+                self._strike(pair, MAX_ATTEMPTS)
+            if account_attempts >= ACCOUNT_CEILING:
+                self._strike(account, ACCOUNT_CEILING)
             logger.info(
                 "step_up.failed",
                 action=action,
@@ -195,11 +202,20 @@ class StepUpVerifier:
         self._store.clear(account)
         return "password"
 
-    def _lock(self, subject: str, attempts: int, threshold: int) -> None:
-        locked_until = self._throttle_engine.calculate_lockout(attempts, threshold=threshold)
-        if locked_until is None:
-            return
-        self._store.lock(subject, max(1, int((locked_until - datetime.now(UTC)).total_seconds())))
+    def _strike(self, subject: str, threshold: int) -> None:
+        """Lock *subject* and re-arm it for exactly one tested attempt after the lock.
+
+        The login curve (``LoginThrottleEngine``): the first lock after *threshold*
+        failures lasts 15 minutes, and each failure after a lock locks again at
+        once for twice as long, up to 4 hours. Re-arming the counter to one below
+        the threshold is what lets the next attempt after the lock be tested —
+        before review SEC-001 the count only grew, and every later attempt was
+        refused without bcrypt until the 24-hour window ran out.
+        """
+        strikes = self._store.strike(subject, rearm_to=threshold - 1)
+        locked_until = self._throttle_engine.calculate_lockout(threshold - 1 + strikes, threshold=threshold)
+        if locked_until is not None:
+            self._store.lock(subject, max(1, int((locked_until - datetime.now(UTC)).total_seconds())))
 
     def _refuse_locked(self, action: StepUpAction, user_key: str, remaining_seconds: int) -> None:
         minutes = max(1, -(-remaining_seconds // 60))

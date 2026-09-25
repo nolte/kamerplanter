@@ -200,6 +200,7 @@ class PrivacyService:
         tombstone_salt: str = "",
         retention: RetentionService | None = None,
         step_up_verifier: StepUpVerifier | None = None,
+        light_mode: bool = False,
     ) -> None:
         self._export_repo = export_repo
         self._consent_repo = consent_repo
@@ -257,6 +258,9 @@ class PrivacyService:
         # cannot name a period the purge does not apply. Defaults to the
         # settings-backed service.
         self._retention = retention if retention is not None else RetentionService()
+        # Review SEC-003 — in light mode (REQ-027) every caller is the one system
+        # account, so no request may erase it (as ``TenantService.delete_tenant``).
+        self._light_mode = light_mode
         # #1813 / #1814 / #1816 — the one throttled step-up of every irreversible account act.
         self._step_up_verifier = step_up_verifier or default_step_up_verifier(
             password_engine, tombstone_salt=tombstone_salt
@@ -565,6 +569,7 @@ class PrivacyService:
         address (429 ``STEP_UP_LOCKED``, #1816). A federated-only account confirms
         with the echo alone (REQ-394; real re-authentication #1815).
         """
+        self._refuse_in_light_mode()
         user = self._user_repo.get_or_raise(user_key)
         step_up = self._step_up_verifier.verify(
             user,
@@ -775,6 +780,7 @@ class PrivacyService:
         Then :meth:`erase_account_now`, whose record carries the step-up and the
         admin as a salted reference.
         """
+        self._refuse_in_light_mode()
         if requester.key == user_key:
             raise ForbiddenError("You cannot delete your own account from the admin panel.")
         self._require_platform_admin_membership(requester)
@@ -801,6 +807,18 @@ class PrivacyService:
             step_up="password" if step_up == "password" else "echo",
             requested_by_subject=requested_by,
         )
+
+    def _refuse_in_light_mode(self) -> None:
+        """No account erasure through a request in light mode (review SEC-003).
+
+        A light-mode installation has one account, the system user every request
+        resolves to without authentication (REQ-027), and its address is public in
+        the seed. The echo alone confirms an account without a password, so an
+        erasure request here would let anyone who reaches the instance schedule
+        the erasure of the installation itself.
+        """
+        if self._light_mode:
+            raise ForbiddenError("The account of a light-mode installation cannot be erased.")
 
     def _require_platform_admin_membership(self, requester: User) -> None:
         """Refuse unless the stored membership proves a platform admin (fail closed without a repo)."""

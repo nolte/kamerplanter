@@ -1713,6 +1713,7 @@ def get_privacy_service():
         tombstone_salt=settings.erasure_tombstone_salt,
         retention=get_retention_service(),
         step_up_verifier=get_step_up_verifier(),
+        light_mode=settings.kamerplanter_mode == "light",
     )
 
 
