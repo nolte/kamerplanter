@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import importlib.util
 import json
 import os
 import subprocess
@@ -89,6 +90,20 @@ def compose_command(*args: str) -> list[str]:
     return [*command, *args]
 
 
+def e2e_fernet_key() -> str:
+    """The E2E stack's Fernet key, from the one helper every caller shares (#1838).
+
+    ``scripts/e2e_fernet_key.py`` keeps it per working copy, so ``stack.py up``
+    and a later ``vectordb.py up`` (which recreates the backend) agree on it.
+    """
+    spec = importlib.util.spec_from_file_location("e2e_fernet_key", repo_root() / "scripts" / "e2e_fernet_key.py")
+    if spec is None or spec.loader is None:
+        raise ReachError("scripts/e2e_fernet_key.py cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.resolve()
+
+
 def log(message: str) -> None:
     """Progress for a human reading the task output. Never on stdout."""
     print(f"[reach] {message}", file=sys.stderr, flush=True)
@@ -105,7 +120,12 @@ def run(
             capture_output=True,
             timeout=timeout,
             cwd=repo_root(),
-            env={**os.environ, STORAGE_DIR_VARIABLE: str(reach_dir() / "storage")},
+            env={
+                **os.environ,
+                STORAGE_DIR_VARIABLE: str(reach_dir() / "storage"),
+                # The stack's Fernet key is generated, never committed (#1838).
+                "E2E_FERNET_KEY": e2e_fernet_key(),
+            },
             check=False,
         )
     except subprocess.TimeoutExpired as exc:

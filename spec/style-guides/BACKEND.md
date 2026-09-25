@@ -927,6 +927,23 @@ class TestTankEngine:
 - Mocking: `unittest.mock.patch` mit vollem Modulpfad
 - `pytest.ini`: `asyncio_mode = "auto"`
 
+### 16.3 Credential-förmige Testwerte
+
+Ein Testwert, der wie ein echtes Geheimnis aussieht — Fernet-Key, `kp_`-API-Key, JWT, Passwort in einer URL (`scheme://user:pass@host`), `password=…`-Beispiel —, steht **nie als Literal** im Repository. Er wird **zur Laufzeit zusammengesetzt** (#1838, #1837):
+
+```python
+# Richtig — kein Scanner-Treffer, derselbe Wert zur Laufzeit
+_RAW_KEY = "kp_" + "a" * 32
+_FERNET = base64.urlsafe_b64encode(bytes(range(32))).decode()
+_PASSWORD = "-".join(["probe", "value", "only"])
+
+# Falsch — ein Secret-Scanner (GitGuardian) meldet es, und nichts hindert
+# jemanden daran, den Wert in eine echte Konfiguration zu kopieren
+_FERNET = "<44 Zeichen URL-safe Base64, endend auf =>"
+```
+
+Gilt auch für Compose-Dateien und Fixtures: Ein Laufzeit-Stack bekommt seine Schlüssel pro Lauf erzeugt (`scripts/e2e_fernet_key.py` → `E2E_FERNET_KEY`), nicht eingecheckt. Klar erkennbare Platzhalter (`kp_live_xxxx…`, `e2e-test-password`) sind erlaubt, weil sie nicht das Format eines echten Schlüssels haben. `tests/unit/guards/test_no_committed_fernet_key.py` verweigert jeden echten Fernet-Key im Baum außerhalb einer begründeten Allow-List; die übrigen Formen (API-Key, JWT, URL-Passwort) sind noch nicht maschinell erzwungen (#1860).
+
 ---
 
 ## 17. Docstrings
