@@ -9,9 +9,9 @@ job: coverage
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 1368
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 1089
 job_spec_sha256: 01f30829ae1992c4dc9731c352dba0ecef27ee47d2f88d9f3d6c65360110bd2c
 invocations:
 - command: npm run test:coverage
@@ -1198,3 +1198,6 @@ reads:
 - src/frontend/src/validation/zodErrorMap.ts
 - src/frontend/tsconfig.json
 - src/frontend/vitest.config.ts
+test_modules: []
+readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

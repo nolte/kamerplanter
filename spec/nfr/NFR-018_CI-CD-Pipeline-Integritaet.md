@@ -478,6 +478,32 @@ Job, und — trägt sie ein eigenes Manifest — liest sie die delegierten Pfade
 tatsächlich. Ein Eintrag, der keinen ungedeckten Lesepfad mehr trifft, ist
 veraltet und rot (§2.5).
 
+**MUSS**: Die Delegation gilt dem **lesenden Test**, nicht nur dem Pfad
+(#1749). Liest in der delegierenden Lane ein Test einen delegierten Pfad, muss
+genau dieses Testmodul in der benannten Lane laufen; dass dort ein *anderer*
+Test dieselbe Datei liest, prüft dessen Zusicherungen, nicht die des neuen.
+Der Recorder ordnet darum jeden Lesezugriff eines pytest-Aufrufs dem Testmodul
+zu, das gerade aktiv war — ein pytest-Plugin öffnet vor jeder Sammlung und
+jedem Test eine Markerdatei, `strace -ttt` stellt Marker und Lesezugriffe
+aller Prozesse (auch Subprozesse und Threads, die ein Test startet) auf
+dieselbe Zeitachse — und hält `test_modules` (die Module, von denen mindestens
+ein Test lief) und `readers` (je Modul die Lesepfade außerhalb des eigenen
+Filters) im Manifest fest. Ein Modul, das einen delegierten Pfad liest und
+nicht unter den `test_modules` der benannten Lane steht, ist rot — im Wächter
+über die committeten Manifeste und in `compare` über die frische Aufzeichnung.
+Ein Manifest ohne diese Felder ist rot, nicht grün: Es wurde vor der Zuordnung
+aufgezeichnet, und „kein Leser bekannt" ist nicht „kein Leser". Lesezugriffe
+außerhalb jedes Tests (pytest-Start, `conftest`-Sammlung, ein Aufruf ohne
+pytest) haben keinen Leser und bleiben allein am Pfad gehalten. Zwei Grenzen
+der Zuordnung, benannt statt versteckt: Sie ist **Erstzugriff** — was ein
+Prozess einmal liest und danach aus einem Cache bedient (importiertes Modul,
+Verzeichnisliste des Import-Systems, `functools.cache`, Session-Fixture), zählt
+für das Modul, das zuerst zugriff; ein späteres Modul, das nur den Cache nutzt,
+gilt nicht als Leser. Und sie ist **modulgenau**: Ein Modul, das in der
+benannten Lane läuft, deckt alle seine Tests, auch einen, den diese Lane
+abwählt. Beides zu schließen hieße ein Prozess je Testmodul in der
+Aufzeichnung.
+
 **MUSS**: Für einen required Kontext, dessen Relevanz **im Job** entschieden
 wird (§4.1, die Bauform von `backend-guards.yml`), hält der Wächter zusätzlich
 die drei Eigenschaften, die die Bauform tragen und bis dahin nur ein Kommentar
@@ -497,7 +523,7 @@ ersetzt die andere.
 
 **MUSS (#1794)**: Die Regeln, die die eingecheckten Manifeste gegen die
 **aktuellen** Workflows halten — Population, Wohlgeformtheit, Frische,
-Abdeckung samt Delegationsregel, Aufruf-Kohärenz —, laufen in **keinem**
+Abdeckung samt Delegations- und Leserregel (#1749), Aufruf-Kohärenz —, laufen in **keinem**
 Pull-Request-Check. Ändert ein Pull Request einen Job, kann er sie nur mit einer
 CI-Messung grün machen, und diese Messung auf Pull Requests kostete 74 Läufe in
 zwei Tagen, davon 33 rot und 17 abgebrochen (gemessen 2026-09-24/25); unter
@@ -533,7 +559,12 @@ bis der Bot-Pull-Request gemergt ist, ist `develop` gegenüber diesen Regeln rot
 Das ist der Preis dafür, Feature-Pull-Requests nicht an eine 30–50-minütige
 Messung zu binden; er steht hier, statt versteckt zu sein.
 
-**Übergangszustand, benannt**: Wächter und Lane sind **advisory**. Die Datei
+**Stand, benannt (#1683, #1748)**: `backend-guards.yml/guards` hat ein in CI
+aufgezeichnetes Manifest (`backend-guards--guards.yaml`, `gate.kind:
+unfiltered`), gegen das die `covered_by`-Delegationen aus
+`backend--lint-test.yaml` gemessen, nicht angenommen, gehalten werden;
+`backend--coverage.yaml` gibt es seit #1748 nicht mehr. Wächter und Lane sind
+**advisory**. Die Datei
 trägt weiterhin den Marker `advisory`, und die required Lane
 `Write-route and tree guards` wählt sie mit `-m 'not advisory'` ab. Ob der
 Wächter oder die Lane required wird, entscheidet #1683 an gemessener Historie

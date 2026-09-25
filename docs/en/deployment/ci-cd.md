@@ -497,7 +497,7 @@ gh workflow run lane-inputs.yml --ref develop
 To run the guard with these rules locally (from `src/backend`):
 
 ```bash
-python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py --lane-inputs-drift -m lane_inputs_drift
+python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift
 ```
 
 A run on any branch other than `develop` measures that branch and only reports what it would propose; it opens no pull request.

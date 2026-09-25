@@ -364,7 +364,7 @@ jobs:
         run: |
           set -o pipefail  # the default `bash -e` would take tee's exit code
           mkdir -p "$(dirname "$REPORT")"
-          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
+          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
       - name: The guard over the committed manifests with this recording copied in
         # What the bot pull request would contain. Green here means the recording
         # alone restores the tree; red means a filter or an accepted gap needs a
@@ -378,7 +378,7 @@ jobs:
         run: |
           set -o pipefail
           cp "$RECORDED"/*.yaml ../../.github/lane-inputs/
-          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
+          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
       - name: Keep the guard reports for the bot pull request
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -46,6 +46,7 @@ if _REPO_ROOT is None:  # pragma: no cover — unreachable inside a checkout
     raise RuntimeError("checkout root not found")
 
 _GUARD = "tests/unit/guards/test_lane_filters_cover_measured_inputs.py"
+_RECORDER = "tests/unit/test_lane_inputs_recorder.py"
 _OPTION = "--lane-inputs-drift"
 _LANE = _REPO_ROOT / ".github" / "workflows" / "lane-inputs.yml"
 
@@ -58,13 +59,16 @@ _NEEDS_A_RECORDING = {
     "TestTheRealTree::test_every_read_is_selected_by_every_filter_that_gates_its_job",
     "TestTheRealTree::test_every_held_invocation_of_a_job_is_the_one_its_manifest_recorded",
 }
+#: #1749 made `compare` read the live filter (`stray_readers`), so the recorder's
+#: self-compare of the committed tree is a manifest-against-live-workflow rule too.
+_RECORDER_NEEDS_A_RECORDING = {"TestCompare::test_the_committed_tree_compared_with_itself_is_green"}
 
 
-def _collected(*extra: str) -> set[str]:
-    """Node ids (relative to the guard file) a fresh pytest collects from the guard file."""
+def _collected(*extra: str, target: str = _GUARD) -> set[str]:
+    """Node ids (relative to the file) a fresh pytest collects from ``target``."""
     env = {key: value for key, value in os.environ.items() if key != "PYTEST_ADDOPTS"}
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", _GUARD, *extra],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", target, *extra],
         cwd=_BACKEND,
         env=env,
         capture_output=True,
@@ -73,7 +77,7 @@ def _collected(*extra: str) -> set[str]:
         timeout=300,
     )
     assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
-    prefix = f"{_GUARD}::"
+    prefix = f"{target}::"
     return {line.removeprefix(prefix) for line in result.stdout.splitlines() if line.startswith(prefix)}
 
 
@@ -87,6 +91,10 @@ class TestTheDeselectionIsRealAndExact:
 
     def test_with_the_option_exactly_the_recording_rules_are_selected(self) -> None:
         assert _collected(_OPTION, "-m", "lane_inputs_drift") == _NEEDS_A_RECORDING
+
+    def test_the_recorder_s_self_compare_follows_the_same_rule(self) -> None:
+        assert not _collected(target=_RECORDER) & _RECORDER_NEEDS_A_RECORDING
+        assert _collected(_OPTION, "-m", "lane_inputs_drift", target=_RECORDER) == _RECORDER_NEEDS_A_RECORDING
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -134,7 +142,7 @@ class TestOnlyTheLaneRunsTheRulesAndItRunsNoPullRequestCode:
     def test_the_guard_job_runs_the_guard_file_with_the_option(self) -> None:
         steps = _load(_LANE)["jobs"]["guard"]["steps"]
         runs = [str(step.get("run", "")) for step in steps if isinstance(step, dict)]
-        with_option = [run for run in runs if _GUARD in run and f"{_OPTION} -m lane_inputs_drift" in run]
+        with_option = [run for run in runs if f"{_GUARD} {_RECORDER} {_OPTION} -m lane_inputs_drift" in run]
         # Once over the committed manifests, once with the recording copied in.
         assert len(with_option) == 2, runs
 
