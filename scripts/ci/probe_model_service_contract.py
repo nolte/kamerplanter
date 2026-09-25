@@ -136,7 +136,9 @@ GOLDEN_DECIMALS = 6
 #:   an i7-1065G7 (AVX-512): <= 1e-6 — the outputs were bit-identical across
 #:   thread counts; what remains is the 6-decimal rounding of the file;
 #: - the same on the CI runner class (``ubuntu-latest``, the CPU printed at the
-#:   top of every probe run), for the two targets CI builds: <= 1e-6;
+#:   top of every probe run: AMD EPYC 7763 — AVX2 only — and EPYC 9V74 —
+#:   AVX-512 — so both kernel families), for the two targets CI builds:
+#:   <= 1e-6, identical to the workstation;
 #: - the golden values against the model authors' PyTorch weights
 #:   (``reference_check`` in each file): <= 1e-6.
 #:
@@ -155,9 +157,15 @@ GOLDEN_TOLERANCE = 1e-3
 #: component, and so is the tolerance's headroom over its noise.
 GOLDEN_LOGIT_TOLERANCE = 1e-2
 
-#: A golden logit stays inside this band so its float32 sigmoid never rounds
-#: to exactly 0.0 or 1.0 — ``score_logit`` could not invert it.
-GOLDEN_MAX_ABS_LOGIT = 14.0
+#: The band a golden logit must lie in, so that ``score_logit`` can recover it
+#: from the served score to well inside ``GOLDEN_LOGIT_TOLERANCE``. The service
+#: computes the sigmoid in float32, whose spacing just below 1.0 is 2**-24
+#: (~6e-8); inverting multiplies that rounding by 1/(1 - s), so the recovered
+#: logit's error is ~3e-8 * e**logit: 7e-4 at +10, 1.3e-2 at +13 (past the
+#: tolerance), and exactly 1.0 (not invertible at all) near +17. The low side
+#: has no such amplification — float32 resolves small scores relatively — so
+#: its bound only keeps ``exp(-logit)`` far from overflow.
+GOLDEN_LOGIT_RANGE = (-30.0, 10.0)
 
 
 class ProbeError(Exception):

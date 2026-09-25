@@ -175,8 +175,12 @@ def content_problems(golden: dict[str, Any]) -> list[str]:
             logits = case.get("logits", [])
             if len(logits) != len(case.get("documents", [])) or not logits:
                 problems.append(f"case {case.get('name')!r}: not one logit per document")
-            if any(abs(logit) >= probe.GOLDEN_MAX_ABS_LOGIT for logit in logits):
-                problems.append(f"case {case.get('name')!r}: a logit saturates the served sigmoid")
+            low, high = probe.GOLDEN_LOGIT_RANGE
+            if not all(low <= logit <= high for logit in logits):
+                problems.append(
+                    f"case {case.get('name')!r}: a logit leaves {probe.GOLDEN_LOGIT_RANGE}, where the served "
+                    "float32 score no longer carries it to within the tolerance"
+                )
     check = golden.get("reference_check")
     if not isinstance(check, dict):
         problems.append("no reference_check — run compute_model_golden_outputs.py reference-check")
@@ -332,6 +336,24 @@ def test_the_projection_signs_are_fixed() -> None:
 def test_score_logit_inverts_the_served_sigmoid(logit: float) -> None:
     score = 1.0 / (1.0 + math.exp(-logit))
     assert probe.score_logit(score) == pytest.approx(logit, abs=1e-9)
+
+
+def test_the_logit_range_is_recoverable_from_a_float32_score() -> None:
+    """At either end of the band, a float32-rounded score still inverts to within a tenth of the tolerance."""
+    import struct
+
+    for logit in probe.GOLDEN_LOGIT_RANGE:
+        exact = 1.0 / (1.0 + math.exp(-logit))
+        served = struct.unpack("f", struct.pack("f", exact))[0]
+        assert abs(probe.score_logit(served) - logit) < probe.GOLDEN_LOGIT_TOLERANCE / 10
+
+
+def test_a_logit_past_the_band_is_red() -> None:
+    golden = json.loads(
+        (_REPO_ROOT / "docker/reranker-service/golden/ms-marco-minilm.json").read_text(encoding="utf-8")
+    )
+    golden["cases"][0]["logits"][1] = 13.0
+    assert any("leaves" in problem for problem in content_problems(golden))
 
 
 @pytest.mark.parametrize("score", [0.0, 1.0])

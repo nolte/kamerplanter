@@ -351,10 +351,11 @@ def main(argv: list[str]) -> int:
         ]
     else:
         for logits in reference["outputs"]:
-            # float32 sigmoid saturates to exactly 0.0/1.0 past |logit| ~ 17 on
-            # the high side; keep well inside so the probe can always invert.
-            if any(abs(logit) > probe.GOLDEN_MAX_ABS_LOGIT for logit in logits):
-                raise SystemExit(f"a golden logit leaves ±{probe.GOLDEN_MAX_ABS_LOGIT}: {logits} — pick other inputs")
+            # The served score is a float32 sigmoid; past GOLDEN_LOGIT_RANGE the
+            # probe could not recover the logit precisely enough to compare it.
+            low, high = probe.GOLDEN_LOGIT_RANGE
+            if not all(low <= logit <= high for logit in logits):
+                raise SystemExit(f"a golden logit leaves [{low}, {high}]: {logits} — pick other inputs")
         golden["cases"] = [
             {
                 **case,
