@@ -398,6 +398,69 @@ des offenen Antrags an.
 
 ---
 
+## Mandantenlöschung
+
+Löscht ein Platform-Admin oder ein Mitglied mit der Zusatzberechtigung Verwaltung einen
+Mandanten, folgt das System einem eigenen, ähnlich aufgebauten Ablauf wie bei der
+Konto-Löschung — mit dem Unterschied, dass hier der gesamte fachliche Datenbestand
+eines Gartens betroffen ist, nicht nur die Datensätze eines einzelnen Kontos. <!-- Issue #1769 -->
+
+### Reihenfolge
+
+1. **Vorab-Prüfungen:** Der besondere, technische Plattform-Mandant kann nicht gelöscht
+   werden (`403`). Ist die Instanz für Mandanten-Löschungen nicht korrekt konfiguriert
+   (fehlender `ERASURE_TOMBSTONE_SALT`, falsch konfigurierter Referenz-Index oder
+   Schädlingsbild-Speicher), lehnt das System die Löschung mit `503` ab, ohne etwas zu
+   ändern.
+2. **Nachweis und Sperre:** Ein Löschungs-Datensatz wird angelegt (er nennt weder den
+   Namen noch den Slug noch den Eigentümer des Mandanten), und alle Mitgliedschaften
+   werden sofort deaktiviert — niemand hat danach noch Zugriff.
+3. **Externe Bereinigung:** Beigetragene Erkennungsvektoren und Schädlingsbild-Prototypen
+   werden entfernt, danach die Sensor-Messwerte des Mandanten in der
+   Zeitreihen-Datenbank und alle Binärdaten unter dem Objektspeicher-Präfix
+   `t/{tenant_key}/`.
+4. **Eine Datenbank-Transaktion:** Sämtliche fachlichen Daten des Mandanten werden
+   gelöscht — Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks,
+   Sensoren, Dünge- und Gießprotokolle, Benachrichtigungen, Kalender-Feeds, eigene
+   Stammdaten-Einträge, Mitgliedschaften, Einladungen, Standort-Zuweisungen und auf den
+   Mandanten beschränkte API-Schlüssel —
+   zusammen mit jeder Verknüpfung zu einem gelöschten Datensatz, und zuletzt der
+   Mandanten-Datensatz selbst.
+
+### Was aufbewahrt wird
+
+Wie bei der Konto-Löschung gilt die gesetzliche Mindestaufbewahrungsfrist für Ernte- und
+Behandlungsdokumentation (R-16 bis R-18, siehe oben): Erntechargen, Qualitätsbewertungen,
+Behandlungen und Inspektionen bleiben bestehen, werden aber pseudonymisiert — die
+Kontenreferenz jedes betroffenen Mitglieds wird durch dessen Tombstone-Hash ersetzt,
+Namensfelder werden geleert. Ebenfalls erhalten bleiben das KI-Aufruf-Protokoll und das
+MCP-Aufruf-Protokoll bis zum Ablauf ihrer eigenen Aufbewahrungsfrist, sowie der
+Löschungs-Datensatz selbst — er ist der Nachweis der Löschung und treibt ihre
+Wiederholung an.
+
+### Vollständigkeit wird gemessen, nicht angenommen
+
+Nach der Transaktion zählt das System, ob noch irgendein Datensatz — auch in einer
+Sammlung, die nicht Teil des geplanten Inventars ist — auf den Mandanten verweist. Ist
+das der Fall, oder ist ein Schritt fehlgeschlagen (z. B. weil der Bilderkennungsdienst
+nicht erreichbar war, `502`), bleibt der Löschungs-Datensatz als `partially_completed`
+offen. Der tägliche Wiederholungs-Lauf greift danach um 04:30 UTC — nach den
+Konto-Löschungen — und wiederholt jede offene Mandantenlöschung mit demselben Backoff
+wie die Konto-Löschung: 1, 2, 4 und danach höchstens 7 Tage. Ein zweiter Löschversuch für
+denselben Mandanten, während bereits eine Löschung läuft, antwortet mit `409` statt einen
+weiteren Versuch zu starten.
+
+### Was nicht betroffen ist
+
+Die Konten der Mitglieder selbst bleiben erhalten — sie behalten ihr Konto und ihre
+Mitgliedschaften in anderen Mandanten. Der persönliche Mandant eines Mitglieds wird durch
+die Löschung eines anderen Mandanten nicht berührt; das gilt auch umgekehrt: Die Löschung
+des eigenen Kontos entfernt nicht den persönlichen Mandanten, sondern anonymisiert nur
+dessen Eigentümer-Referenz (siehe oben, [Was mit deinem persönlichen Garten
+passiert](#was-mit-deinem-personlichen-garten-passiert)).
+
+---
+
 ## Celery-Enforcement: Automatische Durchsetzung
 
 Jede Regel läuft als eigener Celery-Beat-Task mit einem Takt, der zu ihrer Frist passt.

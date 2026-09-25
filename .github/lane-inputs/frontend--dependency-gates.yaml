@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
 replay_seconds: 11
 job_spec_sha256: e214bf4d2c7e2199fd067ffffda2e4e963dedf6b6f061ee839113bed723eab8d
 invocations:
@@ -27,7 +27,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1515
+  untracked_reads_dropped: 1514
 subprocesses:
 - license-checker-rseidelsohn
 - node
@@ -48,3 +48,6 @@ reads:
 - src/frontend/package-lock.json
 - src/frontend/package.json
 - tests/security/npm-audit-allowlist.yaml
+test_modules: []
+readers: {}
+readers_scope_sha256: 86de5a4dba0db5a45a1f99df1e67e95cb61bca450de77cb915143fd3f48caea7

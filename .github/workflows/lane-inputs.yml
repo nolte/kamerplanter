@@ -70,6 +70,7 @@ on:
       - '.github/actions/**'
       - '.github/lane-inputs/**'
       - 'scripts/ci/lane_inputs.py'
+      - 'scripts/ci/lane_inputs_pytest/**'
       - 'src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py'
   schedule:
     - cron: '37 3 * * 1'

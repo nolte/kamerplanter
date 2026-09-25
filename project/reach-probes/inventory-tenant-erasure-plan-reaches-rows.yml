@@ -1,0 +1,134 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous #1769 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
+#
+# Re-derived after the /code-review fixes changed tenant_erasure_engine.py (keep rules for granted
+# species/cultivars and is_system seeds): the seeded rows and the expected set are unchanged.
+id: inventory-tenant-erasure-plan-reaches-rows
+summary: collections of the declared tenant-erasure inventory left without the tenant's rows after execution
+declaration:
+  source: inventory
+  path: src/backend/app/domain/engines/tenant_erasure_engine.py
+  location: TenantErasureEngine.INVENTORY
+tier: T2
+expected:
+  kind: set
+  unit: observed tenant-erasure row facts (erased/pseudonymised/retained per collection, plus residue counters)
+  values:
+  - erased/activities
+  - erased/actuators
+  - erased/ai_conversations
+  - erased/ai_provider_configs
+  - erased/ai_tip_cache
+  - erased/api_keys
+  - erased/aquaponic_systems
+  - erased/attachments
+  - erased/burping_events
+  - erased/calendar_feeds
+  - erased/care_confirmations
+  - erased/care_profiles
+  - erased/climate_normals
+  - erased/control_events
+  - erased/control_rules
+  - erased/control_schedules
+  - erased/cultivars
+  - erased/diagnosis_requests
+  - erased/drying_progress
+  - erased/equipment
+  - erased/feeding_events
+  - erased/fertilizer_stocks
+  - erased/fertilizers
+  - erased/fish_feeding_events
+  - erased/fish_stocks
+  - erased/ha_publish_settings
+  - erased/harvest_observations
+  - erased/identification_requests
+  - erased/import_jobs
+  - erased/inventree_connections
+  - erased/inventree_references
+  - erased/invitations
+  - erased/irrigation_demands
+  - erased/location_assignments
+  - erased/locations
+  - erased/maintenance_logs
+  - erased/maintenance_schedules
+  - erased/manual_overrides
+  - erased/mcp_idempotency_record
+  - erased/memberships
+  - erased/mold_alerts
+  - erased/notifications
+  - erased/nutrient_plan_phase_entries
+  - erased/nutrient_plans
+  - erased/overwintering_profiles
+  - erased/pest_detections
+  - erased/pest_image_contributions
+  - erased/phase_control_profiles
+  - erased/phase_histories
+  - erased/phenotype_notes
+  - erased/plant_diagnosis_requests
+  - erased/plant_diary_entries
+  - erased/plant_instances
+  - erased/planting_run_entries
+  - erased/planting_runs
+  - erased/post_harvest_batches
+  - erased/propagation_batches
+  - erased/propagation_events
+  - erased/rooting_protocols
+  - erased/season_states
+  - erased/sensors
+  - erased/sites
+  - erased/slots
+  - erased/species
+  - erased/stock_transactions
+  - erased/storage_observations
+  - erased/substrate_batches
+  - erased/substrates
+  - erased/succession_plans
+  - erased/supplementation_events
+  - erased/tank_fill_events
+  - erased/tank_states
+  - erased/tanks
+  - erased/task_audit_entries
+  - erased/task_comments
+  - erased/task_templates
+  - erased/tasks
+  - erased/tenants
+  - erased/water_tests
+  - erased/watering_events
+  - erased/watering_logs
+  - erased/weather_forecasts
+  - erased/weather_source_configs
+  - erased/workflow_executions
+  - erased/workflow_phases
+  - erased/workflow_templates
+  - pseudonymised/harvest_batches
+  - pseudonymised/inspections
+  - pseudonymised/quality_assessments
+  - pseudonymised/treatment_applications
+  - retained/ai_audit_log
+  - retained/mcp_audit_log
+  - retained/yield_metrics
+  - dangling-edges/0
+  - stamped-elsewhere/0
+  - control-changed/0
+derived_from: 52cd8ed73b30cefc5deb6270d45e09218c4b2e8e
+environment:
+- reach:stack:up
+- reach:seed:erasure-tenant
+- reach:erasure:admin-delete-tenant
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_tenant_residue.py
+  - --tenant
+  - reach-tenant
+  timeout_seconds: 300
+approval:
+  approved_at: '2026-09-25T09:02:00Z'
+  approved_by: nolte
+  observation_digest: 573d28565bbf85a7a0e63f16b643b286a465e9b95507b793c5621a8000401c7a

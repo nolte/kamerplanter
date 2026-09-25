@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: vectordb
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
 replay_seconds: 1
 job_spec_sha256: 27c34ea45cd9a85402182e3dabe83d2ce1ccf58977bbe6154382d881c38f8ec2
 invocations:
@@ -26,3 +26,5 @@ accepted_gaps: []
 reads:
 - docker/vectordb/.dockerignore
 - docker/vectordb/Dockerfile
+test_modules: []
+readers: {}

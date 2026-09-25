@@ -212,7 +212,11 @@ You can leave a tenant as long as you are not the only admin:
     There is no technical limit. You can create and join as many tenants as you like.
 
 ??? question "What happens to my data when I delete a tenant?"
-    The tenant's object storage (photos, attachments), its contributed recognition vectors, all memberships, open invitations and location assignments are deleted, then the tenant record itself. The tenant's domain data — plants, planting runs, diary entries, tasks and other location-bound records — is currently **not** deleted by this and remains in the database. <!-- Issue #1769 --> Your personal tenant and your memberships in other tenants are not affected by such a deletion.
+    All memberships are deactivated immediately — nobody has access to the tenant anymore after that. Its contributed recognition vectors, its object storage (photos, attachments) and every domain record it holds are then deleted: sites, plants, planting runs, diary entries, tasks, tanks, sensors, feeding and watering logs, and every other location-bound record, then the tenant record itself. <!-- Issue #1769 -->
+
+    One exception applies: harvest and treatment documentation (harvest batches, quality assessments, treatments, inspections) must be kept for several years under statutory law (CanG, German Plant Protection Act). These records are therefore retained but pseudonymized — members' names are removed from them and their account references replaced by a pseudonym.
+
+    If not everything could be removed immediately, the deletion stays recorded and is retried automatically every day until it is complete. Your personal tenant and your memberships in other tenants are not affected by such a deletion.
 
 ??? question "Can tenant admins see my personal houseplants?"
     No. Your personal tenant is completely isolated from all other tenants. Even if an admin has more rights in the community garden, they can never see data in your personal tenant.

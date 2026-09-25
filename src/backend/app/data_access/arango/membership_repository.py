@@ -182,20 +182,20 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         )
         return next(cursor, 0)
 
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        # First clean up edges for each membership
-        query = f"""
-        FOR m IN {col.MEMBERSHIPS}
-          FILTER m.tenant_key == @tenant_key
-          LET mid = CONCAT("{col.MEMBERSHIPS}/", m._key)
-          LET del_has = (
-            FOR e IN {col.HAS_MEMBERSHIP} FILTER e._to == mid REMOVE e IN {col.HAS_MEMBERSHIP}
-          )
-          LET del_in = (
-            FOR e IN {col.MEMBERSHIP_IN} FILTER e._from == mid REMOVE e IN {col.MEMBERSHIP_IN}
-          )
-          REMOVE m IN {col.MEMBERSHIPS}
-          RETURN 1
+    def deactivate_all_for_tenant(self, tenant_key: str) -> int:
+        """Deactivate every membership of the tenant; the rows are removed by the tenant erasure (#1769).
+
+        A deactivated membership is refused by ``_membership_for_slug`` (403), so
+        no member request writes into a tenant while it is being erased.
         """
-        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
-        return sum(1 for _ in cursor)
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              UPDATE m WITH { is_active: false } IN @@collection
+              COLLECT WITH COUNT INTO affected
+              RETURN affected
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+        )
+        return int(next(cursor, 0))

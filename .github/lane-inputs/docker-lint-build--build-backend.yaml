@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: backend
 status: derived
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 2
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 5
 job_spec_sha256: e70c6a5c2e488770f4f501e29dd0614960c917ee25c11196115f432664383c16
 invocations:
 - command: derive-docker --context src/backend --dockerfile src/backend/Dockerfile
@@ -24,7 +24,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 1976
+  context_files_after_dockerignore: 2016
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -464,7 +464,9 @@ reads:
 - src/backend/app/data_access/timescale/observation_repository.py
 - src/backend/app/data_access/timescale/schema.py
 - src/backend/app/data_access/vectordb/__init__.py
+- src/backend/app/data_access/vectordb/inference_reference_index_store.py
 - src/backend/app/data_access/vectordb/noop_reference_index_store.py
+- src/backend/app/data_access/vectordb/pest_prototype_stores.py
 - src/backend/app/domain/__init__.py
 - src/backend/app/domain/calculators/__init__.py
 - src/backend/app/domain/calculators/crop_coefficient.py
@@ -555,6 +557,7 @@ reads:
 - src/backend/app/domain/engines/sowing_calendar_engine.py
 - src/backend/app/domain/engines/storage/__init__.py
 - src/backend/app/domain/engines/storage/exif_stripper.py
+- src/backend/app/domain/engines/storage/export_bundle_key.py
 - src/backend/app/domain/engines/storage/magic_byte_validator.py
 - src/backend/app/domain/engines/storage/storage_key_builder.py
 - src/backend/app/domain/engines/storage/thumbnail_generator.py
@@ -630,6 +633,7 @@ reads:
 - src/backend/app/domain/interfaces/pest_detection_repository.py
 - src/backend/app/domain/interfaces/pest_image_repository.py
 - src/backend/app/domain/interfaces/pest_media_source.py
+- src/backend/app/domain/interfaces/pest_prototype_store.py
 - src/backend/app/domain/interfaces/phase_repository.py
 - src/backend/app/domain/interfaces/phase_sequence_repository.py
 - src/backend/app/domain/interfaces/plant_diagnosis_repository.py
@@ -639,6 +643,7 @@ reads:
 - src/backend/app/domain/interfaces/planting_run_repository.py
 - src/backend/app/domain/interfaces/post_harvest_repository.py
 - src/backend/app/domain/interfaces/processing_restriction_repository.py
+- src/backend/app/domain/interfaces/reference_contribution_marker.py
 - src/backend/app/domain/interfaces/reference_index_store.py
 - src/backend/app/domain/interfaces/refresh_token_repository.py
 - src/backend/app/domain/interfaces/registration_notice_store.py
@@ -781,7 +786,6 @@ reads:
 - src/backend/app/domain/services/pest_dataset_acquisition.py
 - src/backend/app/domain/services/pest_detection_registry.py
 - src/backend/app/domain/services/pest_detection_service.py
-- src/backend/app/domain/services/pest_image_recognition_cleanup.py
 - src/backend/app/domain/services/pest_image_service.py
 - src/backend/app/domain/services/phase_sequence_binder.py
 - src/backend/app/domain/services/phase_sequence_service.py
@@ -1021,6 +1025,8 @@ reads:
 - src/backend/app/migrations/versions/v0057_stamp_quality_assessor_user_key.py
 - src/backend/app/migrations/versions/v0058_stamp_nutrient_plan_species_relation.py
 - src/backend/app/migrations/versions/v0059_backfill_instantiated_task_tenant_key.py
+- src/backend/app/migrations/versions/v0060_mark_reference_contributions.py
+- src/backend/app/migrations/versions/v0061_mark_pest_prototype_contributions.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/__init__.py
 - src/backend/app/observability/error_tracking.py
@@ -1210,9 +1216,11 @@ reads:
 - src/backend/tests/integration/test_care_task_dedup_concurrency.py
 - src/backend/tests/integration/test_derived_read_scope_tenant_isolation.py
 - src/backend/tests/integration/test_diary_overview_query.py
+- src/backend/tests/integration/test_erasure_claim_and_export_expiry.py
 - src/backend/tests/integration/test_erasure_empty_user_key.py
 - src/backend/tests/integration/test_erasure_exif_strip_reach.py
 - src/backend/tests/integration/test_erasure_inventory_special_cases.py
+- src/backend/tests/integration/test_erasure_record_purge.py
 - src/backend/tests/integration/test_favorites_matching_plans_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_reference_tenant_visibility.py
 - src/backend/tests/integration/test_location_label_projection.py
@@ -1225,6 +1233,7 @@ reads:
 - src/backend/tests/integration/test_plant_scoped_route_residue_tenant_scope.py
 - src/backend/tests/integration/test_privacy_export_walk.py
 - src/backend/tests/integration/test_propagation_lineage_tenant_isolation.py
+- src/backend/tests/integration/test_reference_index_erasure_reach.py
 - src/backend/tests/integration/test_seeded_plan_species_relation.py
 - src/backend/tests/integration/test_self_service_erasure_reach.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
@@ -1240,11 +1249,16 @@ reads:
 - src/backend/tests/integration/test_v0057_stamp_quality_assessor_user_key.py
 - src/backend/tests/integration/test_v0058_stamp_nutrient_plan_species_relation.py
 - src/backend/tests/integration/test_v0059_backfill_instantiated_task_tenant_key.py
+- src/backend/tests/integration/test_v0060_mark_reference_contributions.py
+- src/backend/tests/integration/test_v0061_mark_pest_prototype_contributions.py
 - src/backend/tests/support/__init__.py
 - src/backend/tests/support/arango_integration.py
 - src/backend/tests/support/db_guard.py
 - src/backend/tests/support/diary_fakes.py
 - src/backend/tests/support/execution_guards.py
+- src/backend/tests/support/fake_contribution_marker.py
+- src/backend/tests/support/fake_inference_service.py
+- src/backend/tests/support/fake_pest_inference_service.py
 - src/backend/tests/support/grant_fakes.py
 - src/backend/tests/support/oidc_admin.py
 - src/backend/tests/support/onboarding_wiring.py
@@ -1320,6 +1334,7 @@ reads:
 - src/backend/tests/unit/common/test_error_ids.py
 - src/backend/tests/unit/common/test_pagination.py
 - src/backend/tests/unit/common/test_path_tenant_oracle.py
+- src/backend/tests/unit/common/test_reference_index_store_binding.py
 - src/backend/tests/unit/common/test_request_ip_trusted_hops.py
 - src/backend/tests/unit/common/test_require_permission.py
 - src/backend/tests/unit/common/test_site_type_sets.py
@@ -1399,21 +1414,25 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_write_funnel_revalidation.py
 - src/backend/tests/unit/data_access/external/test_demo_pest_adapter.py
 - src/backend/tests/unit/data_access/external/test_device_pairing_throttle.py
+- src/backend/tests/unit/data_access/external/test_email_adapters_log_no_address.py
 - src/backend/tests/unit/data_access/external/test_gbif_media_client.py
 - src/backend/tests/unit/data_access/external/test_idigbio_media_client.py
 - src/backend/tests/unit/data_access/external/test_inaturalist_media_client.py
+- src/backend/tests/unit/data_access/external/test_inference_client_contribution_erasure.py
 - src/backend/tests/unit/data_access/external/test_inventree_adapter.py
 - src/backend/tests/unit/data_access/external/test_local_cv_diagnosis_adapter.py
 - src/backend/tests/unit/data_access/external/test_redis_device_pairing.py
 - src/backend/tests/unit/data_access/external/test_registration_notice_store.py
 - src/backend/tests/unit/data_access/external/test_unknown_account_store.py
 - src/backend/tests/unit/data_access/external/test_wikimedia_media_client.py
+- src/backend/tests/unit/data_access/storage/test_erasure_renditions.py
 - src/backend/tests/unit/data_access/storage/test_erasure_scope_mapping.py
 - src/backend/tests/unit/data_access/storage/test_get_object_streams.py
 - src/backend/tests/unit/data_access/storage/test_local_fs_adapter.py
 - src/backend/tests/unit/data_access/storage/test_registry.py
 - src/backend/tests/unit/data_access/storage/test_s3_adapter.py
 - src/backend/tests/unit/data_access/storage/test_storage_adapters.py
+- src/backend/tests/unit/data_access/storage/test_storage_logs_redact_the_account_key.py
 - src/backend/tests/unit/data_access/storage/test_storage_migrate.py
 - src/backend/tests/unit/data_access/test_care_task_dedup_index.py
 - src/backend/tests/unit/data_access/test_cultivar_reference_guards_live.py
@@ -1423,6 +1442,7 @@ reads:
 - src/backend/tests/unit/data_access/test_planting_run_entry_cultivar_ownership.py
 - src/backend/tests/unit/data_access/test_tenant_scoped_species_dedup.py
 - src/backend/tests/unit/data_access/test_unverified_reaper_spares_federated.py
+- src/backend/tests/unit/data_access/vectordb/test_inference_reference_index_store.py
 - src/backend/tests/unit/domain/__init__.py
 - src/backend/tests/unit/domain/calculators/__init__.py
 - src/backend/tests/unit/domain/calculators/test_crop_coefficient.py
@@ -1616,8 +1636,11 @@ reads:
 - src/backend/tests/unit/domain/services/test_diary_analysis_consent_wiring.py
 - src/backend/tests/unit/domain/services/test_dormancy_care_activator.py
 - src/backend/tests/unit/domain/services/test_environment_snapshot_service.py
+- src/backend/tests/unit/domain/services/test_erasure_immediate_entry.py
 - src/backend/tests/unit/domain/services/test_erasure_log_pseudonymity.py
+- src/backend/tests/unit/domain/services/test_erasure_pest_prototypes.py
 - src/backend/tests/unit/domain/services/test_erasure_phase0.py
+- src/backend/tests/unit/domain/services/test_erasure_reference_index_binding.py
 - src/backend/tests/unit/domain/services/test_erasure_retry_lifecycle.py
 - src/backend/tests/unit/domain/services/test_every_plant_write_bootstraps_its_profile.py
 - src/backend/tests/unit/domain/services/test_favorites_creation_cascade.py
@@ -1689,11 +1712,14 @@ reads:
 - src/backend/tests/unit/domain/services/test_privacy_erase_account.py
 - src/backend/tests/unit/domain/services/test_privacy_executor_truthfulness.py
 - src/backend/tests/unit/domain/services/test_privacy_export_bundle.py
+- src/backend/tests/unit/domain/services/test_privacy_logs_name_no_subject.py
+- src/backend/tests/unit/domain/services/test_privacy_policy_retention_summary.py
 - src/backend/tests/unit/domain/services/test_privacy_retention.py
 - src/backend/tests/unit/domain/services/test_privacy_review_round.py
 - src/backend/tests/unit/domain/services/test_privacy_service.py
 - src/backend/tests/unit/domain/services/test_propagation_service.py
 - src/backend/tests/unit/domain/services/test_quarter_climate_service.py
+- src/backend/tests/unit/domain/services/test_reference_contribution_marker.py
 - src/backend/tests/unit/domain/services/test_reference_image_acquisition.py
 - src/backend/tests/unit/domain/services/test_reopen_marker_is_not_downgradable.py
 - src/backend/tests/unit/domain/services/test_season_phase_coupler.py
@@ -1755,22 +1781,29 @@ reads:
 - src/backend/tests/unit/guards/test_docs_requirements_hash_verification.py
 - src/backend/tests/unit/guards/test_docs_requirements_source_bounds.py
 - src/backend/tests/unit/guards/test_entity_name_vocabulary.py
+- src/backend/tests/unit/guards/test_every_pinned_model_is_probed_in_ci.py
 - src/backend/tests/unit/guards/test_execution_guards.py
 - src/backend/tests/unit/guards/test_favoritable_collections_declare_ownership.py
 - src/backend/tests/unit/guards/test_fertilizer_references_are_verified_on_write.py
 - src/backend/tests/unit/guards/test_hf_model_fetches_pin_a_revision.py
+- src/backend/tests/unit/guards/test_inference_flag_parity.py
 - src/backend/tests/unit/guards/test_integration_databases_are_run_scoped.py
 - src/backend/tests/unit/guards/test_integration_tier_gate.py
 - src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py
 - src/backend/tests/unit/guards/test_library_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_lock_hash_verification.py
 - src/backend/tests/unit/guards/test_merge_mode_repositories_reject_none_writes.py
+- src/backend/tests/unit/guards/test_ml_sidecar_limits.py
 - src/backend/tests/unit/guards/test_model_field_renames_have_migrations.py
+- src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_paths_filter_quantifier.py
 - src/backend/tests/unit/guards/test_pre_commit_dependency_bounds.py
 - src/backend/tests/unit/guards/test_precommit_sibling_notice.py
+- src/backend/tests/unit/guards/test_privacy_logs_carry_no_plaintext_subject.py
+- src/backend/tests/unit/guards/test_published_ports_bind_loopback.py
+- src/backend/tests/unit/guards/test_renovate_automerge_policy.py
 - src/backend/tests/unit/guards/test_renovate_dashboard_parser.py
 - src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
@@ -1901,6 +1934,8 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0057_stamp_quality_assessor_user_key.py
 - src/backend/tests/unit/migrations/versions/test_v0058_stamp_nutrient_plan_species_relation.py
 - src/backend/tests/unit/migrations/versions/test_v0059_backfill_instantiated_task_tenant_key.py
+- src/backend/tests/unit/migrations/versions/test_v0060_mark_reference_contributions.py
+- src/backend/tests/unit/migrations/versions/test_v0061_mark_pest_prototype_contributions.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
 - src/backend/tests/unit/observability/__init__.py
@@ -1915,6 +1950,7 @@ reads:
 - src/backend/tests/unit/tasks/test_dormancy_checks.py
 - src/backend/tests/unit/tasks/test_duplicate_registration_notice.py
 - src/backend/tests/unit/tasks/test_enrichment_tasks.py
+- src/backend/tests/unit/tasks/test_erasure_record_purge.py
 - src/backend/tests/unit/tasks/test_frost_forecast_tasks.py
 - src/backend/tests/unit/tasks/test_hardiness_tasks.py
 - src/backend/tests/unit/tasks/test_inventree_tasks.py
@@ -1932,6 +1968,7 @@ reads:
 - src/backend/tests/unit/tasks/test_tank_maintenance_tasks.py
 - src/backend/tests/unit/tasks/test_tenant_tasks.py
 - src/backend/tests/unit/tasks/test_unverified_cleanup_erasure.py
+- src/backend/tests/unit/tasks/test_unverified_cleanup_retention_period.py
 - src/backend/tests/unit/tasks/test_vernalization_updates.py
 - src/backend/tests/unit/tasks/test_watering_tasks.py
 - src/backend/tests/unit/tasks/test_weather_tasks.py
@@ -1959,6 +1996,7 @@ reads:
 - src/backend/tests/unit/test_e2e_a11y_helpers.py
 - src/backend/tests/unit/test_e2e_seed_log_redaction.py
 - src/backend/tests/unit/test_e2e_tc_id_scope.py
+- src/backend/tests/unit/test_embedding_service_feed.py
 - src/backend/tests/unit/test_frontend_calls_served_check.py
 - src/backend/tests/unit/test_gate_text_assertions_check.py
 - src/backend/tests/unit/test_gherkin_line_classification.py
@@ -1979,6 +2017,8 @@ reads:
 - src/backend/tests/unit/test_plant_scoped_route_tenant_check.py
 - src/backend/tests/unit/test_privacy_inventory_check.py
 - src/backend/tests/unit/test_reach_observation_helpers.py
+- src/backend/tests/unit/test_reach_rendition_and_pest_helpers.py
+- src/backend/tests/unit/test_reach_storage_and_index_helpers.py
 - src/backend/tests/unit/test_recurrence_boundary_check.py
 - src/backend/tests/unit/test_reference_contribution_task.py
 - src/backend/tests/unit/test_release_assets_check.py
@@ -2004,3 +2044,5 @@ reads:
 - src/backend/tests/unit/timescale/test_null_observation_repository.py
 - src/backend/tests/unit/timescale/test_observation_repository.py
 - src/backend/uv.lock
+test_modules: []
+readers: {}

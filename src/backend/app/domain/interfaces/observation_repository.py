@@ -54,4 +54,8 @@ class IObservationRepository(ABC):
     ) -> int: ...
 
     @abstractmethod
+    def delete_by_tenant(self, tenant_key: str) -> int:
+        """Delete every raw reading of the tenant (tenant deletion, #1769); returns the count removed."""
+
+    @abstractmethod
     def is_available(self) -> bool: ...

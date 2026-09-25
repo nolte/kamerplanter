@@ -200,6 +200,11 @@ celery_app.conf.update(
             "task": "app.tasks.tenant_tasks.cleanup_expired_invitations",
             "schedule": 86400,
         },
+        # #1769 — retry tenant deletions left open (partially_completed / stale).
+        "tenant-resume-erasures-daily": {
+            "task": "app.tasks.tenant_tasks.resume_tenant_erasures",
+            "schedule": crontab(hour=4, minute=30),  # 04:30 UTC daily, after the account erasures
+        },
         # REQ-022 Care Reminder tasks
         "care-generate-reminders-daily": {
             "task": "app.tasks.care_tasks.generate_due_care_reminders",

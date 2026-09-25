@@ -38,6 +38,3 @@ class IInvitationRepository(ABC):
 
     @abstractmethod
     def cleanup_expired(self, *, now: datetime | None = None) -> int: ...
-
-    @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int: ...

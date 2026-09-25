@@ -37,6 +37,3 @@ class ILocationAssignmentRepository(ABC):
 
     @abstractmethod
     def get_by_membership_and_location(self, membership_key: str, location_key: str) -> LocationAssignment | None: ...
-
-    @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int: ...

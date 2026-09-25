@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-09-25'
-measured_at_commit: 105d5001b9214bc4fc2f74fa6f9385bfeba0bbe7
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
 replay_seconds: 2
 job_spec_sha256: 56366d4f8cf086197e8beec30905e0109021fc7899b0d1290a943db51a8f4f63
 invocations:
@@ -48,3 +48,6 @@ reads:
 - .github/workflows/side-services.yml
 - scripts/ci/
 - scripts/ci/lane_inputs.py
+test_modules: []
+readers: {}
+readers_scope_sha256: f1d4643a816dad9344be46c1841af1131cf2b4ee853f7b0c5e16915a3032414a

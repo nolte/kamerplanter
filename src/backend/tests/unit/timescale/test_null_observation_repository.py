@@ -49,5 +49,8 @@ class TestNullObservationRepository:
         result = self.repo.delete_by_sensor("s1", "t1")
         assert result == 0
 
+    def test_delete_by_tenant_returns_zero(self):
+        assert self.repo.delete_by_tenant("t1") == 0
+
     def test_is_available_returns_false(self):
         assert self.repo.is_available() is False

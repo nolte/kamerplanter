@@ -9,9 +9,9 @@ job: compare
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-24'
-measured_at_commit: 99e3cb02d8e4dca94ff4180c83351d46de4aa79d
-replay_seconds: 3
+measured_on: '2026-09-25'
+measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+replay_seconds: 5
 job_spec_sha256: bf53c5687183d38a860433b5643f9984e7808a41a3b241d435b36962b76912d1
 invocations:
 - command: python3 scripts/ci/lane_inputs.py compare .github/lane-inputs --run-id 0
@@ -81,3 +81,6 @@ reads:
 - .github/workflows/backend.yml
 - scripts/ci/
 - scripts/ci/lane_inputs.py
+test_modules: []
+readers: {}
+readers_scope_sha256: f1d4643a816dad9344be46c1841af1131cf2b4ee853f7b0c5e16915a3032414a

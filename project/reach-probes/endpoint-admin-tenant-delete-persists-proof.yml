@@ -1,0 +1,41 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous #1769 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
+id: endpoint-admin-tenant-delete-persists-proof
+summary: tenant_erasure_records after the platform-admin tenant delete — one completed platform_admin record, none containing
+  the member's account key
+declaration:
+  source: endpoint
+  path: src/backend/app/api/v1/admin/platform/router.py
+  location: DELETE /admin/platform/tenants/{key} (delete_tenant) — a tenant_erasure_records entry (origin platform_admin)
+    is persisted as the proof, per TenantService.delete_tenant and the route docstring (#1769)
+tier: T2
+expected:
+  kind: set
+  unit: observed tenant-erasure record facts
+  values:
+  - member-in-records/0
+  - record-unreached/0
+  - record/platform_admin/completed
+derived_from: d685df380f551191612fcea354d7897bab1dbd1e
+environment:
+- reach:stack:up
+- reach:seed:erasure-tenant
+- reach:erasure:admin-delete-tenant
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_tenant_residue.py
+  - --tenant
+  - reach-tenant
+  - --records
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-09-25T09:02:00Z'
+  approved_by: nolte
+  observation_digest: f1df40ac229836df8c90604d3eae1f93f2e61dbe7b6b3a0730e78a3ebe752baa

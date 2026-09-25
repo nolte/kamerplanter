@@ -80,7 +80,3 @@ class IPestImageRepository(ABC):
     @abstractmethod
     def delete(self, key: str, tenant_key: str) -> bool:
         """Delete a tenant's contribution. Returns ``False`` if absent/foreign."""
-
-    @abstractmethod
-    def delete_for_tenant(self, tenant_key: str) -> int:
-        """Hard-delete every contribution of a tenant. Returns the count removed (DSGVO)."""

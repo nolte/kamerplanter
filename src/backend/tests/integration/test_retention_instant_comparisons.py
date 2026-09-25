@@ -58,6 +58,7 @@ from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository, Aran
 from app.data_access.arango.notification_repository import ArangoNotificationRepository
 from app.data_access.arango.plant_diary_repository import ArangoPlantDiaryRepository
 from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
+from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -99,6 +100,7 @@ _DOCUMENT_COLLECTIONS = (
     col.MANUAL_OVERRIDES,
     col.NOTIFICATIONS,
     col.PLANT_DIARY_ENTRIES,
+    col.TENANT_ERASURE_RECORDS,
 )
 _EDGE_COLLECTIONS = (col.HAS_SESSION,)
 
@@ -184,6 +186,12 @@ def _returned_keys(action: Callable[[StandardDatabase, str], object]):
 def _claimed(db: StandardDatabase, cutoff: str) -> set[str]:
     repo = ArangoErasureRepository(db)
     keys = _remaining(db, col.ERASURE_REQUESTS)
+    return {key for key in keys if repo.claim_for_run(key, now_iso=FAR_FUTURE, stale_before_iso=cutoff) is not None}
+
+
+def _tenant_claimed(db: StandardDatabase, cutoff: str) -> set[str]:
+    repo = ArangoTenantErasureRepository(db)
+    keys = _remaining(db, col.TENANT_ERASURE_RECORDS)
     return {key for key in keys if repo.claim_for_run(key, now_iso=FAR_FUTURE, stale_before_iso=cutoff) is not None}
 
 
@@ -292,6 +300,38 @@ SELECTORS: tuple[Selector, ...] = (
         field="updated_at",
         selects="before",
         run=_claimed,
+        undated_selected=True,
+        why_undated="an in_progress run that never stamped updated_at is a crashed run: stale by design",
+    ),
+    Selector(
+        name="tenant_erasure.list_due[stale_before]",
+        collection=col.TENANT_ERASURE_RECORDS,
+        base={
+            "tenant_key": "tenant-instant",
+            "tenant_type": "personal",
+            "origin": "tenant_management",
+            "status": "in_progress",
+        },
+        field="updated_at",
+        selects="before",
+        run=_returned_keys(lambda db, cut: ArangoTenantErasureRepository(db).list_due(stale_before_iso=cut)),
+        undated_selected=True,
+        why_undated="an in_progress run that never stamped updated_at is a crashed run: stale by design",
+        unreadable=None,
+    ),
+    Selector(
+        name="tenant_erasure.claim_for_run",
+        collection=col.TENANT_ERASURE_RECORDS,
+        base={
+            "tenant_key": "tenant-instant",
+            "tenant_type": "personal",
+            "origin": "tenant_management",
+            "status": "in_progress",
+            "last_attempt_at": FAR_PAST,
+        },
+        field="updated_at",
+        selects="before",
+        run=_tenant_claimed,
         undated_selected=True,
         why_undated="an in_progress run that never stamped updated_at is a crashed run: stale by design",
     ),

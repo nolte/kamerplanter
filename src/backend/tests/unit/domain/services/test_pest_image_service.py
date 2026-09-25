@@ -109,12 +109,6 @@ class _FakePestImageRepo:
         del self.store[key]
         return True
 
-    def delete_for_tenant(self, tenant_key: str) -> int:
-        keys = [k for k, c in self.store.items() if c.tenant_key == tenant_key]
-        for k in keys:
-            del self.store[k]
-        return len(keys)
-
 
 class _FakeAttachmentService:
     """Mimics the slice of AttachmentService the PestImageService uses."""

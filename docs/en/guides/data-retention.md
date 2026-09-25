@@ -375,6 +375,63 @@ second deletion attempt by a platform admin instead resumes the open request at 
 
 ---
 
+## Tenant Deletion
+
+When a platform admin or a member with the Management extra permission deletes a
+tenant, the system follows its own process, similarly shaped to account erasure — the
+difference is that the entire domain data of a garden is affected, not just the records
+of a single account. <!-- Issue #1769 -->
+
+### Order
+
+1. **Upfront checks:** The special, technical platform tenant cannot be deleted (`403`).
+   If the instance is not correctly configured for tenant deletion (missing
+   `ERASURE_TOMBSTONE_SALT`, a misconfigured reference index or pest-image store), the
+   system refuses the deletion with `503` and changes nothing.
+2. **Proof and lock:** A deletion record is created (it names neither the tenant's name,
+   slug nor owner), and every membership is deactivated immediately — nobody has access
+   anymore after that.
+3. **External cleanup:** Contributed recognition vectors and pest prototypes are
+   removed, followed by the tenant's sensor readings in the time-series database and
+   all binary data under the object-storage prefix `t/{tenant_key}/`.
+4. **One database transaction:** Every domain record the tenant holds is deleted —
+   sites, plants, planting runs, diary entries, tasks, tanks, sensors, feeding and
+   watering logs, notifications, calendar feeds, its own master-data entries,
+   memberships, invitations, location assignments and API keys restricted to the
+   tenant — together with every link to a
+   deleted record, and finally the tenant record itself.
+
+### What is retained
+
+As with account erasure, the statutory minimum retention period for harvest and
+treatment documentation applies (R-16 through R-18, see above): harvest batches,
+quality assessments, treatments and inspections remain but are pseudonymized — each
+affected member's account reference is replaced by their tombstone hash, and name
+fields are emptied. The AI call log and the MCP call log are likewise retained until
+their own retention window expires, as is the deletion record itself — it is the proof
+of the deletion and drives its retry.
+
+### Completeness is measured, not assumed
+
+After the transaction, the system counts whether any record — even in a collection
+that is not part of the declared inventory — still references the tenant. If so, or if
+a step failed (e.g. the inference service was unreachable, `502`), the deletion record
+stays `partially_completed`. The daily retry run picks it up at 04:30 UTC — after the
+account erasures — and retries every open tenant deletion with the same backoff as
+account erasure: 1, 2, 4 and then at most 7 days. A second deletion attempt for the
+same tenant while one is already running responds with `409` instead of starting
+another attempt.
+
+### What is not affected
+
+The members' own accounts are unaffected — they keep their account and their
+memberships in other tenants. A member's personal tenant is not touched by the
+deletion of another tenant; the reverse also holds: deleting your own account does not
+remove your personal tenant, it only anonymizes its owner reference (see above, [What
+happens to your personal garden](#what-happens-to-your-personal-garden)).
+
+---
+
 ## Celery Enforcement: Automated Execution
 
 Each rule runs as its own Celery beat task on a schedule that matches its period.
