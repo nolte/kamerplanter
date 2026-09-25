@@ -1,57 +1,116 @@
 # Not-constructible manifest; written by capability-reach-audit derive, read by the runner.
 # Empty `entries` means every declared entry received a probe; an absent file means nothing was recorded.
 #
-# Derive round of 2026-09-24 (#1745), filtered to spec/req/REQ-025_Datenschutz-Betroffenenrechte.md:
-# the two Art. 17 entries that lacked instruments (stored files, reference index) became probes;
-# the scanner re-confirmed the two scope_not_countable REQ-025 entries unchanged. The
-# data_export_engine.py entry below is from the #1717 round and was not re-inventoried.
+# Derive round of 2026-09-25 (#1768), filtered to spec/req/REQ-025_Datenschutz-Betroffenenrechte.md,
+# src/backend/app/api/v1/admin/platform/router.py and src/backend/app/domain/engines/erasure_engine.py:
+# the two REQ-025 scope_not_countable entries re-inventoried at v1.11, five new entries for the
+# AK-OS-05a/07 no-op clauses and AK-IE-01 (unverified half)/02/03. The data_export_engine.py entry
+# below is from the #1717 round and was not re-inventoried.
 entries:
 - id: requirement-req025-art15-export-sources-populated
   declaration:
     source: requirement
     path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-    location: §3.1.1 Wo die Inventare stehen (L256-268), §3.1.2 Regeln für die Offenlegung (L274-295)
+    location: §3.1.1 Wo die Inventare stehen (L257-269), §3.1.2 Regeln für die Offenlegung (L275-297)
   reason: scope_not_countable
-  detail: The declared scope is a set of universally-quantified rules ("every X meeting condition C is
-    a manifest source"), not a stated count or named set — the schema's `expected` cannot hold a rule,
-    only its result. The count/set this declaration would need to state to become constructible is exactly
-    the collection/edge list DataExportEngine.USER_DATA_MANIFEST enumerates today (38 collections, 7 edges);
-    that content is probed directly, and stays in sync automatically because it reads the code, by inventory-export-manifest-sources-populated.
-  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
-  recorded_at: '2026-09-24T15:38:25Z'
+  detail: 'Unchanged reasoning, line numbers moved +1 by the v1.11 changelog row: the declared scope is a set of
+    universally-quantified rules ("every X meeting condition C is a manifest source"), not a stated count or named
+    set — the schema''s `expected` cannot hold a rule, only its result. The count/set this declaration would need
+    to state is exactly the collection/edge list DataExportEngine.USER_DATA_MANIFEST enumerates today; that content
+    is probed directly by inventory-export-manifest-sources-populated.'
+  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+  recorded_at: '2026-09-25T06:04:02Z'
 - id: requirement-req025-art17-erasure-plan-reaches-rows
   declaration:
     source: requirement
     path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-    location: §3.1.1 Wo die Inventare stehen (L256-268), §3.1.3 Regeln für Löschung, Anonymisierung und
-      Pseudonymisierung (L297-324)
+    location: §3.1.1 Wo die Inventare stehen (L257-269), §3.1.3 Regeln für Löschung, Anonymisierung und Pseudonymisierung
+      (L298-325)
   reason: scope_not_countable
-  detail: 'Same shape as the Art. 15 entry: §3.1.3 states five rules for deletion / anonymisation / pseudonymisation
-    (retention floors, shared-tenant anonymisation, audit pseudonymisation, no free-text keying, every
-    account-shaped field reached-or-excluded) plus §3.1.4''s reciprocity principle, none of which is a
-    stated count or named set — the document deliberately stopped carrying its own copy (#1719) precisely
-    to end the two-lists-must-match drift (#1663, #1700, #1716) this reach-audit framework would otherwise
-    reintroduce by hand-copying the code''s list back into the probe''s `expected`. The constructible
-    form of this claim is inventory-erasure-plan-reaches-rows (anchored on erasure_engine.py, out of scope
-    for this file per the dispatching brief).'
-  derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
-  recorded_at: '2026-09-24T15:38:25Z'
+  detail: 'Unchanged reasoning, line numbers moved +1 by the v1.11 changelog row: §3.1.3 states five rules for deletion
+    / anonymisation / pseudonymisation plus §3.1.4''s reciprocity principle, none of which is a stated count or
+    named set — the document deliberately carries no copy of the code''s list (#1719). The constructible form of
+    this claim is inventory-erasure-plan-reaches-rows (erasure_engine.py), whose 64-item set was recounted at 77efb5095
+    and is unchanged.'
+  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+  recorded_at: '2026-09-25T06:04:02Z'
+- id: requirement-req025-art17-reference-index-noop-honesty
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: AK-OS-05a (L1231), no-op-refusal clause
+  reason: missing_observation_helper
+  detail: 'AK-OS-05a''s no-op clause is configuration honesty, not a count of removed rows: with INFERENCE_SERVICE_ENABLED
+    unset (NoopReferenceIndexStore) and system_settings.reference_contributions_since set, a due erasure must stay
+    a configuration error and tenant deletion must answer 503. reach:vectordb:up always wires the real binding and
+    no reach:seed:* target writes the marker. Needs a seed for the marker, a stack variant with the flag off, and
+    an observe step reading the tenant-deletion status and the held erasure request. The positive clause (the real
+    binding removes the vectors) is probed by requirement-req025-art17-reference-index-cleanup.'
+  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+  recorded_at: '2026-09-25T06:04:02Z'
+- id: requirement-req025-art17-pest-prototype-noop-honesty
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: AK-OS-07 (L1235), no-op-refusal clause
+  reason: missing_observation_helper
+  detail: 'Same class as AK-OS-05a''s no-op clause for the pest-recognition index: NoopPestPrototypeStore must refuse
+    once system_settings.pest_prototype_contributions_since is set. reach:seed:pest-prototype seeds a contribution
+    but never the marker, and reach:vectordb:up always wires the real binding. Needs a seed for the marker and an
+    observe step for the refused / held state. The deletion clause is probed by requirement-req025-art17-pest-prototype-cleanup.'
+  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+  recorded_at: '2026-09-25T06:04:02Z'
+- id: requirement-req025-ak-ie01-unverified-cleanup-proof
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: AK-IE-01 (L1238), cleanup_unverified_accounts half
+  reason: missing_observation_helper
+  detail: cleanup_unverified_accounts (src/backend/app/tasks/auth_tasks.py) is a Celery task that must persist an
+    erasure_requests row with origin unverified_cleanup and run the Art. 17 finalisation. No reach target seeds
+    an unverified account older than the cleanup window or runs this task; reach:erasure:admin-delete-subject drives
+    only the HTTP DELETE. The platform-admin half of AK-IE-01 is probed by endpoint-admin-user-delete-reaches-rows
+    and endpoint-admin-user-delete-persists-proof (anchored on router.py).
+  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+  recorded_at: '2026-09-25T06:04:02Z'
+- id: requirement-req025-ak-ie02-fail-closed-ordering
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: AK-IE-02 (L1239)
+  reason: missing_environment_target
+  detail: 'AK-IE-02 needs the reach stack in a deliberately non-erasing configuration (tombstone salt unset, or
+    a derived-index binding that refuses) plus an observe step proving no write happened; reach:stack:up always
+    brings up a working configuration. Missing target: a reach:stack:up variant that stands the stack up with erasure
+    misconfigured. The verified-in-between clause needs a seed for that race, which no reach:seed:* target provides.'
+  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+  recorded_at: '2026-09-25T06:04:02Z'
+- id: requirement-req025-ak-ie03-single-run-per-account
+  declaration:
+    source: requirement
+    path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+    location: AK-IE-03 (L1240)
+  reason: missing_observation_helper
+  detail: 'AK-IE-03 is concurrency-shaped: two of {admin delete, unverified cleanup, daily beat} racing one account
+    must yield one run and a 409 for the other (atomic claim, ErasureEngine.compute_request_key). scripts/reach/admin_delete_subject.py
+    fires one call per invocation; no helper fires two paths concurrently and reports which one the claim let through.'
+  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
+  recorded_at: '2026-09-25T06:04:02Z'
 - id: inventory-export-manifest-excluded-from-disclosure
   declaration:
     source: inventory
     path: src/backend/app/domain/engines/data_export_engine.py
     location: DataExportEngine.EXCLUDED_FROM_DISCLOSURE (L517-623)
   reason: scope_not_countable
-  detail: 'The declaration''s own claim is an absence — these 15 edges are deliberately not disclosed
-    as their own bundle sections — so the correct expectation would be a zero/empty count, which the schema
-    cannot express (CountExpectation.value >= 1, SetExpectation.values minItems 1). Note for whoever seeds
-    this: scripts/reach/seed_privacy_subject.py still creates rows for most of these edges as part of
-    the erasure-plan edge steps, and observe_export_archive.py''s `edge/<name>` line is keyed off seeded
-    subject_edges independent of manifest membership, so an edge here can still print as `edge/<name>`
-    when its target document is independently disclosed by another manifest source (e.g. has_membership''s
-    target `memberships` row is disclosed by user_key) — that would measure the wrong thing (the target''s
-    disclosure, not this edge''s), which is exactly why no probe is drafted rather than one with a coincidentally
-    passing but meaningless zero. Whether each excluded edge is instead reached by the erasure walk is
-    asserted by inventory-erasure-plan-reaches-rows (erasure_engine.py, out of scope for this file).'
+  detail: 'The declaration''s own claim is an absence — these 15 edges are deliberately not disclosed as their own
+    bundle sections — so the correct expectation would be a zero/empty count, which the schema cannot express (CountExpectation.value
+    >= 1, SetExpectation.values minItems 1). Note for whoever seeds this: scripts/reach/seed_privacy_subject.py
+    still creates rows for most of these edges as part of the erasure-plan edge steps, and observe_export_archive.py''s
+    `edge/<name>` line is keyed off seeded subject_edges independent of manifest membership, so an edge here can
+    still print as `edge/<name>` when its target document is independently disclosed by another manifest source
+    (e.g. has_membership''s target `memberships` row is disclosed by user_key) — that would measure the wrong thing
+    (the target''s disclosure, not this edge''s), which is exactly why no probe is drafted rather than one with
+    a coincidentally passing but meaningless zero. Whether each excluded edge is instead reached by the erasure
+    walk is asserted by inventory-erasure-plan-reaches-rows (erasure_engine.py, out of scope for this file).'
   derived_from: 89fc264f9169905f8382bb3ec9ffdc45ab1d7e4f
   recorded_at: '2026-09-24T15:38:25Z'

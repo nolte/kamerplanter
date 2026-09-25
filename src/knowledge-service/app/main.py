@@ -94,9 +94,17 @@ async def lifespan(app: FastAPI):
     llm_adapter = create_llm_adapter(settings)
     prompt_engine = PromptEngine()
 
-    reranker = RerankerEngine(settings.reranker_url or None)
+    reranker = RerankerEngine(
+        settings.reranker_url or None,
+        max_document_chars=settings.reranker_max_document_chars,
+    )
     if reranker.available:
-        logger.info("reranker_enabled", url=settings.reranker_url)
+        logger.info(
+            "reranker_enabled",
+            url=settings.reranker_url,
+            initial_k=settings.reranker_initial_k,
+            max_document_chars=settings.reranker_max_document_chars,
+        )
     else:
         logger.info("reranker_disabled")
 

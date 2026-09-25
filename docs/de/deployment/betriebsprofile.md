@@ -350,7 +350,8 @@ controllers:
           LLM_API_URL: "http://kamerplanter-ollama:11434"
           LLM_MODEL: mistral:7b
           RERANKER_URL: "http://kamerplanter-reranker-service:8081"
-          RERANKER_INITIAL_K: "20"
+          RERANKER_INITIAL_K: "15"
+          RERANKER_MAX_DOCUMENT_CHARS: "500"
           RERANKER_TOP_K: "5"
 
   reranker-service:

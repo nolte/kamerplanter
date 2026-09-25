@@ -21,7 +21,8 @@ accepted request flat (see ``main.py``).
 **Why these values.** The only caller is src/knowledge-service/app/reranker.py.
 It sends the question as ``query`` — at most 2000 characters (``AskRequest``;
 ``/search`` allows 500) — and ``title + "\\n" + content`` of at most
-``reranker_initial_k`` (default 20) retrieved chunks as ``documents``; the
+``reranker_initial_k`` (default 15) retrieved chunks as ``documents``, each
+cut to ``reranker_max_document_chars`` (default 500) since #1751; the
 largest chunk in spec/knowledge/rag measured 3524 characters that way on
 2026-09-24. Every bound leaves headroom over that, and the guard test re-reads
 the caller's limits and re-measures the corpus, so a caller that grows past a
@@ -54,7 +55,8 @@ from pydantic import BaseModel, Field
 #: Characters in ``query``. The caller sends at most 2000 (``AskRequest``).
 MAX_QUERY_CHARS = 4096
 
-#: Items in ``documents``. The caller sends at most ``reranker_initial_k`` (20).
+#: Items in ``documents``. The caller sends at most ``reranker_initial_k`` (15,
+#: #1751; 20 before).
 MAX_DOCUMENTS = 100
 
 #: Characters per document. Tokenization truncates each pair to 512 tokens
@@ -82,11 +84,20 @@ LOCK_WAIT_SECONDS = 10
 #: pairs of more than 512 tokens: 20 documents (the caller's
 #: ``reranker_initial_k``) took 50.4 s — such a request is cut here and the
 #: caller falls back, as it already did at its own timeout before #1725 (112 s
-#: then). Typical corpus chunks are far shorter than 512 tokens. The deadline
-#: is checked BETWEEN pairs, so it overshoots by one pair (~2.5 s for a
-#: 512-token pair at 2 CPUs): measured with 28 s, the 503 arrived after
-#: 30.5 s — past the caller. 25 s leaves that pair's room. The guard test
-#: requires ``MAX_INFERENCE_SECONDS`` < the caller's timeout.
+#: then). Nor is that the exception (#1751, measured 2026-09-25 with the
+#: model's tokenizer): corpus chunks are median 430 tokens, p90 630, 115 of
+#: 432 above 512, and over the 100 benchmark questions 44 % of the real
+#: (query, document) pairs hit the 512 cap — 20 documents took ~54 s, so this
+#: deadline fired on every question (10/10 HTTP probes: 503 timeout after
+#: 25.6-28.6 s). Cost is model compute, ~6 ms per pair token. The caller
+#: therefore sends at most 15 documents cut to 500 characters (pairs median
+#: 166, max 222 tokens): all 100 benchmark questions answered 200, p50 12.9 s,
+#: max 16.0 s (budget: RERANK_SCORED_CHARS_BUDGET in
+#: src/knowledge-service/app/config.py).
+#: The deadline is checked BETWEEN pairs, so it overshoots by one pair
+#: (~2.5 s for a 512-token pair at 2 CPUs): measured with 28 s, the 503
+#: arrived after 30.5 s — past the caller. 25 s leaves that pair's room. The
+#: guard test requires ``MAX_INFERENCE_SECONDS`` < the caller's timeout.
 MAX_INFERENCE_SECONDS = 25
 
 #: Worst-case bytes of JSON per character the bounds count. pydantic's
