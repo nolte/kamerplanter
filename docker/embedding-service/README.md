@@ -51,7 +51,7 @@ Pass the prefix via the `prefix` field in the `/embed` request.
 
 - Python 3.14, FastAPI, Uvicorn
 - ONNX Runtime (CPU)
-- HuggingFace Transformers (tokenizer only)
+- HuggingFace `tokenizers` (the Rust tokenizer, read from `tokenizer.json`)
 
 ## Build & Run
 
