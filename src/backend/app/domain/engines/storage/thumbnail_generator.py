@@ -143,6 +143,18 @@ def thumbnail_key(original_key: str, size: int) -> str:
     return f"{stem}_t{size}.webp"
 
 
+def rendition_keys(original_key: str, mime_type: str, sizes: tuple[int, ...] = THUMBNAIL_SIZES) -> list[str]:
+    """Every rendition key the thumbnail task may have written for an original (#1760).
+
+    Empty for a MIME type the generator does not render. Whoever deletes an
+    original deletes these with it: nothing else points at a rendition, so one
+    left behind stays in object storage for good.
+    """
+    if not can_render(mime_type):
+        return []
+    return [thumbnail_key(original_key, size) for size in sizes]
+
+
 class ThumbnailGenerator:
     """Generate WEBP thumbnail renditions (NFR-013 §8.2)."""
 
@@ -225,5 +237,6 @@ __all__ = [
     "ThumbnailMetadataError",
     "can_render",
     "metadata_keys",
+    "rendition_keys",
     "thumbnail_key",
 ]
