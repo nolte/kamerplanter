@@ -73,6 +73,23 @@ class WeatherProviderSettings(BaseModel):
     default_public_source: str | None = None
 
 
+class PestPrototypeOrphanSweepRecord(BaseModel):
+    """#1771 — what the pest-prototype orphan sweep removed (counts only, no keys)."""
+
+    first_run_at: datetime | None = None
+    last_run_at: datetime | None = None
+    #: Contribution keys the index held in the last run.
+    last_examined: int = 0
+    #: Of those, keys without a ``pest_image_contributions`` document.
+    last_orphaned: int = 0
+    #: Prototype rows the last run deleted (a key can have several rows).
+    last_removed: int = 0
+    #: Prototype rows every run so far deleted together.
+    total_removed: int = 0
+    #: Store binding of the last run (``inference_service`` / ``noop``).
+    binding: str | None = None
+
+
 class SystemSettings(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     home_assistant: HomeAssistantSettings = Field(default_factory=HomeAssistantSettings)
@@ -88,6 +105,8 @@ class SystemSettings(BaseModel):
     #: indexed as a recognition prototype; never cleared. See
     #: ``IPestPrototypeContributionMarker``.
     pest_prototype_contributions_since: datetime | None = None
+    #: #1771 — the last completed run of the pest-prototype orphan sweep.
+    pest_prototype_orphan_sweep: PestPrototypeOrphanSweepRecord | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

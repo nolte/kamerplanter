@@ -57,6 +57,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _reach_common import (  # noqa: E402 — sibling import after the path insert
     BACKEND_SERVICE,
+    Arango,
     COMPOSE_FILES,
     COMPOSE_PROFILE,
     DEFAULT_SUBJECT,
@@ -417,6 +418,122 @@ def seed_pest(subject: str) -> None:
     log(f"seeded {len(contributions)} pest prototype(s) and curated control row {curated_id} -> {path}")
 
 
+def orphan_file(subject: str) -> Path:
+    return reach_dir() / "subjects" / f"{subject}.pest-orphans.json"
+
+
+#: #1771 — prototypes the way the promotion index task writes them, one per
+#: row of ``rows`` (``:'name'`` is psql's quoted variable interpolation).
+PEST_ORPHAN_ROW_SQL = """
+INSERT INTO pest_embeddings (label, category, embedding, model, source, source_record_id, source_url, is_active)
+VALUES (:'label', 'pest', :'vector'::vector, 'dinov2_vits14', 'user_contributed',
+        :'contribution_key', :'contribution_url', :'active'::boolean)
+RETURNING id;
+"""
+
+PEST_ORPHAN_CURATED_SQL = """
+INSERT INTO pest_embeddings (label, category, embedding, model, source, source_record_id, source_url, license,
+                             attribution, is_active)
+VALUES ('spider_mite', 'pest', :'vector'::vector, 'dinov2_vits14', 'gbif', :'contribution_key',
+        'https://gbif.example/reach-orphan', 'CC-BY-4.0', 'reach control row', true)
+RETURNING id;
+"""
+
+
+def orphan_rows(token: str, subject_tenant: str, live_key: str) -> list[dict[str, str]]:
+    """The prototype rows the orphan sweep probe seeds (pure; unit-tested).
+
+    Three orphaned contribution keys — active, deactivated, and one in another
+    tenant with rows under two labels — plus the live prototype of a
+    contribution whose document exists.
+    """
+    other_tenant = f"reach-other-tenant-{token}"
+    orphans = [
+        ("spider_mite", subject_tenant, f"reach-orphan-{token}-1", "true"),
+        ("aphid", subject_tenant, f"reach-orphan-{token}-2", "false"),
+        ("aphid", other_tenant, f"reach-orphan-{token}-3", "true"),
+        ("thrips", other_tenant, f"reach-orphan-{token}-3", "false"),
+    ]
+    rows = [
+        {"role": "orphan", "label": label, "contribution_key": key, "tenant_key": tenant, "active": active}
+        for label, tenant, key, active in orphans
+    ]
+    rows.append(
+        {"role": "live", "label": "spider_mite", "contribution_key": live_key, "tenant_key": subject_tenant,
+         "active": "true"}
+    )  # fmt: skip
+    return rows
+
+
+def seed_pest_orphans(subject: str) -> None:
+    """Insert orphaned and live contributed prototypes plus a curated control row (#1771).
+
+    The orphans' keys are checked to name no ``pest_image_contributions``
+    document, the live key to name one — a seed that got either wrong would
+    make the probe measure its own mistake.
+    """
+    record = read_record()
+    arango = Arango(read_stack())
+    live = [
+        row
+        for row in read_subject(subject)["rows"]
+        if row["collection"] == "pest_image_contributions"
+        and row.get("fingerprint", {}).get("contributed_by") == subject
+    ]
+    if not live:
+        raise ReachError(
+            "the subject has no seeded pest_image_contributions row of its own; run reach:seed:privacy-subject"
+        )
+    live_key = live[0]["key"]
+    subject_tenant = live[0].get("fingerprint", {}).get("tenant_key")
+    if not subject_tenant:
+        raise ReachError("the seeded pest_image_contributions row carries no tenant_key")
+    token = hashlib.sha256(f"{project_name()}:{subject}:orphans".encode()).hexdigest()[:12]
+    rows = orphan_rows(token, subject_tenant, live_key)
+    keys = sorted({row["contribution_key"] for row in rows})
+    present = set(
+        arango.aql(
+            "FOR c IN pest_image_contributions FILTER c._key IN @keys RETURN c._key",
+            {"keys": keys},
+        )
+    )
+    if present != {live_key}:
+        raise ReachError(f"expected only the live key to name a contribution document, found {len(present)} keys")
+
+    seeded: list[dict[str, Any]] = []
+    for position, row in enumerate(rows):
+        output = psql(
+            record,
+            PEST_ORPHAN_ROW_SQL,
+            {
+                "label": row["label"],
+                "contribution_key": row["contribution_key"],
+                "contribution_url": f"contribution://{row['tenant_key']}/{row['contribution_key']}",
+                "active": row["active"],
+                "vector": vector_literal(f"reach-pest-orphan-{position}"),
+            },
+        )
+        ids = [int(line) for line in output.split() if line.strip()]
+        if len(ids) != 1:
+            raise ReachError(f"expected one inserted pest row id, psql printed {output!r}")
+        seeded.append({"role": row["role"], "contribution_key": row["contribution_key"], "id": ids[0]})
+    output = psql(
+        record,
+        PEST_ORPHAN_CURATED_SQL,
+        {"contribution_key": rows[0]["contribution_key"], "vector": vector_literal("reach-pest-orphan-curated")},
+    )
+    ids = [int(line) for line in output.split() if line.strip()]
+    if len(ids) != 1:
+        raise ReachError(f"expected one inserted curated row id, psql printed {output!r}")
+    path = orphan_file(subject)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"subject": subject, "rows": seeded, "curated_id": ids[0]}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    log(f"seeded {len(seeded)} contributed pest prototype rows and curated control row {ids[0]} -> {path}")
+
+
 def down() -> None:
     container, _ = _names()
     inference, _ = _inference_names()
@@ -435,6 +552,10 @@ def main(argv: list[str] | None = None) -> int:
     seed_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
     pest_parser = sub.add_parser("seed-pest", help="insert a prototype of the subject's pest-image contribution")
     pest_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
+    orphan_parser = sub.add_parser(
+        "seed-pest-orphans", help="insert orphaned and live contributed pest prototypes and a curated row"
+    )
+    orphan_parser.add_argument("--subject", default=DEFAULT_SUBJECT)
     args = parser.parse_args(argv)
     try:
         if args.command == "up":
@@ -443,6 +564,8 @@ def main(argv: list[str] | None = None) -> int:
             down()
         elif args.command == "seed-pest":
             seed_pest(args.subject)
+        elif args.command == "seed-pest-orphans":
+            seed_pest_orphans(args.subject)
         else:
             seed(args.subject)
     except ReachError as exc:

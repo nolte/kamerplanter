@@ -57,6 +57,25 @@ class IPestPrototypeStore(ABC):
         Raises when the delete does not go through.
         """
 
+    @abstractmethod
+    async def list_contribution_keys(self, *, after: str | None, limit: int) -> tuple[list[str], str | None]:
+        """One ascending page of the contribution keys that have a prototype (#1771).
+
+        Returns ``(keys, next_after)``; ``next_after`` is ``None`` on the last
+        page. Active and deactivated prototypes alike. Raises when the index
+        cannot be read — never an empty page in its place.
+        """
+
+
+class IPestPrototypeOrphanSweepLog(ABC):
+    """Where the pest-prototype orphan sweep records what it removed (#1771)."""
+
+    @abstractmethod
+    def record_pest_prototype_orphan_sweep(
+        self, *, now: datetime, examined: int, orphaned: int, removed: int, binding: str
+    ) -> None:
+        """Persist one completed run's counts; adds *removed* to the running total. Raises on a storage failure."""
+
 
 class IPestPrototypeContributionMarker(ABC):
     """The persisted fact "a contributed pest prototype may be in the index" (#1759).

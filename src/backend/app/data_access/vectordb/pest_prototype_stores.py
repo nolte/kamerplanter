@@ -63,6 +63,13 @@ class InferenceServicePestPrototypeStore(IPestPrototypeStore):
         except httpx.HTTPError as exc:
             raise _erasure_failure(exc, "tenant") from exc
 
+    async def list_contribution_keys(self, *, after: str | None, limit: int) -> tuple[list[str], str | None]:
+        try:
+            return await asyncio.to_thread(self._client.list_contribution_keys, after=after, limit=limit)
+        except httpx.HTTPError as exc:
+            cause = f"HTTP {exc.response.status_code}" if isinstance(exc, httpx.HTTPStatusError) else type(exc).__name__
+            raise ExternalSourceError(_SOURCE, f"pest-prototype key listing did not go through ({cause})") from exc
+
 
 class NoopPestPrototypeStore(IPestPrototypeStore):
     """Pest-prototype store for a process that reaches no inference-service."""
@@ -102,3 +109,8 @@ class NoopPestPrototypeStore(IPestPrototypeStore):
         self._refuse_if_indexed()
         logger.info("pest_prototype_cleanup_noop", scope="tenant", tenant_key=tenant_key, removed=0)
         return 0
+
+    async def list_contribution_keys(self, *, after: str | None, limit: int) -> tuple[list[str], str | None]:
+        # Nothing indexed while the marker is unset; refuse once it is set.
+        self._refuse_if_indexed()
+        return [], None

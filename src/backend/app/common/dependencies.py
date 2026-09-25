@@ -2009,6 +2009,17 @@ def get_pest_prototype_store():
     return NoopPestPrototypeStore(marker=get_system_settings_repo())
 
 
+def get_pest_prototype_orphan_sweep_service():
+    """#1771 — deletes contributed pest prototypes whose contribution document is gone."""
+    from app.domain.services.pest_prototype_orphan_sweep import PestPrototypeOrphanSweepService
+
+    return PestPrototypeOrphanSweepService(
+        store=get_pest_prototype_store(),
+        pest_image_repo=get_pest_image_repo(),
+        sweep_log=get_system_settings_repo(),
+    )
+
+
 def get_object_storage() -> IObjectStorageAdapter:
     """Return the configured object-storage adapter (cached singleton).
 

@@ -49,6 +49,15 @@ class IPestImageRepository(ABC):
         """Return a contribution by key irrespective of tenant (moderation / global content)."""
 
     @abstractmethod
+    def existing_keys(self, keys: list[str]) -> set[str]:
+        """Return the subset of *keys* that name a contribution, irrespective of tenant.
+
+        The pest-prototype orphan sweep (#1771) asks this for each page of keys
+        the recognition index holds; a key missing from the answer names a
+        prototype whose contribution document is gone.
+        """
+
+    @abstractmethod
     def list_all_for_pest(self, pest_key: str) -> list[PestImageContribution]:
         """Return *all* tenants' contributions for a pest (platform-admin moderation)."""
 
