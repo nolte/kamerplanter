@@ -6,6 +6,10 @@
 # the two REQ-025 scope_not_countable entries re-inventoried at v1.11, five new entries for the
 # AK-OS-05a/07 no-op clauses and AK-IE-01 (unverified half)/02/03. The data_export_engine.py entry
 # below is from the #1717 round and was not re-inventoried.
+#
+# Re-derive round of 2026-09-25 (#1783), filtered to spec/req/REQ-025_Datenschutz-Betroffenenrechte.md:
+# the seven REQ-025 entries re-inventoried unchanged at c9d6d29ee (#1780's squash commit; the
+# declaration is byte-identical to the vanished branch commit e9e0c3a52), derived_from moved to it.
 entries:
 - id: requirement-req025-art15-export-sources-populated
   declaration:
@@ -18,8 +22,8 @@ entries:
     set — the schema''s `expected` cannot hold a rule, only its result. The count/set this declaration would need
     to state is exactly the collection/edge list DataExportEngine.USER_DATA_MANIFEST enumerates today; that content
     is probed directly by inventory-export-manifest-sources-populated.'
-  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
-  recorded_at: '2026-09-25T06:04:02Z'
+  derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+  recorded_at: '2026-09-25T07:11:22Z'
 - id: requirement-req025-art17-erasure-plan-reaches-rows
   declaration:
     source: requirement
@@ -32,8 +36,8 @@ entries:
     named set — the document deliberately carries no copy of the code''s list (#1719). The constructible form of
     this claim is inventory-erasure-plan-reaches-rows (erasure_engine.py), whose 64-item set was recounted at 77efb5095
     and is unchanged.'
-  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
-  recorded_at: '2026-09-25T06:04:02Z'
+  derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+  recorded_at: '2026-09-25T07:11:22Z'
 - id: requirement-req025-art17-reference-index-noop-honesty
   declaration:
     source: requirement
@@ -46,8 +50,8 @@ entries:
     no reach:seed:* target writes the marker. Needs a seed for the marker, a stack variant with the flag off, and
     an observe step reading the tenant-deletion status and the held erasure request. The positive clause (the real
     binding removes the vectors) is probed by requirement-req025-art17-reference-index-cleanup.'
-  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
-  recorded_at: '2026-09-25T06:04:02Z'
+  derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+  recorded_at: '2026-09-25T07:11:22Z'
 - id: requirement-req025-art17-pest-prototype-noop-honesty
   declaration:
     source: requirement
@@ -58,8 +62,8 @@ entries:
     once system_settings.pest_prototype_contributions_since is set. reach:seed:pest-prototype seeds a contribution
     but never the marker, and reach:vectordb:up always wires the real binding. Needs a seed for the marker and an
     observe step for the refused / held state. The deletion clause is probed by requirement-req025-art17-pest-prototype-cleanup.'
-  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
-  recorded_at: '2026-09-25T06:04:02Z'
+  derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+  recorded_at: '2026-09-25T07:11:22Z'
 - id: requirement-req025-ak-ie01-unverified-cleanup-proof
   declaration:
     source: requirement
@@ -71,8 +75,8 @@ entries:
     an unverified account older than the cleanup window or runs this task; reach:erasure:admin-delete-subject drives
     only the HTTP DELETE. The platform-admin half of AK-IE-01 is probed by endpoint-admin-user-delete-reaches-rows
     and endpoint-admin-user-delete-persists-proof (anchored on router.py).
-  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
-  recorded_at: '2026-09-25T06:04:02Z'
+  derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+  recorded_at: '2026-09-25T07:11:22Z'
 - id: requirement-req025-ak-ie02-fail-closed-ordering
   declaration:
     source: requirement
@@ -83,8 +87,8 @@ entries:
     a derived-index binding that refuses) plus an observe step proving no write happened; reach:stack:up always
     brings up a working configuration. Missing target: a reach:stack:up variant that stands the stack up with erasure
     misconfigured. The verified-in-between clause needs a seed for that race, which no reach:seed:* target provides.'
-  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
-  recorded_at: '2026-09-25T06:04:02Z'
+  derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+  recorded_at: '2026-09-25T07:11:22Z'
 - id: requirement-req025-ak-ie03-single-run-per-account
   declaration:
     source: requirement
@@ -94,8 +98,8 @@ entries:
   detail: 'AK-IE-03 is concurrency-shaped: two of {admin delete, unverified cleanup, daily beat} racing one account
     must yield one run and a 409 for the other (atomic claim, ErasureEngine.compute_request_key). scripts/reach/admin_delete_subject.py
     fires one call per invocation; no helper fires two paths concurrently and reports which one the claim let through.'
-  derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
-  recorded_at: '2026-09-25T06:04:02Z'
+  derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+  recorded_at: '2026-09-25T07:11:22Z'
 - id: inventory-export-manifest-excluded-from-disclosure
   declaration:
     source: inventory
