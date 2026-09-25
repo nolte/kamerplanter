@@ -1,20 +1,19 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
 # Approval: recorded under the repository owner's standing pre-approval of every gate for the
-# autonomous 2026-09-25-erasure-derived-data group run (#1759/#1760), relayed by the orchestrating
-# session — not an interactive batch answer. It records that the targets and the observe argv
-# below run on the operator's machine with their environment, as `task` in this repository does.
+# autonomous #1768 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
 #
-# Expectation from AK-OS-05 applied to the pest-recognition index (#1759): the subject's contributed
-# prototype — here a deactivated (demoted) one, which the pre-#1759 erasure skipped — is gone, the
-# curated control row with the same record id is kept.
+# Re-derived for #1768: REQ-025 v1.11 added AK-OS-05a/06/07 and AK-IE-01..03; derived_from is the
+# commit that made that change. Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-pest-prototype-cleanup
 summary: subject's contributed pest prototype and the curated control row, in pgvector pest_embeddings, after erasure
+  through the real binding
 declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-  location: §3.5 Phase 0.5 (L943-962); AK-OS-05 (L1229) — names species_embeddings; applied to pest_embeddings
-    as the same class of contributed vector (#1759)
+  location: AK-OS-07 (L1235)
 tier: T2
 expected:
   kind: set
@@ -22,7 +21,7 @@ expected:
   values:
   - erased/pest_embeddings
   - kept/curated
-derived_from: e4631b9625c5ec4fdf22f0896abbf731513c048f
+derived_from: e9e0c3a52b54e3d9a75892d95d8db933f04019d4
 environment:
 - reach:stack:up
 - reach:vectordb:up
@@ -40,6 +39,6 @@ observe:
   - reach-subject
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-25T00:00:00Z'
+  approved_at: '2026-09-25T06:03:35Z'
   approved_by: nolte
   observation_digest: 1c26deca2076159b94aeef91e8ac6527121212d18eacc82831f1ce019939882c

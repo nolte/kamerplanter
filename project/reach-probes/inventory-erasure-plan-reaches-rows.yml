@@ -1,22 +1,19 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the operator's standing pre-approval of the gate for the
-# autonomous #1680 run, relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the
-# operator's machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's standing pre-approval of every gate for the
+# autonomous #1768 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the operator's
+# machine with their environment, as `task` in this repository does.
 #
-# The same row against the plan the executor runs: 46 step collections, 18 rule
-# collections (it carries the four cv_* edge steps REQ-025 names only in a comment).
-# Re-derived for #1767 (2994893c9 added ErasureEngine.compute_request_key; DELETE_STEPS,
-# ANONYMIZE_COLLECTIONS and PSEUDONYMIZE_AUDIT_COLLECTIONS unchanged, 64/64 observed through
-# the admin-delete probe on the same seed), under the same standing pre-approval.
+# Re-derived for #1768: the previous derived_from 2994893c9 was a #1776 branch commit the squash
+# made unreachable; the declaration last changed in the squash 77efb5095 on develop. Observe step,
+# targets and expectation unchanged (64/64 recounted against erasure_engine.py at 77efb5095).
 id: inventory-erasure-plan-reaches-rows
 summary: collections of the executing erasure plan left without the subject after the scheduled finalisation
 declaration:
   source: inventory
   path: src/backend/app/domain/engines/erasure_engine.py
-  location: ErasureEngine.DELETE_STEPS (L391), ANONYMIZE_COLLECTIONS (L66), PSEUDONYMIZE_AUDIT_COLLECTIONS
-    (L679)
+  location: ErasureEngine.DELETE_STEPS (L392), ANONYMIZE_COLLECTIONS (L67), PSEUDONYMIZE_AUDIT_COLLECTIONS (L680)
 tier: T2
 expected:
   kind: set
@@ -86,7 +83,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: 2994893c99d5782aff6f525b7fa220e20d501420
+derived_from: 77efb5095c598e68469b80916011990892d7b0e7
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -101,6 +98,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-24T04:46:06Z'
+  approved_at: '2026-09-25T06:03:35Z'
   approved_by: nolte
   observation_digest: 584da5deab1a64e149f8a3f1e6fc9081a4ba4fb13aa522276966e372999ac96f
