@@ -114,6 +114,9 @@ class FakeRunRepo:
     def get_entries(self, run_key):
         return [e for e in self.entries if e.run_key == run_key]
 
+    def verify_entry_references(self, entry) -> None:
+        return None
+
 
 def _service(site_repo: FakeSiteRepo, run_repo: FakeRunRepo) -> PlantingRunService:
     from unittest.mock import MagicMock
