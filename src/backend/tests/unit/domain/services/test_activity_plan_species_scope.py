@@ -117,3 +117,50 @@ def test_a_workflow_template_is_not_bound_to_another_tenants_species() -> None:
 
     assert response.status_code == 404
     tasks.create_workflow_template.assert_not_called()
+
+
+# ── security review of #1876 (SEC-001, SEC-004) ─────────────────────────────
+
+
+def test_caller_parameters_never_shape_the_shared_plan() -> None:
+    # The first caller decided what every tenant reads: lifecycle, growth system
+    # and skill level came from the body into the shared template.
+    service = _service("")
+
+    plan = service.get_or_generate_for_species("sp1", growth_system="hydro", skill_level="expert", tenant_key="t_a")
+
+    assert plan.tenant_key == "t_a"
+
+
+def test_a_lifecycle_of_another_species_is_refused() -> None:
+    # A lifecycle key was used as given, so another tenant's private lifecycle
+    # (or phase sequence) was copied into the caller's plan.
+    from app.common.exceptions import ValidationError
+
+    service = _service("")
+    service._phase_seq_repo = None
+
+    with pytest.raises(ValidationError):
+        service.get_or_generate_for_species("sp1", lifecycle_key="lc_foreign", tenant_key="t_a")
+
+    service._phase_repo.get_phases_by_lifecycle.assert_not_called()
+    service._task_repo.create_workflow_template.assert_not_called()
+
+
+def test_the_species_own_lifecycle_is_accepted() -> None:
+    service = _service("")
+    own = service._phase_repo.get_lifecycle_by_species.return_value.key
+
+    plan = service.get_or_generate_for_species("sp1", lifecycle_key=own, tenant_key="t_a")
+
+    assert plan.tenant_key == "t_a"
+
+
+def test_without_a_species_repository_a_tenant_request_is_refused() -> None:
+    service = _service("")
+    service._species_repo = None
+
+    with pytest.raises(NotFoundError):
+        service.get_or_generate_for_species("sp1", tenant_key="t_a")
+
+    service._task_repo.create_workflow_template.assert_not_called()

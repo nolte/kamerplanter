@@ -156,3 +156,14 @@ def test_a_tank_is_fed_from_an_own_tank() -> None:
     TankService(repo, MagicMock()).link_feeds_from("tank_a", "tank_a2", tenant_key=OWN)  # type: ignore[arg-type]
 
     assert repo.links == [("tank_a", "tank_a2")]
+
+
+def test_a_feed_link_without_a_tenant_is_refused() -> None:
+    # Security review of #1876 (SEC-005): ``get_tank(key, "")`` skips the check,
+    # so an empty tenant would have linked a foreign tank.
+    repo = _Tanks()
+
+    with pytest.raises(NotFoundError):
+        TankService(repo, MagicMock()).link_feeds_from("tank_a", "tank_b", tenant_key="")  # type: ignore[arg-type]
+
+    assert repo.links == []

@@ -154,6 +154,8 @@ class TestGeneratePlan:
     def test_uses_explicit_lifecycle_key(self, service):
         species = _make_species()
         service._species_repo.get_by_key.return_value = species
+        # The explicit key must be one of the species' own lifecycles (review of #1876, SEC-001).
+        service._phase_repo.get_lifecycle_by_species.return_value = LifecycleConfig(_key="lc_custom", species_key="sp1")
         service._phase_repo.get_phases_by_lifecycle.return_value = [_make_phase()]
         service._activity_repo.get_all.return_value = ([_make_activity()], 1)
 
