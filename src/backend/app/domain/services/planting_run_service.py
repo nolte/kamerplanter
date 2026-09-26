@@ -1240,6 +1240,10 @@ class PlantingRunService:
         Read access, not ownership — global system plans stay assignable (#324).
         """
         self.get_run(run_key, tenant_key=tenant_key)
+        # Fail closed without the plan repository (security review of #1872, S2):
+        # the assignment used to be stored unchecked.
+        if self._nutrient_plan_repo is None:
+            raise NotFoundError("NutrientPlan", plan_key)
         self._readable_plan_or_raise(plan_key, tenant_key)
         return self._repo.assign_nutrient_plan(run_key, plan_key, assigned_by)
 

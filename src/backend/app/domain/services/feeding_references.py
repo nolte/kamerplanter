@@ -20,7 +20,6 @@ from __future__ import annotations
 from typing import Protocol
 
 from app.common.exceptions import NotFoundError
-from app.common.tenant_guard import verify_tenant_read_access
 from app.domain.models.nutrient_plan import NutrientPlan
 from app.domain.models.tank import Tank, TankFillEvent
 
@@ -49,15 +48,15 @@ def require_owned_fill_event(anchors: FillEventAnchors | None, key: str, tenant_
 
 
 class NutrientPlanSource(Protocol):
-    def get_by_key(self, key: str) -> NutrientPlan | None: ...
+    def get_readable_or_raise(self, key: str, *, tenant_key: str) -> NutrientPlan: ...
 
 
 def require_readable_nutrient_plan(plans: NutrientPlanSource | None, key: str, tenant_key: str) -> NutrientPlan:
-    """The plan *key*, when it is global or *tenant_key*'s own; else 404 (#1872 C7)."""
+    """The plan *key*, when it is global or *tenant_key*'s own; else 404 (#1872 C7).
+
+    Through the repository's one read predicate (``get_readable_or_raise``, #950)
+    rather than a second copy of it.
+    """
     if plans is None or not tenant_key:
         raise NotFoundError("NutrientPlan", key)
-    plan = plans.get_by_key(key)
-    if plan is None:
-        raise NotFoundError("NutrientPlan", key)
-    verify_tenant_read_access(plan, tenant_key, "NutrientPlan")
-    return plan
+    return plans.get_readable_or_raise(key, tenant_key=tenant_key)

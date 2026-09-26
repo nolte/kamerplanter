@@ -149,7 +149,9 @@ class PropagationService:
 
     def _require_owned_run(self, run_key: str, tenant_key: str) -> None:
         """404 unless *run_key* is a planting run of *tenant_key* — fail closed (SEC-B4)."""
-        run = self._planting_run_repo.get_by_key(run_key) if self._planting_run_repo is not None else None
+        run = (
+            self._planting_run_repo.get_by_key(run_key) if self._planting_run_repo is not None and tenant_key else None
+        )
         if run is None or getattr(run, "tenant_key", None) != tenant_key:
             raise NotFoundError("PlantingRun", run_key)
 

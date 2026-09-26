@@ -12,11 +12,11 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, get_args
 
 import structlog
 
-from app.common.exceptions import AiDisabledError, NotFoundError
+from app.common.exceptions import AiDisabledError, NotFoundError, ValidationError
 from app.data_access.arango.ai_repository import (
     ArangoAiConversationRepository,
     ArangoAiProviderRepository,
@@ -35,6 +35,7 @@ from app.domain.models.ai_assistant import (
     AiConversation,
     AiResponse,
     AiTipCard,
+    ContextType,
     ConversationMessage,
     SourceReference,
 )
@@ -69,12 +70,17 @@ class AiAssistantService:
         explain_engine: ExplainEngine | None = None,
         plant_repo: Any | None = None,
         planting_run_repo: Any | None = None,
+        task_lookup: Callable[[str], Any] | None = None,
+        feeding_event_lookup: Callable[[str], Any] | None = None,
     ) -> None:
         # #1872 C9: a plant / run context key is resolved under the tenant before
         # anything stores it (tip cards, conversations, audit) or a resolver reads it.
-        self._context_owners = {
-            "plant_instance": ("PlantInstance", plant_repo),
-            "planting_run": ("PlantingRun", planting_run_repo),
+        self._context_owners: dict[str, tuple[str, Callable[[str], Any] | None]] = {
+            "plant_instance": ("PlantInstance", plant_repo.get_by_key if plant_repo is not None else None),
+            "planting_run": ("PlantingRun", planting_run_repo.get_by_key if planting_run_repo is not None else None),
+            # explain() subjects that name an entity (security review of #1872, S2).
+            "task": ("Task", task_lookup),
+            "feeding_event": ("FeedingEvent", feeding_event_lookup),
         }
         self._ks = knowledge_adapter
         self._consent = consent_guard
@@ -98,8 +104,8 @@ class AiAssistantService:
         owner = self._context_owners.get(context_type)
         if owner is None or not context_key:
             return
-        name, repo = owner
-        entity = repo.get_by_key(context_key) if repo is not None else None
+        name, lookup = owner
+        entity = lookup(context_key) if lookup is not None else None
         if entity is None or getattr(entity, "tenant_key", None) != tenant_key:
             raise NotFoundError(name, context_key)
 
@@ -194,6 +200,10 @@ class AiAssistantService:
         which is now :meth:`get_tips`.
         """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        # A tip card is stored under its context: only the known context types
+        # (security review of #1872, S2) — an unknown one stored any key unchecked.
+        if context_type not in get_args(ContextType):
+            raise ValidationError(f"Unknown tip context type '{context_type}'.")
         self._require_owned_context(ctx.tenant_key, context_type, context_key)
         self._tip_cache.invalidate_context(ctx.tenant_key, context_type, context_key)
 

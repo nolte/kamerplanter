@@ -334,6 +334,13 @@ class WateringLogService:
         # anything is read through it or written (#1864 sweep, L8).
         require_confirmable_run(self._run_repo, run_key, tenant_key=tenant_key)
 
+        # The task is resolved before anything stores its key (security review of
+        # #1872, S1): only the tenant's own task is completed *and recorded*; any
+        # other value (a foreign key, or the date the schedule UI sends) is kept
+        # off the event, the log and the confirmations.
+        task_doc = own_task_or_none(self._task_repo, task_key, tenant_key=tenant_key)
+        own_task_key = task_key if task_doc else None
+
         # Get run and plan info
         plan_key = self._run_repo.get_run_nutrient_plan_key(run_key)
         plan = None
@@ -374,7 +381,7 @@ class WateringLogService:
             nutrient_plan_key=plan_key,
             ec_before=measured_ec,
             ph_before=measured_ph,
-            task_key=task_key,
+            task_key=own_task_key,
             channel_id=channel_id,
             fertilizers_used=fertilizers_used,
         )
@@ -387,7 +394,6 @@ class WateringLogService:
         task_completed = False
         # Only the tenant's own task is completed; a foreign one is treated as
         # missing — same answer, nothing changed (#1864 sweep, L8).
-        task_doc = own_task_or_none(self._task_repo, task_key, tenant_key=tenant_key)
         if task_doc:
             self._task_repo.update_fields(
                 task_key,
@@ -406,7 +412,7 @@ class WateringLogService:
                     reminder_type=ReminderType.WATERING,
                     action=ConfirmAction.CONFIRMED,
                     confirmed_at=now,
-                    task_key=task_key,
+                    task_key=own_task_key,
                     watering_log_key=created_log.key,
                 )
                 self._care_repo.create_confirmation(confirmation)

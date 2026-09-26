@@ -239,6 +239,14 @@ class SpeciesService:
         self._require_usable_nutrient_plan(species.default_nutrient_plan_key, species.tenant_key)
         if self._repo.get_by_normalized_scientific_name_for_tenant(species.scientific_name, species.tenant_key) is None:
             species = self._inherit_unset_from_synonym_match(species)
+            # An inherited plan is kept only when the new owner may use it
+            # (security review of #1872, W1): the synonym match can be a granted or
+            # legacy row pointing at another tenant's private plan. Dropped, not
+            # refused — the caller never sent the key.
+            if species.default_nutrient_plan_key and not self._nutrient_plan_usable(
+                species.default_nutrient_plan_key, species.tenant_key
+            ):
+                species.default_nutrient_plan_key = None
         created = self._repo.upsert_by_normalized_scientific_name(species)
         # Give the species the phase sequence the seed would have given it (#1006).
         # Without this, every plant created for a runtime-minted species (identify →
@@ -249,6 +257,13 @@ class SpeciesService:
         if self._phase_sequence_binder is not None:
             self._phase_sequence_binder.bind_default(created)
         return created
+
+    def _nutrient_plan_usable(self, plan_key: str, species_owner: str) -> bool:
+        try:
+            self._require_usable_nutrient_plan(plan_key, species_owner)
+        except NotFoundError:
+            return False
+        return True
 
     def _require_usable_nutrient_plan(self, plan_key: str | None, species_owner: str) -> None:
         """404 unless the default plan is global or the species owner's own (#1872 C14).

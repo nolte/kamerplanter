@@ -48,9 +48,13 @@ class _Tanks:
 
 
 class _Plans:
-    def get_by_key(self, key: str):
+    """``get_readable_or_raise`` as the repository answers it (#950): global or own, else 404."""
+
+    def get_readable_or_raise(self, key: str, *, tenant_key: str):
         owner = {"plan_global": "", "plan_own": OWN, "plan_foreign": "t_b"}.get(key)
-        return None if owner is None else SimpleNamespace(key=key, tenant_key=owner)
+        if owner is None or owner not in ("", tenant_key):
+            raise NotFoundError("NutrientPlan", key)
+        return SimpleNamespace(key=key, tenant_key=owner)
 
 
 FOREIGN_FILLS = ["fill_foreign", "fill_orphan", "no-such-fill"]
@@ -233,3 +237,114 @@ def test_a_general_conversation_names_no_entity() -> None:
     service.create_conversation(SimpleNamespace(tenant_key=OWN, user_key="u1"), context_type="general", context_key="x")
 
     conversations.create.assert_called_once()
+
+
+# ── security review of the #1872 branch ─────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [{"nutrient_plan_key": "plan_foreign"}, {"mixing_result_key": "plan_foreign"}, {"source_tank_key": "tank_foreign"}],
+    ids=["plan", "mixing-result", "source-tank"],
+)
+def test_a_fill_event_names_only_the_tanks_tenants_plans_and_tanks(fields: dict) -> None:
+    # W2: the plan, the mixing result (with a mixed_into edge) and the source tank
+    # were stored as given.
+    from app.domain.engines.tank_engine import TankEngine
+    from app.domain.models.tank import Tank, TankType
+    from app.domain.services.tank_service import TankService
+
+    repo = MagicMock()
+    repo.get_or_raise.side_effect = lambda k: Tank(
+        _key=k, tenant_key=OWN if k == "tank_own" else "t_b", name=k, tank_type=TankType.NUTRIENT, volume_liters=10
+    )
+    service = TankService(repo, TankEngine(), nutrient_plan_repo=_Plans())
+
+    with pytest.raises(NotFoundError):
+        service.record_fill_event("tank_own", TankFillEvent(fill_type=FillType.FULL_CHANGE, volume_liters=10, **fields))
+
+    repo.create_fill_event.assert_not_called()
+
+
+def test_a_confirmation_does_not_record_a_foreign_task_key() -> None:
+    # S1: the body's task_key was stored on the log and the confirmations before
+    # the foreign task was recognised as foreign.
+    run_repo = MagicMock()
+    run_repo.get_run_nutrient_plan_key.return_value = None
+    run_repo.get_run_plants.return_value = [{"_key": "p1", "slot_key": "slot_own"}]
+    task_repo = MagicMock()
+    task_repo.get_task_by_key.return_value = SimpleNamespace(key="task_b", tenant_key="t_b")
+    repo = MagicMock()
+    repo.create.side_effect = lambda log: log
+    service = WateringLogService(
+        repo,
+        WateringEngine(),
+        site_repo=FakeSiteRepo(),  # type: ignore[arg-type]
+        run_repo=run_repo,
+        task_repo=task_repo,
+    )
+    import app.domain.services.watering_log_service as module
+
+    original = module.require_confirmable_run
+    module.require_confirmable_run = lambda *a, **k: None
+    try:
+        service.confirm_watering("run_own", "task_b", tenant_key=OWN)
+    finally:
+        module.require_confirmable_run = original
+
+    assert repo.create.call_args.args[0].task_key is None
+    task_repo.update_fields.assert_not_called()
+
+
+def test_a_tip_context_type_must_be_known() -> None:
+    from app.common.exceptions import ValidationError
+
+    service, _ = _ai()
+
+    with pytest.raises(ValidationError):
+        service.refresh_tips(SimpleNamespace(tenant_key=OWN, user_key="u1"), context_type="plant", context_key="p_own")
+
+
+def test_an_explain_subject_task_is_the_tenants() -> None:
+    from app.domain.services.ai_assistant_service import AiAssistantService
+
+    tasks = {"t_foreign": SimpleNamespace(key="t_foreign", tenant_key="t_b")}
+    service = AiAssistantService(
+        knowledge_adapter=MagicMock(),
+        consent_guard=MagicMock(),
+        audit_logger=MagicMock(),
+        tip_cache_repo=MagicMock(),
+        conversation_repo=MagicMock(),
+        provider_repo=MagicMock(),
+        task_lookup=tasks.get,
+    )
+
+    with pytest.raises(NotFoundError):
+        service.explain(
+            SimpleNamespace(tenant_key=OWN, user_key="u1"),
+            subject_type="task",
+            subject_key="t_foreign",
+            question_template_id="x",
+        )
+
+
+def test_an_inherited_default_plan_the_owner_may_not_use_is_dropped() -> None:
+    # W1: the synonym inheritance copied a granted species' private plan.
+    from app.domain.models.species import Species
+    from app.domain.services.species_service import SpeciesService
+
+    repo = MagicMock()
+    repo.get_by_normalized_scientific_name_for_tenant.return_value = None
+    repo.upsert_by_normalized_scientific_name.side_effect = lambda s: s
+    plans = MagicMock()
+    plans.get_by_key.side_effect = lambda k: SimpleNamespace(key=k, tenant_key="t_c")
+    service = SpeciesService(repo, MagicMock(), nutrient_plan_repo=plans)
+    service._inherit_unset_from_synonym_match = lambda s: s.model_copy(  # type: ignore[method-assign]  # noqa: SLF001
+        update={"default_nutrient_plan_key": "plan_of_c"}
+    )
+
+    created = service.create_species(
+        Species(scientific_name="Mentha spicata", tenant_key=OWN), caller_role=None, is_platform_admin=True
+    )
+
+    assert created.default_nutrient_plan_key is None

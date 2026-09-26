@@ -537,7 +537,11 @@ def get_tank_repo() -> ArangoTankRepository:
 
 def get_tank_service() -> TankService:
     return TankService(
-        get_tank_repo(), TankEngine(), fertilizer_repo=get_fertilizer_repo(), site_anchors=get_site_repo()
+        get_tank_repo(),
+        TankEngine(),
+        fertilizer_repo=get_fertilizer_repo(),
+        site_anchors=get_site_repo(),
+        nutrient_plan_repo=get_nutrient_plan_repo(),
     )
 
 
@@ -1870,6 +1874,8 @@ def get_ai_assistant_service():
         provider_repo=get_ai_provider_repo(),
         plant_repo=get_plant_repo(),
         planting_run_repo=get_planting_run_repo(),
+        task_lookup=lambda key: get_task_repo().get_task_by_key(key),
+        feeding_event_lookup=lambda key: get_feeding_repo().get_by_key(key),
     )
 
 

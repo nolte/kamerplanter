@@ -54,8 +54,15 @@ class FeedingService:
         # The fill event under the event's tenant (#1872 C6): REST and the MCP
         # feeding tool both land here, and both stored the key verbatim.
         if event.tank_fill_event_key:
-            require_owned_fill_event(self._fill_event_anchors, event.tank_fill_event_key, event.tenant_key)
+            self.require_fill_event(event.tank_fill_event_key, tenant_key=event.tenant_key)
         return self._repo.create(event)
+
+    def require_fill_event(self, key: str, *, tenant_key: str) -> None:
+        """404 unless the fill event belongs to a tank of *tenant_key* (#1872 C6).
+
+        Public so a dry run (the MCP tool's preview) checks exactly what the write does.
+        """
+        require_owned_fill_event(self._fill_event_anchors, key, tenant_key)
 
     def update_event(self, key: FeedingEventKey, data: dict) -> FeedingEvent:
         existing = self.get_event(key)
