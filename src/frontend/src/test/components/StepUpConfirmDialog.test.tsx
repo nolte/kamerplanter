@@ -184,3 +184,43 @@ describe('StepUpConfirmDialog — e-mailed step-up code (#1815)', () => {
     expect(field(dialog, 'su-code').value).toBe('');
   });
 });
+
+describe('StepUpConfirmDialog — act without an echo (#1848)', () => {
+  beforeEach(() => i18n.changeLanguage('de'));
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  function renderWithoutEcho(onConfirm: (c: StepUpConfirmation) => Promise<void>) {
+    return renderWithProviders(
+      <StepUpConfirmDialog
+        open
+        title="Change e-mail"
+        description="Confirm it is you"
+        confirmLabel="Send link"
+        confirmColor="primary"
+        testIdPrefix="su"
+        stepUpAction="email_change"
+        onConfirm={onConfirm}
+        onCancel={() => {}}
+      />,
+    );
+  }
+
+  it('renders no echo field and enables confirm on the step-up factor alone', async () => {
+    providers([{ provider: 'local' }]);
+    const onConfirm = vi.fn<(c: StepUpConfirmation) => Promise<void>>().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderWithoutEcho(onConfirm);
+    const dialog = await screen.findByTestId('su-dialog');
+
+    expect(within(dialog).queryByTestId('su-echo')).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId('su-confirm')).toBeDisabled();
+    await user.type(field(dialog, 'su-password'), PASSWORD);
+    expect(within(dialog).getByTestId('su-confirm')).toBeEnabled();
+    await user.click(within(dialog).getByTestId('su-confirm'));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({ echo: '', password: PASSWORD }));
+  });
+});

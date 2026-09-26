@@ -21,7 +21,7 @@ import StepUpReauthButton from './StepUpReauthButton';
 
 /** What the requester typed to prove the irreversible action is intended. */
 export interface StepUpConfirmation {
-  /** The echo, trimmed — a slug or an e-mail address. */
+  /** The echo, trimmed — a slug or an e-mail address; `''` for a dialog without an echo. */
   echo: string;
   /** The requester's current password; absent for a known federated-only account. */
   password?: string;
@@ -37,10 +37,16 @@ interface StepUpConfirmDialogProps {
   open: boolean;
   title: string;
   description: ReactNode;
-  echoLabel: string;
-  echoHelper: string;
-  /** The value the echo must match before the confirm button enables. */
-  expectedEcho: string;
+  /** Required with `expectedEcho`. */
+  echoLabel?: string;
+  /** Required with `expectedEcho`. */
+  echoHelper?: string;
+  /**
+   * The value the echo must match before the confirm button enables. Omitted for
+   * an act whose body carries no echo (the e-mail change, #1848): the dialog then
+   * asks for the step-up factor only.
+   */
+  expectedEcho?: string;
   /**
    * `exact` for slugs, `caseInsensitive` for e-mail addresses — the backend
    * compares the same way (`echo_matches` in `step_up_service.py`).
@@ -54,6 +60,8 @@ interface StepUpConfirmDialogProps {
   /** Shown when Enter is pressed on an empty password field instead of silently doing nothing. */
   passwordRequiredMessage?: string;
   confirmLabel: string;
+  /** `error` for an irreversible act (default), `primary` for a reversible one such as the e-mail change. */
+  confirmColor?: 'error' | 'primary';
   /** The act this dialog confirms; an e-mailed code is requested for this act only (review SEC-003). */
   stepUpAction: StepUpAction;
   /**
@@ -78,7 +86,8 @@ interface StepUpConfirmDialogProps {
  * target — a tenant slug, an account's e-mail — (422) and, for a requester with
  * a local password, carries the current password (401). Too many failed
  * confirmations answer 429 `STEP_UP_LOCKED`, shown as a translated lockout with
- * its minutes.
+ * its minutes. An act whose body carries no echo (the e-mail change, #1848)
+ * omits `expectedEcho`; the dialog then asks for the step-up factor alone.
  *
  * The password field **fails closed**: it is shown unless the provider list
  * positively says the requester is federated-only — a failed or pending load
@@ -121,6 +130,7 @@ export default function StepUpConfirmDialog({
   passwordHelper,
   passwordRequiredMessage,
   confirmLabel,
+  confirmColor = 'error',
   stepUpAction,
   testIdPrefix,
   testIds,
@@ -167,13 +177,15 @@ export default function StepUpConfirmDialog({
   const titleId = `${testIdPrefix}-dialog-title`;
   const descriptionId = `${testIdPrefix}-dialog-description`;
 
-  const trimmedEcho = echo.trim();
-  const expected = expectedEcho.trim();
+  const hasEcho = expectedEcho !== undefined;
+  const trimmedEcho = hasEcho ? echo.trim() : '';
+  const expected = (expectedEcho ?? '').trim();
   const echoMatches =
-    expected.length > 0 &&
-    (echoMatch === 'caseInsensitive'
-      ? trimmedEcho.toLowerCase() === expected.toLowerCase()
-      : trimmedEcho === expected);
+    !hasEcho ||
+    (expected.length > 0 &&
+      (echoMatch === 'caseInsensitive'
+        ? trimmedEcho.toLowerCase() === expected.toLowerCase()
+        : trimmedEcho === expected));
   const canConfirm = echoMatches && factors.isSatisfied(password, code, reauthed) && !pending;
 
   const reset = () => {
@@ -247,22 +259,24 @@ export default function StepUpConfirmDialog({
         <DialogContentText id={descriptionId} sx={{ whiteSpace: 'pre-line' }}>
           {description}
         </DialogContentText>
-        <TextField
-          type={echoInputType}
-          label={echoLabel}
-          helperText={echoHelper}
-          value={echo}
-          onChange={(e) => setEcho(e.target.value)}
-          autoComplete="off"
-          fullWidth
-          required
-          autoFocus
-          disabled={pending}
-          error={echo.length > 0 && !echoMatches}
-          sx={{ mt: 2 }}
-          slotProps={{ htmlInput: { spellCheck: false, autoCapitalize: 'none' } }}
-          data-testid={id('echo')}
-        />
+        {hasEcho && (
+          <TextField
+            type={echoInputType}
+            label={echoLabel}
+            helperText={echoHelper}
+            value={echo}
+            onChange={(e) => setEcho(e.target.value)}
+            autoComplete="off"
+            fullWidth
+            required
+            autoFocus
+            disabled={pending}
+            error={echo.length > 0 && !echoMatches}
+            sx={{ mt: 2 }}
+            slotProps={{ htmlInput: { spellCheck: false, autoCapitalize: 'none' } }}
+            data-testid={id('echo')}
+          />
+        )}
         {requiresPassword && (
           <TextField
             type="password"
@@ -276,6 +290,8 @@ export default function StepUpConfirmDialog({
             autoComplete="current-password"
             fullWidth
             required
+            // Without an echo the password is the first field to type into.
+            autoFocus={!hasEcho}
             disabled={pending}
             sx={{ mt: 2 }}
             data-testid={id('password')}
@@ -335,7 +351,7 @@ export default function StepUpConfirmDialog({
         </Button>
         <Button
           onClick={handleConfirm}
-          color="error"
+          color={confirmColor}
           variant="contained"
           disabled={!canConfirm}
           loading={pending}

@@ -118,6 +118,7 @@ import DashboardSettingsTab from './DashboardSettingsTab';
 import HaPublishSettingsTab from './HaPublishSettingsTab';
 import StorageSettingsTab from './StorageSettingsTab';
 import WeatherProvidersSettingsTab from './WeatherProvidersSettingsTab';
+import EmailChangeCard from './EmailChangeCard';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
@@ -728,7 +729,7 @@ export default function AccountSettingsPage() {
                   fullWidth
                   value={user?.email || ''}
                   disabled
-                  helperText={t('pages.auth.emailReadOnly')}
+                  helperText={isLightMode ? t('pages.auth.emailReadOnly') : t('pages.emailChange.emailFieldHint')}
                   data-testid="profile-email"
                 />
                 <Button variant="contained" onClick={handleProfileSave} sx={{ alignSelf: 'flex-start' }} data-testid="profile-save-btn">
@@ -772,6 +773,9 @@ export default function AccountSettingsPage() {
               </Box>
             </CardContent>
           </Card>
+
+          {/* E-mail change (REQ-025 Art. 16, #1848) — accounts exist in full mode only. */}
+          {!isLightMode && <EmailChangeCard currentEmail={user?.email ?? ''} />}
         </Box>
       )}
 

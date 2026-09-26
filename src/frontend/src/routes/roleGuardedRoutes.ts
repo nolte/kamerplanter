@@ -195,6 +195,9 @@ export const UNGATED_ROUTES: readonly string[] = [
   'login',
   'register',
   'verify-email/:token',
+  // #1848 — public token landings; the token is the only credential, no role involved.
+  'email-change/:token',
+  'email-change/revert/:token',
   'password-reset',
   'password-reset/:token',
   'kiosk',
