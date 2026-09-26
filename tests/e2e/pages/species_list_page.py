@@ -179,7 +179,13 @@ class SpeciesListPage(BasePage):
     def click_create(self) -> None:
         self.wait_for_element_clickable(self.CREATE_BUTTON).click()
         self.wait_for_element_visible(self.CREATE_DIALOG)
-        self.expand_all_fields()
+        self.expand_all_fields(
+            self.CREATE_DIALOG,
+            settled=(
+                By.CSS_SELECTOR,
+                f"{self.CREATE_DIALOG[1]} [data-testid='form-submit-button']",
+            ),
+        )
 
     def fill_scientific_name(self, name: str) -> None:
         el = self.wait_for_element_clickable(
