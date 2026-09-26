@@ -1,6 +1,6 @@
 import logging
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import structlog
@@ -83,8 +83,6 @@ _STANDARD_RECORD_ATTRIBUTES = frozenset(vars(logging.LogRecord("", logging.INFO,
     "message",
     "asctime",
 }
-#: Marks a record the record factory already redacted (msg, args, traceback).
-_REDACTED_MARK = "_kp_redacted"
 #: Keys of Celery's ``extra={'data': context}`` (``celery.app.trace``,
 #: ``celery.worker.strategy``) that carry the task's raw arguments.
 _TASK_ARGUMENT_KEYS = frozenset({"args", "kwargs"})
@@ -139,12 +137,15 @@ def _redact_extra(name: str, value: object, exceptions: list[BaseException]) -> 
                 redacted[key] = _redact_extra(f"{name}.{key}", item, exceptions)
         return redacted
     if isinstance(value, list | tuple):
-        return type(value)(_redact_extra(name, item, exceptions) for item in value)
+        # A plain list or tuple, whatever the original type: a namedtuple's
+        # constructor takes its fields, not one iterable (#1877 review).
+        items = [_redact_extra(name, item, exceptions) for item in value]
+        return items if isinstance(value, list) else tuple(items)
     return value
 
 
 def _redact_extras(record: logging.LogRecord, exceptions: list[BaseException]) -> None:
-    for name in [n for n in vars(record) if n not in _STANDARD_RECORD_ATTRIBUTES and n != _REDACTED_MARK]:
+    for name in [n for n in vars(record) if n not in _STANDARD_RECORD_ATTRIBUTES]:
         if name == "color_message":
             # uvicorn's colour variant of the format string: it is formatted with
             # the record's ORIGINAL args, which a redaction may have dropped.
@@ -161,7 +162,7 @@ def _withhold(record: logging.LogRecord, failure: Exception) -> None:
         record.exc_text = "<traceback withheld>"
     record.exc_info = None
     record.stack_info = None
-    for name in [n for n in vars(record) if n not in _STANDARD_RECORD_ATTRIBUTES and n != _REDACTED_MARK]:
+    for name in [n for n in vars(record) if n not in _STANDARD_RECORD_ATTRIBUTES]:
         delattr(record, name)
 
 
@@ -189,9 +190,11 @@ class _SinkRedactionFilter(logging.Filter):
         if record.name == _UVICORN_ACCESS_LOGGER:
             return True
         try:
+            # Always, also for a record the factory already redacted: the
+            # redaction is idempotent, and ``logging.makeLogRecord`` runs the
+            # factory on an EMPTY record before it loads the real fields (#1877).
             exceptions = _exceptions_in_flight(record)
-            if not getattr(record, _REDACTED_MARK, False):
-                self._redact(record, exceptions)
+            self._redact(record, exceptions)
             _redact_extras(record, exceptions)
         # Fail closed (review SEC-003): a record that cannot be rendered — bad
         # format arguments, an argument whose ``__str__`` raises, a pathological
@@ -211,6 +214,12 @@ class _SinkRedactionFilter(logging.Filter):
         if message != rendered:
             record.msg = message
             record.args = None
+        elif isinstance(record.args, Mapping):
+            # The message did not change, but a mapping argument can carry more
+            # than the format names: Celery hands its whole task context — raw
+            # traceback, task args and kwargs — as the argument AND as
+            # ``extra['data']`` (#1877 review SEC-001).
+            record.args = _redact_extra("args", record.args, exceptions)
 
 
 _URL_FILTER = _UrlRedactionFilter()
@@ -249,7 +258,6 @@ def _redacting_factory(previous: Callable[..., logging.LogRecord]) -> Callable[.
                 _SinkRedactionFilter._redact(record, _exceptions_in_flight(record))
             except Exception as failure:
                 _withhold(record, failure)
-            setattr(record, _REDACTED_MARK, True)
         return record
 
     factory._kp_redacting = True  # type: ignore[attr-defined]

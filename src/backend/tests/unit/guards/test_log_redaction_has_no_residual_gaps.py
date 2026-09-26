@@ -206,3 +206,76 @@ def test_a_structlog_line_logged_at_import_time_is_already_json() -> None:
 
     lines = [line for line in (result.stdout + result.stderr).splitlines() if "import_probe_1832" in line]
     assert lines and lines[-1].startswith("{"), result.stdout + result.stderr
+
+
+# ── review round (#1877) ──────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("process", ["api", "worker"])
+def test_a_record_rebuilt_with_make_log_record_is_redacted_by_the_handler_filter(process: str) -> None:
+    """``makeLogRecord(d)`` runs the factory on an EMPTY record, then loads ``d``: the handler filter must act."""
+    _configure(process)
+    record = logging.makeLogRecord(
+        {"name": "remote", "levelno": logging.ERROR, "levelname": "ERROR", "msg": f"mail {ADDRESS} failed"}
+    )
+
+    logging_config._SINK_FILTER.filter(record)  # noqa: SLF001
+
+    _assert_clean(record.getMessage())
+
+
+def test_a_failed_task_keeps_no_raw_context_in_the_record_arguments() -> None:
+    """Celery passes ONE context dict as the format argument and as ``extra['data']``; both must be redacted."""
+    _configure("worker")
+    records: list[logging.LogRecord] = []
+
+    class _Keep(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    logging.getLogger("celery.app.trace").addHandler(_Keep())
+    probe = _probe_app()
+
+    @probe.task(name="probe.fail_args_1877")
+    def fail(address: str, who: str) -> None:
+        raise ValueError("plain failure")  # a text the message redaction does not change
+
+    tracer = build_tracer(fail.name, fail, app=probe, eager=False, propagate=False, store_errors=False)
+    tracer("task-id-1877", (ADDRESS,), {"who": SUBJECT_KEY}, {"hostname": "probe@host", "id": "task-id-1877"})
+
+    failed = [r for r in records if "raised unexpected" in r.getMessage()]
+    assert failed, [r.getMessage() for r in records]
+    _assert_clean(repr(failed[0].args) + repr(getattr(failed[0], "data", None)))
+
+
+def test_a_named_tuple_in_extra_does_not_withhold_the_line() -> None:
+    from collections import namedtuple
+
+    logging.getLogger().removeHandler(_configure("api"))
+    (root_handler,) = logging.getLogger().handlers[:1]
+    stream = io.StringIO()
+    root_handler.setStream(stream)  # the process's real root handler, which carries the sink filter
+    point = namedtuple("point", "a b")
+
+    logging.getLogger("somelib").warning("hello %s", ADDRESS, extra={"pt": point(1, 2)})
+
+    text = stream.getvalue()
+    assert "hello" in text and "withheld" not in text, text
+    _assert_clean(text)
+
+
+def test_the_settings_error_carries_no_validation_error_as_its_context() -> None:
+    """``raise … from None`` only suppresses the context; a renderer ignoring the flag would print ``input_value``."""
+    probe = (
+        "import importlib, os\n"
+        "s = importlib.import_module('app.config.settings')\n"
+        f"os.environ['ARANGODB_PORT'] = {SECRET_VALUE!r}\n"
+        "try:\n"
+        "    s.load_settings()\n"
+        "except s.SettingsError as e:\n"
+        "    print(repr(e.__context__), repr(e.__cause__))\n"
+    )
+    result = _python(probe)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().splitlines()[-1] == "None None", result.stdout

@@ -908,8 +908,8 @@ def load_settings() -> Settings:
     before any log redaction can run: ``settings`` is built while ``app.main``
     and ``app.tasks`` are still being imported, so the interpreter prints the
     uncaught error to stderr. The replacement names each failing variable and
-    pydantic's reason only, and is raised ``from None`` so the original is not
-    printed as its context.
+    pydantic's reason only, and is raised outside the ``except`` block so the
+    original is not even its context.
     """
     try:
         return Settings()
@@ -918,9 +918,12 @@ def load_settings() -> Settings:
             f"{'.'.join(str(part) for part in error['loc']).upper() or '<settings>'}: {error['msg']} [{error['type']}]"
             for error in exc.errors(include_url=False, include_input=False, include_context=False)
         ]
-        raise SettingsError(
-            f"{len(problems)} invalid setting(s) in the environment (values withheld):\n  " + "\n  ".join(problems)
-        ) from None
+    # Raised outside the ``except`` block: ``from None`` would only *suppress*
+    # the context — ``__context__`` would still hold the ValidationError with
+    # its ``input_value`` for any renderer that ignores the flag (#1877 review).
+    raise SettingsError(
+        f"{len(problems)} invalid setting(s) in the environment (values withheld):\n  " + "\n  ".join(problems)
+    )
 
 
 settings = load_settings()
