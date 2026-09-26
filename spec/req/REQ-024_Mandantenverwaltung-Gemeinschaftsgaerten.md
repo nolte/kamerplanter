@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.8 (Mandant löschen: Verwaltung **und** Leitung plus Step-up, #1791)
+Version: 1.9 (Datenschutzplan-Betreiberentscheidungen Batch 1-3, #1790/#1793 — AK-16/API-Tabelle nachgeführt, neue Gnadenfrist-Anforderung AK-52)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.9 | 2026-09-26 | **Datenschutzplan-Betreiberentscheidungen, Batch 1-3 (#1790, #1793; reine Spec-Änderung, Umsetzung folgt in eigenen PRs).** **#1790:** AK-16 und die API-Tabelle (§API) beschrieben die Mandantenlöschung noch als Soft-Delete (`status: deleted`) — seit #1769 löscht sie über das Mandanten-Löschinventar. Beide auf das tatsächliche/gewollte Verhalten nachgeführt (AK-44d beschrieb das bereits korrekt). **Q-O2 (#1790):** neue, noch nicht umgesetzte Anforderung **AK-52** — die Mandantenlöschung erhält eine Gnadenfrist analog zur 90-Tage-Frist der Kontolöschung (NFR-011 R-01), statt sofort zu löschen. **Q-R4 (#1793):** `tenant_erasure_records` bekommt eine Aufbewahrungsfrist, siehe NFR-011 R-06a. |
 | 1.8 | 2026-09-25 | **Mandant löschen verlangt beide Achsen und einen Step-up (#1791).** Seit #1769 löscht die Mandantenlöschung jede mandantenbezogene Collection unwiderruflich. Bis v1.7 hing sie allein an **Verwaltung** — eine Schriftführerin mit der Rolle Beobachter konnte damit einen ganzen Gemeinschaftsgarten mit einer Anfrage löschen. Neu: **Verwaltung und Leitung** (Schnittmenge, keine Vermischung der Achsen — die Irreversibilitätsgrenze aus REQ-049 §2.3 gilt auch hier), dazu ein **Step-up** im Anfragekörper: der Kurzname des Mandanten wird zurückgetippt, und ein Konto mit lokalem Passwort gibt es erneut ein; ein nur föderiert angemeldetes Konto bestätigt über den Kurznamen (Muster der Kontolöschung, REQ-394). Eigentümerschaft (`owner_user_key`) ist kein Recht und spielt keine Rolle. Dienstkonten und API-Schlüssel (auch die eines menschlichen Kontos) löschen nie einen Mandanten. Der Plattform-Admin-Weg (`DELETE /admin/platform/tenants/{key}`) verlangt denselben Step-up. Geprüft wird im Dienst, nicht nur am Router, sodass beide Wege dieselbe Regel haben; der Löschnachweis hält `step_up` und den Anfragenden als salzgehashte Log-Referenz fest. §1a.2, Rollentabelle §1, API §5 und **AK-44d** nachgeführt. |
 | 1.7 | 2026-08-16 | **Nachführung auf REQ-049 v1.4 — die zuweisungsbasierte Write-Kontrolle ist weg.** v1.6 hatte die *Spaltenüberschriften* der Matrix auf das Zwei-Achsen-Vokabular umgestellt, die *Zellinhalte* aber nicht: §1a.1 trug weiterhin `U own+community`, `U own` und `U assigned+own`, §1.1 Szenario 2 beschrieb Parzellen als Schreibgrenze, und §1a.5 stand als Historie im Dokument. Genau das hat REQ-049 §3.5 abgeschafft — die Standort-Zuweisung ist Koordination, kein Recht — und REQ-049 §3.2 führt „Zugewiesene" als Rechteangabe seither unter den **verbotenen Begriffen**. Ein Leser, der nur REQ-024 kannte, baute die falsche Regel; der Code (`MembershipEngine`) tat es nie. Nachgeführt: Rollentabelle §1 (Zwei-Achsen-Modell, `admin` → `lead` + Zusatzberechtigungen), Matrix §1a.1 (alle Zellen auf reine Rangprüfung, Löschen durchgängig 🔒 Leitung), §1a.5 auf einen Grabstein reduziert, §1a.6 auf die drei **tatsächlich gebauten** Dependencies (`require_permission(resource, action)`, `require_tenant_role`, `require_admin_scope`) statt des nie so gebauten `ROLE_PERMISSIONS`-Dicts, Szenarien §1.1, Datenmodell §2, AQL, Engine §3.1, Middleware §3.3, Frontend §4.4/§4.5, Seeds §5, Abnahmekriterien §6 und Scope §8. **Verhaltensänderung gegenüber v1.6:** Das Löschen von Pflanzenfotos war für Gärtner als `D own+community` ausgewiesen und ist jetzt Leitung — die Irreversibilitätsgrenze kennt keine Foto-Ausnahme. |
 | 1.6 | 2026-07-29 | **Zwei-Achsen-Rollenmodell (REQ-049, Issue #780):** Die Permission-Matrix (§1a) folgt jetzt dem verbindlichen Vokabular aus REQ-049. Der Wert `admin` ist stillgelegt — er stand in dieser Matrix überwiegend für „darf löschen" (jetzt fachliche Rolle **Leitung**) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt Zusatzberechtigung **Verwaltung**). §1a.2 hängt vollständig an der Verwaltung statt an einem Rang; technische Konfiguration innerhalb des Mandanten hängt an der Zusatzberechtigung **Technik**. §1a.4 hält fest, dass die Plattform-Rolle über `lead` im Mandanten `platform` abgebildet wird. Die „letzter Admin"-Regel wird zu INV-1 („letzte Verwaltung") und greift auch beim Herabstufen, nicht nur beim Entfernen. Migration `v0032` bildet jeden Bestandswert verlustfrei ab. |
@@ -1088,7 +1089,7 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 | POST | `/tenants` | Neuen Org-Tenant erstellen | Ja |
 | GET | `/tenants/{slug}` | Tenant-Details abrufen | Alle Rollen |
 | PATCH | `/tenants/{slug}` | Tenant aktualisieren | Verwaltung |
-| DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete); Körper `{confirm_slug, password?}` | Verwaltung **und** Leitung + Step-up (§1a.2) |
+| DELETE | `/tenants/{slug}` | Tenant löschen (Erasure über das Mandanten-Löschinventar, #1769 — **kein** Soft-Delete, Nachführung #1790); Körper `{confirm_slug, password?}` | Verwaltung **und** Leitung + Step-up (§1a.2) |
 
 **Router: `/api/v1/tenants/{slug}/members`** — Mitgliederverwaltung:
 
@@ -1371,7 +1372,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-13 | Die Leitung sieht, bearbeitet **und löscht** alle Ressourcen des Mandanten | Integration |
 | AK-14 | Ressourcen eines Tenants sind für Nicht-Mitglieder unsichtbar (kein Cross-Tenant-Zugriff) | Integration |
 | AK-15 | Eine `LocationAssignment` außerhalb von `valid_from`/`valid_until` verschwindet aus Anzeige und Vorsortierung und verändert **keine** Berechtigung (siehe AK-43) | Unit |
-| AK-16 | Tenant-Löschung (Soft-Delete) setzt `status: deleted` und deaktiviert alle Memberships | Integration |
+| AK-16 | **Tenant-Löschung läuft über das Mandanten-Löschinventar, kein Soft-Delete (nachgeführt #1790, war bis v1.8 als Soft-Delete beschrieben):** Jede mandantenbezogene Collection wird über die deklarierte Inventarliste (#1769) gelöscht, aufbewahrungspflichtige Zeilen (R-16..R-18) bleiben bis zu ihrem ursprünglichen Fristende pseudonymisiert erhalten (NFR-011 §2.3, Q-R1), alle Memberships werden sofort deaktiviert, und ein `tenant_erasure_records`-Nachweis wird angelegt. Es gibt kein `status: deleted`-Feld auf `Tenant` | Integration |
 | AK-17 | Task-Zuweisung (`assigned_to`) im Tenant-Kontext: nur Mitglieder des Tenants wählbar | Integration |
 | AK-18 | Persönlicher Tenant ist für andere User unsichtbar | Integration |
 <!-- Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
@@ -1417,6 +1418,15 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-50 | Der Platform-Viewer darf Mitgliederlisten fremder Mandanten **lesen** — das ist die einzige Cross-Tenant-Leseerlaubnis der Rolle | Unit |
 | AK-51 | Der Platform-Viewer kann weder einen Notfall-Admin ernennen noch Mandanten oder Nutzer suspendieren | Unit |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.4 -->
+<!-- Quelle: #1790, Betreiberentscheidung Q-O2 -->
+| AK-52 | **Gnadenfrist für die Mandantenlöschung (Q-O2, #1790):** `DELETE /tenants/{slug}` markiert den Mandanten zur Löschung vor und führt das Mandanten-Löschinventar erst nach einer Gnadenfrist analog zu R-01 (NFR-011, Standard 90 Tage, konfigurierbar) tatsächlich aus; innerhalb der Frist kann ein Mitglied mit Verwaltung **und** Leitung die Löschung widerrufen. | Integration |
+
+    !!! warning "Noch nicht implementiert"
+        `TenantService.delete_tenant` löscht heute sofort, ohne Gnadenfrist und ohne
+        Widerrufsmöglichkeit. Diese Anforderung ist eine bewusste Betreiberentscheidung
+        (2026-09-26) für ein künftiges Implementierungs-Issue, keine Beschreibung des
+        Ist-Zustands.
+<!-- /Quelle: #1790 -->
 
 ### Frontend-Kriterien:
 
