@@ -3164,7 +3164,10 @@ class BasePage:
 
         def _expanded(_driver: WebDriver) -> bool:
             current = self.driver.find_elements(*toggle_locator)
-            return bool(current) and current[0].get_attribute("aria-expanded") == "true"
+            # A toggle that disappeared means the level now shows every field on its
+            # own (an expert level that arrived after the dialog opened): the effect
+            # this helper exists for, reached another way (/code-review of #1901).
+            return not current or current[0].get_attribute("aria-expanded") == "true"
 
         try:
             self.poll(timeout).until(_expanded)

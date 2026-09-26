@@ -65,8 +65,14 @@ class _Driver:
     """A dialog with a submit button and (optionally) a toggle whose click may or may not work."""
 
     def __init__(
-        self, *, toggle: bool = True, expanded: str = "false", click_works: bool = True
+        self,
+        *,
+        toggle: bool = True,
+        expanded: str = "false",
+        click_works: bool = True,
+        vanish_on_click: bool = False,
     ) -> None:
+        self.vanish_on_click = vanish_on_click
         self.toggle = toggle
         self.expanded = expanded
         self.click_works = click_works
@@ -90,7 +96,9 @@ class _Driver:
     def execute_script(self, script: str, *args: object) -> None:
         if ".click()" in script:
             self.clicks += 1
-            if self.click_works:
+            if self.vanish_on_click:
+                self.toggle = False
+            elif self.click_works:
                 self.expanded = "false" if self.expanded == "true" else "true"
 
 
@@ -139,3 +147,12 @@ def test_a_form_without_a_toggle_needs_no_click() -> None:
 
     assert driver.clicks == 0
     assert driver.settled_waits == [SETTLED], "absence may only be read once the form settled"
+
+
+def test_a_toggle_that_disappears_after_the_click_counts_as_expanded() -> None:
+    """The dialog renders the toggle only below ``expert``; a level arriving late removes it — all fields show."""
+    driver = _Driver(expanded="false", vanish_on_click=True)
+
+    _page(driver).expand_all_fields(FORM, settled=SETTLED, timeout=1)
+
+    assert driver.clicks == 1
