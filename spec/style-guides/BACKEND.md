@@ -942,7 +942,7 @@ _PASSWORD = "-".join(["probe", "value", "only"])
 _FERNET = "<44 Zeichen URL-safe Base64, endend auf =>"
 ```
 
-Gilt auch für Compose-Dateien und Fixtures: Ein Laufzeit-Stack bekommt seine Schlüssel pro Lauf erzeugt (`scripts/e2e_fernet_key.py` → `E2E_FERNET_KEY`), nicht eingecheckt. Klar erkennbare Platzhalter (`kp_live_xxxx…`, `e2e-test-password`) sind erlaubt, weil sie nicht das Format eines echten Schlüssels haben. `tests/unit/guards/test_no_committed_fernet_key.py` verweigert jeden echten Fernet-Key im Baum außerhalb einer begründeten Allow-List; die übrigen Formen (API-Key, JWT, URL-Passwort) sind noch nicht maschinell erzwungen (#1860).
+Gilt auch für Compose-Dateien und Fixtures: Ein Laufzeit-Stack bekommt seine Schlüssel pro Lauf erzeugt (`scripts/e2e_fernet_key.py` → `E2E_FERNET_KEY`), nicht eingecheckt. Klar erkennbare Platzhalter (`kp_live_xxxx…`, `e2e-test-password`) sind erlaubt, weil sie nicht das Format eines echten Schlüssels haben. `tests/unit/guards/test_no_committed_fernet_key.py` verweigert jeden echten Fernet-Key im Baum außerhalb einer begründeten Allow-List; `tests/unit/guards/test_no_committed_credential_shapes.py` tut dasselbe für `kp_`-API-Keys, JWTs und Passwörter in einer URL (#1860). Als Platzhalter gilt dort ein Wert mit Template-Markierung (`${…}`, `{…}`, `[…]`, `<…>`); bei Key und JWT außerdem ein Wert mit einer Entropie unter 3 Bit pro Zeichen (`kp_live_xxxx…`), bei einem URL-Passwort ein Platzhalter-Wort, auch mit Zahl (`pass`, `password`, `pw-1795`), oder ein wiederholtes Zeichen. Nicht maschinell erzwungen bleibt das `password=…`-Literal außerhalb einer URL.
 
 ---
 
