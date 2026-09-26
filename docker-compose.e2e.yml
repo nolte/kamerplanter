@@ -91,6 +91,7 @@ services:
       # and the startup gate refuses to start — loud, not a plaintext fallback.
       FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -129,6 +130,7 @@ services:
       # as a configuration error. Values identical to `backend`'s; test-only.
       FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -308,6 +310,7 @@ services:
       # and the startup gate refuses to start — loud, not a plaintext fallback.
       FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
       # Both limits are per **client IP** and sized for production, where one
@@ -383,6 +386,7 @@ services:
       # the API encrypted. Values identical to backend-full's; test-only.
       FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
     # The API's object storage, at the API's path (see backend-full): export

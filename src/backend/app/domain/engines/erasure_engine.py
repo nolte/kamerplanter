@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import re
 
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH
 from app.domain.models.privacy import (
     AnonymizationRule,
     ErasureExclusion,
@@ -924,7 +925,8 @@ class ErasureEngine:
         account, and the erasure record that proves it (R-06). Log lines on the
         privacy, auth, retention and storage paths therefore name the subject by
         this reference: ``sub_`` + 16 hex chars of an HMAC-SHA256 over the
-        account key, keyed with the tombstone salt and the purpose label
+        account key, keyed with the salt the caller passes — ``LOG_PSEUDONYM_SALT``
+        since #1812, a rotatable salt of its own — and the purpose label
         ``log-subject``. The lines of one subject stay correlatable with each
         other, and name nobody.
 
@@ -942,7 +944,7 @@ class ErasureEngine:
         must not turn a log line into an error, and must not fall back to the
         plaintext key either: it yields the constant ``anon_unavailable``.
         """
-        if not salt or len(salt) < 32:
+        if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
             return UNAVAILABLE_LOG_SUBJECT
         digest = hmac.new(salt.encode(), f"log-subject:{user_key}".encode(), hashlib.sha256).hexdigest()
         return f"{LOG_SUBJECT_PREFIX}{digest[:16]}"

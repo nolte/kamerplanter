@@ -70,6 +70,17 @@ PASSWORD = "device-pairing-password-2024"
 IP = "203.0.113.7"
 #: Salt of the subject reference the audit lines carry (#1773).
 TOMBSTONE_SALT = "pairing-test-salt-not-a-secret-0123456789"
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(autouse=True)
+def _log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1812: log pseudonyms are keyed with LOG_PSEUDONYM_SALT, not with the tombstone salt the services get."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+
+
 OTHER_IP = "198.51.100.9"
 USER_AGENT = "Kamerplanter/1.0 (Android 15)"
 SECRET_KEY = "test-secret-key-for-unit-tests-32chars!"
@@ -593,7 +604,7 @@ class TestAuditEvents:
         created = _events(logs, "device_pairing_created")
         assert len(created) == 1
         # #1773: the account by its salted reference, never the plaintext key.
-        assert created[0]["subject"] == ErasureEngine.log_subject(USER_KEY, TOMBSTONE_SALT)
+        assert created[0]["subject"] == ErasureEngine.log_subject(USER_KEY, LOG_SALT)
         assert "user_key" not in created[0]
         # #1781: the NFR-011 R-03 prefix, never the full address.
         assert created[0]["ip_prefix"] == "203.0.113.0"
@@ -612,7 +623,7 @@ class TestAuditEvents:
         redeemed = _events(logs, "device_pairing_redeemed")
         assert len(redeemed) == 1
         # #1773: the account by its salted reference, never the plaintext key.
-        assert redeemed[0]["subject"] == ErasureEngine.log_subject(USER_KEY, TOMBSTONE_SALT)
+        assert redeemed[0]["subject"] == ErasureEngine.log_subject(USER_KEY, LOG_SALT)
         assert "user_key" not in redeemed[0]
         # #1781: the NFR-011 R-03 prefix, never the full address.
         assert redeemed[0]["ip_prefix"] == "203.0.113.0"

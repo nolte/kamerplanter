@@ -34,7 +34,7 @@ _SALT = "s" * 40
 
 @pytest.fixture
 def salted(monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", _SALT)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", _SALT)
     return _SALT
 
 
@@ -52,14 +52,14 @@ def test_log_subject_of_no_key_is_none(salted: str, empty: str | None) -> None:
 
 
 def test_log_subject_without_salt_is_the_unavailable_constant(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", "")
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "")
     assert log_subject("12345") == UNAVAILABLE_LOG_SUBJECT
 
 
 def test_log_subject_reads_the_salt_at_call_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", "a" * 32)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "a" * 32)
     first = log_subject("12345")
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", "b" * 32)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "b" * 32)
     assert log_subject("12345") != first
 
 
@@ -409,3 +409,20 @@ def test_loggable_text_keeps_a_rendered_json_line_valid(salted: str, value: str)
     decoded = json.loads(masked)["detail"]
     assert "alice@example.org" not in masked
     assert decoded == value.replace("alice@example.org", f"<email:{email_digest('alice@example.org')}>")
+
+
+def test_log_pseudonyms_are_keyed_with_the_log_salt_not_the_tombstone_salt(monkeypatch) -> None:
+    """#1812: the tombstone salt can never rotate; the log pseudonyms follow the rotatable log salt only."""
+    from app.common.decoys import email_digest
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "L" * 32)
+    monkeypatch.setattr(settings, "erasure_tombstone_salt", "T" * 32)
+    subject, digest = log_subject("12345"), email_digest("mira@example.org")
+
+    monkeypatch.setattr(settings, "erasure_tombstone_salt", "U" * 32)
+    assert (log_subject("12345"), email_digest("mira@example.org")) == (subject, digest)
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "M" * 32)
+    assert log_subject("12345") != subject
+    assert email_digest("mira@example.org") != digest
+    assert subject == ErasureEngine.log_subject("12345", "L" * 32)

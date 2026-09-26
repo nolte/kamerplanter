@@ -72,11 +72,12 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
 
-<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, log_pseudonym_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets); src/backend/app/tasks/__init__.py (_refuse_worker_start_without_log_pseudonym_salt) -->
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hashing, NFR-011 §4). **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
+| `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hash, erasure request key and tenant slug digest, NFR-011 §4). This value must **never change once accounts have been erased**. **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
+| `LOG_PSEUDONYM_SALT` | — | Yes | High-entropy secret (at least 32 characters) that keys only the log pseudonyms: the `subject=` references (`sub_…`) and the `email_sha256` digests on log lines, plus the `requested_by_subject` provenance field on erasure and tenant-erasure records (NFR-011 §3.4). Kept separate from `ERASURE_TOMBSTONE_SALT` because — unlike the tombstone salt — this value may be rotated. **The startup gate refuses to start in production** for both the backend **and** the Celery worker if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`; should differ from `ERASURE_TOMBSTONE_SALT` (not enforced). |
 | `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | No | Name of the data controller, shown in export and disclosure documents. |
 | `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | No | Contact email of the controller for GDPR requests. |
 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` | `90` | No | Grace period before an account marked for deletion (soft-deleted) is permanently (hard-)deleted (NFR-011 R-01). Minimum: `1`. The older name `PRIVACY_HARD_DELETE_AFTER_DAYS` is still accepted; if both are set, the new name wins. |
@@ -91,10 +92,15 @@ For `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOU
 documented but had no effect — the code used fixed values. They now actually work and
 remain valid as aliases in addition.
 
-!!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
-    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. The same applies to the Celery worker: it keys the account references and email digests in its log lines with this salt and exits at startup when the salt is missing. Give it the same value and the same `DEBUG` setting as the backend.
+!!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production, must never change"
+    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. This salt keys the tombstone hash of erased accounts, the erasure request key and the tenant slug digest — **never** the log pseudonyms (that is `LOG_PSEUDONYM_SALT`'s job). It must **never change once accounts have been erased**, or existing tombstones become unreadable. The Celery worker also exits at start-up when the salt is missing or too short; give it the same value and the same `DEBUG` setting as the backend.
 
     With `DEBUG=true` the backend starts without a valid value, for example in the local development stack. Account erasure still refuses every run before it touches anything: when a platform admin deletes an account, the backend answers `503`. An Art. 17 erasure request is still accepted, but the daily run does not carry it out; the request stays open as `partially_completed` until you set a valid salt. For a full list of unconditionally required secrets, see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+!!! danger "LOG_PSEUDONYM_SALT — a boot blocker in production, same value for backend and worker"
+    `LOG_PSEUDONYM_SALT` is also **not an optional feature flag**: both the backend **and** the Celery worker refuse to start in production (`DEBUG=false`) when this value is missing or shorter than 32 characters. It keys only the log pseudonyms — the `subject=` reference and the `email_sha256` digest on log lines, plus the `requested_by_subject` provenance field on erasure and tenant-erasure records. Give both processes the same value. With `DEBUG=true` both start without a valid value, but account and tenant erasure then refuse every run (`503`), because their proof would otherwise carry no reference to the account that triggered it.
+
+    **Rotation.** Unlike `ERASURE_TOMBSTONE_SALT`, this salt may be changed: set the new value in both the backend and the worker (Kubernetes secret `kamerplanter-secrets`, or `.env` for Docker Compose) and restart both. After that, log lines and `requested_by_subject` values from before the change no longer correlate with later ones — someone holding only the new salt cannot map old references to an account. Which admin account triggered a stored erasure can then only be recomputed with the old salt — keep it safely stored for as long as the erasure proof is kept (one year) if that attribution must stay verifiable. No lookup depends on the log salt, so rotation has no other side effects. The value should differ from `ERASURE_TOMBSTONE_SALT`; this is not enforced.
 
 ---
 
@@ -705,10 +711,11 @@ ARANGODB_PASSWORD=secure-root-password
 # Cache / Queue
 REDIS_URL=redis://valkey:6379/0
 
-# Security (all three are mandatory secrets, startup gate in production)
+# Security (all four are mandatory secrets, startup gate in production)
 JWT_SECRET_KEY=generate-with-openssl-rand-hex-32
 FERNET_KEY=generate-with-Fernet.generate_key
 ERASURE_TOMBSTONE_SALT=generate-with-openssl-rand-hex-32
+LOG_PSEUDONYM_SALT=generate-with-openssl-rand-hex-32
 REQUIRE_EMAIL_VERIFICATION=false
 
 # CORS

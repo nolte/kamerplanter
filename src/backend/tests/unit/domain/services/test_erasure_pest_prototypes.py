@@ -59,6 +59,14 @@ TENANT = "t1759"
 SALT = "s" * 32
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 class _PestImageRepo:
     """In-memory ``pest_image_contributions``: the reads and deletes the erasure uses."""
 

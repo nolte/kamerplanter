@@ -45,6 +45,14 @@ TENANT = "tenant1753"
 SALT = "s" * 32
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 @pytest.fixture
 def inference(monkeypatch) -> FakeInferenceService:
     """The inference-service enabled, with the subject's, another user's and curated rows."""

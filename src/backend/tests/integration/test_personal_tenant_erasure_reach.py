@@ -59,6 +59,24 @@ from tests.support.tenant_erasure_wiring import tenant_erasure_service
 TEST_DATABASE = run_database_name("personal_tenant_erasure_reach")
 #: NFR-011 §4 wants >= 32 characters. Synthetic, test-only.
 SALT = "personal-tenant-salt-not-a-secret-0123456789"
+
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _log_pseudonym_salt():
+    """#1812: ``requested_by_subject`` is a log pseudonym, keyed with LOG_PSEUDONYM_SALT.
+
+    Module-scoped: the erasure runs in module-scoped fixtures, before any
+    function-scoped fixture could set the salt.
+    """
+    from app.config.settings import settings
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+        yield
+
+
 ADMIN = "platform-admin"
 COMPANION = "companion-user"
 #: A member whose own erasure is pending: its account is deactivated (#1788 review GDPR-01).
@@ -305,7 +323,7 @@ def test_the_tenant_erasure_record_and_the_erasure_request_prove_it(database, er
     assert record is not None
     assert (record["status"], record["origin"], record["unreached"]) == ("completed", "account_erasure", [])
     assert record["step_up"] == "account_erasure_no_interactive_step_up"
-    assert record["requested_by_subject"] == ErasureEngine.log_subject(run.subject, SALT)
+    assert record["requested_by_subject"] == ErasureEngine.log_subject(run.subject, LOG_SALT)
     assert record["slug_digest"] and run.subject not in str(record.values())
 
     request = _request(database, run.subject)
