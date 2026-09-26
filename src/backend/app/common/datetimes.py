@@ -78,7 +78,7 @@ def replace_year[T: (date, datetime)](value: T, year: int) -> T:
     the month it was entered for.
 
     Every year shift in ``app/`` goes through here; the guard
-    ``tests/unit/guards/test_aql_timestamp_comparisons_are_instants.py`` refuses
+    ``tests/unit/guards/test_year_shifts_survive_29_february.py`` refuses
     a bare ``.replace(year=...)`` anywhere else.
     """
     try:
