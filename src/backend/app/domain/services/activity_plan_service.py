@@ -1,4 +1,4 @@
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_read_access
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.interfaces.activity_repository import IActivityRepository
@@ -176,18 +176,43 @@ class ActivityPlanService:
         generated when neither exists is the **shared** template, not a private
         plan: reading a plan is not a write, and it is the write that forks.
         """
+        species_owner = self._readable_species_owner(species_key, tenant_key)
         existing = self._task_repo.get_auto_generated_workflow_for_species(
             species_key,
             tenant_key=tenant_key,
         )
         if existing:
             return existing
+        # A plan derived from a *global* species is the shared template. One
+        # derived from a private (own or granted) species is the caller's: a
+        # shared template would carry the private species' name to every tenant
+        # (#1871 B10).
         return self.generate_plan(
             species_key=species_key,
             lifecycle_key=lifecycle_key,
             growth_system=growth_system,
             skill_level=skill_level,
+            tenant_key="" if species_owner == "" else tenant_key,
         )
+
+    def _readable_species_owner(self, species_key: str, tenant_key: str) -> str:
+        """The species' owner if ``tenant_key`` may read it — global, own or granted (#1092) — else 404.
+
+        The generate routes resolved ``species_key`` unscoped, so another
+        tenant's private species produced a plan (#1871 B10). With no tenant in
+        play (an internal caller) the species is only required to exist.
+        """
+        if self._species_repo is None:
+            return ""
+        species = self._species_repo.get_or_raise(species_key)
+        owner = getattr(species, "tenant_key", "") or ""
+        if (
+            tenant_key
+            and owner not in ("", tenant_key)
+            and not self._species_repo.is_granted_to(species_key, tenant_key)
+        ):
+            raise NotFoundError("Species", species_key)
+        return owner
 
     def regenerate_for_species(
         self,
@@ -215,6 +240,7 @@ class ActivityPlanService:
         than a route) this is the pre-#1003 behaviour unchanged: the shared plan
         is replaced in place.
         """
+        self._readable_species_owner(species_key, tenant_key)
         existing = self._task_repo.get_auto_generated_workflow_for_species(
             species_key,
             tenant_key=tenant_key,

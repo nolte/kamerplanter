@@ -17,6 +17,8 @@ def _make_species():
     m.common_names = ["Tomato"]
     m.scientific_name = "Solanum lycopersicum"
     m.family_key = None
+    # A global seed species (#1871 B10 generates a shared plan only for those).
+    m.tenant_key = ""
     return m
 
 
