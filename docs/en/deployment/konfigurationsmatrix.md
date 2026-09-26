@@ -201,7 +201,7 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 |---|---|---|---|---|---|
 | Email channel (console, development) | Backend | `EMAIL_ADAPTER=console` (default) | — | — | No |
 | Email channel (SMTP) | Backend + external SMTP server | `EMAIL_ADAPTER=smtp` + `SMTP_HOST`/`SMTP_USERNAME`/`SMTP_PASSWORD` | `SMTP_PASSWORD` | — | No |
-| Email channel (Resend) | Backend | `EMAIL_ADAPTER=resend` | API key via REST configuration | — | No |
+| Email channel (Resend) | Backend | `EMAIL_ADAPTER=resend` + `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`) | `RESEND_API_KEY` | — | Yes — refuses to start without `RESEND_API_KEY` once `EMAIL_ADAPTER=resend` is set (Pydantic validation while loading the configuration, independent of `DEBUG`; not an `insecure_default_secrets()` check) |
 | Browser push (Web Push / VAPID) | Backend | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` + `VAPID_CONTACT_EMAIL` all three set | `VAPID_PRIVATE_KEY` | — | No |
 | Home Assistant channel (persistent notifications, mobile push, TTS) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` set | `HA_ACCESS_TOKEN` | — | No |
 | Apprise channel (multi-backend push) | Backend image | Always active as long as the optional `apprise` Python package is installed in the image (no env switch) | — | larger backend image | No |

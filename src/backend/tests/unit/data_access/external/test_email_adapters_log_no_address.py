@@ -170,7 +170,7 @@ class TestConsoleAdapterLinks:
 class TestConsoleAdapterStartupWarning:
     @pytest.mark.parametrize(
         ("adapter", "debug", "warns"),
-        [("console", False, True), ("resend", False, True), ("console", True, False), ("smtp", False, False)],
+        [("console", False, True), ("resend", False, False), ("console", True, False), ("smtp", False, False)],
     )
     def test_the_api_warns_when_mail_goes_to_the_console_outside_debug(
         self, monkeypatch: pytest.MonkeyPatch, adapter: str, debug: bool, warns: bool
