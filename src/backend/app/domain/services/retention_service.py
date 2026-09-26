@@ -213,17 +213,6 @@ class RetentionService:
         """Return the expiry time before which an expired invitation is hard-deleted (NFR-011 R-12, #1800)."""
         return now.astimezone(UTC) - timedelta(days=self._invitation_retention_days)
 
-    def email_change_document_purge_cutoff(self, now: datetime) -> datetime:
-        """Return the ``confirmed_at`` before which a confirmed change is fully hard-deleted (NFR-011 R-07b, #1800).
-
-        Recomputed from ``confirmed_at`` with the same period as
-        :meth:`email_change_revert_expires_at` rather than read back from the
-        stored ``revert_expires_at``: R-07a nulls that field once its window
-        closes, and R-07b must not depend on R-07a's own write having already
-        run in the same beat cycle.
-        """
-        return now.astimezone(UTC) - timedelta(days=self._email_change_revert_days)
-
     # ── Predicate helpers ────────────────────────────────────────
 
     def is_export_expired(

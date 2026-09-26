@@ -130,14 +130,29 @@ class TestAnonymizeConsentIps:
     async def test_every_selected_record_is_anonymised_and_stamped(self):
         repo = MagicMock()
         repo.list_unanonymized_ips_before.return_value = [("c1", "192.0.2.42"), ("c2", "2001:db8:85a3:1::1")]
+        repo.mark_ip_anonymized.return_value = True
         service = _service(repo)
 
         count = await service.anonymize_consent_ips(now=NOW)
 
         assert count == 2
         written = [call.args for call in repo.mark_ip_anonymized.call_args_list]
-        assert [(key, ip) for key, ip, _ in written] == [("c1", "192.0.2.0"), ("c2", "2001:db8:85a3::")]
-        assert len({stamp for _, _, stamp in written}) == 1
+        assert [(key, previous_ip, anon_ip) for key, previous_ip, anon_ip, _ in written] == [
+            ("c1", "192.0.2.42", "192.0.2.0"),
+            ("c2", "2001:db8:85a3:1::1", "2001:db8:85a3::"),
+        ]
+        assert len({stamp for _, _, _, stamp in written}) == 1
+
+    async def test_a_concurrent_regrant_is_not_counted(self):
+        """#1800 security review (SEC-003): a write the repository skipped (race) must not inflate the count."""
+        repo = MagicMock()
+        repo.list_unanonymized_ips_before.return_value = [("c1", "192.0.2.42"), ("c2", "2001:db8:85a3:1::1")]
+        repo.mark_ip_anonymized.side_effect = [False, True]
+        service = _service(repo)
+
+        count = await service.anonymize_consent_ips(now=NOW)
+
+        assert count == 1
 
     async def test_the_cutoff_is_the_configured_days_before_now(self):
         repo = MagicMock()

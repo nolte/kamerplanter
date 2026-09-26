@@ -5,14 +5,15 @@ Until #1800, ``retention.expire_email_change_requests`` (via
 request's status to ``expired`` (R-07) and nulled the R-07a revert fields of a
 confirmed one — the rest of both documents (``new_email``, ``requested_at``,
 ``confirmed_at``, …) stayed forever. This exercises the two hard-deletes the
-same beat now also runs, and that they use the cutoff each rule specifies
-rather than a shared one. The actual AQL is measured against real ArangoDB in
+same beat now also runs: R-07 against ``expires_at``, R-07b against the
+*stored* R-07a revert window rather than a value the service recomputes. The
+actual AQL is measured against real ArangoDB in
 ``tests/integration/test_retention_instant_comparisons.py``.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from app.domain.engines.consent_engine import ConsentEngine
@@ -78,30 +79,38 @@ class TestR07HardDeletesUnconfirmedRequests:
 
 
 class TestR07bHardDeletesConfirmedRequestsPastTheRevertWindow:
-    async def test_delegates_to_the_repository_with_the_revert_cutoff(self):
+    """#1800 security review (SEC-002): R-07b reads the *stored* window, never recomputes one.
+
+    An earlier version passed ``now - RETENTION_EMAIL_CHANGE_REVERT_DAYS``
+    compared against ``confirmed_at`` — lowering that setting later would have
+    retroactively shrunk a window already granted at confirmation time,
+    hard-deleting a confirmed change while its mailed revert link still
+    worked. The repository now decides from the row's own
+    ``revert_token_hash`` / ``revert_expires_at`` (:meth:`ArangoEmailChangeRepository.
+    delete_confirmed_past_revert_window`); the service's job is only to hand
+    over ``now``, unmodified by the currently configured period.
+    """
+
+    async def test_delegates_to_the_repository_with_the_current_instant(self):
         repo = _repo()
         service = _service(repo, retention=RetentionService(email_change_revert_days=7))
 
         await service.expire_email_change_requests(now=NOW)
 
-        (cutoff_arg,) = repo.delete_confirmed_past_revert_window.call_args.args
-        assert datetime.fromisoformat(cutoff_arg) == NOW - timedelta(days=7)
+        repo.delete_confirmed_past_revert_window.assert_called_once_with(NOW.isoformat())
 
-    async def test_the_cutoff_is_independent_of_r07a_having_run(self):
-        """R-07b recomputes from ``confirmed_at`` rather than reading the R-07a-cleared ``revert_expires_at``.
+    async def test_the_argument_does_not_depend_on_the_revert_days_setting(self):
+        """A different RETENTION_EMAIL_CHANGE_REVERT_DAYS must not change what is handed to the repository.
 
-        Both repository calls happen in the same beat run regardless of order;
-        this pins that R-07b's cutoff computation does not depend on
-        ``close_revert_windows`` (R-07a) having executed first.
+        Only the repository's own stored-window selector may decide what is
+        due; the service passing anything setting-derived would reopen SEC-002.
         """
         repo = _repo()
         service = _service(repo, retention=RetentionService(email_change_revert_days=3))
 
         await service.expire_email_change_requests(now=NOW)
 
-        (cutoff_arg,) = repo.delete_confirmed_past_revert_window.call_args.args
-        assert datetime.fromisoformat(cutoff_arg) == NOW - timedelta(days=3)
-        repo.close_revert_windows.assert_called_once_with(NOW.isoformat())
+        repo.delete_confirmed_past_revert_window.assert_called_once_with(NOW.isoformat())
 
 
 class TestTheBeatLogsWhenAnyOfTheFourStepsDidSomething:

@@ -471,20 +471,27 @@ SELECTORS: tuple[Selector, ...] = (
     Selector(
         name="email_change.delete_confirmed_past_revert_window",
         collection=col.EMAIL_CHANGE_REQUESTS,
+        # revert_token_hash present, like a real confirmed row still holding one
+        # (#1800 security review, SEC-002): the selector reads revert_expires_at
+        # off the row, never recomputes a window from confirmed_at.
         base={
             "user_key": USER,
             "new_email": "new@example.com",
             "verification_token_hash": "hash-not-a-secret-r07b",
             "status": "confirmed",
+            "revert_token_hash": "revert-hash-not-a-secret-r07b",
         },
-        field="confirmed_at",
+        field="revert_expires_at",
         selects="before",
         run=_removed_by(
             col.EMAIL_CHANGE_REQUESTS,
             lambda db, cut: ArangoEmailChangeRepository(db).delete_confirmed_past_revert_window(cut),
         ),
         undated_selected=False,
-        why_undated="destructive: a confirmed status with no readable confirmation time is not proven past the window",
+        why_undated=(
+            "destructive: a confirmed row with a live revert_token_hash and no readable "
+            "revert_expires_at is not proven past its window"
+        ),
     ),
     Selector(
         name="consent.delete_revoked_before",

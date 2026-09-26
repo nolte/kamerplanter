@@ -67,6 +67,13 @@ class _Recorder:
         )
         self.refresh_token_repo = MagicMock()
         self.refresh_token_repo.revoke_all_for_user.side_effect = lambda key: self.events.append("revoke")
+        self.consent_repo = MagicMock()
+
+        def _revoke_all_unrevoked(_key: str, _now: str) -> int:
+            self.events.append("consent_revoke")
+            return 0
+
+        self.consent_repo.revoke_all_unrevoked.side_effect = _revoke_all_unrevoked
         inner = executor.run_erasure_plan
 
         def _run(plan, *, tombstone, executors=None):
@@ -88,7 +95,7 @@ def _service(
     export_repo.list_by_user.return_value = []
     service = PrivacyService(
         export_repo=export_repo,
-        consent_repo=MagicMock(),
+        consent_repo=recorder.consent_repo,
         restriction_repo=MagicMock(),
         erasure_repo=repo,
         email_change_repo=MagicMock(),
@@ -219,9 +226,14 @@ class TestTheAccountIsClosedBeforeAnythingIsRemoved:
 
         await service.erase_account_now(USER, origin="platform_admin", now=NOW)
 
-        assert recorder.events[:3] == [
+        # #1800 security review (SEC-001): revoke_all_unrevoked must run before
+        # the executor pseudonymises consent_records, or an unrevoked consent
+        # would be pseudonymised with revoked_at still null and the R-04 purge
+        # (which excludes null on purpose) would never reach it.
+        assert recorder.events[:4] == [
             "user:[('is_active', False), ('password_hash', None)]:requests=1",
             "revoke",
+            "consent_revoke",
             "executor",
         ]
 

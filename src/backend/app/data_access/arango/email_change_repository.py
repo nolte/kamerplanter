@@ -302,31 +302,41 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
         return len(list(cursor))
 
     #: Confirmed terminal states (NFR-011 R-07b, #1800): every one of these
-    #: reached ``confirmed`` at least once and therefore carries a ``confirmed_at``
-    #: R-07b's window is measured from.
+    #: reached ``confirmed`` at least once.
     _CONFIRMED_STATUSES = ["confirmed", "reverted", "superseded"]
 
-    def delete_confirmed_past_revert_window(self, cutoff_iso: str) -> int:
-        """Hard-delete the whole document of a confirmed change past its R-07a revert window (NFR-011 R-07b, #1800).
+    def delete_confirmed_past_revert_window(self, now_iso: str) -> int:
+        """Hard-delete a confirmed change whose R-07a revert window has closed (NFR-011 R-07b, #1800).
 
-        ``cutoff_iso`` is ``now - RETENTION_EMAIL_CHANGE_REVERT_DAYS``
-        (:meth:`RetentionService.email_change_document_purge_cutoff`), compared
-        against ``confirmed_at`` — not the nullable ``revert_expires_at``
-        :meth:`close_revert_windows` (R-07a) itself clears, so this does not
-        depend on R-07a's own write having already run in the same beat cycle.
-        Until #1800 R-07a only nulled ``previous_email`` / ``revert_token_hash`` /
-        ``revert_expires_at``; the rest of the document (``new_email``,
-        ``requested_at``, ``confirmed_at``, …) stayed forever.
+        Selects on the *stored* revert window — ``revert_token_hash`` /
+        ``revert_expires_at``, the same fields :meth:`close_revert_windows`
+        (R-07a) maintains — never recomputed from ``confirmed_at`` and the
+        *current* ``RETENTION_EMAIL_CHANGE_REVERT_DAYS`` setting (#1800
+        security review, SEC-002): a window is stamped once, at confirmation
+        time, from the setting in effect then; lowering the setting afterwards
+        must not retroactively shrink a window already granted, or a confirmed
+        change past its *new*, shorter cutoff but still inside its *actual*
+        mailed revert window would be hard-deleted while the link still works
+        — the victim of an email-change hijack loses their only way back.
+        A row whose window R-07a already closed (``revert_token_hash ==
+        null``) is due regardless of ``revert_expires_at``: that field may
+        have never been written at all (a confirmation whose own
+        ``record_confirmation`` lost a race, #1893) or already be cleared.
         """
         due = """
           FILTER doc.status IN @confirmed
-            AND DATE_TIMESTAMP(doc.confirmed_at) != null
-            AND DATE_TIMESTAMP(doc.confirmed_at) < DATE_TIMESTAMP(@cutoff)
+            AND (
+              doc.revert_token_hash == null
+              OR (
+                DATE_TIMESTAMP(doc.revert_expires_at) != null
+                AND DATE_TIMESTAMP(doc.revert_expires_at) < DATE_TIMESTAMP(@now)
+              )
+            )
         """
         bind_vars = {
             "@collection": col.EMAIL_CHANGE_REQUESTS,
             "confirmed": self._CONFIRMED_STATUSES,
-            "cutoff": cutoff_iso,
+            "now": now_iso,
         }
         edges_query = f"""
         FOR doc IN @@collection

@@ -148,7 +148,14 @@ class TestDeleteExpiredUnconfirmed:
 
 
 class TestDeleteConfirmedPastRevertWindow:
-    """NFR-011 R-07b (#1800) — a confirmed change past its R-07a revert window is hard-deleted whole, edges first."""
+    """NFR-011 R-07b (#1800) — a confirmed change whose *stored* R-07a revert window has closed is hard-deleted whole.
+
+    #1800 security review (SEC-002): the selector reads ``revert_token_hash`` /
+    ``revert_expires_at`` off the row, never recomputes a window from
+    ``confirmed_at`` and the current setting — that would let lowering
+    ``RETENTION_EMAIL_CHANGE_REVERT_DAYS`` retroactively shrink a window
+    already granted at confirmation time.
+    """
 
     def test_removes_edges_then_documents(self, repo, mock_db):
         mock_db.aql.execute.side_effect = [iter([]), iter([1])]
@@ -159,9 +166,11 @@ class TestDeleteConfirmedPastRevertWindow:
         assert mock_db.aql.execute.call_count == 2
         edges_call, docs_call = mock_db.aql.execute.call_args_list
         assert edges_call.kwargs["bind_vars"]["@edges"] == "requested_email_change"
+        assert "revert_token_hash" in edges_call.args[0]
         for call in (edges_call, docs_call):
             assert call.kwargs["bind_vars"]["confirmed"] == ["confirmed", "reverted", "superseded"]
-            assert call.kwargs["bind_vars"]["cutoff"] == "2026-06-14T00:00:00Z"
+            assert call.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"
+            assert "confirmed_at" not in call.args[0], "must not recompute the window from confirmed_at (SEC-002)"
 
     def test_zero_when_nothing_due(self, repo, mock_db):
         mock_db.aql.execute.side_effect = [iter([]), iter([])]

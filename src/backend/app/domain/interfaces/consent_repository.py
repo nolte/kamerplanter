@@ -31,9 +31,32 @@ class IConsentRepository(ABC):
         """``(key, ip_address)`` of every consent record recorded before the cutoff whose IP is still plain (R-04a)."""
 
     @abstractmethod
-    def mark_ip_anonymized(self, key: ConsentRecordKey, anonymized_ip: str, anonymized_at_iso: str) -> None:
-        """Replace a consent record's IP with its anonymised form and stamp when that happened (NFR-011 R-04a)."""
+    def mark_ip_anonymized(
+        self, key: ConsentRecordKey, previous_ip: str, anonymized_ip: str, anonymized_at_iso: str
+    ) -> bool:
+        """Replace a consent record's IP with its anonymised form, but only if it is still *previous_ip* (R-04a).
+
+        A conditional write (#1800 security review, SEC-003): a concurrent
+        re-grant (:meth:`grant_consent`) can write a fresh IP onto the same row
+        between selection and this write. An unconditional overwrite would
+        stamp the row anonymised with a hash of the *stale* address while the
+        fresh one goes untouched. Returns whether the write actually happened.
+        """
 
     @abstractmethod
     def delete_revoked_before(self, cutoff_iso: str) -> int:
         """Hard-delete every consent record revoked before the cutoff (NFR-011 R-04)."""
+
+    @abstractmethod
+    def revoke_all_unrevoked(self, user_key: UserKey, now_iso: str) -> int:
+        """Mark every consent record of *user_key* with no ``revoked_at`` as revoked *now* (NFR-011 R-04).
+
+        Called at account erasure, before the row is pseudonymised: a consent
+        never explicitly revoked would otherwise be pseudonymised with
+        ``revoked_at`` still null, and the R-04 purge (a destructive selector
+        that excludes null on purpose) would never reach it — unbounded
+        retention past account erasure (#1800 security review). Not gated by
+        :meth:`ConsentEngine.validate_consent_change`'s required-purpose rule:
+        once the account itself is being erased, no account remains for a
+        mandatory purpose to apply to.
+        """

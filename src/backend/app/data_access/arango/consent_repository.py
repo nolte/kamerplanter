@@ -135,15 +135,35 @@ class ArangoConsentRepository(BaseArangoRepository[ConsentRecord], IConsentRepos
         )
         return [(row["_key"], row["ip_address"]) for row in cursor]
 
-    def mark_ip_anonymized(self, key: ConsentRecordKey, anonymized_ip: str, anonymized_at_iso: str) -> None:
-        """Replace a consent record's IP with its anonymised form and stamp when that happened (NFR-011 R-04a)."""
-        self._db.collection(col.CONSENT_RECORDS).update(
-            {
-                "_key": key,
-                "ip_address": anonymized_ip,
-                "ip_anonymized_at": anonymized_at_iso,
-            }
+    def mark_ip_anonymized(
+        self, key: ConsentRecordKey, previous_ip: str, anonymized_ip: str, anonymized_at_iso: str
+    ) -> bool:
+        """Replace a consent record's IP with its anonymised form, conditionally (NFR-011 R-04a, #1800).
+
+        Guarded on ``ip_address == @previous_ip AND ip_anonymized_at == null``
+        (#1800 security review, SEC-003): an unconditional
+        ``collection.update`` would let a concurrent re-grant's fresh IP be
+        overwritten by a stale hash and marked anonymised, leaving the fresh
+        address unreachable by this task (it only selects
+        ``ip_anonymized_at == null``).
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key AND doc.ip_address == @previous_ip AND doc.ip_anonymized_at == null
+          UPDATE doc WITH { ip_address: @anonymized_ip, ip_anonymized_at: @anonymized_at } IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.CONSENT_RECORDS,
+                "key": key,
+                "previous_ip": previous_ip,
+                "anonymized_ip": anonymized_ip,
+                "anonymized_at": anonymized_at_iso,
+            },
         )
+        return any(True for _ in cursor)
 
     def delete_revoked_before(self, cutoff_iso: str) -> int:
         """Hard-delete every consent record revoked before the cutoff, edges first (NFR-011 R-04, #1800).
@@ -178,3 +198,22 @@ class ArangoConsentRepository(BaseArangoRepository[ConsentRecord], IConsentRepos
         """
         cursor = self._db.aql.execute(docs_query, bind_vars=bind_vars)
         return len(list(cursor))
+
+    def revoke_all_unrevoked(self, user_key: UserKey, now_iso: str) -> int:
+        """Mark every consent record of *user_key* with no ``revoked_at`` as revoked *now* (NFR-011 R-04, #1800).
+
+        Runs at account erasure, before Phase 2.5 pseudonymises the row. See
+        the interface docstring for why an unrevoked record must not survive
+        pseudonymisation with ``revoked_at`` still null.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.user_key == @user_key AND doc.revoked_at == null
+          UPDATE doc WITH { granted: false, revoked_at: @now, updated_at: @now } IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"@collection": col.CONSENT_RECORDS, "user_key": user_key, "now": now_iso},
+        )
+        return sum(1 for _ in cursor)

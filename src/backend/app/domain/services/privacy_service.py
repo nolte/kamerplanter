@@ -2334,6 +2334,13 @@ class PrivacyService:
             list(recorded_personal_tenant_keys or []),
             on_personal_tenants_resolved,
         )
+        # NFR-011 R-04 (#1800 security review): an unrevoked consent record
+        # would otherwise be pseudonymised below with revoked_at still null,
+        # and the R-04 purge (which excludes null on purpose, #1784) would
+        # never reach it — unbounded retention past this very erasure. Must
+        # run before the executor's pseudonymisation phase, on every attempt
+        # (idempotent: a record already revoked is not matched again).
+        await asyncio.to_thread(self._consent_repo.revoke_all_unrevoked, user_key, datetime.now(UTC).isoformat())
         report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
         report.storage_objects_released = await self._release_unheld_objects(user_key, hard_deleted_objects)
 
@@ -2875,13 +2882,18 @@ class PrivacyService:
         re-grant branch. A re-grant resets ``ip_anonymized_at`` to ``None``
         (:meth:`grant_consent`), so the new address is picked up here again
         rather than staying "already anonymised" under the previous grant's stamp.
+
+        The write is conditional on the row still holding the IP this method
+        selected (#1800 security review, SEC-003): a concurrent re-grant
+        between selection and write is not counted, and its own fresh address
+        is anonymised on its own schedule instead.
         """
         cutoff = self._retention.consent_ip_anonymisation_cutoff(now).isoformat()
         anonymized_at = now.isoformat()
         count = 0
         for key, ip_address in self._consent_repo.list_unanonymized_ips_before(cutoff):
-            self._consent_repo.mark_ip_anonymized(key, loggable_ip(ip_address), anonymized_at)
-            count += 1
+            if self._consent_repo.mark_ip_anonymized(key, ip_address, loggable_ip(ip_address), anonymized_at):
+                count += 1
         logger.info("retention.anonymize_consent_ips.completed", anonymized=count)
         return count
 
@@ -2901,18 +2913,20 @@ class PrivacyService:
           ``expired``. Until #1800 the flip was the whole of it and ``new_email``
           outlived the account forever.
         * **R-07b** — a confirmed request (``confirmed`` / ``reverted`` /
-          ``superseded``) is hard-deleted in full once the R-07a revert window has
-          elapsed, recomputed from ``confirmed_at`` rather than read back from the
-          nullable ``revert_expires_at`` R-07a itself clears — so R-07b does not
-          depend on R-07a's own write having already run in this beat.
+          ``superseded``) is hard-deleted in full once its R-07a revert window
+          has closed, read off the *stored* ``revert_token_hash`` /
+          ``revert_expires_at`` R-07a itself maintains — never recomputed from
+          ``confirmed_at`` and the current retention setting (#1800 security
+          review, SEC-002): that would let lowering the setting later
+          retroactively shrink a window already granted, deleting the
+          hijack-recovery link before it stops working.
         """
         affected = self._email_change_repo.expire_old(now.isoformat())
         # The revert window of confirmed changes closes on the same beat (#1848):
         # the previous address and the token's hash are kept exactly that long.
         closed = self._email_change_repo.close_revert_windows(now.isoformat())
         deleted_unconfirmed = self._email_change_repo.delete_expired_unconfirmed(now.isoformat())
-        revert_cutoff = self._retention.email_change_document_purge_cutoff(now).isoformat()
-        deleted_confirmed = self._email_change_repo.delete_confirmed_past_revert_window(revert_cutoff)
+        deleted_confirmed = self._email_change_repo.delete_confirmed_past_revert_window(now.isoformat())
         if affected or closed or deleted_unconfirmed or deleted_confirmed:
             logger.info(
                 "retention.expire_email_change_requests.completed",

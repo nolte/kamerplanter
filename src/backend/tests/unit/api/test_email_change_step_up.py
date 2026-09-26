@@ -191,16 +191,18 @@ class _EmailChanges:
     #: NFR-011 R-07b (#1800) — mirrors ``ArangoEmailChangeRepository.delete_confirmed_past_revert_window``.
     _CONFIRMED_STATUSES = ("confirmed", "reverted", "superseded")
 
-    def delete_confirmed_past_revert_window(self, cutoff_iso: str) -> int:
+    def delete_confirmed_past_revert_window(self, now_iso: str) -> int:
         from datetime import datetime
 
-        cutoff = datetime.fromisoformat(cutoff_iso)
+        now = datetime.fromisoformat(now_iso)
         due = [
             key
             for key, change in self.rows.items()
             if change.status in self._CONFIRMED_STATUSES
-            and change.confirmed_at is not None
-            and change.confirmed_at < cutoff
+            and (
+                change.revert_token_hash is None
+                or (change.revert_expires_at is not None and change.revert_expires_at < now)
+            )
         ]
         for key in due:
             del self.rows[key]

@@ -149,14 +149,28 @@ class TestListUnanonymizedIpsBefore:
 
 
 class TestMarkIpAnonymized:
-    def test_writes_the_anonymised_ip_and_stamp(self, repo, mock_db):
-        coll = mock_db.collection.return_value
+    """#1800 security review (SEC-003) — a conditional write, not a blind overwrite."""
 
-        repo.mark_ip_anonymized("c1", "192.0.2.0", "2026-09-25T04:00:00+00:00")
+    def test_writes_the_anonymised_ip_and_stamp_when_still_the_selected_ip(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([1])
 
-        coll.update.assert_called_once_with(
-            {"_key": "c1", "ip_address": "192.0.2.0", "ip_anonymized_at": "2026-09-25T04:00:00+00:00"}
-        )
+        written = repo.mark_ip_anonymized("c1", "192.0.2.42", "192.0.2.0", "2026-09-25T04:00:00+00:00")
+
+        assert written is True
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["key"] == "c1"
+        assert bind_vars["previous_ip"] == "192.0.2.42"
+        assert bind_vars["anonymized_ip"] == "192.0.2.0"
+        assert bind_vars["anonymized_at"] == "2026-09-25T04:00:00+00:00"
+        assert "ip_anonymized_at == null" in mock_db.aql.execute.call_args.args[0]
+
+    def test_skips_the_write_when_a_concurrent_regrant_changed_the_ip(self, repo, mock_db):
+        """A re-grant between selection and this write must not be overwritten by a stale hash."""
+        mock_db.aql.execute.return_value = iter([])
+
+        written = repo.mark_ip_anonymized("c1", "192.0.2.42", "192.0.2.0", "2026-09-25T04:00:00+00:00")
+
+        assert written is False
 
 
 class TestDeleteRevokedBefore:
@@ -179,4 +193,26 @@ class TestDeleteRevokedBefore:
     def test_zero_when_nothing_due(self, repo, mock_db):
         mock_db.aql.execute.side_effect = [iter([]), iter([])]
 
-        assert repo.delete_all_for_user("u1") == 0
+        assert repo.delete_revoked_before("2023-09-25T00:00:00+00:00") == 0
+
+
+class TestRevokeAllUnrevoked:
+    """NFR-011 R-04 (#1800 review, SEC-001) — run at erasure so an unrevoked consent stays reachable by the purge."""
+
+    def test_revokes_every_unrevoked_record_of_the_user(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([1, 1])
+
+        revoked = repo.revoke_all_unrevoked("u1", "2026-09-25T04:35:00+00:00")
+
+        assert revoked == 2
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["user_key"] == "u1"
+        assert bind_vars["now"] == "2026-09-25T04:35:00+00:00"
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "revoked_at == null" in query
+        assert "granted: false" in query
+
+    def test_zero_when_nothing_unrevoked(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.revoke_all_unrevoked("u1", "2026-09-25T04:35:00+00:00") == 0
