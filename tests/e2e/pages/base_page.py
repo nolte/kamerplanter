@@ -3126,12 +3126,59 @@ class BasePage:
 
     SHOW_ALL_FIELDS_TOGGLE = (By.CSS_SELECTOR, "[data-testid='show-all-fields-toggle']")
 
-    def expand_all_fields(self, timeout: int = 5) -> None:
-        """Click the 'Show all fields' toggle if present (for beginner mode)."""
-        toggles = self.driver.find_elements(*self.SHOW_ALL_FIELDS_TOGGLE)
-        if toggles and toggles[0].is_displayed():
-            self.scroll_and_click(toggles[0])
-            time.sleep(0.3)
+    def expand_all_fields(
+        self, form: Locator, *, settled: Locator, timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Show every field of the form in *form*; return only once it shows them (#1897).
+
+        ``ShowAllFieldsToggle`` flips a **global** override (``uiSlice``) that
+        reveals the fields the user's expertise level hides. Until #1897 this
+        helper looked for the toggle once, clicked it natively if it was there,
+        slept 0.3 s and returned — whatever happened. Three ways that lies, each
+        closed here:
+
+        * **absence read too early** — the toggle is looked for only after
+          *settled* (a control rendered in the same commit, e.g. the submit
+          button) is visible, and only inside *form*, never a toggle elsewhere;
+        * **a toggle flipped the wrong way** — the state is read
+          (``aria-expanded``), so an already expanded form is left alone
+          instead of being collapsed by a second toggle;
+        * **a click that did not land** — the click is coordinate-free (a
+          native click resolves a point and dispatches there, which a moving
+          or re-rendering dialog can make miss silently), and the method waits
+          for ``aria-expanded="true"``. If it never comes, it fails *here*, with
+          the toggle's state, instead of a field lookup timing out later with
+          no reason.
+        """
+        self.wait_for_element_visible(settled, timeout=timeout)
+        scope = form[1]
+        toggle_locator = (By.CSS_SELECTOR, f"{scope} [data-testid='show-all-fields-toggle']")
+        toggles = self.driver.find_elements(*toggle_locator)
+        if not toggles:
+            return  # the user's level already shows every field: no toggle is rendered
+        toggle = toggles[0]
+        if toggle.get_attribute("aria-expanded") == "true":
+            return
+        self.scroll_into_view(toggle)
+        self._dispatch_click(toggle)
+
+        def _expanded(_driver: WebDriver) -> bool:
+            current = self.driver.find_elements(*toggle_locator)
+            # A toggle that disappeared means the level now shows every field on its
+            # own (an expert level that arrived after the dialog opened): the effect
+            # this helper exists for, reached another way (/code-review of #1901).
+            return not current or current[0].get_attribute("aria-expanded") == "true"
+
+        try:
+            self.poll(timeout).until(_expanded)
+        except TimeoutException as exc:
+            current = self.driver.find_elements(*toggle_locator)
+            state = current[0].get_attribute("aria-expanded") if current else "<toggle gone>"
+            text = current[0].text if current else ""
+            raise AssertionError(
+                f"'Show all fields' did not take effect within {timeout}s in {scope}: "
+                f"aria-expanded={state!r}, label={text!r}"
+            ) from exc
 
     # ── Browser environment ───────────────────────────────────────────────
 

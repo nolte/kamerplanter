@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.5 (#1770: Deduplizierung pro Hochlader, geteiltes Objekt wird mit dem letzten Datensatz gelöscht)
+Version: 1.6 (Datenschutzplan-Entscheidung Q-O3, #1834: Objekt-Rekonziliation)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.6 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O3 (Betreiberentscheidung, #1834):** Neuer §6.6 Objekt-Rekonziliation — ein periodischer Lauf listet Objekte im Storage, die kein `attachments`-Datensatz mehr hält, mit 24h-Sicherheitsmarge gegen den Schreib-vor-Datensatz-Zeitpunkt eines Uploads; für den ersten Release **nur Bericht, keine Löschung**. **AC-12** neu. |
 | 1.5 | 2026-09-25 | **Deduplizierung pro Hochlader (#1770):** Schritt 8 der Upload-Pipeline gibt einem zweiten Hochlader identischer Bytes nicht mehr den Datensatz des ersten zurück, sondern einen eigenen Datensatz über dasselbe gespeicherte Objekt; `storage_key` ist deshalb nicht mehr eindeutig (Migration v0062 entfernt den eindeutigen Index). Ein Objekt wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält; die Quota zählt es einmal. |
 | 1.4 | 2026-08-05 | **Umsetzungsstand `STORAGE_KEEP_EXIF_<CATEGORY>` festgehalten (Korrektur aus der REQ-050-Umsetzung, Issue #921):** §6.4 haelt jetzt ausdruecklich fest, dass die kategoriescharfe Keep-EXIF-Variante **spezifiziert, aber nicht implementiert** ist — es existiert ausschliesslich das globale `STORAGE_STRIP_EXIF`. §8.2 nennt entsprechend das tatsaechlich vorhandene Setting. Die Zusage „Renditions sind EXIF-frei" bleibt unveraendert gueltig und ist unabhaengig von der Konfiguration. Keine Aenderung am Adapter-Vertrag, an Kategorien oder am Pfadschema. |
 | 1.3 | 2026-08-04 | **Thumbnails sind normativ EXIF-frei (REQ-050):** §8.2 haelt jetzt ausdruecklich fest, dass Renditions keine EXIF-Daten uebernehmen — auch nicht bei `STORAGE_KEEP_EXIF_<CATEGORY>=true`, das ausschliesslich die Originaldatei betrifft. Bisher war das nur implizit ueber die Neukodierung angenommen. REQ-050 §4.4 liefert Renditions ueber MCP an externe KI-Agenten aus und stuetzt die Zulaessigkeit genau auf diese Eigenschaft; eine stillschweigende Annahme traegt das nicht. Kein Eingriff in den Adapter-Vertrag, keine Aenderung an Kategorien oder Pfadschema. |
@@ -432,6 +433,36 @@ Fuer Backends mit Daten ausserhalb der EU/EWR (Google Drive, Dropbox-US, OneDriv
 - Im UI muss die Zielregion des konfigurierten Backends sichtbar sein
 - Auftragsverarbeitungsvertrag (DPA) mit dem Drittanbieter ist Voraussetzung — der Tenant-Admin bestaetigt das beim Konfigurieren
 
+### 6.6 Objekt-Rekonziliation (verwaiste Objekte, #1834)
+
+<!-- Quelle: Datenschutzplan Q-O3, #1834. Betreiberentscheidung 2026-09-26. -->
+Jeder Löschpfad im Backend entscheidet über ein gespeichertes Objekt, indem er den
+`attachments`-Katalog fragt (`storage_keys_held_elsewhere`, `find_by_user`). Kein Pfad
+durchsucht den Object Store selbst — ein Objekt, dessen letzter Datensatz ohne die Bytes
+verschwunden ist (fehlgeschlagener Storage-Aufruf nach committetem ArangoDB-Plan,
+Race zwischen Löschplan-Berechnung und -Commit, eine über den generischen Upload-Pfad
+erreichte Referenz in einem inzwischen verlassenen Mandanten), wird nie wieder gelöscht:
+Es zählt nicht zur Quota (`sum_bytes_by_tenant` zählt Datensätze) und ist für kein
+Art.-17-Löschverfahren mehr erreichbar.
+
+Beschlossen:
+
+- Ein **periodischer Rekonziliationslauf** listet die Objekte unter `t/{tenant}/` (beide
+  Adapter), bildet Original und Renditionen auf ihren Storage-Key ab und ermittelt, welche
+  kein `attachments`-Datensatz mehr hält.
+- **24-Stunden-Sicherheitsmarge:** Ein Objekt wird erst als Kandidat behandelt, wenn seine
+  Erstellung mindestens 24 Stunden zurückliegt — ein Upload schreibt das Objekt vor seinem
+  Datensatz, ein frisch hochgeladenes Objekt ohne (noch nicht committeten) Datensatz ist
+  also erwartungsgemäß kurzzeitig "verwaist" und kein Rekonziliationsfall.
+- **Erste Release-Stufe: nur Bericht, keine Löschung.** Der Lauf zählt und protokolliert
+  gefundene Kandidaten (analog `cleanup_orphaned_task_photos`, gefunden/gelöscht/fehlgeschlagen),
+  löscht in dieser Stufe aber **nichts** automatisch — ein manueller Löschschritt bleibt
+  Betreiberentscheidung, bis Messwerte aus dem Bericht Vertrauen in die Erkennung
+  geschaffen haben. Eine spätere Stufe kann das automatische Löschen nachrüsten; das ist
+  eine gesonderte Entscheidung.
+
+Refs #1770, REQ-025, NFR-013.
+
 ---
 
 ## 7. Backup, Replikation, RPO/RTO
@@ -580,6 +611,7 @@ storage:
 | **AC-09** | Existierende `photo_refs`-Felder (REQ-006/007/008/010/013) werden auf `attachment_id`-Listen migriert; eine vorhandene Migrations-Routine konvertiert Bestandsdaten. |
 | **AC-10** | Adapter-Vertrag (Abschnitt 4.2) ist als ABC implementiert und durch ein gemeinsames Test-Set verifiziert, das fuer jeden Adapter (Phase 1: `local-fs`, `s3`) gruen sein muss. |
 | **AC-11** | Dokumentation enthaelt Adapter-Roadmap (Phase 2: `azure-blob`, `gcs`, `webdav`, `gdrive`, `dropbox`, `onedrive`, `b2`) als Erweiterungspunkt. |
+| **AC-12** | Der Rekonziliationslauf (§6.6) findet ein Objekt, dessen einziger Datensatz seit über 24 Stunden entfernt ist, meldet es (gefunden/gelöscht/fehlgeschlagen-Zählung), löscht es in der ersten Release-Stufe aber nicht automatisch; ein Objekt jünger als 24 Stunden ohne Datensatz wird nicht gemeldet. |
 
 ---
 

@@ -1,13 +1,15 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-26 (probe re-anchoring after #1862/#1893 touched only unrelated REQ-025 sections; migrated to section anchors per #1840).
 #
-# Re-anchored after #1846: derived_from 7e6f8c2a6 was #1770's branch commit, discarded by the
-# #1839 squash (0c39591f8, REQ-025 byte-identical to 7e6f8c2a6). REQ-025 last changed on develop
-# in 9cacdb752 (v1.13, #1813/#1814): one changelog row (+1 line from L19), the request_erasure
-# sketch (+2 around L664) and ErasureCreateRequest (+1 around L798), and the new rows AK-IE-04/05
-# after AK-IE-03. None of the cited passages changed; the citations moved (+1 up to §3.1.1, +4
-# from §3.5 on) and were updated.
+# Re-confirmed (not re-derived) after REQ-025 changed again past #1846: derived_from 9cacdb752
+# predates 76e7f4272 (#1862, step-up for the e-mail change) and e12868385 (#1893, e-mail-change
+# link/form/revert path, current develop HEAD). Both commits touch only the Art.-16 e-mail-change
+# machinery (changelog rows 1.14-1.17, EmailChangeRequest, request_email_change/
+# confirm_email_change/revert_email_change) -- neither touches §3.1.1, §3.5, or the AK-OS-*
+# rows this probe cites; verified byte-identical there. derived_from now anchors the whole
+# file's content at e12868385 (blob:60be601a2) per approval.mode: reconfirmed; expected,
+# observe, tier and every locator are unchanged from the #1846 round.
 # Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-storage-shared-file-kept
 summary: a photo the subject and a co-holder both uploaded, after the subject's erasure — the co-holder's file and
@@ -16,6 +18,9 @@ declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
   location: AK-OS-08 (L1243)
+  sections:
+  - row: "AK-OS-08"
+    digest: 2497c5e43fbe3f57e263bf1270ca46047323cb85fd3a461d162d8d8cd014b48b
 tier: T2
 expected:
   kind: set
@@ -25,7 +30,7 @@ expected:
   - holder-file/present
   - holder-link/present
   - subject-link/absent
-derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
+derived_from: sections:efd75928c8831dd462fd35ad79469bfec01a56bf8f3dc91751a598f5dbaaccfe
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -43,4 +48,5 @@ observe:
 approval:
   observation_digest: 4bf6a8bda34a95972899a0456799f28a9e2a37c651696a8254ca5879d4e127f2
   approved_by: nolte
-  approved_at: '2026-09-25T18:35:52Z'
+  approved_at: '2026-09-26T10:27:22Z'
+  mode: derived
