@@ -63,6 +63,24 @@ OTHER = "user-b"
 ADMIN = "platform-admin"
 #: NFR-011 §4 wants >= 32 characters. Synthetic, test-only.
 SALT = "reach-test-salt-not-a-secret-0123456789"
+
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _log_pseudonym_salt():
+    """#1812: ``requested_by_subject`` is a log pseudonym, keyed with LOG_PSEUDONYM_SALT.
+
+    Module-scoped: the erasure runs in module-scoped fixtures, before any
+    function-scoped fixture could set the salt.
+    """
+    from app.config.settings import settings
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+        yield
+
+
 TENANT = "t-reach"
 
 pytestmark = pytest.mark.usefixtures("arango_db")
@@ -422,7 +440,7 @@ def test_the_admin_delete_persists_a_completed_request_without_the_plaintext_key
     # #1814 — the step-up and the requesting admin (salted, never the key) reach the store
     # beside the fields other entries write (#1770 storage counters, #1788 personal tenants).
     assert row["step_up"] == "email_code"  # the federated admin's mailed code (#1815)
-    assert row["requested_by_subject"] == ErasureEngine.log_subject(ADMIN, SALT)
+    assert row["requested_by_subject"] == ErasureEngine.log_subject(ADMIN, LOG_SALT)
     assert ADMIN not in str(row)
     assert {"storage_objects_removed", "personal_tenants"} <= row.keys()
 

@@ -145,3 +145,20 @@ def _report(request: pytest.FixtureRequest, what: str, names: list[str]) -> None
         f"(older than {STALE_AFTER_SECONDS // 3600} h counts as stale): " + ", ".join(names),
         yellow=True,
     )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _configured_log_pseudonym_salt():
+    """The tier runs a deployment that can erase, and that needs a log salt (#1812).
+
+    Account and tenant erasure refuse every run without ``LOG_PSEUDONYM_SALT``:
+    the proof's ``requested_by_subject`` would otherwise be the constant
+    ``anon_unavailable``. Each module still passes its own tombstone salt to the
+    services it builds; the log salt is read from ``settings`` at call time. A
+    module that asserts a reference value sets its own salt on top of this one.
+    """
+    from app.config.settings import settings
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(settings, "log_pseudonym_salt", "integration-log-pseudonym-salt-not-a-secret")
+        yield

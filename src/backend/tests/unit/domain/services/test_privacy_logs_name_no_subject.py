@@ -46,10 +46,21 @@ USER_KEY = "subject-5c81e2"
 OLD_EMAIL = "old-address-5c81e2@example.com"
 NEW_EMAIL = "new-address-5c81e2@example.com"
 SALT = "log-test-salt-not-a-secret-0123456789"
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(autouse=True)
+def _log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1812: log pseudonyms are keyed with LOG_PSEUDONYM_SALT, not with the tombstone salt the services get."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+
+
 EXPORT_KEY = "exp-1"
 #: The salted, purpose-separated log reference — deliberately NOT the tombstone
 #: the pseudonymised audit rows keep (#1773 review GDPR-003).
-SUBJECT = ErasureEngine.log_subject(USER_KEY, SALT)
+SUBJECT = ErasureEngine.log_subject(USER_KEY, LOG_SALT)
 
 
 def _values(value: Any) -> list[str]:

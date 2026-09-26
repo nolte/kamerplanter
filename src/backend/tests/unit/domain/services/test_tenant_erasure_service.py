@@ -41,6 +41,14 @@ KEY = "t-1"
 RECORD = TenantErasureEngine.record_key(KEY)
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 def _record(repo: FakeTenantErasureRepository) -> dict:
     return repo.records[RECORD]
 
@@ -156,6 +164,20 @@ class TestRefusalsBeforeAnythingChanges:
 
         with pytest.raises(NotFoundError):
             service.delete_tenant("ghost", **authorized("ghost"), now=NOW)
+
+    def test_a_deployment_without_a_log_salt_answers_503_and_changes_nothing(self, monkeypatch) -> None:
+        """#1812 review SEC-001: the record's ``requested_by_subject`` would be the constant ``anon_unavailable``."""
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "log_pseudonym_salt", "")
+        repo = FakeTenantErasureRepository()
+        service = tenant_service_for_deletion(record_repo=repo)
+
+        with pytest.raises(FeatureNotConfiguredError, match="LOG_PSEUDONYM_SALT"):
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+
+        assert repo.records == {}
+        service._membership_repo.deactivate_all_for_tenant.assert_not_called()
 
     @pytest.mark.parametrize(
         ("overrides", "reason"),

@@ -42,6 +42,7 @@ from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
+from app.data_access.external.resend_email_adapter import ResendEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 from app.data_access.repositories.propagation_repository import PropagationRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
@@ -761,6 +762,7 @@ def get_password_engine() -> PasswordEngine:
 
 
 def get_email_service() -> IEmailService:
+    """The configured e-mail adapter; ``EMAIL_ADAPTER`` is a ``Literal``, so no value falls through (#1821)."""
     if settings.email_adapter == "smtp":
         return SmtpEmailAdapter(
             host=settings.smtp_host,
@@ -769,6 +771,10 @@ def get_email_service() -> IEmailService:
             password=settings.smtp_password,
             from_email=settings.smtp_from_email,
             use_tls=settings.smtp_use_tls,
+        )
+    if settings.email_adapter == "resend":
+        return ResendEmailAdapter(
+            api_key=settings.resend_api_key.get_secret_value(), from_email=settings.resend_from_email
         )
     return ConsoleEmailAdapter()
 

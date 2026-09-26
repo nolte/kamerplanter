@@ -90,6 +90,14 @@ SELF_ROUTES = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 def _error_handler(_request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
 
@@ -476,7 +484,11 @@ def test_a_platform_admin_without_a_valid_step_up_erases_nothing(body_of, status
     assert world.account_untouched(world.target_key)
 
 
-def test_a_platform_admin_erases_with_the_step_up_and_the_record_says_how() -> None:
+def test_a_platform_admin_erases_with_the_step_up_and_the_record_says_how(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config.settings import settings
+
+    log_salt = "log-pseudonym-test-salt-not-a-secret-01234"
+    monkeypatch.setattr(settings, "log_pseudonym_salt", log_salt)  # #1812: the reference is a LOG pseudonym
     world = _World(platform_admin=True)
 
     resp = world.call("DELETE", _admin_route(world), world.admin_step_up())
@@ -487,7 +499,7 @@ def test_a_platform_admin_erases_with_the_step_up_and_the_record_says_how() -> N
     assert erasure.origin == "platform_admin"
     assert erasure.step_up == "password"
     # The requester by salted reference, never by key — the record outlives both accounts.
-    assert erasure.requested_by_subject == ErasureEngine.log_subject(world.caller_key, SALT)
+    assert erasure.requested_by_subject == ErasureEngine.log_subject(world.caller_key, log_salt)
     assert world.caller_key not in (erasure.requested_by_subject or "")
     assert world.immediate_runs.await_count == 1
 

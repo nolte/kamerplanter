@@ -95,7 +95,7 @@ Enter your email address and choose the delivery mode:
 - **Immediate** — every notification is sent as a separate email
 - **Daily digest** — all of the day's notifications are bundled into a single email
 
-Delivery uses the SMTP server (mail-sending server) configured by your operator (see [Environment Variables — Email](../reference/environment-variables.md#email)). If no SMTP connection is configured, development mode only prints emails to the backend log.
+Delivery uses the email channel configured by your operator — either an SMTP server (mail-sending server) or the Resend service (see [Environment Variables — Email](../reference/environment-variables.md#email)). If neither is configured, development mode only prints emails to the backend log.
 
 ### Browser Push (PWA)
 

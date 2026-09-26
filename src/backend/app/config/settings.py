@@ -1,7 +1,7 @@
 import re
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, BaseModel, Field, ValidationError
+from pydantic import AliasChoices, BaseModel, Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings
 
 # What ``/api/health`` reports when no build stamped a revision into the image
@@ -297,13 +297,38 @@ class Settings(BaseSettings):
     inventree_allow_private_endpoint: bool = False
 
     # Email
-    email_adapter: str = "console"  # console | smtp | resend
+    #: ``console`` (development: logs, delivers nothing), ``smtp`` or ``resend``.
+    #: A ``Literal`` since #1821: an unknown value (a typo, a retired adapter) is
+    #: refused when the settings load instead of silently falling back to the
+    #: console adapter, which delivers no verification or reset mail at all.
+    email_adapter: Literal["console", "smtp", "resend"] = "console"
     smtp_host: str = "localhost"
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_from_email: str = "noreply@kamerplanter.example"
     smtp_use_tls: bool = True
+    #: Resend HTTP API (#1821) — used when ``email_adapter`` is ``resend``, which
+    #: refuses to load without the key. A secret: provide it through the Secret /
+    #: ``.env``, never a values file.
+    resend_api_key: SecretStr = Field(default=SecretStr(""), validate_default=True)
+    #: Sender address; its domain must be verified in the Resend account.
+    resend_from_email: str = "noreply@kamerplanter.example"
+
+    @field_validator("resend_api_key")
+    @classmethod
+    def _resend_needs_its_api_key(cls, value: SecretStr, info: ValidationInfo) -> SecretStr:
+        """``EMAIL_ADAPTER=resend`` without ``RESEND_API_KEY`` is refused at load (#1821).
+
+        A *field* validator, deliberately not a model validator: pydantic renders
+        a model validator's failure with ``input_value=`` set to the whole input —
+        every setting read from the environment, secrets included. This one
+        fails only for an empty key, so its ``input_value`` is ``''``.
+        """
+        if info.data.get("email_adapter") == "resend" and not value.get_secret_value():
+            msg = "EMAIL_ADAPTER=resend requires RESEND_API_KEY"
+            raise ValueError(msg)
+        return value
 
     # Home Assistant (optional — for sensor live-query)
     ha_url: str = ""  # e.g. "http://homeassistant.local:8123"
@@ -669,6 +694,16 @@ class Settings(BaseSettings):
 
     # REQ-025 Privacy / GDPR
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production
+    #: NFR-011 §3.4 L-1/L-2 (#1812): keys the log pseudonyms — the ``sub_…``
+    #: subject references and ``email_sha256`` digests on log lines, and where
+    #: such a reference is persisted (``requested_by_subject`` of erasure and
+    #: tenant-erasure records, subject-redacted ``error_message`` texts). Nothing
+    #: else: no lookup depends on it. Separate from the tombstone salt because that
+    #: one can never rotate; this one can — a rotation stops references written
+    #: before it from correlating with later ones, and an old reference can only be
+    #: recomputed with the retired salt. >= 32 chars in production (API and worker
+    #: refuse to start otherwise).
+    log_pseudonym_salt: str = ""
     privacy_data_controller_name: str = "Kamerplanter Operator"
     privacy_data_controller_email: str = "privacy@kamerplanter.example"
     # NFR-011 §4 periods (#1782). Each is read in exactly one place,

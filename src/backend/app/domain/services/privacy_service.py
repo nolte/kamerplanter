@@ -28,11 +28,12 @@ from app.common.exceptions import (
     ValidationError,
     WriteConflictError,
 )
+from app.common.log_privacy import log_subject, redact_subject
 from app.common.types import UserKey
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.encryption_engine import EncryptionEngine
-from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.storage.export_bundle_key import loggable_storage_key, mask_export_bundle_keys
 from app.domain.engines.token_engine import TokenEngine
@@ -1655,6 +1656,14 @@ class PrivacyService:
             self._erasure_engine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        # #1812 review SEC-001: the record's ``requested_by_subject`` (and the
+        # redacted error texts it keeps) are log pseudonyms. Without the log salt
+        # they would be persisted as the constant ``anon_unavailable`` — a proof
+        # that no longer says who asked for the erasure. Refused like the
+        # tombstone salt, before anything changes (the start gate does not run
+        # with DEBUG=true).
+        if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
+            return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
         return self._personal_tenant_configuration_error()
 
     def _personal_tenant_configuration_error(self) -> str | None:
@@ -2430,7 +2439,7 @@ class PrivacyService:
     def log_subject(self, user_key: str) -> str:
         """The reference a log line carries instead of the plaintext account key (#1700, #1773).
 
-        :meth:`ErasureEngine.log_subject` under this instance's tombstone salt:
+        :meth:`ErasureEngine.log_subject` under ``LOG_PSEUDONYM_SALT`` (#1812):
         a salted, purpose-separated HMAC, so every line about one subject shares
         it and it names nobody. It is deliberately **not** the tombstone the
         pseudonymised ``erasure_requests`` and audit rows keep (#1773 review
@@ -2438,11 +2447,11 @@ class PrivacyService:
         Public because the services that front this one (``DataSubjectService``)
         log about the same subject and must not keep a second implementation.
         """
-        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
+        return log_subject(user_key) or UNAVAILABLE_LOG_SUBJECT
 
     def _redact_subject(self, text: str, user_key: str) -> str:
         """*text* with *user_key* replaced by :meth:`log_subject` (see ``ErasureEngine.redact_subject``)."""
-        return ErasureEngine.redact_subject(text, user_key, self._tombstone_salt)
+        return redact_subject(text, user_key)
 
     def _loggable_error(self, error: BaseException | str, user_key: str | None) -> str:
         """An exception text as it may reach a log line or a record outliving the account (#1773 review).
