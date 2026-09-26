@@ -97,12 +97,22 @@ _literal_segments: frozenset[str] | None = None
 def log_subject(user_key: str | None) -> str | None:
     """The reference a log line carries instead of *user_key*; ``None`` for no key.
 
-    ``ErasureEngine.log_subject`` keyed with the configured tombstone salt; a
+    ``ErasureEngine.log_subject`` keyed with ``LOG_PSEUDONYM_SALT`` (#1812); a
     missing or short salt yields ``anon_unavailable``, never the plaintext key.
+    The salt is read at call time.
     """
     if not user_key:
         return None
-    return ErasureEngine.log_subject(user_key, settings.erasure_tombstone_salt)
+    return ErasureEngine.log_subject(user_key, settings.log_pseudonym_salt)
+
+
+def redact_subject(text: str, user_key: str) -> str:
+    """*text* with every occurrence of *user_key* replaced by :func:`log_subject` (#1812).
+
+    ``ErasureEngine.redact_subject`` keyed with ``LOG_PSEUDONYM_SALT``, for free
+    text that reaches a log line or a record outliving the account.
+    """
+    return ErasureEngine.redact_subject(text, user_key, settings.log_pseudonym_salt)
 
 
 def loggable_error(error: BaseException | str, *, user_key: str | None = None) -> str:
@@ -119,7 +129,7 @@ def loggable_error(error: BaseException | str, *, user_key: str | None = None) -
     """
     text = error if isinstance(error, str) else str(error)
     if user_key:
-        text = ErasureEngine.redact_subject(text, user_key, settings.erasure_tombstone_salt)
+        text = redact_subject(text, user_key)
     text = _mask_text(mask_export_bundle_keys(text))
     if len(text) <= MAX_LOGGABLE_TEXT:
         return text

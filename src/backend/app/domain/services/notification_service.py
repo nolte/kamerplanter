@@ -540,6 +540,7 @@ class NotificationService:
 
         try:
             result = await channel.send(notification, channel_config)
+            self._engine.prune_expired_subscriptions(user_key, result)
             return {
                 "status": "delivered" if result.success else "failed",
                 "channel_key": channel_key,

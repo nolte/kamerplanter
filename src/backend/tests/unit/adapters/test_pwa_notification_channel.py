@@ -181,9 +181,12 @@ class TestSend:
         with _patch_pywebpush(channel, webpush_mock):
             result = await channel.send(_make_notification(), config)
 
-        # One delivered → success; expired endpoint surfaced for pruning.
+        # One delivered → success; the expired endpoint in its own field for pruning (#1827),
+        # the text names only a count.
         assert result.success is True
-        assert "expired:https://push/gone" in (result.error or "")
+        assert result.expired_endpoints == ["https://push/gone"]
+        assert "https://push/gone" not in (result.error or "")
+        assert "1 expired subscription(s)" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_expired_404_collected(self, channel: PwaNotificationChannel) -> None:
@@ -194,9 +197,10 @@ class TestSend:
             result = await channel.send(_make_notification(), config)
 
         # The only subscription expired → nothing delivered → failure,
-        # but the expired endpoint is still reported.
+        # but the expired endpoint is still reported, structurally.
         assert result.success is False
-        assert "expired:https://push/missing" in (result.error or "")
+        assert result.expired_endpoints == ["https://push/missing"]
+        assert "https://push/missing" not in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_unexpected_exception_does_not_abort_batch(self, channel: PwaNotificationChannel) -> None:
@@ -314,8 +318,9 @@ class TestLogsCarryNoDeviceToken:
         assert entries[0]["endpoint_host"] == "fcm.googleapis.com"
         assert _DEVICE_TOKEN not in repr(logs)
         if event == "pwa_subscription_expired":
-            # The returned detail is data, not a log line: callers get the whole endpoint.
-            assert f"expired:{_ENDPOINT}" in (result.error or "")
+            # The endpoint travels as data for pruning (#1827), never in the text or a repr.
+            assert result.expired_endpoints == [_ENDPOINT]
+            assert _DEVICE_TOKEN not in (result.error or "") + repr(result) + str(result.model_dump())
 
     @pytest.mark.asyncio
     async def test_an_unsafe_endpoint_logs_the_host_only(self, channel: PwaNotificationChannel) -> None:

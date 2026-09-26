@@ -35,6 +35,14 @@ from tests.support.privacy_doubles import FakeDataExportRepo, FakePersonalTenant
 SALT = "s" * 32
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 def _make_service(**overrides) -> PrivacyService:
     deps = {
         # #1753 — every erasure path needs a wired reference-index store.

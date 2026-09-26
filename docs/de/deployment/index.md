@@ -11,7 +11,7 @@ Kamerplanter kann auf verschiedene Arten betrieben werden — von einem einzelne
 | Mehrere Nutzer, Hochverfügbarkeit, professioneller Betrieb | [Kubernetes + Helm](kubernetes.md) / [ArgoCD](argocd.md) |
 
 !!! danger "Vor jedem Rollout: Pflicht-Secrets setzen"
-    Unabhängig vom gewählten Weg verweigert das Backend den Start, sobald `DEBUG=false` gesetzt ist und `JWT_SECRET_KEY`, `FERNET_KEY` oder `ERASURE_TOMBSTONE_SALT` fehlen. Jede Deployment-Seite in diesem Abschnitt zeigt, wo diese Werte hingehören — die vollständige Referenz steht in der [Konfigurationsmatrix](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+    Unabhängig vom gewählten Weg verweigert das Backend den Start, sobald `DEBUG=false` gesetzt ist und `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` oder `LOG_PSEUDONYM_SALT` fehlen — der Celery-Worker prüft `LOG_PSEUDONYM_SALT` genauso streng. Jede Deployment-Seite in diesem Abschnitt zeigt, wo diese Werte hingehören — die vollständige Referenz steht in der [Konfigurationsmatrix](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 ## In diesem Abschnitt
 
