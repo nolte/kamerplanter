@@ -12,12 +12,16 @@ own step-up (:class:`~app.domain.services.step_up_service.StepUpVerifier`, act
 credential change (operator decision D5): the password, a fresh re-authentication or
 the mailed code; an API-key request is 403, 429 when locked.
 
-**What needs no step-up (operator decision D6).** An allow-list, so a field added later
-defaults to needing one: ``display_name``, ``icon_url`` and switching a provider *off*
-(``enabled`` true → false) change nothing about who a sign-in resolves to. Everything
-else — issuer and endpoints, client id and secret, provider type, scopes, discovery,
-the default tenant new federated accounts join, switching a provider *on* — and every
-creation and deletion needs it. A field sent with the value it already has is no change.
+**What needs no step-up (operator decision D6, corrected after security review SEC-001).**
+An allow-list, so a field added later defaults to needing one: only ``display_name`` and
+``icon_url``, which change how a provider is shown, not whom a sign-in resolves to.
+Everything else — issuer and endpoints, client id and secret, provider type, scopes,
+discovery, the default tenant new federated accounts join, and switching a provider on
+*or off* — and every creation and deletion needs it. Switching off was free in the first
+draft; but ``FederatedReauthPolicy`` reads only enabled configurations, so disabling a
+provider moves every account whose only re-authenticating link it was from the fresh
+sign-in to the mailed code — a step-up downgrade reachable without a step-up (and with
+a leaked admin key). A field sent with the value it already has is no change.
 
 **Known edge (D5).** An admin whose only sign-in is a link to the very provider being
 repaired, while that provider cannot sign anyone in, can neither re-authenticate there
@@ -44,7 +48,7 @@ from app.domain.services.step_up_targets import oidc_provider_target
 logger = structlog.get_logger()
 
 #: Fields whose change never needs the step-up: they change how a provider is shown,
-#: not whom a sign-in resolves to. ``enabled`` is judged separately — off is free, on is not.
+#: not whom a sign-in resolves to. Not ``enabled`` — in either direction (SEC-001).
 _PRESENTATION_FIELDS = frozenset({"display_name", "icon_url"})
 
 #: Written encrypted; its stored value cannot be compared with the one sent, so sending it is a change.
@@ -59,8 +63,6 @@ def update_requires_step_up(current: OidcProviderConfig, data: dict[str, Any]) -
         if getattr(current, field) == value:
             continue
         if field in _PRESENTATION_FIELDS:
-            continue
-        if field == "enabled" and value is False:
             continue
         return True
     return False

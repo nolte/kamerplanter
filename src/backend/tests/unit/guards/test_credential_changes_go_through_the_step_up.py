@@ -20,7 +20,7 @@ is a member when its own body
 * creates or deletes a sign-in method or a machine credential:
   ``self._auth_provider_repo.create/delete``, ``self._api_key_repo.create``;
 * creates, changes or deletes an OIDC provider configuration (#1883):
-  ``self._oidc_config_repo.create/update/delete``;
+  ``self._oidc_config_repo.create/update/update_fields/delete``;
 * issues a device-pairing code — a bearer credential for a new session:
   ``.issue(...)`` on ``self._device_pairing_code_store`` or on a local bound from
   ``self._require_device_pairing_store()``.
@@ -71,6 +71,9 @@ _CREDENTIAL_REPO_CALLS = {
     # resolves to: repointing one is a credential change for every linked account.
     ("_oidc_config_repo", "create"),
     ("_oidc_config_repo", "update"),
+    # The partial write the service uses since the #1883 review (SEC-003); without
+    # it the predicate lost update_provider — the member count caught it.
+    ("_oidc_config_repo", "update_fields"),
     ("_oidc_config_repo", "delete"),
 }
 

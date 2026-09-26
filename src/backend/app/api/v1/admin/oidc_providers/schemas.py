@@ -43,7 +43,8 @@ class OidcProviderUpdateRequest(CredentialStepUp):
     """Body of ``PUT /admin/oidc-providers/{key}``.
 
     The step-up fields (#1883, target: the configuration's key) are needed unless the
-    update changes only ``display_name``, ``icon_url`` or switches the provider off.
+    update changes only ``display_name`` or ``icon_url`` — switching the provider on or
+    off needs it too (security review SEC-001).
 
     The vocabulary matters more here than on create: the router writes the body
     fields onto the loaded model with ``setattr``, and pydantic does not validate

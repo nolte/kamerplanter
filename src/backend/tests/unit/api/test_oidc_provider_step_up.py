@@ -6,8 +6,9 @@ Until #1883 ``POST``/``PUT``/``DELETE /admin/oidc-providers`` depended on
 ``require_platform_admin`` alone — passed by a hijacked admin session and by an
 admin's leaked ``kp_`` key. The routes now go through ``OidcProviderAdminService``,
 which runs the shared ``StepUpVerifier`` (act ``oidc_provider_change``, bound to the
-configuration — #1884). Operator decision D6: ``display_name``, ``icon_url`` and
-switching a provider *off* need no step-up; everything else does.
+configuration — #1884). Operator decision D6, corrected after security review
+SEC-001: only ``display_name`` and ``icon_url`` need no step-up; everything else —
+switching a provider on *or off* included — does.
 
 Real routers, the real service and verifier; the repository is an in-memory double.
 """
@@ -200,6 +201,10 @@ WRITES = [
     pytest.param("PUT", f"{ROUTE}/key-corp", {"client_secret": "other"}, id="client secret"),
     pytest.param("PUT", f"{ROUTE}/key-corp", {"default_tenant_key": "t-victim"}, id="default tenant"),
     pytest.param("PUT", f"{ROUTE}/key-lab", {"enabled": True}, id="switch on"),
+    # Security review SEC-001 (operator decision, corrects D6): switching a provider OFF
+    # empties the re-auth-capable links of every account whose only one it was, and
+    # those accounts fall back to the mailed code — a step-up downgrade.
+    pytest.param("PUT", f"{ROUTE}/key-corp", {"enabled": False}, id="switch off"),
     pytest.param("DELETE", f"{ROUTE}/key-corp", {}, id="delete"),
 ]
 
@@ -262,12 +267,12 @@ def test_repeated_failures_lock_the_step_up() -> None:
     [
         pytest.param({"display_name": "Corporate"}, id="display name"),
         pytest.param({"icon_url": "https://corp.example.org/icon.svg"}, id="icon"),
-        pytest.param({"enabled": False}, id="switch off"),
         pytest.param({"issuer_url": "https://corp.example.org"}, id="issuer sent unchanged"),
+        pytest.param({"enabled": True}, id="enabled sent unchanged"),
     ],
 )
-def test_presentation_and_switching_off_need_no_step_up(body: dict[str, Any]) -> None:
-    """Operator decision D6 — the allow-list; a value sent unchanged is no change."""
+def test_only_presentation_needs_no_step_up(body: dict[str, Any]) -> None:
+    """Operator decision D6 as corrected after SEC-001 — the allow-list; a value sent unchanged is no change."""
     world = _World()
 
     resp = world.call("PUT", f"{ROUTE}/key-corp", body)

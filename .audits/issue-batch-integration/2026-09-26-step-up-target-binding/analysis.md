@@ -56,7 +56,7 @@ and every call site passes `target`.
 | D3 | strictness | strict: 422 without target for targeted acts; breaking for non-frontend clients |
 | D4 | mail text | no target in the mail |
 | D5 | #1883 step-up class | full StepUpVerifier (password / OIDC re-auth / code), same budget; lockout edge documented |
-| D6 | #1883 free fields | display_name, icon_url, enabled true→false (see review SEC-001, escalated again) |
+| D6 | #1883 free fields | first: display_name, icon_url, enabled true→false; corrected after review SEC-001 (escalated): only display_name, icon_url — `enabled` needs the step-up both ways |
 | D7 | #1883 UI AC | API-only; missing UI filed as #1906 |
 
 ## Completeness matrix
@@ -77,4 +77,4 @@ and every call site passes `target`.
 | both | generalist | `pytest tests/api -q` | `1688 passed, 1 failed` → fixed (`test_light_mode_password_change_api.py`, 5 passed) |
 | both | generalist | integration reach tests (erasure) | `33 passed` |
 | frontend | generalist | `tsc --noEmit`, `vitest run` | clean; `4487 passed` (before the prettier revert, rerun pending) |
-| review | nolte-engineering:code-security-reviewer | read-only review | SEC-001 (escalated), SEC-002/003 + O-2 fixed red-first, O-1 fixed (same class as SEC-002) |
+| review | nolte-engineering:code-security-reviewer | read-only review | SEC-001 (escalated, fixed per operator: Option A, red-first), SEC-002/003 + O-2 fixed red-first, O-1 filed as #1909 (out of scope per operator) |

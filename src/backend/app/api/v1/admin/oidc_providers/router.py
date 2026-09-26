@@ -177,7 +177,7 @@ def update_provider(
     """Update an existing OIDC/OAuth provider configuration.
 
     **Step-up (#1883):** needed unless the update changes only ``display_name``,
-    ``icon_url`` or switches the provider off — the requesting admin's own
+    ``icon_url`` (switching it on *or off* needs it too) — the requesting admin's own
     confirmation for ``oidc_provider_change`` with the configuration's key as the
     target; 401 without it, 403 from an API-key request, 429 ``STEP_UP_LOCKED``.
 
