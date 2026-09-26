@@ -76,6 +76,12 @@ class _FakeUserRepository(IUserRepository):
     def get_by_email(self, email: str) -> User | None:
         return self._user
 
+    def move_email(self, key: UserKey, expected_email: str, fields: dict) -> User | None:
+        if self._user is None or self._user.email.lower() != expected_email.lower():
+            return None
+        self._user = self._user.model_copy(update=fields)
+        return self._user
+
     def create(self, user: User) -> User:
         return user
 

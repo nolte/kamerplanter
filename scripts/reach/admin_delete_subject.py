@@ -8,7 +8,7 @@ The act half of the admin-delete reach probes, along the path production takes:
    ``python -m app.migrations.add_platform_admin`` inside the backend container.
 2. The admin signs in and sends ``DELETE /api/v1/admin/platform/users/{key}``
    for the seeded subject — the route that until #1767 discarded the erasure
-   report.
+   report — with the step-up #1814 requires (subject's e-mail + admin password).
 
 It exits 0 whatever the route answered. The answer is logged for the operator,
 never read as an observation; ``observe_erasure_residue.py`` counts the rows and
@@ -67,11 +67,14 @@ def delete(subject_key: str) -> int:
     api = stack["api_url"]
     arango = Arango(stack)
 
-    headers = sign_in(api, _admin(api))
+    admin = _admin(api)
+    headers = sign_in(api, admin)
     arango.mark("reach-marker:admin-delete:begin")
+    # #1814 — the step-up: the subject's e-mail typed back and the admin's own password.
     status, body = http_json(
         "DELETE",
         f"{api}/api/v1/admin/platform/users/{subject['subject']}",
+        body={"confirm_email": subject["email"], "password": admin["password"]},
         headers=headers,
         timeout=DELETE_TIMEOUT_SECONDS,
     )

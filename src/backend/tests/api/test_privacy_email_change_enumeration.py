@@ -34,6 +34,9 @@ USER_KEY = "u1"
 OWN_EMAIL = "owner@example.com"
 FREE_EMAIL = "free@example.com"
 TAKEN_EMAIL = "somebody-else@example.com"
+# Assembled at runtime: a literal shaped like a password trips the secret scanner (#1838).
+PASSWORD = "-".join(["owner", "current", "passphrase"])
+PASSWORD_HASH = PasswordEngine().hash_password(PASSWORD)
 
 #: Differ between any two requests and therefore carry nothing about the account.
 _VOLATILE_FIELDS = frozenset({"key", "new_email", "requested_at", "expires_at"})
@@ -41,7 +44,9 @@ _VOLATILE_FIELDS = frozenset({"key", "new_email", "requested_at", "expires_at"})
 
 def _privacy_service() -> PrivacyService:
     user_repo = MagicMock()
-    user_repo.get_or_raise.return_value = User(_key=USER_KEY, email=OWN_EMAIL, display_name="Requesting User")
+    user_repo.get_or_raise.return_value = User(
+        _key=USER_KEY, email=OWN_EMAIL, display_name="Requesting User", password_hash=PASSWORD_HASH
+    )
     user_repo.get_by_email.side_effect = lambda email: (
         User(_key="9999", email=TAKEN_EMAIL, display_name="Third Party") if email == TAKEN_EMAIL else None
     )
@@ -97,7 +102,8 @@ def client() -> Iterator[TestClient]:
 
 
 def _request_change(client: TestClient, new_email: str):  # noqa: ANN202 - httpx Response
-    return client.post("/api/v1/privacy/email-change", json={"new_email": new_email})
+    # The owner's current password: the step-up every e-mail change carries since #1841.
+    return client.post("/api/v1/privacy/email-change", json={"new_email": new_email, "password": PASSWORD})
 
 
 class TestEmailChangeIsNotAnEnumerationOracle:

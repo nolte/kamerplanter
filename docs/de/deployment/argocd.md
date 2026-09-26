@@ -30,13 +30,14 @@ kubectl create secret generic kamerplanter-secrets \
   --from-literal=ARANGO_ROOT_PASSWORD=dein-sicheres-passwort \
   --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
   --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
-  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)" \
+  --from-literal=LOG_PSEUDONYM_SALT="$(openssl rand -hex 32)"
 ```
 
-Das Secret wird von Backend und ArangoDB per `envFrom` referenziert — so tauchen keine Passwörter im ArgoCD-Manifest oder in der Git-History auf.
+Das Secret wird von Backend, Celery-Worker und ArangoDB per `envFrom` referenziert — so tauchen keine Passwörter im ArgoCD-Manifest oder in der Git-History auf.
 
-!!! danger "Ohne die drei letzten Werte startet der Backend-Pod nicht"
-    `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` sind — unabhängig von `ARANGODB_PASSWORD`/`ARANGO_ROOT_PASSWORD` — eigenständige Boot-Blocker: Das Backend bricht bei `DEBUG=false` mit `SystemExit` ab, wenn einer der drei Werte fehlt oder (bei `ERASURE_TOMBSTONE_SALT`) kürzer als 32 Zeichen ist. Vollständige Übersicht: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+!!! danger "Ohne die vier letzten Werte startet der Backend-Pod nicht"
+    `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` sind — unabhängig von `ARANGODB_PASSWORD`/`ARANGO_ROOT_PASSWORD` — eigenständige Boot-Blocker: Das Backend bricht bei `DEBUG=false` mit `SystemExit` ab, wenn einer der vier Werte fehlt oder (bei `ERASURE_TOMBSTONE_SALT`/`LOG_PSEUDONYM_SALT`) kürzer als 32 Zeichen ist. Der Celery-Worker prüft `LOG_PSEUDONYM_SALT` genauso streng. Vollständige Übersicht: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 !!! tip "Deklaratives Secret-Management"
     Statt `kubectl create secret` manuell auszuführen, empfehlen sich für GitOps-Workflows:

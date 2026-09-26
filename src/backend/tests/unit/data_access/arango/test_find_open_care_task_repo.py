@@ -140,7 +140,7 @@ def test_recency_rule_gated_by_include_completed_today() -> None:
     assert "@include_completed_today" in aql.query
     assert "LEFT(doc.completed_at, 10) >= @today" in aql.query
     # Newest-first so ties keep the latest task.
-    assert "SORT doc.due_date DESC, doc.created_at DESC" in aql.query
+    assert "SORT DATE_TIMESTAMP(doc.due_date) DESC, DATE_TIMESTAMP(doc.created_at) DESC" in aql.query
     assert "LIMIT 1" in aql.query
 
 

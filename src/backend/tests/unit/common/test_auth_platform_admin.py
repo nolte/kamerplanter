@@ -95,16 +95,18 @@ def test_the_gate_really_depends_on_the_shared_lookup(monkeypatch):
     assert parameter.default.dependency is auth_mod.get_is_platform_admin
 
 
-# -- _is_platform_admin (/users/me flag) ------------------------------------
+# -- is_platform_admin (the lookup behind the /users/me flag) ---------------
+#
+# Since #1851 ``GET /users/me`` takes the flag from ``get_is_platform_admin`` (so a
+# tenant-scoped API key never advertises a platform role); the lookup underneath
+# is still ``auth.is_platform_admin``, asserted here.
 
 
 def test_is_platform_admin_true_in_light_mode(monkeypatch):
-    # ``_is_platform_admin`` is the shared ``auth.is_platform_admin`` (re-exported
-    # by the users router), so the mode flag lives on ``auth.settings``.
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "light")
     tenant_service = MagicMock()
 
-    assert users_mod._is_platform_admin(tenant_service, "system-user") is True
+    assert auth_mod.is_platform_admin(tenant_service, "system-user") is True
     tenant_service.get_membership.assert_not_called()
 
 
@@ -112,10 +114,21 @@ def test_is_platform_admin_full_mode_follows_membership(monkeypatch):
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
     tenant_service = MagicMock()
     tenant_service.get_membership.return_value = _membership(TenantRole.LEAD)
-    assert users_mod._is_platform_admin(tenant_service, "u1") is True
+    assert auth_mod.is_platform_admin(tenant_service, "u1") is True
 
     tenant_service.get_membership.return_value = _membership(TenantRole.VIEWER)
-    assert users_mod._is_platform_admin(tenant_service, "u1") is False
+    assert auth_mod.is_platform_admin(tenant_service, "u1") is False
 
     tenant_service.get_membership.return_value = None
-    assert users_mod._is_platform_admin(tenant_service, "u1") is False
+    assert auth_mod.is_platform_admin(tenant_service, "u1") is False
+
+
+def test_the_users_me_flag_resolves_through_the_scope_aware_dependency():
+    import inspect
+
+    from fastapi.params import Depends as DependsParam
+
+    parameter = inspect.signature(users_mod.get_profile).parameters["platform_admin"]
+
+    assert isinstance(parameter.default, DependsParam)
+    assert parameter.default.dependency is auth_mod.get_is_platform_admin

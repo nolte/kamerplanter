@@ -43,7 +43,11 @@ import {
 } from '@/api/endpoints/adminPlatform';
 import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
-import type { AdminUser, AdminUserMembership, AdminTenant, TenantRole } from '@/api/types';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
+import type { AdminUser, AdminUserMembership, AdminTenant, AdminUserUpdate, TenantRole } from '@/api/types';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
 
 const GRID_2COL = {
   display: 'grid',
@@ -67,8 +71,17 @@ export default function AdminEditUserPage() {
   const [isActive, setIsActive] = useState(true);
   const [emailVerified, setEmailVerified] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  // #1815 — back from the fresh sign-in at the identity provider: reopen the
+  // account-deletion dialog it was started from (it then sends the token).
+  const resumeDelete = useStepUpResume('delete-user');
+  const [confirmDelete, setConfirmDelete] = useState(resumeDelete);
+  // #1857 — raising another account's trust (e-mail verified, reactivated)
+  // passes the admin's own step-up. The toggled switches do not survive the
+  // round trip to the identity provider, so the resume context is only consumed;
+  // the pending token is picked up when the admin saves again within its
+  // five minutes.
+  useStepUpResume('update-user');
+  const [confirmTrustRaise, setConfirmTrustRaise] = useState(false);
 
   // Memberships
   const [memberships, setMemberships] = useState<AdminUserMembership[]>([]);
@@ -147,15 +160,28 @@ export default function AdminEditUserPage() {
     (t) => t.is_active && !memberships.some((m) => m.tenant_key === t.key),
   );
 
+  const buildUpdate = (current: AdminUser): AdminUserUpdate => ({
+    display_name: displayName !== current.display_name ? displayName : undefined,
+    is_active: isActive !== current.is_active ? isActive : undefined,
+    email_verified: emailVerified !== current.email_verified ? emailVerified : undefined,
+  });
+
+  // The backend asks for the admin's step-up exactly when the update turns
+  // `email_verified` or `is_active` from false to true (#1857): a verified
+  // address is the trust anchor of the OAuth auto-link. Lowering either, or
+  // renaming, saves as before.
+  const raisesTrust = (current: AdminUser): boolean =>
+    (emailVerified && !current.email_verified) || (isActive && !current.is_active);
+
   const handleSave = async () => {
     if (!user) return;
+    if (raisesTrust(user)) {
+      setConfirmTrustRaise(true);
+      return;
+    }
     setSaving(true);
     try {
-      const updated = await updateAdminUser(user.key, {
-        display_name: displayName !== user.display_name ? displayName : undefined,
-        is_active: isActive !== user.is_active ? isActive : undefined,
-        email_verified: emailVerified !== user.email_verified ? emailVerified : undefined,
-      });
+      const updated = await updateAdminUser(user.key, buildUpdate(user));
       setUser(updated);
       enqueueSnackbar(t('common.saved'), { variant: 'success' });
     } catch (err) {
@@ -165,18 +191,28 @@ export default function AdminEditUserPage() {
     }
   };
 
-  const handleDelete = async () => {
+  // The admin's OWN step-up (#1857). A rejection propagates to the dialog,
+  // which shows it inside itself and stays open.
+  const handleConfirmTrustRaise = async (credentials: StepUpConfirmation) => {
     if (!user) return;
-    setDeleting(true);
-    try {
-      await deleteAdminUser(user.key);
-      enqueueSnackbar(t('pages.auth.adminUserDeleted'), { variant: 'success' });
-      navigate('/settings#platform');
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    } finally {
-      setDeleting(false);
-    }
+    const updated = await updateAdminUser(user.key, {
+      ...buildUpdate(user),
+      ...toCredentialStepUpBody(credentials),
+    });
+    setUser(updated);
+    setConfirmTrustRaise(false);
+    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+  };
+
+  // Erasing another account is a step-up (#1814): the TARGET's e-mail typed
+  // back and the admin's OWN current password. A rejection propagates to the
+  // dialog, which shows it inside itself and stays open.
+  const handleDelete = async ({ echo, ...credentials }: StepUpConfirmation) => {
+    if (!user) return;
+    await deleteAdminUser(user.key, { confirm_email: echo, ...toStepUpBody(credentials) });
+    setConfirmDelete(false);
+    enqueueSnackbar(t('pages.auth.adminUserDeleted'), { variant: 'success' });
+    navigate('/settings#platform');
   };
 
   const handleAddToTenant = async () => {
@@ -303,30 +339,49 @@ export default function AdminEditUserPage() {
                 {t('common.save')}
               </Button>
             </Box>
+            <StepUpConfirmDialog
+              open={confirmTrustRaise}
+              title={t('pages.auth.adminUpdateUserStepUpTitle')}
+              description={t('pages.auth.adminUpdateUserStepUpDescription', {
+                name: user.display_name,
+                email: user.email,
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminUpdateUserStepUpConfirm')}
+              confirmColor="primary"
+              testIdPrefix="update-user"
+              stepUpAction="admin_account_update"
+              onConfirm={handleConfirmTrustRaise}
+              onCancel={() => setConfirmTrustRaise(false)}
+            />
 
             {/* Danger zone */}
             <Divider sx={{ my: 3 }} />
             <Typography variant="subtitle2" color="error" gutterBottom>
               {t('pages.auth.dangerZone')}
             </Typography>
-            {!confirmDelete ? (
-              <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-user-btn">
-                {t('pages.auth.adminDeleteUser')}
-              </Button>
-            ) : (
-              <Alert severity="error">
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  {t('pages.auth.adminDeleteUserConfirm', { name: user.display_name, email: user.email })}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="contained" color="error" size="small" onClick={handleDelete} disabled={deleting}
-                    startIcon={deleting ? <CircularProgress size={14} /> : undefined} data-testid="confirm-delete-user-btn">
-                    {t('pages.auth.adminConfirmDelete')}
-                  </Button>
-                  <Button size="small" onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</Button>
-                </Box>
-              </Alert>
-            )}
+            <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-user-btn">
+              {t('pages.auth.adminDeleteUser')}
+            </Button>
+            <StepUpConfirmDialog
+              open={confirmDelete}
+              title={t('pages.auth.adminDeleteUserDialogTitle')}
+              description={t('pages.auth.adminDeleteUserConfirm', { name: user.display_name, email: user.email })}
+              echoLabel={t('pages.auth.adminDeleteUserEmailLabel')}
+              echoHelper={t('pages.auth.adminDeleteUserEmailHelper', { email: user.email })}
+              expectedEcho={user.email}
+              echoMatch="caseInsensitive"
+              echoInputType="email"
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminConfirmDelete')}
+              testIdPrefix="delete-user"
+              stepUpAction="admin_account_erasure"
+              testIds={{ echo: 'delete-user-email', confirm: 'confirm-delete-user-btn' }}
+              onConfirm={handleDelete}
+              onCancel={() => setConfirmDelete(false)}
+            />
           </CardContent>
         </Card>
 

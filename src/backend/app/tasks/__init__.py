@@ -1,11 +1,13 @@
 import structlog
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import beat_init, celeryd_init, worker_process_init
+from celery.signals import after_setup_logger, after_setup_task_logger, beat_init, celeryd_init, worker_process_init
 
-from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
+from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
+from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
 
 # The Celery worker/beat boot via ``celery -A app.tasks`` and never import
@@ -52,6 +54,34 @@ def _init_worker_error_tracking(**_kwargs: object) -> None:
     )
 
 
+def _configure_worker_logging(**_kwargs: object) -> None:
+    """Give the worker and beat the API's logging setup once Celery has configured root (#1795).
+
+    ``celery -A app.tasks worker|beat`` never runs ``app.main``, so ``setup_logging``
+    never ran here: structlog printed through its defaults, and httpx logged every
+    outbound request at INFO on Celery's root handler — the OpenWeatherMap and
+    Perenual API keys included, since both carry the key in the query string.
+
+    Connected to ``after_setup_logger``, which Celery sends only from
+    ``app.log.setup`` — i.e. when the worker or beat program sets up its logging,
+    never on a mere ``import app.tasks`` (the API imports this package to
+    enqueue tasks). Celery has already put its handler on the root logger by
+    then, so ``setup_logging``'s ``basicConfig`` is a no-op and structlog's lines
+    reach Celery's handler; ``harden_library_loggers`` does the rest.
+    """
+    setup_logging(settings.debug)
+
+
+def _redact_task_logger(**_kwargs: object) -> None:
+    """Put the redacting sink filter on the ``celery.task`` handler too (#1796).
+
+    Celery creates that handler in ``setup_task_loggers`` — after
+    ``after_setup_logger`` has run — and ``celery.task`` does not propagate, so
+    the root handler's filter never sees its records.
+    """
+    install_sink_redaction()
+
+
 def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
     """Stop the worker when ``ERASURE_TOMBSTONE_SALT`` is unusable outside debug (#1781).
 
@@ -77,9 +107,63 @@ def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
     raise SystemExit(msg)
 
 
+def _refuse_worker_start_without_log_pseudonym_salt(**_kwargs: object) -> None:
+    """Stop the worker when ``LOG_PSEUDONYM_SALT`` is unusable outside debug (#1812).
+
+    The worker writes the same subject references and e-mail digests as the API
+    (retention, erasure and notification tasks); without the salt every one of
+    them is the constant ``anon_unavailable``/``unavailable`` and the lines of
+    different accounts become indistinguishable, silently. The API refuses to
+    start in that configuration (``app.main.insecure_default_secrets``).
+
+    ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives. The message names the setting, never its value.
+    """
+    if settings.debug or len(settings.log_pseudonym_salt) >= MIN_LOG_PSEUDONYM_SALT_LENGTH:
+        return
+    structlog.get_logger().critical("insecure_defaults", fields=["log_pseudonym_salt"])
+    raise SystemExit(
+        "FATAL: LOG_PSEUDONYM_SALT is missing or shorter than "
+        f"{MIN_LOG_PSEUDONYM_SALT_LENGTH} characters (NFR-011 §3.4). Set it to the same "
+        "value as the backend before running the worker in production."
+    )
+
+
+def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
+    """Stop the worker when ``FERNET_KEY`` is missing or malformed outside debug (#1859).
+
+    The API refuses to start without the key (``app.main.insecure_default_secrets``);
+    the worker never imports ``app.main`` and used to start regardless. It then
+    built ``EncryptionEngine("")``, whose plaintext passthrough stores the
+    encrypted-at-rest fields (OIDC client secrets, integration tokens) in clear
+    and hands ciphertext to integrations as their credential — after a single
+    warning line. A malformed key is refused too: ``Fernet(key)`` raises on it,
+    so the worker would otherwise fail on the first task touching a secret.
+
+    ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives. The message names the setting, never its value.
+    """
+    if settings.debug:
+        return
+    if is_usable_fernet_key(settings.fernet_key):
+        return
+    reason = "malformed" if settings.fernet_key else "missing"
+    structlog.get_logger().critical("insecure_defaults", fields=["fernet_key"], reason=reason)
+    raise SystemExit(
+        f"FATAL: FERNET_KEY is {reason}. Set it to the same value as the backend before running "
+        "the worker in production (INF-S5); without it secrets are stored in plaintext."
+    )
+
+
 # The salt gate runs on ``celeryd_init`` only — the worker program. Beat
 # schedules, it runs no task and writes no subject reference.
 celeryd_init.connect(_refuse_worker_start_without_tombstone_salt, weak=False)
+celeryd_init.connect(_refuse_worker_start_without_log_pseudonym_salt, weak=False)
+# The key gate likewise: beat stores no secret (#1859).
+celeryd_init.connect(_refuse_worker_start_without_a_usable_fernet_key, weak=False)
+# Worker and beat both set up logging through ``app.log.setup``; see the docstring.
+after_setup_logger.connect(_configure_worker_logging, weak=False)
+after_setup_task_logger.connect(_redact_task_logger, weak=False)
 
 # All three, because they are three different processes and none implies another:
 # ``celeryd_init`` is the worker program's first step (fires for every pool),

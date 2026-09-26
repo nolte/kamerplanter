@@ -24,6 +24,11 @@ const PasswordResetConfirmPage = lazy(() => import('@/pages/auth/PasswordResetCo
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
 const PrivacySettingsPage = lazy(() => import('@/pages/auth/PrivacySettingsPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
+// #1815 — landing of the fresh sign-in that confirms a step-up.
+const StepUpCallbackPage = lazy(() => import('@/pages/auth/StepUpCallbackPage'));
+// #1848 — landings of the links in the e-mail-change mails (confirm / undo).
+const EmailChangeConfirmPage = lazy(() => import('@/pages/auth/EmailChangeConfirmPage'));
+const EmailChangeRevertPage = lazy(() => import('@/pages/auth/EmailChangeRevertPage'));
 // #1118 P13 — browser landing for the light-mode instance-discovery deep link
 // (https://<instance>/connect?v=1). Public and mode-agnostic: a system-camera
 // visitor without the app must not hit a 404 or a login bounce.
@@ -160,6 +165,48 @@ export const router = createBrowserRouter(
           element={
             <Suspense fallback={<LoadingSkeleton variant="card" />}>
               <OAuthCallbackPage />
+            </Suspense>
+          }
+        />
+      )}
+
+      {/* #1815 — step-up re-authentication callback — full mode only (light mode
+          has no accounts to re-authenticate). Deliberately outside ProtectedRoute:
+          the page only moves the one-time token from the URL fragment into
+          sessionStorage and strips it at once, before any auth bootstrap; the
+          page it returns to is protected as usual. */}
+      {!isLightMode && (
+        <Route
+          path="auth/step-up/callback"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <StepUpCallbackPage />
+            </Suspense>
+          }
+        />
+      )}
+
+      {/* #1848 — e-mail change links: confirm (mail to the new address) and undo
+          (notice to the previous one). Full mode only — light mode has no
+          accounts. Public, but deliberately outside PublicOnlyRoute: the person
+          opening the link often still holds a session in this browser, and a
+          redirect to the dashboard would leave the change (or its undo) undone. */}
+      {!isLightMode && (
+        <Route
+          path="email-change/:token"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <EmailChangeConfirmPage />
+            </Suspense>
+          }
+        />
+      )}
+      {!isLightMode && (
+        <Route
+          path="email-change/revert/:token"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <EmailChangeRevertPage />
             </Suspense>
           }
         />

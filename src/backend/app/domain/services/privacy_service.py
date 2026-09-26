@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import secrets
 import time
@@ -15,26 +16,31 @@ import structlog
 from pydantic import BaseModel
 
 from app.common.decoys import decoy_document_key, email_digest
+from app.common.enums import TenantRole
 from app.common.exceptions import (
+    AccountBeingErasedError,
     DuplicateError,
     ErasureIncompleteError,
     FeatureNotConfiguredError,
+    ForbiddenError,
     InvalidTokenError,
     KamerplanterError,
     NotFoundError,
-    UnauthorizedError,
     ValidationError,
     WriteConflictError,
 )
+from app.common.log_privacy import log_subject, redact_subject
 from app.common.types import UserKey
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.encryption_engine import EncryptionEngine
-from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.storage.export_bundle_key import loggable_storage_key, mask_export_bundle_keys
 from app.domain.engines.token_engine import TokenEngine
+from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
+from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
 from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.interfaces.data_export_repository import IDataExportRepository
 from app.domain.interfaces.email_change_repository import IEmailChangeRepository
@@ -52,6 +58,7 @@ from app.domain.interfaces.processing_restriction_repository import (
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
+from app.domain.models.auth import AuthProviderType
 from app.domain.models.privacy import (
     AccountErasureReport,
     ConsentRecord,
@@ -62,6 +69,7 @@ from app.domain.models.privacy import (
     EmailChangeRequest,
     ErasureOrigin,
     ErasureRequest,
+    ErasureStepUp,
     PersonalTenantErasure,
     PrivacyPolicyInfo,
     ProcessingRestriction,
@@ -71,11 +79,20 @@ from app.domain.models.privacy import (
 )
 from app.domain.models.user import User, is_tombstone_email
 from app.domain.services.retention_service import RetentionService
+from app.domain.services.step_up_service import (
+    StepUpConfirmation,
+    StepUpVerifier,
+    default_step_up_verifier,
+    echo_matches,
+)
 
 if TYPE_CHECKING:
     from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
+
+#: The tenant whose ``lead`` membership makes a platform admin (REQ-049 §2.5).
+_PLATFORM_TENANT_KEY = "platform"
 
 
 def _persistable(fields: dict[str, object]) -> dict[str, object]:
@@ -188,7 +205,15 @@ class PrivacyService:
         tenant_service: TenantService | None = None,
         tombstone_salt: str = "",
         retention: RetentionService | None = None,
+        step_up_verifier: StepUpVerifier | None = None,
+        light_mode: bool = False,
+        auth_provider_repo: IAuthProviderRepository | None = None,
+        api_key_repo: IApiKeyRepository | None = None,
     ) -> None:
+        # #1848 — what a revert of a hijacked e-mail change takes back besides the
+        # address: sign-in links and API keys created since the change was requested.
+        self._auth_provider_repo = auth_provider_repo
+        self._api_key_repo = api_key_repo
         self._export_repo = export_repo
         self._consent_repo = consent_repo
         self._restriction_repo = restriction_repo
@@ -245,6 +270,13 @@ class PrivacyService:
         # cannot name a period the purge does not apply. Defaults to the
         # settings-backed service.
         self._retention = retention if retention is not None else RetentionService()
+        # Review SEC-003 — in light mode (REQ-027) every caller is the one system
+        # account, so no request may erase it (as ``TenantService.delete_tenant``).
+        self._light_mode = light_mode
+        # #1813 / #1814 / #1816 — the one throttled step-up of every irreversible account act.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
+            password_engine, tombstone_salt=tombstone_salt
+        )
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
@@ -345,9 +377,46 @@ class PrivacyService:
         self,
         user_key: UserKey,
         new_email: str,
+        *,
+        password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> EmailChangeRequest:
-        """Initiate a two-step email-change flow with token verification."""
+        """Initiate a two-step email-change flow with token verification — behind the step-up (#1841).
+
+        Moving the account onto another address is an account takeover in two
+        steps: whoever reads the new mailbox can reset the password. Until #1841
+        this ran on a bare session — also one resolved from an API key — and the
+        owner was told nothing. Now, in this order:
+
+        1. the shared :class:`StepUpVerifier` (keyword-only arguments without
+           defaults, so a new caller cannot skip it): a signed-in session of a
+           person (403), the current password or — for an account without one —
+           the mailed one-time code (401, ``STEP_UP_CODE_REQUIRED``), throttled in
+           the account's one step-up budget (429). It runs before the address is
+           **looked up**, so without the step-up the route is no oracle for which
+           addresses are taken. Only the stateless checks — not the own address,
+           not the reserved tombstone domain (422) — come before it (/code-review
+           of #1862): they reveal nothing and spend no code;
+        2. the lookup and the genuine / suppressed-taken branch (#957);
+        3. the account's **current** address is told that a change to the new one
+           was requested (REQ-025 AK-06) — in both branches, so they stay
+           indistinguishable to the requester.
+
+        A pending request is withdrawn when the owner takes the account back — a
+        password reset or change, or signing out everywhere
+        (``AuthService._cancel_pending_email_changes``). The new address gets its
+        own link (``/email-change/{token}``, #1848) without any requester-chosen
+        text (#1856); after the confirmation the previous address can take the
+        account back (:meth:`revert_email_change`).
+        """
         user = self._user_repo.get_or_raise(user_key)
+        # Stateless checks first (/code-review of #1862): they compare the typed
+        # address with the requester's own and with a fixed reserved domain, so they
+        # reveal nothing the requester does not already know — and refusing them
+        # before the step-up spends no mailed code and no throttled attempt.
         if user.email == new_email:
             raise ValidationError("New email must differ from the current address.")
         # Same reserved domain as on the registration path (#1525 SCR-014): moving an
@@ -355,8 +424,27 @@ class PrivacyService:
         # `users.email` is uniquely indexed.
         if is_tombstone_email(new_email):
             raise ValidationError("This email domain is reserved and cannot be used.")
+        # The step-up before the lookup: ``get_by_email`` is what could tell a taken
+        # address from a free one, so it never runs without the step-up.
+        self._step_up_verifier.verify(
+            user,
+            action="email_change",
+            echo_ok=None,
+            password=password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
-        if self._user_repo.get_by_email(new_email) is not None:
+        # Both branches below tell the current address; sent here so the two
+        # cannot drift apart (the notice is the same work in either).
+        self._notify_current_address_of_email_change(user, new_email)
+
+        # Taken, or held for the revert of another account's confirmed change
+        # (/code-review of #1893) — the same answer either way.
+        held = self._email_change_repo.find_revert_reservation(new_email, datetime.now(UTC).isoformat())
+        if self._user_repo.get_by_email(new_email) is not None or (held is not None and held.user_key != user_key):
             return self._suppress_taken_email_change(user_key, user, new_email)
 
         raw_token = secrets.token_urlsafe(32)
@@ -373,11 +461,11 @@ class PrivacyService:
         )
         created = self._email_change_repo.create(change)
 
-        # Send verification email to the NEW address.
+        # The confirmation link to the NEW address — its own page, not the account
+        # verification one (#1848), and no display name: the address is unverified (#1856).
         try:
-            self._email_service.send_verification_email(
+            self._email_service.send_email_change_email(
                 to_email=new_email,
-                display_name=user.display_name,
                 token=raw_token,
                 frontend_url=self._frontend_url,
             )
@@ -486,8 +574,76 @@ class PrivacyService:
             # here, the mail outage itself would become the oracle.
             logger.warning("email_change_target_notice_skipped")
 
+    def _notify_current_address_of_email_change(self, user: User, new_email: str) -> None:
+        """Tell the account's current address that a change to *new_email* was requested (REQ-025 AK-06, #1841).
+
+        The owner learns of it while the change is still pending and the current
+        address still receives password resets. The notice promises no undo link:
+        there is none yet (#1848). *new_email* passed ``EmailStr`` validation and is
+        escaped all the same — it is text the requester chose.
+        """
+        body = (
+            "<h2>Your email address is about to change</h2>"
+            "<p>A request to change the email address of your Kamerplanter account to "
+            f"<strong>{html.escape(new_email)}</strong> was confirmed with your account's credentials. "
+            "The change takes effect once the link sent to the new address is opened.</p>"
+            "<p>If this was not you, reset your password now from the sign-in page — the reset mail still "
+            "comes to this address, and resetting your password also cancels the pending change and signs out "
+            "every session. Then contact the operator of this Kamerplanter installation.</p>"
+        )
+        try:
+            self._email_service.send_notification_email(
+                to_email=user.email,
+                subject="Kamerplanter — a change of your email address was requested",
+                html_body=body,
+            )
+        except NotImplementedError:
+            # Only NotImplementedError, as for the target notice: a real send
+            # failure must not answer differently in the two branches.
+            logger.warning("email_change_owner_notice_skipped", subject=self.log_subject(user.key or ""))
+
+    def _notify_old_address_of_email_change(
+        self, old_email: str, new_email: str, user_key: str, *, revert_token: str, revert_expires_at: datetime
+    ) -> None:
+        """Tell the address an account just left that it was replaced, with the link that takes it back (#1841, #1848).
+
+        A password reset now goes to the new address, so the notice cannot point
+        at one. It carries the revert link instead: single use, valid until
+        *revert_expires_at*, it restores this address (if still free), signs out
+        every session and voids a reset token mailed to the new address.
+        """
+        revert_url = f"{self._frontend_url}/email-change/revert/{revert_token}"
+        body = (
+            "<h2>Your email address was changed</h2>"
+            "<p>The email address of your Kamerplanter account was changed to "
+            f"<strong>{html.escape(new_email)}</strong>. All sessions of the account were signed out.</p>"
+            "<p>If you did not make this change, take your account back with the link below. It restores this "
+            "address, signs out every session and cancels password reset links sent to the new address. "
+            f"It works once, until {html.escape(revert_expires_at.strftime('%Y-%m-%d %H:%M UTC'))}.</p>"
+            f'<p><a href="{html.escape(revert_url)}">This was not me — restore my email address</a></p>'
+            "<p>Then reset your password from the sign-in page and contact the operator of this Kamerplanter "
+            "installation.</p>"
+        )
+        try:
+            self._email_service.send_notification_email(
+                to_email=old_email,
+                subject="Kamerplanter — your email address was changed",
+                html_body=body,
+            )
+        except NotImplementedError:
+            logger.warning("email_change_old_address_notice_skipped", subject=self.log_subject(user_key))
+        except Exception as exc:  # noqa: BLE001 - sent after the change is committed (/code-review of #1862)
+            # The address is already changed and every session revoked; a 500 here
+            # would tell the requester the change failed when it did not. Logged
+            # without the address and without the error text (it can name it).
+            logger.error(
+                "email_change_old_address_notice_failed",
+                subject=self.log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
+
     def confirm_email_change(self, raw_token: str) -> User:
-        """Validate token, swap user.email and revoke all sessions."""
+        """Validate token, swap user.email, revoke all sessions and tell the old address (REQ-025 AK-06)."""
         token_hash = self._token_engine.hash_token(raw_token)
         change = self._email_change_repo.get_by_token_hash(token_hash)
         if change is None or change.status != "pending":
@@ -498,23 +654,59 @@ class PrivacyService:
                 self._email_change_repo.update(change.key, change)
             raise InvalidTokenError("email-change token")
 
+        # Claim the request before the address moves (security review of #1848,
+        # SEC-001): a revert or a second confirmation racing this one saw
+        # "pending" too; exactly one of them may act on it.
+        if not change.key or not self._email_change_repo.claim_status(
+            change.key, "pending", "confirmed", datetime.now(UTC).isoformat()
+        ):
+            raise InvalidTokenError("email-change token")
+
         user = self._user_repo.get_or_raise(change.user_key)
 
         old_email = user.email
-        # Narrow write (#1525 SCR-003): the token lookup and validation sit between
-        # the read and the write, and a full-model write-back would remove whatever a
-        # parallel request set in between now that the repository is full-replace.
-        if user.key:
-            user = self._user_repo.update_fields(user.key, {"email": change.new_email, "email_verified": True})
-            self._refresh_token_repo.revoke_all_for_user(user.key)
-        else:  # pragma: no cover - a user read through get_or_raise always carries a key
-            user.email = change.new_email
-            user.email_verified = True
+        # Compare-and-set on the address (/code-review of #1893): only while the
+        # account still has the address read above. A revert or another change
+        # that moved it in between wins; this one gives its claim back.
+        try:
+            moved = self._user_repo.move_email(
+                change.user_key, old_email, {"email": str(change.new_email), "email_verified": True}
+            )
+        except DuplicateError, WriteConflictError:
+            # The new address was registered meanwhile (1210), or a concurrent write
+            # held it (1200): the request stays pending, it is not burnt.
+            self._email_change_repo.claim_status(change.key, "confirmed", "pending", datetime.now(UTC).isoformat())
+            raise
+        if moved is None:
+            self._email_change_repo.claim_status(change.key, "confirmed", "pending", datetime.now(UTC).isoformat())
+            raise InvalidTokenError("email-change token")
+        user = moved
+        self._refresh_token_repo.revoke_all_for_user(change.user_key)
 
-        change.status = "confirmed"
-        change.confirmed_at = datetime.now(UTC)
-        if change.key:
-            self._email_change_repo.update(change.key, change)
+        # The way back for the previous address (#1848): a single-use token, stored
+        # only as a hash, valid for the R-07 revert window.
+        # Recorded only while the request is still "confirmed": a revert that
+        # superseded it in between must not be overwritten by a plain update, or
+        # the superseded change would get a live revert link back (/code-review
+        # of #1893). Without the record there is no link to send.
+        confirmed_at = datetime.now(UTC)
+        revert_token = secrets.token_urlsafe(32)
+        revert_expires_at = self._retention.email_change_revert_expires_at(confirmed_at)
+        recorded = self._email_change_repo.record_confirmation(
+            change.key,
+            previous_email=old_email,
+            revert_token_hash=self._token_engine.hash_token(revert_token),
+            revert_expires_at_iso=revert_expires_at.isoformat(),
+            now_iso=confirmed_at.isoformat(),
+        )
+        if recorded:
+            self._notify_old_address_of_email_change(
+                old_email,
+                change.new_email,
+                change.user_key,
+                revert_token=revert_token,
+                revert_expires_at=revert_expires_at,
+            )
 
         logger.info(
             "privacy_email_change_confirmed",
@@ -524,32 +716,209 @@ class PrivacyService:
         )
         return user
 
+    def revert_email_change(self, raw_token: str) -> User:
+        """Take an account back onto the address a confirmed e-mail change left (REQ-025 Art. 16, #1848).
+
+        The notice to the previous address carries the token. Without this, the
+        owner of a hijacked account had no way back: the password reset goes to
+        the new address, and no admin route can change an e-mail. Presenting the
+        token — once, within the window — takes back what a takeover through the
+        change could have left behind:
+
+        * the previous address, restored as verified;
+        * every session, signed out; a password-reset token (it went to the new
+          address) voided; pending e-mail changes withdrawn;
+        * sign-in links (other than the local password) and API keys created
+          since the change was requested (security review, SEC-002/SEC-003);
+        * the revert windows of changes confirmed *after* this one — an
+          attacker's own second hop must not undo the revert with its own token
+          (SEC-001). Earlier windows stay open, so an attacker's revert of a later
+          change cannot void the owner's token.
+
+        The address the account leaves again is told (SEC-004). Refused, with the
+        token left unspent: the previous address now belongs to another account
+        (422), the account is closed and queued for erasure (409, SEC-007).
+        Unknown, spent and expired tokens answer the same 401.
+        """
+        token_hash = self._token_engine.hash_token(raw_token)
+        change = self._email_change_repo.get_by_revert_token_hash(token_hash)
+        now = datetime.now(UTC)
+        if (
+            change is None
+            or change.key is None
+            or change.status != "confirmed"
+            or change.previous_email is None
+            or change.revert_expires_at is None
+            or change.revert_expires_at < now
+        ):
+            raise InvalidTokenError("email-change revert token")
+
+        previous = str(change.previous_email)
+        account = self._user_repo.get_or_raise(change.user_key)
+        if not account.is_active:
+            raise AccountBeingErasedError()
+        holder = self._user_repo.get_by_email(previous)
+        if holder is not None and holder.key != change.user_key:
+            raise ValidationError("The previous email address is now used by another account.")
+        # Single use, atomically: two reverts of one token, or a revert racing
+        # another act on this request, cannot both proceed (SEC-001).
+        if not self._email_change_repo.claim_status(change.key, "confirmed", "reverted", now.isoformat()):
+            raise InvalidTokenError("email-change revert token")
+
+        left_again = account.email
+        # Later confirmations lose their revert link first — also one still in
+        # flight, whose claim stamped confirmed_at (/code-review of #1893).
+        if change.confirmed_at is not None:
+            self._email_change_repo.supersede_confirmed_after(
+                change.user_key, change.confirmed_at.isoformat(), now.isoformat()
+            )
+        # Compare-and-set on the address (/code-review of #1893): the reverts of
+        # two chained changes, or a confirmation in flight, each read an address;
+        # only the one whose read still holds writes. The loser gives its claim
+        # back, so the owner's single-use token survives a lost race (409, retry).
+        try:
+            moved = self._user_repo.move_email(
+                change.user_key,
+                left_again,
+                {
+                    "email": previous,
+                    "email_verified": True,
+                    "password_reset_token": None,
+                    "password_reset_expires": None,
+                },
+            )
+        except DuplicateError as exc:
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise ValidationError("The previous email address is now used by another account.") from exc
+        except WriteConflictError:
+            # A concurrent write held the address (1200): retryable, token kept.
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise
+        if moved is None:
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise WriteConflictError("User", "the address changed while the revert ran; try the link again")
+        user = moved
+        self._refresh_token_repo.revoke_all_for_user(change.user_key)
+        for pending in self._email_change_repo.list_pending_for_user(change.user_key):
+            if pending.key:
+                self._email_change_repo.claim_status(pending.key, "pending", "cancelled", now.isoformat())
+        since = change.requested_at or change.confirmed_at or now
+        dropped_links, revoked_keys = self._take_back_credentials_since(change.user_key, since)
+
+        # Single use through the status: only a "confirmed" change reverts. The
+        # hash is not nulled here — this repository merges, so a ``None`` would be
+        # dropped (#1516); the R-07 task clears it with the window.
+        change.status = "reverted"
+        change.reverted_at = now
+        self._email_change_repo.update(change.key, change)
+
+        if left_again and left_again != previous:
+            self._notify_address_left_by_revert(left_again, change.user_key)
+        logger.info(
+            "privacy_email_change_reverted",
+            subject=self.log_subject(change.user_key),
+            sign_in_links_dropped=dropped_links,
+            api_keys_revoked=revoked_keys,
+        )
+        return user
+
+    def _take_back_credentials_since(self, user_key: UserKey, since: datetime) -> tuple[int, int]:
+        """Drop federated sign-in links and revoke API keys created at or after *since* (#1848).
+
+        A takeover through the e-mail change can leave both behind: a Google/OIDC
+        identity auto-linked to the hijacked (verified) address signs its holder
+        in by ``sub`` without comparing the address again, and an API key reads and
+        writes without any step-up. The local password is not a link to drop — the
+        owner resets it. Older links and keys are the owner's own and stay.
+        """
+        dropped = 0
+        if self._auth_provider_repo is not None:
+            for link in self._auth_provider_repo.list_by_user(user_key):
+                if link.key and link.provider != AuthProviderType.LOCAL and link.linked_at >= since:
+                    self._auth_provider_repo.delete(link.key)
+                    dropped += 1
+        else:
+            logger.warning("email_change_revert_links_unchecked", subject=self.log_subject(user_key))
+        revoked = 0
+        if self._api_key_repo is not None:
+            for key in self._api_key_repo.list_by_user(user_key):
+                if key.key and not key.revoked and key.created_at is not None and key.created_at >= since:
+                    self._api_key_repo.revoke(key.key)
+                    revoked += 1
+        else:
+            logger.warning("email_change_revert_api_keys_unchecked", subject=self.log_subject(user_key))
+        return dropped, revoked
+
+    def _notify_address_left_by_revert(self, address: str, user_key: str) -> None:
+        """Tell the address a revert just moved the account off (security review of #1848, SEC-004).
+
+        Fixed text only: the recipient may be the attacker or the owner's own
+        second mailbox, and nothing a requester chose belongs in it.
+        """
+        body = (
+            "<h2>Your Kamerplanter account moved back to its previous email address</h2>"
+            "<p>The owner of the previous address used the link from the change notice to take the account "
+            "back. This address no longer signs in to it, and every session was signed out.</p>"
+            "<p>If you made the change and did not expect this, contact the operator of this Kamerplanter "
+            "installation.</p>"
+        )
+        try:
+            self._email_service.send_notification_email(
+                to_email=address,
+                subject="Kamerplanter — your account moved back to its previous email address",
+                html_body=body,
+            )
+        except NotImplementedError:
+            logger.warning("email_change_revert_notice_skipped", subject=self.log_subject(user_key))
+        except Exception as exc:  # noqa: BLE001 - sent after the revert is committed
+            logger.error(
+                "email_change_revert_notice_failed",
+                subject=self.log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
+
     # ── Art. 17: erasure ───────────────────────────────────────────
 
     def request_erasure(
         self,
         user_key: UserKey,
-        password_confirmation: str | None,
+        *,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> ErasureRequest:
         """Create an erasure request, soft-delete the user and revoke sessions.
 
         Hard-delete is scheduled the NFR-011 R-01 grace period into the future
         (``RETENTION_SOFT_DELETE_RETENTION_DAYS``, default 90). The actual
         deletion runs in a Celery task.
+
+        The entry of both self-service routes, ``POST /privacy/erasure`` and
+        ``DELETE /users/me`` (#1813). The step-up is the shared
+        :class:`StepUpVerifier` (keyword-only, no defaults, so a new route cannot
+        skip it): a signed-in session of a person, never an API key or a service
+        account (403); the account's own e-mail typed back (422); the current
+        password when the account has one (401) — throttled per account and
+        address (429 ``STEP_UP_LOCKED``, #1816). A federated-only account confirms
+        with the one-time code mailed to it (401 ``STEP_UP_CODE_REQUIRED`` without
+        one, #1815); before #1815 the echo alone confirmed it.
         """
+        self._refuse_in_light_mode()
         user = self._user_repo.get_or_raise(user_key)
+        step_up = self._step_up_verifier.verify(
+            user,
+            action="account_erasure",
+            echo_ok=echo_matches(confirmation.echo, user.email, case_insensitive=True),
+            password=confirmation.password,
+            code=confirmation.code,
+            reauth_token=confirmation.reauth_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
         existing = self._erasure_repo.find_active_for_user(user_key)
         if existing is not None:
             raise ValidationError("An erasure request is already in progress.")
-
-        # Local accounts: require password re-auth. OAuth-only accounts must
-        # confirm via a different upstream flow that is out of scope here.
-        if user.password_hash is not None and (
-            not password_confirmation
-            or not self._password_engine.verify_password(password_confirmation, user.password_hash)
-        ):
-            raise UnauthorizedError("Password confirmation failed.")
 
         now = datetime.now(UTC)
         erasure = self._new_erasure_request(
@@ -558,6 +927,7 @@ class PrivacyService:
             hard_delete_at=self._retention.hard_delete_at(now),
             origin="self_service",
         )
+        erasure.step_up = step_up
         created = self._erasure_repo.create(erasure)
 
         # Immediate effects: soft-delete the user and revoke all sessions.
@@ -623,6 +993,8 @@ class PrivacyService:
         *,
         origin: ErasureOrigin,
         now: datetime | None = None,
+        step_up: ErasureStepUp | None = None,
+        requested_by_subject: str | None = None,
     ) -> ErasureRequest | None:
         """Erase an account at once, with the same record, gate and retry as Art. 17 (#1767).
 
@@ -683,8 +1055,17 @@ class PrivacyService:
         # The request first, so a failure after the account is closed still
         # leaves a duty the beat retries (#1767 review SEC-D).
         if erasure is None:
-            erasure = self._create_immediate_request(user_key, now=now, origin=origin)
-        elif erasure.key is not None and (
+            erasure = self._create_immediate_request(
+                user_key, now=now, origin=origin, step_up=step_up, requested_by_subject=requested_by_subject
+            )
+        elif step_up is not None and erasure.key is not None:
+            # An admin erasing an account whose own request is still open: the
+            # record now also names the admin act that pulled it forward (#1814).
+            self._erasure_repo.update_fields(
+                erasure.key, {"step_up": step_up, "requested_by_subject": requested_by_subject}
+            )
+            erasure.step_up, erasure.requested_by_subject = step_up, requested_by_subject
+        if erasure.key is not None and (
             erasure.hard_delete_scheduled_at is None or erasure.hard_delete_scheduled_at > now
         ):
             # A self-service request still in its grace: the beat must be able
@@ -706,7 +1087,98 @@ class PrivacyService:
         await self._finalize_erasure(erasure, now, raise_on_failure=True)
         return erasure
 
-    def _create_immediate_request(self, user_key: UserKey, *, now: datetime, origin: ErasureOrigin) -> ErasureRequest:
+    async def erase_account_by_admin(
+        self,
+        user_key: UserKey,
+        *,
+        requester: User,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+        now: datetime | None = None,
+    ) -> ErasureRequest | None:
+        """A platform admin erases another account at once — with a step-up (#1814).
+
+        The entry of ``DELETE /admin/platform/users/{key}``. Until #1814 the route
+        called :meth:`erase_account_now` behind ``require_platform_admin`` alone, so
+        a hijacked admin session erased any account with one request. Checked here,
+        not at the router, so the rule cannot drift from the route (the arguments
+        are keyword-only without defaults for that reason):
+
+        1. not the requester's own account (403) — that is the self-service path;
+        2. the requester is a platform admin *by the stored membership* (an active
+           ``lead`` membership in the ``platform`` tenant), not by the router's say (403);
+        3. the shared :class:`StepUpVerifier`: a signed-in session of a person,
+           never an API key (403); the **target's** e-mail typed back (422); the
+           **admin's own** current password when the admin has one, the code
+           mailed to the admin when not (401, #1815), throttled per admin and
+           address (429, #1816).
+
+        Then :meth:`erase_account_now`, whose record carries the step-up and the
+        admin as a salted reference.
+        """
+        self._refuse_in_light_mode()
+        if requester.key == user_key:
+            raise ForbiddenError("You cannot delete your own account from the admin panel.")
+        self._require_platform_admin_membership(requester)
+        target = self._user_repo.get_or_raise(user_key)
+        step_up = self._step_up_verifier.verify(
+            requester,
+            action="admin_account_erasure",
+            echo_ok=echo_matches(confirmation.echo, target.email, case_insensitive=True),
+            password=confirmation.password,
+            code=confirmation.code,
+            reauth_token=confirmation.reauth_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        requested_by = self.log_subject(requester.key or "")
+        logger.info(
+            "erasure.admin_authorized",
+            subject=self.log_subject(user_key),
+            requested_by=requested_by,
+            step_up=step_up,
+        )
+        return await self.erase_account_now(
+            user_key,
+            origin="platform_admin",
+            now=now,
+            step_up=step_up,
+            requested_by_subject=requested_by,
+        )
+
+    def _refuse_in_light_mode(self) -> None:
+        """No account erasure through a request in light mode (review SEC-003).
+
+        A light-mode installation has one account, the system user every request
+        resolves to without authentication (REQ-027), and its address is public in
+        the seed. Before #1815 the echo alone confirmed an account without a
+        password, so an erasure request here would have let anyone who reaches the
+        instance schedule the erasure of the installation itself; the refusal
+        stays, because the installation account is not a person's to erase.
+        """
+        if self._light_mode:
+            raise ForbiddenError("The account of a light-mode installation cannot be erased.")
+
+    def _require_platform_admin_membership(self, requester: User) -> None:
+        """Refuse unless the stored membership proves a platform admin (fail closed without a repo)."""
+        membership = (
+            self._membership_repo.get_by_user_and_tenant(requester.key or "", _PLATFORM_TENANT_KEY)
+            if self._membership_repo is not None
+            else None
+        )
+        if not (membership and membership.is_active and membership.role == TenantRole.LEAD):
+            raise ForbiddenError("Platform admin role required.")
+
+    def _create_immediate_request(
+        self,
+        user_key: UserKey,
+        *,
+        now: datetime,
+        origin: ErasureOrigin,
+        step_up: ErasureStepUp | None = None,
+        requested_by_subject: str | None = None,
+    ) -> ErasureRequest:
         """Create the immediate request under a per-subject key, or refuse (#1767 SEC-003).
 
         Keyed by a salted, domain-separated hash of the subject
@@ -718,6 +1190,8 @@ class PrivacyService:
         """
         key = self._erasure_engine.compute_request_key(user_key, self._tombstone_salt)
         request = self._new_erasure_request(user_key, now=now, hard_delete_at=now, origin=origin)
+        request.step_up = step_up
+        request.requested_by_subject = requested_by_subject
         try:
             return self._erasure_repo.create_with_key(request, key)
         except (DuplicateError, WriteConflictError) as exc:
@@ -1400,6 +1874,14 @@ class PrivacyService:
             self._erasure_engine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        # #1812 review SEC-001: the record's ``requested_by_subject`` (and the
+        # redacted error texts it keeps) are log pseudonyms. Without the log salt
+        # they would be persisted as the constant ``anon_unavailable`` — a proof
+        # that no longer says who asked for the erasure. Refused like the
+        # tombstone salt, before anything changes (the start gate does not run
+        # with DEBUG=true).
+        if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
+            return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
         return self._personal_tenant_configuration_error()
 
     def _personal_tenant_configuration_error(self) -> str | None:
@@ -1565,6 +2047,8 @@ class PrivacyService:
                 pre_arango_completed_at=now,
                 reference_index_binding=pre_arango.reference_index_binding,
                 reference_index_removed=pre_arango.reference_index_removed,
+                storage_objects_removed=pre_arango.storage_objects_removed,
+                storage_objects_retained_shared=pre_arango.storage_objects_retained_shared,
                 # Only when the pest step ran: ``None`` fields are not written.
                 pest_prototype_binding=pre_arango.pest_prototype_binding,
                 pest_prototypes_removed=(
@@ -1625,6 +2109,7 @@ class PrivacyService:
             status="completed",
             completed_at=now,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            storage_objects_released=report.storage_objects_released,
             personal_tenants=report.personal_tenants,
         )
         return True
@@ -1797,6 +2282,14 @@ class PrivacyService:
         plan = self._erasure_engine.build_erasure_plan(user_key)
 
         report = AccountErasureReport()
+        # #1770 — the objects of the subject's hard-deleted records, taken while the
+        # records still exist (the plan removes them) and *before* the pre-ArangoDB
+        # phases: the pest-image step deletes the contributions through which
+        # ``_erasure_tenant_keys`` finds a tenant the subject has left. Phase 0 kept
+        # an object another member's record held; if that record goes before the
+        # plan, nothing holds the object once the plan has run, and this run
+        # releases it.
+        hard_deleted_objects = await self._hard_deleted_objects(user_key)
         if pre_arango_completed:
             logger.info("retention.erasure.pre_arango_phases_skipped", subject=self.log_subject(user_key))
             report.storage_cleanup_scopes = list(recorded_storage_scopes or [])
@@ -1818,17 +2311,21 @@ class PrivacyService:
             on_personal_tenants_resolved,
         )
         report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
+        report.storage_objects_released = await self._release_unheld_objects(user_key, hard_deleted_objects)
 
         logger.info(
             "erasure.account_erased",
             subject=self.log_subject(user_key),
             export_files_removed=report.export_files_removed,
             storage_cleanup_scopes=report.storage_cleanup_scopes,
+            storage_objects_removed=report.storage_objects_removed,
+            storage_objects_retained_shared=report.storage_objects_retained_shared,
             reference_index_removed=report.reference_index_removed,
             reference_index_binding=report.reference_index_binding,
             pest_prototypes_removed=report.pest_prototypes_removed,
             pest_prototype_binding=report.pest_prototype_binding,
             delegated_removed=report.delegated_removed,
+            storage_objects_released=report.storage_objects_released,
             # Outcomes only — no tenant or record key beside the subject digest (#1788 review GDPR-05).
             personal_tenants=[item.outcome for item in report.personal_tenants],
             arango_steps={step.collection: step.affected for step in report.arango.steps},
@@ -1912,7 +2409,7 @@ class PrivacyService:
         Returns the number of pest-image contributions removed (the count of a
         declared step delegated to this phase).
         """
-        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key)
+        report.storage_cleanup_scopes = await self._run_storage_cleanup(user_key, report)
         report.reference_index_removed = await self._run_reference_index_cleanup(user_key)
         report.reference_index_binding = self._reference_index_binding()
         return await self._run_pest_image_cleanup(user_key, report)
@@ -1959,12 +2456,17 @@ class PrivacyService:
         )
         return removed
 
-    async def _run_storage_cleanup(self, user_key: str) -> list[str]:
+    async def _run_storage_cleanup(self, user_key: str, report: AccountErasureReport | None = None) -> list[str]:
         """Phase 0 — walk the user's tenants and apply STORAGE_CLEANUP_RULES.
 
         A user can belong to several tenants (REQ-024 membership); the
         ``attachments`` lookup is tenant-scoped, so the cleanup runs per tenant.
         Returns the list of scopes that were applied (for the audit record).
+
+        #1770 — a hard-deleted record's object is kept while another record still
+        holds it (deduplicated bytes of another member). *report* receives both
+        counts, so the erasure proves it reached the subject's records even where
+        it kept the bytes.
         """
         if self._storage_adapter is None or self._membership_repo is None:
             logger.info(
@@ -1979,17 +2481,21 @@ class PrivacyService:
         for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
             for tenant_key in tenant_keys:
                 if rule.action == "hard_delete":
-                    deleted = await self._storage_adapter.delete_for_user(
+                    result = await self._storage_adapter.delete_for_user(
                         tenant_key=tenant_key,
                         user_key=user_key,
                         scope=rule.scope,
                     )
+                    if report is not None:
+                        report.storage_objects_removed += result.removed
+                        report.storage_objects_retained_shared += result.retained_shared
                     logger.info(
                         "retention.erasure.storage_hard_delete",
                         scope=rule.scope,
                         tenant_key=tenant_key,
                         subject=self.log_subject(user_key),
-                        deleted=deleted,
+                        deleted=result.removed,
+                        retained_shared=result.retained_shared,
                     )
                 elif rule.action == "anonymize_metadata_and_strip_exif":
                     # Strip first: both halves select the photos by
@@ -2018,6 +2524,86 @@ class PrivacyService:
                     )
             applied_scopes.append(rule.scope)
         return applied_scopes
+
+    async def _hard_deleted_objects(self, user_key: str) -> list[tuple[str, str, str]]:
+        """``(tenant, storage key, mime type)`` of the subject's records in hard-delete scopes.
+
+        Read before the ArangoDB plan removes those records (#1770), on a retry
+        as on the first run: the plan runs in one transaction, so a failed one
+        left them in place.
+        """
+        if self._storage_adapter is None or self._attachment_repo is None or self._membership_repo is None:
+            return []
+        from app.data_access.storage.local_fs_adapter import _scope_to_categories
+
+        objects: set[tuple[str, str, str]] = set()
+        tenant_keys = self._erasure_tenant_keys(user_key)
+        for rule in self._erasure_engine.STORAGE_CLEANUP_RULES:
+            if rule.action != "hard_delete":
+                continue
+            categories = _scope_to_categories(rule.scope)
+            if categories is not None and not categories:
+                continue
+            for tenant_key in tenant_keys:
+                for attachment in self._attachment_repo.find_by_user(tenant_key, user_key, categories):
+                    objects.add((tenant_key, attachment.storage_key, attachment.mime_type))
+        return sorted(objects)
+
+    async def _release_unheld_objects(self, user_key: str, objects: list[tuple[str, str, str]]) -> int:
+        """Delete the objects of *objects* no record holds any more, with their renditions (#1770).
+
+        Phase 0 keeps an object another member's record still holds. That record
+        can go between Phase 0 and the plan — its own delete then saw the
+        subject's record, not yet removed, as the holder and kept the object too.
+        Asked again after the plan, no one holds it and nothing else ever would
+        delete it.
+
+        Runs after the plan committed, so a failure cannot reopen the erasure (the
+        next run finds the tombstone and closes it). It is logged at error level
+        with a count and no key, and the objects stay for the operator.
+        """
+        if not objects or self._storage_adapter is None or self._attachment_repo is None:
+            return 0
+        from app.common.exceptions import NotFoundError
+        from app.domain.engines.storage.thumbnail_generator import rendition_keys
+
+        released = 0
+        try:
+            by_tenant: dict[str, list[tuple[str, str]]] = {}
+            for tenant_key, storage_key, mime_type in objects:
+                by_tenant.setdefault(tenant_key, []).append((storage_key, mime_type))
+            for tenant_key, entries in by_tenant.items():
+                held = self._attachment_repo.storage_keys_held_elsewhere(
+                    tenant_key=tenant_key, storage_keys=[key for key, _ in entries], excluding=[]
+                )
+                for storage_key, mime_type in entries:
+                    if storage_key in held:
+                        continue
+                    try:
+                        await self._storage_adapter.head_object(storage_key)
+                    except NotFoundError:
+                        continue  # Phase 0 deleted it — the common case.
+                    await self._storage_adapter.delete_object(storage_key)
+                    for rendition in rendition_keys(storage_key, mime_type):
+                        await self._storage_adapter.delete_object(rendition)
+                    released += 1
+        except Exception as exc:  # noqa: BLE001 — the plan committed; the error must not reopen it
+            logger.error(
+                "retention.erasure.shared_object_release_failed",
+                subject=self.log_subject(user_key),
+                objects=len(objects),
+                released=released,
+                error=self._loggable_error(exc, user_key),
+                error_type=type(exc).__name__,
+            )
+            return released
+        if released:
+            logger.info(
+                "retention.erasure.shared_objects_released",
+                subject=self.log_subject(user_key),
+                released=released,
+            )
+        return released
 
     async def _anonymize_attachment_metadata(self, tenant_key: str, user_key: str, scope: str) -> int:
         """Set ``created_by = '_anonymized'`` for the scope's categories."""
@@ -2071,7 +2657,7 @@ class PrivacyService:
     def log_subject(self, user_key: str) -> str:
         """The reference a log line carries instead of the plaintext account key (#1700, #1773).
 
-        :meth:`ErasureEngine.log_subject` under this instance's tombstone salt:
+        :meth:`ErasureEngine.log_subject` under ``LOG_PSEUDONYM_SALT`` (#1812):
         a salted, purpose-separated HMAC, so every line about one subject shares
         it and it names nobody. It is deliberately **not** the tombstone the
         pseudonymised ``erasure_requests`` and audit rows keep (#1773 review
@@ -2079,11 +2665,11 @@ class PrivacyService:
         Public because the services that front this one (``DataSubjectService``)
         log about the same subject and must not keep a second implementation.
         """
-        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
+        return log_subject(user_key) or UNAVAILABLE_LOG_SUBJECT
 
     def _redact_subject(self, text: str, user_key: str) -> str:
         """*text* with *user_key* replaced by :meth:`log_subject` (see ``ErasureEngine.redact_subject``)."""
-        return ErasureEngine.redact_subject(text, user_key, self._tombstone_salt)
+        return redact_subject(text, user_key)
 
     def _loggable_error(self, error: BaseException | str, user_key: str | None) -> str:
         """An exception text as it may reach a log line or a record outliving the account (#1773 review).
@@ -2148,6 +2734,9 @@ class PrivacyService:
         reference_index_removed: int | None = None,
         pest_prototype_binding: str | None = None,
         pest_prototypes_removed: int | None = None,
+        storage_objects_removed: int | None = None,
+        storage_objects_retained_shared: int | None = None,
+        storage_objects_released: int | None = None,
         personal_tenant_keys: list[str] | None = None,
         personal_tenants: list[PersonalTenantErasure] | None = None,
     ) -> None:
@@ -2179,6 +2768,9 @@ class PrivacyService:
             "reference_index_removed": reference_index_removed,
             "pest_prototype_binding": pest_prototype_binding,
             "pest_prototypes_removed": pest_prototypes_removed,
+            "storage_objects_removed": storage_objects_removed,
+            "storage_objects_retained_shared": storage_objects_retained_shared,
+            "storage_objects_released": storage_objects_released,
             "personal_tenant_keys": personal_tenant_keys,
             "personal_tenants": personal_tenants,
         }
@@ -2230,10 +2822,14 @@ class PrivacyService:
         ``RETENTION_EMAIL_CHANGE_RETENTION_HOURS`` (:meth:`request_email_change`).
         """
         affected = self._email_change_repo.expire_old(now.isoformat())
-        if affected:
+        # The revert window of confirmed changes closes on the same beat (#1848):
+        # the previous address and the token's hash are kept exactly that long.
+        closed = self._email_change_repo.close_revert_windows(now.isoformat())
+        if affected or closed:
             logger.info(
                 "retention.expire_email_change_requests.completed",
                 expired=affected,
+                revert_windows_closed=closed,
             )
         return affected
 

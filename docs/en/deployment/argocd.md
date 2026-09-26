@@ -30,13 +30,14 @@ kubectl create secret generic kamerplanter-secrets \
   --from-literal=ARANGO_ROOT_PASSWORD=your-secure-password \
   --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
   --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
-  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)" \
+  --from-literal=LOG_PSEUDONYM_SALT="$(openssl rand -hex 32)"
 ```
 
-The Secret is referenced by both backend and ArangoDB via `envFrom` — no passwords appear in ArgoCD manifests or Git history.
+The Secret is referenced by the backend, the Celery worker, and ArangoDB via `envFrom` — no passwords appear in ArgoCD manifests or Git history.
 
-!!! danger "Without the last three values the backend pod won't start"
-    `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` are independent boot blockers — separate from `ARANGODB_PASSWORD`/`ARANGO_ROOT_PASSWORD`: the backend aborts with `SystemExit` when `DEBUG=false` if any of the three is missing, or (for `ERASURE_TOMBSTONE_SALT`) shorter than 32 characters. Full overview: [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+!!! danger "Without the last four values the backend pod won't start"
+    `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` and `LOG_PSEUDONYM_SALT` are independent boot blockers — separate from `ARANGODB_PASSWORD`/`ARANGO_ROOT_PASSWORD`: the backend aborts with `SystemExit` when `DEBUG=false` if any of the four is missing, or (for `ERASURE_TOMBSTONE_SALT`/`LOG_PSEUDONYM_SALT`) shorter than 32 characters. The Celery worker checks `LOG_PSEUDONYM_SALT` just as strictly. Full overview: [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 !!! tip "Declarative secret management"
     Instead of running `kubectl create secret` manually, consider these options for GitOps workflows:

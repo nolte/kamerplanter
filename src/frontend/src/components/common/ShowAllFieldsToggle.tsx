@@ -17,6 +17,9 @@ export default function ShowAllFieldsToggle({ showAll, onToggle }: ShowAllFields
       onClick={onToggle}
       startIcon={showAll ? <ExpandLessIcon /> : <ExpandMoreIcon />}
       sx={{ mb: 1 }}
+      // A disclosure button: its state is announced (WCAG 4.1.2), and it is what
+      // the E2E harness reads to know the fields really are shown (#1897).
+      aria-expanded={showAll}
       data-testid="show-all-fields-toggle"
     >
       {showAll ? t('common.showFewerFields') : t('common.showAllFields')}

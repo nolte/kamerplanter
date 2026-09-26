@@ -19,6 +19,7 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file first, then set status to `expired` | Purpose lapse |
 | R-06 | Erasure audit (completed requests) | 1 year after completion | Hard-delete (`retention.purge_expired_erasure_records`, daily at 04:30 UTC) | Art. 5(2) accountability |
 | R-07 | Email change requests | 24 hours after creation | Set status to `expired` (no hard-delete) | Purpose lapse |
+| R-07a | Revert window of a confirmed email change | 7 days after confirmation | Clear `previous_email`, the revert token's hash, and its expiry | Purpose lapse — the revert link has expired |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
 | R-12 | Expired invitations | 30 days after expiry | **Partially implemented:** status is set to `expired`; deletion after 30 days does not happen | Purpose lapse |
 
@@ -86,6 +87,22 @@ unconfirmed email-change request to `expired` `RETENTION_EMAIL_CHANGE_RETENTION_
 hours after the request (default 24 hours, minimum 1 hour; the older name
 `PRIVACY_EMAIL_CHANGE_TTL_HOURS` remains valid as an alias). The record is not
 hard-deleted.
+
+### Revert Window of a Confirmed Email Change (R-07a)
+
+Once an email change is confirmed, the **previous** address receives a one-time-use
+revert link (see [Privacy — Changing Your Email Address](../user-guide/privacy.md#changing-your-email-address-gdpr-art-16)).
+For that, the record keeps three extra fields: `previous_email`, the hash of the revert
+token (`revert_token_hash`), and its expiry (`revert_expires_at`), set to the
+confirmation time plus `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (default 7 days, minimum 1
+day).
+
+The same hourly task as R-07 (`retention.expire_email_change_requests`, minute 15)
+closes the window in the same run: for every record whose `revert_token_hash` is set and
+whose `revert_expires_at` has passed or is unreadable, it clears all three fields —
+conservatively, so a record with an unreadable expiry is treated as expired. The revert
+link no longer works afterwards; the record as a whole is still not hard-deleted (see
+R-07).
 
 ---
 
@@ -306,15 +323,16 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
 ??? info "For operators: the `subject=` field in log lines"
     Log lines carry a `subject=` field instead of an account key or email address. It holds a salted,
     purpose-separated reference (`sub_` followed by 16 hex characters, an HMAC of the
-    account key keyed with `ERASURE_TOMBSTONE_SALT`). The lines of one account stay
+    account key keyed with `LOG_PSEUDONYM_SALT`). The lines of one account stay
     correlatable with each other without naming anyone. The reference is deliberately
     **not** the tombstone hash (`anon_…`) that the erasure audit and the anonymised
-    harvest and treatment records keep: someone holding only the logs cannot join them
+    harvest and treatment records keep and that is still keyed with
+    `ERASURE_TOMBSTONE_SALT`: someone holding only the logs cannot join them
     to those retained records. If the salt is missing or too short, the line carries the
     constant `anon_unavailable` instead — never the account key in the clear.
 
     Registration and email events additionally log fields such as `email_sha256` — a
-    keyed digest of the email address (an HMAC with `ERASURE_TOMBSTONE_SALT`, 16 hex
+    keyed digest of the email address (an HMAC with `LOG_PSEUDONYM_SALT`, 16 hex
     characters), never the address itself. A plain SHA-256 could be reversed with a
     list of addresses; the keyed digest cannot without the salt. Without a valid salt
     the field reads `unavailable`. Object-storage log
@@ -322,15 +340,36 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     segment of export-bundle keys: `privacy/exports/<account key>/<export>.json` becomes
     `privacy/exports/<subject>/<export>.json`.
 
+    `LOG_PSEUDONYM_SALT` keys only these log references (and the `requested_by_subject`
+    provenance field on erasure and tenant-erasure records) — separate from
+    `ERASURE_TOMBSTONE_SALT`, which must never change. An operator may rotate the log
+    salt (set the new value in both the backend and the Celery worker, restart both):
+    log lines from before the rotation no longer correlate with later ones.
+
     Error texts in these lines (`error=`) are cleaned the same way: the account key is
     replaced by the reference, and export-bundle paths are masked. Where an error text can
     contain a third party's address (a rejected email recipient), only the error type is
     logged (`error_type=`). Email addresses inside an error text become
-    `<email:…>` digests, and URL query strings (which can hold coordinates or API keys)
-    become `?<redacted>`.
+    `<email:…>` digests, and URL query strings and fragments (which can hold coordinates or
+    API keys) become `?<redacted>`, and credentials embedded directly in a URL
+    (`scheme://user:password@…`) are masked as well. An unexpected error (a traceback)
+    goes through the same cleanup: an error message from the application's own domain
+    logic appears in the log only as its error class and error code, any other exception
+    cleaned as described above. An account key inside the text of a standard or library
+    exception is something this cleanup cannot recognise. This applies to the application's
+    structured log lines as well as to the tracebacks that uvicorn and the Celery worker
+    write for an unhandled error.
 
     IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
-    `0`, IPv6 `/48`), as `ip_prefix=`.
+    `0`, IPv6 `/48`), as `ip_prefix=`. That now also applies to the access logs: uvicorn
+    truncates the client address the same way and writes only the fixed route segments of
+    the requested path (e.g. `/api/v1/t/{}/plants/{}`) — your tenant slug, your account key
+    and a download token in the URL no longer appear there, nor does a query string. If the
+    application runs behind the bundled nginx, the same holds for its own access log
+    (`kp_redacted`): it names neither `X-Forwarded-For` nor the user agent or referrer, and
+    a link such as `/password-reset/<token>` appears there only as `/<spa-route>`. nginx's
+    error log, by contrast, cannot be redacted and is therefore kept to the narrow `crit`
+    level.
 
     How long your log
     pipeline (container runtime, Loki, `json-file` rotation) keeps the lines is your
@@ -358,6 +397,20 @@ then the erasure runs without waiting. In all three cases: afterward the request
 the request stays open as `partially_completed` and is retried automatically with backoff
 until it succeeds (see below). While a request is open, you cannot file a second one; a
 second deletion attempt by a platform admin instead resumes the open request at once.
+
+Attachments are deduplicated per tenant by the file's SHA-256 hash (issue #1770): if a
+second member uploads exactly the same file (or you do, in another category), a record
+of its own is created, but the bytes are stored once and referenced by both records. Storage cleanup
+(Phase 0) therefore only deletes the file once no other record still points to it; if a
+record belonging to another member still points to it, the object is kept. The erasure
+request (`erasure_requests`) counts both: `storage_objects_removed` (objects actually
+deleted) and `storage_objects_retained_shared` (objects kept because another member's
+record still holds them). The same numbers are logged by the
+`retention.erasure.storage_hard_delete` line as `deleted` and `retained_shared`, per scope
+and tenant. If the other member deletes their record while your erasure is running, no one
+holds the object once the ArangoDB step has run, so the erasure asks again afterwards and
+removes it. That is counted as `storage_objects_released`, stored with the `completed`
+status; a failure there is logged as `retention.erasure.shared_object_release_failed`.
 
 ??? info "For operators: retries and log levels"
     Every failed attempt is counted on the request (`attempt_count`, `last_attempt_at`),
@@ -482,6 +535,7 @@ keeping the record longer than declared.
 | R-05 | `retention.expire_data_exports` | hourly, minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
 | R-06 | `retention.purge_expired_erasure_records` | daily, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
 | R-07 | `retention.expire_email_change_requests` | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
+| R-07a | `retention.expire_email_change_requests` (same run) | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly | Expiry of the token |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily | Expiry of the invitation (status `expired` only) |
 
@@ -493,7 +547,7 @@ counters, for example:
 - `anonymize_old_ips` (`anonymized`)
 - `retention.expire_data_exports.completed` (`expired`)
 - `retention.purge_expired_erasure_records.completed` (`purged`, `held_without_tombstone`)
-- `retention.expire_email_change_requests.completed` (`expired`)
+- `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
 
@@ -520,6 +574,7 @@ checks the same floor again:
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
 
 If both names of a row are set, the `RETENTION_*` name wins. The older names were
 documented before this change but had no effect — the code used fixed values; they now
@@ -626,6 +681,51 @@ are left untouched by the sweep (curation).
     `PEST_DETECTION_ENABLED` or `INFERENCE_SERVICE_ENABLED` plus
     `INFERENCE_SERVICE_URL`, and `INTERNAL_SERVICE_TOKEN`. Details:
     [Setting Up Plant Identification](../deployment/inference-service.md).
+
+---
+
+## Migration v0062: Splitting Shared Attachments Into Owned Records
+
+Before issue #1770, a second upload of the same bytes within a tenant got back the
+**first** uploader's record — even across categories, for example between a
+pest-image contribution and a documentary photo (diary, task, inspection,
+harvest/storage observation, plant gallery). If the first uploader deleted their
+account, the second member's record was hard-deleted or anonymized along with it; if the
+second uploader deleted their account, the erasure never reached their contribution
+because no record belonged to them.
+
+The migration `v0062_split_shared_attachment_ownership` brings existing data as close to
+the new shape as the data allows to reconstruct:
+
+1. **The unique index on `attachments.storage_key` is dropped.** Several uploaders now
+   share one stored file; a non-unique index replaces it.
+2. **Every pest-image contribution gets its own `pest_reference` record**, unless the
+   record it pointed to was already its own: a new record with the deterministic key
+   `pic-<contribution key>` is created over the same stored file, named after the
+   contributor, and the contribution is repointed to it. The original uploader's filename
+   is not carried over.
+3. **A `pest_reference` record that a documentation carrier references** (diary entry,
+   task, inspection, harvest/storage observation, plant gallery) is recategorized into a
+   record of that category — otherwise it would be hard-deleted when the pest-image
+   owner is erased, instead of being anonymized and retained like every other
+   documentary photo.
+
+Run it like any migration via `python -m app.migrations upgrade`; `--dry-run` computes
+every change and logs it (`split_shared_attachment_ownership_dry_run`, with the same
+counters) without writing anything. An interrupted run leaves no inconsistent state: the
+split key is deterministic and written with an `UPSERT`, so a re-run picks up exactly
+where it left off.
+
+!!! danger "Not reversible"
+    Rolling back would re-create exactly the shared ownership this migration removes.
+
+!!! warning "What the migration cannot reconstruct"
+    Two identical **documentary** photos (e.g. two diary uploads of the same file by two
+    members) left only one record and no trace of the second uploader before #1770 — the
+    carrying records (diary, task, …) mostly have no per-photo owner field. Such records
+    are left unchanged; their file is never hard-deleted, because the documentation rule
+    anonymizes and retains it — so nothing is lost. The second uploader's Art. 15 data
+    export, however, will not list a record they never had.
 
 ---
 

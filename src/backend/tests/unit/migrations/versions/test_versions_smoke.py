@@ -121,6 +121,9 @@ class _NoopCollection:
                 "fields": ["tenant_key", "analysis_state", "analysis_requested_at"],
                 "unique": False,
             },
+            # v0062 (#1770): attachments.storage_key is bootstrapped non-unique on a
+            # fresh volume, so the migration finds it present and drops nothing.
+            {"type": "persistent", "fields": ["storage_key"], "unique": False},
             # v0045 (#1301): tasks.care_dedup_key is bootstrapped unique+sparse on a
             # fresh volume, so the dedup+constraint migration finds it present → no-op.
             {

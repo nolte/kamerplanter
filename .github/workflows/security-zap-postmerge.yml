@@ -127,6 +127,7 @@ on:
       # security-nuclei-postmerge.yml already lists it that way.
       - "scripts/security/**"
       - ".github/actions/ephemeral-stack/**"
+      - "scripts/e2e_fernet_key.py"
       - ".github/workflows/security-zap-postmerge.yml"
   # On-demand pre-merge scan. No `paths:` filter — the dispatch IS the
   # selection. See the header for why this is not a `labeled` trigger.

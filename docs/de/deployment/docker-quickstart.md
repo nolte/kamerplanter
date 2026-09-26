@@ -51,27 +51,28 @@ ARANGODB_PASSWORD=dein-sicheres-passwort        # (2)!
 
 Die übrigen Einstellungen kannst du zunächst auf den Standardwerten belassen.
 
-### Drei zusätzliche Pflicht-Secrets (sonst startet das Backend nicht)
+### Vier zusätzliche Pflicht-Secrets (sonst startet das Backend nicht)
 
-!!! danger "Ohne diese drei Werte bricht der Backend-Start ab"
-    `.env.example` setzt `DEBUG=false`. Bei `DEBUG=false` prüft das Backend beim Start drei weitere Geheimnisse — `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` — und bricht mit einer Fehlermeldung ab, wenn einer davon fehlt (Fail-Fast-Gate, unabhängig vom Betriebsmodus). Die mitgelieferten `docker-compose.yml`/`docker-compose.release.yml` reichen diese drei Variablen **nicht automatisch** an den Backend-Container durch — du musst sie selbst ergänzen.
+!!! danger "Ohne diese vier Werte bricht der Backend-Start ab"
+    `.env.example` setzt `DEBUG=false`. Bei `DEBUG=false` prüft das Backend beim Start vier weitere Geheimnisse — `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` — und bricht mit einer Fehlermeldung ab, wenn eines davon fehlt (Fail-Fast-Gate, unabhängig vom Betriebsmodus). Die mitgelieferten `docker-compose.yml`/`docker-compose.release.yml` reichen diese vier Variablen **nicht automatisch** an den Backend-Container durch — du musst sie selbst ergänzen. Auch der `celery-worker`-Container prüft `FERNET_KEY` und `LOG_PSEUDONYM_SALT` inzwischen beim Start und bricht ebenso ab, wenn ein Wert fehlt oder ungültig ist — der `celery-worker`-Eintrag in der `docker-compose.override.yml` unten ist deshalb **Pflicht**, nicht optional. `celery-beat` prüft `LOG_PSEUDONYM_SALT` nicht.
 
-Erzeuge die drei Werte:
+Erzeuge die vier Werte:
 
 ```bash
-# JWT_SECRET_KEY und ERASURE_TOMBSTONE_SALT (mind. 32 Zeichen)
+# JWT_SECRET_KEY, ERASURE_TOMBSTONE_SALT und LOG_PSEUDONYM_SALT (je mind. 32 Zeichen)
 openssl rand -hex 32
 
 # FERNET_KEY (muss ein gültiger Fernet-Schlüssel sein)
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Trage die drei Werte in deine `.env` ein:
+Trage die vier Werte in deine `.env` ein:
 
 ```ini title=".env"
 JWT_SECRET_KEY=<Ausgabe von openssl rand -hex 32>
 FERNET_KEY=<Ausgabe des Fernet-Kommandos>
 ERASURE_TOMBSTONE_SALT=<zweite Ausgabe von openssl rand -hex 32>
+LOG_PSEUDONYM_SALT=<dritte Ausgabe von openssl rand -hex 32>
 ```
 
 Lege zusätzlich eine `docker-compose.override.yml` an, die diese Werte tatsächlich an die Container durchreicht (Docker Compose lädt sie automatisch mit, sobald sie im selben Verzeichnis liegt):
@@ -83,10 +84,12 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       FERNET_KEY: ${FERNET_KEY}
       ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT}
   celery-worker:
     environment:
       FERNET_KEY: ${FERNET_KEY}
       ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT}
   celery-beat:
     environment:
       FERNET_KEY: ${FERNET_KEY}
@@ -94,7 +97,7 @@ services:
 ```
 
 !!! note "Alternative: DEBUG=true nur für kurze lokale Tests"
-    Setzt du `DEBUG=true` in der `.env`, überspringt das Backend diese Prüfung komplett und startet auch ohne die drei Secrets. Das ist für einen kurzen, rein lokalen Test auf deinem eigenen Rechner vertretbar, aber **niemals** für einen Server, der über das Netzwerk erreichbar ist — `DEBUG=true` schaltet zusätzlich ausführliche Logs frei. Details zu allen Pflicht-Secrets je Funktion: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+    Setzt du `DEBUG=true` in der `.env`, überspringt das Backend diese Prüfung komplett und startet auch ohne die vier Secrets. Das ist für einen kurzen, rein lokalen Test auf deinem eigenen Rechner vertretbar, aber **niemals** für einen Server, der über das Netzwerk erreichbar ist — `DEBUG=true` schaltet zusätzlich ausführliche Logs frei. Details zu allen Pflicht-Secrets je Funktion: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 ---
 

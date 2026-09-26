@@ -262,7 +262,7 @@ Jedes Page Object erbt diese Methoden von `BasePage`:
 | `wait_for_url_contains(fragment)` | Warten auf URL-Aenderung |
 | `scroll_and_click(element)` | Scrollen + Klick (JS-Fallback) |
 | `clear_and_fill(element, value)` | React-kompatibles Feld-Clearing + Eingabe |
-| `expand_all_fields()` | REQ-021 "Alle Felder anzeigen"-Toggle klicken |
+| `expand_all_fields(form, settled=…)` | REQ-021 "Alle Felder anzeigen" im Formular *form* einschalten und warten, bis `aria-expanded="true"` gilt (oder der Toggle entfällt, weil die Stufe ohnehin alle Felder zeigt); ein bereits aufgeklapptes Formular bleibt unverändert (#1897) |
 
 ### 5.5 Page Object Pflicht-Struktur
 

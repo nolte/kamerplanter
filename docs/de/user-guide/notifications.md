@@ -95,7 +95,7 @@ Trage deine E-Mail-Adresse ein und wähle den Zustellmodus:
 - **Sofort** — jede Benachrichtigung wird einzeln als E-Mail verschickt
 - **Tägliche Zusammenfassung** — alle Benachrichtigungen des Tages werden in einer einzigen E-Mail gebündelt
 
-Der Versand erfolgt über den vom Betreiber konfigurierten SMTP-Server (Mailversand-Server, siehe [Umgebungsvariablen — E-Mail](../reference/environment-variables.md#e-mail)). Ist keine SMTP-Verbindung eingerichtet, gibt der Entwicklungsmodus E-Mails nur im Backend-Log aus.
+Der Versand erfolgt über den vom Betreiber konfigurierten E-Mail-Kanal — entweder einen SMTP-Server (Mailversand-Server) oder den Dienst Resend (siehe [Umgebungsvariablen — E-Mail](../reference/environment-variables.md#e-mail)). Ist keiner davon eingerichtet, gibt der Entwicklungsmodus E-Mails nur im Backend-Log aus.
 
 ### Browser-Push (PWA)
 

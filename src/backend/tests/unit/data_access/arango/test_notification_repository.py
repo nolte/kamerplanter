@@ -6,7 +6,7 @@ target the public interface (returned ``Notification`` models, counts) and the
 AQL query/bind_vars and edges the repository emits to its collaborator.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -165,7 +165,7 @@ class TestListForUserSince:
         bind_vars = call.kwargs["bind_vars"]
         assert "doc.user_key == @user_key" in query
         assert "DATE_TIMESTAMP(doc.created_at) >= DATE_TIMESTAMP(@since)" in query
-        assert "SORT doc.created_at DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.created_at) DESC" in query
         assert bind_vars["user_key"] == "u1"
         assert bind_vars["since"] == since.isoformat()
         assert bind_vars["limit"] == 100
@@ -227,7 +227,11 @@ class TestFindOverdueWatering:
         assert len(result) == 1
         call = mock_db.aql.execute.call_args
         assert "STARTS_WITH(doc.notification_type, 'care.watering')" in call.args[0]
-        assert call.kwargs["bind_vars"] == {"cutoff": cutoff.isoformat(), "level": 1}
+        assert call.kwargs["bind_vars"] == {
+            "cutoff": cutoff.isoformat(),
+            "cutoff_slack": (cutoff + timedelta(days=1)).isoformat(),
+            "level": 1,
+        }
 
     def test_empty_result_returns_empty_list(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
@@ -296,7 +300,7 @@ class TestListByGroupKey:
         query = call.args[0]
         assert "doc.group_key == @group_key" in query
         assert "doc.tenant_key == @tenant_key" in query
-        assert "SORT doc.created_at DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.created_at) DESC" in query
         assert call.kwargs["bind_vars"] == {"group_key": "task.due:t1", "tenant_key": "t1"}
 
     def test_is_tenant_scoped(self, repo, mock_db):

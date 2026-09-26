@@ -274,7 +274,7 @@ kubectl get pods -n default        # must show backend/frontend/ArangoDB
 3. Claude → playwright: identifies stable data-testid selectors
 4. Claude → Read: looks at the PageObject conventions from NFR-008a
 5. Claude → Write: creates PageObject + pytest file
-6. You:    docker compose -f docker-compose.e2e.yml up e2e-tests
+6. You:    ./scripts/run-e2e.sh    # provides the generated E2E_FERNET_KEY
 7. Selenium test runs in the Compose stack — unchanged as always
 ```
 

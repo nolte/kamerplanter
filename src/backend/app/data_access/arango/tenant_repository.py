@@ -95,7 +95,7 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
             """
             FOR doc IN @@collection
               FILTER doc.owner_user_key == @owner AND doc.tenant_type == @type
-              SORT doc.created_at, doc._key
+              SORT DATE_TIMESTAMP(doc.created_at), doc._key
               RETURN doc._key
             """,
             bind_vars={

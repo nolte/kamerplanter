@@ -100,17 +100,9 @@ export function redactRecord(record: Record<string, unknown>): void {
   }
 }
 
-/**
- * Strip the query string's sensitive parameters while keeping the path.
- *
- * The path is the single most valuable grouping signal an event carries, so it
- * survives; a `?token=…` on it does not. Anything unparseable is returned
- * untouched rather than guessed at.
- */
-export function scrubUrl(url: string): string {
-  const [base, query] = url.split('?');
-  if (!query) return url;
-  const scrubbed = query
+/** Redact the values of sensitive `name=value` pairs in a query string or fragment. */
+function scrubParams(params: string): string {
+  return params
     .split('&')
     .map((pair) => {
       const eq = pair.indexOf('=');
@@ -119,7 +111,26 @@ export function scrubUrl(url: string): string {
       return isSensitiveName(name) ? `${name}=${REDACTED}` : pair;
     })
     .join('&');
-  return `${base}?${scrubbed}`;
+}
+
+/**
+ * Strip the query string's and the fragment's sensitive parameters while
+ * keeping the path.
+ *
+ * The path is the single most valuable grouping signal an event carries, so it
+ * survives; a `?token=…` on it does not, and neither does a `#step_up_token=…`
+ * — the step-up callback carries its one-time token in the fragment, and the
+ * history breadcrumb of removing it records the old URL (#1815). Anything
+ * unparseable is returned untouched rather than guessed at.
+ */
+export function scrubUrl(url: string): string {
+  const hashAt = url.indexOf('#');
+  const beforeHash = hashAt < 0 ? url : url.slice(0, hashAt);
+  const fragment = hashAt < 0 ? null : url.slice(hashAt + 1);
+  const [base, query] = beforeHash.split('?');
+  let scrubbed = query ? `${base}?${scrubParams(query)}` : beforeHash;
+  if (fragment !== null) scrubbed += `#${scrubParams(fragment)}`;
+  return scrubbed;
 }
 
 /** `beforeSend`: strip personal data before the event leaves the browser. */

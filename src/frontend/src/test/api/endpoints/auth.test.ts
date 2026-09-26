@@ -136,7 +136,15 @@ describe('auth endpoints', () => {
   it('unlinkProvider deletes provider by key', async () => {
     client.delete.mockResolvedValue({ data: undefined });
     await auth.unlinkProvider('p1');
-    expect(client.delete).toHaveBeenCalledWith('/users/me/providers/p1');
+    expect(client.delete).toHaveBeenCalledWith('/users/me/providers/p1', { data: undefined });
+  });
+
+  it('unlinkProvider carries the step-up in the DELETE body (#1847)', async () => {
+    client.delete.mockResolvedValue({ data: undefined });
+    await auth.unlinkProvider('p1', { current_password: 'pw' });
+    expect(client.delete).toHaveBeenCalledWith('/users/me/providers/p1', {
+      data: { current_password: 'pw' },
+    });
   });
 
   it('changePassword posts current and new password', async () => {
@@ -169,10 +177,17 @@ describe('auth endpoints', () => {
     expect(client.delete).toHaveBeenCalledWith('/users/me/sessions/s1');
   });
 
-  it('deleteAccount deletes /users/me', async () => {
+  it('deleteAccount deletes /users/me and carries the own e-mail step-up (#1813)', async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await auth.deleteAccount();
-    expect(client.delete).toHaveBeenCalledWith('/users/me');
+    await auth.deleteAccount({ confirm_email: 'me@example.org' });
+    expect(client.delete).toHaveBeenCalledWith('/users/me', { data: { confirm_email: 'me@example.org' } });
+  });
+
+  it('requestStepUpCode names the act the code is to confirm (review SEC-003)', async () => {
+    const sent = { expires_at: '2026-09-25T12:10:00Z', expires_in: 600 };
+    client.post.mockResolvedValue({ data: sent });
+    await expect(auth.requestStepUpCode('tenant_deletion')).resolves.toEqual(sent);
+    expect(client.post).toHaveBeenCalledWith('/users/me/step-up-code', { action: 'tenant_deletion' });
   });
 
   it('createApiKey posts to /auth/api-keys', async () => {
@@ -187,6 +202,18 @@ describe('auth endpoints', () => {
     client.get.mockResolvedValue({ data: [] });
     await expect(auth.listApiKeys()).resolves.toEqual([]);
     expect(client.get).toHaveBeenCalledWith('/auth/api-keys');
+  });
+
+  it('createApiKey carries the step-up fields beside the label (#1847)', async () => {
+    client.post.mockResolvedValue({ data: { key: 'k1' } });
+    await auth.createApiKey({ label: 'CI', step_up_token: 'tok' });
+    expect(client.post).toHaveBeenCalledWith('/auth/api-keys', { label: 'CI', step_up_token: 'tok' });
+  });
+
+  it('createDevicePairing posts the step-up as its body (#1847)', async () => {
+    client.post.mockResolvedValue({ data: { code: 'c' } });
+    await auth.createDevicePairing({ step_up_code: '123456' });
+    expect(client.post).toHaveBeenCalledWith('/auth/device-pairing', { step_up_code: '123456' });
   });
 
   it('revokeApiKey deletes key by id', async () => {

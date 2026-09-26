@@ -7,8 +7,8 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.11 (#1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
-Abhängigkeit: REQ-023 v1.13 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.4 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
+Version: 1.17 (#1848/#1856: eigene Mail und Seite für die E-Mail-Änderung, Formular in den Kontoeinstellungen, Rückgängig-Link an die vorherige Adresse; keine vom Anfragenden gewählten Texte in Mails an unbestätigte Adressen — v1.16 Betreiber-Entscheid Variante 1 zu #1815: E-Mail-Änderung bestätigt sich ohne lokales Passwort primär über eine frische OIDC-Anmeldung, der E-Mail-Code ist nur noch Ausweichweg für ausschließlich GitHub/Apple — v1.15 /code-review of #1862: zustandslose Prüfungen der E-Mail-Änderung laufen jetzt vor dem Step-up, nur der Adress-Nachschlag bleibt dahinter — v1.14 #1841: Step-up auf der E-Mail-Änderung, AK-06 umgesetzt — v1.13 #1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
+Abhängigkeit: REQ-023 v1.18 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.5 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
 
@@ -16,6 +16,12 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.17 | 2026-09-26 | **E-Mail-Änderung vollständig (#1848) und Mail-Texte ohne fremdes Markup (#1856):** Die neue Adresse erhält eine eigene Mail mit dem Link `{frontend}/email-change/{token}`; die Seite ruft `POST /privacy/email-change/confirm` auf. Bis dahin öffnete der Link die Kontobestätigungsseite (`POST /auth/verify-email`), die den Token ablehnte. Die Kontoeinstellungen haben ein Formular für die E-Mail-Änderung mit Step-up (REQ-023 §3.9). Die Info-Mail an die vorherige Adresse enthält einen Rückgängig-Link (`{frontend}/email-change/revert/{token}` → `POST /privacy/email-change/revert`): einmalig, gültig `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (7 Tage). Er stellt die vorherige Adresse als bestätigt wieder her, sofern sie noch frei ist, meldet alle Sitzungen ab, entwertet einen Passwort-Reset-Token, widerruft offene E-Mail-Änderungen, entfernt seit der Beantragung verknüpfte föderierte Anmeldewege, widerruft seit der Beantragung erstellte API-Keys und schließt die Rückgängig-Fenster später bestätigter Änderungen; die Adresse, die das Konto dabei wieder verlässt, wird benachrichtigt. Mails an eine noch nicht bestätigte Adresse (Registrierung, E-Mail-Änderung) enthalten keinen vom Anfragenden gewählten Text mehr (kein Anzeigename); jeder andere Platzhalter in HTML-Mails wird escaped. `EmailChangeRequest` erhält `previous_email`, `revert_token_hash`, `revert_expires_at`, `reverted_at` und den Status `reverted`. Aufbewahrung in NFR-011 R-07. Neue **AK-EC-03**, **AK-EC-04**. |
+| 1.16 | 2026-09-26 | **Frische OIDC-Anmeldung als Regelfall der E-Mail-Änderung ohne lokales Passwort (#1815, Betreiber-Entscheid Variante 1, siehe REQ-023 §3.9):** `POST /privacy/email-change` nimmt zusätzlich `step_up_token` — den Regelfall für ein Konto mit mindestens einem OIDC-fähigen verknüpften Anbieter (Google, generisches OIDC); der per E-Mail zugeschickte Code (`step_up_code`) bleibt nur für ein Konto, dessen Anbieter ausschließlich GitHub und/oder Apple sind. §3.2-Pseudocode, der §3.3-Absatz zum Step-up, das Schema und **AK-EC-01** entsprechend präzisiert. |
+| 1.15 | 2026-09-25 | **Prüfreihenfolge der E-Mail-Änderung präzisiert (/code-review of #1862):** Nur die zustandslosen Prüfungen der neuen Adresse (identisch mit der eigenen, reservierte Tombstone-Domain — beide 422) laufen vor dem Step-up nach REQ-023 §3.9; sie verbrauchen deshalb keinen per E-Mail zugeschickten Code und keinen gedrosselten Versuch. Der Nachschlag, ob die Adresse bereits vergeben ist, bleibt weiterhin hinter dem Step-up (kein Adress-Orakel ohne bestandene Bestätigung). §3.2-Pseudocode und **AK-EC-01** entsprechend präzisiert — keine Verhaltensänderung außer der Reihenfolge der beiden 422-Prüfungen. |
+| 1.14 | 2026-09-25 | **#1841 Step-up auf der E-Mail-Änderung; AK-06 jetzt umgesetzt:** `POST /privacy/email-change` läuft durch denselben Step-up wie die Kontolöschung (REQ-023 §3.9) — das aktuelle Passwort bei lokalem Konto, sonst der per E-Mail zugeschickte Einmalcode (`step_up_code`, #1815); API-Key/Service Account 403, gedrosselt im selben Budget (429 `STEP_UP_LOCKED`), geprüft **bevor** die neue Adresse validiert oder nachgeschlagen wird, damit die Route ohne bestandenen Step-up nichts über belegte Adressen verrät. Die **aktuelle** Adresse wird jetzt bei jeder Beantragung benachrichtigt (neu, beide Zweige — freie und bereits vergebene Adresse), die **alte** weiterhin bei der Bestätigung (AK-06, jetzt umgesetzt). Ein Passwort-Reset, eine Passwortänderung (beide hinter dem Step-up) und "alle Sitzungen abmelden" widerrufen jetzt eine offene E-Mail-Änderung — sie kann danach nicht mehr bestätigt werden. Offen bleibt: keine eigene Oberfläche für die E-Mail-Änderung und kein Rückgängig-Link nach einer Bestätigung (#1848). Neue **AK-EC-01**, **AK-EC-02**. |
+| 1.13 | 2026-09-25 | **#1813/#1814 Step-up auf jeder Kontolöschung:** `POST /privacy/erasure` und `DELETE /users/me` nehmen denselben Body `{confirm_email, password?}` — die eigene E-Mail wird zurückgetippt (422), das aktuelle Passwort bei lokalem Konto (401), API-Key/Service Account 403, gedrosselt nach REQ-023 §3.9 (429 `STEP_UP_LOCKED`). `DELETE /users/me` schrieb bis dahin nur einen Tombstone ohne Löschauftrag und ließ alle personenbezogenen Daten liegen; es eröffnet jetzt den Art.-17-Auftrag mit Karenz. `DELETE /admin/platform/users/{key}` verlangt die E-Mail des Zielkontos und das Passwort des Admins; der Auftrag hält `step_up` und `requested_by_subject`. Neue **AK-IE-04**, **AK-IE-05**. |
+| 1.12 | 2026-09-25 | **#1770 Deduplizierte Inhalte haben keinen einzelnen Eigentümer mehr:** Bisher erhielt ein zweiter Upload identischer Bytes im Mandanten den Anhang-Datensatz des *ersten* Hochladers (`created_by` blieb dieser), und ein zweiter Beitrag desselben Fotos zum Referenz-Index fiel — mandantenübergreifend — auf die Zeile des ersten Beitragenden. Die Löschung des ersten traf damit Inhalte des zweiten, die des zweiten erreichte nichts. **AK-OS-08:** Jeder Hochlader hat einen eigenen Anhang-Datensatz; identische Bytes liegen einmal im Object Storage und werden erst mit dem letzten Datensatz gelöscht, der sie hält. Phase 0 zählt entfernte und wegen Teilung behaltene Objekte (`storage_objects_removed` / `storage_objects_retained_shared`). Keine mandantenübergreifende Teilung. **AK-OS-05b:** Die Datensatz-ID eines Referenz-Beitrags ist pro Mandant und Beitragendem eindeutig; identische Fotos zweier Beitragender sind zwei Zeilen. Migration **v0062** gibt bestehenden Schädlingsbild-Beiträgen einen eigenen Datensatz. |
 | 1.11 | 2026-09-25 | **#1768 Gelandeter Löschumfang als Abnahmekriterien:** Die Spec nennt jetzt, was #1761, #1766 und #1776 im Code bereits umgesetzt haben. **AK-OS-05a** (#1761/#1753): Der Referenz-Index wird über eine echte Bindung gelöscht; die No-op-Bindung verweigert, sobald Beiträge existieren, statt `0` zu melden, und der Löschauftrag nennt Bindung und Anzahl. **AK-OS-06** (#1760): Ein hart gelöschtes Original nimmt seine WebP-Vorschaubilder mit. **AK-OS-07** (#1759): Beigesteuerte Schädlings-Prototypen im pgvector-Index `pest_embeddings` werden bei Kontolöschung (jeder Status) und Mandantenlöschung gelöscht, nicht nur deaktiviert. **AK-IE-01..03** (#1767): Die Kontolöschung durch Plattform-Admins und die Bereinigung unverifizierter Konten laufen über dieselbe Finalisierung wie Art. 17 — persistierter Löschauftrag mit `origin` als Nachweis, `completed` nur ohne unerreichten Schritt, Wiederholung, Konfigurationsprüfung vor jeder Änderung, ein Lauf pro Konto. Die REQ-025-Reach-Proben unter `project/reach-probes/` sind in derselben Änderung neu abgeleitet. |
 | 1.10 | 2026-09-24 | **#1719 Offenlegung folgt der Löschung, Inventare nur im Code:** Guard-Regel R2 in `scripts/check_privacy_inventory.py` prüft jetzt beide Richtungen: Jede Collection, die die Löschung als Daten der Person entfernt oder anonymisiert, steht im Art.-15-Manifest oder mit Begründung in `DataExportEngine.EXCLUDED_FROM_DISCLOSURE`. Vorher gemessen: 20 Collections ohne Offenlegung. **Neu offengelegt:** `user_favorites` (die Kantenzeile selbst, gefiltert über `_from`), `api_keys` (ohne `key_hash`), `user_preferences`, `onboarding_states`, `pest_detections` (ohne `image_hash`); `plant_diagnosis_requests` zusätzlich mit `inspection_key`, `harvest_observation_key`, `phenotype`, `confirmed_labels`, `created_at`. **Begründet ausgeschlossen:** 15 Kanten, deren Endpunkte offengelegte Dokumente sind und deren Attribute (falls vorhanden) offengelegte Felder kopieren (`has_api_key`, `has_membership`, `membership_in`, drei Standort-Zuweisungs-Kanten, drei Schädlingserkennungs-Kanten, `notification_for_run`, vier `cv_*`-Kanten, `has_invitation`). §3.1 führt keine Abschrift der beiden Inventare mehr, sondern die Regeln (Offenlegung, Löschung/Anonymisierung/Pseudonymisierung mit Aufbewahrungsgründen, Ausschlussprinzip) und Verweise auf `data_export_engine.py` / `erasure_engine.py`. Neues Abnahmekriterium AK-01a. |
 | 1.9 | 2026-09-24 | **#1716 Export-Quellen ohne Gegenstück im Code:** Die beiden `DataSourceDefinition`s für `tenant_species_config` und `tenant_cultivar_config` (v1.3, ADR-002) sind aus der Manifest-Kopie in §3.1 genommen und als **nicht implementiert** gekennzeichnet. Gemessen: Keine der beiden Collections hat eine Konstante in `collections.py`, ein Modell oder ein Repository; das Tenant-Overlay aus REQ-001 v4.0 existiert nicht. Was es gibt — mandanteneigene `species`/`cultivars` (`tenant_key`, #1090) und die Freigabekanten `tenant_has_access` (#1092) — trägt keinen Nutzerschlüssel und ist deshalb keine Art.-15-Quelle zur betroffenen Person. Ebenso als nicht implementiert gekennzeichnet: der `SpeciesReferenceResolver` (ADR-002). Die vier `cv_*`-Kanten im Löschinventar stehen jetzt als `ErasureStep`s da, wie in `erasure_engine.py`, statt als Kommentar. |
@@ -196,9 +202,13 @@ umkehrbar und darf ihr Passwort nicht verlieren.
     - `user_key: str` (Referenz auf `users`)
     - `new_email: str` (gewünschte neue E-Mail)
     - `verification_token_hash: str` (SHA-256 Hash des Tokens)
-    - `status: Literal['pending', 'confirmed', 'expired']`
+    - `status: Literal['pending', 'confirmed', 'expired', 'cancelled', 'reverted']`
     - `requested_at: datetime`
     - `expires_at: datetime` (24h nach Erstellung)
+    - `previous_email: Optional[str]` (die bei der Bestätigung verlassene Adresse; nur bis `revert_expires_at`, #1848)
+    - `revert_token_hash: Optional[str]` (Hash des Rückgängig-Tokens; nur bis `revert_expires_at`, #1848)
+    - `revert_expires_at: Optional[datetime]` (Bestätigung + `RETENTION_EMAIL_CHANGE_REVERT_DAYS`)
+    - `reverted_at: Optional[datetime]`
     - `confirmed_at: Optional[datetime]`
 
 ### Edges:
@@ -644,24 +654,55 @@ class PrivacyService:
         # 4. Gibt Dateipfad zurück
 
     # --- Art. 16: E-Mail-Änderung ---
-    async def request_email_change(self, user_key: str, new_email: str) -> None: ...
-        # 1. Prüft: neue E-Mail nicht bereits vergeben
-        # 2. Generiert Verifikations-Token (secrets.token_urlsafe(32))
-        # 3. Speichert EmailChangeRequest mit Token-Hash
-        # 4. Sendet Verifikations-E-Mail an NEUE Adresse
+    def request_email_change(self, user_key: str, new_email: str, *, password: str | None,
+                              step_up_code: str | None, step_up_token: str | None,
+                              authenticated_with_api_key: bool, client_ip: str | None) -> EmailChangeRequest: ...
+        # 1. Zustandslos zuerst (/code-review of #1862): neue E-Mail != eigene (422),
+        #    keine reservierte Tombstone-Domain (422) — verrät nichts, verbraucht
+        #    keinen Code, keinen gedrosselten Versuch und keine frische Anmeldung
+        # 2. Step-up nach REQ-023 §3.9 (StepUpVerifier), VOR dem Adress-Nachschlag:
+        #    aktuelles Passwort bei lokalem Konto, sonst eine frische OIDC-Anmeldung
+        #    (step_up_token) bzw., nur bei ausschließlich GitHub/Apple, der E-Mail-Code
+        #    (#1815, #1841)
+        # 3. Schlägt neue E-Mail nach: bereits vergeben? (bei belegter Adresse: Info-Mail
+        #    an deren Inhaber statt Fehler, #957 — Route bleibt indistinguishable)
+        # 4. Generiert Verifikations-Token (secrets.token_urlsafe(32))
+        # 5. Speichert EmailChangeRequest mit Token-Hash
+        # 6. Sendet die E-Mail-Änderungs-Mail an die NEUE Adresse: Link
+        #    {frontend}/email-change/{token}, kein Anzeigename (#1848, #1856)
+        # 7. Benachrichtigt die AKTUELLE Adresse über die Beantragung (#1841, AK-06)
 
-    async def confirm_email_change(self, token: str) -> User: ...
-        # 1. Findet Request per Token-Hash
+    def confirm_email_change(self, token: str) -> User: ...
+        # 1. Findet Request per Token-Hash (verworfen ⇒ derselbe Fehler wie abgelaufen, s. u.)
         # 2. Prüft Ablaufdatum (24h)
         # 3. Aktualisiert User.email
         # 4. Setzt email_verified: true (neue Adresse wurde ja verifiziert)
         # 5. Invalidiert alle Refresh Tokens (Neuanmeldung)
-        # 6. Sendet Info-E-Mail an ALTE Adresse
-        # 7. Setzt Request status: confirmed
+        # 6. Setzt Request status: confirmed, speichert previous_email, den Hash eines
+        #    Rückgängig-Tokens und revert_expires_at (#1848)
+        # 7. Sendet Info-E-Mail an ALTE Adresse mit dem Rückgängig-Link (AK-06, AK-EC-03)
+
+    def revert_email_change(self, token: str) -> User: ...
+        # Öffentlich, Token aus der Info-Mail an die vorherige Adresse (#1848):
+        # 1. Findet den bestätigten Request per Rückgängig-Token-Hash; unbekannt,
+        #    bereits verwendet oder abgelaufen ⇒ 401 (derselbe Fehler)
+        # 2. Vorherige Adresse inzwischen von einem anderen Konto belegt ⇒ 422
+        # 3. Setzt User.email zurück, email_verified: true, löscht
+        #    password_reset_token/-expires (der Reset-Link ging an die neue Adresse)
+        # 4. Invalidiert alle Refresh Tokens, widerruft offene E-Mail-Änderungen
+        # 5. Setzt Request status: reverted (einmalig)
+
+    # Ein Passwort-Reset, eine Passwortänderung (beide hinter dem Step-up) und "alle
+    # Sitzungen abmelden" setzen jede offene EmailChangeRequest des Kontos auf
+    # status: cancelled (#1841) — die drei Vorgänge, die beweisen, dass die
+    # Eigentümerin das Konto zurückgeholt hat. Die Bestätigung eines widerrufenen
+    # Tokens antwortet danach wie bei einem abgelaufenen.
 
     # --- Art. 17: Kontolöschung ---
-    async def request_erasure(self, user_key: str, password_confirmation: str) -> ErasureRequest: ...
-        # 1. Verifiziert Passwort (oder OAuth re-auth)
+    def request_erasure(self, user_key: str, *, confirmation: StepUpConfirmation,
+                        authenticated_with_api_key: bool, client_ip: str | None) -> ErasureRequest: ...
+        # 1. Step-up nach REQ-023 §3.9 (StepUpVerifier): eigene E-Mail zurückgetippt,
+        #    Passwort bei lokalem Konto, kein API-Key, gedrosselt
         # 2. Erstellt ErasurePlan (ErasureEngine)
         # 3. Sofort: Soft-Delete (User.status → deleted)
         # 4. Sofort: Alle Refresh Tokens invalidieren
@@ -718,7 +759,7 @@ Ereignis fest als das, das er belegen soll. Die Ausnahme ist an genau diese eine
 Schreibsenke gebunden (`_INTENTIONAL_PERSISTING_READS` in
 `tests/unit/api/test_write_route_gates.py`); jede weitere Schreibstelle auf demselben
 Handler macht den Wächter rot.
-| POST | `/privacy/email-change` | E-Mail-Änderung beantragen | Ja | 16 |<!-- rate-limited, s. u. -->
+| POST | `/privacy/email-change` | E-Mail-Änderung beantragen — Step-up nach REQ-023 §3.9 (`password` bzw. `step_up_code`) | Ja | 16 |<!-- rate-limited, s. u.; #1841 -->
 | POST | `/privacy/email-change/confirm` | E-Mail-Änderung bestätigen | Nein (Token) | 16 |<!-- rate-limited, s. u. -->
 | POST | `/privacy/erasure` | Kontolöschung beantragen | Ja | 17 |
 | GET | `/privacy/erasure/{key}` | Löschstatus abfragen | Ja | 17 |
@@ -731,6 +772,22 @@ Handler macht den Wächter rot.
 | GET | `/privacy/policy` | Datenschutzrichtlinie abrufen | Nein | 13/14 |
 
 **Gesamtanzahl API-Endpunkte:** 14
+
+<!-- Quelle: Issue #1841 -->
+**Step-up auf `POST /privacy/email-change` (#1841).** Läuft durch den in REQ-023 §3.9
+beschriebenen `StepUpVerifier` — kein zurückgetipptes Ziel (es gibt keins zu bestätigen außer
+der eigenen Sitzung), sondern das aktuelle Passwort bzw., bei einem Konto ohne lokales
+Passwort, ein `step_up_token` aus einer frischen Anmeldung beim verknüpften OIDC-Provider
+(`POST /users/me/step-up/oidc`) oder — nur wenn sämtliche verknüpften Anbieter GitHub und/oder
+Apple sind — der Code aus `POST /users/me/step-up-code` (#1815). Nur die **zustandslosen**
+Prüfungen der neuen Adresse — identisch mit der eigenen (422), reservierte Tombstone-Domain
+(422) — laufen davor: Sie verraten nichts, was der Anfragende nicht schon weiß, und ein
+Tippfehler dort verbraucht deshalb weder den mailversandten Code noch einen gedrosselten
+Versuch (/code-review of #1862). Der **Nachschlag**, ob die Adresse bereits vergeben ist,
+bleibt hinter dem Step-up — ohne bestandenen Step-up prüft die Route also nicht, ob eine
+Adresse frei oder vergeben ist. Nach bestandenem Step-up wird die aktuelle Adresse in beiden
+Zweigen (freie und bereits vergebene Adresse) benachrichtigt, damit sie für den Anfragenden
+ununterscheidbar bleiben (#957).
 
 <!-- Quelle: Issue #958 §2 -->
 **Rate-Limit auf `POST /privacy/email-change`** (`settings.rate_limit_email_change`,
@@ -784,16 +841,23 @@ class DataExportResponse(BaseModel):
     download_count: int
 
 # --- E-Mail-Änderung (Art. 16) ---
-class EmailChangeRequest(BaseModel):
+class EmailChangeCreateRequest(BaseModel):  # Step-up nach REQ-023 §3.9 (#1841)
     new_email: EmailStr
+    password: Optional[str] = None      # aktuelles Passwort — Pflicht bei lokalem Konto
+    step_up_token: Optional[str] = None # Token aus POST /users/me/step-up/oidc — Regelfall ohne lokales Passwort (#1815)
+    step_up_code: Optional[str] = None  # Code aus POST /users/me/step-up-code — nur Ausweichweg (ausschließlich GitHub/Apple, #1815)
 
 class EmailChangeConfirmRequest(BaseModel):
     token: str
 
+class EmailChangeRevertRequest(BaseModel):  # POST /privacy/email-change/revert (#1848)
+    token: str
+
 # --- Löschung (Art. 17) ---
-class ErasureCreateRequest(BaseModel):
-    password: Optional[str] = None  # Für lokale Accounts
-    # Für OAuth-only Accounts: Re-Auth über separaten Flow
+class ErasureCreateRequest(BaseModel):  # auch Body von DELETE /users/me und DELETE /admin/platform/users/{key}
+    confirm_email: str                 # E-Mail des zu löschenden Kontos, zurückgetippt (Pflicht, jedes Konto)
+    password: Optional[str] = None     # aktuelles Passwort der handelnden Person — Pflicht bei lokalem Passwort
+    # Föderierte Konten bestätigen mit dem Echo allein; echte Re-Auth beim Provider: #1815
 
 class ErasureResponse(BaseModel):
     key: str
@@ -1085,7 +1149,7 @@ def check_processing_restriction(scope: str):
 **Tab "Account löschen":**
 - Warnhinweis: "Diese Aktion ist nach 90 Tagen unwiderruflich"
 - **Transparente Aufschlüsselung:** Welche Daten vollständig gelöscht werden (Profil, Sessions, Einwilligungen, Aufgaben) und welche nur anonymisiert werden (Erntedokumentation, IPM-Behandlungsnachweise — gesetzliche Aufbewahrungspflicht nach CanG/PflSchG). <!-- Quelle: Widerspruchsanalyse W-001 -->
-- Passwort-Bestätigung (oder OAuth Re-Auth Button)
+- Bestätigung: die eigene E-Mail-Adresse zurücktippen und — bei lokalem Konto — das aktuelle Passwort; ein Konto ohne eines meldet sich stattdessen frisch beim verknüpften OIDC-Provider erneut an, nur bei ausschließlich GitHub/Apple über den per E-Mail zugeschickten Einmalcode (REQ-023 §3.9, #1815); nach zu vielen Fehlversuchen zeigt der Dialog die Wartezeit (429 `STEP_UP_LOCKED`)
 - Bestätigungs-Dialog mit Checkbox "Ich verstehe, dass mein Account gelöscht wird und gesetzlich geschützte Daten anonymisiert aufbewahrt bleiben"
 
 **Tab "Verarbeitungseinschränkung":**
@@ -1202,7 +1266,7 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-03 | Max. 1 aktiver Export-Auftrag pro User | 15/20 | Unit |
 | AK-04 | E-Mail-Änderung erfordert Verifikation der neuen Adresse (Token, 24h gültig) | 16 | Integration |
 | AK-05 | Nach E-Mail-Änderung werden alle Sessions invalidiert | 16 | Integration |
-| AK-06 | Info-E-Mail wird an die alte Adresse gesendet | 16 | Integration |
+| AK-06 | Info-E-Mail wird an die alte Adresse gesendet (bei Bestätigung) und an die aktuelle Adresse (bei Beantragung, #1841) | 16 | Integration |
 | AK-07 | Kontolöschung setzt User sofort auf status: deleted (Soft-Delete) | 17 | Integration |
 | AK-07a | Kontolöschung und Löschauftrag entfernen `password_hash` (und die Kontolöschung zusätzlich `avatar_url`) aus dem gespeicherten Dokument | 17 | Integration |
 | AK-08 | Erntedaten und Behandlungsanwendungen werden anonymisiert, nicht gelöscht | 17 | Integration |
@@ -1234,11 +1298,27 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-OS-06 | **Vorschaubilder gehen mit dem Original:** Löscht Phase 0 ein gespeichertes Original hart (Scopes mit `action == 'hard_delete'`, heute `user_personal` und `user_pest_reference_images`), sind danach auch seine WebP-Renditionen (`<stem>_t128.webp`, `<stem>_t512.webp`, `<stem>_t1280.webp`, `rendition_keys()`) aus dem Object Storage entfernt; dasselbe gilt für das Löschen eines einzelnen Anhangs. Renditionen, die der Thumbnail-Task erst nach der Löschung fertigstellt, verwirft er. Dateien unter `anonymize_metadata_and_strip_exif` bleiben samt Renditionen erhalten (AK-OS-02). | 17 | Integration + Reach (T2) |
 | AK-OS-07 | **Beigesteuerte Schädlings-Prototypen werden gelöscht:** Nach Abschluss eines Erasure-Requests ist zu jedem `pest_image_contributions`-Eintrag des Nutzers der Prototyp im pgvector-Index `pest_embeddings` gelöscht — unabhängig vom Status, also auch ein bereits deaktivierter (herabgestufter) — und zwar vor den Verknüpfungsdokumenten. Bei Mandantenlöschung gilt dasselbe für alle Beiträge des Mandanten, auch solche, deren Dokument schon fehlt, vor jeder ArangoDB-Löschung. Kuratierte Prototypen (`source != 'user_contributed'`) bleiben unberührt. Fehlschlag ⇒ `partially_completed` (kein ArangoDB-Delete) bzw. Mandantenlöschung 502; die No-op-Bindung verweigert, sobald `system_settings.pest_prototype_contributions_since` gesetzt ist. Der Löschauftrag hält `pest_prototype_binding` und `pest_prototypes_removed` fest. | 17 | Integration + Reach (T2) |
 <!-- /Quelle: #1766 (#1759, #1760) -->
+<!-- Quelle: #1770 (GDPR-006, SEC-007) -->
+| AK-OS-08 | **Deduplizierte Anhänge gehören jedem Hochlader selbst:** Lädt ein zweites Mitglied (oder dasselbe Mitglied in einer anderen Kategorie) Bytes hoch, die im Mandanten schon gespeichert sind, erhält es einen eigenen `attachments`-Datensatz mit eigenem `created_by`, der auf dasselbe gespeicherte Objekt zeigt; ein erneuter Upload desselben Mitglieds in derselben Kategorie liefert dessen eigenen Datensatz zurück. Löscht Phase 0 die Datensätze eines Nutzers hart, bleibt ein Objekt (samt Renditionen), das ein Datensatz außerhalb dieser Löschung noch hält, erhalten; jedes andere wird gelöscht. Dasselbe gilt für das Löschen eines einzelnen Anhangs. Hält nach dem ArangoDB-Schritt kein Datensatz mehr ein Objekt, das Phase 0 für ein anderes Mitglied behalten hat (dessen Datensatz ging zwischenzeitlich), löscht der Lauf es danach. Der Löschauftrag hält `storage_objects_removed`, `storage_objects_retained_shared` und `storage_objects_released` fest. Jeder Schädlingsbild-Beitrag hat einen eigenen Datensatz, auch wenn dasselbe Mitglied dasselbe Foto mehrfach beiträgt. Die EXIF-Bereinigung nach AK-OS-03 schreibt ein geteiltes Objekt an Ort und Stelle um: Die Bytes sind identisch hochgeladen, die Metadaten also auch die der gelöschten Person. Identische Bytes verschiedener Mandanten werden nie geteilt. | 17 | Integration + Reach (T2) |
+| AK-OS-05b | **Ein Referenz-Beitrag, eine Zeile, ein Beitragender:** Die `source_record_id` eines Beitrags zum Referenz-Index (`species_embeddings`) ist aus Bildhash, `tenant_key` und Beitragendem abgeleitet. Ein erneuter Beitrag desselben Fotos durch denselben Beitragenden bleibt eine Zeile; dasselbe Foto eines anderen Beitragenden — auch aus einem anderen Mandanten — ist eine eigene Zeile mit dessen Provenienz, die nur dessen Löschung (AK-OS-05) bzw. die Löschung seines Mandanten entfernt. | 17 | Unit |
+<!-- /Quelle: #1770 (GDPR-006, SEC-007) -->
 <!-- Quelle: #1776 (#1767 GDPR-004, SEC-003) -->
 | AK-IE-01 | **Sofortlöschung mit Nachweis:** `DELETE /admin/platform/users/{key}` (Plattform-Admin) und die Bereinigung unverifizierter Konten (`cleanup_unverified_accounts`) persistieren einen Löschauftrag in `erasure_requests` (`origin` `platform_admin` bzw. `unverified_cleanup`; ein offener Auftrag der Person wird weiterverwendet) und führen dieselbe Finalisierung aus wie der geplante Art.-17-Lauf. Der Auftrag wird nur `completed`, wenn jeder deklarierte Schritt erreicht wurde; sonst `partially_completed` mit Backoff, den der tägliche Lauf wiederholt, und der Admin-Aufruf antwortet 500 (`ERASURE_INCOMPLETE`, ohne Kontoschlüssel) bzw. 502 bei fehlgeschlagener Löschung in einem externen Dienst. Nach Abschluss nennt kein Löschauftrag mehr den Kontoschlüssel im Klartext (AK-PD-01). | 17, 5(2) | Unit + Integration + Reach (T2) |
 | AK-IE-02 | **Erst prüfen, dann schließen, dann löschen:** Kann das Deployment nicht löschen (Executor, Tombstone-Salt, abgeleiteter Index nach AK-OS-05a/AK-OS-07), verweigert die Sofortlöschung mit 503, bevor irgendetwas angelegt oder geändert ist. Andernfalls ist das Konto deaktiviert und alle Sitzungen widerrufen, bevor Phase 0 beginnt. Die Bereinigung unverifizierter Konten lässt ein inzwischen verifiziertes Konto unberührt. | 17, 32 | Unit + Integration |
 | AK-IE-03 | **Ein Lauf pro Konto:** Von Admin-Löschung, Bereinigung und täglichem Lauf löscht höchstens einer dasselbe Konto (atomarer Claim; der Sofortauftrag trägt einen gesalzenen, deterministischen Schlüssel, der nicht mit dem Audit-Tombstone verknüpfbar ist). Ein zweiter Aufruf, während ein Lauf den Auftrag hält, wird mit 409 abgewiesen. | 17, 32 | Unit + Integration |
 <!-- /Quelle: #1776 (#1767 GDPR-004, SEC-003) -->
+<!-- Quelle: #1813, #1814 (REQ-023 §3.9) -->
+| AK-IE-04 | **Keine Kontolöschung ohne Step-up:** `POST /privacy/erasure`, `DELETE /users/me` und `DELETE /admin/platform/users/{key}` löschen nichts und schreiben keinen Löschauftrag, solange der Body die E-Mail des Zielkontos nicht zurücktippt (422), das Passwort der handelnden Person bei lokalem Konto fehlt oder falsch ist (401), die Anfrage mit einem API-Key authentifiziert ist oder von einem Service Account kommt (403), die Installation im Light-Modus läuft (403 — jede Anfrage ist dort das eine Systemkonto) oder der Step-up gesperrt ist (429). `DELETE /users/me` eröffnet denselben Art.-17-Auftrag wie `POST /privacy/erasure`, nie nur einen Tombstone. | 17, 32 | Unit (Route) |
+| AK-IE-05 | **Admin-Löschung mit Nachweis der Bestätigung:** Die Plattform-Admin-Löschung prüft die Admin-Mitgliedschaft im Service erneut, verweigert das eigene Konto (403) und verlangt das Passwort des **Admins**; der Löschauftrag hält `step_up` und `requested_by_subject` (gesalzene Referenz, nie der Kontoschlüssel). | 17, 5(2) | Unit (Route) |
+<!-- /Quelle: #1813, #1814 (REQ-023 §3.9) -->
+<!-- Quelle: #1841 (REQ-023 §3.9) -->
+| AK-EC-01 | **Keine E-Mail-Änderung ohne Step-up:** `POST /privacy/email-change` prüft den Step-up nach REQ-023 §3.9, bevor die neue Adresse **nachgeschlagen** wird (ob sie bereits vergeben ist): das aktuelle Passwort bei lokalem Konto (401 sonst); ohne lokales Passwort ein `step_up_token` aus einer frischen Anmeldung beim verknüpften OIDC-Provider (401 `STEP_UP_REAUTH_REQUIRED` ohne, wenn ein solcher Anbieter verknüpft ist), sonst — nur bei ausschließlich GitHub/Apple — der per E-Mail zugeschickte Einmalcode (401 `STEP_UP_CODE_REQUIRED` ohne, #1815); 403 für eine API-Key-Anfrage oder ein Dienstkonto, 429 `STEP_UP_LOCKED` im selben Budget wie jeder andere Step-up des Kontos. Nur die zustandslosen Prüfungen (neue Adresse identisch mit der eigenen, reservierte Tombstone-Domain — beide 422) laufen davor und verbrauchen deshalb keinen Code, keine frische Anmeldung und keinen gedrosselten Versuch (/code-review of #1862). Die aktuelle Adresse wird in beiden Zweigen (freie und bereits vergebene Adresse) über die Beantragung benachrichtigt. | 16 | Unit (Route) |
+| AK-EC-02 | **Ein Passwort-Reset, eine Passwortänderung und "alle Sitzungen abmelden" widerrufen eine offene E-Mail-Änderung:** Alle drei Vorgänge setzen jede `pending` `EmailChangeRequest` des Kontos auf `cancelled`; eine Bestätigung mit deren Token antwortet danach mit demselben Fehler wie ein abgelaufener Token. Ohne dies bliebe eine im Postfach der neuen Adresse gelesene Bestätigungs-Mail wirksam, selbst nachdem die Eigentümerin ihr Konto durch den Reset zurückgeholt hat. | 16 | Unit + Integration |
+| AK-EC-03 | **Eigene Mail, eigene Seite, eigenes Formular (#1848):** Die Mail an die neue Adresse verlinkt `{frontend}/email-change/{token}`; die Seite bestätigt über `POST /privacy/email-change/confirm`. Die Kontoeinstellungen bieten die E-Mail-Änderung mit Step-up an (REQ-023 §3.9) und zeigen `STEP_UP_LOCKED` an. Die Mail an eine noch nicht bestätigte Adresse (Registrierung, E-Mail-Änderung) enthält keinen vom Anfragenden gewählten Text; jeder andere Platzhalter einer HTML-Mail wird escaped (#1856). | 16 | Unit + Vitest |
+| AK-EC-04 | **Rückgängig durch die vorherige Adresse (#1848):** Die Info-Mail an die vorherige Adresse enthält einen einmaligen Link, gültig `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (Standard 7 Tage). `POST /privacy/email-change/revert` stellt die vorherige Adresse als bestätigt wieder her, sofern sie noch frei ist (sonst 422), und nimmt zurück, was eine Übernahme über die Änderung hinterlassen haben kann: alle Sitzungen, einen offenen Passwort-Reset-Token, offene E-Mail-Änderungen, seit der Beantragung verknüpfte föderierte Anmeldewege (ein automatisch verknüpftes Google-/OIDC-Konto meldet sonst per `sub` weiter an) und seit der Beantragung erstellte API-Keys. Ältere Anmeldewege und Keys bleiben. Später bestätigte Änderungen desselben Kontos werden `superseded`: Ihr Rückgängig-Link kann die Rücknahme nicht wieder aufheben. Frühere Fenster bleiben offen. Die Bestätigung und die Rücknahme setzen den Status atomar (compare-and-set) und schreiben die Adresse nur, solange das Konto noch die gelesene Adresse trägt (compare-and-set auf `users.email`); wer ein solches Rennen verliert, gibt seinen Anspruch zurück — der Token bleibt gültig (409, erneut versuchen). Solange das Fenster offen ist, ist die vorherige Adresse **reserviert**: eine Registrierung (lokal oder per OIDC) und die E-Mail-Änderung eines anderen Kontos auf diese Adresse werden wie bei einer vergebenen Adresse behandelt. Die Adresse, die das Konto dabei verlässt, erhält eine Nachricht mit festem Text. Ein unbekannter, bereits verwendeter oder abgelaufener Token antwortet 401, ein zur Löschung geschlossenes Konto 409 `ACCOUNT_BEING_ERASED`; in beiden Fällen bleibt der Token unverbraucht. `previous_email` und der Token-Hash werden mit dem Ablauf des Fensters gelöscht (NFR-011 R-07a). **Restrisiko:** Wer die vorherige Adresse liest — etwa weil sie der Grund für den Wechsel war —, kann das Konto innerhalb des Fensters zurückholen; die neue Adresse wird darüber informiert. | 16 | Unit + Integration |
+<!-- /Quelle: #1841 (REQ-023 §3.9) -->
+**Bekannte Lücke (#1841, #1848).** Es gibt noch keine eigene Oberfläche für die E-Mail-Änderung — die Kontoeinstellungen zeigen die Adresse nur schreibgeschützt an, §4.2 sieht dafür keinen Tab vor — und keinen Rückgängig-Link nach einer Bestätigung.
+
 <!-- Quelle: REQ-050 §7.4 -->
 | AK-DA-01 | **Tagebuch-Anonymisierung:** Nach Abschluss eines Erasure-Requests sind in `plant_diary_entries` die Felder `created_by`, `analysis_requested_by` und `analysis_claimed_by` mit dem Wert `user_key` auf `_anonymized` gesetzt. Das Eintragsdokument selbst — Freitext, Tags, Messwerte, `photo_refs` und ein vorhandenes `analysis`-Ergebnis — bleibt vollstaendig erhalten. Dies schliesst die Luecke, dass bislang nur die **Anhaenge** (AK-OS-02), nicht aber das Eintragsdokument geregelt waren. | 17 | Integration |
 | AK-DA-02 | **Auskunft umfasst Tagebuch:** Der Datenexport nach Art. 15/20 enthaelt die Tagebuch-Eintraege des Nutzers samt vorhandener KI-Analyse-Ergebnisse (REQ-050). | 15/20 | Integration |

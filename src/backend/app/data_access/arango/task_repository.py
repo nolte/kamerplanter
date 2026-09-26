@@ -442,7 +442,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
-        query += " SORT doc.due_date ASC LIMIT @offset, @limit RETURN doc"
+        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC LIMIT @offset, @limit RETURN doc"
 
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [Task(**self._from_doc(doc)) for doc in cursor]
@@ -514,7 +514,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             f"FILTER doc.tenant_key == @tenant_key "
             f"FILTER doc.source == @source "
             f"FILTER doc.external_ref == @external_ref "
-            f"SORT doc.created_at DESC LIMIT 1 RETURN doc"
+            f"SORT DATE_TIMESTAMP(doc.created_at) DESC LIMIT 1 RETURN doc"
         )
         bind_vars = {"tenant_key": tenant_key, "source": source, "external_ref": external_ref}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
@@ -579,7 +579,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         if status:
             query += " FILTER doc.status == @status"
             bind_vars["status"] = status
-        query += " SORT doc.due_date ASC RETURN doc"
+        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
@@ -623,7 +623,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         if origins is not None:
             query += " FILTER doc.origin IN @origins"
             bind_vars["origins"] = list(origins)
-        query += " SORT doc.due_date ASC RETURN doc"
+        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
@@ -665,7 +665,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             f"AND doc.status == 'pending' "
             f"AND DATE_TIMESTAMP(doc.due_date) != null "
             f"AND DATE_TIMESTAMP(doc.due_date) < DATE_TIMESTAMP(@now) "
-            f"SORT doc.due_date ASC RETURN doc"
+            f"SORT DATE_TIMESTAMP(doc.due_date) ASC RETURN doc"
         )
         cursor = self._db.aql.execute(query, bind_vars={"now": now, "tenant_key": tenant_key})
         return [Task(**self._from_doc(doc)) for doc in cursor]
@@ -744,7 +744,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
                     AND doc.status == @completed_status
                     AND doc.completed_at != null
                     AND LEFT(doc.completed_at, 10) >= @today)
-            SORT doc.due_date DESC, doc.created_at DESC
+            SORT DATE_TIMESTAMP(doc.due_date) DESC, DATE_TIMESTAMP(doc.created_at) DESC
             LIMIT 1
             RETURN doc
         """
@@ -793,7 +793,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             FILTER doc.tenant_key == @tenant_key
             FILTER doc.name == @name
             FILTER doc.status IN @open_statuses
-            SORT doc.due_date DESC, doc.created_at DESC
+            SORT DATE_TIMESTAMP(doc.due_date) DESC, DATE_TIMESTAMP(doc.created_at) DESC
             LIMIT 1
             RETURN doc
         """
@@ -928,7 +928,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           FILTER doc.task_key == @task_key
           LET task = DOCUMENT(CONCAT(@task_collection, "/", @task_key))
           FILTER task != null AND task.tenant_key == @tenant_key
-          SORT doc.created_at ASC
+          SORT DATE_TIMESTAMP(doc.created_at) ASC
           RETURN doc
         """
         cursor = self._db.aql.execute(
@@ -1005,7 +1005,8 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     def get_audit_entries_for_task(self, task_key: str) -> list[TaskAuditEntry]:
         query = (
-            f"FOR doc IN {col.TASK_AUDIT_ENTRIES} FILTER doc.task_key == @task_key SORT doc.changed_at DESC RETURN doc"
+            f"FOR doc IN {col.TASK_AUDIT_ENTRIES} FILTER doc.task_key == @task_key "
+            "SORT DATE_TIMESTAMP(doc.changed_at) DESC RETURN doc"
         )
         cursor = self._db.aql.execute(query, bind_vars={"task_key": task_key})
         return [TaskAuditEntry(**self._from_doc(doc)) for doc in cursor]
@@ -1090,7 +1091,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             f"FOR doc IN {col.WORKFLOW_TEMPLATES} "
             f"FILTER doc.auto_generated == true AND doc.species_key == @species_key "
             f"FILTER {predicate} "
-            f"SORT (doc.tenant_key == @tenant_key ? 0 : 1) ASC, doc.created_at DESC "
+            f"SORT (doc.tenant_key == @tenant_key ? 0 : 1) ASC, DATE_TIMESTAMP(doc.created_at) DESC "
             f"LIMIT 1 "
             f"RETURN doc"
         )
@@ -1187,7 +1188,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           LET entity_name = plant != null
             ? (plant.plant_name || plant.instance_id || ekey)
             : (loc != null ? loc.name : (tank != null ? tank.name : (run_doc != null ? run_doc.name : ekey)))
-          SORT we.created_at DESC
+          SORT DATE_TIMESTAMP(we.created_at) DESC
           RETURN {{
             key: we._key,
             entity_key: ekey,
@@ -1316,7 +1317,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           FILTER LEFT(doc.due_date, 10) >= @today
             AND LEFT(doc.due_date, 10) <= @window_end
           {self._ORPHAN_GUARD}
-          SORT doc.due_date ASC
+          SORT DATE_TIMESTAMP(doc.due_date) ASC
           LIMIT @limit
           RETURN doc
         """

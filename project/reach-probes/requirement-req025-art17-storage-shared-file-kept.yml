@@ -1,0 +1,46 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
+#
+# Re-anchored after #1846: derived_from 7e6f8c2a6 was #1770's branch commit, discarded by the
+# #1839 squash (0c39591f8, REQ-025 byte-identical to 7e6f8c2a6). REQ-025 last changed on develop
+# in 9cacdb752 (v1.13, #1813/#1814): one changelog row (+1 line from L19), the request_erasure
+# sketch (+2 around L664) and ErasureCreateRequest (+1 around L798), and the new rows AK-IE-04/05
+# after AK-IE-03. None of the cited passages changed; the citations moved (+1 up to §3.1.1, +4
+# from §3.5 on) and were updated.
+# Observe step, targets and expectation unchanged.
+id: requirement-req025-art17-storage-shared-file-kept
+summary: a photo the subject and a co-holder both uploaded, after the subject's erasure — the co-holder's file and
+  record stay, the subject's record is gone, the subject's unshared photo is deleted
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: AK-OS-08 (L1243)
+tier: T2
+expected:
+  kind: set
+  unit: state of the shared object, its records and the subject's control object after erasure finalisation
+  values:
+  - control-file/deleted
+  - holder-file/present
+  - holder-link/present
+  - subject-link/absent
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:seed:shared-file
+- reach:erasure:finalise-for-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_shared_file.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 120
+approval:
+  observation_digest: 4bf6a8bda34a95972899a0456799f28a9e2a37c651696a8254ca5879d4e127f2
+  approved_by: nolte
+  approved_at: '2026-09-25T18:35:52Z'

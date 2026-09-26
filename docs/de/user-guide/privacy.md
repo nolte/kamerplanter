@@ -1,7 +1,7 @@
 # Datenschutz & DSGVO
 
 !!! note "Teilweise verfügbar"
-    Die DSGVO-Betroffenenrechte sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ist jetzt ebenfalls verfügbar — erreichbar über das Benutzermenü (Klick auf dein Profilbild oder deine Initialen) > **Datenschutz**, nur im Voll-Modus (nicht im anonymen [Light-Modus](light-mode.md)). Sie deckt die wichtigsten Klickstrecken ab: Datenexport anfordern, Konto löschen, Verarbeitungseinschränkung anlegen, Einwilligungen einsehen. Einzelne Teilschritte (z. B. Einwilligung per Klick widerrufen, E-Mail-Adresse ändern) sind aktuell nur über die API möglich — an der jeweiligen Stelle dieser Seite markiert (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)). <!-- REQ-025 -->
+    Die DSGVO-Betroffenenrechte sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ist jetzt ebenfalls verfügbar — erreichbar über das Benutzermenü (Klick auf dein Profilbild oder deine Initialen) > **Datenschutz**, nur im Voll-Modus (nicht im anonymen [Light-Modus](light-mode.md)). Sie deckt die wichtigsten Klickstrecken ab: Datenexport anfordern, Konto löschen, E-Mail-Adresse ändern (in den Kontoeinstellungen), Verarbeitungseinschränkung anlegen, Einwilligungen einsehen. Einzelne Teilschritte (z. B. Einwilligung per Klick widerrufen) sind aktuell nur über die API möglich — an der jeweiligen Stelle dieser Seite markiert (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)). <!-- REQ-025 -->
 
 Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Privacy by Design) entwickelt. Du hast die volle Kontrolle über deine persönlichen Daten: Du kannst sie jederzeit exportieren, berichtigen oder löschen lassen. Alle Betroffenenrechte nach DSGVO Art. 15–21 sind als Self-Service-Funktionen erreichbar.
 
@@ -9,7 +9,7 @@ Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Priva
 
 ## Für technische Nutzer / Self-Hoster {#fuer-technische-nutzer-self-hoster}
 
-Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten beschriebenen DSGVO-Funktionen stehen als REST-Endpunkte unter `/api/v1/privacy/` zur Verfügung. Ein Teil davon ist zusätzlich direkt in der grafischen Oberfläche nutzbar (siehe die jeweiligen Abschnitte weiter unten); einige Endpunkte — E-Mail-Änderung, Widerspruch, Einwilligung per Klick erteilen/widerrufen, Einschränkung aufheben, Export-Status/-Download — sind aktuell ausschließlich über die API erreichbar. Eine angemeldete Sitzung (Bearer-Token) ist erforderlich, außer bei `GET /api/v1/privacy/policy`.
+Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten beschriebenen DSGVO-Funktionen stehen als REST-Endpunkte unter `/api/v1/privacy/` zur Verfügung. Ein Teil davon ist zusätzlich direkt in der grafischen Oberfläche nutzbar (siehe die jeweiligen Abschnitte weiter unten); einige Endpunkte — Widerspruch, Einwilligung per Klick erteilen/widerrufen, Einschränkung aufheben, Export-Status/-Download — sind aktuell ausschließlich über die API erreichbar. Eine angemeldete Sitzung (Bearer-Token) ist erforderlich, außer bei `GET /api/v1/privacy/policy` und den beiden E-Mail-Änderungs-Endpunkten, die per Token bestätigen (`confirm`, `revert`).
 
 !!! info "Nur über API / Betreiber-Konfiguration"
     Am einfachsten lassen sich die Endpunkte über die interaktive API-Dokumentation unter `/docs` (OpenAPI/Swagger) ausprobieren — dort können Anfragen direkt im Browser ausgeführt werden. Alternativ per `curl`, z.B. für den Datenexport:
@@ -23,9 +23,10 @@ Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten b
 | `POST /api/v1/privacy/export` | Datenexport anfordern (Art. 15/20) |
 | `GET /api/v1/privacy/export/{export_key}` | Export-Status abfragen |
 | `GET /api/v1/privacy/export/{export_key}/download` | Export herunterladen |
-| `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) |
-| `POST /api/v1/privacy/email-change/confirm` | E-Mail-Änderung per Token bestätigen |
-| `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) |
+| `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) — Step-up-Body `{password}`, `{step_up_code}` bzw. `{step_up_token}`, siehe unten |
+| `POST /api/v1/privacy/email-change/confirm` | E-Mail-Änderung per Token bestätigen — Body `{token}`, kein Login nötig |
+| `POST /api/v1/privacy/email-change/revert` | Eine bestätigte E-Mail-Änderung rückgängig machen — Body `{token}`, öffentlich, gedrosselt, nur innerhalb des Rückgängig-Fensters (siehe unten) |
+| `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) — Body `{confirm_email, password?}`, siehe unten |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Löschstatus abfragen |
 | `POST /api/v1/privacy/restrict` | Verarbeitung einschränken (Art. 18) |
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Einschränkung aufheben |
@@ -82,17 +83,60 @@ Pflanzen, Standorte und Sensordaten gehören dem Garten, nicht einer einzelnen P
 
 ---
 
-## E-Mail-Adresse ändern (Art. 16 DSGVO)
+## E-Mail-Adresse ändern (Art. 16 DSGVO) {#e-mail-adresse-andern-art-16-dsgvo}
 
 Du hast das Recht, deine Daten berichtigen zu lassen.
 
-!!! info "Nur über API: E-Mail-Adresse ändern"
-    Die Kontoeinstellungen zeigen deine E-Mail-Adresse aktuell nur schreibgeschützt an — ändern lässt sie sich bislang ausschließlich über die API: `POST /api/v1/privacy/email-change` initiiert die Änderung und sendet einen **Verifikationslink an die neue Adresse**, `POST /api/v1/privacy/email-change/confirm` bestätigt sie per Token (kein Login nötig). Details siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
+### Ablauf der Änderung
 
-Die neue E-Mail ist nach der Bestätigung aktiv — alle aktiven Sitzungen werden beendet.
+1. In den Kontoeinstellungen zum Tab **Profil** navigieren und im Abschnitt **E-Mail-Adresse ändern** die neue Adresse eintragen
+2. Auf **Änderung anfordern** klicken und dich im Dialog bestätigen — mit deinem aktuellen Passwort, sofern dein Konto eines hat, sonst über eine frische Anmeldung beim verknüpften Anbieter oder, nur bei ausschließlich GitHub/Apple, über den per E-Mail zugeschickten Code
+3. Die Oberfläche bestätigt, dass ein Bestätigungslink an die neue Adresse geschickt wurde
+4. Den Link in der Mail an der **neuen** Adresse öffnen und dort auf **Neue Adresse bestätigen** klicken
+
+Details zum Formular findest du unter [Konto & Anmeldung — E-Mail-Adresse ändern](account.md#e-mail-adresse-andern).
+
+Wie bei der Kontolöschung verlangt die Anfrage einen Step-up: dein aktuelles Passwort, sofern dein Konto eines hat — sonst eine frische Anmeldung beim verknüpften Anbieter, oder, nur wenn du dich ausschließlich über GitHub/Apple anmeldest, der Bestätigungscode (siehe [API-Dokumentation](../api/authentication.md#erneut-anmelden-zur-bestatigung-oidc)). Deine **aktuelle** E-Mail-Adresse erhält bereits bei der Anfrage eine Benachrichtigung, dass eine Änderung angestoßen wurde.
+
+Die neue Adresse ist erst nach dem expliziten Klick auf **Neue Adresse bestätigen** aktiv — das bloße Öffnen der Mail bestätigt nichts. Danach ist sie deine Anmeldeadresse, und alle aktiven Sitzungen werden beendet.
 
 !!! note "Sicherheitshinweis"
-    Nach der Bestätigung der neuen E-Mail werden alle offenen Sitzungen (Browser, App) beendet. Du musst dich neu anmelden. Deine alte E-Mail erhält eine Informations-Mail über die Änderung.
+    Nach der Bestätigung der neuen E-Mail werden alle offenen Sitzungen (Browser, App) beendet. Du musst dich neu anmelden. Deine alte E-Mail erhält eine Informations-Mail über die Änderung — mit dem Rückgängig-Link aus dem nächsten Abschnitt.
+
+!!! warning "Ein Passwort-Reset oder eine Passwortänderung bricht eine offene Änderung ab"
+    Setzt du dein Passwort zurück, änderst du es in den Kontoeinstellungen, oder meldest du dich überall ab, wird eine noch nicht bestätigte E-Mail-Änderung automatisch verworfen — der Link in der Verifikations-Mail funktioniert danach nicht mehr. Das schützt dich, falls jemand anderes in deinem Namen eine Änderung angestoßen hat.
+
+!!! info "Auch über die API möglich"
+    Dieselbe Änderung lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/email-change` (Step-up-Body) und `POST /api/v1/privacy/email-change/confirm` (`{token}`, kein Login nötig). Details siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
+
+### Änderung rückgängig machen
+
+War die Änderung nicht von dir, oder möchtest du sie zurücknehmen: Deine **vorherige** Adresse erhält nach der Bestätigung eine Mail mit einem Rückgängig-Link. Er ist **7 Tage** gültig (Standardwert, vom Betreiber über `RETENTION_EMAIL_CHANGE_REVERT_DAYS` konfigurierbar) und **einmalig** nutzbar.
+
+Beim Öffnen des Links zeigt die Seite, was passiert, und verlangt einen expliziten Klick auf **Bisherige Adresse wiederherstellen** — auch hier bestätigt das bloße Öffnen der Mail nichts. Danach:
+
+- Deine vorherige Adresse ist wieder deine Anmeldeadresse — sofern in der Zwischenzeit kein anderes Konto sie übernommen hat
+- Alle Sitzungen des Kontos werden abgemeldet, auch auf fremden Geräten
+- Ein Passwort-Reset-Link, der an die neue (jetzt verworfene) Adresse verschickt wurde, wird ungültig
+- Eine noch offene E-Mail-Änderung wird ebenfalls widerrufen
+- Anmeldeanbieter wie Google, GitHub oder Apple, die **seit der Anfrage der Änderung** neu mit deinem Konto verknüpft wurden, werden wieder getrennt — dein lokales Passwort bleibt davon unberührt
+- API-Schlüssel, die **seit der Anfrage der Änderung** angelegt wurden, werden widerrufen — ältere API-Schlüssel bleiben aktiv
+- Wurde die Änderung inzwischen erneut durchgeführt und danach bestätigt, wird deren eigener Rückgängig-Link ungültig — ein späterer Rückgängig-Vorgang kann diese Wiederherstellung nicht mehr überschreiben
+- Die Adresse, die das Konto durch diese Wiederherstellung gerade wieder verlässt, erhält eine Mail mit festem Text darüber
+
+!!! danger "Setze danach dein Passwort zurück"
+    Ist die Änderung nicht von dir ausgegangen, kennt womöglich jemand anderes dein Passwort. Setze es nach der Wiederherstellung über **Passwort vergessen?** zurück (siehe [Passwort vergessen und zurücksetzen](account.md#passwort-vergessen-und-zurucksetzen)).
+
+!!! warning "Ältere API-Schlüssel prüfen"
+    Nur API-Schlüssel, die seit der Anfrage der E-Mail-Änderung angelegt wurden, werden automatisch widerrufen (siehe oben). Ältere, bereits vorher bestehende Schlüssel bleiben aktiv. Wurde dein Konto kompromittiert, prüfe sie im Tab **API-Schlüssel** der Kontoeinstellungen und widerrufe unbekannte Schlüssel manuell (siehe [API-Dokumentation](../api/authentication.md)).
+
+!!! warning "Restrisiko: Wer die vorherige Adresse mitlesen kann"
+    Der Rückgängig-Link beweist nur den Zugriff auf die vorherige Adresse — nicht zwingend deine Identität. Wer diese Adresse innerhalb der 7 Tage mitlesen kann, kann das Konto damit zurückholen; die dann aktuelle (neue) Adresse wird darüber informiert.
+
+Nach Ablauf des Rückgängig-Fensters funktioniert der Link nicht mehr — die vorherige Adresse wird dann aus dem Änderungs-Datensatz entfernt (siehe [Datenaufbewahrung — Rückgängig-Fenster](../guides/data-retention.md#ruckgangig-fenster-einer-bestatigten-e-mail-anderung-r-07a)). Übernimmt in der Zwischenzeit ein anderes Konto die vorherige Adresse, meldet die Seite das (`422`) statt die Wiederherstellung durchzuführen. Ist das Konto inzwischen geschlossen und zur Löschung vorgemerkt, meldet die Seite das ebenfalls (Fehler, kein Erfolg) — der Link selbst bleibt gültig und unverbraucht; wende dich in diesem Fall an den Betreiber der Instanz.
+
+!!! info "Auch über die API möglich"
+    `POST /api/v1/privacy/email-change/revert` mit `{token}` — öffentlich, gedrosselt, `401` bei ungültigem/bereits verwendetem/abgelaufenem Token, `422` wenn die vorherige Adresse inzwischen einem anderen Konto gehört, `409` (`ACCOUNT_BEING_ERASED`) wenn das Konto geschlossen und zur Löschung vorgemerkt ist — der Token bleibt in diesem Fall unverbraucht. Details siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
 
 ---
 
@@ -230,13 +274,16 @@ Du hast das Recht auf Löschung deiner Daten.
 
 1. Zu **Datenschutz** > Tab **Konto löschen** navigieren
 2. Auf **Konto löschen** klicken
-3. Bei Konten mit **lokalem Passwort-Login** im Bestätigungsdialog das **aktuelle Passwort** eingeben (zur Autorisierung der Löschung). Bei Konten, die ausschließlich über einen externen Anbieter (Google, GitHub, Apple …) angemeldet sind, entfällt dieser Schritt.
+3. Im Bestätigungsdialog deine **eigene E-Mail-Adresse** erneut eintippen. Hat dein Konto ein **lokales Passwort**, zusätzlich dein **aktuelles Passwort** eingeben (zur Autorisierung der Löschung). Meldest du dich über Google oder einen generischen OIDC-Anbieter an, klickst du stattdessen auf **Erneut anmelden** und bestätigst dich frisch beim Anbieter; nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, klickst du auf **Code per E-Mail senden** und gibst den zugeschickten Bestätigungscode ein.
 4. Im Bestätigungsdialog auf **Ja, Konto löschen** klicken
 
-!!! info "Passwortbestätigung"
-    Für Konten mit lokalem Passwort ist die Eingabe des aktuellen Passworts verpflichtend. Ist das Passwort falsch, bleibt der Dialog geöffnet und zeigt einen Fehlerhinweis — das Konto wird dann **nicht** gelöscht.
+!!! info "Bestätigung per E-Mail und Passwort"
+    Stimmt die eingetippte E-Mail-Adresse nicht mit deiner eigenen überein, meldet der Dialog einen Fehler. Für Konten mit lokalem Passwort ist zusätzlich die Eingabe des aktuellen Passworts verpflichtend — ist es falsch, bleibt der Dialog offen und zeigt einen Fehlerhinweis. In beiden Fällen wird das Konto **nicht** gelöscht.
 
-Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` startet die Löschung (bei lokalen Konten mit dem Feld `password`), `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
+!!! warning "Nach zu vielen Fehlversuchen gesperrt"
+    Nach mehreren falschen Passworteingaben sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt die verbleibende Wartezeit an. Diese Sperre gilt kontoweit für alle Bestätigungen dieser Art (Konto löschen, Mandant löschen, Passwort ändern) gemeinsam, betrifft aber **nicht** die Anmeldung: Du kannst dich weiterhin normal anmelden, im Tab **Sitzungen** (siehe [Konto & Anmeldung](account.md#aktive-sitzungen-einsehen-und-beenden)) einzelne Sitzungen beenden oder dein Passwort per E-Mail zurücksetzen.
+
+Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` erwartet denselben Anfragekörper wie `DELETE /api/v1/users/me` (siehe [Konto löschen](account.md#konto-loschen)) — `{"confirm_email": "...", "password": "..."}`, wobei `password` nur bei lokalem Passwort nötig ist. `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
 Was dann passiert:
 
@@ -290,6 +337,9 @@ Wenn du deinen Account löschst, unterscheidet das System zwischen zwei Foto-Typ
 | **Dokumentierende Fotos** (Tagebucheinträge, IPM-Inspektionen, Erntefotos, Pflanzenfotos) | Bleiben erhalten, werden aber von deinem Account entkoppelt — `erstellt von` wird auf `_anonymized` gesetzt. Sind EXIF-Daten vorhanden, werden sie in diesem Schritt ebenfalls entfernt. |
 
 Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzlichen Aufbewahrungspflichten (CanG, PflSchG) unterliegen. Dein Name ist nach der Anonymisierung nicht mehr mit den Fotos verknüpft.
+
+!!! note "Wenn ein anderes Mitglied dieselbe Datei hochgeladen hat"
+    Lädt ein anderes Mitglied deines Gartens exakt dieselbe Datei hoch (identischer Byte-Inhalt), bekommt jede Person einen eigenen Eintrag — gespeichert wird die Datei aber nur einmal und geteilt. Löschst du deinen Account, geht nur dein eigener Eintrag: Die gespeicherte Datei samt Vorschaubildern bleibt erhalten, solange noch mindestens ein Eintrag eines anderen Mitglieds darauf zeigt, und wird erst entfernt, wenn der letzte darauf zeigende Eintrag gelöscht wird. Deine eigenen Einträge erreicht die Account-Löschung dabei immer — unabhängig davon, wer die Datei zuerst hochgeladen hat.
 
 !!! note "Reihenfolge der Löschung"
     Die Storage-Bereinigung (Schritt 0) erfolgt vor der Datenbankbereinigung. Nur so kann das System die Metadaten noch abrufen, die für die Zuordnung Datei ↔ Nutzer nötig sind.

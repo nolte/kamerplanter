@@ -19,10 +19,11 @@ real cross-tenant path.
 same map the repository consults when deciding whether to write the edge at all.
 So the verified set and the edge-writing set are the *same* set by construction,
 rather than two lists that agree today. A binding with an unrecognised
-``entity_type`` (``generic``, ``plant``, ``actuator`` all occur) writes no edge
-and dereferences to nothing, so there is nothing to anchor and it passes through
-untouched — rejecting it would break producers over a reference that does not
-exist.
+``entity_type`` (``generic``, ``plant``, ``actuator`` all occur) writes no edge.
+The system producers that mint such bindings (the actuator fallback task, seeds)
+run without a tenant and pass through; a **tenant** caller that names a key under
+such a type — or under none — is refused (#1872 C10): the key was stored
+unresolved, a latent reference the next reader would trust.
 
 **Each type is anchored where its tenancy actually lives**, which is not uniform:
 
@@ -42,7 +43,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
 
@@ -79,14 +80,20 @@ class TaskEntityGuard:
         reads already answer 404 for a foreign row, so this method mostly just lets
         them.
 
-        No-ops when the task is unbound (no key or no type), when the type writes
-        no edge, or when there is no tenant to anchor against (the system context:
-        Celery care-reminder generation and seeds, which mint their own bindings).
+        No-ops when the task is unbound (no key) or when there is no tenant to
+        anchor against (the system context: Celery care-reminder generation, the
+        actuator fallback tasks and seeds, which mint their own bindings).
+
+        A key under a type that writes no edge — or under no type at all — is
+        refused for a tenant caller (#1872 C10): it used to be stored as given,
+        a key nobody had resolved that the next reader keyed on it would trust.
         """
-        if not entity_key or not entity_type or not tenant_key:
+        if not entity_key or not tenant_key:
             return
-        if entity_type not in ENTITY_TYPE_TO_COLLECTION:
-            return
+        if not entity_type or entity_type not in ENTITY_TYPE_TO_COLLECTION:
+            raise ValidationError(
+                "entity_key needs an entity_type of " + ", ".join(sorted(ENTITY_TYPE_TO_COLLECTION)) + ".",
+            )
 
         if entity_type == "plant_instance":
             self._plants().get_plant(entity_key, tenant_key=tenant_key)
@@ -97,9 +104,10 @@ class TaskEntityGuard:
         elif entity_type == "location":
             # Two hops on purpose — see the module docstring: the location's own
             # tenant_key is never written, so the site is the only real anchor.
-            sites = self._sites()
-            location = sites.get_location(entity_key)
-            sites.get_site(location.site_key, tenant_key=tenant_key)
+            # One step through the anchor (#1871 B13): the two-step form answered
+            # a foreign location as "No Site <its site key>", an unknown one as
+            # "No Location" — an oracle that echoed the other tenant's site.
+            self._sites().get_location(entity_key, tenant_key=tenant_key)
         else:
             # A type was added to ENTITY_TYPE_TO_COLLECTION without an anchor here.
             # Fail closed: the repository *will* write an edge for it, and nobody

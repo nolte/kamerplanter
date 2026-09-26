@@ -16,6 +16,8 @@ Traces to issue #1781 (no TC-ID: process start-up is not a user-facing case).
 
 from __future__ import annotations
 
+import base64
+
 import pytest
 from celery.signals import celeryd_init
 
@@ -25,8 +27,10 @@ from app.config.settings import settings
 
 @pytest.fixture(autouse=True)
 def _no_error_tracking(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep the sibling receiver (error tracking) inert: no DSN, no SDK initialisation."""
+    """Keep the sibling receivers inert: no DSN, no SDK initialisation, a valid Fernet key (#1859)."""
     monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.setattr(settings, "fernet_key", base64.urlsafe_b64encode(bytes(range(32))).decode())
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "l" * 32)  # the #1812 gate
 
 
 @pytest.mark.parametrize("salt", ["", "x" * 31])

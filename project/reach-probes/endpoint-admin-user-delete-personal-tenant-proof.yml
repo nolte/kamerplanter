@@ -1,0 +1,49 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
+#
+# Re-derived after #1846 (#1813/#1814/#1816, squash 9cacdb752): router.py's delete_user now
+# takes a step-up body (confirm_email = the target's e-mail, password = the admin's own current
+# password), refuses an API key (403) and goes through PrivacyService.erase_account_by_admin,
+# which calls erase_account_now with origin platform_admin, step_up and a salted
+# requested_by_subject. derived_from moves to 9cacdb752. The act script
+# scripts/reach/admin_delete_subject.py already sends that body over a bearer session (no API
+# key) since #1846; targets unchanged.
+# Observe step and expectation unchanged: tenant_erasure_records of origin account_erasure are
+# untouched by #1846.
+id: endpoint-admin-user-delete-personal-tenant-proof
+summary: tenant_erasure_records after the platform-admin user delete — one completed account_erasure record for the subject's
+  sole-owned personal tenant, none containing the subject's account key
+declaration:
+  source: endpoint
+  path: src/backend/app/api/v1/admin/platform/router.py
+  location: DELETE /admin/platform/users/{key} (delete_user) — a tenant_erasure_records entry (origin account_erasure) is
+    persisted as the proof for each personal tenant the subject used alone (#1788)
+tier: T2
+expected:
+  kind: set
+  unit: observed tenant-erasure record facts
+  values:
+  - member-in-records/0
+  - record-unreached/0
+  - record/account_erasure/completed
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:seed:personal-tenant
+- reach:erasure:admin-delete-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_tenant_residue.py
+  - --tenant
+  - reach-personal-tenant
+  - --records
+  timeout_seconds: 120
+approval:
+  observation_digest: a6845ddd0605ee872b59e8fd937e274a2da4bc8d4f661a8575c30fd75b442bfe
+  approved_by: nolte
+  approved_at: '2026-09-25T18:35:52Z'

@@ -20,10 +20,10 @@ class LightAuthProvider(IAuthProvider):
         self._cached_user = user
         return user
 
-    def resolve_user(self, authorization: str | None) -> User:
+    def resolve_user(self, authorization: str | None, *, client_ip: str | None) -> User:  # noqa: ARG002
         return self._get_system_user()
 
-    def resolve_user_optional(self, authorization: str | None) -> User | None:
+    def resolve_user_optional(self, authorization: str | None, *, client_ip: str | None) -> User | None:  # noqa: ARG002
         return self._get_system_user()
 
     def is_authentication_required(self) -> bool:

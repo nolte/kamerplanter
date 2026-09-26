@@ -52,13 +52,31 @@ from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStor
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.services.privacy_service import PrivacyService
-from app.domain.services.user_service import UserService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.privacy_doubles import admin_erasure_route_args, step_up
 from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("personal_tenant_erasure_reach")
 #: NFR-011 §4 wants >= 32 characters. Synthetic, test-only.
 SALT = "personal-tenant-salt-not-a-secret-0123456789"
+
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _log_pseudonym_salt():
+    """#1812: ``requested_by_subject`` is a log pseudonym, keyed with LOG_PSEUDONYM_SALT.
+
+    Module-scoped: the erasure runs in module-scoped fixtures, before any
+    function-scoped fixture could set the salt.
+    """
+    from app.config.settings import settings
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+        yield
+
+
 ADMIN = "platform-admin"
 COMPANION = "companion-user"
 #: A member whose own erasure is pending: its account is deactivated (#1788 review GDPR-01).
@@ -185,14 +203,12 @@ def _privacy_service(database) -> PrivacyService:
 def _admin_delete(database, subject: str) -> None:
     admin_router.delete_user(
         subject,
-        current_user=SimpleNamespace(key=ADMIN),
-        privacy_service=_privacy_service(database),
-        user_service=UserService(ArangoUserRepository(database), MagicMock()),
+        **admin_erasure_route_args(_privacy_service(database), admin_key=ADMIN, target_email=f"{subject}@example.com"),
     )
 
 
 def _scheduled_erasure(database, subject: str) -> None:
-    request = _privacy_service(database).request_erasure(subject, "confirm")
+    request = _privacy_service(database).request_erasure(subject, **step_up(f"{subject}@example.com", "confirm"))
     assert request.hard_delete_scheduled_at is not None
     beat_clock = request.hard_delete_scheduled_at + timedelta(days=1)
     asyncio.run(_privacy_service(database).execute_scheduled_erasures(beat_clock))
@@ -307,7 +323,7 @@ def test_the_tenant_erasure_record_and_the_erasure_request_prove_it(database, er
     assert record is not None
     assert (record["status"], record["origin"], record["unreached"]) == ("completed", "account_erasure", [])
     assert record["step_up"] == "account_erasure_no_interactive_step_up"
-    assert record["requested_by_subject"] == ErasureEngine.log_subject(run.subject, SALT)
+    assert record["requested_by_subject"] == ErasureEngine.log_subject(run.subject, LOG_SALT)
     assert record["slug_digest"] and run.subject not in str(record.values())
 
     request = _request(database, run.subject)

@@ -908,7 +908,7 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 | `429` | Daily contribution quota (`REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY`) exhausted |
 
 !!! note "Security model (quarantine, provenance, dedup)"
-    Every contribution is stored with `source="user_contributed"`, `is_active=false`, and the contributing user and tenant as provenance — it therefore does not affect other tenants' recognition until a platform admin has reviewed it. Re-submitting the same photo (SHA-256 hash of the normalized image) updates the existing row instead of creating another one. The original image itself is never persisted — only the embedding.
+    Every contribution is stored with `source="user_contributed"`, `is_active=false`, and the contributing user and tenant as provenance — it therefore does not affect other tenants' recognition until a platform admin has reviewed it. The dedup key (`source_record_id`) is derived from the tenant, the contributing user, and the SHA-256 hash of the normalized image: re-submitting the same photo updates your own row instead of creating another one. If a different person contributes the same image — even across tenants — they get their own row as of issue #1770; before that, a plain image hash as the key made such a contribution land on the first contributor's row, so that person's erasure also removed the other person's contribution, and the second person's own erasure never reached it. The original image itself is never persisted — only the embedding.
 
 ### See Also
 

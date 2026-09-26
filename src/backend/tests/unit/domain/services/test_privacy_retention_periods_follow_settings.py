@@ -32,7 +32,7 @@ from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.retention_service import RetentionService
-from tests.support.privacy_doubles import FakeDataExportRepo
+from tests.support.privacy_doubles import FakeDataExportRepo, step_up
 
 USER_KEY = "u-1782"
 PASSWORD = "correct-horse-battery-staple"
@@ -109,7 +109,9 @@ def _service(retention: RetentionService | None, **overrides: Any) -> PrivacySer
 class TestR01TheHardDeleteIsScheduledAfterTheConfiguredPeriod:
     def test_the_injected_period_schedules_the_hard_delete(self):
         before = datetime.now(UTC)
-        erasure = _service(RetentionService(hard_delete_after_days=45)).request_erasure(USER_KEY, PASSWORD)
+        erasure = _service(RetentionService(hard_delete_after_days=45)).request_erasure(
+            USER_KEY, **step_up("subject@example.com", PASSWORD)
+        )
 
         assert erasure.hard_delete_scheduled_at is not None
         assert abs(erasure.hard_delete_scheduled_at - (before + timedelta(days=45))) < _CLOCK_SLACK
@@ -118,7 +120,7 @@ class TestR01TheHardDeleteIsScheduledAfterTheConfiguredPeriod:
     def test_the_setting_schedules_the_hard_delete(self, monkeypatch):
         monkeypatch.setattr(settings, "retention_soft_delete_retention_days", 30)
 
-        erasure = _service(None).request_erasure(USER_KEY, PASSWORD)
+        erasure = _service(None).request_erasure(USER_KEY, **step_up("subject@example.com", PASSWORD))
 
         assert erasure.hard_delete_scheduled_at - erasure.soft_deleted_at == timedelta(days=30)
 
@@ -153,16 +155,28 @@ class TestR05TheExportExpiresAfterTheConfiguredPeriod:
         assert result.expires_at - result.completed_at == timedelta(hours=6)
 
 
+#: The step-up an e-mail change carries since #1841: the stored user's password.
+_EMAIL_CHANGE_STEP_UP = {
+    "password": PASSWORD,
+    "step_up_code": None,
+    "step_up_token": None,
+    "authenticated_with_api_key": False,
+    "client_ip": None,
+}
+
+
 class TestR07TheEmailChangeLinkExpiresAfterTheConfiguredPeriod:
     def test_the_injected_period_sets_expires_at(self):
-        change = _service(RetentionService(email_change_ttl_hours=2)).request_email_change(USER_KEY, "new@example.com")
+        change = _service(RetentionService(email_change_ttl_hours=2)).request_email_change(
+            USER_KEY, "new@example.com", **_EMAIL_CHANGE_STEP_UP
+        )
 
         assert change.expires_at - change.requested_at == timedelta(hours=2)
 
     def test_the_setting_sets_expires_at(self, monkeypatch):
         monkeypatch.setattr(settings, "retention_email_change_retention_hours", 3)
 
-        change = _service(None).request_email_change(USER_KEY, "new@example.com")
+        change = _service(None).request_email_change(USER_KEY, "new@example.com", **_EMAIL_CHANGE_STEP_UP)
 
         assert change.expires_at - change.requested_at == timedelta(hours=3)
 
@@ -173,7 +187,7 @@ class TestR07TheEmailChangeLinkExpiresAfterTheConfiguredPeriod:
         user_repo.get_by_email.return_value = MagicMock()  # the new address is taken
 
         change = _service(RetentionService(email_change_ttl_hours=2), user_repo=user_repo).request_email_change(
-            USER_KEY, "taken@example.com"
+            USER_KEY, "taken@example.com", **_EMAIL_CHANGE_STEP_UP
         )
 
         assert change.expires_at - change.requested_at == timedelta(hours=2)

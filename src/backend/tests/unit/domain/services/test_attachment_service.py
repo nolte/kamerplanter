@@ -80,7 +80,23 @@ class _FakeAttachmentRepo:
         return sum(1 for a in self._store.values() if a.tenant_key == tenant_key)
 
     def sum_bytes_by_tenant(self, tenant_key: str) -> int:
-        return sum(a.byte_size for a in self._store.values() if a.tenant_key == tenant_key)
+        # One charge per stored object, as the repository counts it (#1770).
+        return sum({a.storage_key: a.byte_size for a in self._store.values() if a.tenant_key == tenant_key}.values())
+
+    def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):  # type: ignore[no-untyped-def]
+        # As the repository answers it (#1770): the uploader's own record for these
+        # bytes in this category — never another member's.
+        for att in self._store.values():
+            if (att.tenant_key, att.sha256, att.created_by, att.category) == (tenant_key, sha256, created_by, category):
+                return att
+        return None
+
+    def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):  # type: ignore[no-untyped-def]
+        return {
+            a.storage_key
+            for a in self._store.values()
+            if a.tenant_key == tenant_key and a.storage_key in storage_keys and a.key not in excluding
+        }
 
     def list_by_tenant(self, tenant_key, category=None, offset=0, limit=50):
         items = [a for a in self._store.values() if a.tenant_key == tenant_key]
@@ -293,6 +309,208 @@ class TestDedup:
         assert first.key == second.key
         # Only one catalog record was written.
         assert repo.create_calls == 1
+
+    async def test_another_member_gets_their_own_record_over_the_stored_object(self, service, repo, adapter):
+        """#1770 — the record is an owner's claim; only the bytes are shared."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay") as delay:
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="mine.jpg",
+                category=AttachmentCategory.PEST_REFERENCE,
+            )
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="theirs.jpg",
+                category=AttachmentCategory.PEST_REFERENCE,
+            )
+        assert second.key != first.key
+        assert (second.created_by, second.original_filename) == ("u-2", "theirs.jpg")
+        assert second.storage_key == first.storage_key
+        # One object written, renditions dispatched once — for the object.
+        assert len((await adapter.list_objects("t/t-1/"))["keys"]) == 1
+        delay.assert_called_once_with(first.key, "t-1")
+
+    async def test_the_same_member_in_another_category_gets_a_second_record(self, service, repo):
+        """#1770 — retention differs per category, so a record never spans two."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            diary = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+            pest = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.PEST_REFERENCE,
+            )
+        assert pest.key != diary.key
+        assert pest.category == AttachmentCategory.PEST_REFERENCE
+        assert pest.storage_key == diary.storage_key
+
+    async def test_deleting_one_record_keeps_the_object_another_record_holds(self, service, adapter):
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="b.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+
+        assert await service.delete(second.key, "t-1") is True
+        assert (await adapter.list_objects("t/t-1/"))["keys"] == [first.storage_key]
+
+        assert await service.delete(first.key, "t-1") is True
+        assert (await adapter.list_objects("t/t-1/"))["keys"] == []
+
+    async def test_bytes_stored_under_another_type_are_not_linked_to(self, service, repo, adapter):
+        """#1770 review SEC-003 — a linked record is served with the object's type, so it must be this upload's."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        repo._store[first.key] = first.model_copy(update={"mime_type": "image/png"})
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="b.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        assert second.storage_key != first.storage_key
+        assert second.mime_type == "image/jpeg"
+
+    async def test_two_deletes_of_the_last_two_holders_do_not_strand_the_object(self, service, repo, adapter):
+        """#1770 review SEC-001 — each delete saw the other record; the one asking again after its own sees none."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="b.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        real = repo.storage_keys_held_elsewhere
+        calls = 0
+
+        def concurrent_delete_of_the_other(**kwargs):  # type: ignore[no-untyped-def]
+            nonlocal calls
+            calls += 1
+            answer = real(**kwargs)
+            if calls == 1:
+                # The other request removes its record right after this one asked.
+                repo._store.pop(second.key)
+            return answer
+
+        repo.storage_keys_held_elsewhere = concurrent_delete_of_the_other
+        assert await service.delete(first.key, "t-1") is True
+        assert (await adapter.list_objects("t/t-1/"))["keys"] == []
+
+    async def test_a_record_whose_object_is_gone_is_not_linked_to(self, service, repo, adapter):
+        """#1770 — a held record whose object vanished is no object to share; the upload stores its own."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+            # The object is gone, the record still there (the delete's storage call
+            # ran, its record delete did not yet).
+            await adapter.delete_object(first.storage_key)
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="b.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        assert second.storage_key != first.storage_key
+        stored = await _collect(await service.open_stream(second))
+        assert len(stored) > 0
+
+    async def test_an_object_deleted_while_the_link_is_written_is_written_back(self, service, adapter, monkeypatch):
+        """#1770 — the last other holder's delete removed the object after the lookup saw it."""
+        jpeg = _make_jpeg()
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay") as delay:
+            first = await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+            real_exists = service._object_exists
+            answers = iter([True])
+
+            async def _exists_then_deleted(storage_key):  # type: ignore[no-untyped-def]
+                # The lookup sees the object; by the re-check a concurrent delete removed it.
+                seen = next(answers, None)
+                if seen is None:
+                    await adapter.delete_object(storage_key)
+                    return await real_exists(storage_key)
+                return seen
+
+            monkeypatch.setattr(service, "_object_exists", _exists_then_deleted)
+            second = await service.upload(
+                tenant_key="t-1",
+                user_key="u-2",
+                data=jpeg,
+                mime_type="image/jpeg",
+                original_filename="b.jpg",
+                category=AttachmentCategory.DIARY,
+            )
+        assert second.storage_key == first.storage_key
+        stored = await _collect(await service.open_stream(second))
+        assert len(stored) > 0
+        assert delay.call_args_list[-1].args == (second.key, "t-1")
 
 
 class TestVirusScan:

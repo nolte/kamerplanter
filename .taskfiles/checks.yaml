@@ -16,7 +16,7 @@ vars:
   # under an unchanged repository. Aged by the Taskfile custom manager in
   # renovate.json5 (added with this target), so the pin cannot rot either.
   # renovate: datasource=docker depName=renovate/renovate
-  RENOVATE_IMAGE: renovate/renovate:44.112.3@sha256:ceabd9b7c0dbc69045af261bbcb778c78bdeaa656d60266292b7c73338e7e07d
+  RENOVATE_IMAGE: renovate/renovate:44.115.4@sha256:03e987bec9fbda0cf39ef63f2d293e821d96525119e1ab3d0ff87d5b3ef3edd9
 
 tasks:
   renovate:dry-run:

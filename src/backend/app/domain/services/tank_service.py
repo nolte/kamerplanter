@@ -1,21 +1,50 @@
 from app.common.enums import IrrigationSystem
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import MaintenanceScheduleKey, TankKey
 from app.domain.engines.tank_engine import TankEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+from app.domain.services.feeding_references import NutrientPlanSource, require_readable_nutrient_plan
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
 
 
 class TankService:
     def __init__(
-        self, repo: ITankRepository, engine: TankEngine, fertilizer_repo: IFertilizerRepository | None = None
+        self,
+        repo: ITankRepository,
+        engine: TankEngine,
+        fertilizer_repo: IFertilizerRepository | None = None,
+        site_anchors: SiteAnchorSource | None = None,
+        *,
+        nutrient_plan_repo: NutrientPlanSource | None = None,
     ) -> None:
         self._repo = repo
+        # #1872 review W2: the plans a fill event names, readable by the tank's tenant.
+        self._nutrient_plan_repo = nutrient_plan_repo
         self._engine = engine
         self._fertilizer_repo = fertilizer_repo
+        # The location → site reads that decide whose a location is (L3 of the
+        # #1864 sweep). Without them a location reference is refused.
+        self._site_anchors = site_anchors
+
+    def _require_owned_location(self, location_key: str | None, tenant_key: str) -> None:
+        """Refuse a ``location_key`` that is not the tenant's (#1864 sweep, L3).
+
+        A tank's ``location_key`` was stored as given and a ``HAS_TANK`` edge
+        written from the named location — any tenant's. ``GET …/tanks/{key}/
+        active-nutrient-plans`` then read the runs at that location unscoped and
+        returned another tenant's runs, plans and fertilizers. Anchored on the
+        location's site (a location carries no usable ``tenant_key``, #1397); a
+        foreign, site-less or unknown location answers 404.
+        """
+        if not location_key or not tenant_key:
+            return
+        if self._site_anchors is None:
+            raise NotFoundError("Location", location_key)
+        resolve_owned_location(self._site_anchors, location_key, tenant_key)
 
     # ── Tank CRUD ──────────────────────────────────────────────────────
 
@@ -39,7 +68,10 @@ class TankService:
         tank: Tank,
         irrigation_system: IrrigationSystem | None = None,
         create_default_schedules: bool = True,
+        *,
+        tenant_key: str,
     ) -> Tank:
+        self._require_owned_location(tank.location_key, tenant_key)
         # Validate assignment if location has irrigation info
         if irrigation_system is not None:
             self._engine.validate_tank_assignment(tank.tank_type, irrigation_system)
@@ -61,8 +93,10 @@ class TankService:
 
         return created
 
-    def update_tank(self, key: TankKey, data: dict) -> Tank:
-        tank = self.get_tank(key)
+    def update_tank(self, key: TankKey, data: dict, *, tenant_key: str) -> Tank:
+        tank = self.get_tank(key, tenant_key)
+        if "location_key" in data:
+            self._require_owned_location(data["location_key"], tenant_key)
         allowed_fields = {
             "name",
             "tank_type",
@@ -190,8 +224,25 @@ class TankService:
         self.get_tank(tank_key)
         return self._repo.get_schedules(tank_key)
 
-    def update_schedule(self, key: MaintenanceScheduleKey, data: dict) -> MaintenanceSchedule:
-        existing = self._repo.get_schedule_or_raise(key)
+    def _schedule_of_tank(
+        self, tank_key: TankKey, key: MaintenanceScheduleKey, *, tenant_key: str
+    ) -> MaintenanceSchedule:
+        """The schedule ``key`` **of tank** ``tank_key`` in ``tenant_key``, or 404 (#1867).
+
+        The tank is resolved under the tenant; the schedule must belong to it. A
+        schedule loaded by its key alone let any tank owner change or delete any
+        tenant's schedule. A foreign and an unknown schedule answer the same.
+        """
+        self.get_tank(tank_key, tenant_key)
+        schedule = self._repo.get_schedule_or_raise(key)
+        if schedule.tank_key != tank_key:
+            raise NotFoundError("MaintenanceSchedule", key)
+        return schedule
+
+    def update_schedule(
+        self, tank_key: TankKey, key: MaintenanceScheduleKey, data: dict, *, tenant_key: str
+    ) -> MaintenanceSchedule:
+        existing = self._schedule_of_tank(tank_key, key, tenant_key=tenant_key)
         allowed_fields = {
             "interval_days",
             "reminder_days_before",
@@ -213,8 +264,8 @@ class TankService:
 
         return self._repo.update_schedule(key, existing)
 
-    def delete_schedule(self, key: MaintenanceScheduleKey) -> bool:
-        self._repo.get_schedule_or_raise(key)
+    def delete_schedule(self, tank_key: TankKey, key: MaintenanceScheduleKey, *, tenant_key: str) -> bool:
+        self._schedule_of_tank(tank_key, key, tenant_key=tenant_key)
         return self._repo.delete_schedule(key)
 
     # ── Fill Events ──────────────────────────────────────────────────────
@@ -237,6 +288,14 @@ class TankService:
             field="fertilizers_used",
             owner="TankService",
         )
+        # The references a fill event names, under the tank's tenant (security
+        # review of #1872, W2): the plan and the mixing result (a plan too, with
+        # a ``mixed_into`` edge from it) must be global or the tenant's own, the
+        # source tank the tenant's. They were stored as given.
+        for plan_key in dict.fromkeys(k for k in (event.nutrient_plan_key, event.mixing_result_key) if k):
+            require_readable_nutrient_plan(self._nutrient_plan_repo, plan_key, tank.tenant_key)
+        if event.source_tank_key:
+            self.get_tank(event.source_tank_key, tank.tenant_key)
 
         # Resolve water defaults via cascade
         event_data = event.model_dump(exclude_none=True)
@@ -314,9 +373,15 @@ class TankService:
         self.get_tank(tank_key)
         return self._repo.get_active_nutrient_plans(tank_key)
 
-    def link_feeds_from(self, tank_key: TankKey, source_tank_key: TankKey) -> None:
-        self.get_tank(tank_key)
-        self.get_tank(source_tank_key)
+    def link_feeds_from(self, tank_key: TankKey, source_tank_key: TankKey, *, tenant_key: str) -> None:
+        # Both tanks under the tenant (#1871 B5): the source used to be resolved
+        # unscoped — a FEEDS_FROM edge to a foreign tank, and 201 vs 404 told the
+        # caller whether that tank existed. ``get_tank`` skips the check for an
+        # empty tenant, so an empty one is refused here (review of #1876, SEC-005).
+        if not tenant_key:
+            raise NotFoundError("Tank", source_tank_key)
+        self.get_tank(tank_key, tenant_key)
+        self.get_tank(source_tank_key, tenant_key)
         if tank_key == source_tank_key:
             raise ValidationError("A tank cannot feed from itself.")
         self._repo.link_feeds_from(tank_key, source_tank_key)

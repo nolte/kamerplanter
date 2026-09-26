@@ -56,6 +56,7 @@ from app.data_access.timescale.null_observation_repository import NullObservatio
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
@@ -189,7 +190,19 @@ def _service(database) -> TenantService:
 #: The requester of every deletion here (#1791): a federated account (no
 #: password — the slug echo is its step-up) whose right is proven from a real
 #: membership row, the way the service reads it.
-REQUESTER = User.model_validate({"_key": "requester-1", "email": "requester@example.org", "display_name": "R"})
+#: The requester signs in with a local password, so the step-up is the slug echo plus
+#: that password — a step-up these reach tests pass, not the one they test (#1815
+#: made a federated requester need a mailed code; the hourly code budget would then
+#: bound how many tenants one module may delete). Assembled at runtime (#1838).
+REQUESTER_PASSWORD = "-".join(["reach", "requester", "passphrase"])
+REQUESTER = User.model_validate(
+    {
+        "_key": "requester-1",
+        "email": "requester@example.org",
+        "display_name": "R",
+        "password_hash": PasswordEngine().hash_password(REQUESTER_PASSWORD),
+    }
+)
 
 
 def _grant(database, tenant: str) -> None:
@@ -209,15 +222,22 @@ def _grant(database, tenant: str) -> None:
 
 def _delete_through(database, entry_point: str, tenant: str) -> None:
     service = _service(database)
-    body = TenantDeleteRequest(confirm_slug=tenant)
+    body = TenantDeleteRequest(confirm_slug=tenant, password=REQUESTER_PASSWORD)
     if entry_point == "tenant_management":
         _grant(database, tenant)
         tenant_router.delete_tenant(
-            body=body, ctx=SimpleNamespace(tenant_key=tenant), user=REQUESTER, via_api_key=False, service=service
+            body=body,
+            ctx=SimpleNamespace(tenant_key=tenant),
+            user=REQUESTER,
+            via_api_key=False,
+            client_ip="203.0.113.1",
+            service=service,
         )
     else:
         _grant(database, "platform")
-        admin_router.delete_tenant(tenant, body=body, user=REQUESTER, via_api_key=False, tenant_service=service)
+        admin_router.delete_tenant(
+            tenant, body=body, user=REQUESTER, via_api_key=False, client_ip="203.0.113.1", tenant_service=service
+        )
 
 
 @pytest.fixture(scope="module")
@@ -335,8 +355,9 @@ def test_a_retry_reaches_a_child_whose_parent_the_first_attempt_deleted(database
         tenant,
         requester=REQUESTER,
         authenticated_with_api_key=False,
-        confirmation=TenantDeleteRequest(confirm_slug=tenant).to_confirmation(),
+        confirmation=TenantDeleteRequest(confirm_slug=tenant, password=REQUESTER_PASSWORD).to_confirmation(),
         origin="platform_admin",
+        client_ip="203.0.113.1",
     )
     late = database.collection("locations").insert({"site_key": site_key})["_id"]
     records = ArangoTenantErasureRepository(database)
@@ -384,10 +405,11 @@ def test_a_management_scope_viewer_erases_nothing(database, erased):
 
     with pytest.raises(ForbiddenError):
         tenant_router.delete_tenant(
-            body=TenantDeleteRequest(confirm_slug=tenant),
+            body=TenantDeleteRequest(confirm_slug=tenant, password=REQUESTER_PASSWORD),
             ctx=SimpleNamespace(tenant_key=tenant),
             user=REQUESTER,
             via_api_key=False,
+            client_ip="203.0.113.1",
             service=_service(database),
         )
 

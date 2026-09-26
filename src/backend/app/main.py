@@ -20,13 +20,22 @@ from app.common.error_handlers import (
     validation_error_handler,
 )
 from app.common.exceptions import KamerplanterError
+from app.common.log_privacy import register_route_source
 from app.common.middleware import request_id_middleware
-from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import setup_logging
 from app.config.settings import settings
 from app.data_access.arango.collections import ensure_collections
 from app.data_access.external.registration import register_external_adapters
+from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
+
+# Redaction before anything below can log (#1832): error tracking, adapter
+# registration and a failing startup all ran under structlog's defaults (a
+# ConsoleRenderer with raw tracebacks) until the lifespan configured logging.
+# uvicorn has configured its own loggers before it imports this module, so the
+# sink filter reaches its handlers too; the lifespan re-applies it (idempotent).
+setup_logging(settings.debug)
 
 logger = structlog.get_logger()
 
@@ -65,11 +74,18 @@ def insecure_default_secrets() -> list[str]:
     if settings.timescaledb_enabled and settings.timescaledb_password == "changeme":
         insecure.append("timescaledb_password")
     # INF-S5: OIDC provider-secret encryption key (Fernet). Must be provisioned.
-    if not settings.fernet_key:
+    # A malformed key is as unusable as a missing one (#1859): ``Fernet(key)``
+    # would raise on every request that touches a secret.
+    if not is_usable_fernet_key(settings.fernet_key):
         insecure.append("fernet_key")
     # NFR-011 §4: GDPR erasure tombstone salt (>= 32 chars).
     if len(settings.erasure_tombstone_salt) < _MIN_TOMBSTONE_SALT_LENGTH:
         insecure.append("erasure_tombstone_salt")
+    # NFR-011 §3.4 L-5 (#1812): the log pseudonym salt (>= 32 chars). Without it
+    # every subject reference and e-mail digest on a log line collapses to one
+    # constant, and lines of different accounts become indistinguishable.
+    if len(settings.log_pseudonym_salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
+        insecure.append("log_pseudonym_salt")
     # AP-4: shared secret for the internal M2M services — required only when the
     # backend actually calls them.
     if (
@@ -79,10 +95,33 @@ def insecure_default_secrets() -> list[str]:
     return insecure
 
 
+def warn_if_console_email_adapter() -> bool:
+    """Warn once when account e-mails go to the console adapter outside debug (#1795).
+
+    ``EMAIL_ADAPTER`` defaults to ``console`` and the Helm chart sets none, so an
+    installation without SMTP sends no verification or password-reset mail at
+    all. The console adapter no longer logs the link outside debug (its token
+    takes over the account), which makes the gap invisible unless it is named
+    here. Deliberately a warning, not a refusal to start: refusing would break
+    every Helm install that has not configured SMTP. Returns whether it warned.
+    """
+    if settings.email_adapter != "console" or settings.debug:
+        return False
+    logger.warning(
+        "email_adapter_console_in_production",
+        email_adapter=settings.email_adapter,
+        detail="verification and password-reset e-mails are not delivered; set EMAIL_ADAPTER=smtp or resend",
+    )
+    return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Again: a server that reconfigured its loggers between import and startup
+    # (``uvicorn --log-config``) gets the filters on its new handlers (#1832).
     setup_logging(settings.debug)
     logger.info("startup", app=settings.app_name, version=settings.app_version)
+    warn_if_console_email_adapter()
 
     # Check for default secrets in production
     if not settings.debug:
@@ -216,6 +255,43 @@ app = FastAPI(
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/openapi.json",
 )
+
+
+def _route_path_templates(application: Any, _depth: int = 0) -> Iterator[str]:
+    """Every route path and mount prefix reachable from *application* — ``loggable_path``'s source (#1795).
+
+    The access log keeps a path segment only when it is a literal segment of some
+    route; this yields the templates those segments come from. ``_mounted_paths``
+    gives the route paths (behind ``_IncludedRouter.original_router``), the mount
+    prefixes add the segments that only exist there (``/t/{tenant_slug}``).
+
+    Deliberately not ``app.openapi()["paths"]``: measured on this tree, the first
+    call takes ~5.4 s — on the event loop, at the first access-log line — and it
+    omits routes with ``include_in_schema=False``, which still serve requests.
+    ``test_route_path_templates_cover_the_openapi_paths`` pins that this walk
+    finds every literal segment the OpenAPI document has.
+    """
+    yield from _mounted_paths(application)
+    yield from _mount_prefixes(application, _depth)
+
+
+def _mount_prefixes(application: Any, _depth: int = 0) -> Iterator[str]:
+    if _depth > 10:
+        return
+    for route in getattr(application, "routes", []) or []:
+        nested = getattr(route, "original_router", None)
+        if nested is None:
+            continue
+        for prefix in (
+            getattr(nested, "prefix", None),
+            getattr(getattr(route, "include_context", None), "prefix", None),
+        ):
+            if isinstance(prefix, str) and prefix:
+                yield prefix
+        yield from _mount_prefixes(nested, _depth + 1)
+
+
+register_route_source(lambda: _route_path_templates(app))
 
 # OpenAPI post-processing (documentation only, spec/project/api-documentation/):
 #  1. FastAPI only emits a `security` requirement on operations whose dependency

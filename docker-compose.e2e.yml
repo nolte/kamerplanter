@@ -5,6 +5,12 @@
 ## in an isolated network. No host ports required — runs in parallel
 ## with Kind/Skaffold without conflicts.
 ##
+## Every command below needs E2E_FERNET_KEY in its environment: the stack's
+## Fernet key is generated, never committed (#1838). Prefix each command with
+##   E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" docker compose …
+## (one key per working copy, so separate commands agree), or use
+## scripts/run-e2e.sh, which does it. Without it the backend refuses to start.
+##
 ## Usage (light mode — no auth, skips requires_auth tests):
 ##   docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 ##
@@ -80,8 +86,12 @@ services:
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
       # AP-4 / INF-S5 startup gate (app/main.py): with DEBUG=false the backend
       # refuses to start unless these secrets are provisioned. Test-only values.
-      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      # FERNET_KEY is generated per run, never committed (#1838): the callers
+      # export E2E_FERNET_KEY from scripts/e2e_fernet_key.py. Unset, it is empty
+      # and the startup gate refuses to start — loud, not a plaintext fallback.
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -118,8 +128,9 @@ services:
       # the same secrets (#1717): the Fernet key decrypts what the API stored,
       # and without the tombstone salt every scheduled Art. 17 erasure is held
       # as a configuration error. Values identical to `backend`'s; test-only.
-      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -294,8 +305,12 @@ services:
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
       # AP-4 / INF-S5 startup gate (app/main.py): with DEBUG=false the backend
       # refuses to start unless these secrets are provisioned. Test-only values.
-      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      # FERNET_KEY is generated per run, never committed (#1838): the callers
+      # export E2E_FERNET_KEY from scripts/e2e_fernet_key.py. Unset, it is empty
+      # and the startup gate refuses to start — loud, not a plaintext fallback.
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
       # Both limits are per **client IP** and sized for production, where one
@@ -369,8 +384,9 @@ services:
       # (`retention.execute_scheduled_erasures.not_configured`), and a Fernet
       # key differing from the API's would leave the worker unable to read what
       # the API encrypted. Values identical to backend-full's; test-only.
-      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
     # The API's object storage, at the API's path (see backend-full): export

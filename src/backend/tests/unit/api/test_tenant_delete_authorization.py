@@ -49,7 +49,6 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_erasure import TenantDeletionConfirmation, TenantErasureRecord
 from app.domain.models.user import User
 from tests.support.tenant_erasure_doubles import (
-    SALT,
     FakeTenantErasureRepository,
     RecordingTenantErasureExecutor,
     tenant_service_for_deletion,
@@ -65,6 +64,14 @@ PASSWORD_HASH = PasswordEngine().hash_password(PASSWORD)
 TENANT_ROUTE = f"/api/v1/tenants/{SLUG}"
 ADMIN_ROUTE = f"/api/v1/admin/platform/tenants/{TENANT_KEY}"
 STEP_UP = {"confirm_slug": SLUG, "password": PASSWORD}
+
+
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
 
 
 def _error_handler(_request: Request, exc: KamerplanterError) -> JSONResponse:
@@ -253,13 +260,27 @@ def test_a_missing_or_wrong_step_up_erases_nothing(body: dict[str, Any] | None, 
     assert world.nothing_erased()
 
 
-def test_a_federated_account_confirms_with_the_slug_alone() -> None:
+def test_a_federated_account_no_longer_deletes_on_the_slug_alone() -> None:
+    """#1815 — the slug echo proves nobody present; a federated account needs the mailed code."""
     world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], password_hash=None)
 
     resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG})
 
+    assert resp.status_code == 401, resp.text
+    assert resp.json()["error_code"] == "STEP_UP_CODE_REQUIRED"
+    assert world.nothing_erased()
+
+
+def test_a_federated_account_deletes_with_the_mailed_code() -> None:
+    world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], password_hash=None)
+    code, _expires_at = world.service._step_up_verifier.issue_code(
+        world.user, action="tenant_deletion", authenticated_with_api_key=False, client_ip=None
+    )
+
+    resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_code": code})
+
     assert resp.status_code == 200, resp.text
-    assert world.record()["step_up"] == "slug_confirmation"
+    assert world.record()["step_up"] == "email_code"
 
 
 def test_a_federated_account_still_has_to_echo_the_slug() -> None:
@@ -271,7 +292,11 @@ def test_a_federated_account_still_has_to_echo_the_slug() -> None:
     assert world.nothing_erased()
 
 
-def test_the_record_names_the_requester_by_reference_and_the_step_up() -> None:
+def test_the_record_names_the_requester_by_reference_and_the_step_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config.settings import settings
+
+    log_salt = "log-pseudonym-test-salt-not-a-secret-01234"
+    monkeypatch.setattr(settings, "log_pseudonym_salt", log_salt)  # #1812: the reference is a LOG pseudonym
     world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT])
 
     world.delete(TENANT_ROUTE, STEP_UP)
@@ -281,7 +306,7 @@ def test_the_record_names_the_requester_by_reference_and_the_step_up() -> None:
     assert record["origin"] == "tenant_management"
     # The record outlives the tenant: it names the caller by the salted log
     # reference, never by the account key itself.
-    assert record["requested_by_subject"] == ErasureEngine.log_subject(CALLER, SALT)
+    assert record["requested_by_subject"] == ErasureEngine.log_subject(CALLER, log_salt)
     assert CALLER not in str(record)
 
 
@@ -380,6 +405,7 @@ def test_the_service_itself_refuses_a_deactivated_membership() -> None:
             authenticated_with_api_key=False,
             confirmation=TenantDeletionConfirmation(confirm_slug=SLUG, password=PASSWORD),
             origin="tenant_management",
+            client_ip="203.0.113.1",
         )
     assert world.nothing_erased()
 
@@ -431,3 +457,24 @@ def test_a_retry_after_the_document_went_still_accepts_the_slug_the_dialog_sends
 
     assert retry.status_code == 204, retry.text
     assert world.record()["status"] == "completed"
+
+
+def test_a_federated_account_deletes_with_a_fresh_re_authentication() -> None:
+    """#1815 — the token of a fresh OIDC sign-in confirms the tenant deletion; the record says so."""
+    world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], password_hash=None)
+    token = world.service._step_up_verifier.issue_reauth_token(world.user, action="tenant_deletion")
+
+    resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_token": token})
+
+    assert resp.status_code == 200, resp.text
+    assert world.record()["step_up"] == "oidc_reauth"
+
+
+def test_a_re_authentication_for_another_act_deletes_nothing() -> None:
+    world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], password_hash=None)
+    token = world.service._step_up_verifier.issue_reauth_token(world.user, action="password_change")
+
+    resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_token": token})
+
+    assert resp.status_code == 401, resp.text
+    assert world.nothing_erased()

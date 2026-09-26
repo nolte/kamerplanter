@@ -64,6 +64,7 @@ Diese Übersicht bündelt die Boot-Blocker aus allen drei Prozessen — Backend,
 | `ARANGODB_PASSWORD` | Backend | **Immer** | Wert darf nicht mehr `rootpassword` sein |
 | `FERNET_KEY` | Backend | **Immer** — unabhängig davon, ob OIDC-Provider genutzt werden | Darf nicht leer sein; muss ein gültiger Fernet-Schlüssel sein (32 Byte, url-safe base64, 44 Zeichen) |
 | `ERASURE_TOMBSTONE_SALT` | Backend | **Immer** — unabhängig davon, ob aktiv DSGVO-Löschanfragen gestellt werden | Muss mindestens 32 Zeichen lang sein |
+| `LOG_PSEUDONYM_SALT` | Backend + Celery-Worker | **Immer** — unabhängig davon, welche Funktionen aktiv sind; Backend und Worker brauchen denselben Wert | Muss mindestens 32 Zeichen lang sein |
 | `TIMESCALEDB_PASSWORD` | Backend | Nur wenn `TIMESCALEDB_ENABLED=true` | Wert darf nicht mehr `changeme` sein |
 | `INTERNAL_SERVICE_TOKEN` | Backend | Nur wenn `KNOWLEDGE_SERVICE_ENABLED=true` **oder** `INFERENCE_SERVICE_ENABLED=true` | Darf nicht leer sein |
 | `INTERNAL_SERVICE_TOKEN` + `INFERENCE_SERVICE_ENABLED`/`-URL` | Celery-Worker | Nur wenn `INFERENCE_SERVICE_ENABLED=true` — **muss identisch mit dem Backend-Wert sein**, sonst hält der Worker die DSGVO-Löschung beigetragener Referenzbilder als Konfigurationsfehler zurück (siehe Warnhinweis unten) | Darf nicht leer sein |
@@ -72,8 +73,8 @@ Diese Übersicht bündelt die Boot-Blocker aus allen drei Prozessen — Backend,
 | `INTERNAL_SERVICE_TOKEN` | Inference Service | Immer, wenn der Prozess überhaupt läuft | Darf nicht leer sein |
 | `VECTORDB_PASSWORD` | Inference Service | Immer, wenn der Prozess überhaupt läuft | Wert darf nicht mehr `changeme` sein |
 
-!!! danger "Erste vier Zeilen betreffen JEDE Produktionsinstanz"
-    `JWT_SECRET_KEY`, `ARANGODB_PASSWORD`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` sind **keine Feature-Flags** — sie werden unabhängig davon geprüft, welche der unten aufgeführten optionalen Funktionen aktiv sind. Eine frische Produktionsinstanz ohne diese vier Werte startet gar nicht erst (`SystemExit`), sobald `DEBUG=false` gesetzt ist.
+!!! danger "Erste fünf Zeilen betreffen JEDE Produktionsinstanz"
+    `JWT_SECRET_KEY`, `ARANGODB_PASSWORD`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` sind **keine Feature-Flags** — sie werden unabhängig davon geprüft, welche der unten aufgeführten optionalen Funktionen aktiv sind. Eine frische Produktionsinstanz ohne diese fünf Werte startet gar nicht erst (`SystemExit`), sobald `DEBUG=false` gesetzt ist — für `LOG_PSEUDONYM_SALT` gilt das für Backend **und** Celery-Worker gleichermaßen (Celery Beat prüft ihn nicht).
 
 !!! note "`INTERNAL_SERVICE_TOKEN` muss überall identisch sein"
     Backend, Celery-Worker/-Beat, Knowledge Service und Inference Service müssen **denselben** `INTERNAL_SERVICE_TOKEN`-Wert erhalten (ein Kubernetes-Secret, per `envFrom`/`secretKeyRef` in alle vier Controller injiziert) — es ist ein gemeinsames M2M-Geheimnis, kein Token pro Dienst.
@@ -200,7 +201,7 @@ Instanzweite Freischaltung (`AI_FEATURES_ENABLED=true`) reicht allein nicht: Ein
 |---|---|---|---|---|---|
 | E-Mail-Kanal (Konsole, Entwicklung) | Backend | `EMAIL_ADAPTER=console` (Default) | — | — | Nein |
 | E-Mail-Kanal (SMTP) | Backend + externer SMTP-Server | `EMAIL_ADAPTER=smtp` + `SMTP_HOST`/`SMTP_USERNAME`/`SMTP_PASSWORD` | `SMTP_PASSWORD` | — | Nein |
-| E-Mail-Kanal (Resend) | Backend | `EMAIL_ADAPTER=resend` | API-Key via REST-Konfiguration | — | Nein |
+| E-Mail-Kanal (Resend) | Backend | `EMAIL_ADAPTER=resend` + `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`) | `RESEND_API_KEY` | — | Ja — verweigert den Start ohne `RESEND_API_KEY`, sobald `EMAIL_ADAPTER=resend` gesetzt ist (Pydantic-Validierung beim Laden der Konfiguration, unabhängig von `DEBUG`; kein `insecure_default_secrets()`-Check) |
 | Browser-Push (Web Push / VAPID) | Backend | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` + `VAPID_CONTACT_EMAIL` alle drei gesetzt | `VAPID_PRIVATE_KEY` | — | Nein |
 | Home-Assistant-Kanal (persistente Notifications, Mobile Push, TTS) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` gesetzt | `HA_ACCESS_TOKEN` | — | Nein |
 | Apprise-Kanal (Multi-Backend-Push) | Backend-Image | Immer aktiv, sofern das optionale Python-Paket `apprise` im Image installiert ist (kein env-Schalter) | — | größeres Backend-Image | Nein |
@@ -236,6 +237,7 @@ Details: [Speicher konfigurieren](../user-guide/object-storage.md), [Helm Charts
 | Light-Modus (kein Login, Einzelnutzung) <!-- REQ-027 --> | Backend + Frontend | `KAMERPLANTER_MODE=light` (Backend) **und** `KAMERPLANTER_MODE=light` (Frontend-InitContainer) | — | — | Nein |
 | Full-Modus (Auth + Multi-Tenant) <!-- REQ-023 / REQ-024 --> | Backend + Frontend | `KAMERPLANTER_MODE=full` (Default) | `JWT_SECRET_KEY`, `FERNET_KEY` (beide ohnehin immer Pflicht, siehe oben) | — | Ja (über die generellen Backend-Secrets) |
 | DSGVO-Löschung/Anonymisierung <!-- REQ-025 --> | Backend + Celery Beat | Immer aktiv, keine Deaktivierung möglich | `ERASURE_TOMBSTONE_SALT` | ein täglicher Celery-Task | Ja (`erasure_tombstone_salt`, immer geprüft) |
+| Log-Pseudonymisierung (Subject-Referenzen, E-Mail-Digests) <!-- NFR-011 §3.4 --> | Backend + Celery Worker | Immer aktiv, keine Deaktivierung möglich | `LOG_PSEUDONYM_SALT` — rotierbar, unabhängig von `ERASURE_TOMBSTONE_SALT` | — | Ja (`log_pseudonym_salt`, immer geprüft; Celery Beat prüft ihn nicht) |
 | E-Mail-Verifikation bei Registrierung | Backend | `REQUIRE_EMAIL_VERIFICATION=true` (Default `false`) | E-Mail-Kanal konfiguriert (siehe Benachrichtigungssystem) | — | Nein |
 | „Have I Been Pwned"-Prüfung | Backend | `HIBP_ENABLED=true` (Default `false`) | — | ausgehende HTTPS-Anfragen bei Passwortänderung | Nein |
 

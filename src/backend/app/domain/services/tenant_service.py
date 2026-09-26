@@ -21,12 +21,11 @@ from app.common.exceptions import (
     ForbiddenError,
     NotFoundError,
     TenantErasureIncompleteError,
-    UnauthorizedError,
     ValidationError,
     WriteConflictError,
 )
 from app.common.log_privacy import log_subject
-from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
@@ -57,6 +56,8 @@ from app.domain.models.tenant_erasure import (
     TenantErasureRecord,
 )
 from app.domain.models.user import User, allows_interactive_auth
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
+from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier, echo_matches
 
 logger = structlog.get_logger()
 
@@ -95,7 +96,12 @@ class TenantService:
         tombstone_salt: str = "",
         light_mode: bool = False,
         password_engine: PasswordEngine | None = None,
+        step_up_verifier: StepUpVerifier | None = None,
+        site_anchors: SiteAnchorSource | None = None,
     ) -> None:
+        # The location → site reads a location assignment is checked through
+        # (#1871 B3). Without them an assignment is refused, never stored unchecked.
+        self._site_anchors = site_anchors
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
         self._invitation_repo = invitation_repo
@@ -131,6 +137,10 @@ class TenantService:
         self._light_mode = light_mode
         # #1791 — the password step-up of a tenant deletion. Stateless (bcrypt).
         self._password_engine = password_engine or PasswordEngine()
+        # #1816 — the one throttled step-up every irreversible account action passes.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
+            self._password_engine, tombstone_salt=tombstone_salt
+        )
 
     # --- Tenant CRUD ---
 
@@ -307,6 +317,7 @@ class TenantService:
         authenticated_with_api_key: bool,
         confirmation: TenantDeletionConfirmation,
         origin: TenantErasureOrigin,
+        client_ip: str | None,
         now: datetime | None = None,
     ) -> TenantErasureRecord:
         """Erase the tenant and everything it holds, and persist the proof.
@@ -331,9 +342,12 @@ class TenantService:
           key — even one a human account issued (#1791 review SEC-001): a key
           is a stored M2M credential, not a person who can re-authenticate;
         * both: the step-up in *confirmation* — the tenant's slug typed back, and
-          the current password when the account has one (a federated account
-          has no local secret; the slug echo is its confirmation, as account
-          erasure does it, REQ-394).
+          the current password when the account has one, the one-time code
+          mailed to it when it has none (a federated account, #1815; before, the
+          slug echo alone confirmed it). Checked by the shared
+          :class:`~app.domain.services.step_up_service.StepUpVerifier`, which
+          also throttles the password per account and ``client_ip`` (#1816):
+          a locked step-up is 429 before the password is tested.
 
         ``origin`` is set by the router, never by the client, and it only picks
         *which* membership is proven — claiming ``platform_admin`` without the
@@ -356,7 +370,8 @@ class TenantService:
             ForbiddenError: the requester may not delete this tenant, or the
                 platform tenant / the light-mode tenant.
             ValidationError: the echoed slug is not the tenant's (HTTP 422).
-            UnauthorizedError: the password is missing or wrong (HTTP 401).
+            UnauthorizedError: the password or code is missing or wrong (HTTP 401;
+                ``STEP_UP_CODE_REQUIRED`` when a federated account sent no code).
             FeatureNotConfiguredError: the deployment cannot erase (HTTP 503).
             WriteConflictError: another run holds the deletion (HTTP 409).
             TenantErasureIncompleteError: something still holds the tenant; the
@@ -389,12 +404,14 @@ class TenantService:
             slug_digest=record.slug_digest if record is not None else None,
             requester=requester,
             confirmation=confirmation,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
         )
 
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
-        requested_by = ErasureEngine.log_subject(requester.key or "", self._tombstone_salt)
+        requested_by = log_subject(requester.key)
         logger.info(
             "tenant_erasure.authorized",
             tenant_key=tenant_key,
@@ -465,31 +482,34 @@ class TenantService:
         slug_digest: str | None,
         requester: User,
         confirmation: TenantDeletionConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> TenantDeletionStepUp:
-        """Check the step-up of a tenant deletion; return how it was confirmed (#1791).
+        """Check the step-up of a tenant deletion; return how it was confirmed (#1791, #1816).
 
-        The slug echo first — it is the same for every account and names the
-        tenant the requester believes they are erasing. Then the password, when
-        the account has one; an account without ``password_hash`` signs in only
-        through a federated provider, has no local secret to re-enter, and is
-        confirmed by the echo alone (REQ-394, ``PrivacyService.request_erasure``).
+        The slug echo is this act's own part — which spellings name the tenant.
+        Everything else (who may re-authenticate, the throttle, the password of a
+        local account, the mailed one-time code of a federated one, #1815) is the
+        shared :class:`StepUpVerifier`, the same rule account erasure runs. Its
+        result (``password`` / ``email_code``) is what the record stores.
         """
-        echoed = confirmation.confirm_slug.strip()
+        echoed = confirmation.confirm_slug
         if expected_slug is not None:
-            matches = hmac.compare_digest(echoed.encode(), expected_slug.encode())
+            matches = echo_matches(echoed, expected_slug)
         else:
-            matches = hmac.compare_digest(echoed.encode(), tenant_key.encode()) or (
-                slug_digest is not None and hmac.compare_digest(self._tenant_slug_digest(echoed), slug_digest)
+            matches = echo_matches(echoed, tenant_key) or (
+                slug_digest is not None and hmac.compare_digest(self._tenant_slug_digest(echoed.strip()), slug_digest)
             )
-        if not matches:
-            raise ValidationError("The confirmation does not match the tenant's slug.")
-        if requester.password_hash is None:
-            return "slug_confirmation"
-        if not confirmation.password or not self._password_engine.verify_password(
-            confirmation.password, requester.password_hash
-        ):
-            raise UnauthorizedError("Password confirmation failed.")
-        return "password"
+        return self._step_up_verifier.verify(
+            requester,
+            action="tenant_deletion",
+            echo_ok=matches,
+            password=confirmation.password,
+            code=confirmation.step_up_code,
+            reauth_token=confirmation.step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
     def resume_tenant_erasures(self, now: datetime) -> dict[str, int]:
         """Retry every open tenant deletion whose backoff has passed (daily beat).
@@ -667,7 +687,7 @@ class TenantService:
                         # #1791 provenance fields: the erased account as the salted
                         # log reference (never its key), and an explicit statement
                         # that no interactive step-up belongs to this deletion.
-                        requested_by_subject=ErasureEngine.log_subject(subject_user_key, self._tombstone_salt),
+                        requested_by_subject=log_subject(subject_user_key),
                         step_up="account_erasure_no_interactive_step_up",
                         slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
                         requested_at=now,
@@ -720,6 +740,14 @@ class TenantService:
             ErasureEngine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        # #1812 review SEC-001: the record's ``requested_by_subject`` (and the
+        # redacted error texts it keeps) are log pseudonyms. Without the log salt
+        # they would be persisted as the constant ``anon_unavailable`` — a proof
+        # that no longer says who asked for the erasure. Refused like the
+        # tombstone salt, before anything changes (the start gate does not run
+        # with DEBUG=true).
+        if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
+            return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
         if self._reference_index_store is not None:
             reference_error = self._reference_index_store.configuration_error()
             if reference_error is not None:
@@ -1294,6 +1322,13 @@ class TenantService:
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
             raise NotFoundError("Membership", membership_key)
+
+        # The location is resolved through its site under the tenant (#1871 B3):
+        # it used to be taken as given, even an unknown one, and an
+        # ASSIGNED_TO_LOCATION edge written to it.
+        if self._site_anchors is None:
+            raise NotFoundError("Location", location_key)
+        resolve_owned_location(self._site_anchors, location_key, tenant_key)
 
         # Check for duplicate
         existing = self._assignment_repo.get_by_membership_and_location(membership_key, location_key)

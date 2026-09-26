@@ -26,6 +26,7 @@ from app.domain.models.privacy import (
     ProcessingRestriction,
     RestrictionReason,
 )
+from app.domain.services.step_up_service import StepUpConfirmation
 
 if TYPE_CHECKING:
     from app.domain.services.privacy_service import PrivacyService
@@ -48,21 +49,47 @@ class DataSubjectService:
 
     # ── Art. 16: right to rectification ───────────────────────────
 
-    def rectify_email(self, user_key: UserKey, new_email: str) -> EmailChangeRequest:
-        """Art. 16: initiate an email-change with token verification."""
+    def rectify_email(
+        self,
+        user_key: UserKey,
+        new_email: str,
+        *,
+        password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> EmailChangeRequest:
+        """Art. 16: initiate an email-change with token verification, behind the step-up (#1841)."""
         logger.info("data_subject_right_invoked", article="16", subject=self._privacy.log_subject(user_key))
-        return self._privacy.request_email_change(user_key, new_email)
+        return self._privacy.request_email_change(
+            user_key,
+            new_email,
+            password=password,
+            step_up_code=step_up_code,
+            step_up_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
     # ── Art. 17: right to erasure ─────────────────────────────────
 
     def erase(
         self,
         user_key: UserKey,
-        password_confirmation: str | None,
+        *,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> ErasureRequest:
-        """Art. 17: request account erasure (soft + scheduled hard delete)."""
+        """Art. 17: request account erasure (soft + scheduled hard delete), behind the step-up (#1813)."""
         logger.info("data_subject_right_invoked", article="17", subject=self._privacy.log_subject(user_key))
-        return self._privacy.request_erasure(user_key, password_confirmation)
+        return self._privacy.request_erasure(
+            user_key,
+            confirmation=confirmation,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
     # ── Art. 18: right to restriction ─────────────────────────────
 

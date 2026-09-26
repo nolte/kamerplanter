@@ -51,6 +51,9 @@ def client(service: MagicMock) -> Iterator[TestClient]:
 
         user = MagicMock()
         user.key = "u-1"
+        # A session principal: a MagicMock would answer any attribute, including
+        # the API-key tenant scope, and read as a scoped key (#1851).
+        user.api_key_tenant_scope = None
         app.dependency_overrides[get_privacy_service] = lambda: service
         app.dependency_overrides[get_current_user] = lambda: user
         try:

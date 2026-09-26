@@ -1,27 +1,21 @@
-# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
-# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
-# orchestrating session — not an interactive batch answer. It records that the targets and the
-# observe argv below run on the operator's machine with their environment, as `task` in this
-# repository does.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
 #
-# Re-derived after #1797: #1769 squash-merged as 0d7276476, leaving the branch commit e6af8a62d
-# outside develop's history. router.py last changed in that squash; derived_from is
-# now it. Observe step, targets and expectation unchanged (64/64 recounted at 0d7276476).
-# Earlier:
-# Re-derived for #1769: router.py changed in e6af8a62d (the tenant-delete route beside this one);
-# DELETE /admin/platform/users/{key}, the erasure plan's steps and this observe step are unchanged
-# (erasure_engine.py changed since 77efb5095 only by #1786's log-subject helpers). Earlier:
-# Re-derived for #1768: the previous derived_from 2994893c9 was a #1776 branch commit the squash
-# made unreachable; the declaration last changed in the squash 77efb5095 on develop. Observe step,
-# targets and expectation unchanged (64/64 recounted against erasure_engine.py at 77efb5095).
+# Re-derived after #1846 (#1813/#1814/#1816, squash 9cacdb752): router.py's delete_user now
+# takes a step-up body (confirm_email = the target's e-mail, password = the admin's own current
+# password), refuses an API key (403) and goes through PrivacyService.erase_account_by_admin,
+# which calls erase_account_now with origin platform_admin, step_up and a salted
+# requested_by_subject. derived_from moves to 9cacdb752. The act script
+# scripts/reach/admin_delete_subject.py already sends that body over a bearer session (no API
+# key) since #1846; targets unchanged.
+# Observe step and expectation unchanged: erasure_engine.py is untouched by #1846.
 id: endpoint-admin-user-delete-reaches-rows
 summary: collections of the executing erasure plan left without the subject after the platform-admin user delete
 declaration:
   source: endpoint
   path: src/backend/app/api/v1/admin/platform/router.py
-  location: 'DELETE /admin/platform/users/{key} (delete_user) — runs the declared REQ-025 erasure plan (#1664, #1767)'
+  location: 'DELETE /admin/platform/users/{key} (delete_user) — after the step-up (target e-mail echo + admin password, no API key, #1814) runs the declared REQ-025 erasure plan via erase_account_by_admin → erase_account_now (#1664, #1767)'
 tier: T2
 expected:
   kind: set
@@ -91,7 +85,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: 0d7276476da5fd808dace49d4c3df932eb2a50b9
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -106,6 +100,6 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-25T11:41:19Z'
-  approved_by: nolte
   observation_digest: 2e7df4233825e713e429ffad28c5b00a97c7b77db1556925790868093ea0b7bf
+  approved_by: nolte
+  approved_at: '2026-09-25T18:35:52Z'

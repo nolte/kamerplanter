@@ -84,6 +84,16 @@ def _task_display_name(task: Task) -> str:
     return task.name_de or task.name
 
 
+def _group_kind(group_key: str | None) -> str | None:
+    """The kind of a notification group key — its first segment — for a log line (#1830).
+
+    Group keys embed the account key by construction (``care:<user_key>:…``,
+    ``daily_summary:<user_key>:…``); the segment before the first ``:`` names
+    only what kind of group it is (NFR-011 §3.4 L-1).
+    """
+    return group_key.split(":", 1)[0] if group_key else None
+
+
 class NotificationPropagationService:
     """Keep in-app notifications in sync with their source task/care reminder."""
 
@@ -375,7 +385,7 @@ class NotificationPropagationService:
         try:
             return self._repo.list_by_group_key(group_key, tenant_key)
         except Exception:
-            logger.warning("notification_propagation_lookup_failed", group_key=group_key)
+            logger.warning("notification_propagation_lookup_failed", group_kind=_group_kind(group_key))
             return []
 
     def _create(self, notification: Notification) -> None:
@@ -384,7 +394,7 @@ class NotificationPropagationService:
         except Exception:
             logger.warning(
                 "notification_propagation_create_failed",
-                group_key=notification.group_key,
+                group_kind=_group_kind(notification.group_key),
             )
 
     def _delete(self, notification: Notification) -> None:

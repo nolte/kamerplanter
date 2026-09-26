@@ -82,7 +82,10 @@ class KnowledgeService:
         use_reranker = self._reranker is not None and self._reranker.available
         retrieve_k = max(self._reranker_initial_k, top_k) if use_reranker else top_k
 
-        logger.debug("knowledge_search", query=query, top_k=top_k, retrieve_k=retrieve_k, doc_language=effective_lang)
+        # The length, never the text: a question is free text a person wrote (#1796).
+        logger.debug(
+            "knowledge_search", query_length=len(query), top_k=top_k, retrieve_k=retrieve_k, doc_language=effective_lang
+        )
         embedding = self._embedding.embed(query, prefix="query: ")
         chunks = self._repo.hybrid_search(
             embedding, query, top_k=retrieve_k, language=effective_lang, vector_weight=0.4
@@ -99,7 +102,7 @@ class KnowledgeService:
         else:
             chunks = chunks[:top_k]
 
-        logger.info("knowledge_search_complete", query=query, results=len(chunks))
+        logger.info("knowledge_search_complete", query_length=len(query), results=len(chunks))
         return chunks
 
     def ask(
@@ -117,7 +120,7 @@ class KnowledgeService:
 
         logger.info(
             "knowledge_ask",
-            question=question,
+            question_length=len(question),
             top_k=top_k,
             doc_language=effective_doc_lang,
             prompt_language=effective_prompt_lang,
@@ -127,7 +130,7 @@ class KnowledgeService:
         chunks = self.search(question, top_k=top_k, doc_language=effective_doc_lang)
 
         if not chunks:
-            logger.info("knowledge_ask_no_context", question=question)
+            logger.info("knowledge_ask_no_context", question_length=len(question))
             return KnowledgeAnswer(
                 answer="No relevant knowledge found for this question.",
                 question_type=question_type,
@@ -151,7 +154,7 @@ class KnowledgeService:
 
         # Optional verification pass — check completeness and fill gaps
         if self._answer_verification and response.content:
-            logger.info("knowledge_verification_start", question=question)
+            logger.info("knowledge_verification_start", question_length=len(question))
             verification_system = self._prompt_engine.build_verification_prompt(effective_prompt_lang)
             verification_message = self._prompt_engine.build_verification_message(
                 question,
@@ -173,14 +176,14 @@ class KnowledgeService:
             ) + verification_response.usage.get("completion_tokens", 0)
             logger.info(
                 "knowledge_verification_complete",
-                question=question,
+                question_length=len(question),
                 verification_prompt_tokens=verification_response.usage.get("prompt_tokens", 0),
                 verification_completion_tokens=verification_response.usage.get("completion_tokens", 0),
             )
 
         logger.info(
             "knowledge_ask_complete",
-            question=question,
+            question_length=len(question),
             question_type=question_type,
             model=response.model,
             sources=len(chunks),

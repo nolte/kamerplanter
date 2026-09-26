@@ -53,6 +53,7 @@ from app.domain.models.privacy import ErasurePlan
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.user_service import UserService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.privacy_doubles import admin_erasure_route_args
 from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("privacy_erasure_reach")
@@ -62,6 +63,24 @@ OTHER = "user-b"
 ADMIN = "platform-admin"
 #: NFR-011 §4 wants >= 32 characters. Synthetic, test-only.
 SALT = "reach-test-salt-not-a-secret-0123456789"
+
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _log_pseudonym_salt():
+    """#1812: ``requested_by_subject`` is a log pseudonym, keyed with LOG_PSEUDONYM_SALT.
+
+    Module-scoped: the erasure runs in module-scoped fixtures, before any
+    function-scoped fixture could set the salt.
+    """
+    from app.config.settings import settings
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+        yield
+
+
 TENANT = "t-reach"
 
 pytestmark = pytest.mark.usefixtures("arango_db")
@@ -255,7 +274,7 @@ def _services(database) -> tuple[PrivacyService, UserService]:
 
 def _admin_delete(database, captured: dict[str, Any]) -> None:
     """Drive ``DELETE /admin/platform/users/{key}`` exactly as the router does."""
-    privacy_service, user_service = _services(database)
+    privacy_service, _ = _services(database)
     erase = getattr(privacy_service, "erase_account", None)
     if erase is not None:
 
@@ -266,10 +285,7 @@ def _admin_delete(database, captured: dict[str, Any]) -> None:
 
         privacy_service.erase_account = spy  # type: ignore[method-assign]
     admin_router.delete_user(
-        SUBJECT,
-        current_user=SimpleNamespace(key=ADMIN),
-        privacy_service=privacy_service,
-        user_service=user_service,
+        SUBJECT, **admin_erasure_route_args(privacy_service, admin_key=ADMIN, target_email=f"{SUBJECT}@example.com")
     )
 
 
@@ -421,6 +437,12 @@ def test_the_admin_delete_persists_a_completed_request_without_the_plaintext_key
     assert row["completed_at"] is not None
     assert row["user_key"] == ErasureEngine.compute_tombstone_hash(SUBJECT, SALT)
     assert SUBJECT not in str(row)
+    # #1814 — the step-up and the requesting admin (salted, never the key) reach the store
+    # beside the fields other entries write (#1770 storage counters, #1788 personal tenants).
+    assert row["step_up"] == "email_code"  # the federated admin's mailed code (#1815)
+    assert row["requested_by_subject"] == ErasureEngine.log_subject(ADMIN, LOG_SALT)
+    assert ADMIN not in str(row)
+    assert {"storage_objects_removed", "personal_tenants"} <= row.keys()
 
 
 def test_a_second_run_finds_nothing_left_and_touches_nobody_else(database, erased):

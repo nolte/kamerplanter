@@ -1,0 +1,143 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
+#
+# Re-derived after #1846 (#1813/#1814/#1816, squash 9cacdb752): router.py's delete_user now
+# takes a step-up body (confirm_email = the target's e-mail, password = the admin's own current
+# password), refuses an API key (403) and goes through PrivacyService.erase_account_by_admin,
+# which calls erase_account_now with origin platform_admin, step_up and a salted
+# requested_by_subject. derived_from moves to 9cacdb752. The act script
+# scripts/reach/admin_delete_subject.py already sends that body over a bearer session (no API
+# key) since #1846; targets unchanged.
+# Observe step and expectation unchanged: erase_account_now's personal-tenant phase (#1788)
+# and the tenant-erasure inventory are untouched by #1846. delete_user's docstring still does
+# not name the personal-tenant step; the explicit declaration stays NFR-011 §6 AK-PT-01.
+id: endpoint-admin-user-delete-erases-personal-tenant
+summary: collections of the executing tenant-erasure inventory left without the subject's sole-owned personal tenant's rows
+  after the platform-admin user delete
+declaration:
+  source: endpoint
+  path: src/backend/app/api/v1/admin/platform/router.py
+  location: 'DELETE /admin/platform/users/{key} (delete_user) — erases every personal tenant the subject used alone through
+    the tenant-erasure inventory before the ArangoDB plan runs (TenantService.erase_personal_tenant_of, origin account_erasure,
+    #1788)'
+tier: T2
+expected:
+  kind: set
+  unit: observed tenant-erasure row facts (erased/pseudonymised/retained per collection, plus residue counters)
+  values:
+  - erased/activities
+  - erased/actuators
+  - erased/ai_conversations
+  - erased/ai_provider_configs
+  - erased/ai_tip_cache
+  - erased/api_keys
+  - erased/aquaponic_systems
+  - erased/attachments
+  - erased/burping_events
+  - erased/calendar_feeds
+  - erased/care_confirmations
+  - erased/care_profiles
+  - erased/climate_normals
+  - erased/control_events
+  - erased/control_rules
+  - erased/control_schedules
+  - erased/cultivars
+  - erased/diagnosis_requests
+  - erased/drying_progress
+  - erased/equipment
+  - erased/feeding_events
+  - erased/fertilizer_stocks
+  - erased/fertilizers
+  - erased/fish_feeding_events
+  - erased/fish_stocks
+  - erased/ha_publish_settings
+  - erased/harvest_observations
+  - erased/identification_requests
+  - erased/import_jobs
+  - erased/inventree_connections
+  - erased/inventree_references
+  - erased/invitations
+  - erased/irrigation_demands
+  - erased/location_assignments
+  - erased/locations
+  - erased/maintenance_logs
+  - erased/maintenance_schedules
+  - erased/manual_overrides
+  - erased/mcp_idempotency_record
+  - erased/memberships
+  - erased/mold_alerts
+  - erased/notifications
+  - erased/nutrient_plan_phase_entries
+  - erased/nutrient_plans
+  - erased/overwintering_profiles
+  - erased/pest_detections
+  - erased/pest_image_contributions
+  - erased/phase_control_profiles
+  - erased/phase_histories
+  - erased/phenotype_notes
+  - erased/plant_diagnosis_requests
+  - erased/plant_diary_entries
+  - erased/plant_instances
+  - erased/planting_run_entries
+  - erased/planting_runs
+  - erased/post_harvest_batches
+  - erased/propagation_batches
+  - erased/propagation_events
+  - erased/rooting_protocols
+  - erased/season_states
+  - erased/sensors
+  - erased/sites
+  - erased/slots
+  - erased/species
+  - erased/stock_transactions
+  - erased/storage_observations
+  - erased/substrate_batches
+  - erased/substrates
+  - erased/succession_plans
+  - erased/supplementation_events
+  - erased/tank_fill_events
+  - erased/tank_states
+  - erased/tanks
+  - erased/task_audit_entries
+  - erased/task_comments
+  - erased/task_templates
+  - erased/tasks
+  - erased/tenants
+  - erased/water_tests
+  - erased/watering_events
+  - erased/watering_logs
+  - erased/weather_forecasts
+  - erased/weather_source_configs
+  - erased/workflow_executions
+  - erased/workflow_phases
+  - erased/workflow_templates
+  - pseudonymised/harvest_batches
+  - pseudonymised/inspections
+  - pseudonymised/quality_assessments
+  - pseudonymised/treatment_applications
+  - retained/ai_audit_log
+  - retained/mcp_audit_log
+  - retained/yield_metrics
+  - dangling-edges/0
+  - stamped-elsewhere/0
+  - control-changed/0
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:seed:personal-tenant
+- reach:erasure:admin-delete-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_tenant_residue.py
+  - --tenant
+  - reach-personal-tenant
+  timeout_seconds: 300
+approval:
+  observation_digest: 888ee4b15ca04b4436986ed2b7620ca3e4546f01409998fadbcddba4452d81b1
+  approved_by: nolte
+  approved_at: '2026-09-25T18:35:52Z'

@@ -9,7 +9,7 @@ server may expire it (answering HTTP 404, at which point the client re-runs
 the API key (§4.3): a valid session with no key is rejected, and a valid key with
 no session still works. The session only carries protocol continuity — which is
 why this store degrades *open* on a Valkey/Redis outage rather than closed, the
-opposite of :class:`app.mcp_server.rate_limit.McpRateLimiter`. Failing closed here
+opposite of :class:`app.domain.services.api_key_controls.ApiKeyRateLimiter`. Failing closed here
 would log every client out on a cache blip while protecting nothing, since the
 key check has already happened by then.
 

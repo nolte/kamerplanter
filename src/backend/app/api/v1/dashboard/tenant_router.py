@@ -8,8 +8,9 @@ via :func:`get_current_tenant`. Adds:
   mode, REQ-031 AI). Unavailable widgets are returned greyed-out (``available``
   false + i18n ``unavailable_reason``), not omitted.
 - ``GET  …/dashboard/aggregated?widgets=<keys>`` — the tenant-scoped REQ-009
-  aggregation, sliced to the user's *active* widget keys (N+1 avoidance). This
-  is the tenant-scoped successor of the global ``/dashboard/summary``.
+  aggregation, sliced to the user's *active* widget keys (N+1 avoidance). It
+  replaced the global ``/dashboard/summary?tenant_key=``, which took its tenant
+  from the query string without a membership check and was removed (#1853).
 """
 
 from __future__ import annotations

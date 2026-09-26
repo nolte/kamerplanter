@@ -96,9 +96,21 @@ import type {
   HATestResponse,
   PlantIdentificationTestResponse,
 } from '@/api/endpoints/adminSettings';
-import { parseApiError } from '@/api/errors';
+import {
+  getStepUpErrorMessage,
+  getStepUpReauthCallbackErrorMessage,
+  isStepUpRejection,
+  parseApiError,
+} from '@/api/errors';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import StepUpCodeField from '@/components/common/StepUpCodeField';
+import StepUpReauthButton from '@/components/common/StepUpReauthButton';
+import { useStepUpFactors } from '@/hooks/useStepUpFactors';
+import { usePendingStepUpReauth, useStepUpResume } from '@/hooks/useStepUpReauth';
+import { toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
-import ConnectDeviceDialog from './ConnectDeviceDialog';
+import ConnectDeviceDialog, { CONNECT_DEVICE_STEP_UP_SURFACE } from './ConnectDeviceDialog';
 import NotificationSettingsTab from './NotificationSettingsTab';
 import KioskSettingsTab from './KioskSettingsTab';
 import ModulesSettingsTab from './ModulesSettingsTab';
@@ -106,6 +118,7 @@ import DashboardSettingsTab from './DashboardSettingsTab';
 import HaPublishSettingsTab from './HaPublishSettingsTab';
 import StorageSettingsTab from './StorageSettingsTab';
 import WeatherProvidersSettingsTab from './WeatherProvidersSettingsTab';
+import EmailChangeCard from './EmailChangeCard';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
@@ -120,6 +133,13 @@ import type {
   AdminUser,
   AdminPlatformStats,
 } from '@/api/types';
+
+/**
+ * Minimum length of a new password — the backend schema's `min_length`
+ * (`ChangePasswordRequest.new_password`). The button stays disabled below it rather
+ * than spending a round trip on a 422.
+ */
+const NEW_PASSWORD_MIN_LENGTH = 10;
 
 const EXPERIENCE_LEVELS: { level: ExperienceLevel; icon: React.ReactNode }[] = [
   { level: 'beginner', icon: <EmojiNatureIcon /> },
@@ -234,16 +254,30 @@ export default function AccountSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [providers, setProviders] = useState<AuthProviderInfo[]>([]);
+  // Unknown until the list arrived — the password form fails closed on it (#1842).
+  const [providersLoaded, setProvidersLoaded] = useState(false);
+  const [providersLoadFailed, setProvidersLoadFailed] = useState(false);
+  const [passwordStepUpCode, setPasswordStepUpCode] = useState('');
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [apiKeysLoading, setApiKeysLoading] = useState(true);
   const [apiKeysError, setApiKeysError] = useState(false);
   const [newKeyLabel, setNewKeyLabel] = useState('');
-  const [newKeyDialogOpen, setNewKeyDialogOpen] = useState(false);
+  // #1815/#1847 — back from the fresh sign-in at the identity provider: reopen
+  // the label dialog the API-key step-up was started from. The label itself did
+  // not survive the round trip; the pending token then confirms the creation.
+  const resumeCreateApiKey = useStepUpResume('create-api-key');
+  const [newKeyDialogOpen, setNewKeyDialogOpen] = useState(resumeCreateApiKey);
+  // The step-up of minting an API key (#1847) — full mode only.
+  const [apiKeyStepUpOpen, setApiKeyStepUpOpen] = useState(false);
+  // The linked provider whose removal awaits its step-up (#1847).
+  const [unlinkTarget, setUnlinkTarget] = useState<AuthProviderInfo | null>(null);
   // #1118 — the QR pairing dialog. Deliberately *not* a Redux flag: the dialog
   // holds a live one-time credential, so everything about it dies with the
   // sessions tab.
-  const [connectDeviceOpen, setConnectDeviceOpen] = useState(false);
+  // #1815/#1847 — back from the fresh sign-in: reopen the pairing step-up.
+  const resumeConnectDevice = useStepUpResume(CONNECT_DEVICE_STEP_UP_SURFACE);
+  const [connectDeviceOpen, setConnectDeviceOpen] = useState(resumeConnectDevice);
   const [createdKeyRaw, setCreatedKeyRaw] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -278,8 +312,28 @@ export default function AccountSettingsPage() {
   const [plantnetSaveSuccess, setPlantnetSaveSuccess] = useState(false);
   const [plantnetResetDone, setPlantnetResetDone] = useState(false);
   const [plantnetKeyVisible, setPlantnetKeyVisible] = useState(false);
+  // #1815 — back from the fresh sign-in at the identity provider: reopen the
+  // account-deletion dialog it was started from (it then sends the token).
+  const resumeDeleteAccount = useStepUpResume('delete-account');
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(resumeDeleteAccount);
 
-  const hasLocalProvider = providers.some((p) => p.provider === 'local');
+  // Which step-up factor the password form asks for — the same fail-closed
+  // rule as StepUpConfirmDialog (#1842): the current-password field is hidden
+  // only when a non-empty provider list positively lacks `local`; a pending,
+  // failed or empty list shows it. A federated-only account confirms setting
+  // its first password with an e-mailed code instead (#1815).
+  const passwordFactors = useStepUpFactors(providersLoaded ? providers : null);
+  // #1815 — an account whose provider can prove a fresh sign-in confirms with it.
+  // The form is inline, so after the return it simply reads the pending token;
+  // the resume context is consumed so it cannot reopen anything later.
+  useStepUpResume('change-password');
+  const passwordReauth = usePendingStepUpReauth('password_change');
+  const passwordReauthed = passwordReauth.hasToken;
+  // #1847 — removing a sign-in method is a step-up too. Which provider was being
+  // removed does not survive the round trip to the identity provider, so the
+  // resume context is only consumed here; the pending token is picked up by the
+  // dialog when the user starts the removal again within its five minutes.
+  useStepUpResume('unlink-provider');
 
   useEffect(() => {
     if (user) {
@@ -294,7 +348,19 @@ export default function AccountSettingsPage() {
   }, [dispatch, activeTenant?.slug]);
 
   const loadProviders = useCallback(() => {
-    listProviders().then(setProviders).catch(() => {});
+    listProviders()
+      .then((list) => {
+        setProviders(list);
+        setProvidersLoaded(true);
+        setProvidersLoadFailed(false);
+      })
+      .catch(() => {
+        // Not swallowed silently any more (#1842): the list stays unknown, so
+        // the password form keeps asking for the current password, and the
+        // providers card says the list could not be loaded.
+        setProvidersLoaded(false);
+        setProvidersLoadFailed(true);
+      });
   }, []);
 
   const loadSessions = useCallback(() => {
@@ -520,23 +586,48 @@ export default function AccountSettingsPage() {
   const handlePasswordChange = async () => {
     setError('');
     try {
-      await changePassword(hasLocalProvider ? currentPassword : null, newPassword);
+      const { showPassword, showCode } = passwordFactors;
+      if (passwordReauth.callbackError) passwordReauth.dismissError();
+      // A pending fresh sign-in (#1815) is the factor on its own. The token stays
+      // in storage until the outcome is known: spent on success or when the
+      // step-up itself is refused (401/429), kept when e.g. the new password is
+      // refused (422) — it is still valid then.
+      const token = passwordReauthed ? (passwordReauth.peekToken() ?? undefined) : undefined;
+      // In the both-fields state (federated list, then a plain 401) an empty
+      // password is sent as `null`, as for an account without one.
+      const current =
+        !passwordReauthed && showPassword && currentPassword.length > 0 ? currentPassword : null;
+      const code =
+        !passwordReauthed && showCode && passwordStepUpCode.length > 0 ? passwordStepUpCode : undefined;
+      await changePassword(current, newPassword, code, token);
+      if (token) passwordReauth.consumeToken();
       setCurrentPassword('');
       setNewPassword('');
+      setPasswordStepUpCode('');
+      passwordFactors.reset();
       enqueueSnackbar(t('pages.auth.passwordChanged'), { variant: 'success' });
       loadProviders();
     } catch (err) {
-      setError(parseApiError(err));
+      // A throttled step-up (429 STEP_UP_LOCKED, #1816) reads as the translated
+      // lockout with its minutes, STEP_UP_CODE_REQUIRED asks for the e-mailed
+      // code — never the backend's English message. The rejected secret is
+      // cleared so it is not resent by accident.
+      setError(getStepUpErrorMessage(err, t));
+      setCurrentPassword('');
+      setPasswordStepUpCode('');
+      if (passwordReauthed && isStepUpRejection(err)) passwordReauth.consumeToken();
+      passwordFactors.noteRejection(err);
     }
   };
 
-  const handleUnlinkProvider = async (key: string) => {
-    try {
-      await unlinkProvider(key);
-      loadProviders();
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
+  // Removing a sign-in method is a credential change (#1847): it passes the
+  // step-up. A rejection propagates to the dialog, which shows it and stays open.
+  const handleUnlinkProvider = async (credentials: StepUpConfirmation) => {
+    if (!unlinkTarget) return;
+    await unlinkProvider(unlinkTarget.key, toCredentialStepUpBody(credentials));
+    setUnlinkTarget(null);
+    enqueueSnackbar(t('pages.auth.providerUnlinked'), { variant: 'success' });
+    loadProviders();
   };
 
   const handleRevokeSession = async (key: string) => {
@@ -548,16 +639,36 @@ export default function AccountSettingsPage() {
     }
   };
 
+  const finishApiKeyCreation = (rawKey: string) => {
+    setCreatedKeyRaw(rawKey);
+    setNewKeyLabel('');
+    setNewKeyDialogOpen(false);
+    setApiKeyStepUpOpen(false);
+    loadApiKeys();
+  };
+
+  // Light mode (REQ-027) mints the MCP key without a step-up: every request
+  // there already is the system account and there is no password to ask for.
+  // In full mode a key survives a password change, so minting one passes the
+  // step-up first (#1847) — the label dialog hands over to the confirmation.
   const handleCreateApiKey = async () => {
-    try {
-      const result = await createApiKey({ label: newKeyLabel });
-      setCreatedKeyRaw(result.raw_key);
-      setNewKeyLabel('');
+    if (!isLightMode) {
       setNewKeyDialogOpen(false);
-      loadApiKeys();
+      setApiKeyStepUpOpen(true);
+      return;
+    }
+    try {
+      const result = await createApiKey({ label: newKeyLabel.trim() });
+      finishApiKeyCreation(result.raw_key);
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
     }
+  };
+
+  // A rejection propagates to the step-up dialog, which shows it and stays open.
+  const handleConfirmApiKey = async (credentials: StepUpConfirmation) => {
+    const result = await createApiKey({ label: newKeyLabel.trim(), ...toCredentialStepUpBody(credentials) });
+    finishApiKeyCreation(result.raw_key);
   };
 
   const handleRevokeApiKey = async (keyId: string) => {
@@ -588,14 +699,15 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!window.confirm(t('pages.auth.deleteAccountConfirm'))) return;
-    try {
-      await deleteAccount();
-      window.location.href = '/login';
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
+  // Closing the own account is a step-up (#1813): the own e-mail typed back and,
+  // for an account with a local password, the current password. A rejection
+  // propagates to the dialog, which shows it and stays open.
+  const handleDeleteAccount = async ({ echo, ...credentials }: StepUpConfirmation) => {
+    await deleteAccount({ confirm_email: echo, ...toStepUpBody(credentials) });
+    setDeleteAccountOpen(false);
+    // Full reload, not a router navigation: the session is gone server-side and
+    // every in-memory slice belongs to the closed account.
+    window.location.href = '/login';
   };
 
   return (
@@ -653,7 +765,7 @@ export default function AccountSettingsPage() {
                   fullWidth
                   value={user?.email || ''}
                   disabled
-                  helperText={t('pages.auth.emailReadOnly')}
+                  helperText={isLightMode ? t('pages.auth.emailReadOnly') : t('pages.emailChange.emailFieldHint')}
                   data-testid="profile-email"
                 />
                 <Button variant="contained" onClick={handleProfileSave} sx={{ alignSelf: 'flex-start' }} data-testid="profile-save-btn">
@@ -697,6 +809,9 @@ export default function AccountSettingsPage() {
               </Box>
             </CardContent>
           </Card>
+
+          {/* E-mail change (REQ-025 Art. 16, #1848) — accounts exist in full mode only. */}
+          {!isLightMode && <EmailChangeCard currentEmail={user?.email ?? ''} />}
         </Box>
       )}
 
@@ -707,20 +822,60 @@ export default function AccountSettingsPage() {
           <Card variant="outlined">
             <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
               <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {hasLocalProvider ? t('pages.auth.changePassword') : t('pages.auth.setPassword')}
+                {passwordFactors.showPassword ? t('pages.auth.changePassword') : t('pages.auth.setPassword')}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.auth.securitySectionDesc')}
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                {hasLocalProvider && (
+                {passwordReauth.callbackError && (
+                  <Alert severity="error" data-testid="change-password-reauth-callback-error">
+                    {getStepUpReauthCallbackErrorMessage(passwordReauth.callbackError, t)}
+                  </Alert>
+                )}
+                {passwordReauthed && (
+                  <Alert severity="success" data-testid="change-password-reauth-done">
+                    {t('pages.auth.stepUpReauthDone')}
+                  </Alert>
+                )}
+                {passwordFactors.showReauth && !passwordReauthed && (
+                  <StepUpReauthButton
+                    stepUpAction="password_change"
+                    providers={passwordFactors.reauthProviders}
+                    surface="change-password"
+                    onStart={() => {
+                      setError('');
+                      if (passwordReauth.callbackError) passwordReauth.dismissError();
+                    }}
+                    onUnavailable={() => {
+                      setError(t('pages.auth.stepUpReauthUnavailable'));
+                      passwordFactors.noteReauthUnavailable();
+                    }}
+                    onPasswordRequired={() => {
+                      setError(t('pages.auth.stepUpCodeNotNeeded'));
+                      passwordFactors.noteAccountHasPassword();
+                    }}
+                  />
+                )}
+                {passwordFactors.showPassword && !passwordReauthed && (
                   <TextField
                     label={t('pages.auth.currentPassword')}
                     type="password"
                     fullWidth
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
+                    autoComplete="current-password"
                     data-testid="current-password-field"
+                  />
+                )}
+                {passwordFactors.showCode && !passwordReauthed && (
+                  <StepUpCodeField
+                    value={passwordStepUpCode}
+                    onChange={setPasswordStepUpCode}
+                    testIdPrefix="change-password"
+                    stepUpAction="password_change"
+                    onAccountHasPassword={passwordFactors.noteAccountHasPassword}
+                    onReauthRequired={passwordFactors.noteReauthRequired}
                   />
                 )}
                 <TextField
@@ -735,11 +890,16 @@ export default function AccountSettingsPage() {
                 <Button
                   variant="contained"
                   onClick={handlePasswordChange}
-                  disabled={!newPassword || (hasLocalProvider && !currentPassword)}
+                  disabled={
+                    newPassword.length < NEW_PASSWORD_MIN_LENGTH ||
+                    !passwordFactors.isSatisfied(currentPassword, passwordStepUpCode, passwordReauthed)
+                  }
                   sx={{ alignSelf: 'flex-start' }}
                   data-testid="change-password-btn"
                 >
-                  {hasLocalProvider ? t('pages.auth.changePasswordButton') : t('pages.auth.setPasswordButton')}
+                  {passwordFactors.showPassword
+                    ? t('pages.auth.changePasswordButton')
+                    : t('pages.auth.setPasswordButton')}
                 </Button>
               </Box>
             </CardContent>
@@ -754,6 +914,11 @@ export default function AccountSettingsPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.auth.linkedProvidersDesc')}
               </Typography>
+              {providersLoadFailed && (
+                <Alert severity="warning" sx={{ mb: 2 }} data-testid="providers-load-failed">
+                  {t('pages.auth.providersLoadFailed')}
+                </Alert>
+              )}
               <List disablePadding>
                 {providers.map((p) => (
                   <ListItem
@@ -763,7 +928,7 @@ export default function AccountSettingsPage() {
                       providers.length > 1 && (
                         <IconButton
                           edge="end"
-                          onClick={() => handleUnlinkProvider(p.key)}
+                          onClick={() => setUnlinkTarget(p)}
                           aria-label={t('pages.auth.unlinkProvider')}
                           data-testid={`unlink-provider-${p.key}`}
                         >
@@ -923,7 +1088,12 @@ export default function AccountSettingsPage() {
               <Typography variant="h6">
                 {t('pages.auth.apiKeysTitle')}
               </Typography>
-              <Button variant="contained" size="small" onClick={() => setNewKeyDialogOpen(true)}>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => setNewKeyDialogOpen(true)}
+                data-testid="create-api-key-button"
+              >
                 {t('pages.auth.createApiKey')}
               </Button>
             </Box>
@@ -1833,7 +2003,8 @@ export default function AccountSettingsPage() {
                 <Button
                   variant="outlined"
                   color="error"
-                  onClick={handleDeleteAccount}
+                  onClick={() => setDeleteAccountOpen(true)}
+                  disabled={!user?.email}
                   data-testid="delete-account-btn"
                 >
                   {t('pages.auth.deleteAccount')}
@@ -1844,8 +2015,64 @@ export default function AccountSettingsPage() {
         </Box>
       )}
 
+      {/* Delete Account Step-Up Dialog (#1813) */}
+      <StepUpConfirmDialog
+        open={deleteAccountOpen}
+        title={t('pages.auth.deleteAccountDialogTitle')}
+        description={t('pages.auth.deleteAccountConfirm')}
+        echoLabel={t('pages.auth.deleteAccountEmailLabel')}
+        echoHelper={t('pages.auth.deleteAccountEmailHelper', { email: user?.email ?? '' })}
+        expectedEcho={user?.email ?? ''}
+        echoMatch="caseInsensitive"
+        echoInputType="email"
+        confirmLabel={t('pages.auth.deleteAccountConfirmButton')}
+        testIdPrefix="delete-account"
+        stepUpAction="account_erasure"
+        testIds={{ echo: 'delete-account-email' }}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => setDeleteAccountOpen(false)}
+      />
+
+      {/* Remove a sign-in method — step-up (#1847) */}
+      <StepUpConfirmDialog
+        open={unlinkTarget !== null}
+        title={t('pages.auth.unlinkProviderStepUpTitle')}
+        description={t('pages.auth.unlinkProviderStepUpDescription', {
+          provider: unlinkTarget
+            ? `${unlinkTarget.provider}${unlinkTarget.provider_email ? ` (${unlinkTarget.provider_email})` : ''}`
+            : '',
+        })}
+        confirmLabel={t('pages.auth.unlinkProviderStepUpConfirm')}
+        stepUpAction="provider_unlink"
+        testIdPrefix="unlink-provider"
+        onConfirm={handleUnlinkProvider}
+        onCancel={() => setUnlinkTarget(null)}
+      />
+
+      {/* Create API Key — step-up (#1847), full mode only */}
+      {!isLightMode && (
+        <StepUpConfirmDialog
+          open={apiKeyStepUpOpen}
+          title={t('pages.auth.apiKeyStepUpTitle')}
+          description={t('pages.auth.apiKeyStepUpDescription', { label: newKeyLabel.trim() })}
+          confirmLabel={t('pages.auth.apiKeyStepUpConfirm')}
+          confirmColor="primary"
+          stepUpAction="api_key_creation"
+          testIdPrefix="create-api-key"
+          onConfirm={handleConfirmApiKey}
+          onCancel={() => setApiKeyStepUpOpen(false)}
+        />
+      )}
+
       {/* Create API Key Dialog */}
-      <Dialog fullScreen={fullScreen} open={newKeyDialogOpen} onClose={() => setNewKeyDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        fullScreen={fullScreen}
+        open={newKeyDialogOpen}
+        onClose={() => setNewKeyDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="api-key-label-dialog"
+      >
         <DialogTitle>{t('pages.auth.createApiKey')}</DialogTitle>
         <DialogContent>
           <TextField
@@ -1855,11 +2082,17 @@ export default function AccountSettingsPage() {
             onChange={(e) => setNewKeyLabel(e.target.value)}
             sx={{ mt: 1 }}
             autoFocus
+            data-testid="api-key-label-field"
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setNewKeyDialogOpen(false)}>{t('common.cancel')}</Button>
-          <Button variant="contained" onClick={handleCreateApiKey} disabled={!newKeyLabel.trim()}>
+          <Button
+            variant="contained"
+            onClick={handleCreateApiKey}
+            disabled={!newKeyLabel.trim()}
+            data-testid="api-key-label-submit"
+          >
             {t('common.create')}
           </Button>
         </DialogActions>

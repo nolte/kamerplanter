@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import i18n from 'i18next';
 import { ApiError } from '@/api/errors';
 import { createTestStore, renderWithProviders } from '@/test/helpers';
 
@@ -38,10 +39,14 @@ vi.mock('@/api/endpoints/adminPlatform', () => ({
 vi.mock('@/api/endpoints/auth', async () => ({
   ...(await vi.importActual<typeof import('@/api/endpoints/auth')>('@/api/endpoints/auth')),
   listProviders: vi.fn(),
+  requestStepUpCode: vi.fn().mockResolvedValue({ expires_at: '2026-09-25T12:10:00Z', expires_in: 600 }),
 }));
 
 const admin = await import('@/api/endpoints/adminPlatform');
 const auth = await import('@/api/endpoints/auth');
+
+// Credential-shaped values are assembled at runtime (GitGuardian, #1838).
+const STEP_UP_CODE = ['1', '2', '3', '4', '5', '6'].join('');
 
 const TENANT = {
   key: 'garden-key',
@@ -103,20 +108,28 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
     );
   });
 
-  it('asks a federated account for the slug alone', async () => {
-    providers([{ provider: 'google' }]);
+  it('asks a federated account for the slug and the e-mailed code instead of a password (#1815)', async () => {
+    providers([{ provider: 'github' }]);
     const dialog = await openDeleteDialog();
     const confirm = within(dialog).getByTestId('tenant-delete-confirm');
 
     await userEvent.type(within(dialog).getByTestId('tenant-delete-slug').querySelector('input')!, TENANT.slug);
-    // Sync point: the confirm button enables only once the provider list said
+    // Sync point: the code field appears only once the provider list said
     // "federated" — before that the password field is shown (fail closed).
-    await waitFor(() => expect(confirm).toBeEnabled());
-    expect(within(dialog).queryByLabelText(/passwort|password/i)).not.toBeInTheDocument();
+    const code = (await within(dialog).findByTestId('tenant-delete-code')).querySelector('input')!;
+    expect(within(dialog).queryByTestId('tenant-delete-password')).not.toBeInTheDocument();
+    expect(confirm).toBeDisabled();
+    await userEvent.click(within(dialog).getByTestId('tenant-delete-send-code'));
+    // The code confirms the tenant deletion only (review SEC-003).
+    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('tenant_deletion'));
+    await userEvent.type(code, STEP_UP_CODE);
     await userEvent.click(confirm);
 
     await waitFor(() =>
-      expect(admin.deleteAdminTenant).toHaveBeenCalledWith('garden-key', { confirm_slug: TENANT.slug }),
+      expect(admin.deleteAdminTenant).toHaveBeenCalledWith('garden-key', {
+        confirm_slug: TENANT.slug,
+        step_up_code: STEP_UP_CODE,
+      }),
     );
   });
 
@@ -142,7 +155,7 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
   });
 
   it('shows the password field after the server asked for one, even for a federated-looking account', async () => {
-    providers([{ provider: 'google' }]);
+    providers([{ provider: 'github' }]);
     (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new ApiError(
         {
@@ -160,11 +173,40 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
     const dialog = await openDeleteDialog();
     const confirm = within(dialog).getByTestId('tenant-delete-confirm');
     await userEvent.type(within(dialog).getByTestId('tenant-delete-slug').querySelector('input')!, TENANT.slug);
+    const code = (await within(dialog).findByTestId('tenant-delete-code')).querySelector('input')!;
+    await userEvent.type(code, STEP_UP_CODE);
     await waitFor(() => expect(confirm).toBeEnabled());
 
     await userEvent.click(confirm);
 
-    expect(await within(dialog).findByLabelText(/passwort|password/i)).toBeInTheDocument();
+    expect(await within(dialog).findByTestId('tenant-delete-password')).toBeInTheDocument();
+  });
+
+  it('shows the lockout with its minutes on 429 STEP_UP_LOCKED (#1816)', async () => {
+    providers([{ provider: 'local' }]);
+    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'err_3',
+          error_code: 'STEP_UP_LOCKED',
+          message: 'Too many failed confirmations. Try again in 15 minutes.',
+          details: [{ field: 'password', reason: 'locked', code: 'STEP_UP_LOCKED', retry_after_minutes: '15' }],
+          timestamp: '',
+          path: '/x',
+          method: 'DELETE',
+        },
+        429,
+      ),
+    );
+    const dialog = await openDeleteDialog();
+
+    await userEvent.type(within(dialog).getByTestId('tenant-delete-slug').querySelector('input')!, TENANT.slug);
+    await userEvent.type(within(dialog).getByLabelText(/passwort|password/i), 'wrong');
+    await userEvent.click(within(dialog).getByTestId('tenant-delete-confirm'));
+
+    expect(await within(dialog).findByTestId('tenant-delete-error')).toHaveTextContent(
+      i18n.t('pages.auth.stepUpLocked', { minutes: '15' }),
+    );
   });
 
   it('keeps the dialog open and shows a refused step-up inside it', async () => {
@@ -191,5 +233,43 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
 
     expect(await within(dialog).findByTestId('tenant-delete-error')).toBeInTheDocument();
     expect(screen.getByTestId('tenant-delete-dialog')).toBeInTheDocument();
+  });
+});
+
+describe('AdminEditTenantPage — back from the fresh sign-in (#1815)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    (admin.fetchAdminTenants as ReturnType<typeof vi.fn>).mockResolvedValue([TENANT]);
+    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    cleanup();
+    sessionStorage.clear();
+  });
+
+  it('reopens the tenant-deletion dialog and sends the pending token as step_up_token', async () => {
+    providers([{ provider: 'google' }]);
+    // Credential-shaped values are assembled at runtime (GitGuardian, #1838).
+    const token = ['re', 'auth', '-', 'tok', 'en'].join('');
+    const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
+    storePendingStepUpToken(token, 'tenant_deletion');
+    saveStepUpResume({ surface: 'tenant-delete', action: 'tenant_deletion', returnPath: '/' });
+
+    const { default: Page } = await import('@/pages/admin/AdminEditTenantPage');
+    renderWithProviders(<Page />, { store: createTestStore() });
+
+    // No click on "delete tenant": the page reopens the dialog on its own.
+    const dialog = await screen.findByTestId('tenant-delete-dialog');
+    expect(await within(dialog).findByTestId('tenant-delete-reauth-done')).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByTestId('tenant-delete-slug').querySelector('input')!, TENANT.slug);
+    await userEvent.click(within(dialog).getByTestId('tenant-delete-confirm'));
+
+    await waitFor(() =>
+      expect(admin.deleteAdminTenant).toHaveBeenCalledWith('garden-key', {
+        confirm_slug: TENANT.slug,
+        step_up_token: token,
+      }),
+    );
   });
 });

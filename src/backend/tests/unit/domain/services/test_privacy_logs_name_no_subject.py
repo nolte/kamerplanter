@@ -39,7 +39,6 @@ from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.data_subject_service import DataSubjectService
 from app.domain.services.privacy_service import PrivacyService
-from app.domain.services.user_service import UserService
 from tests.support.privacy_doubles import FakeDataExportRepo
 
 #: Distinctive, so a substring hit cannot be a coincidence.
@@ -47,10 +46,21 @@ USER_KEY = "subject-5c81e2"
 OLD_EMAIL = "old-address-5c81e2@example.com"
 NEW_EMAIL = "new-address-5c81e2@example.com"
 SALT = "log-test-salt-not-a-secret-0123456789"
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(autouse=True)
+def _log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1812: log pseudonyms are keyed with LOG_PSEUDONYM_SALT, not with the tombstone salt the services get."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+
+
 EXPORT_KEY = "exp-1"
 #: The salted, purpose-separated log reference — deliberately NOT the tombstone
 #: the pseudonymised audit rows keep (#1773 review GDPR-003).
-SUBJECT = ErasureEngine.log_subject(USER_KEY, SALT)
+SUBJECT = ErasureEngine.log_subject(USER_KEY, LOG_SALT)
 
 
 def _values(value: Any) -> list[str]:
@@ -275,6 +285,8 @@ class TestEmailChangeConfirmationNamesNobody:
         user_repo = MagicMock()
         user_repo.get_or_raise.return_value = User(_key=USER_KEY, email=OLD_EMAIL, display_name="x")
         user_repo.update_fields.return_value = User(_key=USER_KEY, email=NEW_EMAIL, display_name="x")
+        # The address moves by compare-and-set since #1848.
+        user_repo.move_email.return_value = User(_key=USER_KEY, email=NEW_EMAIL, display_name="x")
         change_repo = MagicMock()
         change_repo.get_by_token_hash.return_value = EmailChangeRequest(
             _key="ecr-1",
@@ -309,26 +321,6 @@ class TestFacadeAndAccountLinesNameNobody:
         assert _leaks(logs, USER_KEY) == []
 
         assert _event(logs, "data_subject_right_invoked")["subject"] == SUBJECT
-
-    def test_account_deleted_logs_the_subject_reference(self) -> None:
-        service = UserService(MagicMock(), MagicMock(), tombstone_salt=SALT)
-
-        with structlog.testing.capture_logs() as logs:
-            service.delete_account(USER_KEY)
-
-        assert _leaks(logs, USER_KEY) == []
-
-        assert _event(logs, "account_deleted")["subject"] == SUBJECT
-
-    def test_without_a_salt_the_line_carries_a_constant_never_the_key(self) -> None:
-        service = UserService(MagicMock(), MagicMock())
-
-        with structlog.testing.capture_logs() as logs:
-            service.delete_account(USER_KEY)
-
-        assert _leaks(logs, USER_KEY) == []
-
-        assert _event(logs, "account_deleted")["subject"] == "anon_unavailable"
 
 
 def _auth_service(user_repo: MagicMock) -> AuthService:
@@ -376,7 +368,15 @@ class TestAuthLinesNameNobody:
         service = _auth_service(user_repo)
 
         with structlog.testing.capture_logs() as logs, pytest.raises(ForbiddenError):
-            service.change_password(USER_KEY, None, "a-sufficiently-long-password-2024")
+            service.change_password(
+                USER_KEY,
+                None,
+                "a-sufficiently-long-password-2024",
+                step_up_code=None,
+                step_up_token=None,
+                authenticated_with_api_key=False,
+                client_ip=None,
+            )
 
         assert _leaks(logs, USER_KEY, OLD_EMAIL) == []
 

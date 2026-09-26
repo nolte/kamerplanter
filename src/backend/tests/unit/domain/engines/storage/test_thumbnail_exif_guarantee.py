@@ -327,7 +327,23 @@ class _InMemoryAttachmentRepo:
         return sum(1 for a in self._store.values() if a.tenant_key == tenant_key)
 
     def sum_bytes_by_tenant(self, tenant_key: str) -> int:
-        return sum(a.byte_size for a in self._store.values() if a.tenant_key == tenant_key)
+        # One charge per stored object, as the repository counts it (#1770).
+        return sum({a.storage_key: a.byte_size for a in self._store.values() if a.tenant_key == tenant_key}.values())
+
+    def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):  # type: ignore[no-untyped-def]
+        # As the repository answers it (#1770): the uploader's own record for these
+        # bytes in this category — never another member's.
+        for att in self._store.values():
+            if (att.tenant_key, att.sha256, att.created_by, att.category) == (tenant_key, sha256, created_by, category):
+                return att
+        return None
+
+    def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):  # type: ignore[no-untyped-def]
+        return {
+            a.storage_key
+            for a in self._store.values()
+            if a.tenant_key == tenant_key and a.storage_key in storage_keys and a.key not in excluding
+        }
 
 
 async def _collect(stream) -> bytes:

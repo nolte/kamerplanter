@@ -19,6 +19,8 @@ build/
 .env
 .env.local
 .envrc
+# E2E stack secrets generated per working copy (scripts/e2e_fernet_key.py, #1838)
+.e2e-secrets/
 
 # Test reports (generated)
 test-reports/e2e/

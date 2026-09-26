@@ -69,6 +69,7 @@ def env():
     from app.domain.models.planting_run import PlantingRun
     from app.domain.models.site import Site
     from app.domain.models.tank import Tank
+    from app.domain.models.task import Task
 
     settings = Settings(arangodb_database=_DB_NAME)
     conn = ArangoConnection(settings)
@@ -124,6 +125,9 @@ def env():
             PlantingRun(_key=f"run-{suffix}", tenant_key=tenant, name=f"Run {suffix}", run_type="monoculture"),
         )
         put(col.NUTRIENT_PLANS, NutrientPlan(_key=f"plan-{suffix}", tenant_key=tenant, name=f"Plan {suffix}"))
+        # The confirmation's task must be the tenant's own since #1864 (L8): the
+        # confirm resolves run and task under the tenant before anything else.
+        put(col.TASKS, Task(_key=f"task-{suffix}", tenant_key=tenant, name=f"Gießen {suffix}"))
         put(
             col.NUTRIENT_PLAN_PHASE_ENTRIES,
             NutrientPlanPhaseEntry(
@@ -226,7 +230,7 @@ WRITE_PATHS: dict[str, tuple[str, str, Callable[[str], dict], int]] = {
         f"{BASE}/watering-logs/confirm",
         lambda k: {
             "run_key": "run-a",
-            "task_key": "task-none",
+            "task_key": "task-a",
             "overrides": {"fertilizers": [{"fertilizer_key": k, "ml_per_liter": 1.0}]},
         },
         422,

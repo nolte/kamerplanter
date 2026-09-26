@@ -15,11 +15,13 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserTenantRole,
     AdminUserUpdate,
 )
+from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
+from app.api.v1.privacy.schemas import ErasureCreateRequest
 from app.api.v1.tenants.schemas import TenantDeleteRequest
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
-from app.common.exceptions import ForbiddenError
-from app.common.openapi_responses import AUTH_CRUD_RESPONSES
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
+from app.common.request_ip import resolve_client_ip
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
@@ -183,11 +185,13 @@ def update_tenant(
     )
 
 
-@router.patch("/users/{key}", response_model=AdminUserResponse)
+@router.patch("/users/{key}", response_model=AdminUserResponse, responses=STEP_UP_RESPONSES)
 def update_user(
     key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminUserUpdate,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     user_service: UserService = Depends(get_user_service),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
@@ -200,9 +204,27 @@ def update_user(
     and the 1202 → :class:`NotFoundError` mapping) and raw AQL for the membership
     read. Both now go through the service layer (NFR-001), and the membership
     join is the same one ``list_user_memberships`` / ``list_all_users`` use.
+
+    **Step-up (#1857):** turning ``email_verified`` or ``is_active`` true passes
+    the admin's own step-up — ``current_password`` (or ``step_up_token`` /
+    ``step_up_code`` for an admin without one); 401 without it, 403 from an
+    API-key request, 429 ``STEP_UP_LOCKED``. The step-up fields are never written.
     """
-    update_data = body.model_dump(exclude_none=True)
-    user = user_service.admin_update_user(key, update_data) if update_data else user_service.get_user(key)
+    update_data = body.model_dump(exclude_none=True, exclude=set(CREDENTIAL_STEP_UP_FIELDS))
+    user = (
+        user_service.admin_update_user(
+            key,
+            update_data,
+            requester=admin,
+            current_password=body.current_password,
+            step_up_code=body.step_up_code,
+            step_up_token=body.step_up_token,
+            authenticated_with_api_key=via_api_key,
+            client_ip=client_ip,
+        )
+        if update_data
+        else user_service.get_user(key)
+    )
 
     roles = [
         AdminUserTenantRole(
@@ -228,12 +250,13 @@ def update_user(
     )
 
 
-@router.delete("/tenants/{key}", status_code=204)
+@router.delete("/tenants/{key}", status_code=204, responses=STEP_UP_RESPONSES)
 def delete_tenant(
     key: Annotated[str, Path(description="Document key of the tenant.")],
     body: TenantDeleteRequest,
     user: User = Depends(require_platform_admin),
     via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Delete a tenant and all its data, as the declared tenant-erasure inventory says. Platform admin only.
@@ -247,7 +270,10 @@ def delete_tenant(
 
     **Step-up (#1791):** the body echoes the tenant's slug (422 otherwise) and
     carries the admin's current password when the account has one (401
-    otherwise); the service re-proves the platform-admin membership.
+    otherwise), the code from ``POST /users/me/step-up-code`` as ``step_up_code``
+    when not (401 ``STEP_UP_CODE_REQUIRED``, #1815); 403 for an API-key request,
+    429 ``STEP_UP_LOCKED`` after too many failures; the service re-proves the
+    platform-admin membership.
 
     Answers: 204 erased; 403 the platform tenant; 404 no such tenant; 409 another
     deletion of it is running; 503 the deployment cannot erase (nothing changed);
@@ -261,50 +287,51 @@ def delete_tenant(
         authenticated_with_api_key=via_api_key,
         confirmation=body.to_confirmation(),
         origin="platform_admin",
+        client_ip=client_ip,
     )
 
 
-@router.delete("/users/{key}", status_code=204)
+@router.delete("/users/{key}", status_code=204, responses=STEP_UP_RESPONSES)
 def delete_user(
     key: Annotated[str, Path(description="Document key of the user.")],
+    body: ErasureCreateRequest,
     current_user: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     privacy_service: PrivacyService = Depends(get_privacy_service),
-    user_service: UserService = Depends(get_user_service),
 ):
-    """Delete a user and all associated data. Platform admin only.
+    """Erase a user account and all associated data at once. Platform admin only.
 
-    Cannot delete yourself.
+    **Step-up (#1814):** the body echoes the *target's* e-mail (422 otherwise) and
+    carries the *admin's own* current password when the admin's account has one
+    (401 otherwise), or the code mailed to the admin when it has none (401
+    ``STEP_UP_CODE_REQUIRED``, #1815); a request authenticated with an API key is refused (403),
+    and too many failed confirmations answer 429 ``STEP_UP_LOCKED`` (#1816). All
+    of it is decided in ``PrivacyService.erase_account_by_admin``, which also
+    refuses the admin's own account (403) and re-proves the platform-admin
+    membership from the store.
 
-    Runs the declared REQ-025 erasure plan through
-    ``PrivacyService.erase_account`` (#1664) — the one entry both
-    account-deletion paths share: stored export bundles, the Phase 0 / 0.5
-    object-storage and reference-index cleanup, the pest-image documents, and
-    then the ArangoDB plan in one transaction (edges and documents removed,
-    retained harvest / treatment / inspection / quality / task / diary rows
-    anonymised, erasure audit rows pseudonymised, the user document last).
-
-    Until #1664 this route called the storage cleanup and a narrower account
-    cascade separately; neither applied an anonymisation rule, and consents,
-    export requests, restrictions, favourites, identification requests and
-    pest detections of the deleted user were left behind.
-
-    #1767 — the run goes through ``PrivacyService.erase_account_now``: the
-    account is deactivated and its sessions revoked first, an erasure request
-    (``origin="platform_admin"``) is persisted as the proof, and 204 is answered
-    only when the report accounts for every declared step. Otherwise the request
-    stays ``partially_completed`` and the daily beat retries it; the answer is
-    the run's error (500 ``ERASURE_INCOMPLETE``, 502 for a failed external
-    delete), 409 while another run holds the request, 503 when the deployment
-    cannot erase — then nothing was changed.
+    Then the declared REQ-025 erasure plan through ``erase_account_now`` (#1664,
+    #1767): the account is deactivated and its sessions revoked first, an erasure
+    request (``origin="platform_admin"``, with ``step_up`` and the admin as a
+    salted ``requested_by_subject``) is persisted as the proof, and 204 is
+    answered only when the report accounts for every declared step. Otherwise the
+    request stays ``partially_completed`` and the daily beat retries it; the
+    answer is the run's error (500 ``ERASURE_INCOMPLETE``, 502 for a failed
+    external delete), 409 while another run holds the request, 503 when the
+    deployment cannot erase — then nothing was changed.
     """
     from app.common.async_bridge import run_async
 
-    user_service.get_user(key)
-
-    if current_user.key == key:
-        raise ForbiddenError("You cannot delete your own account from the admin panel.")
-
-    run_async(privacy_service.erase_account_now(key, origin="platform_admin"))
+    run_async(
+        privacy_service.erase_account_by_admin(
+            key,
+            requester=current_user,
+            confirmation=body.to_confirmation(),
+            authenticated_with_api_key=via_api_key,
+            client_ip=client_ip,
+        )
+    )
 
 
 # ── Tenant membership management ──────────────────────────────────────

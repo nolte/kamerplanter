@@ -13,6 +13,14 @@ import pytest
 from tests.support.privacy_doubles import FakeDataExportRepo, FakePersonalTenants
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 def _make_service(**overrides):
     from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
     from app.domain.engines.consent_engine import ConsentEngine

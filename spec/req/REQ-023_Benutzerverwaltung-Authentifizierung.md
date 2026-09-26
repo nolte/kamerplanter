@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.13 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.19 (Step-up auch vor dem Ausstellen und Entfernen von Anmeldemitteln — API-Key, Gerätekopplung, Provider-Trennung — und vor dem Vertrauensanheben durch Plattform-Admins, #1847/#1857)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,12 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.19 | 2026-09-26 | **Step-up vor Anmeldemitteln und Vertrauensanhebung (#1847, #1857):** `POST /auth/api-keys`, `POST /auth/device-pairing` und `DELETE /users/me/providers/{provider_key}` laufen durch den Step-up aus §3.9 (Aktionen `api_key_creation`, `device_pairing`, `provider_unlink`; Body-Felder `current_password`/`step_up_token`/`step_up_code`). Damit kann auch ein API-Key keinen API-Key und keinen Kopplungscode mehr ausstellen (403). `PATCH /admin/platform/users/{key}` verlangt den Step-up des Admins (`admin_account_update`), sobald `email_verified` oder `is_active` von false auf true wechselt. Im Light-Modus entfällt der Step-up beim API-Key (einziges Systemkonto, kein Mensch zu bestätigen). Umgesetzter Standard, offene Betreiber-Entscheidung (Fragenliste #1650): Passwortänderung, Passwort-Reset und „überall abmelden" widerrufen API-Keys **nicht** (Begründung in §3.9). |
+| 1.18 | 2026-09-26 | **Frische OIDC-Anmeldung als Regelfall des Step-up (#1815, Betreiber-Entscheid Variante 1):** Neuer Endpunkt `POST /users/me/step-up/oidc` (`{action, provider_key?}` → `{authorization_url}`, `prompt=login`+`max_age=0`) — für ein Konto ohne lokales Passwort mit mindestens einem OIDC-fähigen verknüpften Anbieter (Google, generisches OIDC mit `openid`-Scope) jetzt der Weg, unumkehrbare Aktionen und Zugangsdaten-Änderungen zu bestätigen, statt des E-Mail-Codes. Der bestehende OAuth-Callback meldet dabei niemanden an, sondern leitet auf `/auth/step-up/callback` weiter: Erfolg als `#step_up_token=…&action=…` im URL-Fragment, Fehler als `?error=step_up_failed\|step_up_stale\|step_up_cancelled`. Geprüft werden `iss`, `aud`/`azp`, `nonce`, `exp`, dass `sub` zu einer Verknüpfung dieses Kontos gehört, und dass `auth_time` höchstens fünf Minuten alt ist (30 s Uhrtoleranz) — keine JWKS-Signaturprüfung, weil das ID-Token direkt vom Token-Endpunkt über TLS in einem client-authentifizierten Austausch kommt (OIDC Core 3.1.3.7 Nr. 6). Der `step_up_token` ist fünf Minuten gültig, an Konto und Aktion gebunden, einmal verwendbar; neue Nachweis-Methode `oidc_reauth`. Neuer Fehlercode `STEP_UP_REAUTH_REQUIRED` (401, 422 beim Anfordern eines Codes) und `STEP_UP_REAUTH_FAILED` (401, nur als Redirect-Fehlercode). **Anbietergrenze:** GitHub ist reines OAuth2 ohne ID-Token, Apple liefert kein `auth_time` — ein Konto, dessen verknüpfte Anbieter ausschließlich aus diesen beiden bestehen, behält den E-Mail-Code als Ausweichweg (`EMAIL_CODE_FALLBACK = True`); jedem anderen Konto mit OIDC-fähigem Anbieter wird der Code verweigert. Begründung für den Ausweichweg statt einer Verweigerung ganz ohne Alternative (Variante 2): Sonst könnten GitHub/Apple-only-Konten ihr Art.-17-Löschrecht nicht mehr selbst ausüben. |
+| 1.17 | 2026-09-25 | **Unzustellbarer Step-up-Code (/code-review of #1862):** Scheitert der Mailversand eines Bestätigungscodes (Konsolen-Adapter außerhalb `debug`, SMTP-Fehler), antwortet `POST /users/me/step-up-code` jetzt 503 `STEP_UP_CODE_UNDELIVERABLE` statt 202 zu melden und den Code stillschweigend zu verwerfen; der Code wird zurückgenommen und sein Platz im Stundenkontingent sowie die 60-Sekunden-Wartezeit werden freigegeben, sodass ein Versuch nach Behebung durch den Betreiber sofort möglich ist. Die Redis-Ausgabereservierung läuft als ein `SET NX`-Schritt gegen ein Race zweier gleichzeitiger Anfragen. Zusätzlich laufen bei der Passwortänderung die Passwort-Policy-Prüfung und bei der E-Mail-Änderung die zustandslosen Prüfungen (eigene Adresse, reservierte Domain) jetzt **vor** dem Step-up, damit ein Tippfehler keinen Code und keinen gedrosselten Versuch verbraucht — nur der Adress-Lookup (frei/vergeben) bleibt hinter dem Step-up. |
+| 1.16 | 2026-09-25 | **Security-Review von #1815/#1841:** Der E-Mail-Code aus `POST /users/me/step-up-code` bindet jetzt die Aktion in den Digest (`HMAC(Schlüssel, "Konto:Aktion:Code")`) — Pflichtfeld `action` im Request-Body (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`; fehlend/unbekannt → 422); ein für eine Aktion angeforderter Code bestätigt keine andere, die Mail nennt die Aktion. Der Digest ist jetzt ein HMAC-SHA256 unter einem aus `JWT_SECRET_KEY` abgeleiteten Schlüssel, damit ein Valkey-Dump die 10⁸ möglichen Codes nicht offline umkehrbar macht. Neue Ausgabegrenzen: ein noch unverbrauchter Code jünger als 60 Sekunden wird nicht ersetzt, höchstens 5 Codes pro Konto und Stunde — beide Male 429 `STEP_UP_LOCKED` mit `retry_after_minutes`. `POST /users/me/step-up-code` und `POST /users/me/password` verweigern zusätzlich im Light-Modus (403, #1844): das einzige Konto der Instanz hat kein Passwort, ein dort gesetztes würde nach dem Wechsel in den Full-Modus zur gültigen Anmeldung. |
+| 1.15 | 2026-09-25 | **E-Mail-Code-Step-up für Konten ohne lokales Passwort (#1815); Step-up jetzt auch auf der E-Mail-Änderung (#1841):** Ein Konto ohne lokales Passwort (ausschließlich föderiertes Sign-in) bestätigt eine unumkehrbare Aktion oder eine Zugangsdaten-Änderung nicht mehr mit dem bloßen zurückgetippten Ziel, sondern mit einem per E-Mail zugestellten Einmalcode. Neuer Endpunkt `POST /users/me/step-up-code` (202, `{expires_at, expires_in}`, nie der Code selbst): acht Ziffern, zehn Minuten gültig, einmal verwendbar, als `step_up_code` im Step-up-Body von Kontolöschung, Mandantenlöschung und der ersten Passwortvergabe. Verweigert 403 einer API-Key-Anfrage, einem Dienstkonto oder im Light-Modus, 422 einem Konto mit lokalem Passwort. Ein fehlender Code antwortet 401 `STEP_UP_CODE_REQUIRED`, ein falscher zählt in dasselbe Drossel-Budget wie ein falsches Passwort. Kein OIDC-Re-Login mit `max_age`/`auth_time`: GitHub ist reines OAuth2 ohne `auth_time`, das hätte eine Provider-Klasse auf dem alten Stand belassen. `POST /privacy/email-change` (REQ-025 Art. 16) läuft jetzt ebenfalls durch diesen Step-up. Betriebsvoraussetzung: Ein föderiertes Konto braucht dafür funktionierenden Mail-Versand (`EMAIL_ADAPTER=smtp`) — mit dem Konsolen-Adapter und `DEBUG=false` (die produktive Voreinstellung ohne SMTP-Konfiguration) wird der Code nie zugestellt, und ein solches Konto kann sich dann nicht löschen, kein erstes lokales Passwort setzen, keinen Mandanten löschen und die E-Mail-Adresse nicht ändern. |
+| 1.14 | 2026-09-25 | **Step-up für unumkehrbare Kontoaktionen (#1813, #1814, #1816):** Neuer §3.9. Eine einzige Prüfung (`StepUpVerifier`) für Kontolöschung (`DELETE /users/me`, `POST /privacy/erasure`), Konto-Sofortlöschung durch Plattform-Admins (`DELETE /admin/platform/users/{key}`), Mandantenlöschung (REQ-024 AK-44d) und Passwortänderung: nur aus einer angemeldeten Sitzung eines Menschen (kein API-Key, kein Service Account — 403), Ziel wird zurückgetippt (E-Mail bzw. Slug — 422), das eigene aktuelle Passwort bei lokalem Konto (401). Fehlgeschlagene Passwort-Step-ups werden je Konto **und** Client-Adresse gezählt (Valkey, In-Process-Fallback) und über denselben `LoginThrottleEngine` gesperrt (429 `STEP_UP_LOCKED`), zusätzlich mit kontoweiter Obergrenze; die Login-Sperre bleibt bewusst unberührt. `DELETE /users/me` setzt nicht mehr nur einen Tombstone, sondern eröffnet den Art.-17-Löschauftrag (REQ-025). |
 | 1.12 | 2026-08-12 | **QR-Gerätekopplung für native Clients (#1118):** Neuer §3.8 — eine per QR-Code gekoppelte App tauscht einen Einmalcode gegen das **bestehende** REQ-023-Token-Paar (keine neue Token-Klasse, kein neuer Claim). Der Code liegt ausschließlich in Redis (kein neuer ArangoDB-Node, keine neue Collection); die Prüfspur sind structlog-Events, kein persistiertes Protokoll (§9). Einlösung ist rate-limitiert (`rate_limit_device_pairing_redeem`, Default 10/min) und zusätzlich per Quell-IP über den `LoginThrottleEngine` gesperrt — dieselbe Engine wie `login_local` —, wobei die Sperre **vor** dem Code-Store greift. `POST /auth/refresh` erhält einen Body-Transport (`{"refresh_token": …}`) für Clients ohne Cookie-Jar: Body schlägt Cookie, CSRF entfällt auf dem Body-Pfad (die Double-Submit-Tabelle in §1 ist entsprechend präzisiert). Neuer Frontend-Dialog „Gerät verbinden" im Sessions-Tab (§4.6). TTL `device_pairing_ttl_seconds` (Default 90, validiert 60–120). |
 | 1.11 | 2026-08-07 | **SEC-H-009 Info-Mail gebaut (#958):** Die in §3.2 seit v1.8 geforderte Info-Mail an die bereits registrierte Adresse ist implementiert — aber unter zwei Bedingungen, die §3.2 jetzt ausformuliert, weil die naive Variante genau das Enumeration-Orakel wieder öffnet, das #957 geschlossen hat: (1) **asynchrone Zustellung** über den Celery-Task `app.tasks.auth_tasks.send_duplicate_registration_notice`, eingereiht in einem FastAPI-Background-Task, also erst nachdem die Antwort geschrieben ist; (2) **Sperrfenster je Empfängeradresse** (24 h, `IRegistrationNoticeStore`) statt je Absender-IP. Zusätzlich: `POST /api/v1/privacy/email-change` erhält ein eigenes Rate-Limit (`rate_limit_email_change`, Default 5/hour). |
 | 1.10 | 2026-04-27 | **W-015:** §3.7 M2M-Auth um Light-Modus-Hinweis ergänzt — Service Accounts und API-Keys sind im Light-Modus deaktiviert (REQ-027 §2.1). Bei Mode-Switch Light→Full müssen externe Integrationen neue Keys generieren. |
@@ -947,6 +953,28 @@ kp_<48 hex characters>
 
 Die Middleware erkennt anhand des `kp_`-Prefix automatisch, ob ein API-Key oder JWT vorliegt. API-Keys werden gegen den gespeicherten Hash validiert und `last_used_at` wird aktualisiert.
 
+**`tenant_scope` gilt auf REST und MCP gleich, Abgleich auf den Tenant-Key (#1852):** Der Wert wird bereits beim Anlegen des Keys aufgelöst und geprüft — der Aufrufer muss im benannten Tenant (per Slug oder Key referenzierbar) *aktives* Mitglied sein, sonst weist `POST /auth/api-keys` mit `403 Forbidden` ab ("tenant_scope must name a tenant you are an active member of."), mit derselben Antwort für einen unbekannten wie für einen fremden Tenant. Gespeichert und zurückgegeben wird ausschließlich der **Key** des Tenants, nicht der eingegebene Slug — ein Abgleich auf den Slug findet zur Laufzeit nicht mehr statt. Dadurch bleibt der Scope über eine Umbenennung des Tenants hinweg stabil, und die Tenant-Löschung, die Keys mit passendem `tenant_scope` widerruft, trifft weiterhin genau die richtigen Keys. Bestandskeys wurden per Migration (v0063) auf den Tenant-Key umgeschrieben, sofern der Besitzer dort noch aktives Mitglied war, sonst widerrufen.
+
+Auf REST geschieht die Bindung in der Tenant-Auflösung (`/t/{slug}/`-Pfad und `X-Active-Tenant`-Header) mit derselben 403-Antwort wie für einen fremden Tenant; der header-lose Fallback auf den persönlichen Tenant greift nur, wenn dieser der Scope ist, sonst gilt nur der globale Katalog.
+
+**Routen ohne Tenant-Auflösung sind seit #1851 erfasst.** Ein Key mit `tenant_scope` handelt nur innerhalb des einen Tenants — die folgende Tabelle zeigt, wie jede Routenklasse mit einem begrenzten Key umgeht:
+
+| Routenklasse | Beispiele | Verhalten mit `tenant_scope` |
+|---|---|---|
+| Konto-/Anmeldedaten-Routen | `PATCH`/`DELETE /users/me`, Passwort, Sitzungen, verknüpfte Provider | `403 Forbidden` über `require_account_principal` ("This API key is restricted to one tenant and cannot act on the account.") |
+| Datenschutz-Routen | `/api/v1/privacy/*` | `403 Forbidden` über `require_account_principal` |
+| Tenant-Lebenszyklus & API-Key-Verwaltung | `POST /tenants`, `POST /tenants/invitations/accept`, `POST`/`GET`/`DELETE /auth/api-keys`, `POST /auth/device-pairing`, `POST /auth/logout-all` | `403 Forbidden` über `require_account_principal` |
+| Kontoweite Einstellungen unter `/t/{slug}/` | `PUT …/notifications/preferences`, `POST …/notifications/pwa/subscribe`/`unsubscribe`, `PATCH …/user-preferences`, `POST …/onboarding/skip`/`reset`, `PATCH …/onboarding/state`, `DELETE …/favorites/{key}` | `403 Forbidden` über `require_account_principal` — die Einstellungen gelten für alle Tenants des Kontos, nicht nur für den Scope-Tenant |
+| Plattform-Admin-Routen | `/api/v1/admin/*` | Abgewiesen — ein begrenzter Key ist nie Plattform-Admin (unabhängig von `require_account_principal`) |
+| Tenant-auflösende Routen | `/t/{slug}/...`, jede Route mit `X-Active-Tenant` | Scope bindet wie zuvor beschrieben |
+| Identitätsabfrage | `GET /users/me` | Zugelassen — liefert `is_platform_admin: false` für einen begrenzten Key |
+| Tenant-Liste | `GET /tenants` | Zugelassen, aber auf den Scope-Tenant eingeengt |
+| Globale Stammdaten & Berechnungen | z. B. Arten-/Sorten-Katalog, IPM-Referenzdaten, zustandslose Rechner | Zugelassen — kein Tenant-Bezug |
+
+Ein Key **ohne** `tenant_scope` ist von dieser Tabelle nicht betroffen.
+
+**IP-Allowlist und Rate Limit gelten für REST und MCP durch dieselbe Implementierung (#1850):** `ip_allowlist` (CIDR-Liste) und `rate_limit_per_minute` auf `ApiKey` wurden bis dahin nur vom MCP-Authenticator gelesen; ein REST-Aufruf mit demselben Key war davon unberührt. Beide Kontrollen laufen jetzt über eine gemeinsame Funktion, die von beiden Oberflächen aufgerufen wird — eine Adresse außerhalb der Allowlist (oder eine nicht auflösbare) liefert auf beiden Wegen `401 Unauthorized` ("Client IP is not permitted for this API key."), ein überschrittenes Budget `429 Too Many Requests`. Das Budget ist eine Eigenschaft des Keys, nicht der Oberfläche: REST- und MCP-Aufrufe desselben Keys teilen sich einen Zähler pro Minute. Ist der Zähler-Speicher nicht erreichbar, wird `429` geantwortet (fail-closed) statt das Limit stillschweigend zu ignorieren.
+
 <!-- Quelle: Service Accounts v1.7 -->
 **Erweiterter Flow bei Service-Account-API-Keys:**
 
@@ -968,7 +996,7 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/api/v1/auth/api-keys` | Neuen API-Key erstellen | JWT (nur authentifizierte User) |
+| `POST` | `/api/v1/auth/api-keys` | Neuen API-Key erstellen — Step-up nach §3.9 (#1847), kein API-Key | JWT (nur authentifizierte User) |
 | `GET` | `/api/v1/auth/api-keys` | Alle eigenen Keys auflisten | JWT |
 | `DELETE` | `/api/v1/auth/api-keys/{key_id}` | Key revoken | JWT |
 
@@ -976,7 +1004,8 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
 ```json
 {
   "label": "Home Assistant",
-  "tenant_scope": "mein-garten"
+  "tenant_scope": "mein-garten",
+  "current_password": "<aktuelles Passwort>"
 }
 ```
 
@@ -985,12 +1014,14 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
 {
   "_key": "ak_001",
   "label": "Home Assistant",
-  "api_key": "kp_a3f8e7b2c9d4f1a6e8b3c5d7f9a2b4c6d8e0f1a3b5c7d9e1f3",
+  "api_key": "kp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "key_prefix": "kp_a3f8...",
   "created_at": "2026-02-27T14:30:00Z",
-  "tenant_scope": "mein-garten"
+  "tenant_scope": "t-a1b2c3d4"
 }
 ```
+
+Die Request nennt den Tenant per Slug (oder Key); gespeichert und in der Response zurückgegeben wird stets der Tenant-**Key** (#1852, siehe oben).
 
 > **Hinweis:** Der vollständige Key wird nur bei der Erstellung angezeigt. Nach dem Schließen des Dialogs ist er nicht mehr abrufbar. Bei Verlust muss ein neuer Key erstellt werden.
 
@@ -1022,7 +1053,7 @@ class UserService:
 | POST | `/auth/logout` | Logout (aktuelles Gerät) | Ja |
 | POST | `/auth/logout-all` | Logout (alle Geräte) | Ja |
 | POST | `/auth/refresh` | Token-Refresh (Cookie-Pfad **oder** optionaler Body-Token `{"refresh_token"}` für native Clients, #1118 — siehe §3.8) | Nein (Cookie oder Body) |
-| POST | `/auth/device-pairing` | Einmaligen QR-Kopplungscode erzeugen (#1118, §3.8) | Ja (Bearer) |
+| POST | `/auth/device-pairing` | Einmaligen QR-Kopplungscode erzeugen (#1118, §3.8) — Step-up nach §3.9 (#1847) | Ja (Bearer) |
 | POST | `/auth/device-pairing/redeem` | QR-Kopplungscode gegen Token-Paar einlösen (#1118, §3.8) | Nein (öffentlich) |
 | POST | `/auth/verify-email` | E-Mail bestätigen | Nein |
 | POST | `/auth/password-reset/request` | Passwort-Reset anfordern | Nein |
@@ -1049,11 +1080,13 @@ dass er nichts schreibt.
 | GET | `/users/me` | Eigenes Profil abrufen | Ja |
 | PATCH | `/users/me` | Eigenes Profil aktualisieren | Ja |
 | GET | `/users/me/providers` | Verknüpfte Auth-Provider auflisten | Ja |
-| DELETE | `/users/me/providers/{provider_key}` | Provider-Verknüpfung entfernen | Ja |
-| POST | `/users/me/password` | Lokales Passwort setzen/ändern | Ja |
+| DELETE | `/users/me/providers/{provider_key}` | Provider-Verknüpfung entfernen — Step-up nach §3.9 (#1847) | Ja |
+| POST | `/users/me/password` | Lokales Passwort setzen/ändern; das aktuelle Passwort ist ein Step-up nach §3.9 (gedrosselt, kein API-Key) | Ja |
+| POST | `/users/me/step-up/oidc` | Frische Anmeldung beim verknüpften OIDC-Provider zur Bestätigung starten — Regelfall für Konten ohne lokales Passwort (§3.9, #1815) | Ja |
+| POST | `/users/me/step-up-code` | Einmaligen Bestätigungscode per E-Mail anfordern — Ausweichweg nur für Konten ohne lokales Passwort und ohne OIDC-fähigen Anbieter; Body `{action}` bindet den Code an die Aktion (§3.9, #1815) | Ja |
 | GET | `/users/me/sessions` | Aktive Sessions auflisten | Ja |
 | DELETE | `/users/me/sessions/{session_key}` | Einzelne Session beenden | Ja |
-| DELETE | `/users/me` | Account löschen (Soft-Delete) | Ja |
+| DELETE | `/users/me` | Konto löschen — eröffnet den Art.-17-Löschauftrag wie `POST /privacy/erasure` (REQ-025); Body `{confirm_email, password?}`, Step-up nach §3.9 | Ja |
 
 **Router: `/api/v1/admin/oidc-providers`** — OIDC-Provider-Verwaltung (nur System-Admin):
 
@@ -1072,7 +1105,7 @@ Das Domänenmodell `OidcProviderConfig` behält bewusst `str`: das Repository ba
 
 **Scope-Anforderung GitHub (#1477).** Ein Provider mit `provider_type == "github"`, dessen `scopes` weder `user:email` noch den übergeordneten Scope `user` enthalten, wird von `POST` und `PATCH` mit `422` abgelehnt. GitHub liefert das `verified`-Merkmal einer Adresse nur über `GET /user/emails`, das ohne diesen Scope `403` antwortet; ohne ihn ist `email_verified` bei jeder Anmeldung leer und die automatische Kontoverknüpfung (§ REQ-023 OAuth-Callback) bleibt dauerhaft aus. `POST /{slug}/test` meldet denselben Befund für Bestandskonfigurationen im Antwortfeld `scope_check` (`ok`, `provider_type`, `configured_scopes`, `missing_scopes`, `detail`) — unabhängig davon, ob ein Discovery-Dokument abrufbar ist, denn GitHub veröffentlicht keins.
 
-**Gesamtanzahl API-Endpunkte:** ~25
+**Gesamtanzahl API-Endpunkte:** ~27
 
 ### 3.4 Middleware
 
@@ -1143,6 +1176,78 @@ Die Ausgabe-Endpunkte:
 
 Beide Endpunkte hängen am `auth_router` (nicht am `api_keys_router`) und sind daher im Light-Modus (REQ-027) nicht gemountet — eine Light-Instanz antwortet auf beide mit **404**.
 <!-- /Quelle: Issue #1118 -->
+
+### 3.9 Step-up-Re-Authentifizierung für unumkehrbare Kontoaktionen und Anmeldemittel (#1813, #1814, #1816, #1847, #1857)
+
+Unumkehrbare Kontoaktionen verlangen eine erneute Bestätigung durch die handelnde Person. Alle laufen durch **eine** Prüfung (`StepUpVerifier`, `app/domain/services/step_up_service.py`), die im Service erzwungen wird — die Einstiegspunkte nehmen den Step-up als Keyword-Argumente ohne Default, sodass eine neue Route ihn nicht vergessen kann.
+
+| Aktion | Route(n) | Zurückgetipptes Ziel | Passwort / Erneute Anmeldung / Code |
+|---|---|---|---|
+| Eigenes Konto löschen (Art. 17, Karenz) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes Passwort; ohne lokales Passwort ein `step_up_token` aus `POST /users/me/step-up/oidc`, nur bei ausschließlich GitHub/Apple der per E-Mail zugeschickte Einmalcode |
+| Anderes Konto sofort löschen (Plattform-Admin) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos | das des **Admins**; ohne dessen lokales Passwort dessen `step_up_token` bzw. Code |
+| Mandant löschen (REQ-024 AK-44d) | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| E-Mail-Adresse ändern (REQ-025 Art. 16, #1841) | `POST /privacy/email-change` | — (kein Ziel; nur die eigene Sitzung wird bestätigt) | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| Passwort ändern / erstmals setzen | `POST /users/me/password` | — | aktuelles Passwort; die **erste** Passwortvergabe eines Kontos ohne eines bestätigt stattdessen mit `step_up_token` bzw. Code |
+| API-Key ausstellen (#1847) | `POST /auth/api-keys` | — | eigenes Passwort; sonst `step_up_token` bzw. Code. **Light-Modus:** kein Step-up (siehe unten) |
+| Gerät per QR-Code koppeln (#1847) | `POST /auth/device-pairing` | — | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| Anmeldeweg (Provider-Verknüpfung) entfernen (#1847) | `DELETE /users/me/providers/{provider_key}` | — | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| Vertrauen eines anderen Kontos anheben (Plattform-Admin, #1857) | `PATCH /admin/platform/users/{key}`, nur wenn `email_verified` oder `is_active` von false auf true wechselt | — | das des **Admins**; sonst dessen `step_up_token` bzw. Code |
+
+**Anmeldemittel ausstellen und entfernen (#1847).** Ein API-Key überlebt Passwortänderung und „überall abmelden"; ein Kopplungscode wird zu einer vollen Sitzung; das Entfernen eines Anmeldewegs ändert, wie das Konto zurückgeholt werden kann. Bis #1847 genügte für alle drei die bloße Sitzung — auch eine, die mit einem `kp_`-Key authentifiziert war: Ein gestohlener Key konnte weitere Keys ausstellen, eine gestohlene Sitzung einen Key hinterlassen, der die Passwortänderung der Eigentümerin überdauert. Sie laufen deshalb durch denselben Step-up wie die Passwortänderung. Im **Light-Modus** (REQ-027) stellt `POST /auth/api-keys` den MCP-Key ohne Step-up aus: Jede Anfrage ist dort ohnehin das eine Systemkonto, es gibt keinen Menschen zu bestätigen und kein Postfach für einen Code, und der Key gewährt nichts, was eine Anfrage nicht schon hat (REQ-033 §4.3). Gerätekopplung und Provider-Trennung existieren im Light-Modus nicht.
+
+**Keine automatische Widerrufung von API-Keys — umgesetzter Standard, offene Betreiber-Entscheidung (#1847, Fragenliste in #1650).** Passwortänderung, Passwort-Reset und „überall abmelden" widerrufen die Refresh-Token, **nicht** die API-Keys des Kontos. Der Betreiber hat noch nicht entschieden, ob das so bleibt; bis dahin gilt dieser Standard mit der folgenden Begründung. Ein Key steht für eine bewusst eingerichtete Maschinen-Integration (Home Assistant, MCP-Client); ihn bei jeder Passwortänderung stillschweigend zu entwerten, würde diese Integrationen ohne Hinweis brechen. Seit #1847 kann ein Key nur noch hinter dem Step-up entstehen, also nicht mehr aus einer bloß gestohlenen Sitzung oder aus einem anderen Key. Die Keys sind unter „API-Keys" mit Erstellungs- und letztem Nutzungszeitpunkt gelistet und einzeln widerrufbar. Restrisiko: Ein Key, den ein Angreifer mit Kenntnis des Passworts (oder vor #1847) ausgestellt hat, bleibt bis zum manuellen Widerruf gültig.
+
+**Vertrauensanhebung durch Plattform-Admins (#1857).** `email_verified` ist der Vertrauensanker der OAuth-Auto-Verknüpfung (`OAuthEngine.should_auto_link`). Eine gekaperte Admin-Sitzung konnte ein vorab registriertes Angreiferkonto unter der Adresse eines Opfers als verifiziert markieren; die nächste föderierte Anmeldung des Opfers mit dieser Adresse landete dann im Angreiferkonto. Wechselt `email_verified` oder `is_active` von false auf true, verlangt `PATCH /admin/platform/users/{key}` deshalb den Step-up des **Admins**. Die Step-up-Felder werden nie in das Konto geschrieben. Namensänderung, Deaktivierung und das erneute Senden unveränderter Werte (das Bearbeitungsformular schickt alle Felder) bleiben ohne Step-up.
+
+**Reihenfolge der Prüfung:**
+
+1. **Wer:** nur die angemeldete Sitzung eines Menschen. Ein Service Account oder eine Anfrage mit `kp_`-API-Key — auch einem, den ein menschliches Konto ausgestellt hat — wird mit 403 abgewiesen, **bevor** etwas gezählt wird.
+2. **Sperre:** ist der Step-up gesperrt, antwortet die Route 429 `STEP_UP_LOCKED` (`details[0].retry_after_minutes`), ohne das Geheimnis zu prüfen.
+3. **Ziel:** wo eine Aktion eines zurücktippt, muss es passen (E-Mail ohne Groß-/Kleinschreibung, Slug exakt) — sonst 422. Ein falsches Echo wird **nicht** gezählt; es prüft kein Geheimnis. Passwortänderung und E-Mail-Änderung haben kein Ziel zum Zurücktippen.
+4. **Geheimnis:** bei einem Konto mit lokalem Passwort das aktuelle — sonst 401. Ohne lokales Passwort prüft `verify()` zuerst, ob der Body ein `reauth_token` (`step_up_token`) trägt — dann zählt nur dieses, unabhängig davon, ob ein Code mitgeschickt wurde. Fehlt es: Hat das Konto einen OIDC-fähigen verknüpften Anbieter (§ unten), verweigert die Route mit 401 `STEP_UP_REAUTH_REQUIRED` — ein Code wird für ein solches Konto nicht mehr geprüft. Sonst (ausschließlich GitHub/Apple) prüft sie den Einmalcode aus `POST /users/me/step-up-code`; fehlt der, 401 `STEP_UP_CODE_REQUIRED`. Ein falsches Geheimnis jeder Art zählt in dasselbe Budget.
+
+**Frische Anmeldung beim Provider statt Echo (#1815, Betreiber-Entscheid: Variante 1).** Bis dahin bestätigte ein ausschließlich föderiertes Konto jede der obigen Aktionen mit dem zurückgetippten Ziel allein — dem Echo —, und die erste Passwortvergabe eines solchen Kontos bestätigte gar nichts. Das Echo prüft kein Geheimnis: Wer die Sitzung hält, liest die eigene E-Mail-Adresse ohnehin vom Profil ab. Ein Konto ohne lokales Passwort, dessen verknüpfter Anbieter das kann, bestätigt seitdem mit einer **frischen** Anmeldung genau bei diesem Anbieter — dem stärksten verfügbaren Nachweis, stärker als ein Einmalcode, der nur die Mailbox belegt.
+
+**Anbietergrenze.** Nur OpenID-Connect-Anbieter können belegen, *wann* sich die Person angemeldet hat: Google und ein generischer OIDC-Provider mit dem `openid`-Scope (`supports_fresh_reauth`, `app/domain/engines/oauth_engine.py`). **GitHub** ist reines OAuth2 und stellt kein ID-Token aus — also auch kein `auth_time`. **Apple** stellt ein ID-Token aus, aber ohne `auth_time`. Ein Konto, dessen verknüpfte Anmeldewege ausschließlich aus GitHub und/oder Apple bestehen, behält deshalb den per E-Mail zugeschickten Code als **Ausweichweg** (`EMAIL_CODE_FALLBACK = True`); ein Konto mit mindestens einem OIDC-fähigen Anbieter wird der Code verweigert (`STEP_UP_REAUTH_REQUIRED`) — der Code belegt nur die Mailbox, die frische Anmeldung mehr. Variante 2 (gar kein Code) hätte GitHub/Apple-only-Konten ihr Art.-17-Löschrecht in Selbstbedienung genommen; der Unterschied zu Variante 1 ist die eine Flagge `EMAIL_CODE_FALLBACK`.
+
+**`POST /users/me/step-up/oidc` (#1815).** Startet die frische Anmeldung: Body `{"action": "...", "provider_key": "..."}` (`provider_key` optional — ohne ihn der erste verknüpfte Anbieter, der es kann), Antwort `{"authorization_url": "..."}`. Die Anfrage an den Provider ist dieselbe wie beim Login (PKCE, State, Nonce, dieselbe Rückruf-URL), zusätzlich `prompt=login` und `max_age=0`: Der Provider muss die Person erneut anmelden statt aus eigener Sitzung zu antworten, und den Anmeldezeitpunkt (`auth_time`) zurückmelden. Der bestehende Callback (`/api/v1/auth/oauth/{slug}/callback`) meldet dabei niemanden an, sondern leitet auf `{frontend}/auth/step-up/callback` weiter — bei Erfolg mit `#step_up_token=…&action=…` im URL-**Fragment** (nie in der Query: erreicht keinen Server, keinen Proxy, keinen `Referer`-Header), bei Fehler mit `?error=step_up_failed` (allgemein), `?error=step_up_stale` (Anmeldung älter als fünf Minuten) oder `?error=step_up_cancelled` (am Provider abgebrochen).
+
+**Prüfung des ID-Tokens (`validate_fresh_reauth_claims`).** `iss` ist der erwartete Aussteller, `aud`/`azp` diese Instanz, `nonce` stimmt mit der Anfrage überein, `exp` ist nicht abgelaufen (`FRESH_REAUTH_CLOCK_SKEW_SECONDS` = 30 s Toleranz), `auth_time` ist vorhanden und höchstens `FRESH_REAUTH_MAX_AGE_SECONDS` = 300 s alt (dieselbe Toleranz) — älter ist `reason="stale"` (die Person kann es erneut versuchen). Zusätzlich prüft der Service, dass `sub` zu einer verknüpften Anmeldung **dieses** Kontos bei diesem Anbieter gehört (`complete_step_up_reauth`) und das Konto noch ein aktiver Mensch ist.
+
+**Keine JWKS-Signaturprüfung.** Das ID-Token kommt direkt vom Token-Endpunkt des Providers über TLS, in einem Austausch, den dieser Server mit seinem eigenen Client-Secret und dem PKCE-Verifier authentifiziert hat — genau der Fall, für den OIDC Core 1.0 §3.1.3.7 Nr. 6 die TLS-Serverauthentifizierung als Ersatz für die Signaturprüfung vorsieht. Ein zusätzlicher JWKS-Abruf und -Cache je Provider würde gegen einen Angreifer, der nicht in dieser TLS-Sitzung sitzt, keinen Gewinn bringen. Deshalb gilt ein Provider nur mit einem `https`-Token-Endpunkt als re-authentifizierbar (`supports_fresh_reauth`, zusätzlich vor dem Tausch geprüft); `auth_time` und `exp` müssen endliche Zahlen sein (kein `NaN`/`Infinity`, kein Boolean).
+
+**Bindung an Konfiguration, Aussteller und Tab (Security-Review des Bundles).** `sub` ist nur je Aussteller eindeutig. Eine Anbieter-Verknüpfung speichert deshalb die Konfiguration (`oidc_config_slug`) und den Aussteller (`issuer`), über die sie entstand; die frische Anmeldung geht an genau diese Konfiguration, und `iss` muss zum gespeicherten Aussteller passen. Eine ältere Verknüpfung ohne diese Angaben gilt nur als re-authentifizierbar, wenn genau eine aktive, fähige Konfiguration ihres Typs existiert — sonst steht ihr der E-Mail-Code offen, damit kein Konto ausgesperrt wird. Die Rückruf-URL der erneuten Anmeldung wird aus `APP_BASE_URL` gebildet, nie aus dem Host-Header. Der Client kann ein `client_nonce` (32 Hex-Zeichen) mitgeben, das unverändert neben Token bzw. Fehler zurückkommt; die Callback-Seite übernimmt nur ein Ergebnis mit dem eigenen Nonce. Ein Verifier ohne Re-Authentifizierungs-Richtlinie verweigert Code und Token (fail closed). Unterscheidbare 422-Codes: `STEP_UP_PASSWORD_REQUIRED` (Konto hat ein Passwort), `STEP_UP_REAUTH_UNAVAILABLE` (kein fähiger Anbieter → E-Mail-Code), `STEP_UP_REAUTH_REQUIRED` (beim Code-Abruf: Re-Authentifizierung nehmen). Der Login-Pfad hat dieselbe Aussteller-Verwechslung und eine abweichende `redirect_uri` noch; beides ist außerhalb dieses Bundles erfasst.
+
+Der zurückgegebene `step_up_token` (32 Zufallsbytes, nur als HMAC unter demselben `JWT_SECRET_KEY`-abgeleiteten, aber zweckgetrennten Schlüssel gespeichert — `kp-step-up-reauth` statt `kp-step-up-code`) ist `REAUTH_TOKEN_TTL_SECONDS` = 5 Minuten gültig, an Konto **und** Aktion gebunden, wird durch die erste Aktion verbraucht, die ihn vorlegt, und ersetzt einen noch gültigen Token bei erneuter Anfrage. Er geht als `step_up_token` in den Step-up-Body der Aktion (Tabelle oben) — Nachweis-Methode `oidc_reauth`.
+
+Verweigert (Start): 403 einer API-Key-Anfrage, einem Dienstkonto oder im Light-Modus; 422 einem Konto mit lokalem Passwort, einem Konto ohne (bzw. ohne den über `provider_key` gewählten) OIDC-fähigen verknüpften Anbieter — es bestätigt dann mit dem Code —, oder bei fehlendem/unbekanntem `action`; 429 `STEP_UP_LOCKED` bei gesperrtem Step-up. Verweigert (Abschluss/Callback): kein JSON-Fehler, sondern einer der drei Redirect-Fehlercodes oben; die Prüfung selbst schreibt nichts.
+
+**Betreiber-Voraussetzung.** Der verknüpfte Identity-Provider muss `prompt=login`/`max_age` und den Claim `auth_time` unterstützen. Die beim Provider hinterlegte Rückruf-URL ist dieselbe wie beim normalen Login, keine zusätzliche Konfiguration nötig.
+
+**`POST /users/me/step-up-code` (#1815, Ausweichweg für GitHub/Apple, gehärtet im Security-Review des Bundles).** Verschickt einen achtstelligen Code an die eigene E-Mail-Adresse (202, Antwort `{expires_at, expires_in}` — nie der Code selbst). Der Body ist Pflicht: `{"action": "..."}` mit einem der neun Werte aus der Tabelle oben (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `email_change`, `password_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`) — fehlt `action` oder ist er unbekannt, antwortet die Route 422. Die Mail nennt die Aktion in Klartext (`CODE_PURPOSES`, feste englische Texte, nie Nutzereingabe).
+
+**Aktionsbindung (review SEC-003).** Der Digest bindet Kontoschlüssel **und** Aktion: `HMAC(Schlüssel, "Kontoschlüssel:Aktion:Code")`. Ein für `password_change` angeforderter Code lehnt `verify()` für `account_erasure` ab, ohne ihn zu verbrauchen — er passt einfach auf nichts.
+
+**Schlüsselwahl.** Der HMAC-Schlüssel ist von `JWT_SECRET_KEY` abgeleitet (`HMAC(JWT_SECRET_KEY, "kp-step-up-code")`), nicht `ERASURE_TOMBSTONE_SALT` (kann leer sein, zweckgebunden für Pseudonymisierung) und kein neues Pflicht-Secret. Ein bloßer `sha256(Konto:Code)` über nur 10⁸ mögliche Codes wäre aus einem Valkey-Dump offline in Sekunden umkehrbar, solange der Code lebt. Eine Rotation von `JWT_SECRET_KEY` entwertet ausstehende Codes und Reauth-Token gleichermaßen (höchstens zehn bzw. fünf Minuten Bestand).
+
+**Ausgabegrenzen (review SEC-002).** Gültig `CODE_TTL_SECONDS` = 10 Minuten, verbraucht durch die erste Aktion, die ihn vorlegt. Ein neuer Aufruf ersetzt einen noch gültigen Code — außer: ein **noch nicht verbrauchter** Code jünger als `CODE_COOLDOWN_SECONDS` = 60 Sekunden wird nicht ersetzt (sonst würde eine parallele Anfrage den Code entwerten, den die Person gerade eintippt), und höchstens `CODE_ISSUES_PER_WINDOW` = 5 Codes pro Konto und `CODE_ISSUE_WINDOW_SECONDS` = 3600 Sekunden werden ausgegeben. Beide Grenzen antworten 429 `STEP_UP_LOCKED` mit `details[0].retry_after_minutes` — dieselbe Fehlerform wie eine Verify-Sperre, mit eigenem `message`-Text, damit ein Client nicht zwei Fälle unterscheiden muss.
+
+Verweigert: 403 einer API-Key-Anfrage, einem Dienstkonto oder im Light-Modus (`refuse_in_light_mode`-Dependency, #1844: das einzige Konto der Instanz hat kein Passwort, ein dort gesetztes würde nach dem Wechsel in den Full-Modus zur gültigen Anmeldung); 422 einem Konto mit lokalem Passwort (es bestätigt damit, nicht mit einem Code), bei fehlendem/unbekanntem `action`, **oder wenn das Konto einen OIDC-fähigen verknüpften Anbieter hat** (`STEP_UP_REAUTH_REQUIRED`, siehe oben — es bestätigt dann mit der frischen Anmeldung); 429 `STEP_UP_LOCKED` bei gesperrtem Step-up oder ausgeschöpfter Ausgabegrenze. Zusätzlich rate-limitiert wie die übrigen Auth-Routen (`settings.rate_limit_auth`, ein zweiter, adressbezogener Zähler ohne `STEP_UP_LOCKED`-Hülle).
+
+**Unzustellbarer Code (/code-review of #1862).** Scheitert der Versand — der Konsolen-Adapter außerhalb von `debug` liefert bewusst nicht aus, oder der SMTP-Versand meldet einen Fehler —, antwortet die Route 503 `STEP_UP_CODE_UNDELIVERABLE`, statt 202 zu melden und den Code verschwinden zu lassen. `StepUpVerifier.withdraw_code` nimmt den Code dabei zurück: Der Eintrag im Code-Store wird gelöscht, die 60-Sekunden-Sperre aufgehoben und der Platz im Stundenkontingent zurückgegeben — ein erneuter Versuch nach der Behebung durch den Betreiber wartet also nicht auf `CODE_COOLDOWN_SECONDS` oder das nächste Zeitfenster. Die Redis-Reservierung selbst läuft als ein einziger `SET NX`-Schritt, damit zwei gleichzeitige Anfragen nicht beide "kein Warten nötig" lesen und beide einen Code ausgeben.
+
+**Betriebsvoraussetzung.** Ein Konto mit OIDC-fähigem Anbieter braucht dessen `prompt=login`/`max_age`/`auth_time`-Unterstützung (siehe oben), keinen Mail-Versand. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind, braucht für den Ausweichweg funktionierenden Mail-Versand (`EMAIL_ADAPTER=smtp`). Läuft die Instanz mit dem Konsolen-Adapter und `DEBUG=false` (die produktive Voreinstellung ohne SMTP-Konfiguration), meldet die Route das explizit (503 `STEP_UP_CODE_UNDELIVERABLE`, siehe oben) — ein solches Konto kann sich bis zur Behebung trotzdem nicht löschen, kein erstes lokales Passwort setzen, keinen Mandanten löschen und die E-Mail-Adresse nicht ändern.
+
+**Drosselung.** Jeder Bestätigungsversuch (Passwort, Code oder eine vorgelegte, aber ungültige/abgelaufene Reauth-Token) wird **vor** seiner Prüfung atomar reserviert (Valkey `INCR`, In-Process-Fallback bei Ausfall — nie fail-open). Zwei Zähler, beide über denselben `LoginThrottleEngine` wie der Login (ab 5 Fehlversuchen 15 Minuten, verdoppelnd bis 4 Stunden):
+
+- je **(Konto, Client-Adresse)** mit der Login-Schwelle 5;
+- je **Konto** mit der Obergrenze 15 (drei Adress-Budgets) gegen Adress-Rotation.
+
+Nach Ablauf einer Sperre wird genau ein weiterer Versuch geprüft; schlägt er fehl, sperrt er sofort wieder mit doppelter Dauer (wie beim Login). Anfragen, die gleichzeitig über das Budget hinaus reserviert haben, werden ohne Prüfung abgewiesen; Sperre, Zählung der Sperren und Rücksetzen des Zählers geschehen in einem Schritt (eine Valkey-Transaktion). Die Zähler gelten für alle Step-up-Aktionen eines Kontos gemeinsam (kein Budget je Route) — das Anfordern und das Vorlegen eines Codes oder einer erneuten Anmeldung eingeschlossen. Ein erfolgreicher Step-up leert beide. Im Light-Modus wird keine Kontolöschung per Anfrage angenommen (403) — dort ist jede Anfrage das eine Systemkonto.
+
+**Warum nicht die Login-Sperre.** Einen Step-up-Fehlversuch für ein Konto kann nur erzeugen, wer eine Sitzung dieses Kontos hält — geprüft wird immer das Geheimnis der handelnden Person, API-Keys werden vor dem Zählen abgewiesen. Ein Außenstehender kann ein Opfer über diesen Weg also nicht sperren. Flössen die Fehlversuche in `failed_login_attempts`, könnte aber ein Sitzungsdieb die Eigentümerin von der **Anmeldung** aussperren — genau dem Schritt, mit dem sie die gestohlene Sitzung sieht und widerruft. Umgekehrt würde das Lesen der Login-Sperre einem nicht angemeldeten Angreifer (der jede bekannte Adresse am Login sperren kann) erlauben, auch die Step-ups der Eigentümerin zu blockieren. Die Step-up-Sperre hält deshalb nur Step-ups auf. Restrisiko: ein Sitzungsdieb kann den kontoweiten Zähler gesperrt halten; die Eigentümerin kann sich trotzdem anmelden, Sitzungen widerrufen und das Passwort per E-Mail zurücksetzen. Letzteres trägt nur, solange die E-Mail-Adresse selbst hinter einem Step-up liegt — seit #1841 gilt das auch für die E-Mail-Änderung selbst (`POST /privacy/email-change`): sie läuft durch denselben Step-up wie die Kontolöschung, siehe oben. Verbleibendes Restrisiko: Ein Sitzungsdieb, der zusätzlich das Postfach eines föderierten Kontos kontrolliert oder sich am OIDC-Provider erneut anmelden kann, besteht auch diesen Step-up — das ist die Mailbox bzw. der Provider-Zugang, nicht diese Prüfung.
+
+**Nachweis.** Der Löschauftrag (`erasure_requests`) hält `step_up` (`password` / `oidc_reauth` / `email_code`; ältere, vor #1815 geschriebene Datensätze noch mit dem historischen Echo-Wert); bei einer Admin-Löschung zusätzlich `requested_by_subject` — die gesalzene Referenz des Admins, nie dessen Kontoschlüssel.
 
 ## 4. Frontend
 
@@ -1876,7 +1981,7 @@ class ServiceAccountService:
   "allowed_ip_ranges": ["192.168.1.0/24"],
   "api_key": {
     "_key": "ak_sa_001",
-    "api_key": "kp_b7e2f8a1c3d5e9f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4",
+    "api_key": "kp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "key_prefix": "kp_b7e2...",
     "created_at": "2026-03-17T10:00:00Z"
   },
@@ -1918,7 +2023,7 @@ Das JWT Access Token (§5a.2) wird um `account_type` erweitert:
 3. Dialog: Name "Home Assistant", Beschreibung "Sensor- und Aktor-Integration",
    Rolle: Gärtner (grower), IP-Bereich: 192.168.1.0/24
 4. System erstellt Service Account + initialen API-Key
-5. Dialog zeigt API-Key einmalig an: "kp_b7e2f8a1..."
+5. Dialog zeigt API-Key einmalig an: "kp_xxxxxxxx..."
 6. Anna kopiert Key und hinterlegt ihn in der HA-Konfiguration
 7. HA authentifiziert sich per API-Key → Middleware erkennt kp_-Prefix
    → löst Service Account auf → prüft IP (192.168.1.x ✓) → Zugriff OK

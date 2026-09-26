@@ -14,6 +14,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.domain.models.glossary_term import GlossaryTerm, GlossaryTermCacheEntry
 
 
@@ -168,7 +169,7 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
           FILTER doc.language == @language
           FILTER doc.expertise_level == @expertise_level
           FILTER doc.valid_until == null OR DATE_TIMESTAMP(doc.valid_until) > DATE_TIMESTAMP(@now)
-          SORT doc.generated_at DESC
+          SORT DATE_TIMESTAMP(doc.generated_at) DESC
           LIMIT 1
           RETURN doc
         """
@@ -248,7 +249,8 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
         cutoff = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER DATE_TIMESTAMP(doc.valid_until) != null
+          FILTER doc.valid_until < @cutoff_slack
+            AND DATE_TIMESTAMP(doc.valid_until) != null
             AND DATE_TIMESTAMP(doc.valid_until) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
@@ -256,6 +258,10 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": self._collection_name, "cutoff": cutoff},
+            bind_vars={
+                "@collection": self._collection_name,
+                "cutoff": cutoff,
+                "cutoff_slack": instant_prefilter_bound(cutoff),
+            },
         )
         return next(cursor, 0)

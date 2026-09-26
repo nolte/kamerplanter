@@ -26,6 +26,7 @@ import httpx
 import structlog
 
 from app.common.log_privacy import loggable_error
+from app.domain.engines.encryption_engine import SecretKeyMismatchError
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import (
     WeatherForecast,
@@ -139,7 +140,14 @@ class WeatherSourceResolver:
             entries = self._default_entries(effective)
 
         for entry in entries:
-            adapter = self._build(entry, effective)
+            try:
+                adapter = self._build(entry, effective)
+            except SecretKeyMismatchError:
+                # The per-site key was encrypted with another FERNET_KEY (#1859).
+                # Skip this source loudly rather than abort the whole chain or
+                # fall back to the global key unseen.
+                logger.error("weather_source_key_undecryptable", source=entry.source_name)
+                continue
             if adapter is None:
                 continue
             try:

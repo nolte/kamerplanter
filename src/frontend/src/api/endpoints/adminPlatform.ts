@@ -1,5 +1,6 @@
 import apiClient from '@/api/client';
 import type {
+  AccountErasureRequest,
   AdminAddMemberRequest,
   AdminAddUserToTenantRequest,
   AdminPlatformStats,
@@ -39,6 +40,12 @@ export async function updateAdminTenant(
   return data;
 }
 
+/**
+ * Partially update another account. Turning `email_verified` or `is_active`
+ * from false to true passes the **admin's own** step-up (#1857): the payload
+ * then carries `current_password` (or `step_up_token` / `step_up_code` for an
+ * admin without one) for the act `admin_account_update`; 401 without it.
+ */
 export async function updateAdminUser(
   key: string,
   payload: AdminUserUpdate,
@@ -54,8 +61,13 @@ export async function deleteAdminTenant(key: string, stepUp: TenantDeleteRequest
   await apiClient.delete(`/admin/platform/tenants/${encodeURIComponent(key)}`, { data: stepUp });
 }
 
-export async function deleteAdminUser(key: string): Promise<void> {
-  await apiClient.delete(`/admin/platform/users/${encodeURIComponent(key)}`);
+/**
+ * Erase another account at once (#1814). The body echoes the **target's**
+ * e-mail and carries the **admin's own** current password when the admin's
+ * account has one.
+ */
+export async function deleteAdminUser(key: string, stepUp: AccountErasureRequest): Promise<void> {
+  await apiClient.delete(`/admin/platform/users/${encodeURIComponent(key)}`, { data: stepUp });
 }
 
 export async function fetchTenantMembers(tenantKey: string): Promise<AdminTenantMember[]> {

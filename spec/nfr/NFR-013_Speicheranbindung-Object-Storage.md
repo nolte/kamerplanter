@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.4 (Umsetzungsstand kategoriescharfes Keep-EXIF festgehalten)
+Version: 1.5 (#1770: Deduplizierung pro Hochlader, geteiltes Objekt wird mit dem letzten Datensatz gelöscht)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.5 | 2026-09-25 | **Deduplizierung pro Hochlader (#1770):** Schritt 8 der Upload-Pipeline gibt einem zweiten Hochlader identischer Bytes nicht mehr den Datensatz des ersten zurück, sondern einen eigenen Datensatz über dasselbe gespeicherte Objekt; `storage_key` ist deshalb nicht mehr eindeutig (Migration v0062 entfernt den eindeutigen Index). Ein Objekt wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält; die Quota zählt es einmal. |
 | 1.4 | 2026-08-05 | **Umsetzungsstand `STORAGE_KEEP_EXIF_<CATEGORY>` festgehalten (Korrektur aus der REQ-050-Umsetzung, Issue #921):** §6.4 haelt jetzt ausdruecklich fest, dass die kategoriescharfe Keep-EXIF-Variante **spezifiziert, aber nicht implementiert** ist — es existiert ausschliesslich das globale `STORAGE_STRIP_EXIF`. §8.2 nennt entsprechend das tatsaechlich vorhandene Setting. Die Zusage „Renditions sind EXIF-frei" bleibt unveraendert gueltig und ist unabhaengig von der Konfiguration. Keine Aenderung am Adapter-Vertrag, an Kategorien oder am Pfadschema. |
 | 1.3 | 2026-08-04 | **Thumbnails sind normativ EXIF-frei (REQ-050):** §8.2 haelt jetzt ausdruecklich fest, dass Renditions keine EXIF-Daten uebernehmen — auch nicht bei `STORAGE_KEEP_EXIF_<CATEGORY>=true`, das ausschliesslich die Originaldatei betrifft. Bisher war das nur implizit ueber die Neukodierung angenommen. REQ-050 §4.4 liefert Renditions ueber MCP an externe KI-Agenten aus und stuetzt die Zulaessigkeit genau auf diese Eigenschaft; eine stillschweigende Annahme traegt das nicht. Kein Eingriff in den Adapter-Vertrag, keine Aenderung an Kategorien oder Pfadschema. |
 | 1.2 | 2026-06-19 | **category `plant` (REQ-034 Pflanzenfoto-Galerie):** `category`-Enum in §4.3 und Default-Mime-Whitelist in §5.2 um `plant` ergänzt (Foto-Whitelist `image/jpeg,png,webp,heic`, 25 MB). Storage-Key-Schema, Thumbnails, Pre-Sign, DSGVO-Erasure unverändert — REQ-034-Fotos hängen an der Pflanzeninstanz (REQ-013) und werden im Erasure als Scope `user_diary_attachments` klassifiziert. Kein Eingriff in den Adapter-Vertrag. |
@@ -321,7 +322,7 @@ Pflicht-Reihenfolge fuer jeden Upload:
 5. **Magic-Byte-Validierung** — der erste Block wird gegen den deklarierten Mime-Type geprueft (Schutz vor maskierten Uploads)
 6. **Groessenlimit** — gegen `STORAGE_MAX_FILE_SIZE_MB`
 7. **Optional Virus-Scan** — wenn `STORAGE_VIRUS_SCAN_ENABLED=true`, ClamAV-Wrapper-Aufruf, Block auf Findings
-8. **SHA-256-Hash-Berechnung** — Deduplizierung pro Tenant, Integritaet in `attachments`-Metadaten
+8. **SHA-256-Hash-Berechnung** — Deduplizierung pro Tenant, Integritaet in `attachments`-Metadaten. Dedupliziert werden die **Bytes**, nicht der Datensatz (#1770): Hat derselbe Hochlader dieselben Bytes in derselben Kategorie schon hochgeladen, wird sein Datensatz zurückgegeben; sonst erhält er einen eigenen Datensatz, der auf das vorhandene Objekt zeigt. Ein Objekt samt Renditionen wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält (Einzellöschung, Waisen-Bereinigung, DSGVO-Löschung nach REQ-025 AK-OS-08); die Quota zählt es einmal. Mandanten teilen nie.
 9. **Schreiben** ueber Adapter
 10. **Metadaten-Persistenz** in ArangoDB
 11. **Audit-Log-Eintrag** — `who`, `when`, `tenant_key`, `attachment_id`, `category`, `byte_size`

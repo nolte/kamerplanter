@@ -1,3 +1,4 @@
+import ipaddress
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -19,6 +20,14 @@ class AuthProvider(BaseModel):
     user_key: str
     provider: AuthProviderType
     provider_user_id: str
+    #: The configuration the link was made through, and the ``iss`` of its ID token
+    #: (#1815 review SEC-001). A link type alone (``oidc``) cannot tell two generic
+    #: OIDC providers apart; the step-up re-authentication matches a link only to its
+    #: own configuration. ``None`` on links made before these fields existed — see
+    #: ``FederatedReauthPolicy`` for how those are treated (no migration: a backfill
+    #: would have to guess the configuration exactly where it is ambiguous).
+    oidc_config_slug: str | None = None
+    issuer: str | None = None
     provider_email: str | None = None
     provider_display_name: str | None = None
     avatar_url: str | None = None
@@ -143,6 +152,51 @@ class ApiKey(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+
+def api_key_scope_admits(scope: str | None, *, tenant_key: str) -> bool:
+    """Whether an API key restricted to *scope* may act in the tenant *tenant_key* (REQ-023).
+
+    The one predicate both key-accepting surfaces decide on — the REST tenant
+    resolvers (``app.common.auth``) and the MCP authenticator — so they can never
+    disagree about which tenant a key reaches (#1817). An absent or empty scope
+    restricts nothing.
+
+    **Matched on the tenant key only (#1852).** A slug is not an identity: a
+    rename re-derives it and a deleted tenant's slug can be issued again, so a
+    slug-form scope would follow the *name* to whichever tenant holds it now.
+    ``AuthService.create_api_key`` therefore stores the resolved tenant key, and
+    migration ``v0063`` rewrote the slug-form scopes stored before.
+    """
+    if not scope:
+        return True
+    return scope == tenant_key
+
+
+def api_key_ip_admits(allowlist: list[str] | None, client_ip: str | None) -> bool:
+    """Whether a request from *client_ip* passes an API key's ``ip_allowlist`` (SEC-004).
+
+    An empty or absent allowlist admits every address. A configured one fails
+    **closed**: an unresolvable or unparsable client IP, and an address outside
+    every listed range, are refused. A malformed entry never widens access — it
+    is skipped, not read as "everything".
+    """
+    if not allowlist:
+        return True
+    if not client_ip:
+        return False
+    try:
+        addr = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    for entry in allowlist:
+        try:
+            network = ipaddress.ip_network(entry, strict=False)
+        except ValueError:
+            continue
+        if addr in network:
+            return True
+    return False
 
 
 class ApiKeyCreated(BaseModel):

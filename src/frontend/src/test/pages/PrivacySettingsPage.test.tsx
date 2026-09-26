@@ -4,8 +4,35 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import PrivacySettingsPage from '@/pages/auth/PrivacySettingsPage';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createTestStore, authState } from '../helpers';
 import { server } from '../mocks/server';
+
+/** The erasure dialog echoes the signed-in account's own e-mail (#1813). */
+const OWN_EMAIL = 'tester@example.org';
+
+function renderErasurePage() {
+  return renderWithProviders(<PrivacySettingsPage />, { store: createTestStore(authState()) });
+}
+
+function localProvider() {
+  return http.get('/api/v1/users/me/providers', () =>
+    HttpResponse.json([
+      {
+        key: 'prov-1',
+        provider: 'local',
+        provider_email: OWN_EMAIL,
+        provider_display_name: null,
+        linked_at: '2024-01-01T00:00:00Z',
+        last_used_at: null,
+      },
+    ]),
+  );
+}
+
+async function typeEmailEcho(user: ReturnType<typeof userEvent.setup>, value = OWN_EMAIL) {
+  const field = (await screen.findByTestId('privacy-erasure-email')).querySelector('input') as HTMLInputElement;
+  await user.type(field, value);
+}
 
 describe('PrivacySettingsPage', () => {
   beforeEach(() => {
@@ -191,36 +218,123 @@ describe('PrivacySettingsPage', () => {
     }
   });
 
-  it('confirms erasure without a password for federated accounts and sends an empty body', async () => {
-    // Default providers mock returns no local provider → password-less flow.
-    let sentBody: { password?: string } | undefined;
+  it('confirms erasure of a federated account with the e-mailed code instead of a password (#1815)', async () => {
+    let sentBody: { password?: string; confirm_email?: string; step_up_code?: string } | undefined;
+    let codeBody: unknown = null;
+    const code = ['9', '8', '7', '6', '5', '4'].join('');
     server.use(
+      http.post('/api/v1/users/me/step-up-code', async ({ request }) => {
+        codeBody = await request.json();
+        return HttpResponse.json({ expires_at: '2026-09-25T12:10:00Z', expires_in: 600 }, { status: 202 });
+      }),
+      http.get('/api/v1/users/me/providers', () =>
+        HttpResponse.json([
+          {
+            key: 'prov-g',
+            provider: 'github',
+            provider_email: OWN_EMAIL,
+            provider_display_name: null,
+            linked_at: '2024-01-01T00:00:00Z',
+            last_used_at: null,
+          },
+        ]),
+      ),
       http.post('/api/v1/privacy/erasure', async ({ request }) => {
-        sentBody = (await request.json()) as { password?: string };
+        sentBody = (await request.json()) as { password?: string; confirm_email?: string; step_up_code?: string };
         return new HttpResponse(null, { status: 202 });
       }),
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<PrivacySettingsPage />);
+    renderErasurePage();
 
     await user.click(await screen.findByTestId('privacy-tab-erasure'));
     await user.click(await screen.findByTestId('privacy-erasure-request-btn'));
     await screen.findByTestId('privacy-erasure-dialog');
+    await typeEmailEcho(user);
 
     // Once the provider list resolves as federated (fail-closed lifts), the
-    // confirm button enables without a password and no password field is shown.
+    // password field gives way to the e-mailed code, which the confirm needs.
     const confirmBtn = await screen.findByTestId('privacy-erasure-confirm-btn');
-    await waitFor(() => expect(confirmBtn).not.toBeDisabled());
+    const codeInput = (await screen.findByTestId('privacy-erasure-code')).querySelector('input') as HTMLInputElement;
     expect(screen.queryByTestId('privacy-erasure-password')).toBeNull();
+    expect(confirmBtn).toBeDisabled();
+    await user.click(screen.getByTestId('privacy-erasure-send-code'));
+    // The code is requested for the account erasure only (review SEC-003).
+    await waitFor(() => expect(codeBody).toEqual({ action: 'account_erasure' }));
+    await user.type(codeInput, code);
+    await waitFor(() => expect(confirmBtn).not.toBeDisabled());
 
     await user.click(confirmBtn);
 
     await waitFor(() => {
       expect(screen.getByText(i18n.t('pages.privacy.erasureRequested'))).toBeTruthy();
     });
-    // Federated accounts must not send a password field.
-    expect(sentBody?.password).toBeUndefined();
+    // Federated accounts send the echo and the code, no password.
+    expect(sentBody).toEqual({ confirm_email: OWN_EMAIL, step_up_code: code });
+  });
+
+  it('keeps the password field when the account lists no provider at all (fail closed)', async () => {
+    // Seeded accounts carry a password hash without a `local` provider row, so
+    // an empty list is "unknown", not "federated" (#1791 SEC-003).
+    const user = userEvent.setup();
+    renderErasurePage();
+
+    await user.click(await screen.findByTestId('privacy-tab-erasure'));
+    await user.click(await screen.findByTestId('privacy-erasure-request-btn'));
+    await typeEmailEcho(user);
+
+    expect(await screen.findByTestId('privacy-erasure-password')).toBeTruthy();
+    expect(screen.getByTestId('privacy-erasure-confirm-btn')).toBeDisabled();
+  });
+
+  it('keeps the confirm button disabled until the own e-mail is typed back', async () => {
+    server.use(localProvider());
+    const user = userEvent.setup();
+    renderErasurePage();
+
+    await user.click(await screen.findByTestId('privacy-tab-erasure'));
+    await user.click(await screen.findByTestId('privacy-erasure-request-btn'));
+    const passwordField = within(await screen.findByTestId('privacy-erasure-password')).getByLabelText(/passwort/i);
+    await user.type(passwordField, 'demo-passwort-2024');
+    const confirmBtn = screen.getByTestId('privacy-erasure-confirm-btn');
+    expect(confirmBtn).toBeDisabled();
+
+    await typeEmailEcho(user, 'TESTER@example.org');
+    await waitFor(() => expect(confirmBtn).not.toBeDisabled());
+  });
+
+  it('shows the lockout with its minutes inside the dialog on 429 STEP_UP_LOCKED', async () => {
+    server.use(
+      localProvider(),
+      http.post('/api/v1/privacy/erasure', () =>
+        HttpResponse.json(
+          {
+            error_id: 'e',
+            error_code: 'STEP_UP_LOCKED',
+            message: 'Too many failed confirmations. Try again in 15 minutes.',
+            details: [{ field: 'password', reason: 'locked', code: 'STEP_UP_LOCKED', retry_after_minutes: '15' }],
+            timestamp: '',
+            path: '',
+            method: '',
+          },
+          { status: 429 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderErasurePage();
+
+    await user.click(await screen.findByTestId('privacy-tab-erasure'));
+    await user.click(await screen.findByTestId('privacy-erasure-request-btn'));
+    await typeEmailEcho(user);
+    await user.type(within(await screen.findByTestId('privacy-erasure-password')).getByLabelText(/passwort/i), 'x');
+    await user.click(screen.getByTestId('privacy-erasure-confirm-btn'));
+
+    expect(await screen.findByTestId('privacy-erasure-dialog-error')).toHaveTextContent(
+      i18n.t('pages.auth.stepUpLocked', { minutes: '15' }),
+    );
+    expect(screen.getByTestId('privacy-erasure-dialog')).toBeTruthy();
   });
 
   it('fails closed and shows the password field when the provider load fails', async () => {
@@ -262,20 +376,20 @@ describe('PrivacySettingsPage', () => {
         ]),
       ),
     );
-    let sentPassword: string | undefined;
+    let sentBody: unknown;
     server.use(
       http.post('/api/v1/privacy/erasure', async ({ request }) => {
-        const body = (await request.json()) as { password?: string };
-        sentPassword = body.password;
+        sentBody = await request.json();
         return new HttpResponse(null, { status: 202 });
       }),
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<PrivacySettingsPage />);
+    renderErasurePage();
 
     await user.click(await screen.findByTestId('privacy-tab-erasure'));
     await user.click(await screen.findByTestId('privacy-erasure-request-btn'));
+    await typeEmailEcho(user);
 
     // Password field is shown and the confirm button is disabled until filled.
     const passwordField = within(await screen.findByTestId('privacy-erasure-password')).getByLabelText(
@@ -292,7 +406,7 @@ describe('PrivacySettingsPage', () => {
     await waitFor(() => {
       expect(screen.getByText(i18n.t('pages.privacy.erasureRequested'))).toBeTruthy();
     });
-    expect(sentPassword).toBe('demo-passwort-2024');
+    expect(sentBody).toEqual({ confirm_email: OWN_EMAIL, password: 'demo-passwort-2024' });
   });
 
   it('shows the backend authorisation error and keeps the dialog open on a wrong password', async () => {
@@ -326,10 +440,11 @@ describe('PrivacySettingsPage', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<PrivacySettingsPage />);
+    renderErasurePage();
 
     await user.click(await screen.findByTestId('privacy-tab-erasure'));
     await user.click(await screen.findByTestId('privacy-erasure-request-btn'));
+    await typeEmailEcho(user);
 
     const passwordField = within(await screen.findByTestId('privacy-erasure-password')).getByLabelText(
       /passwort/i,

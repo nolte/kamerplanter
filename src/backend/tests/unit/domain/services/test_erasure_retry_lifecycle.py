@@ -42,6 +42,7 @@ from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import ErasureRequest
+from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 
@@ -49,6 +50,14 @@ SALT = "s" * 32
 TENANT = "t-1"
 USER = "u-1"
 T0 = datetime(2026, 9, 1, 4, 0, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
 
 
 class _AttachmentCatalog:
@@ -66,6 +75,7 @@ class _AttachmentCatalog:
     def add(self, *, storage_key: str, category: AttachmentCategory, mime_type: str) -> None:
         self.rows.append(
             SimpleNamespace(
+                key=f"att-{len(self.rows) + 1}",
                 tenant_key=TENANT,
                 created_by=USER,
                 category=category,
@@ -86,6 +96,16 @@ class _AttachmentCatalog:
     def find_by_user(self, tenant_key: str, user_key: str, categories: list[AttachmentCategory] | None = None):
         return list(self._match(tenant_key, user_key, categories))
 
+    def storage_keys_held_elsewhere(
+        self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
+    ) -> set[str]:
+        """Objects a row outside *excluding* still holds — the repository's semantics (#1770)."""
+        return {
+            row.storage_key
+            for row in self.rows
+            if row.tenant_key == tenant_key and row.storage_key in storage_keys and row.key not in excluding
+        }
+
     def anonymize_user_metadata(
         self, tenant_key: str, user_key: str, categories: list[AttachmentCategory] | None = None
     ) -> int:
@@ -102,7 +122,7 @@ class _CountingLocalFs(LocalFsStorageAdapter):
         super().__init__(*args, **kwargs)
         self.calls: list[str] = []
 
-    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
+    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> StorageErasureResult:
         self.calls.append(f"delete_for_user:{scope}")
         return await super().delete_for_user(tenant_key, user_key, scope)
 
