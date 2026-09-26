@@ -365,7 +365,7 @@ describe('AccountSettingsPage — back from the fresh sign-in (#1815, #1847)', (
 
   it('reopens the API-key dialog and creates the key with the pending token', async () => {
     const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
-    storePendingStepUpToken(token, 'api_key_creation');
+    storePendingStepUpToken(token, 'api_key_creation', null);
     saveStepUpResume({ surface: 'create-api-key', action: 'api_key_creation', returnPath: '/account#apikeys' });
     let body: unknown = null;
     server.use(
@@ -391,7 +391,7 @@ describe('AccountSettingsPage — back from the fresh sign-in (#1815, #1847)', (
 
   it('reopens the device-pairing step-up and mints the code with the pending token', async () => {
     const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
-    storePendingStepUpToken(token, 'device_pairing');
+    storePendingStepUpToken(token, 'device_pairing', null);
     saveStepUpResume({
       surface: 'connect-device-step-up',
       action: 'device_pairing',

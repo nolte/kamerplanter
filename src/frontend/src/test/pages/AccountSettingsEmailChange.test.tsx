@@ -225,7 +225,7 @@ describe('AccountSettingsPage — e-mail change (#1848)', () => {
     providers([{ provider: 'google' }]);
     const bodies = captureRequests();
     sessionStorage.setItem(EMAIL_CHANGE_ADDRESS_KEY, NEW_EMAIL);
-    storePendingStepUpToken(TOKEN, 'email_change');
+    storePendingStepUpToken(TOKEN, 'email_change', null);
     saveStepUpResume({ surface: 'email-change', action: 'email_change', returnPath: '/account' });
     const user = userEvent.setup();
     renderProfileTab();
@@ -245,7 +245,7 @@ describe('AccountSettingsPage — e-mail change (#1848)', () => {
   it('does not reopen the dialog for a resume of another surface', async () => {
     providers([{ provider: 'google' }]);
     sessionStorage.setItem(EMAIL_CHANGE_ADDRESS_KEY, NEW_EMAIL);
-    storePendingStepUpToken(TOKEN, 'account_erasure');
+    storePendingStepUpToken(TOKEN, 'account_erasure', null);
     saveStepUpResume({ surface: 'delete-account', action: 'account_erasure', returnPath: '/account' });
     renderProfileTab();
 

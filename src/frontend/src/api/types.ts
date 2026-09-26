@@ -1278,12 +1278,7 @@ export interface PlantingRunEntryCreate {
  * attribute at all and the backend reads those as `none` (AK-26), so the client
  * never has to treat "missing" as a sixth case.
  */
-export type DiaryAnalysisState =
-  | 'none'
-  | 'requested'
-  | 'in_progress'
-  | 'completed'
-  | 'failed';
+export type DiaryAnalysisState = 'none' | 'requested' | 'in_progress' | 'completed' | 'failed';
 
 /** REQ-050 §5 — one finding of an AI analysis. */
 export interface DiaryFinding {
@@ -4956,7 +4951,9 @@ export type StepUpAction =
   | 'device_pairing'
   | 'provider_unlink'
   // #1857 — a platform admin raising another account's trust (email_verified, is_active).
-  | 'admin_account_update';
+  | 'admin_account_update'
+  // #1883 — a platform admin creating, repointing or deleting an OIDC provider configuration.
+  | 'oidc_provider_change';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023
@@ -4976,6 +4973,8 @@ export interface CredentialStepUp {
 /** Body of `POST /users/me/step-up-code`. */
 export interface StepUpCodeRequest {
   action: StepUpAction;
+  /** What the act acts on (#1884) — required for a targeted act, absent for any other. */
+  target?: string;
 }
 
 /**
@@ -4992,6 +4991,8 @@ export interface StepUpCodeSent {
 /** Body of `POST /users/me/step-up/oidc` (#1815). */
 export interface StepUpReauthRequest {
   action: StepUpAction;
+  /** What the act acts on (#1884) — required for a targeted act, absent for any other. */
+  target?: string;
   /** Key of one of the account's linked providers; omitted: the backend picks the first capable one. */
   provider_key?: string;
   /** 32 hex characters; returned unchanged beside the token or error on the callback (SEC-005). */

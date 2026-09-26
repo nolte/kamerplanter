@@ -9,9 +9,10 @@ import type { AuthProviderInfo, StepUpAction } from '@/api/types';
  * Three small records bridge that round trip, all in **sessionStorage** — never
  * localStorage (the token must not outlive the tab), never logged:
  *
- * - the **pending token** (`{token, action, expiresAt}`), written by the
- *   callback page and consumed by the step-up that sends it;
- * - the **resume context** (`{surface, action, returnPath}`), written just
+ * - the **pending token** (`{token, action, target, expiresAt}`), written by the
+ *   callback page and consumed by the step-up that sends it — only by one for
+ *   the same act *and target* (#1884);
+ * - the **resume context** (`{surface, action, target, returnPath}`), written just
  *   before the redirect so the page can reopen the dialog it came from;
  * - the **error marker** (`{error, action, expiresAt}`), written by the callback
  *   page on `?error=…` so the reopened dialog can say why.
@@ -44,7 +45,36 @@ const STEP_UP_ACTION_SET: Readonly<Record<StepUpAction, true>> = {
   device_pairing: true,
   provider_unlink: true,
   admin_account_update: true,
+  oidc_provider_change: true,
 };
+
+/**
+ * Whether an act acts on something other than the own account (#1884) — its code
+ * and token are then bound to that target. A `Record` over the union, like the
+ * set above, so a new act must be classified. Mirrors `TARGETED_ACTIONS` in
+ * `step_up_service.py`.
+ */
+const TARGETED_STEP_UP_ACTIONS: Readonly<Record<StepUpAction, boolean>> = {
+  account_erasure: false,
+  admin_account_erasure: true,
+  tenant_deletion: true,
+  password_change: false,
+  email_change: false,
+  api_key_creation: false,
+  device_pairing: false,
+  provider_unlink: true,
+  admin_account_update: true,
+  oidc_provider_change: true,
+};
+
+export function isTargetedStepUpAction(action: StepUpAction): boolean {
+  return TARGETED_STEP_UP_ACTIONS[action];
+}
+
+/** The stored spelling of "no target": `null`, whether the caller passed `undefined` or `null`. */
+function normalizeTarget(target: string | null | undefined): string | null {
+  return typeof target === 'string' && target.length > 0 ? target : null;
+}
 
 /** Every act a step-up confirms — mirrors `StepUpAction` in `step_up_service.py`. */
 export const STEP_UP_ACTIONS: readonly StepUpAction[] = Object.keys(STEP_UP_ACTION_SET) as StepUpAction[];
@@ -119,21 +149,29 @@ function remove(key: string): void {
 
 // ── Pending token ───────────────────────────────────────────────────
 
-/** Keep the token of a fresh sign-in for `action`, valid for five minutes from `now`. */
+/** Keep the token of a fresh sign-in for `action` on `target`, valid for five minutes from `now`. */
 export function storePendingStepUpToken(
   token: string,
   action: StepUpAction,
+  target: string | null | undefined,
   now: number = Date.now(),
 ): void {
-  writeJson(STEP_UP_REAUTH_TOKEN_KEY, { token, action, expiresAt: now + STEP_UP_TOKEN_TTL_MS });
+  writeJson(STEP_UP_REAUTH_TOKEN_KEY, {
+    token,
+    action,
+    target: normalizeTarget(target),
+    expiresAt: now + STEP_UP_TOKEN_TTL_MS,
+  });
 }
 
 /**
- * The pending token for `action`, or `null` — none, another act's, or expired.
- * An expired or malformed record is dropped on the way.
+ * The pending token for `action` on `target`, or `null` — none, another act's or
+ * another target's (#1884: the backend refuses it there anyway), or expired. An
+ * expired or malformed record is dropped on the way.
  */
 export function peekPendingStepUpToken(
   action: StepUpAction,
+  target: string | null | undefined,
   now: number = Date.now(),
 ): string | null {
   const record = readJson(STEP_UP_REAUTH_TOKEN_KEY);
@@ -141,7 +179,7 @@ export function peekPendingStepUpToken(
     remove(STEP_UP_REAUTH_TOKEN_KEY);
     return null;
   }
-  const { token, action: recordAction, expiresAt } = record;
+  const { token, action: recordAction, target: recordTarget, expiresAt } = record;
   if (
     typeof token !== 'string' ||
     token.length === 0 ||
@@ -151,15 +189,17 @@ export function peekPendingStepUpToken(
     remove(STEP_UP_REAUTH_TOKEN_KEY);
     return null;
   }
-  return recordAction === action ? token : null;
+  const sameTarget = normalizeTarget(recordTarget as string | null) === normalizeTarget(target);
+  return recordAction === action && sameTarget ? token : null;
 }
 
-/** Take the pending token for `action` out of storage — it is single use. */
+/** Take the pending token for `action` on `target` out of storage — it is single use. */
 export function consumePendingStepUpToken(
   action: StepUpAction,
+  target: string | null | undefined,
   now: number = Date.now(),
 ): string | null {
-  const token = peekPendingStepUpToken(action, now);
+  const token = peekPendingStepUpToken(action, target, now);
   if (token !== null) remove(STEP_UP_REAUTH_TOKEN_KEY);
   return token;
 }
@@ -210,6 +250,8 @@ export interface StepUpResumeInput {
   /** The step-up surface's id — the dialog's `testIdPrefix`, e.g. `delete-account`. */
   surface: string;
   action: StepUpAction;
+  /** What the act acts on (#1884) — the key the token is bound to; absent for an act on the own account. */
+  target?: string | null;
   /** App-relative path including search and hash, e.g. `/admin/tenants/abc` or `/account#security`. */
   returnPath: string;
 }
@@ -222,6 +264,7 @@ export interface StepUpResumeInput {
  * else crafted neither lands in a tab with such a record nor knows the nonce.
  */
 export interface StepUpResume extends StepUpResumeInput {
+  target: string | null;
   nonce: string;
   createdAt: number;
 }
@@ -245,6 +288,7 @@ export function saveStepUpResume(
   writeJson(STEP_UP_REAUTH_RESUME_KEY, {
     surface: resume.surface,
     action: resume.action,
+    target: normalizeTarget(resume.target),
     returnPath: resume.returnPath,
     nonce,
     createdAt: now,
@@ -260,13 +304,14 @@ export function saveStepUpResume(
 export function readStepUpResume(now: number = Date.now()): StepUpResume | null {
   const record = readJson(STEP_UP_REAUTH_RESUME_KEY);
   if (!record) return null;
-  const { surface, action, returnPath, nonce, createdAt } = record;
+  const { surface, action, target, returnPath, nonce, createdAt } = record;
   if (typeof surface !== 'string' || !isStepUpAction(action) || !isSafeReturnPath(returnPath))
     return null;
+  if (target !== undefined && target !== null && typeof target !== 'string') return null;
   if (typeof nonce !== 'string' || nonce.length === 0) return null;
   if (typeof createdAt !== 'number' || createdAt > now || now - createdAt > STEP_UP_RESUME_TTL_MS)
     return null;
-  return { surface, action, returnPath, nonce, createdAt };
+  return { surface, action, target: normalizeTarget(target), returnPath, nonce, createdAt };
 }
 
 export function clearStepUpResume(): void {

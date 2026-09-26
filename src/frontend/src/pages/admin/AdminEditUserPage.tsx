@@ -79,7 +79,8 @@ export default function AdminEditUserPage() {
   // passes the admin's own step-up. The toggled switches do not survive the
   // round trip to the identity provider, so the resume context is only consumed;
   // the pending token is picked up when the admin saves again within its
-  // five minutes.
+  // five minutes — for this account only (#1884: token and dialog are bound to
+  // the account's key, so a token obtained on another account's page stays unused).
   useStepUpResume('update-user');
   const [confirmTrustRaise, setConfirmTrustRaise] = useState(false);
 
@@ -352,6 +353,7 @@ export default function AdminEditUserPage() {
               confirmColor="primary"
               testIdPrefix="update-user"
               stepUpAction="admin_account_update"
+              stepUpTarget={user.key}
               onConfirm={handleConfirmTrustRaise}
               onCancel={() => setConfirmTrustRaise(false)}
             />
@@ -378,6 +380,7 @@ export default function AdminEditUserPage() {
               confirmLabel={t('pages.auth.adminConfirmDelete')}
               testIdPrefix="delete-user"
               stepUpAction="admin_account_erasure"
+              stepUpTarget={user.key}
               testIds={{ echo: 'delete-user-email', confirm: 'confirm-delete-user-btn' }}
               onConfirm={handleDelete}
               onCancel={() => setConfirmDelete(false)}

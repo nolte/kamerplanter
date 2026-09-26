@@ -24,6 +24,7 @@ vi.mock('@/utils/browserNavigation', () => ({ redirectTo: vi.fn() }));
  */
 
 const ECHO = 'my-garden';
+const TARGET = 'tenant-key-1';
 // Credential-shaped values are assembled at runtime (GitGuardian, #1838).
 const PASSWORD = ['s3', 'cret', '-pw'].join('');
 const TOKEN = ['re', 'auth', '-', 'tok', 'en'].join('');
@@ -88,6 +89,7 @@ function renderDialog(
       confirmLabel="Delete now"
       testIdPrefix="su"
       stepUpAction="tenant_deletion"
+      stepUpTarget={TARGET}
       onConfirm={onConfirm}
       onCancel={() => {}}
     />,
@@ -138,10 +140,13 @@ describe('StepUpConfirmDialog — fresh OIDC re-authentication (#1815)', () => {
     expect(resume).toMatchObject({
       surface: 'su',
       action: 'tenant_deletion',
+      target: TARGET,
       returnPath: '/admin/tenants/t1#danger',
     });
+    // #1884 — the sign-in is started for this tenant; the token is bound to it.
     expect(startBody).toEqual({
       action: 'tenant_deletion',
+      target: TARGET,
       provider_key: 'prov-g',
       client_nonce: resume?.nonce,
     });
@@ -164,7 +169,7 @@ describe('StepUpConfirmDialog — fresh OIDC re-authentication (#1815)', () => {
 
   it('sends step_up_token when a pending token for the act exists and consumes it', async () => {
     providers([{ provider: 'google' }]);
-    storePendingStepUpToken(TOKEN, 'tenant_deletion');
+    storePendingStepUpToken(TOKEN, 'tenant_deletion', TARGET);
     const onConfirm = vi
       .fn<(c: StepUpConfirmation) => Promise<void>>()
       .mockResolvedValue(undefined);
@@ -187,7 +192,7 @@ describe('StepUpConfirmDialog — fresh OIDC re-authentication (#1815)', () => {
 
   it('ignores a pending token of another act', async () => {
     providers([{ provider: 'google' }]);
-    storePendingStepUpToken(TOKEN, 'account_erasure');
+    storePendingStepUpToken(TOKEN, 'account_erasure', null);
     renderDialog(vi.fn());
     const dialog = await screen.findByTestId('su-dialog');
 
@@ -197,7 +202,7 @@ describe('StepUpConfirmDialog — fresh OIDC re-authentication (#1815)', () => {
 
   it('drops a rejected token and offers the sign-in again', async () => {
     providers([{ provider: 'google' }]);
-    storePendingStepUpToken(TOKEN, 'tenant_deletion');
+    storePendingStepUpToken(TOKEN, 'tenant_deletion', TARGET);
     const onConfirm = vi
       .fn<(c: StepUpConfirmation) => Promise<void>>()
       .mockRejectedValue(apiError(401, 'STEP_UP_REAUTH_REQUIRED', 'step_up_token'));
@@ -324,7 +329,7 @@ describe('StepUpConfirmDialog — fresh OIDC re-authentication (#1815)', () => {
 
   it('keeps a pending token when the act is refused for another reason (422)', async () => {
     providers([{ provider: 'google' }]);
-    storePendingStepUpToken(TOKEN, 'tenant_deletion');
+    storePendingStepUpToken(TOKEN, 'tenant_deletion', TARGET);
     const onConfirm = vi
       .fn<(c: StepUpConfirmation) => Promise<void>>()
       .mockRejectedValueOnce(apiError(422, 'VALIDATION_ERROR', 'confirm_slug'))
@@ -350,7 +355,7 @@ describe('StepUpConfirmDialog — fresh OIDC re-authentication (#1815)', () => {
 
   it('drops a pending token after 429 STEP_UP_LOCKED', async () => {
     providers([{ provider: 'google' }]);
-    storePendingStepUpToken(TOKEN, 'tenant_deletion');
+    storePendingStepUpToken(TOKEN, 'tenant_deletion', TARGET);
     const onConfirm = vi
       .fn<(c: StepUpConfirmation) => Promise<void>>()
       .mockRejectedValue(apiError(429, 'STEP_UP_LOCKED', 'step_up_token'));
