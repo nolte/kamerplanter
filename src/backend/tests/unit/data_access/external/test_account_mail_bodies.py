@@ -68,12 +68,14 @@ def _html() -> str:
     return part.get_payload(decode=True).decode()
 
 
-def test_the_password_reset_mail_escapes_the_display_name(smtp: SmtpEmailAdapter) -> None:
-    smtp.send_password_reset_email(RECIPIENT, MARKUP, TOKEN, FRONTEND)
+def test_the_password_reset_mail_carries_no_display_name(smtp: SmtpEmailAdapter) -> None:
+    # Security review of #1848 (SEC-005): a reset can be requested for an account
+    # registered under a stranger's address, so it goes to an unverified address too.
+    smtp.send_password_reset_email(RECIPIENT, TOKEN, FRONTEND)
 
     html = _html()
-    assert '<a href="https://evil.example' not in html
-    assert "&lt;a href=" in html
+    assert "evil.example" not in html
+    assert f"{FRONTEND}/password-reset/{TOKEN}" in html
 
 
 def test_the_verification_mail_carries_no_display_name(smtp: SmtpEmailAdapter) -> None:
@@ -94,7 +96,7 @@ def test_the_email_change_mail_has_its_own_link_and_no_display_name(smtp: SmtpEm
 
 
 def test_a_link_is_escaped_inside_its_attribute(smtp: SmtpEmailAdapter) -> None:
-    smtp.send_password_reset_email(RECIPIENT, "Erika", 'x"><script>', FRONTEND)
+    smtp.send_password_reset_email(RECIPIENT, 'x"><script>', FRONTEND)
 
     html = _html()
     assert "<script>" not in html

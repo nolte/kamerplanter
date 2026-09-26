@@ -378,6 +378,26 @@ SELECTORS: tuple[Selector, ...] = (
         why_undated="a revert token without a readable window is closed: the conservative reading (#1848)",
     ),
     Selector(
+        name="email_change.supersede_confirmed_after",
+        collection=col.EMAIL_CHANGE_REQUESTS,
+        base={
+            "user_key": USER,
+            "new_email": "new@example.com",
+            "verification_token_hash": "hash-not-a-secret-2",
+            "status": "confirmed",
+        },
+        field="confirmed_at",
+        selects="after",
+        run=_flipped_by(
+            col.EMAIL_CHANGE_REQUESTS,
+            "status",
+            "superseded",
+            lambda db, cut: ArangoEmailChangeRepository(db).supersede_confirmed_after(USER, cut, FAR_FUTURE),
+        ),
+        undated_selected=False,
+        why_undated="a change without a readable confirmation time is not known to be later: left alone (#1848)",
+    ),
+    Selector(
         name="invitation.cleanup_expired",
         collection=col.INVITATIONS,
         base={

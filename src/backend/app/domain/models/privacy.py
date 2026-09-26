@@ -38,7 +38,7 @@ type ErasureStepUp = Literal["oidc_reauth", "email_code", "echo", "password"]
 type PersonalTenantOutcome = Literal["erased", "retained_other_members", "absent"]
 #: ``cancelled`` — withdrawn because the owner took the account back (password
 #: reset, password change, signing out everywhere) while it was pending (#1841).
-type EmailChangeStatus = Literal["pending", "confirmed", "expired", "cancelled", "reverted"]
+type EmailChangeStatus = Literal["pending", "confirmed", "expired", "cancelled", "reverted", "superseded"]
 type RestrictionReason = Literal[
     "accuracy_contested",
     "unlawful_processing",

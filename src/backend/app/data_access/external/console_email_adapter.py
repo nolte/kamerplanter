@@ -33,7 +33,7 @@ class ConsoleEmailAdapter(IEmailService):
         url = f"{frontend_url}/verify-email/{token}"
         logger.info("email_verification", to_sha256=email_digest(to_email), url_logged=True, verification_url=url)
 
-    def send_password_reset_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
+    def send_password_reset_email(self, to_email: str, token: str, frontend_url: str) -> None:
         if not settings.debug:
             logger.info("email_password_reset", to_sha256=email_digest(to_email), url_logged=False, delivered=False)
             return

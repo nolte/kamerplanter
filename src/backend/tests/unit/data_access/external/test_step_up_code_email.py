@@ -110,7 +110,7 @@ def test_an_adapter_without_the_mail_refuses_loudly() -> None:
         def send_verification_email(self, to_email: str, token: str, frontend_url: str) -> None:
             return None
 
-        def send_password_reset_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
+        def send_password_reset_email(self, to_email: str, token: str, frontend_url: str) -> None:
             return None
 
     with pytest.raises(NotImplementedError):

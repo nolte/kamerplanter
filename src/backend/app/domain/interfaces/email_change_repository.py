@@ -26,6 +26,14 @@ class IEmailChangeRepository(ABC):
         """The confirmed change whose revert token hashes to *token_hash* (#1848)."""
 
     @abstractmethod
+    def claim_status(self, key: EmailChangeRequestKey, from_status: str, to_status: str, now_iso: str) -> bool:
+        """Move the request from *from_status* to *to_status* atomically; ``False`` when it was not in *from_status*."""
+
+    @abstractmethod
+    def supersede_confirmed_after(self, user_key: UserKey, confirmed_after_iso: str, now_iso: str) -> int:
+        """Mark every confirmed change of *user_key* confirmed after the instant as ``superseded`` (#1848)."""
+
+    @abstractmethod
     def close_revert_windows(self, now_iso: str) -> int:
         """Clear ``previous_email`` and the revert token of every change past ``revert_expires_at`` (NFR-011 R-07)."""
 

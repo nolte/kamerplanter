@@ -26,6 +26,7 @@ import asyncio
 import re
 from datetime import UTC, datetime, timedelta
 
+from app.domain.models.auth import ApiKey, AuthProvider, AuthProviderType
 from app.domain.models.user import User
 from tests.unit.api.test_email_change_step_up import PASSWORD, _limiter_off, _World  # noqa: F401 - autouse fixture
 
@@ -148,3 +149,153 @@ def test_the_retention_task_closes_the_revert_window() -> None:
     assert closed.previous_email is None
     assert closed.revert_token_hash is None
     assert world.post(REVERT, {"token": revert}).status_code == 401
+
+
+# ── security review of the #1848 branch ──────────────────────────────────────
+
+
+def _take_over_twice(world: _World) -> tuple[str, str]:
+    """A→B confirmed (owner's token to A), then B→C confirmed (attacker's token to B)."""
+    owners = _changed(world)
+    world.privacy_mail.reset_mock()
+    third = f"third-{world.key}@example.org"
+    assert world.change(new_email=third, password=PASSWORD).status_code == 201
+    token = world.privacy_mail.send_email_change_email.call_args.kwargs["token"]
+    assert world.post(CONFIRM, {"token": token}).status_code == 200
+    notice = world.notices_to(world.new_email)[-1]
+    attackers = re.search(r"/email-change/revert/([A-Za-z0-9_-]+)", notice["html_body"])
+    assert attackers
+    return owners, attackers.group(1)
+
+
+def test_a_later_change_cannot_undo_the_owners_revert() -> None:
+    # SEC-001: the attacker's own second change carried a revert token to B; after
+    # the owner took the account back to A, it moved the account onto B again.
+    world = _World()
+    owners, attackers = _take_over_twice(world)
+
+    assert world.post(REVERT, {"token": owners}).status_code == 200
+    resp = world.post(REVERT, {"token": attackers})
+
+    assert resp.status_code == 401, resp.text
+    assert world.users.rows[world.key].email == world.email
+
+
+def test_the_owners_earlier_token_survives_a_revert_of_a_later_change() -> None:
+    world = _World()
+    owners, attackers = _take_over_twice(world)
+
+    world.post(REVERT, {"token": attackers})
+    resp = world.post(REVERT, {"token": owners})
+
+    assert resp.status_code == 200, resp.text
+    assert world.users.rows[world.key].email == world.email
+
+
+def test_a_confirmation_that_lost_the_race_writes_nothing() -> None:
+    # SEC-001 (TOCTOU): the status is claimed atomically before the address moves.
+    world = _World()
+    world.change(password=PASSWORD)
+    token = world.privacy_mail.send_email_change_email.call_args.kwargs["token"]
+    (change,) = world.changes.rows.values()
+    world.changes.claim_status(change.key, "pending", "cancelled", datetime.now(UTC).isoformat())
+    world.changes.rows[change.key] = world.changes.rows[change.key].model_copy(update={"status": "pending"})
+    world.changes.claim_status = lambda *a, **k: False  # another request claimed it first
+
+    resp = world.post(CONFIRM, {"token": token})
+
+    assert resp.status_code == 401, resp.text
+    assert world.users.rows[world.key].email == world.email
+
+
+def test_the_revert_drops_sign_in_links_made_since_the_request() -> None:
+    # SEC-002: a Google/OIDC identity auto-linked to the hijacked address kept
+    # signing the attacker in after the revert.
+    world = _World()
+    before = datetime.now(UTC) - timedelta(days=30)
+    world.providers.rows.append(
+        AuthProvider(
+            _key="google-old",
+            user_key=world.key,
+            provider=AuthProviderType.GOOGLE,
+            provider_user_id="g-old",
+            linked_at=before,
+        )
+    )
+    revert = _changed(world)
+    later = datetime.now(UTC) + timedelta(seconds=1)
+    world.providers.rows += [
+        AuthProvider(
+            _key="google-new",
+            user_key=world.key,
+            provider=AuthProviderType.GOOGLE,
+            provider_user_id="g-new",
+            linked_at=later,
+        ),
+        AuthProvider(
+            _key="local-new",
+            user_key=world.key,
+            provider=AuthProviderType.LOCAL,
+            provider_user_id=world.key,
+            linked_at=later,
+        ),
+    ]
+
+    world.post(REVERT, {"token": revert})
+
+    assert world.providers.deleted == ["google-new"]
+
+
+def test_the_revert_revokes_api_keys_created_since_the_request() -> None:
+    # SEC-003: a key minted during the takeover kept reading and writing.
+    world = _World()
+    world.api_keys.rows.append(
+        ApiKey(
+            _key="ak-old",
+            user_key=world.key,
+            label="ha",
+            key_hash="h1",
+            key_prefix="kp_old",
+            created_at=datetime.now(UTC) - timedelta(days=30),
+        )
+    )
+    revert = _changed(world)
+    world.api_keys.rows.append(
+        ApiKey(
+            _key="ak-new",
+            user_key=world.key,
+            label="x",
+            key_hash="h2",
+            key_prefix="kp_new",
+            created_at=datetime.now(UTC) + timedelta(seconds=1),
+        )
+    )
+
+    world.post(REVERT, {"token": revert})
+
+    assert world.api_keys.revoked == ["ak-new"]
+
+
+def test_the_address_the_account_left_again_is_told() -> None:
+    # SEC-004: the new address learned nothing of the revert.
+    world = _World()
+    revert = _changed(world)
+    world.privacy_mail.reset_mock()
+
+    world.post(REVERT, {"token": revert})
+
+    (notice,) = world.notices_to(world.new_email)
+    assert "Owner" not in notice["html_body"]
+    assert world.email not in notice["html_body"]
+
+
+def test_a_revert_on_an_account_being_erased_is_refused() -> None:
+    # SEC-007: the revert wrote an address onto an account queued for hard deletion.
+    world = _World()
+    revert = _changed(world)
+    world.users.update_fields(world.key, {"is_active": False})
+
+    resp = world.post(REVERT, {"token": revert})
+
+    assert resp.status_code == 409, resp.text
+    assert world.users.rows[world.key].email == world.new_email

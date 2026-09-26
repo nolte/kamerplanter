@@ -92,7 +92,7 @@ class TestConsoleAdapter:
         [
             lambda a: a.send_verification_email(RECIPIENT, "tok", "https://app.test"),
             lambda a: a.send_email_change_email(RECIPIENT, "tok", "https://app.test"),
-            lambda a: a.send_password_reset_email(RECIPIENT, "Name", "tok", "https://app.test"),
+            lambda a: a.send_password_reset_email(RECIPIENT, "tok", "https://app.test"),
             lambda a: a.send_notification_email(RECIPIENT, "Subject", "<p>body</p>"),
         ],
         ids=["verification", "email-change", "password-reset", "notification"],
@@ -122,7 +122,7 @@ _LINK_MAILS = [
         id="email-change",
     ),
     pytest.param(
-        lambda a: a.send_password_reset_email(RECIPIENT, DISPLAY_NAME, TOKEN, "https://app.test"),
+        lambda a: a.send_password_reset_email(RECIPIENT, TOKEN, "https://app.test"),
         "email_password_reset",
         "reset_url",
         "https://app.test/password-reset/" + TOKEN,

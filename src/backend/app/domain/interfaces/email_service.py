@@ -16,7 +16,8 @@ class IEmailService(ABC):
         """Mail the account-verification link. The address is unverified: no requester-chosen text (#1856)."""
 
     @abstractmethod
-    def send_password_reset_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None: ...
+    def send_password_reset_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        """Mail the reset link. The address may be unverified: no requester-chosen text (#1856)."""
 
     def send_notification_email(
         self,

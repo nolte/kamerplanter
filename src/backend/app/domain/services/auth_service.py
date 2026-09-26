@@ -708,7 +708,6 @@ class AuthService:
 
         self._email_service.send_password_reset_email(
             to_email=email,
-            display_name=user.display_name,
             token=token,
             frontend_url=self._frontend_url,
         )

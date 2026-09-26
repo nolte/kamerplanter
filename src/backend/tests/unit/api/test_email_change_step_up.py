@@ -155,10 +155,63 @@ class _EmailChanges:
                 closed += 1
         return closed
 
+    def claim_status(self, key: str, from_status: str, to_status: str, now_iso: str) -> bool:
+        """Compare-and-set on the status, as the Arango ``UPDATE ... FILTER status == @from`` does."""
+        row = self.rows.get(key)
+        if row is None or row.status != from_status:
+            return False
+        self.rows[key] = EmailChangeRequest.model_validate({**row.model_dump(by_alias=True), "status": to_status})
+        return True
+
+    def supersede_confirmed_after(self, user_key: str, confirmed_after_iso: str, now_iso: str) -> int:
+        from datetime import datetime
+
+        after = datetime.fromisoformat(confirmed_after_iso)
+        later = [
+            k
+            for k, c in self.rows.items()
+            if c.user_key == user_key and c.status == "confirmed" and c.confirmed_at and c.confirmed_at > after
+        ]
+        for key in later:
+            self.rows[key] = EmailChangeRequest.model_validate(
+                {**self.rows[key].model_dump(by_alias=True), "status": "superseded"}
+            )
+        return len(later)
+
     def list_pending_for_user(self, user_key: str) -> list[EmailChangeRequest]:
         # A copy, as the Arango repository returns fresh documents: a caller that
         # mutates the result without writing it back must not change the store.
         return [c.model_copy() for c in self.rows.values() if c.user_key == user_key and c.status == "pending"]
+
+
+class _Providers:
+    """``IAuthProviderRepository`` over a list — the links the revert may drop (#1848)."""
+
+    def __init__(self) -> None:
+        self.rows: list[Any] = []
+        self.deleted: list[str] = []
+
+    def list_by_user(self, user_key: str) -> list[Any]:
+        return [p for p in self.rows if p.user_key == user_key and p.key not in self.deleted]
+
+    def delete(self, key: str) -> bool:
+        self.deleted.append(key)
+        return True
+
+
+class _ApiKeys:
+    """``IApiKeyRepository`` over a list — the keys the revert may revoke (#1848)."""
+
+    def __init__(self) -> None:
+        self.rows: list[Any] = []
+        self.revoked: list[str] = []
+
+    def list_by_user(self, user_key: str) -> list[Any]:
+        return [k for k in self.rows if k.user_key == user_key]
+
+    def revoke(self, key: str) -> bool:
+        self.revoked.append(key)
+        return True
 
 
 class _World:
@@ -178,6 +231,8 @@ class _World:
         other = User.model_validate({"_key": f"other-{self.key}", "email": TAKEN, "display_name": "Other"})
         self.users = _Users(owner, other)
         self.changes = _EmailChanges()
+        self.providers = _Providers()
+        self.api_keys = _ApiKeys()
         self.privacy_mail = MagicMock()
         self.auth_mail = MagicMock()
         self.refresh_tokens = MagicMock()
@@ -197,6 +252,8 @@ class _World:
             email_service=self.privacy_mail,
             frontend_url="https://app.test",
             reference_index_store=NoopReferenceIndexStore(),
+            auth_provider_repo=self.providers,
+            api_key_repo=self.api_keys,
         )
         self.auth = AuthService(
             user_repo=self.users,

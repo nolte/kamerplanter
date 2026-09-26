@@ -61,6 +61,58 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
             return None
         return EmailChangeRequest(**self._from_doc(docs[0]))
 
+    def claim_status(self, key: EmailChangeRequestKey, from_status: str, to_status: str, now_iso: str) -> bool:
+        """Compare-and-set on ``status`` in one AQL write (#1848).
+
+        The confirmation and the revert read a request, check it, then write the
+        account. Two of them racing on one request (or a revert racing the
+        confirmation of another) each saw the status they needed; the claim makes
+        exactly one of them win before the account is touched.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key AND doc.status == @from_status
+          UPDATE doc WITH { status: @to_status, updated_at: @now } IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.EMAIL_CHANGE_REQUESTS,
+                "key": key,
+                "from_status": from_status,
+                "to_status": to_status,
+                "now": now_iso,
+            },
+        )
+        return any(True for _ in cursor)
+
+    def supersede_confirmed_after(self, user_key: UserKey, confirmed_after_iso: str, now_iso: str) -> int:
+        """Close the revert windows of the account's changes confirmed after the instant (#1848).
+
+        Compared as instants. A revert takes the account back to the state before
+        its change; a change confirmed later — the attacker's own second hop —
+        must not be able to undo that with its own revert token.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.user_key == @user_key
+            AND doc.status == 'confirmed'
+            AND DATE_TIMESTAMP(doc.confirmed_at) > DATE_TIMESTAMP(@after)
+          UPDATE doc WITH { status: 'superseded', updated_at: @now } IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.EMAIL_CHANGE_REQUESTS,
+                "user_key": user_key,
+                "after": confirmed_after_iso,
+                "now": now_iso,
+            },
+        )
+        return sum(1 for _ in cursor)
+
     def close_revert_windows(self, now_iso: str) -> int:
         """Drop the previous address and the revert token once the window closed (NFR-011 R-07, #1848).
 

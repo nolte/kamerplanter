@@ -71,11 +71,13 @@ class SmtpEmailAdapter(IEmailService):
         """
         self._send(to_email, "Kamerplanter — Email Verification", html)
 
-    def send_password_reset_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
+    def send_password_reset_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        # No display name: a reset can be requested for an account registered under
+        # a stranger's address, so the recipient may never have confirmed it (#1856).
         url = f"{frontend_url}/password-reset/{token}"
         html = f"""
         <h2>Password Reset</h2>
-        <p>Hello {escape(display_name)},</p>
+        <p>Hello,</p>
         <p>Click the link below to reset your password:</p>
         <p><a href="{escape(url)}">Reset Password</a></p>
         <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>

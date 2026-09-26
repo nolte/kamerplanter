@@ -8,7 +8,7 @@ f-string, and the siblings drifted.
 
 **Predicate** — an f-string whose literal text contains an HTML tag (``<p>``,
 ``<a href=...>``, ``</div>``), in a module that builds mail (``app/data_access/external``,
-``app/domain/services``, ``app/tasks``). Each of its placeholders must be *safe*:
+``app/domain/services``, ``app/domain/engines``, ``app/tasks``). Each of its placeholders must be *safe*:
 
 * ``escape(...)`` / ``html.escape(...)``, also followed by ``.replace(...)``;
 * a constant, ``len(...)``, a ``.get(...)`` on a module-level ``UPPER_CASE`` map;
@@ -16,7 +16,8 @@ f-string, and the siblings drifted.
 * a local name every assignment of which (``=``, ``+=``) in the same function is safe.
 
 **Spellings this predicate cannot see:** an HTML body built by ``+``
-concatenation or ``str.format`` / ``%`` without an f-string, a template file, a
+concatenation or ``str.format`` / ``%`` without an f-string (``registration_notice_engine``
+fills a fixed template with ``.format`` from an escaped value — read by hand, not by this guard), a template file, a
 body assembled in a module outside the three directories, and a safe-looking
 local that a nested function or ``nonlocal`` rebinds.
 """
@@ -28,7 +29,7 @@ import re
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[3] / "app"
-SCOPES = (APP / "data_access" / "external", APP / "domain" / "services", APP / "tasks")
+SCOPES = (APP / "data_access" / "external", APP / "domain" / "services", APP / "domain" / "engines", APP / "tasks")
 _TAG = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?/?>|<[a-zA-Z][a-zA-Z0-9]*\s")
 
 #: The class size measured when this guard was written (#1856): 8 on develop, +1 the e-mail change mail (#1848).
