@@ -40,6 +40,12 @@ export async function updateAdminTenant(
   return data;
 }
 
+/**
+ * Partially update another account. Turning `email_verified` or `is_active`
+ * from false to true passes the **admin's own** step-up (#1857): the payload
+ * then carries `current_password` (or `step_up_token` / `step_up_code` for an
+ * admin without one) for the act `admin_account_update`; 401 without it.
+ */
 export async function updateAdminUser(
   key: string,
   payload: AdminUserUpdate,

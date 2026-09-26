@@ -7,39 +7,42 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { QRCodeSVG } from 'qrcode.react';
-import ErrorDisplay from '@/components/common/ErrorDisplay';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { createDevicePairing } from '@/api/endpoints/auth';
-import { parseApiError } from '@/api/errors';
 import { isLightMode } from '@/config/mode';
 import type { DevicePairingCreated } from '@/api/types';
-import LoadingStatus from '@/components/common/LoadingStatus';
+import { toCredentialStepUpBody } from '@/utils/stepUp';
 
 interface ConnectDeviceDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
+/**
+ * The step-up surface id — the test-id prefix of the confirmation dialog and
+ * the surface the account page reopens after the fresh sign-in at the identity
+ * provider (#1815, #1847).
+ */
+export const CONNECT_DEVICE_STEP_UP_SURFACE = 'connect-device-step-up';
+
 /** Edge length of the rendered QR code, in CSS pixels. */
 const QR_SIZE_DESKTOP = 240;
 const QR_SIZE_MOBILE = 200;
 
 /**
- * Shared visual shell for the QR's footprint — the loaded QR (either variant)
- * and its loading placeholder alike. The fixed white background is
+ * Shared visual shell for the QR's footprint (either variant). The fixed white background is
  * intentional and MUST stay: it is what keeps the QR's own black/white
  * modules scannable on a dark theme, independent of the app palette. The
  * `divider` border is what this shell adds on top of that: in light mode the
  * dialog surface (`background.paper`) is the same white as this box, so
  * without a border the QR card has no perceivable boundary at all (UI-NFR-002
- * R-017 / WCAG 1.4.11 non-text contrast). Reusing the identical shell for the
- * loading placeholder also means the skeleton occupies exactly the footprint
- * the real QR will take, so nothing visibly jumps once the fetch resolves.
+ * R-017 / WCAG 1.4.11 non-text contrast).
  */
 const QR_CONTAINER_SX = {
   p: 2,
@@ -88,6 +91,14 @@ const DISCOVERY_DEEP_LINK_PATH = '/connect';
  *    countdown; at zero the QR is replaced by an expired state, because a QR
  *    that still looks scannable but is not produces exactly the kind of silent
  *    failure the user cannot diagnose. Refreshing asks for a new code.
+ * 4. **Every code passes the step-up (#1847).** The code redeems into a full
+ *    session, so it is minted only behind the shared step-up (REQ-023 §3.9): the
+ *    dialog opens as a {@link StepUpConfirmDialog} asking for the current
+ *    password (or, for an account without one, the fresh sign-in or the
+ *    e-mailed code), and the QR appears only once the backend accepted it. A
+ *    refresh after expiry goes through the step-up again — the password is never
+ *    kept around to mint the next code silently. A refused step-up (401/429) or
+ *    any other failure stays inside the confirmation dialog.
  *
  * **Light mode (`isLightMode === true`, REQ-027 anonymous) — instance discovery.**
  * A light-mode instance has no accounts and the pairing endpoints answer 404, so
@@ -118,8 +129,6 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
 
   const [pairing, setPairing] = useState<DevicePairingCreated | null>(null);
   const [remaining, setRemaining] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   /**
    * Sequence number of the newest issuance request. Bumping it invalidates every
@@ -130,34 +139,34 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
    */
   const requestIdRef = useRef(0);
 
-  const requestCode = useCallback(async () => {
+  /**
+   * Mint a code with the confirmed step-up. A rejection propagates to the
+   * confirmation dialog, which shows it and stays open. A response for a
+   * superseded request (the dialog was closed meanwhile) is dropped.
+   */
+  const requestCode = useCallback(async (confirmation: StepUpConfirmation) => {
     const requestId = ++requestIdRef.current;
-    setLoading(true);
-    setError(null);
-    // Drop the previous code *before* asking for the next one. Nothing renders
-    // it at this point anyway (the refresh action only exists in the expired
-    // state), so this is about lifetime, not pixels: a superseded credential
-    // should not sit in memory for the duration of a network round-trip.
+    const created = await createDevicePairing(toCredentialStepUpBody(confirmation));
+    if (requestIdRef.current !== requestId) return;
+    setPairing(created);
+    setRemaining(created.expires_in);
+  }, []);
+
+  /**
+   * Refresh after expiry: drop the dead code, which reopens the step-up. The
+   * previous code should not sit in memory for the duration of the next
+   * confirmation.
+   */
+  const handleRefresh = useCallback(() => {
+    requestIdRef.current += 1;
     setPairing(null);
     setRemaining(0);
-    try {
-      const created = await createDevicePairing();
-      if (requestIdRef.current !== requestId) return;
-      setPairing(created);
-      setRemaining(created.expires_in);
-    } catch (err) {
-      if (requestIdRef.current !== requestId) return;
-      setError(parseApiError(err));
-    } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
-    }
   }, []);
 
   useEffect(() => {
     // The discovery variant makes NO backend call: the instance already knows
     // its own URL, so there is nothing to fetch and nothing to expire.
     if (!open || discovery) return;
-    void requestCode();
     return () => {
       // Closing (or unmounting) is a hard reset, not a pause: the code is a live
       // credential and must not survive the dialog. MUI unmounts the dialog body
@@ -166,10 +175,8 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
       requestIdRef.current += 1;
       setPairing(null);
       setRemaining(0);
-      setError(null);
-      setLoading(false);
     };
-  }, [open, discovery, requestCode]);
+  }, [open, discovery]);
 
   const expired = pairing !== null && remaining <= 0;
 
@@ -219,126 +226,128 @@ export default function ConnectDeviceDialog({ open, onClose }: ConnectDeviceDial
     ? 'pages.auth.devicePairing.discovery.intro'
     : 'pages.auth.devicePairing.intro';
 
+  // Full mode without a code yet: the step-up comes first (#1847).
+  const confirming = open && !discovery && pairing === null;
+
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      fullScreen={fullScreen}
-      maxWidth="xs"
-      fullWidth
-      data-testid="connect-device-dialog"
-      aria-labelledby="connect-device-dialog-title"
-      aria-describedby="connect-device-dialog-intro"
-    >
-      <DialogTitle id="connect-device-dialog-title">{t(titleKey)}</DialogTitle>
-      <DialogContent>
-        <Typography id="connect-device-dialog-intro" variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {t(introKey)}
-        </Typography>
-        <Box component="ol" sx={{ pl: 2.5, m: 0, mb: 2 }}>
-          <Typography component="li" variant="body2" color="text.secondary">
-            {t(discovery ? 'pages.auth.devicePairing.discovery.stepInstall' : 'pages.auth.devicePairing.stepInstall')}
+    <>
+      {/* Mounted only while the flow is open: every opening starts with a fresh
+          confirmation, never with a typed password or a pending request left
+          over from the last one. */}
+      {!discovery && open && (
+        <StepUpConfirmDialog
+          open={confirming}
+          title={t('pages.auth.devicePairing.stepUpTitle')}
+          description={t('pages.auth.devicePairing.stepUpDescription')}
+          confirmLabel={t('pages.auth.devicePairing.stepUpConfirm')}
+          confirmColor="primary"
+          stepUpAction="device_pairing"
+          testIdPrefix={CONNECT_DEVICE_STEP_UP_SURFACE}
+          onConfirm={requestCode}
+          onCancel={onClose}
+        />
+      )}
+      <Dialog
+        open={open && !confirming}
+        onClose={onClose}
+        fullScreen={fullScreen}
+        maxWidth="xs"
+        fullWidth
+        data-testid="connect-device-dialog"
+        aria-labelledby="connect-device-dialog-title"
+        aria-describedby="connect-device-dialog-intro"
+      >
+        <DialogTitle id="connect-device-dialog-title">{t(titleKey)}</DialogTitle>
+        <DialogContent>
+          <Typography id="connect-device-dialog-intro" variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t(introKey)}
           </Typography>
-          <Typography component="li" variant="body2" color="text.secondary">
-            {t(discovery ? 'pages.auth.devicePairing.discovery.stepScan' : 'pages.auth.devicePairing.stepScan')}
-          </Typography>
-          <Typography component="li" variant="body2" color="text.secondary">
-            {t(discovery ? 'pages.auth.devicePairing.discovery.stepDone' : 'pages.auth.devicePairing.stepDone')}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
-          {discovery ? (
-            // Instance discovery: a static, credential-free QR. No loading, no
-            // error, no countdown, no expiry — the instance already knows its URL.
-            <Box data-testid="device-discovery-qr" sx={QR_CONTAINER_SX}>
-              <QRCodeSVG
-                value={discoveryUrl}
-                size={qrSize}
-                level="M"
-                title={t('pages.auth.devicePairing.discovery.qrTitle')}
-              />
-            </Box>
-          ) : (
-            <>
-              {loading && (
-                // A distinct loading state, not an empty frame: an absent QR and a
-                // pending QR look identical otherwise (UI-NFR-004 R-020).
-                <Box
-                  data-testid="loading-skeleton"
-                  aria-busy="true"
-                  sx={QR_CONTAINER_SX}
-                >
-                  <LoadingStatus />
-                  <Skeleton variant="rectangular" width={qrSize} height={qrSize} />
-                </Box>
-              )}
-
-              {!loading && error !== null && (
-                <Box sx={{ width: '100%' }} data-testid="device-pairing-error">
-                  <ErrorDisplay error={error} onRetry={requestCode} />
-                </Box>
-              )}
-
-              {!loading && error === null && pairing !== null && !expired && (
-                <>
-                  <Box data-testid="device-pairing-qr" sx={QR_CONTAINER_SX}>
-                    <QRCodeSVG
-                      value={qrPayload}
-                      size={qrSize}
-                      level="M"
-                      title={t('pages.auth.devicePairing.qrTitle')}
-                    />
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    role="timer"
-                    data-testid="device-pairing-countdown"
-                    sx={{ fontVariantNumeric: 'tabular-nums' }}
-                  >
-                    {t('pages.auth.devicePairing.expiresIn', { seconds: remaining })}
-                  </Typography>
-                </>
-              )}
-
-              {!loading && error === null && expired && (
-                <>
-                  <Alert severity="warning" sx={{ width: '100%' }} data-testid="device-pairing-expired">
-                    {t('pages.auth.devicePairing.expired')}
-                  </Alert>
-                  <Button
-                    variant="contained"
-                    startIcon={<RefreshIcon />}
-                    onClick={requestCode}
-                    data-testid="device-pairing-refresh"
-                    // UI-NFR-001 R-011 — 48px minimum touch target on mobile.
-                    sx={{ minHeight: 48 }}
-                  >
-                    {t('pages.auth.devicePairing.refresh')}
-                  </Button>
-                </>
-              )}
-            </>
-          )}
-
-          <Alert
-            severity="info"
-            icon={false}
-            sx={{ width: '100%', mt: 0.5 }}
-            data-testid={discovery ? 'device-discovery-note' : undefined}
-          >
-            <Typography variant="body2">
-              {t(discovery ? 'pages.auth.devicePairing.discovery.securityNote' : 'pages.auth.devicePairing.securityHint')}
+          <Box component="ol" sx={{ pl: 2.5, m: 0, mb: 2 }}>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {t(discovery ? 'pages.auth.devicePairing.discovery.stepInstall' : 'pages.auth.devicePairing.stepInstall')}
             </Typography>
-          </Alert>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        {/* UI-NFR-001 R-011 — 48px minimum touch target on mobile. */}
-        <Button onClick={onClose} data-testid="connect-device-close" sx={{ minHeight: 48 }}>
-          {t('common.close')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {t(discovery ? 'pages.auth.devicePairing.discovery.stepScan' : 'pages.auth.devicePairing.stepScan')}
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {t(discovery ? 'pages.auth.devicePairing.discovery.stepDone' : 'pages.auth.devicePairing.stepDone')}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+            {discovery ? (
+              // Instance discovery: a static, credential-free QR. No loading, no
+              // error, no countdown, no expiry — the instance already knows its URL.
+              <Box data-testid="device-discovery-qr" sx={QR_CONTAINER_SX}>
+                <QRCodeSVG
+                  value={discoveryUrl}
+                  size={qrSize}
+                  level="M"
+                  title={t('pages.auth.devicePairing.discovery.qrTitle')}
+                />
+              </Box>
+            ) : (
+              <>
+                {pairing !== null && !expired && (
+                  <>
+                    <Box data-testid="device-pairing-qr" sx={QR_CONTAINER_SX}>
+                      <QRCodeSVG
+                        value={qrPayload}
+                        size={qrSize}
+                        level="M"
+                        title={t('pages.auth.devicePairing.qrTitle')}
+                      />
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      role="timer"
+                      data-testid="device-pairing-countdown"
+                      sx={{ fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {t('pages.auth.devicePairing.expiresIn', { seconds: remaining })}
+                    </Typography>
+                  </>
+                )}
+
+                {expired && (
+                  <>
+                    <Alert severity="warning" sx={{ width: '100%' }} data-testid="device-pairing-expired">
+                      {t('pages.auth.devicePairing.expired')}
+                    </Alert>
+                    <Button
+                      variant="contained"
+                      startIcon={<RefreshIcon />}
+                      onClick={handleRefresh}
+                      data-testid="device-pairing-refresh"
+                      // UI-NFR-001 R-011 — 48px minimum touch target on mobile.
+                      sx={{ minHeight: 48 }}
+                    >
+                      {t('pages.auth.devicePairing.refresh')}
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
+
+            <Alert
+              severity="info"
+              icon={false}
+              sx={{ width: '100%', mt: 0.5 }}
+              data-testid={discovery ? 'device-discovery-note' : undefined}
+            >
+              <Typography variant="body2">
+                {t(discovery ? 'pages.auth.devicePairing.discovery.securityNote' : 'pages.auth.devicePairing.securityHint')}
+              </Typography>
+            </Alert>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          {/* UI-NFR-001 R-011 — 48px minimum touch target on mobile. */}
+          <Button onClick={onClose} data-testid="connect-device-close" sx={{ minHeight: 48 }}>
+            {t('common.close')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

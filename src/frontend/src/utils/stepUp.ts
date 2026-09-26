@@ -1,4 +1,4 @@
-import type { AuthProviderInfo } from '@/api/types';
+import type { AuthProviderInfo, CredentialStepUp } from '@/api/types';
 
 /** What the requester supplied to confirm a step-up — the credential part of it. */
 export interface StepUpCredentials {
@@ -40,6 +40,21 @@ export function toStepUpBody({ password, code, token }: StepUpCredentials): {
 } {
   const body: { password?: string; step_up_code?: string; step_up_token?: string } = {};
   if (password !== undefined) body.password = password;
+  if (code !== undefined) body.step_up_code = code;
+  if (token !== undefined) body.step_up_token = token;
+  return body;
+}
+
+/**
+ * The request-body fields of a credential change's step-up (#1847, #1857) —
+ * `CredentialStepUp` in the backend, which names the password
+ * `current_password`, not `password` as the erasure bodies do.
+ *
+ * Only what was supplied is carried, as in {@link toStepUpBody}.
+ */
+export function toCredentialStepUpBody({ password, code, token }: StepUpCredentials): CredentialStepUp {
+  const body: CredentialStepUp = {};
+  if (password !== undefined) body.current_password = password;
   if (code !== undefined) body.step_up_code = code;
   if (token !== undefined) body.step_up_token = token;
   return body;
