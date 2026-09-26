@@ -98,7 +98,7 @@ env:
   # start it; the `{{depName}} image` group in renovate.json5 matches on package
   # identity across managers, so this pin moves with the others.
   # renovate: datasource=docker depName=arangodb
-  ARANGODB_IMAGE: arangodb:3.12@sha256:f8e1590646f0600da50d4c8a03d0596e1a70453c24c145e54d80c792de247a43
+  ARANGODB_IMAGE: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
   # The image docker-lint-build.yml runs hadolint from; the binary is copied out
   # of it so the recorder can trace the process that actually opens the files.
   # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
