@@ -428,6 +428,10 @@ class ActuatorService:
 
     def create_rule(self, actuator_key: str, tenant_key: str, rule: ControlRule) -> ControlRule:
         self.get_actuator(actuator_key, tenant_key)
+        # The location whose sensors drive the rule, under the tenant (#1872 C5):
+        # it was stored as given.
+        if rule.sensor_location_key:
+            self._verify_location(rule.sensor_location_key, tenant_key)
         rule.actuator_key = actuator_key
         rule.tenant_key = tenant_key
         return self._repo.create_rule(rule)
@@ -447,6 +451,9 @@ class ActuatorService:
 
     def update_rule(self, actuator_key: str, rule_key: str, tenant_key: str, data: dict[str, Any]) -> ControlRule:
         rule = self._get_rule(actuator_key, rule_key, tenant_key)
+        new_location = data.get("sensor_location_key")
+        if new_location and new_location != rule.sensor_location_key:
+            self._verify_location(new_location, tenant_key)
         updated = rule.model_copy(update=data)
         return self._repo.update_rule(rule_key, updated)
 

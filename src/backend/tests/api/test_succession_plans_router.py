@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -89,7 +92,14 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
 
 def _build() -> tuple[TestClient, _FakeSuccessionRepo]:
     repo = _FakeSuccessionRepo()
-    service = SuccessionPlanService(repo, _FakeRunService())
+    # The plan's location and species are the tenant's own (#1872 C13, and the
+    # location anchor refuses to guess without a site repository).
+    sites = MagicMock()
+    sites.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_1")
+    sites.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=_ctx().tenant_key)
+    service = SuccessionPlanService(
+        repo, _FakeRunService(), site_repo=sites, species_resolver=lambda key, *, tenant_key: None
+    )
 
     app = FastAPI()
     app.include_router(succession_router, prefix="/api/v1/t/{tenant_slug}")

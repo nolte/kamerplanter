@@ -132,12 +132,8 @@ class RecordFeedingEvent(WriteToolBase):
             plant_key=plant.key,
             application_method=args.application_method,
             is_supplemental=args.is_supplemental,
-            # Stored verbatim and deliberately *not* dereferenced. A TankFillEvent
-            # carries no tenant of its own and the repository offers no
-            # tenant-filtered lookup by key, so resolving it here would be a new
-            # unfiltered cross-tenant read — the class of hole #927/#947 closed.
-            # POST /t/{slug}/feeding-events stores the same field unvalidated, so
-            # this tool is no thinner a guard than the REST path it mirrors.
+            # Resolved through its tank by the service (#1872 C6) — and by
+            # ``_resolve`` on the preview, so both paths check the same thing.
             tank_fill_event_key=args.tank_fill_event_key,
             volume_applied_liters=args.volume_applied_liters,
             fertilizers_used=[
@@ -198,6 +194,9 @@ class RecordFeedingEvent(WriteToolBase):
         """
 
         plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+        if args.tank_fill_event_key:
+            # The same check the write runs (#1872 C6), so a preview cannot approve it.
+            ctx.feeding_service.require_fill_event(args.tank_fill_event_key, tenant_key=ctx.tenant_key)
         resolved: list[tuple[str, float, str | None]] = []
         for entry in args.fertilizers_used:
             fertilizer = ctx.fertilizer_service.get_fertilizer(entry.fertilizer_key, tenant_key=ctx.tenant_key)
