@@ -724,6 +724,10 @@ def get_task_service() -> TaskService:
         # So a completion's `photo_refs` are resolved against the attachment
         # catalogue instead of trusted as strings (#1339 review).
         attachment_repo=get_attachment_repo(),
+        # #1871 B9 — an assignee must be an active member of the task's tenant.
+        membership_lookup=lambda user_key, tenant_key: get_membership_repo().get_by_user_and_tenant(
+            user_key, tenant_key
+        ),
     )
 
 
