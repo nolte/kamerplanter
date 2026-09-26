@@ -348,3 +348,25 @@ def test_an_inherited_default_plan_the_owner_may_not_use_is_dropped() -> None:
     )
 
     assert created.default_nutrient_plan_key is None
+
+
+def test_an_existing_setting_can_still_be_switched_off() -> None:
+    # /code-review of #1899: a setting stored before the fix (or whose entity was
+    # deleted since) must not become impossible to switch off.
+    service, repo = _ha()
+    repo.get_for_entity.return_value = SimpleNamespace(enabled=True)
+
+    service.set_published(OWN, HaPublishEntityType.PLANT, "p_foreign", False)
+    service.bulk_set_published(OWN, HaPublishEntityType.PLANT, {"p_foreign": False})
+
+    assert repo.upsert.call_count == 2
+
+
+def test_a_new_foreign_setting_cannot_be_created_even_switched_off() -> None:
+    service, repo = _ha()
+    repo.get_for_entity.return_value = None
+
+    with pytest.raises(NotFoundError):
+        service.set_published(OWN, HaPublishEntityType.PLANT, "p_foreign", False)
+
+    repo.upsert.assert_not_called()

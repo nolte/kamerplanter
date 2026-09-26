@@ -89,7 +89,12 @@ class HaPublishService:
         entity_key: str,
         enabled: bool,
     ) -> HaPublishSetting:
-        self._require_owned_entity(tenant_key, entity_type, entity_key)
+        # Switching off a setting the tenant already has needs no resolution
+        # (/code-review of #1899): a row stored before #1872 — or whose entity was
+        # deleted since — must stay switchable off, or it would sit in the
+        # enabled-keys list for good.
+        if enabled or self._repo.get_for_entity(tenant_key, entity_type, entity_key) is None:
+            self._require_owned_entity(tenant_key, entity_type, entity_key)
         setting = self._repo.upsert(
             HaPublishSetting(
                 tenant_key=tenant_key,
@@ -113,9 +118,11 @@ class HaPublishService:
         entity_type: HaPublishEntityType,
         entries: dict[str, bool],
     ) -> list[HaPublishSetting]:
-        # Every key before the first write: a foreign key refuses the whole batch.
-        for entity_key in entries:
-            self._require_owned_entity(tenant_key, entity_type, entity_key)
+        # Every key before the first write: a foreign key refuses the whole batch
+        # (switching off an existing setting excepted, as in ``set_published``).
+        for entity_key, enabled in entries.items():
+            if enabled or self._repo.get_for_entity(tenant_key, entity_type, entity_key) is None:
+                self._require_owned_entity(tenant_key, entity_type, entity_key)
         return [
             self.set_published(tenant_key, entity_type, entity_key, enabled) for entity_key, enabled in entries.items()
         ]

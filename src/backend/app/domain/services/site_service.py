@@ -112,12 +112,28 @@ class SiteService:
         """
         self.get_location(key, tenant_key=tenant_key)
         if location.parent_location_key:
-            if location.parent_location_key == key:
-                raise ValidationError("A location cannot be its own parent.")
-            self.get_location(location.parent_location_key, tenant_key=tenant_key)
+            parent = self.get_location(location.parent_location_key, tenant_key=tenant_key)
+            # Not itself, not one of its own descendants (/code-review of #1899): a
+            # loop A→B→A made every ancestor walk — the location page's breadcrumb —
+            # run forever. And within the location's own site, as create requires.
+            if parent.site_key != location.site_key:
+                raise ValidationError("A parent location must belong to the same site.")
+            self._refuse_parent_cycle(key, parent)
         if location.tank_key:
             self._require_owned_tank(location.tank_key, tenant_key)
         return self._repo.update_location(key, location)
+
+    def _refuse_parent_cycle(self, key: LocationKey, parent: Location) -> None:
+        """422 when *parent* is *key* itself or lies below it — the walk up from the parent reaches *key*."""
+        seen: set[str] = set()
+        current: Location | None = parent
+        while current is not None and current.key and current.key not in seen:
+            if current.key == key:
+                raise ValidationError("A location cannot be placed below itself.")
+            seen.add(current.key)
+            current = (
+                self._repo.get_location_by_key(current.parent_location_key) if current.parent_location_key else None
+            )
 
     def delete_location(self, key: LocationKey) -> bool:
         self.get_location(key)

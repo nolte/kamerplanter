@@ -466,3 +466,39 @@ def test_a_recurring_task_does_not_carry_a_departed_assignee() -> None:
 
     assert follow_up is not None
     assert follow_up.assigned_to_user_key is None
+
+
+# ── /code-review of #1899 ───────────────────────────────────────────────────
+
+
+def test_a_location_cannot_move_below_its_own_descendant() -> None:
+    # A→B→A made every ancestor walk (the location page's breadcrumb) loop forever.
+    sites = _Sites()
+    sites.locations["loc_child"] = Location(
+        _key="loc_child", name="C", area_m2=1.0, site_key="site_own", parent_location_key="loc_own"
+    )
+
+    with pytest.raises(ValidationError):
+        SiteService(sites, tank_repo=_Tanks()).update_location(
+            "loc_own",
+            Location(name="A", area_m2=1.0, site_key="site_own", parent_location_key="loc_child"),
+            tenant_key=OWN,
+        )
+
+    assert sites.writes == []
+
+
+def test_a_parent_location_lies_in_the_same_site() -> None:
+    sites = _Sites()
+    sites.locations["loc_other_site"] = Location(_key="loc_other_site", name="O", area_m2=1.0, site_key="site_own2")
+    original = sites.get_site_by_key
+    sites.get_site_by_key = lambda key: original("site_own" if key == "site_own2" else key)  # type: ignore[method-assign]
+
+    with pytest.raises(ValidationError):
+        SiteService(sites, tank_repo=_Tanks()).update_location(
+            "loc_own",
+            Location(name="A", area_m2=1.0, site_key="site_own", parent_location_key="loc_other_site"),
+            tenant_key=OWN,
+        )
+
+    assert sites.writes == []
