@@ -1,4 +1,4 @@
-<!-- REQ-023 — Quelle: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py -->
+<!-- REQ-023 — Quelle: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage,EmailChangeCard,EmailChangeConfirmPage,EmailChangeRevertPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py — REQ-025 (Art. 16) für die E-Mail-Änderung selbst, siehe privacy.md -->
 
 # Konto & Anmeldung
 
@@ -107,11 +107,29 @@ Im Tab **Profil** kannst du folgende Angaben ändern:
 | Einstellung | Beschreibung |
 |-------------|-------------|
 | **Anzeigename** | Wird in der gesamten App angezeigt |
-| **E-Mail** | Nur zur Anzeige — die Anmelde-E-Mail lässt sich hier nicht ändern |
+| **E-Mail** | Nur zur Anzeige an dieser Stelle — deine Anmeldeadresse änderst du im Abschnitt **E-Mail-Adresse ändern** direkt darunter (siehe nächster Abschnitt) |
 | **Sprache** | Deutsch oder Englisch — wechselt die Oberflächensprache sofort |
 | **Zeitzone** | Wird für alle Datums- und Zeitanzeigen verwendet, z. B. `Europe/Berlin` |
 
 Klicke nach Änderungen auf **Speichern**.
+
+---
+
+## E-Mail-Adresse ändern
+
+Im Tab **Profil** der Kontoeinstellungen findest du unterhalb deiner Profildaten den Abschnitt **E-Mail-Adresse ändern**. Das ist der Berichtigungsweg nach DSGVO Art. 16 — die ausführliche Aufschlüsselung, was dabei mit deinen Daten passiert, findest du unter [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
+
+1. Trage die **neue E-Mail-Adresse** ein und klicke auf **Änderung anfordern**
+2. Bestätige dich im aufklappenden Dialog — mit deinem **aktuellen Passwort**, sofern dein Konto eines hat, sonst über **Erneut anmelden** (Google, generischer OIDC-Anbieter) oder, nur bei ausschließlich GitHub/Apple, über **Code per E-Mail senden**
+3. Die Oberfläche bestätigt: An die neue Adresse wurde ein Bestätigungslink geschickt; deine **aktuelle** Adresse erhält sofort eine Information über die angestoßene Änderung
+
+Bis zur Bestätigung meldest du dich weiterhin mit deiner bisherigen Adresse an.
+
+!!! tip "Bestätigung über die neue Adresse"
+    Öffne die E-Mail an der **neuen** Adresse und klicke auf **Neue Adresse bestätigen**. Erst mit diesem Klick wird die neue Adresse zu deiner Anmeldeadresse — das bloße Öffnen der Mail reicht nicht. Danach werden alle deine Sitzungen abgemeldet; du meldest dich anschließend mit der neuen Adresse erneut an.
+
+!!! warning "Falscher Empfänger? Rückgängig machen"
+    Deine **bisherige** Adresse erhält nach der Bestätigung ebenfalls eine Mail — mit einem Link, über den sich die Änderung innerhalb von 7 Tagen einmalig rückgängig machen lässt. Das trennt dabei auch seit der Änderung neu verknüpfte Anmeldeanbieter und widerruft seitdem angelegte API-Schlüssel. Details dazu, was die Wiederherstellung im Einzelnen tut, unter [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
 
 ---
 
@@ -191,7 +209,7 @@ Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut
     Prüfe zuerst deinen Spam-Ordner. Der Bestätigungslink ist 24 Stunden gültig; danach musst du dich erneut registrieren, um eine neue E-Mail zu erhalten.
 
 ??? question "Kann ich meine E-Mail-Adresse ändern?"
-    In den Kontoeinstellungen ist die E-Mail-Adresse nur zur Anzeige und lässt sich dort nicht bearbeiten. Die E-Mail-Änderung ist Teil der Datenschutz-Funktionen — siehe [Datenschutz & DSGVO](privacy.md).
+    Ja, im Tab **Profil** der Kontoeinstellungen im Abschnitt **E-Mail-Adresse ändern** (siehe oben). Die neue Adresse muss über einen Bestätigungslink freigeschaltet werden; deine bisherige Adresse kann die Änderung anschließend 7 Tage lang rückgängig machen. Details: [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
 
 ??? question "Was passiert, wenn ich einen Anmeldeanbieter wie Google trenne?"
     Du kannst dich danach nicht mehr über diesen Anbieter anmelden. Solange mindestens ein weiterer Anmeldeweg (Passwort oder anderer Anbieter) übrig bleibt, funktioniert die Anmeldung über diesen Weg weiter.

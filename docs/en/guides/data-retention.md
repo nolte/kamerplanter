@@ -19,6 +19,7 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file first, then set status to `expired` | Purpose lapse |
 | R-06 | Erasure audit (completed requests) | 1 year after completion | Hard-delete (`retention.purge_expired_erasure_records`, daily at 04:30 UTC) | Art. 5(2) accountability |
 | R-07 | Email change requests | 24 hours after creation | Set status to `expired` (no hard-delete) | Purpose lapse |
+| R-07a | Revert window of a confirmed email change | 7 days after confirmation | Clear `previous_email`, the revert token's hash, and its expiry | Purpose lapse — the revert link has expired |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
 | R-12 | Expired invitations | 30 days after expiry | **Partially implemented:** status is set to `expired`; deletion after 30 days does not happen | Purpose lapse |
 
@@ -86,6 +87,22 @@ unconfirmed email-change request to `expired` `RETENTION_EMAIL_CHANGE_RETENTION_
 hours after the request (default 24 hours, minimum 1 hour; the older name
 `PRIVACY_EMAIL_CHANGE_TTL_HOURS` remains valid as an alias). The record is not
 hard-deleted.
+
+### Revert Window of a Confirmed Email Change (R-07a)
+
+Once an email change is confirmed, the **previous** address receives a one-time-use
+revert link (see [Privacy — Changing Your Email Address](../user-guide/privacy.md#changing-your-email-address-gdpr-art-16)).
+For that, the record keeps three extra fields: `previous_email`, the hash of the revert
+token (`revert_token_hash`), and its expiry (`revert_expires_at`), set to the
+confirmation time plus `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (default 7 days, minimum 1
+day).
+
+The same hourly task as R-07 (`retention.expire_email_change_requests`, minute 15)
+closes the window in the same run: for every record whose `revert_token_hash` is set and
+whose `revert_expires_at` has passed or is unreadable, it clears all three fields —
+conservatively, so a record with an unreadable expiry is treated as expired. The revert
+link no longer works afterwards; the record as a whole is still not hard-deleted (see
+R-07).
 
 ---
 
@@ -511,6 +528,7 @@ keeping the record longer than declared.
 | R-05 | `retention.expire_data_exports` | hourly, minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
 | R-06 | `retention.purge_expired_erasure_records` | daily, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
 | R-07 | `retention.expire_email_change_requests` | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
+| R-07a | `retention.expire_email_change_requests` (same run) | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly | Expiry of the token |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily | Expiry of the invitation (status `expired` only) |
 
@@ -522,7 +540,7 @@ counters, for example:
 - `anonymize_old_ips` (`anonymized`)
 - `retention.expire_data_exports.completed` (`expired`)
 - `retention.purge_expired_erasure_records.completed` (`purged`, `held_without_tombstone`)
-- `retention.expire_email_change_requests.completed` (`expired`)
+- `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
 
@@ -549,6 +567,7 @@ checks the same floor again:
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
 
 If both names of a row are set, the `RETENTION_*` name wins. The older names were
 documented before this change but had no effect — the code used fixed values; they now

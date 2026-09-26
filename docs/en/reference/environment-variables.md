@@ -72,7 +72,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
 
-<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours, retention_email_change_revert_days); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
@@ -85,6 +85,7 @@ These variables control the legally mandated deletion/anonymization of personal 
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before the file is automatically deleted (NFR-011 R-05). Minimum: `1`. The older name `PRIVACY_EXPORT_RETENTION_HOURS` is still accepted; if both are set, the new name wins. |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | No | Number of years a completed erasure request (`erasure_requests`, `status=completed`) is kept as the Art. 5(2) GDPR accountability proof before it is permanently deleted (NFR-011 R-06). Counted in calendar years. Minimum: `1`. |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | No | Validity of the confirmation link when changing an email address (NFR-011 R-07); after that the request is set to `expired`, no hard-delete happens. Minimum: `1`. The older name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` is still accepted; if both are set, the new name wins. |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | `7` | No | Validity of the undo link the previous address receives after a confirmed email change (NFR-011 R-07a). After that, the same hourly retention task as R-07 clears the `previous_email` field and the undo token's hash. Minimum: `1`. |
 
 For `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` and
 `RETENTION_EMAIL_CHANGE_RETENTION_HOURS`, the older `PRIVACY_*` names were already

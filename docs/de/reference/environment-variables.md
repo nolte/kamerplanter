@@ -72,7 +72,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anonymisierung personenbezogener Daten (siehe [Datenschutz (DSGVO)](../user-guide/privacy.md)) und sind vom Betriebsmodus unabhängig — sie gelten sowohl im Light- als auch im Full-Modus.
 
-<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours, retention_email_change_revert_days); src/backend/app/main.py (insecure_default_secrets) -->
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
@@ -85,6 +85,7 @@ Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anony
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | Nein | Aufbewahrungsdauer eines generierten Datenexports (Art. 15/20 DSGVO), bevor die Datei automatisch gelöscht wird (NFR-011 R-05). Minimum: `1`. Älterer Name `PRIVACY_EXPORT_RETENTION_HOURS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | Nein | Anzahl Jahre, die ein abgeschlossener Löschungs-Antrag (`erasure_requests`, `status=completed`) als Rechenschaftsnachweis (Art. 5 Abs. 2 DSGVO) aufbewahrt wird, bevor er endgültig gelöscht wird (NFR-011 R-06). Gezählt in Kalenderjahren. Minimum: `1`. |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung (NFR-011 R-07); danach wird die Anfrage auf den Status `expired` gesetzt, ein Hard-Delete findet nicht statt. Minimum: `1`. Älterer Name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | `7` | Nein | Gültigkeitsdauer des Rückgängig-Links, den die vorherige Adresse nach einer bestätigten E-Mail-Änderung erhält (NFR-011 R-07a). Danach nullt derselbe stündliche Retention-Task wie bei R-07 die Felder `previous_email` und den Hash des Rückgängig-Tokens. Minimum: `1`. |
 
 Für `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` und
 `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` waren die älteren `PRIVACY_*`-Namen zwar bereits
