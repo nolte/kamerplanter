@@ -1006,6 +1006,20 @@ class TaskService:
         if membership is None or not getattr(membership, "is_active", False):
             raise NotFoundError("User", user_key)
 
+    def _still_a_member(self, user_key: str | None, tenant_key: str) -> str | None:
+        """*user_key* when it is an active member of *tenant_key*, else ``None`` — no error.
+
+        A task without a tenant (system context) keeps its assignee: there is no
+        membership to consult.
+        """
+        if not tenant_key:
+            return user_key
+        try:
+            self._require_member_assignee(user_key, tenant_key)
+        except NotFoundError:
+            return None
+        return user_key
+
     def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
         self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         created = self._repo.create_task(task)
@@ -1360,7 +1374,9 @@ class TaskService:
             checklist=[
                 ChecklistItem(text=item.text, done=False, order=item.order) for item in completed_task.checklist
             ],
-            assigned_to_user_key=completed_task.assigned_to_user_key,
+            # Only while the assignee is still an active member (#1876 review, Info):
+            # a member who left stayed the assignee of every later occurrence.
+            assigned_to_user_key=self._still_a_member(completed_task.assigned_to_user_key, completed_task.tenant_key),
             recurrence_rule=completed_task.recurrence_rule,
             recurrence_end_date=completed_task.recurrence_end_date,
             parent_recurring_task_key=completed_task.key,

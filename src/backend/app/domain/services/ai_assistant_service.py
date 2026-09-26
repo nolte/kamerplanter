@@ -12,10 +12,11 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 
-from app.common.exceptions import AiDisabledError
+from app.common.exceptions import AiDisabledError, NotFoundError
 from app.data_access.arango.ai_repository import (
     ArangoAiConversationRepository,
     ArangoAiProviderRepository,
@@ -66,7 +67,15 @@ class AiAssistantService:
         context_resolver: ContextResolver | None = None,
         tip_engine: TipEngine | None = None,
         explain_engine: ExplainEngine | None = None,
+        plant_repo: Any | None = None,
+        planting_run_repo: Any | None = None,
     ) -> None:
+        # #1872 C9: a plant / run context key is resolved under the tenant before
+        # anything stores it (tip cards, conversations, audit) or a resolver reads it.
+        self._context_owners = {
+            "plant_instance": ("PlantInstance", plant_repo),
+            "planting_run": ("PlantingRun", planting_run_repo),
+        }
         self._ks = knowledge_adapter
         self._consent = consent_guard
         self._audit = audit_logger
@@ -76,6 +85,23 @@ class AiAssistantService:
         self._resolve_context = context_resolver or (lambda _t, _ct, _ck: QuestionContext())
         self._tips = tip_engine or TipEngine()
         self._explain = explain_engine or ExplainEngine()
+
+    def _require_owned_context(self, tenant_key: str, context_type: str, context_key: str | None) -> None:
+        """404 unless a plant / run context key belongs to *tenant_key* (#1872 C9).
+
+        The key was stored on tip cards, conversations and the audit log as given,
+        and handed to the context resolver. Inert while production wires no
+        resolver — the check keeps it that way once one is wired. Other context
+        types (``general``, ``daily``, ``term``, ``explain``) name no entity.
+        Fails closed without the repository.
+        """
+        owner = self._context_owners.get(context_type)
+        if owner is None or not context_key:
+            return
+        name, repo = owner
+        entity = repo.get_by_key(context_key) if repo is not None else None
+        if entity is None or getattr(entity, "tenant_key", None) != tenant_key:
+            raise NotFoundError(name, context_key)
 
     # ── Provider helpers ───────────────────────────────────────────────
 
@@ -168,6 +194,7 @@ class AiAssistantService:
         which is now :meth:`get_tips`.
         """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        self._require_owned_context(ctx.tenant_key, context_type, context_key)
         self._tip_cache.invalidate_context(ctx.tenant_key, context_type, context_key)
 
         question_context = self._resolve_context(ctx.tenant_key, context_type, context_key)
@@ -367,6 +394,7 @@ class AiAssistantService:
     ) -> AiResponse:
         """Generate a "why?" answer for a concrete recommendation (§4.5)."""
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        self._require_owned_context(ctx.tenant_key, subject_type, subject_key)
         question = self._explain.build_question(question_template_id, language, slots or {})
         if question is None:
             # Unknown template — deterministic message, no KS call.
@@ -527,6 +555,7 @@ class AiAssistantService:
         language: str = "de",
     ) -> AiConversation:
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        self._require_owned_context(ctx.tenant_key, context_type, context_key)
         now = datetime.now(UTC)
         conv = AiConversation(
             tenant_key=ctx.tenant_key,

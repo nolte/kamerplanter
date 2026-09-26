@@ -22,6 +22,11 @@ from app.domain.models.watering_log import (
     WateringLogFertilizer,
     find_watering_log_violations,
 )
+from app.domain.services.feeding_references import (
+    FillEventAnchors,
+    require_owned_fill_event,
+    require_readable_nutrient_plan,
+)
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
 from app.domain.services.location_ownership import resolve_owned_slot
 from app.domain.services.watering_confirmation_scope import own_task_or_none, require_confirmable_run
@@ -43,8 +48,11 @@ class WateringLogService:
         care_service: CareReminderService | None = None,
         plant_repo: IPlantInstanceRepository | None = None,
         fertilizer_repo: IFertilizerRepository | None = None,
+        fill_event_anchors: FillEventAnchors | None = None,
     ) -> None:
         self._repo = repo
+        # #1872 C6: a fill event's tenant is its tank's.
+        self._fill_event_anchors = fill_event_anchors
         self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._site_repo = site_repo
@@ -66,6 +74,11 @@ class WateringLogService:
         written (#1713).
         """
         self._assert_fertilizers_visible(log)
+        # The stored references under the log's tenant (#1872 C6, C7).
+        if log.tank_fill_event_key:
+            require_owned_fill_event(self._fill_event_anchors, log.tank_fill_event_key, log.tenant_key)
+        if log.nutrient_plan_key:
+            require_readable_nutrient_plan(self._nutrient_plan_repo, log.nutrient_plan_key, log.tenant_key)
         # Every slot under the log's tenant, before anything is read through it
         # or written (#1871 B4): the slots were taken as given — LOG_SLOT edges to
         # any tenant's slots, and the first one's location, read unscoped, shaped

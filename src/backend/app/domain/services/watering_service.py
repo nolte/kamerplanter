@@ -18,6 +18,11 @@ from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.watering_event import WateringEvent
+from app.domain.services.feeding_references import (
+    FillEventAnchors,
+    require_owned_fill_event,
+    require_readable_nutrient_plan,
+)
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
 from app.domain.services.watering_confirmation_scope import own_task_or_none, require_confirmable_run
 
@@ -55,8 +60,11 @@ class WateringService:
         sensor_service=None,
         irrigation_demand_repo=None,
         fertilizer_repo: IFertilizerRepository | None = None,
+        fill_event_anchors: FillEventAnchors | None = None,
     ) -> None:
         self._repo = repo
+        # #1872 C6: a fill event's tenant is its tank's.
+        self._fill_event_anchors = fill_event_anchors
         self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._site_repo = site_repo
@@ -90,6 +98,11 @@ class WateringService:
             field="fertilizers_used",
             owner="WateringService",
         )
+        # The stored references under the event's tenant (#1872 C6, C7).
+        if event.tank_fill_event_key:
+            require_owned_fill_event(self._fill_event_anchors, event.tank_fill_event_key, event.tenant_key)
+        if event.nutrient_plan_key:
+            require_readable_nutrient_plan(self._nutrient_plan_repo, event.nutrient_plan_key, event.tenant_key)
         # Look up irrigation system from the first plant's placement
         irrigation_system = None
         first_plant_key = event.plant_keys[0]

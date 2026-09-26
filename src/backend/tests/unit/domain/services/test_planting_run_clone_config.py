@@ -1,5 +1,6 @@
 """REQ-013 §2 (Z.160) — clone_from_run_key copies configuration, not plants."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.common.enums import PlantingRunStatus, PlantingRunType
@@ -55,12 +56,18 @@ def _service():
     repo.create_entry.side_effect = lambda entry: entry
 
     plant_repo = MagicMock()
+    # The template's location is the tenant's own: the run service refuses a
+    # location it cannot anchor (#1872, fail closed without a site repository).
+    sites = MagicMock()
+    sites.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_lisa")
+    sites.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=TENANT)
     # The template's batches are the tenant's own; #1868 resolves the inherited
     # key, and a resolver that answers for them keeps this file about cloning.
     service = PlantingRunService(
         run_repo=repo,
         plant_repo=plant_repo,
         engine=PlantingRunEngine(),
+        site_repo=sites,
         substrate_batch_resolver=lambda key, *, tenant_key: None,
         species_resolver=lambda key, *, tenant_key: None,
     )

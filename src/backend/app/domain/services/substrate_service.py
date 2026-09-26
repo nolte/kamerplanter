@@ -169,6 +169,10 @@ class SubstrateService:
     ) -> SubstrateBatch:
         existing = self.get_batch(key, tenant_key=tenant_key)
         self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_edit_resource)
+        # A re-pointed parent substrate in the caller's scope, as on create (#1872
+        # C15): update re-stamped only the tenant and stored the body's key.
+        if batch.substrate_key != existing.substrate_key:
+            self.get_substrate(batch.substrate_key, tenant_key=tenant_key)
         batch.tenant_key = existing.tenant_key
         return self._repo.update_batch(key, batch)
 

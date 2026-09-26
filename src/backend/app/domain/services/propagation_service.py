@@ -13,6 +13,7 @@ exercise the plant-instance clone spawn).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -65,7 +66,11 @@ class PropagationService:
         propagation_repo: PropagationRepository | None = None,
         lineage_engine: LineageEngine | None = None,
         planting_run_repo: Any | None = None,
+        species_resolver: Callable[..., Any] | None = None,
     ) -> None:
+        # ``SpeciesService.get_species``-shaped: ``resolver(key, tenant_key=...)``
+        # answers global, own or granted species and 404s the rest (#1872 C11, C12).
+        self._species_resolver = species_resolver
         #: D10-minimal event store (kept for the existing clone-spawn wiring).
         self._repo = repo
         #: Full propagation repository (events / batches / protocols / phenotypes / lineage).
@@ -137,8 +142,40 @@ class PropagationService:
     def get_event(self, key: str, tenant_key: str) -> PropagationEvent:
         return self._get_event_or_404(key, tenant_key)
 
+    def _require_readable_species(self, species_key: str, tenant_key: str) -> None:
+        if self._species_resolver is None:
+            raise NotFoundError("Species", species_key)
+        self._species_resolver(species_key, tenant_key=tenant_key)
+
+    def _require_owned_run(self, run_key: str, tenant_key: str) -> None:
+        """404 unless *run_key* is a planting run of *tenant_key* — fail closed (SEC-B4)."""
+        run = self._planting_run_repo.get_by_key(run_key) if self._planting_run_repo is not None else None
+        if run is None or getattr(run, "tenant_key", None) != tenant_key:
+            raise NotFoundError("PlantingRun", run_key)
+
+    def _require_event_references(self, event: PropagationEvent) -> None:
+        """Resolve every reference an event body names under the event's tenant (#1872 C2, C11).
+
+        Parent and child plants, the rooting protocol (global or own), the batch
+        and the species were stored as given. Foreign and unknown answer the
+        same 404, and nothing is written.
+        """
+        tenant = event.tenant_key
+        if not tenant:
+            raise NotFoundError("PropagationEvent", "")
+        for plant_key in dict.fromkeys([*event.parent_plant_keys, *event.child_plant_keys]):
+            if plant_key:
+                self._get_plant_or_404(plant_key, tenant)
+        if event.protocol_key:
+            self.get_protocol(event.protocol_key, tenant)
+        if event.batch_key:
+            self.get_batch(event.batch_key, tenant)
+        if event.species_key:
+            self._require_readable_species(event.species_key, tenant)
+
     def create_event(self, event: PropagationEvent) -> PropagationEvent:
         prop = self._require_prop()
+        self._require_event_references(event)
         if event.happened_at is None:
             event.happened_at = _now()
         return prop.create_event(event)
@@ -188,6 +225,10 @@ class PropagationService:
 
     def create_batch(self, batch: PropagationBatch) -> PropagationBatch:
         prop = self._require_prop()
+        # The run the batch will hand its plants to, under the tenant (#1872 C3):
+        # finalize checked it, create stored it as given.
+        if batch.target_planting_run_key:
+            self._require_owned_run(batch.target_planting_run_key, batch.tenant_key)
         if batch.started_at is None:
             batch.started_at = _now()
         return prop.create_batch(batch)
@@ -240,14 +281,10 @@ class PropagationService:
         batch = self.get_batch(key, tenant_key)
         if batch.status == PropagationBatchStatus.COMPLETED:
             raise ValidationError("Batch is already finalized.")
-        if self._planting_run_repo is not None:
-            run = self._planting_run_repo.get_by_key(target_planting_run_key)
-            # Fail-closed tenant scope (SEC-B4): a run whose tenant_key is missing must
-            # be rejected, never silently defaulted to the caller's tenant. Only an
-            # explicit, matching tenant_key lets the finalize proceed.
-            run_tenant_key = getattr(run, "tenant_key", None)
-            if run is None or run_tenant_key is None or run_tenant_key != tenant_key:
-                raise NotFoundError("PlantingRun", target_planting_run_key)
+        # Fail-closed tenant scope (SEC-B4): a run whose tenant_key is missing must be
+        # rejected, never silently defaulted to the caller's tenant — and so must a
+        # run nothing can look up (the check was skipped without a repository).
+        self._require_owned_run(target_planting_run_key, tenant_key)
         events = self._require_prop().list_events_for_batch(key, tenant_key)
         total_survived = sum(e.survived_count or 0 for e in events)
         total_quantity = sum(e.quantity for e in events)
@@ -260,7 +297,14 @@ class PropagationService:
 
     # ── Rooting protocols ──────────────────────────────────────────────────────
 
+    def _require_protocol_species(self, protocol: RootingProtocol) -> None:
+        """Every recommended species readable by the protocol's tenant (#1872 C12)."""
+        for species_key in dict.fromkeys(protocol.recommended_species_keys):
+            if species_key:
+                self._require_readable_species(species_key, protocol.tenant_key)
+
     def create_protocol(self, protocol: RootingProtocol) -> RootingProtocol:
+        self._require_protocol_species(protocol)
         return self._require_prop().create_protocol(protocol)
 
     def list_protocols(
@@ -287,6 +331,7 @@ class PropagationService:
         if existing.tenant_key == "":
             raise ForbiddenError("Global protocol templates cannot be edited by a tenant.")
         protocol.tenant_key = tenant_key
+        self._require_protocol_species(protocol)
         return self._require_prop().update_protocol(key, protocol)
 
     def delete_protocol(self, key: str, tenant_key: str) -> None:

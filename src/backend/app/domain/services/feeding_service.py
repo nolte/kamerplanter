@@ -4,13 +4,22 @@ from app.domain.engines.nutrient_engine import RunoffAnalyzer
 from app.domain.interfaces.feeding_repository import IFeedingRepository
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.feeding_event import FeedingEvent
+from app.domain.services.feeding_references import FillEventAnchors, require_owned_fill_event
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
 
 
 class FeedingService:
-    def __init__(self, repo: IFeedingRepository, fertilizer_repo: IFertilizerRepository | None = None) -> None:
+    def __init__(
+        self,
+        repo: IFeedingRepository,
+        fertilizer_repo: IFertilizerRepository | None = None,
+        *,
+        fill_event_anchors: FillEventAnchors | None = None,
+    ) -> None:
         self._repo = repo
         self._fertilizer_repo = fertilizer_repo
+        # #1872 C6: a fill event's tenant is its tank's; ``ITankRepository`` answers both.
+        self._fill_event_anchors = fill_event_anchors
         self._runoff_analyzer = RunoffAnalyzer()
 
     # ── CRUD ─────────────────────────────────────────────────────────
@@ -42,6 +51,10 @@ class FeedingService:
             field="fertilizers_used",
             owner="FeedingService",
         )
+        # The fill event under the event's tenant (#1872 C6): REST and the MCP
+        # feeding tool both land here, and both stored the key verbatim.
+        if event.tank_fill_event_key:
+            require_owned_fill_event(self._fill_event_anchors, event.tank_fill_event_key, event.tenant_key)
         return self._repo.create(event)
 
     def update_event(self, key: FeedingEventKey, data: dict) -> FeedingEvent:

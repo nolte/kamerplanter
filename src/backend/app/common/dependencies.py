@@ -235,11 +235,13 @@ def get_phase_sequence_binder():
 
 
 def get_species_service() -> SpeciesService:
-    return SpeciesService(get_species_repo(), get_graph_repo(), get_phase_sequence_binder())
+    return SpeciesService(
+        get_species_repo(), get_graph_repo(), get_phase_sequence_binder(), nutrient_plan_repo=get_nutrient_plan_repo()
+    )
 
 
 def get_site_service() -> SiteService:
-    return SiteService(get_site_repo())
+    return SiteService(get_site_repo(), tank_repo=get_tank_repo())
 
 
 def get_substrate_service() -> SubstrateService:
@@ -270,6 +272,7 @@ def get_propagation_service() -> PropagationService:
         propagation_repo=prop_repo,
         lineage_engine=LineageEngine(prop_repo, get_species_repo()),
         planting_run_repo=get_planting_run_repo(),
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
@@ -524,6 +527,7 @@ def get_succession_plan_service() -> SuccessionPlanService:
         get_succession_plan_repo(),
         get_planting_run_service(),
         site_repo=get_site_repo(),
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
@@ -583,7 +587,7 @@ def get_nutrient_plan_service() -> NutrientPlanService:
 
 
 def get_feeding_service() -> FeedingService:
-    return FeedingService(get_feeding_repo(), fertilizer_repo=get_fertilizer_repo())
+    return FeedingService(get_feeding_repo(), fertilizer_repo=get_fertilizer_repo(), fill_event_anchors=get_tank_repo())
 
 
 def get_watering_repo() -> ArangoWateringRepository:
@@ -608,6 +612,7 @@ def get_watering_service() -> WateringService:
         sensor_service=get_sensor_service(),
         irrigation_demand_repo=get_irrigation_demand_repo(),
         fertilizer_repo=get_fertilizer_repo(),
+        fill_event_anchors=get_tank_repo(),
     )
 
 
@@ -627,6 +632,7 @@ def get_watering_log_service() -> WateringLogService:
         care_service=get_care_reminder_service(),
         plant_repo=get_plant_repo(),
         fertilizer_repo=get_fertilizer_repo(),
+        fill_event_anchors=get_tank_repo(),
     )
 
 
@@ -1411,7 +1417,9 @@ def get_ha_publish_repo():
 def get_ha_publish_service():
     from app.domain.services.ha_publish_service import HaPublishService
 
-    return HaPublishService(get_ha_publish_repo())
+    return HaPublishService(
+        get_ha_publish_repo(), plant_repo=get_plant_repo(), tank_repo=get_tank_repo(), site_anchors=get_site_repo()
+    )
 
 
 def get_ha_client():
@@ -1860,6 +1868,8 @@ def get_ai_assistant_service():
         tip_cache_repo=get_ai_tip_cache_repo(),
         conversation_repo=get_ai_conversation_repo(),
         provider_repo=get_ai_provider_repo(),
+        plant_repo=get_plant_repo(),
+        planting_run_repo=get_planting_run_repo(),
     )
 
 
