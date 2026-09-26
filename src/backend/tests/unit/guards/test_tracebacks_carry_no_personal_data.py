@@ -168,6 +168,8 @@ from celery.signals import celeryd_init
 from structlog._config import BoundLoggerLazyProxy
 from app.config.settings import settings
 settings.erasure_tombstone_salt = "s" * 40
+import base64
+settings.fernet_key = base64.urlsafe_b64encode(bytes(range(32))).decode()  # #1859 worker gate
 from app.tasks import celery_app
 celery_app.loader.import_default_modules()
 celeryd_init.send(sender="probe@host", instance=None, conf=celery_app.conf, options={})

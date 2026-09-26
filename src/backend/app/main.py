@@ -27,6 +27,7 @@ from app.config.logging import setup_logging
 from app.config.settings import settings
 from app.data_access.arango.collections import ensure_collections
 from app.data_access.external.registration import register_external_adapters
+from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
 
 logger = structlog.get_logger()
@@ -66,7 +67,9 @@ def insecure_default_secrets() -> list[str]:
     if settings.timescaledb_enabled and settings.timescaledb_password == "changeme":
         insecure.append("timescaledb_password")
     # INF-S5: OIDC provider-secret encryption key (Fernet). Must be provisioned.
-    if not settings.fernet_key:
+    # A malformed key is as unusable as a missing one (#1859): ``Fernet(key)``
+    # would raise on every request that touches a secret.
+    if not is_usable_fernet_key(settings.fernet_key):
         insecure.append("fernet_key")
     # NFR-011 §4: GDPR erasure tombstone salt (>= 32 chars).
     if len(settings.erasure_tombstone_salt) < _MIN_TOMBSTONE_SALT_LENGTH:

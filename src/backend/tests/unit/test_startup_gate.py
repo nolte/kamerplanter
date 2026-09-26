@@ -7,12 +7,16 @@ and the internal M2M ``internal_service_token`` in addition to the original
 three (jwt/arango/timescale).
 """
 
+import base64
+
 import pytest
 
 from app import main
 from app.config.settings import settings
 
 _VALID_SALT = "x" * 32
+# Assembled at runtime (BACKEND.md §16.3): a key-shaped literal is a scanner hit.
+_VALID_FERNET_KEY = base64.urlsafe_b64encode(bytes(range(32))).decode()
 
 
 @pytest.fixture
@@ -21,7 +25,7 @@ def secure_settings(monkeypatch):
     monkeypatch.setattr(settings, "jwt_secret_key", "a-real-jwt-secret")
     monkeypatch.setattr(settings, "arangodb_password", "a-real-arango-password")
     monkeypatch.setattr(settings, "timescaledb_enabled", False)
-    monkeypatch.setattr(settings, "fernet_key", "a-real-fernet-key")
+    monkeypatch.setattr(settings, "fernet_key", _VALID_FERNET_KEY)
     monkeypatch.setattr(settings, "erasure_tombstone_salt", _VALID_SALT)
     monkeypatch.setattr(settings, "knowledge_service_enabled", False)
     monkeypatch.setattr(settings, "inference_service_enabled", False)
@@ -45,6 +49,14 @@ def test_default_arango_password_flagged(secure_settings, monkeypatch):
 
 def test_missing_fernet_key_flagged(secure_settings, monkeypatch):
     monkeypatch.setattr(settings, "fernet_key", "")
+    assert "fernet_key" in main.insecure_default_secrets()
+
+
+@pytest.mark.parametrize("key", ["a-real-fernet-key", "x" * 44], ids=["short", "not-base64-32"])
+def test_malformed_fernet_key_flagged(secure_settings, monkeypatch, key):
+    # #1859 review: the worker refuses a malformed key; the API gate must too,
+    # or every endpoint touching a secret answers 500 at the first request.
+    monkeypatch.setattr(settings, "fernet_key", key)
     assert "fernet_key" in main.insecure_default_secrets()
 
 

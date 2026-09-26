@@ -69,7 +69,7 @@ CORS_ORIGINS=["http://localhost:8080"]
 ### Drei zusätzliche Pflicht-Secrets (sonst startet das Backend nicht)
 
 !!! danger "Ohne diese drei Werte bricht der Backend-Start ab"
-    `.env.example` setzt `DEBUG=false` — der für einen Dauerbetrieb richtige Wert. Bei `DEBUG=false` prüft das Backend beim Start zusätzlich `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` und bricht mit einer Fehlermeldung ab, wenn einer davon fehlt (Fail-Fast-Gate). `docker-compose.release.yml` reicht diese drei Variablen **nicht automatisch** an den Backend-Container durch — du musst sie selbst ergänzen.
+    `.env.example` setzt `DEBUG=false` — der für einen Dauerbetrieb richtige Wert. Bei `DEBUG=false` prüft das Backend beim Start zusätzlich `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` und bricht mit einer Fehlermeldung ab, wenn einer davon fehlt (Fail-Fast-Gate). `docker-compose.release.yml` reicht diese drei Variablen **nicht automatisch** an den Backend-Container durch — du musst sie selbst ergänzen. Auch der `celery-worker`-Container prüft `FERNET_KEY` inzwischen beim Start und bricht ebenso ab, wenn der Wert fehlt oder ungültig ist — der `celery-worker`-Eintrag in der `docker-compose.override.yml` unten ist deshalb **Pflicht**, nicht optional.
 
 Erzeuge die drei Werte und trage sie in deine `.env` ein:
 
