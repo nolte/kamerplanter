@@ -383,8 +383,7 @@ def link_feeds_from(
     service: TankService = Depends(get_tank_service),
 ):
     """Link a tank to the source tank it is fed from."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.link_feeds_from(key, body.source_tank_key)
+    service.link_feeds_from(key, body.source_tank_key, tenant_key=ctx.tenant_key)
     return {"status": "linked"}
 
 

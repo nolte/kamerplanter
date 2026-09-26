@@ -171,7 +171,9 @@ def get_inventree_service():
     """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
     from app.domain.services.inventree_service import InvenTreeService
 
-    return InvenTreeService(get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client())
+    return InvenTreeService(
+        get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client(), site_anchors=get_site_repo()
+    )
 
 
 def get_species_repo() -> ArangoSpeciesRepository:
@@ -955,6 +957,8 @@ def get_tenant_service() -> TenantService:
         tombstone_salt=settings.erasure_tombstone_salt,
         light_mode=settings.kamerplanter_mode == "light",
         step_up_verifier=get_step_up_verifier(),
+        # #1871 B3 — a location assignment is resolved through its site.
+        site_anchors=get_site_repo(),
     )
 
 

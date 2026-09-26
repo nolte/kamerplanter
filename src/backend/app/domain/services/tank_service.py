@@ -360,9 +360,12 @@ class TankService:
         self.get_tank(tank_key)
         return self._repo.get_active_nutrient_plans(tank_key)
 
-    def link_feeds_from(self, tank_key: TankKey, source_tank_key: TankKey) -> None:
-        self.get_tank(tank_key)
-        self.get_tank(source_tank_key)
+    def link_feeds_from(self, tank_key: TankKey, source_tank_key: TankKey, *, tenant_key: str) -> None:
+        # Both tanks under the tenant (#1871 B5): the source used to be resolved
+        # unscoped — a FEEDS_FROM edge to a foreign tank, and 201 vs 404 told the
+        # caller whether that tank existed.
+        self.get_tank(tank_key, tenant_key)
+        self.get_tank(source_tank_key, tenant_key)
         if tank_key == source_tank_key:
             raise ValidationError("A tank cannot feed from itself.")
         self._repo.link_feeds_from(tank_key, source_tank_key)

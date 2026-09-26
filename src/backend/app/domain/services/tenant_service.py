@@ -56,6 +56,7 @@ from app.domain.models.tenant_erasure import (
     TenantErasureRecord,
 )
 from app.domain.models.user import User, allows_interactive_auth
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
 from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier, echo_matches
 
 logger = structlog.get_logger()
@@ -96,7 +97,11 @@ class TenantService:
         light_mode: bool = False,
         password_engine: PasswordEngine | None = None,
         step_up_verifier: StepUpVerifier | None = None,
+        site_anchors: SiteAnchorSource | None = None,
     ) -> None:
+        # The location → site reads a location assignment is checked through
+        # (#1871 B3). Without them an assignment is refused, never stored unchecked.
+        self._site_anchors = site_anchors
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
         self._invitation_repo = invitation_repo
@@ -1306,6 +1311,13 @@ class TenantService:
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
             raise NotFoundError("Membership", membership_key)
+
+        # The location is resolved through its site under the tenant (#1871 B3):
+        # it used to be taken as given, even an unknown one, and an
+        # ASSIGNED_TO_LOCATION edge written to it.
+        if self._site_anchors is None:
+            raise NotFoundError("Location", location_key)
+        resolve_owned_location(self._site_anchors, location_key, tenant_key)
 
         # Check for duplicate
         existing = self._assignment_repo.get_by_membership_and_location(membership_key, location_key)
