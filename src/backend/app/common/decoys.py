@@ -13,7 +13,7 @@ import hashlib
 import hmac
 import secrets
 
-from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH
 from app.config.settings import settings
 
 #: Digit count of a synthesised, never-stored ArangoDB ``_key``.
@@ -54,21 +54,23 @@ def email_digest(email: str) -> str:
     address is dictionary-reversible: addresses are a small, enumerable space,
     so anyone holding the log stream could confirm a guessed address by hashing
     it. The digest is 16 hex chars of an HMAC-SHA256 over the normalised
-    address, keyed with the tombstone salt under the purpose label
-    ``log-email`` — separated from the tombstone hash and from
-    ``ErasureEngine.log_subject`` (``log-subject``). An operator holding the
-    salt can still compute the digest of a given address.
+    address, keyed with ``LOG_PSEUDONYM_SALT`` under the purpose label
+    ``log-email`` — separated from ``ErasureEngine.log_subject``
+    (``log-subject``). An operator holding the salt can still compute the
+    digest of a given address.
 
     Read by log calls only: no stored value or lookup depends on it, so a salt
-    rotation breaks nothing but cross-deploy log correlation.
+    rotation breaks nothing but the correlation of log lines written before it
+    with those written after (#1812). Until #1812 this was keyed with the
+    erasure tombstone salt, which can never rotate.
 
     A missing or short salt must not turn a log line into an error, and must not
     fall back to the unkeyed hash either: it yields the constant
     :data:`UNAVAILABLE_EMAIL_DIGEST` (cf. ``anon_unavailable`` of
     ``ErasureEngine.log_subject``). The salt is read at call time.
     """
-    salt = settings.erasure_tombstone_salt
-    if not salt or len(salt) < MIN_TOMBSTONE_SALT_LENGTH:
+    salt = settings.log_pseudonym_salt
+    if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
         return UNAVAILABLE_EMAIL_DIGEST
     normalised = email.strip().lower()
     return hmac.new(salt.encode("utf-8"), f"log-email:{normalised}".encode(), hashlib.sha256).hexdigest()[:16]

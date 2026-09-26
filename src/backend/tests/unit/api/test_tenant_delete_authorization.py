@@ -49,7 +49,6 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_erasure import TenantDeletionConfirmation, TenantErasureRecord
 from app.domain.models.user import User
 from tests.support.tenant_erasure_doubles import (
-    SALT,
     FakeTenantErasureRepository,
     RecordingTenantErasureExecutor,
     tenant_service_for_deletion,
@@ -285,7 +284,11 @@ def test_a_federated_account_still_has_to_echo_the_slug() -> None:
     assert world.nothing_erased()
 
 
-def test_the_record_names_the_requester_by_reference_and_the_step_up() -> None:
+def test_the_record_names_the_requester_by_reference_and_the_step_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config.settings import settings
+
+    log_salt = "log-pseudonym-test-salt-not-a-secret-01234"
+    monkeypatch.setattr(settings, "log_pseudonym_salt", log_salt)  # #1812: the reference is a LOG pseudonym
     world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT])
 
     world.delete(TENANT_ROUTE, STEP_UP)
@@ -295,7 +298,7 @@ def test_the_record_names_the_requester_by_reference_and_the_step_up() -> None:
     assert record["origin"] == "tenant_management"
     # The record outlives the tenant: it names the caller by the salted log
     # reference, never by the account key itself.
-    assert record["requested_by_subject"] == ErasureEngine.log_subject(CALLER, SALT)
+    assert record["requested_by_subject"] == ErasureEngine.log_subject(CALLER, log_salt)
     assert CALLER not in str(record)
 
 

@@ -924,7 +924,8 @@ class ErasureEngine:
         account, and the erasure record that proves it (R-06). Log lines on the
         privacy, auth, retention and storage paths therefore name the subject by
         this reference: ``sub_`` + 16 hex chars of an HMAC-SHA256 over the
-        account key, keyed with the tombstone salt and the purpose label
+        account key, keyed with the salt the caller passes — ``LOG_PSEUDONYM_SALT``
+        since #1812, a rotatable salt of its own — and the purpose label
         ``log-subject``. The lines of one subject stay correlatable with each
         other, and name nobody.
 

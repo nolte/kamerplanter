@@ -30,6 +30,7 @@ def _no_error_tracking(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the sibling receivers inert: no DSN, no SDK initialisation, a valid Fernet key (#1859)."""
     monkeypatch.delenv("SENTRY_DSN", raising=False)
     monkeypatch.setattr(settings, "fernet_key", base64.urlsafe_b64encode(bytes(range(32))).decode())
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "l" * 32)  # the #1812 gate
 
 
 @pytest.mark.parametrize("salt", ["", "x" * 31])

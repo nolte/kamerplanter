@@ -67,7 +67,7 @@ kubectl cluster-info --context kind-kamerplanter
 
 ## Creating the Secret
 
-The backend, Celery worker, and the AI services reference the Kubernetes secret `kamerplanter-secrets` via `envFrom` or `secretKeyRef` (defined in `helm/kamerplanter/values.yaml`). The dev overrides do **not** remove this reference, so the secret must exist in the `default` namespace **before** you start Skaffold — otherwise the affected pods stay stuck in `CreateContainerConfigError`. `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` are additionally validated as mandatory values at backend startup (fail-fast).
+The backend, Celery worker, and the AI services reference the Kubernetes secret `kamerplanter-secrets` via `envFrom` or `secretKeyRef` (defined in `helm/kamerplanter/values.yaml`). The dev overrides do **not** remove this reference, so the secret must exist in the `default` namespace **before** you start Skaffold — otherwise the affected pods stay stuck in `CreateContainerConfigError`. `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, and `LOG_PSEUDONYM_SALT` are additionally validated as mandatory values at backend startup (fail-fast); the Celery worker also checks `LOG_PSEUDONYM_SALT`.
 
 Create the secret once per freshly created cluster:
 
@@ -80,11 +80,12 @@ kubectl create secret generic kamerplanter-secrets -n default \
   --from-literal=VECTORDB_PASSWORD=foba123456 \
   --from-literal=FERNET_KEY=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())") \
   --from-literal=ERASURE_TOMBSTONE_SALT=$(openssl rand -hex 32) \
+  --from-literal=LOG_PSEUDONYM_SALT=$(openssl rand -hex 32) \
   --from-literal=INTERNAL_SERVICE_TOKEN=$(openssl rand -hex 32)
 ```
 
 !!! note "FERNET_KEY format"
-    `FERNET_KEY` must be a valid Fernet key: **32 bytes, url-safe base64-encoded** (44 characters) — exactly what `cryptography.fernet.Fernet.generate_key()` produces. An `openssl rand -hex 32` (64 hex characters) is **not** a valid Fernet key: the backend still starts, but any endpoint that encrypts later fails with `ValueError: Fernet key must be 32 url-safe base64-encoded bytes`. Only `FERNET_KEY` needs this format; `ERASURE_TOMBSTONE_SALT` and `INTERNAL_SERVICE_TOKEN` are arbitrary random values.
+    `FERNET_KEY` must be a valid Fernet key: **32 bytes, url-safe base64-encoded** (44 characters) — exactly what `cryptography.fernet.Fernet.generate_key()` produces. An `openssl rand -hex 32` (64 hex characters) is **not** a valid Fernet key: the backend still starts, but any endpoint that encrypts later fails with `ValueError: Fernet key must be 32 url-safe base64-encoded bytes`. Only `FERNET_KEY` needs this format; `ERASURE_TOMBSTONE_SALT`, `LOG_PSEUDONYM_SALT`, and `INTERNAL_SERVICE_TOKEN` are arbitrary random values.
 
 !!! note "ArangoDB password"
     `ARANGODB_PASSWORD` and `ARANGO_ROOT_PASSWORD` must hold the **same value**: ArangoDB initialises its root password from `ARANGO_ROOT_PASSWORD`, while the backend and Celery connect using `ARANGODB_PASSWORD`. Both come solely from this Secret — `values-dev.yaml` no longer sets them inline. If the values differ, the backend crashes at startup with HTTP 401.

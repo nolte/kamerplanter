@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.9 (Log-Senken ohne Geheimnisse und Personenbezug, #1795/#1796)
+Version: 1.10 (eigener, rotierbarer Log-Salt, #1812)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,6 +21,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.10 | 2026-09-26 | **#1812:** Die Log-Pseudonyme (`subject=`, `email_sha256=`) sind mit einem eigenen, rotierbaren `LOG_PSEUDONYM_SALT` verschlüsselt statt mit `ERASURE_TOMBSTONE_SALT` (L-1, L-2); API und Worker starten in Produktion nicht ohne ihn (L-5); neuer Absatz zur Rotation. Betreiberentscheidung vom 2026-09-26. |
 | 1.9 | 2026-09-25 | **#1795/#1796:** §3.4 um L-6 bis L-8 erweitert: keine API-Schlüssel und Einmal-Tokens in einer Log-Senke (httpx/httpcore/urllib3 auf WARNING mit Query-Filter in API und Worker, Console-Mail-Adapter ohne Link außerhalb von `DEBUG`), redigierte Zugriffsprotokolle von uvicorn und nginx, redigierte Tracebacks in beiden Prozessen. L-3 nennt zusätzlich URL-Userinfo und Fragmente; der Offen-Hinweis in L-4 entfällt. Ein eigener, rotierbarer Log-Salt ist eine offene DSB-Entscheidung (#1812). |
 | 1.8 | 2026-09-25 | **#1788 Persönlicher Mandant bei Kontolöschung:** Die Kontolöschung behielt den bei der Registrierung angelegten persönlichen Mandanten samt Standorten, Pflanzen, Tagebuch und Aufgaben; nur Eigentümer, Name und Kurzname wurden ersetzt. Jetzt läuft für jeden persönlichen Mandanten der Person, in dem sie das einzige aktive Mitglied (mit aktivem Konto) ist, vor dem ArangoDB-Plan das Mandanten-Löschinventar (#1769) mit `origin: account_erasure`; R-16 bis R-18 bleiben dort unter ihrem Tombstone-Hash. **Entscheidung für Mandanten mit weiteren aktiven Mitgliedern:** keine Spezifikation nennt einen Nachfolger (REQ-049 AK-19); der Mandant bleibt wie bisher erhalten, der Löschauftrag nennt den Grund (`personal_tenants[].outcome = retained_other_members`); offen in #1824. §2.3 Klarstellung, Abnahmekriterien AK-PT-01 bis AK-PT-03 in §6. REQ-025 §3.1.3 Regel 2 wird nachgezogen (#1826), gemeinsam mit den an REQ-025 verankerten Reach-Proben. |
 | 1.7 | 2026-09-25 | **#1782/#1784:** §3.1 beschreibt die Einzel-Tasks, die es gibt, statt eines Master-Tasks `enforce_retention_policy` (Begründung in §3.1). §3.2: Fristvergleiche in AQL vergleichen Zeitpunkte (`DATE_TIMESTAMP`), nie ISO-Strings — ArangoDB ordnet Strings nach ICU-Kollation, gemessen `"…00.5Z" < "…00+00:00"` → `true`. §3.3: Prometheus-Metriken als nicht implementiert gekennzeichnet (#1800). §4: die tatsächlichen Settings mit Untergrenzen; R-04, R-12, R-14, R-15 und R-16..R-18 ohne lesenden Code als nicht implementiert gekennzeichnet (#1800). AK-04 bis AK-06, AK-10 und AK-11 angepasst. |
@@ -347,14 +348,26 @@ ihre Protokolle keine direkte Kennung einer betroffenen Person enthalten:
 
 | ID | Anforderung | Durchsetzung |
 |----|-------------|--------------|
-| L-1 | Keine Protokollzeile nennt den Kontoschlüssel. An seiner Stelle steht `subject=` — ein HMAC-SHA256 über den Schlüssel mit `ERASURE_TOMBSTONE_SALT` und dem Zweck-Label `log-subject` (`sub_…`, zweckgetrennt vom Tombstone-Hash). | Guard `test_privacy_logs_carry_no_plaintext_subject.py`, Selektor: die gesamten Bäume `src/backend/app/` und `src/backend/scripts/` |
+| L-1 | Keine Protokollzeile nennt den Kontoschlüssel. An seiner Stelle steht `subject=` — ein HMAC-SHA256 über den Schlüssel mit `LOG_PSEUDONYM_SALT` und dem Zweck-Label `log-subject` (`sub_…`, zweckgetrennt vom Tombstone-Hash). | Guard `test_privacy_logs_carry_no_plaintext_subject.py`, Selektor: die gesamten Bäume `src/backend/app/` und `src/backend/scripts/` |
 | L-2 | Keine Protokollzeile nennt eine E-Mail-Adresse. An ihrer Stelle steht ein **gesalzener** Digest (`email_sha256=`, HMAC mit demselben Salt, Zweck-Label `log-email`) — ein ungesalzener SHA-256 wäre per Wörterbuch umkehrbar. | derselbe Guard |
 | L-3 | Fehlertexte (`error=`) laufen durch eine Bereinigung: Kontoschlüssel → Referenz, Export-Bundle-Pfade maskiert, E-Mail-Adressen → Digest, Query-Strings und Fragmente aus URLs entfernt, Userinfo (`scheme://user:pw@`) maskiert. Die Bereinigung läuft in linearer Zeit auf einem längenbegrenzten Text. | derselbe Guard (`str(exc)` und `<name>.message` am Log-Aufruf werden abgelehnt) |
 | L-4 | IP-Adressen erscheinen in Anwendungsprotokollen höchstens in der R-03-Kürzung (IPv4 letztes Oktett `0`, IPv6 `/48`, Feld `ip_prefix=`). Eine Protokollzeile hält damit nie mehr, als die Datenbank nach sieben Tagen behält. Das gilt seit #1796 auch für die Zugriffsprotokolle (L-7). | Guard (IP-Schlüsselwörter an Log-Aufrufen) |
-| L-5 | API **und** Celery-Worker starten in Produktion (`DEBUG=false`) nicht ohne gültigen `ERASURE_TOMBSTONE_SALT` — ohne ihn fiele jede Referenz auf eine Konstante zurück. | `app/main.py::insecure_default_secrets`, `app/tasks/__init__.py` |
+| L-5 | API **und** Celery-Worker starten in Produktion (`DEBUG=false`) nicht ohne gültigen `ERASURE_TOMBSTONE_SALT` und nicht ohne gültigen `LOG_PSEUDONYM_SALT` (je mindestens 32 Zeichen) — ohne den Log-Salt fiele jede Referenz und jeder E-Mail-Digest auf eine Konstante zurück. | `app/main.py::insecure_default_secrets`, `app/tasks/__init__.py` (`celeryd_init`) |
 | L-6 | Keine Log-Senke erhält einen API-Schlüssel, ein Passwort oder ein Einmal-Token. Die Logger `httpx`, `httpcore` und `urllib3` stehen in API **und** Worker auf `WARNING`; ein Filter entfernt Query-String und Userinfo aus ihren Zeilen, auch wenn jemand die Stufe senkt (Pfadsegmente bleiben dann stehen — Zugangsdaten im URL-Pfad deckt der Filter nicht ab). Der Console-Mail-Adapter schreibt den Bestätigungs- oder Passwort-Reset-Link nur mit `DEBUG=true` und nie den Anzeigenamen; ohne SMTP warnt die API beim Start. | Laufzeit-Guard `test_logs_carry_no_secrets_runtime.py` (echtes httpx, beide Prozesse), statischer Guard `test_logs_carry_no_secrets.py` (Secret-Namen und von ihnen abgeleitete Werte an Log-Aufrufen) |
 | L-7 | Zugriffsprotokolle nennen weder volle Client-Adresse noch `X-Forwarded-For`, User-Agent, Referrer oder Query-String. uvicorn schreibt die Adresse in der R-03-Kürzung und vom Pfad nur die festen Segmente der Routen (`/api/v1/t/{}/plants/{}`), sodass Tenant-Slug, Kontoschlüssel und Download-Token nicht erscheinen — außer ein Wert gleicht zufällig einem festen Routen-Segment. Dasselbe gilt für das Zugriffsprotokoll des knowledge-service (Query-String maskiert). nginx schreibt ein eigenes Format (`kp_redacted`) mit gekürzter Adresse; SPA-Pfade wie `/password-reset/<token>` erscheinen als `/<spa-route>`. Das nginx-Fehlerprotokoll steht auf `crit`, weil sein Format nicht redigierbar ist; die wenigen Meldungen ab `crit` tragen weiterhin Client-Adresse und Anfragezeile. | Laufzeit-Guard (echte `uvicorn.access`-Records), `nginx -t` und Live-Probe |
 | L-8 | Tracebacks laufen durch dieselbe Bereinigung wie L-3: Die Meldung einer Domänen-Ausnahme erscheint nur als Klasse und Fehlercode, jede andere nur bereinigt. **Grenze:** Die Bereinigung kennt dort den Kontoschlüssel nicht — ein Schlüssel oder Name im Text einer Standard- oder Drittanbieter-Ausnahme (`KeyError('<key>')`, ArangoDB-Konfliktmeldungen, Pydantic `input_value=`) wird nicht maskiert, nur E-Mail-Adressen, URL-Bestandteile und Export-Bundle-Pfade. Das gilt für structlog-Zeilen und für die Tracebacks von uvicorn und Celery. | Tests über den structlog-Renderer und den Handler-Filter in API und Worker |
+
+**Log-Salt und Rotation (#1812).** `LOG_PSEUDONYM_SALT` verschlüsselt ausschließlich die
+Log-Pseudonyme (`log-subject`, `log-email`) — auch dort, wo eine solche Referenz in einem
+Datensatz landet (`requested_by_subject` in Lösch- und Mandanten-Löschnachweisen). Der
+Tombstone-Hash, der Anfrage-Schlüssel und der Slug-Digest bleiben bei
+`ERASURE_TOMBSTONE_SALT`, der nie wechseln darf. Den Log-Salt darf der Betreiber
+wechseln (neuer Wert in API **und** Worker, Neustart beider): Protokollzeilen und
+`requested_by_subject`-Werte von vor dem Wechsel korrelieren danach nicht mehr mit
+späteren, und wer nur den neuen Salt kennt, kann alte Referenzen nicht mehr einer
+Kontokennung zuordnen. Sonst bricht nichts — kein gespeicherter Wert und keine Abfrage
+hängt vom Log-Salt ab. Der Wert sollte sich vom Tombstone-Salt unterscheiden; die
+Anwendung prüft das nicht.
 
 **Aufbewahrung der Log-Pipeline — Betreiberpflicht, offen.** Auch pseudonyme Referenzen
 sind personenbezogene Daten (Erwägungsgrund 26 DSGVO), solange der Salt existiert. Die

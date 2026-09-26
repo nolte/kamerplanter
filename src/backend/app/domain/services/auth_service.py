@@ -24,14 +24,14 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
-from app.common.log_privacy import loggable_ip
+from app.common.log_privacy import log_subject, loggable_ip
 from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.external.device_pairing_throttle import DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
 from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
 from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOUNT_STORE
 from app.domain.engines.encryption_engine import EncryptionEngine
-from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.oauth_engine import FreshReauthRejectedError, OAuthEngine, supports_fresh_reauth
 from app.domain.engines.password_engine import PasswordEngine
@@ -285,15 +285,14 @@ class AuthService:
     def _log_subject(self, user_key: str) -> str:
         """The reference an auth log line carries instead of the account key (#1773).
 
-        :meth:`ErasureEngine.log_subject` under the tombstone salt: the log
-        stream has no retention rule (NFR-011) and outlives the account, so the
-        lines name the subject by a salted reference — purpose-separated from
-        the tombstone its pseudonymised audit rows get after an erasure (R-06),
-        so a log line cannot be joined to those rows without the salt (#1773
-        review GDPR-003). Without a salt every line carries the constant
-        ``anon_unavailable`` — never the key.
+        :meth:`ErasureEngine.log_subject` under ``LOG_PSEUDONYM_SALT`` (#1812):
+        the log stream has no retention rule (NFR-011) and outlives the account,
+        so the lines name the subject by a salted reference — purpose-separated
+        from the tombstone its pseudonymised audit rows get after an erasure
+        (R-06), and keyed separately so the log salt can rotate. Without a salt
+        every line carries the constant ``anon_unavailable`` — never the key.
         """
-        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
+        return log_subject(user_key) or UNAVAILABLE_LOG_SUBJECT
 
     def _refuse_interactive_credential(self, user: User) -> None:
         """Refuse to grant ``user`` a password it is not allowed to hold (#1559).

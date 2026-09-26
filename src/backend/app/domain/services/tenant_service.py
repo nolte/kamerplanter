@@ -406,7 +406,7 @@ class TenantService:
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
-        requested_by = ErasureEngine.log_subject(requester.key or "", self._tombstone_salt)
+        requested_by = log_subject(requester.key)
         logger.info(
             "tenant_erasure.authorized",
             tenant_key=tenant_key,
@@ -682,7 +682,7 @@ class TenantService:
                         # #1791 provenance fields: the erased account as the salted
                         # log reference (never its key), and an explicit statement
                         # that no interactive step-up belongs to this deletion.
-                        requested_by_subject=ErasureEngine.log_subject(subject_user_key, self._tombstone_salt),
+                        requested_by_subject=log_subject(subject_user_key),
                         step_up="account_erasure_no_interactive_step_up",
                         slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
                         requested_at=now,
