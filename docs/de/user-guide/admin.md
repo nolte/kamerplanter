@@ -87,6 +87,11 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 Unter **Admin > OIDC-Provider** konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
 
+!!! warning "Provider anlegen, umstellen und löschen verlangt deine erneute Bestätigung"
+    Ein Provider entscheidet, wem eine Anmeldung zugeordnet wird: Wer einen Provider auf einen eigenen Server umstellen kann, kann sich als jedes Konto anmelden, dessen Adresse dieser Server behauptet. Deshalb verlangen `POST /api/v1/admin/oidc-providers` sowie `PUT` und `DELETE` auf `/api/v1/admin/oidc-providers/{key}` dein aktuelles Passwort (`current_password`) — oder, ohne lokales Passwort, eine frische Anmeldung bzw. den Bestätigungscode für die Aktion `oidc_provider_change` mit dem Schlüssel der Konfiguration als Ziel (beim Anlegen `new:<slug>`). Ein API-Key kann Provider nicht mehr ändern. Ohne Bestätigung bleiben nur Anzeigename, Icon und das Abschalten eines Providers.
+
+    Bekannter Randfall: Meldest du dich **nur** über genau den Provider an, den du reparieren willst, und funktioniert der gerade nicht, kannst du dich dort nicht erneut anmelden. Setze dir vorher ein lokales Passwort. <!-- #1883 -->
+
 !!! warning "Der Provider-Typ ist auf vier Werte festgelegt"
     Gültig sind ausschließlich `google`, `github`, `apple` und `oidc` — kleingeschrieben. Alles andere, auch `GitHub` oder `GITHUB`, wird beim Anlegen und beim Ändern mit `422` abgelehnt.
 

@@ -87,6 +87,11 @@ The **Admin > Statistics** section provides an overview of:
 
 Under **Admin > OIDC Providers** you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
 
+!!! warning "Creating, repointing and deleting a provider asks you to confirm again"
+    A provider decides whom a sign-in belongs to: whoever can point a provider at a server of their own can sign in as any account whose address that server claims. So `POST /api/v1/admin/oidc-providers` and `PUT` and `DELETE` on `/api/v1/admin/oidc-providers/{key}` require your current password (`current_password`) — or, without a local password, a fresh sign-in or the confirmation code for the action `oidc_provider_change` with the configuration's key as the target (`new:<slug>` when creating). An API key can no longer change providers. Only the display name, the icon and switching a provider off need no confirmation.
+
+    Known edge case: if you sign in **only** through the very provider you want to repair, and it is broken right now, you cannot sign in there again. Set yourself a local password beforehand. <!-- #1883 -->
+
 !!! warning "The provider type is limited to four values"
     Only `google`, `github`, `apple` and `oidc` are valid — lower-case. Anything else, including `GitHub` or `GITHUB`, is rejected with `422` on create and on update.
 
