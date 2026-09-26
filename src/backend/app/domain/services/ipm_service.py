@@ -305,6 +305,11 @@ class IpmService:
         application: TreatmentApplication,
     ) -> TreatmentApplication:
         application.plant_key = plant_key
+        # The plant first (#1871 B7): the resistance read below looks at the
+        # plant's history without a tenant filter, and an over-limit ingredient
+        # answered 422 with a count — for a foreign plant, before the repository's
+        # 404. Resolved here, a foreign and an unknown plant answer the same.
+        self._require_own_plant(plant_key, application.tenant_key)
 
         # Resistance check
         treatment = self.get_treatment(application.treatment_key)

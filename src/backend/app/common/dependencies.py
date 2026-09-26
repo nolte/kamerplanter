@@ -1425,7 +1425,10 @@ def get_observation_repo():
 def get_observation_service():
     from app.domain.services.observation_service import ObservationService
 
-    return ObservationService(get_observation_repo(), get_sensor_repo())
+    # #1871 B6 — a sensor's tenant is its parent's (tank, site, or location via its site).
+    return ObservationService(
+        get_observation_repo(), get_sensor_repo(), tank_repo=get_tank_repo(), site_anchors=get_site_repo()
+    )
 
 
 def get_sensor_service():
