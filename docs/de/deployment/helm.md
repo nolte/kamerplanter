@@ -258,7 +258,7 @@ valkey:
 | `ARANGODB_PASSWORD` | Ja | — | Datenbank-Passwort. Kommt im Chart aus dem Secret `kamerplanter-secrets` (`envFrom`), **nicht** aus `env:`. |
 | `ARANGO_ROOT_PASSWORD` | Ja | — | ArangoDB Root-Passwort, ebenfalls aus `kamerplanter-secrets`. Muss identisch mit `ARANGODB_PASSWORD` sein. |
 | `JWT_SECRET_KEY` | Ja | — | JWT-Signierschlüssel, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn der Chart-interne Default unverändert bleibt. |
-| `FERNET_KEY` | Ja | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn leer. |
+| `FERNET_KEY` | Ja | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn leer oder ungültig — **auch für den Celery-Worker-Controller**, der denselben Wert wie das Backend per `envFrom` aus `kamerplanter-secrets` bezieht; Backend und Celery-Worker müssen denselben Schlüssel verwenden. |
 | `ERASURE_TOMBSTONE_SALT` | Ja | — | DSGVO-Pseudonymisierungs-Salt (≥ 32 Zeichen), aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn leer oder zu kurz. |
 | `INTERNAL_SERVICE_TOKEN` | Bedingt | — | Nur Pflicht, sobald `KNOWLEDGE_SERVICE_ENABLED=true` oder `INFERENCE_SERVICE_ENABLED=true` gesetzt ist, ebenfalls aus `kamerplanter-secrets`. Bei `INFERENCE_SERVICE_ENABLED` gilt dieselbe Pflicht **auch für den Celery-Worker-Controller** — er führt die planmäßige DSGVO-Löschung beigetragener Referenzbilder aus und braucht denselben Zugang wie das Backend, das sie schreibt (siehe [Bilderkennung in Betrieb nehmen](inference-service.md)). |
 | `REDIS_URL` | Ja | — | Valkey/Redis-Verbindungs-URL |
