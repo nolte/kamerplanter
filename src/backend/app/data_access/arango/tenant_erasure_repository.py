@@ -81,7 +81,7 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
               doc.status == 'in_progress'
               AND (doc.updated_at == null OR DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before))
             )
-          SORT doc.requested_at ASC
+          SORT DATE_TIMESTAMP(doc.requested_at) ASC
           RETURN doc
         """
         cursor = self._db.aql.execute(

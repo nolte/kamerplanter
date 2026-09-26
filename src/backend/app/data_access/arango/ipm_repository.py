@@ -163,7 +163,7 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             f"FOR doc IN {col.INSPECTIONS} "
             f"FILTER doc.tenant_key == @tenant_key "
             f"FILTER @pest_key IN doc.detected_pest_keys "
-            f"SORT doc.inspected_at DESC "
+            f"SORT DATE_TIMESTAMP(doc.inspected_at) DESC "
             f"RETURN doc.photo_refs"
         )
         cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key, "pest_key": pest_key})
@@ -237,7 +237,9 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             FOR t IN treatments
                 FILTER t._key == ta.treatment_key
                 FILTER t.safety_interval_days > 0
-                FILTER DATE_ADD(ta.applied_at, t.safety_interval_days, 'days') > DATE_NOW()
+                // DATE_ADD returns an ISO string and DATE_NOW() a number; AQL orders every
+                // string above every number, so compare epoch milliseconds (#1798).
+                FILTER DATE_TIMESTAMP(DATE_ADD(ta.applied_at, t.safety_interval_days, 'days')) > DATE_NOW()
                 RETURN {
                     active_ingredient: t.active_ingredient,
                     treatment_name: t.name,

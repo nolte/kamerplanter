@@ -40,7 +40,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         FOR c IN @@collection
           FILTER c.tenant_key == @tenant_key AND c.pest_key == @pest_key
           FILTER @include_inactive OR c.is_active != false
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -56,7 +56,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         query = """
         FOR c IN @@collection
           FILTER c.tenant_key == @tenant_key
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -70,7 +70,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         query = """
         FOR c IN @@collection
           FILTER c.contributed_by == @user_key
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -94,7 +94,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         query = """
         FOR c IN @@collection
           FILTER c.pest_key == @pest_key
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -109,7 +109,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         FOR c IN @@collection
           FILTER c.pest_key == @pest_key AND c.status == @status
           FILTER @include_inactive OR c.is_active != false
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {

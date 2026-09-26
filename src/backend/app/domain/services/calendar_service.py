@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 import structlog
 
-from app.common.datetimes import today_utc
+from app.common.datetimes import replace_year, today_utc
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine, CalendarSourceRows
@@ -368,9 +368,9 @@ class CalendarService:
     def _build_frost_config(self, site: Site | None, year: int) -> FrostConfig:
         if site is not None:
             return FrostConfig(
-                last_frost_date=(site.last_frost_date_avg or date(year, 5, 1)).replace(year=year),
-                first_frost_date=(site.first_frost_date_avg.replace(year=year) if site.first_frost_date_avg else None),
-                eisheilige_date=(site.eisheilige_date or date(year, 5, 15)).replace(year=year),
+                last_frost_date=replace_year(site.last_frost_date_avg or date(year, 5, 1), year),
+                first_frost_date=(replace_year(site.first_frost_date_avg, year) if site.first_frost_date_avg else None),
+                eisheilige_date=replace_year(site.eisheilige_date or date(year, 5, 15), year),
             )
         return FrostConfig(
             last_frost_date=date(year, 5, 1),

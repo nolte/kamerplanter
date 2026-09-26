@@ -147,7 +147,7 @@ class ArangoCalendarSourceRepository(ICalendarSourceRepository):
               FILTER cc.plant_key == pi._key
               FILTER cc.reminder_type == "watering"
               FILTER cc.action == "confirmed"
-              SORT cc.confirmed_at DESC
+              SORT DATE_TIMESTAMP(cc.confirmed_at) DESC
               LIMIT 1
               RETURN cc
           )

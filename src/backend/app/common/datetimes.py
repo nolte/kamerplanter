@@ -64,3 +64,26 @@ def ensure_aware_utc(value: datetime | str | None) -> datetime | None:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def replace_year[T: (date, datetime)](value: T, year: int) -> T:
+    """Return ``value`` moved to ``year``; 29 February lands on 28 February.
+
+    ``value.replace(year=year)`` raises ``ValueError`` when ``value`` is
+    29 February and ``year`` is not a leap year — once every four years, on
+    exactly one day, which is why the crash survives every test run that does
+    not pin the clock to that day (#1799). The earlier day is chosen, never
+    1 March: a cutoff "N years back" that lands a day *earlier* keeps one more
+    day of history, never one fewer, and a seasonal date (a frost date) stays in
+    the month it was entered for.
+
+    Every year shift in ``app/`` goes through here; the guard
+    ``tests/unit/guards/test_year_shifts_survive_29_february.py`` refuses
+    a bare ``.replace(year=...)`` anywhere else.
+    """
+    try:
+        return value.replace(year=year)
+    except ValueError:
+        if value.month == 2 and value.day == 29:
+            return value.replace(year=year, day=28)
+        raise
