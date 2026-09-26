@@ -22,13 +22,20 @@ from app.common.error_handlers import (
 from app.common.exceptions import KamerplanterError
 from app.common.log_privacy import register_route_source
 from app.common.middleware import request_id_middleware
-from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import setup_logging
 from app.config.settings import settings
 from app.data_access.arango.collections import ensure_collections
 from app.data_access.external.registration import register_external_adapters
 from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
+
+# Redaction before anything below can log (#1832): error tracking, adapter
+# registration and a failing startup all ran under structlog's defaults (a
+# ConsoleRenderer with raw tracebacks) until the lifespan configured logging.
+# uvicorn has configured its own loggers before it imports this module, so the
+# sink filter reaches its handlers too; the lifespan re-applies it (idempotent).
+setup_logging(settings.debug)
 
 logger = structlog.get_logger()
 
@@ -74,6 +81,11 @@ def insecure_default_secrets() -> list[str]:
     # NFR-011 §4: GDPR erasure tombstone salt (>= 32 chars).
     if len(settings.erasure_tombstone_salt) < _MIN_TOMBSTONE_SALT_LENGTH:
         insecure.append("erasure_tombstone_salt")
+    # NFR-011 §3.4 L-5 (#1812): the log pseudonym salt (>= 32 chars). Without it
+    # every subject reference and e-mail digest on a log line collapses to one
+    # constant, and lines of different accounts become indistinguishable.
+    if len(settings.log_pseudonym_salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
+        insecure.append("log_pseudonym_salt")
     # AP-4: shared secret for the internal M2M services — required only when the
     # backend actually calls them.
     if (
@@ -93,18 +105,20 @@ def warn_if_console_email_adapter() -> bool:
     here. Deliberately a warning, not a refusal to start: refusing would break
     every Helm install that has not configured SMTP. Returns whether it warned.
     """
-    if settings.email_adapter == "smtp" or settings.debug:
+    if settings.email_adapter != "console" or settings.debug:
         return False
     logger.warning(
         "email_adapter_console_in_production",
         email_adapter=settings.email_adapter,
-        detail="verification and password-reset e-mails are not delivered; set EMAIL_ADAPTER=smtp",
+        detail="verification and password-reset e-mails are not delivered; set EMAIL_ADAPTER=smtp or resend",
     )
     return True
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Again: a server that reconfigured its loggers between import and startup
+    # (``uvicorn --log-config``) gets the filters on its new handlers (#1832).
     setup_logging(settings.debug)
     logger.info("startup", app=settings.app_name, version=settings.app_version)
     warn_if_console_email_adapter()

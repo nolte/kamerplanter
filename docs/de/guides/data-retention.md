@@ -338,19 +338,26 @@ lassen sie sich dagegen nicht verknüpfen.
 ??? info "Für Betreiber: das Feld `subject=` in Protokollzeilen"
     Protokollzeilen tragen ein Feld `subject=` statt einer Kontenkennung oder
     E-Mail-Adresse. Es enthält eine gesalzene, zweckgetrennte Referenz (`sub_` plus
-    16 Hex-Zeichen, ein HMAC aus Kontoschlüssel und `ERASURE_TOMBSTONE_SALT`). Die
+    16 Hex-Zeichen, ein HMAC aus Kontoschlüssel und `LOG_PSEUDONYM_SALT`). Die
     Zeilen desselben Kontos bleiben so miteinander korrelierbar, ohne eine Person zu
     nennen. Die Referenz ist bewusst **nicht** der Tombstone-Hash (`anon_…`), den der
-    Löschungs-Audit und die anonymisierten Ernte- und Behandlungsdaten behalten: Wer
-    nur die Protokolle hat, kann sie mit diesen aufbewahrten Datensätzen nicht
-    verknüpfen. Fehlt der Salt oder ist er zu kurz, steht dort stattdessen die
-    Konstante `anon_unavailable` — nie die Kontenkennung im Klartext.
+    Löschungs-Audit und die anonymisierten Ernte- und Behandlungsdaten behalten und der
+    weiterhin mit `ERASURE_TOMBSTONE_SALT` gebildet wird: Wer nur die Protokolle hat,
+    kann sie mit diesen aufbewahrten Datensätzen nicht verknüpfen. Fehlt der Salt oder
+    ist er zu kurz, steht dort stattdessen die Konstante `anon_unavailable` — nie die
+    Kontenkennung im Klartext.
 
     Registrierungs- und E-Mail-Ereignisse protokollieren zusätzlich Felder wie
     `email_sha256` — einen gesalzenen Digest der E-Mail-Adresse (HMAC mit
-    `ERASURE_TOMBSTONE_SALT`, 16 Hex-Zeichen), keine Adresse im Klartext. Ein einfacher
+    `LOG_PSEUDONYM_SALT`, 16 Hex-Zeichen), keine Adresse im Klartext. Ein einfacher
     SHA-256 ließe sich mit einer Adressliste zurückrechnen, der gesalzene Digest ohne den
     Salt nicht. Ohne gültigen Salt steht dort `unavailable`.
+
+    `LOG_PSEUDONYM_SALT` schlüsselt ausschließlich diese Log-Referenzen (und das
+    Herkunftsfeld `requested_by_subject` von Lösch- und Mandanten-Löschnachweisen) —
+    getrennt vom `ERASURE_TOMBSTONE_SALT`, der nie wechseln darf. Ein Betreiber darf den
+    Log-Salt rotieren (neuer Wert in Backend und Celery-Worker, beide neu starten):
+    Protokollzeilen von vor der Rotation korrelieren danach nicht mehr mit späteren.
     Objektspeicher-Log-Zeilen (`storage_put_object`, `storage_delete_object` und
     ähnliche) maskieren den Kontoschlüssel in Export-Bundle-Pfaden: Aus
     `privacy/exports/<Kontoschlüssel>/<Export>.json` wird

@@ -42,6 +42,17 @@ from tests.support.privacy_doubles import FakePersonalTenants
 #: Distinctive, so a substring hit cannot be a coincidence.
 USER_KEY = "subject-7f3a91"
 SALT = "log-test-salt-not-a-secret-0123456789"
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(autouse=True)
+def _log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1812: log pseudonyms are keyed with LOG_PSEUDONYM_SALT, not with the tombstone salt the services get."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+
+
 TENANT = "t-1"
 
 
@@ -174,7 +185,7 @@ class TestErasureLogsNameNobody:
             await service.erase_account(USER_KEY)
 
         erased = next(event for event in logs if event.get("event") == "erasure.account_erased")
-        assert erased["subject"] == ErasureEngine.log_subject(USER_KEY, SALT)
+        assert erased["subject"] == ErasureEngine.log_subject(USER_KEY, LOG_SALT)
         assert tombstone not in repr(logs)
 
     async def test_a_failed_erasure_logs_no_plaintext_key(self, tmp_path: Path) -> None:

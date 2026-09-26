@@ -123,7 +123,7 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
-from app.domain.engines.erasure_engine import ErasureEngine
+from app.common.log_privacy import log_subject
 from app.domain.engines.login_throttle_engine import MAX_ATTEMPTS, LoginThrottleEngine
 from app.domain.engines.oauth_engine import OAuthEngine, supports_fresh_reauth
 from app.domain.engines.password_engine import PasswordEngine
@@ -148,7 +148,17 @@ type StepUpMethod = Literal["oidc_reauth", "email_code", "password"]
 #: The acts that pass the verifier; only a log field, never a separate budget —
 #: failures on one route lock the others, or an attacker would get one budget per route.
 type StepUpAction = Literal[
-    "account_erasure", "admin_account_erasure", "tenant_deletion", "password_change", "email_change"
+    "account_erasure",
+    "admin_account_erasure",
+    "tenant_deletion",
+    "password_change",
+    "email_change",
+    # #1847 — minting or removing a sign-in credential of the account.
+    "api_key_creation",
+    "device_pairing",
+    "provider_unlink",
+    # #1857 — a platform admin raising another account's trust (email_verified, is_active).
+    "admin_account_update",
 ]
 
 #: Operator decision on #1815 (variant 1): the e-mailed code is the fallback of an
@@ -187,6 +197,10 @@ CODE_PURPOSES: dict[str, str] = {
     "tenant_deletion": "delete a garden (tenant) and all its data",
     "password_change": "set or change the password of your account",
     "email_change": "change the email address of your account",
+    "api_key_creation": "create an API key for your account",
+    "device_pairing": "sign in a new device to your account",
+    "provider_unlink": "remove a sign-in method from your account",
+    "admin_account_update": "verify or reactivate another user's account as a platform administrator",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.
@@ -356,7 +370,7 @@ class StepUpVerifier:
         logger.info(
             "step_up.reauth_token_issued",
             action=action,
-            subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+            subject=log_subject(user_key),
         )
         return token
 
@@ -407,16 +421,14 @@ class StepUpVerifier:
             logger.info(
                 "step_up.code_issue_throttled",
                 action=action,
-                subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+                subject=log_subject(user_key),
                 retry_after_minutes=minutes,
             )
             raise StepUpLockedError(minutes, code_issue=True)
 
         code = f"{secrets.randbelow(10**CODE_DIGITS):0{CODE_DIGITS}d}"
         self._code_store.issue(user_key, _code_digest(self._code_key, user_key, action, code), CODE_TTL_SECONDS)
-        logger.info(
-            "step_up.code_issued", action=action, subject=ErasureEngine.log_subject(user_key, self._tombstone_salt)
-        )
+        logger.info("step_up.code_issued", action=action, subject=log_subject(user_key))
         return code, datetime.now(UTC) + timedelta(seconds=CODE_TTL_SECONDS)
 
     def withdraw_code(self, requester: User) -> None:
@@ -427,7 +439,7 @@ class StepUpVerifier:
         """
         user_key = requester.key or ""
         self._code_store.release_issue(user_key)
-        logger.info("step_up.code_withdrawn", subject=ErasureEngine.log_subject(user_key, self._tombstone_salt))
+        logger.info("step_up.code_withdrawn", subject=log_subject(user_key))
 
     def verify(
         self,
@@ -513,7 +525,7 @@ class StepUpVerifier:
             logger.info(
                 "step_up.failed",
                 action=action,
-                subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+                subject=log_subject(user_key),
                 method=method,
                 pair_attempts=pair_attempts,
                 account_attempts=account_attempts,
@@ -563,7 +575,7 @@ class StepUpVerifier:
         logger.info(
             "step_up.locked",
             action=action,
-            subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+            subject=log_subject(user_key),
             retry_after_minutes=minutes,
         )
         raise StepUpLockedError(minutes)

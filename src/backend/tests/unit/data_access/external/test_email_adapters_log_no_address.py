@@ -28,6 +28,14 @@ DISPLAY_NAME = "Erika Mustermann-9d2c41"
 TOKEN = "reset-token-9d2c41"
 
 
+@pytest.fixture(autouse=True)
+def _keyed_digests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A log salt, so ``to_sha256 == email_digest(...)`` compares keyed digests, not two no-salt constants (#1812)."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "digest-test-salt-not-a-secret-0123456789")
+
+
 class _FakeSmtp:
     """Stands in for ``smtplib.SMTP``; refuses the recipient when told to."""
 
@@ -170,7 +178,7 @@ class TestConsoleAdapterLinks:
 class TestConsoleAdapterStartupWarning:
     @pytest.mark.parametrize(
         ("adapter", "debug", "warns"),
-        [("console", False, True), ("resend", False, True), ("console", True, False), ("smtp", False, False)],
+        [("console", False, True), ("resend", False, False), ("console", True, False), ("smtp", False, False)],
     )
     def test_the_api_warns_when_mail_goes_to_the_console_outside_debug(
         self, monkeypatch: pytest.MonkeyPatch, adapter: str, debug: bool, warns: bool

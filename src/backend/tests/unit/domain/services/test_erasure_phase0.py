@@ -21,6 +21,14 @@ from app.domain.services.privacy_service import PrivacyService
 from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 def _membership(tenant_key: str):
     m = MagicMock()
     m.tenant_key = tenant_key

@@ -67,10 +67,17 @@ class _SiteService:
         self._site_owner = site_owner
         self.site_lookups: list[tuple[str, str]] = []
 
-    def get_location(self, key):
-        # Deliberately mirrors reality: no tenant argument, and tenant_key is ""
-        # on every stored row.
-        return SimpleNamespace(key=key, site_key="site_1", tenant_key="")
+    def get_location(self, key, tenant_key=""):
+        # Mirrors ``SiteService.get_location``: the stored row's tenant_key is
+        # "" — the tenancy is decided on the parent site, and a refusal is
+        # reported as the *location* (#1871 B13), never as the site.
+        location = SimpleNamespace(key=key, site_key="site_1", tenant_key="")
+        if tenant_key:
+            try:
+                self.get_site(location.site_key, tenant_key=tenant_key)
+            except NotFoundError:
+                raise NotFoundError("Location", key) from None
+        return location
 
     def get_site(self, key, *, tenant_key=""):
         self.site_lookups.append((key, tenant_key))

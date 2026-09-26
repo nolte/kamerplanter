@@ -47,6 +47,14 @@ USER = "u-1"
 NOW = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 class _Recorder:
     """Records the order of the account writes and the executor run."""
 
@@ -219,6 +227,21 @@ class TestTheAccountIsClosedBeforeAnythingIsRemoved:
         service, recorder = _service(repo, RecordingErasureExecutor(), salt="short")
 
         with pytest.raises(FeatureNotConfiguredError):
+            await service.erase_account_now(USER, origin="platform_admin", now=NOW)
+
+        assert repo.stored == {}
+        assert recorder.events == []
+
+    @pytest.mark.parametrize("log_salt", ["", "short"])
+    async def test_a_deployment_without_a_log_salt_changes_nothing(self, monkeypatch, log_salt):
+        """#1812 review SEC-001: the proof's ``requested_by_subject`` would be the constant ``anon_unavailable``."""
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "log_pseudonym_salt", log_salt)
+        repo = FakeErasureRepo()
+        service, recorder = _service(repo, RecordingErasureExecutor())
+
+        with pytest.raises(FeatureNotConfiguredError, match="LOG_PSEUDONYM_SALT"):
             await service.erase_account_now(USER, origin="platform_admin", now=NOW)
 
         assert repo.stored == {}

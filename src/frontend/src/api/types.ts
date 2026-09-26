@@ -4144,7 +4144,7 @@ export interface OAuthProviderListItem {
   icon_url: string | null;
 }
 
-export interface ApiKeyCreate {
+export interface ApiKeyCreate extends CredentialStepUp {
   label: string;
   tenant_scope?: string | null;
 }
@@ -4950,7 +4950,28 @@ export type StepUpAction =
   | 'admin_account_erasure'
   | 'tenant_deletion'
   | 'password_change'
-  | 'email_change';
+  | 'email_change'
+  // #1847 — minting or removing a sign-in credential of the own account.
+  | 'api_key_creation'
+  | 'device_pairing'
+  | 'provider_unlink'
+  // #1857 — a platform admin raising another account's trust (email_verified, is_active).
+  | 'admin_account_update';
+
+/**
+ * The step-up a credential change carries in its body (#1847, #1857, REQ-023
+ * §3.9) — mirrors `CredentialStepUp` in the backend's `auth/schemas.py`.
+ *
+ * Which field is needed is the backend's rule: `current_password` for an
+ * account with a local password; for one without, `step_up_token` from a fresh
+ * sign-in at its identity provider or `step_up_code` from
+ * `POST /users/me/step-up-code`. Only the supplied fields are sent.
+ */
+export interface CredentialStepUp {
+  current_password?: string;
+  step_up_code?: string;
+  step_up_token?: string;
+}
 
 /** Body of `POST /users/me/step-up-code`. */
 export interface StepUpCodeRequest {
@@ -5045,7 +5066,12 @@ export interface AdminTenantUpdate {
   is_active?: boolean;
 }
 
-export interface AdminUserUpdate {
+/**
+ * `PATCH /admin/platform/users/{key}`. The step-up fields are the **admin's
+ * own** (#1857) and are needed only when `email_verified` or `is_active` turns
+ * true; they are never written to the user.
+ */
+export interface AdminUserUpdate extends CredentialStepUp {
   display_name?: string;
   is_active?: boolean;
   email_verified?: boolean;

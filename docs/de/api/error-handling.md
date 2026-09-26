@@ -91,7 +91,7 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `FORBIDDEN` | 403 | Authentifiziert, aber ohne ausreichende Rolle |
 | `EMAIL_NOT_VERIFIED` | 403 | E-Mail-Adresse noch nicht bestätigt |
 | `ACCOUNT_LOCKED` | 423 | Konto nach zu vielen Fehlversuchen gesperrt |
-| `STEP_UP_LOCKED` | 429 | Zu viele fehlgeschlagene Bestätigungen bei einer unumkehrbaren Kontoaktion (Konto- oder Mandantenlöschung, E-Mail- oder Passwortänderung) — `details[0].retry_after_minutes` nennt die Wartezeit; betrifft nicht die Anmeldung |
+| `STEP_UP_LOCKED` | 429 | Zu viele fehlgeschlagene Bestätigungen bei einer unumkehrbaren Kontoaktion oder Anmeldemittel-Änderung (Konto- oder Mandantenlöschung, E-Mail- oder Passwortänderung, API-Key ausstellen, Gerät koppeln, Anmeldeweg entfernen, Admin-Vertrauensanhebung) — `details[0].retry_after_minutes` nennt die Wartezeit; betrifft nicht die Anmeldung |
 | `STEP_UP_REAUTH_REQUIRED` | 401 (422 beim Anfordern des Codes) | Ein Konto mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) muss sich für diese Aktion erneut bei diesem Anbieter anmelden — `POST /users/me/step-up/oidc` startet die Anmeldung; der per E-Mail zugeschickte Code wird diesem Konto verweigert |
 | `STEP_UP_REAUTH_FAILED` | 401 | Die erneute Anmeldung beim Anbieter hat diese Aktion nicht bestätigt (abgelaufen, abgebrochen oder ungültig) — nur als Weiterleitungs-Fehlercode auf `/auth/step-up/callback`, nie als JSON |
 | `STEP_UP_PASSWORD_REQUIRED` | 422 | Das Konto hat ein lokales Passwort und bestätigt damit — weder erneute Anmeldung noch E-Mail-Code sind nötig. |

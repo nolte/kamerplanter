@@ -293,9 +293,9 @@ The code is eight digits, valid for ten minutes, and spent by the first action t
 
 ---
 
-## Step-up Confirmation for Irreversible Account Actions
+## Step-up Confirmation for Irreversible Account Actions and Sign-In Credentials
 
-Five actions require re-confirmation by the signed-in person, in addition to a valid access token:
+Nine actions require re-confirmation by the signed-in person, in addition to a valid access token — since version 1.19 this also covers issuing or removing sign-in credentials and a platform admin raising another account's trust: <!-- #1847, #1857 -->
 
 | Action | Route(s) | Typed-back target (body field) | Password / Fresh sign-in / Code |
 |---|---|---|---|
@@ -304,6 +304,15 @@ Five actions require re-confirmation by the signed-in person, in addition to a v
 | Delete a tenant | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | slug (`confirm_slug`) | own password, otherwise a `step_up_token` or code |
 | Change email address | `POST /privacy/email-change` | — | own password, otherwise a `step_up_token` or code |
 | Change password | `POST /users/me/password` | — | current (`current_password`) — setting the **first** password on an account without one runs through a `step_up_token` or code instead |
+| Issue an API key | `POST /auth/api-keys` | — | own password, otherwise a `step_up_token` or code. **Light Mode:** no step-up — the instance has only the one system account |
+| Pair a device by QR code | `POST /auth/device-pairing` | — | own password, otherwise a `step_up_token` or code |
+| Remove a sign-in method (provider link) | `DELETE /users/me/providers/{provider_key}` | — | own password, otherwise a `step_up_token` or code |
+| Raise another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, only when `email_verified` or `is_active` flips from `false` to `true` | — | the admin's own, otherwise their `step_up_token` or code |
+
+!!! info "No automatic revocation of API keys"
+    Changing your password, resetting it, and `POST /auth/logout-all` revoke the account's refresh tokens — **not** its API keys. A key represents a deliberately set-up machine integration (Home Assistant, an MCP client); silently invalidating it on every password change would break those integrations without warning. Since this version, a key can only be minted behind this step-up — no longer from a merely stolen session or from another key. Keys are listed under `GET /auth/api-keys` with their creation and last-used timestamps, and each can be revoked individually via `DELETE /auth/api-keys/{key_id}`. <!-- #1847 -->
+
+A request authenticated with an API key, or one coming from a service account, cannot trigger any of these nine actions — including issuing another API key or a pairing code (see the check order below).
 
 Example body for account erasure (local account):
 
@@ -339,7 +348,7 @@ Example body for an account signed in exclusively through GitHub/Apple:
 3. If the typed-back target doesn't match (email case-insensitively, slug exactly), the route answers `422 Unprocessable Entity`. A wrong echo does **not** count as a failed attempt. Changing the email and changing the password have no target to type back.
 4. If the affected account has a local password, the password field must be correct, otherwise `401 Unauthorized`. Otherwise — if the body carries a `step_up_token`, the route checks that (confirming nothing or expired: `401 Unauthorized`). Without `step_up_token`: if the account has an OIDC-capable linked provider, the route answers `401 Unauthorized` with the error code `STEP_UP_REAUTH_REQUIRED` — a hint to sign in again first. Otherwise (GitHub/Apple only), the route checks `step_up_code` instead; missing it answers `401 Unauthorized` with `STEP_UP_CODE_REQUIRED`.
 
-**Throttling:** After 5 wrong confirmations (password, code, or an invalid/expired fresh sign-in) for the same account-and-client-address combination, the system locks further confirmations for **15 minutes**; repeated failures double the wait time up to **4 hours**. An additional account-wide cap of 15 failed attempts applies across any number of client addresses. All five actions — and requesting a code or a fresh sign-in — share the same failed-attempt budget per account; a successful step-up clears it.
+**Throttling:** After 5 wrong confirmations (password, code, or an invalid/expired fresh sign-in) for the same account-and-client-address combination, the system locks further confirmations for **15 minutes**; repeated failures double the wait time up to **4 hours**. An additional account-wide cap of 15 failed attempts applies across any number of client addresses. All nine actions — and requesting a code or a fresh sign-in — share the same failed-attempt budget per account; a successful step-up clears it.
 
 A locked confirmation responds with the error code `STEP_UP_LOCKED`:
 
@@ -362,7 +371,7 @@ A locked confirmation responds with the error code `STEP_UP_LOCKED`:
     This lock only applies to the five confirmations above and has no effect on `POST /auth/login`. Anyone who locks one of these confirmations — for example, someone with a stolen session — can still sign in normally, end sessions in the **Sessions** tab, and reset the password by email.
 
 !!! info "For operators: two different requirements"
-    An account with an OIDC-capable provider (Google, generic OIDC) confirms via the fresh sign-in — that provider needs to support `prompt=login`/`max_age` and `auth_time` (see above), not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple needs the emailed code, and with it working mail delivery: if the instance runs the console email adapter without debug mode — the production default with no SMTP configured — the code is never delivered, and such an account then cannot delete itself, delete a tenant, set a first local password, or change its email address. See [Environment Variables](../reference/environment-variables.md#email) for configuration details.
+    An account with an OIDC-capable provider (Google, generic OIDC) confirms via the fresh sign-in — that provider needs to support `prompt=login`/`max_age` and `auth_time` (see above), not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple needs the emailed code, and with it working mail delivery: if the instance runs the console email adapter without debug mode — the production default with no email delivery configured (SMTP or Resend) — the code is never delivered, and such an account then cannot delete itself, delete a tenant, set a first local password, or change its email address. See [Environment Variables](../reference/environment-variables.md#email) for configuration details.
 
 ---
 
@@ -422,11 +431,15 @@ Content-Type: application/json
 
 {
   "label": "Home Assistant Integration",
-  "tenant_scope": "my-garden"
+  "tenant_scope": "my-garden",
+  "current_password": "current-password-2026"
 }
 ```
 
 `tenant_scope` is optional and accepts either the tenant's slug or its key when creating the key. Either way, you must be an active member of the named tenant — otherwise the route answers `403 Forbidden` ("tenant_scope must name a tenant you are an active member of."), with the same message for an unknown tenant and for one you don't belong to.
+
+!!! info "Issuing a key is a step-up"
+    Instead of `current_password` you can send `step_up_token` (after a fresh sign-in, see [Signing In Again to Confirm](#signing-in-again-to-confirm-oidc)) or `step_up_code` (after [Requesting a Confirmation Code](#requesting-a-confirmation-code-by-email-fallback-for-githubapple)) — the same rules as in the [step-up table](#step-up-confirmation-for-irreversible-account-actions-and-sign-in-credentials) above. A request authenticated with an API key answers `403 Forbidden` before any password is even checked — a key cannot mint another key. **In Light Mode**, this route issues the instance's one MCP key without a step-up. <!-- #1847 -->
 
 **Response (201 Created):**
 
@@ -497,7 +510,15 @@ The flow has three steps: a signed-in client requests a pairing code (1), the ap
 ```http
 POST /api/v1/auth/device-pairing
 Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "current-password-2026"
+}
 ```
+
+!!! info "Requesting a code is a step-up"
+    As with issuing an API key, you can send `step_up_token` or `step_up_code` instead of `current_password` (see the [step-up table](#step-up-confirmation-for-irreversible-account-actions-and-sign-in-credentials) above). A request authenticated with an API key answers `403 Forbidden` — a key cannot mint itself a full session this way. <!-- #1847 -->
 
 **Response (201 Created):**
 

@@ -293,9 +293,9 @@ Der Code besteht aus acht Ziffern, ist zehn Minuten gültig und wird durch die e
 
 ---
 
-## Step-up-Bestätigung für unumkehrbare Kontoaktionen
+## Step-up-Bestätigung für unumkehrbare Kontoaktionen und Anmeldemittel
 
-Fünf Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person:
+Neun Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person — seit Version 1.19 auch das Ausstellen bzw. Entfernen von Anmeldemitteln und eine Vertrauensanhebung durch Plattform-Admins: <!-- #1847, #1857 -->
 
 | Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort / Erneute Anmeldung / Code |
 |---|---|---|---|
@@ -304,6 +304,15 @@ Fünf Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bes
 | Mandant löschen | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | E-Mail-Adresse ändern | `POST /privacy/email-change` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | Passwort ändern | `POST /users/me/password` | — | aktuelles (`current_password`) — die **erste** Passwortvergabe eines Kontos ohne eines läuft stattdessen über `step_up_token` bzw. Code |
+| API-Key ausstellen | `POST /auth/api-keys` | — | eigenes Passwort, sonst `step_up_token` bzw. Code. **Light-Modus:** kein Step-up — die Instanz hat nur das eine Systemkonto |
+| Gerät per QR-Code koppeln | `POST /auth/device-pairing` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| Anmeldeweg (Provider-Verknüpfung) entfernen | `DELETE /users/me/providers/{provider_key}` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| Vertrauen eines anderen Kontos anheben (Plattform-Admin) | `PATCH /admin/platform/users/{key}`, nur wenn `email_verified` oder `is_active` von `false` auf `true` wechselt | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
+
+!!! info "Kein automatischer Widerruf von API-Keys"
+    Passwortänderung, Passwort-Reset und `POST /auth/logout-all` widerrufen die Refresh-Token des Kontos — **nicht** dessen API-Keys. Ein Key steht für eine bewusst eingerichtete Maschinen-Integration (Home Assistant, MCP-Client); ihn bei jeder Passwortänderung stillschweigend zu entwerten, würde diese Integrationen ohne Vorwarnung brechen. Ein Key kann seit dieser Version nur noch hinter diesem Step-up entstehen — also nicht mehr aus einer bloß gestohlenen Sitzung oder aus einem anderen Key. Keys sind unter `GET /auth/api-keys` mit Erstellungs- und letztem Nutzungszeitpunkt gelistet und einzeln über `DELETE /auth/api-keys/{key_id}` widerrufbar. <!-- #1847 -->
+
+Eine mit einem API-Key authentifizierte Anfrage oder eine Anfrage eines Service Accounts kann keine dieser neun Aktionen auslösen — auch nicht das Ausstellen eines weiteren API-Keys oder eines Kopplungscodes (siehe Prüfreihenfolge unten).
 
 Beispiel-Body für die Kontolöschung (lokales Konto):
 
@@ -362,7 +371,7 @@ Eine gesperrte Bestätigung antwortet mit dem Fehlercode `STEP_UP_LOCKED`:
     Diese Sperre betrifft ausschließlich die fünf oben genannten Bestätigungen und wirkt sich nicht auf `POST /auth/login` aus. Wer eine dieser Bestätigungen sperrt — etwa jemand mit einer gestohlenen Sitzung —, kann sich trotzdem weiterhin anmelden, Sitzungen im Tab **Sitzungen** beenden und das Passwort per E-Mail zurücksetzen.
 
 !!! info "Für Betreiber: zwei verschiedene Voraussetzungen"
-    Ein Konto mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) bestätigt über die erneute Anmeldung — dafür muss dieser Anbieter `prompt=login`/`max_age` und `auth_time` unterstützen (siehe oben), nicht SMTP. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind, braucht den per E-Mail zugeschickten Code und damit funktionierenden Mail-Versand: Läuft die Instanz mit dem Konsolen-E-Mail-Adapter und ohne Debug-Modus — die produktive Voreinstellung ohne konfiguriertes SMTP —, wird der Code nirgends zugestellt und ein solches Konto kann sich dann nicht löschen, keinen Mandanten löschen, kein erstes lokales Passwort setzen und die E-Mail-Adresse nicht ändern. Details zur Konfiguration unter [Umgebungsvariablen](../reference/environment-variables.md#e-mail).
+    Ein Konto mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) bestätigt über die erneute Anmeldung — dafür muss dieser Anbieter `prompt=login`/`max_age` und `auth_time` unterstützen (siehe oben), nicht SMTP. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind, braucht den per E-Mail zugeschickten Code und damit funktionierenden Mail-Versand: Läuft die Instanz mit dem Konsolen-E-Mail-Adapter und ohne Debug-Modus — die produktive Voreinstellung ohne konfigurierten E-Mail-Versand (SMTP oder Resend) —, wird der Code nirgends zugestellt und ein solches Konto kann sich dann nicht löschen, keinen Mandanten löschen, kein erstes lokales Passwort setzen und die E-Mail-Adresse nicht ändern. Details zur Konfiguration unter [Umgebungsvariablen](../reference/environment-variables.md#e-mail).
 
 ---
 
@@ -422,11 +431,15 @@ Content-Type: application/json
 
 {
   "label": "Home Assistant Integration",
-  "tenant_scope": "mein-garten"
+  "tenant_scope": "mein-garten",
+  "current_password": "aktuelles-passwort-2026"
 }
 ```
 
 `tenant_scope` ist optional und nimmt beim Anlegen den Slug **oder** den Key des Tenants entgegen. In beiden Fällen musst du im genannten Tenant aktives Mitglied sein — sonst antwortet die Route mit `403 Forbidden` ("tenant_scope must name a tenant you are an active member of."), und zwar mit derselben Meldung für einen unbekannten wie für einen fremden Tenant.
+
+!!! info "Ausstellen ist ein Step-up"
+    Statt `current_password` kannst du auch `step_up_token` (nach einer frischen Anmeldung, siehe [Erneut anmelden zur Bestätigung](#erneut-anmelden-zur-bestatigung-oidc)) oder `step_up_code` (nach [Bestätigungscode anfordern](#bestatigungscode-per-e-mail-anfordern-ausweichweg-fur-githubapple)) mitschicken — dieselben Regeln wie in der [Step-up-Tabelle](#step-up-bestatigung-fur-unumkehrbare-kontoaktionen-und-anmeldemittel) oben. Eine mit einem API-Key authentifizierte Anfrage antwortet `403 Forbidden`, bevor überhaupt ein Passwort geprüft wird — ein Key kann sich also nicht selbst vermehren. **Im Light-Modus** stellt diese Route den einen MCP-Key der Instanz ohne Step-up aus. <!-- #1847 -->
 
 **Antwort (201 Created):**
 
@@ -497,7 +510,15 @@ Der Ablauf hat drei Schritte: Ein angemeldeter Client fordert einen Kopplungscod
 ```http
 POST /api/v1/auth/device-pairing
 Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "aktuelles-passwort-2026"
+}
 ```
+
+!!! info "Anfordern ist ein Step-up"
+    Wie beim Ausstellen eines API-Keys kannst du statt `current_password` auch `step_up_token` oder `step_up_code` mitschicken (siehe [Step-up-Tabelle](#step-up-bestatigung-fur-unumkehrbare-kontoaktionen-und-anmeldemittel) oben). Eine mit einem API-Key authentifizierte Anfrage antwortet `403 Forbidden` — ein Key kann sich damit keine vollständige Sitzung selbst ausstellen. <!-- #1847 -->
 
 **Antwort (201 Created):**
 

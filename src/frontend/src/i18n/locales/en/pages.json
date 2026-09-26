@@ -823,7 +823,10 @@
           "stepDone": "Done: the app then shows the contents of this instance.",
           "qrTitle": "QR code with this instance's address",
           "securityNote": "This code only points the app at this instance. It does not sign you in and grants no access to any account - you can show it safely."
-        }
+        },
+        "stepUpTitle": "Confirm the new device",
+        "stepUpDescription": "The QR code signs a new device in to your account with full access. That is why you first confirm it is you - so nobody can connect a device of their own from a browser you left open.",
+        "stepUpConfirm": "Create QR code"
       },
       "connectLanding": {
         "title": "Open in the Kamerplanter app",
@@ -914,7 +917,17 @@
       "adminDeleteUserEmailLabel": "User's email address to confirm",
       "adminDeleteUserEmailHelper": "Type the email address \"{{email}}\" of the user you are deleting.",
       "adminDeleteUserPasswordLabel": "Your own current password",
-      "adminDeleteUserPasswordHelper": "Confirm with your own admin password, not the user's."
+      "adminDeleteUserPasswordHelper": "Confirm with your own admin password, not the user's.",
+      "apiKeyStepUpTitle": "Confirm creating an API key",
+      "apiKeyStepUpDescription": "An API key signs applications in to your account permanently - it stays valid even after you change your password. That is why you confirm creating \"{{label}}\", so nobody can quietly add access from a browser you left open.",
+      "apiKeyStepUpConfirm": "Create key",
+      "unlinkProviderStepUpTitle": "Remove sign-in method",
+      "unlinkProviderStepUpDescription": "You are removing the sign-in method \"{{provider}}\" from your account. Afterwards you can no longer sign in with it. Because this changes how your account is protected, you confirm this step.",
+      "unlinkProviderStepUpConfirm": "Remove sign-in method",
+      "adminUpdateUserStepUpTitle": "Confirm the change to this account",
+      "adminUpdateUserStepUpDescription": "You are verifying the email address of \"{{name}}\" ({{email}}) or reactivating the account. A verified address lets sign-in services link to this account automatically - that is why you confirm this change with your own credentials.",
+      "adminUpdateUserStepUpConfirm": "Save change",
+      "providerUnlinked": "Sign-in method removed"
     },
     "tenants": {
       "selectTenant": "Select Garden",

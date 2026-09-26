@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 
 
 class EmailUndeliverableError(Exception):
-    """The adapter cannot deliver this mail — it is configured not to (e.g. the console adapter outside debug).
+    """The adapter cannot deliver this mail — it is configured not to (the console adapter outside
+    debug), or its delivery service refused it or could not be reached (the Resend adapter).
 
     Raised instead of returning quietly where the caller's answer depends on the
     mail arriving: a step-up code that is never delivered must not be answered

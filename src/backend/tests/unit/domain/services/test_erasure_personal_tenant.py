@@ -55,6 +55,17 @@ from app.domain.services.tenant_service import TenantService
 from tests.support.privacy_doubles import FakeErasureRepo, FakePersonalTenants, RecordingErasureExecutor
 
 SALT = "s" * 32
+LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
+
+
+@pytest.fixture(autouse=True)
+def _log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1812: log pseudonyms are keyed with LOG_PSEUDONYM_SALT, not with the tombstone salt the services get."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
+
+
 USER = "u-1"
 PERSONAL = "t-personal"
 NOW = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
@@ -398,7 +409,7 @@ class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
         run.assert_called_once_with(claimed, NOW, raise_on_failure=True)
         # #1791 provenance fields, stated for a deletion nobody asked for interactively.
         assert created.step_up == "account_erasure_no_interactive_step_up"
-        assert created.requested_by_subject == ErasureEngine.log_subject(USER, SALT)
+        assert created.requested_by_subject == ErasureEngine.log_subject(USER, LOG_SALT)
         assert USER not in created.requested_by_subject
         assert created.slug_digest == service._tenant_slug_digest(_personal().slug)
         assert finished.status == "completed"

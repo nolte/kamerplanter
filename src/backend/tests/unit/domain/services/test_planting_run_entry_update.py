@@ -57,7 +57,12 @@ def _service(existing: PlantingRunEntry, run: PlantingRun | None = None):
     repo.get_entries.side_effect = lambda _key: [captured.get("merged", existing)]
     repo.update.side_effect = lambda _key, r: r
 
-    service = PlantingRunService(run_repo=repo, plant_repo=MagicMock(), engine=MagicMock())
+    service = PlantingRunService(
+        run_repo=repo,
+        plant_repo=MagicMock(),
+        engine=MagicMock(),
+        species_resolver=lambda key, *, tenant_key: None,  # #1871 B11: readable species only
+    )
     return service, repo, captured
 
 

@@ -45,8 +45,8 @@ import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
-import { toStepUpBody } from '@/utils/stepUp';
-import type { AdminUser, AdminUserMembership, AdminTenant, TenantRole } from '@/api/types';
+import { toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
+import type { AdminUser, AdminUserMembership, AdminTenant, AdminUserUpdate, TenantRole } from '@/api/types';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 
 const GRID_2COL = {
@@ -75,6 +75,13 @@ export default function AdminEditUserPage() {
   // account-deletion dialog it was started from (it then sends the token).
   const resumeDelete = useStepUpResume('delete-user');
   const [confirmDelete, setConfirmDelete] = useState(resumeDelete);
+  // #1857 — raising another account's trust (e-mail verified, reactivated)
+  // passes the admin's own step-up. The toggled switches do not survive the
+  // round trip to the identity provider, so the resume context is only consumed;
+  // the pending token is picked up when the admin saves again within its
+  // five minutes.
+  useStepUpResume('update-user');
+  const [confirmTrustRaise, setConfirmTrustRaise] = useState(false);
 
   // Memberships
   const [memberships, setMemberships] = useState<AdminUserMembership[]>([]);
@@ -153,15 +160,28 @@ export default function AdminEditUserPage() {
     (t) => t.is_active && !memberships.some((m) => m.tenant_key === t.key),
   );
 
+  const buildUpdate = (current: AdminUser): AdminUserUpdate => ({
+    display_name: displayName !== current.display_name ? displayName : undefined,
+    is_active: isActive !== current.is_active ? isActive : undefined,
+    email_verified: emailVerified !== current.email_verified ? emailVerified : undefined,
+  });
+
+  // The backend asks for the admin's step-up exactly when the update turns
+  // `email_verified` or `is_active` from false to true (#1857): a verified
+  // address is the trust anchor of the OAuth auto-link. Lowering either, or
+  // renaming, saves as before.
+  const raisesTrust = (current: AdminUser): boolean =>
+    (emailVerified && !current.email_verified) || (isActive && !current.is_active);
+
   const handleSave = async () => {
     if (!user) return;
+    if (raisesTrust(user)) {
+      setConfirmTrustRaise(true);
+      return;
+    }
     setSaving(true);
     try {
-      const updated = await updateAdminUser(user.key, {
-        display_name: displayName !== user.display_name ? displayName : undefined,
-        is_active: isActive !== user.is_active ? isActive : undefined,
-        email_verified: emailVerified !== user.email_verified ? emailVerified : undefined,
-      });
+      const updated = await updateAdminUser(user.key, buildUpdate(user));
       setUser(updated);
       enqueueSnackbar(t('common.saved'), { variant: 'success' });
     } catch (err) {
@@ -169,6 +189,19 @@ export default function AdminEditUserPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // The admin's OWN step-up (#1857). A rejection propagates to the dialog,
+  // which shows it inside itself and stays open.
+  const handleConfirmTrustRaise = async (credentials: StepUpConfirmation) => {
+    if (!user) return;
+    const updated = await updateAdminUser(user.key, {
+      ...buildUpdate(user),
+      ...toCredentialStepUpBody(credentials),
+    });
+    setUser(updated);
+    setConfirmTrustRaise(false);
+    enqueueSnackbar(t('common.saved'), { variant: 'success' });
   };
 
   // Erasing another account is a step-up (#1814): the TARGET's e-mail typed
@@ -306,6 +339,22 @@ export default function AdminEditUserPage() {
                 {t('common.save')}
               </Button>
             </Box>
+            <StepUpConfirmDialog
+              open={confirmTrustRaise}
+              title={t('pages.auth.adminUpdateUserStepUpTitle')}
+              description={t('pages.auth.adminUpdateUserStepUpDescription', {
+                name: user.display_name,
+                email: user.email,
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminUpdateUserStepUpConfirm')}
+              confirmColor="primary"
+              testIdPrefix="update-user"
+              stepUpAction="admin_account_update"
+              onConfirm={handleConfirmTrustRaise}
+              onCancel={() => setConfirmTrustRaise(false)}
+            />
 
             {/* Danger zone */}
             <Divider sx={{ my: 3 }} />

@@ -91,7 +91,7 @@ All API errors follow a consistent JSON format. Every error response contains a 
 | `FORBIDDEN` | 403 | Authenticated but without sufficient role |
 | `EMAIL_NOT_VERIFIED` | 403 | Email address not yet confirmed |
 | `ACCOUNT_LOCKED` | 423 | Account locked after too many failed attempts |
-| `STEP_UP_LOCKED` | 429 | Too many failed confirmations on an irreversible account action (account or tenant deletion, email or password change) — `details[0].retry_after_minutes` states the wait time; does not affect signing in |
+| `STEP_UP_LOCKED` | 429 | Too many failed confirmations on an irreversible account action or sign-in credential change (account or tenant deletion, email or password change, issuing an API key, pairing a device, removing a sign-in method, admin trust changes) — `details[0].retry_after_minutes` states the wait time; does not affect signing in |
 | `STEP_UP_REAUTH_REQUIRED` | 401 (422 when requesting the code) | An account with an OIDC-capable provider (Google, generic OIDC) must sign in again at that provider for this action — `POST /users/me/step-up/oidc` starts the sign-in; the emailed code is refused for this account |
 | `STEP_UP_REAUTH_FAILED` | 401 | The fresh sign-in at the provider did not confirm this action (expired, cancelled, or invalid) — only a redirect error code on `/auth/step-up/callback`, never JSON |
 | `STEP_UP_PASSWORD_REQUIRED` | 422 | The account has a local password and confirms with it — neither a fresh sign-in nor an emailed code is needed. |

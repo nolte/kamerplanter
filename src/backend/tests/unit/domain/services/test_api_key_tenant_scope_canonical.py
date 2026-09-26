@@ -25,6 +25,7 @@ from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.auth import ApiKey, api_key_scope_admits
 from app.domain.services.auth_service import AuthService
+from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 
 _OWNER = "owner"
 
@@ -68,6 +69,7 @@ def _service() -> tuple[AuthService, list[ApiKey]]:
 
     api_key_repo.create.side_effect = _create
     service = AuthService(
+        step_up_verifier=PassedStepUpVerifier(),
         user_repo=MagicMock(),
         auth_provider_repo=MagicMock(),
         refresh_token_repo=MagicMock(),
@@ -86,7 +88,7 @@ def _service() -> tuple[AuthService, list[ApiKey]]:
 def test_the_scope_is_stored_as_the_tenant_key(typed: str) -> None:
     service, stored = _service()
 
-    created = service.create_api_key(_OWNER, "ha", typed)
+    created = service.create_api_key(_OWNER, "ha", typed, **STEP_UP_PASSED, client_ip=None)
 
     assert stored[0].tenant_scope == "tenant_a"
     assert created.tenant_scope == "tenant_a"
@@ -110,7 +112,7 @@ def test_a_scope_the_caller_cannot_act_in_is_refused_with_one_answer(typed: str)
     service, stored = _service()
 
     with pytest.raises(ForbiddenError) as refused:
-        service.create_api_key(_OWNER, "ha", typed)
+        service.create_api_key(_OWNER, "ha", typed, **STEP_UP_PASSED, client_ip=None)
 
     assert refused.value.message == ("tenant_scope must name a tenant you are an active member of.")
     assert stored == []
@@ -120,7 +122,7 @@ def test_a_scope_the_caller_cannot_act_in_is_refused_with_one_answer(typed: str)
 def test_no_scope_stays_unscoped(typed: str | None) -> None:
     service, stored = _service()
 
-    service.create_api_key(_OWNER, "ha", typed)
+    service.create_api_key(_OWNER, "ha", typed, **STEP_UP_PASSED, client_ip=None)
 
     assert stored[0].tenant_scope is None
 
@@ -136,7 +138,7 @@ def test_the_tenant_erasure_removes_a_key_created_with_the_tenants_slug() -> Non
     # <erased tenant key>`` (tenant_erasure_executor._match). A key created
     # with the slug must therefore carry the key in exactly that field.
     service, stored = _service()
-    service.create_api_key(_OWNER, "ha", "club-a")
+    service.create_api_key(_OWNER, "ha", "club-a", **STEP_UP_PASSED, client_ip=None)
     entry = next(e for e in TenantErasureEngine.INVENTORY if e.collection == "api_keys")
 
     doc = stored[0].model_dump(by_alias=True)

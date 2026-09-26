@@ -29,6 +29,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,6 +46,7 @@ from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.device_pairing_store import DevicePairingRecord, IDevicePairingCodeStore
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from tests.support.step_up import PassedStepUpVerifier
 
 _ISSUE_PATH = "/api/v1/auth/device-pairing"
 _REDEEM_PATH = "/api/v1/auth/device-pairing/redeem"
@@ -110,9 +112,11 @@ class _RecordingAuthService(AuthService):
         self.create_calls: list[tuple[str, str | None]] = []
         self.redeem_calls: list[tuple[str, str | None, str | None, str | None]] = []
 
-    def create_device_pairing(self, user_key: str, ip_address: str | None = None) -> tuple[str, datetime]:
+    def create_device_pairing(
+        self, user_key: str, ip_address: str | None = None, **step_up: Any
+    ) -> tuple[str, datetime]:
         self.create_calls.append((user_key, ip_address))
-        return super().create_device_pairing(user_key, ip_address)
+        return super().create_device_pairing(user_key, ip_address, **step_up)
 
     def redeem_device_pairing(
         self,
@@ -165,6 +169,7 @@ def _harness(ttl_seconds: int = 90) -> Iterator[_Harness]:
     refresh_token_repo.create.side_effect = created.append
 
     service = _RecordingAuthService(
+        step_up_verifier=PassedStepUpVerifier(),
         user_repo=user_repo,
         auth_provider_repo=MagicMock(),
         refresh_token_repo=refresh_token_repo,

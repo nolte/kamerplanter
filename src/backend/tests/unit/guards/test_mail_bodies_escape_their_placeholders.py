@@ -1,7 +1,8 @@
 """#1856 — every placeholder of an HTML mail body is escaped, or built only from escaped and fixed values.
 
 The defect class: ``SmtpEmailAdapter.send_verification_email`` and
-``send_password_reset_email`` wrote ``<p>Hello {display_name},</p>`` and
+``send_password_reset_email`` (since #1888 in the shared
+``TemplatedEmailAdapter``) wrote ``<p>Hello {display_name},</p>`` and
 ``<a href="{url}">`` into the HTML body. The step-up code mail next to them
 escaped the same name; the two older siblings did not. Escaping was opt-in per
 f-string, and the siblings drifted.
@@ -142,7 +143,7 @@ def test_the_predicate_sees_the_class() -> None:
         print(f"  {path}:{line} unsafe={unsafe}")  # noqa: T201
 
     assert len(found) == EXPECTED_HTML_FSTRINGS, found
-    assert any(path.endswith("smtp_email_adapter.py") for path, _, _ in found)
+    assert any(path.endswith("templated_email_adapter.py") for path, _, _ in found)
     assert any(path.endswith("email_notification_channel.py") for path, _, _ in found)
 
 

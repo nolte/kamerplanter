@@ -242,6 +242,26 @@ def _ctx(
     )
 
 
+class _Anchors:
+    """``loc_*`` locations of the building tenant's site, as ``SiteAnchorSource`` reads them."""
+
+    def __init__(self, tenant_key: str) -> None:
+        self._tenant = tenant_key
+
+    def get_location_by_key(self, key):
+        from app.domain.models.site import Location
+
+        return Location(_key=key, name=key, area_m2=1.0, site_key="site_1") if key.startswith("loc_") else None
+
+    def get_site_by_key(self, key):
+        from app.domain.models.site import Site
+
+        return Site(_key=key, tenant_key=self._tenant, name="S") if key == "site_1" else None
+
+    def get_slot_by_key(self, key):
+        return None
+
+
 def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code})
 
@@ -252,7 +272,12 @@ def _build(
     admin_scopes: list[AdminScope] | None = None,
 ) -> tuple[TestClient, FakeRepo, InvenTreeService]:
     repo = FakeRepo()
-    service = InvenTreeService(repo, EncryptionEngine(""), adapter_factory=lambda conn: FakeAdapter())  # type: ignore[arg-type]
+    service = InvenTreeService(
+        repo,  # type: ignore[arg-type]
+        EncryptionEngine(""),
+        adapter_factory=lambda conn: FakeAdapter(),
+        site_anchors=_Anchors(tenant_key),  # an equipment location is the tenant's own (#1871 B2)
+    )
 
     app = FastAPI()
     app.include_router(inventree_router, prefix="/api/v1/t/{tenant_slug}")

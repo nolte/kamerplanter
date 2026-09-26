@@ -1,4 +1,4 @@
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_read_access
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.interfaces.activity_repository import IActivityRepository
@@ -56,22 +56,32 @@ class ActivityPlanService:
 
         Tries PhaseSequence first for auto-resolution, then LifecycleConfig.
         """
+        own = self._species_lifecycle_keys(species_key)
         if lifecycle_key:
+            # Only one of the species' own lifecycles (security review of #1876,
+            # SEC-001): a key taken as given copied another species' phases —
+            # another tenant's private lifecycle included — into the plan. One
+            # answer for a foreign and an unknown key.
+            if lifecycle_key not in own:
+                raise ValidationError(f"Lifecycle '{lifecycle_key}' does not belong to species '{species_key}'.")
             return lifecycle_key
-
-        # Try PhaseSequence first — use sequence key as lifecycle_key stand-in
-        if self._phase_seq_repo:
-            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
-            if seq and seq.key:
-                return seq.key
-
-        # Fallback to LifecycleConfig
-        lc = self._phase_repo.get_lifecycle_by_species(species_key)
-        if not lc:
+        if not own:
             raise ValidationError(
                 f"No lifecycle config found for species '{species_key}'.",
             )
-        return lc.key or ""
+        return own[0]
+
+    def _species_lifecycle_keys(self, species_key: str) -> list[str]:
+        """The species' own lifecycle keys, preferred first: its PhaseSequence, then its LifecycleConfig."""
+        keys: list[str] = []
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq and seq.key:
+                keys.append(seq.key)
+        lc = self._phase_repo.get_lifecycle_by_species(species_key)
+        if lc and lc.key:
+            keys.append(lc.key)
+        return keys
 
     def generate_plan(
         self,
@@ -176,18 +186,52 @@ class ActivityPlanService:
         generated when neither exists is the **shared** template, not a private
         plan: reading a plan is not a write, and it is the write that forks.
         """
+        species_owner = self._readable_species_owner(species_key, tenant_key)
         existing = self._task_repo.get_auto_generated_workflow_for_species(
             species_key,
             tenant_key=tenant_key,
         )
         if existing:
             return existing
+        # A plan derived from a *global* species with its defaults is the shared
+        # template. One derived from a private (own or granted) species is the
+        # caller's: a shared template would carry the private species' name to
+        # every tenant (#1871 B10). So is one shaped by the caller's own
+        # parameters — the first caller must not decide what every tenant reads
+        # (security review of #1876, SEC-001).
+        caller_shaped = any(value is not None for value in (lifecycle_key, growth_system, skill_level))
+        shared = species_owner == "" and not caller_shaped
         return self.generate_plan(
             species_key=species_key,
             lifecycle_key=lifecycle_key,
             growth_system=growth_system,
             skill_level=skill_level,
+            tenant_key="" if shared else tenant_key,
         )
+
+    def _readable_species_owner(self, species_key: str, tenant_key: str) -> str:
+        """The species' owner if ``tenant_key`` may read it — global, own or granted (#1092) — else 404.
+
+        The generate routes resolved ``species_key`` unscoped, so another
+        tenant's private species produced a plan (#1871 B10). With no tenant in
+        play (an internal caller) the species is only required to exist.
+        """
+        if self._species_repo is None:
+            # Fail closed for a tenant request (security review of #1876, SEC-004):
+            # without the repository nothing can tell a private species from a
+            # global one, and "global" would generate the shared template.
+            if tenant_key:
+                raise NotFoundError("Species", species_key)
+            return ""
+        species = self._species_repo.get_or_raise(species_key)
+        owner = getattr(species, "tenant_key", "") or ""
+        if (
+            tenant_key
+            and owner not in ("", tenant_key)
+            and not self._species_repo.is_granted_to(species_key, tenant_key)
+        ):
+            raise NotFoundError("Species", species_key)
+        return owner
 
     def regenerate_for_species(
         self,
@@ -215,6 +259,7 @@ class ActivityPlanService:
         than a route) this is the pre-#1003 behaviour unchanged: the shared plan
         is replaced in place.
         """
+        self._readable_species_owner(species_key, tenant_key)
         existing = self._task_repo.get_auto_generated_workflow_for_species(
             species_key,
             tenant_key=tenant_key,

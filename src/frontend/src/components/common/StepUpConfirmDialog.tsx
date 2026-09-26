@@ -37,14 +37,14 @@ interface StepUpConfirmDialogProps {
   open: boolean;
   title: string;
   description: ReactNode;
-  /** Required with `expectedEcho`. */
+  /** Label of the echo field; required together with `expectedEcho`. */
   echoLabel?: string;
-  /** Required with `expectedEcho`. */
   echoHelper?: string;
   /**
-   * The value the echo must match before the confirm button enables. Omitted for
-   * an act whose body carries no echo (the e-mail change, #1848): the dialog then
-   * asks for the step-up factor only.
+   * The value the echo must match before the confirm button enables. Omitted,
+   * the dialog has **no echo field** — for a credential change that names no
+   * target to type back (#1847, #1857: API key, device pairing, provider unlink,
+   * admin trust raise), confirmed by the step-up factor alone.
    */
   expectedEcho?: string;
   /**
@@ -60,7 +60,10 @@ interface StepUpConfirmDialogProps {
   /** Shown when Enter is pressed on an empty password field instead of silently doing nothing. */
   passwordRequiredMessage?: string;
   confirmLabel: string;
-  /** `error` for an irreversible act (default), `primary` for a reversible one such as the e-mail change. */
+  /**
+   * Colour of the confirm button: `error` (default) for an irreversible act,
+   * `primary` for a credential change that creates or verifies something.
+   */
   confirmColor?: 'error' | 'primary';
   /** The act this dialog confirms; an e-mailed code is requested for this act only (review SEC-003). */
   stepUpAction: StepUpAction;
@@ -86,8 +89,7 @@ interface StepUpConfirmDialogProps {
  * target — a tenant slug, an account's e-mail — (422) and, for a requester with
  * a local password, carries the current password (401). Too many failed
  * confirmations answer 429 `STEP_UP_LOCKED`, shown as a translated lockout with
- * its minutes. An act whose body carries no echo (the e-mail change, #1848)
- * omits `expectedEcho`; the dialog then asks for the step-up factor alone.
+ * its minutes.
  *
  * The password field **fails closed**: it is shown unless the provider list
  * positively says the requester is federated-only — a failed or pending load
@@ -113,6 +115,9 @@ interface StepUpConfirmDialogProps {
  * sent successfully or refused as a step-up (401/429) — another refusal, e.g. a
  * mistyped echo (422), keeps it for the next try. A callback error (failed, stale,
  * cancelled) is shown when the dialog opens.
+ *
+ * A credential change (#1847, #1857) has no target to type back: omit
+ * `expectedEcho` and the dialog asks for the step-up factor only.
  *
  * On a rejection the dialog stays open, shows the error inside itself and
  * clears the password and the code so a wrong one is not resent by accident.
@@ -290,7 +295,7 @@ export default function StepUpConfirmDialog({
             autoComplete="current-password"
             fullWidth
             required
-            // Without an echo the password is the first field to type into.
+            // Without an echo the password is the first field to fill.
             autoFocus={!hasEcho}
             disabled={pending}
             sx={{ mt: 2 }}

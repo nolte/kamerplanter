@@ -42,6 +42,7 @@ from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
+from app.data_access.external.resend_email_adapter import ResendEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 from app.data_access.repositories.propagation_repository import PropagationRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
@@ -171,7 +172,9 @@ def get_inventree_service():
     """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
     from app.domain.services.inventree_service import InvenTreeService
 
-    return InvenTreeService(get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client())
+    return InvenTreeService(
+        get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client(), site_anchors=get_site_repo()
+    )
 
 
 def get_species_repo() -> ArangoSpeciesRepository:
@@ -507,6 +510,8 @@ def get_planting_run_service() -> PlantingRunService:
         companion_engine=companion_engine,
         # #1868 — a run's substrate batch is resolved strictly under its tenant.
         substrate_batch_resolver=_resolve_substrate_batch,
+        # #1871 B11 — an entry's species must be one the tenant may read.
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
@@ -722,6 +727,10 @@ def get_task_service() -> TaskService:
         # So a completion's `photo_refs` are resolved against the attachment
         # catalogue instead of trusted as strings (#1339 review).
         attachment_repo=get_attachment_repo(),
+        # #1871 B9 — an assignee must be an active member of the task's tenant.
+        membership_lookup=lambda user_key, tenant_key: get_membership_repo().get_by_user_and_tenant(
+            user_key, tenant_key
+        ),
     )
 
 
@@ -753,6 +762,7 @@ def get_password_engine() -> PasswordEngine:
 
 
 def get_email_service() -> IEmailService:
+    """The configured e-mail adapter; ``EMAIL_ADAPTER`` is a ``Literal``, so no value falls through (#1821)."""
     if settings.email_adapter == "smtp":
         return SmtpEmailAdapter(
             host=settings.smtp_host,
@@ -761,6 +771,10 @@ def get_email_service() -> IEmailService:
             password=settings.smtp_password,
             from_email=settings.smtp_from_email,
             use_tls=settings.smtp_use_tls,
+        )
+    if settings.email_adapter == "resend":
+        return ResendEmailAdapter(
+            api_key=settings.resend_api_key.get_secret_value(), from_email=settings.resend_from_email
         )
     return ConsoleEmailAdapter()
 
@@ -929,7 +943,12 @@ def get_api_key_rate_limiter():
 
 
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo(), tombstone_salt=settings.erasure_tombstone_salt)
+    return UserService(
+        get_user_repo(),
+        get_refresh_token_repo(),
+        tombstone_salt=settings.erasure_tombstone_salt,
+        step_up_verifier=get_step_up_verifier(),
+    )
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────
@@ -970,6 +989,8 @@ def get_tenant_service() -> TenantService:
         tombstone_salt=settings.erasure_tombstone_salt,
         light_mode=settings.kamerplanter_mode == "light",
         step_up_verifier=get_step_up_verifier(),
+        # #1871 B3 — a location assignment is resolved through its site.
+        site_anchors=get_site_repo(),
     )
 
 
@@ -1436,7 +1457,10 @@ def get_observation_repo():
 def get_observation_service():
     from app.domain.services.observation_service import ObservationService
 
-    return ObservationService(get_observation_repo(), get_sensor_repo())
+    # #1871 B6 — a sensor's tenant is its parent's (tank, site, or location via its site).
+    return ObservationService(
+        get_observation_repo(), get_sensor_repo(), tank_repo=get_tank_repo(), site_anchors=get_site_repo()
+    )
 
 
 def get_sensor_service():

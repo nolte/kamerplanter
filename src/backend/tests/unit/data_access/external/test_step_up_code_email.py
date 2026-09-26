@@ -30,6 +30,14 @@ RECIPIENT = "owner-5e1f@example.com"
 CODE = "".join(str(n % 10) for n in range(3, 11))
 
 
+@pytest.fixture(autouse=True)
+def _keyed_digests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A log salt, so ``to_sha256 == email_digest(...)`` compares keyed digests, not two no-salt constants (#1812)."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "digest-test-salt-not-a-secret-0123456789")
+
+
 class _FakeSmtp:
     sent: list[tuple[str, str, str]] = []
 

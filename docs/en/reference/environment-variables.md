@@ -72,11 +72,12 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
 
-<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours, retention_email_change_revert_days); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, log_pseudonym_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours, retention_email_change_revert_days); src/backend/app/main.py (insecure_default_secrets); src/backend/app/tasks/__init__.py (_refuse_worker_start_without_log_pseudonym_salt) -->
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hashing, NFR-011 §4). **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
+| `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hash, erasure request key and tenant slug digest, NFR-011 §4). This value must **never change once accounts have been erased**. **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
+| `LOG_PSEUDONYM_SALT` | — | Yes | High-entropy secret (at least 32 characters) that keys only the log pseudonyms: the `subject=` references (`sub_…`) and the `email_sha256` digests on log lines, plus the `requested_by_subject` provenance field on erasure and tenant-erasure records (NFR-011 §3.4). Kept separate from `ERASURE_TOMBSTONE_SALT` because — unlike the tombstone salt — this value may be rotated. **The startup gate refuses to start in production** for both the backend **and** the Celery worker if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`; should differ from `ERASURE_TOMBSTONE_SALT` (not enforced). |
 | `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | No | Name of the data controller, shown in export and disclosure documents. |
 | `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | No | Contact email of the controller for GDPR requests. |
 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` | `90` | No | Grace period before an account marked for deletion (soft-deleted) is permanently (hard-)deleted (NFR-011 R-01). Minimum: `1`. The older name `PRIVACY_HARD_DELETE_AFTER_DAYS` is still accepted; if both are set, the new name wins. |
@@ -92,10 +93,15 @@ For `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOU
 documented but had no effect — the code used fixed values. They now actually work and
 remain valid as aliases in addition.
 
-!!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
-    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. The same applies to the Celery worker: it keys the account references and email digests in its log lines with this salt and exits at startup when the salt is missing. Give it the same value and the same `DEBUG` setting as the backend.
+!!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production, must never change"
+    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. This salt keys the tombstone hash of erased accounts, the erasure request key and the tenant slug digest — **never** the log pseudonyms (that is `LOG_PSEUDONYM_SALT`'s job). It must **never change once accounts have been erased**, or existing tombstones become unreadable. The Celery worker also exits at start-up when the salt is missing or too short; give it the same value and the same `DEBUG` setting as the backend.
 
     With `DEBUG=true` the backend starts without a valid value, for example in the local development stack. Account erasure still refuses every run before it touches anything: when a platform admin deletes an account, the backend answers `503`. An Art. 17 erasure request is still accepted, but the daily run does not carry it out; the request stays open as `partially_completed` until you set a valid salt. For a full list of unconditionally required secrets, see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+!!! danger "LOG_PSEUDONYM_SALT — a boot blocker in production, same value for backend and worker"
+    `LOG_PSEUDONYM_SALT` is also **not an optional feature flag**: both the backend **and** the Celery worker refuse to start in production (`DEBUG=false`) when this value is missing or shorter than 32 characters. It keys only the log pseudonyms — the `subject=` reference and the `email_sha256` digest on log lines, plus the `requested_by_subject` provenance field on erasure and tenant-erasure records. Give both processes the same value. With `DEBUG=true` both start without a valid value, but account and tenant erasure then refuse every run (`503`), because their proof would otherwise carry no reference to the account that triggered it.
+
+    **Rotation.** Unlike `ERASURE_TOMBSTONE_SALT`, this salt may be changed: set the new value in both the backend and the worker (Kubernetes secret `kamerplanter-secrets`, or `.env` for Docker Compose) and restart both. After that, log lines and `requested_by_subject` values from before the change no longer correlate with later ones — someone holding only the new salt cannot map old references to an account. Which admin account triggered a stored erasure can then only be recomputed with the old salt — keep it safely stored for as long as the erasure proof is kept (one year) if that attribution must stay verifiable. No lookup depends on the log salt, so rotation has no other side effects. The value should differ from `ERASURE_TOMBSTONE_SALT`; this is not enforced.
 
 ---
 
@@ -142,35 +148,40 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `EMAIL_ADAPTER` | `console` | No | Email adapter: `console` (output to log, link only with `DEBUG=true`), `smtp`, `resend` (see note below) |
+| `EMAIL_ADAPTER` | `console` | No | Email adapter: `console` (output to log, link only with `DEBUG=true`), `smtp` or `resend`. Any other value — for example a typo — is rejected at startup: the API and the worker refuse to start rather than silently falling back to `console`. |
 | `SMTP_HOST` | `localhost` | No | SMTP server hostname |
 | `SMTP_PORT` | `587` | No | SMTP port |
 | `SMTP_USERNAME` | — | No | SMTP username |
 | `SMTP_PASSWORD` | — | No | SMTP password |
-| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails |
+| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails sent via SMTP |
 | `SMTP_USE_TLS` | `true` | No | Enable STARTTLS for SMTP |
+| `RESEND_API_KEY` | — | Conditional | API key for sending via [Resend](https://resend.com) (secret). **Required when `EMAIL_ADAPTER=resend` is set** — without it the application refuses to start. Provide it through the Kubernetes Secret `kamerplanter-secrets` or your `.env` file, never through a Helm values file. |
+| `RESEND_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails sent via Resend. This address's domain must be verified in the Resend account, otherwise sending fails. |
 
 In development mode (`EMAIL_ADAPTER=console`), emails are not sent but printed to the
 backend log. That log line carries the verification or password-reset link only when
 `DEBUG=true` is also set — its token takes over the account otherwise. Without
 `DEBUG=true` the line only states that no email was delivered, with no token. If the API
 starts with `EMAIL_ADAPTER=console` and `DEBUG=false` — the case for a production
-install without SMTP configured, since the Helm chart sets no adapter by default — it
-writes a startup warning to the log (`email_adapter_console_in_production`). For a
-production install, the only remaining option is to configure `EMAIL_ADAPTER=smtp`;
-otherwise registration and password reset cannot be completed.
+install without SMTP or Resend configured, since the Helm chart sets no adapter by
+default — it writes a startup warning to the log
+(`email_adapter_console_in_production`). For a production install, configure either
+`EMAIL_ADAPTER=smtp` or `EMAIL_ADAPTER=resend`; otherwise registration and password
+reset cannot be completed.
 
-!!! note "The `resend` value has no adapter of its own yet"
-    `EMAIL_ADAPTER=resend` is accepted as a configuration value but is currently not
-    wired to an adapter of its own: the backend behaves like `console` in that case — no
-    email is sent, only the log line described above. This is a known, internally
-    tracked gap, not a supported mode of operation. <!-- #1821 -->
+!!! info "Resend: hosted email delivery over an HTTP API"
+    `EMAIL_ADAPTER=resend` sends the same system emails (email verification,
+    password reset, the step-up confirmation code, notification emails) as the SMTP
+    adapter, but over Resend's HTTP API instead of an SMTP connection. In the logs, the
+    recipient address only ever appears as a salted digest, never in plain text; if a
+    send fails, the application logs only the error type and the HTTP status, never the
+    response body or the API key. Each send attempt has a 10-second timeout. <!-- #1821 -->
 
 !!! note "Also used by the notification system"
     These variables also configure the email channel of the [notification system](../user-guide/notifications.md#email) — there is no separate SMTP configuration for notifications.
 
 !!! info "Two different requirements for federated accounts"
-    An account without a local password with an OIDC-capable provider (Google, generic OIDC) confirms irreversible account actions and credential changes (account deletion, setting a first local password, tenant deletion, email change) with a fresh sign-in at that provider — see [API Documentation: Authentication](../api/authentication.md#signing-in-again-to-confirm-oidc). That needs the provider to support `prompt=login`/`max_age` and the `auth_time` claim, not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple (neither can prove a fresh sign-in) uses the emailed confirmation code instead — see [Requesting a Confirmation Code by Email](../api/authentication.md#requesting-a-confirmation-code-by-email-fallback-for-githubapple). If the instance runs such an account with `EMAIL_ADAPTER=console` and `DEBUG=false`, the application reports that the confirmation code cannot be delivered (`503`) instead of letting it silently vanish — it still cannot delete itself, set a first local password, delete a tenant, or change its email address until SMTP is configured. `EMAIL_ADAPTER=smtp` is therefore required for production operation with GitHub/Apple-only accounts, not just recommended.
+    An account without a local password with an OIDC-capable provider (Google, generic OIDC) confirms irreversible account actions and credential changes (account deletion, setting a first local password, tenant deletion, email change, and since version 1.19 also issuing an API key, device pairing, and removing a sign-in method) with a fresh sign-in at that provider — see [API Documentation: Authentication](../api/authentication.md#signing-in-again-to-confirm-oidc). That needs the provider to support `prompt=login`/`max_age` and the `auth_time` claim, not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple (neither can prove a fresh sign-in) uses the emailed confirmation code instead — see [Requesting a Confirmation Code by Email](../api/authentication.md#requesting-a-confirmation-code-by-email-fallback-for-githubapple). If the instance runs such an account with `EMAIL_ADAPTER=console` and `DEBUG=false`, the application reports that the confirmation code cannot be delivered (`503`) instead of letting it silently vanish — it still cannot delete itself, set a first local password, delete a tenant, change its email address, or issue an API key or pairing code until SMTP is configured. `EMAIL_ADAPTER=smtp` is therefore required for production operation with GitHub/Apple-only accounts, not just recommended.
 
 ---
 
@@ -701,10 +712,11 @@ ARANGODB_PASSWORD=secure-root-password
 # Cache / Queue
 REDIS_URL=redis://valkey:6379/0
 
-# Security (all three are mandatory secrets, startup gate in production)
+# Security (all four are mandatory secrets, startup gate in production)
 JWT_SECRET_KEY=generate-with-openssl-rand-hex-32
 FERNET_KEY=generate-with-Fernet.generate_key
 ERASURE_TOMBSTONE_SALT=generate-with-openssl-rand-hex-32
+LOG_PSEUDONYM_SALT=generate-with-openssl-rand-hex-32
 REQUIRE_EMAIL_VERIFICATION=false
 
 # CORS
