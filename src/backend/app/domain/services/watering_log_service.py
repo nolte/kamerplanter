@@ -23,6 +23,7 @@ from app.domain.models.watering_log import (
     find_watering_log_violations,
 )
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.watering_confirmation_scope import own_task_or_none, require_confirmable_run
 
 if TYPE_CHECKING:
     from app.domain.services.care_reminder_service import CareReminderService
@@ -302,7 +303,8 @@ class WateringLogService:
         volume_liters: float | None = None,
         overrides: dict | None = None,
         channel_id: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Confirm a scheduled watering task: create ONE WateringLog, complete task.
 
@@ -314,6 +316,9 @@ class WateringLogService:
         """
         if self._run_repo is None or self._task_repo is None:
             raise ValueError("confirm_watering requires run_repo and task_repo")
+        # The run comes from the request body: resolve it under the tenant before
+        # anything is read through it or written (#1864 sweep, L8).
+        require_confirmable_run(self._run_repo, run_key, tenant_key=tenant_key)
 
         # Get run and plan info
         plan_key = self._run_repo.get_run_nutrient_plan_key(run_key)
@@ -366,7 +371,9 @@ class WateringLogService:
 
         # Complete the task
         task_completed = False
-        task_doc = self._task_repo.get_by_key(task_key)
+        # Only the tenant's own task is completed; a foreign one is treated as
+        # missing — same answer, nothing changed (#1864 sweep, L8).
+        task_doc = own_task_or_none(self._task_repo, task_key, tenant_key=tenant_key)
         if task_doc:
             self._task_repo.update_fields(
                 task_key,
@@ -396,6 +403,6 @@ class WateringLogService:
             "warnings": [],
         }
 
-    def quick_confirm_watering(self, run_key: str, task_key: str, tenant_key: str = "") -> dict:
+    def quick_confirm_watering(self, run_key: str, task_key: str, *, tenant_key: str) -> dict:
         """Quick confirm using plan defaults -- no overrides."""
         return self.confirm_watering(run_key, task_key, tenant_key=tenant_key)

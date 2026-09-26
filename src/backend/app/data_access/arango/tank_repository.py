@@ -357,7 +357,10 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
         FILTER tank != null AND tank.location_key != null
 
         FOR run IN @@planting_runs
+          // Same tenant as the tank (#1864 sweep, L3): a tank row written before
+          // its location_key was verified may name another tenant's location.
           FILTER run.location_key == tank.location_key
+            AND run.tenant_key == tank.tenant_key
             AND run.status IN ['active', 'harvesting']
             AND run.nutrient_plan_key != null
 

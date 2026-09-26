@@ -180,13 +180,12 @@ def update_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Partially update a planting-run entry."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     # Partial update: only fields explicitly sent by the client are applied.
     # ``exclude_unset`` (not ``exclude_none``) keeps an explicit ``null`` for a
     # nullable field distinguishable from "not sent" — the service merges the
     # patch onto the persisted entry and re-validates required fields.
     data = body.model_dump(exclude_unset=True)
-    updated = service.update_entry(key, entry_key, data)
+    updated = service.update_entry(key, entry_key, data, tenant_key=ctx.tenant_key)
     return _entry_response(updated)
 
 
@@ -198,8 +197,7 @@ def delete_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Delete a planting-run entry."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    service.delete_entry(key, entry_key)
+    service.delete_entry(key, entry_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/create-plants", response_model=BatchCreatePlantsResponse, status_code=201)
