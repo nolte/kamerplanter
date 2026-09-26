@@ -112,6 +112,15 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
 
     # ── Entry CRUD ────────────────────────────────────────────────────
 
+    def verify_entry_references(self, entry: PlantingRunEntry) -> None:
+        """Run the entry's owned-reference check without writing (#1874 review).
+
+        ``create_run`` checks every entry *before* the run is stored, so a
+        foreign ``cultivar_key`` refuses the whole create instead of leaving a
+        stored run with a partial set of entries behind.
+        """
+        self._entries._verify_owned_references(entry)
+
     def create_entry(self, entry: PlantingRunEntry) -> PlantingRunEntry:
         created = self._entries.create(entry)
         # Create edges

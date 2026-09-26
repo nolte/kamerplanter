@@ -266,14 +266,17 @@ class CalendarService:
     def _species_harvest_bars(self, species_key: str, year: int, *, tenant_key: str) -> list[SowingBar]:
         """Build harvest/bloom bars from Species stammdaten (harvest_months / bloom_months).
 
-        Only a species the tenant may read (global or its own): a run entry can
+        Only a species the tenant may read — global, its own, or granted to it
+        (#1092), the rule the species list above applies too: a run entry can
         still name another tenant's private species (#1871 B11), and its months
         must not reach this calendar.
         """
         if not self._species_repo:
             return []
         sp = self._species_repo.get_by_key(species_key)
-        if sp is None or sp.tenant_key not in ("", tenant_key):
+        if sp is None:
+            return []
+        if sp.tenant_key not in ("", tenant_key) and not self._species_repo.is_granted_to(species_key, tenant_key):
             return []
 
         bars: list[SowingBar] = []

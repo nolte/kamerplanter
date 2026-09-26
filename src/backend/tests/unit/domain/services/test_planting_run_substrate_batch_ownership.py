@@ -93,17 +93,29 @@ def test_a_run_without_a_batch_needs_no_resolver() -> None:
     assert created.substrate_batch_key is None
 
 
-def test_entries_of_a_new_run_carry_the_runs_tenant_so_their_references_are_verified() -> None:
-    # #1871 B12, closed here: entries built from the create-run body had no
-    # tenant_key, and the repository's owned-reference guard skips a row without
-    # one — so a foreign cultivar_key went through on this path only.
+def test_entries_of_a_new_run_are_checked_under_the_runs_tenant_before_the_run_is_stored() -> None:
+    # #1871 B12: entries built from the create-run body had no tenant_key, and
+    # the repository's owned-reference guard skips a row without one — so a
+    # foreign cultivar_key went through on this path only. #1874 review: the
+    # check must run before the run is stored, or a refusal leaves a run with
+    # a partial set of entries behind.
     from app.domain.models.planting_run import PlantingRunEntry
 
     repo = FakeRunRepo()
-    stored: list[PlantingRunEntry] = []
-    repo.create_entry = lambda entry: stored.append(entry) or entry  # type: ignore[attr-defined]
-    entry = PlantingRunEntry(species_key="s1", cultivar_key="cv_foreign", quantity=2, id_prefix="AB")
+    checked: list[str] = []
 
-    _service(repo).create_run(_run(None), [entry])
+    def _verify(entry: PlantingRunEntry) -> None:
+        checked.append(entry.tenant_key)
+        if entry.cultivar_key == "cv_foreign" and entry.tenant_key:
+            raise NotFoundError("Cultivar", entry.cultivar_key)
 
-    assert [e.tenant_key for e in stored] == [OWN]
+    repo.verify_entry_references = _verify  # type: ignore[attr-defined]
+    repo.create_entry = lambda entry: entry  # type: ignore[attr-defined]
+    own = PlantingRunEntry(species_key="s1", quantity=1, id_prefix="AB")
+    foreign = PlantingRunEntry(species_key="s1", cultivar_key="cv_foreign", quantity=2, id_prefix="AC")
+
+    with pytest.raises(NotFoundError):
+        _service(repo).create_run(_run(None), [own, foreign])
+
+    assert checked == [OWN, OWN]
+    assert repo.store == {}

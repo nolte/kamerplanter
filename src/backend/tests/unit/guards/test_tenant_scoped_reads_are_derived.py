@@ -807,6 +807,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "the batch_id unique index is global, so the id generator must ask globally; the boolean "
         "only steers HarvestService._generate_batch_id and is never returned",
     ),
+    ("ArangoPlantingRunRepository", "verify_entry_references"): Exclusion(
+        "probe",
+        "runs the owned-reference check of an unsaved entry against the entry's own tenant_key and "
+        "returns nothing; it reads no planting_run_entries row (#1874 review)",
+    ),
     # ── verified ───────────────────────────────────────────────────────────
     ("ArangoSpeciesRepository", "list_grants"): Exclusion(
         "verified",

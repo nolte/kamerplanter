@@ -123,6 +123,13 @@ class PlantingRunService:
         # After the clone config for the same reason as the location: the check
         # sees whichever key the run ends up with, inherited or supplied (#1868).
         self._require_owned_substrate_batch(run)
+        # Entries carry the run's tenant so their owned references (a
+        # ``cultivar_key``) are checked — and checked before the run is stored,
+        # so a foreign reference refuses the whole create rather than leaving a
+        # run with a partial set of entries behind (#1871 B12, #1874 review).
+        for entry in entries or []:
+            entry.tenant_key = run.tenant_key
+            self._repo.verify_entry_references(entry)
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
@@ -136,11 +143,6 @@ class PlantingRunService:
         if entries and created.key:
             for entry in entries:
                 entry.run_key = created.key
-                # The run's tenant, as add_entry/update_entry stamp it (SEC-004,
-                # #1112): the repository's owned-reference guard skips a row
-                # without one, so a foreign cultivar_key went through on this
-                # path only (#1871 B12).
-                entry.tenant_key = created.tenant_key
                 self._repo.create_entry(entry)
         return created
 

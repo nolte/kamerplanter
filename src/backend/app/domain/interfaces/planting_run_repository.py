@@ -33,6 +33,9 @@ class IPlantingRunRepository(ABC):
     # ── Entry CRUD ────────────────────────────────────────────────────
 
     @abstractmethod
+    def verify_entry_references(self, entry: PlantingRunEntry) -> None: ...
+
+    @abstractmethod
     def create_entry(self, entry: PlantingRunEntry) -> PlantingRunEntry: ...
 
     @abstractmethod

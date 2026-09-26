@@ -50,6 +50,9 @@ class _Species:
         self.tenant_keys.append(tenant_key)
         return [], 0
 
+    def is_granted_to(self, species_key: str, tenant_key: str) -> bool:
+        return species_key == "sp_granted" and tenant_key == OWN
+
 
 def _service() -> tuple[CalendarService, _Runs, _Species]:
     runs, species = _Runs(), _Species()
@@ -111,3 +114,15 @@ def test_a_run_entry_naming_another_tenants_species_draws_no_bars_from_it() -> N
     species.get_by_key = lambda key: foreign if key == "sp_foreign" else None  # type: ignore[attr-defined]
 
     assert service._species_harvest_bars("sp_foreign", 2026, tenant_key=OWN) == []
+
+
+def test_a_species_granted_to_the_tenant_still_draws_its_bars() -> None:
+    # #1874 review: the species list admits granted species (#1092); the bars
+    # must apply the same rule or the two reads disagree about "visible".
+    from app.domain.models.species import Species
+
+    service, _runs, species = _service()
+    granted = Species(_key="sp_granted", tenant_key="t_b", scientific_name="Grantus sharedus", harvest_months=[7, 8])
+    species.get_by_key = lambda key: granted if key == "sp_granted" else None  # type: ignore[attr-defined]
+
+    assert service._species_harvest_bars("sp_granted", 2026, tenant_key=OWN) != []
