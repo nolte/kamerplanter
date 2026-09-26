@@ -359,14 +359,21 @@ ihre Protokolle keine direkte Kennung einer betroffenen Person enthalten:
 
 **Log-Salt und Rotation (#1812).** `LOG_PSEUDONYM_SALT` verschlüsselt ausschließlich die
 Log-Pseudonyme (`log-subject`, `log-email`) — auch dort, wo eine solche Referenz in einem
-Datensatz landet (`requested_by_subject` in Lösch- und Mandanten-Löschnachweisen). Der
+Datensatz landet (`requested_by_subject` in Lösch- und Mandanten-Löschnachweisen, die
+um die Kontokennung bereinigten `error_message`-Texte von Löschanträgen). Ohne gültigen
+Log-Salt verweigert die Löschung deshalb auch mit `DEBUG=true` jeden Lauf, bevor sie etwas
+ändert — der Nachweis trüge sonst die Konstante `anon_unavailable`. Der
 Tombstone-Hash, der Anfrage-Schlüssel und der Slug-Digest bleiben bei
 `ERASURE_TOMBSTONE_SALT`, der nie wechseln darf. Den Log-Salt darf der Betreiber
 wechseln (neuer Wert in API **und** Worker, Neustart beider): Protokollzeilen und
 `requested_by_subject`-Werte von vor dem Wechsel korrelieren danach nicht mehr mit
 späteren, und wer nur den neuen Salt kennt, kann alte Referenzen nicht mehr einer
-Kontokennung zuordnen. Sonst bricht nichts — kein gespeicherter Wert und keine Abfrage
-hängt vom Log-Salt ab. Der Wert sollte sich vom Tombstone-Salt unterscheiden; die
+Kontokennung zuordnen — auch nicht, *welches* Admin-Konto eine gespeicherte Löschung
+ausgelöst hat. Soll diese Zuordnung für die R-06-Aufbewahrung (ein Jahr) nachprüfbar
+bleiben, bewahrt der Betreiber den ausgemusterten Salt so lange gesichert auf; sonst
+erlischt sie mit der Rotation. Weiter bricht nichts — keine Abfrage hängt vom Log-Salt ab.
+Referenzen, die vor #1812 geschrieben wurden, sind mit dem Tombstone-Salt gebildet und
+bleiben mit ihm nachrechenbar. Der Wert sollte sich vom Tombstone-Salt unterscheiden; die
 Anwendung prüft das nicht.
 
 **Aufbewahrung der Log-Pipeline — Betreiberpflicht, offen.** Auch pseudonyme Referenzen

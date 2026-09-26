@@ -1656,6 +1656,14 @@ class PrivacyService:
             self._erasure_engine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        # #1812 review SEC-001: the record's ``requested_by_subject`` (and the
+        # redacted error texts it keeps) are log pseudonyms. Without the log salt
+        # they would be persisted as the constant ``anon_unavailable`` — a proof
+        # that no longer says who asked for the erasure. Refused like the
+        # tombstone salt, before anything changes (the start gate does not run
+        # with DEBUG=true).
+        if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
+            return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
         return self._personal_tenant_configuration_error()
 
     def _personal_tenant_configuration_error(self) -> str | None:

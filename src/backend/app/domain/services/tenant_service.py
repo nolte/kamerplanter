@@ -25,7 +25,7 @@ from app.common.exceptions import (
     WriteConflictError,
 )
 from app.common.log_privacy import log_subject
-from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
@@ -735,6 +735,14 @@ class TenantService:
             ErasureEngine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        # #1812 review SEC-001: the record's ``requested_by_subject`` (and the
+        # redacted error texts it keeps) are log pseudonyms. Without the log salt
+        # they would be persisted as the constant ``anon_unavailable`` — a proof
+        # that no longer says who asked for the erasure. Refused like the
+        # tombstone salt, before anything changes (the start gate does not run
+        # with DEBUG=true).
+        if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
+            return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
         if self._reference_index_store is not None:
             reference_error = self._reference_index_store.configuration_error()
             if reference_error is not None:

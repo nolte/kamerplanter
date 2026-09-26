@@ -52,6 +52,14 @@ USER = "u-1"
 T0 = datetime(2026, 9, 1, 4, 0, tzinfo=UTC)
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 class _AttachmentCatalog:
     """In-memory attachments index with the real repository's filter semantics.
 

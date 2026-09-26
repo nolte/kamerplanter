@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import re
 
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH
 from app.domain.models.privacy import (
     AnonymizationRule,
     ErasureExclusion,
@@ -943,7 +944,7 @@ class ErasureEngine:
         must not turn a log line into an error, and must not fall back to the
         plaintext key either: it yields the constant ``anon_unavailable``.
         """
-        if not salt or len(salt) < 32:
+        if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
             return UNAVAILABLE_LOG_SUBJECT
         digest = hmac.new(salt.encode(), f"log-subject:{user_key}".encode(), hashlib.sha256).hexdigest()
         return f"{LOG_SUBJECT_PREFIX}{digest[:16]}"

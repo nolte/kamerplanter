@@ -669,12 +669,15 @@ class Settings(BaseSettings):
 
     # REQ-025 Privacy / GDPR
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production
-    #: NFR-011 §3.4 L-1/L-2 (#1812): keys the log pseudonyms (``sub_…`` subject
-    #: references, ``email_sha256`` digests) — and nothing else. Separate from the
-    #: tombstone salt because that one can never rotate (the erasure tombstones are
-    #: keyed with it); this one can: a rotation only stops old log lines from
-    #: correlating with new ones. >= 32 chars in production (API and worker refuse
-    #: to start otherwise).
+    #: NFR-011 §3.4 L-1/L-2 (#1812): keys the log pseudonyms — the ``sub_…``
+    #: subject references and ``email_sha256`` digests on log lines, and where
+    #: such a reference is persisted (``requested_by_subject`` of erasure and
+    #: tenant-erasure records, subject-redacted ``error_message`` texts). Nothing
+    #: else: no lookup depends on it. Separate from the tombstone salt because that
+    #: one can never rotate; this one can — a rotation stops references written
+    #: before it from correlating with later ones, and an old reference can only be
+    #: recomputed with the retired salt. >= 32 chars in production (API and worker
+    #: refuse to start otherwise).
     log_pseudonym_salt: str = ""
     privacy_data_controller_name: str = "Kamerplanter Operator"
     privacy_data_controller_email: str = "privacy@kamerplanter.example"

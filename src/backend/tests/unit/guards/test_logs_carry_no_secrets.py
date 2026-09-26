@@ -24,7 +24,7 @@ positional, that *references*:
 * **a secret-named name or attribute** (:data:`_SECRET_NAME`): ``token`` and any
   ``*_token``, ``api_key``/``*_api_key``/``apikey``, ``secret``/``*_secret``/
   ``secret_key``/``private_key``, ``password``/``*_password``/``passwd``,
-  ``authorization``, ``cookie`` — also inside an f-string, ``a or b``,
+  ``authorization``, ``cookie``, ``salt``/``*_salt`` (#1812) — also inside an f-string, ``a or b``,
   ``a if c else b``, a ``+`` concatenation, a subscript (``token[:8]`` is still
   part of the secret) and the arguments or receiver of any call that is not a
   redaction (``str(token)``, ``token.strip()``);
@@ -93,7 +93,7 @@ from tests.unit.guards.test_privacy_logs_carry_no_plaintext_subject import (
 
 #: A name or attribute that holds a secret.
 _SECRET_NAME = re.compile(
-    r"(^|_)(token|api_key|apikey|secret|secret_key|private_key|password|passwd|authorization|cookie|step_up_code)$",
+    r"(^|_)(token|api_key|apikey|secret|secret_key|private_key|password|passwd|authorization|cookie|step_up_code|salt)$",
     re.IGNORECASE,
 )
 #: A keyword whose name states that its value is not the secret itself.
@@ -421,6 +421,10 @@ def _in_function(body: str) -> str:
     [
         # by value, direct
         ("logger.info('e', token=token)", True),
+        # #1812 review SEC-005: the pseudonym salts are secrets too
+        ("logger.info('e', value=settings.log_pseudonym_salt)", True),
+        ("logger.info('e', key=self._tombstone_salt)", True),
+        ("logger.info('e', salt_configured=bool(settings.log_pseudonym_salt))", False),
         ("logger.info('e', value=token)", True),
         ("logger.info('e', key=settings.perenual_api_key)", True),
         ("logger.info('e', key=settings.openweathermap_apikey)", True),

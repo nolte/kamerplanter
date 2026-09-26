@@ -258,8 +258,8 @@ class AuthService:
         # * the throttle store is never ``None`` — it is the *guard*, and a
         #   missing one would not disable the feature, it would silently unbound
         #   guessing against it. Same reasoning as ``_unknown_account_store``.
-        # #1773 — the salt of the subject reference auth log lines carry
-        # instead of the account key; see ``_log_subject``.
+        # Unused since #1812 (the auth log lines' subject reference is keyed with
+        # LOG_PSEUDONYM_SALT, see ``_log_subject``); removal tracked in #1881.
         self._tombstone_salt = tombstone_salt
         # #1816 — the one throttled step-up; the password change re-checks through it.
         self._step_up_verifier = step_up_verifier or default_step_up_verifier(

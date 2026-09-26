@@ -90,6 +90,14 @@ SELF_ROUTES = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 def _error_handler(_request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
 
