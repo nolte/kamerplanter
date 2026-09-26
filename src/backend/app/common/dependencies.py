@@ -509,6 +509,8 @@ def get_planting_run_service() -> PlantingRunService:
         companion_engine=companion_engine,
         # #1868 — a run's substrate batch is resolved strictly under its tenant.
         substrate_batch_resolver=_resolve_substrate_batch,
+        # #1871 B11 — an entry's species must be one the tenant may read.
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
