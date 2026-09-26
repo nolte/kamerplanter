@@ -3,8 +3,11 @@
 ``confirm`` / ``quick-confirm`` on watering events and watering logs took
 ``run_key`` and ``task_key`` from the body. The task was loaded unscoped and
 marked ``COMPLETED`` — any tenant's — and on the log path any ``run_key``
-worked (an empty plant list still produced a log). Both services now resolve
-both keys under the confirming tenant before reading or writing anything.
+worked (an empty plant list still produced a log). The run is now resolved
+under the tenant first (404); the task stays optional — the run's watering
+schedule confirms by *date* and sends the date as ``task_key`` — but only the
+tenant's own task is completed, and a foreign task is treated exactly like a
+missing one.
 The services are the real ones; the repositories are doubles that keep the
 task and run documents the stores hold.
 """
@@ -81,29 +84,39 @@ _FACTORIES = {"events": _event_service, "logs": _log_service}
 
 
 @pytest.mark.parametrize("path", sorted(_FACTORIES))
-@pytest.mark.parametrize(
-    ("run", "task"),
-    [("run_a", "task_b"), ("run_b", "task_a"), ("run_a", "no-such-task"), ("no-such-run", "task_a")],
-    ids=["foreign-task", "foreign-run", "unknown-task", "unknown-run"],
-)
-def test_a_foreign_or_unknown_run_or_task_is_refused_before_anything_is_written(path: str, run: str, task: str) -> None:
+@pytest.mark.parametrize("run", ["run_b", "no-such-run"], ids=["foreign-run", "unknown-run"])
+def test_a_foreign_or_unknown_run_is_refused_before_anything_is_written(path: str, run: str) -> None:
     tasks, store = _Tasks(), _Store()
     service = _FACTORIES[path](tasks, store)
 
     with pytest.raises(NotFoundError):
-        service.confirm_watering(run, task, tenant_key=TENANT)
+        service.confirm_watering(run, "task_a", tenant_key=TENANT)
     with pytest.raises(NotFoundError):
-        service.quick_confirm_watering(run, task, tenant_key=TENANT)
+        service.quick_confirm_watering(run, "task_a", tenant_key=TENANT)
 
     assert tasks.updated == []
     assert store.created == []
 
 
 @pytest.mark.parametrize("path", sorted(_FACTORIES))
-def test_the_tenants_own_run_and_task_are_confirmed(path: str) -> None:
+@pytest.mark.parametrize(
+    "task", ["task_b", "2026-09-26", "no-such-task"], ids=["foreign-task", "schedule-date", "unknown"]
+)
+def test_a_task_that_is_not_the_tenants_is_never_completed_and_looks_like_a_missing_one(path: str, task: str) -> None:
     tasks, store = _Tasks(), _Store()
 
-    _FACTORIES[path](tasks, store).confirm_watering("run_a", "task_a", tenant_key=TENANT)
+    result = _FACTORIES[path](tasks, store).confirm_watering("run_a", task, tenant_key=TENANT)
+
+    assert tasks.updated == []
+    assert result["task_completed"] is False
+    assert len(store.created) == 1  # the confirmation of the own run still happens
+
+
+@pytest.mark.parametrize("path", sorted(_FACTORIES))
+def test_the_tenants_own_task_is_completed(path: str) -> None:
+    tasks, store = _Tasks(), _Store()
+
+    result = _FACTORIES[path](tasks, store).confirm_watering("run_a", "task_a", tenant_key=TENANT)
 
     assert tasks.updated == ["task_a"]
-    assert len(store.created) == 1
+    assert result["task_completed"] is True
