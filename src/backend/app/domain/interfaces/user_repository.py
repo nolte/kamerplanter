@@ -12,6 +12,15 @@ class IUserRepository(ABC):
     def get_or_raise(self, key: UserKey) -> User: ...
 
     @abstractmethod
+    def move_email(self, key: UserKey, expected_email: str, fields: dict) -> User | None:
+        """Write *fields* only while the account still has *expected_email* (compare-and-set, #1848).
+
+        ``None`` when the address changed in between — the caller lost a race
+        against another e-mail change or revert and must not write. Raises
+        ``DuplicateError`` when the new address is taken (unique index).
+        """
+
+    @abstractmethod
     def get_by_email(self, email: str) -> User | None: ...
 
     @abstractmethod

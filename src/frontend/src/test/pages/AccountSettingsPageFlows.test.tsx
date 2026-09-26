@@ -195,6 +195,55 @@ describe('AccountSettingsPage — security tab', () => {
   });
 });
 
+describe('AccountSettingsPage — removing a sign-in method (#1847)', () => {
+  it('asks for the step-up and sends it with the removal', async () => {
+    let removed: string | null = null;
+    let body: unknown = null;
+    server.use(
+      http.delete('/api/v1/users/me/providers/:key', async ({ params, request }) => {
+        removed = params.key as string;
+        body = await request.json();
+        return HttpResponse.json({ message: 'Provider unlinked.' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt('/account#security');
+
+    await user.click(await screen.findByTestId('unlink-provider-prov-2'));
+
+    // A confirmation first: no request leaves before the step-up.
+    const dialog = await screen.findByTestId('unlink-provider-dialog');
+    expect(dialog).toHaveTextContent('tester@gmail.com');
+    expect(removed).toBeNull();
+    // No echo to type back — the password alone confirms.
+    expect(screen.queryByTestId('unlink-provider-echo')).toBeNull();
+
+    await user.type(dialogInput('unlink-provider-password'), STEP_UP_PASSWORD);
+    await user.click(screen.getByTestId('unlink-provider-confirm'));
+
+    await waitFor(() => expect(removed).toBe('prov-2'));
+    expect(body).toEqual({ current_password: STEP_UP_PASSWORD });
+  });
+
+  it('removes nothing when the confirmation is cancelled', async () => {
+    let removed = false;
+    server.use(
+      http.delete('/api/v1/users/me/providers/:key', () => {
+        removed = true;
+        return HttpResponse.json({ message: 'Provider unlinked.' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt('/account#security');
+
+    await user.click(await screen.findByTestId('unlink-provider-prov-2'));
+    await user.click(await screen.findByTestId('unlink-provider-cancel'));
+
+    await waitFor(() => expect(screen.queryByTestId('unlink-provider-dialog')).toBeNull());
+    expect(removed).toBe(false);
+  });
+});
+
 describe('AccountSettingsPage — sessions tab', () => {
   it('renders sessions and revokes a non-current one', async () => {
     let revoked: string | null = null;
@@ -220,12 +269,21 @@ describe('AccountSettingsPage — sessions tab', () => {
   });
 });
 
+// Credential-shaped values are assembled at runtime (GitGuardian, #1838).
+const STEP_UP_PASSWORD = ['acct', 'Secr', '3t'].join('-');
+
+function dialogInput(testId: string): HTMLInputElement {
+  return screen.getByTestId(testId).querySelector('input') as HTMLInputElement;
+}
+
 describe('AccountSettingsPage — API keys tab', () => {
-  it('creates a new API key and shows the raw key once', async () => {
+  it('creates a new API key through the step-up and shows the raw key once (#1847)', async () => {
+    let body: unknown = null;
     server.use(
-      http.post('/api/v1/auth/api-keys', () =>
-        HttpResponse.json({ raw_key: 'kp_secret_raw_value', key: 'key-2' }),
-      ),
+      http.post('/api/v1/auth/api-keys', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ raw_key: 'kp_secret_raw_value', key: 'key-2' });
+      }),
     );
     const user = userEvent.setup();
     renderAt('/account#apikeys');
@@ -236,7 +294,50 @@ describe('AccountSettingsPage — API keys tab', () => {
     await user.type(label, 'Grafana');
     await user.click(within(dialog).getByRole('button', { name: 'Create' }));
 
+    // Full mode: the label dialog hands over to the step-up; nothing is minted yet.
+    const stepUp = await screen.findByTestId('create-api-key-dialog');
+    expect(stepUp).toHaveTextContent('Grafana');
+    expect(body).toBeNull();
+
+    await user.type(dialogInput('create-api-key-password'), STEP_UP_PASSWORD);
+    await user.click(screen.getByTestId('create-api-key-confirm'));
+
     expect(await screen.findByText('kp_secret_raw_value')).toBeInTheDocument();
+    // The step-up reaches the API call in the backend's field naming.
+    expect(body).toEqual({ label: 'Grafana', current_password: STEP_UP_PASSWORD });
+  });
+
+  it('keeps a refused API-key step-up inside the dialog and shows no key', async () => {
+    server.use(
+      http.post('/api/v1/auth/api-keys', () =>
+        HttpResponse.json(
+          {
+            error_id: 'err',
+            error_code: 'UNAUTHORIZED',
+            message: 'Wrong password.',
+            details: [],
+            timestamp: '',
+            path: '/api/v1/auth/api-keys',
+            method: 'POST',
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderAt('/account#apikeys');
+
+    await user.click(await screen.findByRole('button', { name: 'Create API Key' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox'), 'Grafana');
+    await user.click(within(dialog).getByRole('button', { name: 'Create' }));
+    await user.type(dialogInput('create-api-key-password'), 'wrong-password');
+    await user.click(screen.getByTestId('create-api-key-confirm'));
+
+    expect(await screen.findByTestId('create-api-key-error')).toBeInTheDocument();
+    expect(screen.getByTestId('create-api-key-dialog')).toBeInTheDocument();
+    expect(dialogInput('create-api-key-password').value).toBe('');
+    expect(screen.queryByText('kp_secret_raw_value')).toBeNull();
   });
 
   it('revokes an existing API key', async () => {
@@ -254,6 +355,72 @@ describe('AccountSettingsPage — API keys tab', () => {
     const row = screen.getByText('CI').closest('tr')!;
     await user.click(within(row).getByRole('button'));
     await waitFor(() => expect(revoked).toBe(true));
+  });
+});
+
+describe('AccountSettingsPage — back from the fresh sign-in (#1815, #1847)', () => {
+  const token = ['re', 'auth', '-', 'tok', 'en'].join('');
+
+  beforeEach(() => sessionStorage.clear());
+
+  it('reopens the API-key dialog and creates the key with the pending token', async () => {
+    const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
+    storePendingStepUpToken(token, 'api_key_creation');
+    saveStepUpResume({ surface: 'create-api-key', action: 'api_key_creation', returnPath: '/account#apikeys' });
+    let body: unknown = null;
+    server.use(
+      http.post('/api/v1/auth/api-keys', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ raw_key: 'kp_resumed_raw_value', key: 'key-3' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt('/account#apikeys');
+
+    // No click on "create": the label dialog reopens on its own.
+    const labelDialog = await screen.findByTestId('api-key-label-dialog');
+    await user.type(within(labelDialog).getByRole('textbox'), 'Grafana');
+    await user.click(screen.getByTestId('api-key-label-submit'));
+
+    expect(await screen.findByTestId('create-api-key-reauth-done')).toBeInTheDocument();
+    await user.click(screen.getByTestId('create-api-key-confirm'));
+
+    expect(await screen.findByText('kp_resumed_raw_value')).toBeInTheDocument();
+    expect(body).toEqual({ label: 'Grafana', step_up_token: token });
+  });
+
+  it('reopens the device-pairing step-up and mints the code with the pending token', async () => {
+    const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
+    storePendingStepUpToken(token, 'device_pairing');
+    saveStepUpResume({
+      surface: 'connect-device-step-up',
+      action: 'device_pairing',
+      returnPath: '/account#sessions',
+    });
+    let body: unknown = null;
+    server.use(
+      http.post('/api/v1/auth/device-pairing', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(
+          {
+            payload_version: 1,
+            server_url: 'https://garten.example.org',
+            code: 'resumed-pairing-code',
+            expires_at: '2099-01-01T00:00:00Z',
+            expires_in: 90,
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt('/account#sessions');
+
+    expect(await screen.findByTestId('connect-device-step-up-reauth-done')).toBeInTheDocument();
+    await user.click(screen.getByTestId('connect-device-step-up-confirm'));
+
+    expect(await screen.findByTestId('device-pairing-qr')).toBeInTheDocument();
+    expect(body).toEqual({ step_up_token: token });
   });
 });
 

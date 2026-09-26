@@ -108,7 +108,16 @@ class DataExportEngine:
             collection="email_change_requests",
             edge_collection="requested_email_change",
             label="Email-change requests",
-            fields=["new_email", "status", "requested_at", "expires_at", "confirmed_at"],
+            fields=[
+                "new_email",
+                "status",
+                "requested_at",
+                "expires_at",
+                "confirmed_at",
+                "previous_email",
+                "revert_expires_at",
+                "reverted_at",
+            ],
         ),
         DataSourceDefinition(
             collection="data_export_requests",

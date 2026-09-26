@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.enums import TenantRole, TenantType
 from app.common.validators import DisplayName
 
@@ -55,7 +56,13 @@ class AdminTenantUpdate(BaseModel):
     is_active: bool | None = None
 
 
-class AdminUserUpdate(BaseModel):
+class AdminUserUpdate(CredentialStepUp):
+    """A partial platform-admin update; the step-up fields are the *admin's* own (#1857).
+
+    They are needed only when the update raises trust — ``email_verified`` or
+    ``is_active`` turning true — and are never written to the user.
+    """
+
     display_name: DisplayName | None = None
     is_active: bool | None = None
     email_verified: bool | None = None

@@ -943,7 +943,12 @@ def get_api_key_rate_limiter():
 
 
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo(), tombstone_salt=settings.erasure_tombstone_salt)
+    return UserService(
+        get_user_repo(),
+        get_refresh_token_repo(),
+        tombstone_salt=settings.erasure_tombstone_salt,
+        step_up_verifier=get_step_up_verifier(),
+    )
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────
@@ -1760,6 +1765,8 @@ def get_privacy_service():
         pest_image_repo=get_pest_image_repo(),
         pest_prototype_store=get_pest_prototype_store(),
         personal_data_repo=get_personal_data_repo(),
+        auth_provider_repo=get_auth_provider_repo(),
+        api_key_repo=get_api_key_repo(),
         erasure_executor=get_erasure_executor(),
         # #1788 — the account erasure erases the subject's personal tenant
         # through the tenant-erasure inventory of #1769.

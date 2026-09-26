@@ -3,6 +3,7 @@ import {
   STEP_UP_REAUTH_TOKEN_KEY,
   consumePendingStepUpToken,
   isSafeReturnPath,
+  isStepUpAction,
   peekPendingStepUpToken,
   storePendingStepUpToken,
   takeStepUpReauthError,
@@ -66,5 +67,18 @@ describe('stepUpReauth storage (#1815)', () => {
     ['/\u0000x', false],
   ])('isSafeReturnPath(%j) === %s', (path, expected) => {
     expect(isSafeReturnPath(path)).toBe(expected);
+  });
+});
+
+describe('isStepUpAction (#1847, #1857)', () => {
+  it('accepts the credential-change acts, so their fresh sign-in can come back', () => {
+    for (const action of ['api_key_creation', 'device_pairing', 'provider_unlink', 'admin_account_update']) {
+      expect(isStepUpAction(action)).toBe(true);
+    }
+  });
+
+  it('still refuses an act the backend does not know', () => {
+    expect(isStepUpAction('api_key_revocation')).toBe(false);
+    expect(isStepUpAction(undefined)).toBe(false);
   });
 });
