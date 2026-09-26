@@ -13,11 +13,16 @@ from app.domain.services.catalogue_authorization import (
     require_platform_admin_for_global_catalogue,
     require_role_for_catalogue_create,
 )
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_slot
 
 
 class SubstrateService:
-    def __init__(self, substrate_repo: ISubstrateRepository) -> None:
+    def __init__(self, substrate_repo: ISubstrateRepository, slot_anchors: SiteAnchorSource | None = None) -> None:
         self._repo = substrate_repo
+        # The slot → location → site reads that decide whose a slot is (#1864).
+        # Optional so the many callers that never link a slot need not wire it;
+        # ``assign_batch_to_slot`` refuses without it rather than skip the check.
+        self._slot_anchors = slot_anchors
         self._lifecycle_mgr = SubstrateLifecycleManager(substrate_repo)
 
     # ── Substrate catalogue — hybrid, like species (#1195) ───────────────
@@ -256,8 +261,35 @@ class SubstrateService:
             "ready_date": ready_date,
         }
 
-    def assign_batch_to_slot(self, batch_key: BatchKey, slot_key: SlotKey) -> dict:
-        self.get_batch(batch_key)
+    def assign_batch_to_slot(
+        self,
+        batch_key: BatchKey,
+        slot_key: SlotKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole | None,
+        is_platform_admin: bool,
+    ) -> dict:
+        """Link a batch to a slot — both must be the caller's tenant's (#1864).
+
+        Until #1864 this checked that the batch *existed* and wrote a
+        ``filled_with`` edge between any two keys, behind a route that resolved
+        no tenant. Now, in load-then-gate order like every batch write:
+
+        1. the batch is resolved under ``tenant_key`` (404 for a foreign one);
+        2. the slot is resolved through its location's site (a slot has no
+           usable ``tenant_key`` of its own, #1397) — 404 for a foreign or
+           unknown slot, the same answer, so neither key's existence leaks;
+        3. only then the role gate (grower or above).
+
+        ``tenant_key`` is keyword-only without a default so an unscoped call
+        does not type-check.
+        """
+        self.get_batch(batch_key, tenant_key=tenant_key)
+        if self._slot_anchors is None:
+            raise NotFoundError("Slot", slot_key)
+        resolve_owned_slot(self._slot_anchors, slot_key, tenant_key)
+        self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_edit_resource)
         return self._repo.assign_batch_to_slot(batch_key, slot_key)
 
     def create_mix(

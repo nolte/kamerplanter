@@ -55,7 +55,14 @@ def _service():
     repo.create_entry.side_effect = lambda entry: entry
 
     plant_repo = MagicMock()
-    service = PlantingRunService(run_repo=repo, plant_repo=plant_repo, engine=PlantingRunEngine())
+    # The template's batches are the tenant's own; #1868 resolves the inherited
+    # key, and a resolver that answers for them keeps this file about cloning.
+    service = PlantingRunService(
+        run_repo=repo,
+        plant_repo=plant_repo,
+        engine=PlantingRunEngine(),
+        substrate_batch_resolver=lambda key, *, tenant_key: None,
+    )
     return service, repo, plant_repo, captured
 
 

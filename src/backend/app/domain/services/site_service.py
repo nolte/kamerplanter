@@ -64,9 +64,17 @@ class SiteService:
             require_owned_site(self._repo, location.site_key, tenant_key, "Location", key)
         return location
 
-    def create_location(self, location: Location) -> Location:
+    def create_location(self, location: Location, *, tenant_key: str) -> Location:
+        """Create a location, nested under a parent of the same tenant (#1864 bundle, L1).
+
+        The parent used to be resolved without a tenant and its ``site_key``
+        copied over the caller's verified one, so a location could be grafted
+        into another tenant's tree. Parent and site are both resolved under
+        ``tenant_key`` now (keyword-only without a default); a foreign or unknown
+        parent answers 404.
+        """
         if location.parent_location_key:
-            parent = self.get_location(location.parent_location_key)
+            parent = self.get_location(location.parent_location_key, tenant_key=tenant_key)
             location.depth = parent.depth + 1
             parent_path = parent.path or parent.name.lower().replace(" ", "_")
             location.path = f"{parent_path}/{location.name.lower().replace(' ', '_')}"
@@ -74,7 +82,7 @@ class SiteService:
         else:
             location.depth = 0
             location.path = location.name.lower().replace(" ", "_")
-        self.get_site(location.site_key)
+        self.get_site(location.site_key, tenant_key=tenant_key)
         return self._repo.create_location(location)
 
     def update_location(self, key: LocationKey, location: Location) -> Location:

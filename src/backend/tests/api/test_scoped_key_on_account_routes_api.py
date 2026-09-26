@@ -190,7 +190,6 @@ _REFUSED = [
     ("POST", "/api/v1/privacy/export"),
     ("POST", "/api/v1/privacy/erasure"),
     ("GET", "/api/v1/privacy/consents"),
-    ("POST", "/api/v1/substrates/batches/b1/assign-slot/s1"),
     # Account-wide writes inside the scoped tenant's own surface (security review):
     # a key for club-a must not redirect the notifications of every tenant.
     ("PUT", "/api/v1/t/club-a/notifications/preferences"),
