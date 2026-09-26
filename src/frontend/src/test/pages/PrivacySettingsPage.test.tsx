@@ -218,14 +218,20 @@ describe('PrivacySettingsPage', () => {
     }
   });
 
-  it('confirms erasure without a password for federated accounts and sends only the e-mail echo', async () => {
-    let sentBody: { password?: string; confirm_email?: string } | undefined;
+  it('confirms erasure of a federated account with the e-mailed code instead of a password (#1815)', async () => {
+    let sentBody: { password?: string; confirm_email?: string; step_up_code?: string } | undefined;
+    let codeBody: unknown = null;
+    const code = ['9', '8', '7', '6', '5', '4'].join('');
     server.use(
+      http.post('/api/v1/users/me/step-up-code', async ({ request }) => {
+        codeBody = await request.json();
+        return HttpResponse.json({ expires_at: '2026-09-25T12:10:00Z', expires_in: 600 }, { status: 202 });
+      }),
       http.get('/api/v1/users/me/providers', () =>
         HttpResponse.json([
           {
             key: 'prov-g',
-            provider: 'google',
+            provider: 'github',
             provider_email: OWN_EMAIL,
             provider_display_name: null,
             linked_at: '2024-01-01T00:00:00Z',
@@ -234,7 +240,7 @@ describe('PrivacySettingsPage', () => {
         ]),
       ),
       http.post('/api/v1/privacy/erasure', async ({ request }) => {
-        sentBody = (await request.json()) as { password?: string; confirm_email?: string };
+        sentBody = (await request.json()) as { password?: string; confirm_email?: string; step_up_code?: string };
         return new HttpResponse(null, { status: 202 });
       }),
     );
@@ -248,18 +254,24 @@ describe('PrivacySettingsPage', () => {
     await typeEmailEcho(user);
 
     // Once the provider list resolves as federated (fail-closed lifts), the
-    // confirm button enables without a password and no password field is shown.
+    // password field gives way to the e-mailed code, which the confirm needs.
     const confirmBtn = await screen.findByTestId('privacy-erasure-confirm-btn');
-    await waitFor(() => expect(confirmBtn).not.toBeDisabled());
+    const codeInput = (await screen.findByTestId('privacy-erasure-code')).querySelector('input') as HTMLInputElement;
     expect(screen.queryByTestId('privacy-erasure-password')).toBeNull();
+    expect(confirmBtn).toBeDisabled();
+    await user.click(screen.getByTestId('privacy-erasure-send-code'));
+    // The code is requested for the account erasure only (review SEC-003).
+    await waitFor(() => expect(codeBody).toEqual({ action: 'account_erasure' }));
+    await user.type(codeInput, code);
+    await waitFor(() => expect(confirmBtn).not.toBeDisabled());
 
     await user.click(confirmBtn);
 
     await waitFor(() => {
       expect(screen.getByText(i18n.t('pages.privacy.erasureRequested'))).toBeTruthy();
     });
-    // Federated accounts send the echo and no password field.
-    expect(sentBody).toEqual({ confirm_email: OWN_EMAIL });
+    // Federated accounts send the echo and the code, no password.
+    expect(sentBody).toEqual({ confirm_email: OWN_EMAIL, step_up_code: code });
   });
 
   it('keeps the password field when the account lists no provider at all (fail closed)', async () => {

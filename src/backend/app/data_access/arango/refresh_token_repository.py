@@ -110,7 +110,7 @@ class ArangoRefreshTokenRepository(BaseArangoRepository[RefreshToken], IRefreshT
           FILTER doc.user_key == @user_key
             AND doc.revoked == false
             AND DATE_TIMESTAMP(doc.expires_at) > DATE_TIMESTAMP(@now)
-          SORT doc.created_at DESC
+          SORT DATE_TIMESTAMP(doc.created_at) DESC
           RETURN doc
         """
         cursor = self._db.aql.execute(

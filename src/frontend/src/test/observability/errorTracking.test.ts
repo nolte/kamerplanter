@@ -116,6 +116,22 @@ describe('errorTracking', () => {
     it('leaves a valueless parameter alone rather than guessing', () => {
       expect(scrubUrl('/x?flag')).toBe('/x?flag');
     });
+
+    it('redacts credential-shaped parameters in the fragment too (#1815)', () => {
+      // The step-up callback carries its one-time token in the fragment; the
+      // history breadcrumb of stripping it records the old URL as `from`.
+      const value = ['a1', 'b2', 'c3'].join('');
+      expect(scrubUrl(`/auth/step-up/callback#step_up_token=${value}&action=account_erasure`)).toBe(
+        '/auth/step-up/callback#step_up_token=[redacted]&action=account_erasure',
+      );
+      expect(scrubUrl(`/x?api_key=${value}#step_up_token=${value}`)).toBe(
+        '/x?api_key=[redacted]#step_up_token=[redacted]',
+      );
+    });
+
+    it('leaves a plain tab fragment untouched', () => {
+      expect(scrubUrl('/account#security')).toBe('/account#security');
+    });
   });
 
   describe('isSensitiveName / redactRecord', () => {

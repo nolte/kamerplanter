@@ -835,19 +835,30 @@ def get_device_pairing_throttle_store() -> IDevicePairingThrottleStore:
 
 
 def get_step_up_verifier():
-    """#1816 — the one throttled step-up every irreversible account action passes.
+    """#1816 — the one throttled step-up every irreversible account action passes (and #1815's mailed code).
 
     Valkey-backed so replicas share one counter; degrades to the process-wide
     in-memory tier when Valkey is unreachable. Failing open would reopen the
     unthrottled password oracle a stolen session had at every step-up route.
     """
+    from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_REAUTH_STORE, RedisStepUpCodeStore
     from app.data_access.external.step_up_throttle import RedisStepUpThrottleStore
-    from app.domain.services.step_up_service import StepUpVerifier
+    from app.domain.services.step_up_service import FederatedReauthPolicy, StepUpVerifier
 
+    redis_client = _get_redis_client()
     return StepUpVerifier(
-        RedisStepUpThrottleStore(_get_redis_client()),
+        RedisStepUpThrottleStore(redis_client),
         get_password_engine(),
         tombstone_salt=settings.erasure_tombstone_salt,
+        # #1815 — the one-time code of an account without a local password; shared
+        # so a code mailed by one replica is accepted by another.
+        code_store=RedisStepUpCodeStore(redis_client),
+        # The digest's server secret — why this one: step_up_service module docstring.
+        code_secret=settings.jwt_secret_key,
+        # #1815 — the one-time tokens of a fresh OIDC re-authentication, in their own
+        # namespace; and which accounts must re-authenticate instead of the code.
+        reauth_store=RedisStepUpCodeStore(redis_client, fallback=DEFAULT_STEP_UP_REAUTH_STORE, namespace="reauth"),
+        reauth_policy=FederatedReauthPolicy(get_auth_provider_repo(), get_oidc_config_repo()),
     )
 
 
@@ -908,6 +919,10 @@ def get_auth_service() -> AuthService:
         device_pairing_throttle_store=get_device_pairing_throttle_store(),
         tombstone_salt=settings.erasure_tombstone_salt,
         step_up_verifier=get_step_up_verifier(),
+        # #1841 — a password reset/change or signing out everywhere withdraws a
+        # pending e-mail change; unwired, the owner's take-back would stop nothing.
+        email_change_repo=get_email_change_repo(),
+        light_mode=settings.kamerplanter_mode == "light",
         # #1850 — the per-key budget on the REST path; the MCP authenticator
         # draws on the same limiter (one budget per key across both surfaces).
         api_key_rate_limiter=get_api_key_rate_limiter(),

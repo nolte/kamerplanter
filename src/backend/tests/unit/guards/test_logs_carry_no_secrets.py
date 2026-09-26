@@ -55,9 +55,10 @@ if the ``settings.debug`` gate were removed.
 
 **Spellings this guard cannot see** (named so nobody reads green as more than it is):
 
-* a secret under a name outside :data:`_SECRET_NAME` — ``raw_key`` (the freshly
-  minted API key in ``AuthService.create_api_key``; ``*_key`` is too broad to
-  add: ``user_key``, ``tenant_key``), ``dsn``, ``url`` of a DSN — and a neutral
+* a secret under a name outside :data:`_SECRET_NAME` — ``*_key`` is too broad
+  to add (``user_key``, ``tenant_key``), so only ``raw_key`` (the freshly minted
+  API key in ``AuthService.create_api_key``, #1828) is in it; ``dsn``, ``url`` of
+  a DSN, a ``plain``/``minted`` API key under another name — and a neutral
   name that never touched a secret-named one in the same function — a parameter
   ``value`` the caller filled with a token, a dict value (``creds["x"]``), an
   attribute of a neutral object (``cfg.value``);
@@ -93,7 +94,7 @@ from tests.unit.guards.test_privacy_logs_carry_no_plaintext_subject import (
 
 #: A name or attribute that holds a secret.
 _SECRET_NAME = re.compile(
-    r"(^|_)(token|api_key|apikey|secret|secret_key|private_key|password|passwd|authorization|cookie)$",
+    r"(^|_)(token|api_key|apikey|raw_key|secret|secret_key|private_key|password|passwd|authorization|cookie|step_up_code)$",
     re.IGNORECASE,
 )
 #: A keyword whose name states that its value is not the secret itself.
@@ -127,8 +128,9 @@ _TOKEN_CLAIMS = (
 )
 _STEP_UP_METHOD = (
     "StepUpVerifier.verify returns only how the step-up was confirmed - the literal 'password' or "
-    "'echo' - after the check; the password never leaves the verifier. The taint comes from the "
-    "call's password= and authenticated_with_api_key= arguments, not from the returned label (#1813, #1814)"
+    "'email_code' - after the check; neither the password nor the code leaves the verifier. The taint comes "
+    "from the call's password= and authenticated_with_api_key= arguments, not from the returned label "
+    "(#1813, #1814, #1815)"
 )
 _ALLOWED: dict[str, str] = {
     "app/domain/services/privacy_service.py::PrivacyService.erase_account_by_admin::step_up": _STEP_UP_METHOD,
@@ -139,6 +141,8 @@ _ALLOWED: dict[str, str] = {
     "::verification_url": _CONSOLE_DEBUG_LINK,
     "app/data_access/external/console_email_adapter.py::ConsoleEmailAdapter.send_password_reset_email"
     "::reset_url": _CONSOLE_DEBUG_LINK,
+    "app/data_access/external/console_email_adapter.py::ConsoleEmailAdapter.send_step_up_code_email"
+    "::step_up_code": _CONSOLE_DEBUG_LINK,
 }
 
 
@@ -353,7 +357,7 @@ def _debug_gated_keywords(function: ast.FunctionDef | ast.AsyncFunctionDef) -> t
     """(keywords logged only under ``settings.debug``, keywords logged outside it) in *function*'s own body.
 
     Gated means: inside ``if settings.debug:``, or after a top-level
-    ``if not settings.debug: … return`` guard.
+    ``if not settings.debug: … return`` (or ``… raise``) guard.
     """
     gated: set[str] = set()
     ungated: set[str] = set()
@@ -371,7 +375,9 @@ def _debug_gated_keywords(function: ast.FunctionDef | ast.AsyncFunctionDef) -> t
     for stmt in function.body:
         if isinstance(stmt, ast.If) and _is_debug_test(stmt.test, negated=True):
             ungated |= keywords(stmt)
-            returned_outside_debug = bool(stmt.body) and isinstance(stmt.body[-1], ast.Return)
+            # ``return`` or ``raise`` — either leaves the function (the console step-up
+            # code refuses with EmailUndeliverableError outside debug, /code-review of #1862).
+            returned_outside_debug = bool(stmt.body) and isinstance(stmt.body[-1], ast.Return | ast.Raise)
         elif isinstance(stmt, ast.If) and _is_debug_test(stmt.test, negated=False):
             gated |= set().union(*(keywords(s) for s in stmt.body))
             ungated |= set().union(*(keywords(s) for s in stmt.orelse))
@@ -416,6 +422,10 @@ def _in_function(body: str) -> str:
     [
         # by value, direct
         ("logger.info('e', token=token)", True),
+        # #1828: the minted API key and a prefix of it
+        ("key_prefix = raw_key[:8]\nlogger.info('e', prefix=key_prefix)", True),
+        ("logger.info('e', key=raw_key)", True),
+        ("logger.info('e', api_key_id=created.key)", False),
         ("logger.info('e', value=token)", True),
         ("logger.info('e', key=settings.perenual_api_key)", True),
         ("logger.info('e', key=settings.openweathermap_apikey)", True),
@@ -442,6 +452,10 @@ def _in_function(body: str) -> str:
         # by keyword name
         ("logger.info('e', password=pw)", True),
         ("logger.info('e', api_key=k)", True),
+        # #1815 - the e-mailed step-up code, by keyword name and by attribute
+        ("logger.info('e', step_up_code=code)", True),
+        ("logger.info('e', c=body.step_up_code)", True),
+        ("logger.info('e', error_code=code)", False),
         # passes
         ("logger.info('e', token_type='bearer')", False),
         ("logger.info('e', has_token=token is not None)", False),

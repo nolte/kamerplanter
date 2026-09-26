@@ -36,6 +36,7 @@ vi.mock('@/api/endpoints/adminPlatform', () => ({
 vi.mock('@/api/endpoints/auth', async () => ({
   ...(await vi.importActual<typeof import('@/api/endpoints/auth')>('@/api/endpoints/auth')),
   listProviders: vi.fn(),
+  requestStepUpCode: vi.fn().mockResolvedValue({ expires_at: '2026-09-25T12:10:00Z', expires_in: 600 }),
 }));
 
 const admin = await import('@/api/endpoints/adminPlatform');
@@ -160,5 +161,53 @@ describe('AdminEditUserPage — user deletion step-up (#1814)', () => {
     await userEvent.type(emailInput(dialog), TARGET.email);
     expect(within(dialog).getByLabelText(/passwort/i)).toBeInTheDocument();
     expect(within(dialog).getByTestId('confirm-delete-user-btn')).toBeDisabled();
+  });
+
+  it('asks a federated admin for a code that confirms the admin erasure only (review SEC-003)', async () => {
+    (auth.listProviders as ReturnType<typeof vi.fn>).mockResolvedValue([{ provider: 'github' }]);
+    const dialog = await openDeleteDialog();
+
+    await userEvent.click(await within(dialog).findByTestId('delete-user-send-code'));
+
+    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('admin_account_erasure'));
+  });
+});
+
+describe('AdminEditUserPage — back from the fresh sign-in (#1815)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    (admin.fetchAdminUsers as ReturnType<typeof vi.fn>).mockResolvedValue([TARGET]);
+    (admin.deleteAdminUser as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (auth.listProviders as ReturnType<typeof vi.fn>).mockResolvedValue([{ key: 'g', provider: 'google' }]);
+  });
+  afterEach(() => {
+    cleanup();
+    sessionStorage.clear();
+  });
+
+  it('reopens the user-deletion dialog and sends the pending token as step_up_token', async () => {
+    // Credential-shaped values are assembled at runtime (GitGuardian, #1838).
+    const token = ['re', 'auth', '-', 'tok', 'en'].join('');
+    const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
+    storePendingStepUpToken(token, 'admin_account_erasure');
+    saveStepUpResume({ surface: 'delete-user', action: 'admin_account_erasure', returnPath: '/' });
+
+    const { default: Page } = await import('@/pages/admin/AdminEditUserPage');
+    renderWithProviders(<Page />, { store: createTestStore(authState({ platformAdmin: true })) });
+
+    // No click on "delete user": the page reopens the dialog on its own.
+    const dialog = await screen.findByTestId('delete-user-dialog');
+    expect(await within(dialog).findByTestId('delete-user-reauth-done')).toBeInTheDocument();
+    await userEvent.type(emailInput(dialog), TARGET.email);
+    await userEvent.click(within(dialog).getByTestId('confirm-delete-user-btn'));
+
+    await waitFor(() =>
+      expect(admin.deleteAdminUser).toHaveBeenCalledWith('target-key', {
+        confirm_email: TARGET.email,
+        step_up_token: token,
+      }),
+    );
   });
 });

@@ -104,8 +104,9 @@ def _service(
 def _admin_request(service: PrivacyService, recorder: _Recorder) -> dict:
     """Route arguments of a platform admin erasing ``USER`` with a valid step-up (#1814).
 
-    The admin signs in only federated (no hash), so the echo of the target's
-    e-mail is the whole step-up; the stored platform membership proves the admin.
+    The admin signs in only federated (no hash), so the step-up is the echo of the
+    target's e-mail plus the code mailed to the admin (#1815), issued through the
+    service's own verifier; the stored platform membership proves the admin.
     """
     from app.api.v1.privacy.schemas import ErasureCreateRequest
     from app.common.enums import TenantRole
@@ -122,9 +123,13 @@ def _admin_request(service: PrivacyService, recorder: _Recorder) -> dict:
             )
         }
     )
+    admin = User.model_validate({"_key": "admin-1", "email": "admin@example.org", "display_name": "A"})
+    code, _expires_at = service._step_up_verifier.issue_code(
+        admin, action="admin_account_erasure", authenticated_with_api_key=False, client_ip="203.0.113.1"
+    )
     return {
-        "body": ErasureCreateRequest(confirm_email=f"{USER}@example.org"),
-        "current_user": User.model_validate({"_key": "admin-1", "email": "admin@example.org", "display_name": "A"}),
+        "body": ErasureCreateRequest(confirm_email=f"{USER}@example.org", step_up_code=code),
+        "current_user": admin,
         "via_api_key": False,
         "client_ip": "203.0.113.1",
         "privacy_service": service,

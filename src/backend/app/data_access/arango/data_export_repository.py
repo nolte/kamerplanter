@@ -44,7 +44,7 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
         query = """
         FOR doc IN @@collection
           FILTER doc.user_key == @user_key
-          SORT doc.requested_at DESC
+          SORT DATE_TIMESTAMP(doc.requested_at) DESC
           RETURN doc
         """
         cursor = self._db.aql.execute(
@@ -117,7 +117,7 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
           FILTER doc.status == "pending"
           FILTER DATE_TIMESTAMP(doc.requested_at) != null
             AND DATE_TIMESTAMP(doc.requested_at) < DATE_TIMESTAMP(@cutoff)
-          SORT doc.requested_at ASC
+          SORT DATE_TIMESTAMP(doc.requested_at) ASC
           LIMIT 100
           RETURN doc
         """

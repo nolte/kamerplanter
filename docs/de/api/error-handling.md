@@ -91,7 +91,13 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `FORBIDDEN` | 403 | Authentifiziert, aber ohne ausreichende Rolle |
 | `EMAIL_NOT_VERIFIED` | 403 | E-Mail-Adresse noch nicht bestätigt |
 | `ACCOUNT_LOCKED` | 423 | Konto nach zu vielen Fehlversuchen gesperrt |
-| `STEP_UP_LOCKED` | 429 | Zu viele fehlgeschlagene Bestätigungen bei einer unumkehrbaren Kontoaktion (Konto- oder Mandantenlöschung, Passwortänderung) — `details[0].retry_after_minutes` nennt die Wartezeit; betrifft nicht die Anmeldung |
+| `STEP_UP_LOCKED` | 429 | Zu viele fehlgeschlagene Bestätigungen bei einer unumkehrbaren Kontoaktion (Konto- oder Mandantenlöschung, E-Mail- oder Passwortänderung) — `details[0].retry_after_minutes` nennt die Wartezeit; betrifft nicht die Anmeldung |
+| `STEP_UP_REAUTH_REQUIRED` | 401 (422 beim Anfordern des Codes) | Ein Konto mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) muss sich für diese Aktion erneut bei diesem Anbieter anmelden — `POST /users/me/step-up/oidc` startet die Anmeldung; der per E-Mail zugeschickte Code wird diesem Konto verweigert |
+| `STEP_UP_REAUTH_FAILED` | 401 | Die erneute Anmeldung beim Anbieter hat diese Aktion nicht bestätigt (abgelaufen, abgebrochen oder ungültig) — nur als Weiterleitungs-Fehlercode auf `/auth/step-up/callback`, nie als JSON |
+| `STEP_UP_PASSWORD_REQUIRED` | 422 | Das Konto hat ein lokales Passwort und bestätigt damit — weder erneute Anmeldung noch E-Mail-Code sind nötig. |
+| `STEP_UP_REAUTH_UNAVAILABLE` | 422 | Keiner der verknüpften Anbieter des Kontos (bzw. der gewählte) kann eine frische Anmeldung nachweisen — das Konto bestätigt mit dem E-Mail-Code. |
+| `STEP_UP_CODE_REQUIRED` | 401 | Ein Konto ohne lokales Passwort und ohne OIDC-fähigen Anbieter (nur GitHub/Apple) hat für eine dieser Aktionen keinen Bestätigungscode mitgeschickt — zuerst per `POST /users/me/step-up-code` anfordern |
+| `STEP_UP_CODE_UNDELIVERABLE` | 503 | Der Bestätigungscode konnte nicht per E-Mail zugestellt werden (kein E-Mail-Versand konfiguriert oder Mailserver-Fehler); es wurde nichts ausgegeben — die Wartezeit und das Stundenkontingent bleiben unberührt, ein erneuter Versuch ist sofort möglich, sobald der Betreiber den Versand behoben hat |
 
 ### Phasen- und Statusfehler
 

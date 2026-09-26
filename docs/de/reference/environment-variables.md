@@ -105,7 +105,7 @@ jetzt tatsächlich und bleiben zusätzlich als Alias gültig.
 | `KAMERPLANTER_MODE` | `full` | Nein | Betriebsmodus: `full` (Auth + Mandanten) oder `light` (kein Auth, lokale Einzelnutzung) |
 | `DEBUG` | `false` | Nein | Debug-Logging aktivieren (verbose, nie in Produktion). Deaktiviert zusätzlich den Startup-Gate für Produktions-Secrets — **niemals** in Produktion setzen. |
 | `FRONTEND_URL` | `http://localhost:5173` | Nein | URL des Frontends (wird für E-Mail-Links verwendet) |
-| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. |
+| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. Bildet auch die Rückruf-URL der erneuten OIDC-Anmeldung zur Bestätigung (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — diese URL beim Identity-Provider hinterlegen. |
 
 ### Light-Modus (`KAMERPLANTER_MODE=light`)
 
@@ -168,6 +168,9 @@ Passwort-Reset nicht abschließen.
 
 !!! note "Wird auch vom Benachrichtigungssystem genutzt"
     Diese Variablen konfigurieren zugleich den E-Mail-Kanal des [Benachrichtigungssystems](../user-guide/notifications.md#e-mail) — es gibt keine separate SMTP-Konfiguration für Benachrichtigungen.
+
+!!! info "Zwei verschiedene Voraussetzungen für föderierte Konten"
+    Ein Konto ohne lokales Passwort mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) bestätigt unumkehrbare Kontoaktionen und Zugangsdaten-Änderungen (Kontolöschung, erstes lokales Passwort, Mandantenlöschung, E-Mail-Änderung) mit einer frischen Anmeldung bei diesem Anbieter — siehe [API-Dokumentation: Authentifizierung](../api/authentication.md#erneut-anmelden-zur-bestatigung-oidc). Dafür muss der Anbieter `prompt=login`/`max_age` und den Claim `auth_time` unterstützen, nicht SMTP. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind (beide können keine frische Anmeldung belegen), nutzt stattdessen den per E-Mail zugestellten Bestätigungscode — siehe [Bestätigungscode per E-Mail anfordern](../api/authentication.md#bestatigungscode-per-e-mail-anfordern-ausweichweg-fur-githubapple). Läuft die Instanz für ein solches Konto mit `EMAIL_ADAPTER=console` und `DEBUG=false`, meldet die Anwendung, dass der Bestätigungscode nicht zugestellt werden kann (`503`), statt ihn stillschweigend verschwinden zu lassen — es kann sich trotzdem nicht löschen, kein erstes lokales Passwort setzen, keinen Mandanten löschen und die E-Mail-Adresse nicht ändern, bis SMTP konfiguriert ist. `EMAIL_ADAPTER=smtp` ist deshalb für den produktiven Betrieb mit GitHub/Apple-only-Konten Pflicht, nicht nur empfohlen.
 
 ---
 

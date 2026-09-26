@@ -104,6 +104,14 @@ def _service(user: User) -> tuple[AuthService, MagicMock]:
     return service, user_repo
 
 
+def _code(service, account) -> str:  # noqa: ANN001 - AuthService, User
+    """The one-time step-up code an account without a password confirms with (#1815)."""
+    code, _expires_at = service._step_up_verifier.issue_code(
+        account, action="password_change", authenticated_with_api_key=False, client_ip=None
+    )
+    return code
+
+
 class TestTheReportedChain:
     def test_a_service_account_cannot_set_itself_a_password(self) -> None:
         """Step 1 of the chain: the credential is refused at the source."""
@@ -111,7 +119,15 @@ class TestTheReportedChain:
         service, user_repo = _service(account)
 
         with pytest.raises(ForbiddenError):
-            service.change_password("acc-1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
+            service.change_password(
+                "acc-1",
+                None,
+                NEW_PASSWORD,
+                step_up_code=None,
+                step_up_token=None,
+                authenticated_with_api_key=False,
+                client_ip=None,
+            )
 
         # Nothing was written: not the hash, and not the LOCAL provider that
         # would have made the account a login candidate on its own.
@@ -141,10 +157,19 @@ class TestTheInteractiveAccountIsUnaffected:
     """Positive controls — a gate one ``not`` away from locking everyone out fails here."""
 
     def test_an_sso_user_still_sets_an_initial_password(self) -> None:
+        """With the step-up code mailed to it (#1815) — a person, not a service account."""
         account = _account(account_type="human", email=USER_EMAIL)
         service, user_repo = _service(account)
 
-        service.change_password("acc-1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
+        service.change_password(
+            "acc-1",
+            None,
+            NEW_PASSWORD,
+            step_up_code=_code(service, account),
+            step_up_token=None,
+            authenticated_with_api_key=False,
+            client_ip=None,
+        )
 
         assert user_repo.update_fields.call_count == 1
         assert account.password_hash is not None
@@ -153,7 +178,15 @@ class TestTheInteractiveAccountIsUnaffected:
         account = _account(account_type="human", email=USER_EMAIL)
         service, _ = _service(account)
 
-        service.change_password("acc-1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
+        service.change_password(
+            "acc-1",
+            None,
+            NEW_PASSWORD,
+            step_up_code=_code(service, account),
+            step_up_token=None,
+            authenticated_with_api_key=False,
+            client_ip=None,
+        )
         pair, raw_refresh, _ = service.login_local(USER_EMAIL, NEW_PASSWORD)
 
         assert pair.access_token

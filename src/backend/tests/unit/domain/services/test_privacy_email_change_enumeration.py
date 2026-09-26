@@ -33,12 +33,23 @@ from app.domain.services.privacy_service import PrivacyService
 
 USER_KEY = "u1"
 OWN_EMAIL = "owner@example.com"
+# Assembled at runtime: a literal shaped like a password trips the secret scanner (#1838).
+PASSWORD = "-".join(["correct", "horse", "battery", "staple"])
+PASSWORD_HASH = PasswordEngine().hash_password(PASSWORD)
+#: The step-up every e-mail change carries since #1841 — the owner's current password.
+STEP_UP = {
+    "password": PASSWORD,
+    "step_up_code": None,
+    "step_up_token": None,
+    "authenticated_with_api_key": False,
+    "client_ip": None,
+}
 FREE_EMAIL = "free@example.com"
 TAKEN_EMAIL = "somebody-else@example.com"
 
 
 def _stored_user() -> User:
-    return User(_key=USER_KEY, email=OWN_EMAIL, display_name="Requesting User")
+    return User(_key=USER_KEY, email=OWN_EMAIL, display_name="Requesting User", password_hash=PASSWORD_HASH)
 
 
 def _foreign_user() -> User:
@@ -83,7 +94,7 @@ class TestTakenAddressAnswersLikeAFreeOne:
     def test_no_error_is_raised(self) -> None:
         service, _, _ = _make_service()
 
-        change = service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        change = service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         assert change.status == "pending"
         assert str(change.new_email) == TAKEN_EMAIL
@@ -91,8 +102,8 @@ class TestTakenAddressAnswersLikeAFreeOne:
     def test_response_matches_a_free_address_field_for_field(self) -> None:
         service, _, _ = _make_service()
 
-        taken = service.request_email_change(USER_KEY, TAKEN_EMAIL).model_dump()
-        free = service.request_email_change(USER_KEY, FREE_EMAIL).model_dump()
+        taken = service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP).model_dump()
+        free = service.request_email_change(USER_KEY, FREE_EMAIL, **STEP_UP).model_dump()
 
         # ``key`` and the timestamps differ between any two requests, and
         # ``new_email`` echoes what was submitted. Everything the API returns
@@ -108,8 +119,8 @@ class TestTakenAddressAnswersLikeAFreeOne:
         """A fixed decoy key would itself fingerprint the address."""
         service, _, _ = _make_service()
 
-        first = service.request_email_change(USER_KEY, TAKEN_EMAIL)
-        second = service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        first = service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
+        second = service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         assert first.key != second.key
 
@@ -118,7 +129,7 @@ class TestNothingIsPersistedForATakenAddress:
     def test_no_request_is_written(self) -> None:
         service, email_change_repo, _ = _make_service()
 
-        service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         email_change_repo.create.assert_not_called()
 
@@ -126,14 +137,14 @@ class TestNothingIsPersistedForATakenAddress:
         """Guards against 'fixed' by never persisting anything at all."""
         service, email_change_repo, _ = _make_service()
 
-        service.request_email_change(USER_KEY, FREE_EMAIL)
+        service.request_email_change(USER_KEY, FREE_EMAIL, **STEP_UP)
 
         email_change_repo.create.assert_called_once()
 
     def test_synthesised_request_cannot_be_confirmed(self) -> None:
         """Confirming it would move the account onto an address someone else owns."""
         service, _, _ = _make_service()
-        service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         with pytest.raises(InvalidTokenError):
             service.confirm_email_change("any-token-the-caller-might-try")
@@ -143,18 +154,20 @@ class TestNotificationGoesToTheTargetNotTheRequester:
     def test_no_verification_token_is_mailed_to_the_taken_address(self) -> None:
         service, _, email_service = _make_service()
 
-        service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         email_service.send_verification_email.assert_not_called()
 
     def test_target_address_is_told_what_was_attempted(self) -> None:
         service, _, email_service = _make_service()
 
-        service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
-        email_service.send_notification_email.assert_called_once()
-        kwargs = email_service.send_notification_email.call_args.kwargs
-        assert kwargs["to_email"] == TAKEN_EMAIL
+        (kwargs,) = [
+            c.kwargs
+            for c in email_service.send_notification_email.call_args_list
+            if c.kwargs["to_email"] == TAKEN_EMAIL
+        ]
         # The requester is a stranger to the recipient; echoing their chosen
         # display name would turn this notice into a message channel.
         assert "Requesting User" not in kwargs["html_body"]
@@ -163,16 +176,18 @@ class TestNotificationGoesToTheTargetNotTheRequester:
     def test_free_address_gets_the_verification_mail_instead(self) -> None:
         service, _, email_service = _make_service()
 
-        service.request_email_change(USER_KEY, FREE_EMAIL)
+        service.request_email_change(USER_KEY, FREE_EMAIL, **STEP_UP)
 
         email_service.send_verification_email.assert_called_once()
-        email_service.send_notification_email.assert_not_called()
+        # The only notice is the owner's own (#1841); the new address gets no "someone tried" mail.
+        recipients = [c.kwargs["to_email"] for c in email_service.send_notification_email.call_args_list]
+        assert recipients == [OWN_EMAIL]
 
     def test_unimplemented_notification_channel_does_not_change_the_answer(self) -> None:
         service, _, email_service = _make_service()
         email_service.send_notification_email.side_effect = NotImplementedError
 
-        change = service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        change = service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         assert change.status == "pending"
 
@@ -182,7 +197,7 @@ class TestLoggingAndSideChannels:
         service, _, _ = _make_service()
 
         with structlog.testing.capture_logs() as logs:
-            service.request_email_change(USER_KEY, TAKEN_EMAIL)
+            service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         events = [entry for entry in logs if entry["event"] == "privacy_email_change_suppressed"]
         assert len(events) == 1
@@ -194,6 +209,6 @@ class TestLoggingAndSideChannels:
         token_engine = MagicMock(wraps=service._token_engine)  # noqa: SLF001
         service._token_engine = token_engine  # noqa: SLF001
 
-        service.request_email_change(USER_KEY, TAKEN_EMAIL)
+        service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
         assert token_engine.hash_token.call_count == 1
