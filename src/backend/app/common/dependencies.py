@@ -929,7 +929,12 @@ def get_api_key_rate_limiter():
 
 
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo(), tombstone_salt=settings.erasure_tombstone_salt)
+    return UserService(
+        get_user_repo(),
+        get_refresh_token_repo(),
+        tombstone_salt=settings.erasure_tombstone_salt,
+        step_up_verifier=get_step_up_verifier(),
+    )
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────

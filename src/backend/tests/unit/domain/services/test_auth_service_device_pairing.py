@@ -63,6 +63,7 @@ from app.domain.models.auth import RefreshToken, TokenPair
 from app.domain.models.user import User
 from app.domain.services import auth_service as auth_service_module
 from app.domain.services.auth_service import AuthService
+from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 
 USER_KEY = "u-pairing-owner"
 USER_EMAIL = "owner@example.com"
@@ -205,6 +206,7 @@ def _make_harness(
 
     token_engine = TokenEngine(SECRET_KEY, "HS256")
     service = AuthService(
+        step_up_verifier=PassedStepUpVerifier(),
         user_repo=user_repo,
         auth_provider_repo=MagicMock(),
         refresh_token_repo=refresh_token_repo,
@@ -252,7 +254,7 @@ class TestCreateDevicePairing:
         monkeypatch.setattr(auth_service_module.secrets, "token_urlsafe", _fake_token_urlsafe)
         harness = _make_harness()
 
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         assert code == "patched-pairing-code"
         assert requested == [32]
@@ -261,7 +263,7 @@ class TestCreateDevicePairing:
         """A counter or a timestamp in the code would let one draw predict the next."""
         harness = _make_harness()
 
-        codes = [harness.service.create_device_pairing(USER_KEY)[0] for _ in range(1000)]
+        codes = [harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)[0] for _ in range(1000)]
 
         assert len(set(codes)) == 1000
         # Constant length: a growing counter or an encoded ordinal would not be.
@@ -276,7 +278,7 @@ class TestCreateDevicePairing:
     def test_returns_the_expiry_the_store_computed(self) -> None:
         harness = _make_harness(ttl_seconds=90)
 
-        code, expires_at = harness.service.create_device_pairing(USER_KEY)
+        code, expires_at = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         record = harness.code_store.consume(code)
         assert record is not None
@@ -285,7 +287,7 @@ class TestCreateDevicePairing:
     def test_code_is_bound_to_the_issuing_user_in_the_store(self) -> None:
         harness = _make_harness()
 
-        code, _ = harness.service.create_device_pairing("u-someone-else")
+        code, _ = harness.service.create_device_pairing("u-someone-else", **STEP_UP_PASSED)
 
         record = harness.code_store.consume(code)
         assert record is not None
@@ -298,10 +300,11 @@ class TestCreateDevicePairing:
         harness = _make_harness(code_store=broken)
 
         with pytest.raises(ConnectionError):
-            harness.service.create_device_pairing(USER_KEY)
+            harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
     def test_refuses_when_no_store_is_configured(self) -> None:
         service = AuthService(
+            step_up_verifier=PassedStepUpVerifier(),
             user_repo=MagicMock(),
             auth_provider_repo=MagicMock(),
             refresh_token_repo=MagicMock(),
@@ -313,7 +316,7 @@ class TestCreateDevicePairing:
         )
 
         with pytest.raises(ValidationError) as excinfo:
-            service.create_device_pairing(USER_KEY)
+            service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         assert excinfo.value.status_code == 422
 
@@ -340,7 +343,7 @@ def _decode(harness: _Harness, pair: TokenPair) -> dict[str, Any]:
 class TestRedeemedPairIsTheLoginPair:
     def test_shape_is_identical_to_a_login_local_pair(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         login_pair, login_raw, login_persistent = harness.service.login_local(
             USER_EMAIL, PASSWORD, USER_AGENT, IP, remember_me=True
@@ -357,7 +360,7 @@ class TestRedeemedPairIsTheLoginPair:
 
     def test_no_new_token_type_and_no_new_claim(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         login_claims = _decode(harness, harness.service.login_local(USER_EMAIL, PASSWORD)[0])
         redeem_claims = _decode(harness, harness.service.redeem_device_pairing(code)[0])
@@ -370,7 +373,7 @@ class TestRedeemedPairIsTheLoginPair:
     def test_session_document_has_the_same_fields_a_login_session_has(self) -> None:
         """A paired device must be an ordinary row in ``list_sessions``."""
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         harness.service.login_local(USER_EMAIL, PASSWORD, USER_AGENT, IP, remember_me=True)
         harness.service.redeem_device_pairing(code, user_agent=USER_AGENT, ip_address=IP)
@@ -388,7 +391,7 @@ class TestRedeemedPairIsTheLoginPair:
         tenant_service = MagicMock()
         tenant_service.get_membership.return_value = membership
         harness = _make_harness(tenant_service=tenant_service)
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         login_claims = _decode(harness, harness.service.login_local(USER_EMAIL, PASSWORD)[0])
         login_lookups = list(tenant_service.get_membership.call_args_list)
@@ -403,7 +406,7 @@ class TestRedeemedPairIsTheLoginPair:
 
     def test_an_inactive_account_gets_no_session(self) -> None:
         harness = _make_harness(user=_make_user(is_active=False))
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         with pytest.raises(UnauthorizedError):
             harness.service.redeem_device_pairing(code, ip_address=IP)
@@ -422,7 +425,7 @@ def _error_signature(excinfo: pytest.ExceptionInfo[Any]) -> tuple[Any, ...]:
 class TestNoOracleOnAMiss:
     def test_second_redemption_answers_exactly_like_an_unknown_code(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
         harness.service.redeem_device_pairing(code, ip_address=IP)
 
         with pytest.raises(InvalidTokenError) as replayed:
@@ -434,7 +437,7 @@ class TestNoOracleOnAMiss:
 
     def test_expired_code_answers_exactly_like_an_unknown_code(self) -> None:
         harness = _make_harness(ttl_seconds=90)
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         harness.clock.advance(91)
 
@@ -449,7 +452,7 @@ class TestNoOracleOnAMiss:
         """Guards the expiry test above: without this, a store that expired
         everything immediately would make it pass for the wrong reason."""
         harness = _make_harness(ttl_seconds=90)
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         harness.clock.advance(89)
 
@@ -479,7 +482,7 @@ class TestCodeIsBoundToItsIssuer:
 
     def test_the_account_is_read_from_the_stored_record(self) -> None:
         harness = _make_harness(user=_make_user(key="u-issuer"))
-        code, _ = harness.service.create_device_pairing("u-issuer")
+        code, _ = harness.service.create_device_pairing("u-issuer", **STEP_UP_PASSED)
 
         harness.service.redeem_device_pairing(code, ip_address=IP)
 
@@ -522,7 +525,7 @@ class TestRedemptionLockout:
 
     def test_a_valid_code_is_refused_while_the_address_is_locked(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
         _fail_redemptions(harness, MAX_ATTEMPTS)
 
         with pytest.raises(AccountLockedError):
@@ -535,7 +538,7 @@ class TestRedemptionLockout:
     def test_a_successful_redemption_clears_the_counter(self) -> None:
         harness = _make_harness()
         _fail_redemptions(harness, MAX_ATTEMPTS - 1)
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         harness.service.redeem_device_pairing(code, ip_address=IP)
 
@@ -545,7 +548,7 @@ class TestRedemptionLockout:
         """One attacker must not be able to lock out a bystander."""
         harness = _make_harness()
         _fail_redemptions(harness, MAX_ATTEMPTS, ip_address=OTHER_IP)
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         pair, _, _ = harness.service.redeem_device_pairing(code, ip_address=IP)
 
@@ -563,6 +566,7 @@ class TestRedemptionLockout:
     def test_throttle_store_defaults_to_the_process_wide_instance(self) -> None:
         """``None`` here would not disable the feature, only its guard."""
         service = AuthService(
+            step_up_verifier=PassedStepUpVerifier(),
             user_repo=MagicMock(),
             auth_provider_repo=MagicMock(),
             refresh_token_repo=MagicMock(),
@@ -588,7 +592,7 @@ class TestAuditEvents:
         harness = _make_harness()
 
         with structlog.testing.capture_logs() as logs:
-            _, expires_at = harness.service.create_device_pairing(USER_KEY, ip_address=IP)
+            _, expires_at = harness.service.create_device_pairing(USER_KEY, ip_address=IP, **STEP_UP_PASSED)
 
         created = _events(logs, "device_pairing_created")
         assert len(created) == 1
@@ -604,7 +608,7 @@ class TestAuditEvents:
 
     def test_redeemed_event_carries_who_where_and_when(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         with structlog.testing.capture_logs() as logs:
             harness.service.redeem_device_pairing(code, ip_address=IP)
@@ -656,7 +660,7 @@ class TestAuditEvents:
         harness = _make_harness()
 
         with structlog.testing.capture_logs() as logs:
-            code, _ = harness.service.create_device_pairing(USER_KEY, ip_address=IP)
+            code, _ = harness.service.create_device_pairing(USER_KEY, ip_address=IP, **STEP_UP_PASSED)
             if outcome in {"redeemed", "replayed"}:
                 harness.service.redeem_device_pairing(code, ip_address=IP)
             if outcome == "replayed":
@@ -672,7 +676,7 @@ class TestAuditEvents:
 
     def test_the_raw_refresh_token_never_reaches_a_log_record(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         with structlog.testing.capture_logs() as logs:
             _, raw_refresh, _ = harness.service.redeem_device_pairing(code, ip_address=IP)
@@ -686,7 +690,7 @@ class TestAuditEvents:
 class TestDeviceName:
     def test_a_label_is_accepted_and_normalised(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         with structlog.testing.capture_logs() as logs:
             harness.service.redeem_device_pairing(code, ip_address=IP, device_name="  Pixel 9  ")
@@ -695,7 +699,7 @@ class TestDeviceName:
 
     def test_a_blank_label_is_the_same_as_none(self) -> None:
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         with structlog.testing.capture_logs() as logs:
             harness.service.redeem_device_pairing(code, ip_address=IP, device_name="   ")
@@ -706,7 +710,7 @@ class TestDeviceName:
         """The caller is unauthenticated; P4's schema bounds it too, but a
         service reachable from a task must not rely on that."""
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         with pytest.raises(ValidationError) as excinfo:
             harness.service.redeem_device_pairing(code, ip_address=IP, device_name="x" * 65)
@@ -722,7 +726,7 @@ class TestDeviceName:
         makes "the label reaches the session document" a reported fact rather
         than an assumption. What is stored is the *normalised* value."""
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         harness.service.redeem_device_pairing(code, ip_address=IP, device_name="  Pixel 9  ")
 
@@ -732,7 +736,7 @@ class TestDeviceName:
     def test_a_blank_label_is_stored_as_none_not_as_an_empty_string(self) -> None:
         """So the session list has one "no label" case to render, not two."""
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
 
         harness.service.redeem_device_pairing(code, ip_address=IP, device_name="   ")
 
@@ -745,7 +749,7 @@ class TestDeviceName:
         would silently become an anonymous user-agent row, and the session list
         would look healthy the whole time it was going wrong."""
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
         _, raw_refresh, _ = harness.service.redeem_device_pairing(
             code,
             user_agent=USER_AGENT,
@@ -776,7 +780,7 @@ class TestDeviceName:
         """``list_sessions`` is what the account page reads; a field stored but
         not mapped into ``SessionInfo`` is a field the UI can never show."""
         harness = _make_harness()
-        code, _ = harness.service.create_device_pairing(USER_KEY)
+        code, _ = harness.service.create_device_pairing(USER_KEY, **STEP_UP_PASSED)
         harness.service.redeem_device_pairing(
             code,
             user_agent=USER_AGENT,
