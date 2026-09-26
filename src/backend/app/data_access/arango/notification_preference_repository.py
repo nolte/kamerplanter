@@ -63,6 +63,40 @@ class ArangoNotificationPreferenceRepository(
         result = self.collection.update({"_key": key, **data}, return_new=True)
         return NotificationPreferences(**self._from_doc(result["new"]))
 
+    def remove_subscriptions(self, user_key: str, channel_key: str, endpoints: list[str]) -> int:
+        """Drop the subscriptions with these endpoints in one AQL ``UPDATE`` (#1827).
+
+        ``FOR … FILTER doc._key == @key`` finds nothing for a deleted document,
+        so nothing is inserted (an ``upsert`` would have recreated it — with
+        the rest of the channel config — after an erasure). The new list is
+        computed inside the same statement from the stored one, and the update
+        merges only ``channels.<key>.config.subscriptions``, so a concurrent
+        change elsewhere in the document is not overwritten.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+          LET current = doc.channels[@channel].config.subscriptions || []
+          LET kept = (FOR s IN current FILTER s.endpoint NOT IN @gone RETURN s)
+          FILTER LENGTH(kept) < LENGTH(current)
+          UPDATE doc WITH {
+            channels: { [@channel]: { config: { subscriptions: kept } } },
+            updated_at: @now
+          } IN @@collection
+          RETURN LENGTH(current) - LENGTH(kept)
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": NOTIFICATION_PREFERENCES,
+                "key": self._make_key(user_key),
+                "channel": channel_key,
+                "gone": list(endpoints),
+                "now": datetime.now(UTC).isoformat(),
+            },
+        )
+        return sum(cursor)
+
     def list_users_with_digest_enabled(self) -> list[NotificationPreferences]:
         """Return preferences of all users with the email digest opted in.
 

@@ -2,8 +2,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.validators import DisplayName
 from app.domain.services.step_up_service import StepUpAction
+
+
+class ProviderUnlinkRequest(CredentialStepUp):
+    """The step-up of removing a sign-in method (#1847)."""
 
 
 class ProfileUpdateRequest(BaseModel):

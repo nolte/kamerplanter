@@ -5,6 +5,7 @@ import type {
   ApiKeyCreated,
   ApiKeySummary,
   AuthProviderInfo,
+  CredentialStepUp,
   DevicePairingCreated,
   LoginRequest,
   LoginResponse,
@@ -96,8 +97,15 @@ export async function listProviders(): Promise<AuthProviderInfo[]> {
   return res.data;
 }
 
-export async function unlinkProvider(providerKey: string): Promise<void> {
-  await client.delete(`${USERS}/me/providers/${providerKey}`);
+/**
+ * Remove a sign-in method from the own account.
+ *
+ * A credential change (#1847): the body carries the step-up — the current
+ * password or, for an account without one, `step_up_token` / `step_up_code` for
+ * the act `provider_unlink`. Without it the backend answers 401.
+ */
+export async function unlinkProvider(providerKey: string, stepUp?: CredentialStepUp): Promise<void> {
+  await client.delete(`${USERS}/me/providers/${encodeURIComponent(providerKey)}`, { data: stepUp });
 }
 
 /**
@@ -182,6 +190,11 @@ export async function deleteAccount(stepUp: AccountErasureRequest): Promise<void
 
 // ── API Keys ──────────────────────────────────────────────────────
 
+/**
+ * Mint an M2M API key. In full mode this is a credential change (#1847): `data`
+ * carries the step-up of the act `api_key_creation`; light mode (REQ-027) needs
+ * none, every request there already is the system account.
+ */
 export async function createApiKey(data: ApiKeyCreate): Promise<ApiKeyCreated> {
   const res = await client.post<ApiKeyCreated>(`${BASE}/api-keys`, data);
   return res.data;
@@ -204,8 +217,12 @@ export async function revokeApiKey(keyId: string): Promise<void> {
  * Bearer-authenticated like {@link createApiKey}, so no CSRF header is sent —
  * the endpoint spends no ambient cookie credential. The backend answers **201**;
  * the raw code is returned exactly once and is never retrievable afterwards.
+ *
+ * The code redeems into a full session, so minting it is a credential change
+ * (#1847): `stepUp` carries the current password or, for an account without
+ * one, `step_up_token` / `step_up_code` for the act `device_pairing`.
  */
-export async function createDevicePairing(): Promise<DevicePairingCreated> {
-  const res = await client.post<DevicePairingCreated>(`${BASE}/device-pairing`, null);
+export async function createDevicePairing(stepUp?: CredentialStepUp): Promise<DevicePairingCreated> {
+  const res = await client.post<DevicePairingCreated>(`${BASE}/device-pairing`, stepUp ?? null);
   return res.data;
 }

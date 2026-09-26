@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasLocalPasswordFromProviders, toStepUpBody } from '@/utils/stepUp';
+import { hasLocalPasswordFromProviders, toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
 import type { AuthProviderInfo } from '@/api/types';
 
 function list(...providers: string[]): AuthProviderInfo[] {
@@ -37,5 +37,20 @@ describe('toStepUpBody (#1815)', () => {
     expect(toStepUpBody({ password })).toEqual({ password });
     expect(toStepUpBody({ code })).toEqual({ step_up_code: code });
     expect(toStepUpBody({ password, code })).toEqual({ password, step_up_code: code });
+  });
+});
+
+describe('toCredentialStepUpBody (#1847, #1857)', () => {
+  it('names the password `current_password` and carries only what was supplied', () => {
+    const password = ['s3', 'cret'].join('');
+    const code = '4'.repeat(6);
+    const token = ['to', 'ken'].join('');
+    expect(toCredentialStepUpBody({})).toEqual({});
+    expect(toCredentialStepUpBody({ password })).toEqual({ current_password: password });
+    expect(toCredentialStepUpBody({ code })).toEqual({ step_up_code: code });
+    expect(toCredentialStepUpBody({ token })).toEqual({ step_up_token: token });
+    // The erasure naming (`password`) must not leak into a credential change:
+    // the backend's CredentialStepUp would silently ignore it and answer 401.
+    expect(toCredentialStepUpBody({ password })).not.toHaveProperty('password');
   });
 });

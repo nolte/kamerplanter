@@ -220,6 +220,9 @@ _ALLOWED: dict[str, str] = {
     "app/domain/services/privacy_service.py::PrivacyService._run_export_file_cleanup::closed": (
         "fail_open_for_user(user_key, ...) returns the number of exports it closed, an int (#1830 triage)"
     ),
+    "app/domain/engines/notification_engine.py::NotificationEngine.prune_expired_subscriptions::pruned": (
+        "remove_subscriptions(user_key, ...) returns how many subscriptions it removed, an int (#1827)"
+    ),
     "app/tasks/auth_tasks.py::dispatch_duplicate_registration_notice::error": (
         "a broker error names the broker connection; the task argument is an opaque key, not in the text"
     ),

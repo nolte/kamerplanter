@@ -14,6 +14,7 @@ from app.api.v1.privacy.schemas import ErasureCreateRequest
 from app.api.v1.users.schemas import (
     ChangePasswordRequest,
     ProfileUpdateRequest,
+    ProviderUnlinkRequest,
     StepUpCodeRequest,
     StepUpCodeResponse,
     StepUpReauthRequest,
@@ -93,14 +94,32 @@ def list_providers(
     return [AuthProviderResponse(**p.model_dump()) for p in providers]
 
 
-@router.delete("/me/providers/{provider_key}", response_model=MessageResponse)
+@router.delete("/me/providers/{provider_key}", response_model=MessageResponse, responses=STEP_UP_RESPONSES)
 def unlink_provider(
     provider_key: Annotated[str, Path(description="Document key of the linked auth provider.")],
+    body: ProviderUnlinkRequest | None = None,
     current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    """Unlink an OAuth provider from the current user's account."""
-    auth_service.unlink_provider(current_user.key or "", provider_key)
+    """Unlink an OAuth provider from the current user's account.
+
+    **Step-up (#1847):** removing a sign-in method is a credential change — the
+    current password in the body (or, for an account without one,
+    ``step_up_token`` / ``step_up_code``); 401 without it, 403 from an API-key
+    request, 429 ``STEP_UP_LOCKED``.
+    """
+    step_up = body or ProviderUnlinkRequest()
+    auth_service.unlink_provider(
+        current_user.key or "",
+        provider_key,
+        current_password=step_up.current_password,
+        step_up_code=step_up.step_up_code,
+        step_up_token=step_up.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return MessageResponse(message="Provider unlinked.")
 
 
