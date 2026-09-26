@@ -141,29 +141,34 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `EMAIL_ADAPTER` | `console` | No | Email adapter: `console` (output to log, link only with `DEBUG=true`), `smtp`, `resend` (see note below) |
+| `EMAIL_ADAPTER` | `console` | No | Email adapter: `console` (output to log, link only with `DEBUG=true`), `smtp` or `resend`. Any other value — for example a typo — is rejected at startup: the API and the worker refuse to start rather than silently falling back to `console`. |
 | `SMTP_HOST` | `localhost` | No | SMTP server hostname |
 | `SMTP_PORT` | `587` | No | SMTP port |
 | `SMTP_USERNAME` | — | No | SMTP username |
 | `SMTP_PASSWORD` | — | No | SMTP password |
-| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails |
+| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails sent via SMTP |
 | `SMTP_USE_TLS` | `true` | No | Enable STARTTLS for SMTP |
+| `RESEND_API_KEY` | — | Conditional | API key for sending via [Resend](https://resend.com) (secret). **Required when `EMAIL_ADAPTER=resend` is set** — without it the application refuses to start. Provide it through the Kubernetes Secret `kamerplanter-secrets` or your `.env` file, never through a Helm values file. |
+| `RESEND_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails sent via Resend. This address's domain must be verified in the Resend account, otherwise sending fails. |
 
 In development mode (`EMAIL_ADAPTER=console`), emails are not sent but printed to the
 backend log. That log line carries the verification or password-reset link only when
 `DEBUG=true` is also set — its token takes over the account otherwise. Without
 `DEBUG=true` the line only states that no email was delivered, with no token. If the API
 starts with `EMAIL_ADAPTER=console` and `DEBUG=false` — the case for a production
-install without SMTP configured, since the Helm chart sets no adapter by default — it
-writes a startup warning to the log (`email_adapter_console_in_production`). For a
-production install, the only remaining option is to configure `EMAIL_ADAPTER=smtp`;
-otherwise registration and password reset cannot be completed.
+install without SMTP or Resend configured, since the Helm chart sets no adapter by
+default — it writes a startup warning to the log
+(`email_adapter_console_in_production`). For a production install, configure either
+`EMAIL_ADAPTER=smtp` or `EMAIL_ADAPTER=resend`; otherwise registration and password
+reset cannot be completed.
 
-!!! note "The `resend` value has no adapter of its own yet"
-    `EMAIL_ADAPTER=resend` is accepted as a configuration value but is currently not
-    wired to an adapter of its own: the backend behaves like `console` in that case — no
-    email is sent, only the log line described above. This is a known, internally
-    tracked gap, not a supported mode of operation. <!-- #1821 -->
+!!! info "Resend: hosted email delivery over an HTTP API"
+    `EMAIL_ADAPTER=resend` sends the same system emails (email verification,
+    password reset, the step-up confirmation code, notification emails) as the SMTP
+    adapter, but over Resend's HTTP API instead of an SMTP connection. In the logs, the
+    recipient address only ever appears as a salted digest, never in plain text; if a
+    send fails, the application logs only the error type and the HTTP status, never the
+    response body or the API key. Each send attempt has a 10-second timeout. <!-- #1821 -->
 
 !!! note "Also used by the notification system"
     These variables also configure the email channel of the [notification system](../user-guide/notifications.md#email) — there is no separate SMTP configuration for notifications.

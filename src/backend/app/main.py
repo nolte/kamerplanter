@@ -93,12 +93,12 @@ def warn_if_console_email_adapter() -> bool:
     here. Deliberately a warning, not a refusal to start: refusing would break
     every Helm install that has not configured SMTP. Returns whether it warned.
     """
-    if settings.email_adapter == "smtp" or settings.debug:
+    if settings.email_adapter != "console" or settings.debug:
         return False
     logger.warning(
         "email_adapter_console_in_production",
         email_adapter=settings.email_adapter,
-        detail="verification and password-reset e-mails are not delivered; set EMAIL_ADAPTER=smtp",
+        detail="verification and password-reset e-mails are not delivered; set EMAIL_ADAPTER=smtp or resend",
     )
     return True
 

@@ -200,7 +200,7 @@ Instanzweite Freischaltung (`AI_FEATURES_ENABLED=true`) reicht allein nicht: Ein
 |---|---|---|---|---|---|
 | E-Mail-Kanal (Konsole, Entwicklung) | Backend | `EMAIL_ADAPTER=console` (Default) | — | — | Nein |
 | E-Mail-Kanal (SMTP) | Backend + externer SMTP-Server | `EMAIL_ADAPTER=smtp` + `SMTP_HOST`/`SMTP_USERNAME`/`SMTP_PASSWORD` | `SMTP_PASSWORD` | — | Nein |
-| E-Mail-Kanal (Resend) | Backend | `EMAIL_ADAPTER=resend` | API-Key via REST-Konfiguration | — | Nein |
+| E-Mail-Kanal (Resend) | Backend | `EMAIL_ADAPTER=resend` + `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`) | `RESEND_API_KEY` | — | Ja — verweigert den Start ohne `RESEND_API_KEY`, sobald `EMAIL_ADAPTER=resend` gesetzt ist (Pydantic-Validierung beim Laden der Konfiguration, unabhängig von `DEBUG`; kein `insecure_default_secrets()`-Check) |
 | Browser-Push (Web Push / VAPID) | Backend | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` + `VAPID_CONTACT_EMAIL` alle drei gesetzt | `VAPID_PRIVATE_KEY` | — | Nein |
 | Home-Assistant-Kanal (persistente Notifications, Mobile Push, TTS) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` gesetzt | `HA_ACCESS_TOKEN` | — | Nein |
 | Apprise-Kanal (Multi-Backend-Push) | Backend-Image | Immer aktiv, sofern das optionale Python-Paket `apprise` im Image installiert ist (kein env-Schalter) | — | größeres Backend-Image | Nein |

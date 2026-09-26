@@ -141,30 +141,35 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log, Link nur mit `DEBUG=true`), `smtp`, `resend` (siehe Hinweis unten) |
+| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log, Link nur mit `DEBUG=true`), `smtp` oder `resend`. Ein anderer Wert — etwa ein Tippfehler — wird beim Start abgelehnt: API und Worker starten dann gar nicht erst, statt still auf `console` zurückzufallen. |
 | `SMTP_HOST` | `localhost` | Nein | SMTP-Server-Hostname |
 | `SMTP_PORT` | `587` | Nein | SMTP-Port |
 | `SMTP_USERNAME` | — | Nein | SMTP-Benutzername |
 | `SMTP_PASSWORD` | — | Nein | SMTP-Passwort |
-| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails |
+| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails über SMTP |
 | `SMTP_USE_TLS` | `true` | Nein | STARTTLS für SMTP aktivieren |
+| `RESEND_API_KEY` | — | Bedingt | API-Schlüssel für den Versand über [Resend](https://resend.com) (Secret). **Pflicht, wenn `EMAIL_ADAPTER=resend` gesetzt ist** — ohne ihn lehnt die Anwendung den Start ab. Trage ihn über das Kubernetes-Secret `kamerplanter-secrets` bzw. deine `.env`-Datei ein, niemals über eine Helm-`values`-Datei. |
+| `RESEND_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails über Resend. Die Domain dieser Adresse muss im Resend-Konto verifiziert sein, sonst schlägt der Versand fehl. |
 
 Im Entwicklungsmodus (`EMAIL_ADAPTER=console`) werden E-Mails nicht gesendet, sondern im
 Backend-Log ausgegeben. Den Bestätigungs- oder Passwort-Reset-Link enthält diese
 Protokollzeile aber nur, wenn zusätzlich `DEBUG=true` gesetzt ist — sein Token übernimmt
 sonst das Konto. Ohne `DEBUG=true` steht dort lediglich, dass keine E-Mail zugestellt
 wurde, ohne Token. Startet die API mit `EMAIL_ADAPTER=console` und `DEBUG=false` — der
-Fall bei einer produktiven Installation ohne SMTP-Konfiguration, da das Helm-Chart
-standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins Log
-(`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann nur
-`EMAIL_ADAPTER=smtp` zu konfigurieren, sonst lassen sich Registrierung und
-Passwort-Reset nicht abschließen.
+Fall bei einer produktiven Installation ohne SMTP- oder Resend-Konfiguration, da das
+Helm-Chart standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins
+Log (`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann
+`EMAIL_ADAPTER=smtp` oder `EMAIL_ADAPTER=resend` zu konfigurieren, sonst lassen sich
+Registrierung und Passwort-Reset nicht abschließen.
 
-!!! note "Der Wert `resend` hat noch keine eigene Anbindung"
-    `EMAIL_ADAPTER=resend` wird als Konfigurationswert akzeptiert, aber aktuell ohne
-    eigenen Adapter verdrahtet: Das Backend verhält sich dabei wie `console` — keine
-    E-Mail wird versendet, es gibt nur die Log-Zeile wie oben beschrieben. Das ist eine
-    bekannte, intern verfolgte Lücke und keine unterstützte Betriebsart. <!-- #1821 -->
+!!! info "Resend: gehostete E-Mail-Zustellung über eine HTTP-API"
+    `EMAIL_ADAPTER=resend` verschickt dieselben System-E-Mails (E-Mail-Bestätigung,
+    Passwort-Reset, Bestätigungscode für erneute Anmeldung, Benachrichtigungs-E-Mails)
+    wie der SMTP-Adapter, aber über die HTTP-API von Resend statt über eine
+    SMTP-Verbindung. In den Logs erscheint die Empfängeradresse dabei nur als
+    gesalzener Digest, niemals im Klartext; schlägt ein Versand fehl, protokolliert die
+    Anwendung nur den Fehlertyp und den HTTP-Status, nie den Antworttext oder den
+    API-Schlüssel. Jeder Versandversuch hat ein Zeitlimit von 10 Sekunden. <!-- #1821 -->
 
 !!! note "Wird auch vom Benachrichtigungssystem genutzt"
     Diese Variablen konfigurieren zugleich den E-Mail-Kanal des [Benachrichtigungssystems](../user-guide/notifications.md#e-mail) — es gibt keine separate SMTP-Konfiguration für Benachrichtigungen.
