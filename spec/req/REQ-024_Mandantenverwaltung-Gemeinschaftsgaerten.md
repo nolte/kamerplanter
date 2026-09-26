@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.8 (Mandant löschen: Verwaltung **und** Leitung plus Step-up, #1791)
+Version: 1.9 (Datenschutzplan-Entscheidungen Q-O1/Q-L1/Q-L2/Q-L3, #1792/#1805/#1878)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.9 | 2026-09-26 | **Datenschutzplan-Entscheidungen, Runde 4–6 (#1792, #1805, #1878):** Mandantenlöschung wird **asynchron** (202 Accepted, Celery-Batches mit Heartbeat und Eskalation) — Betreiberentscheidung, **noch nicht umgesetzt**, Breaking-Change-Kennzeichnung (Q-O1, **AK-52**). §2 dokumentiert die Datenkorrektur für v0004-Altstempel auf globalen Seed-Zeilen von `fertilizers`/`nutrient_plans`/`task_templates` (Q-L1/Q-L2, **AK-53**) und für verwaiste globale Referenzen aus den #1871-Lücken (Q-L3, **AK-54**). |
 | 1.8 | 2026-09-25 | **Mandant löschen verlangt beide Achsen und einen Step-up (#1791).** Seit #1769 löscht die Mandantenlöschung jede mandantenbezogene Collection unwiderruflich. Bis v1.7 hing sie allein an **Verwaltung** — eine Schriftführerin mit der Rolle Beobachter konnte damit einen ganzen Gemeinschaftsgarten mit einer Anfrage löschen. Neu: **Verwaltung und Leitung** (Schnittmenge, keine Vermischung der Achsen — die Irreversibilitätsgrenze aus REQ-049 §2.3 gilt auch hier), dazu ein **Step-up** im Anfragekörper: der Kurzname des Mandanten wird zurückgetippt, und ein Konto mit lokalem Passwort gibt es erneut ein; ein nur föderiert angemeldetes Konto bestätigt über den Kurznamen (Muster der Kontolöschung, REQ-394). Eigentümerschaft (`owner_user_key`) ist kein Recht und spielt keine Rolle. Dienstkonten und API-Schlüssel (auch die eines menschlichen Kontos) löschen nie einen Mandanten. Der Plattform-Admin-Weg (`DELETE /admin/platform/tenants/{key}`) verlangt denselben Step-up. Geprüft wird im Dienst, nicht nur am Router, sodass beide Wege dieselbe Regel haben; der Löschnachweis hält `step_up` und den Anfragenden als salzgehashte Log-Referenz fest. §1a.2, Rollentabelle §1, API §5 und **AK-44d** nachgeführt. |
 | 1.7 | 2026-08-16 | **Nachführung auf REQ-049 v1.4 — die zuweisungsbasierte Write-Kontrolle ist weg.** v1.6 hatte die *Spaltenüberschriften* der Matrix auf das Zwei-Achsen-Vokabular umgestellt, die *Zellinhalte* aber nicht: §1a.1 trug weiterhin `U own+community`, `U own` und `U assigned+own`, §1.1 Szenario 2 beschrieb Parzellen als Schreibgrenze, und §1a.5 stand als Historie im Dokument. Genau das hat REQ-049 §3.5 abgeschafft — die Standort-Zuweisung ist Koordination, kein Recht — und REQ-049 §3.2 führt „Zugewiesene" als Rechteangabe seither unter den **verbotenen Begriffen**. Ein Leser, der nur REQ-024 kannte, baute die falsche Regel; der Code (`MembershipEngine`) tat es nie. Nachgeführt: Rollentabelle §1 (Zwei-Achsen-Modell, `admin` → `lead` + Zusatzberechtigungen), Matrix §1a.1 (alle Zellen auf reine Rangprüfung, Löschen durchgängig 🔒 Leitung), §1a.5 auf einen Grabstein reduziert, §1a.6 auf die drei **tatsächlich gebauten** Dependencies (`require_permission(resource, action)`, `require_tenant_role`, `require_admin_scope`) statt des nie so gebauten `ROLE_PERMISSIONS`-Dicts, Szenarien §1.1, Datenmodell §2, AQL, Engine §3.1, Middleware §3.3, Frontend §4.4/§4.5, Seeds §5, Abnahmekriterien §6 und Scope §8. **Verhaltensänderung gegenüber v1.6:** Das Löschen von Pflanzenfotos war für Gärtner als `D own+community` ausgewiesen und ist jetzt Leitung — die Irreversibilitätsgrenze kennt keine Foto-Ausnahme. |
 | 1.6 | 2026-07-29 | **Zwei-Achsen-Rollenmodell (REQ-049, Issue #780):** Die Permission-Matrix (§1a) folgt jetzt dem verbindlichen Vokabular aus REQ-049. Der Wert `admin` ist stillgelegt — er stand in dieser Matrix überwiegend für „darf löschen" (jetzt fachliche Rolle **Leitung**) und an den übrigen Stellen für „verwaltet den Mandanten" (jetzt Zusatzberechtigung **Verwaltung**). §1a.2 hängt vollständig an der Verwaltung statt an einem Rang; technische Konfiguration innerhalb des Mandanten hängt an der Zusatzberechtigung **Technik**. §1a.4 hält fest, dass die Plattform-Rolle über `lead` im Mandanten `platform` abgebildet wird. Die „letzter Admin"-Regel wird zu INV-1 („letzte Verwaltung") und greift auch beim Herabstufen, nicht nur beim Entfernen. Migration `v0032` bildet jeden Bestandswert verlustfrei ab. |
@@ -158,6 +159,36 @@ Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressour
 Diese Aktionen hängen an der Zusatzberechtigung **Verwaltung** (REQ-049 §2.4) — die fachliche Rolle spielt keine Rolle. Eine Schriftführerin mit der Rolle Beobachter verwaltet die Mitgliederliste; eine Leitung ohne Verwaltung nicht.
 
 **Eine Ausnahme: Mandant löschen (#1791).** Die Löschung vernichtet seit #1769 alle Daten des Mandanten unwiderruflich und liegt damit zugleich auf der Irreversibilitätsgrenze der fachlichen Achse (REQ-049 §2.3). Sie verlangt deshalb **Verwaltung und Leitung** — beide, nicht eine von beiden — und einen **Step-up** im Anfragekörper: `confirm_slug` (der Kurzname des Mandanten, zurückgetippt) und, bei einem Konto mit lokalem Passwort, `password` (das aktuelle Passwort). Ein nur föderiert angemeldetes Konto hat kein lokales Geheimnis und bestätigt über den Kurznamen (wie die Kontolöschung, REQ-394). Antworten: `403` ohne beide Achsen, als Dienstkonto oder mit einem API-Schlüssel (auch dem eines menschlichen Kontos — ein Schlüssel kann sich nicht erneut anmelden), `422` bei falschem Kurznamen, `401` bei fehlendem oder falschem Passwort — jeweils bevor sich etwas ändert. Eigentümerschaft (`owner_user_key`) ist Herkunft, kein Recht: Sie genügt nicht und wird nicht verlangt, sonst wäre ein Garten unlöschbar, sobald sein Gründer ihn verlässt. Der Plattform-Admin löscht über `DELETE /admin/platform/tenants/{key}` mit demselben Step-up.
+
+<!-- Quelle: Datenschutzplan Q-O1, #1792 -->
+**Geplant: asynchrone Mandantenlöschung (Betreiberentscheidung 2026-09-26, #1792). Noch
+nicht umgesetzt — Breaking-Change-Ankündigung.** Heute läuft die Löschung synchron im
+HTTP-Handler: der externe Phase-0-Schritt, dann eine einzelne ArangoDB-Stream-Transaktion
+über ~95 inventarisierte Collections. Bei einem großen Mandanten kann diese Transaktion
+die Server-Limits (`--transaction.streaming-max-transaction-size`, Idle-Timeout)
+überschreiten; der Fehler ist deterministisch, jeder tägliche Retry scheitert gleich, der
+Mandant bleibt eingefroren (`partially_completed`), der aufrufende Proxy antwortet
+zwischenzeitlich mit 504. Beschlossen:
+
+- `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` antworten **`202
+  Accepted`** statt heute `200`/`204` — der Löschnachweis wird angelegt und der Mandant
+  eingefroren (Memberships deaktiviert), aber die Löschung selbst läuft danach.
+- Ein **Celery-Task** führt die Löschung in **begrenzten, idempotenten Batches** aus
+  (Elternschlüssel sind bereits am Löschnachweis persistiert, #1769); kein einzelner
+  Batch darf die Server-Transaktionslimits erreichen.
+- Der Lauf schreibt einen **Heartbeat** zwischen den Batches fort, damit
+  `TenantErasureEngine.STALE_AFTER_HOURS` ihn nicht während eines noch laufenden,
+  nur langsamen Laufs erneut beansprucht.
+- Ein deterministisch scheiternder Batch **eskaliert** nach N Versuchen (Alarmierung des
+  Betreibers), statt täglich lautlos denselben Fehler zu wiederholen.
+- Derselbe Mechanismus bedient auch den Weg über `DELETE /admin/platform/users/{key}`
+  (REQ-025 AK-PT-01..03), soweit er die Löschung eines persönlichen Mandanten auslöst.
+
+Dies ist eine **brechende API-Änderung** (Antwortcode und -semantik ändern sich für jeden
+bestehenden Aufrufer, der auf einen synchronen Abschluss wartet) und wird erst mit dem
+Release umgesetzt, das §3.2 `TenantService.delete_tenant`, §3.6 Celery-Tasks und **AK-52**
+tatsächlich baut. Refs #1769, REQ-025.
+<!-- /Quelle: Datenschutzplan Q-O1, #1792 -->
 
 | Aktion | Verwaltung | ohne Verwaltung |
 |--------|------------|-----------------|
@@ -728,6 +759,54 @@ KAMERPLANTER_AUTO_ASSIGN_MASTER_DATA: bool = True  # Default: True
 **Hinweis zu Seed-Daten in Tenant-scoped Collections:**
 Einige Tenant-scoped Collections enthalten vorinstallierte Seed-Daten (z.B. `workflow_templates` mit 3 Workflows/16 Task-Templates aus REQ-006). Bei Erstellung eines neuen Tenants werden die System-Seed-Daten **als Kopie** in den Tenant übernommen (`tenant_key` wird gesetzt). Der Tenant-Admin kann diese anschließend anpassen oder löschen. Globale Stammdaten (Species, Cultivars, IPM, Fertilizer, NutrientPlans) werden hingegen **referenziert via `tenant_has_access`-Kanten, nicht kopiert**.
 
+<!-- Quelle: Datenschutzplan Q-L1/Q-L2, #1805 -->
+**Datenkorrektur: v0004-Altstempel auf globalen Seed-Zeilen (Betreiberentscheidung
+2026-09-26, #1805).** Migration `v0004` (`backfill_tenant_key.py`, `TOP_LEVEL_COLLECTIONS`)
+hat historisch jede Zeile von `fertilizers`, `nutrient_plans`, `workflow_templates` und
+`task_templates` ohne `tenant_key` auf einen „Default-Tenant" gestempelt — einschließlich
+globaler Seed-Zeilen, die zu diesem Zeitpunkt existierten. Anders als bei `species`
+(`v0036`) und `cultivars` (`v0038`) hat bisher keine Migration diese Stempel auf den
+hybriden Katalogen zurückgesetzt; `fertilizers`, `nutrient_plans` und `task_templates`
+tragen zudem keinen `is_system`-Marker. Da die Mandantenlöschung (#1769) die Zeilen ihres
+Mandanten löscht, verliert eine Installation mit solchen Altstempeln beim Löschen des
+Default-Tenants globale Seed-Zeilen.
+
+Beschlossen:
+
+- Eine Migration setzt betroffene Seed-Zeilen auf `tenant_key == ""` zurück (dieselbe Form
+  wie `v0036`/`v0038`), analog zu Species/Cultivars; ein Task-Template eines dabei
+  erhaltenen System-Workflows wird mit ihm zurückgesetzt.
+- **Die Vorab-Prüfung (Zählung betroffener Zeilen) läuft ausschließlich gegen einen
+  Dev-Cluster oder ein wiederhergestelltes Produktions-Backup — nie gegen die
+  Produktionsdatenbank direkt.** Das gilt unabhängig davon, wie einfach ein Read-only-Zugriff
+  auf Produktion wäre; die Messung selbst darf keine Produktionslast oder
+  Produktionsverbindung erzeugen.
+- Ist auf dem gemessenen Bestand keine betroffene Zeile vorhanden, dokumentiert die
+  Migration diesen Befund und bleibt ein No-op (idempotent, wie bei `v0036`/`v0038`).
+
+<!-- Quelle: Datenschutzplan Q-L3, #1878 -->
+**Datenkorrektur: verwaiste globale Referenzen aus den #1871-Lücken (Betreiberentscheidung
+2026-09-26, #1878).** Vor den #1871-Fixes konnten drei Klassen mandantenübergreifender
+Referenzen entstehen: (1) geteilte Workflow-Templates (`tenant_key == ""`), die den Namen
+einer **privaten** Species eines anderen Mandanten tragen; (2) Slots, deren
+`location_key`-Feld und `HAS_SLOT`-Kante auf unterschiedliche Standorte zeigen; (3) Kanten
+(`EQUIPMENT_AT`, `ASSIGNED_TO_LOCATION`, `LOG_SLOT`, `FEEDS_FROM`, Entry-→-Species-Kanten
+von Pflanzdurchläufen) zu einem Ziel in einem fremden Mandanten. Die #1871-Fixes verhindern
+neue Fälle, bereinigen aber keinen Bestand.
+
+Beschlossen:
+
+- Ein geteiltes globales Template, das eine **private** Species-Bezeichnung trägt, wird
+  **privat** — Eigentümer ist der aktuelle Eigentümer dieser Species, nicht der
+  Default-/Platform-Tenant.
+- Eine fremde Kante aus Klasse (3) wird, wo eindeutig bestimmbar, auf den korrekten
+  Mandanten **umgehängt** (z. B. anhand des Quell-Dokuments); ist das Ziel nicht eindeutig
+  bestimmbar, wird die Kante **gelöscht**.
+- Slots aus Klasse (2) folgen dem Feld (`location_key`), nicht der Kante — `update_slot`
+  bewegt seither ohnehin beide gemeinsam (#1871 B1).
+- Die Migration ist eine Zähl-Migration mit anschließendem, idempotentem Korrekturlauf; sie
+  protokolliert nur Anzahlen, nie Inhalte einer fremden Species.
+
 ### Indizes:
 
 ```
@@ -1088,7 +1167,7 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 | POST | `/tenants` | Neuen Org-Tenant erstellen | Ja |
 | GET | `/tenants/{slug}` | Tenant-Details abrufen | Alle Rollen |
 | PATCH | `/tenants/{slug}` | Tenant aktualisieren | Verwaltung |
-| DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete); Körper `{confirm_slug, password?}` | Verwaltung **und** Leitung + Step-up (§1a.2) |
+| DELETE | `/tenants/{slug}` | Tenant löschen (Soft-Delete); Körper `{confirm_slug, password?}`. Heute `200`/`204` synchron; **geplant `202 Accepted`** asynchron über Celery-Batches (Q-O1, #1792, **noch nicht umgesetzt**, Breaking Change — siehe §1a.2) | Verwaltung **und** Leitung + Step-up (§1a.2) |
 
 **Router: `/api/v1/tenants/{slug}/members`** — Mitgliederverwaltung:
 
@@ -1141,6 +1220,7 @@ class PlantInstanceRepository:
 |------|----------|-------------|
 | `cleanup_expired_invitations` | Täglich 02:00 | Setzt abgelaufene Einladungen auf `status: expired` |
 | `cleanup_inactive_memberships` | Wöchentlich | Warnung per E-Mail bei Memberships ohne Login > 90 Tage |
+| `run_tenant_erasure_batches` <!-- Q-O1, #1792, geplant --> | Bei `202`-Annahme einer Mandantenlöschung, danach bis Abschluss | **Nicht implementiert** (#1792): löscht einen eingefrorenen Mandanten in begrenzten, idempotenten Batches, schreibt einen Heartbeat zwischen den Batches und eskaliert nach N deterministisch gescheiterten Versuchen (§1a.2) |
 
 ## 4. Frontend
 
@@ -1417,6 +1497,15 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-50 | Der Platform-Viewer darf Mitgliederlisten fremder Mandanten **lesen** — das ist die einzige Cross-Tenant-Leseerlaubnis der Rolle | Unit |
 | AK-51 | Der Platform-Viewer kann weder einen Notfall-Admin ernennen noch Mandanten oder Nutzer suspendieren | Unit |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.4 -->
+<!-- Quelle: Datenschutzplan Q-O1, #1792 -->
+| AK-52 | **Nicht implementiert** (#1792): `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` antworten `202 Accepted`, der Mandant ist danach eingefroren (Memberships deaktiviert, Löschnachweis angelegt), und ein Celery-Task führt die Löschung in begrenzten, idempotenten Batches mit fortlaufendem Heartbeat aus. Ein deterministisch scheiternder Batch eskaliert nach N Versuchen, statt täglich lautlos zu wiederholen. Dies ist eine brechende API-Änderung gegenüber dem heutigen synchronen `200`/`204`-Vertrag (§1a.2, §3.6). | Unit + Integration |
+<!-- /Quelle: Datenschutzplan Q-O1, #1792 -->
+<!-- Quelle: Datenschutzplan Q-L1/Q-L2, #1805 -->
+| AK-53 | Eine Migration setzt v0004-Altstempel auf globalen Seed-Zeilen von `fertilizers`, `nutrient_plans` und `task_templates` auf `tenant_key == ""` zurück (Form wie `v0036`/`v0038`); ihre Vorab-Prüfung läuft ausschließlich gegen einen Dev-Cluster oder ein wiederhergestelltes Backup, nie gegen die Produktionsdatenbank direkt; ein Task-Template eines erhaltenen System-Workflows wird mit ihm zurückgesetzt | Integration |
+<!-- /Quelle: Datenschutzplan Q-L1/Q-L2, #1805 -->
+<!-- Quelle: Datenschutzplan Q-L3, #1878 -->
+| AK-54 | Ein geteiltes globales Template mit dem Namen einer privaten Species wird der aktuellen Eigentümerin dieser Species als privates Template zugeordnet; eine fremde Kante aus den #1871-Lücken wird bei eindeutigem Ziel auf den korrekten Mandanten umgehängt, sonst gelöscht; die Korrektur-Migration ist idempotent und protokolliert nur Anzahlen | Integration |
+<!-- /Quelle: Datenschutzplan Q-L3, #1878 -->
 
 ### Frontend-Kriterien:
 

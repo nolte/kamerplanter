@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.11 (eigener, rotierbarer Log-Salt, #1812)
+Version: 1.12 (Datenschutzplan-Entscheidungen Q-R3/Q-R9/Q-R11/Q-R12/Q-O5/Q-O6/Q-O7, #1806/#1800/#1793)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,6 +21,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.12 | 2026-09-26 | **Datenschutzplan-Entscheidungen, Runde 4–6 (#1806, #1800, #1793):** §3.4 Die Log-Pipeline-Frist ist entschieden statt offen: 30 Tage für Anwendungs- und Zugriffsprotokolle, Rotation löscht ältere Zeilen (Q-R3 — bestätigt den bisherigen Vorschlag, der Text trug nur noch die Hedge-Formulierung). §4 Jede über Settings konfigurierbare Frist bekommt eine Obergrenze in Höhe ihres eigenen NFR-Default-Werts; ein höherer Wert lässt Backend und Worker nicht starten (Q-R9, GDPR-004, neue Spalte „Obergrenze", **AK-14**). R-01 (Betreiberentscheidung, GDPR-009): die 90-Tage-Gnadenfrist bis zum Hard-Delete ist gegen Art. 12(3)/17(1) begründet dokumentiert — die Löschzusage wirkt sofort durch den Soft-Delete, die Frist ist Aufbewahrung, keine Antwortverzögerung (Q-R11). R-06 auf **3 Jahre** verlängert, angeglichen an die Aufbewahrung des Mandanten-Löschnachweises `tenant_erasure_records` (Q-R12, GDPR-010, #1793). §2.2 R-14/ADR-003 (differenzierte Sensor-Retention) und R-15/AK-06 (Aktor-Logs, Retention-Metriken) sind als benanntes Roadmap-Ziel **„Retention-Observability"** markiert — vollständige Umsetzung ist außerhalb des Umfangs eines einzelnen PRs (Q-O5, Q-O6, #1800). TimescaleDB Continuous Aggregates: Tenant- und Sensor-Löschung entfernen jetzt gezielt auch die aggregierten Buckets jeden Alters, nicht nur das Rohdaten-Fenster (Q-O7, #1793). |
 | 1.11 | 2026-09-26 | **#1812:** Die Log-Pseudonyme (`subject=`, `email_sha256=`) sind mit einem eigenen, rotierbaren `LOG_PSEUDONYM_SALT` verschlüsselt statt mit `ERASURE_TOMBSTONE_SALT` (L-1, L-2); API und Worker starten in Produktion nicht ohne ihn (L-5); neuer Absatz zur Rotation. Betreiberentscheidung vom 2026-09-26. |
 | 1.10 | 2026-09-26 | **#1828/#1830/#1831/#1832:** L-1 nennt zusammengesetzte Schlüssel (Benachrichtigungs-Dedup- und Gruppen-Schlüssel), die den Kontoschlüssel enthalten. L-6 schließt das Präfix eines neu erzeugten API-Schlüssels aus. L-8 gilt nun unabhängig davon, welche Handler es wann gibt (Redaktion beim Erzeugen jedes Records), auch für Celerys Retry-Zeile und die an Celery-Records angehängten Task-Daten; L-9 neu: Redaktion vor dem Lifespan, Konfigurationsfehler ohne Wert. |
 | 1.9 | 2026-09-25 | **#1795/#1796:** §3.4 um L-6 bis L-8 erweitert: keine API-Schlüssel und Einmal-Tokens in einer Log-Senke (httpx/httpcore/urllib3 auf WARNING mit Query-Filter in API und Worker, Console-Mail-Adapter ohne Link außerhalb von `DEBUG`), redigierte Zugriffsprotokolle von uvicorn und nginx, redigierte Tracebacks in beiden Prozessen. L-3 nennt zusätzlich URL-Userinfo und Fragmente; der Offen-Hinweis in L-4 entfällt. Ein eigener, rotierbarer Log-Salt ist eine offene DSB-Entscheidung (#1812). |
@@ -82,7 +83,7 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-03 | IP-Adressen in Sessions | `refresh_tokens` (Feld: `ip_address`) | 7 Tage nach Speicherung | Anonymisierung: IPv4 letztes Oktett → `0`, IPv6 → `/48`-Präfix behalten | Art. 6(1)(f) berechtigtes Interesse, Art. 5(1)(c) Datenminimierung | REQ-023 §2 |
 | R-04 | Consent Records | `consent_records` | 3 Jahre nach Widerruf | Hard-Delete | Art. 7(1) Nachweispflicht | REQ-025 **Nicht implementiert** (Stand #1782): Kein Task löscht `consent_records`; die IP-Adresse eines Consent Records wird ebenfalls nicht anonymisiert (#1800). |
 | R-05 | Export-Dateien | Dateisystem (Export-Verzeichnis) | 72 Stunden nach Erstellung | Datei löschen, Status auf `expired` setzen | Art. 15/20 DSGVO, Zweckentfall | REQ-025 |
-| R-06 | Erasure-Audit-Logs | `erasure_requests` | 1 Jahr nach Abschluss | **Pseudonymisierung sofort nach User-Hard-Delete (`user_key` → Tombstone-Hash via REQ-025 §3.1 Phase 2.5), anschließend Hard-Delete des Audit-Eintrags nach 1 Jahr** <!-- W-002 --> | Art. 5(2) Rechenschaftspflicht + Art. 5(1)(e) Speicherbegrenzung | REQ-025 |
+| R-06 | Erasure-Audit-Logs | `erasure_requests` | 3 Jahre nach Abschluss <!-- Q-R12, #1793/#1806 --> | **Pseudonymisierung sofort nach User-Hard-Delete (`user_key` → Tombstone-Hash via REQ-025 §3.1 Phase 2.5), anschließend Hard-Delete des Audit-Eintrags nach 3 Jahren** <!-- W-002, verlängert Q-R12 --> | Art. 5(2) Rechenschaftspflicht + Art. 5(1)(e) Speicherbegrenzung | REQ-025 |
 | R-07 | E-Mail-Änderungsanfragen | `email_change_requests` | 24 Stunden nach Erstellung | Hard-Delete (abgelaufene Tokens) | Zweckentfall | REQ-025 **Teilweise implementiert** (Stand #1782): Nach Ablauf der Frist setzt `retention.expire_email_change_requests` den Status auf `expired`; ein Hard-Delete findet nicht statt (#1800). |
 | R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung (#1848) | `email_change_requests` (Felder: `previous_email`, `revert_token_hash`, `revert_expires_at`) | 7 Tage nach der Bestätigung (`RETENTION_EMAIL_CHANGE_REVERT_DAYS`) | Felder nullen | Zweckentfall: der Link, mit dem die vorherige Adresse das Konto zurückholt (REQ-025 AK-EC-04), ist abgelaufen | REQ-025 **Implementiert** (#1848): `retention.expire_email_change_requests` nullt die Felder im selben stündlichen Lauf. |
 | R-08 | Passwort-Reset-Tokens | `users` (Felder: `password_reset_token`, `password_reset_expires`) | 1 Stunde (besteht) | Token-Felder nullen | REQ-023 §1 | REQ-023 |
@@ -97,6 +98,22 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-22 | Aufgaben-Bewertungen (Task difficulty/quality ratings) | `tasks` (Felder: `difficulty_rating`, `quality_rating`, `assigned_to_user_key`) | Bei User-Löschung: `assigned_to_user_key` durch den Marker `_anonymized` ersetzen (`ErasureEngine.ANONYMIZE_COLLECTIONS`), Bewertungen bleiben (aggregiert nutzbar) | Anonymisierung | Art. 17 Abs. 3 (Lern-System benötigt Aggregatdaten) | REQ-006 |
 | R-19a <!-- ADR-003 --> | Saison-Aggregate (`seasonal_cycles.sensor_aggregates`) | `seasonal_cycles` (Feld `aggregate_computed_by`) | Aggregate bleiben unbegrenzt (keine personenbezogenen Daten); bei User-Löschung `aggregate_computed_by → NULL` | Anonymisierung | Art. 17 Abs. 3 (fachliche Trendanalyse über Pflanzenleben) | REQ-003 v2.x, REQ-025 **Nicht implementiert** (Stand #1663): Die Collection `seasonal_cycles` existiert im Code nicht; es gibt keine Regel im Löschinventar (`ErasureEngine`). |
 
+<!-- Quelle: Datenschutzplan Q-R11, #1806 GDPR-009 -->
+**R-01 — Warum 90 Tage Art. 12(3)/17(1) nicht verletzen (Betreiberentscheidung 2026-09-26).**
+Art. 12(3) setzt für die **Antwort** auf einen Betroffenenantrag eine Ein-Monats-Basisfrist;
+Art. 17(1) verlangt Löschung „unverzüglich". Beide sind bereits im Moment des Soft-Delete
+erfüllt: Der Antrag wird **synchron** umgesetzt — Status auf `deleted`, alle Sitzungen
+invalidiert, `password_hash` und `avatar_url` sofort aus dem Dokument entfernt (§1
+oben, REQ-025 §1.1 Szenario 3). Die betroffene Person kann sich ab diesem Zeitpunkt nicht
+mehr anmelden und hat keine wiederherstellbaren Zugangsdaten mehr im System — die Löschung
+im Sinne von Art. 17(1) ist wirksam. Die 90 Tage danach sind keine Bearbeitungsverzögerung,
+sondern eine **Aufbewahrungsfrist für die verbleibenden Restdaten** (u. a. zur Betrugs- und
+Missbrauchsprävention sowie zur Behandlung von Wiederherstellungsanfragen kurz nach einer
+Fehlbedienung) — vergleichbar mit einer Löschsperre, wie sie Art. 17(3) für andere
+Zwecke ausdrücklich zulässt. Diese Einordnung ist hiermit als Entscheidung dokumentiert
+(#1806 GDPR-009) und nicht mehr offen; eine Änderung der Frist selbst bleibt eine
+gesonderte Entscheidung.
+
 ### 2.2 Sensordaten (Indirekt personenbezogen — SEC-K-005)
 
 Sensordaten können Rückschlüsse auf Anwesenheit und Verhalten von Personen erlauben (CO2-Kurven, Bewegungssensoren, manuelle Overrides). Sie unterliegen daher einer gestuften Retention-Policy mit zunehmender Aggregierung:
@@ -105,6 +122,31 @@ Sensordaten können Rückschlüsse auf Anwesenheit und Verhalten von Personen er
 |---|---------------|---------------|-------------------|--------------------|--------------------|----------------|
 | R-14 | Sensordaten (Temperatur, RH, CO2, Licht, Bodenfeuchtigkeit) <!-- ADR-003 differenziert nach Location.data_classification (REQ-002), siehe Tabelle unten --> | TimescaleDB | 90 Tage volle Auflösung | 90d–2 Jahre (Default) bzw. 90d–5 Jahre (`OUTDOOR_OPEN`): Stundenmittelwerte | **Differenziert nach Klassifizierung (siehe Untertabelle)** | Art. 6(1)(b) Vertragserfüllung |
 | R-15 | Aktor-Logs (manuelle Overrides) | TimescaleDB | 90 Tage | 90d–1 Jahr: aggregiert (Override-Anzahl/Tag) | Danach löschen | Art. 6(1)(f) berechtigtes Interesse |
+
+<!-- Quelle: Datenschutzplan Q-O5/Q-O6, #1800 -->
+**Roadmap-Ziel „Retention-Observability" (Betreiberentscheidung 2026-09-26, #1800).**
+Zwei Lücken dieser NFR werden hiermit ausdrücklich zu einem gemeinsamen, benannten
+Roadmap-Ziel erklärt, statt weiter als isolierte offene Punkte mitgeführt zu werden:
+
+- **R-14/ADR-003 vollständig umsetzen (Q-O5):** ADR-003 (Sensor-Retention-Differenzierung
+  nach `Location.data_classification`, §2.2 Untertabelle) ist als Architektur-Entscheidung
+  **Accepted**, aber seine Folgemaßnahmen sind nicht gebaut — `Location.data_classification`
+  existiert nicht im Modell, die Stufen-3-Werte je Klassifizierung sind Literale in
+  `003_retention_policies.sql`, kein `SENSOR_*`-Setting hat einen Leser (§4). Die
+  Vollumsetzung berührt REQ-002 (Modellfeld + UI), REQ-003 (SeasonalCycle-Aggregate),
+  REQ-005 (TimescaleDB-Policy-Auswahl) und diese NFR gleichzeitig — das ist **Roadmap-Umfang,
+  nicht der Zuschnitt eines einzelnen PRs** (ADR-003 „Folgemaßnahmen"-Tabelle).
+- **R-15 Aktor-Logs + AK-06 Retention-Metriken bauen (Q-O6):** R-15 hat heute keinen
+  Speicher (kein Task, keine Collection); AK-06 (Prometheus-Metriken
+  `retention_records_processed_total` u. a., §3.3) hat keine Metrik-Pipeline, an die sie
+  andocken könnten. Beide werden hier als **ein** vorwärtsverweisendes Roadmap-Item
+  geführt, nicht länger nur einzeln als "nicht implementiert" vermerkt und sonst
+  stillschweigend fallengelassen.
+
+Dieser Absatz erschöpft die Anforderung nicht — er benennt sie als offen und referenziert
+sie zusammenhängend; ein späteres Vorhaben (Issue/Epic „Retention-Observability") bricht
+sie in umsetzbare Pakete herunter.
+<!-- /Quelle: Datenschutzplan Q-O5/Q-O6, #1800 -->
 
 <!-- Quelle: ADR-003 / W-014 -->
 **R-14 Differenzierung nach `Location.data_classification` (ADR-003):**
@@ -170,6 +212,26 @@ SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
 SELECT add_retention_policy('sensor_hourly', INTERVAL '2 years');
 SELECT add_retention_policy('sensor_daily', INTERVAL '5 years');
 ```
+
+<!-- Quelle: Datenschutzplan Q-O7, #1793 -->
+**Aggregate folgen der Löschung von Tenant und Sensor (Betreiberentscheidung 2026-09-26, #1793).**
+Die Retention-Policies oben laufen altersbasiert und decken deshalb nicht den Fall ab, dass
+ein Tenant oder ein einzelner Sensor vor Ablauf seiner Frist gelöscht wird: `sensor_hourly`
+und `sensor_daily` behalten die materialisierten Buckets des gelöschten Tenants/Sensors
+so lange, bis eine reguläre Policy-Aktualisierung zufällig ihr Zeitfenster erreicht.
+
+- **Tenant-Löschung:** Alle Buckets **jeden Alters** des gelöschten Tenants werden in
+  `sensor_hourly` und `sensor_daily` gezielt gelöscht (`DELETE ... WHERE tenant_key = …`
+  bzw. ein Refresh über den vollen historischen Bereich der Continuous Aggregates) —
+  nicht nur das Rohdaten-Fenster von 90 Tagen.
+- **Sensor-Löschung:** Wird ein einzelner Sensor gelöscht, werden seine Buckets in
+  `sensor_hourly`/`sensor_daily` mit ihm gelöscht, nicht als historischer Datenbestand
+  aufbewahrt.
+
+Beide Fälle laufen als Teil desselben Löschvorgangs wie die Rohdaten-Löschung
+(`TimescaleObservationRepository.delete_by_tenant` / `delete_by_sensor`), nicht als
+separater, später laufender Aggregat-Job.
+<!-- /Quelle: Datenschutzplan Q-O7, #1793 -->
 
 ### 2.3 Fachliche Aufbewahrungspflichten
 
@@ -379,37 +441,50 @@ Referenzen, die vor #1812 geschrieben wurden, sind mit dem Tombstone-Salt gebild
 bleiben mit ihm nachrechenbar. Der Wert sollte sich vom Tombstone-Salt unterscheiden; die
 Anwendung prüft das nicht.
 
-**Aufbewahrung der Log-Pipeline — Betreiberpflicht, offen.** Auch pseudonyme Referenzen
-sind personenbezogene Daten (Erwägungsgrund 26 DSGVO), solange der Salt existiert. Die
-Aufbewahrungsdauer der Log-Pipeline MUSS deshalb begrenzt und dokumentiert sein. Sie ist
-eine Infrastruktur-Entscheidung des Betreibers (Kubernetes-Log-Rotation, Loki-Retention,
+**Aufbewahrung der Log-Pipeline — Betreiberpflicht, entschieden (Q-R3, Betreiberentscheidung
+2026-09-26, #1781/#1806).** Auch pseudonyme Referenzen sind personenbezogene Daten
+(Erwägungsgrund 26 DSGVO), solange der Salt existiert. Die Aufbewahrungsdauer der
+Log-Pipeline MUSS deshalb begrenzt und dokumentiert sein. Sie ist eine
+Infrastruktur-Entscheidung des Betreibers (Kubernetes-Log-Rotation, Loki-Retention,
 Docker-`json-file`-Rotation) und wird von der Anwendung weder gesetzt noch geprüft; das
 Helm-Chart dieses Repositorys betreibt keinen Log-Aggregator.
 
-!!! question "Offene Frage (Betreiber / Datenschutzbeauftragte:r) — #1781"
-    Welche Höchstfrist gilt für die Log-Pipeline? Vorschlag zur Entscheidung: **30 Tage**
-    für Anwendungs- und Zugriffsprotokolle (Fehleranalyse und Sicherheitsvorfälle), mit
-    einer Rotation, die ältere Zeilen löscht statt archiviert. Bis zur Entscheidung gilt
-    die Frist als nicht festgelegt; sie ist im Verzeichnis der Verarbeitungstätigkeiten
-    (Art. 30 DSGVO) nachzutragen.
+**Höchstfrist: 30 Tage.** Anwendungs- und Zugriffsprotokolle werden höchstens 30 Tage
+aufbewahrt (Fehleranalyse und Sicherheitsvorfälle), mit einer Rotation, die ältere Zeilen
+löscht statt archiviert. Das war der ursprüngliche Vorschlag dieser NFR und ist hiermit
+bestätigt — keine offene Frage mehr. Die Frist ist im Verzeichnis der
+Verarbeitungstätigkeiten (Art. 30 DSGVO) nachzutragen und beim Einrichten oder Ändern des
+Log-Aggregators (Loki-Retention, `json-file`-Rotation, Kubernetes-Node-Log-Rotation) auf
+diesen Wert zu konfigurieren.
 
 ---
 
 ## 4. Konfigurierbarkeit
 
-**Umsetzungsstand (#1782, v1.7).** Die Settings-Klasse `Settings` hat kein Präfix; die Umgebungsvariablen heißen trotzdem wie unten (`RETENTION_…`). Jede Frist wird über `RetentionService` gelesen, und der Konstruktor prüft dieselben Untergrenzen noch einmal:
+**Umsetzungsstand (#1782, v1.7).** Die Settings-Klasse `Settings` hat kein Präfix; die Umgebungsvariablen heißen trotzdem wie unten (`RETENTION_…`). Jede Frist wird über `RetentionService` gelesen, und der Konstruktor prüft dieselben Unter- und Obergrenzen noch einmal:
 
-| Setting (Umgebungsvariable) | Regel | Default | Untergrenze | Auch akzeptiert (alter Name) |
-|-----------------------------|-------|---------|-------------|------------------------------|
-| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
-| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | — |
-| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | — |
-| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
-| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 (die Frist selbst) | — |
-| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
-| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
+<!-- Quelle: Datenschutzplan Q-R9, #1806 GDPR-004 -->
+**Obergrenzen (Betreiberentscheidung 2026-09-26, Q-R9, GDPR-004).** Bis hierher hatte jede
+konfigurierbare Frist nur eine Untergrenze (`ge=1`) — ein Betreiber konnte
+`RETENTION_SOFT_DELETE_RETENTION_DAYS=3650` setzen, und nichts widersprach der
+Datenminimierung nach Art. 5(1)(c). Jede Frist dieser Tabelle bekommt deshalb zusätzlich
+eine **Obergrenze in Höhe ihres eigenen NFR-Default-Werts** (Spalte „Obergrenze"): Der
+Betreiber darf eine Frist zur zusätzlichen Datenminimierung weiter absenken, aber nicht
+über den von dieser NFR vorgegebenen Wert hinaus verlängern. Ein Startversuch mit einem
+Wert oberhalb der Obergrenze bricht den Start von API **und** Worker ab — Fehlermeldung
+nennt Variable und Grenzwert, analog zu den Pflicht-Salt-Prüfungen in §3.4 L-5 (**AK-14**).
 
-Sind beide Namen gesetzt, gilt der `RETENTION_…`-Name. **Nicht implementiert** (kein Code liest sie, #1800): `CONSENT_RETENTION_YEARS` (R-04, kein Lösch-Task), `INVITATION_RETENTION_DAYS` (R-12, keine Löschung), `SENSOR_*` (R-14; die Intervalle stehen als Literale in `src/backend/app/data_access/timescale/migrations/003_retention_policies.sql`: 90 Tage, 2 Jahre, 5 Jahre; die ADR-003-Stufen je Klassifizierung sind nicht modelliert), `ACTOR_LOG_*` (R-15, es gibt keinen Aktor-Log-Speicher) und `HARVEST_DATA_MIN_…`/`TREATMENT_MIN_…`/`INSPECTION_MIN_…` (R-16..R-18: nichts löscht diese Daten automatisch, eine Untergrenze hätte nichts zu begrenzen). `ERASURE_TOMBSTONE_SALT` heißt im Code `ERASURE_TOMBSTONE_SALT` (ohne Präfix).
+| Setting (Umgebungsvariable) | Regel | Default | Untergrenze | Obergrenze | Auch akzeptiert (alter Name) |
+|-----------------------------|-------|---------|-------------|------------|------------------------------|
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | 90 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | 7 | — |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | 7 | — |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | 72 | `PRIVACY_EXPORT_RETENTION_HOURS` |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 3 <!-- Q-R12 --> | 1 | 3 | — |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | 24 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | 7 | — |
+
+Sind beide Namen gesetzt, gilt der `RETENTION_…`-Name. **Nicht implementiert** (kein Code liest sie, #1800): `CONSENT_RETENTION_YEARS` (R-04, kein Lösch-Task), `INVITATION_RETENTION_DAYS` (R-12, keine Löschung), `SENSOR_*` (R-14; die Intervalle stehen als Literale in `src/backend/app/data_access/timescale/migrations/003_retention_policies.sql`: 90 Tage, 2 Jahre, 5 Jahre; die ADR-003-Stufen je Klassifizierung sind nicht modelliert — siehe „Roadmap-Ziel Retention-Observability" oben), `ACTOR_LOG_*` (R-15, es gibt keinen Aktor-Log-Speicher — dasselbe Roadmap-Ziel) und `HARVEST_DATA_MIN_…`/`TREATMENT_MIN_…`/`INSPECTION_MIN_…` (R-16..R-18: nichts löscht diese Daten automatisch, eine Untergrenze hätte nichts zu begrenzen). `ERASURE_TOMBSTONE_SALT` heißt im Code `ERASURE_TOMBSTONE_SALT` (ohne Präfix). Die neuen Obergrenzen gelten für dieselben sieben Settings wie die Untergrenze; für die als nicht implementiert gekennzeichneten Settings hat eine Obergrenze noch keinen Leser.
 
 Zielbild (unverändert):
 
@@ -425,7 +500,7 @@ class RetentionSettings(BaseSettings):
     IP_ANONYMIZATION_DAYS: int = 7                # R-03
     CONSENT_RETENTION_YEARS: int = 3              # R-04
     EXPORT_FILE_RETENTION_HOURS: int = 72         # R-05
-    ERASURE_AUDIT_RETENTION_YEARS: int = 1        # R-06
+    ERASURE_AUDIT_RETENTION_YEARS: int = 3        # R-06 (Q-R12)
     EMAIL_CHANGE_RETENTION_HOURS: int = 24        # R-07
     INVITATION_RETENTION_DAYS: int = 30           # R-12
 
@@ -517,8 +592,11 @@ Wenn ein Betroffener eine Löschanfrage stellt (Art. 17 DSGVO, REQ-025), interag
 | AK-11 | Unbestätigte Accounts werden nach `RETENTION_UNVERIFIED_ACCOUNT_DAYS` (Default 7) Tagen gelöscht | Integration |
 <!-- Quelle: Widerspruchsanalyse W-002 -->
 | AK-12 | **Pflicht-Setting `ERASURE_TOMBSTONE_SALT`:** Backend startet nicht, wenn die Umgebungsvariable `RETENTION_ERASURE_TOMBSTONE_SALT` nicht gesetzt oder kürzer als 32 Zeichen ist (Pydantic `Field(..., min_length=32)`). Fehlermeldung verweist auf NFR-011 §4. | Integration |
-| AK-13 | **R-06 Phase-Reihenfolge:** Im Erasure-Lauf (REQ-025 §3.5) wird die Pseudonymisierung der `erasure_requests`-Collection AUSGEFÜHRT, bevor der User selbst hard-deleted wird. Der Hard-Delete des Audit-Eintrags selbst erfolgt erst nach Ablauf von `ERASURE_AUDIT_RETENTION_YEARS` (Default 1 Jahr). | Integration |
+| AK-13 | **R-06 Phase-Reihenfolge:** Im Erasure-Lauf (REQ-025 §3.5) wird die Pseudonymisierung der `erasure_requests`-Collection AUSGEFÜHRT, bevor der User selbst hard-deleted wird. Der Hard-Delete des Audit-Eintrags selbst erfolgt erst nach Ablauf von `ERASURE_AUDIT_RETENTION_YEARS` (Default 3 Jahre, Q-R12). | Integration |
 <!-- /Quelle: Widerspruchsanalyse W-002 -->
+<!-- Quelle: Datenschutzplan Q-R9, #1806 GDPR-004 -->
+| AK-14 | **Obergrenze je konfigurierbarer Frist:** Für jedes der sieben in §4 gelisteten `RETENTION_*`-Settings verweigert der Start von API und Worker, sobald der gesetzte Wert die in §4 genannte Obergrenze (= NFR-Default) überschreitet; die Fehlermeldung nennt Variable und Grenzwert, nie den gesetzten Wert. Ein Wert an oder unterhalb der Obergrenze startet unverändert. | Unit + Integration |
+<!-- /Quelle: Datenschutzplan Q-R9, #1806 GDPR-004 -->
 <!-- Quelle: #1788 -->
 | AK-PT-01 | **Persönlicher Mandant geht mit dem Konto:** Nach Abschluss einer Kontolöschung (Selbstbedienung, Plattform-Admin, Bereinigung unverifizierter Konten) ist von jedem persönlichen Mandanten, dessen einziges aktives Mitglied die Person war, keine Zeile mehr übrig außer den Aufbewahrungsdaten nach NFR-011 R-16 bis R-18 (Kontoschlüssel = Tombstone-Hash, Freitextnamen leer); ein `tenant_erasure_records`-Eintrag mit `origin: account_erasure` steht auf `completed`. | Integration + Reach (T2) |
 | AK-PT-02 | **Nachweis im Löschauftrag:** Der Löschauftrag nennt je persönlichem Mandanten das Ergebnis (`erased` mit Schlüssel des Mandanten-Löschnachweises, `retained_other_members` mit Grund, `absent`) und ist erst `completed`, wenn jeder dieser Mandanten gelöscht oder begründet erhalten ist. Scheitert die Mandantenlöschung, bleibt der Auftrag offen und der ArangoDB-Plan läuft nicht; die Wiederholung erreicht den Mandanten über die im Auftrag gespeicherten Schlüssel, auch wenn er nicht mehr über den Eigentümer auffindbar ist. | Unit + Integration |
