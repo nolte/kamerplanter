@@ -745,6 +745,11 @@ class Settings(BaseSettings):
         ge=1,
         validation_alias=AliasChoices("retention_email_change_retention_hours", "privacy_email_change_ttl_hours"),
     )
+    #: NFR-011 R-07 / REQ-025 Art. 16 (#1848) — how long the previous address of a
+    #: confirmed e-mail change can take the account back through the revert link
+    #: mailed to it. ``previous_email`` and the revert token's hash are kept exactly
+    #: this long, then cleared by ``retention.expire_email_change_requests``.
+    retention_email_change_revert_days: int = Field(default=7, ge=1)
     #: NFR-011 R-02 / §4 ``UNVERIFIED_ACCOUNT_DAYS`` and REQ-023 AK-17 — an account
     #: whose address was never confirmed is erased this many days after
     #: registration (``auth_tasks.cleanup_unverified_accounts``). The task carried

@@ -285,6 +285,8 @@ class TestEmailChangeConfirmationNamesNobody:
         user_repo = MagicMock()
         user_repo.get_or_raise.return_value = User(_key=USER_KEY, email=OLD_EMAIL, display_name="x")
         user_repo.update_fields.return_value = User(_key=USER_KEY, email=NEW_EMAIL, display_name="x")
+        # The address moves by compare-and-set since #1848.
+        user_repo.move_email.return_value = User(_key=USER_KEY, email=NEW_EMAIL, display_name="x")
         change_repo = MagicMock()
         change_repo.get_by_token_hash.return_value = EmailChangeRequest(
             _key="ecr-1",

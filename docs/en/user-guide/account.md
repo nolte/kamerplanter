@@ -1,4 +1,4 @@
-<!-- REQ-023 — Source: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py -->
+<!-- REQ-023 — Source: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage,EmailChangeCard,EmailChangeConfirmPage,EmailChangeRevertPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py — REQ-025 (Art. 16) for the email change itself, see privacy.md -->
 
 # Account & Sign-In
 
@@ -107,11 +107,29 @@ In the **Profile** tab you can change:
 | Setting | Description |
 |---------|-------------|
 | **Display Name** | Shown throughout the app |
-| **Email** | Display only — the sign-in email cannot be changed here |
+| **Email** | Display only here — change your sign-in address in the **Change Email Address** section right below (see next section) |
 | **Language** | German or English — switches the interface language immediately |
 | **Timezone** | Used for all date and time displays, e.g. `Europe/Berlin` |
 
 Click **Save** after making changes.
+
+---
+
+## Changing Your Email Address
+
+In the **Profile** tab of your account settings, below your profile data, you'll find the **Change Email Address** section. This is the correction path under GDPR Art. 16 — for the full breakdown of what happens to your data, see [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).
+
+1. Enter the **new email address** and click **Request Change**
+2. Confirm yourself in the dialog that opens — with your **current password**, if your account has one, otherwise via **Sign in again** (Google, generic OIDC provider) or, only for accounts linked exclusively to GitHub/Apple, via **Send code by email**
+3. The interface confirms: a confirmation link was sent to the new address; your **current** address is notified about the requested change immediately
+
+Until confirmed, you keep signing in with your previous address.
+
+!!! tip "Confirming via the new address"
+    Open the email at the **new** address and click **Confirm New Address**. Only that click makes the new address your sign-in address — merely opening the email is not enough. All your sessions are then signed out; you sign in again with the new address afterwards.
+
+!!! warning "Wrong recipient? Undo it"
+    Your **previous** address also receives an email after confirmation — with a link that lets you undo the change once, within 7 days. This also unlinks sign-in providers newly linked since the change and revokes API keys created since then. For the full breakdown of what the restore does, see [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).
 
 ---
 
@@ -236,7 +254,7 @@ The confirmation dialog asks you to type your **own email address** back in. If 
     Check your spam folder first. The confirmation link is valid for 24 hours; after that, you need to register again to receive a new email.
 
 ??? question "Can I change my email address?"
-    In account settings, the email address is display-only and cannot be edited there. Changing your email is part of the privacy features — see [Privacy & GDPR](privacy.md).
+    Yes, in the **Profile** tab of your account settings, in the **Change Email Address** section (see above). The new address must be confirmed via a confirmation link; your previous address can then undo the change for 7 days. Details: [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).
 
 ??? question "What happens if I unlink a sign-in provider like Google?"
     You will no longer be able to sign in through that provider. As long as at least one other sign-in method (password or another provider) remains, sign-in continues to work through that method.

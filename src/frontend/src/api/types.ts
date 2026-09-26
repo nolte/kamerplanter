@@ -5256,6 +5256,39 @@ export interface ConsentRecord {
   revoked_at: string | null;
 }
 
+// REQ-025 Art. 16 — e-mail change (#1841, #1848)
+
+/**
+ * Body of `POST /privacy/email-change` — the new address and the shared step-up
+ * (REQ-023 §3.9). Only one factor is sent: `password` for an account with a
+ * local password (the field is `password` here, not `current_password`), else
+ * `step_up_token` of a fresh sign-in or `step_up_code` e-mailed for the act
+ * `email_change`.
+ */
+export interface EmailChangeCreateRequest {
+  new_email: string;
+  password?: string;
+  step_up_code?: string;
+  step_up_token?: string;
+}
+
+export type EmailChangeStatus = 'pending' | 'confirmed' | 'expired' | 'cancelled';
+
+/** `201` of `POST /privacy/email-change`: the request waits for the link sent to `new_email`. */
+export interface EmailChangeResponse {
+  key: string;
+  new_email: string;
+  status: EmailChangeStatus;
+  requested_at: string | null;
+  expires_at: string;
+  confirmed_at?: string | null;
+}
+
+/** `200` of the public token routes `/privacy/email-change/confirm` and `/revert`. */
+export interface PrivacyMessageResponse {
+  message: string;
+}
+
 // REQ-029 / REQ-029-A — AI plant identification (Phase 1: Pl@ntNet-first)
 
 /** Plant organ shown in the photo — improves identification accuracy. */

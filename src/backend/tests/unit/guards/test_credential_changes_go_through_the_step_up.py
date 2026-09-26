@@ -104,6 +104,14 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
     ("auth_service.py", "AuthService.verify_email"): (
         "proof of the mailbox: the verification token was mailed to the address it verifies"
     ),
+    ("privacy_service.py", "PrivacyService._take_back_credentials_since"): (
+        "reached only from revert_email_change, after its single-use mailbox proof; it removes sign-in links "
+        "created during a takeover (security review of #1848, SEC-002) — a removal on the owner's behalf"
+    ),
+    ("privacy_service.py", "PrivacyService.revert_email_change"): (
+        "proof of the previous mailbox (#1848): the single-use revert token was mailed to the address it restores "
+        "— the same proof a password reset relies on; bounded window, and it signs out every session"
+    ),
     ("user_service.py", "UserService.update_profile"): (
         "the field set is built in the same function from a closed tuple (display_name, avatar_url, locale) — "
         "no credential key can reach update_fields"
@@ -273,7 +281,7 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#1841). A change in either
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 19
+EXPECTED_MEMBERS = 21
 
 
 def test_every_credential_change_is_step_up_gated_or_classified() -> None:

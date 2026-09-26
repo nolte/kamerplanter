@@ -124,6 +124,10 @@ def email_change_repo():
     repo = MagicMock()
     repo.list_pending_for_user.return_value = []
     repo.get_by_token_hash.return_value = None
+    # #1848: no address held for a revert; the conditional writes succeed.
+    repo.find_revert_reservation.return_value = None
+    repo.claim_status.return_value = True
+    repo.record_confirmation.return_value = True
 
     def _create(change):
         change.key = "ec-1"
@@ -158,6 +162,14 @@ def user_repo(user):
         return user
 
     repo.update_fields.side_effect = _update_fields
+
+    def _move_email(_key, expected_email, fields):
+        """Mirror ``ArangoUserRepository.move_email``: compare the address, then write (#1848)."""
+        if user.email.lower() != str(expected_email).lower():
+            return None
+        return _update_fields(_key, fields)
+
+    repo.move_email.side_effect = _move_email
     wire_get_or_raise(repo, "User")
     return repo
 
@@ -487,7 +499,7 @@ class TestEmailChange:
         assert change.status == "pending"
         assert str(change.new_email) == "new@example.com"
         email_change_repo.create.assert_called_once()
-        email_service.send_verification_email.assert_called_once()
+        email_service.send_email_change_email.assert_called_once()
 
     def test_email_change_to_a_taken_address_does_not_disclose_it(
         self,
