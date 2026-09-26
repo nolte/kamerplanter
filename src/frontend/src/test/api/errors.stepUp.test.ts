@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ApiError, getStepUpErrorMessage, getStepUpLockedMinutes } from '@/api/errors';
+import { ApiError, getStepUpErrorMessage, getStepUpLockedMinutes, isStepUpCodeRequired } from '@/api/errors';
 import type { ApiErrorDetail } from '@/api/types';
 
 /**
@@ -59,5 +59,32 @@ describe('getStepUpErrorMessage', () => {
 
   it('passes every other error through parseApiError', () => {
     expect(getStepUpErrorMessage(apiError(401, 'UNAUTHORIZED'), t)).toBe('Backend English message.');
+  });
+});
+
+describe('STEP_UP_CODE_REQUIRED (#1815)', () => {
+  it('is recognised by isStepUpCodeRequired', () => {
+    expect(isStepUpCodeRequired(apiError(401, 'STEP_UP_CODE_REQUIRED'))).toBe(true);
+    expect(isStepUpCodeRequired(apiError(401, 'UNAUTHORIZED'))).toBe(false);
+    expect(isStepUpCodeRequired(new Error('network'))).toBe(false);
+  });
+
+  it('is translated by getStepUpErrorMessage', () => {
+    expect(getStepUpErrorMessage(apiError(401, 'STEP_UP_CODE_REQUIRED'), t)).toBe('pages.auth.stepUpCodeRequired');
+  });
+});
+
+describe('STEP_UP_CODE_UNDELIVERABLE (/code-review of #1862)', () => {
+  it('reads as the translated "cannot be delivered, ask the operator" message', () => {
+    expect(getStepUpErrorMessage(apiError(503, 'STEP_UP_CODE_UNDELIVERABLE'), t)).toBe(
+      'pages.auth.stepUpCodeUndeliverable',
+    );
+  });
+
+  it('has a translation in both languages', async () => {
+    const de = (await import('@/i18n/locales/de/pages.json')).default;
+    const en = (await import('@/i18n/locales/en/pages.json')).default;
+    expect(de.pages.auth.stepUpCodeUndeliverable).toMatch(/Betreiber/);
+    expect(en.pages.auth.stepUpCodeUndeliverable).toMatch(/operator/);
   });
 });

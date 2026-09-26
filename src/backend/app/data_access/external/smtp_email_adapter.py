@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 
 import structlog
 
@@ -78,6 +79,19 @@ class SmtpEmailAdapter(IEmailService):
         <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>
         """
         self._send(to_email, "Kamerplanter — Password Reset", html)
+
+    def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
+        html = f"""
+        <h2>Confirmation code</h2>
+        <p>Hello {escape(display_name)},</p>
+        <p>Use this code to confirm that you want to <strong>{escape(purpose)}</strong>.
+        It confirms this action only.</p>
+        <p style="font-size: 1.5em; letter-spacing: 0.2em;"><strong>{escape(code)}</strong></p>
+        <p>The code is valid for 10 minutes and can be used once.</p>
+        <p>If you did not request this code, someone may be signed in to your account:
+        sign out all sessions in your account settings and reset your password.</p>
+        """
+        self._send(to_email, "Kamerplanter — Confirmation code", html)
 
     def send_notification_email(self, to_email: str, subject: str, html_body: str) -> None:
         self._send(to_email, subject, html_body)

@@ -1,7 +1,9 @@
 import hashlib
+import hmac
 import re
 import secrets
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import NoReturn
 
@@ -16,6 +18,9 @@ from app.common.exceptions import (
     InvalidTokenError,
     NotFoundError,
     OAuthAutoLinkRefusedError,
+    StepUpCodeUndeliverableError,
+    StepUpReauthFailedError,
+    StepUpReauthUnavailableError,
     UnauthorizedError,
     ValidationError,
 )
@@ -28,14 +33,15 @@ from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOU
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
-from app.domain.engines.oauth_engine import OAuthEngine
+from app.domain.engines.oauth_engine import FreshReauthRejectedError, OAuthEngine, supports_fresh_reauth
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
 from app.domain.interfaces.device_pairing_store import IDevicePairingCodeStore
 from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottleStore
-from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.email_change_repository import IEmailChangeRepository
+from app.domain.interfaces.email_service import EmailUndeliverableError, IEmailService
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.unknown_account_store import IUnknownAccountStore
 from app.domain.interfaces.user_repository import IUserRepository
@@ -52,9 +58,16 @@ from app.domain.models.auth import (
     SessionInfo,
     TokenPair,
 )
+from app.domain.models.oidc_config import OidcProviderConfig
 from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
 from app.domain.services.api_key_controls import ApiKeyRateLimiter, enforce_api_key_controls
-from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
+from app.domain.services.step_up_service import (
+    CODE_PURPOSES,
+    FederatedReauthPolicy,
+    StepUpAction,
+    StepUpVerifier,
+    default_step_up_verifier,
+)
 from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
@@ -91,6 +104,24 @@ _TENANT_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}")
 #: confirm otherwise. Seeing "inactive" is the diagnostic a suspended owner needs
 #: in order to contact an administrator instead of resetting a password that was
 #: never wrong.
+#: The ``purpose`` a state entry of a step-up re-authentication carries (#1815). A
+#: login state has none; the callback dispatches on it.
+_STEP_UP_PURPOSE = "step_up"
+
+
+@dataclass(frozen=True)
+class OAuthCallbackOutcome:
+    """What a provider callback produced: a session (sign-in) or a step-up token (#1815)."""
+
+    token_pair: TokenPair | None = None
+    raw_refresh: str | None = None
+    is_persistent: bool = False
+    step_up_token: str | None = None
+    step_up_action: str | None = None
+    #: The ``client_nonce`` the step-up was started with, handed back beside the token.
+    step_up_client_nonce: str | None = None
+
+
 _INACTIVE_ACCOUNT_MESSAGE = "User account is inactive."
 
 #: Answer to a service account that tries to acquire an interactive credential (#1559).
@@ -188,6 +219,8 @@ class AuthService:
         device_pairing_throttle_store: IDevicePairingThrottleStore | None = None,
         tombstone_salt: str = "",
         step_up_verifier: StepUpVerifier | None = None,
+        email_change_repo: IEmailChangeRepository | None = None,
+        light_mode: bool = False,
         api_key_rate_limiter: ApiKeyRateLimiter | None = None,
     ) -> None:
         self._user_repo = user_repo
@@ -232,6 +265,16 @@ class AuthService:
         self._step_up_verifier = step_up_verifier or default_step_up_verifier(
             password_engine, tombstone_salt=tombstone_salt
         )
+        # #1815 — which provider links can re-authenticate freshly; the same rule
+        # the verifier asks (``get_step_up_verifier`` builds it over the same repos).
+        self._reauth_policy = (
+            FederatedReauthPolicy(auth_provider_repo, oidc_config_repo) if oidc_config_repo is not None else None
+        )
+        # #1841 — the pending e-mail changes an owner's take-back withdraws; see
+        # ``_cancel_pending_email_changes``.
+        self._email_change_repo = email_change_repo
+        # #1815 review — light mode has one shared, seeded system account.
+        self._light_mode = light_mode
         self._device_pairing_code_store = device_pairing_code_store
         self._device_pairing_throttle_store: IDevicePairingThrottleStore = (
             device_pairing_throttle_store
@@ -708,6 +751,9 @@ class AuthService:
             )
             # Revoke all sessions for security
             self._refresh_token_repo.revoke_all_for_user(user.key)
+            # The reset proves the mailbox the account is registered under — the
+            # owner taking it back. A pending e-mail change stops here (#1841).
+            self._cancel_pending_email_changes(user.key, reason="password_reset")
             logger.info("password_reset", email_sha256=email_digest(user.email))
 
     # ── Logout ──────────────────────────────────────────────────────────
@@ -719,7 +765,38 @@ class AuthService:
             self._refresh_token_repo.revoke(stored.key)
 
     def logout_all(self, user_key: UserKey) -> int:
-        return self._refresh_token_repo.revoke_all_for_user(user_key)
+        """Revoke every session — and withdraw a pending e-mail change (#1841), the owner's other lever."""
+        revoked = self._refresh_token_repo.revoke_all_for_user(user_key)
+        self._cancel_pending_email_changes(user_key, reason="logout_all")
+        return revoked
+
+    def _cancel_pending_email_changes(self, user_key: UserKey, *, reason: str) -> int:
+        """Withdraw every pending e-mail change of the account (#1841); return how many.
+
+        The notice the current address gets for an e-mail change tells the owner
+        to reset the password. Until this existed the reset stopped nothing: the
+        confirmation link is unauthenticated, so whoever read the new mailbox still
+        moved the account after the owner had taken it back. Called by the three
+        acts that prove the owner (or end every session): the password reset by
+        mail, the password change behind the step-up, and signing out everywhere.
+        A withdrawn request answers ``InvalidTokenError`` at confirmation, like an
+        expired one.
+
+        Without a wired repository (a service built outside the DI provider) there
+        is nothing to withdraw from; ``get_auth_service`` always wires it.
+        """
+        if self._email_change_repo is None:
+            return 0
+        cancelled = 0
+        for change in self._email_change_repo.list_pending_for_user(user_key):
+            if change.key is None:
+                continue
+            change.status = "cancelled"
+            self._email_change_repo.update(change.key, change)
+            cancelled += 1
+        if cancelled:
+            logger.info("email_change_cancelled", subject=self._log_subject(user_key), count=cancelled, reason=reason)
+        return cancelled
 
     # ── Provider linking ────────────────────────────────────────────────
 
@@ -783,6 +860,8 @@ class AuthService:
         current_password: str | None,
         new_password: str,
         *,
+        step_up_code: str | None,
+        step_up_token: str | None,
         authenticated_with_api_key: bool,
         client_ip: str | None,
     ) -> None:
@@ -797,27 +876,34 @@ class AuthService:
         # probe the password policy from here.
         self._refuse_interactive_credential(user)
 
+        # The policy is stateless, so it runs before the step-up: a too-weak new
+        # password must not spend the mailed code or a throttled attempt
+        # (/code-review of #1862).
+        errors = self._password_engine.validate_password_policy(new_password)
+        if errors:
+            raise ValidationError("; ".join(errors))
+
         # The current password is a step-up like any other (#1816): the shared
         # verifier refuses an API-key request (a key is not a person present),
         # throttles the check per account and address (429 ``STEP_UP_LOCKED``) and
         # counts into the same budget as account erasure and tenant deletion — one
         # budget per account, not one per route. An SSO-only user (no
-        # password_hash) still sets an initial password without one (#1815).
+        # password_hash) setting a first password confirms with the one-time code
+        # mailed to it (#1815); until then it passed on nothing at all.
         try:
             self._step_up_verifier.verify(
                 user,
                 action="password_change",
                 echo_ok=None,
                 password=current_password,
+                code=step_up_code,
+                reauth_token=step_up_token,
                 authenticated_with_api_key=authenticated_with_api_key,
                 client_ip=client_ip,
             )
         except UnauthorizedError as exc:
-            raise UnauthorizedError("Current password is incorrect.") from exc
-
-        errors = self._password_engine.validate_password_policy(new_password)
-        if errors:
-            raise ValidationError("; ".join(errors))
+            message = "Current password is incorrect." if user.password_hash else exc.message
+            raise UnauthorizedError(message) from exc
 
         user.password_hash = self._password_engine.hash_password(new_password)
         # A password change also consumes any outstanding reset token (SEC-011).
@@ -849,6 +935,60 @@ class AuthService:
             self._auth_provider_repo.create(provider)
 
         self._refresh_token_repo.revoke_all_for_user(user_key)
+        # Behind the step-up, so it is the owner's act; a pending e-mail change stops (#1841).
+        self._cancel_pending_email_changes(user_key, reason="password_change")
+
+    def send_step_up_code(
+        self,
+        user_key: UserKey,
+        *,
+        action: StepUpAction,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> datetime:
+        """Mail the one-time step-up code to an account without a local password (#1815).
+
+        The code confirms that account's irreversible acts and credential changes
+        (erasure, tenant deletion, first password, e-mail change). Everything that
+        decides whether a code may be issued — a person's session (403), the step-up
+        lock (429), an account that has a password (422) — is the verifier's; this
+        method only delivers it. The code goes to the account's own address and
+        never into a response or a log line.
+
+        Refused in light mode (403), like the account erasure there: every caller
+        is the one seeded system account, whose address is public in the seed, and
+        nothing a code could confirm is open to it anyway.
+
+        Returns:
+            When the code expires (UTC).
+        """
+        if self._light_mode:
+            raise ForbiddenError("A light-mode installation has no personal account to confirm.")
+        user = self._user_repo.get_or_raise(user_key)
+        code, expires_at = self._step_up_verifier.issue_code(
+            user,
+            action=action,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        try:
+            self._email_service.send_step_up_code_email(
+                to_email=user.email,
+                display_name=user.display_name,
+                code=code,
+                purpose=CODE_PURPOSES[action],
+            )
+        except (EmailUndeliverableError, NotImplementedError, OSError) as exc:
+            # /code-review of #1862: a code nobody receives must not be answered with
+            # "sent". OSError covers smtplib.SMTPException and connection failures.
+            # The code and its issuance are taken back, so the retry after the
+            # operator fixed the mail setup is not held by the wait or the budget.
+            self._step_up_verifier.withdraw_code(user)
+            logger.warning(
+                "step_up.code_undeliverable", subject=self._log_subject(user_key), error_type=type(exc).__name__
+            )
+            raise StepUpCodeUndeliverableError() from exc
+        return expires_at
 
     def _has_local_provider(self, user_key: UserKey) -> bool:
         providers = self._auth_provider_repo.list_by_user(user_key)
@@ -891,17 +1031,209 @@ class AuthService:
         user_agent: str | None = None,
         ip_address: str | None = None,
     ) -> tuple[TokenPair, str, bool]:
-        """Exchange code, find/create user, return tokens."""
+        """Exchange code, find/create user, return tokens.
+
+        A state issued for a step-up re-authentication (#1815) is refused here: the
+        login entry never turns a step-up callback into a session.
+        """
+        state_data = self._take_oauth_state(provider_slug, state)
+        if state_data.get("purpose") == _STEP_UP_PURPOSE:
+            raise InvalidTokenError("OAuth state")
+        return self._complete_login(provider_slug, code, state_data, user_agent, ip_address)
+
+    def handle_oauth_callback(
+        self,
+        provider_slug: str,
+        code: str,
+        state: str,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+    ) -> OAuthCallbackOutcome:
+        """The provider callback: a sign-in, or the fresh re-authentication of a step-up (#1815).
+
+        The state is taken once; its ``purpose`` decides. A ``step_up`` state
+        never reaches :meth:`_complete_login` — no session, no refresh token, no
+        ``last_login_at``, no ``last_used_at``.
+        """
+        state_data = self._take_oauth_state(provider_slug, state)
+        if state_data.get("purpose") == _STEP_UP_PURPOSE:
+            client_nonce = state_data.get("client_nonce")
+            try:
+                token, action = self.complete_step_up_reauth(provider_slug, code, state_data)
+            except StepUpReauthFailedError as exc:
+                exc.client_nonce = client_nonce
+                raise
+            return OAuthCallbackOutcome(step_up_token=token, step_up_action=action, step_up_client_nonce=client_nonce)
+        token_pair, raw_refresh, is_persistent = self._complete_login(
+            provider_slug, code, state_data, user_agent, ip_address
+        )
+        return OAuthCallbackOutcome(token_pair=token_pair, raw_refresh=raw_refresh, is_persistent=is_persistent)
+
+    def abandon_oauth_state(self, state: str | None) -> dict | None:
+        """Take (and so end) a state the provider answered with an error; return what it was for."""
+        if not state or not self._oauth_state_store:
+            return None
+        return self._oauth_state_store.get_and_delete(state)
+
+    def _take_oauth_state(self, provider_slug: str, state: str) -> dict:
         if not self._oauth_engine or not self._oauth_state_store or not self._oidc_config_repo:
             raise ValidationError("OAuth is not configured.")
-
-        # Retrieve and validate state
         state_data = self._oauth_state_store.get_and_delete(state)
         if state_data is None:
             raise InvalidTokenError("OAuth state")
         if state_data.get("provider_slug") != provider_slug:
             raise InvalidTokenError("OAuth state")
+        return state_data
 
+    # ── Step-up: fresh re-authentication at the identity provider (#1815) ──
+
+    def start_step_up_reauth(
+        self,
+        user_key: UserKey,
+        *,
+        action: StepUpAction,
+        provider_key: str | None,
+        client_nonce: str | None,
+        callback_url: Callable[[str], str],
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> str:
+        """Answer the authorization URL of a fresh sign-in at a linked provider (#1815).
+
+        Refused like any step-up for an API key or a service account (403) and while
+        the step-up is locked (429); an account with a local password confirms with
+        it (422). The provider is *provider_key* — a link of this account — or the
+        first link whose configuration supports a fresh re-authentication
+        (:func:`supports_fresh_reauth`); none such is 422 (the account confirms with
+        the e-mailed code instead).
+
+        The request is the login one (PKCE, state, nonce, the same callback URL
+        from *callback_url*) plus ``prompt=login`` and ``max_age=0``; the state entry
+        additionally names the purpose, the account and the act, and keeps the
+        redirect URI so the code exchange repeats it exactly. *client_nonce* — a
+        value the starting page generated — rides along unchanged and comes back
+        beside the token, so that page can refuse a token it did not ask for
+        (review SEC-005: a crafted callback link could otherwise plant one).
+        """
+        user = self._user_repo.get_or_raise(user_key)
+        self._step_up_verifier.admit_reauth(
+            user, authenticated_with_api_key=authenticated_with_api_key, client_ip=client_ip
+        )
+        if not self._oauth_engine or not self._oauth_state_store or self._reauth_policy is None:
+            raise ValidationError("Sign-in providers are not configured.")
+        links = self._reauth_policy.reauth_links(user_key)
+        if provider_key is not None:
+            links = [(row, config) for row, config in links if row.key == provider_key]
+        if not links:
+            raise StepUpReauthUnavailableError()
+        _row, config = links[0]
+
+        redirect_uri = callback_url(config.slug)
+        redirect = self._oauth_engine.build_authorization_url(config, redirect_uri, fresh_login=True)
+        self._oauth_state_store.save_state(
+            redirect.state,
+            {
+                "code_verifier": redirect.code_verifier,
+                "nonce": redirect.nonce,
+                "provider_slug": config.slug,
+                "purpose": _STEP_UP_PURPOSE,
+                "user_key": user_key,
+                "action": action,
+                "redirect_uri": redirect_uri,
+                "client_nonce": client_nonce,
+            },
+        )
+        logger.info("step_up.reauth_started", action=action, provider=config.slug, subject=self._log_subject(user_key))
+        return redirect.authorization_url
+
+    def complete_step_up_reauth(self, provider_slug: str, code: str, state_data: dict) -> tuple[str, str]:
+        """Check the provider's answer proves a fresh sign-in of the account; mint the step-up token (#1815).
+
+        ID token checks (OIDC Core 3.1.3.7 plus the step-up rule) are
+        :meth:`OAuthEngine.validate_fresh_reauth_claims`; here: the provider still
+        supports it, the account is still an active person, and ``sub`` is a
+        provider link **of this account** of this provider's type.
+
+        **No signature check.** The ID token comes straight from the provider's
+        token endpoint, over TLS, in the exchange this server authenticated with
+        its client secret and the PKCE verifier; OIDC Core 3.1.3.7 step 6 allows
+        TLS server validation in place of the signature in exactly that case. A
+        JWKS check would add a key fetch and cache per provider for no gain against
+        an attacker who cannot sit in that TLS session.
+
+        Returns:
+            ``(step_up_token, action)``.
+
+        Raises:
+            StepUpReauthFailedError: ``reason="stale"`` for a sign-in older than
+                five minutes, ``"failed"`` for anything else. Nothing is written.
+        """
+        action = str(state_data.get("action", ""))
+        user_key = str(state_data.get("user_key", ""))
+        try:
+            config = self._oidc_config_repo.get_by_slug(provider_slug) if self._oidc_config_repo else None
+            if config is None or not supports_fresh_reauth(config) or self._oauth_engine is None:
+                raise FreshReauthRejectedError("failed", "the provider cannot re-authenticate")
+            client_secret = config.client_secret_encrypted
+            if self._encryption_engine:
+                client_secret = self._encryption_engine.decrypt(client_secret)
+            token_response = self._oauth_engine.exchange_code_for_tokens(
+                config, code, state_data["code_verifier"], state_data["redirect_uri"], client_secret
+            )
+            claims = self._oauth_engine.id_token_claims(token_response)
+            sub = self._oauth_engine.validate_fresh_reauth_claims(
+                claims, config=config, nonce=str(state_data.get("nonce", "")), now=datetime.now(UTC)
+            )
+            user = self._user_repo.get_by_key(user_key)
+            if user is None or not user.is_active or not allows_interactive_auth(user):
+                raise FreshReauthRejectedError("failed", "the account is gone or not a person")
+            # The link must be one of this account's, of *this* configuration (review
+            # SEC-001) — the same rule the start chose it by — and, where the link
+            # recorded its issuer, from that issuer.
+            issuer = str(claims.get("iss", "")).rstrip("/")
+            links = self._reauth_policy.reauth_links(user_key) if self._reauth_policy is not None else []
+            if not any(
+                link_config.slug == config.slug
+                and hmac.compare_digest(row.provider_user_id, sub)
+                and (row.issuer is None or row.issuer.rstrip("/") == issuer)
+                for row, link_config in links
+            ):
+                raise FreshReauthRejectedError("failed", "sub is no provider link of this account at this provider")
+        except FreshReauthRejectedError as exc:
+            logger.info(
+                "step_up.reauth_refused",
+                provider=provider_slug,
+                action=action,
+                reason=exc.reason,
+                detail=exc.detail,
+                subject=self._log_subject(user_key),
+            )
+            raise StepUpReauthFailedError(exc.reason, action=action or None) from exc
+        except Exception as exc:  # noqa: BLE001 - a provider or decoding failure is a failed step-up, never a 500
+            logger.info(
+                "step_up.reauth_refused",
+                provider=provider_slug,
+                action=action,
+                reason="failed",
+                error_type=type(exc).__name__,
+                subject=self._log_subject(user_key),
+            )
+            raise StepUpReauthFailedError("failed", action=action or None) from exc
+
+        token = self._step_up_verifier.issue_reauth_token(user, action=action)  # type: ignore[arg-type]
+        return token, action
+
+    def _complete_login(
+        self,
+        provider_slug: str,
+        code: str,
+        state_data: dict,
+        user_agent: str | None,
+        ip_address: str | None,
+    ) -> tuple[TokenPair, str, bool]:
+        """The sign-in half of the callback: exchange, find or create the account, issue a session."""
+        if not self._oauth_engine or not self._oidc_config_repo:
+            raise ValidationError("OAuth is not configured.")
         config = self._oidc_config_repo.get_by_slug(provider_slug)
         if config is None or not config.enabled:
             raise NotFoundError("OidcProviderConfig", provider_slug)
@@ -966,7 +1298,7 @@ class AuthService:
                         raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
                     user = existing_user
                     # Create provider link
-                    self._create_oauth_provider(user.key or "", oauth_user, token_response)
+                    self._create_oauth_provider(user.key or "", oauth_user, token_response, config=config)
                 else:
                     # Deliberately does not say WHICH side is unverified: the
                     # caller of this endpoint is not necessarily the owner of the
@@ -991,7 +1323,7 @@ class AuthService:
             else:
                 # New user — register via OAuth
                 user = self._register_oauth_user(oauth_user)
-                self._create_oauth_provider(user.key or "", oauth_user, token_response)
+                self._create_oauth_provider(user.key or "", oauth_user, token_response, config=config)
 
         user.last_login_at = datetime.now(UTC)
         if user.key:
@@ -1037,8 +1369,20 @@ class AuthService:
         user_key: str,
         oauth_user: OAuthUserInfo,
         token_response: dict,
+        *,
+        config: OidcProviderConfig,
     ) -> AuthProvider:
-        """Create an AuthProvider record for an OAuth login."""
+        """Create an AuthProvider record for an OAuth login.
+
+        Records the configuration and the ID token's issuer (#1815 review SEC-001),
+        so a step-up re-authentication can send the link only to its own provider.
+        """
+        issuer: str | None = None
+        if token_response.get("id_token"):
+            try:
+                issuer = str(OAuthEngine.id_token_claims(token_response).get("iss") or "") or None
+            except ValueError:
+                issuer = None
 
         encrypted_access = token_response.get("access_token", "")
         encrypted_refresh = token_response.get("refresh_token", "")
@@ -1052,6 +1396,8 @@ class AuthService:
             user_key=user_key,
             provider=oauth_user.provider,
             provider_user_id=oauth_user.provider_user_id,
+            oidc_config_slug=config.slug,
+            issuer=issuer,
             provider_email=oauth_user.email,
             provider_display_name=oauth_user.display_name,
             avatar_url=oauth_user.avatar_url,

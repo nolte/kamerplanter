@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import secrets
 import time
@@ -365,9 +366,45 @@ class PrivacyService:
         self,
         user_key: UserKey,
         new_email: str,
+        *,
+        password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> EmailChangeRequest:
-        """Initiate a two-step email-change flow with token verification."""
+        """Initiate a two-step email-change flow with token verification — behind the step-up (#1841).
+
+        Moving the account onto another address is an account takeover in two
+        steps: whoever reads the new mailbox can reset the password. Until #1841
+        this ran on a bare session — also one resolved from an API key — and the
+        owner was told nothing. Now, in this order:
+
+        1. the shared :class:`StepUpVerifier` (keyword-only arguments without
+           defaults, so a new caller cannot skip it): a signed-in session of a
+           person (403), the current password or — for an account without one —
+           the mailed one-time code (401, ``STEP_UP_CODE_REQUIRED``), throttled in
+           the account's one step-up budget (429). It runs before the address is
+           **looked up**, so without the step-up the route is no oracle for which
+           addresses are taken. Only the stateless checks — not the own address,
+           not the reserved tombstone domain (422) — come before it (/code-review
+           of #1862): they reveal nothing and spend no code;
+        2. the lookup and the genuine / suppressed-taken branch (#957);
+        3. the account's **current** address is told that a change to the new one
+           was requested (REQ-025 AK-06) — in both branches, so they stay
+           indistinguishable to the requester.
+
+        A pending request is withdrawn when the owner takes the account back — a
+        password reset or change, or signing out everywhere
+        (``AuthService._cancel_pending_email_changes``). What is still open: the
+        mailed link targets the account-verification page, there is no
+        e-mail-change UI and no revert path after the confirmation (#1848).
+        """
         user = self._user_repo.get_or_raise(user_key)
+        # Stateless checks first (/code-review of #1862): they compare the typed
+        # address with the requester's own and with a fixed reserved domain, so they
+        # reveal nothing the requester does not already know — and refusing them
+        # before the step-up spends no mailed code and no throttled attempt.
         if user.email == new_email:
             raise ValidationError("New email must differ from the current address.")
         # Same reserved domain as on the registration path (#1525 SCR-014): moving an
@@ -375,6 +412,22 @@ class PrivacyService:
         # `users.email` is uniquely indexed.
         if is_tombstone_email(new_email):
             raise ValidationError("This email domain is reserved and cannot be used.")
+        # The step-up before the lookup: ``get_by_email`` is what could tell a taken
+        # address from a free one, so it never runs without the step-up.
+        self._step_up_verifier.verify(
+            user,
+            action="email_change",
+            echo_ok=None,
+            password=password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        # Both branches below tell the current address; sent here so the two
+        # cannot drift apart (the notice is the same work in either).
+        self._notify_current_address_of_email_change(user, new_email)
 
         if self._user_repo.get_by_email(new_email) is not None:
             return self._suppress_taken_email_change(user_key, user, new_email)
@@ -506,8 +559,67 @@ class PrivacyService:
             # here, the mail outage itself would become the oracle.
             logger.warning("email_change_target_notice_skipped")
 
+    def _notify_current_address_of_email_change(self, user: User, new_email: str) -> None:
+        """Tell the account's current address that a change to *new_email* was requested (REQ-025 AK-06, #1841).
+
+        The owner learns of it while the change is still pending and the current
+        address still receives password resets. The notice promises no undo link:
+        there is none yet (#1848). *new_email* passed ``EmailStr`` validation and is
+        escaped all the same — it is text the requester chose.
+        """
+        body = (
+            "<h2>Your email address is about to change</h2>"
+            "<p>A request to change the email address of your Kamerplanter account to "
+            f"<strong>{html.escape(new_email)}</strong> was confirmed with your account's credentials. "
+            "The change takes effect once the link sent to the new address is opened.</p>"
+            "<p>If this was not you, reset your password now from the sign-in page — the reset mail still "
+            "comes to this address, and resetting your password also cancels the pending change and signs out "
+            "every session. Then contact the operator of this Kamerplanter installation.</p>"
+        )
+        try:
+            self._email_service.send_notification_email(
+                to_email=user.email,
+                subject="Kamerplanter — a change of your email address was requested",
+                html_body=body,
+            )
+        except NotImplementedError:
+            # Only NotImplementedError, as for the target notice: a real send
+            # failure must not answer differently in the two branches.
+            logger.warning("email_change_owner_notice_skipped", subject=self.log_subject(user.key or ""))
+
+    def _notify_old_address_of_email_change(self, old_email: str, new_email: str, user_key: str) -> None:
+        """Tell the address an account just left that it was replaced and every session revoked (#1841).
+
+        A password reset now goes to the new address, so the notice does not point
+        at one; it points at the operator. No revert link — there is none yet (#1848).
+        """
+        body = (
+            "<h2>Your email address was changed</h2>"
+            "<p>The email address of your Kamerplanter account was changed to "
+            f"<strong>{html.escape(new_email)}</strong>. All sessions of the account were signed out.</p>"
+            "<p>If you did not make this change, contact the operator of this Kamerplanter installation "
+            "immediately. Password reset mails now go to the new address.</p>"
+        )
+        try:
+            self._email_service.send_notification_email(
+                to_email=old_email,
+                subject="Kamerplanter — your email address was changed",
+                html_body=body,
+            )
+        except NotImplementedError:
+            logger.warning("email_change_old_address_notice_skipped", subject=self.log_subject(user_key))
+        except Exception as exc:  # noqa: BLE001 - sent after the change is committed (/code-review of #1862)
+            # The address is already changed and every session revoked; a 500 here
+            # would tell the requester the change failed when it did not. Logged
+            # without the address and without the error text (it can name it).
+            logger.error(
+                "email_change_old_address_notice_failed",
+                subject=self.log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
+
     def confirm_email_change(self, raw_token: str) -> User:
-        """Validate token, swap user.email and revoke all sessions."""
+        """Validate token, swap user.email, revoke all sessions and tell the old address (REQ-025 AK-06)."""
         token_hash = self._token_engine.hash_token(raw_token)
         change = self._email_change_repo.get_by_token_hash(token_hash)
         if change is None or change.status != "pending":
@@ -535,6 +647,8 @@ class PrivacyService:
         change.confirmed_at = datetime.now(UTC)
         if change.key:
             self._email_change_repo.update(change.key, change)
+
+        self._notify_old_address_of_email_change(old_email, change.new_email, change.user_key)
 
         logger.info(
             "privacy_email_change_confirmed",
@@ -567,7 +681,8 @@ class PrivacyService:
         account (403); the account's own e-mail typed back (422); the current
         password when the account has one (401) — throttled per account and
         address (429 ``STEP_UP_LOCKED``, #1816). A federated-only account confirms
-        with the echo alone (REQ-394; real re-authentication #1815).
+        with the one-time code mailed to it (401 ``STEP_UP_CODE_REQUIRED`` without
+        one, #1815); before #1815 the echo alone confirmed it.
         """
         self._refuse_in_light_mode()
         user = self._user_repo.get_or_raise(user_key)
@@ -576,6 +691,8 @@ class PrivacyService:
             action="account_erasure",
             echo_ok=echo_matches(confirmation.echo, user.email, case_insensitive=True),
             password=confirmation.password,
+            code=confirmation.code,
+            reauth_token=confirmation.reauth_token,
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
@@ -591,7 +708,7 @@ class PrivacyService:
             hard_delete_at=self._retention.hard_delete_at(now),
             origin="self_service",
         )
-        erasure.step_up = "password" if step_up == "password" else "echo"
+        erasure.step_up = step_up
         created = self._erasure_repo.create(erasure)
 
         # Immediate effects: soft-delete the user and revoke all sessions.
@@ -774,8 +891,9 @@ class PrivacyService:
            ``lead`` membership in the ``platform`` tenant), not by the router's say (403);
         3. the shared :class:`StepUpVerifier`: a signed-in session of a person,
            never an API key (403); the **target's** e-mail typed back (422); the
-           **admin's own** current password when the admin has one (401),
-           throttled per admin and address (429, #1816).
+           **admin's own** current password when the admin has one, the code
+           mailed to the admin when not (401, #1815), throttled per admin and
+           address (429, #1816).
 
         Then :meth:`erase_account_now`, whose record carries the step-up and the
         admin as a salted reference.
@@ -790,6 +908,8 @@ class PrivacyService:
             action="admin_account_erasure",
             echo_ok=echo_matches(confirmation.echo, target.email, case_insensitive=True),
             password=confirmation.password,
+            code=confirmation.code,
+            reauth_token=confirmation.reauth_token,
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
@@ -804,7 +924,7 @@ class PrivacyService:
             user_key,
             origin="platform_admin",
             now=now,
-            step_up="password" if step_up == "password" else "echo",
+            step_up=step_up,
             requested_by_subject=requested_by,
         )
 
@@ -813,9 +933,10 @@ class PrivacyService:
 
         A light-mode installation has one account, the system user every request
         resolves to without authentication (REQ-027), and its address is public in
-        the seed. The echo alone confirms an account without a password, so an
-        erasure request here would let anyone who reaches the instance schedule
-        the erasure of the installation itself.
+        the seed. Before #1815 the echo alone confirmed an account without a
+        password, so an erasure request here would have let anyone who reaches the
+        instance schedule the erasure of the installation itself; the refusal
+        stays, because the installation account is not a person's to erase.
         """
         if self._light_mode:
             raise ForbiddenError("The account of a light-mode installation cannot be erased.")

@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.exceptions import UnauthorizedError
+from app.common.exceptions import UnauthorizedError, ValidationError
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
@@ -62,7 +62,15 @@ def service(user_repo: MagicMock) -> AuthService:
 
 
 def test_change_password_clears_the_outstanding_reset_token(service: AuthService, user_repo: MagicMock) -> None:
-    service.change_password("u1", CURRENT_PASSWORD, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
+    service.change_password(
+        "u1",
+        CURRENT_PASSWORD,
+        NEW_PASSWORD,
+        step_up_code=None,
+        step_up_token=None,
+        authenticated_with_api_key=False,
+        client_ip=None,
+    )
 
     key, fields = user_repo.update_fields.call_args[0]
     assert key == "u1"
@@ -77,10 +85,22 @@ def test_sso_user_setting_an_initial_password_also_clears_it(
     service: AuthService,
     user_repo: MagicMock,
 ) -> None:
-    """An SSO-only account may set its first password without the current one."""
-    user_repo.get_or_raise.return_value = _user(with_password=False)
+    """An SSO-only account sets its first password with the mailed step-up code, not the current one (#1815)."""
+    user = _user(with_password=False)
+    user_repo.get_or_raise.return_value = user
+    code, _expires_at = service._step_up_verifier.issue_code(
+        user, action="password_change", authenticated_with_api_key=False, client_ip=None
+    )
 
-    service.change_password("u1", None, NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
+    service.change_password(
+        "u1",
+        None,
+        NEW_PASSWORD,
+        step_up_code=code,
+        step_up_token=None,
+        authenticated_with_api_key=False,
+        client_ip=None,
+    )
 
     _, fields = user_repo.update_fields.call_args[0]
     assert fields["password_reset_token"] is None
@@ -90,6 +110,46 @@ def test_sso_user_setting_an_initial_password_also_clears_it(
 def test_a_rejected_change_leaves_the_token_untouched(service: AuthService, user_repo: MagicMock) -> None:
     """A wrong current password must not touch the stored credentials at all."""
     with pytest.raises(UnauthorizedError):
-        service.change_password("u1", "wrong-password", NEW_PASSWORD, authenticated_with_api_key=False, client_ip=None)
+        service.change_password(
+            "u1",
+            "wrong-password",
+            NEW_PASSWORD,
+            step_up_code=None,
+            step_up_token=None,
+            authenticated_with_api_key=False,
+            client_ip=None,
+        )
 
     user_repo.update_fields.assert_not_called()
+
+
+def test_a_policy_refusal_comes_before_the_step_up_and_spends_no_code(
+    service: AuthService, user_repo: MagicMock
+) -> None:
+    """/code-review of #1862: the policy is stateless — refusing it first keeps the mailed code for the retry.
+
+    Through the route the schema already bounds the length; the service is the
+    entry every caller shares, and the order is decided here.
+    """
+    user = _user(with_password=False)
+    user_repo.get_or_raise.return_value = user
+    code, _expires_at = service._step_up_verifier.issue_code(
+        user, action="password_change", authenticated_with_api_key=False, client_ip=None
+    )
+
+    with pytest.raises(ValidationError):
+        service.change_password(
+            "u1", None, "short", step_up_code=code, step_up_token=None, authenticated_with_api_key=False, client_ip=None
+        )
+    user_repo.update_fields.assert_not_called()
+
+    service.change_password(
+        "u1",
+        None,
+        NEW_PASSWORD,
+        step_up_code=code,
+        step_up_token=None,
+        authenticated_with_api_key=False,
+        client_ip=None,
+    )
+    user_repo.update_fields.assert_called_once()

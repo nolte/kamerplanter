@@ -20,6 +20,14 @@ class AuthProvider(BaseModel):
     user_key: str
     provider: AuthProviderType
     provider_user_id: str
+    #: The configuration the link was made through, and the ``iss`` of its ID token
+    #: (#1815 review SEC-001). A link type alone (``oidc``) cannot tell two generic
+    #: OIDC providers apart; the step-up re-authentication matches a link only to its
+    #: own configuration. ``None`` on links made before these fields existed — see
+    #: ``FederatedReauthPolicy`` for how those are treated (no migration: a backfill
+    #: would have to guess the configuration exactly where it is ambiguous).
+    oidc_config_slug: str | None = None
+    issuer: str | None = None
     provider_email: str | None = None
     provider_display_name: str | None = None
     avatar_url: str | None = None

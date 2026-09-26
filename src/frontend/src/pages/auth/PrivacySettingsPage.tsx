@@ -22,6 +22,8 @@ import { parseApiError } from '@/api/errors';
 import type { AccountErasureRequest } from '@/api/types';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { toStepUpBody } from '@/utils/stepUp';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { useAppSelector } from '@/store/hooks';
 
 interface ConsentItem {
@@ -77,7 +79,10 @@ const TAB_KEYS = ['consents', 'export', 'erasure', 'restrict'] as const;
 export default function PrivacySettingsPage() {
   const { t } = useTranslation();
 
-  const [tabIndex, setTabIndex] = useState(0);
+  // #1815 — back from the fresh sign-in at the identity provider: open the
+  // erasure tab and reopen its step-up dialog, which then sends the token.
+  const resumeErasure = useStepUpResume('privacy-erasure');
+  const [tabIndex, setTabIndex] = useState(() => (resumeErasure ? TAB_KEYS.indexOf('erasure') : 0));
 
   // ── Consents tab state ────────────────────────────────────────────
   const [consents, setConsents] = useState<ConsentItem[]>([]);
@@ -93,7 +98,7 @@ export default function PrivacySettingsPage() {
   // The step-up itself — own e-mail echo, fail-closed password, lockout — lives
   // in `StepUpConfirmDialog` (#1813, #1816); the page only keeps the outcome.
   const ownEmail = useAppSelector((s) => s.auth.user?.email ?? '');
-  const [erasureDialogOpen, setErasureDialogOpen] = useState(false);
+  const [erasureDialogOpen, setErasureDialogOpen] = useState(resumeErasure);
   const [erasureMessage, setErasureMessage] = useState('');
 
   // ── Restrict tab state ────────────────────────────────────────────
@@ -182,10 +187,9 @@ export default function PrivacySettingsPage() {
 
   // A rejection propagates to the dialog, which shows it (the lockout included)
   // and stays open so the echo or the password can be corrected.
-  const handleRequestErasure = async ({ echo, password }: StepUpConfirmation) => {
+  const handleRequestErasure = async ({ echo, ...credentials }: StepUpConfirmation) => {
     setErasureMessage('');
-    const payload: AccountErasureRequest =
-      password === undefined ? { confirm_email: echo } : { confirm_email: echo, password };
+    const payload: AccountErasureRequest = { confirm_email: echo, ...toStepUpBody(credentials) };
     await client.post('/privacy/erasure', payload);
     setErasureDialogOpen(false);
     setErasureMessage(t('pages.privacy.erasureRequested'));
@@ -525,6 +529,7 @@ export default function PrivacySettingsPage() {
         passwordRequiredMessage={t('pages.privacy.erasurePasswordRequired')}
         confirmLabel={t('pages.privacy.erasureDialogConfirm')}
         testIdPrefix="privacy-erasure"
+        stepUpAction="account_erasure"
         testIds={{
           echo: 'privacy-erasure-email',
           error: 'privacy-erasure-dialog-error',

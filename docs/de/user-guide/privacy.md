@@ -23,7 +23,7 @@ Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten b
 | `POST /api/v1/privacy/export` | Datenexport anfordern (Art. 15/20) |
 | `GET /api/v1/privacy/export/{export_key}` | Export-Status abfragen |
 | `GET /api/v1/privacy/export/{export_key}/download` | Export herunterladen |
-| `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) |
+| `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) — Step-up-Body `{password}` bzw. `{step_up_code}`, siehe unten |
 | `POST /api/v1/privacy/email-change/confirm` | E-Mail-Änderung per Token bestätigen |
 | `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) — Body `{confirm_email, password?}`, siehe unten |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Löschstatus abfragen |
@@ -89,10 +89,15 @@ Du hast das Recht, deine Daten berichtigen zu lassen.
 !!! info "Nur über API: E-Mail-Adresse ändern"
     Die Kontoeinstellungen zeigen deine E-Mail-Adresse aktuell nur schreibgeschützt an — ändern lässt sie sich bislang ausschließlich über die API: `POST /api/v1/privacy/email-change` initiiert die Änderung und sendet einen **Verifikationslink an die neue Adresse**, `POST /api/v1/privacy/email-change/confirm` bestätigt sie per Token (kein Login nötig). Details siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
 
+Wie bei der Kontolöschung verlangt die Anfrage einen Step-up: dein aktuelles Passwort, sofern dein Konto eines hat — sonst eine frische Anmeldung beim verknüpften Anbieter, oder, nur wenn du dich ausschließlich über GitHub/Apple anmeldest, der Bestätigungscode (siehe [API-Dokumentation](../api/authentication.md#erneut-anmelden-zur-bestatigung-oidc)). Deine **aktuelle** E-Mail-Adresse erhält bereits bei der Anfrage eine Benachrichtigung, dass eine Änderung angestoßen wurde.
+
 Die neue E-Mail ist nach der Bestätigung aktiv — alle aktiven Sitzungen werden beendet.
 
 !!! note "Sicherheitshinweis"
     Nach der Bestätigung der neuen E-Mail werden alle offenen Sitzungen (Browser, App) beendet. Du musst dich neu anmelden. Deine alte E-Mail erhält eine Informations-Mail über die Änderung.
+
+!!! warning "Ein Passwort-Reset oder eine Passwortänderung bricht eine offene Änderung ab"
+    Setzt du dein Passwort zurück, änderst du es in den Kontoeinstellungen, oder meldest du dich überall ab, wird eine noch nicht bestätigte E-Mail-Änderung automatisch verworfen — der Link in der Verifikations-Mail funktioniert danach nicht mehr. Das schützt dich, falls jemand anderes in deinem Namen eine Änderung angestoßen hat.
 
 ---
 
@@ -230,7 +235,7 @@ Du hast das Recht auf Löschung deiner Daten.
 
 1. Zu **Datenschutz** > Tab **Konto löschen** navigieren
 2. Auf **Konto löschen** klicken
-3. Im Bestätigungsdialog deine **eigene E-Mail-Adresse** erneut eintippen. Hat dein Konto ein **lokales Passwort**, zusätzlich dein **aktuelles Passwort** eingeben (zur Autorisierung der Löschung). Meldest du dich ausschließlich über einen externen Anbieter (Google, GitHub, Apple, OIDC) an, genügt die E-Mail-Bestätigung allein.
+3. Im Bestätigungsdialog deine **eigene E-Mail-Adresse** erneut eintippen. Hat dein Konto ein **lokales Passwort**, zusätzlich dein **aktuelles Passwort** eingeben (zur Autorisierung der Löschung). Meldest du dich über Google oder einen generischen OIDC-Anbieter an, klickst du stattdessen auf **Erneut anmelden** und bestätigst dich frisch beim Anbieter; nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, klickst du auf **Code per E-Mail senden** und gibst den zugeschickten Bestätigungscode ein.
 4. Im Bestätigungsdialog auf **Ja, Konto löschen** klicken
 
 !!! info "Bestätigung per E-Mail und Passwort"

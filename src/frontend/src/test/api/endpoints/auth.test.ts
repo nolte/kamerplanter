@@ -175,6 +175,13 @@ describe('auth endpoints', () => {
     expect(client.delete).toHaveBeenCalledWith('/users/me', { data: { confirm_email: 'me@example.org' } });
   });
 
+  it('requestStepUpCode names the act the code is to confirm (review SEC-003)', async () => {
+    const sent = { expires_at: '2026-09-25T12:10:00Z', expires_in: 600 };
+    client.post.mockResolvedValue({ data: sent });
+    await expect(auth.requestStepUpCode('tenant_deletion')).resolves.toEqual(sent);
+    expect(client.post).toHaveBeenCalledWith('/users/me/step-up-code', { action: 'tenant_deletion' });
+  });
+
   it('createApiKey posts to /auth/api-keys', async () => {
     const created = { key: 'k1', secret: 's' };
     client.post.mockResolvedValue({ data: created });

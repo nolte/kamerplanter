@@ -47,7 +47,7 @@ def _budget() -> int:
 def client() -> Iterator[TestClient]:
     service = MagicMock()
     now = datetime.now(UTC)
-    service.request_email_change.side_effect = lambda _user_key, new_email: EmailChangeRequest(
+    service.request_email_change.side_effect = lambda _user_key, new_email, **_step_up: EmailChangeRequest(
         _key="ec-1",
         user_key=USER_KEY,
         new_email=new_email,

@@ -155,16 +155,28 @@ class TestR05TheExportExpiresAfterTheConfiguredPeriod:
         assert result.expires_at - result.completed_at == timedelta(hours=6)
 
 
+#: The step-up an e-mail change carries since #1841: the stored user's password.
+_EMAIL_CHANGE_STEP_UP = {
+    "password": PASSWORD,
+    "step_up_code": None,
+    "step_up_token": None,
+    "authenticated_with_api_key": False,
+    "client_ip": None,
+}
+
+
 class TestR07TheEmailChangeLinkExpiresAfterTheConfiguredPeriod:
     def test_the_injected_period_sets_expires_at(self):
-        change = _service(RetentionService(email_change_ttl_hours=2)).request_email_change(USER_KEY, "new@example.com")
+        change = _service(RetentionService(email_change_ttl_hours=2)).request_email_change(
+            USER_KEY, "new@example.com", **_EMAIL_CHANGE_STEP_UP
+        )
 
         assert change.expires_at - change.requested_at == timedelta(hours=2)
 
     def test_the_setting_sets_expires_at(self, monkeypatch):
         monkeypatch.setattr(settings, "retention_email_change_retention_hours", 3)
 
-        change = _service(None).request_email_change(USER_KEY, "new@example.com")
+        change = _service(None).request_email_change(USER_KEY, "new@example.com", **_EMAIL_CHANGE_STEP_UP)
 
         assert change.expires_at - change.requested_at == timedelta(hours=3)
 
@@ -175,7 +187,7 @@ class TestR07TheEmailChangeLinkExpiresAfterTheConfiguredPeriod:
         user_repo.get_by_email.return_value = MagicMock()  # the new address is taken
 
         change = _service(RetentionService(email_change_ttl_hours=2), user_repo=user_repo).request_email_change(
-            USER_KEY, "taken@example.com"
+            USER_KEY, "taken@example.com", **_EMAIL_CHANGE_STEP_UP
         )
 
         assert change.expires_at - change.requested_at == timedelta(hours=2)

@@ -122,7 +122,7 @@ In the **Security** tab of your account settings you manage how you sign in.
 ### Changing or Setting Your Password
 
 - If you already have a local password, enter your current password and choose a new one
-- If you have only ever signed in via an external provider (e.g. Google), you can **set** a local password here as well — without a current password, since none exists yet. Afterwards you can sign in either with email/password or via the provider.
+- If you have only ever signed in via an external provider, you can **set** a local password here as well — instead of a current password (which doesn't exist yet), click **Sign in again** for Google or a generic OIDC provider and confirm with a fresh sign-in at that provider; only if you sign in exclusively through GitHub or Apple, click **Send code by email** instead and enter the code from the mail. Afterwards you can sign in either with email/password or via the provider.
 
 !!! warning "Changing your password ends all sessions"
     As soon as you change your password, all active sessions are terminated — including on other devices. You will need to sign in again there.
@@ -133,6 +133,9 @@ In the **Security** tab of your account settings you manage how you sign in.
 ### Linked Sign-In Providers
 
 The list shows all sign-in methods linked to your account (local password, Google, GitHub, …). You can unlink a provider as long as at least one other sign-in method remains. Your last remaining sign-in method cannot be removed, so you can never be locked out of your account.
+
+!!! note "Couldn't load the list?"
+    If the list fails to load, the card shows a warning. As long as it is unclear whether your account has a local password, the password form above keeps showing the current-password field as a precaution — reload the page to try again.
 
 ---
 
@@ -172,7 +175,7 @@ In the **API Keys** tab (access tokens for programmatic access, e.g. your own sc
 
 In the **Account** tab of your account settings, the red-highlighted area contains the **Delete Account** button. This is the same erasure path as the Privacy area (see [Deleting Your Account (GDPR Art. 17)](privacy.md#deleting-your-account-gdpr-art-17)): your account is closed immediately — you can no longer sign in afterwards — and your personal data is permanently erased after the grace period (90 days by default). Legally protected data (harvest and treatment documentation) is anonymized instead of deleted.
 
-The confirmation dialog asks you to type your **own email address** back in. If your account has a local password, you also enter your **current password**. If you sign in exclusively through an external provider (Google, GitHub, Apple, OIDC), confirming the email is enough on its own.
+The confirmation dialog asks you to type your **own email address** back in. If your account has a local password, you also enter your **current password**. If you sign in through Google or a generic OIDC provider instead, you click **Sign in again** in the dialog and confirm with a fresh sign-in at that provider; only if you sign in exclusively through GitHub or Apple — which cannot do that — you click **Send code by email** and enter the confirmation code it mails you.
 
 !!! danger "Account deletion is permanent"
     Once you confirm, the deletion cannot be undone. Download your data export first if you want to keep a copy of your data (see [Privacy & GDPR](privacy.md)). For the full breakdown of what is deleted immediately, what is deleted after 90 days, and what is only anonymized, see [Deleting Your Account (GDPR Art. 17)](privacy.md#deleting-your-account-gdpr-art-17).

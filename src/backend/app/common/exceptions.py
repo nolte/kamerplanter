@@ -380,12 +380,22 @@ class StepUpLockedError(KamerplanterError):
     in still works, only the re-confirmation of an irreversible act or a password
     change is held back. ``details[0].retry_after_minutes`` carries the wait so a
     client can render it in its own language.
+
+    Also raised when an e-mailed step-up code may not be issued yet (review
+    SEC-002: an unspent code younger than a minute, or the hourly budget spent) —
+    same code and detail, so a client needs no second handling, with its own
+    ``message`` (``code_issue=True``).
     """
 
-    def __init__(self, retry_after_minutes: int) -> None:
+    def __init__(self, retry_after_minutes: int, *, code_issue: bool = False) -> None:
         self.retry_after_minutes = retry_after_minutes
+        message = (
+            f"No new confirmation code can be sent yet. Try again in {retry_after_minutes} minutes."
+            if code_issue
+            else f"Too many failed confirmations. Try again in {retry_after_minutes} minutes."
+        )
         super().__init__(
-            message=f"Too many failed confirmations. Try again in {retry_after_minutes} minutes.",
+            message=message,
             error_code="STEP_UP_LOCKED",
             status_code=429,
             details=[
@@ -396,6 +406,144 @@ class StepUpLockedError(KamerplanterError):
                     "retry_after_minutes": str(retry_after_minutes),
                 }
             ],
+        )
+
+
+class StepUpCodeRequiredError(KamerplanterError):
+    """A step-up needs the e-mailed one-time code and none was sent (#1815) — HTTP 401.
+
+    An account without a local password (federated sign-in only) has no secret of
+    its own to re-enter; it confirms an irreversible act or a credential change
+    with a code mailed to its address (``POST /users/me/step-up-code``). Its own
+    error code, not ``UNAUTHORIZED``, so a client can tell "ask for the code" from
+    "the code or password was wrong" without parsing ``message``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="This account confirms with a one-time code sent by e-mail. Request one and send it back.",
+            error_code="STEP_UP_CODE_REQUIRED",
+            status_code=401,
+            details=[
+                {
+                    "field": "step_up_code",
+                    "reason": "Request a confirmation code (POST /api/v1/users/me/step-up-code) and send it back.",
+                    "code": "STEP_UP_CODE_REQUIRED",
+                }
+            ],
+        )
+
+
+class StepUpReauthRequiredError(KamerplanterError):
+    """A step-up needs a fresh sign-in at the account's identity provider (#1815) — 401 (422 on code issue).
+
+    The account has no local password but a linked provider that can
+    re-authenticate a person freshly (OpenID Connect: Google, a generic OIDC
+    provider). It confirms with the one-time ``step_up_token`` that
+    ``POST /users/me/step-up/oidc`` leads to — not with the e-mailed code, which
+    proves only the mailbox. ``details[0].field`` is ``step_up_token``, the field
+    to fill, so a client shows the "sign in again" button rather than the code form.
+    """
+
+    def __init__(self, *, status_code: int = 401) -> None:
+        super().__init__(
+            message=(
+                "This account confirms by signing in again at its identity provider. "
+                "Start it with POST /api/v1/users/me/step-up/oidc and send the step_up_token back."
+            ),
+            error_code="STEP_UP_REAUTH_REQUIRED",
+            status_code=status_code,
+            details=[
+                {
+                    "field": "step_up_token",
+                    "reason": "Sign in again at your identity provider (POST /api/v1/users/me/step-up/oidc).",
+                    "code": "STEP_UP_REAUTH_REQUIRED",
+                }
+            ],
+        )
+
+
+class StepUpPasswordRequiredError(KamerplanterError):
+    """The account has a local password and confirms with it — not with a code or a re-authentication (422).
+
+    Answered by ``POST /users/me/step-up-code`` and ``POST /users/me/step-up/oidc``
+    (#1815 review), so a client can tell "show the password field" from the other
+    422s of those routes without parsing ``message``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="This account confirms with its current password.",
+            error_code="STEP_UP_PASSWORD_REQUIRED",
+            status_code=422,
+            details=[
+                {
+                    "field": "password",
+                    "reason": "Confirm with the current password.",
+                    "code": "STEP_UP_PASSWORD_REQUIRED",
+                }
+            ],
+        )
+
+
+class StepUpReauthUnavailableError(KamerplanterError):
+    """No linked provider of the account can re-authenticate freshly — it confirms with the mailed code (422).
+
+    Answered by ``POST /users/me/step-up/oidc`` (#1815 review): GitHub/Apple-only
+    links, a link whose configuration is ambiguous or disabled, or a provider
+    without a TLS token endpoint. The client shows the e-mailed-code path.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="No linked sign-in provider of this account can confirm it; use the e-mailed code.",
+            error_code="STEP_UP_REAUTH_UNAVAILABLE",
+            status_code=422,
+            details=[
+                {
+                    "field": "step_up_code",
+                    "reason": "Request a code with POST /api/v1/users/me/step-up-code.",
+                    "code": "STEP_UP_REAUTH_UNAVAILABLE",
+                }
+            ],
+        )
+
+
+class StepUpReauthFailedError(KamerplanterError):
+    """The provider callback of a step-up proves no fresh sign-in of the account (#1815).
+
+    Never rendered as JSON: the callback is a browser redirect, and the route
+    turns ``reason`` (``stale`` / ``failed`` / ``cancelled``) into a whitelisted
+    error code on the frontend's step-up page. ``action`` is the act the
+    re-authentication was for, when the state named one.
+    """
+
+    def __init__(self, reason: str, *, action: str | None = None) -> None:
+        self.reason = reason
+        self.action = action
+        #: The starting page's ``client_nonce``, set by the callback handler.
+        self.client_nonce: str | None = None
+        super().__init__(
+            message="The sign-in at the identity provider could not confirm this action.",
+            error_code="STEP_UP_REAUTH_FAILED",
+            status_code=401,
+        )
+
+
+class StepUpCodeUndeliverableError(KamerplanterError):
+    """The step-up code could not be mailed (/code-review of #1862) — HTTP 503.
+
+    The code was withdrawn and its issuance given back, so a retry after the
+    operator fixed the mail setup is not held by the one-minute wait or the
+    hourly budget. Typically the console e-mail adapter outside ``debug`` or an
+    SMTP outage; the requester can only ask the operator.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The confirmation code cannot be delivered by e-mail. Contact the operator of this installation.",
+            error_code="STEP_UP_CODE_UNDELIVERABLE",
+            status_code=503,
         )
 
 

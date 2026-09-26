@@ -15,6 +15,11 @@ of a human account, never an API key or a service account (403); the target type
 (the account's e-mail, the tenant's slug — 422); the current password when the account has
 one (401). Every refusal happens before anything is written.
 
+#1815 — an account without a local password (federated sign-in only) no longer passes on
+the echo alone: it asks ``POST /users/me/step-up-code`` for a one-time code mailed to its
+address and sends it as ``step_up_code`` (401 ``STEP_UP_CODE_REQUIRED`` without one). The
+code attempts count into the same throttle as the password ones.
+
 #1816 — the password check is throttled: failures are counted per account *and* client
 address, with an account-wide ceiling above it; a locked step-up answers 429
 ``STEP_UP_LOCKED`` without testing the password. The lockout covers step-ups only — the
@@ -39,6 +44,7 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from app.api.v1.admin.platform.router import router as admin_router
+from app.api.v1.auth.router import limiter
 from app.api.v1.privacy.router import router as privacy_router
 from app.api.v1.tenants.router import router as tenants_router
 from app.api.v1.users.router import router as users_router
@@ -86,6 +92,14 @@ SELF_ROUTES = [
 
 def _error_handler(_request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
+
+
+@pytest.fixture(autouse=True)
+def _full_rate_limit_budget():
+    """``POST /users/me/step-up-code`` is rate-limited per address; every test starts with the budget."""
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 class _Users:
@@ -216,6 +230,7 @@ class _World:
             tenant_repo=tenant_repo,
             membership_repo=self.memberships,
         )
+        self.mail = MagicMock()
         self.auth = AuthService(
             user_repo=self.users,
             auth_provider_repo=MagicMock(),
@@ -223,7 +238,7 @@ class _World:
             password_engine=PasswordEngine(),
             token_engine=TokenEngine("test-secret-key-for-unit-tests-32chars!", "HS256"),
             throttle_engine=LoginThrottleEngine(),
-            email_service=MagicMock(),
+            email_service=self.mail,
             frontend_url="http://localhost:5173",
         )
 
@@ -258,6 +273,12 @@ class _World:
         if body is None:
             return client.request(method, path, headers=headers)
         return client.request(method, path, json=body, headers=headers)
+
+    def issue_code(self, action: str, *, ip: str = "198.51.100.7") -> str:
+        """Ask for a step-up code for *action* through the real route; return the one the mail carried."""
+        resp = self.call("POST", "/api/v1/users/me/step-up-code", {"action": action}, ip=ip)
+        assert resp.status_code == 202, resp.text
+        return self.mail.send_step_up_code_email.call_args.kwargs["code"]
 
     # ── what happened ────────────────────────────────────────────────────
 
@@ -351,15 +372,44 @@ def test_the_e_mail_echo_ignores_case_and_surrounding_space(route) -> None:
 
 
 @pytest.mark.parametrize("route", SELF_ROUTES)
-def test_a_federated_account_confirms_with_the_echo_alone(route) -> None:
+def test_a_federated_account_no_longer_erases_on_the_echo_alone(route) -> None:
+    """#1815 — the echo is typed by whoever holds the session; it proves nobody present."""
     world = _World(password_hash=None)
     method, path = route
 
     resp = world.call(method, path, {"confirm_email": world.caller_email})
 
+    assert resp.status_code == 401, resp.text
+    assert resp.json()["error_code"] == "STEP_UP_CODE_REQUIRED"
+    assert not world.erasures.stored
+    assert world.users.rows[world.caller_key].is_active
+    assert world.immediate_runs.await_count == 0
+
+
+@pytest.mark.parametrize("route", SELF_ROUTES)
+def test_a_federated_account_erases_with_the_mailed_code(route) -> None:
+    world = _World(password_hash=None)
+    method, path = route
+    code = world.issue_code("account_erasure")
+
+    resp = world.call(method, path, {"confirm_email": world.caller_email, "step_up_code": code})
+
     assert resp.status_code in (200, 201), resp.text
     (erasure,) = world.erasures.stored.values()
-    assert erasure.step_up == "echo"
+    assert erasure.step_up == "email_code"
+
+
+@pytest.mark.parametrize("route", SELF_ROUTES)
+def test_a_federated_account_with_a_wrong_code_erases_nothing(route) -> None:
+    world = _World(password_hash=None)
+    method, path = route
+    code = world.issue_code("account_erasure")
+    wrong = f"{(int(code) + 1) % 10**8:08d}"
+
+    resp = world.call(method, path, {"confirm_email": world.caller_email, "step_up_code": wrong})
+
+    assert resp.status_code == 401, resp.text
+    assert not world.erasures.stored
 
 
 @pytest.mark.parametrize("route", SELF_ROUTES)
@@ -442,14 +492,25 @@ def test_a_platform_admin_erases_with_the_step_up_and_the_record_says_how() -> N
     assert world.immediate_runs.await_count == 1
 
 
-def test_a_federated_platform_admin_confirms_with_the_echo_alone() -> None:
+def test_a_federated_platform_admin_no_longer_erases_on_the_echo_alone() -> None:
     world = _World(platform_admin=True, password_hash=None)
 
     resp = world.call("DELETE", _admin_route(world), {"confirm_email": world.target_email})
 
+    assert resp.status_code == 401, resp.text
+    assert resp.json()["error_code"] == "STEP_UP_CODE_REQUIRED"
+    assert world.account_untouched(world.target_key)
+
+
+def test_a_federated_platform_admin_erases_with_the_mailed_code() -> None:
+    world = _World(platform_admin=True, password_hash=None)
+    code = world.issue_code("admin_account_erasure")
+
+    resp = world.call("DELETE", _admin_route(world), {"confirm_email": world.target_email, "step_up_code": code})
+
     assert resp.status_code == 204, resp.text
     (erasure,) = world.erasures.stored.values()
-    assert erasure.step_up == "echo"
+    assert erasure.step_up == "email_code"
 
 
 def test_a_platform_admin_api_key_cannot_erase_an_account() -> None:
@@ -655,3 +716,275 @@ def test_light_mode_never_runs_an_admin_account_erasure() -> None:
 
     assert resp.status_code == 403, resp.text
     assert world.account_untouched(world.target_key)
+
+
+# ── #1815: the e-mailed step-up code ─────────────────────────────────────────
+
+
+def test_a_federated_account_gets_a_code_by_mail() -> None:
+    world = _World(password_hash=None)
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert resp.status_code == 202, resp.text
+    assert resp.json()["expires_in"] == 600
+    assert "expires_at" in resp.json()
+    kwargs = world.mail.send_step_up_code_email.call_args.kwargs
+    assert kwargs["to_email"] == world.caller_email
+    assert len(kwargs["code"]) == 8 and kwargs["code"].isdigit()
+    assert kwargs["code"] not in resp.text
+
+
+def test_an_api_key_gets_no_code() -> None:
+    world = _World(password_hash=None)
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"}, bearer="kp_" + "x" * 24)
+
+    assert resp.status_code == 403, resp.text
+    world.mail.send_step_up_code_email.assert_not_called()
+
+
+def test_a_service_account_gets_no_code() -> None:
+    world = _World(password_hash=None, account_type="service")
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert resp.status_code == 403, resp.text
+    world.mail.send_step_up_code_email.assert_not_called()
+
+
+def test_an_account_with_a_password_gets_no_code() -> None:
+    world = _World()
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert resp.status_code == 422, resp.text
+    world.mail.send_step_up_code_email.assert_not_called()
+
+
+def test_a_locked_step_up_gets_no_code() -> None:
+    world = _World(password_hash=None)
+    code = world.issue_code("account_erasure")
+    wrong = f"{(int(code) + 1) % 10**8:08d}"
+    for _ in range(5):
+        resp = world.call(
+            "POST", "/api/v1/privacy/erasure", {"confirm_email": world.caller_email, "step_up_code": wrong}
+        )
+        assert resp.status_code == 401, resp.text
+    world.mail.reset_mock()
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert resp.status_code == 429, resp.text
+    assert resp.json()["error_code"] == "STEP_UP_LOCKED"
+    world.mail.send_step_up_code_email.assert_not_called()
+
+
+def test_the_step_up_code_route_is_rate_limited_with_the_auth_budget() -> None:
+    from app.api.v1.users import router as users_module
+    from app.config.settings import settings
+
+    route = f"{users_module.__name__}.send_step_up_code"
+    limits = [str(limit.limit) for limit in limiter._route_limits.get(route, [])]
+
+    assert limits, f"{route} carries no rate limit"
+    assert limits == [str(__import__("limits").parse(settings.rate_limit_auth))]
+
+
+def test_a_code_is_spent_by_one_act() -> None:
+    world = _World(password_hash=None)
+    code = world.issue_code("account_erasure")
+    first = world.call("POST", "/api/v1/privacy/erasure", {"confirm_email": world.caller_email, "step_up_code": code})
+    assert first.status_code == 201, first.text
+
+    again = world.call("DELETE", f"/api/v1/tenants/{SLUG}", {"confirm_slug": SLUG, "step_up_code": code})
+
+    assert again.status_code == 401, again.text
+    assert world.tenant_untouched()
+
+
+def test_a_federated_tenant_deletion_needs_the_code() -> None:
+    world = _World(password_hash=None)
+
+    refused = world.call("DELETE", f"/api/v1/tenants/{SLUG}", {"confirm_slug": SLUG})
+
+    assert refused.status_code == 401, refused.text
+    assert refused.json()["error_code"] == "STEP_UP_CODE_REQUIRED"
+    assert world.tenant_untouched()
+
+    code = world.issue_code("tenant_deletion")
+    resp = world.call("DELETE", f"/api/v1/tenants/{SLUG}", {"confirm_slug": SLUG, "step_up_code": code})
+
+    assert resp.status_code == 200, resp.text
+    (record,) = world.tenant_records.records.values()
+    assert record["step_up"] == "email_code"
+
+
+def test_a_federated_admin_tenant_deletion_needs_the_code() -> None:
+    world = _World(password_hash=None, platform_admin=True)
+    route = f"/api/v1/admin/platform/tenants/{TENANT_KEY}"
+
+    refused = world.call("DELETE", route, {"confirm_slug": SLUG})
+
+    assert refused.status_code == 401, refused.text
+    assert refused.json()["error_code"] == "STEP_UP_CODE_REQUIRED"
+    assert world.tenant_untouched()
+
+    code = world.issue_code("tenant_deletion")
+    resp = world.call("DELETE", route, {"confirm_slug": SLUG, "step_up_code": code})
+
+    assert resp.status_code == 204, resp.text
+
+
+def test_a_federated_account_sets_its_first_password_only_with_the_code() -> None:
+    """#1815 — setting a first password on a federated account passed on nothing at all."""
+    world = _World(password_hash=None)
+    new_password = "An0ther-long-" + "passphrase!"
+
+    refused = world.call("POST", "/api/v1/users/me/password", {"new_password": new_password})
+
+    assert refused.status_code == 401, refused.text
+    assert refused.json()["error_code"] == "STEP_UP_CODE_REQUIRED"
+    assert world.users.rows[world.caller_key].password_hash is None
+    assert not world.users.writes
+
+    code = world.issue_code("password_change")
+    resp = world.call("POST", "/api/v1/users/me/password", {"new_password": new_password, "step_up_code": code})
+
+    assert resp.status_code == 200, resp.text
+    assert world.users.rows[world.caller_key].password_hash
+
+
+STEP_UP_OPERATIONS = [
+    ("post", "/api/v1/users/me/step-up-code"),
+    ("post", "/api/v1/users/me/password"),
+    ("delete", "/api/v1/users/me"),
+    ("post", "/api/v1/privacy/erasure"),
+    ("post", "/api/v1/privacy/email-change"),
+    ("delete", "/api/v1/tenants/{tenant_slug}"),
+    ("delete", "/api/v1/admin/platform/tenants/{key}"),
+    ("delete", "/api/v1/admin/platform/users/{key}"),
+]
+
+
+@pytest.mark.parametrize(("method", "path"), STEP_UP_OPERATIONS)
+def test_every_step_up_route_documents_its_refusals(method: str, path: str) -> None:
+    """A client generated from the schema must learn about 401 STEP_UP_CODE_REQUIRED, 403 and 429."""
+    schema = _World().client().app.openapi()
+
+    responses = schema["paths"][path][method]["responses"]
+
+    assert {"401", "403", "429"} <= responses.keys(), sorted(responses)
+    assert "STEP_UP_CODE_REQUIRED" in responses["401"]["description"]
+
+
+def test_light_mode_issues_no_step_up_code() -> None:
+    """Light mode: every caller is the system account, whose address is public in the seed (review SEC-003)."""
+    world = _World(password_hash=None)
+    world.auth._light_mode = True  # type: ignore[attr-defined]
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert resp.status_code == 403, resp.text
+    world.mail.send_step_up_code_email.assert_not_called()
+
+
+# ── review SEC-003: a code confirms the act it was requested for, and no other ──
+
+
+def test_a_code_requested_for_the_password_change_erases_nothing() -> None:
+    """A code the owner asked for to set a password must not confirm the erasure of the account."""
+    world = _World(password_hash=None)
+    code = world.issue_code("password_change")
+
+    resp = world.call("POST", "/api/v1/privacy/erasure", {"confirm_email": world.caller_email, "step_up_code": code})
+
+    assert resp.status_code == 401, resp.text
+    assert not world.erasures.stored
+    assert world.users.rows[world.caller_key].is_active
+
+
+def test_the_code_mail_names_the_act() -> None:
+    world = _World(password_hash=None)
+
+    world.issue_code("tenant_deletion")
+
+    purpose = world.mail.send_step_up_code_email.call_args.kwargs["purpose"]
+    assert "garden" in purpose.lower() or "tenant" in purpose.lower()
+
+
+def test_a_code_request_without_an_act_is_refused() -> None:
+    world = _World(password_hash=None)
+
+    for body in (None, {}, {"action": "login"}):
+        resp = world.call("POST", "/api/v1/users/me/step-up-code", body)
+        assert resp.status_code == 422, resp.text
+    world.mail.send_step_up_code_email.assert_not_called()
+
+
+# ── review SEC-002: code issuance is bounded per account ─────────────────────
+
+
+def test_a_second_code_within_a_minute_is_refused_and_the_first_stays_valid() -> None:
+    world = _World(password_hash=None)
+    code = world.issue_code("account_erasure")
+    world.mail.reset_mock()
+
+    again = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"}, ip="203.0.113.99")
+
+    assert again.status_code == 429, again.text
+    assert again.json()["error_code"] == "STEP_UP_LOCKED"
+    world.mail.send_step_up_code_email.assert_not_called()
+    resp = world.call("POST", "/api/v1/privacy/erasure", {"confirm_email": world.caller_email, "step_up_code": code})
+    assert resp.status_code == 201, resp.text
+
+
+# ── /code-review of #1862: an undeliverable code is a 503, not a 202 ────────────
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(lambda: __import__("smtplib").SMTPServerDisconnected("gone"), id="smtp"),
+        pytest.param(lambda: NotImplementedError("adapter"), id="not implemented"),
+        pytest.param(
+            lambda: __import__(
+                "app.domain.interfaces.email_service", fromlist=["EmailUndeliverableError"]
+            ).EmailUndeliverableError("console"),
+            id="console adapter without debug",
+        ),
+    ],
+)
+def test_an_undeliverable_code_answers_503_and_gives_the_issuance_back(failure) -> None:
+    world = _World(password_hash=None)
+    world.mail.send_step_up_code_email.side_effect = failure()
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert resp.status_code == 503, resp.text
+    assert resp.json()["error_code"] == "STEP_UP_CODE_UNDELIVERABLE"
+    # Given back: the next request is not held by the one-minute wait.
+    world.mail.send_step_up_code_email.side_effect = None
+    assert world.issue_code("account_erasure")
+
+
+def test_an_undelivered_code_confirms_nothing() -> None:
+    world = _World(password_hash=None)
+    world.mail.send_step_up_code_email.side_effect = __import__("smtplib").SMTPServerDisconnected("gone")
+
+    world.call("POST", "/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+    undelivered = world.mail.send_step_up_code_email.call_args.kwargs["code"]
+    resp = world.call(
+        "POST", "/api/v1/privacy/erasure", {"confirm_email": world.caller_email, "step_up_code": undelivered}
+    )
+
+    assert resp.status_code == 401, resp.text
+    assert not world.erasures.stored
+
+
+def test_the_step_up_code_route_documents_the_undeliverable_503() -> None:
+    schema = _World().client().app.openapi()
+
+    responses = schema["paths"]["/api/v1/users/me/step-up-code"]["post"]["responses"]
+
+    assert "503" in responses and "STEP_UP_CODE_UNDELIVERABLE" in responses["503"]["description"]

@@ -95,12 +95,29 @@ def test_bcrypt_is_called_only_by_the_password_engine() -> None:
 
 # ── the erasure entry points cannot be called without a step-up ──────────────
 
-_STEP_UP_ENTRIES = {
-    ("domain/services/privacy_service.py", "request_erasure"),
-    ("domain/services/privacy_service.py", "erase_account_by_admin"),
-    ("domain/services/tenant_service.py", "delete_tenant"),
-}
+#: Entry -> the keyword-only arguments it must take without a default. The three
+#: erasure entries carry the whole confirmation; the credential changes (#1841,
+#: #1815) carry the secret they are confirmed with. The class these entries belong
+#: to is enumerated by a write predicate in
+#: ``test_credential_changes_go_through_the_step_up.py``; this list pins the shape.
 _STEP_UP_ARGS = {"authenticated_with_api_key", "client_ip"}
+_STEP_UP_ENTRIES: dict[tuple[str, str], set[str]] = {
+    ("domain/services/privacy_service.py", "request_erasure"): _STEP_UP_ARGS | {"confirmation"},
+    ("domain/services/privacy_service.py", "erase_account_by_admin"): _STEP_UP_ARGS | {"confirmation"},
+    ("domain/services/tenant_service.py", "delete_tenant"): _STEP_UP_ARGS | {"confirmation"},
+    ("domain/services/privacy_service.py", "request_email_change"): _STEP_UP_ARGS
+    | {"password", "step_up_code", "step_up_token"},
+    ("domain/services/data_subject_service.py", "rectify_email"): _STEP_UP_ARGS
+    | {"password", "step_up_code", "step_up_token"},
+    ("domain/services/auth_service.py", "change_password"): _STEP_UP_ARGS | {"step_up_code", "step_up_token"},
+    # #1815 — the fresh OIDC re-authentication: its start and the verifier's admission.
+    ("domain/services/auth_service.py", "start_step_up_reauth"): _STEP_UP_ARGS
+    | {"action", "provider_key", "callback_url"},
+    ("domain/services/step_up_service.py", "admit_reauth"): _STEP_UP_ARGS,
+    ("domain/services/auth_service.py", "send_step_up_code"): _STEP_UP_ARGS | {"action"},
+    ("domain/services/step_up_service.py", "verify"): _STEP_UP_ARGS | {"password", "code", "reauth_token"},
+    ("domain/services/step_up_service.py", "issue_code"): _STEP_UP_ARGS | {"action"},
+}
 
 
 def _functions(rel: str) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
@@ -111,10 +128,13 @@ def _functions(rel: str) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
 def test_every_irreversible_account_entry_takes_the_step_up_keyword_only_without_a_default() -> None:
     """A new route cannot forget the step-up: the entry refuses to be called without it (G1)."""
     problems = []
-    for rel, name in sorted(_STEP_UP_ENTRIES):
-        node = _functions(rel)[name]
+    for (rel, name), required in sorted(_STEP_UP_ENTRIES.items()):
+        node = _functions(rel).get(name)
+        if node is None:
+            problems.append(f"{rel}::{name} is gone")
+            continue
         kwonly = {arg.arg: default for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults, strict=True)}
-        for arg in _STEP_UP_ARGS | {"confirmation"}:
+        for arg in sorted(required):
             if arg not in kwonly:
                 problems.append(f"{rel}::{name} lacks keyword-only '{arg}'")
             elif kwonly[arg] is not None:

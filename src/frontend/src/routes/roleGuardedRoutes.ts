@@ -190,6 +190,8 @@ export const ACTION_GATED_ROUTES: readonly string[] = [
 export const UNGATED_ROUTES: readonly string[] = [
   'connect',
   'auth/callback',
+  // #1815 — moves the step-up token from the fragment to sessionStorage; calls nothing.
+  'auth/step-up/callback',
   'login',
   'register',
   'verify-email/:token',
