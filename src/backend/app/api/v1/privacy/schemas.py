@@ -3,7 +3,9 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from app.domain.services.step_up_service import StepUpConfirmation
 
 # ── Data export (Art. 15 / 20) ─────────────────────────────────────
 
@@ -26,17 +28,62 @@ class DataExportResponse(BaseModel):
 
 
 class EmailChangeCreateRequest(BaseModel):
+    """An e-mail change and its step-up (#1841, REQ-025 Art. 16).
+
+    Both step-up fields are optional in the schema; the step-up verifier decides
+    which one the account needs — ``password`` for an account with a local
+    password, ``step_up_code`` for one without (401 ``STEP_UP_CODE_REQUIRED``).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"new_email": "erika.neu@example.org", "password": "<your current password>"},
+                {"new_email": "erika.neu@example.org", "step_up_code": "48213907"},
+            ]
+        }
+    )
+
     new_email: EmailStr
+    password: str | None = Field(
+        default=None,
+        max_length=1024,
+        description="The current password. Required when the account has a local password.",
+    )
+    step_up_code: str | None = Field(
+        default=None,
+        max_length=32,
+        description=(
+            "The one-time code mailed by POST /users/me/step-up-code. Required when the account has no local "
+            "password (federated sign-in only)."
+        ),
+    )
+    step_up_token: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "The one-time token of a fresh sign-in at the account's identity provider, from the fragment of "
+            "/auth/step-up/callback after POST /users/me/step-up/oidc (#1815). Required instead of step_up_code "
+            "when the account has no local password but a provider that can re-authenticate "
+            "(401 STEP_UP_REAUTH_REQUIRED without it); valid five minutes, for one act, once."
+        ),
+    )
 
 
 class EmailChangeConfirmRequest(BaseModel):
     token: str = Field(min_length=1, max_length=200)
 
 
+class EmailChangeRevertRequest(BaseModel):
+    """The one-time token from the notice to the previous address (#1848)."""
+
+    token: str = Field(min_length=1, max_length=200)
+
+
 class EmailChangeResponse(BaseModel):
     key: str
     new_email: str
-    status: Literal["pending", "confirmed", "expired"]
+    status: Literal["pending", "confirmed", "expired", "cancelled"]
     requested_at: datetime | None
     expires_at: datetime
     confirmed_at: datetime | None = None
@@ -46,7 +93,62 @@ class EmailChangeResponse(BaseModel):
 
 
 class ErasureCreateRequest(BaseModel):
-    password: str | None = None
+    """The step-up an account erasure carries (#1813, #1814, REQ-025 Art. 17).
+
+    Taken by the three routes that erase an account — ``POST /privacy/erasure``,
+    ``DELETE /users/me`` (the account's own) and ``DELETE /admin/platform/users/{key}``
+    (a platform admin erasing another account). ``confirm_email`` is the e-mail of
+    the account being erased, typed back; ``password`` is the *requester's* current
+    password, required when the requester's account has one; ``step_up_code`` the
+    one-time code mailed to a requester without one (#1815).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"confirm_email": "erika.gruen@example.org", "password": "<your current password>"},
+                {"confirm_email": "erika.gruen@example.org", "step_up_code": "48213907"},
+            ]
+        },
+    )
+
+    confirm_email: str = Field(
+        min_length=1,
+        max_length=320,
+        description="The e-mail address of the account being erased, typed back to confirm which account it is.",
+    )
+    password: str | None = Field(
+        default=None,
+        max_length=1024,
+        description=(
+            "The requester's current password. Required when the requester's account has a local password; "
+            "an account that signs in only through a federated provider omits it and sends step_up_code."
+        ),
+    )
+    step_up_code: str | None = Field(
+        default=None,
+        max_length=32,
+        description=(
+            "The one-time code mailed by POST /users/me/step-up-code. Required when the requester's account has "
+            "no local password (federated sign-in only); 401 STEP_UP_CODE_REQUIRED without it (#1815)."
+        ),
+    )
+    step_up_token: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "The one-time token of a fresh sign-in at the account's identity provider, from the fragment of "
+            "/auth/step-up/callback after POST /users/me/step-up/oidc (#1815). Required instead of step_up_code "
+            "when the account has no local password but a provider that can re-authenticate "
+            "(401 STEP_UP_REAUTH_REQUIRED without it); valid five minutes, for one act, once."
+        ),
+    )
+
+    def to_confirmation(self) -> StepUpConfirmation:
+        return StepUpConfirmation(
+            echo=self.confirm_email, password=self.password, code=self.step_up_code, reauth_token=self.step_up_token
+        )
 
 
 class ErasureResponse(BaseModel):

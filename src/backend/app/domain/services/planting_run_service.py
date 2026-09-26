@@ -41,8 +41,17 @@ class PlantingRunService:
         care_profile_bootstrap: Callable[[Any], None] | None = None,
         rotation_validator: CropRotationValidator | None = None,
         companion_engine: CompanionPlantingEngine | None = None,
+        substrate_batch_resolver: Callable[..., Any] | None = None,
+        species_resolver: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = run_repo
+        # ``SubstrateService.get_batch``-shaped: ``resolver(key, tenant_key=...)``
+        # answers the batch or raises 404 for one that is not the tenant's (#1868).
+        self._substrate_batch_resolver = substrate_batch_resolver
+        # ``SpeciesService.get_species``-shaped: ``resolver(key, tenant_key=...)``
+        # answers a species the tenant may read — global, own, granted — or 404
+        # (#1871 B11). Without it an entry is refused.
+        self._species_resolver = species_resolver
         self._plant_repo = plant_repo
         self._engine = engine
         self._schedule_engine = watering_schedule_engine or WateringScheduleEngine()
@@ -116,6 +125,18 @@ class PlantingRunService:
         # your own tenant that points at a foreign location, and the new run
         # inherits it. Here the check sees whichever key the run ends up with.
         self._require_owned_location(run)
+        # After the clone config for the same reason as the location: the check
+        # sees whichever key the run ends up with, inherited or supplied (#1868).
+        self._require_owned_substrate_batch(run)
+        self._require_owned_source_plant(run)
+        # Entries carry the run's tenant so their owned references (a
+        # ``cultivar_key``) are checked — and checked before the run is stored,
+        # so a foreign reference refuses the whole create rather than leaving a
+        # run with a partial set of entries behind (#1871 B12, #1874 review).
+        for entry in entries or []:
+            entry.tenant_key = run.tenant_key
+            self._require_readable_species(entry.species_key, run.tenant_key)
+            self._repo.verify_entry_references(entry)
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
@@ -204,9 +225,57 @@ class PlantingRunService:
         ``update_run`` needs it before it assigns, and ``create_run`` after it has
         a run — one predicate either way, so the two entry points cannot drift.
         """
-        if not tenant_key or not location_key or self._site_repo is None:
+        if not tenant_key or not location_key:
             return
+        # Fail closed without the anchor (#1876 review, SEC-004): a tenant request
+        # whose location cannot be resolved is refused, not stored.
+        if self._site_repo is None:
+            raise NotFoundError("Location", location_key)
         resolve_owned_location(self._site_repo, location_key, tenant_key)
+
+    def _require_owned_source_plant(self, run: PlantingRun) -> None:
+        """Refuse a ``source_plant_key`` that is not a plant of the run's tenant (#1872 C1).
+
+        A clone run names its mother plant; the key was only required to be
+        present and was stored and echoed as given. Unknown and foreign answer
+        the same 404. Skipped for a run with no tenant (seeds, migrations).
+        """
+        if not run.source_plant_key or not run.tenant_key:
+            return
+        plant = self._plant_repo.get_by_key(run.source_plant_key)
+        if plant is None or plant.tenant_key != run.tenant_key:
+            raise NotFoundError("PlantInstance", run.source_plant_key)
+
+    def _require_readable_species(self, species_key: str, tenant_key: str) -> None:
+        """Refuse an entry species the tenant may not read (#1871 B11).
+
+        An entry's ``species_key`` came from request bodies and was stored with
+        an edge to the species, then copied onto every plant ``create_plants``
+        built from it. Skipped for a run with no tenant (seeds, migrations).
+        """
+        if not tenant_key:
+            return
+        if self._species_resolver is None:
+            raise NotFoundError("Species", species_key)
+        self._species_resolver(species_key, tenant_key=tenant_key)
+
+    def _require_owned_substrate_batch(self, run: PlantingRun) -> None:
+        """Refuse a ``substrate_batch_key`` that is not the run's tenant's (#1868).
+
+        The key came from the request body or a cloned template and was stored
+        as given; the repository then wrote a ``run_uses_substrate`` edge to the
+        batch it named — any tenant's. A batch has exactly one owner (#1195), so
+        it is resolved strictly under the run's tenant. Without a wired resolver
+        a batch reference is refused, never waved through.
+
+        Skipped for a run with no tenant (seeds, migrations, light mode) and for
+        a run with no batch, like the location rule.
+        """
+        if not run.tenant_key or not run.substrate_batch_key:
+            return
+        if self._substrate_batch_resolver is None:
+            raise NotFoundError("SubstrateBatch", run.substrate_batch_key)
+        self._substrate_batch_resolver(run.substrate_batch_key, tenant_key=run.tenant_key)
 
     def update_run(self, key: PlantingRunKey, data: dict) -> PlantingRun:
         run = self.get_run(key)
@@ -269,6 +338,7 @@ class PlantingRunService:
         # repository's owned-reference guard has a tenant to compare a
         # body-supplied `cultivar_key` against. Without it the guard is skipped.
         entry.tenant_key = run.tenant_key
+        self._require_readable_species(entry.species_key, run.tenant_key)
         created = self._repo.create_entry(entry)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
@@ -284,6 +354,8 @@ class PlantingRunService:
         run_key: PlantingRunKey,
         entry_key: str,
         data: dict,
+        *,
+        tenant_key: str,
     ) -> PlantingRunEntry:
         """Partially update a run entry (REQ-013).
 
@@ -292,10 +364,10 @@ class PlantingRunService:
         merged entry is re-validated against the model so field constraints
         (``quantity >= 1``, ``id_prefix`` pattern) keep applying.
         """
-        run = self.get_run(run_key)
+        run = self.get_run(run_key, tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("update_entry", run.status.value)
-        existing = self._repo.get_entry_or_raise(entry_key)
+        existing = self._entry_of_run(run_key, entry_key)
 
         patch = {k: v for k, v in data.items() if k in self.ENTRY_UPDATABLE_FIELDS}
         nulled_required = self.ENTRY_REQUIRED_FIELDS & {k for k, v in patch.items() if v is None}
@@ -309,6 +381,8 @@ class PlantingRunService:
         # merged entry that kept the empty tenant would skip the guard on the one
         # path that needs it most.
         merged.tenant_key = run.tenant_key
+        if "species_key" in patch:
+            self._require_readable_species(merged.species_key, run.tenant_key)
         updated = self._repo.update_entry(entry_key, merged)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
@@ -316,17 +390,30 @@ class PlantingRunService:
         self._repo.update(run_key, run)
         return updated
 
-    def delete_entry(self, run_key: PlantingRunKey, entry_key: str) -> bool:
-        run = self.get_run(run_key)
+    def delete_entry(self, run_key: PlantingRunKey, entry_key: str, *, tenant_key: str) -> bool:
+        run = self.get_run(run_key, tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("delete_entry", run.status.value)
-        self._repo.get_entry_or_raise(entry_key)
+        self._entry_of_run(run_key, entry_key)
         result = self._repo.delete_entry(entry_key)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
         run.planned_quantity = sum(e.quantity for e in entries)
         self._repo.update(run_key, run)
         return result
+
+    def _entry_of_run(self, run_key: PlantingRunKey, entry_key: str) -> PlantingRunEntry:
+        """The entry ``entry_key`` **of run** ``run_key``, or 404 (#1867).
+
+        An entry is addressed through its run, and the run is what the caller's
+        tenant was checked against. Loading the entry by its key alone let a
+        member of one tenant edit or delete any tenant's entry through a run of
+        their own. A foreign and an unknown entry answer the same.
+        """
+        entry = self._repo.get_entry_or_raise(entry_key)
+        if entry.run_key != run_key:
+            raise NotFoundError("PlantingRunEntry", entry_key)
+        return entry
 
     # ── Batch operations ──────────────────────────────────────────────
 
@@ -1153,6 +1240,10 @@ class PlantingRunService:
         Read access, not ownership — global system plans stay assignable (#324).
         """
         self.get_run(run_key, tenant_key=tenant_key)
+        # Fail closed without the plan repository (security review of #1872, S2):
+        # the assignment used to be stored unchecked.
+        if self._nutrient_plan_repo is None:
+            raise NotFoundError("NutrientPlan", plan_key)
         self._readable_plan_or_raise(plan_key, tenant_key)
         return self._repo.assign_nutrient_plan(run_key, plan_key, assigned_by)
 

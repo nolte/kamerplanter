@@ -145,10 +145,19 @@ def _plan(**overrides) -> SuccessionPlan:
     return SuccessionPlan(**data)
 
 
+def _readable_species(key, *, tenant_key):
+    """Every fixture species is readable; #1872 C13 resolves the plan's species."""
+    return None
+
+
 def _service():
     repo = _FakeSuccessionRepo()
     run_service = _FakeRunService()
-    return SuccessionPlanService(repo, run_service), repo, run_service
+    # The plan's location is the tenant's own: the service refuses a location it
+    # cannot anchor (#1876 review, fail closed without a site repository).
+    sites = _FakeSiteRepo({"loc_beet_c": _location("loc_beet_c", TENANT)})
+    service = SuccessionPlanService(repo, run_service, site_repo=sites, species_resolver=_readable_species)
+    return service, repo, run_service
 
 
 class TestCrud:
@@ -302,7 +311,7 @@ class TestLocationOwnership:
     def _service_with_site(self, site_repo):
         repo = _FakeSuccessionRepo()
         run_service = _FakeRunService()
-        service = SuccessionPlanService(repo, run_service, site_repo=site_repo)
+        service = SuccessionPlanService(repo, run_service, site_repo=site_repo, species_resolver=_readable_species)
         return service, repo, run_service
 
     def test_create_with_foreign_location_rejected(self):

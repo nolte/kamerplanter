@@ -184,6 +184,11 @@ export interface ApiErrorDetail {
    * branch on when the two cases mean different things (#1437).
    */
   entity?: string;
+  /**
+   * Minutes until a throttled step-up may be retried, as a **string** (e.g.
+   * `"15"`). Set only on the `STEP_UP_LOCKED` detail of a 429 (#1816).
+   */
+  retry_after_minutes?: string;
 }
 
 // Botanical Families
@@ -4139,7 +4144,7 @@ export interface OAuthProviderListItem {
   icon_url: string | null;
 }
 
-export interface ApiKeyCreate {
+export interface ApiKeyCreate extends CredentialStepUp {
   label: string;
   tenant_scope?: string | null;
 }
@@ -4908,6 +4913,108 @@ export interface TaskTemplateUpdateRequest {
 export interface TenantDeleteRequest {
   confirm_slug: string;
   password?: string;
+  /** E-mailed one-time code of a requester without a local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
+}
+
+/**
+ * Step-up body of the three account-erasure routes (#1813, #1814):
+ * `DELETE /users/me`, `POST /privacy/erasure`, `DELETE /admin/platform/users/{key}`.
+ * `confirm_email` is the e-mail of the account being erased; `password` is the
+ * *requester's* current password, omitted by a federated-only account.
+ */
+export interface AccountErasureRequest {
+  confirm_email: string;
+  password?: string;
+  /** E-mailed one-time code of a requester without a local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
+}
+
+/**
+ * The act an e-mailed step-up code confirms (review SEC-003). A code requested
+ * for one act does not confirm another — mirrors `StepUpAction` in the backend's
+ * `step_up_service.py`.
+ */
+export type StepUpAction =
+  | 'account_erasure'
+  | 'admin_account_erasure'
+  | 'tenant_deletion'
+  | 'password_change'
+  | 'email_change'
+  // #1847 — minting or removing a sign-in credential of the own account.
+  | 'api_key_creation'
+  | 'device_pairing'
+  | 'provider_unlink'
+  // #1857 — a platform admin raising another account's trust (email_verified, is_active).
+  | 'admin_account_update';
+
+/**
+ * The step-up a credential change carries in its body (#1847, #1857, REQ-023
+ * §3.9) — mirrors `CredentialStepUp` in the backend's `auth/schemas.py`.
+ *
+ * Which field is needed is the backend's rule: `current_password` for an
+ * account with a local password; for one without, `step_up_token` from a fresh
+ * sign-in at its identity provider or `step_up_code` from
+ * `POST /users/me/step-up-code`. Only the supplied fields are sent.
+ */
+export interface CredentialStepUp {
+  current_password?: string;
+  step_up_code?: string;
+  step_up_token?: string;
+}
+
+/** Body of `POST /users/me/step-up-code`. */
+export interface StepUpCodeRequest {
+  action: StepUpAction;
+}
+
+/**
+ * `POST /users/me/step-up-code` (#1815): a one-time code was e-mailed to the
+ * requester, who has no local password to confirm a step-up with.
+ */
+export interface StepUpCodeSent {
+  /** ISO-8601 instant after which the code is rejected. */
+  expires_at: string;
+  /** Lifetime of the code in seconds. */
+  expires_in: number;
+}
+
+/** Body of `POST /users/me/step-up/oidc` (#1815). */
+export interface StepUpReauthRequest {
+  action: StepUpAction;
+  /** Key of one of the account's linked providers; omitted: the backend picks the first capable one. */
+  provider_key?: string;
+  /** 32 hex characters; returned unchanged beside the token or error on the callback (SEC-005). */
+  client_nonce?: string;
+}
+
+/** `POST /users/me/step-up/oidc` (#1815): where to send the browser for the fresh sign-in. */
+export interface StepUpReauthStart {
+  authorization_url: string;
+}
+
+/** Body of `POST /users/me/password`. */
+export interface PasswordChangeRequest {
+  /** `null` for an account without a local password (setting the first one). */
+  current_password: string | null;
+  new_password: string;
+  /** E-mailed one-time code, required when the account has no local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
 }
 
 export interface AdminTenant {
@@ -4959,7 +5066,12 @@ export interface AdminTenantUpdate {
   is_active?: boolean;
 }
 
-export interface AdminUserUpdate {
+/**
+ * `PATCH /admin/platform/users/{key}`. The step-up fields are the **admin's
+ * own** (#1857) and are needed only when `email_verified` or `is_active` turns
+ * true; they are never written to the user.
+ */
+export interface AdminUserUpdate extends CredentialStepUp {
   display_name?: string;
   is_active?: boolean;
   email_verified?: boolean;
@@ -5142,6 +5254,39 @@ export interface ConsentRecord {
   granted: boolean;
   granted_at: string | null;
   revoked_at: string | null;
+}
+
+// REQ-025 Art. 16 — e-mail change (#1841, #1848)
+
+/**
+ * Body of `POST /privacy/email-change` — the new address and the shared step-up
+ * (REQ-023 §3.9). Only one factor is sent: `password` for an account with a
+ * local password (the field is `password` here, not `current_password`), else
+ * `step_up_token` of a fresh sign-in or `step_up_code` e-mailed for the act
+ * `email_change`.
+ */
+export interface EmailChangeCreateRequest {
+  new_email: string;
+  password?: string;
+  step_up_code?: string;
+  step_up_token?: string;
+}
+
+export type EmailChangeStatus = 'pending' | 'confirmed' | 'expired' | 'cancelled';
+
+/** `201` of `POST /privacy/email-change`: the request waits for the link sent to `new_email`. */
+export interface EmailChangeResponse {
+  key: string;
+  new_email: string;
+  status: EmailChangeStatus;
+  requested_at: string | null;
+  expires_at: string;
+  confirmed_at?: string | null;
+}
+
+/** `200` of the public token routes `/privacy/email-change/confirm` and `/revert`. */
+export interface PrivacyMessageResponse {
+  message: string;
 }
 
 // REQ-029 / REQ-029-A — AI plant identification (Phase 1: Pl@ntNet-first)

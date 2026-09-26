@@ -22,7 +22,7 @@ _SALT = "s" * 40
 
 @pytest.fixture
 def salted(monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", _SALT)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", _SALT)
     return _SALT
 
 
@@ -31,9 +31,9 @@ def test_email_digest_is_stable_per_salt(salted: str) -> None:
 
 
 def test_email_digest_changes_with_the_salt(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", "a" * 32)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "a" * 32)
     first = email_digest("a@example.org")
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", "b" * 32)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "b" * 32)
     assert email_digest("a@example.org") != first
 
 
@@ -46,5 +46,5 @@ def test_email_digest_is_not_the_dictionary_reversible_hash(salted: str) -> None
 
 @pytest.mark.parametrize("salt", ["", "short"])
 def test_email_digest_without_a_usable_salt_is_a_constant(monkeypatch: pytest.MonkeyPatch, salt: str) -> None:
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", salt)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", salt)
     assert email_digest("a@example.org") == email_digest("b@example.org") == "unavailable"

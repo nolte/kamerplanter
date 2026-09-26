@@ -1,9 +1,8 @@
-from datetime import UTC, datetime
 from typing import Any
 
 from arango.database import StandardDatabase
 
-from app.common.datetimes import today_utc
+from app.common.datetimes import replace_year, today_utc
 from app.common.enums import TaskStatus, TerminationType
 from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
@@ -138,8 +137,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         history, which says which botanical families were grown in that bed.
         """
         self._require_tenant_key(tenant_key, "get_history_by_slot")
-        cutoff = datetime.now(UTC).replace(year=datetime.now(UTC).year - years)
-        cutoff_iso = cutoff.isoformat()
+        # ``planted_on`` is a ``date`` stored as ``YYYY-MM-DD``: bind the cutoff as a
+        # date too. A datetime string (``…T00:00:00+00:00``) collates *after* the
+        # bare date of the same day, which dropped a planting made on the cutoff
+        # day from the rotation history (#1799).
+        today = today_utc()
+        cutoff_iso = replace_year(today, today.year - years).isoformat()
         query = """
         FOR v, e IN 1..1 INBOUND @slot_id GRAPH 'kamerplanter_graph'
           OPTIONS {edgeCollections: [@edge_col]}
@@ -289,7 +292,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             AND p.removed_on == null
             AND p.current_phase_key != null
             AND p.current_phase_key IN phase_keys
-          SORT p.current_phase_started_at DESC, p._key ASC
+          SORT DATE_TIMESTAMP(p.current_phase_started_at) DESC, p._key ASC
           LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           LET slot = p.slot_key != null ? DOCUMENT(@slot_col, p.slot_key) : null

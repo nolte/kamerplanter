@@ -20,6 +20,7 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
 | R-06 | Löschungs-Audit (abgeschlossene Anträge) | 1 Jahr nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
 | R-07 | E-Mail-Änderungsanfragen | 24 Stunden nach Erstellung | Status auf `expired` setzen (kein Hard-Delete) | Zweckentfall |
+| R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
 | R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | **Teilweise implementiert:** Status wird auf `expired` gesetzt, eine Löschung nach 30 Tagen findet nicht statt | Zweckentfall |
 
@@ -89,6 +90,22 @@ unbestätigte E-Mail-Änderungsanfrage `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` 
 der Anfrage (Standard 24 Stunden, Minimum 1 Stunde; der ältere Name
 `PRIVACY_EMAIL_CHANGE_TTL_HOURS` bleibt als Alias gültig) auf den Status `expired`. Ein
 Hard-Delete des Datensatzes findet dabei nicht statt.
+
+### Rückgängig-Fenster einer bestätigten E-Mail-Änderung (R-07a)
+
+Bestätigt sich eine E-Mail-Änderung, erhält die **vorherige** Adresse einen einmalig
+nutzbaren Rückgängig-Link (siehe [Datenschutz — E-Mail-Adresse ändern](../user-guide/privacy.md#e-mail-adresse-andern-art-16-dsgvo)).
+Dafür merkt sich der Datensatz drei zusätzliche Felder: `previous_email`, den Hash des
+Rückgängig-Tokens (`revert_token_hash`) und dessen Ablaufzeitpunkt (`revert_expires_at`),
+gesetzt auf den Bestätigungszeitpunkt plus `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (Standard
+7 Tage, Minimum 1 Tag).
+
+Derselbe stündliche Task wie bei R-07 (`retention.expire_email_change_requests`, Minute
+15) schließt das Fenster in demselben Lauf: Er nullt bei jedem Datensatz, dessen
+`revert_token_hash` gesetzt und dessen `revert_expires_at` erreicht oder nicht lesbar ist,
+alle drei Felder — konservativ, ein Datensatz mit unlesbarem Ablaufzeitpunkt gilt also als
+abgelaufen. Der Rückgängig-Link funktioniert danach nicht mehr; ein Hard-Delete des
+gesamten Datensatzes findet weiterhin nicht statt (siehe R-07).
 
 ---
 
@@ -321,19 +338,26 @@ lassen sie sich dagegen nicht verknüpfen.
 ??? info "Für Betreiber: das Feld `subject=` in Protokollzeilen"
     Protokollzeilen tragen ein Feld `subject=` statt einer Kontenkennung oder
     E-Mail-Adresse. Es enthält eine gesalzene, zweckgetrennte Referenz (`sub_` plus
-    16 Hex-Zeichen, ein HMAC aus Kontoschlüssel und `ERASURE_TOMBSTONE_SALT`). Die
+    16 Hex-Zeichen, ein HMAC aus Kontoschlüssel und `LOG_PSEUDONYM_SALT`). Die
     Zeilen desselben Kontos bleiben so miteinander korrelierbar, ohne eine Person zu
     nennen. Die Referenz ist bewusst **nicht** der Tombstone-Hash (`anon_…`), den der
-    Löschungs-Audit und die anonymisierten Ernte- und Behandlungsdaten behalten: Wer
-    nur die Protokolle hat, kann sie mit diesen aufbewahrten Datensätzen nicht
-    verknüpfen. Fehlt der Salt oder ist er zu kurz, steht dort stattdessen die
-    Konstante `anon_unavailable` — nie die Kontenkennung im Klartext.
+    Löschungs-Audit und die anonymisierten Ernte- und Behandlungsdaten behalten und der
+    weiterhin mit `ERASURE_TOMBSTONE_SALT` gebildet wird: Wer nur die Protokolle hat,
+    kann sie mit diesen aufbewahrten Datensätzen nicht verknüpfen. Fehlt der Salt oder
+    ist er zu kurz, steht dort stattdessen die Konstante `anon_unavailable` — nie die
+    Kontenkennung im Klartext.
 
     Registrierungs- und E-Mail-Ereignisse protokollieren zusätzlich Felder wie
     `email_sha256` — einen gesalzenen Digest der E-Mail-Adresse (HMAC mit
-    `ERASURE_TOMBSTONE_SALT`, 16 Hex-Zeichen), keine Adresse im Klartext. Ein einfacher
+    `LOG_PSEUDONYM_SALT`, 16 Hex-Zeichen), keine Adresse im Klartext. Ein einfacher
     SHA-256 ließe sich mit einer Adressliste zurückrechnen, der gesalzene Digest ohne den
     Salt nicht. Ohne gültigen Salt steht dort `unavailable`.
+
+    `LOG_PSEUDONYM_SALT` schlüsselt ausschließlich diese Log-Referenzen (und das
+    Herkunftsfeld `requested_by_subject` von Lösch- und Mandanten-Löschnachweisen) —
+    getrennt vom `ERASURE_TOMBSTONE_SALT`, der nie wechseln darf. Ein Betreiber darf den
+    Log-Salt rotieren (neuer Wert in Backend und Celery-Worker, beide neu starten):
+    Protokollzeilen von vor der Rotation korrelieren danach nicht mehr mit späteren.
     Objektspeicher-Log-Zeilen (`storage_put_object`, `storage_delete_object` und
     ähnliche) maskieren den Kontoschlüssel in Export-Bundle-Pfaden: Aus
     `privacy/exports/<Kontoschlüssel>/<Export>.json` wird
@@ -343,11 +367,27 @@ lassen sie sich dagegen nicht verknüpfen.
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
     die Adresse eines Dritten enthalten kann (abgelehnter E-Mail-Empfänger), steht nur
     der Fehlertyp (`error_type=`). E-Mail-Adressen in einem Fehlertext werden zu
-    `<email:…>`-Digests, Query-Strings in URLs (sie können Koordinaten oder API-Schlüssel
-    enthalten) zu `?<redacted>`.
+    `<email:…>`-Digests, Query-Strings und Fragmente in URLs (sie können Koordinaten oder
+    API-Schlüssel enthalten) zu `?<redacted>`, und Zugangsdaten direkt in einer URL
+    (`schema://nutzer:passwort@…`) werden ebenfalls maskiert. Ein unerwarteter Fehler
+    (ein Traceback) läuft durch dieselbe Bereinigung: Eine Fehlermeldung aus der
+    Anwendungslogik erscheint im Protokoll nur als Fehlerklasse und Fehlercode, jede
+    andere Ausnahme bereinigt wie eben beschrieben. Eine Kontokennung im Text einer
+    Standard- oder Bibliotheks-Ausnahme kann diese Bereinigung nicht erkennen. Das gilt für die
+    strukturierten Protokollzeilen der Anwendung ebenso wie für die Tracebacks, die
+    uvicorn und der Celery-Worker bei einem unbehandelten Fehler ausgeben.
 
     IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
-    Oktett `0`, IPv6 `/48`), als `ip_prefix=`.
+    Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Das gilt inzwischen auch für die
+    Zugriffsprotokolle: uvicorn kürzt die Client-Adresse auf dieselbe Weise und schreibt
+    vom aufgerufenen Pfad nur die festen Routen-Segmente (z. B. `/api/v1/t/{}/plants/{}`)
+    — dein Mandanten-Kürzel, dein Kontoschlüssel und ein Download-Token in der URL stehen
+    dort nicht mehr, ebenso wenig ein Query-String. Läuft die Anwendung hinter dem
+    mitgelieferten nginx, gilt dasselbe für dessen eigenes Zugriffsprotokoll
+    (`kp_redacted`): Es nennt weder `X-Forwarded-For` noch User-Agent oder Referrer, und
+    ein Link wie `/password-reset/<token>` erscheint dort nur als `/<spa-route>`. nginx'
+    Fehlerprotokoll lässt sich dagegen nicht redigieren und bleibt deshalb auf der knappen
+    Stufe `crit` beschränkt.
 
     Wie lange
     deine Log-Pipeline (Container-Runtime, Loki, `json-file`-Rotation) die Zeilen
@@ -369,6 +409,22 @@ Schädlingsbild-Beiträge — kuratierte Referenzen bleiben), löscht deine übr
 Datensätze, anonymisiert die aufbewahrungspflichtigen wie oben beschrieben und entfernt
 zuletzt dein Konto. Der Datenbankteil läuft in einem Stück: Entweder ist er vollständig
 erledigt oder gar nicht.
+
+Anhänge sind pro Mandant über den SHA-256-Hash der Datei dedupliziert (Issue #1770): Lädt
+ein zweites Mitglied exakt dieselbe Datei hoch (oder du selbst in einer anderen Kategorie),
+entsteht ein eigener Datensatz, aber die Bytes werden nur einmal gespeichert und von beiden
+Datensätzen referenziert. Die Storage-Bereinigung (Phase 0) löscht die Datei deshalb nur,
+wenn kein anderer Datensatz mehr darauf zeigt; zeigt noch ein Datensatz eines anderen
+Mitglieds darauf, bleibt das Objekt erhalten. Der Löschungs-Antrag (`erasure_requests`)
+zählt beides: `storage_objects_removed` (tatsächlich gelöschte Objekte) und
+`storage_objects_retained_shared` (Objekte, die wegen eines noch bestehenden Datensatzes
+eines anderen Mitglieds erhalten bleiben). Dieselben Zahlen protokolliert die Zeile
+`retention.erasure.storage_hard_delete` als `deleted` und `retained_shared`, pro Scope und
+Mandant. Löscht das andere Mitglied seinen Datensatz, während deine Löschung läuft, hält
+nach dem ArangoDB-Schritt niemand mehr das Objekt: Die Löschung fragt deshalb danach noch
+einmal nach und entfernt es. Das zählt `storage_objects_released`, gespeichert mit dem
+Status `completed`; ein Fehler dabei erscheint als
+`retention.erasure.shared_object_release_failed`.
 
 Der Unterschied liegt im Zeitpunkt: Deinen eigenen Antrag führt der tägliche Lauf erst
 nach Ablauf der 90-tägigen Frist aus. Eine Löschung durch einen Platform-Admin oder durch
@@ -513,6 +569,7 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
 | R-06 | `retention.purge_expired_erasure_records` | täglich, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
 | R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
+| R-07a | `retention.expire_email_change_requests` (derselbe Lauf) | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
 
@@ -524,7 +581,7 @@ Ereignisnamen mit Zählern, zum Beispiel:
 - `anonymize_old_ips` (`anonymized`)
 - `retention.expire_data_exports.completed` (`expired`)
 - `retention.purge_expired_erasure_records.completed` (`purged`, `held_without_tombstone`)
-- `retention.expire_email_change_requests.completed` (`expired`)
+- `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
 
@@ -551,6 +608,7 @@ Konstruktor prüft dieselbe Untergrenze noch einmal:
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
 
 Sind beide Namen einer Zeile gesetzt, gewinnt der `RETENTION_*`-Name. Die älteren Namen
 waren bis zu dieser Änderung zwar dokumentiert, bewirkten aber nichts — der Code nutzte
@@ -658,6 +716,53 @@ fasst der Aufräumlauf nicht an (Kuration).
     `PEST_DETECTION_ENABLED` oder `INFERENCE_SERVICE_ENABLED` plus
     `INFERENCE_SERVICE_URL`, sowie `INTERNAL_SERVICE_TOKEN`. Details:
     [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
+
+---
+
+## Migration v0062: geteilte Anhänge in eigene Einträge aufteilen
+
+Vor Issue #1770 bekam ein zweiter Upload derselben Bytes innerhalb eines Mandanten den
+Datensatz des **ersten** Uploaders zurück — auch über Kategoriegrenzen hinweg, zum
+Beispiel zwischen einem Schädlingsfoto-Beitrag und einem dokumentierenden Foto (Tagebuch,
+Aufgabe, Inspektion, Ernte-/Lager-Beobachtung, Pflanzengalerie). Löschte der erste
+Uploader seinen Account, wurde damit auch der Datensatz des zweiten Mitglieds hart
+gelöscht oder anonymisiert; löschte der zweite Uploader seinen Account, erreichte die
+Löschung dessen Beitrag gar nicht, weil ihm kein eigener Datensatz gehörte.
+
+Die Migration `v0062_split_shared_attachment_ownership` bringt bestehenden Bestand so weit
+wie rekonstruierbar in die neue Form:
+
+1. **Der eindeutige Index auf `attachments.storage_key` entfällt.** Mehrere Uploader
+   teilen sich jetzt eine gespeicherte Datei; ein nicht-eindeutiger Index ersetzt ihn.
+2. **Jeder Schädlingsfoto-Beitrag bekommt einen eigenen `pest_reference`-Datensatz**,
+   sofern der Datensatz, auf den er zeigte, nicht schon sein eigener war: Ein neuer
+   Datensatz mit dem deterministischen Schlüssel `pic-<Beitrags-Schlüssel>` entsteht über
+   derselben gespeicherten Datei, benannt nach dem Beitragenden; der Beitrag wird darauf
+   umgehängt. Der Dateiname des ursprünglichen Uploaders wird dabei nicht übernommen.
+3. **Ein `pest_reference`-Datensatz, auf den ein dokumentierender Träger zeigt**
+   (Tagebuch, Aufgabe, Inspektion, Ernte-/Lager-Beobachtung, Pflanzengalerie), wird zu
+   einem Datensatz dieser Kategorie umkategorisiert — sonst würde er beim Löschen des
+   Schädlingsfoto-Eigentümers hart gelöscht statt wie ein dokumentierendes Foto
+   anonymisiert und behalten zu werden.
+
+Ausführung wie jede Migration über `python -m app.migrations upgrade`; `--dry-run`
+berechnet alle Änderungen und protokolliert sie (`split_shared_attachment_ownership_dry_run`
+mit denselben Zählern), ohne etwas zu schreiben. Ein unterbrochener Lauf hinterlässt
+keinen inkonsistenten Zustand: Der Split-Schlüssel ist deterministisch und wird per
+`UPSERT` geschrieben, ein erneuter Lauf setzt genau dort fort.
+
+!!! danger "Nicht reversibel"
+    Ein Rollback würde genau die geteilte Eigentümerschaft wiederherstellen, die diese
+    Migration auflöst.
+
+!!! warning "Was die Migration nicht rekonstruieren kann"
+    Zwei identische **dokumentierende** Fotos (z. B. zwei Tagebuch-Uploads derselben Datei
+    durch zwei Mitglieder) hinterließen vor #1770 nur einen Datensatz und keine Spur des
+    zweiten Uploaders — die tragenden Datensätze (Tagebuch, Aufgabe, …) kennen meist
+    keinen Foto-Eigentümer. Solche Datensätze bleiben unverändert; ihre Datei wird nie
+    hart gelöscht, weil die Dokumentations-Regel sie anonymisiert und behält — es geht
+    also nichts verloren. Der Datenexport (Art. 15) des zweiten Uploaders listet aber
+    keinen Eintrag, den er nie besaß.
 
 ---
 

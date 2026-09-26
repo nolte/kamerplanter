@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import structlog
 
-from app.common.log_privacy import loggable_ip
+from app.common.log_privacy import loggable_error, loggable_ip
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -70,7 +70,7 @@ def cleanup_unverified_accounts() -> dict:
             logger.error(
                 "cleanup_unverified_accounts_blocked",
                 # The salt, a derived index (#1753 / #1759) — the error says which.
-                reason=exc.message,
+                reason=loggable_error(exc),
                 **{k: v for k, v in result.items() if k != "reason"},
             )
             return result

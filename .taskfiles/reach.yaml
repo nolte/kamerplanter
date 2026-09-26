@@ -79,6 +79,16 @@ tasks:
     cmds:
       - python3 scripts/reach/stack.py seed-files --subject {{.REACH_SUBJECT}}
 
+  reach:seed:shared-file:
+    desc: |
+      Have the seeded subject ({{.REACH_SUBJECT}}, run reach:seed:privacy-subject
+      first) and a co-holder upload the same JPEG as a pest reference into a
+      shared organisation tenant, through the production AttachmentService.upload,
+      plus one photo only the subject holds (#1770). Writes
+      .reach/subjects/{{.REACH_SUBJECT}}.shared.json.
+    cmds:
+      - python3 scripts/reach/stack.py seed-shared-file --subject {{.REACH_SUBJECT}}
+
   reach:export:run-for-subject:
     desc: |
       Drive the seeded subject's Art. 15 export through the real path — sign

@@ -15,6 +15,7 @@ from app.api.v1.privacy.schemas import (
     EmailChangeConfirmRequest,
     EmailChangeCreateRequest,
     EmailChangeResponse,
+    EmailChangeRevertRequest,
     ErasureCreateRequest,
     ErasureResponse,
     MessageResponse,
@@ -25,9 +26,10 @@ from app.api.v1.privacy.schemas import (
     RetentionCategoryInfoResponse,
     RightInfoResponse,
 )
-from app.common.auth import get_current_user
+from app.common.auth import get_authenticated_with_api_key, require_account_principal
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
-from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import NOT_FOUND_RESPONSE, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
 from app.domain.models.mcp import McpAuditLogEntry
@@ -128,7 +130,7 @@ def _to_consent_response_from_record(
 
 @router.post("/export", response_model=DataExportResponse, status_code=201)
 def request_data_export(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Initiate a new data-export job (Art. 15 / 20)."""
@@ -139,7 +141,7 @@ def request_data_export(
 @router.get("/export/{export_key}", response_model=DataExportResponse)
 def get_export_status(
     export_key: Annotated[str, Path(description="Document key of the data-export job.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Return status of a single export job (ownership-checked)."""
@@ -161,7 +163,7 @@ def get_export_status(
 async def download_export(
     request: Request,
     export_key: Annotated[str, Path(description="Document key of the data-export job.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Stream the Art. 15 export bundle and record the download.
@@ -186,15 +188,26 @@ async def download_export(
 # ── Art. 16: email change ─────────────────────────────────────────
 
 
-@router.post("/email-change", response_model=EmailChangeResponse, status_code=201)
+@router.post("/email-change", response_model=EmailChangeResponse, status_code=201, responses=STEP_UP_RESPONSES)
 @limiter.limit(settings.rate_limit_email_change)
 def request_email_change(
     request: Request,
     body: EmailChangeCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Initiate an email-change request (Art. 16).
+    """Initiate an email-change request (Art. 16) — behind the step-up (#1841).
+
+    **Step-up:** the body carries the current ``password`` for an account that has
+    one (401 missing or wrong), or the code from ``POST /users/me/step-up-code`` as
+    ``step_up_code`` for one without (401 ``STEP_UP_CODE_REQUIRED``, #1815); an
+    API-key request or a service account is refused (403); too many failed
+    confirmations answer 429 ``STEP_UP_LOCKED``, in the same budget as every other
+    step-up of the account. The step-up is checked before the address is, so the
+    route says nothing about an address without it. After it passes, the current
+    address is told of the request, and the old one again once it is confirmed.
 
     Rate-limited per client IP (``settings.rate_limit_email_change``): every call
     mails an address the caller names and does not have to own — the verification
@@ -202,7 +215,15 @@ def request_email_change(
     when it is taken (#957). Authentication bounds *who* can trigger that but not
     *how often*, and this router carried no limit at all.
     """
-    change = service.request_email_change(current_user.key or "", body.new_email)
+    change = service.request_email_change(
+        current_user.key or "",
+        body.new_email,
+        password=body.password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return _to_email_change_response(change)
 
 
@@ -230,24 +251,60 @@ def confirm_email_change(
     return MessageResponse(message="Email address has been updated.")
 
 
+@router.post("/email-change/revert", response_model=MessageResponse)
+@limiter.limit(settings.rate_limit_email_change_confirm)
+def revert_email_change(
+    request: Request,
+    body: EmailChangeRevertRequest,
+    service: PrivacyService = Depends(get_privacy_service),
+):
+    """Take the account back onto the address a confirmed change left (no auth required, #1848).
+
+    The token comes from the notice mailed to the previous address at the
+    confirmation. It works once and only within the revert window
+    (``RETENTION_EMAIL_CHANGE_REVERT_DAYS``); it restores that address as
+    verified, signs out every session and voids a password-reset token. 401 for
+    an unknown, spent or expired token; 422 when the previous address now belongs
+    to another account. Rate-limited like the confirmation, on the same budget
+    setting and for the same reason (an unauthenticated, state-changing route).
+    """
+    service.revert_email_change(body.token)
+    return MessageResponse(message="Your previous email address has been restored. All sessions were signed out.")
+
+
 # ── Art. 17: erasure ──────────────────────────────────────────────
 
 
-@router.post("/erasure", response_model=ErasureResponse, status_code=201)
+@router.post("/erasure", response_model=ErasureResponse, status_code=201, responses=STEP_UP_RESPONSES)
 def request_erasure(
     body: ErasureCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Request account erasure (Art. 17)."""
-    erasure = service.request_erasure(current_user.key or "", body.password)
+    """Request account erasure (Art. 17).
+
+    **Step-up (#1813, #1816):** the body echoes the account's e-mail (422
+    otherwise) and carries the current password for an account that has one
+    (401 otherwise), the code from ``POST /users/me/step-up-code`` as
+    ``step_up_code`` for one without (401 ``STEP_UP_CODE_REQUIRED``, #1815); an
+    API-key request or a service account is refused (403); too many failed
+    confirmations answer 429 ``STEP_UP_LOCKED``.
+    """
+    erasure = service.request_erasure(
+        current_user.key or "",
+        confirmation=body.to_confirmation(),
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return _to_erasure_response(erasure)
 
 
 @router.get("/erasure/{erasure_key}", response_model=ErasureResponse)
 def get_erasure_status(
     erasure_key: Annotated[str, Path(description="Document key of the erasure request.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Return status of an erasure request (ownership-checked)."""
@@ -261,7 +318,7 @@ def get_erasure_status(
 @router.post("/restrict", response_model=RestrictionResponse, status_code=201)
 def restrict_processing(
     body: RestrictionCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Create a processing-restriction (Art. 18)."""
@@ -277,7 +334,7 @@ def restrict_processing(
 @router.delete("/restrict/{restriction_key}", response_model=RestrictionResponse)
 def lift_restriction(
     restriction_key: Annotated[str, Path(description="Document key of the processing restriction.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Lift an existing processing-restriction."""
@@ -291,7 +348,7 @@ def lift_restriction(
 @router.post("/object", response_model=RestrictionResponse, status_code=201)
 def object_to_processing(
     body: ObjectionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """File an objection (Art. 21) — stored as restriction with objection_pending."""
@@ -308,7 +365,7 @@ def object_to_processing(
 
 @router.get("/consents", response_model=list[ConsentResponse])
 def list_consents(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """List all known purposes annotated with current consent state."""
@@ -332,7 +389,7 @@ def list_consents(
 def grant_consent(
     body: ConsentGrantRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Grant consent for a processing purpose."""
@@ -355,7 +412,7 @@ def grant_consent(
 @router.delete("/consents/{purpose}", response_model=ConsentResponse)
 def revoke_consent(
     purpose: Annotated[str, Path(description="Processing purpose whose consent to revoke.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: PrivacyService = Depends(get_privacy_service),
 ):
     """Revoke consent for an optional processing purpose."""
@@ -401,7 +458,7 @@ def get_privacy_policy(
 # ── REQ-033 §4.6 / AC-S3 — MCP activity self-service ──────────────────
 @router.get("/mcp-activity", response_model=list[McpAuditLogEntry])
 def get_mcp_activity(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     audit_repo: ArangoMcpAuditRepository = Depends(get_mcp_audit_repo),
 ) -> list[McpAuditLogEntry]:
     """Return the MCP tool-call audit trail attributed to the calling account.

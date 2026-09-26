@@ -5,13 +5,13 @@ from email.mime.text import MIMEText
 import structlog
 
 from app.common.decoys import email_digest
-from app.domain.interfaces.email_service import IEmailService
+from app.data_access.external.templated_email_adapter import TemplatedEmailAdapter
 
 logger = structlog.get_logger()
 
 
-class SmtpEmailAdapter(IEmailService):
-    """Production email adapter using SMTP."""
+class SmtpEmailAdapter(TemplatedEmailAdapter):
+    """Production email adapter using SMTP; the mail texts come from :class:`TemplatedEmailAdapter`."""
 
     def __init__(
         self,
@@ -56,28 +56,3 @@ class SmtpEmailAdapter(IEmailService):
                 error_type=type(exc).__name__,
             )
             raise
-
-    def send_verification_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
-        url = f"{frontend_url}/verify-email/{token}"
-        html = f"""
-        <h2>Email Verification</h2>
-        <p>Hello {display_name},</p>
-        <p>Please verify your email address by clicking the link below:</p>
-        <p><a href="{url}">Verify Email</a></p>
-        <p>This link expires in 24 hours.</p>
-        """
-        self._send(to_email, "Kamerplanter — Email Verification", html)
-
-    def send_password_reset_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
-        url = f"{frontend_url}/password-reset/{token}"
-        html = f"""
-        <h2>Password Reset</h2>
-        <p>Hello {display_name},</p>
-        <p>Click the link below to reset your password:</p>
-        <p><a href="{url}">Reset Password</a></p>
-        <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>
-        """
-        self._send(to_email, "Kamerplanter — Password Reset", html)
-
-    def send_notification_email(self, to_email: str, subject: str, html_body: str) -> None:
-        self._send(to_email, subject, html_body)

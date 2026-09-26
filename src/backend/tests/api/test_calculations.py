@@ -43,12 +43,12 @@ class _HeaderAuthProvider(IAuthProvider):
     accepting it as one is how a test passes for the wrong reason.
     """
 
-    def resolve_user(self, authorization: str | None) -> User:
+    def resolve_user(self, authorization: str | None, *, client_ip: str | None = None) -> User:
         if not authorization:
             raise UnauthorizedError("Missing credentials.")
         return _user()
 
-    def resolve_user_optional(self, authorization: str | None) -> User | None:
+    def resolve_user_optional(self, authorization: str | None, *, client_ip: str | None = None) -> User | None:
         return _user() if authorization else None
 
     def is_authentication_required(self) -> bool:

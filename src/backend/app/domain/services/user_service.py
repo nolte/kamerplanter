@@ -2,12 +2,15 @@ import structlog
 
 from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
-from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
-from app.domain.models.user import User, UserProfile, UserProfileUpdate, tombstone_email
+from app.domain.models.user import User, UserProfile, UserProfileUpdate
+from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
 
 logger = structlog.get_logger()
+
+#: Fields whose false -> true raises the account's trust (#1857).
+_TRUST_FIELDS = ("email_verified", "is_active")
 
 
 class UserService:
@@ -16,11 +19,14 @@ class UserService:
         user_repo: IUserRepository,
         refresh_token_repo: IRefreshTokenRepository,
         tombstone_salt: str = "",
+        step_up_verifier: StepUpVerifier | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
-        # #1773 — salt of the subject reference ``account_deleted`` logs instead
-        # of the account key (see ``ErasureEngine.log_subject``).
+        # #1857 — the admin's own step-up before an update that raises trust.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(tombstone_salt=tombstone_salt)
+        # #1773 — kept for the DI signature; the only line that used it
+        # (``account_deleted``) left with ``delete_account`` in #1813.
         self._tombstone_salt = tombstone_salt
 
     def get_profile(self, user_key: UserKey) -> UserProfile:
@@ -65,7 +71,18 @@ class UserService:
         """
         return self._user_repo.get_or_raise(user_key)
 
-    def admin_update_user(self, user_key: UserKey, data: dict) -> User:
+    def admin_update_user(
+        self,
+        user_key: UserKey,
+        data: dict,
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> User:
         """Apply a partial platform-admin update to one user (#1018).
 
         ``data`` is a partial payload passed straight to
@@ -81,7 +98,30 @@ class UserService:
         Persistence (NFR-001), outside the repository's model re-validation
         (#982/#996), reserved-attribute strip and 1202 → ``NotFoundError``
         mapping.
+
+        **Step-up when it raises trust (#1857).** ``email_verified`` is the trust
+        anchor of the OAuth auto-link (``OAuthEngine.should_auto_link``): a
+        hijacked admin session that verified an attacker's pre-registered account
+        under a victim's address had the victim's next federated sign-in linked
+        into it. Turning ``email_verified`` or ``is_active`` from false to true
+        therefore passes the admin's *own* step-up (``requester`` — their password,
+        the fresh re-authentication or the mailed code; an API key is 403, 429
+        when locked). A display-name edit, a deactivation and a re-send of the
+        current values need none, so the edit form stays one click.
         """
+        current = self._user_repo.get_or_raise(user_key)
+        raises_trust = any(data.get(field) is True and not getattr(current, field) for field in _TRUST_FIELDS)
+        if raises_trust:
+            self._step_up_verifier.verify(
+                requester,
+                action="admin_account_update",
+                echo_ok=None,
+                password=current_password,
+                code=step_up_code,
+                reauth_token=step_up_token,
+                authenticated_with_api_key=authenticated_with_api_key,
+                client_ip=client_ip,
+            )
         user = self._user_repo.update_fields(user_key, data)
         if not user:
             raise NotFoundError("User", user_key)
@@ -99,36 +139,6 @@ class UserService:
     def count_users(self, *, active_only: bool = False) -> int:
         """Number of users; ``active_only`` counts only ``is_active`` ones (#1019)."""
         return self._user_repo.count(active_only=active_only)
-
-    def delete_account(self, user_key: UserKey) -> None:
-        self._user_repo.get_or_raise(user_key)
-
-        # Revoke all sessions
-        self._refresh_token_repo.revoke_all_for_user(user_key)
-
-        # A *narrow* write, not a full-model one (#1525 SCR-003). Since
-        # `ArangoUserRepository` became full-replace, a full model read before the
-        # session revocation and written after it does not merely lose a concurrent
-        # change — it **removes** the attribute, because the stale model carries
-        # `None` for a `password_reset_token` a parallel request set in between.
-        # `update_fields` re-reads the stored user inside the call, so the window
-        # shrinks to that call. It does not vanish: see
-        # `ArangoUserRepository.update_fields`, which is itself read-modify-write.
-        self._user_repo.update_fields(
-            user_key,
-            {
-                "is_active": False,
-                "email": tombstone_email(user_key),
-                "display_name": "Deleted User",
-                "password_hash": None,
-                "avatar_url": None,
-            },
-        )
-        logger.info("account_deleted", subject=self._log_subject(user_key))
-
-    def _log_subject(self, user_key: str) -> str:
-        """The salted reference a log line names the account by (#1773, NFR-011)."""
-        return ErasureEngine.log_subject(user_key, self._tombstone_salt)
 
     @staticmethod
     def _to_profile(user: User) -> UserProfile:

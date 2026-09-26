@@ -1,22 +1,24 @@
-# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's standing pre-approval of every gate for the
-# autonomous #1783 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the operator's
-# machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
 #
-# Re-derived for #1783: #1780 squash-merged as c9d6d29ee, leaving its branch commit e9e0c3a52
-# outside develop's history. REQ-025 is byte-identical between the two; derived_from is now the
-# squash commit, the latest commit of the declaration on develop. Observe step, targets and
-# expectation unchanged.
+# Re-anchored after #1846: derived_from 7e6f8c2a6 was #1770's branch commit, discarded by the
+# #1839 squash (0c39591f8, REQ-025 byte-identical to 7e6f8c2a6). REQ-025 last changed on develop
+# in 9cacdb752 (v1.13, #1813/#1814): one changelog row (+1 line from L19), the request_erasure
+# sketch (+2 around L664) and ErasureCreateRequest (+1 around L798), and the new rows AK-IE-04/05
+# after AK-IE-03. None of the cited passages changed; the citations moved (+1 up to §3.1.1, +4
+# from §3.5 on) and were updated.
+# The AK-OS-05a citation was already off by one before #1846 (L1231 is AK-OS-05); it now
+# points at AK-OS-05a's own row, L1236.
+# Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-reference-index-cleanup
 summary: subject's user-contributed DINOv2 embedding and the curated control row, in pgvector, after erasure through
   the real (non-no-op) binding
 declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-  location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L266); §3.5 Phase 0.5 (L944-963); AK-OS-05 (L1230);
-    AK-OS-05a (L1231)
+  location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L268); §3.5 Phase 0.5 (L949-968); AK-OS-05 (L1235);
+    AK-OS-05a (L1236)
 tier: T2
 expected:
   kind: set
@@ -24,7 +26,7 @@ expected:
   values:
   - erased/species_embeddings
   - kept/curated
-derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
 environment:
 - reach:stack:up
 - reach:vectordb:up
@@ -42,6 +44,6 @@ observe:
   - reach-subject
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-25T07:11:22Z'
-  approved_by: nolte
   observation_digest: a77689fbf7ef9fe2ae0244aabfa7062084986ac427a72c6dbb7f92c8a6a90051
+  approved_by: nolte
+  approved_at: '2026-09-25T18:35:52Z'

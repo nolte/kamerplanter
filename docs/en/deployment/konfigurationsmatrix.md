@@ -64,6 +64,7 @@ This overview bundles the boot blockers across all three processes — backend, 
 | `ARANGODB_PASSWORD` | Backend | **Always** | Value must no longer be `rootpassword` |
 | `FERNET_KEY` | Backend | **Always** — regardless of whether OIDC providers are used | Must not be empty; must be a valid Fernet key (32 bytes, url-safe base64, 44 characters) |
 | `ERASURE_TOMBSTONE_SALT` | Backend | **Always** — regardless of whether GDPR erasure requests are actively used | Must be at least 32 characters long |
+| `LOG_PSEUDONYM_SALT` | Backend + Celery Worker | **Always** — regardless of which features are active; the backend and the worker need the same value | Must be at least 32 characters long |
 | `TIMESCALEDB_PASSWORD` | Backend | Only when `TIMESCALEDB_ENABLED=true` | Value must no longer be `changeme` |
 | `INTERNAL_SERVICE_TOKEN` | Backend | Only when `KNOWLEDGE_SERVICE_ENABLED=true` **or** `INFERENCE_SERVICE_ENABLED=true` | Must not be empty |
 | `INTERNAL_SERVICE_TOKEN` + `INFERENCE_SERVICE_ENABLED`/`-URL` | Celery Worker | Only when `INFERENCE_SERVICE_ENABLED=true` — **must be identical to the backend's value**, or the worker holds the GDPR erasure of contributed reference images as a configuration error (see the warning below) | Must not be empty |
@@ -72,8 +73,8 @@ This overview bundles the boot blockers across all three processes — backend, 
 | `INTERNAL_SERVICE_TOKEN` | Inference Service | Always, whenever the process runs at all | Must not be empty |
 | `VECTORDB_PASSWORD` | Inference Service | Always, whenever the process runs at all | Value must no longer be `changeme` |
 
-!!! danger "The first four rows affect EVERY production instance"
-    `JWT_SECRET_KEY`, `ARANGODB_PASSWORD`, `FERNET_KEY`, and `ERASURE_TOMBSTONE_SALT` are **not feature flags** — they are checked regardless of which of the optional features listed below are active. A fresh production instance without these four values simply refuses to start (`SystemExit`) once `DEBUG=false` is set.
+!!! danger "The first five rows affect EVERY production instance"
+    `JWT_SECRET_KEY`, `ARANGODB_PASSWORD`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, and `LOG_PSEUDONYM_SALT` are **not feature flags** — they are checked regardless of which of the optional features listed below are active. A fresh production instance without these five values simply refuses to start (`SystemExit`) once `DEBUG=false` is set — for `LOG_PSEUDONYM_SALT` this applies to both the backend **and** the Celery worker (Celery Beat does not check it).
 
 !!! note "`INTERNAL_SERVICE_TOKEN` must be identical everywhere"
     The backend, Celery worker/beat, Knowledge Service, and Inference Service must all receive the **same** `INTERNAL_SERVICE_TOKEN` value (one Kubernetes secret, injected into all four controllers via `envFrom`/`secretKeyRef`) — it is a shared M2M secret, not a per-service token.
@@ -200,7 +201,7 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 |---|---|---|---|---|---|
 | Email channel (console, development) | Backend | `EMAIL_ADAPTER=console` (default) | — | — | No |
 | Email channel (SMTP) | Backend + external SMTP server | `EMAIL_ADAPTER=smtp` + `SMTP_HOST`/`SMTP_USERNAME`/`SMTP_PASSWORD` | `SMTP_PASSWORD` | — | No |
-| Email channel (Resend) | Backend | `EMAIL_ADAPTER=resend` | API key via REST configuration | — | No |
+| Email channel (Resend) | Backend | `EMAIL_ADAPTER=resend` + `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`) | `RESEND_API_KEY` | — | Yes — refuses to start without `RESEND_API_KEY` once `EMAIL_ADAPTER=resend` is set (Pydantic validation while loading the configuration, independent of `DEBUG`; not an `insecure_default_secrets()` check) |
 | Browser push (Web Push / VAPID) | Backend | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` + `VAPID_CONTACT_EMAIL` all three set | `VAPID_PRIVATE_KEY` | — | No |
 | Home Assistant channel (persistent notifications, mobile push, TTS) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` set | `HA_ACCESS_TOKEN` | — | No |
 | Apprise channel (multi-backend push) | Backend image | Always active as long as the optional `apprise` Python package is installed in the image (no env switch) | — | larger backend image | No |
@@ -236,6 +237,7 @@ Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — 
 | Light Mode (no login, single-user) <!-- REQ-027 --> | Backend + Frontend | `KAMERPLANTER_MODE=light` (backend) **and** `KAMERPLANTER_MODE=light` (frontend init container) | — | — | No |
 | Full mode (auth + multi-tenant) <!-- REQ-023 / REQ-024 --> | Backend + Frontend | `KAMERPLANTER_MODE=full` (default) | `JWT_SECRET_KEY`, `FERNET_KEY` (both already mandatory regardless, see above) | — | Yes (via the general backend secrets) |
 | GDPR erasure/anonymization <!-- REQ-025 --> | Backend + Celery Beat | Always active, cannot be disabled | `ERASURE_TOMBSTONE_SALT` | one daily Celery task | Yes (`erasure_tombstone_salt`, always checked) |
+| Log pseudonymization (subject references, email digests) <!-- NFR-011 §3.4 --> | Backend + Celery Worker | Always active, cannot be disabled | `LOG_PSEUDONYM_SALT` — rotatable, independent of `ERASURE_TOMBSTONE_SALT` | — | Yes (`log_pseudonym_salt`, always checked; Celery Beat does not check it) |
 | Email verification at registration | Backend | `REQUIRE_EMAIL_VERIFICATION=true` (default `false`) | Email channel configured (see notification system) | — | No |
 | "Have I Been Pwned" check | Backend | `HIBP_ENABLED=true` (default `false`) | — | outbound HTTPS requests on password change | No |
 

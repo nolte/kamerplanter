@@ -6,6 +6,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.domain.interfaces.notification_repository import INotificationRepository
 from app.domain.models.notification import Notification, NotificationStatus
 
@@ -94,7 +95,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER {filter_clause} "
-            f"SORT doc.created_at DESC "
+            f"SORT DATE_TIMESTAMP(doc.created_at) DESC "
             f"LIMIT @offset, @limit "
             f"RETURN doc"
         )
@@ -118,7 +119,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             f"FILTER doc.user_key == @user_key "
             f"AND DATE_TIMESTAMP(doc.created_at) != null "
             f"AND DATE_TIMESTAMP(doc.created_at) >= DATE_TIMESTAMP(@since) "
-            f"SORT doc.created_at DESC "
+            f"SORT DATE_TIMESTAMP(doc.created_at) DESC "
             f"LIMIT @limit "
             f"RETURN doc"
         )
@@ -173,6 +174,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER STARTS_WITH(doc.notification_type, 'care.watering') "
             f"AND doc.acted_at == null "
+            f"AND doc.created_at < @cutoff_slack "
             f"AND DATE_TIMESTAMP(doc.created_at) != null "
             f"AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff) "
             f"AND doc.escalation_level == @level "
@@ -182,6 +184,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             query,
             bind_vars={
                 "cutoff": overdue_since.isoformat(),
+                "cutoff_slack": instant_prefilter_bound(overdue_since),
                 "level": escalation_level,
             },
         )
@@ -219,7 +222,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc.group_key == @group_key AND doc.tenant_key == @tenant_key "
-            f"SORT doc.created_at DESC "
+            f"SORT DATE_TIMESTAMP(doc.created_at) DESC "
             f"RETURN doc"
         )
         cursor = self._db.aql.execute(

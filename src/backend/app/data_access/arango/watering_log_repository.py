@@ -150,7 +150,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
           FILTER e._to == @slot_id
           LET doc = DOCUMENT(e._from)
           FILTER doc != null AND doc.tenant_key == @tenant_key
-          SORT doc.logged_at DESC
+          SORT DATE_TIMESTAMP(doc.logged_at) DESC
           LIMIT @offset, @limit
           RETURN doc
         """
@@ -189,7 +189,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             FILTER log_edge._to == slot_edge._to
             LET doc = DOCUMENT(log_edge._from)
             FILTER doc != null AND doc.tenant_key == @tenant_key
-            SORT doc.logged_at DESC
+            SORT DATE_TIMESTAMP(doc.logged_at) DESC
             LIMIT @offset, @limit
             RETURN DISTINCT doc
         """
@@ -269,7 +269,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
         FOR wl IN @@watering_logs
           FILTER wl.tenant_key == @tenant_key
           FILTER LENGTH(INTERSECTION(wl.slot_keys, slot_keys)) > 0
-          SORT wl.logged_at DESC
+          SORT DATE_TIMESTAMP(wl.logged_at) DESC
           LIMIT 1
           RETURN wl.logged_at
         """
@@ -299,7 +299,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
     _BY_PLANT_QUERY = """
     FOR doc IN @@collection
       FILTER @plant_key IN doc.plant_keys
-      SORT doc.logged_at DESC
+      SORT DATE_TIMESTAMP(doc.logged_at) DESC
       LIMIT @offset, @limit
       RETURN doc
     """
@@ -308,7 +308,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
     FOR doc IN @@collection
       FILTER @plant_key IN doc.plant_keys
         AND doc.tenant_key == @tenant_key
-      SORT doc.logged_at DESC
+      SORT DATE_TIMESTAMP(doc.logged_at) DESC
       LIMIT @offset, @limit
       RETURN doc
     """
@@ -317,7 +317,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
     FOR doc IN @@collection
       FILTER @plant_key IN doc.plant_keys
         AND doc.runoff_ec != null
-      SORT doc.logged_at DESC
+      SORT DATE_TIMESTAMP(doc.logged_at) DESC
       LIMIT @limit
       RETURN doc
     """
@@ -327,7 +327,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
       FILTER @plant_key IN doc.plant_keys
         AND doc.tenant_key == @tenant_key
         AND doc.runoff_ec != null
-      SORT doc.logged_at DESC
+      SORT DATE_TIMESTAMP(doc.logged_at) DESC
       LIMIT @limit
       RETURN doc
     """

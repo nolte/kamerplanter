@@ -12,21 +12,19 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
 import PageTitle from '@/components/layout/PageTitle';
 import client from '@/api/client';
 import { parseApiError } from '@/api/errors';
-import { listProviders } from '@/api/endpoints/auth';
+import type { AccountErasureRequest } from '@/api/types';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { toStepUpBody } from '@/utils/stepUp';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
+import { useAppSelector } from '@/store/hooks';
 
 interface ConsentItem {
   purpose: string;
@@ -80,10 +78,11 @@ const TAB_KEYS = ['consents', 'export', 'erasure', 'restrict'] as const;
 
 export default function PrivacySettingsPage() {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [tabIndex, setTabIndex] = useState(0);
+  // #1815 — back from the fresh sign-in at the identity provider: open the
+  // erasure tab and reopen its step-up dialog, which then sends the token.
+  const resumeErasure = useStepUpResume('privacy-erasure');
+  const [tabIndex, setTabIndex] = useState(() => (resumeErasure ? TAB_KEYS.indexOf('erasure') : 0));
 
   // ── Consents tab state ────────────────────────────────────────────
   const [consents, setConsents] = useState<ConsentItem[]>([]);
@@ -96,25 +95,11 @@ export default function PrivacySettingsPage() {
   const [exportError, setExportError] = useState('');
 
   // ── Erasure tab state ─────────────────────────────────────────────
-  const [erasureDialogOpen, setErasureDialogOpen] = useState(false);
-  const [erasurePending, setErasurePending] = useState(false);
+  // The step-up itself — own e-mail echo, fail-closed password, lockout — lives
+  // in `StepUpConfirmDialog` (#1813, #1816); the page only keeps the outcome.
+  const ownEmail = useAppSelector((s) => s.auth.user?.email ?? '');
+  const [erasureDialogOpen, setErasureDialogOpen] = useState(resumeErasure);
   const [erasureMessage, setErasureMessage] = useState('');
-  const [erasureError, setErasureError] = useState('');
-  const [erasurePassword, setErasurePassword] = useState('');
-  // Tri-state: ``null`` = provider list not yet known (load pending or failed),
-  // ``true``/``false`` = the account has / has not a local-password provider.
-  const [hasLocalPassword, setHasLocalPassword] = useState<boolean | null>(null);
-
-  // Local-password accounts must re-authenticate with their current password
-  // before an erasure request is accepted (REQ-025, backend authorises via the
-  // ``password`` field). We **fail closed**: require the password unless we
-  // positively know the account is federated / password-less. Otherwise a
-  // failed or still-pending provider load would hide the password field for a
-  // local account, the backend would reject the request with 401, and the user
-  // would have no field to supply the password — an unrecoverable dead end
-  // (issue #394). Sending a password the backend ignores for a federated
-  // account is harmless (``password_hash is None`` skips the check).
-  const requiresPassword = hasLocalPassword !== false;
 
   // ── Restrict tab state ────────────────────────────────────────────
   const [restrictions, setRestrictions] = useState<RestrictionItem[]>([]);
@@ -136,16 +121,6 @@ export default function PrivacySettingsPage() {
     } finally {
       setConsentsLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    // Determine the account's login providers once so the erasure dialog knows
-    // whether a current-password confirmation is required. A failed load leaves
-    // ``hasLocalPassword`` at ``null`` (unknown → fail closed, see
-    // ``requiresPassword`` above), so the password field is still shown.
-    listProviders()
-      .then((list) => setHasLocalPassword(list.some((p) => p.provider === 'local')))
-      .catch(() => setHasLocalPassword(null));
   }, []);
 
   useEffect(() => {
@@ -210,47 +185,14 @@ export default function PrivacySettingsPage() {
     }
   };
 
-  const resetErasureDialogState = () => {
-    setErasureDialogOpen(false);
-    setErasurePassword('');
-    setErasureError('');
-  };
-
-  const closeErasureDialog = () => {
-    // Ignore close attempts (backdrop click, Escape, Cancel button) while the
-    // erasure request is in flight so a stray dismissal cannot mask the
-    // eventual success/error outcome (UI-NFR-008 R-016 double-submit
-    // protection extends to the whole in-flight interaction, not just the
-    // confirm button). The success path below bypasses this guard via
-    // ``resetErasureDialogState`` since it runs while ``erasurePending`` is
-    // still true.
-    if (erasurePending) return;
-    resetErasureDialogState();
-  };
-
-  const handleRequestErasure = async () => {
-    // Local-password accounts must supply their current password; the backend
-    // rejects the request (401) otherwise. Guard client-side to avoid a
-    // guaranteed round-trip failure and to keep the confirm button meaningful.
-    if (requiresPassword && !erasurePassword.trim()) {
-      setErasureError(t('pages.privacy.erasurePasswordRequired'));
-      return;
-    }
-    setErasurePending(true);
-    setErasureError('');
+  // A rejection propagates to the dialog, which shows it (the lockout included)
+  // and stays open so the echo or the password can be corrected.
+  const handleRequestErasure = async ({ echo, ...credentials }: StepUpConfirmation) => {
     setErasureMessage('');
-    try {
-      const payload = requiresPassword ? { password: erasurePassword } : {};
-      await client.post('/privacy/erasure', payload);
-      setErasureMessage(t('pages.privacy.erasureRequested'));
-      resetErasureDialogState();
-    } catch (err) {
-      // Keep the dialog open so the user can correct the password; the error is
-      // rendered inside the dialog (see erasure confirmation dialog below).
-      setErasureError(parseApiError(err));
-    } finally {
-      setErasurePending(false);
-    }
+    const payload: AccountErasureRequest = { confirm_email: echo, ...toStepUpBody(credentials) };
+    await client.post('/privacy/erasure', payload);
+    setErasureDialogOpen(false);
+    setErasureMessage(t('pages.privacy.erasureRequested'));
   };
 
   const handleCreateRestriction = async () => {
@@ -572,82 +514,31 @@ export default function PrivacySettingsPage() {
         </Card>
       )}
 
-      {/* ── Erasure Confirmation Dialog ── */}
-      <Dialog
+      {/* ── Erasure Confirmation Dialog (step-up, #1813) ── */}
+      <StepUpConfirmDialog
         open={erasureDialogOpen}
-        onClose={closeErasureDialog}
-        fullScreen={fullScreen}
-        maxWidth="xs"
-        fullWidth
-        role="alertdialog"
-        aria-labelledby="privacy-erasure-dialog-title"
-        aria-describedby="privacy-erasure-dialog-description"
-        data-testid="privacy-erasure-dialog"
-      >
-        <DialogTitle id="privacy-erasure-dialog-title">
-          {t('pages.privacy.erasureDialogTitle')}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="privacy-erasure-dialog-description">
-            {t('pages.privacy.erasureDialogText')}
-          </DialogContentText>
-
-          {/* Local-password accounts confirm their identity with the current
-              password before the erasure is authorised (REQ-025). Autofocus
-              goes to the password field here because it is the next required
-              action; federated accounts (no password field) instead autofocus
-              the Cancel button below to keep the safe default for a
-              destructive action. */}
-          {requiresPassword && (
-            <TextField
-              type="password"
-              label={t('pages.privacy.erasureDialogPasswordLabel')}
-              helperText={t('pages.privacy.erasureDialogPasswordHelper')}
-              value={erasurePassword}
-              onChange={(e) => setErasurePassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !erasurePending) {
-                  handleRequestErasure();
-                }
-              }}
-              autoComplete="current-password"
-              fullWidth
-              required
-              autoFocus
-              disabled={erasurePending}
-              error={Boolean(erasureError)}
-              sx={{ mt: 2 }}
-              data-testid="privacy-erasure-password"
-            />
-          )}
-
-          {erasureError && (
-            <Alert severity="error" sx={{ mt: 2 }} data-testid="privacy-erasure-dialog-error">
-              {erasureError}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={closeErasureDialog}
-            disabled={erasurePending}
-            autoFocus={!requiresPassword}
-            data-testid="privacy-erasure-cancel-btn"
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={handleRequestErasure}
-            color="error"
-            variant="contained"
-            disabled={erasurePending || (requiresPassword && !erasurePassword.trim())}
-            startIcon={erasurePending ? <CircularProgress size={16} color="inherit" /> : undefined}
-            data-testid="privacy-erasure-confirm-btn"
-          >
-            {t('pages.privacy.erasureDialogConfirm')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        title={t('pages.privacy.erasureDialogTitle')}
+        description={t('pages.privacy.erasureDialogText')}
+        echoLabel={t('pages.privacy.erasureDialogEmailLabel')}
+        echoHelper={t('pages.privacy.erasureDialogEmailHelper', { email: ownEmail })}
+        expectedEcho={ownEmail}
+        echoMatch="caseInsensitive"
+        echoInputType="email"
+        passwordLabel={t('pages.privacy.erasureDialogPasswordLabel')}
+        passwordHelper={t('pages.privacy.erasureDialogPasswordHelper')}
+        passwordRequiredMessage={t('pages.privacy.erasurePasswordRequired')}
+        confirmLabel={t('pages.privacy.erasureDialogConfirm')}
+        testIdPrefix="privacy-erasure"
+        stepUpAction="account_erasure"
+        testIds={{
+          echo: 'privacy-erasure-email',
+          error: 'privacy-erasure-dialog-error',
+          cancel: 'privacy-erasure-cancel-btn',
+          confirm: 'privacy-erasure-confirm-btn',
+        }}
+        onConfirm={handleRequestErasure}
+        onCancel={() => setErasureDialogOpen(false)}
+      />
     </Box>
   );
 }

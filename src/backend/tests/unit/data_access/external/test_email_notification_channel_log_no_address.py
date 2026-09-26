@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 import structlog.testing
 
-from app.common.decoys import email_digest
+from app.common.decoys import UNAVAILABLE_EMAIL_DIGEST, email_digest
 from app.config.settings import settings
 from app.data_access.external.email_notification_channel import EmailNotificationChannel
 from app.domain.models.notification import Notification
@@ -36,7 +36,9 @@ class _FakeEmailService:
 
 @pytest.fixture(autouse=True)
 def _salted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "erasure_tombstone_salt", "s" * 40)
+    # The digest's key since #1812. With the tombstone salt set instead, both sides
+    # of the digest comparison were the constant "unavailable" — a vacuous pass.
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "s" * 40)
 
 
 def _notification() -> Notification:
@@ -63,3 +65,4 @@ def test_channel_log_names_no_recipient_address(refuse: bool, batch: bool) -> No
         assert RECIPIENT not in str(entry), entry
         assert "exc_info" not in entry, "a traceback repeats the refused address"
     assert logs[-1]["to_sha256"] == email_digest(RECIPIENT)
+    assert logs[-1]["to_sha256"] != UNAVAILABLE_EMAIL_DIGEST, "a keyed digest, not the no-salt constant"

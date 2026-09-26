@@ -58,7 +58,7 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
         query = """
         FOR doc IN @@collection
           FILTER doc.user_key == @user_key
-          SORT doc.requested_at DESC
+          SORT DATE_TIMESTAMP(doc.requested_at) DESC
           RETURN doc
         """
         cursor = self._db.aql.execute(
@@ -81,7 +81,7 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
         FOR doc IN @@collection
           FILTER doc.user_key == @user_key
             AND doc.status IN ['scheduled', 'in_progress', 'partially_completed']
-          SORT doc.requested_at ASC, doc._key ASC
+          SORT DATE_TIMESTAMP(doc.requested_at) ASC, doc._key ASC
           LIMIT 1
           RETURN doc
         """

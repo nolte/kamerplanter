@@ -119,6 +119,10 @@ class ITankRepository(ABC):
     def create_fill_event(self, event: TankFillEvent) -> TankFillEvent: ...
 
     @abstractmethod
+    def get_fill_event(self, key: str) -> TankFillEvent | None:
+        """One fill event by key, unscoped — resolve its tenant through its tank (#1872 C6)."""
+
+    @abstractmethod
     def get_fill_events(
         self,
         tank_key: TankKey,

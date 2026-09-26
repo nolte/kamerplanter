@@ -29,7 +29,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.data_access.arango import task_repository
 from app.domain.services.task_entity_guard import TaskEntityGuard
 
@@ -67,10 +67,17 @@ class _SiteService:
         self._site_owner = site_owner
         self.site_lookups: list[tuple[str, str]] = []
 
-    def get_location(self, key):
-        # Deliberately mirrors reality: no tenant argument, and tenant_key is ""
-        # on every stored row.
-        return SimpleNamespace(key=key, site_key="site_1", tenant_key="")
+    def get_location(self, key, tenant_key=""):
+        # Mirrors ``SiteService.get_location``: the stored row's tenant_key is
+        # "" — the tenancy is decided on the parent site, and a refusal is
+        # reported as the *location* (#1871 B13), never as the site.
+        location = SimpleNamespace(key=key, site_key="site_1", tenant_key="")
+        if tenant_key:
+            try:
+                self.get_site(location.site_key, tenant_key=tenant_key)
+            except NotFoundError:
+                raise NotFoundError("Location", key) from None
+        return location
 
     def get_site(self, key, *, tenant_key=""):
         self.site_lookups.append((key, tenant_key))
@@ -140,7 +147,7 @@ def test_a_location_is_anchored_on_its_site() -> None:
 
 @pytest.mark.parametrize(
     ("entity_type", "entity_key"),
-    [(None, None), ("plant_instance", None), (None, "e1"), ("plant_instance", "")],
+    [(None, None), ("plant_instance", None), ("plant_instance", "")],
 )
 def test_an_unbound_task_is_untouched(entity_type, entity_key) -> None:
     _guard(owner=_THEIRS).verify(entity_type, entity_key, tenant_key=_MINE)
@@ -165,22 +172,30 @@ def test_an_unbound_create_constructs_no_collaborator() -> None:
     guard = TaskEntityGuard(_factory("plants"), _factory("runs"), _factory("tanks"), _factory("sites"))
 
     guard.verify(None, None, tenant_key=_MINE)
-    guard.verify("generic", "e1", tenant_key=_MINE)
     guard.verify("plant_instance", None, tenant_key=_MINE)
+    with pytest.raises(ValidationError):
+        guard.verify("generic", "e1", tenant_key=_MINE)  # refused before any lookup (#1872 C10)
 
     assert built == [], "no binding needed resolving, so nothing may have been constructed"
 
 
-@pytest.mark.parametrize("entity_type", ["generic", "plant", "actuator", "species"])
-def test_a_type_that_writes_no_edge_is_untouched(entity_type: str) -> None:
+@pytest.mark.parametrize("entity_type", [None, "generic", "plant", "actuator", "species"])
+def test_a_key_under_a_type_that_writes_no_edge_is_refused_for_a_tenant(entity_type: str | None) -> None:
     """Only types in `ENTITY_TYPE_TO_COLLECTION` produce a dereferenceable edge.
 
-    All four of these occur in the tree today. Rejecting them would break
-    producers over a cross-boundary reference that is never created.
+    These occur in the tree, but from the system producers (the actuator fallback
+    task, seeds), which run without a tenant — see the next test. A tenant caller
+    naming a key under such a type stored an unresolved reference (#1872 C10).
     """
     assert entity_type not in task_repository.ENTITY_TYPE_TO_COLLECTION
 
-    _guard(owner=_THEIRS).verify(entity_type, "e1", tenant_key=_MINE)
+    with pytest.raises(ValidationError):
+        _guard(owner=_THEIRS).verify(entity_type, "e1", tenant_key=_MINE)
+
+
+@pytest.mark.parametrize("entity_type", ["generic", "actuator"])
+def test_a_system_binding_under_a_type_that_writes_no_edge_is_untouched(entity_type: str) -> None:
+    _guard(owner=_THEIRS).verify(entity_type, "e1", tenant_key="")
 
 
 def test_the_system_context_is_ungated() -> None:

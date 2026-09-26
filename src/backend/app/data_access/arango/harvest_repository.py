@@ -129,7 +129,8 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
         total = next(count_cursor, 0)
 
         cursor = self._db.aql.execute(
-            f"{self._OBSERVATIONS_FOR_PLANT_BODY} SORT doc.observed_at DESC LIMIT @offset, @limit RETURN doc",
+            f"{self._OBSERVATIONS_FOR_PLANT_BODY} SORT DATE_TIMESTAMP(doc.observed_at) DESC "
+            "LIMIT @offset, @limit RETURN doc",
             bind_vars={**bind_vars, "offset": offset, "limit": limit},
         )
         items = [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
@@ -147,7 +148,7 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
             COLLECT indicator = doc.indicator_key INTO group
             LET latest = FIRST(
                 FOR g IN group
-                    SORT g.doc.observed_at DESC
+                    SORT DATE_TIMESTAMP(g.doc.observed_at) DESC
                     LIMIT 1
                     RETURN g.doc
             )

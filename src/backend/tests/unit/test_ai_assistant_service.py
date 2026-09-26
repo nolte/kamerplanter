@@ -6,6 +6,7 @@ rule-based tips on a Knowledge-Service outage, and the DSGVO conversation delete
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -46,6 +47,11 @@ def _local_provider() -> AiProviderConfig:
     )
 
 
+class _OwnRuns:
+    def get_by_key(self, key):
+        return SimpleNamespace(key=key, tenant_key="home")
+
+
 def _service(knowledge_adapter):
     consent_guard = MagicMock()
     consent_guard.require_consent.return_value = None
@@ -58,6 +64,8 @@ def _service(knowledge_adapter):
         tip_cache_repo=MagicMock(),
         conversation_repo=MagicMock(),
         provider_repo=provider_repo,
+        # The context run is the tenant's own (#1872 C9 resolves it before tips are stored).
+        planting_run_repo=_OwnRuns(),
     )
 
 

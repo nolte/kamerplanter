@@ -101,7 +101,7 @@ controllers:
           repository: ghcr.io/nolte/kamerplanter-backend
           tag: 0.2.1@sha256:af9bec…    # immutable digest, written by the release job — see "Pin a specific image version"
         envFrom:
-          - secret: kamerplanter-secrets    # ARANGODB_PASSWORD, JWT_SECRET_KEY, FERNET_KEY, ERASURE_TOMBSTONE_SALT
+          - secret: kamerplanter-secrets    # ARANGODB_PASSWORD, JWT_SECRET_KEY, FERNET_KEY, ERASURE_TOMBSTONE_SALT, LOG_PSEUDONYM_SALT
         env:
           ARANGODB_HOST: "..."
           ARANGODB_PORT: "8529"
@@ -120,8 +120,8 @@ controllers:
             memory: 2Gi                 # Image uploads (REQ-034) decode in memory — 512Mi OOMKills on upload
 ```
 
-!!! danger "`ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` never come from `env:`"
-    The real chart deliberately does **not** declare these four values under `env:` — they come exclusively via `envFrom: - secret: kamerplanter-secrets` from a secret you create beforehand. Without that secret (or with an unchanged default value inside it), the backend refuses to start when `DEBUG=false`. Details: [Kubernetes Deployment — Create the mandatory secrets](kubernetes.md), [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+!!! danger "`ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, `LOG_PSEUDONYM_SALT` never come from `env:`"
+    The real chart deliberately does **not** declare these five values under `env:` — they come exclusively via `envFrom: - secret: kamerplanter-secrets` from a secret you create beforehand. Without that secret (or with an unchanged default value inside it), the backend refuses to start when `DEBUG=false`; the Celery worker controller draws from the same secret and checks `LOG_PSEUDONYM_SALT` just as strictly. Details: [Kubernetes Deployment — Create the mandatory secrets](kubernetes.md), [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 #### Frontend
 
@@ -257,12 +257,13 @@ valkey:
 | `ARANGODB_PASSWORD` | Yes | — | Database password. Comes from the `kamerplanter-secrets` secret (`envFrom`) in the chart, **not** from `env:`. |
 | `ARANGO_ROOT_PASSWORD` | Yes | — | ArangoDB root password, also from `kamerplanter-secrets`. Must match `ARANGODB_PASSWORD`. |
 | `JWT_SECRET_KEY` | Yes | — | JWT signing key, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if the chart-internal default is left unchanged. |
-| `FERNET_KEY` | Yes | — | Encryption key for OIDC provider secrets, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty. |
-| `ERASURE_TOMBSTONE_SALT` | Yes | — | GDPR pseudonymization salt (≥ 32 characters), from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or too short. |
+| `FERNET_KEY` | Yes | — | Encryption key for OIDC provider secrets, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or invalid — **also for the celery-worker controller**, which gets the same value as the backend via `envFrom` from `kamerplanter-secrets`; the backend and the celery worker must use the same key. |
+| `ERASURE_TOMBSTONE_SALT` | Yes | — | GDPR pseudonymization salt (≥ 32 characters) for the tombstone hash, the erasure request key and the tenant slug digest, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or too short. Must never change once accounts have been erased. |
+| `LOG_PSEUDONYM_SALT` | Yes | — | Salt (≥ 32 characters) that keys only the log pseudonyms (`subject=` references, `email_sha256` digests, `requested_by_subject`), from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or too short — **also for the celery-worker controller**, which gets the same value via `envFrom`. Unlike `ERASURE_TOMBSTONE_SALT`, this value may be rotated. |
 | `INTERNAL_SERVICE_TOKEN` | Conditional | — | Only required once `KNOWLEDGE_SERVICE_ENABLED=true` or `INFERENCE_SERVICE_ENABLED=true` is set, also from `kamerplanter-secrets`. For `INFERENCE_SERVICE_ENABLED`, the same requirement applies **to the celery-worker controller too** — it runs the scheduled GDPR erasure of contributed reference images and needs the same access as the backend that writes them (see [Setting Up Plant Identification](inference-service.md)). |
 | `REDIS_URL` | Yes | — | Valkey/Redis connection URL |
 | `CORS_ORIGINS` | Yes | — | Allowed origins as JSON array |
-| `DEBUG` | No | `false` | Enable debug mode. Setting `true` also disables the boot blocker for the five rows above — **never** set this in production. |
+| `DEBUG` | No | `false` | Enable debug mode. Setting `true` also disables the boot blocker for the six rows above — **never** set this in production. |
 | `KAMERPLANTER_MODE` | No | `full` | `light` (no auth, single user) or `full` (with JWT auth and tenant management). The chart does **not** set this variable on the backend controller by default — the Python-side default `full` applies. On the frontend init container it is hard-set to `full` and must be explicitly overridden for light mode. |
 | `REQUIRE_EMAIL_VERIFICATION` | No | `false` | Email verification on registration |
 

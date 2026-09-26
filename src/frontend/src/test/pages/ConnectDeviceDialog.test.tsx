@@ -9,6 +9,8 @@ import { renderWithProviders, createTestStore, type TestStore } from '@/test/hel
 import ConnectDeviceDialog from '@/pages/auth/ConnectDeviceDialog';
 import AccountSettingsPage from '@/pages/auth/AccountSettingsPage';
 import { createDevicePairing } from '@/api/endpoints/auth';
+import { ApiError } from '@/api/errors';
+import type { ApiErrorResponse } from '@/api/types';
 
 /**
  * REQ-023 / #1118 — the "Connect mobile device" QR dialog.
@@ -24,7 +26,9 @@ import { createDevicePairing } from '@/api/endpoints/auth';
  *   code never keeps looking scannable;
  * - a refresh replaces the rendered QR — the *rendered* one, not just the state;
  * - closing drops the code: not in Redux, not in storage, and re-opening has to
- *   ask the server again.
+ *   ask the server again;
+ * - no code is minted before the step-up is confirmed (#1847), and a refresh
+ *   passes the step-up again.
  *
  * `QRCodeSVG` is wrapped rather than replaced: the wrapper records the `value`
  * prop the component actually passes and then renders the real code. A stubbed
@@ -166,6 +170,9 @@ function DialogHost() {
       <button type="button" data-testid="host-reopen" onClick={() => setOpen(true)}>
         reopen
       </button>
+      <button type="button" data-testid="host-close" onClick={() => setOpen(false)}>
+        close
+      </button>
       <ConnectDeviceDialog open={open} onClose={() => setOpen(false)} />
     </>
   );
@@ -223,10 +230,32 @@ function renderSessionsTab() {
   });
 }
 
+// Credential-shaped values are assembled at runtime (GitGuardian, #1838).
+const STEP_UP_PASSWORD = ['pair', 'Secr', '3t'].join('-');
+
+function stepUpPasswordInput(): HTMLInputElement {
+  return screen
+    .getByTestId('connect-device-step-up-password')
+    .querySelector('input') as HTMLInputElement;
+}
+
+/**
+ * #1847 — every code passes the step-up first. Synchronous on purpose: the
+ * confirmation dialog renders its password field on the first render (the
+ * provider list is still unknown, so the field fails closed), which lets the
+ * fake-timer tests below drive it with `fireEvent` without waiting on a timer.
+ */
+async function confirmStepUp(password = STEP_UP_PASSWORD) {
+  fireEvent.change(stepUpPasswordInput(), { target: { value: password } });
+  fireEvent.click(screen.getByTestId('connect-device-step-up-confirm'));
+  await act(async () => {});
+}
+
 beforeEach(() => {
   qrValues.length = 0;
   mockCreatePairing.mockReset();
   localStorage.clear();
+  sessionStorage.clear();
   // Default every test to full mode; the light-mode suite opts in explicitly.
   modeState.light = false;
 });
@@ -236,7 +265,7 @@ afterEach(() => {
 });
 
 describe('ConnectDeviceDialog — reaching it from the sessions tab', () => {
-  it('opens from the sessions tab and shows a QR code for a fresh pairing code', async () => {
+  it('opens the step-up from the sessions tab and shows a QR code once it is confirmed', async () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
     const user = userEvent.setup();
     renderSessionsTab();
@@ -245,10 +274,16 @@ describe('ConnectDeviceDialog — reaching it from the sessions tab', () => {
     // and revokes the device once it is paired.
     await user.click(await screen.findByTestId('connect-device-button'));
 
+    // The step-up comes first (#1847): no code is minted before it is confirmed.
+    expect(await screen.findByTestId('connect-device-step-up-dialog')).toBeInTheDocument();
+    expect(mockCreatePairing).not.toHaveBeenCalled();
+
+    await user.type(stepUpPasswordInput(), STEP_UP_PASSWORD);
+    await user.click(screen.getByTestId('connect-device-step-up-confirm'));
+
     expect(await screen.findByTestId('connect-device-dialog')).toBeInTheDocument();
     expect(await screen.findByTestId('device-pairing-qr')).toBeInTheDocument();
     expect(lastQrValue()).toContain(CODE);
-    // No code is minted before the user asks for one.
     expect(mockCreatePairing).toHaveBeenCalledTimes(1);
   });
 
@@ -263,10 +298,72 @@ describe('ConnectDeviceDialog — reaching it from the sessions tab', () => {
   });
 });
 
+describe('ConnectDeviceDialog — step-up before the code (#1847)', () => {
+  it('sends the typed current password with the pairing request', async () => {
+    mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
+    renderDialog();
+
+    await confirmStepUp();
+
+    expect(mockCreatePairing).toHaveBeenCalledWith({ current_password: STEP_UP_PASSWORD });
+    expect(await screen.findByTestId('device-pairing-qr')).toBeInTheDocument();
+  });
+
+  it('mints nothing and shows no QR while the step-up is unconfirmed', async () => {
+    mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
+    renderDialog();
+
+    expect(await screen.findByTestId('connect-device-step-up-dialog')).toBeInTheDocument();
+    // No echo to type back: the password alone confirms, and it is required.
+    expect(screen.queryByTestId('connect-device-step-up-echo')).toBeNull();
+    expect(screen.getByTestId('connect-device-step-up-confirm')).toBeDisabled();
+    expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
+    expect(mockCreatePairing).not.toHaveBeenCalled();
+  });
+
+  it('keeps a refused step-up inside the confirmation and shows no QR', async () => {
+    mockCreatePairing.mockRejectedValueOnce(
+      new ApiError(
+        {
+          error_id: 'err',
+          error_code: 'UNAUTHORIZED',
+          message: 'Wrong password.',
+          details: [],
+          timestamp: '',
+          path: '/api/v1/auth/device-pairing',
+          method: 'POST',
+        } as ApiErrorResponse,
+        401,
+      ),
+    );
+    renderDialog();
+
+    await confirmStepUp('wrong-password');
+
+    expect(await screen.findByTestId('connect-device-step-up-error')).toBeInTheDocument();
+    expect(screen.getByTestId('connect-device-step-up-dialog')).toBeInTheDocument();
+    // The rejected password is cleared so it is not resent by accident.
+    expect(stepUpPasswordInput().value).toBe('');
+    expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
+    expect(document.body.textContent ?? '').not.toContain(CODE);
+  });
+
+  it('closes the whole flow when the step-up is cancelled', async () => {
+    renderDialog();
+
+    fireEvent.click(await screen.findByTestId('connect-device-step-up-cancel'));
+
+    await waitFor(() => expect(screen.queryByTestId('connect-device-step-up-dialog')).toBeNull());
+    expect(screen.queryByTestId('connect-device-dialog')).toBeNull();
+    expect(mockCreatePairing).not.toHaveBeenCalled();
+  });
+});
+
 describe('ConnectDeviceDialog — accessibility', () => {
   it('exposes a labelled dialog and a QR with a text alternative', async () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
     renderDialog();
+    await confirmStepUp();
     await screen.findByTestId('device-pairing-qr');
 
     // The accessible name comes from the title via `aria-labelledby`; a screen
@@ -281,7 +378,9 @@ describe('ConnectDeviceDialog — accessibility', () => {
   it('has no critical accessibility violations', async () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
     renderDialog();
+    await confirmStepUp();
     await screen.findByTestId('device-pairing-qr');
+    await waitFor(() => expect(screen.queryByTestId('connect-device-step-up-dialog')).toBeNull());
 
     // The dialog renders into a portal, so the scan starts at the document body
     // rather than at the render container.
@@ -295,6 +394,7 @@ describe('ConnectDeviceDialog — QR payload', () => {
   it('encodes exactly the documented payload contract', async () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
     renderDialog();
+    await confirmStepUp();
 
     await screen.findByTestId('device-pairing-qr');
 
@@ -311,6 +411,7 @@ describe('ConnectDeviceDialog — QR payload', () => {
     // the one-time credential, in-app-scan-only, never an interceptable deep link.
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
     renderDialog();
+    await confirmStepUp();
 
     await screen.findByTestId('device-pairing-qr');
     const value = lastQrValue();
@@ -327,6 +428,7 @@ describe('ConnectDeviceDialog — QR payload', () => {
   it('never renders the code as readable text', async () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE));
     renderDialog();
+    await confirmStepUp();
 
     const dialog = await screen.findByTestId('connect-device-dialog');
     await screen.findByTestId('device-pairing-qr');
@@ -347,6 +449,7 @@ describe('ConnectDeviceDialog — countdown and expiry', () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE, 90));
     renderDialog();
     await act(async () => {});
+    await confirmStepUp();
 
     const countdown = screen.getByTestId('device-pairing-countdown');
     // Seeded from `expires_in` — the server's own remaining-seconds figure, not
@@ -365,6 +468,7 @@ describe('ConnectDeviceDialog — countdown and expiry', () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE, 3));
     renderDialog();
     await act(async () => {});
+    await confirmStepUp();
 
     expect(screen.getByTestId('device-pairing-qr')).toBeInTheDocument();
 
@@ -385,6 +489,7 @@ describe('ConnectDeviceDialog — countdown and expiry', () => {
     mockCreatePairing.mockResolvedValue(pairingResponse(CODE, 2));
     renderDialog();
     await act(async () => {});
+    await confirmStepUp();
 
     act(() => {
       vi.advanceTimersByTime(60_000);
@@ -396,13 +501,14 @@ describe('ConnectDeviceDialog — countdown and expiry', () => {
 });
 
 describe('ConnectDeviceDialog — refreshing', () => {
-  it('requests a new code and replaces the rendered QR', async () => {
+  it('asks for the step-up again, then replaces the rendered QR', async () => {
     vi.useFakeTimers();
     mockCreatePairing
       .mockResolvedValueOnce(pairingResponse(CODE, 2))
       .mockResolvedValueOnce(pairingResponse(SECOND_CODE, 90));
     renderDialog();
     await act(async () => {});
+    await confirmStepUp();
     const firstQrPath = renderedQrPath();
 
     act(() => {
@@ -414,7 +520,14 @@ describe('ConnectDeviceDialog — refreshing', () => {
     fireEvent.click(screen.getByTestId('device-pairing-refresh'));
     await act(async () => {});
 
+    // The refresh does not reuse the earlier confirmation: the password is never
+    // kept around, so the next code needs the step-up again (#1847).
+    expect(mockCreatePairing).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('connect-device-step-up-dialog')).toBeInTheDocument();
+    await confirmStepUp();
+
     expect(mockCreatePairing).toHaveBeenCalledTimes(2);
+    expect(mockCreatePairing).toHaveBeenLastCalledWith({ current_password: STEP_UP_PASSWORD });
     expect(lastQrValue()).toContain(SECOND_CODE);
     // The previous code is gone from the payload *and* from the pixels: a
     // refresh that only updated state would leave the old QR scannable.
@@ -437,16 +550,18 @@ describe('ConnectDeviceDialog — refreshing', () => {
       );
     renderDialog();
     await act(async () => {});
+    await confirmStepUp();
     act(() => {
       vi.advanceTimersByTime(1000);
     });
 
     fireEvent.click(screen.getByTestId('device-pairing-refresh'));
     await act(async () => {});
+    await confirmStepUp();
 
-    // In between the two codes there is a pending state, and it shows as one —
-    // no leftover QR from the dead code, and no bare frame either.
-    expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
+    // In between the two codes the confirmation shows as pending — no leftover
+    // QR from the dead code.
+    expect(screen.getByTestId('connect-device-step-up-confirm')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
     expect(document.body.textContent ?? '').not.toContain(CODE);
 
@@ -466,6 +581,7 @@ describe('ConnectDeviceDialog — the code does not outlive the dialog', () => {
       .mockResolvedValueOnce(pairingResponse(SECOND_CODE));
     const user = userEvent.setup();
     renderDialog();
+    await confirmStepUp();
     await screen.findByTestId('device-pairing-qr');
 
     await user.click(screen.getByTestId('connect-device-close'));
@@ -476,6 +592,9 @@ describe('ConnectDeviceDialog — the code does not outlive the dialog', () => {
     expect(document.body.textContent ?? '').not.toContain(CODE);
 
     await user.click(screen.getByTestId('host-reopen'));
+    // Re-opening starts at the step-up again, not at the retained code.
+    expect(await screen.findByTestId('connect-device-step-up-dialog')).toBeInTheDocument();
+    await confirmStepUp();
     await screen.findByTestId('device-pairing-qr');
 
     // Re-opening had to go back to the server: a retained code would have been
@@ -507,10 +626,13 @@ describe('ConnectDeviceDialog — the code does not outlive the dialog', () => {
       );
     const user = userEvent.setup();
     renderDialog();
-    await screen.findByTestId('loading-skeleton');
+    await confirmStepUp();
 
-    await user.click(screen.getByTestId('connect-device-close'));
+    // The confirmation cannot be cancelled while pending; the page can still
+    // close the flow (leaving the tab unmounts it), which the host stands in for.
+    await user.click(screen.getByTestId('host-close'));
     await user.click(screen.getByTestId('host-reopen'));
+    await confirmStepUp();
     await act(async () => {
       releaseCurrent?.(pairingResponse(SECOND_CODE));
     });
@@ -536,6 +658,7 @@ describe('ConnectDeviceDialog — the code does not outlive the dialog', () => {
     localStorage.setItem('pairing-test-sentinel', 'sentinel-value');
     const user = userEvent.setup();
     renderDialog(store);
+    await confirmStepUp();
     await screen.findByTestId('device-pairing-qr');
 
     expect(JSON.stringify(store.getState())).not.toContain(CODE);
@@ -549,27 +672,30 @@ describe('ConnectDeviceDialog — the code does not outlive the dialog', () => {
     expect(dump).toContain('sentinel-value');
     expect(dump).not.toContain(CODE);
     expect(storageDump(sessionStorage)).not.toContain(CODE);
+    // Neither does the step-up password.
+    expect(dump).not.toContain(STEP_UP_PASSWORD);
+    expect(storageDump(sessionStorage)).not.toContain(STEP_UP_PASSWORD);
   });
 });
 
 describe('ConnectDeviceDialog — failure and loading states', () => {
-  it('shows a retryable error instead of an empty frame when issuance fails', async () => {
+  it('shows a failed issuance inside the confirmation and lets it be retried', async () => {
     mockCreatePairing.mockRejectedValueOnce(new Error('Internal error'));
     mockCreatePairing.mockResolvedValueOnce(pairingResponse(CODE));
-    const user = userEvent.setup();
     renderDialog();
 
-    const error = await screen.findByTestId('device-pairing-error');
-    expect(error).toBeInTheDocument();
+    await confirmStepUp();
+
+    expect(await screen.findByTestId('connect-device-step-up-error')).toBeInTheDocument();
     expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
 
-    await user.click(screen.getByTestId('error-retry-button'));
+    await confirmStepUp();
 
     expect(await screen.findByTestId('device-pairing-qr')).toBeInTheDocument();
     expect(lastQrValue()).toContain(CODE);
   });
 
-  it('shows a loading placeholder while the code is in flight', async () => {
+  it('shows the confirmation as pending while the code is in flight', async () => {
     let release: ((value: ReturnType<typeof pairingResponse>) => void) | undefined;
     mockCreatePairing.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -577,17 +703,17 @@ describe('ConnectDeviceDialog — failure and loading states', () => {
       }),
     );
     renderDialog();
+    await confirmStepUp();
 
     // A pending QR and an absent QR must not look the same (UI-NFR-004 R-020).
-    expect(await screen.findByTestId('loading-skeleton')).toBeInTheDocument();
+    expect(screen.getByTestId('connect-device-step-up-confirm')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByTestId('device-pairing-qr')).toBeNull();
 
     await act(async () => {
       release?.(pairingResponse(CODE));
     });
 
-    expect(screen.getByTestId('device-pairing-qr')).toBeInTheDocument();
-    expect(screen.queryByTestId('loading-skeleton')).toBeNull();
+    expect(await screen.findByTestId('device-pairing-qr')).toBeInTheDocument();
   });
 });
 

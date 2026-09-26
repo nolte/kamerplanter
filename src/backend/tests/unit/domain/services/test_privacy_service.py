@@ -27,6 +27,7 @@ from app.domain.models.privacy import (
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from tests.conftest import wire_get_or_raise
+from tests.support.privacy_doubles import step_up
 
 USER_KEY = "u1"
 USER_EMAIL = "user@example.com"
@@ -123,6 +124,10 @@ def email_change_repo():
     repo = MagicMock()
     repo.list_pending_for_user.return_value = []
     repo.get_by_token_hash.return_value = None
+    # #1848: no address held for a revert; the conditional writes succeed.
+    repo.find_revert_reservation.return_value = None
+    repo.claim_status.return_value = True
+    repo.record_confirmation.return_value = True
 
     def _create(change):
         change.key = "ec-1"
@@ -157,6 +162,14 @@ def user_repo(user):
         return user
 
     repo.update_fields.side_effect = _update_fields
+
+    def _move_email(_key, expected_email, fields):
+        """Mirror ``ArangoUserRepository.move_email``: compare the address, then write (#1848)."""
+        if user.email.lower() != str(expected_email).lower():
+            return None
+        return _update_fields(_key, fields)
+
+    repo.move_email.side_effect = _move_email
     wire_get_or_raise(repo, "User")
     return repo
 
@@ -349,7 +362,7 @@ class TestErasure:
         service,
     ):
         with pytest.raises(UnauthorizedError):
-            service.request_erasure(USER_KEY, password_confirmation="wrong-password")
+            service.request_erasure(USER_KEY, **step_up(USER_EMAIL, "wrong-password"))
 
     def test_erasure_soft_deletes_and_revokes_sessions(
         self,
@@ -358,10 +371,7 @@ class TestErasure:
         user_repo,
         refresh_token_repo,
     ):
-        erasure = service.request_erasure(
-            USER_KEY,
-            password_confirmation=USER_PASSWORD,
-        )
+        erasure = service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         assert erasure.status == "scheduled"
         assert erasure.soft_deleted_at is not None
@@ -385,7 +395,7 @@ class TestErasure:
         ``deleted_collections`` was declared on the model and never filled, so the
         confirmation named no deleted category at all (#1645).
         """
-        erasure = service.request_erasure(USER_KEY, password_confirmation=USER_PASSWORD)
+        erasure = service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         engine = ErasureEngine()
         assert erasure.deleted_collections == engine.deleted_collection_names()
@@ -417,7 +427,7 @@ class TestErasure:
         )
 
         with pytest.raises(ValidationError):
-            service.request_erasure(USER_KEY, password_confirmation=USER_PASSWORD)
+            service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
 
 # ── Restriction ────────────────────────────────────────────────────
@@ -466,6 +476,17 @@ class TestRestriction:
 # ── Email change ───────────────────────────────────────────────────
 
 
+def _email_change_step_up() -> dict:
+    """The step-up an e-mail change carries since #1841: the stored user's current password."""
+    return {
+        "password": USER_PASSWORD,
+        "step_up_code": None,
+        "step_up_token": None,
+        "authenticated_with_api_key": False,
+        "client_ip": None,
+    }
+
+
 class TestEmailChange:
     def test_email_change_creates_pending_request(
         self,
@@ -473,12 +494,12 @@ class TestEmailChange:
         email_change_repo,
         email_service,
     ):
-        change = service.request_email_change(USER_KEY, "new@example.com")
+        change = service.request_email_change(USER_KEY, "new@example.com", **_email_change_step_up())
 
         assert change.status == "pending"
         assert str(change.new_email) == "new@example.com"
         email_change_repo.create.assert_called_once()
-        email_service.send_verification_email.assert_called_once()
+        email_service.send_email_change_email.assert_called_once()
 
     def test_email_change_to_a_taken_address_does_not_disclose_it(
         self,
@@ -500,7 +521,7 @@ class TestEmailChange:
             display_name="Other",
         )
 
-        change = service.request_email_change(USER_KEY, "new@example.com")
+        change = service.request_email_change(USER_KEY, "new@example.com", **_email_change_step_up())
 
         assert change.status == "pending"
         email_change_repo.create.assert_not_called()
@@ -579,7 +600,7 @@ class TestDataSubjectServiceFacade:
         from app.domain.services.data_subject_service import DataSubjectService
 
         facade = DataSubjectService(service)
-        erasure = facade.erase(USER_KEY, password_confirmation=USER_PASSWORD)
+        erasure = facade.erase(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         assert erasure.status == "scheduled"
 

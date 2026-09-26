@@ -42,6 +42,8 @@ You create your personal key yourself via `POST /api/v1/auth/api-keys` and can r
 !!! warning "An API key is a long-lived credential"
     Unlike a login token, an API key does not expire after minutes — which is exactly what makes it suitable for a permanently running MCP client. Treat it like a password: whoever holds it can do everything you can do in your gardens. Create a separate key per client so you can revoke them individually.
 
+An IP allowlist or per-minute request limit set on the key applies to MCP calls the same way it applies to the REST API — both surfaces share one budget per key (see [Authentication — IP allowlist and rate limit per key](authentication.md#ip-allowlist-and-rate-limit-per-key)).
+
 ### You only ever see your own data
 
 A key grants exactly the gardens (tenants) its account is an **active member** of, resolved from the same source the regular API uses. Nothing is reachable over MCP that you could not see in the web UI. A garden you are not a member of behaves exactly as if it did not exist (`not_found`) — the interface will not even reveal that it is there.

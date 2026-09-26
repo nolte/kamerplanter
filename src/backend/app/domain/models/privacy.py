@@ -21,6 +21,14 @@ type ErasureStatus = Literal["scheduled", "in_progress", "completed", "partially
 #: Art. 17 request with its 90-day grace; ``platform_admin`` and
 #: ``unverified_cleanup`` are due at once but keep the same record, gate and retry.
 type ErasureOrigin = Literal["self_service", "platform_admin", "unverified_cleanup"]
+#: How the person who asked for an erasure re-authenticated (#1813, #1814):
+#: ``password`` — the requester's current password; ``oidc_reauth`` — an account
+#: without a local password signed in again at its identity provider (#1815);
+#: ``email_code`` — one whose providers cannot do that entered the code mailed to it.
+#: ``echo`` is written no more: it marks records from before #1815, when such an
+#: account confirmed by typing the target's e-mail back alone — kept readable.
+#: ``None`` on records of the unverified-account cleanup and on older records.
+type ErasureStepUp = Literal["oidc_reauth", "email_code", "echo", "password"]
 #: What an account erasure did with one personal tenant of the subject (#1788).
 #: ``erased`` — the subject was its only active member, and the tenant-erasure
 #: inventory (#1769) completed on it; ``retained_other_members`` — another active
@@ -28,7 +36,9 @@ type ErasureOrigin = Literal["self_service", "platform_admin", "unverified_clean
 #: no successor, #1788); ``absent`` — neither the tenant nor a deletion record of
 #: it exists any more.
 type PersonalTenantOutcome = Literal["erased", "retained_other_members", "absent"]
-type EmailChangeStatus = Literal["pending", "confirmed", "expired"]
+#: ``cancelled`` — withdrawn because the owner took the account back (password
+#: reset, password change, signing out everywhere) while it was pending (#1841).
+type EmailChangeStatus = Literal["pending", "confirmed", "expired", "cancelled", "reverted", "superseded"]
 type RestrictionReason = Literal[
     "accuracy_contested",
     "unlawful_processing",
@@ -150,6 +160,19 @@ class ErasureRequest(BaseModel):
     #: The same for the contributed pest-recognition prototypes (#1759).
     pest_prototype_binding: str | None = None
     pest_prototypes_removed: int | None = Field(default=None, ge=0)
+    #: The step-up the request was confirmed with (#1813, #1814).
+    step_up: ErasureStepUp | None = None
+    #: Who asked, when it was not the subject (``platform_admin``): the salted
+    #: ``ErasureEngine.log_subject`` reference, never the account key — the record
+    #: outlives both accounts (#1814, the #1791 shape).
+    requested_by_subject: str | None = None
+    #: Phase 0 hard-delete outcome (#1770): stored objects deleted, and objects
+    #: kept because another member's record still holds the same bytes.
+    storage_objects_removed: int | None = Field(default=None, ge=0)
+    storage_objects_retained_shared: int | None = Field(default=None, ge=0)
+    #: Of those kept, objects no record held any more after the ArangoDB plan,
+    #: released then (#1770); recorded with ``completed``.
+    storage_objects_released: int | None = Field(default=None, ge=0)
     #: The subject's personal tenants, resolved (by owner) before the first one
     #: is erased (#1788). Persisted first because the account plan replaces the
     #: owner reference and a deleted tenant cannot be listed again, so a retry
@@ -174,6 +197,13 @@ class EmailChangeRequest(BaseModel):
     requested_at: datetime | None = None
     expires_at: datetime
     confirmed_at: datetime | None = None
+    #: The address the account left at confirmation, and the hash of the one-time
+    #: token mailed to it that takes the account back (#1848). Both exist only
+    #: until ``revert_expires_at``; the R-07 task clears them after (NFR-011).
+    previous_email: EmailStr | None = None
+    revert_token_hash: str | None = None
+    revert_expires_at: datetime | None = None
+    reverted_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -530,6 +560,14 @@ class AccountErasureReport(BaseModel):
     """
 
     storage_cleanup_scopes: list[str] = Field(default_factory=list)
+    #: Phase 0 hard-delete outcome per record of the subject (#1770): objects
+    #: deleted, and objects kept because a record outside this erasure — another
+    #: member's upload of the same bytes — still holds them.
+    storage_objects_removed: int = 0
+    storage_objects_retained_shared: int = 0
+    #: Objects Phase 0 kept for another member whose record went before the
+    #: ArangoDB plan; released after the plan (#1770).
+    storage_objects_released: int = 0
     reference_index_removed: int = 0
     #: The store Phase 0.5 ran against in *this* call (``"inference_service"`` /
     #: ``"noop"``); ``None`` when it did not run — no store wired, or a retry

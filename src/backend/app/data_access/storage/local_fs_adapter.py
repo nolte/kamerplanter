@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import functools
 import hashlib
 import hmac
 import json
@@ -47,6 +48,7 @@ from app.domain.models.storage import (
     ObjectMetadata,
     ObjectRef,
     StorageCapabilities,
+    StorageErasureResult,
     local_fs_capabilities,
 )
 
@@ -381,39 +383,24 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             result["reason"] = reason
         return result
 
-    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
-        """REQ-025 erasure hook — delete every stored object owned by a user.
+    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> StorageErasureResult:
+        """REQ-025 erasure hook — delete the objects of a user's records.
 
-        Walks the attachments catalog for ``tenant_key + created_by`` and
-        deletes each backing object together with its WebP renditions (#1760).
-        Returns the number of attachments erased.
-        Without a wired attachment repository this returns 0 (Lauf 2 wires it
-        through the DI provider).
+        Each object goes together with its WebP renditions (#1760), unless another
+        record still holds it (#1770, :func:`erase_user_objects`). Without a wired
+        attachment repository nothing is reached (Lauf 2 wires it through the DI
+        provider).
         """
-        if self._attachment_repo is None:
-            return 0
-        categories = _scope_to_categories(scope)
-        if categories is not None and not categories:
-            # Empty category set ⇒ scope matches no category (e.g. user_personal
-            # before profile/user_notes categories exist). Touch nothing.
-            return 0
-        attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
-        deleted = 0
-        for att in attachments:
-            await self.delete_object(att.storage_key)
-            # #1760 — the renditions go with the original; once the ArangoDB
-            # plan removes the attachment record nothing points at them.
-            for rendition in rendition_keys(att.storage_key, att.mime_type):
-                await self.delete_object(rendition)
-            deleted += 1
+        result = await erase_user_objects(self, self._attachment_repo, tenant_key, user_key, scope)
         logger.info(
             "storage_delete_for_user",
             backend=BACKEND_KEY,
             tenant_key=tenant_key,
             scope=scope,
-            deleted=deleted,
+            deleted=result.removed,
+            retained_shared=result.retained_shared,
         )
-        return deleted
+        return result
 
     async def strip_exif_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
         """REQ-025 erasure hook — strip EXIF from a user's images.
@@ -477,6 +464,58 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         the signature in constant time and enforces the embedded expiry.
         """
         return verify_token(token, self._signing_secret)
+
+
+async def erase_user_objects(
+    adapter: IObjectStorageAdapter, attachment_repo: Any, tenant_key: str, user_key: str, scope: str
+) -> StorageErasureResult:
+    """The hard-delete half of an erasure scope, shared by both adapters (#1770).
+
+    Deduplicated uploads give every uploader a record of their own over one
+    stored object. The subject's records in *scope* are the ones this erasure
+    removes (the ArangoDB plan deletes them afterwards); an object any **other**
+    record of the tenant still points at stays — another member's upload of the
+    same bytes, or the subject's own record in a category the erasure retains.
+    Everything else goes with its renditions (#1760).
+
+    One lookup decides for the whole set, excluding every record being removed,
+    so two of the subject's own records over one object do not keep each other's
+    bytes alive.
+    """
+    if attachment_repo is None:
+        return StorageErasureResult()
+    categories = _scope_to_categories(scope)
+    if categories is not None and not categories:
+        # Empty category set ⇒ scope matches no category (e.g. user_personal
+        # before profile/user_notes categories exist). Touch nothing.
+        return StorageErasureResult()
+    attachments = await asyncio.to_thread(attachment_repo.find_by_user, tenant_key, user_key, categories)
+    if not attachments:
+        return StorageErasureResult()
+    held_elsewhere = await asyncio.to_thread(
+        functools.partial(
+            attachment_repo.storage_keys_held_elsewhere,
+            tenant_key=tenant_key,
+            storage_keys=sorted({att.storage_key for att in attachments}),
+            excluding=[att.key for att in attachments if att.key is not None],
+        )
+    )
+    removed = 0
+    retained = 0
+    deleted_objects: set[str] = set()
+    for att in attachments:
+        if att.storage_key in held_elsewhere:
+            retained += 1
+            continue
+        if att.storage_key not in deleted_objects:
+            await adapter.delete_object(att.storage_key)
+            # #1760 — the renditions go with the original; once the ArangoDB
+            # plan removes the attachment record nothing points at them.
+            for rendition in rendition_keys(att.storage_key, att.mime_type):
+                await adapter.delete_object(rendition)
+            deleted_objects.add(att.storage_key)
+        removed += 1
+    return StorageErasureResult(removed=removed, retained_shared=retained)
 
 
 def _erasure_scope_categories():  # type: ignore[no-untyped-def]

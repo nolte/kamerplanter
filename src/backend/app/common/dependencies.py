@@ -42,6 +42,7 @@ from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
+from app.data_access.external.resend_email_adapter import ResendEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 from app.data_access.repositories.propagation_repository import PropagationRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
@@ -171,7 +172,9 @@ def get_inventree_service():
     """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
     from app.domain.services.inventree_service import InvenTreeService
 
-    return InvenTreeService(get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client())
+    return InvenTreeService(
+        get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client(), site_anchors=get_site_repo()
+    )
 
 
 def get_species_repo() -> ArangoSpeciesRepository:
@@ -232,15 +235,19 @@ def get_phase_sequence_binder():
 
 
 def get_species_service() -> SpeciesService:
-    return SpeciesService(get_species_repo(), get_graph_repo(), get_phase_sequence_binder())
+    return SpeciesService(
+        get_species_repo(), get_graph_repo(), get_phase_sequence_binder(), nutrient_plan_repo=get_nutrient_plan_repo()
+    )
 
 
 def get_site_service() -> SiteService:
-    return SiteService(get_site_repo())
+    return SiteService(get_site_repo(), tank_repo=get_tank_repo())
 
 
 def get_substrate_service() -> SubstrateService:
-    return SubstrateService(get_substrate_repo())
+    # The site repository answers the slot → location → site walk the batch→slot
+    # link needs (#1864).
+    return SubstrateService(get_substrate_repo(), slot_anchors=get_site_repo())
 
 
 def get_propagation_repo() -> PropagationRepository:
@@ -265,6 +272,7 @@ def get_propagation_service() -> PropagationService:
         propagation_repo=prop_repo,
         lineage_engine=LineageEngine(prop_repo, get_species_repo()),
         planting_run_repo=get_planting_run_repo(),
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
@@ -480,6 +488,11 @@ def get_plant_diary_service():
     )
 
 
+def _resolve_substrate_batch(key: str, *, tenant_key: str):
+    """The batch ``key`` of ``tenant_key`` or 404 — the resolver runs are checked through (#1868)."""
+    return get_substrate_service().get_batch(key, tenant_key=tenant_key)
+
+
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
@@ -498,6 +511,10 @@ def get_planting_run_service() -> PlantingRunService:
         phase_seq_repo=get_phase_sequence_repo(),
         rotation_validator=rotation_validator,
         companion_engine=companion_engine,
+        # #1868 — a run's substrate batch is resolved strictly under its tenant.
+        substrate_batch_resolver=_resolve_substrate_batch,
+        # #1871 B11 — an entry's species must be one the tenant may read.
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
@@ -510,6 +527,7 @@ def get_succession_plan_service() -> SuccessionPlanService:
         get_succession_plan_repo(),
         get_planting_run_service(),
         site_repo=get_site_repo(),
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
@@ -518,7 +536,13 @@ def get_tank_repo() -> ArangoTankRepository:
 
 
 def get_tank_service() -> TankService:
-    return TankService(get_tank_repo(), TankEngine(), fertilizer_repo=get_fertilizer_repo())
+    return TankService(
+        get_tank_repo(),
+        TankEngine(),
+        fertilizer_repo=get_fertilizer_repo(),
+        site_anchors=get_site_repo(),
+        nutrient_plan_repo=get_nutrient_plan_repo(),
+    )
 
 
 def get_task_entity_guard():
@@ -567,7 +591,7 @@ def get_nutrient_plan_service() -> NutrientPlanService:
 
 
 def get_feeding_service() -> FeedingService:
-    return FeedingService(get_feeding_repo(), fertilizer_repo=get_fertilizer_repo())
+    return FeedingService(get_feeding_repo(), fertilizer_repo=get_fertilizer_repo(), fill_event_anchors=get_tank_repo())
 
 
 def get_watering_repo() -> ArangoWateringRepository:
@@ -592,6 +616,7 @@ def get_watering_service() -> WateringService:
         sensor_service=get_sensor_service(),
         irrigation_demand_repo=get_irrigation_demand_repo(),
         fertilizer_repo=get_fertilizer_repo(),
+        fill_event_anchors=get_tank_repo(),
     )
 
 
@@ -611,6 +636,7 @@ def get_watering_log_service() -> WateringLogService:
         care_service=get_care_reminder_service(),
         plant_repo=get_plant_repo(),
         fertilizer_repo=get_fertilizer_repo(),
+        fill_event_anchors=get_tank_repo(),
     )
 
 
@@ -711,6 +737,10 @@ def get_task_service() -> TaskService:
         # So a completion's `photo_refs` are resolved against the attachment
         # catalogue instead of trusted as strings (#1339 review).
         attachment_repo=get_attachment_repo(),
+        # #1871 B9 — an assignee must be an active member of the task's tenant.
+        membership_lookup=lambda user_key, tenant_key: get_membership_repo().get_by_user_and_tenant(
+            user_key, tenant_key
+        ),
     )
 
 
@@ -742,6 +772,7 @@ def get_password_engine() -> PasswordEngine:
 
 
 def get_email_service() -> IEmailService:
+    """The configured e-mail adapter; ``EMAIL_ADAPTER`` is a ``Literal``, so no value falls through (#1821)."""
     if settings.email_adapter == "smtp":
         return SmtpEmailAdapter(
             host=settings.smtp_host,
@@ -750,6 +781,10 @@ def get_email_service() -> IEmailService:
             password=settings.smtp_password,
             from_email=settings.smtp_from_email,
             use_tls=settings.smtp_use_tls,
+        )
+    if settings.email_adapter == "resend":
+        return ResendEmailAdapter(
+            api_key=settings.resend_api_key.get_secret_value(), from_email=settings.resend_from_email
         )
     return ConsoleEmailAdapter()
 
@@ -815,6 +850,34 @@ def get_device_pairing_throttle_store() -> IDevicePairingThrottleStore:
     return RedisDevicePairingThrottleStore(_get_redis_client())
 
 
+def get_step_up_verifier():
+    """#1816 — the one throttled step-up every irreversible account action passes (and #1815's mailed code).
+
+    Valkey-backed so replicas share one counter; degrades to the process-wide
+    in-memory tier when Valkey is unreachable. Failing open would reopen the
+    unthrottled password oracle a stolen session had at every step-up route.
+    """
+    from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_REAUTH_STORE, RedisStepUpCodeStore
+    from app.data_access.external.step_up_throttle import RedisStepUpThrottleStore
+    from app.domain.services.step_up_service import FederatedReauthPolicy, StepUpVerifier
+
+    redis_client = _get_redis_client()
+    return StepUpVerifier(
+        RedisStepUpThrottleStore(redis_client),
+        get_password_engine(),
+        tombstone_salt=settings.erasure_tombstone_salt,
+        # #1815 — the one-time code of an account without a local password; shared
+        # so a code mailed by one replica is accepted by another.
+        code_store=RedisStepUpCodeStore(redis_client),
+        # The digest's server secret — why this one: step_up_service module docstring.
+        code_secret=settings.jwt_secret_key,
+        # #1815 — the one-time tokens of a fresh OIDC re-authentication, in their own
+        # namespace; and which accounts must re-authenticate instead of the code.
+        reauth_store=RedisStepUpCodeStore(redis_client, fallback=DEFAULT_STEP_UP_REAUTH_STORE, namespace="reauth"),
+        reauth_policy=FederatedReauthPolicy(get_auth_provider_repo(), get_oidc_config_repo()),
+    )
+
+
 def get_registration_notice_store():
     """REQ-023 §3.2 suppression window of the duplicate-registration notice.
 
@@ -871,11 +934,31 @@ def get_auth_service() -> AuthService:
         device_pairing_code_store=get_device_pairing_code_store(),
         device_pairing_throttle_store=get_device_pairing_throttle_store(),
         tombstone_salt=settings.erasure_tombstone_salt,
+        step_up_verifier=get_step_up_verifier(),
+        # #1841 — a password reset/change or signing out everywhere withdraws a
+        # pending e-mail change; unwired, the owner's take-back would stop nothing.
+        email_change_repo=get_email_change_repo(),
+        light_mode=settings.kamerplanter_mode == "light",
+        # #1850 — the per-key budget on the REST path; the MCP authenticator
+        # draws on the same limiter (one budget per key across both surfaces).
+        api_key_rate_limiter=get_api_key_rate_limiter(),
     )
 
 
+def get_api_key_rate_limiter():
+    """The per-API-key rate limiter both key-accepting surfaces enforce through (SEC-004, #1850)."""
+    from app.domain.services.api_key_controls import ApiKeyRateLimiter
+
+    return ApiKeyRateLimiter(_get_redis_client())
+
+
 def get_user_service() -> UserService:
-    return UserService(get_user_repo(), get_refresh_token_repo(), tombstone_salt=settings.erasure_tombstone_salt)
+    return UserService(
+        get_user_repo(),
+        get_refresh_token_repo(),
+        tombstone_salt=settings.erasure_tombstone_salt,
+        step_up_verifier=get_step_up_verifier(),
+    )
 
 
 # ── REQ-024 Tenant dependencies ──────────────────────────────────────
@@ -915,6 +998,9 @@ def get_tenant_service() -> TenantService:
         tenant_erasure_repo=get_tenant_erasure_repo(),
         tombstone_salt=settings.erasure_tombstone_salt,
         light_mode=settings.kamerplanter_mode == "light",
+        step_up_verifier=get_step_up_verifier(),
+        # #1871 B3 — a location assignment is resolved through its site.
+        site_anchors=get_site_repo(),
     )
 
 
@@ -956,13 +1042,12 @@ def get_mcp_idempotency_repo():
 
 def get_mcp_authenticator():
     from app.mcp_server.auth import McpAuthenticator
-    from app.mcp_server.rate_limit import McpRateLimiter
 
     return McpAuthenticator(
         get_api_key_repo(),
         get_user_repo(),
         get_tenant_service(),
-        rate_limiter=McpRateLimiter(_get_redis_client()),
+        rate_limiter=get_api_key_rate_limiter(),
     )
 
 
@@ -1341,7 +1426,9 @@ def get_ha_publish_repo():
 def get_ha_publish_service():
     from app.domain.services.ha_publish_service import HaPublishService
 
-    return HaPublishService(get_ha_publish_repo())
+    return HaPublishService(
+        get_ha_publish_repo(), plant_repo=get_plant_repo(), tank_repo=get_tank_repo(), site_anchors=get_site_repo()
+    )
 
 
 def get_ha_client():
@@ -1382,7 +1469,10 @@ def get_observation_repo():
 def get_observation_service():
     from app.domain.services.observation_service import ObservationService
 
-    return ObservationService(get_observation_repo(), get_sensor_repo())
+    # #1871 B6 — a sensor's tenant is its parent's (tank, site, or location via its site).
+    return ObservationService(
+        get_observation_repo(), get_sensor_repo(), tank_repo=get_tank_repo(), site_anchors=get_site_repo()
+    )
 
 
 def get_sensor_service():
@@ -1687,12 +1777,16 @@ def get_privacy_service():
         pest_image_repo=get_pest_image_repo(),
         pest_prototype_store=get_pest_prototype_store(),
         personal_data_repo=get_personal_data_repo(),
+        auth_provider_repo=get_auth_provider_repo(),
+        api_key_repo=get_api_key_repo(),
         erasure_executor=get_erasure_executor(),
         # #1788 — the account erasure erases the subject's personal tenant
         # through the tenant-erasure inventory of #1769.
         tenant_service=get_tenant_service(),
         tombstone_salt=settings.erasure_tombstone_salt,
         retention=get_retention_service(),
+        step_up_verifier=get_step_up_verifier(),
+        light_mode=settings.kamerplanter_mode == "light",
     )
 
 
@@ -1785,6 +1879,10 @@ def get_ai_assistant_service():
         tip_cache_repo=get_ai_tip_cache_repo(),
         conversation_repo=get_ai_conversation_repo(),
         provider_repo=get_ai_provider_repo(),
+        plant_repo=get_plant_repo(),
+        planting_run_repo=get_planting_run_repo(),
+        task_lookup=lambda key: get_task_repo().get_task_by_key(key),
+        feeding_event_lookup=lambda key: get_feeding_repo().get_by_key(key),
     )
 
 

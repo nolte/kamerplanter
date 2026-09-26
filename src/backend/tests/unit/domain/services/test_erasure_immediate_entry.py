@@ -47,6 +47,14 @@ USER = "u-1"
 NOW = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
 
 
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
 class _Recorder:
     """Records the order of the account writes and the executor run."""
 
@@ -99,6 +107,41 @@ def _service(
         tombstone_salt=salt,
     )
     return service, recorder
+
+
+def _admin_request(service: PrivacyService, recorder: _Recorder) -> dict:
+    """Route arguments of a platform admin erasing ``USER`` with a valid step-up (#1814).
+
+    The admin signs in only federated (no hash), so the step-up is the echo of the
+    target's e-mail plus the code mailed to the admin (#1815), issued through the
+    service's own verifier; the stored platform membership proves the admin.
+    """
+    from app.api.v1.privacy.schemas import ErasureCreateRequest
+    from app.common.enums import TenantRole
+    from app.domain.models.membership import Membership
+    from app.domain.models.user import User
+
+    recorder.user_repo.get_or_raise.return_value = User.model_validate(
+        {"_key": USER, "email": f"{USER}@example.org", "display_name": "Subject"}
+    )
+    service._membership_repo = MagicMock(  # type: ignore[attr-defined]
+        **{
+            "get_by_user_and_tenant.return_value": Membership(
+                user_key="admin-1", tenant_key="platform", role=TenantRole.LEAD
+            )
+        }
+    )
+    admin = User.model_validate({"_key": "admin-1", "email": "admin@example.org", "display_name": "A"})
+    code, _expires_at = service._step_up_verifier.issue_code(
+        admin, action="admin_account_erasure", authenticated_with_api_key=False, client_ip="203.0.113.1"
+    )
+    return {
+        "body": ErasureCreateRequest(confirm_email=f"{USER}@example.org", step_up_code=code),
+        "current_user": admin,
+        "via_api_key": False,
+        "client_ip": "203.0.113.1",
+        "privacy_service": service,
+    }
 
 
 def _only(repo: FakeErasureRepo) -> ErasureRequest:
@@ -184,6 +227,21 @@ class TestTheAccountIsClosedBeforeAnythingIsRemoved:
         service, recorder = _service(repo, RecordingErasureExecutor(), salt="short")
 
         with pytest.raises(FeatureNotConfiguredError):
+            await service.erase_account_now(USER, origin="platform_admin", now=NOW)
+
+        assert repo.stored == {}
+        assert recorder.events == []
+
+    @pytest.mark.parametrize("log_salt", ["", "short"])
+    async def test_a_deployment_without_a_log_salt_changes_nothing(self, monkeypatch, log_salt):
+        """#1812 review SEC-001: the proof's ``requested_by_subject`` would be the constant ``anon_unavailable``."""
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "log_pseudonym_salt", log_salt)
+        repo = FakeErasureRepo()
+        service, recorder = _service(repo, RecordingErasureExecutor())
+
+        with pytest.raises(FeatureNotConfiguredError, match="LOG_PSEUDONYM_SALT"):
             await service.erase_account_now(USER, origin="platform_admin", now=NOW)
 
         assert repo.stored == {}
@@ -322,38 +380,26 @@ class TestTheEntryPointsGoThroughIt:
     """Red before #1767: both entry points discarded the report of an unreached step."""
 
     def test_the_admin_route_does_not_answer_success_over_an_unreached_step(self):
-        from types import SimpleNamespace
 
         from app.api.v1.admin.platform import router as admin_router
 
         repo = FakeErasureRepo()
-        service, _ = _service(repo, RecordingErasureExecutor(drop=("consent_records",)))
+        service, recorder = _service(repo, RecordingErasureExecutor(drop=("consent_records",)))
 
         with pytest.raises(ErasureIncompleteError):
-            admin_router.delete_user(
-                USER,
-                current_user=SimpleNamespace(key="admin-1"),
-                privacy_service=service,
-                user_service=MagicMock(),
-            )
+            admin_router.delete_user(USER, **_admin_request(service, recorder))
 
         request = _only(repo)
         assert (request.origin, request.status) == ("platform_admin", "partially_completed")
 
     def test_the_admin_route_persists_a_completed_record(self):
-        from types import SimpleNamespace
 
         from app.api.v1.admin.platform import router as admin_router
 
         repo = FakeErasureRepo()
-        service, _ = _service(repo, RecordingErasureExecutor())
+        service, recorder = _service(repo, RecordingErasureExecutor())
 
-        admin_router.delete_user(
-            USER,
-            current_user=SimpleNamespace(key="admin-1"),
-            privacy_service=service,
-            user_service=MagicMock(),
-        )
+        admin_router.delete_user(USER, **_admin_request(service, recorder))
 
         assert (_only(repo).origin, _only(repo).status) == ("platform_admin", "completed")
 

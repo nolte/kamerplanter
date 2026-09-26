@@ -1,7 +1,7 @@
 # Privacy & GDPR
 
 !!! note "Partially available"
-    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** is now available as well — reachable from the user menu (click your profile picture or initials) > **Privacy**, in Full mode only (not in anonymous [Light mode](light-mode.md)). It covers the main flows: requesting a data export, deleting your account, creating a processing restriction, and viewing consents. A few sub-steps (e.g. revoking consent with a click, changing your email address) are currently only possible via the API — flagged at the relevant spot on this page (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). <!-- REQ-025 -->
+    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** is now available as well — reachable from the user menu (click your profile picture or initials) > **Privacy**, in Full mode only (not in anonymous [Light mode](light-mode.md)). It covers the main flows: requesting a data export, deleting your account, changing your email address (in account settings), creating a processing restriction, and viewing consents. A few sub-steps (e.g. revoking consent with a click) are currently only possible via the API — flagged at the relevant spot on this page (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). <!-- REQ-025 -->
 
 Kamerplanter is built on the principle of **Privacy by Design**. You have full control over your personal data: you can export, correct or have it deleted at any time. All data subject rights under GDPR Art. 15–21 are available as self-service features.
 
@@ -9,7 +9,7 @@ Kamerplanter is built on the principle of **Privacy by Design**. You have full c
 
 ## For Technical Users / Self-Hosters
 
-This section is aimed at technical users and self-hosters. All GDPR features described below are available as REST endpoints under `/api/v1/privacy/`. Some of them are also directly usable in the graphical interface (see the relevant sections below); a few endpoints — email change, objection, granting/revoking consent with a click, lifting a restriction, export status/download — are currently reachable only via the API. A logged-in session (bearer token) is required, except for `GET /api/v1/privacy/policy`.
+This section is aimed at technical users and self-hosters. All GDPR features described below are available as REST endpoints under `/api/v1/privacy/`. Some of them are also directly usable in the graphical interface (see the relevant sections below); a few endpoints — objection, granting/revoking consent with a click, lifting a restriction, export status/download — are currently reachable only via the API. A logged-in session (bearer token) is required, except for `GET /api/v1/privacy/policy` and the two email-change endpoints that confirm via a token (`confirm`, `revert`).
 
 !!! info "API only / operator configuration"
     The easiest way to try the endpoints is through the interactive API documentation at `/docs` (OpenAPI/Swagger), where requests can be executed directly in the browser. Alternatively via `curl`, e.g. for a data export:
@@ -23,9 +23,10 @@ This section is aimed at technical users and self-hosters. All GDPR features des
 | `POST /api/v1/privacy/export` | Request a data export (Art. 15/20) |
 | `GET /api/v1/privacy/export/{export_key}` | Check export status |
 | `GET /api/v1/privacy/export/{export_key}/download` | Download the export |
-| `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) |
-| `POST /api/v1/privacy/email-change/confirm` | Confirm an email change via token |
-| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) |
+| `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) — step-up body `{password}`, `{step_up_code}` or `{step_up_token}`, see below |
+| `POST /api/v1/privacy/email-change/confirm` | Confirm an email change via token — body `{token}`, no login needed |
+| `POST /api/v1/privacy/email-change/revert` | Undo a confirmed email change — body `{token}`, public, rate-limited, only within the revert window (see below) |
+| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) — body `{confirm_email, password?}`, see below |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Check erasure status |
 | `POST /api/v1/privacy/restrict` | Restrict processing (Art. 18) |
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Lift a restriction |
@@ -82,17 +83,60 @@ Plants, locations and sensor data belong to the garden, not to one person, so th
 
 ---
 
-## Changing Your Email Address (GDPR Art. 16)
+## Changing Your Email Address (GDPR Art. 16) {#changing-your-email-address-gdpr-art-16}
 
 You have the right to have your data corrected.
 
-!!! info "API only: Changing your email address"
-    Account settings currently show your email address as read-only — changing it is, for now, only possible via the API: `POST /api/v1/privacy/email-change` initiates the change and sends a **verification link to the new address**, `POST /api/v1/privacy/email-change/confirm` confirms it via token (no login needed). Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
+### The Change Process
 
-The new email becomes active once confirmed — all active sessions are ended.
+1. In account settings, go to the **Profile** tab and enter the new address in the **Change Email Address** section
+2. Click **Request Change** and confirm yourself in the dialog — with your current password, if your account has one, otherwise via a fresh sign-in at your linked provider or, only for accounts linked exclusively to GitHub/Apple, via the code emailed to you
+3. The interface confirms that a confirmation link was sent to the new address
+4. Open the link in the email at the **new** address and click **Confirm New Address** there
+
+For details on the form, see [Account & Sign-In — Changing Your Email Address](account.md#changing-your-email-address).
+
+Like account deletion, the request is behind a step-up: your current password, if your account has one — otherwise a fresh sign-in at your linked provider, or, only if you sign in exclusively through GitHub/Apple, the confirmation code (see [API documentation](../api/authentication.md#signing-in-again-to-confirm-oidc)). Your **current** email address is notified as soon as the change is requested.
+
+The new address becomes active only after the explicit click on **Confirm New Address** — merely opening the email confirms nothing. Once confirmed it becomes your sign-in address, and all active sessions are ended.
 
 !!! note "Security notice"
-    After confirming the new email, all open sessions (browser, app) are terminated. You need to log in again. Your old email receives an information email about the change.
+    After confirming the new email, all open sessions (browser, app) are terminated. You need to log in again. Your old email receives an information email about the change — including the undo link from the next section.
+
+!!! warning "A password reset or password change cancels a pending change"
+    If you reset your password, change it in account settings, or sign out everywhere, a not-yet-confirmed email change is automatically withdrawn — the link in the verification email stops working afterwards. This protects you if someone else initiated a change in your name.
+
+!!! info "Also possible via the API"
+    The same change can also be triggered directly via the API: `POST /api/v1/privacy/email-change` (step-up body) and `POST /api/v1/privacy/email-change/confirm` (`{token}`, no login needed). Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
+
+### Undoing the Change
+
+If the change wasn't made by you, or you want to take it back: your **previous** address receives an email with an undo link once the change is confirmed. It is valid for **7 days** (default, configurable by the operator via `RETENTION_EMAIL_CHANGE_REVERT_DAYS`) and can be used **once**.
+
+Opening the link shows what will happen and requires an explicit click on **Restore Previous Address** — merely opening the email confirms nothing here either. Afterwards:
+
+- Your previous address becomes your sign-in address again — unless another account has since claimed it
+- All sessions of the account are signed out, including on other devices
+- A password-reset link sent to the new (now discarded) address becomes invalid
+- A still-pending email change is also revoked
+- Sign-in providers such as Google, GitHub or Apple that were newly linked to your account **since the change was requested** are unlinked again — your local password is unaffected
+- API keys created **since the change was requested** are revoked — older API keys stay active
+- If the change was made again and confirmed in the meantime, that confirmation's own undo link becomes invalid — a later revert can no longer override this restore
+- The address this restore is now moving the account away from receives a fixed-text email about it
+
+!!! danger "Reset your password afterwards"
+    If you didn't initiate the change, someone else may know your password. Reset it after restoring your address via **Forgot password?** (see [Forgot and Reset Your Password](account.md#forgot-and-reset-your-password)).
+
+!!! warning "Check your older API keys"
+    Only API keys created since the email change was requested are revoked automatically (see above). Older keys that already existed before that stay active. If your account was compromised, check them in the **API Keys** tab of your account settings and revoke unfamiliar ones manually (see [API documentation](../api/authentication.md)).
+
+!!! warning "Residual risk: whoever can read the previous address"
+    The undo link only proves access to the previous address — not necessarily your identity. Anyone who can read that address within the 7-day window can use it to take the account back; the address that was current at that point (the new one) is notified about it.
+
+Once the revert window closes, the link no longer works — the previous address is then cleared from the change record (see [Data Retention — Revert Window](../guides/data-retention.md#revert-window-of-a-confirmed-email-change-r-07a)). If another account claims the previous address in the meantime, the page reports that (`422`) instead of performing the restore. If the account has since been closed and queued for deletion, the page reports that too (an error, not a success) — the link itself stays valid and unspent; contact the operator of the instance in that case.
+
+!!! info "Also possible via the API"
+    `POST /api/v1/privacy/email-change/revert` with `{token}` — public, rate-limited, `401` for an invalid/already-used/expired token, `422` if the previous address now belongs to another account, `409` (`ACCOUNT_BEING_ERASED`) if the account is closed and queued for deletion — the token stays unspent in that case. Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 
 ---
 
@@ -230,13 +274,16 @@ You have the right to erasure of your data.
 
 1. Navigate to **Privacy** > the **Delete Account** tab
 2. Click **Delete Account**
-3. For accounts with a **local password login**, enter your **current password** in the confirmation dialog (to authorize the deletion). This step is skipped for accounts that sign in exclusively through an external provider (Google, GitHub, Apple …).
+3. In the confirmation dialog, type your **own email address** back in. For accounts with a **local password**, also enter your **current password** (to authorize the deletion). If you sign in through Google or a generic OIDC provider, you instead click **Sign in again** and confirm with a fresh sign-in at that provider; only if you sign in exclusively through GitHub or Apple, click **Send code by email** and enter the confirmation code it mails you.
 4. In the confirmation dialog, click **Yes, Delete Account**
 
-!!! info "Password confirmation"
-    For local-password accounts, entering the current password is mandatory. If the password is wrong, the dialog stays open and shows an error — the account is **not** deleted.
+!!! info "Confirming with email and password"
+    If the email you type doesn't match your own, the dialog shows an error. For local-password accounts, entering the current password is also mandatory — if it's wrong, the dialog stays open and shows an error. In both cases, the account is **not** deleted.
 
-The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` starts the deletion (for local accounts with the `password` field), `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
+!!! warning "Locked out after too many attempts"
+    After several wrong password attempts, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock applies account-wide to all confirmations of this kind (deleting your account, deleting a tenant, changing your password) together, but does **not** affect signing in: you can still sign in normally, end individual sessions in the **Sessions** tab (see [Account & Sign-In](account.md#viewing-and-ending-active-sessions)), or reset your password by email.
+
+The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` expects the same request body as `DELETE /api/v1/users/me` (see [Deleting Your Account](account.md#deleting-your-account)) — `{"confirm_email": "...", "password": "..."}`, where `password` is only required for a local password. `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 What happens next:
 
@@ -290,6 +337,9 @@ When you delete your account, the system distinguishes between two photo types:
 | **Documentary photos** (diary entries, IPM inspections, harvest photos, plant photos) | Retained but decoupled from your account — `created by` is set to `_anonymized`. If EXIF data is present, it is stripped at this step. |
 
 Files are retained because they belong to the plant record and may be subject to statutory retention obligations (CanG, PflSchG). Your name is no longer linked to the photos after anonymization.
+
+!!! note "When another member uploaded the identical file"
+    If another member of your garden uploads exactly the same file (identical byte content), each person gets their own entry — but the file itself is stored once and shared. If you delete your account, only your own entry is affected: the stored file and its preview images remain in place as long as at least one other member's entry still points to them, and are only removed once the last entry pointing to them is deleted. Your own entries are always reached by account deletion — regardless of who uploaded the file first.
 
 !!! note "Order of deletion"
     Storage cleanup (step 0) happens before database cleanup. This is the only way the system can still retrieve the metadata needed to map file to user.

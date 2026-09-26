@@ -53,6 +53,7 @@ from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStor
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.privacy_doubles import step_up
 from tests.support.tenant_erasure_wiring import tenant_erasure_service
 
 TEST_DATABASE = run_database_name("privacy_self_service_erasure_reach")
@@ -120,7 +121,7 @@ def erased(database):
     before_other = reach._snapshot(database, seeded[OTHER])
 
     service = _service(database)
-    request = service.request_erasure(SUBJECT, "confirm")
+    request = service.request_erasure(SUBJECT, **step_up(f"{SUBJECT}@example.com", "confirm"))
     assert request.key is not None
     # One day past the date the request itself carries: the R-01 period is a
     # setting read through RetentionService (#1782), not a class constant.
@@ -188,6 +189,11 @@ def test_the_request_the_subject_filed_ends_completed_under_the_hash(database, e
     assert doc.get("error_message") is None
     assert [field for field, value in doc.items() if value == SUBJECT] == []
     assert erased.finalised == 1
+    # #1813 — the step-up the subject confirmed with survives the finalisation,
+    # beside the fields the run itself writes (#1770 storage counters).
+    assert doc["step_up"] == "password"
+    assert doc.get("requested_by_subject") is None
+    assert "storage_objects_removed" in doc
 
 
 def test_every_row_of_the_other_user_is_unchanged(database, erased):
@@ -225,7 +231,7 @@ def test_a_partially_completed_request_blocks_a_new_one(database, erased):
     active = ArangoErasureRepository(database).find_active_for_user(subject)
     assert active is not None and active.key == "d-open"
     with pytest.raises(ValidationError):
-        _service(database).request_erasure(subject, "confirm")
+        _service(database).request_erasure(subject, **step_up(f"{subject}@example.com", "confirm"))
     remaining = list(
         database.aql.execute(
             "FOR r IN @@c FILTER r.user_key == @u RETURN r._key",

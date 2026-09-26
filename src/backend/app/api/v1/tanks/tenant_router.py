@@ -95,7 +95,7 @@ def create_tank(
 ):
     """Create a tank for the tenant."""
     tank = Tank(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_tank(tank)
+    created = service.create_tank(tank, tenant_key=ctx.tenant_key)
     return _tank_response(created)
 
 
@@ -127,9 +127,8 @@ def update_tank(
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's configuration."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_tank(key, data)
+    updated = service.update_tank(key, data, tenant_key=ctx.tenant_key)
     return _tank_response(updated)
 
 
@@ -271,9 +270,8 @@ def update_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's maintenance schedule."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_schedule(skey, data)
+    updated = service.update_schedule(key, skey, data, tenant_key=ctx.tenant_key)
     return to_response(updated, MaintenanceScheduleResponse)
 
 
@@ -285,8 +283,7 @@ def delete_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Delete a tank's maintenance schedule."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.delete_schedule(skey)
+    service.delete_schedule(key, skey, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/fills", response_model=FillEventResultResponse, status_code=201)
@@ -340,7 +337,13 @@ def get_latest_fill(
 def get_fill_stats(
     key: Annotated[str, Path(description="Document key of the tank.")],
     start_date: str | None = Query(default=None, description="Inclusive start date (ISO 8601) of the stats window."),
-    end_date: str | None = Query(default=None, description="Inclusive end date (ISO 8601) of the stats window."),
+    end_date: str | None = Query(
+        default=None,
+        description=(
+            "Inclusive end of the stats window (ISO 8601). A date (YYYY-MM-DD) includes every fill on that "
+            "day; a full timestamp includes fills up to and at that instant."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
@@ -386,8 +389,7 @@ def link_feeds_from(
     service: TankService = Depends(get_tank_service),
 ):
     """Link a tank to the source tank it is fed from."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.link_feeds_from(key, body.source_tank_key)
+    service.link_feeds_from(key, body.source_tank_key, tenant_key=ctx.tenant_key)
     return {"status": "linked"}
 
 

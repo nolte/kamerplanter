@@ -24,11 +24,15 @@ from app.common.auth import (
     get_authenticated_with_api_key,
     get_current_tenant,
     get_current_user,
+    refuse_in_light_mode,
+    require_account_principal,
     require_admin_scope,
 )
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope
-from app.common.openapi_responses import AUTH_CRUD_RESPONSES
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
+from app.common.request_ip import resolve_client_ip
+from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
@@ -60,15 +64,22 @@ def list_my_tenants(
     user: User = Depends(get_current_user),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """List all tenants the current user is a member of."""
-    items = service.list_my_tenants(user.key)
+    """List all tenants the current user is a member of.
+
+    A tenant-scoped API key sees only the tenant it is restricted to (#1851):
+    the list is the account's, and the key must not learn the owner's other
+    tenants. Admitted rather than refused because the Home Assistant
+    integration reads it to find its tenant.
+    """
+    scope = user.api_key_tenant_scope
+    items = [t for t in service.list_my_tenants(user.key) if api_key_scope_admits(scope, tenant_key=t.key)]
     return [TenantWithRoleResponse(**t.model_dump()) for t in items]
 
 
 @router.post("", response_model=TenantResponse, status_code=201)
 def create_organization(
     body: TenantCreateRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_account_principal),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Create a new organization tenant."""
@@ -103,12 +114,13 @@ def update_tenant(
     return _tenant_response(tenant)
 
 
-@router.delete("/{tenant_slug}", response_model=MessageResponse)
+@router.delete("/{tenant_slug}", response_model=MessageResponse, responses=STEP_UP_RESPONSES)
 def delete_tenant(
     body: TenantDeleteRequest,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
     user: User = Depends(get_current_user),
     via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Delete the tenant and all its data (declared tenant-erasure inventory, #1769).
@@ -118,7 +130,10 @@ def delete_tenant(
     from the stored membership — that the requester holds the lead role *and*
     ``management`` (403 otherwise; a service account never), that ``confirm_slug``
     is this tenant's slug (422) and, for an account with a local password, that
-    ``password`` is its current one (401).
+    ``password`` is its current one (401) — for an account without one, that
+    ``step_up_code`` is the code from ``POST /users/me/step-up-code`` (401
+    ``STEP_UP_CODE_REQUIRED`` without it, #1815) — throttled per account and
+    address, 429 ``STEP_UP_LOCKED`` after too many failures (#1816).
 
     Same path as ``DELETE /admin/platform/tenants/{key}``: 403 for the platform
     tenant, 409 while another deletion runs, 503 when the deployment cannot erase
@@ -132,6 +147,7 @@ def delete_tenant(
         authenticated_with_api_key=via_api_key,
         confirmation=body.to_confirmation(),
         origin="tenant_management",
+        client_ip=client_ip,
     )
     return MessageResponse(message="Tenant deleted")
 
@@ -220,6 +236,10 @@ def list_invitations(
     "/{tenant_slug}/invitations/email",
     response_model=InvitationLinkResponse,
     status_code=201,
+    # #1844: a light-mode caller is the unauthenticated system account, which is the
+    # light tenant's lead; a token issued here would outlive the mode and admit
+    # whoever asked for it once the instance runs in full mode.
+    dependencies=[Depends(refuse_in_light_mode)],
 )
 def create_email_invitation(
     body: EmailInvitationRequest,
@@ -244,6 +264,10 @@ def create_email_invitation(
     "/{tenant_slug}/invitations/link",
     response_model=InvitationLinkResponse,
     status_code=201,
+    # #1844: a light-mode caller is the unauthenticated system account, which is the
+    # light tenant's lead; a token issued here would outlive the mode and admit
+    # whoever asked for it once the instance runs in full mode.
+    dependencies=[Depends(refuse_in_light_mode)],
 )
 def create_link_invitation(
     body: LinkInvitationRequest,
@@ -280,7 +304,7 @@ def revoke_invitation(
 @router.post("/invitations/accept", response_model=MessageResponse)
 def accept_invitation(
     body: AcceptInvitationRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_account_principal),
     service: TenantService = Depends(get_tenant_service),
 ):
     """Accept an invitation using its token."""

@@ -109,9 +109,12 @@ class ParentService:
         self.verified.append((key, tenant_key))
         return object()
 
-    def get_location(self, key: str) -> Any:
-        # `_verify_location_tenant` resolves the site from the location; a
-        # location has no tenant of its own either.
+    def get_location(self, key: str, tenant_key: str = "") -> Any:
+        # `_verify_location_tenant` resolves the location under the tenant in one
+        # step (#1871 B13); `SiteService.get_location` anchors that on the site,
+        # so the site is what is recorded as verified.
+        if tenant_key:
+            self.verified.append(("site-of-loc", tenant_key))
         return type("Loc", (), {"site_key": "site-of-loc", "key": key})()
 
 

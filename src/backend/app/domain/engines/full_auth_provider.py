@@ -31,14 +31,14 @@ class FullAuthProvider(IAuthProvider):
         self._user_repo = user_repo
         self._auth_service = auth_service
 
-    def resolve_user(self, authorization: str | None) -> User:
+    def resolve_user(self, authorization: str | None, *, client_ip: str | None) -> User:
         if not authorization or not authorization.startswith("Bearer "):
             raise UnauthorizedError("Missing or invalid authorization header.")
 
         token = authorization[7:]
 
         if token.startswith(_API_KEY_PREFIX):
-            user = self._auth_service.authenticate_api_key(token)
+            user = self._auth_service.authenticate_api_key(token, client_ip=client_ip)
             if user is None:
                 raise UnauthorizedError("Invalid or revoked API key.")
             return user
@@ -54,14 +54,14 @@ class FullAuthProvider(IAuthProvider):
 
         return user
 
-    def resolve_user_optional(self, authorization: str | None) -> User | None:
+    def resolve_user_optional(self, authorization: str | None, *, client_ip: str | None) -> User | None:
         if not authorization or not authorization.startswith("Bearer "):
             return None
 
         token = authorization[7:]
 
         if token.startswith(_API_KEY_PREFIX):
-            return self._auth_service.authenticate_api_key(token)
+            return self._auth_service.authenticate_api_key(token, client_ip=client_ip)
 
         try:
             payload: TokenPayload = self._token_engine.decode_access_token(token)

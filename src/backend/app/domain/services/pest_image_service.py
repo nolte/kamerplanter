@@ -166,6 +166,10 @@ class PestImageService:
             mime_type=mime_type,
             original_filename=filename,
             category=AttachmentCategory.PEST_REFERENCE,
+            # One record per contribution (#1770): ``delete`` removes the
+            # contribution's record with it, so a second contribution of the same
+            # photo must not share the first one's record.
+            reuse_own_record=False,
         )
 
         contribution = PestImageContribution(

@@ -102,7 +102,7 @@ class ArangoPlantDiagnosisRepository(BaseArangoRepository[PlantDiagnosisRequest]
         query = """
         FOR req IN @@collection
           FILTER req.tenant_key == @tenant_key AND req.user_key == @user_key
-          SORT req.created_at DESC
+          SORT DATE_TIMESTAMP(req.created_at) DESC
           LIMIT @limit
           RETURN req
         """

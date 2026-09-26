@@ -127,7 +127,7 @@ def get_sowing_calendar(
     """Return the sowing calendar with per-species phase bars for a year."""
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _default_calendar_year()
-    entries, frost_config = svc.get_sowing_calendar(site_id, effective_year)
+    entries, frost_config = svc.get_sowing_calendar(site_id, effective_year, tenant_key=ctx.tenant_key)
     return SowingCalendarResponse(
         entries=[
             SowingCalendarEntrySchema(
@@ -167,7 +167,7 @@ def get_season_overview(
     """Return a month-by-month season overview with activity counts."""
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _default_calendar_year()
-    overview = svc.get_season_overview(site_id, effective_year)
+    overview = svc.get_season_overview(site_id, effective_year, tenant_key=ctx.tenant_key)
     return SeasonOverviewResponse(
         site_key=overview.site_key,
         site_name=overview.site_name,

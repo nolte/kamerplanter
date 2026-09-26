@@ -108,7 +108,7 @@ class PropagationRepository:
         FOR e IN @@col
           FILTER e.tenant_key == @tenant_key
           FILTER @plant_key IN e.parent_plant_keys OR @plant_key IN e.child_plant_keys
-          SORT e.created_at DESC
+          SORT DATE_TIMESTAMP(e.created_at) DESC
           RETURN e
         """
         bind_vars = {"@col": col.PROPAGATION_EVENTS, "tenant_key": tenant_key, "plant_key": plant_key}
@@ -375,7 +375,7 @@ class PropagationRepository:
         query = """
         FOR p IN @@col
           FILTER p.tenant_key == @tenant_key AND p.is_mother == true
-          SORT p.created_at DESC
+          SORT DATE_TIMESTAMP(p.created_at) DESC
           LIMIT @offset, @limit
           RETURN p
         """

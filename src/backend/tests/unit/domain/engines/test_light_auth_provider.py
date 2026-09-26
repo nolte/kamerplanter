@@ -30,18 +30,18 @@ def provider(user_repo):
 
 class TestResolveUser:
     def test_returns_system_user(self, provider, system_user):
-        user = provider.resolve_user(None)
+        user = provider.resolve_user(None, client_ip=None)
         assert user.key == system_user.key
         assert user.email == "system@kamerplanter.example"
 
     def test_ignores_authorization_header(self, provider, system_user):
-        user = provider.resolve_user("Bearer some-jwt-token")
+        user = provider.resolve_user("Bearer some-jwt-token", client_ip=None)
         assert user.key == system_user.key
 
     def test_caches_user_after_first_call(self, provider, user_repo):
-        provider.resolve_user(None)
-        provider.resolve_user(None)
-        provider.resolve_user(None)
+        provider.resolve_user(None, client_ip=None)
+        provider.resolve_user(None, client_ip=None)
+        provider.resolve_user(None, client_ip=None)
         user_repo.get_by_key.assert_called_once_with("system-user")
 
     def test_raises_if_system_user_missing(self):
@@ -49,18 +49,18 @@ class TestResolveUser:
         repo.get_by_key.return_value = None
         p = LightAuthProvider(repo)
         with pytest.raises(RuntimeError, match="System user not found"):
-            p.resolve_user(None)
+            p.resolve_user(None, client_ip=None)
 
 
 class TestResolveUserOptional:
     def test_never_returns_none(self, provider, system_user):
-        user = provider.resolve_user_optional(None)
+        user = provider.resolve_user_optional(None, client_ip=None)
         assert user is not None
         assert user.key == system_user.key
 
     def test_returns_same_as_resolve_user(self, provider):
-        u1 = provider.resolve_user(None)
-        u2 = provider.resolve_user_optional("Bearer anything")
+        u1 = provider.resolve_user(None, client_ip=None)
+        u2 = provider.resolve_user_optional("Bearer anything", client_ip=None)
         assert u1.key == u2.key
 
 

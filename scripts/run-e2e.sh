@@ -38,6 +38,13 @@ done
 GID="$(id -g)"
 export UID GID
 
+# The stack's Fernet key is generated, never committed (#1838). One key per
+# working copy (scripts/e2e_fernet_key.py keeps it in .e2e-secrets/), so the
+# `up` calls below and any later one agree. Assign first, export second (SC2155).
+E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" || { echo "cannot provide E2E_FERNET_KEY" >&2; exit 2; }
+export E2E_FERNET_KEY
+if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::add-mask::$E2E_FERNET_KEY"; fi
+
 # Determine run mode
 PROFILE="light"
 FORCE_CONCURRENT="${E2E_FORCE_CONCURRENT:-0}"

@@ -12,7 +12,9 @@ from settings and turned into deadlines or cutoffs:
 * R-06 ``retention_erasure_audit_retention_years`` —
   ``retention.purge_expired_erasure_records``;
 * R-07 ``retention_email_change_retention_hours`` — ``expires_at`` of an
-  email-change request (``PrivacyService.request_email_change``).
+  email-change request (``PrivacyService.request_email_change``);
+  ``retention_email_change_revert_days`` — the revert window of a confirmed one
+  (``PrivacyService.confirm_email_change``, #1848).
 
 The tasks and the Art. 13 retention summary read the periods here, so the text
 a data subject reads cannot name a period the code does not apply (#1772,
@@ -25,6 +27,7 @@ downsampling, a retention master task) are not wired here yet.
 
 from datetime import UTC, datetime, timedelta
 
+from app.common.datetimes import replace_year
 from app.config.settings import settings
 
 
@@ -36,6 +39,7 @@ class RetentionService:
         export_retention_hours: int | None = None,
         hard_delete_after_days: int | None = None,
         email_change_ttl_hours: int | None = None,
+        email_change_revert_days: int | None = None,
         ip_anonymisation_after_days: int | None = None,
         unverified_account_days: int | None = None,
         erasure_record_retention_years: int | None = None,
@@ -54,6 +58,11 @@ class RetentionService:
             email_change_ttl_hours
             if email_change_ttl_hours is not None
             else settings.retention_email_change_retention_hours
+        )
+        self._email_change_revert_days = (
+            email_change_revert_days
+            if email_change_revert_days is not None
+            else settings.retention_email_change_revert_days
         )
         self._ip_anonymisation_after_days = (
             ip_anonymisation_after_days
@@ -82,6 +91,7 @@ class RetentionService:
                 "NFR-011 R-06: erasure records are kept at least one year after completion.",
             ),
             (self._email_change_ttl_hours, "NFR-011 R-07: an email-change link must stay valid at least one hour."),
+            (self._email_change_revert_days, "NFR-011 R-07: the email-change revert link must stay valid a day."),
         )
         for period, message in floors:
             if period < 1:
@@ -100,6 +110,10 @@ class RetentionService:
     def email_change_expires_at(self, requested_at: datetime) -> datetime:
         """Return the moment an email-change request expires (NFR-011 R-07)."""
         return requested_at + timedelta(hours=self._email_change_ttl_hours)
+
+    def email_change_revert_expires_at(self, confirmed_at: datetime) -> datetime:
+        """Return the moment the revert link of a confirmed email change stops working (NFR-011 R-07, #1848)."""
+        return confirmed_at + timedelta(days=self._email_change_revert_days)
 
     def ip_anonymisation_cutoff(self, now: datetime) -> datetime:
         """Return the capture time before which an IP is anonymised (NFR-011 R-03).
@@ -134,11 +148,7 @@ class RetentionService:
         """
         now = now.astimezone(UTC)
         year = now.year - self._erasure_record_retention_years
-        try:
-            cutoff = now.replace(year=year)
-        except ValueError:  # 29 February in a non-leap target year
-            cutoff = now.replace(year=year, day=28)
-        return cutoff.replace(microsecond=0)
+        return replace_year(now, year).replace(microsecond=0)
 
     # ── Predicate helpers ────────────────────────────────────────
 

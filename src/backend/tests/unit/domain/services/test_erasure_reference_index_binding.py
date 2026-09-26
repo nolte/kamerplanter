@@ -31,6 +31,7 @@ from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import ErasureRequest
+from app.domain.models.storage import StorageErasureResult
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
@@ -42,6 +43,14 @@ TOKEN = "svc-token-1753"
 SUBJECT = "subject-1753"
 TENANT = "tenant1753"
 SALT = "s" * 32
+
+
+@pytest.fixture(autouse=True)
+def _configured_log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment that can erase has a log salt (#1812): the erasure refuses to run without one."""
+    from app.config.settings import settings as _settings
+
+    monkeypatch.setattr(_settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
 
 
 @pytest.fixture
@@ -138,6 +147,9 @@ async def test_the_checkpoint_persists_the_binding_and_the_count(inference):
             "pre_arango_completed_at": checkpoint[0]["pre_arango_completed_at"],
             "reference_index_binding": "inference_service",
             "reference_index_removed": 2,
+            # #1770 — Phase 0's hard-delete outcome travels with the checkpoint.
+            "storage_objects_removed": 0,
+            "storage_objects_retained_shared": 0,
         }
     ]
 
@@ -285,7 +297,7 @@ async def test_a_direct_finalize_records_a_failed_attempt(store_factory):
 async def test_erase_account_refuses_before_touching_anything(store_factory):
     executor = RecordingErasureExecutor()
     storage = MagicMock()
-    storage.delete_for_user = AsyncMock(return_value=0)
+    storage.delete_for_user = AsyncMock(return_value=StorageErasureResult(removed=0))
     service = _privacy_service(_erasure(), store_factory(), executor)
     service._storage_adapter = storage
 

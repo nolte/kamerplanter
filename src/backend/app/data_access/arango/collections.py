@@ -2229,6 +2229,12 @@ def ensure_collections(db: StandardDatabase) -> None:
     email_change_requests_col = db.collection(EMAIL_CHANGE_REQUESTS)
     email_change_requests_col.add_persistent_index(fields=["user_key"], unique=False)
     email_change_requests_col.add_persistent_index(fields=["verification_token_hash"], unique=True)
+    # #1848: the public revert route looks a request up by this hash; sparse, since
+    # only confirmed changes within their window carry one.
+    email_change_requests_col.add_persistent_index(fields=["revert_token_hash"], unique=True, sparse=True)
+    # #1848: registration and e-mail changes look up whether an address is held
+    # for the revert of a confirmed change.
+    email_change_requests_col.add_persistent_index(fields=["previous_email"], unique=False, sparse=True)
 
     # REQ-029 plant identification indexes
     identification_requests_col = db.collection(IDENTIFICATION_REQUESTS)
@@ -2273,7 +2279,10 @@ def ensure_collections(db: StandardDatabase) -> None:
     attachments_col.add_persistent_index(fields=["tenant_key", "created_by"], unique=False)
     attachments_col.add_persistent_index(fields=["tenant_key", "sha256"], unique=False)
     attachments_col.add_persistent_index(fields=["tenant_key", "category"], unique=False)
-    attachments_col.add_persistent_index(fields=["storage_key"], unique=True)
+    # Not unique (#1770): deduplicated uploads give every uploader a record of
+    # their own over one stored object, so several records share a storage key.
+    # v0062 drops the unique index an existing volume still carries.
+    attachments_col.add_persistent_index(fields=["storage_key"], unique=False)
 
     # REQ-046 Weather data sources indexes
     weather_forecasts_col = db.collection(WEATHER_FORECASTS)

@@ -1,27 +1,27 @@
-# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's standing pre-approval of every gate for the
-# autonomous #1783 run (2026-09-24/25), relayed by the orchestrating session — not an interactive
-# batch answer. It records that the targets and the observe argv below run on the operator's
-# machine with their environment, as `task` in this repository does.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
 #
-# Re-derived for #1783: #1780 squash-merged as c9d6d29ee, leaving its branch commit e9e0c3a52
-# outside develop's history. REQ-025 is byte-identical between the two; derived_from is now the
-# squash commit, the latest commit of the declaration on develop. Observe step, targets and
-# expectation unchanged.
+# Re-anchored after #1846: derived_from 7e6f8c2a6 was #1770's branch commit, discarded by the
+# #1839 squash (0c39591f8, REQ-025 byte-identical to 7e6f8c2a6). REQ-025 last changed on develop
+# in 9cacdb752 (v1.13, #1813/#1814): one changelog row (+1 line from L19), the request_erasure
+# sketch (+2 around L664) and ErasureCreateRequest (+1 around L798), and the new rows AK-IE-04/05
+# after AK-IE-03. None of the cited passages changed; the citations moved (+1 up to §3.1.1, +4
+# from §3.5 on) and were updated.
+# Observe step, targets and expectation unchanged.
 id: requirement-req025-art17-storage-renditions-erased
 summary: WebP renditions of the subject's seeded stored files after erasure — gone for hard_delete scopes
 declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
-  location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L266); §3.5 Phase 0 (L900-942); AK-OS-06 (L1234)
+  location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L268); §3.5 Phase 0 (L905-947); AK-OS-06 (L1239)
 tier: T2
 expected:
   kind: set
   unit: per-category state of the seeded files' renditions after erasure finalisation
   values:
   - renditions-deleted/pest_reference
-derived_from: c9d6d29eec071ce2bd67b487dcdf96f57875d5d6
+derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -37,6 +37,6 @@ observe:
   - reach-subject
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-25T07:11:22Z'
-  approved_by: nolte
   observation_digest: a4aec0d25980c17a7b1c9bafefd8bae5bd4debd8e24ed78e3713672997490620
+  approved_by: nolte
+  approved_at: '2026-09-25T18:35:52Z'

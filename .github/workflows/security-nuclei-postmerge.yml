@@ -112,6 +112,7 @@ on:
       # The shared bring-up action: without this entry a change to the stack's
       # readiness logic would land without the gate that exercises it.
       - '.github/actions/ephemeral-stack/**'
+      - 'scripts/e2e_fernet_key.py'
       - '.github/renovate-pins.yaml'
       # gate-integrity-ok: docs/security/nuclei-triage.md is QUOTED, not read —
       # it is a link in the body of the issue this lane opens on a High/Critical

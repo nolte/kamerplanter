@@ -14,13 +14,16 @@ from app.api.v1.onboarding.schemas import (
     OnboardingProgressUpdate,
     OnboardingStateResponse,
 )
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_current_tenant, require_account_principal, require_permission
 from app.common.dependencies import get_onboarding_service
 from app.core.permissions import Action, ResourceType
 from app.domain.models.onboarding import PlantConfig
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.onboarding_service import OnboardingService
 
+# Writes of the caller's ACCOUNT-WIDE settings below depend on
+# ``require_account_principal``: the tenant in the path admits a tenant-scoped API
+# key, but these settings span every tenant of its owner (#1851).
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
 
@@ -68,7 +71,7 @@ def complete_onboarding(
     return OnboardingCompleteResponse(**result)
 
 
-@router.post("/skip", response_model=OnboardingStateResponse)
+@router.post("/skip", response_model=OnboardingStateResponse, dependencies=[Depends(require_account_principal)])
 def skip_onboarding(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
@@ -78,7 +81,7 @@ def skip_onboarding(
     return to_response(state, OnboardingStateResponse)
 
 
-@router.post("/reset", response_model=OnboardingStateResponse)
+@router.post("/reset", response_model=OnboardingStateResponse, dependencies=[Depends(require_account_principal)])
 def reset_onboarding(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
@@ -88,7 +91,7 @@ def reset_onboarding(
     return to_response(state, OnboardingStateResponse)
 
 
-@router.patch("/state", response_model=OnboardingStateResponse)
+@router.patch("/state", response_model=OnboardingStateResponse, dependencies=[Depends(require_account_principal)])
 def update_onboarding_progress(
     body: OnboardingProgressUpdate,
     ctx: TenantContext = Depends(get_current_tenant),

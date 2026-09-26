@@ -709,7 +709,7 @@ class TestFindByField:
         bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
         assert "doc.user_key == @v0" in query
         assert "doc.status IN @v1" in query
-        assert "SORT doc.created_at DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.created_at) DESC" in query
         assert "LIMIT @__offset, @__limit" in query
         assert bind_vars["v0"] == "u1"
         assert bind_vars["v1"] == ["pending", "processing"]

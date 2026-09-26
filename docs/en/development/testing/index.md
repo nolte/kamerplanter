@@ -472,8 +472,9 @@ A dedicated Docker Compose stack runs the complete application plus Selenium Gri
 # Recommended: wrapper script (starts stack, collects logs, tears down)
 ./scripts/run-e2e.sh
 
-# Or manually:
-docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+# Or manually — the stack's Fernet key is generated, never committed:
+E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" \
+  docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 docker compose -f docker-compose.e2e.yml down -v
 ```
 

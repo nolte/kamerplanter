@@ -3,8 +3,8 @@ from datetime import date, datetime
 
 import structlog
 
-from app.common.datetimes import today_utc
-from app.common.exceptions import ValidationError
+from app.common.datetimes import replace_year, today_utc
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine, CalendarSourceRows
 from app.domain.engines.season_overview_engine import (
@@ -30,6 +30,7 @@ from app.domain.models.calendar import (
     CalendarEventsQuery,
     CalendarFeed,
 )
+from app.domain.models.site import Site
 from app.domain.services.ical_generator import ICalGenerator
 from app.domain.services.planting_run_service import PlantingRunService
 
@@ -138,19 +139,41 @@ class CalendarService:
 
     # ── Sowing calendar (REQ-015 §3.8) ─────────────────────────────
 
+    def _owned_site(self, site_key: str | None, *, tenant_key: str) -> Site | None:
+        """The site ``site_key`` of ``tenant_key``, ``None`` without a key, or 404 (#1870).
+
+        The REST sowing and season-overview routes passed ``?site_id=`` through
+        unchecked, and the site, its runs and their phase timelines were read
+        for any tenant's key; only the MCP tool checked first. The check lives
+        here now so no caller can skip it. A foreign and an unknown site answer
+        the same.
+        """
+        if not site_key:
+            return None
+        site = self._site_repo.get_site_by_key(site_key) if self._site_repo else None
+        if site is None or site.tenant_key != tenant_key:
+            raise NotFoundError("Site", site_key)
+        return site
+
     def get_sowing_calendar(
         self,
         site_key: str | None,
         year: int,
+        *,
+        tenant_key: str,
     ) -> tuple[list[SowingCalendarEntry], FrostConfig]:
-        frost_config = self._build_frost_config(site_key, year)
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        frost_config = self._build_frost_config(site, year)
 
         run_entries: list[SowingCalendarEntry] = []
-        if site_key and self._run_service:
-            run_entries = self._build_entries_from_runs(site_key, year)
+        if site is not None and self._run_service:
+            run_entries = self._build_entries_from_runs(site.key or "", year, tenant_key=tenant_key)
 
-        # Theoretical species data
-        species_list, _ = self._species_repo.get_all(offset=0, limit=5000) if self._species_repo else ([], 0)
+        # Theoretical species data — the tenant's visible catalogue (global seeds
+        # plus its own additions), never another tenant's private species (#1870).
+        species_list, _ = (
+            self._species_repo.get_all(offset=0, limit=5000, tenant_key=tenant_key) if self._species_repo else ([], 0)
+        )
         species_data = [
             SpeciesData(
                 key=sp.key or "",
@@ -199,6 +222,8 @@ class CalendarService:
         self,
         site_key: str,
         year: int,
+        *,
+        tenant_key: str,
     ) -> list[SowingCalendarEntry]:
         """Build calendar entries from actual PlantingRun phase timelines.
 
@@ -207,7 +232,7 @@ class CalendarService:
         """
 
         run_svc: PlantingRunService = self._run_service
-        runs = run_svc._repo.get_runs_at_site(site_key)
+        runs = run_svc._repo.get_runs_at_site(site_key, tenant_key=tenant_key)
         if not runs:
             return []
 
@@ -222,7 +247,7 @@ class CalendarService:
             # shows how far out the expected harvest is.
             run_entries = run_svc._repo.get_entries(run.key)
             for re in run_entries:
-                bars.extend(self._species_harvest_bars(re.species_key, year))
+                bars.extend(self._species_harvest_bars(re.species_key, year, tenant_key=tenant_key))
 
             if not bars:
                 continue
@@ -238,12 +263,20 @@ class CalendarService:
         entries.sort(key=lambda e: min(b.start_date for b in e.bars) if e.bars else date.max)
         return entries
 
-    def _species_harvest_bars(self, species_key: str, year: int) -> list[SowingBar]:
-        """Build harvest/bloom bars from Species stammdaten (harvest_months / bloom_months)."""
+    def _species_harvest_bars(self, species_key: str, year: int, *, tenant_key: str) -> list[SowingBar]:
+        """Build harvest/bloom bars from Species stammdaten (harvest_months / bloom_months).
+
+        Only a species the tenant may read — global, its own, or granted to it
+        (#1092), the rule the species list above applies too: a run entry can
+        still name another tenant's private species (#1871 B11), and its months
+        must not reach this calendar.
+        """
         if not self._species_repo:
             return []
         sp = self._species_repo.get_by_key(species_key)
         if sp is None:
+            return []
+        if sp.tenant_key not in ("", tenant_key) and not self._species_repo.is_granted_to(species_key, tenant_key):
             return []
 
         bars: list[SowingBar] = []
@@ -315,13 +348,12 @@ class CalendarService:
         self,
         site_key: str | None,
         year: int,
+        *,
+        tenant_key: str,
     ) -> SeasonOverview:
-        entries, frost_config = self.get_sowing_calendar(site_key, year)
-        site_name = ""
-        if site_key and self._site_repo:
-            site = self._site_repo.get_site_by_key(site_key)
-            if site:
-                site_name = site.name
+        entries, frost_config = self.get_sowing_calendar(site_key, year, tenant_key=tenant_key)
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        site_name = site.name if site is not None else ""
 
         # For now, task_events is empty — can be expanded with AQL aggregation
         task_events: list[TaskEvent] = []
@@ -333,17 +365,13 @@ class CalendarService:
             year,
         )
 
-    def _build_frost_config(self, site_key: str | None, year: int) -> FrostConfig:
-        if site_key and self._site_repo:
-            site = self._site_repo.get_site_by_key(site_key)
-            if site:
-                return FrostConfig(
-                    last_frost_date=(site.last_frost_date_avg or date(year, 5, 1)).replace(year=year),
-                    first_frost_date=(
-                        site.first_frost_date_avg.replace(year=year) if site.first_frost_date_avg else None
-                    ),
-                    eisheilige_date=(site.eisheilige_date or date(year, 5, 15)).replace(year=year),
-                )
+    def _build_frost_config(self, site: Site | None, year: int) -> FrostConfig:
+        if site is not None:
+            return FrostConfig(
+                last_frost_date=replace_year(site.last_frost_date_avg or date(year, 5, 1), year),
+                first_frost_date=(replace_year(site.first_frost_date_avg, year) if site.first_frost_date_avg else None),
+                eisheilige_date=replace_year(site.eisheilige_date or date(year, 5, 15), year),
+            )
         return FrostConfig(
             last_frost_date=date(year, 5, 1),
             eisheilige_date=date(year, 5, 15),
