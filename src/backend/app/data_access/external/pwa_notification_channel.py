@@ -15,7 +15,8 @@ Channel config expects:
 
 Each subscription corresponds to one browser/device registered via the
 PushManager. Endpoints that the push service reports as gone (HTTP 404/410)
-are collected in the result so callers can prune them from storage.
+are returned in ``ChannelResult.expired_endpoints``; the notification engine
+prunes them from the owner's stored subscriptions (#1827).
 
 ``pywebpush`` is imported lazily to keep it an optional runtime dependency
 and to allow the channel to be mocked in tests.
@@ -77,10 +78,11 @@ class PwaNotificationChannel(INotificationChannel):
     ) -> ChannelResult:
         """Push a notification to every registered subscription.
 
-        Expired subscriptions (HTTP 404/410) are collected and reported in
-        the result's ``error`` field as ``expired:<endpoint>;...`` so callers
-        can prune them. A single ``WebPushException`` never aborts the batch;
-        delivery is attempted for every subscription.
+        Expired subscriptions (HTTP 404/410) are returned in
+        ``ChannelResult.expired_endpoints`` for the caller to prune (#1827); the
+        ``error`` text names only how many expired, never an endpoint. A single
+        ``WebPushException`` never aborts the batch; delivery is attempted for
+        every subscription.
 
         Args:
             notification: The notification to deliver.
@@ -214,11 +216,11 @@ class PwaNotificationChannel(INotificationChannel):
         errors: list[str],
         expired_endpoints: list[str],
     ) -> ChannelResult:
-        """Assemble the ChannelResult, encoding expired endpoints for callers."""
+        """Assemble the ChannelResult; expired endpoints go into their own field, not the text."""
         success = delivered > 0
         detail_parts: list[str] = []
         if expired_endpoints:
-            detail_parts.append("expired:" + ",".join(expired_endpoints))
+            detail_parts.append(f"{len(expired_endpoints)} expired subscription(s)")
         if errors:
             detail_parts.append("; ".join(errors))
         error = " | ".join(detail_parts) if detail_parts else None
@@ -226,6 +228,7 @@ class PwaNotificationChannel(INotificationChannel):
             channel_key=self.channel_key,
             success=success,
             error=error,
+            expired_endpoints=expired_endpoints,
         )
 
 
