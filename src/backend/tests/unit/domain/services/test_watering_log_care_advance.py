@@ -310,7 +310,7 @@ def test_create_log_without_real_plants_skips_advancement(plant_keys) -> None:
         logged_at=datetime.now(UTC),
         volume_liters=1.0,
         plant_keys=plant_keys,
-        slot_keys=["slot-x"],
+        slot_keys=[],  # slot scope is decided in test_watering_log_slot_scope (#1871 B4)
     )
 
     result = service.create_log(log)
