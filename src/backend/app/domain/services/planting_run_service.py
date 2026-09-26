@@ -136,6 +136,11 @@ class PlantingRunService:
         if entries and created.key:
             for entry in entries:
                 entry.run_key = created.key
+                # The run's tenant, as add_entry/update_entry stamp it (SEC-004,
+                # #1112): the repository's owned-reference guard skips a row
+                # without one, so a foreign cultivar_key went through on this
+                # path only (#1871 B12).
+                entry.tenant_key = created.tenant_key
                 self._repo.create_entry(entry)
         return created
 
