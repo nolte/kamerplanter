@@ -762,6 +762,22 @@ class Settings(BaseSettings):
     #: spec's period: keeping the proof longer is a configuration choice,
     #: shortening it below one year needs a spec / DPO decision, not an env var.
     retention_erasure_audit_retention_years: int = Field(default=1, ge=1)
+    #: NFR-011 R-04 / §4 ``CONSENT_RETENTION_YEARS`` (#1800) — a consent record is
+    #: hard-deleted this many years after it was revoked
+    #: (``retention.purge_expired_consent_records``). Pseudonymised at account
+    #: erasure instead of deleted immediately when the period has not run out yet
+    #: (REQ-025 §3.1.3 rule 3); the clock keeps counting from ``revoked_at``.
+    retention_consent_retention_years: int = Field(default=3, ge=1)
+    #: NFR-011 R-04a (#1800) — the IP address on a consent record is anonymised this
+    #: many days after it was recorded (``retention.anonymize_consent_ips``), the R-03
+    #: analogue for ``consent_records`` instead of ``refresh_tokens``. Reset to
+    #: unanonymised whenever the purpose is granted again (a fresh IP is recorded).
+    retention_consent_ip_anonymization_days: int = Field(default=7, ge=1)
+    #: NFR-011 R-12 / §4 ``INVITATION_RETENTION_DAYS`` (#1800) — an expired invitation
+    #: is hard-deleted this many days after its ``expires_at``
+    #: (``tenant_tasks.cleanup_expired_invitations``, which already flips it to
+    #: ``expired`` at expiry).
+    retention_invitation_retention_days: int = Field(default=30, ge=1)
 
     # REQ-030 Notifications
     vapid_private_key: str = ""

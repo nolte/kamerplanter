@@ -122,3 +122,67 @@ class TestDelete:
 
         assert repo.delete("ec1") is True
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"] == {"change_id": "email_change_requests/ec1"}
+
+
+class TestDeleteExpiredUnconfirmed:
+    """NFR-011 R-07 (#1800) — an unconfirmed request past its ``expires_at`` is hard-deleted, edges first."""
+
+    def test_removes_edges_then_documents(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([1, 1, 1])]
+
+        deleted = repo.delete_expired_unconfirmed("2026-06-21T00:00:00Z")
+
+        assert deleted == 3
+        assert mock_db.aql.execute.call_count == 2
+        edges_call, docs_call = mock_db.aql.execute.call_args_list
+        assert edges_call.kwargs["bind_vars"]["@edges"] == "requested_email_change"
+        assert "REMOVE edge" in edges_call.args[0]
+        assert "REMOVE doc" in docs_call.args[0]
+        for call in (edges_call, docs_call):
+            assert call.kwargs["bind_vars"]["unconfirmed"] == ["pending", "expired", "cancelled"]
+            assert call.kwargs["bind_vars"]["now"] == "2026-06-21T00:00:00Z"
+
+    def test_zero_when_nothing_due(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([])]
+        assert repo.delete_expired_unconfirmed("2026-06-21T00:00:00Z") == 0
+
+
+class TestDeleteConfirmedPastRevertWindow:
+    """NFR-011 R-07b (#1800) — a confirmed change whose *stored* R-07a revert window has closed is hard-deleted whole.
+
+    #1800 security review (SEC-002): the *expiry* comes from ``revert_token_hash``
+    / ``revert_expires_at`` on the row, never recomputed from ``confirmed_at``
+    and the current setting — that would let lowering
+    ``RETENTION_EMAIL_CHANGE_REVERT_DAYS`` retroactively shrink a window
+    already granted at confirmation time.
+
+    #1800 /code-review — the null-``revert_token_hash`` arm additionally
+    requires a fixed grace period since ``confirmed_at``
+    (:attr:`ArangoEmailChangeRepository._RECORD_CONFIRMATION_RACE_GRACE`):
+    ``confirm_email_change`` claims ``status: confirmed`` several round-trips
+    before it writes the revert data, so a row can sit with a null token for
+    that entirely normal window; without the grace this method would delete it
+    — including ``previous_email`` — before the revert link was ever written.
+    """
+
+    def test_removes_edges_then_documents(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([1])]
+
+        deleted = repo.delete_confirmed_past_revert_window("2026-06-14T00:00:00+00:00")
+
+        assert deleted == 1
+        assert mock_db.aql.execute.call_count == 2
+        edges_call, docs_call = mock_db.aql.execute.call_args_list
+        assert edges_call.kwargs["bind_vars"]["@edges"] == "requested_email_change"
+        assert "revert_token_hash" in edges_call.args[0]
+        for call in (edges_call, docs_call):
+            assert call.kwargs["bind_vars"]["confirmed"] == ["confirmed", "reverted", "superseded"]
+            assert call.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00+00:00"
+            # The null-token arm's own grace check reads confirmed_at, but the
+            # *expiry* bound must still be the stored revert_expires_at, not a
+            # cutoff computed from confirmed_at (SEC-002).
+            assert call.kwargs["bind_vars"]["race_grace_before"] == "2026-06-13T23:55:00+00:00"
+
+    def test_zero_when_nothing_due(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([])]
+        assert repo.delete_confirmed_past_revert_window("2026-06-14T00:00:00+00:00") == 0

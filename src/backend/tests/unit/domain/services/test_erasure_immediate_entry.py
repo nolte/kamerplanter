@@ -67,6 +67,13 @@ class _Recorder:
         )
         self.refresh_token_repo = MagicMock()
         self.refresh_token_repo.revoke_all_for_user.side_effect = lambda key: self.events.append("revoke")
+        self.consent_repo = MagicMock()
+
+        def _revoke_all_unrevoked(_key: str, _now: str) -> int:
+            self.events.append("consent_revoke")
+            return 0
+
+        self.consent_repo.revoke_all_unrevoked.side_effect = _revoke_all_unrevoked
         inner = executor.run_erasure_plan
 
         def _run(plan, *, tombstone, executors=None):
@@ -88,7 +95,7 @@ def _service(
     export_repo.list_by_user.return_value = []
     service = PrivacyService(
         export_repo=export_repo,
-        consent_repo=MagicMock(),
+        consent_repo=recorder.consent_repo,
         restriction_repo=MagicMock(),
         erasure_repo=repo,
         email_change_repo=MagicMock(),
@@ -172,13 +179,16 @@ class TestTheAdminDeletePersistsItsProof:
 
     async def test_an_unreached_step_raises_and_leaves_the_duty_open_for_the_beat(self):
         repo = FakeErasureRepo()
-        service, _ = _service(repo, RecordingErasureExecutor(drop=("consent_records",)))
+        # ``processing_restrictions`` (any document step still on DELETE_STEPS
+        # works — not ``consent_records``, which #1800 moved into
+        # PSEUDONYMIZE_AUDIT_COLLECTIONS and out of the plan's declared steps).
+        service, _ = _service(repo, RecordingErasureExecutor(drop=("processing_restrictions",)))
 
         with pytest.raises(ErasureIncompleteError) as excinfo:
             await service.erase_account_now(USER, origin="platform_admin", now=NOW)
 
         request = _only(repo)
-        assert "consent_records" in excinfo.value.message
+        assert "processing_restrictions" in excinfo.value.message
         assert request.key not in str(excinfo.value.details), "the request key stays out of the answer"
         assert request.status == "partially_completed"
         assert request.attempt_count == 1
@@ -223,9 +233,14 @@ class TestTheAccountIsClosedBeforeAnythingIsRemoved:
 
         await service.erase_account_now(USER, origin="platform_admin", now=NOW)
 
-        assert recorder.events[:3] == [
+        # #1800 security review (SEC-001): revoke_all_unrevoked must run before
+        # the executor pseudonymises consent_records, or an unrevoked consent
+        # would be pseudonymised with revoked_at still null and the R-04 purge
+        # (which excludes null on purpose) would never reach it.
+        assert recorder.events[:4] == [
             "user:[('is_active', False), ('password_hash', None)]:requests=1",
             "revoke",
+            "consent_revoke",
             "executor",
         ]
 
@@ -391,7 +406,7 @@ class TestTheEntryPointsGoThroughIt:
         from app.api.v1.admin.platform import router as admin_router
 
         repo = FakeErasureRepo()
-        service, recorder = _service(repo, RecordingErasureExecutor(drop=("consent_records",)))
+        service, recorder = _service(repo, RecordingErasureExecutor(drop=("processing_restrictions",)))
 
         with pytest.raises(ErasureIncompleteError):
             admin_router.delete_user(USER, **_admin_request(service, recorder))
@@ -417,7 +432,7 @@ class TestTheEntryPointsGoThroughIt:
         from app.tasks.auth_tasks import cleanup_unverified_accounts
 
         repo = FakeErasureRepo()
-        service, _ = _service(repo, RecordingErasureExecutor(drop=("consent_records",)))
+        service, _ = _service(repo, RecordingErasureExecutor(drop=("processing_restrictions",)))
         user_repo = MagicMock()
         user_repo.get_unverified_before.return_value = [SimpleNamespace(key=USER)]
         with (

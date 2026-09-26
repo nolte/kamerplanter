@@ -160,6 +160,12 @@ class ErasureResponse(BaseModel):
     completed_at: datetime | None = None
     anonymized_collections: list[str] = Field(default_factory=list)
     deleted_collections: list[str] = Field(default_factory=list)
+    #: The third AK-08a category (#1800): retained under its own,
+    #: account-independent period rather than deleted or anonymised outright
+    #: (consent_records, R-04). Dropped here would repeat, one layer further
+    #: out, the exact "confirmation silently drops a category" defect #1800
+    #: fixed on the domain model (``ErasureRequest.pseudonymized_collections``).
+    pseudonymized_collections: list[str] = Field(default_factory=list)
     retained_reason: str | None = None
 
 

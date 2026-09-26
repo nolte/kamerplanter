@@ -126,5 +126,93 @@ class TestDeleteAllForUser:
 
     def test_zero_when_nothing_removed(self, repo, mock_db):
         mock_db.aql.execute.side_effect = lambda *a, **k: iter([])
-
         assert repo.delete_all_for_user("u1") == 0
+
+
+class TestListUnanonymizedIpsBefore:
+    """NFR-011 R-04a (#1800) — the R-03 analogue for ``consent_records``."""
+
+    def test_returns_key_ip_pairs(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter(
+            [{"_key": "c1", "ip_address": "192.0.2.42"}, {"_key": "c2", "ip_address": "2001:db8::1"}]
+        )
+
+        result = repo.list_unanonymized_ips_before("2026-09-18T00:00:00+00:00")
+
+        assert result == [("c1", "192.0.2.42"), ("c2", "2001:db8::1")]
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["cutoff"] == "2026-09-18T00:00:00+00:00"
+
+    def test_empty_when_nothing_due(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+        assert repo.list_unanonymized_ips_before("2026-09-18T00:00:00+00:00") == []
+
+
+class TestMarkIpAnonymized:
+    """#1800 security review (SEC-003) — a conditional write, not a blind overwrite."""
+
+    def test_writes_the_anonymised_ip_and_stamp_when_still_the_selected_ip(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([1])
+
+        written = repo.mark_ip_anonymized("c1", "192.0.2.42", "192.0.2.0", "2026-09-25T04:00:00+00:00")
+
+        assert written is True
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["key"] == "c1"
+        assert bind_vars["previous_ip"] == "192.0.2.42"
+        assert bind_vars["anonymized_ip"] == "192.0.2.0"
+        assert bind_vars["anonymized_at"] == "2026-09-25T04:00:00+00:00"
+        assert "ip_anonymized_at == null" in mock_db.aql.execute.call_args.args[0]
+
+    def test_skips_the_write_when_a_concurrent_regrant_changed_the_ip(self, repo, mock_db):
+        """A re-grant between selection and this write must not be overwritten by a stale hash."""
+        mock_db.aql.execute.return_value = iter([])
+
+        written = repo.mark_ip_anonymized("c1", "192.0.2.42", "192.0.2.0", "2026-09-25T04:00:00+00:00")
+
+        assert written is False
+
+
+class TestDeleteRevokedBefore:
+    """NFR-011 R-04 (#1800) — edges removed first, then the revoked-and-expired records."""
+
+    def test_removes_edges_then_documents(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([1, 1])]
+
+        purged = repo.delete_revoked_before("2023-09-25T00:00:00+00:00")
+
+        assert purged == 2
+        assert mock_db.aql.execute.call_count == 2
+        edges_call, docs_call = mock_db.aql.execute.call_args_list
+        assert edges_call.kwargs["bind_vars"]["@edges"] == "has_consent"
+        assert "REMOVE edge" in edges_call.args[0]
+        assert "REMOVE doc" in docs_call.args[0]
+        for call in (edges_call, docs_call):
+            assert call.kwargs["bind_vars"]["cutoff"] == "2023-09-25T00:00:00+00:00"
+
+    def test_zero_when_nothing_due(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([])]
+
+        assert repo.delete_revoked_before("2023-09-25T00:00:00+00:00") == 0
+
+
+class TestRevokeAllUnrevoked:
+    """NFR-011 R-04 (#1800 review, SEC-001) — run at erasure so an unrevoked consent stays reachable by the purge."""
+
+    def test_revokes_every_unrevoked_record_of_the_user(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([1, 1])
+
+        revoked = repo.revoke_all_unrevoked("u1", "2026-09-25T04:35:00+00:00")
+
+        assert revoked == 2
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["user_key"] == "u1"
+        assert bind_vars["now"] == "2026-09-25T04:35:00+00:00"
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "revoked_at == null" in query
+        assert "granted: false" in query
+
+    def test_zero_when_nothing_unrevoked(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.revoke_all_unrevoked("u1", "2026-09-25T04:35:00+00:00") == 0

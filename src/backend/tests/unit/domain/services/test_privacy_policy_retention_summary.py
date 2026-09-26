@@ -81,6 +81,40 @@ class TestTheRetentionSummary:
         assert "session" in entry.description.lower()
 
 
+class TestTheConsentRecordsEntry:
+    """#1800 — R-04 / R-04a are now enforced and get their own Art. 13 entry.
+
+    Until #1800 the summary named no consent-record category at all, and the
+    ``ip_addresses`` entry's own comment said explicitly that a consent
+    record's IP was not anonymised by anything — a claim this change makes
+    false, so the entry that documents it must exist and follow the same
+    settings-backed :class:`RetentionService` the ``anonymize_consent_ips`` /
+    ``purge_expired_consent_records`` tasks compute their cutoffs with.
+    """
+
+    def test_the_entry_names_both_r04_and_r04a(self):
+        summary = _policy(RetentionService(consent_retention_years=3, consent_ip_anonymization_days=7))
+
+        assert "R-04a" in summary["consent_records"]
+        assert "R-04)" in summary["consent_records"]
+        assert "7 days" in summary["consent_records"]
+        assert "3 year(s)" in summary["consent_records"]
+
+    def test_the_periods_follow_the_configuration(self):
+        summary = _policy(RetentionService(consent_retention_years=5, consent_ip_anonymization_days=2))
+
+        assert "2 days" in summary["consent_records"]
+        assert "5 year(s)" in summary["consent_records"]
+
+    def test_the_ip_addresses_entry_still_names_sessions_only(self):
+        """The pre-existing R-03 (``refresh_tokens``) entry is untouched by the new R-04a entry."""
+        policy = _full_policy(RetentionService())
+        entry = next(e for e in policy.retention_summary if e.category == "ip_addresses")
+
+        assert "consent" not in entry.description.lower()
+        assert "session" in entry.description.lower()
+
+
 class TestThePeriodsWiredIn1782:
     """#1782 — R-03 and R-05 are read from the service the tasks use, like R-02/R-06."""
 

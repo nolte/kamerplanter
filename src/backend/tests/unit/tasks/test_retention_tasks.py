@@ -95,6 +95,66 @@ class TestExpireEmailChangeRequests:
         assert result == {"expired": 2}
 
 
+class TestPurgeExpiredConsentRecords:
+    """NFR-011 R-04 (#1800): the beat task delegates to the service, no AQL of its own (NFR-001)."""
+
+    def test_returns_purged_count(self, _mock_dependencies):
+        service = MagicMock()
+        service.purge_expired_consent_records = AsyncMock(return_value=4)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import purge_expired_consent_records
+
+        result = purge_expired_consent_records()
+
+        assert result == {"purged": 4}
+
+    def test_the_task_is_registered_on_the_daily_beat(self):
+        from app.tasks import celery_app
+
+        entries = [
+            e for e in celery_app.conf.beat_schedule.values() if e["task"] == "retention.purge_expired_consent_records"
+        ]
+        assert len(entries) == 1
+
+
+class TestAnonymizeConsentIps:
+    """NFR-011 R-04a (#1800): the R-03 analogue for consent-record IPs."""
+
+    def test_returns_anonymized_count(self, _mock_dependencies):
+        service = MagicMock()
+        service.anonymize_consent_ips = AsyncMock(return_value=3)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import anonymize_consent_ips
+
+        result = anonymize_consent_ips()
+
+        assert result == {"anonymized": 3}
+
+    def test_the_task_is_registered_on_the_daily_beat(self):
+        from app.tasks import celery_app
+
+        entries = [e for e in celery_app.conf.beat_schedule.values() if e["task"] == "retention.anonymize_consent_ips"]
+        assert len(entries) == 1
+
+    def test_the_task_does_not_double_log_the_service_s_own_event(self, _mock_dependencies):
+        """#1800 /code-review — the service already logs the completion event; the task must not repeat it."""
+        import structlog.testing
+
+        service = MagicMock()
+        service.anonymize_consent_ips = AsyncMock(return_value=2)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import anonymize_consent_ips
+
+        with structlog.testing.capture_logs() as logs:
+            anonymize_consent_ips()
+
+        completed = [e for e in logs if e["event"] == "retention.anonymize_consent_ips.completed"]
+        assert completed == [], "the task must not log this event itself — the service (mocked here) already does"
+
+
 class TestExpireDataExports:
     def test_returns_expired_count(self, _mock_dependencies):
         service = MagicMock()
@@ -176,6 +236,8 @@ class TestRetryHardening:
             "expire_data_exports",
             "redispatch_stale_pending_exports",
             "purge_expired_erasure_records",
+            "purge_expired_consent_records",
+            "anonymize_consent_ips",
         ],
     )
     def test_beat_tasks_retry_on_transient_transport_errors(self, task_name):

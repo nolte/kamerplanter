@@ -594,7 +594,10 @@ class TestErasureStepUserField:
         """``user_field`` and every ``clear_fields`` entry, for all rules — no skip."""
         rules = [
             *((rule.collection, rule.user_field, rule.clear_fields) for rule in ErasureEngine.ANONYMIZE_COLLECTIONS),
-            *((rule.collection, rule.user_field, []) for rule in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS),
+            *(
+                (rule.collection, rule.user_field, rule.clear_fields)
+                for rule in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS
+            ),
         ]
         unmapped = [collection for collection, _f, _c in rules if collection not in ERASURE_COLLECTION_MODELS]
         assert unmapped == []
@@ -717,6 +720,29 @@ class TestErasurePhaseNames:
             and s.executor not in ("storage_cleanup", "reference_index_cleanup")
         ]
         assert unhandled == []
+
+
+class TestConsentRecordsArePseudonymizedNotDeleted:
+    """#1800 — ``consent_records`` moved from an immediate delete step to the audit-pseudonymisation phase.
+
+    NFR-011 R-04: the row is retained (independent of the account) and its
+    ``user_key`` is pseudonymised for linkability, like ``erasure_requests``.
+    #1800 security review follow-up: ``user_agent`` is free text captured from
+    the request and personal data on its own, so it is cleared with the key —
+    the same ``clear_fields`` mechanism ``AnonymizationRule`` already uses for
+    ``harvester`` / ``inspector`` / ``applied_by``.
+    """
+
+    def test_consent_records_is_not_a_delete_step(self):
+        assert "consent_records" not in {
+            step.collection for step in ErasureEngine.DELETE_STEPS if step.kind == "document"
+        }
+
+    def test_consent_records_is_pseudonymized_with_the_user_agent_cleared(self):
+        (rule,) = [r for r in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS if r.collection == "consent_records"]
+        assert rule.user_field == "user_key"
+        assert rule.replacement_strategy == "tombstone_hash"
+        assert rule.clear_fields == ["user_agent"]
 
 
 class TestConsentEngine:

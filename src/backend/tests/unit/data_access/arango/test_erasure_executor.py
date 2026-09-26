@@ -200,13 +200,24 @@ class TestStrategies:
         strategies = {rule.replacement_strategy for rule in _plan().anonymize}
         assert strategies == {"marker", "tombstone_hash"}
 
-    def test_audit_rules_write_only_the_hash(self):
+    def test_audit_rules_write_the_hash_and_empty_their_declared_clear_fields(self):
+        """#1800 — a pseudonymisation rule may also clear a free-text companion (``consent_records.user_agent``).
+
+        Most audit rules (``erasure_requests``, ``mcp_audit_log``) declare none,
+        so this stays "write only the hash" for them; the assertion is built
+        from each rule's own ``clear_fields`` rather than assuming an empty set.
+        """
         db = _FakeDb()
         plan = _plan()
         _run(db, plan)
         for rule in plan.pseudonymize_audit:
             patches = [b["patch"] for _, b in db.calls if b["@collection"] == rule.collection and "patch" in b]
-            assert patches == [{rule.user_field: TOMBSTONE}]
+            expected = {rule.user_field: TOMBSTONE, **dict.fromkeys(rule.clear_fields, "")}
+            assert patches == [expected]
+
+    def test_at_least_one_audit_rule_declares_a_clear_field(self):
+        """Otherwise the test above would be vacuous for the clear_fields branch."""
+        assert any(rule.clear_fields for rule in _plan().pseudonymize_audit)
 
     def test_an_edge_from_the_user_filters_on_the_user_vertex_id(self):
         db = _FakeDb()

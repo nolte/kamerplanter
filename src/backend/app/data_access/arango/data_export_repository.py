@@ -85,13 +85,25 @@ class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataE
         failed left an ``expired`` record pointing at a file that still
         existed, and no later run selected it again (the filter wanted
         ``completed``). The second arm re-selects exactly those records.
+
+        The ``completed`` arm treats a missing or unreadable ``expires_at`` as
+        already due (#1806 GDPR-003 review), the same convention every other
+        ``expires_at`` selector in this system applies (sessions, invitations,
+        email changes, MCP idempotency, actor overrides — #1784): until #1806
+        this arm *excluded* an unreadable expiry instead, so a completed export
+        somehow written without one stayed downloadable forever, past whatever
+        ``PrivacyService.prepare_export_download`` otherwise enforces. The write
+        paths always stamp it today; this is the same defensive floor the other
+        selectors already carry.
         """
         query = """
         FOR doc IN @@collection
           FILTER (
               doc.status == 'completed'
-              AND DATE_TIMESTAMP(doc.expires_at) != null
-              AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
+              AND (
+                DATE_TIMESTAMP(doc.expires_at) == null
+                OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
+              )
             )
             OR (doc.status == 'expired' AND doc.file_path != null)
           RETURN doc

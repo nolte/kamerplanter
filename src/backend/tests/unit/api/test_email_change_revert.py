@@ -136,19 +136,34 @@ def test_a_pending_change_is_withdrawn_by_the_revert() -> None:
     assert all(c.status != "pending" for c in world.changes.rows.values())
 
 
-def test_the_retention_task_closes_the_revert_window() -> None:
+def test_the_retention_task_closes_the_revert_window_and_removes_the_document() -> None:
+    """NFR-011 R-07a closes the revert window; R-07b hard-deletes the whole document at the same instant (#1800).
+
+    Both fire at the identical threshold (``confirmed_at`` + the revert-days
+    setting), so once the window has closed the document is gone outright, not
+    left behind with its revert fields merely nulled. ``confirmed_at`` is
+    backdated along with ``revert_expires_at``: a real row whose window has
+    closed was confirmed at least that many days ago, well past the #1800
+    /code-review race-grace R-07b's null-token arm also requires — a document
+    confirmed *just now* (this test's default) must not be swept up as if its
+    confirmation had lost a race.
+    """
     world = _World()
     revert = _changed(world)
     (change,) = world.changes.rows.values()
     world.changes.update(
-        change.key, change.model_copy(update={"revert_expires_at": datetime.now(UTC) - timedelta(seconds=1)})
+        change.key,
+        change.model_copy(
+            update={
+                "confirmed_at": datetime.now(UTC) - timedelta(days=8),
+                "revert_expires_at": datetime.now(UTC) - timedelta(seconds=1),
+            }
+        ),
     )
 
     asyncio.run(world.privacy.expire_email_change_requests(now=datetime.now(UTC)))
 
-    (closed,) = world.changes.rows.values()
-    assert closed.previous_email is None
-    assert closed.revert_token_hash is None
+    assert world.changes.rows == {}
     assert world.post(REVERT, {"token": revert}).status_code == 401
 
 

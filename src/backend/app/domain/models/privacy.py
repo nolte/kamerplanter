@@ -447,6 +447,11 @@ class PseudonymizationRule(BaseModel):
     collection: str
     user_field: str
     replacement_strategy: Literal["tombstone_hash"] = "tombstone_hash"
+    #: Free-text companions of the key (mirrors ``AnonymizationRule.clear_fields``,
+    #: #1800 security review): a retained row's key is pseudonymised for
+    #: linkability, but a free-text field beside it (``consent_records.user_agent``)
+    #: is personal data on its own and would otherwise outlive the account.
+    clear_fields: list[str] = Field(default_factory=list)
     reason: str
 
 

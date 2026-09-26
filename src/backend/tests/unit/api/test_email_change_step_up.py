@@ -27,6 +27,7 @@ in-memory throttle and code tiers never carry state from one test into another.
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -171,6 +172,53 @@ class _EmailChanges:
                 self.clear_fields(key, {"previous_email": None, "revert_token_hash": None, "revert_expires_at": None})
                 closed += 1
         return closed
+
+    #: NFR-011 R-07 (#1800) — mirrors ``ArangoEmailChangeRepository.delete_expired_unconfirmed``.
+    _UNCONFIRMED_STATUSES = ("pending", "expired", "cancelled")
+
+    def delete_expired_unconfirmed(self, now_iso: str) -> int:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        due = [
+            key
+            for key, change in self.rows.items()
+            if change.status in self._UNCONFIRMED_STATUSES and (change.expires_at is None or change.expires_at < now)
+        ]
+        for key in due:
+            del self.rows[key]
+        return len(due)
+
+    #: NFR-011 R-07b (#1800) — mirrors ``ArangoEmailChangeRepository.delete_confirmed_past_revert_window``.
+    _CONFIRMED_STATUSES = ("confirmed", "reverted", "superseded")
+    #: Mirrors ``ArangoEmailChangeRepository._RECORD_CONFIRMATION_RACE_GRACE`` (#1800 /code-review).
+    _RECORD_CONFIRMATION_RACE_GRACE = timedelta(minutes=5)
+
+    def delete_confirmed_past_revert_window(self, now_iso: str) -> int:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        race_grace_before = now - self._RECORD_CONFIRMATION_RACE_GRACE
+
+        def _null_token_and_past_grace(change: EmailChangeRequest) -> bool:
+            return (
+                change.revert_token_hash is None
+                and change.confirmed_at is not None
+                and change.confirmed_at < race_grace_before
+            )
+
+        def _window_expired(change: EmailChangeRequest) -> bool:
+            return change.revert_expires_at is not None and change.revert_expires_at < now
+
+        due = [
+            key
+            for key, change in self.rows.items()
+            if change.status in self._CONFIRMED_STATUSES
+            and (_null_token_and_past_grace(change) or _window_expired(change))
+        ]
+        for key in due:
+            del self.rows[key]
+        return len(due)
 
     def claim_status(self, key: str, from_status: str, to_status: str, now_iso: str) -> bool:
         """Compare-and-set on the status, as the Arango ``UPDATE ... FILTER status == @from`` does.

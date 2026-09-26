@@ -507,7 +507,6 @@ class ErasureEngine:
             executor="account_erasure",
             user_field="user_key",
         ),
-        ErasureStep(collection="consent_records", kind="document", executor="account_erasure", user_field="user_key"),
         ErasureStep(
             collection="processing_restrictions",
             kind="document",
@@ -714,6 +713,33 @@ class ErasureEngine:
                 "window; the service-account key is pseudonymised so the entries stay linkable."
             ),
         ),
+        PseudonymizationRule(
+            # NFR-011 R-04 / REQ-025 §3.1.3 rule 3 (#1800, Q-R5): a consent record has
+            # its own retention independent of the account (3 years after
+            # ``revoked_at``). Until #1800 this collection was a plain document
+            # *delete* step (removed the moment the account was erased), which cut
+            # the R-04 proof short whenever erasure ran before the 3-year window had
+            # elapsed. Pseudonymising instead lets ``retention.
+            # purge_expired_consent_records`` apply the same age check regardless of
+            # whether the account still exists.
+            collection="consent_records",
+            user_field="user_key",
+            replacement_strategy="tombstone_hash",
+            # #1800 security review (SEC-001 follow-up): user_agent is free-text
+            # captured from the request and personal data on its own (like
+            # harvester/inspector on the AnonymizationRule side); it must not
+            # outlive the account under the tombstone the way clear_fields
+            # already empties a free-text companion there.
+            clear_fields=["user_agent"],
+            reason=(
+                "NFR-011 R-04 / REQ-025 §3.1.3 rule 3: a consent record is retained 3 years "
+                "after revocation, independent of the account. The key is pseudonymised at "
+                "erasure so the retained record stays linkable without naming the subject, "
+                "and the free-text user_agent is cleared with it; "
+                "retention.purge_expired_consent_records hard-deletes it once revoked_at is "
+                "old enough, whether or not the account was ever erased."
+            ),
+        ),
     ]
 
     # ── Stored user-reference fields the erasure deliberately leaves (#1700) ──
@@ -830,6 +856,23 @@ class ErasureEngine:
         """
         names: list[str] = []
         for rule in self.ANONYMIZE_COLLECTIONS:
+            if rule.collection not in names:
+                names.append(rule.collection)
+        return names
+
+    def pseudonymized_collection_names(self) -> list[str]:
+        """Collection names touched by :attr:`PSEUDONYMIZE_AUDIT_COLLECTIONS`, each once.
+
+        The third category of the REQ-025 AK-08a confirmation, beside
+        :meth:`deleted_collection_names` and :meth:`anonymized_collection_names`
+        (#1800): a record retained under its own, account-independent period
+        (R-04, R-06) rather than deleted or anonymised outright. Without this a
+        collection moved out of :attr:`DELETE_STEPS` into
+        :attr:`PSEUDONYMIZE_AUDIT_COLLECTIONS` would silently drop out of the
+        confirmation instead of moving to a different category of it.
+        """
+        names: list[str] = []
+        for rule in self.PSEUDONYMIZE_AUDIT_COLLECTIONS:
             if rule.collection not in names:
                 names.append(rule.collection)
         return names

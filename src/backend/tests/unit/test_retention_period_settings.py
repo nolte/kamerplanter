@@ -41,6 +41,10 @@ PERIODS = [
         "PRIVACY_EMAIL_CHANGE_TTL_HOURS",
         24,
     ),
+    # #1800
+    ("retention_consent_retention_years", "RETENTION_CONSENT_RETENTION_YEARS", None, 3),
+    ("retention_consent_ip_anonymization_days", "RETENTION_CONSENT_IP_ANONYMIZATION_DAYS", None, 7),
+    ("retention_invitation_retention_days", "RETENTION_INVITATION_RETENTION_DAYS", None, 30),
 ]
 
 LEGACY = [p for p in PERIODS if p[2] is not None]

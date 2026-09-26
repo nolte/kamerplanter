@@ -29,7 +29,7 @@ from app.common.exceptions import (
     ValidationError,
     WriteConflictError,
 )
-from app.common.log_privacy import log_subject, redact_subject
+from app.common.log_privacy import log_subject, loggable_ip, redact_subject
 from app.common.types import UserKey
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
@@ -979,6 +979,12 @@ class PrivacyService:
             # inventory the erasure executes. It was declared on the model and
             # never filled, so the confirmation named no deleted category.
             deleted_collections=self._erasure_engine.deleted_collection_names(),
+            # The third category (#1800): a record pseudonymised and retained under
+            # its own period (R-04, R-06) rather than deleted or anonymised. Also
+            # declared on the model and never filled before consent_records moved
+            # out of deleted_collections — without this the confirmation would
+            # simply drop the category instead of naming its new treatment.
+            pseudonymized_collections=self._erasure_engine.pseudonymized_collection_names(),
             retained_reason=(
                 "Harvest records (including quality assessments), treatment and inspection records are "
                 "retained per CanG and PflSchG and will be pseudonymised. "
@@ -1337,6 +1343,13 @@ class PrivacyService:
             existing.revoked_at = None
             existing.ip_address = ip_address
             existing.user_agent = user_agent
+            # NFR-011 R-04a (#1800): a re-grant writes a new IP (or clears it) on the
+            # existing record. Without resetting the anonymisation stamp here, a
+            # purpose granted, anonymised after 7 days, then revoked and granted
+            # again would carry the *new* IP under an ``ip_anonymized_at`` from the
+            # *previous* one — the new address would never be anonymised at all,
+            # since ``anonymize_consent_ips`` only selects ``ip_anonymized_at == null``.
+            existing.ip_anonymized_at = None
             updated = self._consent_repo.update(existing.key, existing)
             logger.info("privacy_consent_granted", subject=self.log_subject(user_key), purpose=purpose)
             return updated
@@ -1413,11 +1426,22 @@ class PrivacyService:
             ),
             RetentionCategoryInfo(
                 category="ip_addresses",
-                # Sessions only: ``anonymize_old_ips`` walks ``refresh_tokens``;
-                # the IP on a consent record is not anonymised yet (#1800), and
-                # this text must not promise it (#1773 review GDPR-005).
+                # Sessions only: ``anonymize_old_ips`` walks ``refresh_tokens``.
+                # The IP recorded with a consent grant has its own category below
+                # (R-04a, #1800) and its own task (``anonymize_consent_ips``); this
+                # text must not promise a period that entry does not cover
+                # (#1773 review GDPR-005).
                 description="IP addresses of login sessions",
                 retention_period=f"Anonymised after {self._retention.ip_anonymisation_after_days} days (NFR-011 R-03).",
+            ),
+            RetentionCategoryInfo(
+                category="consent_records",
+                description="Consent grant/revocation history, including the IP address recorded with a grant",
+                retention_period=(
+                    f"IP anonymised {self._retention.consent_ip_anonymization_days} days after being recorded "
+                    f"(NFR-011 R-04a). The record is pseudonymised at account erasure and hard-deleted "
+                    f"{self._retention.consent_retention_years} year(s) after revocation (NFR-011 R-04)."
+                ),
             ),
             RetentionCategoryInfo(
                 category="export_files",
@@ -2314,6 +2338,13 @@ class PrivacyService:
             list(recorded_personal_tenant_keys or []),
             on_personal_tenants_resolved,
         )
+        # NFR-011 R-04 (#1800 security review): an unrevoked consent record
+        # would otherwise be pseudonymised below with revoked_at still null,
+        # and the R-04 purge (which excludes null on purpose, #1784) would
+        # never reach it — unbounded retention past this very erasure. Must
+        # run before the executor's pseudonymisation phase, on every attempt
+        # (idempotent: a record already revoked is not matched again).
+        await asyncio.to_thread(self._consent_repo.revoke_all_unrevoked, user_key, datetime.now(UTC).isoformat())
         report.arango = await asyncio.to_thread(self._erasure_executor.run_erasure_plan, plan, tombstone=tombstone)
         report.storage_objects_released = await self._release_unheld_objects(user_key, hard_deleted_objects)
 
@@ -2819,21 +2850,94 @@ class PrivacyService:
         )
         return ErasureRecordPurgeResult(purged=purged, held_without_tombstone=held)
 
+    async def purge_expired_consent_records(self, now: datetime) -> int:
+        """Hard-delete consent records past the NFR-011 R-04 period (#1800).
+
+        R-04 keeps a consent record — pseudonymised at account erasure when the
+        account is deleted before the period runs out (REQ-025 §3.1.3 rule 3,
+        the ``PSEUDONYMIZE_AUDIT_COLLECTIONS`` entry) — for
+        ``settings.retention_consent_retention_years`` after ``revoked_at``, then
+        hard-deletes it. Until #1800 nothing did either half: the erasure deleted
+        the record outright regardless of the period, and nothing purged one for
+        an account that was never erased at all.
+
+        A record with no ``revoked_at`` (never revoked — the ordinary state of an
+        active, still-granted consent) is not selected: this is a destructive
+        selector, so its age must be established (#1784), and an unrevoked
+        consent is not the anomaly R-06's plaintext-key exception holds and
+        counts — it is simply not due.
+        """
+        cutoff = self._retention.consent_record_purge_cutoff(now).isoformat()
+        purged = self._consent_repo.delete_revoked_before(cutoff)
+        logger.info(
+            "retention.purge_expired_consent_records.completed",
+            purged=purged,
+            retention_years=self._retention.consent_retention_years,
+        )
+        return purged
+
+    async def anonymize_consent_ips(self, now: datetime) -> int:
+        """Anonymise the IP address of every consent record past NFR-011 R-04a (#1800).
+
+        The R-03 analogue for ``consent_records`` instead of ``refresh_tokens``:
+        the period is ``settings.retention_consent_ip_anonymization_days``
+        (default 7), counted from ``granted_at`` — the instant
+        :meth:`grant_consent` also stamps the IP at, both in the create and the
+        re-grant branch. A re-grant resets ``ip_anonymized_at`` to ``None``
+        (:meth:`grant_consent`), so the new address is picked up here again
+        rather than staying "already anonymised" under the previous grant's stamp.
+
+        The write is conditional on the row still holding the IP this method
+        selected (#1800 security review, SEC-003): a concurrent re-grant
+        between selection and write is not counted, and its own fresh address
+        is anonymised on its own schedule instead.
+        """
+        cutoff = self._retention.consent_ip_anonymisation_cutoff(now).isoformat()
+        anonymized_at = now.isoformat()
+        count = 0
+        for key, ip_address in self._consent_repo.list_unanonymized_ips_before(cutoff):
+            if self._consent_repo.mark_ip_anonymized(key, ip_address, loggable_ip(ip_address), anonymized_at):
+                count += 1
+        logger.info("retention.anonymize_consent_ips.completed", anonymized=count)
+        return count
+
     async def expire_email_change_requests(self, now: datetime) -> int:
         """Mark unconfirmed email-change requests past their ``expires_at`` as expired (NFR-011 R-07).
 
         ``expires_at`` was stamped at request time from
         ``RETENTION_EMAIL_CHANGE_RETENTION_HOURS`` (:meth:`request_email_change`).
+
+        Also runs the two hard-deletes #1800 added to this same beat, so the
+        table's own claim ("R-07, R-07a | retention.expire_email_change_requests")
+        stays true of R-07's full text and of R-07b:
+
+        * **R-07** — an unconfirmed request (``pending``, already-``expired``, or
+          ``cancelled`` — #1841's withdrawal, which never confirms either) whose
+          ``expires_at`` has passed is hard-deleted outright, not just flipped to
+          ``expired``. Until #1800 the flip was the whole of it and ``new_email``
+          outlived the account forever.
+        * **R-07b** — a confirmed request (``confirmed`` / ``reverted`` /
+          ``superseded``) is hard-deleted in full once its R-07a revert window
+          has closed, read off the *stored* ``revert_token_hash`` /
+          ``revert_expires_at`` R-07a itself maintains — never recomputed from
+          ``confirmed_at`` and the current retention setting (#1800 security
+          review, SEC-002): that would let lowering the setting later
+          retroactively shrink a window already granted, deleting the
+          hijack-recovery link before it stops working.
         """
         affected = self._email_change_repo.expire_old(now.isoformat())
         # The revert window of confirmed changes closes on the same beat (#1848):
         # the previous address and the token's hash are kept exactly that long.
         closed = self._email_change_repo.close_revert_windows(now.isoformat())
-        if affected or closed:
+        deleted_unconfirmed = self._email_change_repo.delete_expired_unconfirmed(now.isoformat())
+        deleted_confirmed = self._email_change_repo.delete_confirmed_past_revert_window(now.isoformat())
+        if affected or closed or deleted_unconfirmed or deleted_confirmed:
             logger.info(
                 "retention.expire_email_change_requests.completed",
                 expired=affected,
                 revert_windows_closed=closed,
+                deleted_unconfirmed=deleted_unconfirmed,
+                deleted_confirmed=deleted_confirmed,
             )
         return affected
 
