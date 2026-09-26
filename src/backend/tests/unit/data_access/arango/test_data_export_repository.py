@@ -108,6 +108,24 @@ class TestListExpiryDue:
         assert "UPDATE" not in query
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"
 
+    def test_a_completed_export_with_no_expires_at_is_due(self, repo, mock_db):
+        """#1806 GDPR-005 — a completed export written without ``expires_at`` is treated as already due.
+
+        Until #1806 the ``completed`` arm required ``DATE_TIMESTAMP(expires_at)
+        != null``, so such a record was excluded and stayed downloadable
+        (``PrivacyService.prepare_export_download``'s own expiry check is
+        likewise skipped for a ``None`` ``expires_at``) and never cleaned up —
+        the write paths always stamp it today, this is the defensive floor
+        every other ``expires_at`` selector in this system already carries.
+        """
+        mock_db.aql.execute.return_value = iter([_doc(status="completed", expires_at=None)])
+
+        due = repo.list_expiry_due("2026-06-14T00:00:00Z")
+
+        assert [export.key for export in due] == ["de1"]
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "DATE_TIMESTAMP(doc.expires_at) == null" in query
+
 
 class TestListStalePending:
     def test_returns_models(self, repo, mock_db):
