@@ -25,8 +25,9 @@ from app.domain.interfaces.email_service import EmailUndeliverableError
 logger = structlog.get_logger()
 
 RESEND_EMAILS_URL = "https://api.resend.com/emails"
-#: Connect and read bound for one send. A mail is sent inside a request
-#: (registration, password reset, step-up), so a stalled API must not hold it.
+#: Bound for each phase of one send (connect, write, read, pool — httpx applies
+#: it per phase, not as a total). A mail is sent inside a request (registration,
+#: password reset, step-up), so a stalled API must not hold it.
 RESEND_TIMEOUT_SECONDS = 10.0
 
 
@@ -59,15 +60,9 @@ class ResendEmailAdapter(TemplatedEmailAdapter):
     def _send(self, to_email: str, subject: str, html_body: str) -> None:
         payload = {"from": self._from_email, "to": [to_email], "subject": subject, "html": html_body}
         try:
-            try:
-                with httpx.Client(transport=self._transport, timeout=RESEND_TIMEOUT_SECONDS) as client:
-                    response = client.post(
-                        RESEND_EMAILS_URL, json=payload, headers={"Authorization": f"Bearer {self._api_key}"}
-                    )
-            except httpx.HTTPError as exc:
-                raise ResendDeliveryError(None) from exc
-            if not response.is_success:
-                raise ResendDeliveryError(response.status_code)
+            status_code = self._post(payload)
+            if status_code is None or not 200 <= status_code < 300:  # noqa: PLR2004
+                raise ResendDeliveryError(status_code)
         except Exception as exc:
             logger.error(
                 "email_send_failed",
@@ -78,3 +73,21 @@ class ResendEmailAdapter(TemplatedEmailAdapter):
             )
             raise
         logger.info("email_sent", to_sha256=email_digest(to_email), subject=subject)
+
+    def _post(self, payload: dict) -> int | None:
+        """POST the mail; the HTTP status, or ``None`` when no answer arrived.
+
+        A transport error is swallowed here, and the caller raises its own error
+        *outside* this frame (#1888 security review SEC-002): chained to the
+        httpx exception, the traceback would carry httpx's frames, whose locals
+        hold the ``Authorization`` header and the payload (recipient, token
+        link) — which an error tracker capturing frame locals would ship.
+        """
+        try:
+            with httpx.Client(transport=self._transport, timeout=RESEND_TIMEOUT_SECONDS) as client:
+                response = client.post(
+                    RESEND_EMAILS_URL, json=payload, headers={"Authorization": f"Bearer {self._api_key}"}
+                )
+        except httpx.HTTPError:
+            return None
+        return response.status_code

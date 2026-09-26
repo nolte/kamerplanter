@@ -1,7 +1,7 @@
 import re
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, BaseModel, Field, ValidationError, ValidationInfo, field_validator
+from pydantic import AliasChoices, BaseModel, Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings
 
 # What ``/api/health`` reports when no build stamped a revision into the image
@@ -311,13 +311,13 @@ class Settings(BaseSettings):
     #: Resend HTTP API (#1821) — used when ``email_adapter`` is ``resend``, which
     #: refuses to load without the key. A secret: provide it through the Secret /
     #: ``.env``, never a values file.
-    resend_api_key: str = Field(default="", validate_default=True)
+    resend_api_key: SecretStr = Field(default=SecretStr(""), validate_default=True)
     #: Sender address; its domain must be verified in the Resend account.
     resend_from_email: str = "noreply@kamerplanter.example"
 
     @field_validator("resend_api_key")
     @classmethod
-    def _resend_needs_its_api_key(cls, value: str, info: ValidationInfo) -> str:
+    def _resend_needs_its_api_key(cls, value: SecretStr, info: ValidationInfo) -> SecretStr:
         """``EMAIL_ADAPTER=resend`` without ``RESEND_API_KEY`` is refused at load (#1821).
 
         A *field* validator, deliberately not a model validator: pydantic renders
@@ -325,7 +325,7 @@ class Settings(BaseSettings):
         every setting read from the environment, secrets included. This one
         fails only for an empty key, so its ``input_value`` is ``''``.
         """
-        if info.data.get("email_adapter") == "resend" and not value:
+        if info.data.get("email_adapter") == "resend" and not value.get_secret_value():
             msg = "EMAIL_ADAPTER=resend requires RESEND_API_KEY"
             raise ValueError(msg)
         return value

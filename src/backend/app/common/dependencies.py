@@ -773,7 +773,9 @@ def get_email_service() -> IEmailService:
             use_tls=settings.smtp_use_tls,
         )
     if settings.email_adapter == "resend":
-        return ResendEmailAdapter(api_key=settings.resend_api_key, from_email=settings.resend_from_email)
+        return ResendEmailAdapter(
+            api_key=settings.resend_api_key.get_secret_value(), from_email=settings.resend_from_email
+        )
     return ConsoleEmailAdapter()
 
 

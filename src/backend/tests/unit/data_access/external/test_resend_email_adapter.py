@@ -15,7 +15,7 @@ import json
 import httpx
 import pytest
 import structlog.testing
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from app.common.decoys import email_digest
 from app.config.settings import Settings, settings
@@ -148,7 +148,8 @@ def test_a_network_failure_raises_an_undeliverable_error_and_logs_the_type() -> 
 
     assert isinstance(caught.value, EmailUndeliverableError)
     assert caught.value.status_code is None
-    assert isinstance(caught.value.__cause__, httpx.ConnectError)
+    # Not chained: httpx's frames hold the Authorization header and the payload (#1888 SEC-002).
+    assert caught.value.__cause__ is None and caught.value.__context__ is None
     (failed,) = [entry for entry in logs if entry["event"] == "email_send_failed"]
     assert failed["error_type"] == "ResendDeliveryError"
     assert API_KEY not in repr(logs)
@@ -166,7 +167,7 @@ def test_resend_is_selected_by_the_setting(monkeypatch: pytest.MonkeyPatch) -> N
     from app.common.dependencies import get_email_service
 
     monkeypatch.setattr(settings, "email_adapter", "resend")
-    monkeypatch.setattr(settings, "resend_api_key", API_KEY)
+    monkeypatch.setattr(settings, "resend_api_key", SecretStr(API_KEY))
 
     assert isinstance(get_email_service(), ResendEmailAdapter)
     monkeypatch.setattr(settings, "email_adapter", "console")
@@ -191,3 +192,12 @@ def test_resend_without_a_key_is_refused_when_the_settings_load_without_echoing_
 
 def test_resend_with_a_key_loads() -> None:
     assert Settings(email_adapter="resend", resend_api_key=API_KEY).email_adapter == "resend"
+
+
+def test_the_api_key_is_a_secret_in_the_settings() -> None:
+    """``SecretStr`` (#1888 SEC-006): ``repr(settings)`` / ``model_dump()`` must not print the key."""
+    loaded = Settings(email_adapter="resend", resend_api_key=API_KEY)
+
+    assert API_KEY not in repr(loaded)
+    assert API_KEY not in str(loaded.model_dump())
+    assert loaded.resend_api_key.get_secret_value() == API_KEY
