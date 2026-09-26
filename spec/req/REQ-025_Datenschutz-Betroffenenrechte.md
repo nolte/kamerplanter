@@ -7,7 +7,7 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.18 (Datenschutzplan-Betreiberentscheidungen Batch 1-3, #1789/#1793/#1800/#1824/#1825 — v1.17 #1848/#1856: eigene Mail und Seite für die E-Mail-Änderung, Formular in den Kontoeinstellungen, Rückgängig-Link an die vorherige Adresse; keine vom Anfragenden gewählten Texte in Mails an unbestätigte Adressen — v1.16 Betreiber-Entscheid Variante 1 zu #1815: E-Mail-Änderung bestätigt sich ohne lokales Passwort primär über eine frische OIDC-Anmeldung, der E-Mail-Code ist nur noch Ausweichweg für ausschließlich GitHub/Apple — v1.15 /code-review of #1862: zustandslose Prüfungen der E-Mail-Änderung laufen jetzt vor dem Step-up, nur der Adress-Nachschlag bleibt dahinter — v1.14 #1841: Step-up auf der E-Mail-Änderung, AK-06 umgesetzt — v1.13 #1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
+Version: 1.19 (Datenschutzplan-Entscheidungen Batch 4-6: Q-T2/Q-T3/Q-T4/Q-T5/Q-E8/Q-R12, #1806/#1839/#1793 — v1.18 Batch 1-3 #1789/#1793/#1800/#1824/#1825 — v1.17 #1848/#1856: eigene Mail und Seite für die E-Mail-Änderung, Formular in den Kontoeinstellungen, Rückgängig-Link an die vorherige Adresse; keine vom Anfragenden gewählten Texte in Mails an unbestätigte Adressen — v1.16 Betreiber-Entscheid Variante 1 zu #1815: E-Mail-Änderung bestätigt sich ohne lokales Passwort primär über eine frische OIDC-Anmeldung, der E-Mail-Code ist nur noch Ausweichweg für ausschließlich GitHub/Apple — v1.15 /code-review of #1862: zustandslose Prüfungen der E-Mail-Änderung laufen jetzt vor dem Step-up, nur der Adress-Nachschlag bleibt dahinter — v1.14 #1841: Step-up auf der E-Mail-Änderung, AK-06 umgesetzt — v1.13 #1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
 Abhängigkeit: REQ-023 v1.18 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.5 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.19 | 2026-09-26 | **Datenschutzplan-Entscheidungen, Batch 4–6 (#1806, #1839, #1793):** §3.1.2 neue Regel 7 (nach der in v1.18/Batch-1-3 eingefügten Regel 6) präzisiert Regel 5 (`attribution_gap`) für die vor #1770 zusammengeführten Anhänge, deren zweiter Hochlader nicht rekonstruierbar ist (Q-T2, **AK-01b**). §3.1.3 neue Regel 6 (Batch-1-3 fügte dort nur einen unnummerierten Absatz ein, keine neue Regelnummer): Bleiben nach einer Löschung geteilte Bytes bei einem fremden Datensatz bestehen (AK-OS-08) und betrifft der Inhalt erkennbar die gelöschte Person, wird der verbleibende Halter benachrichtigt (Art. 19, Q-E8, **AK-OS-09**). `PrivacyPolicyResponse.retention_summary` (§3.4) präzisiert: nennt den spätesten konkreten Löschzeitpunkt statt nur die Frist, die R-02-Ausnahme für Konten mit verknüpftem Anmeldeweg, und listet R-04/R-07/R-11 mit ihrem tatsächlichen (unvollständigen) Durchsetzungsstand (Q-T3/Q-T4, **AK-15a/AK-15b**). Kein UI-Text codiert eine Aufbewahrungsfrist fest — §4.2/§4.3 verlangen die Interpolation des von der API gelieferten Werts (Q-T5, GDPR-006, **AK-02a**). R-06 (NFR-011, Löschaudit `erasure_requests`) ist jetzt 3 statt 1 Jahr (Q-R12) — eigenständiger Wert, nicht an die tenant-gebundene R-06a-Formel aus Batch 1-3 gekoppelt; §1.1 Szenario 3 und §3.1.3 nachgeführt. |
 | 1.18 | 2026-09-26 | **Datenschutzplan-Betreiberentscheidungen, Batch 1-3 (#1789, #1793, #1800, #1824, #1825; reine Spec-Änderung, Umsetzung folgt in eigenen PRs).** **Q-E1/Q-E5 (#1824):** §3.1.3 Regel 2 gilt für den persönlichen Mandanten nicht mehr — er wird bei Kontolöschung immer mitgelöscht (auch mit weiteren aktiven Mitgliedern), nicht mehr mit anonymisiertem Eigentümer erhalten; die verbleibenden Mitglieder werden vorher benachrichtigt. Gilt nur für `tenant_type: personal` (organisatorische Mandanten unverändert). **Ersetzt** die in NFR-011 v1.8/AK-PT-03 dokumentierte Retained-Entscheidung. **Q-T6 (#1824):** §4.2 „Tab Account löschen" bekommt eine Mandanten-Vorschau vor der Bestätigung; neue **AK-FK-06**, noch nicht implementiert. **Q-E6/Q-E7 (#1825, SEC-001/SEC-003):** neue **AK-IE-06** (Einladungen in den persönlichen Mandanten werden beim Löschantrag sofort widerrufen) und **AK-IE-07** (erneute Mitgliederprüfung unmittelbar vor der Löschung; ein Spätbeitritt erhält den Mandanten und anonymisiert nur die Person), beide noch nicht implementiert. **Q-T1 (#1793-1):** §3.1.2 Punkt 6 neu — der Art.-15-Export muss für ein noch aktives Mitglied eines gelöschten Mandanten zusätzlich auf den Tombstone-Hash prüfen, nicht nur auf `*_by_key`; neue **AK-DE-01**, noch nicht implementiert. **Q-R5 (#1800/NFR-011 R-04):** §3.1.3 Punkt 3 (Pseudonymisierungsliste) um Consent Records ergänzt — sie werden bei Kontolöschung vor Fristablauf pseudonymisiert, nicht gelöscht (siehe NFR-011 §5, jetzt widerspruchsfrei). |
 | 1.17 | 2026-09-26 | **E-Mail-Änderung vollständig (#1848) und Mail-Texte ohne fremdes Markup (#1856):** Die neue Adresse erhält eine eigene Mail mit dem Link `{frontend}/email-change/{token}`; die Seite ruft `POST /privacy/email-change/confirm` auf. Bis dahin öffnete der Link die Kontobestätigungsseite (`POST /auth/verify-email`), die den Token ablehnte. Die Kontoeinstellungen haben ein Formular für die E-Mail-Änderung mit Step-up (REQ-023 §3.9). Die Info-Mail an die vorherige Adresse enthält einen Rückgängig-Link (`{frontend}/email-change/revert/{token}` → `POST /privacy/email-change/revert`): einmalig, gültig `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (7 Tage). Er stellt die vorherige Adresse als bestätigt wieder her, sofern sie noch frei ist, meldet alle Sitzungen ab, entwertet einen Passwort-Reset-Token, widerruft offene E-Mail-Änderungen, entfernt seit der Beantragung verknüpfte föderierte Anmeldewege, widerruft seit der Beantragung erstellte API-Keys und schließt die Rückgängig-Fenster später bestätigter Änderungen; die Adresse, die das Konto dabei wieder verlässt, wird benachrichtigt. Mails an eine noch nicht bestätigte Adresse (Registrierung, E-Mail-Änderung) enthalten keinen vom Anfragenden gewählten Text mehr (kein Anzeigename); jeder andere Platzhalter in HTML-Mails wird escaped. `EmailChangeRequest` erhält `previous_email`, `revert_token_hash`, `revert_expires_at`, `reverted_at` und den Status `reverted`. Aufbewahrung in NFR-011 R-07. Neue **AK-EC-03**, **AK-EC-04**. |
 | 1.16 | 2026-09-26 | **Frische OIDC-Anmeldung als Regelfall der E-Mail-Änderung ohne lokales Passwort (#1815, Betreiber-Entscheid Variante 1, siehe REQ-023 §3.9):** `POST /privacy/email-change` nimmt zusätzlich `step_up_token` — den Regelfall für ein Konto mit mindestens einem OIDC-fähigen verknüpften Anbieter (Google, generisches OIDC); der per E-Mail zugeschickte Code (`step_up_code`) bleibt nur für ein Konto, dessen Anbieter ausschließlich GitHub und/oder Apple sind. §3.2-Pseudocode, der §3.3-Absatz zum Step-up, das Schema und **AK-EC-01** entsprechend präzisiert. |
@@ -97,7 +98,7 @@ Kamerplanter verarbeitet personenbezogene Daten (E-Mail, Name, IP-Adressen, Nutz
    **Zugangsdaten entfernt** (siehe unten)
 5. Erntedaten/Behandlungen: User-Referenz anonymisiert, Daten bleiben (CanG/PflSchG)
 6. Nach 90 Tagen (NFR-011 R-01): Hard-Delete aller verbleibenden Daten
-7. Erasure-Audit-Log wird für 1 Jahr aufbewahrt (NFR-011 R-06)
+7. Erasure-Audit-Log wird für 3 Jahre aufbewahrt (NFR-011 R-06, Q-R12)
 ```
 
 **Was der Soft-Delete sofort entfernt (verbindlich).** Der Soft-Delete ist kein
@@ -313,6 +314,13 @@ Die Engines sind reine Logik ohne I/O. Das Manifest liest
    über `*_by_key`, sonst verschwinden sie unbemerkt aus der Auskunft, sobald ihr Mandant
    gelöscht wird. **Nicht implementiert** (#1793): `DataExportEngine.USER_DATA_MANIFEST`
    filtert bislang ausschließlich auf `*_by_key`.
+7. **Pseudonymisierte Duplikate ohne rekonstruierbaren zweiten Hochlader
+   (Betreiberentscheidung Q-T2, #1806/#1839).** Der Anhänge-Abschnitt wendet Regel 5
+   ausdrücklich auf die vor #1770 zusammengeführten Duplikate an: Zwei identische Uploads
+   vor der Trennung nach Hochlader (#1770, AK-OS-08) hinterließen keine Spur des zweiten
+   Hochladers — dessen Bytes sind nie hart löschbar zugeordnet. Der Anhänge-Abschnitt des
+   Bundles nennt diese Zeilen deshalb mit `attribution_gap` statt sie stillschweigend so
+   darzustellen, als gäbe es nur einen Beitragenden (#1839 GDPR-007).
 
 #### 3.1.3 Regeln für Löschung, Anonymisierung und Pseudonymisierung (Art. 17)
 
@@ -339,7 +347,9 @@ Die Engines sind reine Logik ohne I/O. Das Manifest liest
      (siehe der eigene Absatz unten) — er wird nie mit anonymisiertem Eigentümer erhalten,
      unabhängig davon, ob er weitere aktive Mitglieder hat.
 3. **Pseudonymisieren** für Datensätze mit eigener, vom Konto unabhängiger Aufbewahrung:
-   Löschaudit (NFR-011 R-06, 1 Jahr), MCP-Aufrufprotokoll (REQ-033) und Consent Records
+   Löschaudit (NFR-011 R-06, 3 Jahre nach Abschluss — Betreiberentscheidung Q-R12, #1793/#1806;
+   eigenständiger Wert, **nicht** an die tenant-gebundene R-06a-Formel gekoppelt),
+   MCP-Aufrufprotokoll (REQ-033) und Consent Records
    (NFR-011 R-04, 3 Jahre nach Widerruf — Betreiberentscheidung Q-R5, #1800: ersetzt die
    bis v1.17 hier fehlende, in NFR-011 §5 widersprüchlich als „sofort löschbar"
    beschriebene Behandlung). Tombstone-Hash siehe unten.
@@ -368,6 +378,15 @@ Die Engines sind reine Logik ohne I/O. Das Manifest liest
    `*_by_key`, `*_account_key`, `*_by`) wird vom Löschinventar erreicht oder steht mit
    Begründung in `EXCLUDED_USER_REFERENCES` (Freitext, Enum-Wert, nur Default
    geschrieben; #1700).
+6. **Geteilte Bytes bleiben — mit Mitteilungspflicht (Art. 19, Q-E8, Betreiberentscheidung
+   2026-09-26, #1839 GDPR-006).** Hält nach einer Löschung noch ein fremder
+   `attachments`-Datensatz dasselbe gespeicherte Objekt (AK-OS-08), werden die Bytes
+   **nicht** zusätzlich hart gelöscht — sie gehören inzwischen (auch) dem verbleibenden
+   Halter. Betrifft der Inhalt erkennbar die gelöschte Person (z. B. ein Foto, das sie
+   zeigt oder das sie ursprünglich beigetragen hat), MUSS der verbleibende Halter über
+   den Fortbestand der Bytes benachrichtigt werden — Art. 19 DSGVO verlangt die
+   Mitteilung von Berichtigung/Löschung an jeden Empfänger, dem die Daten offengelegt
+   wurden. Die Benachrichtigung nennt keinen Kontoschlüssel der gelöschten Person.
 
 #### 3.1.4 Gegenseitigkeit und Ausschlussprinzip
 
@@ -943,7 +962,46 @@ class PrivacyPolicyResponse(BaseModel):
     retention_summary: list[RetentionCategoryInfo]
     data_controller: DataControllerInfo
     rights_summary: list[RightInfo]
+
+# <!-- Quelle: Datenschutzplan Q-T3/Q-T4, #1806 GDPR-007/GDPR-010 -->
+class RetentionCategoryInfo(BaseModel):
+    """Eine Zeile der Art.-13-Übersicht (`GET /privacy/policy`).
+
+    Werte kommen live aus RetentionService/NFR-011 §4 — nie als Text im
+    Frontend fest codiert (Q-T5). Betreiberentscheidung 2026-09-26.
+    """
+    category: str            # z.B. "soft_deleted_accounts"
+    rule_id: str              # NFR-011-Regel, z.B. "R-01"
+    period_text: str          # menschlich lesbar, z.B. "90 Tage nach Soft-Delete"
+    latest_deletion_point: str
+    # Der SPÄTESTE konkrete Zeitpunkt, nicht nur die Frist (Q-T3): die Frist PLUS
+    # den ungünstigsten Zeilenabstand des durchsetzenden Takts (§3.1), z.B.
+    # "spätestens 91 Tage nach Soft-Delete, um 04:00 UTC" statt nur "nach 90 Tagen" —
+    # der tägliche/stündliche Lauf kann den reinen Fristablauf um bis zu ein Intervall
+    # überziehen (R-01/R-02/R-03/R-07 laufen getaktet; R-05 wird bei Fertigstellung
+    # exakt gestempelt, siehe `DataExportResponse.expires_at`).
+    enforcement_status: Literal['enforced', 'partial', 'not_implemented']
+    exception_note: Optional[str] = None
+    # z.B. bei R-02: "Konten mit verknüpftem Anmeldeweg werden über diesen Pfad nie
+    # entfernt" (Q-T3)
 ```
+
+**Inhalt der Übersicht (Q-T3/Q-T4, Betreiberentscheidung 2026-09-26, #1806).** Zwei
+Präzisierungen gegenüber einer reinen Fristangabe:
+
+1. **Spätester konkreter Zeitpunkt statt Fristtext (Q-T3, GDPR-007).** "Nach 90 Tagen"
+   verschweigt, dass R-01 täglich um 04:00 UTC läuft und ein Datensatz deshalb bis zu
+   einen Tag über den reinen Fristablauf hinaus bestehen kann; `latest_deletion_point`
+   MUSS diesen ungünstigsten Fall nennen, nicht nur die Frist selbst. R-02 (unbestätigte
+   Accounts) bekommt zusätzlich die Ausnahme genannt: ein Konto mit verknüpftem
+   föderiertem Anmeldeweg wird über diesen Pfad nie entfernt (`exception_note`).
+2. **R-04/R-07/R-11 stehen jetzt in der Übersicht (Q-T4, GDPR-010) — mit ihrem
+   tatsächlichen Stand, nicht erst wenn sie vollständig durchgesetzt sind.** `R-04`
+   (Consent Records) und `R-07` (E-Mail-Änderungsanfragen, Hard-Delete-Teil) tragen
+   `enforcement_status: 'not_implemented'` bzw. `'partial'` gemäß NFR-011 §2.1
+   (Stand #1782/#1800); `R-11` (abgelaufene Refresh Tokens) trägt `'enforced'`. Die
+   Übersicht wartet nicht darauf, dass eine Regel vollständig gebaut ist, um sie zu
+   nennen — eine fehlende Zeile wäre selbst eine Falschangabe nach Art. 13.
 
 ### 3.5 Celery-Tasks
 
@@ -1179,10 +1237,17 @@ def check_processing_restriction(scope: str):
 - Button "Meine Daten exportieren" (disabled wenn bereits ein Export läuft)
 - Liste vergangener Exporte mit Status (pending/processing/completed/expired)
 - Download-Link für abgeschlossene Exporte (mit Dateigröße)
-- Info-Text: "Download ist 72 Stunden verfügbar"
+- Info-Text zur Verfügbarkeitsdauer <!-- Q-T5, #1806 GDPR-006, Betreiberentscheidung 2026-09-26 -->
+  **interpoliert die tatsächliche Stundenzahl aus der API-Antwort** (`DataExportResponse.expires_at`
+  bzw. eine vom Backend gelieferte Stundenzahl aus `RETENTION_EXPORT_FILE_RETENTION_HOURS`),
+  nie eine im Frontend fest codierte Zahl. Der Text "Download ist 72 Stunden verfügbar" ist
+  nur der Default-Fall bei unverändertem Setting, keine feste Zeichenkette — ändert der
+  Betreiber die Frist über §4, MUSS die UI ohne Code-Änderung die neue Zahl zeigen.
 
 **Tab "Account löschen":**
-- Warnhinweis: "Diese Aktion ist nach 90 Tagen unwiderruflich"
+- Warnhinweis zur Unwiderruflichkeitsfrist <!-- Q-T5, #1806 GDPR-006 -->, ebenfalls aus der
+  API interpoliert (`RETENTION_SOFT_DELETE_RETENTION_DAYS`), nie fest codiert. Default-Fall:
+  "Diese Aktion ist nach 90 Tagen unwiderruflich"
 - **Transparente Aufschlüsselung:** Welche Daten vollständig gelöscht werden (Profil, Sessions, Einwilligungen, Aufgaben) und welche nur anonymisiert werden (Erntedokumentation, IPM-Behandlungsnachweise — gesetzliche Aufbewahrungspflicht nach CanG/PflSchG). <!-- Quelle: Widerspruchsanalyse W-001 -->
 - **Mandanten-Vorschau (Betreiberentscheidung Q-T6, #1824):** Vor der Bestätigung zeigt der Dialog je persönlichem Mandanten der Person eine Zeile "Mandant „<Name>" wird gelöscht, N weitere Mitglieder betroffen" (bei `N = 0` ohne den Mitglieder-Zusatz), damit die Transparenzpflicht auch die neue Erasure-together-Regel (Q-E1) abdeckt, bevor die Person bestätigt.
 
@@ -1210,7 +1275,8 @@ pages.privacy.export.button: "Meine Daten exportieren"
 pages.privacy.export.pending: "Export wird vorbereitet..."
 pages.privacy.export.download: "Herunterladen"
 pages.privacy.export.expires: "Verfügbar bis {{date}}"
-pages.privacy.delete.warning: "Diese Aktion ist nach 90 Tagen unwiderruflich."
+pages.privacy.export.availableForHours: "Verfügbar für {{hours}} Stunden" <!-- Q-T5: {{hours}} aus der API, nie fest codiert -->
+pages.privacy.delete.warning: "Diese Aktion ist nach {{days}} Tagen unwiderruflich." <!-- Q-T5: {{days}} aus der API, nie fest codiert -->
 pages.privacy.delete.confirm: "Ich verstehe, dass mein Account gelöscht wird"
 pages.privacy.delete.button: "Account endgültig löschen"
 pages.privacy.delete.tenantPreview: "Mandant „{{name}}" wird gelöscht ({{memberCount}} weitere Mitglieder betroffen)"
@@ -1303,7 +1369,13 @@ pages.privacy.objection.title: "Widerspruch"
 |---|-----------|------|-------------|
 | AK-01 | Datenexport enthält alle im Manifest definierten User-Daten als JSON | 15/20 | Integration |
 | AK-01a | Jede Collection, die die Kontolöschung als Daten der Person löscht oder anonymisiert, ist im Datenexport enthalten oder mit Begründung in `DataExportEngine.EXCLUDED_FROM_DISCLOSURE` ausgeschlossen (§3.1.4, #1719) | 15/17 | Unit + Integration |
+<!-- Quelle: Datenschutzplan Q-T2, #1839 GDPR-007 -->
+| AK-01b | Der Anhänge-Abschnitt des Datenexports markiert eine vor #1770 zusammengeführte doppelte Datei, deren zweiter Hochlader nicht rekonstruierbar ist, mit `attribution_gap` statt sie so darzustellen, als hätte nur ein Konto sie hochgeladen (§3.1.2 Regel 5) | 15 | Integration |
+<!-- /Quelle: Datenschutzplan Q-T2, #1839 GDPR-007 -->
 | AK-02 | Export-Datei ist nach 72 Stunden nicht mehr downloadbar (Status: expired) | 15/20 | Integration |
+<!-- Quelle: Datenschutzplan Q-T5, #1806 GDPR-006 -->
+| AK-02a | Kein Frontend-Text codiert eine Aufbewahrungs- oder Verfügbarkeitsfrist fest; Export-Verfügbarkeit (`pages.privacy.export.availableForHours`) und Lösch-Unwiderruflichkeit (`pages.privacy.delete.warning`) interpolieren den von der API gelieferten Wert (`{{hours}}`/`{{days}}`). Ein Test, der die Frist ändert (Settings) und denselben Text unverändert erwartet, prüft die durch diese Entscheidung gestrichene Regel | Unit + Vitest |
+<!-- /Quelle: Datenschutzplan Q-T5, #1806 GDPR-006 -->
 | AK-03 | Max. 1 aktiver Export-Auftrag pro User | 15/20 | Unit |
 | AK-04 | E-Mail-Änderung erfordert Verifikation der neuen Adresse (Token, 24h gültig) | 16 | Integration |
 | AK-05 | Nach E-Mail-Änderung werden alle Sessions invalidiert | 16 | Integration |
@@ -1313,12 +1385,18 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-08 | Erntedaten und Behandlungsanwendungen werden anonymisiert, nicht gelöscht | 17 | Integration |
 | AK-08a | Löschbestätigung unterscheidet zwischen `fully_deleted_categories` und `anonymized_categories` und zeigt beide Listen transparent an | 17 | E2E |
 | AK-09 | Hard-Delete erfolgt 90 Tage nach Soft-Delete (NFR-011 R-01) | 17 | Integration |
-| AK-10 | Erasure-Audit-Log wird für 1 Jahr aufbewahrt | 17 | Integration |
+| AK-10 | Erasure-Audit-Log wird für 3 Jahre aufbewahrt (Q-R12) | 17 | Integration |
 | AK-11 | Verarbeitungseinschränkung blockiert betroffene Endpunkte (423 Locked) | 18 | Integration |
 | AK-12 | Widerspruch erstellt Restriction mit reason: objection_pending | 21 | Integration |
 | AK-13 | Erforderliche Einwilligungen können nicht widerrufen werden | 7 | Unit |
 | AK-14 | Consent-Prüfung blockiert Feature-Endpunkte ohne Einwilligung (403) | 7 | Integration |
 | AK-15 | Datenschutzrichtlinie ist ohne Authentifizierung abrufbar | 13/14 | Integration |
+<!-- Quelle: Datenschutzplan Q-T3, #1806 GDPR-007 -->
+| AK-15a | Jede Zeile in `retention_summary` nennt in `latest_deletion_point` den spätesten konkreten Zeitpunkt (Frist plus ungünstigster Takt-Abstand des durchsetzenden Celery-Tasks, §3.1), nicht nur die Frist; die R-02-Zeile trägt in `exception_note` die Ausnahme für Konten mit verknüpftem Anmeldeweg | 13 | Unit |
+<!-- /Quelle: Datenschutzplan Q-T3, #1806 GDPR-007 -->
+<!-- Quelle: Datenschutzplan Q-T4, #1806 GDPR-010 -->
+| AK-15b | `retention_summary` enthält Zeilen für R-04, R-07 und R-11 mit ihrem tatsächlichen `enforcement_status` (`not_implemented`/`partial`/`enforced` gemäß NFR-011 §2.1); eine Regel fehlt nicht deshalb, weil sie noch nicht vollständig durchgesetzt ist | 13 | Unit |
+<!-- /Quelle: Datenschutzplan Q-T4, #1806 GDPR-010 -->
 | AK-16 | Celery-Task process_data_export erstellt korrekte JSON-Datei | 15/20 | Integration |
 | AK-17 | Celery-Task execute_scheduled_erasures löscht fällige Accounts endgültig | 17 | Integration |
 <!-- Quelle: Widerspruchsanalyse W-002 -->
@@ -1343,6 +1421,9 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-OS-08 | **Deduplizierte Anhänge gehören jedem Hochlader selbst:** Lädt ein zweites Mitglied (oder dasselbe Mitglied in einer anderen Kategorie) Bytes hoch, die im Mandanten schon gespeichert sind, erhält es einen eigenen `attachments`-Datensatz mit eigenem `created_by`, der auf dasselbe gespeicherte Objekt zeigt; ein erneuter Upload desselben Mitglieds in derselben Kategorie liefert dessen eigenen Datensatz zurück. Löscht Phase 0 die Datensätze eines Nutzers hart, bleibt ein Objekt (samt Renditionen), das ein Datensatz außerhalb dieser Löschung noch hält, erhalten; jedes andere wird gelöscht. Dasselbe gilt für das Löschen eines einzelnen Anhangs. Hält nach dem ArangoDB-Schritt kein Datensatz mehr ein Objekt, das Phase 0 für ein anderes Mitglied behalten hat (dessen Datensatz ging zwischenzeitlich), löscht der Lauf es danach. Der Löschauftrag hält `storage_objects_removed`, `storage_objects_retained_shared` und `storage_objects_released` fest. Jeder Schädlingsbild-Beitrag hat einen eigenen Datensatz, auch wenn dasselbe Mitglied dasselbe Foto mehrfach beiträgt. Die EXIF-Bereinigung nach AK-OS-03 schreibt ein geteiltes Objekt an Ort und Stelle um: Die Bytes sind identisch hochgeladen, die Metadaten also auch die der gelöschten Person. Identische Bytes verschiedener Mandanten werden nie geteilt. | 17 | Integration + Reach (T2) |
 | AK-OS-05b | **Ein Referenz-Beitrag, eine Zeile, ein Beitragender:** Die `source_record_id` eines Beitrags zum Referenz-Index (`species_embeddings`) ist aus Bildhash, `tenant_key` und Beitragendem abgeleitet. Ein erneuter Beitrag desselben Fotos durch denselben Beitragenden bleibt eine Zeile; dasselbe Foto eines anderen Beitragenden — auch aus einem anderen Mandanten — ist eine eigene Zeile mit dessen Provenienz, die nur dessen Löschung (AK-OS-05) bzw. die Löschung seines Mandanten entfernt. | 17 | Unit |
 <!-- /Quelle: #1770 (GDPR-006, SEC-007) -->
+<!-- Quelle: Datenschutzplan Q-E8, #1839 GDPR-006 -->
+| AK-OS-09 | **Nicht implementiert** (#1839, Betreiberentscheidung 2026-09-26): Bleibt nach einer Löschung ein von AK-OS-08 erfasstes Objekt bestehen, weil ein fremder Datensatz es noch hält, und betrifft der Inhalt erkennbar die gelöschte Person, wird der verbleibende Halter benachrichtigt (Art. 19 DSGVO). Die Benachrichtigung nennt keinen Kontoschlüssel der gelöschten Person. | 19 | Integration |
+<!-- /Quelle: Datenschutzplan Q-E8, #1839 GDPR-006 -->
 <!-- Quelle: #1776 (#1767 GDPR-004, SEC-003) -->
 | AK-IE-01 | **Sofortlöschung mit Nachweis:** `DELETE /admin/platform/users/{key}` (Plattform-Admin) und die Bereinigung unverifizierter Konten (`cleanup_unverified_accounts`) persistieren einen Löschauftrag in `erasure_requests` (`origin` `platform_admin` bzw. `unverified_cleanup`; ein offener Auftrag der Person wird weiterverwendet) und führen dieselbe Finalisierung aus wie der geplante Art.-17-Lauf. Der Auftrag wird nur `completed`, wenn jeder deklarierte Schritt erreicht wurde; sonst `partially_completed` mit Backoff, den der tägliche Lauf wiederholt, und der Admin-Aufruf antwortet 500 (`ERASURE_INCOMPLETE`, ohne Kontoschlüssel) bzw. 502 bei fehlgeschlagener Löschung in einem externen Dienst. Nach Abschluss nennt kein Löschauftrag mehr den Kontoschlüssel im Klartext (AK-PD-01). | 17, 5(2) | Unit + Integration + Reach (T2) |
 | AK-IE-02 | **Erst prüfen, dann schließen, dann löschen:** Kann das Deployment nicht löschen (Executor, Tombstone-Salt, abgeleiteter Index nach AK-OS-05a/AK-OS-07), verweigert die Sofortlöschung mit 503, bevor irgendetwas angelegt oder geändert ist. Andernfalls ist das Konto deaktiviert und alle Sitzungen widerrufen, bevor Phase 0 beginnt. Die Bereinigung unverifizierter Konten lässt ein inzwischen verifiziertes Konto unberührt. | 17, 32 | Unit + Integration |
