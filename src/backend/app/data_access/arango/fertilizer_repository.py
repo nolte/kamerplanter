@@ -176,13 +176,20 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         edge_data = {"reason": reason, "severity": severity}
         return self.create_edge(col.FERT_INCOMPATIBLE, from_id, to_id, edge_data)
 
-    def get_incompatibilities(self, key: FertilizerKey) -> list[dict]:
+    def get_incompatibilities(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        """The product's incompatibilities whose partner the caller may see (bundle A review, K1).
+
+        A global product's edges include the ones other tenants declared from
+        their private products; the partner is filtered with the hybrid rule
+        (global or ``tenant_key``'s) so their names and reasons stay theirs.
+        """
         fert_id = f"{col.FERTILIZERS}/{key}"
         query = f"""
         FOR e IN {col.FERT_INCOMPATIBLE}
           FILTER e._from == @fid OR e._to == @fid
           LET other_id = e._from == @fid ? e._to : e._from
           LET other = DOCUMENT(other_id)
+          FILTER other != null AND (other.tenant_key == null OR other.tenant_key IN ["", @tenant_key])
           RETURN {{
             fertilizer_key: PARSE_IDENTIFIER(other_id).key,
             product_name: other.product_name,
@@ -190,7 +197,7 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
             severity: e.severity
           }}
         """
-        cursor = self._db.aql.execute(query, bind_vars={"fid": fert_id})
+        cursor = self._db.aql.execute(query, bind_vars={"fid": fert_id, "tenant_key": tenant_key})
         return list(cursor)
 
     def remove_incompatibility(self, key_a: FertilizerKey, key_b: FertilizerKey) -> bool:

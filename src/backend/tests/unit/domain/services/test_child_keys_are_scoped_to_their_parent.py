@@ -249,3 +249,34 @@ def test_an_edge_touching_an_own_product_is_removed(a: str, b: str) -> None:
     service.remove_incompatibility(a, b, tenant_key="t_a", is_platform_admin=False)
 
     assert repo.removed == [(a, b)]
+
+
+# ── adding follows the same rule as removing (bundle A review, W2) ─────────
+
+
+def _add_repo() -> _FertRepo:
+    repo = _FertRepo()
+    repo.added = []  # type: ignore[attr-defined]
+    repo.add_incompatibility = lambda a, b, r, s: repo.added.append((a, b)) or {}  # type: ignore[attr-defined]
+    return repo
+
+
+def test_a_member_cannot_declare_a_global_to_global_edge() -> None:
+    repo = _add_repo()
+
+    with pytest.raises(ForbiddenError):
+        FertilizerService(repo).add_incompatibility(  # type: ignore[arg-type]
+            "g1", "g2", "r", "high", tenant_key="t_a", is_platform_admin=False
+        )
+
+    assert repo.added == []  # type: ignore[attr-defined]
+
+
+def test_a_member_declares_an_edge_touching_an_own_product() -> None:
+    repo = _add_repo()
+
+    FertilizerService(repo).add_incompatibility(  # type: ignore[arg-type]
+        "f_a", "g1", "r", "high", tenant_key="t_a", is_platform_admin=False
+    )
+
+    assert repo.added == [("f_a", "g1")]  # type: ignore[attr-defined]

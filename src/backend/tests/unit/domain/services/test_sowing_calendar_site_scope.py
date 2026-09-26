@@ -98,3 +98,16 @@ def test_without_a_site_the_generic_calendar_still_uses_the_tenants_species() ->
 
     assert runs.asked == []
     assert species.tenant_keys == [OWN]
+
+
+def test_a_run_entry_naming_another_tenants_species_draws_no_bars_from_it() -> None:
+    # Security review S1: _species_harvest_bars read any species by key. With an
+    # entry naming a foreign private species (#1871 B11) the calendar returned
+    # that species' harvest and bloom months.
+    from app.domain.models.species import Species
+
+    service, runs, species = _service()
+    foreign = Species(_key="sp_foreign", tenant_key="t_b", scientific_name="Secretus privatus", harvest_months=[7, 8])
+    species.get_by_key = lambda key: foreign if key == "sp_foreign" else None  # type: ignore[attr-defined]
+
+    assert service._species_harvest_bars("sp_foreign", 2026, tenant_key=OWN) == []

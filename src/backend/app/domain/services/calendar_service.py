@@ -247,7 +247,7 @@ class CalendarService:
             # shows how far out the expected harvest is.
             run_entries = run_svc._repo.get_entries(run.key)
             for re in run_entries:
-                bars.extend(self._species_harvest_bars(re.species_key, year))
+                bars.extend(self._species_harvest_bars(re.species_key, year, tenant_key=tenant_key))
 
             if not bars:
                 continue
@@ -263,12 +263,17 @@ class CalendarService:
         entries.sort(key=lambda e: min(b.start_date for b in e.bars) if e.bars else date.max)
         return entries
 
-    def _species_harvest_bars(self, species_key: str, year: int) -> list[SowingBar]:
-        """Build harvest/bloom bars from Species stammdaten (harvest_months / bloom_months)."""
+    def _species_harvest_bars(self, species_key: str, year: int, *, tenant_key: str) -> list[SowingBar]:
+        """Build harvest/bloom bars from Species stammdaten (harvest_months / bloom_months).
+
+        Only a species the tenant may read (global or its own): a run entry can
+        still name another tenant's private species (#1871 B11), and its months
+        must not reach this calendar.
+        """
         if not self._species_repo:
             return []
         sp = self._species_repo.get_by_key(species_key)
-        if sp is None:
+        if sp is None or sp.tenant_key not in ("", tenant_key):
             return []
 
         bars: list[SowingBar] = []

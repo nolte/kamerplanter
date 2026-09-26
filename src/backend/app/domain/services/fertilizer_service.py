@@ -192,6 +192,7 @@ class FertilizerService:
         severity: str,
         *,
         tenant_key: str,
+        is_platform_admin: bool,
     ) -> dict:
         """Declare ``key_a`` and ``key_b`` incompatible, both visible to ``tenant_key``.
 
@@ -200,13 +201,16 @@ class FertilizerService:
         unknown key answered 404 while a foreign one answered 201, an existence
         oracle. Both are now the catalogue's 404 (#1713).
         """
-        self.get_fertilizer(key_a, tenant_key)
-        self.get_fertilizer(key_b, tenant_key)
+        a = self.get_fertilizer(key_a, tenant_key)
+        b = self.get_fertilizer(key_b, tenant_key)
+        # The same rule as removal (bundle A review, W2): an edge between two
+        # global products is shared catalogue data every tenant reads.
+        self._require_edge_touches_own_product(a, b, tenant_key=tenant_key, is_platform_admin=is_platform_admin)
         return self._repo.add_incompatibility(key_a, key_b, reason, severity)
 
-    def get_incompatibilities(self, key: FertilizerKey) -> list[dict]:
-        self.get_fertilizer(key)
-        return self._repo.get_incompatibilities(key)
+    def get_incompatibilities(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        self.get_fertilizer(key, tenant_key)
+        return self._repo.get_incompatibilities(key, tenant_key=tenant_key)
 
     def remove_incompatibility(
         self, key_a: FertilizerKey, key_b: FertilizerKey, *, tenant_key: str, is_platform_admin: bool
@@ -222,9 +226,16 @@ class FertilizerService:
         """
         a = self.get_fertilizer(key_a, tenant_key)
         b = self.get_fertilizer(key_b, tenant_key)
-        if not is_platform_admin and tenant_key not in (a.tenant_key, b.tenant_key):
-            raise ForbiddenError("Only a platform admin may remove an incompatibility between two shared products.")
+        self._require_edge_touches_own_product(a, b, tenant_key=tenant_key, is_platform_admin=is_platform_admin)
         return self._repo.remove_incompatibility(key_a, key_b)
+
+    @staticmethod
+    def _require_edge_touches_own_product(
+        a: Fertilizer, b: Fertilizer, *, tenant_key: str, is_platform_admin: bool
+    ) -> None:
+        """One of the two products is the tenant's own, or the caller is a platform admin."""
+        if not is_platform_admin and tenant_key not in (a.tenant_key, b.tenant_key):
+            raise ForbiddenError("Only a platform admin may change an incompatibility between two shared products.")
 
     # ── Reverse lookup ─────────────────────────────────────────────────
 

@@ -33,7 +33,9 @@ today's sites:
    repository (``_owned_reference_fields``) is reported as stale.
 
 What neither half sees, named: a handler that passes the tenant to a call that
-does not use it for the key (half 1 is structural); and whether a
+does not use it for the key (half 1 is structural); a body key that is stored
+only as a graph edge and not as a model field (``source_tank_key`` of
+feeds-from, #1871 B5) — neither a path key nor a field; and whether a
 ``verified`` classification is still true (half 2 is a register — the route and
 service tests of each fix hold the behaviour).
 """
@@ -47,6 +49,7 @@ import pkgutil
 import textwrap
 from typing import Any
 
+import pytest
 from fastapi.dependencies.utils import get_dependant
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
@@ -99,6 +102,13 @@ _PATH_KEYS_VERIFIED_ELSEWHERE: dict[tuple[str, str, str], str] = {
     ("DELETE", "/api/v1/t/{tenant_slug}/ipm/pests/{pest_key}/images/{image_id}", "pest_key"): (
         "global pest catalogue; the contribution is resolved and deleted by (id, tenant_key)"
     ),
+    ("DELETE", "/api/v1/t/{tenant_slug}/favorites/{target_key}", "target_key"): (
+        "removes only the caller's own favourite edge, anchored on ctx.user_key; the key is never resolved (#1538)"
+    ),
+    ("POST", "/api/v1/t/{tenant_slug}/planting-runs/{key}/plants/{plant_key}/diary", "plant_key"): (
+        "the run is resolved under the tenant; plant_diary_service.create_entry requires the plant to be one of "
+        "that run's plants"
+    ),
     ("PATCH", "/api/v1/care-reminders/plants/{plant_key}/profile", "plant_key"): _REQUIRE_OWNED_PLANT,
     ("POST", "/api/v1/care-reminders/plants/{plant_key}/snooze", "plant_key"): _REQUIRE_OWNED_PLANT,
     ("POST", "/api/v1/care-reminders/plants/{plant_key}/reset-profile", "plant_key"): _REQUIRE_OWNED_PLANT,
@@ -128,16 +138,37 @@ def _calls(dependants: list[Any]) -> set[Any]:
     return found
 
 
+def _is_tenant_value(node: ast.AST) -> bool:
+    """``ctx.tenant_key``, ``<anything>.tenant_key``, or a bare ``tenant_key`` / ``tenant`` name."""
+    if isinstance(node, ast.Attribute):
+        return node.attr == "tenant_key"
+    if isinstance(node, ast.Name):
+        return node.id in {"tenant_key", "tenant"}
+    return False
+
+
+def _carries_the_tenant(call: ast.Call) -> bool:
+    """The call hands the tenant itself on — not merely something off ``ctx``.
+
+    Counted: a ``tenant_key=`` / ``tenant=`` keyword whose value is a tenant
+    value, a positional tenant value, or ``ctx`` itself passed positionally (the
+    callee then reads the tenant). Not counted: ``caller_role=ctx.role``,
+    ``ctx=None``, ``logger.info(..., ctx=ctx)`` — the bypasses the security
+    review of this bundle named.
+    """
+    for keyword in call.keywords:
+        if keyword.arg in {"tenant_key", "tenant"} and _is_tenant_value(keyword.value):
+            return True
+    return any(_is_tenant_value(arg) or (isinstance(arg, ast.Name) and arg.id == "ctx") for arg in call.args)
+
+
 def _passes_with_a_tenant(tree: ast.AST, param: str) -> bool:
     """Whether some call hands ``param`` on together with the tenant."""
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         args = [*node.args, *(k.value for k in node.keywords)]
-        if not any(isinstance(a, ast.Name) and a.id == param for a in args):
-            continue
-        keywords = {k.arg for k in node.keywords}
-        if keywords & _TENANT_WORDS or "ctx" in ast.unparse(node) or "tenant_key" in ast.unparse(node):
+        if any(isinstance(a, ast.Name) and a.id == param for a in args) and _carries_the_tenant(node):
             return True
     return False
 
@@ -187,6 +218,37 @@ def test_the_path_key_scan_sees_a_child_key_loaded_alone() -> None:
 
     assert _passes_with_a_tenant(ast.parse(source), "entry_key") is False
     assert _passes_with_a_tenant(ast.parse(fixed), "entry_key") is True
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "service.delete_batch(key, caller_role=ctx.role, is_platform_admin=admin)",
+        "service.update_entry(key, entry_key, ctx=None)",
+        "logger.info('x', key=key, entry_key=entry_key, ctx=ctx)",
+        "service.update_entry(key, entry_key, tenant_key='')",
+    ],
+    ids=["role-off-ctx", "ctx-none", "log-line", "empty-literal"],
+)
+def test_the_path_key_scan_is_not_fooled_by_a_ctx_mention(call: str) -> None:
+    tree = ast.parse(f"def handler(key, entry_key, ctx, service, admin, logger):\n    {call}\n")
+
+    assert _passes_with_a_tenant(tree, "entry_key" if "entry_key" in call else "key") is False
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "service.update_entry(key, entry_key, tenant_key=ctx.tenant_key)",
+        "service.get_run(entry_key, ctx.tenant_key)",
+        "service.update_entry(entry_key, ctx)",
+        "service.update_entry(entry_key, tenant=tenant)",
+    ],
+)
+def test_the_path_key_scan_accepts_the_tenant_handed_on(call: str) -> None:
+    tree = ast.parse(f"def handler(entry_key, ctx, service, tenant):\n    {call}\n")
+
+    assert _passes_with_a_tenant(tree, "entry_key") is True
 
 
 # ── half 2: stored reference fields of tenant-owned models ────────────────────

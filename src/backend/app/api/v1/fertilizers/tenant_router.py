@@ -177,9 +177,8 @@ def list_incompatibilities(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
-    """List a fertilizer's declared incompatibilities."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    return service.get_incompatibilities(key)
+    """List a fertilizer's declared incompatibilities with partners the tenant may see."""
+    return service.get_incompatibilities(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/incompatibilities", response_model=IncompatibilityResponse, status_code=201)
@@ -188,10 +187,17 @@ def add_incompatibility(
     body: IncompatibilityCreate,
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Declare an incompatibility between this fertilizer and another."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.add_incompatibility(key, body.other_key, body.reason, body.severity, tenant_key=ctx.tenant_key)
+    """Declare an incompatibility — both products visible, one of them the tenant's own."""
+    service.add_incompatibility(
+        key,
+        body.other_key,
+        body.reason,
+        body.severity,
+        tenant_key=ctx.tenant_key,
+        is_platform_admin=is_platform_admin,
+    )
     return IncompatibilityResponse(
         fertilizer_key=body.other_key, product_name=None, reason=body.reason, severity=body.severity
     )
