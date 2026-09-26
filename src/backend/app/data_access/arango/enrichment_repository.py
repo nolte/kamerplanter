@@ -82,7 +82,7 @@ class ArangoSyncRunRepository(BaseArangoRepository[SyncRun], ISyncRunRepository)
         query = """
         FOR sr IN sync_runs
             FILTER sr.source_key == @source_key
-            SORT sr.created_at DESC
+            SORT DATE_TIMESTAMP(sr.created_at) DESC
             LIMIT @limit
             RETURN sr
         """

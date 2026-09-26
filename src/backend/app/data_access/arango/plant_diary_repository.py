@@ -87,8 +87,8 @@ def _overview_sort_clause(sort: DiaryOverviewSort) -> str:
     has no analysis to the top.
     """
     if sort == "analyzed_at":
-        return "SORT doc.analysis.analyzed_at DESC, doc.created_at DESC, doc._key DESC"
-    return "SORT doc.created_at DESC, doc._key DESC"
+        return "SORT DATE_TIMESTAMP(doc.analysis.analyzed_at) DESC, DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC"
+    return "SORT DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC"
 
 
 def _day_bounds_ms(day: date, *, end_of_day: bool) -> int:
@@ -182,7 +182,7 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
         total = next(count_cursor, 0)
 
         cursor = self._db.aql.execute(
-            f"{body}SORT entry.created_at DESC LIMIT @offset, @limit RETURN entry",
+            f"{body}SORT DATE_TIMESTAMP(entry.created_at) DESC LIMIT @offset, @limit RETURN entry",
             bind_vars={**bind_vars, "offset": offset, "limit": limit},
         )
         entries = [PlantDiaryEntry(**self._from_doc(doc)) for doc in cursor]
@@ -228,7 +228,7 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
 
         query = (
             f"{body}"
-            "SORT entry.created_at DESC "
+            "SORT DATE_TIMESTAMP(entry.created_at) DESC "
             "LIMIT @offset, @limit "
             "RETURN { "
             "  plant_key: plant._key, "
@@ -363,7 +363,7 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
         total = next(count_cursor, 0)
 
         cursor = self._db.aql.execute(
-            f"{filter_clause}SORT doc.analysis_requested_at ASC LIMIT @limit RETURN doc",
+            f"{filter_clause}SORT DATE_TIMESTAMP(doc.analysis_requested_at) ASC LIMIT @limit RETURN doc",
             bind_vars={**bind_vars, "limit": limit},
         )
         entries = [PlantDiaryEntry(**self._from_doc(doc)) for doc in cursor]

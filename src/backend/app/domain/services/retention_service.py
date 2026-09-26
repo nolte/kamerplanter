@@ -25,6 +25,7 @@ downsampling, a retention master task) are not wired here yet.
 
 from datetime import UTC, datetime, timedelta
 
+from app.common.datetimes import replace_year
 from app.config.settings import settings
 
 
@@ -134,11 +135,7 @@ class RetentionService:
         """
         now = now.astimezone(UTC)
         year = now.year - self._erasure_record_retention_years
-        try:
-            cutoff = now.replace(year=year)
-        except ValueError:  # 29 February in a non-leap target year
-            cutoff = now.replace(year=year, day=28)
-        return cutoff.replace(microsecond=0)
+        return replace_year(now, year).replace(microsecond=0)
 
     # ── Predicate helpers ────────────────────────────────────────
 

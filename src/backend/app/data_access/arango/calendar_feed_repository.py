@@ -26,7 +26,7 @@ class ArangoCalendarFeedRepository(BaseArangoRepository[CalendarFeed], ICalendar
         query = """
         FOR f IN @@col
           FILTER f.user_key == @user_key AND f.tenant_key == @tenant_key
-          SORT f.created_at DESC
+          SORT DATE_TIMESTAMP(f.created_at) DESC
           RETURN f
         """
         cursor = self._db.aql.execute(

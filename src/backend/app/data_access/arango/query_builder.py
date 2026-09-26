@@ -30,6 +30,27 @@ Two consequences every such comparison has to handle:
   same millisecond as the cutoff can be kept one run longer — the safe direction
   for a deletion sweep.
 
+Keeping a persistent index usable (#1809)
+-----------------------------------------
+
+``DATE_TIMESTAMP(doc.x)`` hides ``doc.x`` from the optimizer, so a sweep over an
+indexed timestamp became a full collection scan. Where that index matters, the
+instant comparison is preceded by a **raw pre-filter** on the bare field against
+a bound one day past the cutoff (:func:`instant_prefilter_bound`)::
+
+    FILTER doc.x < @cutoff_slack
+      AND DATE_TIMESTAMP(doc.x) != null AND DATE_TIMESTAMP(doc.x) < DATE_TIMESTAMP(@cutoff)
+
+The raw comparison only has to be a *superset* of the exact one. The collation
+misorders spellings of the **same second** (fraction and offset notation) and a
+stored local time differs from its UTC instant by at most 14 hours; a bound one
+day later lies past both, so no record the instant comparison selects is dropped
+by the pre-filter (measured on ArangoDB 3.12.8 with fractional, ``Z``,
+``+00:00``, ``+14:00`` and ``-12:00`` spellings). The index narrows the scan;
+the instant comparison decides. The guard accepts a bare ``<``/``<=`` on a
+timestamp only when an instant comparison of the same direction on the same
+field follows in the same ``FILTER``.
+
 The guard ``tests/unit/guards/test_aql_timestamp_comparisons_are_instants.py``
 holds every hand-written query in ``app/`` to this rule.
 """
@@ -37,8 +58,23 @@ holds every hand-written query in ``app/`` to this rule.
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, ClassVar
+
+#: How far past its cutoff the raw pre-filter of an instant comparison reaches.
+INSTANT_PREFILTER_SLACK = timedelta(days=1)
+
+
+def instant_prefilter_bound(cutoff: datetime | str) -> str:
+    """The ``@<name>_slack`` value for a raw, index-usable pre-filter (module docstring).
+
+    ``cutoff`` plus :data:`INSTANT_PREFILTER_SLACK`, as a UTC ISO string. A naive
+    ``cutoff`` is read as UTC, like every timestamp this system stores.
+    """
+    moment = datetime.fromisoformat(cutoff) if isinstance(cutoff, str) else cutoff
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return (moment.astimezone(UTC) + INSTANT_PREFILTER_SLACK).isoformat()
 
 
 def escape_aql_like(value: str) -> str:
@@ -125,12 +161,38 @@ class AQLBuilder:
             return False
         return isinstance(value, str) and field.rsplit(".", 1)[-1].endswith("_at")
 
+    #: Name suffixes (and whole names) :meth:`sort` orders as instants.
+    _INSTANT_SORT_SUFFIXES: ClassVar[tuple[str, ...]] = ("_at", "_date", "_until")
+    _INSTANT_SORT_NAMES: ClassVar[frozenset[str]] = frozenset({"timestamp"})
+
+    @classmethod
+    def sorts_as_instant(cls, field: str) -> bool:
+        """Whether :meth:`sort` orders ``field`` by its instant rather than its text (#1801).
+
+        Decided by name, because a sort has no value whose type could tell: every
+        ``*_at``, ``*_date`` and ``*_until`` field, and ``timestamp``. A date-typed
+        field (``purchase_date``) is included harmlessly — ``DATE_TIMESTAMP`` of a
+        fixed-width ``YYYY-MM-DD`` orders exactly like its text.
+        """
+        name = field.rsplit(".", 1)[-1]
+        return name in cls._INSTANT_SORT_NAMES or name.endswith(cls._INSTANT_SORT_SUFFIXES)
+
     def sort(self, field: str, direction: str = "ASC") -> AQLBuilder:
+        """Add ``SORT doc.<field> <direction>``; a timestamp field sorts by instant.
+
+        The ICU collation that misplaces a record in a comparison (module
+        docstring) misorders it in a sort too — within the same second, which is
+        exactly the tie a "latest" pick or a page boundary decides (#1801). A
+        timestamp field (:meth:`sorts_as_instant`) therefore sorts
+        ``DATE_TIMESTAMP(doc.<field>)``. ``null`` and unreadable values sort first
+        ascending, as a missing raw value already did.
+        """
         if direction not in self._ALLOWED_DIRECTIONS:
             raise ValueError(f"Invalid sort direction: {direction!r}")
         if not self._FIELD_RE.match(field):
             raise ValueError(f"Invalid AQL sort field: {field!r}")
-        self._sort = f"doc.{field} {direction}"
+        key = f"DATE_TIMESTAMP(doc.{field})" if self.sorts_as_instant(field) else f"doc.{field}"
+        self._sort = f"{key} {direction}"
         return self
 
     def paginate(self, offset: int, limit: int) -> AQLBuilder:
