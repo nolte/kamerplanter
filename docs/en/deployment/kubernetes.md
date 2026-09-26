@@ -108,7 +108,7 @@ helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 0.2.0
 ### 2. Create the mandatory secrets
 
 !!! danger "No backend pod starts without this secret"
-    Before installing the chart, the Kubernetes secret `kamerplanter-secrets` must exist. The backend container reads `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` exclusively via `envFrom` from this secret — **not** from `values.yaml`. If any of the last three values is missing (or `ARANGODB_PASSWORD` is left at the literal `rootpassword`), the backend start-up aborts with `SystemExit` as soon as `DEBUG=false` is set (fail-fast gate, `src/backend/app/main.py`). `ARANGO_ROOT_PASSWORD` must be identical to `ARANGODB_PASSWORD` — both go to the same ArangoDB container.
+    Before installing the chart, the Kubernetes secret `kamerplanter-secrets` must exist. The backend container reads `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` and `LOG_PSEUDONYM_SALT` exclusively via `envFrom` from this secret — **not** from `values.yaml`. If any of the last four values is missing (or `ARANGODB_PASSWORD` is left at the literal `rootpassword`), the backend start-up aborts with `SystemExit` as soon as `DEBUG=false` is set (fail-fast gate, `src/backend/app/main.py`). `ARANGO_ROOT_PASSWORD` must be identical to `ARANGODB_PASSWORD` — both go to the same ArangoDB container. The Celery worker pod draws from the same secret and checks `LOG_PSEUDONYM_SALT` at start-up just as strictly; it aborts with `SystemExit` if the value is missing or shorter than 32 characters.
 
 ```bash
 kubectl create namespace kamerplanter
@@ -119,7 +119,8 @@ kubectl create secret generic kamerplanter-secrets \
   --from-literal=ARANGO_ROOT_PASSWORD="your-secure-password" \
   --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
   --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
-  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)" \
+  --from-literal=LOG_PSEUDONYM_SALT="$(openssl rand -hex 32)"
 ```
 
 Full overview of every mandatory secret per enabled feature (e.g. `INTERNAL_SERVICE_TOKEN` once the AI assistant or image recognition is active): [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
@@ -179,7 +180,7 @@ ingress:
 ```
 
 1. Two replicas for rolling updates without downtime.
-2. Pulls `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` from the secret created in the previous step — no plain-text passwords in `values.yaml`.
+2. Pulls `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` and `LOG_PSEUDONYM_SALT` from the secret created in the previous step — no plain-text passwords in `values.yaml`.
 3. `light` = without login/tenant system, single user. `full` (the chart default) = with JWT auth and tenant management. Details: [Deployment Profiles](betriebsprofile.md).
 4. `ARANGO_ROOT_PASSWORD` is also injected from `kamerplanter-secrets`.
 5. Adjust the size to your needs. The chart default for the ArangoDB PVC is 5Gi.

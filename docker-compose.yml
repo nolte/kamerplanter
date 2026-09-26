@@ -169,6 +169,9 @@ services:
       # NFR-011 §4: >= 32 chars; the API refuses to start without it when DEBUG
       # is false. MUST equal the celery-worker's value.
       ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
+      # NFR-011 §3.4 (#1812): >= 32 chars, keys the log pseudonyms; same gate,
+      # same value as the celery-worker's. Rotatable.
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT:-}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
       KAMERPLANTER_MODE: light
       # #777 — optional error tracking. Unset by default: no DSN, no SDK
@@ -224,6 +227,8 @@ services:
       # the API does, and pseudonymises log subjects with the same salt.
       DEBUG: ${DEBUG}
       ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
+      # #1812 — the log pseudonym salt, same gate and same value as the backend.
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT:-}
       # #777 — optional error tracking. Unset by default: no DSN, no SDK
       # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
       SENTRY_DSN: ${SENTRY_DSN:-}

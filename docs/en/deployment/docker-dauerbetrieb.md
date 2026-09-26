@@ -66,15 +66,15 @@ CORS_ORIGINS=["http://localhost:8080"]
 !!! warning "Passwords"
     Do **not** use the example passwords from `.env.example`. Generate secure passwords, e.g. with `openssl rand -base64 24`. Both password fields (`ARANGO_ROOT_PASSWORD` and `ARANGODB_PASSWORD`) must be identical.
 
-### Three additional mandatory secrets (otherwise the backend won't start)
+### Four additional mandatory secrets (otherwise the backend won't start)
 
-!!! danger "Without these three values the backend start-up aborts"
-    `.env.example` sets `DEBUG=false` — the correct value for permanent operation. With `DEBUG=false` the backend additionally checks `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` at start-up and aborts with an error if any of them is missing (fail-fast gate). `docker-compose.release.yml` does **not** automatically pass these three variables into the backend container — you have to add them yourself. The `celery-worker` container now also checks `FERNET_KEY` at start-up and aborts the same way if the value is missing or invalid — the `celery-worker` entry in the `docker-compose.override.yml` below is therefore mandatory, not optional.
+!!! danger "Without these four values the backend start-up aborts"
+    `.env.example` sets `DEBUG=false` — the correct value for permanent operation. With `DEBUG=false` the backend additionally checks `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` and `LOG_PSEUDONYM_SALT` at start-up and aborts with an error if any of them is missing (fail-fast gate). `docker-compose.release.yml` does **not** automatically pass these four variables into the backend container — you have to add them yourself. The `celery-worker` container now also checks `FERNET_KEY` and `LOG_PSEUDONYM_SALT` at start-up and aborts the same way if a value is missing or invalid — the `celery-worker` entry in the `docker-compose.override.yml` below is therefore mandatory, not optional. `celery-beat` does not check `LOG_PSEUDONYM_SALT`.
 
-Generate the three values and add them to your `.env`:
+Generate the four values and add them to your `.env`:
 
 ```bash
-# JWT_SECRET_KEY and ERASURE_TOMBSTONE_SALT (at least 32 characters)
+# JWT_SECRET_KEY, ERASURE_TOMBSTONE_SALT and LOG_PSEUDONYM_SALT (at least 32 characters each)
 openssl rand -hex 32
 
 # FERNET_KEY (must be a valid Fernet key)
@@ -85,6 +85,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 JWT_SECRET_KEY=<output of openssl rand -hex 32>
 FERNET_KEY=<output of the Fernet command>
 ERASURE_TOMBSTONE_SALT=<second output of openssl rand -hex 32>
+LOG_PSEUDONYM_SALT=<third output of openssl rand -hex 32>
 ```
 
 Also create a `docker-compose.override.yml` next to `docker-compose.release.yml` — Docker Compose loads it automatically:
@@ -96,10 +97,12 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       FERNET_KEY: ${FERNET_KEY}
       ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT}
   celery-worker:
     environment:
       FERNET_KEY: ${FERNET_KEY}
       ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT}
   celery-beat:
     environment:
       FERNET_KEY: ${FERNET_KEY}

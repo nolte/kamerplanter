@@ -41,6 +41,7 @@ from app.domain.models.inventree import (
     InvenTreeReference,
     StockTransaction,
 )
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
 
 logger = structlog.get_logger(__name__)
 
@@ -58,9 +59,13 @@ class InvenTreeService:
         encryption_engine: EncryptionEngine,
         adapter_factory: Any | None = None,
         redis_client: Any | None = None,
+        site_anchors: SiteAnchorSource | None = None,
     ) -> None:
         self._repo = repo
         self._encryption = encryption_engine
+        # The location → site reads that decide whose a location is (#1871 B2).
+        # Without them an equipment location is refused, never stored unchecked.
+        self._site_anchors = site_anchors
         # Shared Valkey/Redis client for the adapter's persistent per-connection
         # outbound rate-limit window (IT-005). Optional: without it the adapter
         # degrades to a best-effort per-instance window.
@@ -267,8 +272,21 @@ class InvenTreeService:
     ) -> list[Equipment]:
         return self._repo.list_equipment(tenant_key, equipment_type=equipment_type, status=status)
 
+    def _require_owned_location(self, location_key: str | None, tenant_key: str) -> None:
+        """Refuse an equipment location that is not the tenant's (#1871 B2).
+
+        It was stored as given with an ``EQUIPMENT_AT`` edge to any tenant's
+        location. Anchored on the location's site; foreign and unknown alike 404.
+        """
+        if not location_key:
+            return
+        if self._site_anchors is None:
+            raise NotFoundError("Location", location_key)
+        resolve_owned_location(self._site_anchors, location_key, tenant_key)
+
     def create_equipment(self, tenant_key: str, equipment: Equipment) -> Equipment:
         equipment.tenant_key = tenant_key
+        self._require_owned_location(equipment.location_key, tenant_key)
         return self._repo.create_equipment(equipment)
 
     def get_equipment(self, key: str, tenant_key: str) -> Equipment:
@@ -279,6 +297,8 @@ class InvenTreeService:
     def update_equipment(self, key: str, tenant_key: str, data: dict[str, Any]) -> Equipment:
         equipment = self.get_equipment(key, tenant_key)
         location_changed = "location_key" in data and data["location_key"] != equipment.location_key
+        if location_changed:
+            self._require_owned_location(data["location_key"], tenant_key)
         updated = equipment.model_copy(update=data)
         return self._repo.update_equipment(key, updated, location_changed=location_changed)
 

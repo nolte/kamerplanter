@@ -217,8 +217,9 @@ controllers:
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
           # #1781 — MUST equal the backend's DEBUG: with DEBUG false the worker refuses
-          # to start without a >= 32-char ERASURE_TOMBSTONE_SALT (like the API), and the
-          # dev backend runs with DEBUG true, so the dev secret need not carry the salt.
+          # to start without a >= 32-char ERASURE_TOMBSTONE_SALT and LOG_PSEUDONYM_SALT
+          # (#1812), like the API, and the dev backend runs with DEBUG true, so the dev
+          # secret need not carry either salt.
           DEBUG: "true"
           JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
           # Home Assistant runs in-cluster (homeassistant.default.svc), so its URL

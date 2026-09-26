@@ -6,6 +6,7 @@ from datetime import date, timedelta
 
 from pydantic import BaseModel, model_validator
 
+from app.common.datetimes import replace_year
 from app.common.enums import FrostTolerance, PlantTrait
 
 # ── Default frost dates (Central Europe) ──────────────────────────────
@@ -158,8 +159,8 @@ class SowingCalendarEngine:
         frost_sensitivity: FrostTolerance | None = None,
     ) -> list[SowingBar]:
         bars: list[SowingBar] = []
-        last_frost = frost_config.last_frost_date.replace(year=year)
-        eisheilige = frost_config.eisheilige_date.replace(year=year)
+        last_frost = replace_year(frost_config.last_frost_date, year)
+        eisheilige = replace_year(frost_config.eisheilige_date, year)
 
         # 1. Indoor sowing (Voranzucht)
         if period.sowing_indoor_weeks_before_last_frost is not None:

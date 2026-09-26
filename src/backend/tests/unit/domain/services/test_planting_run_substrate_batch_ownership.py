@@ -34,7 +34,12 @@ def _service(run_repo: FakeRunRepo, *, resolver=_resolve_batch) -> PlantingRunSe
     engine = MagicMock()
     engine.validate_run_type_constraints.return_value = None
     return PlantingRunService(
-        run_repo, MagicMock(), engine=engine, site_repo=FakeSiteRepo(), substrate_batch_resolver=resolver
+        run_repo,
+        MagicMock(),
+        engine=engine,
+        site_repo=FakeSiteRepo(),
+        substrate_batch_resolver=resolver,
+        species_resolver=lambda key, *, tenant_key: None,
     )
 
 

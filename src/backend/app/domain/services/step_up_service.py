@@ -123,7 +123,7 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
-from app.domain.engines.erasure_engine import ErasureEngine
+from app.common.log_privacy import log_subject
 from app.domain.engines.login_throttle_engine import MAX_ATTEMPTS, LoginThrottleEngine
 from app.domain.engines.oauth_engine import OAuthEngine, supports_fresh_reauth
 from app.domain.engines.password_engine import PasswordEngine
@@ -370,7 +370,7 @@ class StepUpVerifier:
         logger.info(
             "step_up.reauth_token_issued",
             action=action,
-            subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+            subject=log_subject(user_key),
         )
         return token
 
@@ -421,16 +421,14 @@ class StepUpVerifier:
             logger.info(
                 "step_up.code_issue_throttled",
                 action=action,
-                subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+                subject=log_subject(user_key),
                 retry_after_minutes=minutes,
             )
             raise StepUpLockedError(minutes, code_issue=True)
 
         code = f"{secrets.randbelow(10**CODE_DIGITS):0{CODE_DIGITS}d}"
         self._code_store.issue(user_key, _code_digest(self._code_key, user_key, action, code), CODE_TTL_SECONDS)
-        logger.info(
-            "step_up.code_issued", action=action, subject=ErasureEngine.log_subject(user_key, self._tombstone_salt)
-        )
+        logger.info("step_up.code_issued", action=action, subject=log_subject(user_key))
         return code, datetime.now(UTC) + timedelta(seconds=CODE_TTL_SECONDS)
 
     def withdraw_code(self, requester: User) -> None:
@@ -441,7 +439,7 @@ class StepUpVerifier:
         """
         user_key = requester.key or ""
         self._code_store.release_issue(user_key)
-        logger.info("step_up.code_withdrawn", subject=ErasureEngine.log_subject(user_key, self._tombstone_salt))
+        logger.info("step_up.code_withdrawn", subject=log_subject(user_key))
 
     def verify(
         self,
@@ -527,7 +525,7 @@ class StepUpVerifier:
             logger.info(
                 "step_up.failed",
                 action=action,
-                subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+                subject=log_subject(user_key),
                 method=method,
                 pair_attempts=pair_attempts,
                 account_attempts=account_attempts,
@@ -577,7 +575,7 @@ class StepUpVerifier:
         logger.info(
             "step_up.locked",
             action=action,
-            subject=ErasureEngine.log_subject(user_key, self._tombstone_salt),
+            subject=log_subject(user_key),
             retry_after_minutes=minutes,
         )
         raise StepUpLockedError(minutes)

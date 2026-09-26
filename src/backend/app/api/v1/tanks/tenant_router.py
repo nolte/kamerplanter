@@ -337,7 +337,13 @@ def get_latest_fill(
 def get_fill_stats(
     key: Annotated[str, Path(description="Document key of the tank.")],
     start_date: str | None = Query(default=None, description="Inclusive start date (ISO 8601) of the stats window."),
-    end_date: str | None = Query(default=None, description="Inclusive end date (ISO 8601) of the stats window."),
+    end_date: str | None = Query(
+        default=None,
+        description=(
+            "Inclusive end of the stats window (ISO 8601). A date (YYYY-MM-DD) includes every fill on that "
+            "day; a full timestamp includes fills up to and at that instant."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
@@ -383,8 +389,7 @@ def link_feeds_from(
     service: TankService = Depends(get_tank_service),
 ):
     """Link a tank to the source tank it is fed from."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.link_feeds_from(key, body.source_tank_key)
+    service.link_feeds_from(key, body.source_tank_key, tenant_key=ctx.tenant_key)
     return {"status": "linked"}
 
 

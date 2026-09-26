@@ -13,6 +13,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.models.ai_assistant import (
     AiAuditLogEntry,
@@ -93,7 +94,8 @@ class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):
         cutoff = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER DATE_TIMESTAMP(doc.expires_at) != null
+          FILTER doc.expires_at < @cutoff_slack
+            AND DATE_TIMESTAMP(doc.expires_at) != null
             AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
@@ -101,7 +103,11 @@ class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": self._collection_name, "cutoff": cutoff},
+            bind_vars={
+                "@collection": self._collection_name,
+                "cutoff": cutoff,
+                "cutoff_slack": instant_prefilter_bound(cutoff),
+            },
         )
         return next(cursor, 0)
 
@@ -132,7 +138,7 @@ class ArangoAiTipCacheRepository(BaseArangoRepository[AiTipCard]):
           FILTER doc.context_key == @context_key
           FILTER doc.dismissed_at == null
           FILTER doc.valid_until == null OR DATE_TIMESTAMP(doc.valid_until) > DATE_TIMESTAMP(@now)
-          SORT doc.priority ASC, doc.generated_at DESC
+          SORT doc.priority ASC, DATE_TIMESTAMP(doc.generated_at) DESC
           RETURN doc
         """
         cursor = self._db.aql.execute(
@@ -193,7 +199,8 @@ class ArangoAiAuditRepository(BaseArangoRepository[AiAuditLogEntry]):
         """Remove audit entries created before ``cutoff``. Returns count."""
         query = """
         FOR doc IN @@collection
-          FILTER DATE_TIMESTAMP(doc.created_at) != null
+          FILTER doc.created_at < @cutoff_slack
+            AND DATE_TIMESTAMP(doc.created_at) != null
             AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
@@ -201,7 +208,11 @@ class ArangoAiAuditRepository(BaseArangoRepository[AiAuditLogEntry]):
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": self._collection_name, "cutoff": cutoff.isoformat()},
+            bind_vars={
+                "@collection": self._collection_name,
+                "cutoff": cutoff.isoformat(),
+                "cutoff_slack": instant_prefilter_bound(cutoff),
+            },
         )
         return next(cursor, 0)
 

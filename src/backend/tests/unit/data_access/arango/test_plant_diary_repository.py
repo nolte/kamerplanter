@@ -298,7 +298,7 @@ class TestListPendingAnalyses:
         # The index is (tenant_key, analysis_state, analysis_requested_at) — it
         # is only used when tenant_key filters first, by equality.
         assert query.index("doc.tenant_key == @tenant_key") < query.index("doc.analysis_state IN @states")
-        assert "SORT doc.analysis_requested_at ASC" in query
+        assert "SORT DATE_TIMESTAMP(doc.analysis_requested_at) ASC" in query
         assert "LIMIT @limit" in query
         assert bind_vars["states"] == ["requested", "in_progress"]
         assert bind_vars["tenant_key"] == "tenant-a"
@@ -490,7 +490,7 @@ class TestListOverview:
         repo.list_overview("tenant-a")
 
         query, bind_vars = _list_call(mock_db)
-        assert "SORT doc.created_at DESC, doc._key DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC" in query
         assert "LIMIT @offset, @limit" in query
         assert bind_vars["offset"] == 0
         assert bind_vars["limit"] == 50
@@ -501,7 +501,7 @@ class TestListOverview:
         repo.list_overview("tenant-a", DiaryOverviewFilter(sort="analyzed_at"))
 
         query, _bind_vars = _list_call(mock_db)
-        assert "SORT doc.analysis.analyzed_at DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.analysis.analyzed_at) DESC" in query
 
     def test_empty_tenant_key_is_refused(self, repo):
         with pytest.raises(ValueError, match="tenant"):

@@ -1,5 +1,6 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 
@@ -209,8 +210,12 @@ class TaskService:
         recurrence: RecurrenceEngine | None = None,
         notification_propagation: NotificationPropagationService | None = None,
         attachment_repo: IAttachmentRepository | None = None,
+        membership_lookup: Callable[[str, str], Any] | None = None,
     ) -> None:
         self._repo = repo
+        # ``(user_key, tenant_key) -> membership | None`` — decides who a task may
+        # be assigned to (#1871 B9). Without it an assignment is refused.
+        self._membership_lookup = membership_lookup
         # Resolves the `photo_refs` a completion carries (#1339 review). Optional
         # only so the many existing constructions of this service keep working;
         # the DI factory always supplies it, and `_verify_photo_refs` fails
@@ -987,7 +992,22 @@ class TaskService:
         verify_tenant_ownership(task, tenant_key, "Task")
         return task
 
+    def _require_member_assignee(self, user_key: str | None, tenant_key: str) -> None:
+        """Refuse an assignee who is not an active member of the task's tenant (#1871 B9).
+
+        ``assigned_to_user_key`` came from request bodies and was stored as given,
+        and the assignment notified that user — any user of the installation. An
+        unknown user, a non-member and an inactive member answer the same 404.
+        Clearing an assignee (``None``) needs no check.
+        """
+        if not user_key:
+            return
+        membership = self._membership_lookup(user_key, tenant_key) if self._membership_lookup and tenant_key else None
+        if membership is None or not getattr(membership, "is_active", False):
+            raise NotFoundError("User", user_key)
+
     def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
+        self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         created = self._repo.create_task(task)
         self._propagate(lambda p: p.sync_task_due_notification(created, recipient_user_key=actor_user_key))
         if created.assigned_to_user_key:
@@ -1077,9 +1097,11 @@ class TaskService:
         notification to the new member. The ``previous`` snapshot (pre-edit task)
         lets the coupling detect a reassignment.
         """
+        prev_assignee = previous.assigned_to_user_key if previous is not None else None
+        if task.assigned_to_user_key != prev_assignee:
+            self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         updated = self._repo.update_task(key, task)
         self._propagate(lambda p: p.sync_task_due_notification(updated, recipient_user_key=actor_user_key))
-        prev_assignee = previous.assigned_to_user_key if previous is not None else None
         if prev_assignee != updated.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(updated, previous_user_key=prev_assignee))
         return updated
@@ -1510,6 +1532,7 @@ class TaskService:
         for tk in task_keys:
             try:
                 task = self.get_task(tk, tenant_key=tenant_key)
+                self._require_member_assignee(assigned_to_user_key, tenant_key)
                 previous_assignee = task.assigned_to_user_key
                 task.assigned_to_user_key = assigned_to_user_key
                 updated = self._repo.update_task(tk, task)

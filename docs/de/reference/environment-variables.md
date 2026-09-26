@@ -72,11 +72,12 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anonymisierung personenbezogener Daten (siehe [Datenschutz (DSGVO)](../user-guide/privacy.md)) und sind vom Betriebsmodus unabhängig — sie gelten sowohl im Light- als auch im Full-Modus.
 
-<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, log_pseudonym_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours); src/backend/app/main.py (insecure_default_secrets); src/backend/app/tasks/__init__.py (_refuse_worker_start_without_log_pseudonym_salt) -->
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `ERASURE_TOMBSTONE_SALT` | — | Ja | Hochentropisches Geheimnis (mindestens 32 Zeichen) zur Pseudonymisierung gelöschter Nutzerkonten (Tombstone-Hashing, NFR-011 §4). **Der Startup-Gate verweigert den Produktionsstart**, wenn der Wert leer oder kürzer als 32 Zeichen ist — unabhängig vom Betriebsmodus. Erzeugen mit `openssl rand -hex 32`. |
+| `ERASURE_TOMBSTONE_SALT` | — | Ja | Hochentropisches Geheimnis (mindestens 32 Zeichen) zur Pseudonymisierung gelöschter Nutzerkonten (Tombstone-Hash, Löschantrags-Schlüssel und Mandanten-Slug-Digest, NFR-011 §4). Dieser Wert darf **nach der ersten Kontolöschung nie mehr geändert werden**. **Der Startup-Gate verweigert den Produktionsstart**, wenn der Wert leer oder kürzer als 32 Zeichen ist — unabhängig vom Betriebsmodus. Erzeugen mit `openssl rand -hex 32`. |
+| `LOG_PSEUDONYM_SALT` | — | Ja | Hochentropisches Geheimnis (mindestens 32 Zeichen), das ausschließlich die Log-Pseudonyme verschlüsselt: die `subject=`-Referenzen (`sub_…`) und die `email_sha256`-Digests auf Protokollzeilen sowie das Herkunftsfeld `requested_by_subject` von Lösch- und Mandanten-Löschnachweisen (NFR-011 §3.4). Getrennt von `ERASURE_TOMBSTONE_SALT`, weil dieser Wert — anders als der Tombstone-Salt — rotiert werden darf. **Der Startup-Gate verweigert den Produktionsstart** für Backend **und** Celery-Worker, wenn der Wert leer oder kürzer als 32 Zeichen ist — unabhängig vom Betriebsmodus. Erzeugen mit `openssl rand -hex 32`; sollte sich von `ERASURE_TOMBSTONE_SALT` unterscheiden (wird nicht erzwungen). |
 | `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | Nein | Name des datenschutzrechtlich Verantwortlichen, erscheint in Export- und Auskunftsdokumenten. |
 | `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | Nein | Kontakt-E-Mail des Verantwortlichen für DSGVO-Anfragen. |
 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` | `90` | Nein | Frist, nach der ein zur Löschung markiertes (soft-gelöschtes) Konto endgültig (Hard-Delete) entfernt wird (NFR-011 R-01). Minimum: `1`. Älterer Name `PRIVACY_HARD_DELETE_AFTER_DAYS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
@@ -91,10 +92,15 @@ Für `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HO
 dokumentiert, hatten aber keine Wirkung — der Code nutzte feste Werte. Sie funktionieren
 jetzt tatsächlich und bleiben zusätzlich als Alias gültig.
 
-!!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion"
-    Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden. Dasselbe gilt für den Celery-Worker: Er bildet mit diesem Salt die Kontenreferenzen und E-Mail-Digests in seinen Protokollzeilen und beendet sich beim Start, wenn der Salt fehlt. Gib ihm deshalb denselben Wert und dieselbe `DEBUG`-Einstellung wie dem Backend.
+!!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion, darf nie wechseln"
+    Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden. Dieser Salt schlüsselt den Tombstone-Hash gelöschter Konten, den Löschantrags-Schlüssel und den Mandanten-Slug-Digest — **niemals** die Log-Pseudonyme (dafür ist `LOG_PSEUDONYM_SALT` zuständig). Er darf sich nach der ersten Kontolöschung **nie mehr ändern**, sonst werden bestehende Tombstones unlesbar. Auch der Celery-Worker beendet sich beim Start, wenn der Salt fehlt oder zu kurz ist; gib ihm denselben Wert und dieselbe `DEBUG`-Einstellung wie dem Backend.
 
     Mit `DEBUG=true` startet das Backend auch ohne gültigen Wert, etwa im lokalen Entwicklungs-Stack. Die Kontolöschung verweigert dann trotzdem jeden Lauf, bevor sie etwas anfasst: Löscht ein Platform-Admin ein Konto, antwortet das Backend mit `503`. Ein Löschantrag nach Art. 17 wird zwar angenommen, der tägliche Lauf führt ihn aber nicht aus. Der Antrag bleibt als `partially_completed` offen, bis du einen gültigen Salt setzt. Details zu allen unbedingt erforderlichen Secrets: [Konfigurationsmatrix — Pflicht-Secrets je aktivierter Funktion](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+!!! danger "LOG_PSEUDONYM_SALT — Boot-Blocker in Produktion, für Backend und Worker gleich"
+    `LOG_PSEUDONYM_SALT` ist ebenfalls **kein optionales Feature-Flag**: Backend **und** Celery-Worker verweigern in Produktion (`DEBUG=false`) den Start, wenn dieser Wert fehlt oder kürzer als 32 Zeichen ist. Er schlüsselt ausschließlich die Log-Pseudonyme — die `subject=`-Referenz und den `email_sha256`-Digest auf Protokollzeilen sowie das Herkunftsfeld `requested_by_subject` von Lösch- und Mandanten-Löschnachweisen. Gib beiden Prozessen denselben Wert. Mit `DEBUG=true` starten beide auch ohne gültigen Wert; die Konto- und Mandantenlöschung verweigert dann aber jeden Lauf (`503`), weil ihr Nachweis sonst keine Referenz auf das auslösende Konto trüge.
+
+    **Rotation.** Im Gegensatz zu `ERASURE_TOMBSTONE_SALT` darf dieser Salt gewechselt werden: Setze den neuen Wert in Backend und Worker (Kubernetes-Secret `kamerplanter-secrets` bzw. `.env` bei Docker Compose) und starte beide neu. Danach korrelieren Protokollzeilen und `requested_by_subject`-Werte von vor dem Wechsel nicht mehr mit späteren — wer nur den neuen Salt kennt, kann alte Referenzen keinem Konto mehr zuordnen. Auch welches Admin-Konto eine gespeicherte Löschung ausgelöst hat, lässt sich danach nur noch mit dem alten Salt nachrechnen — bewahre ihn gesichert auf, solange der Löschnachweis aufbewahrt wird (ein Jahr), wenn diese Zuordnung prüfbar bleiben soll. Keine Abfrage hängt vom Log-Salt ab, eine Rotation hat also sonst keine Nebenwirkungen. Der Wert sollte sich von `ERASURE_TOMBSTONE_SALT` unterscheiden; das wird nicht erzwungen.
 
 ---
 
@@ -141,30 +147,35 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log, Link nur mit `DEBUG=true`), `smtp`, `resend` (siehe Hinweis unten) |
+| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log, Link nur mit `DEBUG=true`), `smtp` oder `resend`. Ein anderer Wert — etwa ein Tippfehler — wird beim Start abgelehnt: API und Worker starten dann gar nicht erst, statt still auf `console` zurückzufallen. |
 | `SMTP_HOST` | `localhost` | Nein | SMTP-Server-Hostname |
 | `SMTP_PORT` | `587` | Nein | SMTP-Port |
 | `SMTP_USERNAME` | — | Nein | SMTP-Benutzername |
 | `SMTP_PASSWORD` | — | Nein | SMTP-Passwort |
-| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails |
+| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails über SMTP |
 | `SMTP_USE_TLS` | `true` | Nein | STARTTLS für SMTP aktivieren |
+| `RESEND_API_KEY` | — | Bedingt | API-Schlüssel für den Versand über [Resend](https://resend.com) (Secret). **Pflicht, wenn `EMAIL_ADAPTER=resend` gesetzt ist** — ohne ihn lehnt die Anwendung den Start ab. Trage ihn über das Kubernetes-Secret `kamerplanter-secrets` bzw. deine `.env`-Datei ein, niemals über eine Helm-`values`-Datei. |
+| `RESEND_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails über Resend. Die Domain dieser Adresse muss im Resend-Konto verifiziert sein, sonst schlägt der Versand fehl. |
 
 Im Entwicklungsmodus (`EMAIL_ADAPTER=console`) werden E-Mails nicht gesendet, sondern im
 Backend-Log ausgegeben. Den Bestätigungs- oder Passwort-Reset-Link enthält diese
 Protokollzeile aber nur, wenn zusätzlich `DEBUG=true` gesetzt ist — sein Token übernimmt
 sonst das Konto. Ohne `DEBUG=true` steht dort lediglich, dass keine E-Mail zugestellt
 wurde, ohne Token. Startet die API mit `EMAIL_ADAPTER=console` und `DEBUG=false` — der
-Fall bei einer produktiven Installation ohne SMTP-Konfiguration, da das Helm-Chart
-standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins Log
-(`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann nur
-`EMAIL_ADAPTER=smtp` zu konfigurieren, sonst lassen sich Registrierung und
-Passwort-Reset nicht abschließen.
+Fall bei einer produktiven Installation ohne SMTP- oder Resend-Konfiguration, da das
+Helm-Chart standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins
+Log (`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann
+`EMAIL_ADAPTER=smtp` oder `EMAIL_ADAPTER=resend` zu konfigurieren, sonst lassen sich
+Registrierung und Passwort-Reset nicht abschließen.
 
-!!! note "Der Wert `resend` hat noch keine eigene Anbindung"
-    `EMAIL_ADAPTER=resend` wird als Konfigurationswert akzeptiert, aber aktuell ohne
-    eigenen Adapter verdrahtet: Das Backend verhält sich dabei wie `console` — keine
-    E-Mail wird versendet, es gibt nur die Log-Zeile wie oben beschrieben. Das ist eine
-    bekannte, intern verfolgte Lücke und keine unterstützte Betriebsart. <!-- #1821 -->
+!!! info "Resend: gehostete E-Mail-Zustellung über eine HTTP-API"
+    `EMAIL_ADAPTER=resend` verschickt dieselben System-E-Mails (E-Mail-Bestätigung,
+    Passwort-Reset, Bestätigungscode für erneute Anmeldung, Benachrichtigungs-E-Mails)
+    wie der SMTP-Adapter, aber über die HTTP-API von Resend statt über eine
+    SMTP-Verbindung. In den Logs erscheint die Empfängeradresse dabei nur als
+    gesalzener Digest, niemals im Klartext; schlägt ein Versand fehl, protokolliert die
+    Anwendung nur den Fehlertyp und den HTTP-Status, nie den Antworttext oder den
+    API-Schlüssel. Jeder Versandversuch hat ein Zeitlimit von 10 Sekunden. <!-- #1821 -->
 
 !!! note "Wird auch vom Benachrichtigungssystem genutzt"
     Diese Variablen konfigurieren zugleich den E-Mail-Kanal des [Benachrichtigungssystems](../user-guide/notifications.md#e-mail) — es gibt keine separate SMTP-Konfiguration für Benachrichtigungen.
@@ -701,10 +712,11 @@ ARANGODB_PASSWORD=sicheres-root-passwort
 # Cache / Queue
 REDIS_URL=redis://valkey:6379/0
 
-# Sicherheit (alle drei sind Pflicht-Secrets, Startup-Gate in Produktion)
+# Sicherheit (alle vier sind Pflicht-Secrets, Startup-Gate in Produktion)
 JWT_SECRET_KEY=erzeugen-mit-openssl-rand-hex-32
 FERNET_KEY=erzeugen-mit-Fernet.generate_key
 ERASURE_TOMBSTONE_SALT=erzeugen-mit-openssl-rand-hex-32
+LOG_PSEUDONYM_SALT=erzeugen-mit-openssl-rand-hex-32
 REQUIRE_EMAIL_VERIFICATION=false
 
 # CORS

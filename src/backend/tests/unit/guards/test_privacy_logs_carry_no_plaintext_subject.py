@@ -65,6 +65,19 @@ spelling the other catches:
   3 sites (``app_error_handler``, ``OnboardingService._create_plants``,
   ``cleanup_unverified_accounts``), all fixed.
 
+* **a local built from one** (#1830): within one function (or the module body),
+  ``name = <expr>`` whose right-hand side references a subject identifier — also
+  as a call argument or receiver (``self._build_dedup_key(user_key, …)``), in an
+  f-string, a ``+`` or a subscript — taints ``name``, to a fixpoint, unless the
+  call is a redaction (``log_subject``, ``email_digest``, ``loggable_error``, …).
+  A tainted local handed to the logger bare, in ``a or b``, a conditional or an
+  f-string is a finding. Measured when added: 3 sites (the dedup key, fixed; two
+  subject-free results, allow-listed);
+* **composite keys** (#1830): a ``dedup_key``/``group_key`` keyword must be a call
+  or a literal — the notification dedup and group keys embed the account key by
+  construction, whichever parameter carries them. Measured when added: 5 sites
+  (4 fixed, the site-built frost-forecast key allow-listed).
+
 **What the selector derives**: every tracked ``*.py`` under ``app/`` and ``scripts/``
 (the operator scripts log too — ``scripts/storage/migrate.py`` walks every object key,
 export bundles included) (#1781). Until
@@ -82,8 +95,11 @@ different line. Every entry must name a live site (``test_allowlist_entries_stil
 
 **Spellings this guard cannot see** (named so nobody reads green as more than it is):
 
-* a value laundered through a neutral local first (``who = user.key`` then
-  ``who=who``) — the AST has no data flow here;
+* a value laundered across a function boundary — a parameter the caller filled
+  with a key-bearing value, logged under a neutral keyword (only the composite-key
+  keywords above are caught whatever carries them) — and through a tuple
+  unpacking, a ``for`` target, a ``with … as``, an augmented assignment or a
+  container;
 * ``**fields`` splats and ``extra={...}`` dicts built elsewhere;
 * an exception text reaching the logger in any other spelling than ``str(<name>)`` /
   ``repr(<name>)`` / ``<name>.message`` — ``str(exc.args[0])``, ``f"{exc}"``,
@@ -150,6 +166,12 @@ _TEXT_CONVERSIONS = {"str", "repr"}
 #: A keyword that names a client/peer IP address (#1781): ``ip``, ``ip_address``,
 #: ``client_ip``, ``remote_addr`` and any ``*_ip``.
 _IP_KEYWORD = re.compile(r"(^|_)(ip|ip_address|remote_addr)$")
+#: Composite keys that embed the account key by construction (#1830): the Redis
+#: notification dedup key (``notif:dedup:<user_key>:…``) and the notification
+#: group keys (``care:<user_key>:…``, ``daily_summary:<user_key>:…``). Such a
+#: keyword must be a call (a redaction) or a literal — whatever local or
+#: parameter carries the value.
+_COMPOSITE_KEY_KEYWORD = re.compile(r"(^|_)(dedup_key|group_key)$")
 
 _REDIS_OUTAGE = "a Redis client error names host/port or the command, and the key is a digest — no subject"
 _PIL_DECODE = "a Pillow decode error describes the bytes (format, truncation), never who uploaded them"
@@ -187,6 +209,20 @@ _ALLOWED: dict[str, str] = {
     "app/domain/engines/storage/exif_stripper.py::strip_exif::reason": _PIL_DECODE,
     "app/migrations/versions/v0051_rename_cec_key.py::RenameCecKeyMigration._write::error": _FROZEN_MIGRATION,
     "app/domain/engines/storage/thumbnail_generator.py::metadata_keys::reason": _PIL_DECODE,
+    "app/domain/services/notification_service.py::NotificationService.send_frost_forecast_notifications::group_key": (
+        "the frost-forecast group key is built from the site and the forecast date "
+        "(frost-forecast:<site_key>:<date>), never from an account key (#1830 triage)"
+    ),
+    "app/domain/services/privacy_service.py::PrivacyService.erase_account_by_admin::step_up": (
+        "StepUpVerifier.verify returns only how the step-up was confirmed ('password'/'email_code'); the taint "
+        "comes from echo_matches(..., target.email) among its arguments, not from the returned label (#1830 triage)"
+    ),
+    "app/domain/services/privacy_service.py::PrivacyService._run_export_file_cleanup::closed": (
+        "fail_open_for_user(user_key, ...) returns the number of exports it closed, an int (#1830 triage)"
+    ),
+    "app/domain/engines/notification_engine.py::NotificationEngine.prune_expired_subscriptions::pruned": (
+        "remove_subscriptions(user_key, ...) returns how many subscriptions it removed, an int (#1827)"
+    ),
     "app/tasks/auth_tasks.py::dispatch_duplicate_registration_notice::error": (
         "a broker error names the broker connection; the task argument is an opaque key, not in the text"
     ),
@@ -266,30 +302,142 @@ def _is_raw_storage_key(keyword: str, value: ast.expr, *, storage_module: bool) 
     return names_a_key and not isinstance(value, ast.Call | ast.Constant)
 
 
+#: Calls that reduce a subject identifier to something loggable (#1830): a local
+#: assigned from one of these is not tainted by the identifier it was given.
+_SUBJECT_REDACTIONS = {
+    "log_subject",
+    "email_digest",
+    "loggable_error",
+    "loggable_error_text",
+    "_loggable_error",
+    "loggable_storage_key",
+    "loggable_ip",
+    "len",
+    "bool",
+}
+
+
+def _call_name(func: ast.expr) -> str:
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def _subject_reference(value: ast.expr, tainted: set[str]) -> str | None:
+    """The subject identifier (or tainted local) *value* is built from, if any (#1830).
+
+    Wider than :func:`_raw_identifier`: it also looks into the arguments and the
+    receiver of a call that is not a redaction (``self._build_dedup_key(user_key, …)``),
+    a ``+`` concatenation and a subscript — the ways a key is folded into another
+    value before it is logged under a neutral name.
+    """
+    if hit := _raw_identifier(value):
+        return hit
+    if isinstance(value, ast.Name):
+        return value.id if value.id in tainted else None
+    if isinstance(value, ast.Call):
+        if _call_name(value.func) in _SUBJECT_REDACTIONS:
+            return None
+        parts: list[ast.expr] = [*value.args, *(kw.value for kw in value.keywords)]
+        if isinstance(value.func, ast.Attribute):
+            parts.append(value.func.value)
+        return next((hit for part in parts if (hit := _subject_reference(part, tainted))), None)
+    if isinstance(value, ast.BoolOp):
+        return next((hit for part in value.values if (hit := _subject_reference(part, tainted))), None)
+    if isinstance(value, ast.IfExp):
+        return _subject_reference(value.body, tainted) or _subject_reference(value.orelse, tainted)
+    if isinstance(value, ast.BinOp):
+        return _subject_reference(value.left, tainted) or _subject_reference(value.right, tainted)
+    if isinstance(value, ast.JoinedStr):
+        parts = [p.value for p in value.values if isinstance(p, ast.FormattedValue)]
+        return next((hit for part in parts if (hit := _subject_reference(part, tainted))), None)
+    if isinstance(value, ast.Subscript | ast.Starred):
+        return _subject_reference(value.value, tainted)
+    return None
+
+
+def _tainted_reference(value: ast.expr, tainted: set[str]) -> str | None:
+    """A tainted local handed to the logger as-is: bare, in ``a or b``, a conditional or an f-string."""
+    if isinstance(value, ast.Name):
+        return value.id if value.id in tainted else None
+    if isinstance(value, ast.BoolOp):
+        return next((hit for part in value.values if (hit := _tainted_reference(part, tainted))), None)
+    if isinstance(value, ast.IfExp):
+        return _tainted_reference(value.body, tainted) or _tainted_reference(value.orelse, tainted)
+    if isinstance(value, ast.JoinedStr):
+        parts = [p.value for p in value.values if isinstance(p, ast.FormattedValue)]
+        return next((hit for part in parts if (hit := _tainted_reference(part, tainted))), None)
+    return None
+
+
+def _own_statements(body: list[ast.stmt]) -> list[ast.AST]:
+    """Every node of *body* that belongs to this scope — nested functions and classes excluded."""
+    nodes: list[ast.AST] = []
+    stack: list[ast.AST] = list(body)
+    while stack:
+        node = stack.pop()
+        nodes.append(node)
+        for child in ast.iter_child_nodes(node):
+            if not isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
+                stack.append(child)
+    return nodes
+
+
+def _tainted_locals(body: list[ast.stmt]) -> set[str]:
+    """Locals assigned (directly or transitively) from a subject identifier in this scope — a fixpoint (#1830)."""
+    assignments: list[tuple[str, ast.expr]] = []
+    for node in _own_statements(body):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            assignments.append((node.targets[0].id, node.value))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+            assignments.append((node.target.id, node.value))
+    tainted: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for name, rhs in assignments:
+            if name not in tainted and _subject_reference(rhs, tainted):
+                tainted.add(name)
+                changed = True
+    return tainted
+
+
 class _LogCallVisitor(ast.NodeVisitor):
-    """Walks one module, tracking the enclosing function of every log call."""
+    """Walks one module, tracking the enclosing function of every log call and its tainted locals."""
 
     def __init__(self, rel: str, allowed: dict[str, str]) -> None:
         self.rel = rel
         self.allowed = allowed
         self.storage_module = "/storage/" in rel
         self.scope: list[str] = []
+        self.taint: list[set[str]] = []
         self.findings: list[str] = []
         self.sites: set[str] = set()
 
-    def _enter(self, node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def visit_Module(self, node: ast.Module) -> None:
+        self.taint.append(_tainted_locals(node.body))
+        self.generic_visit(node)
+        self.taint.pop()
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.scope.append(node.name)
         self.generic_visit(node)
         self.scope.pop()
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        self._enter(node)
+    def _enter_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self.scope.append(node.name)
+        self.taint.append(_tainted_locals(node.body))
+        self.generic_visit(node)
+        self.taint.pop()
+        self.scope.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        self._enter(node)
+        self._enter_function(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._enter(node)
+        self._enter_function(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         if _is_log_call(node):
@@ -299,9 +447,12 @@ class _LogCallVisitor(ast.NodeVisitor):
     def _check(self, node: ast.Call) -> None:
         enclosing = ".".join(self.scope) or "<module>"
         where = f"{self.rel}:{node.lineno} ({enclosing})"
+        tainted = self.taint[-1] if self.taint else set()
         for arg in node.args:
             if hit := _raw_identifier(arg):
                 self.findings.append(f"{where}: positional {hit}")
+            elif hit := _tainted_reference(arg, tainted):
+                self.findings.append(f"{where}: positional {hit} (a local built from a subject identifier)")
             elif hit := _raw_exception_text(arg) or _raw_error_message(arg):
                 self.findings.append(f"{where}: positional {hit} (unredacted exception text)")
         for kw in node.keywords:
@@ -315,6 +466,10 @@ class _LogCallVisitor(ast.NodeVisitor):
                 self.findings.append(f"{where}: {kw.arg}= (keyword names a subject identifier)")
             elif hit := _raw_identifier(kw.value):
                 self.findings.append(f"{where}: {kw.arg}={hit} (value is a subject identifier)")
+            elif hit := _tainted_reference(kw.value, tainted):
+                self.findings.append(f"{where}: {kw.arg}={hit} (a local built from a subject identifier, #1830)")
+            elif _COMPOSITE_KEY_KEYWORD.search(kw.arg) and not isinstance(kw.value, ast.Call | ast.Constant):
+                self.findings.append(f"{where}: {kw.arg}= (a composite key that embeds the account key, #1830)")
             elif _is_raw_ip(kw.arg, kw.value):
                 self.findings.append(f"{where}: {kw.arg}= (raw IP address; log ip_prefix=loggable_ip(...))")
             elif _is_raw_storage_key(kw.arg, kw.value, storage_module=self.storage_module):
@@ -463,6 +618,15 @@ _STORAGE = "app/data_access/storage/probe_adapter.py"
         (_SERVICE, "logger.warning('e', reason=loggable_error(exc.message))", False),
         (_SERVICE, "logger.warning('e', error_code=exc.error_code)", False),
         (_SERVICE, "logger.warning('e', message_count=len(messages))", False),
+        (_SERVICE, "k = self._build_dedup_key(user_key, t, g)\nlog.info('dedup', dedup_key=k)", True),
+        (_SERVICE, "k = self._build_dedup_key(user_key, t, g)\nlog.info('dedup', key=k)", True),
+        (_SERVICE, "k = f'care:{user_key}:x'\nkk = k + ':y'\nlogger.info('e', key=f'{kk}')", True),
+        (_SERVICE, "k = f'care:{user.key}'\nlogger.info('e %s', k)", True),
+        (_SERVICE, "k = log_subject(user_key)\nlogger.info('e', who=k)", False),
+        (_SERVICE, "n = repo.count(user_key)\nlogger.info('e', n_count=len(items))", False),
+        (_SERVICE, "logger.warning('e', group_key=group_key)", True),
+        (_SERVICE, "logger.warning('e', dedup_key=self._key)", True),
+        (_SERVICE, "logger.warning('e', group_kind=_group_kind(group_key))", False),
         ("app/data_access/external/smtp_email_adapter.py", "logger.info('email_sent', to=to_email)", True),
         (
             "app/data_access/external/smtp_email_adapter.py",

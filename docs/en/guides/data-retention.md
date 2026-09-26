@@ -306,21 +306,28 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
 ??? info "For operators: the `subject=` field in log lines"
     Log lines carry a `subject=` field instead of an account key or email address. It holds a salted,
     purpose-separated reference (`sub_` followed by 16 hex characters, an HMAC of the
-    account key keyed with `ERASURE_TOMBSTONE_SALT`). The lines of one account stay
+    account key keyed with `LOG_PSEUDONYM_SALT`). The lines of one account stay
     correlatable with each other without naming anyone. The reference is deliberately
     **not** the tombstone hash (`anon_…`) that the erasure audit and the anonymised
-    harvest and treatment records keep: someone holding only the logs cannot join them
+    harvest and treatment records keep and that is still keyed with
+    `ERASURE_TOMBSTONE_SALT`: someone holding only the logs cannot join them
     to those retained records. If the salt is missing or too short, the line carries the
     constant `anon_unavailable` instead — never the account key in the clear.
 
     Registration and email events additionally log fields such as `email_sha256` — a
-    keyed digest of the email address (an HMAC with `ERASURE_TOMBSTONE_SALT`, 16 hex
+    keyed digest of the email address (an HMAC with `LOG_PSEUDONYM_SALT`, 16 hex
     characters), never the address itself. A plain SHA-256 could be reversed with a
     list of addresses; the keyed digest cannot without the salt. Without a valid salt
     the field reads `unavailable`. Object-storage log
     lines (`storage_put_object`, `storage_delete_object`, and similar) mask the account
     segment of export-bundle keys: `privacy/exports/<account key>/<export>.json` becomes
     `privacy/exports/<subject>/<export>.json`.
+
+    `LOG_PSEUDONYM_SALT` keys only these log references (and the `requested_by_subject`
+    provenance field on erasure and tenant-erasure records) — separate from
+    `ERASURE_TOMBSTONE_SALT`, which must never change. An operator may rotate the log
+    salt (set the new value in both the backend and the Celery worker, restart both):
+    log lines from before the rotation no longer correlate with later ones.
 
     Error texts in these lines (`error=`) are cleaned the same way: the account key is
     replaced by the reference, and export-bundle paths are masked. Where an error text can

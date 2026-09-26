@@ -24,7 +24,7 @@ positional, that *references*:
 * **a secret-named name or attribute** (:data:`_SECRET_NAME`): ``token`` and any
   ``*_token``, ``api_key``/``*_api_key``/``apikey``, ``secret``/``*_secret``/
   ``secret_key``/``private_key``, ``password``/``*_password``/``passwd``,
-  ``authorization``, ``cookie`` — also inside an f-string, ``a or b``,
+  ``authorization``, ``cookie``, ``salt``/``*_salt`` (#1812) — also inside an f-string, ``a or b``,
   ``a if c else b``, a ``+`` concatenation, a subscript (``token[:8]`` is still
   part of the secret) and the arguments or receiver of any call that is not a
   redaction (``str(token)``, ``token.strip()``);
@@ -55,9 +55,10 @@ if the ``settings.debug`` gate were removed.
 
 **Spellings this guard cannot see** (named so nobody reads green as more than it is):
 
-* a secret under a name outside :data:`_SECRET_NAME` — ``raw_key`` (the freshly
-  minted API key in ``AuthService.create_api_key``; ``*_key`` is too broad to
-  add: ``user_key``, ``tenant_key``), ``dsn``, ``url`` of a DSN — and a neutral
+* a secret under a name outside :data:`_SECRET_NAME` — ``*_key`` is too broad
+  to add (``user_key``, ``tenant_key``), so only ``raw_key`` (the freshly minted
+  API key in ``AuthService.create_api_key``, #1828) is in it; ``dsn``, ``url`` of
+  a DSN, a ``plain``/``minted`` API key under another name — and a neutral
   name that never touched a secret-named one in the same function — a parameter
   ``value`` the caller filled with a token, a dict value (``creds["x"]``), an
   attribute of a neutral object (``cfg.value``);
@@ -93,7 +94,7 @@ from tests.unit.guards.test_privacy_logs_carry_no_plaintext_subject import (
 
 #: A name or attribute that holds a secret.
 _SECRET_NAME = re.compile(
-    r"(^|_)(token|api_key|apikey|secret|secret_key|private_key|password|passwd|authorization|cookie|step_up_code)$",
+    r"(^|_)(token|api_key|apikey|raw_key|secret|secret_key|private_key|password|passwd|authorization|cookie|step_up_code|salt)$",
     re.IGNORECASE,
 )
 #: A keyword whose name states that its value is not the secret itself.
@@ -421,6 +422,14 @@ def _in_function(body: str) -> str:
     [
         # by value, direct
         ("logger.info('e', token=token)", True),
+        # #1828: the minted API key and a prefix of it
+        ("key_prefix = raw_key[:8]\nlogger.info('e', prefix=key_prefix)", True),
+        ("logger.info('e', key=raw_key)", True),
+        ("logger.info('e', api_key_id=created.key)", False),
+        # #1812 review SEC-005: the pseudonym salts are secrets too
+        ("logger.info('e', value=settings.log_pseudonym_salt)", True),
+        ("logger.info('e', key=self._tombstone_salt)", True),
+        ("logger.info('e', salt_configured=bool(settings.log_pseudonym_salt))", False),
         ("logger.info('e', value=token)", True),
         ("logger.info('e', key=settings.perenual_api_key)", True),
         ("logger.info('e', key=settings.openweathermap_apikey)", True),
