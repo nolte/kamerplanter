@@ -203,7 +203,9 @@ def _privacy_service(database) -> PrivacyService:
 def _admin_delete(database, subject: str) -> None:
     admin_router.delete_user(
         subject,
-        **admin_erasure_route_args(_privacy_service(database), admin_key=ADMIN, target_email=f"{subject}@example.com"),
+        **admin_erasure_route_args(
+            _privacy_service(database), admin_key=ADMIN, target_key=subject, target_email=f"{subject}@example.com"
+        ),
     )
 
 

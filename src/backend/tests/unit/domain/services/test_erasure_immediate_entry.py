@@ -132,9 +132,16 @@ def _admin_request(service: PrivacyService, recorder: _Recorder) -> dict:
         }
     )
     admin = User.model_validate({"_key": "admin-1", "email": "admin@example.org", "display_name": "A"})
-    code, _expires_at = service._step_up_verifier.issue_code(
-        admin, action="admin_account_erasure", authenticated_with_api_key=False, client_ip="203.0.113.1"
-    )
+    from tests.support.step_up import admitting_every_target
+
+    with admitting_every_target(service._step_up_verifier) as verifier:
+        code, _expires_at = verifier.issue_code(
+            admin,
+            action="admin_account_erasure",
+            target=USER,
+            authenticated_with_api_key=False,
+            client_ip="203.0.113.1",
+        )
     return {
         "body": ErasureCreateRequest(confirm_email=f"{USER}@example.org", step_up_code=code),
         "current_user": admin,

@@ -1,13 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.enums import OidcProviderType
 from app.domain.models.oidc_config import ProviderScopeCheck, ProviderTypeCheck
 
 
-class OidcProviderCreateRequest(BaseModel):
+class OidcProviderCreateRequest(CredentialStepUp):
     """Body of ``POST /admin/oidc-providers``.
+
+    Carries the requesting admin's own step-up (#1883) — ``current_password``, or
+    ``step_up_token`` / ``step_up_code`` obtained for the act ``oidc_provider_change``
+    with the target ``new:<slug>``. Never written to the configuration.
 
     ``provider_type`` is a closed vocabulary here, not on the domain model
     (#1497): the engine dispatches on the exact spelling, so ``GitHub`` used to be
@@ -34,8 +39,11 @@ class OidcProviderCreateRequest(BaseModel):
     default_tenant_key: str | None = None
 
 
-class OidcProviderUpdateRequest(BaseModel):
+class OidcProviderUpdateRequest(CredentialStepUp):
     """Body of ``PUT /admin/oidc-providers/{key}``.
+
+    The step-up fields (#1883, target: the configuration's key) are needed unless the
+    update changes only ``display_name``, ``icon_url`` or switches the provider off.
 
     The vocabulary matters more here than on create: the router writes the body
     fields onto the loaded model with ``setattr``, and pydantic does not validate
@@ -56,6 +64,14 @@ class OidcProviderUpdateRequest(BaseModel):
     enabled: bool | None = None
     icon_url: str | None = None
     default_tenant_key: str | None = None
+
+
+class OidcProviderDeleteRequest(CredentialStepUp):
+    """Body of ``DELETE /admin/oidc-providers/{key}``: the admin's step-up (#1883, target: the key)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"current_password": "<your current password>"}, {"step_up_code": "04829175"}]}
+    )
 
 
 class OidcProviderResponse(BaseModel):

@@ -133,17 +133,22 @@ def test_the_di_provider_wires_the_shared_code_tier(monkeypatch: pytest.MonkeyPa
     from app.data_access.external.step_up_code_store import RedisStepUpCodeStore
     from app.data_access.external.step_up_throttle import RedisStepUpThrottleStore
     from app.domain.services.step_up_service import FederatedReauthPolicy
+    from app.domain.services.step_up_targets import StepUpTargetAuthorizer
 
     # The re-authentication policy reads provider links and configurations (#1815);
     # a unit test must not open ArangoDB for them.
     monkeypatch.setattr(dependencies, "get_auth_provider_repo", MagicMock)
     monkeypatch.setattr(dependencies, "get_oidc_config_repo", MagicMock)
+    # So does the target policy (#1884): accounts, memberships, tenants, open erasures.
+    for provider in ("get_user_repo", "get_membership_repo", "get_tenant_repo", "get_tenant_erasure_repo"):
+        monkeypatch.setattr(dependencies, provider, MagicMock)
 
     verifier = dependencies.get_step_up_verifier()
 
     assert isinstance(verifier._reauth_store, RedisStepUpCodeStore)
     assert verifier._reauth_store._code_prefix == "kp:auth:stepup:reauth:"
     assert isinstance(verifier._reauth_policy, FederatedReauthPolicy)
+    assert isinstance(verifier._target_policy, StepUpTargetAuthorizer)
     assert isinstance(verifier._code_store, RedisStepUpCodeStore)
     assert isinstance(verifier._store, RedisStepUpThrottleStore)
 

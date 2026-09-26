@@ -29,6 +29,7 @@ from app.common.auth import (
 )
 from app.common.dependencies import get_auth_service, get_privacy_service, get_user_service
 from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
     FORBIDDEN_RESPONSE,
     NOT_FOUND_RESPONSE,
     STEP_UP_CODE_UNDELIVERABLE_RESPONSE,
@@ -167,6 +168,8 @@ def change_password(
     status_code=202,
     responses={
         **FORBIDDEN_RESPONSE,
+        **NOT_FOUND_RESPONSE,
+        **CONFLICT_RESPONSE,
         **STEP_UP_RESPONSES,
         **STEP_UP_CODE_VALIDATION_RESPONSE,
         **STEP_UP_CODE_UNDELIVERABLE_RESPONSE,
@@ -195,9 +198,15 @@ def send_step_up_code(
     and hour (review SEC-002). It is only ever mailed to the account's own address,
     never returned here.
 
+    **Target (#1884).** An act on something other than the requester's own account
+    names it as ``target`` (see the field); the code confirms that target only, and
+    is mailed only when the target exists and the requester may act on it.
+
     Answers: 202 mailed; 403 a request authenticated with an API key or a service
-    account; 422 the account has a local password and confirms with it, or the act
-    is missing/unknown; 429 ``STEP_UP_LOCKED`` (``details[0].retry_after_minutes``)
+    account, or a target the requester may not act on; 404 the target does not
+    exist; 422 the account has a local password and confirms with it, the act is
+    missing/unknown, or ``target`` is missing for a targeted act or given for
+    another; 429 ``STEP_UP_LOCKED`` (``details[0].retry_after_minutes``)
     while too many failed confirmations hold the step-up, an unspent code is younger
     than a minute, or the account's hourly code budget is spent — and a plain 429
     when the per-address budget ``settings.rate_limit_auth`` is spent; 503
@@ -210,6 +219,7 @@ def send_step_up_code(
     expires_at = auth_service.send_step_up_code(
         current_user.key or "",
         action=body.action,
+        target=body.target,
         authenticated_with_api_key=via_api_key,
         client_ip=client_ip,
     )
@@ -222,7 +232,13 @@ def send_step_up_code(
 @router.post(
     "/me/step-up/oidc",
     response_model=StepUpReauthStart,
-    responses={**FORBIDDEN_RESPONSE, **STEP_UP_RESPONSES, **STEP_UP_REAUTH_VALIDATION_RESPONSE},
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **NOT_FOUND_RESPONSE,
+        **CONFLICT_RESPONSE,
+        **STEP_UP_RESPONSES,
+        **STEP_UP_REAUTH_VALIDATION_RESPONSE,
+    },
     dependencies=[Depends(refuse_in_light_mode)],
 )
 @limiter.limit(settings.rate_limit_auth)
@@ -246,10 +262,15 @@ def start_step_up_reauth(
     ``step_up_stale`` (the sign-in was older than five minutes) or
     ``step_up_cancelled``. The act's body then carries the token as ``step_up_token``.
 
-    Answers: 200 the URL; 403 an API-key request, a service account, or light mode;
-    422 the account has a local password, no linked provider (or not
-    ``provider_key``) supports a fresh sign-in — it confirms with the e-mailed code —
-    or the act is unknown; 429 ``STEP_UP_LOCKED`` while the step-up is locked.
+    The token is bound to the act's ``target`` (#1884) the same way the mailed code
+    is; the target is checked here, before the browser leaves.
+
+    Answers: 200 the URL; 403 an API-key request, a service account, light mode, or
+    a target the requester may not act on; 404 the target does not exist; 422 the
+    account has a local password, no linked provider (or not ``provider_key``)
+    supports a fresh sign-in — it confirms with the e-mailed code — the act is
+    unknown, or ``target`` is missing for a targeted act or given for another; 429
+    ``STEP_UP_LOCKED`` while the step-up is locked.
 
     ``request`` is required by the rate-limit decorator. The callback URL is built
     from ``settings.app_base_url``, never from the request's Host header.
@@ -257,6 +278,7 @@ def start_step_up_reauth(
     url = auth_service.start_step_up_reauth(
         current_user.key or "",
         action=body.action,
+        target=body.target,
         provider_key=body.provider_key,
         client_nonce=body.client_nonce,
         # The public base URL, not ``request.base_url`` (review SEC-002): the Host

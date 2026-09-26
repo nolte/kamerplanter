@@ -30,7 +30,7 @@ from app.data_access.external.step_up_throttle import MemoryStepUpThrottleStore
 from app.domain.engines.login_throttle_engine import MAX_ATTEMPTS
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.models.user import User
-from app.domain.services.step_up_service import ACCOUNT_CEILING, StepUpVerifier, echo_matches
+from app.domain.services.step_up_service import ACCOUNT_CEILING, TARGETED_ACTIONS, StepUpVerifier, echo_matches
 
 PASSWORD = "correct horse battery staple"
 HASH = PasswordEngine().hash_password(PASSWORD)
@@ -57,6 +57,7 @@ def _verify(verifier: StepUpVerifier, user: User, password: str | None, *, ip: s
     return verifier.verify(
         user,
         action="account_erasure",
+        target=None,
         echo_ok=kw.get("echo_ok", True),
         password=password,
         code=kw.get("code"),
@@ -302,7 +303,7 @@ def _federated(**overrides) -> User:
 def _code_verifier(clock: _Clock | None = None) -> tuple[StepUpVerifier, MemoryStepUpCodeStore]:
     codes = MemoryStepUpCodeStore(clock=clock) if clock else MemoryStepUpCodeStore()
     throttle = MemoryStepUpThrottleStore(clock=clock) if clock else MemoryStepUpThrottleStore()
-    return StepUpVerifier(throttle, code_store=codes), codes
+    return StepUpVerifier(throttle, code_store=codes, target_policy=_AnyTarget()), codes
 
 
 def _issue(
@@ -313,8 +314,22 @@ def _issue(
     ip: str = "203.0.113.1",
     action: str = "account_erasure",
 ) -> str:
-    code, _expires_at = verifier.issue_code(user, action=action, authenticated_with_api_key=api_key, client_ip=ip)
+    code, _expires_at = verifier.issue_code(
+        user, action=action, target=_target_of(action), authenticated_with_api_key=api_key, client_ip=ip
+    )
     return code
+
+
+class _AnyTarget:
+    """A target policy that admits every target — the rules themselves are pinned in test_step_up_target_binding.py."""
+
+    def authorize(self, requester: User, *, action: str, target: str) -> None:
+        return None
+
+
+def _target_of(action: str) -> str | None:
+    """The target a test names for *action*: one for an act on something else (#1884), none otherwise."""
+    return "target-1" if action in TARGETED_ACTIONS else None
 
 
 def _other_code(code: str) -> str:
@@ -328,7 +343,7 @@ def test_an_issued_code_is_eight_digits_and_expires_in_ten_minutes() -> None:
     before = datetime.now(UTC)
 
     code, expires_at = verifier.issue_code(
-        _federated(), action="account_erasure", authenticated_with_api_key=False, client_ip="203.0.113.1"
+        _federated(), action="account_erasure", target=None, authenticated_with_api_key=False, client_ip="203.0.113.1"
     )
 
     assert len(code) == 8 and code.isdigit()
@@ -363,6 +378,7 @@ def test_a_code_confirms_the_password_change_of_a_federated_account() -> None:
     method = verifier.verify(
         user,
         action="password_change",
+        target=None,
         echo_ok=None,
         password=None,
         code=code,
@@ -381,6 +397,7 @@ def test_the_password_change_of_a_federated_account_without_a_code_is_refused() 
         verifier.verify(
             _federated(),
             action="password_change",
+            target=None,
             echo_ok=None,
             password=None,
             code=None,
@@ -574,6 +591,7 @@ def test_a_code_confirms_only_the_act_it_was_issued_for(issued_for: str, present
         verifier.verify(
             user,
             action=presented_to,
+            target=_target_of(presented_to),
             echo_ok=None,
             password=None,
             code=code,
@@ -586,6 +604,7 @@ def test_a_code_confirms_only_the_act_it_was_issued_for(issued_for: str, present
         verifier.verify(
             user,
             action=issued_for,
+            target=_target_of(issued_for),
             echo_ok=None,
             password=None,
             code=code,

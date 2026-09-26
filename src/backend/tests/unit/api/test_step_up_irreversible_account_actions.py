@@ -69,6 +69,8 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.privacy_service import PrivacyService
+from app.domain.services.step_up_service import default_step_up_verifier
+from app.domain.services.step_up_targets import StepUpTargetAuthorizer
 from app.domain.services.user_service import UserService
 from tests.support.privacy_doubles import FakeErasureRepo, FakePersonalTenants
 from tests.support.tenant_erasure_doubles import (
@@ -148,6 +150,9 @@ class _Memberships:
 
     def get_user_memberships(self, user_key: str) -> list[Membership]:
         return [m for (u, _t), m in self._rows.items() if u == user_key]
+
+    def list_by_user_with_tenant(self, user_key: str) -> list[Any]:
+        return []
 
 
 class _World:
@@ -248,6 +253,18 @@ class _World:
             throttle_engine=LoginThrottleEngine(),
             email_service=self.mail,
             frontend_url="http://localhost:5173",
+            # The real target rules (#1884) over this world's repositories, on the
+            # process-wide tiers every unwired service here verifies against.
+            step_up_verifier=default_step_up_verifier(
+                target_policy=StepUpTargetAuthorizer(
+                    user_repo=self.users,
+                    membership_repo=self.memberships,
+                    tenant_repo=tenant_repo,
+                    tenant_erasure_repo=self.tenant_records,
+                    auth_provider_repo=MagicMock(),
+                    oidc_config_repo=MagicMock(),
+                )
+            ),
         )
 
     def client(self) -> TestClient:
@@ -283,8 +300,15 @@ class _World:
         return client.request(method, path, json=body, headers=headers)
 
     def issue_code(self, action: str, *, ip: str = "198.51.100.7") -> str:
-        """Ask for a step-up code for *action* through the real route; return the one the mail carried."""
-        resp = self.call("POST", "/api/v1/users/me/step-up-code", {"action": action}, ip=ip)
+        """Ask for a step-up code for *action* through the real route; return the one the mail carried.
+
+        An act on another account or on the tenant names it as the target (#1884).
+        """
+        body: dict[str, Any] = {"action": action}
+        target = {"admin_account_erasure": self.target_key, "tenant_deletion": TENANT_KEY}.get(action)
+        if target is not None:
+            body["target"] = target
+        resp = self.call("POST", "/api/v1/users/me/step-up-code", body, ip=ip)
         assert resp.status_code == 202, resp.text
         return self.mail.send_step_up_code_email.call_args.kwargs["code"]
 
@@ -1000,3 +1024,95 @@ def test_the_step_up_code_route_documents_the_undeliverable_503() -> None:
     responses = schema["paths"]["/api/v1/users/me/step-up-code"]["post"]["responses"]
 
     assert "503" in responses and "STEP_UP_CODE_UNDELIVERABLE" in responses["503"]["description"]
+
+
+# ── #1884: a mailed code confirms the target it was requested for, only ────────
+
+
+def _third_account(world: _World) -> str:
+    key = f"third-{uuid.uuid4().hex[:12]}"
+    world.users.rows[key] = User.model_validate(
+        {"_key": key, "email": f"{key}@example.org", "display_name": "Third", "email_verified": False}
+    )
+    return key
+
+
+def test_a_code_to_verify_one_account_does_not_verify_another() -> None:
+    """The acceptance of #1884 through the real routes: issued for A, refused for B, not spent by the refusal."""
+    world = _World(platform_admin=True, password_hash=None)
+    other = _third_account(world)
+    resp = world.call(
+        "POST", "/api/v1/users/me/step-up-code", {"action": "admin_account_update", "target": world.target_key}
+    )
+    assert resp.status_code == 202, resp.text
+    code = world.mail.send_step_up_code_email.call_args.kwargs["code"]
+
+    refused = world.call(
+        "PATCH", f"/api/v1/admin/platform/users/{other}", {"email_verified": True, "step_up_code": code}
+    )
+    assert refused.status_code == 401, refused.text
+    assert world.users.rows[other].email_verified is False
+
+    meant = world.call(
+        "PATCH", f"/api/v1/admin/platform/users/{world.target_key}", {"email_verified": True, "step_up_code": code}
+    )
+    assert meant.status_code == 200, meant.text
+    assert world.users.rows[world.target_key].email_verified is True
+
+
+def test_a_code_to_erase_one_account_does_not_erase_another() -> None:
+    world = _World(platform_admin=True, password_hash=None)
+    other = _third_account(world)
+    code = world.issue_code("admin_account_erasure")  # bound to world.target_key
+
+    resp = world.call(
+        "DELETE",
+        f"/api/v1/admin/platform/users/{other}",
+        {"confirm_email": f"{other}@example.org", "step_up_code": code},
+    )
+
+    assert resp.status_code == 401, resp.text
+    assert not world.erasures.stored
+    assert world.immediate_runs.await_count == 0
+    assert world.users.rows[other].is_active
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        pytest.param({"action": "admin_account_update"}, 422, id="targeted act without target"),
+        pytest.param({"action": "account_erasure", "target": "someone"}, 422, id="own-account act with target"),
+        pytest.param({"action": "admin_account_update", "target": "no-such-user"}, 404, id="unknown target"),
+        pytest.param({"action": "admin_account_erasure", "target": "SELF"}, 403, id="own account via admin act"),
+        pytest.param({"action": "tenant_deletion", "target": "t-elsewhere"}, 404, id="unknown tenant"),
+    ],
+)
+def test_no_code_is_mailed_for_a_target_the_act_would_refuse(body: dict[str, Any], status: int) -> None:
+    """Operator decision D2: the target is checked when the code is issued, not only when it is used."""
+    world = _World(platform_admin=True, password_hash=None)
+    if body.get("target") == "SELF":
+        body = {**body, "target": world.caller_key}
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", body)
+
+    assert resp.status_code == status, resp.text
+    world.mail.send_step_up_code_email.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("action", "target"),
+    [
+        pytest.param("admin_account_update", "TARGET", id="admin act on an existing account"),
+        pytest.param("admin_account_update", "no-such-user", id="admin act on a missing account"),
+        pytest.param("tenant_deletion", "t-elsewhere", id="a tenant the caller holds no role in"),
+    ],
+)
+def test_who_may_not_act_gets_no_code_and_learns_nothing_about_existence(action: str, target: str) -> None:
+    """403 for an existing and a missing target alike — the refusal is no existence oracle."""
+    world = _World(platform_admin=False, password_hash=None)
+    target = world.target_key if target == "TARGET" else target
+
+    resp = world.call("POST", "/api/v1/users/me/step-up-code", {"action": action, "target": target})
+
+    assert resp.status_code == 403, resp.text
+    world.mail.send_step_up_code_email.assert_not_called()

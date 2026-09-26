@@ -19,6 +19,8 @@ is a member when its own body
   later writes the address; the *request* is where the step-up belongs, #1841);
 * creates or deletes a sign-in method or a machine credential:
   ``self._auth_provider_repo.create/delete``, ``self._api_key_repo.create``;
+* creates, changes or deletes an OIDC provider configuration (#1883):
+  ``self._oidc_config_repo.create/update/delete``;
 * issues a device-pairing code — a bearer credential for a new session:
   ``.issue(...)`` on ``self._device_pairing_code_store`` or on a local bound from
   ``self._require_device_pairing_store()``.
@@ -65,6 +67,11 @@ _CREDENTIAL_REPO_CALLS = {
     ("_auth_provider_repo", "delete"),
     ("_auth_provider_repo", "update"),
     ("_api_key_repo", "create"),
+    # #1883 — an OIDC provider configuration decides whom a federated sign-in
+    # resolves to: repointing one is a credential change for every linked account.
+    ("_oidc_config_repo", "create"),
+    ("_oidc_config_repo", "update"),
+    ("_oidc_config_repo", "delete"),
 }
 
 #: Members that need no step-up of their own, with the reason read from the code.
@@ -281,7 +288,7 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#1841). A change in either
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 21
+EXPECTED_MEMBERS = 24  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider
 
 
 def test_every_credential_change_is_step_up_gated_or_classified() -> None:
@@ -326,6 +333,9 @@ def test_the_gated_entries_are_gated() -> None:
         ("auth_service.py", "AuthService.create_device_pairing"),
         ("auth_service.py", "AuthService.unlink_provider"),
         ("user_service.py", "UserService.admin_update_user"),
+        ("oidc_provider_admin_service.py", "OidcProviderAdminService.create_provider"),
+        ("oidc_provider_admin_service.py", "OidcProviderAdminService.update_provider"),
+        ("oidc_provider_admin_service.py", "OidcProviderAdminService.delete_provider"),
     ):
         assert entry in found and found[entry][1], f"{entry} is not behind self._step_up_verifier"
 

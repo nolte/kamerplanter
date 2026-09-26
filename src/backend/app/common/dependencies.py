@@ -791,6 +791,18 @@ def get_encryption_engine():
     return EncryptionEngine(settings.fernet_key)
 
 
+def get_oidc_provider_admin_service():
+    """#1883 — the write side of ``/admin/oidc-providers``, behind the admin's step-up."""
+    from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
+
+    return OidcProviderAdminService(
+        get_oidc_config_repo(),
+        get_encryption_engine(),
+        get_oauth_engine(),
+        get_step_up_verifier(),
+    )
+
+
 def get_oauth_state_store():
     from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
 
@@ -850,6 +862,7 @@ def get_step_up_verifier():
     from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_REAUTH_STORE, RedisStepUpCodeStore
     from app.data_access.external.step_up_throttle import RedisStepUpThrottleStore
     from app.domain.services.step_up_service import FederatedReauthPolicy, StepUpVerifier
+    from app.domain.services.step_up_targets import StepUpTargetAuthorizer
 
     redis_client = _get_redis_client()
     return StepUpVerifier(
@@ -865,6 +878,16 @@ def get_step_up_verifier():
         # namespace; and which accounts must re-authenticate instead of the code.
         reauth_store=RedisStepUpCodeStore(redis_client, fallback=DEFAULT_STEP_UP_REAUTH_STORE, namespace="reauth"),
         reauth_policy=FederatedReauthPolicy(get_auth_provider_repo(), get_oidc_config_repo()),
+        # #1884 — a factor for an act on another account, a tenant, a provider link
+        # or an OIDC configuration is issued only for a target the requester may act on.
+        target_policy=StepUpTargetAuthorizer(
+            user_repo=get_user_repo(),
+            membership_repo=get_membership_repo(),
+            tenant_repo=get_tenant_repo(),
+            tenant_erasure_repo=get_tenant_erasure_repo(),
+            auth_provider_repo=get_auth_provider_repo(),
+            oidc_config_repo=get_oidc_config_repo(),
+        ),
     )
 
 

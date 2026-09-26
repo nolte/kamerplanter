@@ -285,7 +285,10 @@ def _admin_delete(database, captured: dict[str, Any]) -> None:
 
         privacy_service.erase_account = spy  # type: ignore[method-assign]
     admin_router.delete_user(
-        SUBJECT, **admin_erasure_route_args(privacy_service, admin_key=ADMIN, target_email=f"{SUBJECT}@example.com")
+        SUBJECT,
+        **admin_erasure_route_args(
+            privacy_service, admin_key=ADMIN, target_key=SUBJECT, target_email=f"{SUBJECT}@example.com"
+        ),
     )
 
 

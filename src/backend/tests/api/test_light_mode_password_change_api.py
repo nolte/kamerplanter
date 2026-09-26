@@ -119,7 +119,7 @@ def test_the_control_in_full_mode_the_same_account_sets_its_first_password(monke
 
     auth_service = client.app.dependency_overrides[get_auth_service]()
     code, _expires = auth_service._step_up_verifier.issue_code(  # noqa: SLF001
-        user_repo.user, action="password_change", authenticated_with_api_key=False, client_ip="testclient"
+        user_repo.user, action="password_change", target=None, authenticated_with_api_key=False, client_ip="testclient"
     )
     response = client.post("/api/v1/users/me/password", json={"new_password": _NEW_PASSWORD, "step_up_code": code})
 

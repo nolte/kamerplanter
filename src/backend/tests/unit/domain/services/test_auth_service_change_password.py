@@ -89,7 +89,7 @@ def test_sso_user_setting_an_initial_password_also_clears_it(
     user = _user(with_password=False)
     user_repo.get_or_raise.return_value = user
     code, _expires_at = service._step_up_verifier.issue_code(
-        user, action="password_change", authenticated_with_api_key=False, client_ip=None
+        user, action="password_change", target=None, authenticated_with_api_key=False, client_ip=None
     )
 
     service.change_password(
@@ -134,7 +134,7 @@ def test_a_policy_refusal_comes_before_the_step_up_and_spends_no_code(
     user = _user(with_password=False)
     user_repo.get_or_raise.return_value = user
     code, _expires_at = service._step_up_verifier.issue_code(
-        user, action="password_change", authenticated_with_api_key=False, client_ip=None
+        user, action="password_change", target=None, authenticated_with_api_key=False, client_ip=None
     )
 
     with pytest.raises(ValidationError):

@@ -65,6 +65,7 @@ from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.step_up_service import FederatedReauthPolicy, StepUpVerifier
+from app.domain.services.step_up_targets import StepUpTargetAuthorizer
 from tests.support.privacy_doubles import FakeErasureRepo, FakePersonalTenants
 
 FRONTEND = "https://app.test"
@@ -154,6 +155,7 @@ class _Providers:
     def __init__(self) -> None:
         self.rows: list[AuthProvider] = []
         self.writes: list[str] = []
+        self.deleted: list[str] = []
 
     def add(
         self,
@@ -193,6 +195,7 @@ class _Providers:
 
     def delete(self, key: str) -> bool:
         self.writes.append("delete")
+        self.deleted.append(key)
         return True
 
 
@@ -259,6 +262,15 @@ class _World:
             reauth_store=MemoryStepUpCodeStore(),
             reauth_policy=FederatedReauthPolicy(self.providers, self.configs),
             code_secret=SECRET,
+            # #1884 — the real target rules; only the provider links matter here.
+            target_policy=StepUpTargetAuthorizer(
+                user_repo=self.users,
+                membership_repo=MagicMock(**{"get_by_user_and_tenant.return_value": None}),
+                tenant_repo=MagicMock(),
+                tenant_erasure_repo=None,
+                auth_provider_repo=self.providers,
+                oidc_config_repo=MagicMock(),
+            ),
         )
         self.mail = MagicMock()
         self.refresh_tokens = MagicMock()
@@ -317,10 +329,14 @@ class _World:
 
     # ── the flow ─────────────────────────────────────────────────────────
 
-    def start(self, action: str = "account_erasure", provider_key: str | None = None):  # noqa: ANN201
+    def start(  # noqa: ANN201
+        self, action: str = "account_erasure", provider_key: str | None = None, *, target: str | None = None
+    ):
         body: dict[str, Any] = {"action": action}
         if provider_key is not None:
             body["provider_key"] = provider_key
+        if target is not None:
+            body["target"] = target
         return self.post("/api/v1/users/me/step-up/oidc", body)
 
     def fresh_claims(self, sent_nonce: str, /, **overrides: Any) -> dict[str, Any]:
@@ -337,8 +353,8 @@ class _World:
         claims.update(overrides)
         return {k: v for k, v in claims.items() if v is not _DROP}
 
-    def reauth(self, action: str = "account_erasure", **overrides: Any):  # noqa: ANN201
-        started = self.start(action)
+    def reauth(self, action: str = "account_erasure", *, target: str | None = None, **overrides: Any):  # noqa: ANN201
+        started = self.start(action, target=target)
         assert started.status_code == 200, started.text
         query = parse_qs(urlsplit(started.json()["authorization_url"]).query)
         self.engine.claims = self.fresh_claims(query["nonce"][0], **overrides)
@@ -350,8 +366,8 @@ class _World:
             f"/api/v1/auth/oauth/{slug}/callback?code=provider-code&state={state}", follow_redirects=False
         )
 
-    def token(self, action: str = "account_erasure") -> str:
-        callback = self.reauth(action)
+    def token(self, action: str = "account_erasure", *, target: str | None = None) -> str:
+        callback = self.reauth(action, target=target)
         fragment = parse_qs(urlsplit(callback.headers["location"]).fragment)
         return fragment["step_up_token"][0]
 
@@ -908,3 +924,72 @@ def test_a_malformed_client_nonce_is_refused() -> None:
     resp = world.post("/api/v1/users/me/step-up/oidc", {"action": "account_erasure", "client_nonce": "not-hex"})
 
     assert resp.status_code == 422
+
+
+# ── #1884: the token is bound to the target of the act ───────────────────────
+
+
+def test_a_token_to_unlink_one_provider_does_not_unlink_another() -> None:
+    """The acceptance of #1884: issued for target A, refused for target B, and not spent by that refusal."""
+    world = _World(providers=("google", "github", "github"))
+    first_github, second_github = [row for row in world.providers.list_by_user(world.key) if row.provider == "github"]
+    token = world.token("provider_unlink", target=first_github.key)
+
+    other = world.client().request(
+        "DELETE", f"/api/v1/users/me/providers/{second_github.key}", json={"step_up_token": token}
+    )
+    assert other.status_code == 401, other.text
+    assert world.providers.deleted == []
+
+    meant = world.client().request(
+        "DELETE", f"/api/v1/users/me/providers/{first_github.key}", json={"step_up_token": token}
+    )
+    assert meant.status_code == 200, meant.text
+    assert world.providers.deleted == [first_github.key]
+
+
+def test_the_target_rides_in_the_state_to_the_callback() -> None:
+    world = _World(providers=("google", "github"))
+    started = world.start("provider_unlink", target=world.rows["github"].key)
+
+    assert started.status_code == 200, started.text
+    (state,) = world.states.rows.values()
+    assert state["target"] == world.rows["github"].key
+
+
+def test_a_targeted_act_cannot_start_without_its_target() -> None:
+    world = _World(providers=("google", "github"))
+
+    resp = world.start("provider_unlink")
+
+    assert resp.status_code == 422, resp.text
+    assert world.states.rows == {}
+
+
+def test_an_act_on_the_own_account_cannot_name_a_target() -> None:
+    resp = _World().start("account_erasure", target="someone-else")
+
+    assert resp.status_code == 422, resp.text
+
+
+def test_the_start_refuses_another_accounts_link_as_the_target() -> None:
+    """D2: the target is checked when the factor is issued — no browser round trip for a foreign link."""
+    world = _World(providers=("google", "github"))
+
+    resp = world.start("provider_unlink", target=world.other_row.key)
+
+    assert resp.status_code == 404, resp.text
+    assert world.states.rows == {}
+
+
+def test_a_state_from_before_the_binding_issues_no_unbound_token() -> None:
+    """A re-authentication started before #1884 carries no target: its callback fails rather than mint one."""
+    world = _World(providers=("google", "github"))
+    started = world.start("provider_unlink", target=world.rows["github"].key)
+    query = parse_qs(urlsplit(started.json()["authorization_url"]).query)
+    world.states.rows[query["state"][0]].pop("target")
+    world.engine.claims = world.fresh_claims(query["nonce"][0])
+
+    callback = world.callback(query["state"][0])
+
+    assert _error_of(callback) == "step_up_failed"

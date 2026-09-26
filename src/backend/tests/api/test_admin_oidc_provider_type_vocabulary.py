@@ -116,7 +116,7 @@ class TestUpdate:
         repo = provider_repo(_stored(provider_type="github"))
         resp = admin_client(repo).put(f"{BASE}/cfg1", json={"provider_type": spelling})
         assert resp.status_code == 422, resp.text
-        repo.update.assert_not_called()
+        repo.update_fields.assert_not_called()
 
     def test_a_member_of_the_vocabulary_is_accepted_and_stored_as_a_plain_str(self) -> None:
         """The load-bearing one: `setattr` does not validate, so nothing coerces.
@@ -127,7 +127,7 @@ class TestUpdate:
         repo = provider_repo(_stored(provider_type="github"))
         resp = admin_client(repo).put(f"{BASE}/cfg1", json={"provider_type": "oidc"})
         assert resp.status_code == 200, resp.text
-        written = repo.update.call_args.args[1].provider_type
+        written = repo.update_fields.call_args.args[1]["provider_type"]
         assert written == "oidc"
         assert type(written) is str, f"stored as {type(written).__name__}, not a plain str"
 
@@ -140,13 +140,13 @@ class TestUpdate:
         repo = provider_repo(_stored())
         resp = admin_client(repo).put(f"{BASE}/cfg1", json={"display_name": "GitHub Enterprise"})
         assert resp.status_code == 200, resp.text
-        repo.update.assert_called_once()
+        repo.update_fields.assert_called_once()
 
     def test_a_pre_gate_record_can_be_repaired(self) -> None:
         repo = provider_repo(_stored())
         resp = admin_client(repo).put(f"{BASE}/cfg1", json={"provider_type": "github"})
         assert resp.status_code == 200, resp.text
-        written = repo.update.call_args.args[1].provider_type
+        written = repo.update_fields.call_args.args[1]["provider_type"]
         assert written == "github"
         assert type(written) is str
 
@@ -159,7 +159,7 @@ class TestUpdate:
         repo = provider_repo(_stored(provider_type="github"))
         resp = admin_client(repo).put(f"{BASE}/cfg1", json={"scopes": ["user:email", "read:user"]})
         assert resp.status_code == 200, resp.text
-        assert repo.update.call_args.args[1].scopes == ["user:email", "read:user"]
+        assert repo.update_fields.call_args.args[1]["scopes"] == ["user:email", "read:user"]
 
 
 class TestTheTestEndpoint:

@@ -136,10 +136,15 @@ def rotate_oidc_discovery() -> dict:
             continue
         try:
             discovery = engine.fetch_discovery_document(config.issuer_url)
-            config.discovery_document = discovery
-            config.discovery_refreshed_at = datetime.now(UTC)
             if config.key:
-                repo.update(config.key, config)
+                # Only the discovery fields (#1883 security review SEC-002): the
+                # snapshot above is as old as every fetch before this one, and a
+                # full write would revert what an admin changed meanwhile —
+                # switching the provider off, rotating its secret.
+                repo.update_fields(
+                    config.key,
+                    {"discovery_document": discovery, "discovery_refreshed_at": datetime.now(UTC).isoformat()},
+                )
             updated += 1
         except Exception:
             logger.warning("oidc_discovery_failed", slug=config.slug)
