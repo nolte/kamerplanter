@@ -54,6 +54,11 @@ class ChannelResult(BaseModel):
     success: bool
     error: str | None = None
     external_id: str | None = None
+    #: Push endpoints the push service reported as gone (HTTP 404/410, #1827).
+    #: Structured, so the sender can prune them — until #1827 they were encoded
+    #: into ``error`` as ``expired:<endpoint>,…`` and nothing parsed them. Never
+    #: serialised or printed: an endpoint's path is the device's push token.
+    expired_endpoints: list[str] = Field(default_factory=list, exclude=True, repr=False)
 
 
 # ── Notification Preferences sub-models ─────────────────────────────
