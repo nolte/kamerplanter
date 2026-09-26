@@ -46,6 +46,7 @@ import ast
 import importlib
 import inspect
 import pkgutil
+import re
 import textwrap
 from typing import Any
 
@@ -271,15 +272,15 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "actuator.ControlEvent.triggered_by_rule_key": _I,
     "actuator.ControlEvent.triggered_by_schedule_key": _I,
     "actuator.ControlRule.actuator_key": _V,
-    "actuator.ControlRule.sensor_location_key": _gap(1872, "C5"),
+    "actuator.ControlRule.sensor_location_key": _V,  # #1872 C5
     "actuator.ControlSchedule.actuator_key": _V,
     "actuator.ManualOverride.actuator_key": _V,
     "ai_assistant.AiAuditLogEntry.user_key": _A,
-    "ai_assistant.AiAuditLogEntry.context_key": _gap(1872, "C9"),
+    "ai_assistant.AiAuditLogEntry.context_key": _V,  # plant/run contexts resolved (#1872 C9)
     "ai_assistant.AiConversation.user_key": _A,
-    "ai_assistant.AiConversation.context_key": _gap(1872, "C9"),
+    "ai_assistant.AiConversation.context_key": _V,  # #1872 C9
     "ai_assistant.AiConversation.provider_key": _V,
-    "ai_assistant.AiTipCard.context_key": _gap(1872, "C9"),
+    "ai_assistant.AiTipCard.context_key": _V,  # #1872 C9
     "ai_assistant.AiTipCard.provider_key": _I,
     "aquaponik.FishFeedingEvent.system_key": _V,
     "aquaponik.FishFeedingEvent.stock_key": _V,
@@ -291,10 +292,10 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "calendar.CalendarEventsQuery.site_key": _N,
     "calendar.CalendarFeed.user_key": _A,
     "feeding_event.FeedingEvent.plant_key": _V,
-    "feeding_event.FeedingEvent.tank_fill_event_key": _gap(1872, "C6"),
+    "feeding_event.FeedingEvent.tank_fill_event_key": _V,  # through the tank (#1872 C6)
     "feeding_event.FeedingEvent.watering_event_key": _I,
     "fertilizer.FertilizerStock.fertilizer_key": _V,
-    "ha_publish_setting.HaPublishSetting.entity_key": _gap(1872, "C8"),
+    "ha_publish_setting.HaPublishSetting.entity_key": _V,  # #1872 C8
     "harvest.HarvestBatch.plant_key": _V,
     "harvest.HarvestBatch.harvested_by_key": _A,
     "identification.IdentificationRequest.user_key": _A,
@@ -358,7 +359,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "planting_run.PlantingRun.lifecycle_config_key": _G,
     "planting_run.PlantingRun.location_key": _V,
     "planting_run.PlantingRun.substrate_batch_key": _V,  # #1868
-    "planting_run.PlantingRun.source_plant_key": _gap(1872, "C1"),
+    "planting_run.PlantingRun.source_plant_key": _V,  # #1872 C1
     "planting_run.PlantingRun.nutrient_plan_key": _V,
     "planting_run.PlantingRun.succession_plan_key": _I,
     "planting_run.PlantingRun.clone_from_run_key": _I,
@@ -369,30 +370,30 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "post_harvest.PostHarvestBatch.plant_key": _I,
     "privacy.PersonalTenantErasure.tenant_erasure_record_key": _I,
     "propagation.PhenotypeNote.plant_key": _V,
-    "propagation.PropagationBatch.target_planting_run_key": _gap(1872, "C3"),
-    "propagation.PropagationEvent.parent_plant_keys": _gap(1872, "C2"),
-    "propagation.PropagationEvent.child_plant_keys": _gap(1872, "C2"),
-    "propagation.PropagationEvent.species_key": _gap(1872, "C11"),
+    "propagation.PropagationBatch.target_planting_run_key": _V,  # #1872 C3
+    "propagation.PropagationEvent.parent_plant_keys": _V,  # #1872 C2
+    "propagation.PropagationEvent.child_plant_keys": _V,  # #1872 C2
+    "propagation.PropagationEvent.species_key": _V,  # #1872 C11
     "propagation.PropagationEvent.cultivar_key": _V,
-    "propagation.PropagationEvent.protocol_key": _gap(1872, "C2"),
-    "propagation.PropagationEvent.batch_key": _gap(1872, "C2"),
-    "propagation.RootingProtocol.recommended_species_keys": _gap(1872, "C12"),
+    "propagation.PropagationEvent.protocol_key": _V,  # #1872 C2
+    "propagation.PropagationEvent.batch_key": _V,  # #1872 C2
+    "propagation.RootingProtocol.recommended_species_keys": _V,  # #1872 C12
     "season_state.SeasonState.site_key": _I,
     "season_state.SeasonState.trigger_reason_i18n_key": _I,
     "site.Location.site_key": _V,
-    "site.Location.parent_location_key": _gap(1872, "C4"),  # create verified (bundle A, L1); update open
+    "site.Location.parent_location_key": _V,  # create (bundle A, L1) and update (#1872 C4)
     "site.Location.location_type_key": _G,
-    "site.Location.tank_key": _gap(1872, "C4"),
+    "site.Location.tank_key": _V,  # #1872 C4
     "site.Slot.location_key": _V,  # #1871 B1
     "species.Cultivar.species_key": _V,
     "species.Species.family_key": _G,
-    "species.Species.default_nutrient_plan_key": _gap(1872, "C14"),
-    "substrate.SubstrateBatch.substrate_key": _gap(1872, "C15"),
-    "succession_plan.SuccessionPlan.species_key": _gap(1872, "C13"),
+    "species.Species.default_nutrient_plan_key": _V,  # global or the owner's (#1872 C14)
+    "substrate.SubstrateBatch.substrate_key": _V,  # create and update (#1872 C15)
+    "succession_plan.SuccessionPlan.species_key": _V,  # #1872 C13
     "succession_plan.SuccessionPlan.cultivar_key": _V,
     "succession_plan.SuccessionPlan.location_key": _V,
     "tank.Tank.location_key": _V,  # bundle A, L3
-    "task.Task.entity_key": _gap(1872, "C10"),  # guarded for the edge-writing types, incl. clone (bundle A)
+    "task.Task.entity_key": _V,  # edge-writing types resolved, any other type refused (#1872 C10)
     "task.Task.planting_run_key": _I,
     "task.Task.assigned_to_user_key": _V,  # #1871 B9
     "task.Task.parent_recurring_task_key": _I,
@@ -414,13 +415,13 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "tenant_erasure.TenantErasureRecord.parent_keys": _I,
     "watering_event.WateringEvent.slot_keys": _I,
     "watering_event.WateringEvent.plant_keys": _V,
-    "watering_event.WateringEvent.tank_fill_event_key": _gap(1872, "C6"),
-    "watering_event.WateringEvent.nutrient_plan_key": _gap(1872, "C7"),
+    "watering_event.WateringEvent.tank_fill_event_key": _V,  # #1872 C6
+    "watering_event.WateringEvent.nutrient_plan_key": _V,  # #1872 C7
     "watering_event.WateringEvent.task_key": _V,  # bundle A, L8
     "watering_log.WateringLog.plant_keys": _V,
     "watering_log.WateringLog.slot_keys": _V,  # #1871 B4
-    "watering_log.WateringLog.tank_fill_event_key": _gap(1872, "C6"),
-    "watering_log.WateringLog.nutrient_plan_key": _gap(1872, "C7"),
+    "watering_log.WateringLog.tank_fill_event_key": _V,  # #1872 C6
+    "watering_log.WateringLog.nutrient_plan_key": _V,  # #1872 C7
     "watering_log.WateringLog.task_key": _V,  # bundle A, L8
     "weather.ClimateNormal.site_key": _I,
     "weather.WeatherForecast.site_key": _I,
@@ -489,10 +490,14 @@ def test_every_reference_field_of_a_tenant_owned_model_is_classified() -> None:
 
 
 def test_every_open_gap_names_an_open_issue_item() -> None:
+    """A gap is written ``gap:#<issue>:<item>`` — never a bare "todo".
+
+    Bundles B (#1871) and C (#1872) closed every gap the sweep of #1864 found, so
+    the register carries none today; a new hit must come back with its issue.
+    """
     gaps = {field: value for field, value in _REFERENCE_FIELDS.items() if value.startswith("gap:")}
 
-    assert gaps, "the register carries the open hits of #1871/#1872"
-    assert all(value.split(":")[1] in {"#1871", "#1872"} for value in gaps.values()), gaps
+    assert all(re.fullmatch(r"gap:#\d+:[A-Z]\d+", value) for value in gaps.values()), gaps
 
 
 def test_a_gap_declared_as_an_owned_reference_is_reported_as_stale() -> None:

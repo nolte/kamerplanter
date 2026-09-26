@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 from app.common.enums import DataOrigin, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
@@ -122,9 +123,13 @@ class SpeciesService:
         species_repo: ISpeciesRepository,
         graph_repo: IGraphRepository,
         phase_sequence_binder: PhaseSequenceBinder | None = None,
+        *,
+        nutrient_plan_repo: Any | None = None,
     ) -> None:
         self._repo = species_repo
         self._graph = graph_repo
+        # #1872 C14: the default plan a species names must be usable by its owner.
+        self._nutrient_plan_repo = nutrient_plan_repo
         # Optional so the many call sites constructing this service for read paths
         # (and their tests) keep working; when absent, create_species simply does not
         # bind — the same state as before #1006, not a crash.
@@ -231,8 +236,17 @@ class SpeciesService:
         # tenant's row, skip the synonym inheritance for a record that genuinely
         # has no twin here, and then insert anyway — the inheritance would be
         # suppressed by a row the caller can never see.
+        self._require_usable_nutrient_plan(species.default_nutrient_plan_key, species.tenant_key)
         if self._repo.get_by_normalized_scientific_name_for_tenant(species.scientific_name, species.tenant_key) is None:
             species = self._inherit_unset_from_synonym_match(species)
+            # An inherited plan is kept only when the new owner may use it
+            # (security review of #1872, W1): the synonym match can be a granted or
+            # legacy row pointing at another tenant's private plan. Dropped, not
+            # refused — the caller never sent the key.
+            if species.default_nutrient_plan_key and not self._nutrient_plan_usable(
+                species.default_nutrient_plan_key, species.tenant_key
+            ):
+                species.default_nutrient_plan_key = None
         created = self._repo.upsert_by_normalized_scientific_name(species)
         # Give the species the phase sequence the seed would have given it (#1006).
         # Without this, every plant created for a runtime-minted species (identify →
@@ -243,6 +257,26 @@ class SpeciesService:
         if self._phase_sequence_binder is not None:
             self._phase_sequence_binder.bind_default(created)
         return created
+
+    def _nutrient_plan_usable(self, plan_key: str, species_owner: str) -> bool:
+        try:
+            self._require_usable_nutrient_plan(plan_key, species_owner)
+        except NotFoundError:
+            return False
+        return True
+
+    def _require_usable_nutrient_plan(self, plan_key: str | None, species_owner: str) -> None:
+        """404 unless the default plan is global or the species owner's own (#1872 C14).
+
+        The key was stored as given. A global species (owner ``""``) may name only
+        a global plan — a tenant's private plan would otherwise travel to every
+        tenant with it. Fails closed without the plan repository.
+        """
+        if not plan_key:
+            return
+        plan = self._nutrient_plan_repo.get_by_key(plan_key) if self._nutrient_plan_repo is not None else None
+        if plan is None or (getattr(plan, "tenant_key", "") or "") not in ("", species_owner or ""):
+            raise NotFoundError("NutrientPlan", plan_key)
 
     # ── REQ-048 / #975 — synonym-shadow field inheritance ────────────────────
 
@@ -464,6 +498,8 @@ class SpeciesService:
         # which would silently move it out of its owner's catalogue into the shared
         # one. Mirrors the origin preservation above.
         species.tenant_key = existing.tenant_key
+        if species.default_nutrient_plan_key != existing.default_nutrient_plan_key:
+            self._require_usable_nutrient_plan(species.default_nutrient_plan_key, existing.tenant_key)
         # cultivation_flexible is master data (seed lifecycle_overrides, ADR-006 E6),
         # not an edit-form field — preserve it so a full-replace update never resets
         # the facultative-cultivation capability flag to its default.

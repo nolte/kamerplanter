@@ -70,6 +70,14 @@ ENTITY_NAME_ARGUMENTS: dict[str, tuple[int | None, str | None]] = {
 #: with the reason the value cannot leave the vocabulary. Every entry states what
 #: constrains it — "it looked fine" is not one of the reasons.
 DERIVED_ENTITY_SITES: dict[str, str] = {
+    "app/domain/services/ha_publish_service.py::name": (
+        "``_ENTITY_NAMES[entity_type]`` — a closed map of the three publishable types to published "
+        "entity names (PlantInstance, Tank, Location); #1872 C8."
+    ),
+    "app/domain/services/ai_assistant_service.py::name": (
+        "Unpacked from ``self._context_owners``, a closed map of the two entity context types to "
+        "published entity names (PlantInstance, PlantingRun); #1872 C9."
+    ),
     "app/data_access/arango/base_repository.py::self._require_entity_name()": (
         "Derived from the bound model class, or from the collection table for a "
         "model-less repository — both vocabulary by construction."
