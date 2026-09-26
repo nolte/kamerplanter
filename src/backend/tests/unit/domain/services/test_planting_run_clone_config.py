@@ -62,6 +62,7 @@ def _service():
         plant_repo=plant_repo,
         engine=PlantingRunEngine(),
         substrate_batch_resolver=lambda key, *, tenant_key: None,
+        species_resolver=lambda key, *, tenant_key: None,
     )
     return service, repo, plant_repo, captured
 

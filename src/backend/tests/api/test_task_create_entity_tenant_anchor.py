@@ -80,8 +80,16 @@ class _SiteService:
         self._foreign = foreign
         self.seen_tenants: list[str] = []
 
-    def get_location(self, key):
-        return SimpleNamespace(key=key, site_key="site_1", tenant_key="")
+    def get_location(self, key, tenant_key=""):
+        # ``SiteService.get_location`` decides on the parent site and reports
+        # the location (#1871 B13).
+        location = SimpleNamespace(key=key, site_key="site_1", tenant_key="")
+        if tenant_key:
+            try:
+                self.get_site(location.site_key, tenant_key=tenant_key)
+            except NotFoundError:
+                raise NotFoundError("Location", key) from None
+        return location
 
     def get_site(self, key, *, tenant_key=""):
         self.seen_tenants.append(tenant_key)

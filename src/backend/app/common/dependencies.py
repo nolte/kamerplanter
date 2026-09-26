@@ -171,7 +171,9 @@ def get_inventree_service():
     """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
     from app.domain.services.inventree_service import InvenTreeService
 
-    return InvenTreeService(get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client())
+    return InvenTreeService(
+        get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client(), site_anchors=get_site_repo()
+    )
 
 
 def get_species_repo() -> ArangoSpeciesRepository:
@@ -507,6 +509,8 @@ def get_planting_run_service() -> PlantingRunService:
         companion_engine=companion_engine,
         # #1868 — a run's substrate batch is resolved strictly under its tenant.
         substrate_batch_resolver=_resolve_substrate_batch,
+        # #1871 B11 — an entry's species must be one the tenant may read.
+        species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
     )
 
 
@@ -722,6 +726,10 @@ def get_task_service() -> TaskService:
         # So a completion's `photo_refs` are resolved against the attachment
         # catalogue instead of trusted as strings (#1339 review).
         attachment_repo=get_attachment_repo(),
+        # #1871 B9 — an assignee must be an active member of the task's tenant.
+        membership_lookup=lambda user_key, tenant_key: get_membership_repo().get_by_user_and_tenant(
+            user_key, tenant_key
+        ),
     )
 
 
@@ -970,6 +978,8 @@ def get_tenant_service() -> TenantService:
         tombstone_salt=settings.erasure_tombstone_salt,
         light_mode=settings.kamerplanter_mode == "light",
         step_up_verifier=get_step_up_verifier(),
+        # #1871 B3 — a location assignment is resolved through its site.
+        site_anchors=get_site_repo(),
     )
 
 
@@ -1436,7 +1446,10 @@ def get_observation_repo():
 def get_observation_service():
     from app.domain.services.observation_service import ObservationService
 
-    return ObservationService(get_observation_repo(), get_sensor_repo())
+    # #1871 B6 — a sensor's tenant is its parent's (tank, site, or location via its site).
+    return ObservationService(
+        get_observation_repo(), get_sensor_repo(), tank_repo=get_tank_repo(), site_anchors=get_site_repo()
+    )
 
 
 def get_sensor_service():
