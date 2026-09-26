@@ -1436,7 +1436,9 @@ class AuthService:
         )
         created = self._api_key_repo.create(api_key)
 
-        logger.info("api_key_created", subject=self._log_subject(user_key), label=label, prefix=key_prefix)
+        # Not the prefix: ``kp_`` plus five characters of the secret (#1828). The
+        # record's own key correlates the line with the stored key.
+        logger.info("api_key_created", subject=self._log_subject(user_key), label=label, api_key_id=created.key)
         return ApiKeyCreated(
             key=created.key or "",
             label=created.label,
