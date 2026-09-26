@@ -23,12 +23,19 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.admin.oidc_providers.router import router as oidc_router
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_encryption_engine, get_oauth_engine, get_oidc_config_repo
+from app.common.dependencies import (
+    get_encryption_engine,
+    get_oauth_engine,
+    get_oidc_config_repo,
+    get_oidc_provider_admin_service,
+)
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.oauth_engine import OAuthEngine
 from app.domain.models.oidc_config import OidcProviderConfig
+from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
+from tests.support.step_up import PassedStepUpVerifier
 
 BASE = "/api/v1/admin/oidc-providers"
 
@@ -62,7 +69,15 @@ def provider_repo(stored: OidcProviderConfig | None = None) -> MagicMock:
     repo.get_by_slug.return_value = None
     repo.get_by_key.return_value = stored
     repo.create.side_effect = lambda c: c.model_copy(update={"key": "cfg1"})
-    repo.update.side_effect = lambda key, c: c
+    # A merge of the given fields, like the Arango repository's partial write —
+    # the only write the update and the discovery test use since #1883 (SEC-002/003).
+    repo.update_fields.side_effect = lambda key, fields: OidcProviderConfig.model_validate(
+        {**(stored.model_dump(by_alias=True) if stored else {}), **fields}
+    )
+    # The discovery test's conditional write: stored while the issuer is unchanged.
+    repo.update_discovery.side_effect = lambda key, *, issuer_url, discovery_document, refreshed_at: (
+        stored is not None and stored.issuer_url == issuer_url
+    )
     return repo
 
 
@@ -80,6 +95,12 @@ def admin_client(repo: MagicMock) -> TestClient:
     app.dependency_overrides[get_oidc_config_repo] = lambda: repo
     app.dependency_overrides[get_encryption_engine] = lambda: EncryptionEngine(Fernet.generate_key().decode())
     app.dependency_overrides[get_oauth_engine] = OAuthEngine
+    # The writes go through the service since #1883. Its step-up is pinned in
+    # tests/unit/api/test_oidc_provider_step_up.py; these suites are about the
+    # scope and type gates, so the step-up is one that has already passed.
+    app.dependency_overrides[get_oidc_provider_admin_service] = lambda: OidcProviderAdminService(
+        repo, EncryptionEngine(Fernet.generate_key().decode()), OAuthEngine(), PassedStepUpVerifier()
+    )
     return TestClient(app)
 
 

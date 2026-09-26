@@ -322,6 +322,7 @@ export default function AdminEditTenantPage() {
                   open={confirmDelete}
                   tenantName={tenant.name}
                   tenantSlug={tenant.slug}
+                  tenantKey={tenant.key}
                   onConfirm={handleDelete}
                   onCancel={() => setConfirmDelete(false)}
                 />

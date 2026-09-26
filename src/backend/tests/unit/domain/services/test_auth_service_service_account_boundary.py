@@ -107,7 +107,7 @@ def _service(user: User) -> tuple[AuthService, MagicMock]:
 def _code(service, account) -> str:  # noqa: ANN001 - AuthService, User
     """The one-time step-up code an account without a password confirms with (#1815)."""
     code, _expires_at = service._step_up_verifier.issue_code(
-        account, action="password_change", authenticated_with_api_key=False, client_ip=None
+        account, action="password_change", target=None, authenticated_with_api_key=False, client_ip=None
     )
     return code
 

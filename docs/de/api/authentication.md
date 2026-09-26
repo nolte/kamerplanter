@@ -234,7 +234,7 @@ Content-Type: application/json
 }
 ```
 
-`action` benennt wie beim Code die zu bestätigende Aktion. Optional `provider_key` (Schlüssel eines verknüpften Anbieters aus `GET /users/me/providers`) wählt einen bestimmten Anbieter, wenn mehrere OIDC-fähige verknüpft sind; ohne Angabe nimmt die Route den ersten passenden. Optional `client_nonce` (32 Hex-Zeichen, vom Client zufällig erzeugt) kommt unverändert neben dem Token bzw. dem Fehler zurück — so erkennt die Seite, die die Anmeldung gestartet hat, ihr eigenes Ergebnis und verwirft ein untergeschobenes.
+`action` benennt wie beim Code die zu bestätigende Aktion, `target` wie dort ihr Ziel (Pflicht für die zielgebundenen Aktionen, siehe unten). Optional `provider_key` (Schlüssel eines verknüpften Anbieters aus `GET /users/me/providers`) wählt einen bestimmten Anbieter, wenn mehrere OIDC-fähige verknüpft sind; ohne Angabe nimmt die Route den ersten passenden. Optional `client_nonce` (32 Hex-Zeichen, vom Client zufällig erzeugt) kommt unverändert neben dem Token bzw. dem Fehler zurück — so erkennt die Seite, die die Anmeldung gestartet hat, ihr eigenes Ergebnis und verwirft ein untergeschobenes.
 
 **Antwort (200 OK):**
 
@@ -251,7 +251,7 @@ Content-Type: application/json
 
 Das Backend prüft dabei am ID-Token: `iss` ist der erwartete Aussteller, `aud`/`azp` ist diese Instanz, `nonce` stimmt mit der Anfrage überein, `exp` ist nicht abgelaufen, `sub` gehört zu einer verknüpften Anmeldung **dieses** Kontos, die über **genau diese** Anbieter-Konfiguration entstanden ist (die Verknüpfung speichert Konfiguration und Aussteller; `iss` muss dazu passen), und `auth_time` ist eine endliche Zahl und höchstens fünf Minuten alt (30 Sekunden Uhrtoleranz). Eine ältere Verknüpfung ohne gespeicherte Konfiguration gilt nur dann als re-authentifizierbar, wenn genau eine aktive, fähige Konfiguration dieses Typs existiert — sonst bestätigt das Konto mit dem E-Mail-Code. Es prüft **keine** JWKS-Signatur: Das ID-Token kommt direkt vom Token-Endpunkt des Anbieters über TLS (die frische Anmeldung wird nur bei einem `https`-Token-Endpunkt angeboten), in einem Austausch, den dieser Server mit seinem eigenen Client-Secret authentifiziert hat — genau der Fall, für den OIDC Core 3.1.3.7 Nr. 6 die TLS-Absicherung als Ersatz für die Signaturprüfung vorsieht.
 
-Der zurückgegebene `step_up_token` ist fünf Minuten gültig, gilt für genau die angeforderte Aktion, wird durch die erste Aktion verbraucht, die ihn vorlegt, und ist ansonsten wie der E-Mail-Code zu verwenden: als `step_up_token` im Bestätigungs-Body der jeweiligen Aktion (siehe Tabelle unten).
+Der zurückgegebene `step_up_token` ist fünf Minuten gültig, gilt für genau die angeforderte Aktion (und bei einer zielgebundenen Aktion genau für das angegebene Ziel), wird durch die erste Aktion verbraucht, die ihn vorlegt, und ist ansonsten wie der E-Mail-Code zu verwenden: als `step_up_token` im Bestätigungs-Body der jeweiligen Aktion (siehe Tabelle unten).
 
 `403 Forbidden` für eine mit API-Key authentifizierte Anfrage, einen Service Account oder eine Light-Modus-Installation. `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED`, wenn das Konto ein lokales Passwort hat (es bestätigt damit); `STEP_UP_REAUTH_UNAVAILABLE`, wenn keiner seiner verknüpften Anbieter (bzw. der über `provider_key` gewählte) eine frische Anmeldung unterstützt — dann bestätigt es mit dem E-Mail-Code —; ein Validierungsfehler, wenn `action` fehlt/unbekannt oder `client_nonce` falsch geformt ist. `429 Too Many Requests` (`STEP_UP_LOCKED`), solange der Step-up gesperrt ist.
 
@@ -274,7 +274,18 @@ Content-Type: application/json
 }
 ```
 
-`action` benennt, wofür der Code gelten soll: `account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change` oder `email_change`. Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt.
+`action` benennt, wofür der Code gelten soll — eine der Aktionen aus der Tabelle unten (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`). Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt, aber nie das Ziel.
+
+**Ziel der Aktion (`target`).** Wirkt die Aktion auf etwas anderes als dein eigenes Konto, nennt `target` dieses Ziel — sonst antwortet die Route mit `422`; bei einer Aktion auf das eigene Konto führt ein `target` ebenfalls zu `422`: <!-- #1884 -->
+
+| Aktion | `target` |
+|---|---|
+| `admin_account_update`, `admin_account_erasure` | Schlüssel des anderen Kontos |
+| `tenant_deletion` | Schlüssel des Mandanten |
+| `provider_unlink` | Schlüssel der Anbieter-Verknüpfung aus `GET /users/me/providers` |
+| `oidc_provider_change` | Schlüssel der OIDC-Konfiguration, beim Anlegen `new:<slug>` |
+
+Code und `step_up_token` gelten dann nur für dieses Ziel: Ein für Konto A angeforderter Code wird bei Konto B abgelehnt und dabei nicht verbraucht. Die Route prüft das Ziel schon beim Ausstellen — es muss existieren, und du musst darauf handeln dürfen (`403`, wenn nicht; `404`, wenn es nicht existiert; `409`, wenn der Slug beim Anlegen einer OIDC-Konfiguration schon vergeben ist).
 
 **Antwort (202 Accepted):**
 
@@ -295,7 +306,7 @@ Der Code besteht aus acht Ziffern, ist zehn Minuten gültig und wird durch die e
 
 ## Step-up-Bestätigung für unumkehrbare Kontoaktionen und Anmeldemittel
 
-Neun Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person — seit Version 1.19 auch das Ausstellen bzw. Entfernen von Anmeldemitteln und eine Vertrauensanhebung durch Plattform-Admins: <!-- #1847, #1857 -->
+Zehn Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person — seit Version 1.19 auch das Ausstellen bzw. Entfernen von Anmeldemitteln und eine Vertrauensanhebung durch Plattform-Admins: <!-- #1847, #1857 -->
 
 | Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort / Erneute Anmeldung / Code |
 |---|---|---|---|
@@ -308,11 +319,12 @@ Neun Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Best
 | Gerät per QR-Code koppeln | `POST /auth/device-pairing` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | Anmeldeweg (Provider-Verknüpfung) entfernen | `DELETE /users/me/providers/{provider_key}` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | Vertrauen eines anderen Kontos anheben (Plattform-Admin) | `PATCH /admin/platform/users/{key}`, nur wenn `email_verified` oder `is_active` von `false` auf `true` wechselt | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| OIDC-Provider anlegen, ändern, löschen (Plattform-Admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — beim `PUT` nicht, wenn sich nur `display_name` oder `icon_url` ändert (Ein- und Abschalten verlangen ihn) | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
 
 !!! info "Kein automatischer Widerruf von API-Keys"
     Passwortänderung, Passwort-Reset und `POST /auth/logout-all` widerrufen die Refresh-Token des Kontos — **nicht** dessen API-Keys. Ein Key steht für eine bewusst eingerichtete Maschinen-Integration (Home Assistant, MCP-Client); ihn bei jeder Passwortänderung stillschweigend zu entwerten, würde diese Integrationen ohne Vorwarnung brechen. Ein Key kann seit dieser Version nur noch hinter diesem Step-up entstehen — also nicht mehr aus einer bloß gestohlenen Sitzung oder aus einem anderen Key. Keys sind unter `GET /auth/api-keys` mit Erstellungs- und letztem Nutzungszeitpunkt gelistet und einzeln über `DELETE /auth/api-keys/{key_id}` widerrufbar. <!-- #1847 -->
 
-Eine mit einem API-Key authentifizierte Anfrage oder eine Anfrage eines Service Accounts kann keine dieser neun Aktionen auslösen — auch nicht das Ausstellen eines weiteren API-Keys oder eines Kopplungscodes (siehe Prüfreihenfolge unten).
+Eine mit einem API-Key authentifizierte Anfrage oder eine Anfrage eines Service Accounts kann keine dieser zehn Aktionen auslösen — auch nicht das Ausstellen eines weiteren API-Keys oder eines Kopplungscodes (siehe Prüfreihenfolge unten).
 
 Beispiel-Body für die Kontolöschung (lokales Konto):
 

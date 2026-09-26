@@ -121,7 +121,7 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
     expect(confirm).toBeDisabled();
     await userEvent.click(within(dialog).getByTestId('tenant-delete-send-code'));
     // The code confirms the tenant deletion only (review SEC-003).
-    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('tenant_deletion'));
+    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('tenant_deletion', 'garden-key'));
     await userEvent.type(code, STEP_UP_CODE);
     await userEvent.click(confirm);
 
@@ -253,8 +253,8 @@ describe('AdminEditTenantPage — back from the fresh sign-in (#1815)', () => {
     // Credential-shaped values are assembled at runtime (GitGuardian, #1838).
     const token = ['re', 'auth', '-', 'tok', 'en'].join('');
     const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
-    storePendingStepUpToken(token, 'tenant_deletion');
-    saveStepUpResume({ surface: 'tenant-delete', action: 'tenant_deletion', returnPath: '/' });
+    storePendingStepUpToken(token, 'tenant_deletion', 'garden-key');
+    saveStepUpResume({ surface: 'tenant-delete', action: 'tenant_deletion', target: 'garden-key', returnPath: '/' });
 
     const { default: Page } = await import('@/pages/admin/AdminEditTenantPage');
     renderWithProviders(<Page />, { store: createTestStore() });

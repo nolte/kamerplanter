@@ -48,6 +48,7 @@ from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_erasure import TenantDeletionConfirmation, TenantErasureRecord
 from app.domain.models.user import User
+from tests.support.step_up import admitting_every_target
 from tests.support.tenant_erasure_doubles import (
     FakeTenantErasureRepository,
     RecordingTenantErasureExecutor,
@@ -273,9 +274,10 @@ def test_a_federated_account_no_longer_deletes_on_the_slug_alone() -> None:
 
 def test_a_federated_account_deletes_with_the_mailed_code() -> None:
     world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], password_hash=None)
-    code, _expires_at = world.service._step_up_verifier.issue_code(
-        world.user, action="tenant_deletion", authenticated_with_api_key=False, client_ip=None
-    )
+    with admitting_every_target(world.service._step_up_verifier) as verifier:
+        code, _expires_at = verifier.issue_code(
+            world.user, action="tenant_deletion", target=TENANT_KEY, authenticated_with_api_key=False, client_ip=None
+        )
 
     resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_code": code})
 
@@ -462,7 +464,7 @@ def test_a_retry_after_the_document_went_still_accepts_the_slug_the_dialog_sends
 def test_a_federated_account_deletes_with_a_fresh_re_authentication() -> None:
     """#1815 — the token of a fresh OIDC sign-in confirms the tenant deletion; the record says so."""
     world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], password_hash=None)
-    token = world.service._step_up_verifier.issue_reauth_token(world.user, action="tenant_deletion")
+    token = world.service._step_up_verifier.issue_reauth_token(world.user, action="tenant_deletion", target=TENANT_KEY)
 
     resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_token": token})
 
@@ -472,7 +474,7 @@ def test_a_federated_account_deletes_with_a_fresh_re_authentication() -> None:
 
 def test_a_re_authentication_for_another_act_deletes_nothing() -> None:
     world = _World(role=TenantRole.LEAD, scopes=[AdminScope.MANAGEMENT], password_hash=None)
-    token = world.service._step_up_verifier.issue_reauth_token(world.user, action="password_change")
+    token = world.service._step_up_verifier.issue_reauth_token(world.user, action="password_change", target=None)
 
     resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_token": token})
 

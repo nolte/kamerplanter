@@ -14,6 +14,8 @@ interface StepUpCodeFieldProps {
   onChange: (code: string) => void;
   /** The act the code is requested for; the code confirms this act only (review SEC-003). */
   stepUpAction: StepUpAction;
+  /** What the act acts on (#1884); the code confirms this target only. */
+  stepUpTarget?: string;
   disabled?: boolean;
   /** `<prefix>-code`, `<prefix>-send-code`, `<prefix>-code-sent`, `<prefix>-send-code-error`. */
   testIdPrefix: string;
@@ -40,6 +42,7 @@ export default function StepUpCodeField({
   value,
   onChange,
   stepUpAction,
+  stepUpTarget,
   disabled = false,
   testIdPrefix,
   onAccountHasPassword,
@@ -55,7 +58,7 @@ export default function StepUpCodeField({
     setSending(true);
     setSendError('');
     try {
-      const sent = await requestStepUpCode(stepUpAction);
+      const sent = await requestStepUpCode(stepUpAction, stepUpTarget);
       setSentMinutes(Math.max(1, Math.ceil(sent.expires_in / 60)));
     } catch (err) {
       setSentMinutes(null);
@@ -109,7 +112,9 @@ export default function StepUpCodeField({
         fullWidth
         required
         disabled={disabled}
-        slotProps={{ htmlInput: { inputMode: 'numeric', spellCheck: false, autoCapitalize: 'none' } }}
+        slotProps={{
+          htmlInput: { inputMode: 'numeric', spellCheck: false, autoCapitalize: 'none' },
+        }}
         data-testid={`${testIdPrefix}-code`}
       />
     </Box>

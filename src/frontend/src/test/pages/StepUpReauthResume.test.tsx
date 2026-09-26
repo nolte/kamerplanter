@@ -87,7 +87,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
 
   it('sends the pending token as step_up_token after the return and consumes it', async () => {
     googleOnly();
-    storePendingStepUpToken(TOKEN, 'password_change');
+    storePendingStepUpToken(TOKEN, 'password_change', null);
     saveStepUpResume({
       surface: 'change-password',
       action: 'password_change',
@@ -122,7 +122,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
 
   it('keeps the pending token when the new password is refused (422) and spends it on success', async () => {
     googleOnly();
-    storePendingStepUpToken(TOKEN, 'password_change');
+    storePendingStepUpToken(TOKEN, 'password_change', null);
     const bodies: unknown[] = [];
     server.use(
       http.post('/api/v1/users/me/password', async ({ request }) => {
@@ -171,7 +171,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
 
   it('drops the pending token when the step-up itself is refused (401)', async () => {
     googleOnly();
-    storePendingStepUpToken(TOKEN, 'password_change');
+    storePendingStepUpToken(TOKEN, 'password_change', null);
     server.use(
       http.post('/api/v1/users/me/password', () =>
         HttpResponse.json(
@@ -204,7 +204,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
 
   it('keeps the button disabled while the new password is shorter than 10 characters', async () => {
     googleOnly();
-    storePendingStepUpToken(TOKEN, 'password_change');
+    storePendingStepUpToken(TOKEN, 'password_change', null);
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
@@ -239,7 +239,7 @@ describe('Step-up dialogs reopen after the fresh sign-in (#1815)', () => {
 
   it('reopens the account-deletion dialog with the pending token', async () => {
     googleOnly();
-    storePendingStepUpToken(TOKEN, 'account_erasure');
+    storePendingStepUpToken(TOKEN, 'account_erasure', null);
     saveStepUpResume({
       surface: 'delete-account',
       action: 'account_erasure',
@@ -272,7 +272,7 @@ describe('Step-up dialogs reopen after the fresh sign-in (#1815)', () => {
 
   it('does not reopen the dialog for a resume of another surface', async () => {
     googleOnly();
-    storePendingStepUpToken(TOKEN, 'account_erasure');
+    storePendingStepUpToken(TOKEN, 'account_erasure', null);
     saveStepUpResume({
       surface: 'privacy-erasure',
       action: 'account_erasure',

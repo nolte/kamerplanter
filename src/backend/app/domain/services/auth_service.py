@@ -63,6 +63,7 @@ from app.domain.models.user import User, UserProfile, allows_interactive_auth, i
 from app.domain.services.api_key_controls import ApiKeyRateLimiter, enforce_api_key_controls
 from app.domain.services.step_up_service import (
     CODE_PURPOSES,
+    TARGETED_ACTIONS,
     FederatedReauthPolicy,
     StepUpAction,
     StepUpVerifier,
@@ -851,6 +852,8 @@ class AuthService:
         self._verify_credential_step_up(
             user_key,
             action="provider_unlink",
+            # #1884 — a factor obtained to unlink this provider confirms this one only.
+            target=provider_key,
             current_password=current_password,
             step_up_code=step_up_code,
             step_up_token=step_up_token,
@@ -864,6 +867,7 @@ class AuthService:
         user_key: UserKey,
         *,
         action: StepUpAction,
+        target: str | None,
         current_password: str | None,
         step_up_code: str | None,
         step_up_token: str | None,
@@ -884,6 +888,7 @@ class AuthService:
         self._step_up_verifier.verify(
             user,
             action=action,
+            target=target,
             echo_ok=None,
             password=current_password,
             code=step_up_code,
@@ -959,6 +964,7 @@ class AuthService:
             self._step_up_verifier.verify(
                 user,
                 action="password_change",
+                target=None,
                 echo_ok=None,
                 password=current_password,
                 code=step_up_code,
@@ -1008,6 +1014,7 @@ class AuthService:
         user_key: UserKey,
         *,
         action: StepUpAction,
+        target: str | None,
         authenticated_with_api_key: bool,
         client_ip: str | None,
     ) -> datetime:
@@ -1033,6 +1040,7 @@ class AuthService:
         code, expires_at = self._step_up_verifier.issue_code(
             user,
             action=action,
+            target=target,
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
@@ -1158,6 +1166,7 @@ class AuthService:
         user_key: UserKey,
         *,
         action: StepUpAction,
+        target: str | None,
         provider_key: str | None,
         client_nonce: str | None,
         callback_url: Callable[[str], str],
@@ -1175,15 +1184,21 @@ class AuthService:
 
         The request is the login one (PKCE, state, nonce, the same callback URL
         from *callback_url*) plus ``prompt=login`` and ``max_age=0``; the state entry
-        additionally names the purpose, the account and the act, and keeps the
+        additionally names the purpose, the account, the act and its target (#1884 —
+        admitted by the verifier: named for a targeted act, and one the requester may
+        act on), and keeps the
         redirect URI so the code exchange repeats it exactly. *client_nonce* — a
         value the starting page generated — rides along unchanged and comes back
         beside the token, so that page can refuse a token it did not ask for
         (review SEC-005: a crafted callback link could otherwise plant one).
         """
         user = self._user_repo.get_or_raise(user_key)
-        self._step_up_verifier.admit_reauth(
-            user, authenticated_with_api_key=authenticated_with_api_key, client_ip=client_ip
+        bound_target = self._step_up_verifier.admit_reauth(
+            user,
+            action=action,
+            target=target,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
         )
         if not self._oauth_engine or not self._oauth_state_store or self._reauth_policy is None:
             raise ValidationError("Sign-in providers are not configured.")
@@ -1205,6 +1220,8 @@ class AuthService:
                 "purpose": _STEP_UP_PURPOSE,
                 "user_key": user_key,
                 "action": action,
+                # #1884 — the target the token will be bound to, admitted above.
+                "target": bound_target,
                 "redirect_uri": redirect_uri,
                 "client_nonce": client_nonce,
             },
@@ -1286,7 +1303,24 @@ class AuthService:
             )
             raise StepUpReauthFailedError("failed", action=action or None) from exc
 
-        token = self._step_up_verifier.issue_reauth_token(user, action=action)  # type: ignore[arg-type]
+        target = str(state_data.get("target") or "") or None
+        if (action in TARGETED_ACTIONS) != (target is not None):
+            # A state written before #1884 names no target for a targeted act: the
+            # re-authentication is refused rather than minting an unbound token.
+            logger.info(
+                "step_up.reauth_refused",
+                provider=provider_slug,
+                action=action,
+                reason="failed",
+                detail="the state names no target for a targeted act",
+                subject=self._log_subject(user_key),
+            )
+            raise StepUpReauthFailedError("failed", action=action or None)
+        token = self._step_up_verifier.issue_reauth_token(
+            user,
+            action=action,  # type: ignore[arg-type]
+            target=target,
+        )
         return token, action
 
     def _complete_login(
@@ -1516,6 +1550,7 @@ class AuthService:
             self._verify_credential_step_up(
                 user_key,
                 action="api_key_creation",
+                target=None,
                 current_password=current_password,
                 step_up_code=step_up_code,
                 step_up_token=step_up_token,
@@ -1700,6 +1735,7 @@ class AuthService:
         self._verify_credential_step_up(
             user_key,
             action="device_pairing",
+            target=None,
             current_password=current_password,
             step_up_code=step_up_code,
             step_up_token=step_up_token,

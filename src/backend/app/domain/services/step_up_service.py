@@ -34,7 +34,7 @@ re-authenticate a person *freshly* confirms by doing so: ``POST
 /users/me/step-up/oidc`` sends the browser to the provider with ``prompt=login`` and
 ``max_age=0``; the callback checks the ID token (issuer, audience, nonce, expiry,
 ``sub`` = a link of this account, ``auth_time`` at most five minutes old) and hands
-back a one-time token bound to account and act (:meth:`StepUpVerifier.issue_reauth_token`),
+back a one-time token bound to account, act and target (:meth:`StepUpVerifier.issue_reauth_token`),
 which the act presents as ``step_up_token`` — method ``oidc_reauth``.
 
 The provider boundary: only OpenID Connect providers can prove *when* the person
@@ -55,9 +55,11 @@ reset relies on. Not an OIDC ``max_age``/``auth_time`` re-login: GitHub is plain
 OAuth2 without ``auth_time``, so that would have left one provider class on the echo.
 
 The code is eight digits, lives :data:`CODE_TTL_SECONDS`, confirms only the act it
-was requested for (review SEC-003), is issued at most :data:`CODE_ISSUES_PER_WINDOW`
+was requested for (review SEC-003) — and, for an act on something other than the
+requester's own account, only the target it was requested for (#1884,
+:data:`TARGETED_ACTIONS`) — is issued at most :data:`CODE_ISSUES_PER_WINDOW`
 times an hour and never replaces an unspent one within :data:`CODE_COOLDOWN_SECONDS`
-(review SEC-002), is stored only as an HMAC-SHA256 of ``account key : act : code``
+(review SEC-002), is stored only as an HMAC-SHA256 of ``account key : act : target : code``
 under a server secret
 (:mod:`app.domain.interfaces.step_up_code`), is spent by the first act that presents
 it, and a new one replaces the old. It is guessed at most as often as a password:
@@ -159,7 +161,30 @@ type StepUpAction = Literal[
     "provider_unlink",
     # #1857 — a platform admin raising another account's trust (email_verified, is_active).
     "admin_account_update",
+    # #1883 — a platform admin creating, repointing or deleting an OIDC provider configuration.
+    "oidc_provider_change",
 ]
+
+#: The acts that act on something other than the requester's own account (#1884).
+#: Their code and re-authentication token are bound to that *target* as well as to
+#: the account and the act — a factor obtained to verify user A must not verify
+#: user B, one obtained to unlink provider X must not unlink provider Y. The target
+#: is the key the act names in its path: the other account's key
+#: (``admin_account_update``, ``admin_account_erasure``), the tenant's key
+#: (``tenant_deletion``), the provider link's key (``provider_unlink``) and the
+#: configuration's key — or ``new:<slug>`` for one being created —
+#: (``oidc_provider_change``). Every other act acts on the requester's own account,
+#: which the digest already binds; it carries no target.
+TARGETED_ACTIONS: frozenset[str] = frozenset(
+    {"admin_account_update", "admin_account_erasure", "tenant_deletion", "provider_unlink", "oidc_provider_change"}
+)
+
+#: The longest target an issuing request may name — an ArangoDB document key is at
+#: most 254 bytes, ``new:<slug>`` at most 54.
+TARGET_MAX_LENGTH = 256
+
+#: The target of an OIDC provider configuration that does not exist yet (#1883).
+NEW_OIDC_PROVIDER_TARGET_PREFIX = "new:"
 
 #: Operator decision on #1815 (variant 1): the e-mailed code is the fallback of an
 #: account whose linked providers all cannot re-authenticate freshly (GitHub —
@@ -201,6 +226,7 @@ CODE_PURPOSES: dict[str, str] = {
     "device_pairing": "sign in a new device to your account",
     "provider_unlink": "remove a sign-in method from your account",
     "admin_account_update": "verify or reactivate another user's account as a platform administrator",
+    "oidc_provider_change": "change the sign-in provider configuration of this installation",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.
@@ -243,15 +269,48 @@ def _code_key(server_secret: str) -> bytes:
     return hmac.new(server_secret.encode(), b"kp-step-up-code", hashlib.sha256).digest()
 
 
-def _code_digest(key: bytes, user_key: str, action: str, code: str) -> str:
-    """What the code store keeps: bound to the account, the act and the server secret.
+def _code_digest(key: bytes, user_key: str, action: str, target: str | None, code: str) -> str:
+    """What the code store keeps: bound to the account, the act, its target and the server secret.
 
     The act is part of the digest (review SEC-003): a code the owner requested to
-    set a password must not confirm the erasure of the account. ``verify`` builds
-    the digest with *its* act, so a code presented to another act simply matches
-    nothing — and is not spent by the mismatch.
+    set a password must not confirm the erasure of the account. So is the act's
+    target (#1884): a code requested to verify user A must not verify user B.
+    ``verify`` builds the digest with *its* act and target, so a code presented to
+    another act or target simply matches nothing — and is not spent by the mismatch.
+    The target is length-prefixed: it may contain the separator (``new:<slug>``).
     """
-    return hmac.new(key, f"{user_key}:{action}:{code.strip()}".encode(), hashlib.sha256).hexdigest()
+    bound = target or ""
+    message = f"{user_key}:{action}:{len(bound)}:{bound}:{code.strip()}"
+    return hmac.new(key, message.encode(), hashlib.sha256).hexdigest()
+
+
+def require_target_shape(action: str, target: str | None) -> str | None:
+    """Refuse an issuing request whose target does not fit its act (422, #1884).
+
+    A targeted act (:data:`TARGETED_ACTIONS`) must name its target; every other act
+    must not — its target is the requester's own account. Returns the target,
+    stripped, or ``None``.
+    """
+    cleaned = target.strip() if target is not None else None
+    if action in TARGETED_ACTIONS:
+        if not cleaned:
+            raise ValidationError(f"The act '{action}' requires the target it confirms.")
+        if len(cleaned) > TARGET_MAX_LENGTH:
+            raise ValidationError("The target is too long.")
+        if "/" in cleaned:
+            # A document key never holds one; a ``/`` would reach the repository as
+            # a document id of another collection (security review O-2).
+            raise ValidationError("The target is not a key.")
+        return cleaned
+    if cleaned:
+        raise ValidationError(f"The act '{action}' has no target.")
+    return None
+
+
+def assert_target_bound(action: str, target: str | None) -> None:
+    """A programming error, not a request error: the act's own code passes its target (#1884)."""
+    if (action in TARGETED_ACTIONS) != bool(target):
+        raise ValueError(f"step-up act {action!r} {'requires' if action in TARGETED_ACTIONS else 'takes no'} target")
 
 
 def _reauth_key(server_secret: str) -> bytes:
@@ -297,6 +356,21 @@ class FederatedReauthPolicy:
         return bool(self.reauth_links(user_key))
 
 
+class StepUpTargetPolicy(Protocol):
+    """Whether *requester* may obtain a step-up factor for *action* on *target* (#1884).
+
+    Asked when a code or a fresh re-authentication is **issued** for a targeted act
+    (:data:`TARGETED_ACTIONS`), so a factor is never minted for a target that does
+    not exist or that the requester may not act on. Raises
+    :class:`~app.common.exceptions.ForbiddenError` (403) or
+    :class:`~app.common.exceptions.NotFoundError` (404); the act itself re-checks
+    both when it runs. Implemented by
+    :class:`app.domain.services.step_up_targets.StepUpTargetAuthorizer`.
+    """
+
+    def authorize(self, requester: User, *, action: str, target: str) -> None: ...
+
+
 class StepUpVerifier:
     """Checks — and throttles — the step-up of every irreversible account action."""
 
@@ -311,6 +385,7 @@ class StepUpVerifier:
         code_secret: str | None = None,
         reauth_store: IStepUpCodeStore | None = None,
         reauth_policy: FederatedReauthPolicy | None = None,
+        target_policy: StepUpTargetPolicy | None = None,
     ) -> None:
         self._store = throttle_store
         self._password_engine = password_engine or PasswordEngine()
@@ -338,34 +413,63 @@ class StepUpVerifier:
         # account without a password needs is unknown, so both are accepted — a
         # re-authentication token can only exist after a fresh sign-in.
         self._reauth_policy = reauth_policy
+        # ``None``: no factor is issued for a targeted act at all (fail closed) —
+        # whether the target exists and is the requester's to act on is unknown.
+        self._target_policy = target_policy
+
+    def _admit_target(self, requester: User, action: str, target: str | None) -> str | None:
+        """The target of an issuing request, shape-checked (422) and authorized (403/404) (#1884)."""
+        bound = require_target_shape(action, target)
+        if bound is not None:
+            if self._target_policy is None:
+                raise ForbiddenError("This act cannot be confirmed here.")
+            self._target_policy.authorize(requester, action=action, target=bound)
+        return bound
 
     def _requires_reauth(self, user_key: str) -> bool:
         return self._reauth_policy is not None and self._reauth_policy.requires_reauth(user_key)
 
-    def admit_reauth(self, requester: User, *, authenticated_with_api_key: bool, client_ip: str | None) -> None:
+    def admit_reauth(
+        self,
+        requester: User,
+        *,
+        action: StepUpAction,
+        target: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> str | None:
         """Refuse to start a fresh re-authentication for who may not step up (#1815).
 
         The same order as :meth:`verify`: a person's session (403), the lock (429);
-        and an account with a local password confirms with that (422).
+        then the act's target (#1884) — named for a targeted act, absent otherwise
+        (422), and one the requester may act on (403/404); and an account with a
+        local password confirms with that (422).
+
+        Returns:
+            The target the token will be bound to (stripped), or ``None``.
         """
         self._refuse_non_person(requester, authenticated_with_api_key)
         user_key = requester.key or ""
         pair, account = self._subjects(user_key, client_ip)
         self._refuse_if_locked("reauth_start", user_key, pair, account)
+        bound = self._admit_target(requester, action, target)
         if requester.password_hash:
             raise StepUpPasswordRequiredError()
+        return bound
 
-    def issue_reauth_token(self, requester: User, *, action: StepUpAction) -> str:
+    def issue_reauth_token(self, requester: User, *, action: StepUpAction, target: str | None) -> str:
         """Mint the one-time token a verified fresh re-authentication hands back (#1815).
 
-        32 random bytes, stored only as an HMAC bound to the account and the act,
-        valid :data:`REAUTH_TOKEN_TTL_SECONDS`, spent by the first act that presents
-        it; a new one replaces the previous.
+        32 random bytes, stored only as an HMAC bound to the account, the act and
+        its target (#1884 — the one :meth:`admit_reauth` admitted when the
+        re-authentication started), valid :data:`REAUTH_TOKEN_TTL_SECONDS`, spent by
+        the first act that presents it; a new one replaces the previous.
         """
+        assert_target_bound(action, target)
         user_key = requester.key or ""
         token = secrets.token_urlsafe(32)
         self._reauth_store.issue(
-            user_key, _code_digest(self._reauth_key, user_key, action, token), REAUTH_TOKEN_TTL_SECONDS
+            user_key, _code_digest(self._reauth_key, user_key, action, target, token), REAUTH_TOKEN_TTL_SECONDS
         )
         logger.info(
             "step_up.reauth_token_issued",
@@ -379,6 +483,7 @@ class StepUpVerifier:
         requester: User,
         *,
         action: StepUpAction,
+        target: str | None,
         authenticated_with_api_key: bool,
         client_ip: str | None,
     ) -> tuple[str, datetime]:
@@ -388,21 +493,26 @@ class StepUpVerifier:
         returns it in a response. A new code replaces the previous one — but not
         within :data:`CODE_COOLDOWN_SECONDS` while it is unspent, and at most
         :data:`CODE_ISSUES_PER_WINDOW` codes per hour (review SEC-002). The code
-        confirms *action* only (review SEC-003).
+        confirms *action* only (review SEC-003), and for a targeted act only on
+        *target* (#1884), which must exist and be the requester's to act on.
 
         Returns:
             ``(code, expires_at)`` — the raw eight-digit code and its expiry in UTC.
 
         Raises:
-            ForbiddenError: a service account, or a request authenticated with an API key (403).
+            ForbiddenError: a service account, or a request authenticated with an API
+                key (403); the requester may not act on *target* (403).
+            NotFoundError: *target* does not exist (404).
             StepUpLockedError: the step-up is locked for this account or address, or
                 the issuance bound is reached — ``retry_after_minutes`` says how long (429).
-            ValidationError: the account has a local password and confirms with it (422).
+            ValidationError: the account has a local password and confirms with it,
+                or *target* is missing for a targeted act or given for another (422).
         """
         self._refuse_non_person(requester, authenticated_with_api_key)
         user_key = requester.key or ""
         pair, account = self._subjects(user_key, client_ip)
         self._refuse_if_locked("code_issue", user_key, pair, account)
+        bound = self._admit_target(requester, action, target)
         if requester.password_hash:
             raise StepUpPasswordRequiredError()
         if self._requires_reauth(user_key) or not EMAIL_CODE_FALLBACK:
@@ -427,7 +537,7 @@ class StepUpVerifier:
             raise StepUpLockedError(minutes, code_issue=True)
 
         code = f"{secrets.randbelow(10**CODE_DIGITS):0{CODE_DIGITS}d}"
-        self._code_store.issue(user_key, _code_digest(self._code_key, user_key, action, code), CODE_TTL_SECONDS)
+        self._code_store.issue(user_key, _code_digest(self._code_key, user_key, action, bound, code), CODE_TTL_SECONDS)
         logger.info("step_up.code_issued", action=action, subject=log_subject(user_key))
         return code, datetime.now(UTC) + timedelta(seconds=CODE_TTL_SECONDS)
 
@@ -446,6 +556,7 @@ class StepUpVerifier:
         requester: User,
         *,
         action: StepUpAction,
+        target: str | None,
         echo_ok: bool | None,
         password: str | None,
         code: str | None,
@@ -462,6 +573,11 @@ class StepUpVerifier:
         :meth:`issue_reauth_token`) or — only where no linked provider can do that —
         ``code`` (from :meth:`issue_code`). What does not apply is ignored.
 
+        ``target`` is the key the act names (:data:`TARGETED_ACTIONS`), ``None`` for
+        an act on the requester's own account; a code or token issued for another
+        target matches nothing and is not spent (#1884). Passing the wrong shape is
+        a programming error (``ValueError``), raised before anything is checked.
+
         Raises:
             ForbiddenError: a service account, or a request authenticated with an API key (403).
             StepUpLockedError: too many failed step-ups for this account (429).
@@ -471,6 +587,7 @@ class StepUpVerifier:
             StepUpCodeRequiredError: an account without such a provider sent neither (401).
             UnauthorizedError: the password or the code is missing or wrong (401).
         """
+        assert_target_bound(action, target)
         self._refuse_non_person(requester, authenticated_with_api_key)
         user_key = requester.key or ""
         pair, account = self._subjects(user_key, client_ip)
@@ -513,10 +630,12 @@ class StepUpVerifier:
             confirmed = self._password_engine.verify_password(password or "", password_hash or "")
         elif method == "oidc_reauth":
             confirmed = self._reauth_store.consume(
-                user_key, _code_digest(self._reauth_key, user_key, action, (reauth_token or "").strip())
+                user_key, _code_digest(self._reauth_key, user_key, action, target, (reauth_token or "").strip())
             )
         else:
-            confirmed = self._code_store.consume(user_key, _code_digest(self._code_key, user_key, action, code or ""))
+            confirmed = self._code_store.consume(
+                user_key, _code_digest(self._code_key, user_key, action, target, code or "")
+            )
         if not confirmed:
             if pair_attempts >= MAX_ATTEMPTS:
                 self._strike(pair, MAX_ATTEMPTS)
@@ -582,14 +701,18 @@ class StepUpVerifier:
 
 
 def default_step_up_verifier(
-    password_engine: PasswordEngine | None = None, *, tombstone_salt: str = ""
+    password_engine: PasswordEngine | None = None,
+    *,
+    tombstone_salt: str = "",
+    target_policy: StepUpTargetPolicy | None = None,
 ) -> StepUpVerifier:
     """A verifier over the process-wide in-memory tiers — what a service gets when not wired.
 
     The DI providers wire the Valkey-backed stores (``get_step_up_verifier``); this
     default exists so a service constructed without them still *throttles* and still
     finds the code it issued, rather than degrading to the unbounded check #1816
-    removed (the ``DEFAULT_*`` lesson of #1118).
+    removed (the ``DEFAULT_*`` lesson of #1118). Without *target_policy* it issues no
+    factor for a targeted act (#1884, fail closed); verifying one still works.
     """
     from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_CODE_STORE
     from app.data_access.external.step_up_throttle import DEFAULT_STEP_UP_THROTTLE_STORE
@@ -599,4 +722,5 @@ def default_step_up_verifier(
         password_engine,
         tombstone_salt=tombstone_salt,
         code_store=DEFAULT_STEP_UP_CODE_STORE,
+        target_policy=target_policy,
     )

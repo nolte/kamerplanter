@@ -234,7 +234,7 @@ Content-Type: application/json
 }
 ```
 
-`action` names the act to confirm, same as for the code. The optional `provider_key` (a linked provider's key from `GET /users/me/providers`) picks a specific provider when several OIDC-capable ones are linked; without it, the route takes the first matching one. The optional `client_nonce` (32 hex characters the client generates at random) comes back unchanged beside the token or the error — so the page that started the sign-in recognises its own result and discards a planted one.
+`action` names the act to confirm, same as for the code, and `target` its target, same as there (required for the targeted actions, see below). The optional `provider_key` (a linked provider's key from `GET /users/me/providers`) picks a specific provider when several OIDC-capable ones are linked; without it, the route takes the first matching one. The optional `client_nonce` (32 hex characters the client generates at random) comes back unchanged beside the token or the error — so the page that started the sign-in recognises its own result and discards a planted one.
 
 **Response (200 OK):**
 
@@ -251,7 +251,7 @@ Open `authorization_url` in the browser — the same login request as a normal s
 
 The backend checks the ID token: `iss` is the expected issuer, `aud`/`azp` is this instance, `nonce` matches the request, `exp` has not passed, `sub` is a linked sign-in of **this** account made through **exactly this** provider configuration (the link records configuration and issuer; `iss` must match it), and `auth_time` is a finite number at most five minutes old (30 seconds' clock tolerance). An older link without a recorded configuration counts as re-authenticable only when exactly one enabled, capable configuration of its type exists — otherwise the account confirms with the emailed code. It does **not** check a JWKS signature: the ID token comes straight from the provider's token endpoint over TLS (the fresh sign-in is only offered for an `https` token endpoint), in an exchange this server authenticated with its own client secret — exactly the case OIDC Core 3.1.3.7 item 6 allows TLS protection to stand in for the signature check.
 
-The returned `step_up_token` is valid for five minutes, applies to exactly the requested action, is spent by the first action that presents it, and is otherwise used like the emailed code: as `step_up_token` in the confirmation body of the respective action (see the table below).
+The returned `step_up_token` is valid for five minutes, applies to exactly the requested action (and, for a targeted action, exactly the named target), is spent by the first action that presents it, and is otherwise used like the emailed code: as `step_up_token` in the confirmation body of the respective action (see the table below).
 
 `403 Forbidden` for a request authenticated with an API key, a service account, or a light-mode installation. `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED` when the account has a local password (it confirms with that); `STEP_UP_REAUTH_UNAVAILABLE` when none of its linked providers (or the one named by `provider_key`) supports a fresh sign-in — it then confirms with the emailed code —; a validation error when `action` is missing/unknown or `client_nonce` is malformed. `429 Too Many Requests` (`STEP_UP_LOCKED`) while the step-up is locked.
 
@@ -274,7 +274,18 @@ Content-Type: application/json
 }
 ```
 
-`action` names what the code is to confirm: `account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, or `email_change`. The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text.
+`action` names what the code is to confirm — one of the actions in the table below (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`). The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text, never the target.
+
+**The act's target (`target`).** When the act acts on something other than your own account, `target` names it — otherwise the route answers `422`; for an act on your own account a `target` is `422` as well: <!-- #1884 -->
+
+| Action | `target` |
+|---|---|
+| `admin_account_update`, `admin_account_erasure` | the other account's key |
+| `tenant_deletion` | the tenant's key |
+| `provider_unlink` | the provider link's key from `GET /users/me/providers` |
+| `oidc_provider_change` | the OIDC configuration's key; `new:<slug>` when creating one |
+
+The code and the `step_up_token` then hold for that target only: a code requested for account A is refused for account B, without being spent. The route checks the target when it issues the factor — it must exist and you must be allowed to act on it (`403` if not; `404` if it doesn't exist; `409` if the slug of a new OIDC configuration is taken).
 
 **Response (202 Accepted):**
 
@@ -295,7 +306,7 @@ The code is eight digits, valid for ten minutes, and spent by the first action t
 
 ## Step-up Confirmation for Irreversible Account Actions and Sign-In Credentials
 
-Nine actions require re-confirmation by the signed-in person, in addition to a valid access token — since version 1.19 this also covers issuing or removing sign-in credentials and a platform admin raising another account's trust: <!-- #1847, #1857 -->
+Ten actions require re-confirmation by the signed-in person, in addition to a valid access token — since version 1.19 this also covers issuing or removing sign-in credentials and a platform admin raising another account's trust: <!-- #1847, #1857 -->
 
 | Action | Route(s) | Typed-back target (body field) | Password / Fresh sign-in / Code |
 |---|---|---|---|
@@ -308,11 +319,12 @@ Nine actions require re-confirmation by the signed-in person, in addition to a v
 | Pair a device by QR code | `POST /auth/device-pairing` | — | own password, otherwise a `step_up_token` or code |
 | Remove a sign-in method (provider link) | `DELETE /users/me/providers/{provider_key}` | — | own password, otherwise a `step_up_token` or code |
 | Raise another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, only when `email_verified` or `is_active` flips from `false` to `true` | — | the admin's own, otherwise their `step_up_token` or code |
+| Create, change or delete an OIDC provider (platform admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — not for a `PUT` that only changes `display_name` or `icon_url` (switching it on or off needs it) | — | the admin's own, otherwise their `step_up_token` or code |
 
 !!! info "No automatic revocation of API keys"
     Changing your password, resetting it, and `POST /auth/logout-all` revoke the account's refresh tokens — **not** its API keys. A key represents a deliberately set-up machine integration (Home Assistant, an MCP client); silently invalidating it on every password change would break those integrations without warning. Since this version, a key can only be minted behind this step-up — no longer from a merely stolen session or from another key. Keys are listed under `GET /auth/api-keys` with their creation and last-used timestamps, and each can be revoked individually via `DELETE /auth/api-keys/{key_id}`. <!-- #1847 -->
 
-A request authenticated with an API key, or one coming from a service account, cannot trigger any of these nine actions — including issuing another API key or a pairing code (see the check order below).
+A request authenticated with an API key, or one coming from a service account, cannot trigger any of these ten actions — including issuing another API key or a pairing code (see the check order below).
 
 Example body for account erasure (local account):
 

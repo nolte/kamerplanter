@@ -798,6 +798,9 @@ _NOT_AUTHORISATION: dict[str, str] = {
     "get_tenant_service": "service dependency",
     "get_tenant_repo": "repository dependency",
     "get_user_service": "service dependency",
+    "get_oidc_provider_admin_service": (
+        "service dependency; its step-up (#1883) confirms, the route's require_platform_admin authorises"
+    ),
     "get_user_preference_service": "service dependency",
     "get_oauth_engine": "engine dependency",
     "get_active_tenant_key": "resolves the header slug; the refusal is the get_current_user beneath it",

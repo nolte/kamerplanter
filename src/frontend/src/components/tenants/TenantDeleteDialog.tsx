@@ -8,6 +8,8 @@ interface TenantDeleteDialogProps {
   open: boolean;
   tenantName: string;
   tenantSlug: string;
+  /** The tenant's key — the step-up code or token is bound to it (#1884). */
+  tenantKey: string;
   /** Runs the deletion with the step-up; a rejection is shown inside the dialog. */
   onConfirm: (stepUp: TenantDeleteRequest) => Promise<void>;
   onCancel: () => void;
@@ -27,6 +29,7 @@ export default function TenantDeleteDialog({
   open,
   tenantName,
   tenantSlug,
+  tenantKey,
   onConfirm,
   onCancel,
 }: TenantDeleteDialogProps) {
@@ -49,6 +52,7 @@ export default function TenantDeleteDialog({
       confirmLabel={t('pages.auth.adminConfirmDelete')}
       testIdPrefix="tenant-delete"
       stepUpAction="tenant_deletion"
+      stepUpTarget={tenantKey}
       testIds={{ echo: 'tenant-delete-slug' }}
       onConfirm={handleConfirm}
       onCancel={onCancel}

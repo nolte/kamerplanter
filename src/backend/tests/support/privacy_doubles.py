@@ -399,7 +399,9 @@ class PlatformAdminMemberships:
         return getattr(self._inner, name)
 
 
-def admin_erasure_route_args(privacy_service: Any, *, admin_key: str, target_email: str) -> dict[str, Any]:
+def admin_erasure_route_args(
+    privacy_service: Any, *, admin_key: str, target_key: str, target_email: str
+) -> dict[str, Any]:
     """Route arguments of ``DELETE /admin/platform/users/{key}`` by a proven platform admin (#1814).
 
     The admin signs in only federated (no password hash), so the step-up is the
@@ -414,9 +416,17 @@ def admin_erasure_route_args(privacy_service: Any, *, admin_key: str, target_ema
     admin = User.model_validate(
         {"_key": admin_key, "email": f"{admin_key}@example.org", "display_name": "Platform Admin"}
     )
-    code, _expires_at = privacy_service._step_up_verifier.issue_code(
-        admin, action="admin_account_erasure", authenticated_with_api_key=False, client_ip="203.0.113.1"
-    )
+    from tests.support.step_up import admitting_every_target
+
+    # Bound to the erased account (#1884); who may obtain it is pinned elsewhere.
+    with admitting_every_target(privacy_service._step_up_verifier) as verifier:
+        code, _expires_at = verifier.issue_code(
+            admin,
+            action="admin_account_erasure",
+            target=target_key,
+            authenticated_with_api_key=False,
+            client_ip="203.0.113.1",
+        )
     return {
         "body": ErasureCreateRequest(confirm_email=target_email, step_up_code=code),
         "current_user": admin,

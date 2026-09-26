@@ -104,9 +104,19 @@ class ProviderTypeCheck(BaseModel):
     detail: str = ""
 
 
+#: The spelling of a provider slug — the URL segment of ``/auth/oauth/{slug}/...``.
+OIDC_SLUG_MAX_LENGTH = 50
+OIDC_SLUG_PATTERN = r"^[a-z0-9-]+$"
+
+
+def is_valid_oidc_slug(slug: str) -> bool:
+    """Whether *slug* is one :class:`OidcProviderConfig` would accept (#1883: the step-up target of a creation)."""
+    return 0 < len(slug) <= OIDC_SLUG_MAX_LENGTH and re.fullmatch(OIDC_SLUG_PATTERN, slug) is not None
+
+
 class OidcProviderConfig(BaseModel):
     key: str | None = Field(default=None, alias="_key")
-    slug: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9-]+$")
+    slug: str = Field(min_length=1, max_length=OIDC_SLUG_MAX_LENGTH, pattern=OIDC_SLUG_PATTERN)
     display_name: str = Field(min_length=1, max_length=200)
     # DELIBERATELY ``str``, not ``OidcProviderType`` (#1497). The vocabulary is
     # enforced on the REQUEST schemas; this model is also what ``repo.get_by_key``

@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.validators import DisplayName
-from app.domain.services.step_up_service import StepUpAction
+from app.domain.services.step_up_service import TARGET_MAX_LENGTH, StepUpAction
 
 
 class ProviderUnlinkRequest(CredentialStepUp):
@@ -59,13 +59,25 @@ class ChangePasswordRequest(BaseModel):
 class StepUpCodeRequest(BaseModel):
     """Which act the mailed code is to confirm (review SEC-003) — a code confirms that act only."""
 
-    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"action": "account_erasure"}]})
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [{"action": "account_erasure"}, {"action": "admin_account_update", "target": "u-4711"}]
+        },
+    )
 
-    action: StepUpAction = Field(
+    action: StepUpAction = Field(description="The act the code confirms (``StepUpAction``).")
+    target: str | None = Field(
+        default=None,
+        max_length=TARGET_MAX_LENGTH,
         description=(
-            "The act the code confirms: account_erasure, admin_account_erasure, tenant_deletion, "
-            "password_change or email_change."
-        )
+            "The key of what the act acts on (#1884) — required for an act on something other than the "
+            "requester's own account, refused for any other: admin_account_update and admin_account_erasure "
+            "the other account's key, tenant_deletion the tenant's key, provider_unlink the provider link's "
+            "key (GET /users/me/providers), oidc_provider_change the configuration's key or new:<slug> for "
+            "one being created. It must exist and be the requester's to act on (403/404). The "
+            "confirmation is bound to it and is refused for any other target."
+        ),
     )
 
 
@@ -75,15 +87,25 @@ class StepUpReauthRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={
-            "examples": [{"action": "account_erasure"}, {"action": "tenant_deletion", "provider_key": "prov-17"}]
+            "examples": [
+                {"action": "account_erasure"},
+                {"action": "tenant_deletion", "target": "t-17", "provider_key": "prov-17"},
+            ]
         },
     )
 
-    action: StepUpAction = Field(
+    action: StepUpAction = Field(description="The act the re-authentication confirms (``StepUpAction``).")
+    target: str | None = Field(
+        default=None,
+        max_length=TARGET_MAX_LENGTH,
         description=(
-            "The act the re-authentication confirms: account_erasure, admin_account_erasure, tenant_deletion, "
-            "password_change or email_change."
-        )
+            "The key of what the act acts on (#1884) — required for an act on something other than the "
+            "requester's own account, refused for any other: admin_account_update and admin_account_erasure "
+            "the other account's key, tenant_deletion the tenant's key, provider_unlink the provider link's "
+            "key (GET /users/me/providers), oidc_provider_change the configuration's key or new:<slug> for "
+            "one being created. It must exist and be the requester's to act on (403/404). The "
+            "confirmation is bound to it and is refused for any other target."
+        ),
     )
     provider_key: str | None = Field(
         default=None,
