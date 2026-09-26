@@ -69,7 +69,7 @@ class _ForeignKeyAwareService(_TenantScopedService):
 
     def _check(self, key: str) -> None:
         if not key.endswith("_mine"):
-            raise NotFoundError("Entity", key)
+            raise NotFoundError("PlantInstance", key)
 
     def get_plant(self, key, *, tenant_key):
         self._check(key)
