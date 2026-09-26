@@ -1,7 +1,7 @@
 import re
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, ValidationError
 from pydantic_settings import BaseSettings
 
 # What ``/api/health`` reports when no build stamped a revision into the image
@@ -906,4 +906,34 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
-settings = Settings()
+class SettingsError(RuntimeError):
+    """The environment does not configure a valid ``Settings`` — named by field, never by value (#1832)."""
+
+
+def load_settings() -> Settings:
+    """Build ``Settings`` from the environment, or fail without echoing any value (#1832).
+
+    A pydantic ``ValidationError`` renders ``input_value=`` — the raw value of
+    the offending variable, which may be a password or a key — and it surfaces
+    before any log redaction can run: ``settings`` is built while ``app.main``
+    and ``app.tasks`` are still being imported, so the interpreter prints the
+    uncaught error to stderr. The replacement names each failing variable and
+    pydantic's reason only, and is raised outside the ``except`` block so the
+    original is not even its context.
+    """
+    try:
+        return Settings()
+    except ValidationError as exc:
+        problems = [
+            f"{'.'.join(str(part) for part in error['loc']).upper() or '<settings>'}: {error['msg']} [{error['type']}]"
+            for error in exc.errors(include_url=False, include_input=False, include_context=False)
+        ]
+    # Raised outside the ``except`` block: ``from None`` would only *suppress*
+    # the context — ``__context__`` would still hold the ValidationError with
+    # its ``input_value`` for any renderer that ignores the flag (#1877 review).
+    raise SettingsError(
+        f"{len(problems)} invalid setting(s) in the environment (values withheld):\n  " + "\n  ".join(problems)
+    )
+
+
+settings = load_settings()

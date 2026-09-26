@@ -120,6 +120,9 @@ async def test_no_log_record_carries_the_keys(service, caplog):
     logger, plus structlog, so a new log line anywhere on the path is covered.
     """
     caplog.set_level(logging.DEBUG)
+    # ``setup_logging`` holds httpx at WARNING (#1795) and runs when ``app.main`` is
+    # imported (#1832) — by any earlier test in the session. Lower it for this probe.
+    caplog.set_level(logging.DEBUG, logger="httpx")
     store = _store()
 
     with structlog.testing.capture_logs() as events:

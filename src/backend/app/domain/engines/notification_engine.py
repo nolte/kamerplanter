@@ -92,7 +92,9 @@ class NotificationEngine:
             notification.group_key,
         )
         if await self._is_duplicate(dedup_key):
-            log.info("notification_deduplicated", dedup_key=dedup_key)
+            # Not the dedup key: it embeds the account key (#1830, NFR-011 §3.4 L-1).
+            # ``subject`` and ``notification_type`` are bound on ``log`` already.
+            log.info("notification_deduplicated")
             return {"status": "deduplicated", "channels_sent": [], "channels_failed": []}
 
         # 2. Preferences
@@ -460,7 +462,8 @@ class NotificationEngine:
             result = self._redis.get(dedup_key)
             return result is not None
         except Exception:
-            logger.warning("redis_dedup_check_failed", dedup_key=dedup_key)
+            # The key embeds the account key (#1830); the failure is the Redis outage, not the key.
+            logger.warning("redis_dedup_check_failed")
             # Redis failure: allow the notification through (graceful degradation)
             return False
 
@@ -469,7 +472,7 @@ class NotificationEngine:
         try:
             self._redis.set(dedup_key, "1", ex=_DEDUP_TTL_SECONDS)
         except Exception:
-            logger.warning("redis_dedup_set_failed", dedup_key=dedup_key)
+            logger.warning("redis_dedup_set_failed")
             # Redis failure: non-blocking (graceful degradation)
 
     @staticmethod

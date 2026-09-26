@@ -19,10 +19,14 @@ router = APIRouter(prefix="/locations", tags=["locations"], responses=NOT_FOUND_
 
 
 def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) -> Location:
-    """Get a location and verify it belongs to a site owned by the tenant."""
-    loc = service.get_location(key)
-    service.get_site(loc.site_key, tenant_key=ctx.tenant_key)
-    return loc
+    """The location ``key`` if its site is the tenant's, else 404 as ``Location`` (#1871 B13).
+
+    Resolved in one step through the parent site. The two-step form (location
+    unscoped, then its site) answered a foreign location with ``No Site with key
+    '<the other tenant's site>'`` and an unknown one with ``No Location`` — an
+    existence oracle that echoed the other tenant's site key.
+    """
+    return service.get_location(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("", response_model=list[LocationResponse])
@@ -37,6 +41,9 @@ def list_locations(
     """List a site's locations, or the children of a parent location."""
     service.get_site(site_key, tenant_key=ctx.tenant_key)
     if parent_location_key:
+        # The parent is resolved under the tenant too (#1871 B14): checking only
+        # the site listed the children of any tenant's location.
+        _verify_location_tenant(parent_location_key, ctx, service)
         items = service.list_location_children(parent_location_key)
     else:
         items = service.list_locations(site_key)

@@ -79,6 +79,7 @@ def isolated_logging() -> Iterator[None]:
     handler_filters = {handler: list(handler.filters) for lg in _all_loggers().values() for handler in lg.handlers}
     structlog_config = structlog.get_config()
     celery_setup = CeleryLogging._setup
+    record_factory = logging.getLogRecordFactory()
     environ = dict(os.environ)
     with warnings.catch_warnings():
         yield
@@ -95,6 +96,7 @@ def isolated_logging() -> Iterator[None]:
     logging.root.manager._clear_cache()
     structlog.configure(**structlog_config)
     CeleryLogging._setup = celery_setup
+    logging.setLogRecordFactory(record_factory)
     os.environ.clear()
     os.environ.update(environ)
 

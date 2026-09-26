@@ -40,7 +40,7 @@ from app.api.v1.tasks.schemas import (
     WorkflowTemplateUpdate,
 )
 from app.common.auth import get_current_tenant, get_current_user, require_permission
-from app.common.dependencies import get_task_entity_guard, get_task_service
+from app.common.dependencies import get_species_service, get_task_entity_guard, get_task_service
 from app.common.enums import TaskCategory, TaskOrigin, TaskStatus
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
@@ -50,6 +50,7 @@ from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
+from app.domain.services.species_service import SpeciesService
 from app.domain.services.task_entity_guard import TaskEntityGuard
 from app.domain.services.task_service import TaskService
 
@@ -125,8 +126,13 @@ def create_workflow(
     body: WorkflowTemplateCreate,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
+    species_service: SpeciesService = Depends(get_species_service),
 ):
     """Create a workflow template for the tenant."""
+    # The species the template is bound to must be one the tenant may read —
+    # global, own or granted (#1871 B10); it used to be stored as given.
+    if body.species_key:
+        species_service.get_species(body.species_key, tenant_key=ctx.tenant_key)
     wt = WorkflowTemplate(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_workflow_template(wt)
     return _wf_response(created)
