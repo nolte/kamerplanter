@@ -109,6 +109,10 @@ class _FeedingService:
         self.seen_tenant = None
         self.seen_plant = None
 
+    def require_fill_event(self, key: str, *, tenant_key: str) -> None:
+        """Every fill event here is the tenant's own; the real check is in ``FeedingService`` (#1872 C6)."""
+        self.checked_fill_events = [*getattr(self, "checked_fill_events", []), (key, tenant_key)]
+
     def create_event(self, event: FeedingEvent) -> FeedingEvent:
         stored = event.model_copy(update={"key": f"fe-{len(self.created) + 1}"})
         if stored.timestamp is None:
@@ -329,6 +333,7 @@ class TestRecordFeedingEvent:
         assert stored.measured_ph_before == 6.1
         assert stored.runoff_ec == 2.4
         assert stored.tank_fill_event_key == "tfe-9"
+        assert feeding.checked_fill_events == [("tfe-9", TENANT)]  # the preview-shared check ran (#1872 C6)
         assert stored.fertilizers_used[0].ml_applied == 5.0
 
         assert resp.data["feeding_event_key"] == "fe-1"

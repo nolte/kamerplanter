@@ -128,6 +128,7 @@ class PlantingRunService:
         # After the clone config for the same reason as the location: the check
         # sees whichever key the run ends up with, inherited or supplied (#1868).
         self._require_owned_substrate_batch(run)
+        self._require_owned_source_plant(run)
         # Entries carry the run's tenant so their owned references (a
         # ``cultivar_key``) are checked — and checked before the run is stored,
         # so a foreign reference refuses the whole create rather than leaving a
@@ -224,9 +225,26 @@ class PlantingRunService:
         ``update_run`` needs it before it assigns, and ``create_run`` after it has
         a run — one predicate either way, so the two entry points cannot drift.
         """
-        if not tenant_key or not location_key or self._site_repo is None:
+        if not tenant_key or not location_key:
             return
+        # Fail closed without the anchor (#1876 review, SEC-004): a tenant request
+        # whose location cannot be resolved is refused, not stored.
+        if self._site_repo is None:
+            raise NotFoundError("Location", location_key)
         resolve_owned_location(self._site_repo, location_key, tenant_key)
+
+    def _require_owned_source_plant(self, run: PlantingRun) -> None:
+        """Refuse a ``source_plant_key`` that is not a plant of the run's tenant (#1872 C1).
+
+        A clone run names its mother plant; the key was only required to be
+        present and was stored and echoed as given. Unknown and foreign answer
+        the same 404. Skipped for a run with no tenant (seeds, migrations).
+        """
+        if not run.source_plant_key or not run.tenant_key:
+            return
+        plant = self._plant_repo.get_by_key(run.source_plant_key)
+        if plant is None or plant.tenant_key != run.tenant_key:
+            raise NotFoundError("PlantInstance", run.source_plant_key)
 
     def _require_readable_species(self, species_key: str, tenant_key: str) -> None:
         """Refuse an entry species the tenant may not read (#1871 B11).
@@ -1222,6 +1240,10 @@ class PlantingRunService:
         Read access, not ownership — global system plans stay assignable (#324).
         """
         self.get_run(run_key, tenant_key=tenant_key)
+        # Fail closed without the plan repository (security review of #1872, S2):
+        # the assignment used to be stored unchecked.
+        if self._nutrient_plan_repo is None:
+            raise NotFoundError("NutrientPlan", plan_key)
         self._readable_plan_or_raise(plan_key, tenant_key)
         return self._repo.assign_nutrient_plan(run_key, plan_key, assigned_by)
 

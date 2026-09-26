@@ -4,6 +4,8 @@ Uses an in-memory fake repository to verify the opt-in policy, upsert
 semantics and the export-facing enabled-key read.
 """
 
+from types import SimpleNamespace
+
 from app.domain.models.ha_publish_setting import HaPublishEntityType, HaPublishSetting
 from app.domain.services.ha_publish_service import HaPublishService
 
@@ -35,8 +37,29 @@ class _FakeRepo:
         return setting
 
 
+class _Owners:
+    """Plants and tanks of ``t1`` — except ``plant-9``, which is ``t2``'s (#1872 C8)."""
+
+    def get_by_key(self, key):
+        return SimpleNamespace(key=key, tenant_key="t2" if key == "plant-9" else "t1")
+
+
+class _SiteAnchors:
+    """Every location sits on a site of ``t1``."""
+
+    def get_location_by_key(self, key):
+        return SimpleNamespace(key=key, site_key="site-1")
+
+    def get_site_by_key(self, key):
+        return SimpleNamespace(key=key, tenant_key="t1")
+
+    def get_slot_by_key(self, key):
+        return None
+
+
 def _service():
-    return HaPublishService(_FakeRepo())
+    # #1872 C8: the service resolves each entity under the tenant.
+    return HaPublishService(_FakeRepo(), plant_repo=_Owners(), tank_repo=_Owners(), site_anchors=_SiteAnchors())
 
 
 def test_is_published_defaults_false_opt_in():
