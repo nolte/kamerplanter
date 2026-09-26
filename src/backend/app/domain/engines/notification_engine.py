@@ -445,30 +445,23 @@ class NotificationEngine:
         A push service answers 404/410 for a subscription that no longer
         exists; until #1827 the endpoint was reported and kept, and dialled again
         on every notification. Every sender of a channel result calls this — the
-        engine's single and batch paths and the test notification. The
-        preferences are re-read right before the write to keep the window
-        against a concurrent subscribe short. A failed write is logged and not
-        raised: the notification was delivered or not independently of it.
-        Logs a count, never an endpoint (its path is the device's push token).
+        engine's single and batch paths and the test notification. The removal
+        is one atomic update in the repository that never creates a document
+        (#1892 security review: a read-then-upsert could overwrite a concurrent
+        subscribe, or recreate preferences an erasure had just removed). A
+        failed write is logged and not raised: the notification was delivered or
+        not independently of it. Logs a count, never an endpoint (its path is
+        the device's push token).
 
         Returns:
             How many subscriptions were removed.
         """
         if not result.expired_endpoints:
             return 0
-        gone = set(result.expired_endpoints)
         try:
-            prefs = self._preference_repo.get_by_user(user_key)
-            channel_pref = prefs.channels.get(result.channel_key) if prefs is not None else None
-            if channel_pref is None:
-                return 0
-            subscriptions = channel_pref.config.get("subscriptions", [])
-            remaining = [s for s in subscriptions if s.get("endpoint") not in gone]
-            pruned = len(subscriptions) - len(remaining)
-            if not pruned:
-                return 0
-            channel_pref.config["subscriptions"] = remaining
-            self._preference_repo.upsert(prefs)
+            pruned = self._preference_repo.remove_subscriptions(
+                user_key, result.channel_key, list(dict.fromkeys(result.expired_endpoints))
+            )
         except Exception as exc:
             logger.warning(
                 "push_subscription_prune_failed",
@@ -477,13 +470,10 @@ class NotificationEngine:
                 error_type=type(exc).__name__,
             )
             return 0
-        logger.info(
-            "push_subscriptions_pruned",
-            subject=log_subject(user_key),
-            channel=result.channel_key,
-            pruned=pruned,
-            remaining=len(remaining),
-        )
+        if pruned:
+            logger.info(
+                "push_subscriptions_pruned", subject=log_subject(user_key), channel=result.channel_key, pruned=pruned
+            )
         return pruned
 
     def _get_channel_config(

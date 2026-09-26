@@ -135,6 +135,7 @@ class _Prefs:
     def __init__(self, prefs: NotificationPreferences) -> None:
         self.stored = prefs
         self.upserts = 0
+        self.removals = 0
 
     def get_by_user(self, user_key: str) -> NotificationPreferences:
         return self.stored.model_copy(deep=True)
@@ -143,6 +144,17 @@ class _Prefs:
         self.upserts += 1
         self.stored = prefs.model_copy(deep=True)
         return self.stored
+
+    def remove_subscriptions(self, user_key: str, channel_key: str, endpoints: list[str]) -> int:
+        """What the Arango repository does in one UPDATE (its AQL is held by an integration test)."""
+        pref = self.stored.channels.get(channel_key)
+        if pref is None:
+            return 0
+        current = pref.config.get("subscriptions", [])
+        kept = [s for s in current if s.get("endpoint") not in set(endpoints)]
+        pref.config["subscriptions"] = kept
+        self.removals += 1
+        return len(current) - len(kept)
 
 
 _LIVE = "https://fcm.googleapis.com/fcm/send/live-1827"
@@ -225,4 +237,37 @@ def test_a_result_without_expired_endpoints_writes_nothing() -> None:
     pruned = engine.prune_expired_subscriptions("u1", ChannelResult(channel_key="pwa", success=True))
 
     assert pruned == 0
-    assert repo.upserts == 0
+    assert repo.upserts == 0 and repo.removals == 0
+
+
+def test_pruning_never_rewrites_the_whole_preferences_document() -> None:
+    """#1892 security review: a read-then-upsert could recreate preferences an erasure removed meanwhile.
+
+    The double stands for a document that is gone by the time a write arrives:
+    ``upsert`` would insert it again (with the remaining subscriptions and the
+    rest of the channel config); ``remove_subscriptions`` finds nothing.
+    """
+
+    class _ErasedMeanwhile(_Prefs):
+        recreated = False
+
+        def upsert(self, prefs: NotificationPreferences) -> NotificationPreferences:
+            self.recreated = True  # recorded, not raised: the engine swallows a failed write
+            return prefs
+
+        def remove_subscriptions(self, user_key: str, channel_key: str, endpoints: list[str]) -> int:
+            return 0
+
+    prefs = _prefs()
+    from app.domain.models.notification import ChannelPreference
+
+    prefs.channels["pwa"] = ChannelPreference(enabled=True, config={"subscriptions": [{"endpoint": _GONE}]})
+    repo = _ErasedMeanwhile(prefs)
+    engine = NotificationEngine(MagicMock(), repo, MagicMock(), MagicMock())
+
+    pruned = engine.prune_expired_subscriptions(
+        "u1", ChannelResult(channel_key="pwa", success=False, expired_endpoints=[_GONE])
+    )
+
+    assert pruned == 0
+    assert not repo.recreated, "the prune wrote the whole preferences document back"
