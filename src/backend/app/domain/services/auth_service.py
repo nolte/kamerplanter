@@ -980,7 +980,8 @@ class AuthService:
             )
         except (EmailUndeliverableError, NotImplementedError, OSError) as exc:
             # /code-review of #1862: a code nobody receives must not be answered with
-            # "sent". OSError covers smtplib.SMTPException and connection failures.
+            # "sent". OSError covers smtplib.SMTPException and connection failures;
+            # the Resend adapter raises an EmailUndeliverableError (#1888 review).
             # The code and its issuance are taken back, so the retry after the
             # operator fixed the mail setup is not held by the wait or the budget.
             self._step_up_verifier.withdraw_code(user)

@@ -20,6 +20,7 @@ import structlog
 
 from app.common.decoys import email_digest
 from app.data_access.external.templated_email_adapter import TemplatedEmailAdapter
+from app.domain.interfaces.email_service import EmailUndeliverableError
 
 logger = structlog.get_logger()
 
@@ -29,11 +30,18 @@ RESEND_EMAILS_URL = "https://api.resend.com/emails"
 RESEND_TIMEOUT_SECONDS = 10.0
 
 
-class ResendDeliveryError(Exception):
-    """Resend refused or failed the send. Carries the HTTP status only — never the response body."""
+class ResendDeliveryError(EmailUndeliverableError):
+    """Resend refused the send, or could not be reached. Carries the HTTP status only — never the body.
 
-    def __init__(self, status_code: int) -> None:
-        super().__init__(f"Resend rejected the e-mail (HTTP {status_code})")
+    An :class:`EmailUndeliverableError`, so callers that must not answer "sent"
+    for a mail nobody receives (``AuthService.request_step_up_code`` withdraws
+    the code) handle it like an SMTP failure (#1888 review). ``status_code`` is
+    ``None`` when no answer arrived (connection error, timeout).
+    """
+
+    def __init__(self, status_code: int | None) -> None:
+        reason = f"HTTP {status_code}" if status_code is not None else "no answer"
+        super().__init__(f"Resend did not accept the e-mail ({reason})")
         self.status_code = status_code
 
 
@@ -51,10 +59,13 @@ class ResendEmailAdapter(TemplatedEmailAdapter):
     def _send(self, to_email: str, subject: str, html_body: str) -> None:
         payload = {"from": self._from_email, "to": [to_email], "subject": subject, "html": html_body}
         try:
-            with httpx.Client(transport=self._transport, timeout=RESEND_TIMEOUT_SECONDS) as client:
-                response = client.post(
-                    RESEND_EMAILS_URL, json=payload, headers={"Authorization": f"Bearer {self._api_key}"}
-                )
+            try:
+                with httpx.Client(transport=self._transport, timeout=RESEND_TIMEOUT_SECONDS) as client:
+                    response = client.post(
+                        RESEND_EMAILS_URL, json=payload, headers={"Authorization": f"Bearer {self._api_key}"}
+                    )
+            except httpx.HTTPError as exc:
+                raise ResendDeliveryError(None) from exc
             if not response.is_success:
                 raise ResendDeliveryError(response.status_code)
         except Exception as exc:

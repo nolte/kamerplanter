@@ -549,3 +549,44 @@ def test_a_failing_old_address_notice_does_not_undo_the_confirmation(failure) ->
 
     assert resp.status_code == 200, resp.text
     assert world.users.rows[world.key].email == world.new_email
+
+
+# ── #1888 review: a Resend failure is an undeliverable code, not a 500 ─────────
+
+
+@pytest.mark.parametrize("failure", ["status-500", "status-422", "connect-error"])
+def test_a_failed_resend_delivery_withdraws_the_code_so_a_retry_is_not_held(failure: str) -> None:
+    """``request_step_up_code`` catches the undeliverable family; Resend's errors must be in it.
+
+    Otherwise the code stays issued, the request answers 500, and the one-minute
+    wait and the hourly budget hold the retry after the operator fixed the mail
+    setup — what the /code-review of #1862 closed for SMTP.
+    """
+    import httpx
+
+    from app.data_access.external.resend_email_adapter import ResendEmailAdapter
+
+    sent: list[httpx.Request] = []
+    broken = {"on": True}
+
+    def resend(request: httpx.Request) -> httpx.Response:
+        if broken["on"]:
+            if failure == "connect-error":
+                raise httpx.ConnectError("unreachable", request=request)
+            return httpx.Response(int(failure.removeprefix("status-")), json={"message": "refused"})
+        sent.append(request)
+        return httpx.Response(200, json={"id": "ok"})
+
+    world = _World(password_hash=None)
+    key = "_".join(("re", "test", "1888"))
+    world.auth._email_service = ResendEmailAdapter(  # noqa: SLF001
+        api_key=key, from_email="noreply@example.org", transport=httpx.MockTransport(resend)
+    )
+
+    failed = world.post("/api/v1/users/me/step-up-code", {"action": "email_change"})
+    broken["on"] = False
+    retried = world.post("/api/v1/users/me/step-up-code", {"action": "email_change"})
+
+    assert failed.status_code == 503, failed.text
+    assert retried.status_code == 202, retried.text
+    assert len(sent) == 1

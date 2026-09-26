@@ -26,6 +26,7 @@ from app.data_access.external.resend_email_adapter import (
     ResendEmailAdapter,
 )
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
+from app.domain.interfaces.email_service import EmailUndeliverableError
 
 RECIPIENT = "recipient-1821@example.com"
 SENDER = "noreply@mail.example.org"
@@ -134,17 +135,22 @@ def test_a_refused_mail_raises_and_logs_the_status_but_not_the_body(status: int)
         assert RECIPIENT not in text and API_KEY not in text
 
 
-def test_a_network_failure_raises_and_logs_the_type() -> None:
+def test_a_network_failure_raises_an_undeliverable_error_and_logs_the_type() -> None:
+    """No answer is an undeliverable mail too (#1888 review): the step-up caller withdraws its code on it."""
+
     def refuse(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
 
     adapter = ResendEmailAdapter(api_key=API_KEY, from_email=SENDER, transport=httpx.MockTransport(refuse))
 
-    with structlog.testing.capture_logs() as logs, pytest.raises(httpx.ConnectError):
+    with structlog.testing.capture_logs() as logs, pytest.raises(ResendDeliveryError) as caught:
         adapter.send_notification_email(RECIPIENT, "Subject", "<p>body</p>")
 
+    assert isinstance(caught.value, EmailUndeliverableError)
+    assert caught.value.status_code is None
+    assert isinstance(caught.value.__cause__, httpx.ConnectError)
     (failed,) = [entry for entry in logs if entry["event"] == "email_send_failed"]
-    assert failed["error_type"] == "ConnectError"
+    assert failed["error_type"] == "ResendDeliveryError"
     assert API_KEY not in repr(logs)
 
 
