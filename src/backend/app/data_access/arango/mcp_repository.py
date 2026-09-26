@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.domain.models.mcp import McpAuditLog, McpAuditLogEntry, McpIdempotencyRecord
 
 
@@ -41,7 +42,7 @@ class ArangoMcpAuditRepository:
         query = """
         FOR doc IN @@collection
           FILTER doc.service_account_key == @sa_key
-          SORT doc.created_at DESC
+          SORT DATE_TIMESTAMP(doc.created_at) DESC
           LIMIT @limit
           RETURN doc
         """
@@ -68,7 +69,7 @@ class ArangoMcpAuditRepository:
         query = """
         FOR doc IN @@collection
           FILTER doc.service_account_key IN @sa_keys
-          SORT doc.created_at DESC
+          SORT DATE_TIMESTAMP(doc.created_at) DESC
           LIMIT @limit
           RETURN doc
         """
@@ -88,7 +89,8 @@ class ArangoMcpAuditRepository:
         cutoff = ((now or datetime.now(UTC)) - timedelta(days=retention_days)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER DATE_TIMESTAMP(doc.created_at) != null
+          FILTER doc.created_at < @cutoff_slack
+            AND DATE_TIMESTAMP(doc.created_at) != null
             AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
@@ -96,7 +98,11 @@ class ArangoMcpAuditRepository:
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": col.MCP_AUDIT_LOG, "cutoff": cutoff},
+            bind_vars={
+                "@collection": col.MCP_AUDIT_LOG,
+                "cutoff": cutoff,
+                "cutoff_slack": instant_prefilter_bound(cutoff),
+            },
         )
         result = list(cursor)
         return int(result[0]) if result else 0
@@ -171,6 +177,11 @@ class ArangoMcpIdempotencyRepository:
         Compared as instants (see :mod:`app.data_access.arango.query_builder`).
         :meth:`store` always stamps ``expires_at``; a record whose expiry is
         missing or unreadable is treated as expired, as before.
+
+        No raw index pre-filter (#1809): a range on ``expires_at`` cannot also
+        select an *unreadable* value, which collates anywhere, and that value
+        must be swept. The collection holds only short-lived idempotency
+        records, so the full scan stays small.
         """
 
         stamp = (now or datetime.now(UTC)).isoformat()

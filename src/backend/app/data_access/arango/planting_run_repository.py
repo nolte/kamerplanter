@@ -264,7 +264,7 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
           FILTER e._to == @plant_id
           LET run = DOCUMENT(e._from)
           FILTER run != null
-          SORT run.started_at DESC
+          SORT DATE_TIMESTAMP(run.started_at) DESC
           RETURN run
         """
         bind_vars = {"plant_id": f"{col.PLANT_INSTANCES}/{plant_key}"}
@@ -285,7 +285,7 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
           FILTER run.status IN ['active', 'harvesting', 'completed']
           LET loc = DOCUMENT(CONCAT('{col.LOCATIONS}/', run.location_key))
           FILTER loc != null AND loc.site_key == @site_key
-          SORT run.started_at DESC
+          SORT DATE_TIMESTAMP(run.started_at) DESC
           RETURN run
         """
         cursor = self._db.aql.execute(query, bind_vars={"site_key": site_key, "tenant_key": tenant_key})
