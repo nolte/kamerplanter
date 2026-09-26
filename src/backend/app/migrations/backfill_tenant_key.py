@@ -86,7 +86,7 @@ def _resolve_default_tenant(db: StandardDatabase) -> str | None:
         FILTER m.role IN ["admin", "lead"]
         LET t = DOCUMENT(CONCAT('tenants/', m.tenant_key))
         FILTER t != null AND t.slug != "platform"
-        SORT t.created_at DESC
+        SORT DATE_TIMESTAMP(t.created_at) DESC
         LIMIT 1
         RETURN t._key
     """

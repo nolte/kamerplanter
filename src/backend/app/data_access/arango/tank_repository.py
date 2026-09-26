@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any
 
 from arango.database import StandardDatabase
@@ -11,6 +12,15 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+
+
+def _is_date_only(value: str) -> bool:
+    """Whether ``value`` is a calendar date (``YYYY-MM-DD``) rather than an instant."""
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return len(value) == 10
 
 
 class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
@@ -264,9 +274,20 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
             filters.append("DATE_TIMESTAMP(doc.filled_at) >= DATE_TIMESTAMP(@start_date)")
             bind_vars["start_date"] = start_date
         if end_date:
-            filters.append(
-                "DATE_TIMESTAMP(doc.filled_at) != null AND DATE_TIMESTAMP(doc.filled_at) <= DATE_TIMESTAMP(@end_date)"
-            )
+            # ``end_date`` is inclusive. A date-only value (``YYYY-MM-DD``) reads as
+            # midnight in DATE_TIMESTAMP, so ``<=`` against it dropped every fill on
+            # that day (#1802): a date bounds the window by the start of the next
+            # day, exclusively. A full timestamp is kept as the inclusive instant.
+            if _is_date_only(end_date):
+                filters.append(
+                    "DATE_TIMESTAMP(doc.filled_at) != null AND "
+                    "DATE_TIMESTAMP(doc.filled_at) < DATE_TIMESTAMP(DATE_ADD(@end_date, 1, 'day'))"
+                )
+            else:
+                filters.append(
+                    "DATE_TIMESTAMP(doc.filled_at) != null AND "
+                    "DATE_TIMESTAMP(doc.filled_at) <= DATE_TIMESTAMP(@end_date)"
+                )
             bind_vars["end_date"] = end_date
         filter_clause = " AND ".join(filters)
         query = f"""
@@ -331,7 +352,7 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
             LET latest_fill = FIRST(
               FOR s IN @@states
                 FILTER s.tank_key == tank._key AND s.fill_level_percent != null
-                SORT s.recorded_at DESC
+                SORT DATE_TIMESTAMP(s.recorded_at) DESC
                 LIMIT 1
                 RETURN s.fill_level_percent
             )

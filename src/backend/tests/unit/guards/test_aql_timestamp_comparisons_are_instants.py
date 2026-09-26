@@ -25,6 +25,21 @@ is a finding. The fix is ``DATE_TIMESTAMP(doc.x) <op> DATE_TIMESTAMP(@bind)``
 null and millisecond reasoning). A wrapped operand (``DATE_TIMESTAMP(…)``,
 ``LEFT(doc.due_date, 10)``) is not bare and not a finding.
 
+**Index-usable pre-filter (#1809).** One bare comparison is accepted: a raw
+``doc.x < @…_slack`` (or ``<=``, or the mirrored ``>``/``>=``) that keeps a
+persistent index on ``doc.x`` usable, **provided** an instant comparison of the
+same direction on the same attribute follows in the same ``FILTER`` — the raw
+arm narrows, the instant arm decides. Its bound is a ``*_slack`` bind variable,
+which ``instant_prefilter_bound`` computes one day past the cutoff.
+
+**Sorts (#1801).** The same collation misorders a ``SORT`` within one second —
+the tie a "latest" pick (``SORT … DESC LIMIT 1``) or a page boundary decides. A
+``SORT`` key that is a bare timestamp is a finding; sort ``DATE_TIMESTAMP(x)``.
+Builder sorts (``sort="…"`` into the base repository, ``AQLBuilder.sort("…")``)
+are decided by :meth:`AQLBuilder.sorts_as_instant`; a literal sort field that is
+a timestamp the builder would sort as text is a finding. Applied migrations
+(``migrations/versions/``) are recorded history and exempt from the sort rule.
+
 The **timestamp name set is derived**, not typed out: every field of every
 Pydantic model under :mod:`app.domain.models` whose annotation contains
 ``datetime``, united with every name ending in ``_at``. A field typed only as
@@ -62,8 +77,10 @@ Named rather than discovered later:
 * a comparison whose operator itself is spliced in (``f"doc.x {op} @y"``) or
   whose operands are split across two string literals joined at run time by
   anything but ``+``;
-* ``SORT`` ordering — out of scope: sorting mixed spellings misorders, it does
-  not select;
+* a ``SORT`` key that is not a bare path — ``SORT LEFT(doc.created_at, 19)``,
+  ``SORT doc.created_at ? 1 : 0`` — or a ``SORT`` whose keys are spliced in
+  (``SORT {expr}``, reported as unresolved), and a ``sort=`` argument that is a
+  variable rather than a literal (the builder still decides it by name);
 * date-typed fields (``date``, not ``datetime``), and ``LEFT(doc.x, 10)``
   date-prefix comparisons — deliberately not in the class;
 * an AQL string literal that contains ``//`` truncates the rest of that line
@@ -106,14 +123,7 @@ _PLACEHOLDER = "__EXPR__"
 #: function)``, each with the reason. An entry is a decision someone wrote down,
 #: and :func:`test_every_allowlist_entry_still_matches_a_site` keeps an entry
 #: from outliving its site — the repair of a listed site must delete its entry.
-_ALLOWLIST: dict[tuple[str, str], str] = {
-    ("data_access/arango/ipm_repository.py", "get_active_karenz_periods"): (
-        "KNOWN DEFECT, tracked in #1798 (kept out of #1784 by operator decision): "
-        "DATE_ADD(...) > DATE_NOW() orders a string against a number and is true for every "
-        "application, so GET .../karenz lists ended waiting periods as active. The harvest gate "
-        "(check_harvest_safety) re-checks in Python and is not affected."
-    ),
-}
+_ALLOWLIST: dict[tuple[str, str], str] = {}
 
 #: ``.filter(field, op, value)`` calls with a non-literal field. They forward
 #: :data:`FilterTriple` lists; the literal triples are checked where written.
@@ -125,7 +135,16 @@ _PASS_THROUGH: dict[tuple[str, str], str] = {
 #: Ordering comparisons with an f-string placeholder as an operand: the field
 #: name is built in Python and this guard cannot read it. Pinned so that a new
 #: one is a diff to this file, not a silent narrowing.
-_EXPECTED_UNRESOLVED: dict[tuple[str, str], str] = {}
+_EXPECTED_UNRESOLVED: dict[tuple[str, str], str] = {
+    ("data_access/arango/query_builder.py", "build_list"): (
+        "SORT {self._sort}: the key is AQLBuilder.sort's output, which sorts_as_instant decides "
+        "(pinned by test_the_builder_sorts_timestamps_as_instants)"
+    ),
+}
+
+#: Paths (relative to ``app/``) the sort rule does not read: applied migrations
+#: are recorded history, re-running them is not a path the fix could take.
+_SORT_EXEMPT_PREFIXES = ("migrations/versions/",)
 
 
 # ── the derived timestamp name set ────────────────────────────────────────────
@@ -296,6 +315,48 @@ def _built_in_python(operand: str, other: str) -> bool:
     return other.startswith("@") or bool(_BARE_PATH.fullmatch(other)) or other.startswith("DATE_")
 
 
+#: AQL keywords that end a ``SORT`` key list or a ``FILTER`` condition.
+_CLAUSE_END = re.compile(
+    r"\b(?:LIMIT|RETURN|FILTER|SORT|LET|COLLECT|FOR|INSERT|UPDATE|REMOVE|REPLACE|UPSERT|WINDOW|SEARCH)\b"
+)
+_SORT = re.compile(r"\bSORT\b")
+_DIRECTION = re.compile(r"\s+(?:ASC|DESC)\s*$")
+
+#: The mirrored direction of an ordering operator: ``a < b`` is ``b > a``.
+_MIRROR = {"<": ">", "<=": ">=", ">": "<", ">=": "<="}
+
+
+def _sort_keys(text: str, start: int) -> list[str]:
+    """The comma-separated keys of the ``SORT`` clause starting at ``start``, directions removed."""
+    end = _CLAUSE_END.search(text, start)
+    body = text[start : end.start() if end else len(text)]
+    keys, depth, current = [], 0, ""
+    for ch in body:
+        depth += ch in "([" and 1 or (ch in ")]" and -1 or 0)
+        if ch == "," and depth == 0:
+            keys.append(current)
+            current = ""
+        else:
+            current += ch
+    keys.append(current)
+    return [_DIRECTION.sub("", key.strip()) for key in keys if key.strip()]
+
+
+def _is_prefilter(code: str, match_end: int, attr: str, op: str, bound: str) -> bool:
+    """Whether ``attr <op> bound`` is a raw, index-usable pre-filter (#1809).
+
+    ``op`` is the operator as seen from ``attr``. Accepted only against a
+    ``*_slack`` bind variable, and only when an instant comparison of the same
+    direction on the same attribute follows before the ``FILTER`` ends.
+    """
+    if not (bound.startswith("@") and bound.endswith("_slack")):
+        return False
+    end = _CLAUSE_END.search(code, match_end)
+    rest = code[match_end : end.start() if end else len(code)]
+    instant = rf"DATE_TIMESTAMP\(\s*{re.escape(attr)}\s*\)\s*{re.escape(op)}(?!=)"
+    return re.search(instant, rest) is not None
+
+
 @dataclass(frozen=True)
 class Finding:
     path: str
@@ -307,13 +368,14 @@ class Finding:
         return f"{self.path}:{self.line} in {self.function}(): {self.what}"
 
 
-def _comparisons(text: str) -> list[tuple[int, str, str, str]]:
-    """``(line offset, left, op, right)`` for every ordering operator in ``text``."""
+def _comparisons(text: str) -> list[tuple[int, str, str, str, int]]:
+    """``(line offset, left, op, right, end of right)`` for every ordering operator in ``text``."""
     found = []
     for match in _OPERATOR.finditer(text):
         left = _left_operand(text, match.start())
         right = _right_operand(text, match.end())
-        found.append((text.count("\n", 0, match.start()), left, match.group(0), right))
+        end = text.index(right, match.end()) + len(right) if right else match.end()
+        found.append((text.count("\n", 0, match.start()), left, match.group(0), right, end))
     return found
 
 
@@ -332,6 +394,20 @@ def _enclosing_functions(tree: ast.AST) -> dict[int, str]:
     return owner
 
 
+def _literal_sort_field(node: ast.AST) -> str | None:
+    """The literal field of ``….sort("x")`` or of a ``sort="x"`` keyword, else ``None``."""
+    if not isinstance(node, ast.Call):
+        return None
+    if isinstance(node.func, ast.Attribute) and node.func.attr == "sort" and node.args:
+        first = node.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            return first.value
+    for keyword in node.keywords:
+        if keyword.arg == "sort" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+            return keyword.value.value
+    return None
+
+
 def scan_source(source: str, rel_path: str) -> tuple[list[Finding], list[Finding], list[Finding]]:
     """``(findings, unresolved, pass_throughs)`` for one Python source file.
 
@@ -346,17 +422,48 @@ def scan_source(source: str, rel_path: str) -> tuple[list[Finding], list[Finding
     unresolved: list[Finding] = []
     pass_throughs: list[Finding] = []
 
+    sorts_checked = not rel_path.startswith(_SORT_EXEMPT_PREFIXES)
     for node, text in _string_expressions(tree, skip):
         code = strip_aql_comments(text)
-        for offset, left, op, right in _comparisons(code):
+        for offset, left, op, right, end in _comparisons(code):
             where = (rel_path, node.lineno + offset, owner.get(id(node), "<module>"))
             shown = f"{left} {op} {right}"
+            if _bare_timestamp(left) and _is_prefilter(code, end, left, op, right):
+                continue
+            if _bare_timestamp(right) and _is_prefilter(code, end, right, _MIRROR[op], left):
+                continue
             if _bare_timestamp(left) or _bare_timestamp(right):
                 findings.append(Finding(*where, f"bare timestamp compared as a string: {shown}"))
             elif _string_date_call(left) or _string_date_call(right):
                 findings.append(Finding(*where, f"string-returning date function in an ordering: {shown}"))
             elif _built_in_python(left, right) or _built_in_python(right, left):
                 unresolved.append(Finding(*where, f"operand built in Python: {shown}"))
+        if not sorts_checked:
+            continue
+        for match in _SORT.finditer(code):
+            line = node.lineno + code.count("\n", 0, match.start())
+            where = (rel_path, line, owner.get(id(node), "<module>"))
+            for key in _sort_keys(code, match.end()):
+                if _bare_timestamp(key):
+                    findings.append(Finding(*where, f"bare timestamp sorted as a string: SORT {key}"))
+                elif _PLACEHOLDER in key:
+                    unresolved.append(Finding(*where, f"sort key built in Python: SORT {key}"))
+
+    for node in ast.walk(tree):
+        sort_field = _literal_sort_field(node)
+        if (
+            sort_field is not None
+            and _is_timestamp_name(sort_field.rsplit(".", 1)[-1])
+            and not AQLBuilder.sorts_as_instant(sort_field)
+        ):
+            findings.append(
+                Finding(
+                    rel_path,
+                    node.lineno,
+                    owner.get(id(node), "<module>"),
+                    f"builder sort on {sort_field!r} orders a timestamp as text — extend AQLBuilder.sorts_as_instant",
+                )
+            )
 
     for node in ast.walk(tree):
         field_node = op_node = None
@@ -566,3 +673,106 @@ def q(now_iso, now):
 @pytest.mark.parametrize("op", sorted(_ORDERING_OPS))
 def test_every_ordering_operator_is_seen(op: str) -> None:
     assert len(_findings(f'def q():\n    return "FILTER doc.expires_at {op} @now"\n')) == 1
+
+
+# ── #1809: the index-usable pre-filter ────────────────────────────────────────
+
+
+def test_a_raw_prefilter_followed_by_an_instant_comparison_is_no_finding() -> None:
+    source = """
+def q():
+    return (
+        "FILTER doc.expires_at < @cutoff_slack AND DATE_TIMESTAMP(doc.expires_at) != null "
+        "AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@cutoff) REMOVE doc IN c"
+    )
+"""
+    assert _findings(source) == []
+
+
+@pytest.mark.parametrize(
+    ("query", "why"),
+    [
+        ("FILTER doc.expires_at < @cutoff_slack REMOVE doc IN c", "no instant comparison follows"),
+        (
+            "FILTER doc.expires_at < @cutoff AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@cutoff)",
+            "the bound is not a *_slack variable",
+        ),
+        (
+            "FILTER doc.expires_at < @c_slack AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@c)",
+            "the instant comparison is on another field",
+        ),
+        (
+            "FILTER doc.expires_at < @c_slack AND DATE_TIMESTAMP(doc.expires_at) > DATE_TIMESTAMP(@c)",
+            "the instant comparison runs the other way",
+        ),
+        (
+            "FILTER doc.expires_at < @c_slack FILTER DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@c)",
+            "the instant comparison sits in the next FILTER",
+        ),
+    ],
+)
+def test_a_raw_comparison_without_its_instant_arm_is_a_finding(query: str, why: str) -> None:
+    assert len(_findings(f'def q():\n    return "{query}"\n')) == 1, why
+
+
+def test_a_mirrored_prefilter_is_accepted() -> None:
+    query = "FILTER @c_slack > doc.expires_at AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@c)"
+    source = f'def q():\n    return "{query}"\n'
+    assert _findings(source) == []
+
+
+# ── #1801: sorts ──────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "FOR s IN c SORT s.recorded_at DESC LIMIT 1 RETURN s",
+        "FOR s IN c SORT s.priority ASC, s.generated_at DESC RETURN s",
+        "FOR s IN c SORT s.due_date RETURN s",
+    ],
+)
+def test_a_bare_timestamp_sort_key_is_a_finding(query: str) -> None:
+    (finding,) = _findings(f'def q():\n    return "{query}"\n')
+    assert "sorted as a string" in finding.what
+
+
+def test_an_instant_sort_key_and_a_non_timestamp_key_are_no_finding() -> None:
+    query = "FOR s IN c SORT DATE_TIMESTAMP(s.recorded_at) DESC, s._key ASC, s.name LIMIT 1 RETURN s"
+    source = f'def q():\n    return "{query}"\n'
+    assert _findings(source) == []
+
+
+def test_an_applied_migration_is_exempt_from_the_sort_rule() -> None:
+    source = 'def q():\n    return "FOR s IN c SORT s.created_at RETURN s"\n'
+    assert scan_source(source, "migrations/versions/v0001_x.py")[0] == []
+    assert len(scan_source(source, "migrations/backfill.py")[0]) == 1
+
+
+def test_a_spliced_sort_key_is_reported_as_unresolved() -> None:
+    findings, unresolved, _ = scan_source('def q(k):\n    return f"FOR s IN c SORT {k} RETURN s"\n', "probe.py")
+    assert findings == []
+    assert len(unresolved) == 1
+
+
+def test_a_literal_builder_sort_the_builder_reads_as_text_is_a_finding(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = """
+def q(repo, b):
+    repo.find_by_field("x", 1, sort="created_at")
+    repo.find_by_field("x", 1, sort="name")
+    b.sort("timestamp")
+    b.sort("sequence_order")
+"""
+    assert _findings(source) == []
+    # A builder that forgot ``timestamp`` would sort it as text: both spellings are seen.
+    monkeypatch.setattr(AQLBuilder, "_INSTANT_SORT_NAMES", frozenset())
+    source = 'def q(repo, b):\n    repo.get_page(0, 10, sort="timestamp")\n    b.sort("timestamp")\n'
+    assert len(_findings(source)) == 2
+
+
+def test_the_builder_sorts_timestamps_as_instants() -> None:
+    for field in ("created_at", "due_date", "valid_until", "timestamp"):
+        query, _ = AQLBuilder("c").sort(field, "DESC").build_list()
+        assert f"SORT DATE_TIMESTAMP(doc.{field}) DESC" in query
+    query, _ = AQLBuilder("c").sort("name").build_list()
+    assert "SORT doc.name ASC" in query

@@ -294,7 +294,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         FOR att IN @@collection
           FILTER att.tenant_key == @tenant_key AND att.created_by == @user_key
           FILTER @categories == null OR att.category IN @categories
-          SORT att.created_at DESC
+          SORT DATE_TIMESTAMP(att.created_at) DESC
           RETURN att
         """
         bind_vars = {
@@ -362,7 +362,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         FOR att IN @@collection
           FILTER att.tenant_key == @tenant_key AND att.sha256 == @sha256
           FILTER att.created_by == @created_by AND att.category == @category
-          SORT att.created_at ASC
+          SORT DATE_TIMESTAMP(att.created_at) ASC
           LIMIT 1
           RETURN att
         """
@@ -448,7 +448,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         FOR att IN @@collection
           FILTER att.tenant_key == @tenant_key
           FILTER @category == null OR att.category == @category
-          SORT att.created_at DESC
+          SORT DATE_TIMESTAMP(att.created_at) DESC
           LIMIT @offset, @limit
           RETURN att
         """
@@ -703,7 +703,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             AND DATE_TIMESTAMP(att.created_at) != null
             AND DATE_TIMESTAMP(att.created_at) < DATE_TIMESTAMP(@cutoff)
             AND {self._aql_unreferenced("referenced", "att")}
-          SORT att.created_at ASC
+          SORT DATE_TIMESTAMP(att.created_at) ASC
           LIMIT @limit
           RETURN att
         """
