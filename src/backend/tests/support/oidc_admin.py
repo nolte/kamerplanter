@@ -74,6 +74,10 @@ def provider_repo(stored: OidcProviderConfig | None = None) -> MagicMock:
     repo.update_fields.side_effect = lambda key, fields: OidcProviderConfig.model_validate(
         {**(stored.model_dump(by_alias=True) if stored else {}), **fields}
     )
+    # The discovery test's conditional write: stored while the issuer is unchanged.
+    repo.update_discovery.side_effect = lambda key, *, issuer_url, discovery_document, refreshed_at: (
+        stored is not None and stored.issuer_url == issuer_url
+    )
     return repo
 
 

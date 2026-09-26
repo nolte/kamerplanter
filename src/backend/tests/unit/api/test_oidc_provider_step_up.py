@@ -90,6 +90,19 @@ class _Configs:
         self.writes.append(f"update:{key}")
         return self.rows[key]
 
+    def update_discovery(
+        self, key: str, *, issuer_url: str, discovery_document: dict[str, Any], refreshed_at: Any
+    ) -> bool:
+        """The conditional write of the real repository: only while the issuer is still ``issuer_url``."""
+        row = self.rows.get(key)
+        if row is None or row.issuer_url != issuer_url:
+            return False
+        self.rows[key] = row.model_copy(
+            update={"discovery_document": discovery_document, "discovery_refreshed_at": refreshed_at}
+        )
+        self.writes.append(f"update_discovery:{key}")
+        return True
+
     def delete(self, key: str) -> bool:
         self.writes.append(f"delete:{key}")
         return self.rows.pop(key, None) is not None
@@ -278,7 +291,9 @@ def test_only_presentation_needs_no_step_up(body: dict[str, Any]) -> None:
     resp = world.call("PUT", f"{ROUTE}/key-corp", body)
 
     assert resp.status_code == 200, resp.text
-    assert world.configs.writes == ["update:key-corp"]
+    # A presentation field is written; a value sent unchanged is not (and alone writes nothing).
+    changes_something = any(field in body for field in ("display_name", "icon_url"))
+    assert world.configs.writes == (["update:key-corp"] if changes_something else [])
 
 
 def test_the_scope_check_refuses_before_the_step_up_is_spent() -> None:
@@ -381,3 +396,55 @@ def test_the_discovery_test_writes_only_the_discovery_fields() -> None:
     stored = world.configs.rows["key-corp"]
     assert stored.enabled is False, "the discovery test wrote back its stale snapshot"
     assert stored.discovery_document == discovery
+
+
+# ── /code-review of #1910: neither free write can revert a step-up'd change ────
+
+
+def test_a_field_sent_unchanged_is_not_written() -> None:
+    """A value equal to the stored one needs no step-up — so it must not be written either.
+
+    Otherwise a free ``PUT {"issuer_url": <old>}`` read before a step-up'd repoint
+    and written after it puts the old issuer back without any step-up.
+    """
+    world = _World()
+    real_get = world.configs.get_by_key
+
+    def get_then_someone_repoints(key: str) -> OidcProviderConfig | None:
+        snapshot = real_get(key)
+        # Another admin's step-up'd repoint lands right after this request read the config.
+        world.configs.rows[key] = world.configs.rows[key].model_copy(update={"issuer_url": "https://new.example.org"})
+        return snapshot
+
+    world.configs.get_by_key = get_then_someone_repoints  # type: ignore[method-assign]
+
+    resp = world.call(
+        "PUT", f"{ROUTE}/key-corp", {"issuer_url": "https://corp.example.org", "display_name": "Corporate"}
+    )
+
+    assert resp.status_code == 200, resp.text
+    stored = world.configs.rows["key-corp"]
+    assert stored.issuer_url == "https://new.example.org", "a free update wrote the old issuer back"
+    assert stored.display_name == "Corporate"
+
+
+def test_the_discovery_test_does_not_store_a_document_of_an_issuer_changed_meanwhile() -> None:
+    """The fetch is paced by the old issuer; a step-up'd repoint during it must not get the old document."""
+    world = _World()
+    old_discovery = {
+        "issuer": "https://corp.example.org",
+        "authorization_endpoint": "https://corp.example.org/authorize",
+        "token_endpoint": "https://corp.example.org/token",
+    }
+
+    def slow_fetch(_issuer_url: str) -> dict[str, Any]:
+        world.configs.rows["key-corp"] = world.configs.rows["key-corp"].model_copy(
+            update={"issuer_url": "https://new.example.org"}
+        )
+        return old_discovery
+
+    with patch.object(OAuthEngine, "fetch_discovery_document", side_effect=slow_fetch):
+        resp = world.call("POST", f"{ROUTE}/key-corp/test")
+
+    assert resp.status_code == 200, resp.text
+    assert world.configs.rows["key-corp"].discovery_document is None, "the old issuer's document was stored"

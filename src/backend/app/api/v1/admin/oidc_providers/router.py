@@ -273,9 +273,20 @@ def test_provider(
     # The fetch above may take its full timeout, paced by the issuer; a write of
     # the whole snapshot read before it would revert any change made meanwhile,
     # including a step-up'd one (issuer, secret, switching the provider off).
+    # And only while the issuer is still the one fetched from (/code-review of
+    # #1910): a repoint that landed during the fetch must not get the old
+    # issuer's endpoints, which sign-in prefers over the configured ones.
     from datetime import UTC, datetime
 
-    repo.update_fields(key, {"discovery_document": discovery, "discovery_refreshed_at": datetime.now(UTC).isoformat()})
+    stored = repo.update_discovery(
+        key, issuer_url=config.issuer_url, discovery_document=discovery, refreshed_at=datetime.now(UTC)
+    )
+    if not stored:
+        return OidcProviderTestResponse(
+            message="The provider's issuer changed during the discovery fetch; nothing was stored. Run the test again.",
+            scope_check=scope_check,
+            provider_type_check=provider_type_check,
+        )
 
     return OidcProviderTestResponse(
         message=f"OIDC discovery for '{config.slug}' validated successfully. "

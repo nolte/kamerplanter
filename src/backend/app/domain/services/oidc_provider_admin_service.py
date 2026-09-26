@@ -142,11 +142,15 @@ class OidcProviderAdminService:
         if config is None:
             raise NotFoundError("OidcProviderConfig", key)
         needs_step_up = update_requires_step_up(config, data)
+        # Only what actually changes is written (/code-review of #1910): a value sent
+        # equal to the one read needs no step-up, so writing it would let a free
+        # request put back a value a step-up'd change replaced in between.
         changes = {
             ("client_secret_encrypted" if field == _SECRET_FIELD else field): (
                 self._encryption.encrypt(value) if field == _SECRET_FIELD else value
             )
             for field, value in data.items()
+            if field == _SECRET_FIELD or getattr(config, field) != value
         }
         # The merged state, validated as a whole: what the scope check (#1477)
         # judges and what the written fields are taken from.
@@ -165,7 +169,11 @@ class OidcProviderAdminService:
         # Only the changed fields (security review SEC-003): a full write of the
         # snapshot read above would revert whatever another admin changed while
         # this request was being confirmed.
-        updated = self._oidc_config_repo.update_fields(key, merged.model_dump(mode="json", include=set(changes)))
+        updated = (
+            self._oidc_config_repo.update_fields(key, merged.model_dump(mode="json", include=set(changes)))
+            if changes
+            else config
+        )
         logger.info(
             "oidc_provider.updated",
             provider=updated.slug,
