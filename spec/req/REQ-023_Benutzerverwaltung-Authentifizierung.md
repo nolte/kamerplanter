@@ -1014,7 +1014,7 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
 {
   "_key": "ak_001",
   "label": "Home Assistant",
-  "api_key": "kp_a3f8e7b2c9d4f1a6e8b3c5d7f9a2b4c6d8e0f1a3b5c7d9e1f3",
+  "api_key": "kp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "key_prefix": "kp_a3f8...",
   "created_at": "2026-02-27T14:30:00Z",
   "tenant_scope": "t-a1b2c3d4"
@@ -1981,7 +1981,7 @@ class ServiceAccountService:
   "allowed_ip_ranges": ["192.168.1.0/24"],
   "api_key": {
     "_key": "ak_sa_001",
-    "api_key": "kp_b7e2f8a1c3d5e9f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4",
+    "api_key": "kp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "key_prefix": "kp_b7e2...",
     "created_at": "2026-03-17T10:00:00Z"
   },
@@ -2023,7 +2023,7 @@ Das JWT Access Token (§5a.2) wird um `account_type` erweitert:
 3. Dialog: Name "Home Assistant", Beschreibung "Sensor- und Aktor-Integration",
    Rolle: Gärtner (grower), IP-Bereich: 192.168.1.0/24
 4. System erstellt Service Account + initialen API-Key
-5. Dialog zeigt API-Key einmalig an: "kp_b7e2f8a1..."
+5. Dialog zeigt API-Key einmalig an: "kp_xxxxxxxx..."
 6. Anna kopiert Key und hinterlegt ihn in der HA-Konfiguration
 7. HA authentifiziert sich per API-Key → Middleware erkennt kp_-Prefix
    → löst Service Account auf → prüft IP (192.168.1.x ✓) → Zugriff OK
