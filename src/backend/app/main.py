@@ -30,6 +30,13 @@ from app.data_access.external.registration import register_external_adapters
 from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
 
+# Redaction before anything below can log (#1832): error tracking, adapter
+# registration and a failing startup all ran under structlog's defaults (a
+# ConsoleRenderer with raw tracebacks) until the lifespan configured logging.
+# uvicorn has configured its own loggers before it imports this module, so the
+# sink filter reaches its handlers too; the lifespan re-applies it (idempotent).
+setup_logging(settings.debug)
+
 logger = structlog.get_logger()
 
 # Optional error tracking (#777). Called at process entry, before the app object
@@ -105,6 +112,8 @@ def warn_if_console_email_adapter() -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Again: a server that reconfigured its loggers between import and startup
+    # (``uvicorn --log-config``) gets the filters on its new handlers (#1832).
     setup_logging(settings.debug)
     logger.info("startup", app=settings.app_name, version=settings.app_version)
     warn_if_console_email_adapter()

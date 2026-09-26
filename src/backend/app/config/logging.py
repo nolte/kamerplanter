@@ -1,4 +1,7 @@
 import logging
+import sys
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import structlog
 
@@ -74,6 +77,95 @@ class _AccessLogRedactionFilter(logging.Filter):
         return True
 
 
+#: Every attribute a plain ``LogRecord`` carries; anything else on a record came in
+#: through ``extra=`` (or a formatter's cache) and is read by a formatter that names it.
+_STANDARD_RECORD_ATTRIBUTES = frozenset(vars(logging.LogRecord("", logging.INFO, "", 0, "", None, None))) | {
+    "message",
+    "asctime",
+}
+#: Keys of Celery's ``extra={'data': context}`` (``celery.app.trace``,
+#: ``celery.worker.strategy``) that carry the task's raw arguments.
+_TASK_ARGUMENT_KEYS = frozenset({"args", "kwargs"})
+_WITHHELD = "<withheld>"
+
+
+def _exceptions_in_flight(record: logging.LogRecord) -> list[BaseException]:
+    """The exceptions whose text a record may embed (#1831).
+
+    The record's own ``exc_info``, or — for a line logged *while* an exception is
+    handled without ``exc_info`` — the one in flight. That second case is
+    Celery's retry line (``Task … retry: Retry in 60s: NotFoundError(…)``), which
+    embeds ``safe_repr`` of the original exception with no ``exc_info``: a
+    ``celery.exceptions.Retry`` carries that original as ``.exc``.
+    """
+    exc = record.exc_info[1] if record.exc_info else None
+    if exc is None:
+        exc = sys.exc_info()[1]
+    if exc is None:
+        return []
+    found = [exc]
+    inner = getattr(exc, "exc", None)
+    if isinstance(inner, BaseException):
+        found.append(inner)
+    return found
+
+
+def _redact_text(text: str, exceptions: list[BaseException]) -> str:
+    for exc in exceptions:
+        text = redact_exception_texts(text, exc)
+    return loggable_text(text)
+
+
+def _redact_extra(name: str, value: object, exceptions: list[BaseException]) -> object:
+    """An ``extra=`` value as a formatter that names it may print it (#1828).
+
+    Celery's ``data`` context holds the raw traceback string and the task's
+    ``args``/``kwargs`` (account keys, addresses): the traceback is re-rendered by
+    ``redacted_traceback`` (or withheld when no exception is at hand), the
+    arguments are withheld, every other text is redacted like a message.
+    """
+    if isinstance(value, str):
+        return _redact_text(value, exceptions)
+    if isinstance(value, dict):
+        redacted: dict[object, object] = {}
+        for key, item in value.items():
+            if key in _TASK_ARGUMENT_KEYS:
+                redacted[key] = _WITHHELD
+            elif key == "traceback" and isinstance(item, str):
+                redacted[key] = redacted_traceback(exceptions[0]) if exceptions else _WITHHELD
+            else:
+                redacted[key] = _redact_extra(f"{name}.{key}", item, exceptions)
+        return redacted
+    if isinstance(value, list | tuple):
+        # A plain list or tuple, whatever the original type: a namedtuple's
+        # constructor takes its fields, not one iterable (#1877 review).
+        items = [_redact_extra(name, item, exceptions) for item in value]
+        return items if isinstance(value, list) else tuple(items)
+    return value
+
+
+def _redact_extras(record: logging.LogRecord, exceptions: list[BaseException]) -> None:
+    for name in [n for n in vars(record) if n not in _STANDARD_RECORD_ATTRIBUTES]:
+        if name == "color_message":
+            # uvicorn's colour variant of the format string: it is formatted with
+            # the record's ORIGINAL args, which a redaction may have dropped.
+            delattr(record, name)
+            continue
+        setattr(record, name, _redact_extra(name, getattr(record, name), exceptions))
+
+
+def _withhold(record: logging.LogRecord, failure: Exception) -> None:
+    """Fail closed (review SEC-003): replace a record that cannot be redacted by a placeholder."""
+    record.msg = f"<log message withheld: {type(failure).__name__} while redacting a {record.name} record>"
+    record.args = None
+    if record.exc_info or record.exc_text:
+        record.exc_text = "<traceback withheld>"
+    record.exc_info = None
+    record.stack_info = None
+    for name in [n for n in vars(record) if n not in _STANDARD_RECORD_ATTRIBUTES]:
+        delattr(record, name)
+
+
 class _SinkRedactionFilter(logging.Filter):
     """The handler-level backstop: what a stdlib handler writes is redacted, whoever logged it (#1796).
 
@@ -98,32 +190,36 @@ class _SinkRedactionFilter(logging.Filter):
         if record.name == _UVICORN_ACCESS_LOGGER:
             return True
         try:
-            self._redact(record)
+            # Always, also for a record the factory already redacted: the
+            # redaction is idempotent, and ``logging.makeLogRecord`` runs the
+            # factory on an EMPTY record before it loads the real fields (#1877).
+            exceptions = _exceptions_in_flight(record)
+            self._redact(record, exceptions)
+            _redact_extras(record, exceptions)
         # Fail closed (review SEC-003): a record that cannot be rendered — bad
         # format arguments, an argument whose ``__str__`` raises, a pathological
         # exception chain — must neither reach stdlib ``handleError`` (which prints
         # the raw message and arguments to stderr) nor raise inside the caller's
         # log statement. It is replaced by a placeholder naming only what failed.
         except Exception as failure:
-            record.msg = f"<log message withheld: {type(failure).__name__} while redacting a {record.name} record>"
-            record.args = None
-            if record.exc_info or record.exc_text:
-                record.exc_text = "<traceback withheld>"
-            record.exc_info = None
-            record.stack_info = None
+            _withhold(record, failure)
         return True
 
     @staticmethod
-    def _redact(record: logging.LogRecord) -> None:
-        exc = record.exc_info[1] if record.exc_info else None
-        if exc is not None:
-            record.exc_text = redacted_traceback(exc)
+    def _redact(record: logging.LogRecord, exceptions: list[BaseException]) -> None:
+        if record.exc_info and record.exc_info[1] is not None:
+            record.exc_text = redacted_traceback(record.exc_info[1])
         rendered = record.getMessage()
-        message = redact_exception_texts(rendered, exc) if exc is not None else rendered
-        message = loggable_text(message)
+        message = _redact_text(rendered, exceptions)
         if message != rendered:
             record.msg = message
             record.args = None
+        elif isinstance(record.args, Mapping):
+            # The message did not change, but a mapping argument can carry more
+            # than the format names: Celery hands its whole task context — raw
+            # traceback, task args and kwargs — as the argument AND as
+            # ``extra['data']`` (#1877 review SEC-001).
+            record.args = _redact_extra("args", record.args, exceptions)
 
 
 _URL_FILTER = _UrlRedactionFilter()
@@ -134,8 +230,70 @@ _SINK_FILTER = _SinkRedactionFilter()
 _SINK_LOGGERS = ("", "uvicorn", "uvicorn.error", "celery", "celery.task", "celery.redirected")
 
 
+#: Loggers that attach raw task data as ``extra={'data': context}`` (#1828).
+#: A filter on the *logger* sees the record after ``extra`` is applied and before
+#: any handler, so the data is redacted whichever handler writes it.
+_EXTRA_DATA_LOGGERS = ("celery.app.trace", "celery.worker.strategy")
+
+
+class _ExtrasRedactionFilter(logging.Filter):
+    """Logger-level: redacts ``extra=`` values before any handler — early or late — sees them (#1828)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            _redact_extras(record, _exceptions_in_flight(record))
+        except Exception as failure:
+            _withhold(record, failure)
+        return True
+
+
+_EXTRAS_FILTER = _ExtrasRedactionFilter()
+
+
+def _redacting_factory(previous: Callable[..., logging.LogRecord]) -> Callable[..., logging.LogRecord]:
+    def factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
+        record = previous(*args, **kwargs)
+        if record.name != _UVICORN_ACCESS_LOGGER:
+            try:
+                _SinkRedactionFilter._redact(record, _exceptions_in_flight(record))
+            except Exception as failure:
+                _withhold(record, failure)
+        return record
+
+    factory._kp_redacting = True  # type: ignore[attr-defined]
+    return factory
+
+
+def install_record_redaction() -> None:
+    """Redact every stdlib record where it is created, not where it is written (#1828). Idempotent.
+
+    A handler filter only covers the handlers that exist when it is installed; a
+    handler added later — by a library, by an operator's logging config, by a
+    test — wrote unredacted lines. The record factory runs for every record of
+    every logger, before any handler: the message, its arguments and the
+    traceback (``exc_text``, which every ``logging.Formatter`` prints instead of
+    rendering ``exc_info`` itself) are redacted once, for all handlers.
+
+    What the factory cannot see is ``extra=``: ``Logger.makeRecord`` applies it
+    *after* the factory. The two libraries that attach data that way get a
+    logger-level filter (:data:`_EXTRA_DATA_LOGGERS`); the handler filter
+    (:func:`install_sink_redaction`) stays as the backstop for records made
+    elsewhere (``logging.makeLogRecord``) and for other extras.
+    """
+    current = logging.getLogRecordFactory()
+    if not getattr(current, "_kp_redacting", False):
+        logging.setLogRecordFactory(_redacting_factory(current))
+    for name in _EXTRA_DATA_LOGGERS:
+        logging.getLogger(name).addFilter(_EXTRAS_FILTER)
+
+
 def install_sink_redaction() -> None:
-    """Put the redacting filter on every handler of the loggers that write lines (#1796). Idempotent."""
+    """Put the redacting filter on every handler of the loggers that write lines (#1796). Idempotent.
+
+    Also installs the record factory and the extras filters
+    (:func:`install_record_redaction`), which do not depend on which handlers exist.
+    """
+    install_record_redaction()
     for name in _SINK_LOGGERS:
         for handler in logging.getLogger(name).handlers:
             handler.addFilter(_SINK_FILTER)

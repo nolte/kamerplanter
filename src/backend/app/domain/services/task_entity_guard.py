@@ -97,9 +97,10 @@ class TaskEntityGuard:
         elif entity_type == "location":
             # Two hops on purpose — see the module docstring: the location's own
             # tenant_key is never written, so the site is the only real anchor.
-            sites = self._sites()
-            location = sites.get_location(entity_key)
-            sites.get_site(location.site_key, tenant_key=tenant_key)
+            # One step through the anchor (#1871 B13): the two-step form answered
+            # a foreign location as "No Site <its site key>", an unknown one as
+            # "No Location" — an oracle that echoed the other tenant's site.
+            self._sites().get_location(entity_key, tenant_key=tenant_key)
         else:
             # A type was added to ENTITY_TYPE_TO_COLLECTION without an anchor here.
             # Fail closed: the repository *will* write an edge for it, and nobody

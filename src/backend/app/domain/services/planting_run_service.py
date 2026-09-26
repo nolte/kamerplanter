@@ -42,11 +42,16 @@ class PlantingRunService:
         rotation_validator: CropRotationValidator | None = None,
         companion_engine: CompanionPlantingEngine | None = None,
         substrate_batch_resolver: Callable[..., Any] | None = None,
+        species_resolver: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = run_repo
         # ``SubstrateService.get_batch``-shaped: ``resolver(key, tenant_key=...)``
         # answers the batch or raises 404 for one that is not the tenant's (#1868).
         self._substrate_batch_resolver = substrate_batch_resolver
+        # ``SpeciesService.get_species``-shaped: ``resolver(key, tenant_key=...)``
+        # answers a species the tenant may read — global, own, granted — or 404
+        # (#1871 B11). Without it an entry is refused.
+        self._species_resolver = species_resolver
         self._plant_repo = plant_repo
         self._engine = engine
         self._schedule_engine = watering_schedule_engine or WateringScheduleEngine()
@@ -129,6 +134,7 @@ class PlantingRunService:
         # run with a partial set of entries behind (#1871 B12, #1874 review).
         for entry in entries or []:
             entry.tenant_key = run.tenant_key
+            self._require_readable_species(entry.species_key, run.tenant_key)
             self._repo.verify_entry_references(entry)
         total_qty = 0
         if entries:
@@ -222,6 +228,19 @@ class PlantingRunService:
             return
         resolve_owned_location(self._site_repo, location_key, tenant_key)
 
+    def _require_readable_species(self, species_key: str, tenant_key: str) -> None:
+        """Refuse an entry species the tenant may not read (#1871 B11).
+
+        An entry's ``species_key`` came from request bodies and was stored with
+        an edge to the species, then copied onto every plant ``create_plants``
+        built from it. Skipped for a run with no tenant (seeds, migrations).
+        """
+        if not tenant_key:
+            return
+        if self._species_resolver is None:
+            raise NotFoundError("Species", species_key)
+        self._species_resolver(species_key, tenant_key=tenant_key)
+
     def _require_owned_substrate_batch(self, run: PlantingRun) -> None:
         """Refuse a ``substrate_batch_key`` that is not the run's tenant's (#1868).
 
@@ -301,6 +320,7 @@ class PlantingRunService:
         # repository's owned-reference guard has a tenant to compare a
         # body-supplied `cultivar_key` against. Without it the guard is skipped.
         entry.tenant_key = run.tenant_key
+        self._require_readable_species(entry.species_key, run.tenant_key)
         created = self._repo.create_entry(entry)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
@@ -343,6 +363,8 @@ class PlantingRunService:
         # merged entry that kept the empty tenant would skip the guard on the one
         # path that needs it most.
         merged.tenant_key = run.tenant_key
+        if "species_key" in patch:
+            self._require_readable_species(merged.species_key, run.tenant_key)
         updated = self._repo.update_entry(entry_key, merged)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)

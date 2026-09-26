@@ -23,6 +23,7 @@ from app.domain.models.watering_log import (
     find_watering_log_violations,
 )
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.location_ownership import resolve_owned_slot
 from app.domain.services.watering_confirmation_scope import own_task_or_none, require_confirmable_run
 
 if TYPE_CHECKING:
@@ -65,13 +66,13 @@ class WateringLogService:
         written (#1713).
         """
         self._assert_fertilizers_visible(log)
-        irrigation_system = None
-        if log.slot_keys:
-            first_slot = self._site_repo.get_slot_by_key(log.slot_keys[0])
-            if first_slot is not None:
-                location = self._site_repo.get_location_by_key(first_slot.location_key)
-                if location is not None:
-                    irrigation_system = location.irrigation_system
+        # Every slot under the log's tenant, before anything is read through it
+        # or written (#1871 B4): the slots were taken as given — LOG_SLOT edges to
+        # any tenant's slots, and the first one's location, read unscoped, shaped
+        # the warnings (an oracle). resolve_owned_slot answers 404 alike for a
+        # foreign and an unknown slot.
+        owned = [resolve_owned_slot(self._site_repo, key, log.tenant_key) for key in log.slot_keys]
+        irrigation_system = owned[0][1].irrigation_system if owned else None
 
         # Reuse WateringEngine for validation
         plant_keys = log.plant_keys if log.plant_keys else ["_compat"]

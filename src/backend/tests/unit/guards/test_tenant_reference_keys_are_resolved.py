@@ -35,7 +35,7 @@ today's sites:
 What neither half sees, named: a handler that passes the tenant to a call that
 does not use it for the key (half 1 is structural); a body key that is stored
 only as a graph edge and not as a model field (``source_tank_key`` of
-feeds-from, #1871 B5) — neither a path key nor a field; and whether a
+feeds-from, #1871 B5, held by its service test) — neither a path key nor a field; and whether a
 ``verified`` classification is still true (half 2 is a register — the route and
 service tests of each fix hold the behaviour).
 """
@@ -97,7 +97,7 @@ _PATH_KEYS_VERIFIED_ELSEWHERE: dict[tuple[str, str, str], str] = {
     ),
     ("POST", "/api/v1/t/{tenant_slug}/ipm/plants/{plant_key}/inspections", "plant_key"): _REPO_PLANT_GUARD,
     ("POST", "/api/v1/t/{tenant_slug}/ipm/plants/{plant_key}/treatment-applications", "plant_key"): (
-        _REPO_PLANT_GUARD + " (the resistance read before it is the oracle tracked as B7 in #1871)"
+        "the service resolves the plant under the tenant before the resistance read (#1871 B7)"
     ),
     ("DELETE", "/api/v1/t/{tenant_slug}/ipm/pests/{pest_key}/images/{image_id}", "pest_key"): (
         "global pest catalogue; the contribution is resolved and deleted by (id, tenant_key)"
@@ -300,7 +300,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "identification.IdentificationRequest.user_key": _A,
     "identification.IdentificationRequest.adapter_key": _I,
     "identification.IdentificationRequest.plant_instance_key": _V,
-    "inventree.Equipment.location_key": _gap(1871, "B2"),
+    "inventree.Equipment.location_key": _V,  # #1871 B2
     "inventree.InvenTreeReference.entity_key": _V,
     "inventree.StockTransaction.reference_key": _I,
     "inventree.StockTransaction.source_event_key": _I,
@@ -311,24 +311,24 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "ipm.Inspection.detected_pest_keys": _G,
     "ipm.Inspection.detected_disease_keys": _G,
     "ipm.TreatmentApplication.treatment_key": _G,
-    "ipm.TreatmentApplication.plant_key": _gap(1871, "B7"),
+    "ipm.TreatmentApplication.plant_key": _V,  # #1871 B7
     "ipm.TreatmentApplication.applied_by_key": _A,
     "irrigation_demand.IrrigationDemand.site_key": _I,
     "irrigation_demand.IrrigationDemand.run_key": _I,
     "location_assignment.LocationAssignment.membership_key": _V,
-    "location_assignment.LocationAssignment.location_key": _gap(1871, "B3"),
+    "location_assignment.LocationAssignment.location_key": _V,  # #1871 B3
     "mcp.McpAuditLog.service_account_key": _A,
     "mcp.McpIdempotencyRecord.service_account_key": _A,
     "mcp.McpIdempotencyRecord.idempotency_key": _I,
     "membership.Membership.user_key": _I,
     "membership.UserMembershipInfo.membership_key": _N,
-    "notification.Notification.user_key": _gap(1871, "B9"),
+    "notification.Notification.user_key": _I,  # derived from a verified assignee (#1871 B9)
     "notification.Notification.group_key": _I,
     "notification.Notification.parent_notification_key": _I,
     "nutrient_plan.NutrientPlan.species_keys": _V,
     "nutrient_plan.NutrientPlan.cloned_from_key": _V,
     "observation.AggregatedReading.sensor_key": _N,
-    "observation.SensorReading.sensor_key": _gap(1871, "B6"),
+    "observation.SensorReading.sensor_key": _V,  # #1871 B6
     "overwintering_profile.OverwinteringProfile.plant_key": _V,
     "overwintering_profile.OverwinteringProfile.planting_run_key": _V,
     "overwintering_profile.OverwinteringProfile.winter_quarter_key": _V,
@@ -345,7 +345,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "plant_diagnosis_request.PlantDiagnosisRequest.harvest_observation_key": _V,
     "plant_diagnosis_request.PlantDiagnosisRequest.adapter_key": _I,
     "plant_diary_entry.PlantDiaryEntry.plant_key": _V,
-    "plant_instance.PlantInstance.species_key": _gap(1871, "B11"),
+    "plant_instance.PlantInstance.species_key": _V,  # batch plants come from verified entries (#1871 B11)
     "plant_instance.PlantInstance.cultivar_key": _V,
     "plant_instance.PlantInstance.site_key": _V,
     "plant_instance.PlantInstance.location_key": _V,
@@ -363,7 +363,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "planting_run.PlantingRun.succession_plan_key": _I,
     "planting_run.PlantingRun.clone_from_run_key": _I,
     "planting_run.PlantingRunEntry.run_key": _V,  # #1867
-    "planting_run.PlantingRunEntry.species_key": _gap(1871, "B11"),
+    "planting_run.PlantingRunEntry.species_key": _V,  # #1871 B11
     "planting_run.PlantingRunEntry.cultivar_key": _V,  # bundle A (B12): entries stamped on create
     "post_harvest.PostHarvestBatch.harvest_batch_key": _V,
     "post_harvest.PostHarvestBatch.plant_key": _I,
@@ -383,7 +383,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "site.Location.parent_location_key": _gap(1872, "C4"),  # create verified (bundle A, L1); update open
     "site.Location.location_type_key": _G,
     "site.Location.tank_key": _gap(1872, "C4"),
-    "site.Slot.location_key": _gap(1871, "B1"),
+    "site.Slot.location_key": _V,  # #1871 B1
     "species.Cultivar.species_key": _V,
     "species.Species.family_key": _G,
     "species.Species.default_nutrient_plan_key": _gap(1872, "C14"),
@@ -394,7 +394,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "tank.Tank.location_key": _V,  # bundle A, L3
     "task.Task.entity_key": _gap(1872, "C10"),  # guarded for the edge-writing types, incl. clone (bundle A)
     "task.Task.planting_run_key": _I,
-    "task.Task.assigned_to_user_key": _gap(1871, "B9"),
+    "task.Task.assigned_to_user_key": _V,  # #1871 B9
     "task.Task.parent_recurring_task_key": _I,
     "task.Task.activity_key": _I,
     "task.Task.template_key": _I,
@@ -405,7 +405,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "task.TaskTemplate.workflow_phase_key": _V,
     "task.TaskTemplate.phase_definition_key": _I,
     "task.TaskTemplate.source_template_key": _I,
-    "task.WorkflowTemplate.species_key": _gap(1871, "B10"),
+    "task.WorkflowTemplate.species_key": _V,  # #1871 B10
     "task.WorkflowTemplate.lifecycle_key": _G,
     "task.WorkflowTemplate.phase_sequence_key": _I,
     "task.WorkflowTemplate.source_workflow_key": _I,
@@ -418,7 +418,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "watering_event.WateringEvent.nutrient_plan_key": _gap(1872, "C7"),
     "watering_event.WateringEvent.task_key": _V,  # bundle A, L8
     "watering_log.WateringLog.plant_keys": _V,
-    "watering_log.WateringLog.slot_keys": _gap(1871, "B4"),
+    "watering_log.WateringLog.slot_keys": _V,  # #1871 B4
     "watering_log.WateringLog.tank_fill_event_key": _gap(1872, "C6"),
     "watering_log.WateringLog.nutrient_plan_key": _gap(1872, "C7"),
     "watering_log.WateringLog.task_key": _V,  # bundle A, L8
