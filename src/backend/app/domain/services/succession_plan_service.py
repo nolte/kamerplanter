@@ -1,7 +1,10 @@
+from collections.abc import Callable
+from typing import Any
+
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import SuccessionPlanStatus
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.succession_plan_engine import SuccessionPlanEngine
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -41,8 +44,12 @@ class SuccessionPlanService:
         run_service: PlantingRunService,
         engine: SuccessionPlanEngine | None = None,
         site_repo: ISiteRepository | None = None,
+        species_resolver: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = repo
+        # ``SpeciesService.get_species``-shaped: ``resolver(key, tenant_key=...)``
+        # answers global, own or granted species and 404s the rest (#1872 C13).
+        self._species_resolver = species_resolver
         self._run_service = run_service
         self._engine = engine or SuccessionPlanEngine()
         self._site_repo = site_repo
@@ -63,6 +70,7 @@ class SuccessionPlanService:
         plan.completed_batches = 0
         plan.total_batches = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
         self._verify_location_ownership(plan.location_key, plan.tenant_key)
+        self._require_readable_species(plan.species_key, plan.tenant_key)
         return self._repo.create(plan)
 
     def update_plan(self, key: SuccessionPlanKey, data: dict, tenant_key: str = "") -> SuccessionPlan:
@@ -162,8 +170,25 @@ class SuccessionPlanService:
         ``location.tenant_key != tenant_key`` this refused **every** location,
         the caller's own included, because that field is persisted empty.
         """
-        if location_key and self._site_repo is not None:
-            resolve_owned_location(self._site_repo, location_key, tenant_key)
+        if not location_key or not tenant_key:
+            return
+        # Fail closed without the anchor (#1876 review, SEC-004).
+        if self._site_repo is None:
+            raise NotFoundError("Location", location_key)
+        resolve_owned_location(self._site_repo, location_key, tenant_key)
+
+    def _require_readable_species(self, species_key: str | None, tenant_key: str) -> None:
+        """Refuse a plan species the tenant may not read (#1872 C13).
+
+        The key was stored as given and later copied into every generated run
+        entry. Skipped without a tenant (internal callers); fails closed when a
+        tenant is given and no resolver is wired.
+        """
+        if not species_key or not tenant_key:
+            return
+        if self._species_resolver is None:
+            raise NotFoundError("Species", species_key)
+        self._species_resolver(species_key, tenant_key=tenant_key)
 
     def _persist_run(self, plan_key: SuccessionPlanKey, plan: SuccessionPlan, run: PlantingRun) -> PlantingRun:
         entry = self._engine.build_entry(plan)

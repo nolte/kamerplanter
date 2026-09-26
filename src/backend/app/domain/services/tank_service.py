@@ -6,6 +6,7 @@ from app.domain.engines.tank_engine import TankEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+from app.domain.services.feeding_references import NutrientPlanSource, require_readable_nutrient_plan
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
 from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
 
@@ -17,8 +18,12 @@ class TankService:
         engine: TankEngine,
         fertilizer_repo: IFertilizerRepository | None = None,
         site_anchors: SiteAnchorSource | None = None,
+        *,
+        nutrient_plan_repo: NutrientPlanSource | None = None,
     ) -> None:
         self._repo = repo
+        # #1872 review W2: the plans a fill event names, readable by the tank's tenant.
+        self._nutrient_plan_repo = nutrient_plan_repo
         self._engine = engine
         self._fertilizer_repo = fertilizer_repo
         # The location → site reads that decide whose a location is (L3 of the
@@ -283,6 +288,14 @@ class TankService:
             field="fertilizers_used",
             owner="TankService",
         )
+        # The references a fill event names, under the tank's tenant (security
+        # review of #1872, W2): the plan and the mixing result (a plan too, with
+        # a ``mixed_into`` edge from it) must be global or the tenant's own, the
+        # source tank the tenant's. They were stored as given.
+        for plan_key in dict.fromkeys(k for k in (event.nutrient_plan_key, event.mixing_result_key) if k):
+            require_readable_nutrient_plan(self._nutrient_plan_repo, plan_key, tank.tenant_key)
+        if event.source_tank_key:
+            self.get_tank(event.source_tank_key, tank.tenant_key)
 
         # Resolve water defaults via cascade
         event_data = event.model_dump(exclude_none=True)

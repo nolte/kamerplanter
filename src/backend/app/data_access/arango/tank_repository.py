@@ -233,6 +233,9 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
             self.create_edge(col.MIXED_INTO, from_id, to_id)
         return created
 
+    def get_fill_event(self, key: str) -> TankFillEvent | None:
+        return self._fill_events.get_by_key(key)
+
     def get_fill_events(
         self,
         tank_key: TankKey,

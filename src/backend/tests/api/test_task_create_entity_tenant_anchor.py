@@ -169,11 +169,12 @@ class TestOwnAndUnboundBindingsStillWork:
         assert response.status_code == 201, response.text
         assert len(service.created) == 1
 
-    def test_a_type_that_writes_no_edge_is_accepted(self, service: _RecordingTaskService) -> None:
-        """`generic` and friends produce no edge, so there is nothing to anchor."""
+    def test_a_key_under_a_type_that_writes_no_edge_is_refused(self, service: _RecordingTaskService) -> None:
+        """`generic` and friends produce no edge; a key under them was stored unresolved (#1872 C10)."""
         response = _client(service, foreign=True).post("/api/v1/t/acme/tasks", json=_body("generic", "whatever"))
 
-        assert response.status_code == 201, response.text
+        assert response.status_code == 422, response.text
+        assert service.created == []
 
 
 class TestTheAnchorUsesTheCallersTenant:

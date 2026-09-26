@@ -7,9 +7,15 @@ Kategorie: Pflege & Kommunikation
 Fokus: Beides
 Technologie: Python, FastAPI, Celery, Redis, ArangoDB, React, TypeScript, MUI, Home Assistant
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Datenschutzplan-Entscheidung Q-O4, #1885: E-Mail-Kanal verlangt bestätigte Adresse)
 Abhaengigkeit: REQ-022 v2.4 (Pflegeerinnerungen), REQ-006 v2.7 (Aufgabenplanung), REQ-018 v1.0 (Umgebungssteuerung), REQ-024 v1.3 (Mandantenverwaltung), REQ-023 v1.7 (Service Accounts)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.1 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O4 (Betreiberentscheidung, #1885, #1856/#1848):** §3.4 Der E-Mail-Kanal darf nur an eine **bestätigte** Adresse senden — die verifizierte Konto-Adresse, oder eine davon abweichende Benachrichtigungs-Adresse erst nach einer eigenen Bestätigung per Mail-Link. Bisher sendete `EmailNotificationChannel` an jede in `channel_config.get("address")` eingetragene Adresse ungeprüft. **Noch nicht umgesetzt.** |
 
 ## 1. Business Case
 
@@ -574,6 +580,21 @@ class HomeAssistantClient:
 ```
 
 ### 3.4 Email Notification Channel
+
+<!-- Quelle: Datenschutzplan Q-O4, #1885. Betreiberentscheidung 2026-09-26. Noch nicht umgesetzt. -->
+**Nur an eine bestätigte Adresse (Q-O4, #1885, GEPLANT — bisheriger Zustand ungeprüft).**
+`channel_config.get("address")` wird heute ungeprüft von der Benachrichtigungs-Engine
+verwendet — ein Mitglied kann eine beliebige, frei eingetippte Adresse in seine Präferenzen
+eintragen, und der Kanal verschickt Titel und Text (frei gewählte Aufgaben-/Pflanzennamen)
+dorthin, unter dem Absender-Ruf der Instanz. Beschlossen:
+
+- Der E-Mail-Kanal sendet **nur** an eine bestätigte Adresse: entweder die verifizierte
+  Konto-Adresse (REQ-023) — die funktioniert immer, ohne weiteren Schritt — oder eine davon
+  **abweichende** Benachrichtigungs-Adresse, die zuvor über einen eigenen, per Mail
+  zugestellten Bestätigungs-Link freigeschaltet wurde.
+- Bis zur Bestätigung sendet der Kanal an eine solche abweichende Adresse **nichts** — kein
+  automatischer Rückfall auf einen unbestätigten Wert in `channel_config`.
+- Die Bestätigungs-Mail trägt keinen vom Anfragenden gewählten Text (analog #1856).
 
 ```python
 class EmailNotificationChannel(INotificationChannel):
@@ -1571,6 +1592,7 @@ Die HA-Integration nutzt den bestehenden **Service Account** (REQ-023 v1.7) oder
 - [ ] **INotificationChannel Interface** implementiert
 - [ ] **HomeAssistantChannel:** Events, Persistent Notifications, Mobile Push, TTS
 - [ ] **EmailChannel:** Einzel-Mail und Daily Digest
+- [ ] **Nicht implementiert** (Q-O4, #1885): EmailChannel sendet nur an eine bestätigte Adresse (Konto-Adresse oder per Link bestätigte abweichende Benachrichtigungs-Adresse)
 - [ ] **PwaChannel:** Web Push via Service Worker + VAPID
 - [ ] **AppriseChannel:** 100+ Dienste via Apprise-URLs
 - [ ] **InAppChannel:** Fallback wenn kein externer Kanal aktiv
