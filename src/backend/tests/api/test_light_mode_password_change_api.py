@@ -106,13 +106,22 @@ def test_light_mode_refuses_to_set_the_system_accounts_password(monkeypatch: pyt
 def test_the_control_in_full_mode_the_same_account_sets_its_first_password(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without this, the 403 above is equally consistent with a route that refuses everyone.
 
-    A federated account without a hash sets its first password without one
-    (``no_local_password``, #1815) — that path is unchanged in full mode.
+    Since #1815 a federated account without a hash sets its first password with
+    the e-mailed one-time code: without it the answer is 401
+    ``STEP_UP_CODE_REQUIRED`` (not the light-mode 403), with it the password is set.
     """
     monkeypatch.setattr(settings, "kamerplanter_mode", "full")
     client, user_repo = _client()
 
-    response = client.post("/api/v1/users/me/password", json={"new_password": _NEW_PASSWORD})
+    refused = client.post("/api/v1/users/me/password", json={"new_password": _NEW_PASSWORD})
+    assert refused.status_code == 401, refused.text
+    assert refused.json()["error_code"] == "STEP_UP_CODE_REQUIRED"
+
+    auth_service = client.app.dependency_overrides[get_auth_service]()
+    code, _expires = auth_service._step_up_verifier.issue_code(  # noqa: SLF001
+        user_repo.user, action="password_change", authenticated_with_api_key=False, client_ip="testclient"
+    )
+    response = client.post("/api/v1/users/me/password", json={"new_password": _NEW_PASSWORD, "step_up_code": code})
 
     assert response.status_code == 200, response.text
     assert user_repo.user.password_hash

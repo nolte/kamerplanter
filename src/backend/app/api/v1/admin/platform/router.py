@@ -19,7 +19,7 @@ from app.api.v1.privacy.schemas import ErasureCreateRequest
 from app.api.v1.tenants.schemas import TenantDeleteRequest
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
-from app.common.openapi_responses import AUTH_CRUD_RESPONSES
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.request_ip import resolve_client_ip
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
@@ -229,7 +229,7 @@ def update_user(
     )
 
 
-@router.delete("/tenants/{key}", status_code=204)
+@router.delete("/tenants/{key}", status_code=204, responses=STEP_UP_RESPONSES)
 def delete_tenant(
     key: Annotated[str, Path(description="Document key of the tenant.")],
     body: TenantDeleteRequest,
@@ -249,7 +249,10 @@ def delete_tenant(
 
     **Step-up (#1791):** the body echoes the tenant's slug (422 otherwise) and
     carries the admin's current password when the account has one (401
-    otherwise); the service re-proves the platform-admin membership.
+    otherwise), the code from ``POST /users/me/step-up-code`` as ``step_up_code``
+    when not (401 ``STEP_UP_CODE_REQUIRED``, #1815); 403 for an API-key request,
+    429 ``STEP_UP_LOCKED`` after too many failures; the service re-proves the
+    platform-admin membership.
 
     Answers: 204 erased; 403 the platform tenant; 404 no such tenant; 409 another
     deletion of it is running; 503 the deployment cannot erase (nothing changed);
@@ -267,7 +270,7 @@ def delete_tenant(
     )
 
 
-@router.delete("/users/{key}", status_code=204)
+@router.delete("/users/{key}", status_code=204, responses=STEP_UP_RESPONSES)
 def delete_user(
     key: Annotated[str, Path(description="Document key of the user.")],
     body: ErasureCreateRequest,
@@ -280,7 +283,8 @@ def delete_user(
 
     **Step-up (#1814):** the body echoes the *target's* e-mail (422 otherwise) and
     carries the *admin's own* current password when the admin's account has one
-    (401 otherwise); a request authenticated with an API key is refused (403),
+    (401 otherwise), or the code mailed to the admin when it has none (401
+    ``STEP_UP_CODE_REQUIRED``, #1815); a request authenticated with an API key is refused (403),
     and too many failed confirmations answer 429 ``STEP_UP_LOCKED`` (#1816). All
     of it is decided in ``PrivacyService.erase_account_by_admin``, which also
     refuses the admin's own account (403) and re-proves the platform-admin

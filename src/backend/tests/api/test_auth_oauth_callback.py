@@ -35,6 +35,16 @@ class _FakeAuthService:
         token_pair = SimpleNamespace(access_token="access-token-xyz", expires_in=900)
         return token_pair, "raw-refresh-token", True
 
+    def handle_oauth_callback(self, slug, code, state, user_agent, ip_address):  # noqa: ANN001, ANN201
+        """The route's entry since #1815: a sign-in outcome built from ``complete_oauth``."""
+        from app.domain.services.auth_service import OAuthCallbackOutcome
+
+        token_pair, raw_refresh, is_persistent = self.complete_oauth(slug, code, state, user_agent, ip_address)
+        return OAuthCallbackOutcome(token_pair=token_pair, raw_refresh=raw_refresh, is_persistent=is_persistent)
+
+    def abandon_oauth_state(self, state):  # noqa: ANN001, ANN201
+        return None
+
 
 def _client_with(service: _FakeAuthService) -> Iterator[TestClient]:
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):

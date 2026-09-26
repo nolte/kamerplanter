@@ -1,6 +1,15 @@
 from abc import ABC, abstractmethod
 
 
+class EmailUndeliverableError(Exception):
+    """The adapter cannot deliver this mail — it is configured not to (e.g. the console adapter outside debug).
+
+    Raised instead of returning quietly where the caller's answer depends on the
+    mail arriving: a step-up code that is never delivered must not be answered
+    with "sent" (/code-review of #1862).
+    """
+
+
 class IEmailService(ABC):
     @abstractmethod
     def send_verification_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None: ...
@@ -16,4 +25,16 @@ class IEmailService(ABC):
     ) -> None:
         """Send a generic notification email. Default raises NotImplementedError."""
         msg = f"{self.__class__.__name__} does not support notification emails"
+        raise NotImplementedError(msg)
+
+    def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
+        """Send the one-time step-up code (#1815). Default raises NotImplementedError.
+
+        The code confirms an irreversible act or a credential change of an account
+        without a local password; it is valid for ten minutes and must never be
+        logged outside a local debug setup. *purpose* names the act the code is for
+        (fixed text from ``step_up_service.CODE_PURPOSES``, review SEC-003), so the
+        owner sees what they — or someone in their session — is about to confirm.
+        """
+        msg = f"{self.__class__.__name__} does not support step-up code emails"
         raise NotImplementedError(msg)

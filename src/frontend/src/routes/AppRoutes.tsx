@@ -24,6 +24,8 @@ const PasswordResetConfirmPage = lazy(() => import('@/pages/auth/PasswordResetCo
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
 const PrivacySettingsPage = lazy(() => import('@/pages/auth/PrivacySettingsPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
+// #1815 — landing of the fresh sign-in that confirms a step-up.
+const StepUpCallbackPage = lazy(() => import('@/pages/auth/StepUpCallbackPage'));
 // #1118 P13 — browser landing for the light-mode instance-discovery deep link
 // (https://<instance>/connect?v=1). Public and mode-agnostic: a system-camera
 // visitor without the app must not hit a 404 or a login bounce.
@@ -160,6 +162,22 @@ export const router = createBrowserRouter(
           element={
             <Suspense fallback={<LoadingSkeleton variant="card" />}>
               <OAuthCallbackPage />
+            </Suspense>
+          }
+        />
+      )}
+
+      {/* #1815 — step-up re-authentication callback — full mode only (light mode
+          has no accounts to re-authenticate). Deliberately outside ProtectedRoute:
+          the page only moves the one-time token from the URL fragment into
+          sessionStorage and strips it at once, before any auth bootstrap; the
+          page it returns to is protected as usual. */}
+      {!isLightMode && (
+        <Route
+          path="auth/step-up/callback"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <StepUpCallbackPage />
             </Suspense>
           }
         />

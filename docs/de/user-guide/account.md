@@ -122,7 +122,7 @@ Im Tab **Sicherheit** der Kontoeinstellungen verwaltest du, wie du dich anmeldes
 ### Passwort ändern oder festlegen
 
 - Hast du bereits ein lokales Passwort, gibst du dein aktuelles Passwort ein und vergibst ein neues
-- Hast du dich bisher nur über einen externen Anbieter (z. B. Google) angemeldet, kannst du hier zusätzlich ein lokales Passwort **festlegen** — ohne aktuelles Passwort, da noch keines existiert. Danach kannst du dich wahlweise mit E-Mail/Passwort oder über den Anbieter anmelden.
+- Hast du dich bisher nur über einen externen Anbieter angemeldet, kannst du hier zusätzlich ein lokales Passwort **festlegen** — statt eines aktuellen Passworts (das noch nicht existiert) klickst du bei Google oder einem generischen OIDC-Anbieter auf **Erneut anmelden** und bestätigst dich frisch beim Anbieter; nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, klickst du stattdessen auf **Code per E-Mail senden** und gibst den Code aus der Mail ein. Danach kannst du dich wahlweise mit E-Mail/Passwort oder über den Anbieter anmelden.
 
 !!! warning "Passwortänderung beendet alle Sitzungen"
     Sobald du dein Passwort änderst, werden alle aktiven Sitzungen beendet — auch auf anderen Geräten. Du musst dich dort erneut anmelden.
@@ -133,6 +133,9 @@ Im Tab **Sicherheit** der Kontoeinstellungen verwaltest du, wie du dich anmeldes
 ### Verknüpfte Anmeldeanbieter
 
 Die Liste zeigt alle mit deinem Konto verknüpften Anmeldewege (lokales Passwort, Google, GitHub, …). Du kannst einen Anbieter trennen, solange danach mindestens ein weiterer Anmeldeweg bestehen bleibt. Dein letzter Anmeldeweg lässt sich nicht entfernen, damit du nicht aus deinem Konto ausgesperrt wirst.
+
+!!! note "Liste konnte nicht geladen werden?"
+    Lässt sich die Liste nicht laden, zeigt die Karte einen Warnhinweis. Solange unklar ist, ob dein Konto ein lokales Passwort hat, zeigt dir das Passwort-Formular oben sicherheitshalber weiterhin das Feld für das aktuelle Passwort an — lade die Seite neu, um es erneut zu versuchen.
 
 ---
 
@@ -172,7 +175,7 @@ Im Tab **API-Schlüssel** (Zugangsschlüssel für automatisierte Zugriffe, z. B.
 
 Im Tab **Konto** der Kontoeinstellungen findest du im rot markierten Bereich die Schaltfläche **Konto löschen**. Das ist derselbe Löschweg wie im Datenschutz-Bereich (siehe [Konto löschen (Art. 17 DSGVO)](privacy.md#account-loschen-art-17-dsgvo)): Dein Konto wird sofort geschlossen — du kannst dich danach nicht mehr anmelden —, und deine personenbezogenen Daten werden nach Ablauf der Karenzzeit (standardmäßig 90 Tage) endgültig gelöscht. Gesetzlich geschützte Daten (Ernte- und Behandlungsdokumentation) werden stattdessen anonymisiert, nicht gelöscht.
 
-Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut eintippst. Hat dein Konto ein lokales Passwort, gibst du zusätzlich dein **aktuelles Passwort** ein. Meldest du dich ausschließlich über einen externen Anbieter (Google, GitHub, Apple, OIDC) an, genügt die E-Mail-Bestätigung allein.
+Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut eintippst. Hat dein Konto ein lokales Passwort, gibst du zusätzlich dein **aktuelles Passwort** ein. Meldest du dich stattdessen über Google oder einen generischen OIDC-Anbieter an, klickst du im Dialog auf **Erneut anmelden** und bestätigst dich frisch beim Anbieter; nur wenn du dich ausschließlich über GitHub oder Apple anmeldest — die das nicht unterstützen —, klickst du auf **Code per E-Mail senden** und gibst den zugeschickten Bestätigungscode ein.
 
 !!! danger "Konto-Löschung ist endgültig"
     Sobald du bestätigst, ist die Löschung nicht mehr rückgängig zu machen. Lade vorher deinen Datenexport herunter, wenn du deine Daten sichern möchtest (siehe [Datenschutz & DSGVO](privacy.md)). Die vollständige Aufschlüsselung, welche Daten sofort bzw. nach 90 Tagen gelöscht und welche nur anonymisiert werden, findest du unter [Konto löschen (Art. 17 DSGVO)](privacy.md#account-loschen-art-17-dsgvo).

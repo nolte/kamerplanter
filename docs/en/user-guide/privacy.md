@@ -23,7 +23,7 @@ This section is aimed at technical users and self-hosters. All GDPR features des
 | `POST /api/v1/privacy/export` | Request a data export (Art. 15/20) |
 | `GET /api/v1/privacy/export/{export_key}` | Check export status |
 | `GET /api/v1/privacy/export/{export_key}/download` | Download the export |
-| `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) |
+| `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) — step-up body `{password}` or `{step_up_code}`, see below |
 | `POST /api/v1/privacy/email-change/confirm` | Confirm an email change via token |
 | `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) — body `{confirm_email, password?}`, see below |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Check erasure status |
@@ -89,10 +89,15 @@ You have the right to have your data corrected.
 !!! info "API only: Changing your email address"
     Account settings currently show your email address as read-only — changing it is, for now, only possible via the API: `POST /api/v1/privacy/email-change` initiates the change and sends a **verification link to the new address**, `POST /api/v1/privacy/email-change/confirm` confirms it via token (no login needed). Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 
+Like account deletion, the request is behind a step-up: your current password, if your account has one — otherwise a fresh sign-in at your linked provider, or, only if you sign in exclusively through GitHub/Apple, the confirmation code (see [API documentation](../api/authentication.md#signing-in-again-to-confirm-oidc)). Your **current** email address is notified as soon as the change is requested.
+
 The new email becomes active once confirmed — all active sessions are ended.
 
 !!! note "Security notice"
     After confirming the new email, all open sessions (browser, app) are terminated. You need to log in again. Your old email receives an information email about the change.
+
+!!! warning "A password reset or password change cancels a pending change"
+    If you reset your password, change it in account settings, or sign out everywhere, a not-yet-confirmed email change is automatically withdrawn — the link in the verification email stops working afterwards. This protects you if someone else initiated a change in your name.
 
 ---
 
@@ -230,7 +235,7 @@ You have the right to erasure of your data.
 
 1. Navigate to **Privacy** > the **Delete Account** tab
 2. Click **Delete Account**
-3. In the confirmation dialog, type your **own email address** back in. For accounts with a **local password**, also enter your **current password** (to authorize the deletion). If you sign in exclusively through an external provider (Google, GitHub, Apple, OIDC), confirming the email is enough on its own.
+3. In the confirmation dialog, type your **own email address** back in. For accounts with a **local password**, also enter your **current password** (to authorize the deletion). If you sign in through Google or a generic OIDC provider, you instead click **Sign in again** and confirm with a fresh sign-in at that provider; only if you sign in exclusively through GitHub or Apple, click **Send code by email** and enter the confirmation code it mails you.
 4. In the confirmation dialog, click **Yes, Delete Account**
 
 !!! info "Confirming with email and password"

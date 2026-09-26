@@ -34,14 +34,18 @@ type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "accou
 type TenantErasureStatus = Literal["in_progress", "completed", "partially_completed"]
 
 #: How the requester of a tenant deletion confirmed it was really them (#1791):
-#: ``password`` — the current password of an account that has one; for an account
-#: without a local password (federated sign-in only) the echoed slug is the
-#: confirmation, ``slug_confirmation`` (the REQ-394 precedent of account erasure).
+#: ``password`` — the current password of an account that has one; ``oidc_reauth`` —
+#: an account without a local password signed in again at its identity provider
+#: (#1815); ``email_code`` — one whose providers cannot do that entered the code
+#: mailed to it. ``slug_confirmation`` is written no more: it marks
+#: records from before #1815, when the echoed slug alone confirmed such an account.
 #: ``account_erasure_no_interactive_step_up`` — nobody asked interactively: the
 #: tenant is a personal tenant the erased account used alone, and the account
 #: erasure that decided it (itself re-authenticated, a platform admin, or the
 #: unverified cleanup) took no step-up for the tenant (#1788).
-type TenantDeletionStepUp = Literal["password", "slug_confirmation", "account_erasure_no_interactive_step_up"]
+type TenantDeletionStepUp = Literal[
+    "oidc_reauth", "email_code", "slug_confirmation", "account_erasure_no_interactive_step_up", "password"
+]
 
 
 class TenantDeletionConfirmation(BaseModel):
@@ -49,13 +53,16 @@ class TenantDeletionConfirmation(BaseModel):
 
     ``confirm_slug`` is the tenant's slug typed back by the requester — for every
     account; ``password`` is the requester's current password, required when the
-    account has one. Checked by ``TenantService.delete_tenant`` for both routes.
+    account has one; ``step_up_code`` the one-time code mailed to an account without
+    one (#1815). Checked by ``TenantService.delete_tenant`` for both routes.
     """
 
     model_config = {"frozen": True}
 
     confirm_slug: str
     password: str | None = None
+    step_up_code: str | None = None
+    step_up_token: str | None = None
 
 
 class TenantErasureParent(BaseModel):

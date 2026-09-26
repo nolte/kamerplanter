@@ -337,9 +337,9 @@ class TenantService:
           key — even one a human account issued (#1791 review SEC-001): a key
           is a stored M2M credential, not a person who can re-authenticate;
         * both: the step-up in *confirmation* — the tenant's slug typed back, and
-          the current password when the account has one (a federated account
-          has no local secret; the slug echo is its confirmation, as account
-          erasure does it, REQ-394). Checked by the shared
+          the current password when the account has one, the one-time code
+          mailed to it when it has none (a federated account, #1815; before, the
+          slug echo alone confirmed it). Checked by the shared
           :class:`~app.domain.services.step_up_service.StepUpVerifier`, which
           also throttles the password per account and ``client_ip`` (#1816):
           a locked step-up is 429 before the password is tested.
@@ -365,7 +365,8 @@ class TenantService:
             ForbiddenError: the requester may not delete this tenant, or the
                 platform tenant / the light-mode tenant.
             ValidationError: the echoed slug is not the tenant's (HTTP 422).
-            UnauthorizedError: the password is missing or wrong (HTTP 401).
+            UnauthorizedError: the password or code is missing or wrong (HTTP 401;
+                ``STEP_UP_CODE_REQUIRED`` when a federated account sent no code).
             FeatureNotConfiguredError: the deployment cannot erase (HTTP 503).
             WriteConflictError: another run holds the deletion (HTTP 409).
             TenantErasureIncompleteError: something still holds the tenant; the
@@ -483,8 +484,9 @@ class TenantService:
 
         The slug echo is this act's own part — which spellings name the tenant.
         Everything else (who may re-authenticate, the throttle, the password of a
-        local account, the echo-only confirmation of a federated one) is the
-        shared :class:`StepUpVerifier`, the same rule account erasure runs.
+        local account, the mailed one-time code of a federated one, #1815) is the
+        shared :class:`StepUpVerifier`, the same rule account erasure runs. Its
+        result (``password`` / ``email_code``) is what the record stores.
         """
         echoed = confirmation.confirm_slug
         if expected_slug is not None:
@@ -493,15 +495,16 @@ class TenantService:
             matches = echo_matches(echoed, tenant_key) or (
                 slug_digest is not None and hmac.compare_digest(self._tenant_slug_digest(echoed.strip()), slug_digest)
             )
-        method = self._step_up_verifier.verify(
+        return self._step_up_verifier.verify(
             requester,
             action="tenant_deletion",
             echo_ok=matches,
             password=confirmation.password,
+            code=confirmation.step_up_code,
+            reauth_token=confirmation.step_up_token,
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
-        return "password" if method == "password" else "slug_confirmation"
 
     def resume_tenant_erasures(self, now: datetime) -> dict[str, int]:
         """Retry every open tenant deletion whose backoff has passed (daily beat).

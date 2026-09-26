@@ -4913,6 +4913,13 @@ export interface TaskTemplateUpdateRequest {
 export interface TenantDeleteRequest {
   confirm_slug: string;
   password?: string;
+  /** E-mailed one-time code of a requester without a local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
 }
 
 /**
@@ -4924,6 +4931,69 @@ export interface TenantDeleteRequest {
 export interface AccountErasureRequest {
   confirm_email: string;
   password?: string;
+  /** E-mailed one-time code of a requester without a local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
+}
+
+/**
+ * The act an e-mailed step-up code confirms (review SEC-003). A code requested
+ * for one act does not confirm another — mirrors `StepUpAction` in the backend's
+ * `step_up_service.py`.
+ */
+export type StepUpAction =
+  | 'account_erasure'
+  | 'admin_account_erasure'
+  | 'tenant_deletion'
+  | 'password_change'
+  | 'email_change';
+
+/** Body of `POST /users/me/step-up-code`. */
+export interface StepUpCodeRequest {
+  action: StepUpAction;
+}
+
+/**
+ * `POST /users/me/step-up-code` (#1815): a one-time code was e-mailed to the
+ * requester, who has no local password to confirm a step-up with.
+ */
+export interface StepUpCodeSent {
+  /** ISO-8601 instant after which the code is rejected. */
+  expires_at: string;
+  /** Lifetime of the code in seconds. */
+  expires_in: number;
+}
+
+/** Body of `POST /users/me/step-up/oidc` (#1815). */
+export interface StepUpReauthRequest {
+  action: StepUpAction;
+  /** Key of one of the account's linked providers; omitted: the backend picks the first capable one. */
+  provider_key?: string;
+  /** 32 hex characters; returned unchanged beside the token or error on the callback (SEC-005). */
+  client_nonce?: string;
+}
+
+/** `POST /users/me/step-up/oidc` (#1815): where to send the browser for the fresh sign-in. */
+export interface StepUpReauthStart {
+  authorization_url: string;
+}
+
+/** Body of `POST /users/me/password`. */
+export interface PasswordChangeRequest {
+  /** `null` for an account without a local password (setting the first one). */
+  current_password: string | null;
+  new_password: string;
+  /** E-mailed one-time code, required when the account has no local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
 }
 
 export interface AdminTenant {

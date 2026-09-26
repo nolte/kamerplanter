@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.exceptions import ValidationError
+from app.domain.engines.password_engine import PasswordEngine
 from app.domain.models.user import DELETED_EMAIL_DOMAIN, is_tombstone_email, tombstone_email
 
 
@@ -118,6 +119,20 @@ class TestRegistrationRefusesTheDomain:
         assert profile.email == "erika@example.org"
 
 
+# Assembled at runtime: a literal shaped like a password trips the secret scanner (#1838).
+_PASSWORD = "-".join(["erika", "current", "passphrase"])
+_PASSWORD_HASH = PasswordEngine().hash_password(_PASSWORD)
+#: The step-up an e-mail change carries since #1841 — checked before the address (so the
+#: reserved domain is still refused, only after the owner re-authenticated).
+_EMAIL_CHANGE_STEP_UP = {
+    "password": _PASSWORD,
+    "step_up_code": None,
+    "step_up_token": None,
+    "authenticated_with_api_key": False,
+    "client_ip": None,
+}
+
+
 class TestTheEmailChangeFlowRefusesTheDomain:
     def _privacy_service(self):
         from app.domain.engines.consent_engine import ConsentEngine
@@ -129,7 +144,9 @@ class TestTheEmailChangeFlowRefusesTheDomain:
         from app.domain.services.privacy_service import PrivacyService
 
         user_repo = MagicMock()
-        user_repo.get_or_raise.return_value = User(_key="u-1", email="erika@example.org", display_name="Erika")
+        user_repo.get_or_raise.return_value = User(
+            _key="u-1", email="erika@example.org", display_name="Erika", password_hash=_PASSWORD_HASH
+        )
         user_repo.get_by_email.return_value = None
         return (
             PrivacyService(
@@ -158,9 +175,9 @@ class TestTheEmailChangeFlowRefusesTheDomain:
         service, _ = self._privacy_service()
 
         with pytest.raises(ValidationError):
-            service.request_email_change("u-1", tombstone_email("victim-key"))
+            service.request_email_change("u-1", tombstone_email("victim-key"), **_EMAIL_CHANGE_STEP_UP)
 
     def test_an_ordinary_address_is_still_accepted(self):
         service, _ = self._privacy_service()
 
-        service.request_email_change("u-1", "erika.neu@example.org")
+        service.request_email_change("u-1", "erika.neu@example.org", **_EMAIL_CHANGE_STEP_UP)
