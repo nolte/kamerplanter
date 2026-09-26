@@ -105,7 +105,7 @@ remain valid as aliases in addition.
 | `KAMERPLANTER_MODE` | `full` | No | Operating mode: `full` (auth + tenants) or `light` (no auth, local single-user) |
 | `DEBUG` | `false` | No | Enable debug logging (verbose — never use in production). Also disables the startup gate for production secrets — **never** set this in production. |
 | `FRONTEND_URL` | `http://localhost:5173` | No | Frontend URL (used for email links) |
-| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. |
+| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. Also forms the callback URL of the fresh OIDC sign-in that confirms a step-up (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — register this URL with the identity provider. |
 
 ### Light Mode (`KAMERPLANTER_MODE=light`)
 
@@ -167,6 +167,9 @@ otherwise registration and password reset cannot be completed.
 
 !!! note "Also used by the notification system"
     These variables also configure the email channel of the [notification system](../user-guide/notifications.md#email) — there is no separate SMTP configuration for notifications.
+
+!!! info "Two different requirements for federated accounts"
+    An account without a local password with an OIDC-capable provider (Google, generic OIDC) confirms irreversible account actions and credential changes (account deletion, setting a first local password, tenant deletion, email change) with a fresh sign-in at that provider — see [API Documentation: Authentication](../api/authentication.md#signing-in-again-to-confirm-oidc). That needs the provider to support `prompt=login`/`max_age` and the `auth_time` claim, not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple (neither can prove a fresh sign-in) uses the emailed confirmation code instead — see [Requesting a Confirmation Code by Email](../api/authentication.md#requesting-a-confirmation-code-by-email-fallback-for-githubapple). If the instance runs such an account with `EMAIL_ADAPTER=console` and `DEBUG=false`, the application reports that the confirmation code cannot be delivered (`503`) instead of letting it silently vanish — it still cannot delete itself, set a first local password, delete a tenant, or change its email address until SMTP is configured. `EMAIL_ADAPTER=smtp` is therefore required for production operation with GitHub/Apple-only accounts, not just recommended.
 
 ---
 

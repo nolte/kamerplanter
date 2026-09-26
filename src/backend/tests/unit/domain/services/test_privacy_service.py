@@ -464,6 +464,17 @@ class TestRestriction:
 # ── Email change ───────────────────────────────────────────────────
 
 
+def _email_change_step_up() -> dict:
+    """The step-up an e-mail change carries since #1841: the stored user's current password."""
+    return {
+        "password": USER_PASSWORD,
+        "step_up_code": None,
+        "step_up_token": None,
+        "authenticated_with_api_key": False,
+        "client_ip": None,
+    }
+
+
 class TestEmailChange:
     def test_email_change_creates_pending_request(
         self,
@@ -471,7 +482,7 @@ class TestEmailChange:
         email_change_repo,
         email_service,
     ):
-        change = service.request_email_change(USER_KEY, "new@example.com")
+        change = service.request_email_change(USER_KEY, "new@example.com", **_email_change_step_up())
 
         assert change.status == "pending"
         assert str(change.new_email) == "new@example.com"
@@ -498,7 +509,7 @@ class TestEmailChange:
             display_name="Other",
         )
 
-        change = service.request_email_change(USER_KEY, "new@example.com")
+        change = service.request_email_change(USER_KEY, "new@example.com", **_email_change_step_up())
 
         assert change.status == "pending"
         email_change_repo.create.assert_not_called()

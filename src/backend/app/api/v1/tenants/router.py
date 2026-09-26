@@ -30,7 +30,7 @@ from app.common.auth import (
 )
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope
-from app.common.openapi_responses import AUTH_CRUD_RESPONSES
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.request_ip import resolve_client_ip
 from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.tenant import Tenant
@@ -114,7 +114,7 @@ def update_tenant(
     return _tenant_response(tenant)
 
 
-@router.delete("/{tenant_slug}", response_model=MessageResponse)
+@router.delete("/{tenant_slug}", response_model=MessageResponse, responses=STEP_UP_RESPONSES)
 def delete_tenant(
     body: TenantDeleteRequest,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
@@ -130,8 +130,10 @@ def delete_tenant(
     from the stored membership — that the requester holds the lead role *and*
     ``management`` (403 otherwise; a service account never), that ``confirm_slug``
     is this tenant's slug (422) and, for an account with a local password, that
-    ``password`` is its current one (401) — throttled per account and address,
-    429 ``STEP_UP_LOCKED`` after too many failures (#1816).
+    ``password`` is its current one (401) — for an account without one, that
+    ``step_up_code`` is the code from ``POST /users/me/step-up-code`` (401
+    ``STEP_UP_CODE_REQUIRED`` without it, #1815) — throttled per account and
+    address, 429 ``STEP_UP_LOCKED`` after too many failures (#1816).
 
     Same path as ``DELETE /admin/platform/tenants/{key}``: 403 for the platform
     tenant, 409 while another deletion runs, 503 when the deployment cannot erase

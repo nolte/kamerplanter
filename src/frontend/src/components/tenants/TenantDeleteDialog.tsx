@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { toStepUpBody } from '@/utils/stepUp';
 import type { TenantDeleteRequest } from '@/api/types';
 
 interface TenantDeleteDialogProps {
@@ -31,8 +32,8 @@ export default function TenantDeleteDialog({
 }: TenantDeleteDialogProps) {
   const { t } = useTranslation();
 
-  const handleConfirm = ({ echo, password }: StepUpConfirmation) =>
-    onConfirm(password === undefined ? { confirm_slug: echo } : { confirm_slug: echo, password });
+  const handleConfirm = ({ echo, ...credentials }: StepUpConfirmation) =>
+    onConfirm({ confirm_slug: echo, ...toStepUpBody(credentials) });
 
   return (
     <StepUpConfirmDialog
@@ -47,6 +48,7 @@ export default function TenantDeleteDialog({
       passwordHelper={t('pages.auth.tenantDeletePasswordHelper')}
       confirmLabel={t('pages.auth.adminConfirmDelete')}
       testIdPrefix="tenant-delete"
+      stepUpAction="tenant_deletion"
       testIds={{ echo: 'tenant-delete-slug' }}
       onConfirm={handleConfirm}
       onCancel={onCancel}

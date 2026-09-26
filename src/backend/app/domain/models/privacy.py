@@ -22,10 +22,13 @@ type ErasureStatus = Literal["scheduled", "in_progress", "completed", "partially
 #: ``unverified_cleanup`` are due at once but keep the same record, gate and retry.
 type ErasureOrigin = Literal["self_service", "platform_admin", "unverified_cleanup"]
 #: How the person who asked for an erasure re-authenticated (#1813, #1814):
-#: ``password`` — the requester's current password; ``echo`` — an account without
-#: a local password typed the target's e-mail back (REQ-394, real re-auth #1815).
+#: ``password`` — the requester's current password; ``oidc_reauth`` — an account
+#: without a local password signed in again at its identity provider (#1815);
+#: ``email_code`` — one whose providers cannot do that entered the code mailed to it.
+#: ``echo`` is written no more: it marks records from before #1815, when such an
+#: account confirmed by typing the target's e-mail back alone — kept readable.
 #: ``None`` on records of the unverified-account cleanup and on older records.
-type ErasureStepUp = Literal["password", "echo"]
+type ErasureStepUp = Literal["oidc_reauth", "email_code", "echo", "password"]
 #: What an account erasure did with one personal tenant of the subject (#1788).
 #: ``erased`` — the subject was its only active member, and the tenant-erasure
 #: inventory (#1769) completed on it; ``retained_other_members`` — another active
@@ -33,7 +36,9 @@ type ErasureStepUp = Literal["password", "echo"]
 #: no successor, #1788); ``absent`` — neither the tenant nor a deletion record of
 #: it exists any more.
 type PersonalTenantOutcome = Literal["erased", "retained_other_members", "absent"]
-type EmailChangeStatus = Literal["pending", "confirmed", "expired"]
+#: ``cancelled`` — withdrawn because the owner took the account back (password
+#: reset, password change, signing out everywhere) while it was pending (#1841).
+type EmailChangeStatus = Literal["pending", "confirmed", "expired", "cancelled"]
 type RestrictionReason = Literal[
     "accuracy_contested",
     "unlawful_processing",

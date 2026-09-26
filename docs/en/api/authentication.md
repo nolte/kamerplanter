@@ -212,7 +212,7 @@ Content-Type: application/json
 }
 ```
 
-`current_password` may be omitted only when the account has **no** local password yet (an SSO-only account setting one for the first time). If a local password already exists, it must be supplied correctly — it is a step-up (see below). On success, all of the user's active sessions are terminated.
+`current_password` may be omitted only when the account has **no** local password yet (an SSO-only account setting one for the first time) — in that case, confirm instead with a fresh sign-in at the linked provider (next section) or, only if all of its providers cannot do that (GitHub, Apple), with the confirmation code from the section after that. If a local password already exists, it must be supplied correctly — it is a step-up (see below). On success, all of the user's active sessions are terminated.
 
 A request authenticated with an API key is refused with `403 Forbidden` — an API key cannot change its own account's password.
 
@@ -220,18 +220,92 @@ In light mode (`KAMERPLANTER_MODE=light`) the route answers `403 Forbidden`. The
 
 ---
 
+## Signing In Again to Confirm (OIDC)
+
+An account without a local password has no secret of its own to answer the step-up confirmations two sections down. If at least one of its linked sign-in providers is an **OpenID Connect provider** (Google or a generic OIDC provider with the `openid` scope), it confirms instead with a **fresh** sign-in at exactly that provider — this is the normal case. Only an account whose linked providers are all unable to do that (exclusively GitHub and/or Apple, see the boundary below) falls back to the emailed code.
+
+```http
+POST /api/v1/users/me/step-up/oidc
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` names the act to confirm, same as for the code. The optional `provider_key` (a linked provider's key from `GET /users/me/providers`) picks a specific provider when several OIDC-capable ones are linked; without it, the route takes the first matching one. The optional `client_nonce` (32 hex characters the client generates at random) comes back unchanged beside the token or the error — so the page that started the sign-in recognises its own result and discards a planted one.
+
+**Response (200 OK):**
+
+```json
+{
+  "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=kamerplanter&response_type=code&prompt=login&max_age=0&state=…&nonce=…&code_challenge_method=S256"
+}
+```
+
+Open `authorization_url` in the browser — the same login request as a normal sign-in, plus `prompt=login` and `max_age=0`: the provider must authenticate the person again (no silent answer from its own session) and report when it did. The provider then redirects to this server's existing callback, which signs nobody in and redirects straight on to `{frontend-url}/auth/step-up/callback`:
+
+- Success: `#step_up_token=<token>&action=<action>&client_nonce=<nonce>` in the URL **fragment** (never the query — a fragment reaches no server, no proxy, and no `Referer` header)
+- Error: `?error=step_up_failed` (general), `?error=step_up_stale` (the sign-in was older than five minutes — retry), or `?error=step_up_cancelled` (denied at the provider)
+
+The backend checks the ID token: `iss` is the expected issuer, `aud`/`azp` is this instance, `nonce` matches the request, `exp` has not passed, `sub` is a linked sign-in of **this** account made through **exactly this** provider configuration (the link records configuration and issuer; `iss` must match it), and `auth_time` is a finite number at most five minutes old (30 seconds' clock tolerance). An older link without a recorded configuration counts as re-authenticable only when exactly one enabled, capable configuration of its type exists — otherwise the account confirms with the emailed code. It does **not** check a JWKS signature: the ID token comes straight from the provider's token endpoint over TLS (the fresh sign-in is only offered for an `https` token endpoint), in an exchange this server authenticated with its own client secret — exactly the case OIDC Core 3.1.3.7 item 6 allows TLS protection to stand in for the signature check.
+
+The returned `step_up_token` is valid for five minutes, applies to exactly the requested action, is spent by the first action that presents it, and is otherwise used like the emailed code: as `step_up_token` in the confirmation body of the respective action (see the table below).
+
+`403 Forbidden` for a request authenticated with an API key, a service account, or a light-mode installation. `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED` when the account has a local password (it confirms with that); `STEP_UP_REAUTH_UNAVAILABLE` when none of its linked providers (or the one named by `provider_key`) supports a fresh sign-in — it then confirms with the emailed code —; a validation error when `action` is missing/unknown or `client_nonce` is malformed. `429 Too Many Requests` (`STEP_UP_LOCKED`) while the step-up is locked.
+
+!!! info "Operator requirement"
+    The linked identity provider must support `prompt=login`/`max_age` and the `auth_time` claim (Google and most generic OIDC providers do) and serve its token endpoint over `https`. The re-authentication's callback URL is built from `APP_BASE_URL` (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`), never from the request's Host header — set `APP_BASE_URL` to the public address and register exactly this callback URL with the provider.
+
+---
+
+## Requesting a Confirmation Code by Email (fallback for GitHub/Apple)
+
+**Boundary.** GitHub is plain OAuth2 and issues no ID token — so there is no sign-in time for the previous section to check. Apple does issue an ID token, but without `auth_time`. An account whose linked sign-in methods are **exclusively** GitHub and/or Apple therefore cannot be freshly re-authenticated and confirms instead with a one-time code mailed to its own address — the same proof a password reset relies on. An account with at least one OIDC-capable provider always uses the previous section; the route below refuses it the code (see below).
+
+```http
+POST /api/v1/users/me/step-up-code
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` names what the code is to confirm: `account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, or `email_change`. The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text.
+
+**Response (202 Accepted):**
+
+```json
+{
+  "expires_at": "2026-09-25T18:40:00Z",
+  "expires_in": 600
+}
+```
+
+The code is eight digits, valid for ten minutes, and spent by the first action that presents it; a new request replaces a still-valid code with a fresh one — with two exceptions: an **unspent** code younger than 60 seconds is not replaced (otherwise a request would void the code the person is currently typing), and at most **5 codes per account and hour** are sent. It is mailed only to the account's own address — never returned in this response or anywhere else.
+
+`403 Forbidden` for a request authenticated with an API key, a service account, or a light-mode installation (there is no personal account to confirm anything there). `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED` when the account already has a local password — it confirms with that, not with a code —; `STEP_UP_REAUTH_REQUIRED` **when at least one of the account's linked providers is OIDC-capable** (see above — the route then says to use the previous section); a validation error when `action` is missing or not one of the values above. `429 Too Many Requests` (`STEP_UP_LOCKED`, `details[0].retry_after_minutes`) while the account's step-up is locked, a still-valid code is younger than 60 seconds, or the hourly code budget is spent.
+
+`503 Service Unavailable` (`STEP_UP_CODE_UNDELIVERABLE`) when the code cannot be delivered by email — for example because the instance has no mail delivery configured, or the mail server reports a failure. Nothing is issued in that case: the code is withdrawn and its budget given back, so neither the 60-second wait nor the hourly budget blocks the next attempt once the operator fixes delivery.
+
+---
+
 ## Step-up Confirmation for Irreversible Account Actions
 
-Four actions require re-confirmation by the signed-in person, in addition to a valid access token:
+Five actions require re-confirmation by the signed-in person, in addition to a valid access token:
 
-| Action | Route(s) | Typed-back target (body field) | Password |
+| Action | Route(s) | Typed-back target (body field) | Password / Fresh sign-in / Code |
 |---|---|---|---|
-| Delete own account (GDPR Art. 17) | `DELETE /users/me`, `POST /privacy/erasure` | own email (`confirm_email`) | own, if a local one exists |
-| Delete another account (platform admin) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own |
-| Delete a tenant | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | slug (`confirm_slug`) | own, if a local one exists |
-| Change password | `POST /users/me/password` | — | current (`current_password`) |
+| Delete own account (GDPR Art. 17) | `DELETE /users/me`, `POST /privacy/erasure` | own email (`confirm_email`) | own password, if a local one exists — otherwise a `step_up_token` from a fresh sign-in, or, only for GitHub/Apple-only accounts, the emailed code (`step_up_code`) |
+| Delete another account (platform admin) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own, otherwise their `step_up_token` or code |
+| Delete a tenant | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | slug (`confirm_slug`) | own password, otherwise a `step_up_token` or code |
+| Change email address | `POST /privacy/email-change` | — | own password, otherwise a `step_up_token` or code |
+| Change password | `POST /users/me/password` | — | current (`current_password`) — setting the **first** password on an account without one runs through a `step_up_token` or code instead |
 
-Example body for account erasure:
+Example body for account erasure (local account):
 
 ```json
 {
@@ -240,14 +314,32 @@ Example body for account erasure:
 }
 ```
 
+Example body after a fresh sign-in (OIDC-capable account):
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_token": "AqX7…"
+}
+```
+
+Example body for an account signed in exclusively through GitHub/Apple:
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_code": "48213907"
+}
+```
+
 **Check order:**
 
 1. A request authenticated with an API key or coming from a service account is refused with `403 Forbidden` — before anything is checked or counted.
-2. If the confirmation is locked (see below), the route immediately answers `429 Too Many Requests` without checking the password.
-3. If the typed-back target doesn't match (email case-insensitively, slug exactly), the route answers `422 Unprocessable Entity`. A wrong echo does **not** count as a failed attempt.
-4. If the affected account has a local password, the password field must be correct, otherwise `401 Unauthorized`. A purely federated account (Google/GitHub/Apple/OIDC only) confirms with the echo alone.
+2. If the confirmation is locked (see below), the route immediately answers `429 Too Many Requests` without checking the secret.
+3. If the typed-back target doesn't match (email case-insensitively, slug exactly), the route answers `422 Unprocessable Entity`. A wrong echo does **not** count as a failed attempt. Changing the email and changing the password have no target to type back.
+4. If the affected account has a local password, the password field must be correct, otherwise `401 Unauthorized`. Otherwise — if the body carries a `step_up_token`, the route checks that (confirming nothing or expired: `401 Unauthorized`). Without `step_up_token`: if the account has an OIDC-capable linked provider, the route answers `401 Unauthorized` with the error code `STEP_UP_REAUTH_REQUIRED` — a hint to sign in again first. Otherwise (GitHub/Apple only), the route checks `step_up_code` instead; missing it answers `401 Unauthorized` with `STEP_UP_CODE_REQUIRED`.
 
-**Throttling:** After 5 wrong password attempts for the same account-and-client-address combination, the system locks further confirmations for **15 minutes**; repeated failures double the wait time up to **4 hours**. An additional account-wide cap of 15 failed attempts applies across any number of client addresses. All four actions share the same failed-attempt budget per account — a successful step-up clears it.
+**Throttling:** After 5 wrong confirmations (password, code, or an invalid/expired fresh sign-in) for the same account-and-client-address combination, the system locks further confirmations for **15 minutes**; repeated failures double the wait time up to **4 hours**. An additional account-wide cap of 15 failed attempts applies across any number of client addresses. All five actions — and requesting a code or a fresh sign-in — share the same failed-attempt budget per account; a successful step-up clears it.
 
 A locked confirmation responds with the error code `STEP_UP_LOCKED`:
 
@@ -267,7 +359,10 @@ A locked confirmation responds with the error code `STEP_UP_LOCKED`:
 ```
 
 !!! note "The login lockout is unaffected"
-    This lock only applies to the four confirmations above and has no effect on `POST /auth/login`. Anyone who locks one of these confirmations — for example, someone with a stolen session — can still sign in normally, end sessions in the **Sessions** tab, and reset the password by email.
+    This lock only applies to the five confirmations above and has no effect on `POST /auth/login`. Anyone who locks one of these confirmations — for example, someone with a stolen session — can still sign in normally, end sessions in the **Sessions** tab, and reset the password by email.
+
+!!! info "For operators: two different requirements"
+    An account with an OIDC-capable provider (Google, generic OIDC) confirms via the fresh sign-in — that provider needs to support `prompt=login`/`max_age` and `auth_time` (see above), not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple needs the emailed code, and with it working mail delivery: if the instance runs the console email adapter without debug mode — the production default with no SMTP configured — the code is never delivered, and such an account then cannot delete itself, delete a tenant, set a first local password, or change its email address. See [Environment Variables](../reference/environment-variables.md#email) for configuration details.
 
 ---
 

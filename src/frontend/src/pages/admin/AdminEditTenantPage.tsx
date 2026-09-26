@@ -45,6 +45,7 @@ import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
 import type { AdminTenant, AdminTenantMember, AdminUser, TenantDeleteRequest, TenantRole } from '@/api/types';
 import TenantDeleteDialog from '@/components/tenants/TenantDeleteDialog';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
 
 const GRID_2COL = {
   display: 'grid',
@@ -68,7 +69,10 @@ export default function AdminEditTenantPage() {
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // #1815 — back from the fresh sign-in at the identity provider: reopen the
+  // tenant-deletion dialog it was started from (it then sends the token).
+  const resumeDelete = useStepUpResume('tenant-delete');
+  const [confirmDelete, setConfirmDelete] = useState(resumeDelete);
 
   // Members
   const [members, setMembers] = useState<AdminTenantMember[]>([]);

@@ -225,15 +225,26 @@ def sample_substrate_data():
 
 @pytest.fixture(autouse=True)
 def _fresh_step_up_throttle():
-    """Start every test with an empty process-wide step-up throttle tier (#1816).
+    """Start every test with empty process-wide step-up throttle and code tiers (#1816, #1815).
 
     Services built without an explicit verifier count into the module-level
     in-memory store — the point of that default is that a counter survives across
     per-request service instances. Across *tests* it would carry one test's wrong
     passwords into the next test's lockout, so each test starts clean.
     """
+    from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_CODE_STORE, DEFAULT_STEP_UP_REAUTH_STORE
     from app.data_access.external.step_up_throttle import DEFAULT_STEP_UP_THROTTLE_STORE
 
-    DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()
+    def clear() -> None:
+        DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()
+        # #1815 / review SEC-002 — the code tier carries codes, the replacement wait
+        # and the hourly issuance budget; one test's issued codes must not spend the
+        # next test's budget.
+        DEFAULT_STEP_UP_CODE_STORE._entries.clear()
+        DEFAULT_STEP_UP_CODE_STORE._cooldowns.clear()
+        DEFAULT_STEP_UP_CODE_STORE._issues.clear()
+        DEFAULT_STEP_UP_REAUTH_STORE._entries.clear()
+
+    clear()
     yield
-    DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()
+    clear()

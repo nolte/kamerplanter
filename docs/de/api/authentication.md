@@ -212,7 +212,7 @@ Content-Type: application/json
 }
 ```
 
-`current_password` entfällt nur, wenn das Konto noch **kein** lokales Passwort hat (ein reines SSO-Konto, das erstmals eines setzt). Existiert bereits ein lokales Passwort, muss es korrekt mitgeschickt werden — es ist ein Step-up (siehe unten). Bei Erfolg werden alle aktiven Sitzungen des Nutzers beendet.
+`current_password` entfällt nur, wenn das Konto noch **kein** lokales Passwort hat (ein reines SSO-Konto, das erstmals eines setzt) — in diesem Fall bestätigst du stattdessen mit einer frischen Anmeldung beim verknüpften Anbieter (nächster Abschnitt) oder, nur wenn all deine Anbieter das nicht unterstützen (GitHub, Apple), mit dem Bestätigungscode aus dem übernächsten Abschnitt. Existiert bereits ein lokales Passwort, muss es korrekt mitgeschickt werden — es ist ein Step-up (siehe unten). Bei Erfolg werden alle aktiven Sitzungen des Nutzers beendet.
 
 Eine mit API-Key authentifizierte Anfrage wird mit `403 Forbidden` abgelehnt — ein API-Key kann das eigene Passwort nicht ändern.
 
@@ -220,18 +220,92 @@ Im Light-Modus (`KAMERPLANTER_MODE=light`) antwortet die Route mit `403 Forbidde
 
 ---
 
+## Erneut anmelden zur Bestätigung (OIDC)
+
+Ein Konto ohne lokales Passwort hat kein eigenes Geheimnis, mit dem es die Step-up-Bestätigungen im übernächsten Abschnitt beantworten könnte. Ist mindestens einer seiner verknüpften Anmeldeanbieter ein **OpenID-Connect-Anbieter** (Google oder ein generischer OIDC-Provider mit dem `openid`-Scope), bestätigt es stattdessen mit einer **frischen** Anmeldung genau bei diesem Anbieter — das ist der Regelfall. Nur ein Konto, dessen sämtliche verknüpfte Anbieter das nicht können (ausschließlich GitHub und/oder Apple, siehe Abgrenzung unten), weicht auf den per E-Mail zugeschickten Code aus.
+
+```http
+POST /api/v1/users/me/step-up/oidc
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` benennt wie beim Code die zu bestätigende Aktion. Optional `provider_key` (Schlüssel eines verknüpften Anbieters aus `GET /users/me/providers`) wählt einen bestimmten Anbieter, wenn mehrere OIDC-fähige verknüpft sind; ohne Angabe nimmt die Route den ersten passenden. Optional `client_nonce` (32 Hex-Zeichen, vom Client zufällig erzeugt) kommt unverändert neben dem Token bzw. dem Fehler zurück — so erkennt die Seite, die die Anmeldung gestartet hat, ihr eigenes Ergebnis und verwirft ein untergeschobenes.
+
+**Antwort (200 OK):**
+
+```json
+{
+  "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=kamerplanter&response_type=code&prompt=login&max_age=0&state=…&nonce=…&code_challenge_method=S256"
+}
+```
+
+Öffne `authorization_url` im Browser — dieselbe Login-Anfrage wie beim normalen Anmelden, zusätzlich mit `prompt=login` und `max_age=0`: Der Anbieter muss die Person erneut anmelden lassen (keine stille Antwort aus dessen eigener Sitzung) und den Anmeldezeitpunkt zurückmelden. Der Anbieter leitet danach an den bestehenden Callback dieses Servers weiter; der meldet niemanden an, sondern leitet ohne Umweg über eine JSON-Antwort direkt zu `{frontend-url}/auth/step-up/callback` weiter:
+
+- Erfolg: `#step_up_token=<Token>&action=<Aktion>&client_nonce=<Nonce>` im URL-**Fragment** (nie in der Query — ein Fragment erreicht keinen Server, keinen Proxy und keinen `Referer`-Header)
+- Fehler: `?error=step_up_failed` (allgemein), `?error=step_up_stale` (die Anmeldung war älter als fünf Minuten — erneut versuchen), oder `?error=step_up_cancelled` (am Anbieter abgebrochen)
+
+Das Backend prüft dabei am ID-Token: `iss` ist der erwartete Aussteller, `aud`/`azp` ist diese Instanz, `nonce` stimmt mit der Anfrage überein, `exp` ist nicht abgelaufen, `sub` gehört zu einer verknüpften Anmeldung **dieses** Kontos, die über **genau diese** Anbieter-Konfiguration entstanden ist (die Verknüpfung speichert Konfiguration und Aussteller; `iss` muss dazu passen), und `auth_time` ist eine endliche Zahl und höchstens fünf Minuten alt (30 Sekunden Uhrtoleranz). Eine ältere Verknüpfung ohne gespeicherte Konfiguration gilt nur dann als re-authentifizierbar, wenn genau eine aktive, fähige Konfiguration dieses Typs existiert — sonst bestätigt das Konto mit dem E-Mail-Code. Es prüft **keine** JWKS-Signatur: Das ID-Token kommt direkt vom Token-Endpunkt des Anbieters über TLS (die frische Anmeldung wird nur bei einem `https`-Token-Endpunkt angeboten), in einem Austausch, den dieser Server mit seinem eigenen Client-Secret authentifiziert hat — genau der Fall, für den OIDC Core 3.1.3.7 Nr. 6 die TLS-Absicherung als Ersatz für die Signaturprüfung vorsieht.
+
+Der zurückgegebene `step_up_token` ist fünf Minuten gültig, gilt für genau die angeforderte Aktion, wird durch die erste Aktion verbraucht, die ihn vorlegt, und ist ansonsten wie der E-Mail-Code zu verwenden: als `step_up_token` im Bestätigungs-Body der jeweiligen Aktion (siehe Tabelle unten).
+
+`403 Forbidden` für eine mit API-Key authentifizierte Anfrage, einen Service Account oder eine Light-Modus-Installation. `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED`, wenn das Konto ein lokales Passwort hat (es bestätigt damit); `STEP_UP_REAUTH_UNAVAILABLE`, wenn keiner seiner verknüpften Anbieter (bzw. der über `provider_key` gewählte) eine frische Anmeldung unterstützt — dann bestätigt es mit dem E-Mail-Code —; ein Validierungsfehler, wenn `action` fehlt/unbekannt oder `client_nonce` falsch geformt ist. `429 Too Many Requests` (`STEP_UP_LOCKED`), solange der Step-up gesperrt ist.
+
+!!! info "Betreiber-Voraussetzung"
+    Der verknüpfte Identity-Provider muss `prompt=login`/`max_age` sowie den Claim `auth_time` unterstützen (Google und die meisten generischen OIDC-Provider tun das) und seinen Token-Endpunkt über `https` anbieten. Die Rückruf-URL der erneuten Anmeldung wird aus `APP_BASE_URL` gebildet (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`), nie aus dem Host-Header der Anfrage — setze `APP_BASE_URL` auf die öffentliche Adresse und hinterlege genau diese Rückruf-URL beim Provider.
+
+---
+
+## Bestätigungscode per E-Mail anfordern (Ausweichweg für GitHub/Apple)
+
+**Abgrenzung.** GitHub ist reines OAuth2 und stellt kein ID-Token aus — es gibt also keinen Anmeldezeitpunkt, den der vorige Abschnitt prüfen könnte. Apple stellt zwar ein ID-Token aus, aber ohne `auth_time`. Ein Konto, dessen verknüpfte Anmeldewege **ausschließlich** aus GitHub und/oder Apple bestehen, kann sich deshalb nicht frisch erneut anmelden lassen und bestätigt stattdessen mit einem Einmalcode, der an die eigene E-Mail-Adresse geschickt wird — derselbe Nachweis, auf den sich ein Passwort-Reset stützt. Ein Konto mit mindestens einem OIDC-fähigen Anbieter (Google, generisches OIDC) nutzt immer den vorigen Abschnitt; die Route unten verweigert ihm den Code (siehe unten).
+
+```http
+POST /api/v1/users/me/step-up-code
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` benennt, wofür der Code gelten soll: `account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change` oder `email_change`. Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt.
+
+**Antwort (202 Accepted):**
+
+```json
+{
+  "expires_at": "2026-09-25T18:40:00Z",
+  "expires_in": 600
+}
+```
+
+Der Code besteht aus acht Ziffern, ist zehn Minuten gültig und wird durch die erste Aktion verbraucht, die ihn vorlegt; ein erneuter Aufruf ersetzt einen noch gültigen Code durch einen neuen — mit zwei Ausnahmegrenzen: Ein **noch nicht verbrauchter** Code jünger als 60 Sekunden wird nicht ersetzt (sonst würde eine erneute Anfrage den Code entwerten, den die Person gerade abtippt), und es werden höchstens **5 Codes pro Stunde und Konto** verschickt. Der Code wird ausschließlich an die E-Mail-Adresse des eigenen Kontos verschickt — niemals in dieser Antwort oder anderswo zurückgegeben.
+
+`403 Forbidden` für eine mit API-Key authentifizierte Anfrage, einen Service Account oder eine Light-Modus-Installation (dort gibt es kein persönliches Konto, das etwas bestätigen könnte). `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED`, wenn das Konto bereits ein lokales Passwort hat — es bestätigt damit, nicht mit einem Code —; `STEP_UP_REAUTH_REQUIRED`, **wenn mindestens ein verknüpfter Anbieter des Kontos OIDC-fähig ist** (siehe oben — die Route sagt dann, den vorigen Abschnitt zu nutzen); ein Validierungsfehler, wenn `action` fehlt oder keiner der oben genannten Werte ist. `429 Too Many Requests` (`STEP_UP_LOCKED`, `details[0].retry_after_minutes`), solange der Step-up des Kontos gesperrt ist, ein noch gültiger Code jünger als 60 Sekunden ist, oder das Stundenbudget an Codes ausgeschöpft ist.
+
+`503 Service Unavailable` (`STEP_UP_CODE_UNDELIVERABLE`), wenn der Code nicht per E-Mail zugestellt werden kann — zum Beispiel, weil die Instanz ohne konfigurierten E-Mail-Versand läuft, oder der Mailserver einen Fehler meldet. In diesem Fall wird nichts ausgegeben: Der Code wird verworfen und sein Kontingent zurückgegeben, sodass weder die 60-Sekunden-Wartezeit noch das Stundenbudget den nächsten Versuch blockieren, sobald der Betreiber den Versand behoben hat.
+
+---
+
 ## Step-up-Bestätigung für unumkehrbare Kontoaktionen
 
-Vier Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person:
+Fünf Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person:
 
-| Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort |
+| Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort / Erneute Anmeldung / Code |
 |---|---|---|---|
-| Eigenes Konto löschen (Art. 17 DSGVO) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes, sofern lokal vorhanden |
-| Anderes Konto löschen (Plattform-Admin) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos (`confirm_email`) | das des Admins |
-| Mandant löschen | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes, sofern lokal vorhanden |
-| Passwort ändern | `POST /users/me/password` | — | aktuelles (`current_password`) |
+| Eigenes Konto löschen (Art. 17 DSGVO) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes Passwort, sofern lokal vorhanden — sonst `step_up_token` einer frischen Anmeldung, nur bei rein GitHub/Apple der per E-Mail zugeschickte Code (`step_up_code`) |
+| Anderes Konto löschen (Plattform-Admin) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos (`confirm_email`) | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| Mandant löschen | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| E-Mail-Adresse ändern | `POST /privacy/email-change` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| Passwort ändern | `POST /users/me/password` | — | aktuelles (`current_password`) — die **erste** Passwortvergabe eines Kontos ohne eines läuft stattdessen über `step_up_token` bzw. Code |
 
-Beispiel-Body für die Kontolöschung:
+Beispiel-Body für die Kontolöschung (lokales Konto):
 
 ```json
 {
@@ -240,14 +314,32 @@ Beispiel-Body für die Kontolöschung:
 }
 ```
 
+Beispiel-Body nach einer frischen Anmeldung (OIDC-fähiges Konto):
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_token": "AqX7…"
+}
+```
+
+Beispiel-Body für ein Konto, das ausschließlich über GitHub/Apple angemeldet ist:
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_code": "48213907"
+}
+```
+
 **Prüfreihenfolge:**
 
 1. Eine Anfrage mit API-Key oder von einem Service Account wird mit `403 Forbidden` abgelehnt — bevor irgendetwas geprüft oder gezählt wird.
-2. Ist die Bestätigung gesperrt (siehe unten), antwortet die Route sofort `429 Too Many Requests`, ohne das Passwort zu prüfen.
-3. Stimmt das zurückgetippte Ziel nicht (E-Mail ohne Groß-/Kleinschreibung, Slug exakt), antwortet die Route `422 Unprocessable Entity`. Ein falsches Echo zählt **nicht** als Fehlversuch.
-4. Hat das betroffene Konto ein lokales Passwort, muss das Passwortfeld korrekt gesetzt sein, sonst `401 Unauthorized`. Ein rein föderiertes Konto (nur Google/GitHub/Apple/OIDC) bestätigt allein mit dem Echo.
+2. Ist die Bestätigung gesperrt (siehe unten), antwortet die Route sofort `429 Too Many Requests`, ohne das Geheimnis zu prüfen.
+3. Stimmt das zurückgetippte Ziel nicht (E-Mail ohne Groß-/Kleinschreibung, Slug exakt), antwortet die Route `422 Unprocessable Entity`. Ein falsches Echo zählt **nicht** als Fehlversuch. Die E-Mail-Änderung und die Passwortänderung haben kein Ziel zum Zurücktippen.
+4. Hat das betroffene Konto ein lokales Passwort, muss das Passwortfeld korrekt gesetzt sein, sonst `401 Unauthorized`. Sonst — trägt der Body ein `step_up_token`, prüft die Route dieses (bestätigt es nichts oder ist es abgelaufen: `401 Unauthorized`). Fehlt `step_up_token`: Hat das Konto einen OIDC-fähigen verknüpften Anbieter, antwortet die Route `401 Unauthorized` mit dem Fehlercode `STEP_UP_REAUTH_REQUIRED` — ein Hinweis, sich zuerst erneut anzumelden. Andernfalls (nur GitHub/Apple verknüpft) prüft die Route stattdessen `step_up_code`; fehlt der, antwortet sie `401 Unauthorized` mit `STEP_UP_CODE_REQUIRED`.
 
-**Drosselung:** Nach 5 falschen Passworteingaben derselben Kombination aus Konto und Client-Adresse sperrt das System weitere Bestätigungen für **15 Minuten**; bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis auf **4 Stunden**. Zusätzlich gilt eine kontoweite Obergrenze von 15 Fehlversuchen über beliebig viele Client-Adressen hinweg. Alle vier Aktionen teilen sich dasselbe Fehlversuchs-Budget je Konto — ein erfolgreicher Step-up leert es wieder.
+**Drosselung:** Nach 5 falschen Bestätigungen (Passwort, Code oder eine ungültige/abgelaufene erneute Anmeldung) derselben Kombination aus Konto und Client-Adresse sperrt das System weitere Bestätigungen für **15 Minuten**; bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis auf **4 Stunden**. Zusätzlich gilt eine kontoweite Obergrenze von 15 Fehlversuchen über beliebig viele Client-Adressen hinweg. Alle fünf Aktionen — und das Anfordern eines Codes oder einer erneuten Anmeldung — teilen sich dasselbe Fehlversuchs-Budget je Konto; ein erfolgreicher Step-up leert es wieder.
 
 Eine gesperrte Bestätigung antwortet mit dem Fehlercode `STEP_UP_LOCKED`:
 
@@ -267,7 +359,10 @@ Eine gesperrte Bestätigung antwortet mit dem Fehlercode `STEP_UP_LOCKED`:
 ```
 
 !!! note "Die Login-Sperre bleibt unberührt"
-    Diese Sperre betrifft ausschließlich die vier oben genannten Bestätigungen und wirkt sich nicht auf `POST /auth/login` aus. Wer eine dieser Bestätigungen sperrt — etwa jemand mit einer gestohlenen Sitzung —, kann sich trotzdem weiterhin anmelden, Sitzungen im Tab **Sitzungen** beenden und das Passwort per E-Mail zurücksetzen.
+    Diese Sperre betrifft ausschließlich die fünf oben genannten Bestätigungen und wirkt sich nicht auf `POST /auth/login` aus. Wer eine dieser Bestätigungen sperrt — etwa jemand mit einer gestohlenen Sitzung —, kann sich trotzdem weiterhin anmelden, Sitzungen im Tab **Sitzungen** beenden und das Passwort per E-Mail zurücksetzen.
+
+!!! info "Für Betreiber: zwei verschiedene Voraussetzungen"
+    Ein Konto mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) bestätigt über die erneute Anmeldung — dafür muss dieser Anbieter `prompt=login`/`max_age` und `auth_time` unterstützen (siehe oben), nicht SMTP. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind, braucht den per E-Mail zugeschickten Code und damit funktionierenden Mail-Versand: Läuft die Instanz mit dem Konsolen-E-Mail-Adapter und ohne Debug-Modus — die produktive Voreinstellung ohne konfiguriertes SMTP —, wird der Code nirgends zugestellt und ein solches Konto kann sich dann nicht löschen, keinen Mandanten löschen, kein erstes lokales Passwort setzen und die E-Mail-Adresse nicht ändern. Details zur Konfiguration unter [Umgebungsvariablen](../reference/environment-variables.md#e-mail).
 
 ---
 

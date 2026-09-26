@@ -4,9 +4,14 @@ Handles authorization URL generation, token exchange, provider-specific
 user info extraction (Google, GitHub, Apple, generic OIDC).
 """
 
+import base64
 import hashlib
 import hmac
+import json
+import math
 import secrets
+from datetime import datetime
+from urllib.parse import urlencode
 
 import httpx
 import structlog
@@ -79,6 +84,82 @@ _PROVIDER_ENDPOINTS: dict[str, dict[str, str]] = {
 }
 
 
+#: Provider types that answer a fresh re-authentication (#1815): an OpenID Connect
+#: sign-in forced with ``prompt=login`` and ``max_age=0``, whose ID token carries
+#: ``auth_time``. GitHub is absent because it is plain OAuth2 — no ID token, so
+#: nothing proves *when* the person signed in. Apple is absent because its ID token
+#: carries no ``auth_time``. Keyed from ``OidcProviderType`` like the tables above.
+_FRESH_REAUTH_PROVIDER_TYPES: frozenset[str] = frozenset({OidcProviderType.GOOGLE.value, OidcProviderType.OIDC.value})
+
+#: Issuers a provider type is known to put in ``iss`` when no discovery document
+#: names one. Google documents both spellings.
+_KNOWN_ISSUERS: dict[str, frozenset[str]] = {
+    OidcProviderType.GOOGLE.value: frozenset({"https://accounts.google.com", "accounts.google.com"}),
+}
+
+#: How old the provider sign-in may be when its ID token arrives (#1815). The
+#: request asked for ``max_age=0``; five minutes covers a slow typist and a second
+#: factor at the provider, and no more.
+FRESH_REAUTH_MAX_AGE_SECONDS = 300
+
+#: Clock skew tolerated between this server and the provider for ``auth_time`` and
+#: ``exp``. Thirty seconds is what NTP-synced hosts stay well inside; more would
+#: stretch the five-minute window by an amount nobody reviews.
+FRESH_REAUTH_CLOCK_SKEW_SECONDS = 30
+
+
+def supports_fresh_reauth(config: OidcProviderConfig) -> bool:
+    """Whether *config* can re-authenticate a person freshly (#1815).
+
+    True for an enabled Google or generic OIDC provider that requests the
+    ``openid`` scope — without it there is no ID token and so no ``auth_time``.
+    Exact spelling like :func:`is_github_provider`: the dispatch is exact too.
+    """
+    return (
+        config.enabled
+        and config.provider_type in _FRESH_REAUTH_PROVIDER_TYPES
+        and "openid" in scope_tokens(config.scopes)
+        and _token_endpoint_is_tls(config)
+    )
+
+
+def _token_endpoint_is_tls(config: OidcProviderConfig) -> bool:
+    """Whether the token endpoint is HTTPS (review SEC-003).
+
+    The ID token is trusted without a signature check *because* it comes straight
+    from the token endpoint over TLS (OIDC Core 3.1.3.7 step 6). Over plain HTTP
+    that reason is gone, so such a provider cannot confirm a step-up.
+    """
+    try:
+        token_url = OAuthEngine()._resolve_token_url(config)
+    except ValueError:
+        return False
+    return token_url.lower().startswith("https://")
+
+
+def _is_finite_number(value: object) -> bool:
+    """A JSON number that can be compared with a clock: not a bool, not NaN, not ±Infinity (review SEC-004)."""
+    return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _refuse_non_finite(constant: str) -> float:
+    raise ValueError(f"Non-finite number {constant} in id_token.")
+
+
+class FreshReauthRejectedError(Exception):
+    """The ID token of a step-up callback does not prove a fresh sign-in of the account (#1815).
+
+    ``reason`` is ``"stale"`` when the only problem is the age of the sign-in
+    (the person may simply retry) and ``"failed"`` otherwise. The detail is for the
+    log line; it never reaches the browser.
+    """
+
+    def __init__(self, reason: str, detail: str) -> None:
+        super().__init__(detail)
+        self.reason = reason
+        self.detail = detail
+
+
 #: Which stored ``provider_type`` becomes which ``AuthProviderType`` on the link
 #: record. Keyed from ``OidcProviderType`` for the same reason as
 #: ``_PROVIDER_ENDPOINTS`` (#1497); anything not listed falls back to the generic
@@ -97,8 +178,15 @@ class OAuthEngine:
         self,
         config: OidcProviderConfig,
         redirect_uri: str,
+        *,
+        fresh_login: bool = False,
     ) -> OAuthRedirect:
-        """Build authorization URL with PKCE (S256) and state/nonce."""
+        """Build authorization URL with PKCE (S256) and state/nonce.
+
+        ``fresh_login`` (#1815) adds ``prompt=login`` and ``max_age=0``: the
+        provider must authenticate the person again instead of answering from its
+        own session, and report when it did (``auth_time``).
+        """
         state = secrets.token_urlsafe(32)
         nonce = secrets.token_urlsafe(16)
         code_verifier = secrets.token_urlsafe(64)
@@ -120,12 +208,16 @@ class OAuthEngine:
             "code_challenge": code_challenge_b64,
             "code_challenge_method": "S256",
         }
+        if fresh_login:
+            params["prompt"] = "login"
+            params["max_age"] = "0"
         # Apple requires response_mode=form_post
         if config.provider_type == OidcProviderType.APPLE:
             params["response_mode"] = "form_post"
 
-        query = "&".join(f"{k}={v}" for k, v in params.items())
-        full_url = f"{auth_url}?{query}"
+        # Encoded (review SEC-006): a redirect URI or scope carrying ``&``/``#``/space
+        # must reach the provider as one value, not split into parameters.
+        full_url = f"{auth_url}?{urlencode(params)}"
 
         return OAuthRedirect(
             authorization_url=full_url,
@@ -411,15 +503,7 @@ class OAuthEngine:
         if not id_token:
             raise ValueError("No id_token in token response.")
 
-        import base64
-        import json
-
-        # Decode payload (middle part) — we trust it since we just got it from the IdP
-        parts = id_token.split(".")
-        if len(parts) != 3:
-            raise ValueError("Malformed id_token.")
-        payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
-        claims = json.loads(base64.urlsafe_b64decode(payload_b64))
+        claims = self.id_token_claims(token_response)
 
         return OAuthUserInfo(
             provider=self._to_provider_type(provider_type),
@@ -429,6 +513,86 @@ class OAuthEngine:
             avatar_url=claims.get("picture"),
             email_verified=_as_optional_bool(claims.get("email_verified")),
         )
+
+    @staticmethod
+    def id_token_claims(token_response: dict) -> dict:
+        """The claims of the ID token in a token response, decoded without a signature check.
+
+        Only for a token that came straight from the provider's token endpoint over
+        TLS in a client-authenticated exchange — OIDC Core 3.1.3.7 step 6 lets the
+        client use TLS server validation instead of the signature there.
+        """
+        id_token = token_response.get("id_token", "")
+        if not id_token:
+            raise ValueError("No id_token in token response.")
+        parts = id_token.split(".")
+        if len(parts) != 3:
+            raise ValueError("Malformed id_token.")
+        payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+        # NaN / Infinity are not JSON; Python accepts them by default and they defeat
+        # every time comparison (``now - NaN > max`` is False) — review SEC-004.
+        claims = json.loads(base64.urlsafe_b64decode(payload_b64), parse_constant=_refuse_non_finite)
+        if not isinstance(claims, dict):
+            raise ValueError("Malformed id_token.")
+        return claims
+
+    @staticmethod
+    def expected_issuers(config: OidcProviderConfig) -> frozenset[str]:
+        """The ``iss`` values this provider may send: its discovery issuer, else the configured one."""
+        if config.discovery_document and config.discovery_document.get("issuer"):
+            return frozenset({str(config.discovery_document["issuer"]).rstrip("/")})
+        known = _KNOWN_ISSUERS.get(config.provider_type)
+        if known:
+            return known
+        return frozenset({config.issuer_url.rstrip("/")})
+
+    def validate_fresh_reauth_claims(
+        self,
+        claims: dict,
+        *,
+        config: OidcProviderConfig,
+        nonce: str,
+        now: datetime,
+    ) -> str:
+        """Check an ID token proves a fresh sign-in at *config*; return its ``sub`` (#1815).
+
+        OIDC Core 3.1.3.7: ``iss`` is the provider's issuer, ``aud`` contains our
+        client id (and, with several audiences, ``azp`` is our client id), ``nonce``
+        is the one this request sent, ``exp`` has not passed — plus the step-up
+        rule: ``auth_time`` is present and at most
+        :data:`FRESH_REAUTH_MAX_AGE_SECONDS` old (with
+        :data:`FRESH_REAUTH_CLOCK_SKEW_SECONDS` tolerance). Whose ``sub`` it is is
+        the caller's check: only the service knows the account's provider links.
+
+        Raises:
+            FreshReauthRejectedError: ``reason="stale"`` for an old sign-in, ``"failed"`` otherwise.
+        """
+        issuer = str(claims.get("iss", "")).rstrip("/")
+        if issuer not in self.expected_issuers(config):
+            raise FreshReauthRejectedError("failed", "iss is not the provider's issuer")
+        audience = claims.get("aud")
+        audiences = [audience] if isinstance(audience, str) else audience if isinstance(audience, list) else []
+        if config.client_id not in audiences:
+            raise FreshReauthRejectedError("failed", "aud does not contain the client id")
+        if (len(audiences) > 1 or "azp" in claims) and claims.get("azp") != config.client_id:
+            raise FreshReauthRejectedError("failed", "azp is not the client id")
+        if not isinstance(claims.get("nonce"), str) or not hmac.compare_digest(claims["nonce"], nonce):
+            raise FreshReauthRejectedError("failed", "nonce does not match")
+        epoch = now.timestamp()
+        exp = claims.get("exp")
+        if not _is_finite_number(exp) or exp + FRESH_REAUTH_CLOCK_SKEW_SECONDS < epoch:
+            raise FreshReauthRejectedError("failed", "exp has passed")
+        auth_time = claims.get("auth_time")
+        if not _is_finite_number(auth_time):
+            raise FreshReauthRejectedError("failed", "auth_time is missing")
+        if auth_time > epoch + FRESH_REAUTH_CLOCK_SKEW_SECONDS:
+            raise FreshReauthRejectedError("failed", "auth_time lies in the future")
+        if epoch - auth_time > FRESH_REAUTH_MAX_AGE_SECONDS + FRESH_REAUTH_CLOCK_SKEW_SECONDS:
+            raise FreshReauthRejectedError("stale", "auth_time is too old")
+        sub = claims.get("sub")
+        if not isinstance(sub, str) or not sub:
+            raise FreshReauthRejectedError("failed", "sub is missing")
+        return sub
 
     def fetch_discovery_document(self, issuer_url: str) -> dict:
         """Fetch OIDC discovery document from .well-known/openid-configuration."""
@@ -524,6 +688,11 @@ class OAuthEngine:
         if config.discovery_document:
             return config.discovery_document.get("userinfo_endpoint")
         return None
+
+    @staticmethod
+    def link_type(config: OidcProviderConfig) -> AuthProviderType:
+        """The ``AuthProviderType`` a provider link of *config* is stored under."""
+        return _AUTH_PROVIDER_BY_TYPE.get(config.provider_type, AuthProviderType.OIDC)
 
     @staticmethod
     def _to_provider_type(provider_type: str) -> AuthProviderType:

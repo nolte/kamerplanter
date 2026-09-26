@@ -45,7 +45,9 @@ import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { toStepUpBody } from '@/utils/stepUp';
 import type { AdminUser, AdminUserMembership, AdminTenant, TenantRole } from '@/api/types';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
 
 const GRID_2COL = {
   display: 'grid',
@@ -69,7 +71,10 @@ export default function AdminEditUserPage() {
   const [isActive, setIsActive] = useState(true);
   const [emailVerified, setEmailVerified] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // #1815 — back from the fresh sign-in at the identity provider: reopen the
+  // account-deletion dialog it was started from (it then sends the token).
+  const resumeDelete = useStepUpResume('delete-user');
+  const [confirmDelete, setConfirmDelete] = useState(resumeDelete);
 
   // Memberships
   const [memberships, setMemberships] = useState<AdminUserMembership[]>([]);
@@ -169,12 +174,9 @@ export default function AdminEditUserPage() {
   // Erasing another account is a step-up (#1814): the TARGET's e-mail typed
   // back and the admin's OWN current password. A rejection propagates to the
   // dialog, which shows it inside itself and stays open.
-  const handleDelete = async ({ echo, password }: StepUpConfirmation) => {
+  const handleDelete = async ({ echo, ...credentials }: StepUpConfirmation) => {
     if (!user) return;
-    await deleteAdminUser(
-      user.key,
-      password === undefined ? { confirm_email: echo } : { confirm_email: echo, password },
-    );
+    await deleteAdminUser(user.key, { confirm_email: echo, ...toStepUpBody(credentials) });
     setConfirmDelete(false);
     enqueueSnackbar(t('pages.auth.adminUserDeleted'), { variant: 'success' });
     navigate('/settings#platform');
@@ -326,6 +328,7 @@ export default function AdminEditUserPage() {
               passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
               confirmLabel={t('pages.auth.adminConfirmDelete')}
               testIdPrefix="delete-user"
+              stepUpAction="admin_account_erasure"
               testIds={{ echo: 'delete-user-email', confirm: 'confirm-delete-user-btn' }}
               onConfirm={handleDelete}
               onCancel={() => setConfirmDelete(false)}

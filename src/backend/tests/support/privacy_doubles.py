@@ -303,16 +303,17 @@ class RecordingErasureExecutor:
         return report
 
 
-def step_up(email: str, password: str | None = None) -> dict[str, Any]:
+def step_up(email: str, password: str | None = None, code: str | None = None) -> dict[str, Any]:
     """Keyword arguments of a signed-in, correctly confirmed ``request_erasure`` call (#1813).
 
     ``email`` is the account's own address typed back, ``password`` its current
-    password (``None`` for a federated-only account).
+    password; a federated-only account passes ``None`` and the ``code`` mailed to it
+    (#1815 — ``StepUpVerifier.issue_code``).
     """
     from app.domain.services.step_up_service import StepUpConfirmation
 
     return {
-        "confirmation": StepUpConfirmation(echo=email, password=password),
+        "confirmation": StepUpConfirmation(echo=email, password=password, code=code),
         "authenticated_with_api_key": False,
         "client_ip": None,
     }
@@ -401,18 +402,24 @@ class PlatformAdminMemberships:
 def admin_erasure_route_args(privacy_service: Any, *, admin_key: str, target_email: str) -> dict[str, Any]:
     """Route arguments of ``DELETE /admin/platform/users/{key}`` by a proven platform admin (#1814).
 
-    The admin signs in only federated (no password hash), so the echo of the
-    target's e-mail is the whole step-up.
+    The admin signs in only federated (no password hash), so the step-up is the
+    echo of the target's e-mail plus the one-time code mailed to the admin (#1815),
+    issued here through the service's own verifier — the path
+    ``POST /users/me/step-up-code`` takes.
     """
     from app.api.v1.privacy.schemas import ErasureCreateRequest
     from app.domain.models.user import User
 
     privacy_service._membership_repo = PlatformAdminMemberships(privacy_service._membership_repo, admin_key)
+    admin = User.model_validate(
+        {"_key": admin_key, "email": f"{admin_key}@example.org", "display_name": "Platform Admin"}
+    )
+    code, _expires_at = privacy_service._step_up_verifier.issue_code(
+        admin, action="admin_account_erasure", authenticated_with_api_key=False, client_ip="203.0.113.1"
+    )
     return {
-        "body": ErasureCreateRequest(confirm_email=target_email),
-        "current_user": User.model_validate(
-            {"_key": admin_key, "email": f"{admin_key}@example.org", "display_name": "Platform Admin"}
-        ),
+        "body": ErasureCreateRequest(confirm_email=target_email, step_up_code=code),
+        "current_user": admin,
         "via_api_key": False,
         "client_ip": "203.0.113.1",
         "privacy_service": privacy_service,

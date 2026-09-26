@@ -2,7 +2,7 @@ import structlog
 
 from app.common.decoys import email_digest
 from app.config.settings import settings
-from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.email_service import EmailUndeliverableError, IEmailService
 
 logger = structlog.get_logger()
 
@@ -14,7 +14,7 @@ class ConsoleEmailAdapter(IEmailService):
     (#1773 review GDPR-004): a log stream has no retention rule of its own. The
     recipient's display name is never logged either.
 
-    **The verification / password-reset link is logged only when
+    **The verification / password-reset link — and the step-up code (#1815) — is logged only when
     ``settings.debug`` is true (#1795).** Its token takes over the account (a
     reset link sets a new password), and this adapter is not only a development
     tool: ``EMAIL_ADAPTER`` defaults to ``console`` and the Helm chart sets none,
@@ -39,6 +39,25 @@ class ConsoleEmailAdapter(IEmailService):
             return
         url = f"{frontend_url}/password-reset/{token}"
         logger.info("email_password_reset", to_sha256=email_digest(to_email), url_logged=True, reset_url=url)
+
+    def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
+        # The code confirms an account erasure or a credential change (#1815) — the
+        # same weight as a reset link, so the same #1795 rule: logged only under
+        # ``settings.debug``, otherwise the line says it was not delivered.
+        if not settings.debug:
+            logger.info(
+                "email_step_up_code",
+                to_sha256=email_digest(to_email),
+                purpose=purpose,
+                code_logged=False,
+                delivered=False,
+            )
+            # Unlike the reset link, the caller answers "code sent" — which would
+            # be false (/code-review of #1862). Refuse, so the route answers 503.
+            raise EmailUndeliverableError("The console e-mail adapter does not deliver step-up codes outside debug.")
+        logger.info(
+            "email_step_up_code", to_sha256=email_digest(to_email), purpose=purpose, code_logged=True, step_up_code=code
+        )
 
     def send_notification_email(self, to_email: str, subject: str, html_body: str) -> None:
         logger.info(

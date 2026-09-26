@@ -27,7 +27,7 @@ from app.api.v1.privacy.schemas import (
 )
 from app.common.auth import get_authenticated_with_api_key, require_account_principal
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
-from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import NOT_FOUND_RESPONSE, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
@@ -187,15 +187,26 @@ async def download_export(
 # ── Art. 16: email change ─────────────────────────────────────────
 
 
-@router.post("/email-change", response_model=EmailChangeResponse, status_code=201)
+@router.post("/email-change", response_model=EmailChangeResponse, status_code=201, responses=STEP_UP_RESPONSES)
 @limiter.limit(settings.rate_limit_email_change)
 def request_email_change(
     request: Request,
     body: EmailChangeCreateRequest,
     current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Initiate an email-change request (Art. 16).
+    """Initiate an email-change request (Art. 16) — behind the step-up (#1841).
+
+    **Step-up:** the body carries the current ``password`` for an account that has
+    one (401 missing or wrong), or the code from ``POST /users/me/step-up-code`` as
+    ``step_up_code`` for one without (401 ``STEP_UP_CODE_REQUIRED``, #1815); an
+    API-key request or a service account is refused (403); too many failed
+    confirmations answer 429 ``STEP_UP_LOCKED``, in the same budget as every other
+    step-up of the account. The step-up is checked before the address is, so the
+    route says nothing about an address without it. After it passes, the current
+    address is told of the request, and the old one again once it is confirmed.
 
     Rate-limited per client IP (``settings.rate_limit_email_change``): every call
     mails an address the caller names and does not have to own — the verification
@@ -203,7 +214,15 @@ def request_email_change(
     when it is taken (#957). Authentication bounds *who* can trigger that but not
     *how often*, and this router carried no limit at all.
     """
-    change = service.request_email_change(current_user.key or "", body.new_email)
+    change = service.request_email_change(
+        current_user.key or "",
+        body.new_email,
+        password=body.password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return _to_email_change_response(change)
 
 
@@ -234,7 +253,7 @@ def confirm_email_change(
 # ── Art. 17: erasure ──────────────────────────────────────────────
 
 
-@router.post("/erasure", response_model=ErasureResponse, status_code=201)
+@router.post("/erasure", response_model=ErasureResponse, status_code=201, responses=STEP_UP_RESPONSES)
 def request_erasure(
     body: ErasureCreateRequest,
     current_user: User = Depends(require_account_principal),
@@ -246,8 +265,10 @@ def request_erasure(
 
     **Step-up (#1813, #1816):** the body echoes the account's e-mail (422
     otherwise) and carries the current password for an account that has one
-    (401 otherwise); an API-key request or a service account is refused (403);
-    too many failed confirmations answer 429 ``STEP_UP_LOCKED``.
+    (401 otherwise), the code from ``POST /users/me/step-up-code`` as
+    ``step_up_code`` for one without (401 ``STEP_UP_CODE_REQUIRED``, #1815); an
+    API-key request or a service account is refused (403); too many failed
+    confirmations answer 429 ``STEP_UP_LOCKED``.
     """
     erasure = service.request_erasure(
         current_user.key or "",

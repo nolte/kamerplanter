@@ -356,7 +356,13 @@ class TestAuthLinesNameNobody:
 
         with structlog.testing.capture_logs() as logs, pytest.raises(ForbiddenError):
             service.change_password(
-                USER_KEY, None, "a-sufficiently-long-password-2024", authenticated_with_api_key=False, client_ip=None
+                USER_KEY,
+                None,
+                "a-sufficiently-long-password-2024",
+                step_up_code=None,
+                step_up_token=None,
+                authenticated_with_api_key=False,
+                client_ip=None,
             )
 
         assert _leaks(logs, USER_KEY, OLD_EMAIL) == []
