@@ -105,12 +105,7 @@ export async function listProviders(): Promise<AuthProviderInfo[]> {
  * the act `provider_unlink`. Without it the backend answers 401.
  */
 export async function unlinkProvider(providerKey: string, stepUp?: CredentialStepUp): Promise<void> {
-  const url = `${USERS}/me/providers/${encodeURIComponent(providerKey)}`;
-  if (stepUp) {
-    await client.delete(url, { data: stepUp });
-  } else {
-    await client.delete(url);
-  }
+  await client.delete(`${USERS}/me/providers/${encodeURIComponent(providerKey)}`, { data: stepUp });
 }
 
 /**

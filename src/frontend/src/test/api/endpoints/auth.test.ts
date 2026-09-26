@@ -136,7 +136,7 @@ describe('auth endpoints', () => {
   it('unlinkProvider deletes provider by key', async () => {
     client.delete.mockResolvedValue({ data: undefined });
     await auth.unlinkProvider('p1');
-    expect(client.delete).toHaveBeenCalledWith('/users/me/providers/p1');
+    expect(client.delete).toHaveBeenCalledWith('/users/me/providers/p1', { data: undefined });
   });
 
   it('unlinkProvider carries the step-up in the DELETE body (#1847)', async () => {

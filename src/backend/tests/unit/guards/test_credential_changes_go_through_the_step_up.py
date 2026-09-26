@@ -23,7 +23,7 @@ is a member when its own body
   ``.issue(...)`` on ``self._device_pairing_code_store`` or on a local bound from
   ``self._require_device_pairing_store()``.
 
-Every member must either call ``self._step_up_verifier.<...>(...)`` itself, or be
+Every member must either call ``self._step_up_verifier.verify(...)`` itself (or a same-class helper that does), or be
 classified in :data:`_CLASSIFIED` with the reason it needs no step-up of its own,
 or be in :data:`_PENDING` — known gaps, each with its follow-up issue (empty since #1847/#1857).
 A classification or pending entry that no longer names a live member fails, so
@@ -209,7 +209,7 @@ def _why_member(function: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
 def _calls_the_verifier(
     function: ast.FunctionDef | ast.AsyncFunctionDef, gating_helpers: frozenset[str] = frozenset()
 ) -> bool:
-    """Whether *function* calls ``self._step_up_verifier.<...>`` — or one of its class's *gating_helpers*.
+    """Whether *function* calls ``self._step_up_verifier.verify`` — or one of its class's *gating_helpers*.
 
     A gating helper is a method of the same class that calls the verifier itself
     (``AuthService._verify_credential_step_up``, #1847): one level, by name, so a
@@ -218,7 +218,9 @@ def _calls_the_verifier(
     for node in _own_nodes(function):
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
             continue
-        if _receiver_attr(node.func.value) == "_step_up_verifier":
+        # Only ``verify`` confirms; ``issue_code`` / ``admit_reauth`` /
+        # ``issue_reauth_token`` hand a factor out (security review of #1847, SEC-002).
+        if _receiver_attr(node.func.value) == "_step_up_verifier" and node.func.attr == "verify":
             return True
         if isinstance(node.func.value, ast.Name) and node.func.value.id == "self" and node.func.attr in gating_helpers:
             return True
@@ -284,7 +286,7 @@ def test_every_credential_change_is_step_up_gated_or_classified() -> None:
 
     assert ungated == [], (
         "A service function that writes an e-mail or password hash, or creates/deletes a sign-in method or "
-        "credential, must call self._step_up_verifier (#1841) or be classified with a reason:\n  "
+        "credential, must call self._step_up_verifier.verify (#1841) or be classified with a reason:\n  "
         + "\n  ".join(ungated)
     )
 
@@ -315,6 +317,7 @@ def test_the_gated_entries_are_gated() -> None:
         ("auth_service.py", "AuthService.create_api_key"),
         ("auth_service.py", "AuthService.create_device_pairing"),
         ("auth_service.py", "AuthService.unlink_provider"),
+        ("user_service.py", "UserService.admin_update_user"),
     ):
         assert entry in found and found[entry][1], f"{entry} is not behind self._step_up_verifier"
 
@@ -563,7 +566,7 @@ class S:
 # passes ``step_up_verifier=``, and every construction of a verifier passes
 # ``reauth_policy=`` — the fallback can then never be what production runs.
 
-_STEP_UP_SERVICES = {"AuthService", "PrivacyService", "TenantService"}
+_STEP_UP_SERVICES = {"AuthService", "PrivacyService", "TenantService", "UserService"}
 
 
 def _constructions(root: Path = APP) -> list[tuple[str, int, str, set[str]]]:
@@ -596,3 +599,51 @@ def test_every_production_step_up_service_gets_the_wired_verifier() -> None:
 
     assert missing == [], "a step-up service built without step_up_verifier= falls back to the unwired one"
     assert unwired == [], "a StepUpVerifier built without reauth_policy= accepts the code for OIDC accounts"
+
+
+# ── security review of the #1847 bundle (SEC-002): only ``verify`` gates ────────
+
+
+def _gated(source: str, qualname: str) -> bool:
+    functions = _functions(ast.parse(source))
+    helpers = _gating_helpers(functions)
+    function = dict(functions)[qualname]
+    own_class = qualname.split(".", 1)[0]
+    return _calls_the_verifier(function, helpers.get(own_class, frozenset()))
+
+
+def test_issuing_a_code_is_not_a_step_up() -> None:
+    source = (
+        "class S:\n"
+        "    def mint(self, user):\n"
+        "        self._step_up_verifier.issue_code(user, action='x')\n"
+        "        self._api_key_repo.create(user)\n"
+    )
+
+    assert _gated(source, "S.mint") is False
+
+
+def test_a_helper_that_only_issues_a_code_does_not_gate_its_callers() -> None:
+    source = (
+        "class S:\n"
+        "    def _send_code(self, user):\n"
+        "        self._step_up_verifier.issue_code(user, action='x')\n"
+        "    def mint(self, user):\n"
+        "        self._send_code(user)\n"
+        "        self._api_key_repo.create(user)\n"
+    )
+
+    assert _gated(source, "S.mint") is False
+
+
+def test_a_helper_that_verifies_gates_its_callers() -> None:
+    source = (
+        "class S:\n"
+        "    def _step_up(self, user):\n"
+        "        self._step_up_verifier.verify(user, action='x')\n"
+        "    def mint(self, user):\n"
+        "        self._step_up(user)\n"
+        "        self._api_key_repo.create(user)\n"
+    )
+
+    assert _gated(source, "S.mint") is True
