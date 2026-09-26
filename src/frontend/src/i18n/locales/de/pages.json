@@ -824,7 +824,10 @@
           "stepDone": "Fertig: Die App zeigt danach die Inhalte dieser Instanz an.",
           "qrTitle": "QR-Code mit der Adresse dieser Instanz",
           "securityNote": "Dieser Code richtet die App nur auf diese Instanz aus. Er meldet dich nicht an und gibt keinen Zugriff auf ein Konto – du kannst ihn gefahrlos zeigen."
-        }
+        },
+        "stepUpTitle": "Neues Gerät bestätigen",
+        "stepUpDescription": "Der QR-Code meldet ein neues Gerät vollständig bei deinem Konto an. Deshalb bestätigst du zuerst, dass du es bist – so kann niemand an einem offen gelassenen Browser ein fremdes Gerät verbinden.",
+        "stepUpConfirm": "QR-Code erzeugen"
       },
       "connectLanding": {
         "title": "In der Kamerplanter-App öffnen",
@@ -914,7 +917,17 @@
       "adminDeleteUserEmailLabel": "E-Mail-Adresse des Benutzers zur Bestätigung",
       "adminDeleteUserEmailHelper": "Tippe die E-Mail-Adresse „{{email}}“ des Benutzers ein, den du löschst.",
       "adminDeleteUserPasswordLabel": "Dein eigenes aktuelles Passwort",
-      "adminDeleteUserPasswordHelper": "Bestätige mit deinem eigenen Admin-Passwort, nicht mit dem des Benutzers."
+      "adminDeleteUserPasswordHelper": "Bestätige mit deinem eigenen Admin-Passwort, nicht mit dem des Benutzers.",
+      "apiKeyStepUpTitle": "API-Schlüssel erstellen bestätigen",
+      "apiKeyStepUpDescription": "Ein API-Schlüssel meldet Anwendungen dauerhaft bei deinem Konto an – er bleibt auch gültig, wenn du dein Passwort änderst. Deshalb bestätigst du das Erstellen von „{{label}}“, damit niemand an einem offen gelassenen Browser heimlich einen Zugang anlegen kann.",
+      "apiKeyStepUpConfirm": "Schlüssel erstellen",
+      "unlinkProviderStepUpTitle": "Anmeldeweg entfernen",
+      "unlinkProviderStepUpDescription": "Du entfernst den Anmeldeweg „{{provider}}“ von deinem Konto. Danach kannst du dich darüber nicht mehr anmelden. Weil das ändert, wie dein Konto geschützt ist, bestätigst du diesen Schritt.",
+      "unlinkProviderStepUpConfirm": "Anmeldeweg entfernen",
+      "adminUpdateUserStepUpTitle": "Änderung am Benutzerkonto bestätigen",
+      "adminUpdateUserStepUpDescription": "Du bestätigst die E-Mail-Adresse von „{{name}}“ ({{email}}) oder aktivierst das Konto wieder. Eine bestätigte Adresse erlaubt es, Anmeldedienste automatisch mit diesem Konto zu verknüpfen – deshalb bestätigst du diese Änderung mit deinem eigenen Zugang.",
+      "adminUpdateUserStepUpConfirm": "Änderung speichern",
+      "providerUnlinked": "Anmeldeweg entfernt"
     },
     "tenants": {
       "selectTenant": "Garten wählen",

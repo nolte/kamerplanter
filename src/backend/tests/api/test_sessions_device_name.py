@@ -54,6 +54,7 @@ from app.domain.interfaces.refresh_token_repository import IRefreshTokenReposito
 from app.domain.models.auth import DEVICE_NAME_MAX_LENGTH, RefreshToken
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from tests.support.step_up import PassedStepUpVerifier
 
 _ISSUE_PATH = "/api/v1/auth/device-pairing"
 _REDEEM_PATH = "/api/v1/auth/device-pairing/redeem"
@@ -233,6 +234,7 @@ def _harness() -> Iterator[_Harness]:
     sessions = _MemoryRefreshTokenRepository()
 
     service = AuthService(
+        step_up_verifier=PassedStepUpVerifier(),
         user_repo=user_repo,
         auth_provider_repo=MagicMock(),
         refresh_token_repo=sessions,

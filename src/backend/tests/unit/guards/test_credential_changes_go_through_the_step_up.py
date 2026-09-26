@@ -23,9 +23,9 @@ is a member when its own body
   ``.issue(...)`` on ``self._device_pairing_code_store`` or on a local bound from
   ``self._require_device_pairing_store()``.
 
-Every member must either call ``self._step_up_verifier.<...>(...)`` itself, or be
+Every member must either call ``self._step_up_verifier.verify(...)`` itself (or a same-class helper that does), or be
 classified in :data:`_CLASSIFIED` with the reason it needs no step-up of its own,
-or be in :data:`_PENDING` — known gaps with a follow-up issue (:data:`PENDING_ISSUE`).
+or be in :data:`_PENDING` — known gaps, each with its follow-up issue (empty since #1847/#1857).
 A classification or pending entry that no longer names a live member fails, so
 neither list can go stale and excuse the next copy.
 
@@ -43,12 +43,6 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[3] / "app"
 SERVICES = APP / "domain" / "services"
-
-#: The follow-up issue for the credential issuance/removal routes that are not yet
-#: behind the step-up (API keys, provider unlinking, device pairing).
-PENDING_ISSUE = "#1847"
-#: The follow-up issue for the platform-admin partial user update (review SEC-004 c).
-PENDING_ADMIN_UPDATE_ISSUE = "#1857"
 
 #: Review SEC-004 (a): the reset and verification tokens, the verified flag and a
 #: pending new address are identity state as much as the address and hash are.
@@ -120,15 +114,9 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
     ),
 }
 
-#: Known members without a step-up yet -> the follow-up issue tracking each.
-_PENDING_ISSUES: dict[tuple[str, str], str] = {
-    ("auth_service.py", "AuthService.unlink_provider"): PENDING_ISSUE,
-    ("auth_service.py", "AuthService.create_api_key"): PENDING_ISSUE,
-    ("auth_service.py", "AuthService.create_device_pairing"): PENDING_ISSUE,
-    # Writes whatever the route's closed AdminUserUpdate schema lets through; the
-    # route (require_platform_admin) has no step-up of its own.
-    ("user_service.py", "UserService.admin_update_user"): PENDING_ADMIN_UPDATE_ISSUE,
-}
+#: Known members without a step-up yet -> the follow-up issue tracking each. Emptied
+#: by #1847 (API keys, device pairing, provider unlink) and #1857 (admin update).
+_PENDING_ISSUES: dict[tuple[str, str], str] = {}
 _PENDING: set[tuple[str, str]] = set(_PENDING_ISSUES)
 
 
@@ -218,13 +206,35 @@ def _why_member(function: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
     return reasons
 
 
-def _calls_the_verifier(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    return any(
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and _receiver_attr(node.func.value) == "_step_up_verifier"
-        for node in _own_nodes(function)
-    )
+def _calls_the_verifier(
+    function: ast.FunctionDef | ast.AsyncFunctionDef, gating_helpers: frozenset[str] = frozenset()
+) -> bool:
+    """Whether *function* calls ``self._step_up_verifier.verify`` — or one of its class's *gating_helpers*.
+
+    A gating helper is a method of the same class that calls the verifier itself
+    (``AuthService._verify_credential_step_up``, #1847): one level, by name, so a
+    helper that stops calling the verifier un-gates every caller with it.
+    """
+    for node in _own_nodes(function):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        # Only ``verify`` confirms; ``issue_code`` / ``admit_reauth`` /
+        # ``issue_reauth_token`` hand a factor out (security review of #1847, SEC-002).
+        if _receiver_attr(node.func.value) == "_step_up_verifier" and node.func.attr == "verify":
+            return True
+        if isinstance(node.func.value, ast.Name) and node.func.value.id == "self" and node.func.attr in gating_helpers:
+            return True
+    return False
+
+
+def _gating_helpers(functions: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]]) -> dict[str, frozenset[str]]:
+    """Per class: the methods that call the verifier directly."""
+    helpers: dict[str, set[str]] = {}
+    for qualname, function in functions:
+        if "." in qualname and _calls_the_verifier(function):
+            cls, name = qualname.split(".", 1)
+            helpers.setdefault(cls, set()).add(name)
+    return {cls: frozenset(names) for cls, names in helpers.items()}
 
 
 def _functions(tree: ast.Module) -> list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]]:
@@ -251,9 +261,12 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
     found: dict[tuple[str, str], tuple[list[str], bool]] = {}
     for path in sorted(root.rglob("*.py")):
         rel = path.relative_to(root).as_posix()
-        for qualname, function in _functions(ast.parse(path.read_text(encoding="utf-8"))):
+        functions = _functions(ast.parse(path.read_text(encoding="utf-8")))
+        helpers = _gating_helpers(functions)
+        for qualname, function in functions:
             if why := _why_member(function):
-                found[(rel, qualname)] = (why, _calls_the_verifier(function))
+                own_class = qualname.split(".", 1)[0] if "." in qualname else ""
+                found[(rel, qualname)] = (why, _calls_the_verifier(function, helpers.get(own_class, frozenset())))
     return found
 
 
@@ -273,7 +286,7 @@ def test_every_credential_change_is_step_up_gated_or_classified() -> None:
 
     assert ungated == [], (
         "A service function that writes an e-mail or password hash, or creates/deletes a sign-in method or "
-        "credential, must call self._step_up_verifier (#1841) or be classified with a reason:\n  "
+        "credential, must call self._step_up_verifier.verify (#1841) or be classified with a reason:\n  "
         + "\n  ".join(ungated)
     )
 
@@ -301,6 +314,10 @@ def test_the_gated_entries_are_gated() -> None:
         ("privacy_service.py", "PrivacyService.request_erasure"),
         ("privacy_service.py", "PrivacyService.request_email_change"),
         ("auth_service.py", "AuthService.change_password"),
+        ("auth_service.py", "AuthService.create_api_key"),
+        ("auth_service.py", "AuthService.create_device_pairing"),
+        ("auth_service.py", "AuthService.unlink_provider"),
+        ("user_service.py", "UserService.admin_update_user"),
     ):
         assert entry in found and found[entry][1], f"{entry} is not behind self._step_up_verifier"
 
@@ -549,7 +566,7 @@ class S:
 # passes ``step_up_verifier=``, and every construction of a verifier passes
 # ``reauth_policy=`` — the fallback can then never be what production runs.
 
-_STEP_UP_SERVICES = {"AuthService", "PrivacyService", "TenantService"}
+_STEP_UP_SERVICES = {"AuthService", "PrivacyService", "TenantService", "UserService"}
 
 
 def _constructions(root: Path = APP) -> list[tuple[str, int, str, set[str]]]:
@@ -582,3 +599,51 @@ def test_every_production_step_up_service_gets_the_wired_verifier() -> None:
 
     assert missing == [], "a step-up service built without step_up_verifier= falls back to the unwired one"
     assert unwired == [], "a StepUpVerifier built without reauth_policy= accepts the code for OIDC accounts"
+
+
+# ── security review of the #1847 bundle (SEC-002): only ``verify`` gates ────────
+
+
+def _gated(source: str, qualname: str) -> bool:
+    functions = _functions(ast.parse(source))
+    helpers = _gating_helpers(functions)
+    function = dict(functions)[qualname]
+    own_class = qualname.split(".", 1)[0]
+    return _calls_the_verifier(function, helpers.get(own_class, frozenset()))
+
+
+def test_issuing_a_code_is_not_a_step_up() -> None:
+    source = (
+        "class S:\n"
+        "    def mint(self, user):\n"
+        "        self._step_up_verifier.issue_code(user, action='x')\n"
+        "        self._api_key_repo.create(user)\n"
+    )
+
+    assert _gated(source, "S.mint") is False
+
+
+def test_a_helper_that_only_issues_a_code_does_not_gate_its_callers() -> None:
+    source = (
+        "class S:\n"
+        "    def _send_code(self, user):\n"
+        "        self._step_up_verifier.issue_code(user, action='x')\n"
+        "    def mint(self, user):\n"
+        "        self._send_code(user)\n"
+        "        self._api_key_repo.create(user)\n"
+    )
+
+    assert _gated(source, "S.mint") is False
+
+
+def test_a_helper_that_verifies_gates_its_callers() -> None:
+    source = (
+        "class S:\n"
+        "    def _step_up(self, user):\n"
+        "        self._step_up_verifier.verify(user, action='x')\n"
+        "    def mint(self, user):\n"
+        "        self._step_up(user)\n"
+        "        self._api_key_repo.create(user)\n"
+    )
+
+    assert _gated(source, "S.mint") is True

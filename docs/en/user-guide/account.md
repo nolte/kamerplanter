@@ -134,6 +134,8 @@ In the **Security** tab of your account settings you manage how you sign in.
 
 The list shows all sign-in methods linked to your account (local password, Google, GitHub, …). You can unlink a provider as long as at least one other sign-in method remains. Your last remaining sign-in method cannot be removed, so you can never be locked out of your account.
 
+To unlink one, you additionally confirm with your current password — if you don't have one, you instead sign in again with that provider (**Sign in again**), or, only if you sign in exclusively through GitHub or Apple, have a code sent by email. This is the same confirmation path as changing your password above, with the same lockout behaviour after too many failed attempts. <!-- REQ-023 -->
+
 !!! note "Couldn't load the list?"
     If the list fails to load, the card shows a warning. As long as it is unclear whether your account has a local password, the password form above keeps showing the current-password field as a precaution — reload the page to try again.
 
@@ -155,6 +157,49 @@ To end a session you don't recognize or no longer need, click the trash icon on 
 !!! tip "Found a suspicious session?"
     End it immediately, then change your password — that automatically ends all remaining sessions (see above).
 
+### Connecting a Mobile Device by QR Code
+
+In the same **Sessions** tab, click **Connect mobile device** to connect a phone or tablet to your account without typing your password on that device.
+
+1. Click **Connect mobile device**
+2. Confirm with your current password — if you don't have one, sign in again with your sign-in provider, or, only if you sign in exclusively through GitHub or Apple, have a code sent by email
+3. Open the Kamerplanter app on your phone, choose **Connect device** there, and scan the displayed QR code
+4. The device then appears in the session list above and can be signed out there at any time
+
+!!! warning "Never share the QR code"
+    The QR code signs a device in to your account fully and permanently. Never show it to anyone, and only scan a code you just generated yourself — it is valid for a few seconds only.
+
+!!! note "Why a re-confirmation?"
+    Because the QR code fully signs in a new device, you first confirm it is you — so nobody can connect a device of their own from a browser you left open. <!-- REQ-023 -->
+
+---
+
+## Managing API Keys
+
+In the **API Keys** tab, you create and revoke personal access keys for programmatic access — for example your own scripts, the MCP server, or a Home Assistant integration that cannot sign in interactively.
+
+### Creating an API Key
+
+1. Click **Create API key**
+2. Give it a **label** that will help you recognize it later (e.g. "MCP server" or "Home Assistant")
+3. Confirm with your current password — if you don't have one, sign in again with your sign-in provider, or, only if you sign in exclusively through GitHub or Apple, have a code sent by email
+4. Copy the displayed key to a safe place right away
+
+!!! danger "The key is shown only once"
+    For security reasons, Kamerplanter shows the full key only right after creation. If you close the dialog without copying it, you need to create a new key.
+
+!!! note "Why a re-confirmation?"
+    An API key signs applications in to your account permanently — it stays valid even if you change your password (see below). That is why you confirm creating one, so nobody can quietly set up access from a browser you left open. <!-- REQ-023 -->
+
+### Revoking an API Key
+
+The list shows all your keys with their label, creation date, and last used time. Click **Revoke API key** to invalidate a key you no longer need or don't recognize, immediately.
+
+!!! warning "Changing your password does not revoke API keys"
+    Unlike sessions, changing your password, resetting it, or "sign out everywhere" do **not** end existing API keys — a key represents a deliberately set-up integration that would otherwise fail without warning. If you suspect your account was compromised: change your password, sign out everywhere, **and** additionally revoke any API key you don't recognize.
+
+For further technical details (endpoints, IP allowlist, rate limits), see the [API documentation](../api/authentication.md).
+
 ---
 
 ## Experience Level and Other Settings
@@ -167,7 +212,7 @@ In the **Experience** tab of your account settings you can also:
 
 Which functional areas you show or hide independently of your experience level is controlled in the **Modules & Features** tab — see [Modules & Features](module-visibility.md).
 
-In the **API Keys** tab (access tokens for programmatic access, e.g. your own scripts), you can create and revoke personal API keys. See the [API documentation](../api/authentication.md) for details.
+Personal API keys are managed in the **API Keys** tab — see [Managing API Keys](#managing-api-keys) above.
 
 ---
 
@@ -198,6 +243,12 @@ The confirmation dialog asks you to type your **own email address** back in. If 
 
 ??? question "Why were all my sessions ended when I only changed my password?"
     This is a security measure: after a password change, all sessions are ended as a precaution so a potentially compromised device no longer has access. You will need to sign in again everywhere.
+
+??? question "Why does creating an API key or connecting a mobile device require re-confirmation?"
+    An API key or a device paired by QR code signs an application in to your account permanently — both survive a later password change. The re-confirmation makes sure it is really you triggering the step, not someone who briefly had access to a browser you left open.
+
+??? question "I suspect my account was compromised — what do I do?"
+    Change your password (this automatically ends all sessions), or additionally use **Sign out everywhere**. Then revoke any key you don't recognize in the **API Keys** tab — a password change does **not** automatically revoke API keys.
 
 ---
 

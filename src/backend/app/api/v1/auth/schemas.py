@@ -14,6 +14,43 @@ from app.domain.models.auth import DEVICE_NAME_MAX_LENGTH
 # ── Request schemas ────────────────────────────────────────────────
 
 
+class CredentialStepUp(BaseModel):
+    """The step-up a credential change carries in its body (#1847, #1857, REQ-023 §3.9).
+
+    Which field the account needs is the verifier's rule: ``current_password`` for
+    an account with a local password; for one without, ``step_up_token`` from a
+    fresh sign-in at its identity provider or — where no linked provider can do
+    that — ``step_up_code`` from ``POST /users/me/step-up-code``.
+    """
+
+    current_password: str | None = Field(
+        default=None,
+        max_length=128,
+        description="The requester's current password. Required when the requester's account has one.",
+    )
+    step_up_code: str | None = Field(
+        default=None,
+        max_length=32,
+        description=(
+            "The one-time code mailed by POST /users/me/step-up-code for this act. Required when the account has "
+            "no local password and no provider that can re-authenticate; 401 STEP_UP_CODE_REQUIRED without it."
+        ),
+    )
+    step_up_token: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "The one-time token of a fresh sign-in at the account's identity provider, from the fragment of "
+            "/auth/step-up/callback after POST /users/me/step-up/oidc. Required instead of step_up_code when the "
+            "account has no local password but a provider that can re-authenticate (401 STEP_UP_REAUTH_REQUIRED)."
+        ),
+    )
+
+
+#: The body fields of :class:`CredentialStepUp` — never part of a resource write.
+CREDENTIAL_STEP_UP_FIELDS = frozenset(CredentialStepUp.model_fields)
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
@@ -100,7 +137,7 @@ class RefreshRequest(BaseModel):
     )
 
 
-class ApiKeyCreateRequest(BaseModel):
+class ApiKeyCreateRequest(CredentialStepUp):
     label: str = Field(min_length=1, max_length=100)
     tenant_scope: str | None = Field(
         default=None,
@@ -114,6 +151,10 @@ class ApiKeyCreateRequest(BaseModel):
 
 class SetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=10, max_length=128)
+
+
+class DevicePairingCreateRequest(CredentialStepUp):
+    """The step-up of minting a pairing code (#1847): the code redeems into a full session."""
 
 
 class DevicePairingRedeemRequest(BaseModel):

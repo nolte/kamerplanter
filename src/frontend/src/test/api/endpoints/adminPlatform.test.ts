@@ -58,6 +58,15 @@ describe('adminPlatform endpoints — stats, tenants, users', () => {
     expect(client.patch).toHaveBeenCalledWith('/admin/platform/users/u1', payload);
   });
 
+  it("updateAdminUser carries the admin's own step-up beside the update (#1857)", async () => {
+    client.patch.mockResolvedValue({ data: { key: 'u1' } });
+    await admin.updateAdminUser('u1', { email_verified: true, current_password: 'admin-pw' });
+    expect(client.patch).toHaveBeenCalledWith('/admin/platform/users/u1', {
+      email_verified: true,
+      current_password: 'admin-pw',
+    });
+  });
+
   it('deleteAdminTenant deletes encoded tenant key and carries the step-up (#1791)', async () => {
     client.delete.mockResolvedValue({ data: undefined });
     await admin.deleteAdminTenant('t/1', { confirm_slug: 't-1' });
