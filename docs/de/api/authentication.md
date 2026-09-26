@@ -331,6 +331,8 @@ Content-Type: application/json
 }
 ```
 
+`tenant_scope` ist optional und nimmt beim Anlegen den Slug **oder** den Key des Tenants entgegen. In beiden Fällen musst du im genannten Tenant aktives Mitglied sein — sonst antwortet die Route mit `403 Forbidden` ("tenant_scope must name a tenant you are an active member of."), und zwar mit derselben Meldung für einen unbekannten wie für einen fremden Tenant.
+
 **Antwort (201 Created):**
 
 ```json
@@ -339,10 +341,12 @@ Content-Type: application/json
   "label": "Home Assistant Integration",
   "raw_key": "kp_sk_abc...xyz",
   "key_prefix": "kp_sk_abc",
-  "tenant_scope": "mein-garten",
+  "tenant_scope": "t-a1b2c3d4",
   "created_at": "2026-03-17T10:00:00Z"
 }
 ```
+
+Gespeichert und zurückgegeben wird immer der **Key** des Tenants, nicht der beim Anlegen eingegebene Slug. Dadurch ändert ein späteres Umbenennen des Tenants (neuer Slug) nichts am Scope, und ein Löschen des Tenants löscht den Key gleich mit.
 
 !!! danger "Raw Key nur einmal sichtbar"
     Das Feld `raw_key` wird nur bei der Erstellung angezeigt und danach nicht mehr ausgegeben. Speichern Sie den Key sofort an einem sicheren Ort.
@@ -356,7 +360,18 @@ Authorization: Bearer kp_sk_abc...xyz
 
 Der API-Key wird im selben `Authorization`-Header wie ein JWT verwendet.
 
-Ein Key mit `tenant_scope` handelt nur in diesem Tenant. Auf jeder Route unter `/api/v1/t/{slug}/` und auf jeder Route, die den Header `X-Active-Tenant` liest, antwortet ein anderer Tenant mit `403 Forbidden` — auch wenn der Besitzer des Keys dort Mitglied ist — und zwar mit derselben Antwort wie ein Tenant, in dem der Besitzer nicht Mitglied ist. Ohne den Header fällt ein begrenzter Key nur dann auf deinen persönlichen Tenant zurück, wenn dieser sein Scope ist; sonst sieht er nur den gemeinsamen Katalog. `tenant_scope` akzeptiert den Slug oder den Key des Tenants.
+Ein Key mit `tenant_scope` handelt nur in diesem Tenant. Auf jeder Route unter `/api/v1/t/{slug}/` und auf jeder Route, die den Header `X-Active-Tenant` liest, antwortet ein anderer Tenant mit `403 Forbidden` — auch wenn der Besitzer des Keys dort Mitglied ist — und zwar mit derselben Antwort wie ein Tenant, in dem der Besitzer nicht Mitglied ist. Ohne den Header fällt ein begrenzter Key nur dann auf deinen persönlichen Tenant zurück, wenn dieser sein Scope ist; sonst sieht er nur den gemeinsamen Katalog. Der Abgleich erfolgt dabei ausschließlich über den gespeicherten Tenant-Key (siehe oben).
+
+### IP-Allowlist und Rate Limit je Key
+
+Ein API-Key kann zusätzlich eine CIDR-Allowlist und ein eigenes Anfragen-Limit pro Minute tragen. Beide Einschränkungen gelten identisch für die REST-API und für den [MCP-Server](mcp-server.md) — es gibt **ein** gemeinsames Budget je Key, keine getrennte Zählung je Schnittstelle.
+
+- Liegt die Client-Adresse außerhalb der Allowlist oder lässt sie sich nicht auflösen, antwortet die API mit `401 Unauthorized` ("Client IP is not permitted for this API key.") — derselben Meldung, die auch der MCP-Server dafür gibt.
+- Ist das Minutenbudget aufgebraucht, antwortet die API mit `429 Too Many Requests`. Dieselbe Antwort gibt es, wenn der Zähler-Speicher selbst nicht erreichbar ist — ein Ausfall des Zähler-Speichers wird nie als "kein Limit" gewertet.
+
+### Kontoweite Routen und ein begrenzter Key
+
+Ein Key mit `tenant_scope` ist auf genau einen Tenant beschränkt. Auf Routen, die keinen Tenant auflösen — etwa die eigenen Kontodaten (`PATCH`/`DELETE /users/me`, Passwort, Sitzungen, verknüpfte Provider), die [Datenschutz-Endpunkte](../user-guide/privacy.md), die Verwaltung der API-Keys selbst, die Gerätekopplung, `POST /auth/logout-all` oder das Anlegen bzw. Beitreten eines neuen Tenants — antwortet er deshalb mit `403 Forbidden` ("This API key is restricted to one tenant and cannot act on the account."). Dieselbe Antwort gibt es auf den wenigen Routen unter `/t/{slug}/`, die trotz Tenant im Pfad deine **kontoweiten** Einstellungen ändern: Benachrichtigungs-Einstellungen und Web-Push-Abos, Benutzer-Einstellungen, der Onboarding-Status und das Entfernen eines Favoriten. Sie gelten für alle deine Tenants, nicht nur für den des Scopes. Zugelassen bleiben: `GET /users/me` (die eigene Identitätsabfrage), `GET /tenants` (zeigt dann nur den einen Tenant des Scopes) sowie alle übrigen Routen, die einen Tenant auflösen (`/t/{slug}/`, `X-Active-Tenant`) — dort bindet weiterhin der Scope. Ein Key ohne `tenant_scope` ist von dieser Einschränkung nicht betroffen.
 
 ### API-Keys auflisten
 

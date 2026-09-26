@@ -12,8 +12,8 @@ from app.common.exceptions import ForbiddenError, RateLimitError, UnauthorizedEr
 from app.core.permissions import has_mcp_permission, list_mcp_permissions
 from app.domain.models.auth import ApiKey
 from app.domain.models.user import User
+from app.domain.services.api_key_controls import ApiKeyRateLimiter
 from app.mcp_server.auth import McpAuthenticator
-from app.mcp_server.rate_limit import McpRateLimiter
 
 
 # ── permission-matrix binding (§4.4) ───────────────────────────────────────────
@@ -122,7 +122,7 @@ class _FakeRedis:
         self.counters[key] = self.counters.get(key, 0) + 1
         return self.counters[key]
 
-    def expire(self, key: str, seconds: int) -> None:  # pragma: no cover - trivial
+    def expire(self, key: str, seconds: int, nx: bool = False) -> None:  # pragma: no cover - trivial
         pass
 
     def ttl(self, key: str) -> int:  # pragma: no cover - trivial
@@ -218,7 +218,7 @@ def test_authenticate_keeps_every_membership_when_key_is_unscoped():
 
 def test_authenticate_uses_tenant_scope_to_narrow_to_one_tenant():
     auth = _authenticator(
-        _api_key(tenant_scope="garden"),
+        _api_key(tenant_scope="garden-key"),
         _service_user(),
         [
             _TenantWithRole("home", "home", TenantRole.LEAD),
@@ -301,7 +301,7 @@ def test_authenticate_ignores_empty_allowlist():
 # ── SEC-004: service-account per-minute rate limit ──────────────────────────────
 def test_authenticate_enforces_rate_limit_over_the_minute():
     redis = _FakeRedis()
-    limiter = McpRateLimiter(redis)
+    limiter = ApiKeyRateLimiter(redis)
     auth = _authenticator(
         _api_key(rate_limit_per_minute=2),
         _service_user(),
@@ -321,7 +321,7 @@ def test_authenticate_no_rate_limit_when_field_unset():
         _api_key(),  # rate_limit_per_minute defaults to None
         _service_user(),
         [_TenantWithRole("home", "home", TenantRole.GROWER)],
-        rate_limiter=McpRateLimiter(redis),
+        rate_limiter=ApiKeyRateLimiter(redis),
     )
     for _ in range(5):
         auth.authenticate(_RAW, client_ip="10.0.0.1")

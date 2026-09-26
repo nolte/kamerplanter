@@ -88,7 +88,7 @@ def _header_ctx(slug: str | None, user: User) -> Any:
 
 
 def test_a_key_scoped_to_a_is_refused_on_the_path_of_b():
-    error = _error(lambda: _path("club-b", _owner("club-a")))
+    error = _error(lambda: _path("club-b", _owner("tenant_a")))
 
     assert isinstance(error, ForbiddenError)
     assert error.status_code == 403
@@ -96,7 +96,7 @@ def test_a_key_scoped_to_a_is_refused_on_the_path_of_b():
 
 @pytest.mark.parametrize("resolver", [_header_key, _header_ctx], ids=["key", "context"])
 def test_a_key_scoped_to_a_is_refused_on_the_header_of_b(resolver: Any):
-    error = _error(lambda: resolver("club-b", _owner("club-a")))
+    error = _error(lambda: resolver("club-b", _owner("tenant_a")))
 
     assert isinstance(error, ForbiddenError)
     assert error.status_code == 403
@@ -104,7 +104,7 @@ def test_a_key_scoped_to_a_is_refused_on_the_header_of_b(resolver: Any):
 
 def test_the_refusal_is_the_same_answer_as_for_a_non_member():
     """No new oracle: a scoped-out tenant must look exactly like a foreign one."""
-    scoped_out = _error(lambda: _path("club-b", _owner("club-a")))
+    scoped_out = _error(lambda: _path("club-b", _owner("tenant_a")))
     unknown = _error(lambda: _path("no-such-club", _owner(None)))
 
     assert (scoped_out.status_code, scoped_out.error_code, scoped_out.message, scoped_out.details) == (
@@ -118,8 +118,8 @@ def test_the_refusal_is_the_same_answer_as_for_a_non_member():
 def test_without_a_header_a_scoped_key_does_not_fall_back_into_the_personal_tenant():
     # The personal fallback names a tenant without a slug, so it bypasses the
     # slug check — the scope must bind here as well, narrowing to global scope.
-    assert _header_key(None, _owner("club-a")) == ""
-    ctx = _header_ctx(None, _owner("club-a"))
+    assert _header_key(None, _owner("tenant_a")) == ""
+    ctx = _header_ctx(None, _owner("tenant_a"))
     assert ctx.tenant_key == ""
     assert ctx.role is TenantRole.VIEWER
 
@@ -127,16 +127,22 @@ def test_without_a_header_a_scoped_key_does_not_fall_back_into_the_personal_tena
 # ── Non-vacuity: the scoped tenant itself, and unscoped callers, still work ──
 
 
-@pytest.mark.parametrize("scope", ["club-a", "tenant_a"], ids=["slug", "key"])
-def test_the_scoped_tenant_itself_resolves_by_slug_or_key(scope: str):
-    # The MCP authenticator matches a scope on slug *or* key; REST must agree.
-    ctx = _path("club-a", _owner(scope))
+def test_the_scoped_tenant_itself_resolves():
+    # Scopes are stored as tenant keys since #1852; the path and the header name
+    # the tenant by slug and resolve to that key.
+    ctx = _path("club-a", _owner("tenant_a"))
     assert ctx.tenant_key == "tenant_a"
-    assert _header_key("club-a", _owner(scope)) == "tenant_a"
+    assert _header_key("club-a", _owner("tenant_a")) == "tenant_a"
+
+
+def test_a_slug_form_scope_admits_nothing():
+    # #1852: a slug follows a rename or a re-issued name to another tenant, so
+    # the predicate matches the tenant key only. v0063 rewrote stored slugs.
+    assert isinstance(_error(lambda: _path("club-a", _owner("club-a"))), ForbiddenError)
 
 
 def test_a_key_scoped_to_the_personal_tenant_keeps_the_header_less_fallback():
-    assert _header_key(None, _owner("personal-owner")) == "tenant_p"
+    assert _header_key(None, _owner("tenant_p")) == "tenant_p"
 
 
 def test_an_unscoped_caller_still_reaches_every_tenant_of_the_owner():
@@ -148,10 +154,10 @@ def test_an_unscoped_caller_still_reaches_every_tenant_of_the_owner():
 def test_the_scope_is_request_state_and_never_serialised():
     # It rides on the principal for one request; a write-back of the account
     # (``model_dump``) must not persist one request's credential restriction.
-    principal = _owner("club-a")
-    assert principal.api_key_tenant_scope == "club-a"
+    principal = _owner("tenant_a")
+    assert principal.api_key_tenant_scope == "tenant_a"
     assert "api_key_tenant_scope" not in principal.model_dump(by_alias=True)
-    assert "club-a" not in principal.model_dump_json()
+    assert "tenant_a" not in principal.model_dump_json()
 
 
 def test_a_stored_account_document_cannot_carry_a_scope_in():

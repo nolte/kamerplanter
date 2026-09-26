@@ -889,7 +889,17 @@ def get_auth_service() -> AuthService:
         device_pairing_throttle_store=get_device_pairing_throttle_store(),
         tombstone_salt=settings.erasure_tombstone_salt,
         step_up_verifier=get_step_up_verifier(),
+        # #1850 — the per-key budget on the REST path; the MCP authenticator
+        # draws on the same limiter (one budget per key across both surfaces).
+        api_key_rate_limiter=get_api_key_rate_limiter(),
     )
+
+
+def get_api_key_rate_limiter():
+    """The per-API-key rate limiter both key-accepting surfaces enforce through (SEC-004, #1850)."""
+    from app.domain.services.api_key_controls import ApiKeyRateLimiter
+
+    return ApiKeyRateLimiter(_get_redis_client())
 
 
 def get_user_service() -> UserService:
@@ -975,13 +985,12 @@ def get_mcp_idempotency_repo():
 
 def get_mcp_authenticator():
     from app.mcp_server.auth import McpAuthenticator
-    from app.mcp_server.rate_limit import McpRateLimiter
 
     return McpAuthenticator(
         get_api_key_repo(),
         get_user_repo(),
         get_tenant_service(),
-        rate_limiter=McpRateLimiter(_get_redis_client()),
+        rate_limiter=get_api_key_rate_limiter(),
     )
 
 
