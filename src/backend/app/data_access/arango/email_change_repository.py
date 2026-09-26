@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from arango.database import StandardDatabase
 
 from app.common.types import UserKey
@@ -305,6 +307,18 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
     #: reached ``confirmed`` at least once.
     _CONFIRMED_STATUSES = ["confirmed", "reverted", "superseded"]
 
+    #: A fixed safety margin (#1800 /code-review), never read from a setting —
+    #: doing that would reopen SEC-002. ``confirm_email_change`` claims
+    #: ``status: confirmed`` (:meth:`claim_status`) several round-trips before
+    #: it writes the revert data (:meth:`record_confirmation`): a row can sit
+    #: with ``status == 'confirmed'`` and ``revert_token_hash == null`` for that
+    #: brief, entirely normal window. Without this margin the null-token arm
+    #: below would treat that in-flight confirmation as "R-07a already closed
+    #: it" and hard-delete the row — including ``previous_email`` — before the
+    #: revert link was ever written. Comfortably above any realistic request
+    #: latency and negligible next to the multi-day revert window itself.
+    _RECORD_CONFIRMATION_RACE_GRACE = timedelta(minutes=5)
+
     def delete_confirmed_past_revert_window(self, now_iso: str) -> int:
         """Hard-delete a confirmed change whose R-07a revert window has closed (NFR-011 R-07b, #1800).
 
@@ -319,14 +333,23 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
         mailed revert window would be hard-deleted while the link still works
         — the victim of an email-change hijack loses their only way back.
         A row whose window R-07a already closed (``revert_token_hash ==
-        null``) is due regardless of ``revert_expires_at``: that field may
-        have never been written at all (a confirmation whose own
-        ``record_confirmation`` lost a race, #1893) or already be cleared.
+        null``) is due once :attr:`_RECORD_CONFIRMATION_RACE_GRACE` has passed
+        since ``confirmed_at`` — long enough that the row cannot still be the
+        in-flight write ``record_confirmation`` performs (#1800 /code-review);
+        ``revert_token_hash`` may also never have been written at all (a
+        confirmation whose own ``record_confirmation`` permanently lost a
+        race, #1893) or already be cleared, either of which this arm also
+        catches once the grace period is up.
         """
+        race_grace_before_iso = (datetime.fromisoformat(now_iso) - self._RECORD_CONFIRMATION_RACE_GRACE).isoformat()
         due = """
           FILTER doc.status IN @confirmed
             AND (
-              doc.revert_token_hash == null
+              (
+                doc.revert_token_hash == null
+                AND DATE_TIMESTAMP(doc.confirmed_at) != null
+                AND DATE_TIMESTAMP(doc.confirmed_at) < DATE_TIMESTAMP(@race_grace_before)
+              )
               OR (
                 DATE_TIMESTAMP(doc.revert_expires_at) != null
                 AND DATE_TIMESTAMP(doc.revert_expires_at) < DATE_TIMESTAMP(@now)
@@ -337,6 +360,7 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
             "@collection": col.EMAIL_CHANGE_REQUESTS,
             "confirmed": self._CONFIRMED_STATUSES,
             "now": now_iso,
+            "race_grace_before": race_grace_before_iso,
         }
         edges_query = f"""
         FOR doc IN @@collection

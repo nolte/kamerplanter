@@ -89,6 +89,7 @@ def _to_erasure_response(erasure: ErasureRequest) -> ErasureResponse:
         completed_at=erasure.completed_at,
         anonymized_collections=list(erasure.anonymized_collections),
         deleted_collections=list(erasure.deleted_collections),
+        pseudonymized_collections=list(erasure.pseudonymized_collections),
         retained_reason=erasure.retained_reason,
     )
 

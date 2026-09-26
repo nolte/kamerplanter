@@ -27,6 +27,7 @@ in-memory throttle and code tiers never carry state from one test into another.
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -190,19 +191,30 @@ class _EmailChanges:
 
     #: NFR-011 R-07b (#1800) — mirrors ``ArangoEmailChangeRepository.delete_confirmed_past_revert_window``.
     _CONFIRMED_STATUSES = ("confirmed", "reverted", "superseded")
+    #: Mirrors ``ArangoEmailChangeRepository._RECORD_CONFIRMATION_RACE_GRACE`` (#1800 /code-review).
+    _RECORD_CONFIRMATION_RACE_GRACE = timedelta(minutes=5)
 
     def delete_confirmed_past_revert_window(self, now_iso: str) -> int:
         from datetime import datetime
 
         now = datetime.fromisoformat(now_iso)
+        race_grace_before = now - self._RECORD_CONFIRMATION_RACE_GRACE
+
+        def _null_token_and_past_grace(change: EmailChangeRequest) -> bool:
+            return (
+                change.revert_token_hash is None
+                and change.confirmed_at is not None
+                and change.confirmed_at < race_grace_before
+            )
+
+        def _window_expired(change: EmailChangeRequest) -> bool:
+            return change.revert_expires_at is not None and change.revert_expires_at < now
+
         due = [
             key
             for key, change in self.rows.items()
             if change.status in self._CONFIRMED_STATUSES
-            and (
-                change.revert_token_hash is None
-                or (change.revert_expires_at is not None and change.revert_expires_at < now)
-            )
+            and (_null_token_and_past_grace(change) or _window_expired(change))
         ]
         for key in due:
             del self.rows[key]

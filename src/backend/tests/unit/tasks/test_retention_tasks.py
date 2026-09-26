@@ -138,6 +138,22 @@ class TestAnonymizeConsentIps:
         entries = [e for e in celery_app.conf.beat_schedule.values() if e["task"] == "retention.anonymize_consent_ips"]
         assert len(entries) == 1
 
+    def test_the_task_does_not_double_log_the_service_s_own_event(self, _mock_dependencies):
+        """#1800 /code-review — the service already logs the completion event; the task must not repeat it."""
+        import structlog.testing
+
+        service = MagicMock()
+        service.anonymize_consent_ips = AsyncMock(return_value=2)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import anonymize_consent_ips
+
+        with structlog.testing.capture_logs() as logs:
+            anonymize_consent_ips()
+
+        completed = [e for e in logs if e["event"] == "retention.anonymize_consent_ips.completed"]
+        assert completed == [], "the task must not log this event itself — the service (mocked here) already does"
+
 
 class TestExpireDataExports:
     def test_returns_expired_count(self, _mock_dependencies):

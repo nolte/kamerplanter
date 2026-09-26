@@ -247,8 +247,9 @@ async def anonymize_consent_ips() -> dict:
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
+    # The service already logs "retention.anonymize_consent_ips.completed"
+    # (#1800 /code-review) — logging it again here doubled every daily event.
     anonymized = await service.anonymize_consent_ips(now=datetime.now(UTC))
-    logger.info("retention.anonymize_consent_ips.completed", anonymized=anonymized)
     return {"anonymized": anonymized}
 
 

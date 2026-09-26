@@ -405,9 +405,11 @@ class ArangoErasureExecutor(IErasureExecutor):
         tombstone: str | None,
         present: set[str],
     ) -> ErasureRuleOutcome:
-        """Replace the key on a retained audit row with the tombstone hash."""
+        """Replace the key on a retained audit row with the tombstone hash, clearing any free-text companions."""
         affected = 0
         if rule.collection in present:
+            patch: dict[str, Any] = {rule.user_field: tombstone}
+            patch.update(dict.fromkeys(rule.clear_fields, ""))
             affected = self._counted(
                 transaction.aql.execute(
                     _REWRITE_REFERENCE,
@@ -415,7 +417,7 @@ class ArangoErasureExecutor(IErasureExecutor):
                         "@collection": rule.collection,
                         "field": rule.user_field,
                         "value": user_key,
-                        "patch": {rule.user_field: tombstone},
+                        "patch": patch,
                         "rename_fields": [],
                         "rename_when": {},
                         "rename_prefix": ANONYMIZED_KEY_PREFIX,

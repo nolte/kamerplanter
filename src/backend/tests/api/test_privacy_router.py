@@ -209,6 +209,32 @@ class TestErasureEndpoints:
         assert body["status"] == "scheduled"
         assert "harvest_batches" in body["anonymized_collections"]
 
+    def test_request_erasure_reports_pseudonymized_collections(self, client: TestClient, service: MagicMock) -> None:
+        """#1800 code-review — the third AK-08a category must reach the API response, not just the domain model.
+
+        ``PrivacyService._new_erasure_request`` now populates
+        ``ErasureRequest.pseudonymized_collections`` (consent_records, R-04);
+        dropping it here would repeat, one layer further out, the exact
+        drop-a-category defect #1800 fixed on the domain model.
+        """
+        service.request_erasure.return_value = ErasureRequest(
+            _key="er1",
+            user_key=USER_KEY,
+            status="scheduled",
+            requested_at=datetime.now(UTC),
+            soft_deleted_at=datetime.now(UTC),
+            hard_delete_scheduled_at=datetime.now(UTC) + timedelta(days=90),
+            pseudonymized_collections=["consent_records"],
+        )
+
+        response = client.post(
+            "/api/v1/privacy/erasure",
+            json={"confirm_email": "user@example.com", "password": "very-strong-pass"},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["pseudonymized_collections"] == ["consent_records"]
+
     def test_request_erasure_without_the_e_mail_echo_is_422(self, client: TestClient, service: MagicMock) -> None:
         response = client.post("/api/v1/privacy/erasure", json={"password": "very-strong-pass"})
 

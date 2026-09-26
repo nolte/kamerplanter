@@ -725,10 +725,17 @@ class ErasureEngine:
             collection="consent_records",
             user_field="user_key",
             replacement_strategy="tombstone_hash",
+            # #1800 security review (SEC-001 follow-up): user_agent is free-text
+            # captured from the request and personal data on its own (like
+            # harvester/inspector on the AnonymizationRule side); it must not
+            # outlive the account under the tombstone the way clear_fields
+            # already empties a free-text companion there.
+            clear_fields=["user_agent"],
             reason=(
                 "NFR-011 R-04 / REQ-025 §3.1.3 rule 3: a consent record is retained 3 years "
                 "after revocation, independent of the account. The key is pseudonymised at "
-                "erasure so the retained record stays linkable without naming the subject; "
+                "erasure so the retained record stays linkable without naming the subject, "
+                "and the free-text user_agent is cleared with it; "
                 "retention.purge_expired_consent_records hard-deletes it once revoked_at is "
                 "old enough, whether or not the account was ever erased."
             ),
