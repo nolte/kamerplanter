@@ -115,6 +115,8 @@ class UserService:
             self._step_up_verifier.verify(
                 requester,
                 action="admin_account_update",
+                # #1884 — a factor obtained to verify this account confirms this one only.
+                target=user_key,
                 echo_ok=None,
                 password=current_password,
                 code=step_up_code,

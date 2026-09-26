@@ -12,7 +12,11 @@ import Alert from '@mui/material/Alert';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { listProviders } from '@/api/endpoints/auth';
-import { getStepUpErrorMessage, getStepUpReauthCallbackErrorMessage, isStepUpRejection } from '@/api/errors';
+import {
+  getStepUpErrorMessage,
+  getStepUpReauthCallbackErrorMessage,
+  isStepUpRejection,
+} from '@/api/errors';
 import type { AuthProviderInfo, StepUpAction } from '@/api/types';
 import { useStepUpFactors } from '@/hooks/useStepUpFactors';
 import { usePendingStepUpReauth } from '@/hooks/useStepUpReauth';
@@ -68,6 +72,12 @@ interface StepUpConfirmDialogProps {
   /** The act this dialog confirms; an e-mailed code is requested for this act only (review SEC-003). */
   stepUpAction: StepUpAction;
   /**
+   * What the act acts on (#1884) — the other account's key, the tenant's key, the
+   * provider link's key. The code and the fresh-sign-in token are bound to it and
+   * refused for any other; required for such an act, omitted for one on the own account.
+   */
+  stepUpTarget?: string;
+  /**
    * `<prefix>-dialog`, `<prefix>-echo`, `<prefix>-password`, `<prefix>-error`, `<prefix>-cancel`,
    * `<prefix>-confirm`, for the e-mailed code `<prefix>-code`, `<prefix>-send-code`, and for the
    * fresh sign-in `<prefix>-reauth` (or `<prefix>-reauth-<providerKey>`) and `<prefix>-reauth-done`.
@@ -110,7 +120,7 @@ interface StepUpConfirmDialogProps {
  * generic OIDC provider — not GitHub or Apple) confirms by **signing in again**
  * there (#1815): the "sign in again" button leaves the app for the provider and
  * `/auth/step-up/callback` brings a one-time token back into sessionStorage.
- * While a token for this dialog's act is pending, the dialog says "signed in
+ * While a token for this dialog's act and target (#1884) is pending, the dialog says "signed in
  * again — confirm now" and sends it as `token`; it is taken out of storage when
  * sent successfully or refused as a step-up (401/429) — another refusal, e.g. a
  * mistyped echo (422), keeps it for the next try. A callback error (failed, stale,
@@ -137,6 +147,7 @@ export default function StepUpConfirmDialog({
   confirmLabel,
   confirmColor = 'error',
   stepUpAction,
+  stepUpTarget,
   testIdPrefix,
   testIds,
   onConfirm,
@@ -153,7 +164,7 @@ export default function StepUpConfirmDialog({
   // `null` = unknown (loading or failed) → fail closed.
   const [providers, setProviders] = useState<AuthProviderInfo[] | null>(null);
   const factors = useStepUpFactors(providers);
-  const reauth = usePendingStepUpReauth(stepUpAction, open);
+  const reauth = usePendingStepUpReauth(stepUpAction, stepUpTarget, open);
   const reauthed = reauth.hasToken;
   const requiresPassword = factors.showPassword && !reauthed;
   const requiresCode = factors.showCode && !reauthed;
@@ -220,7 +231,8 @@ export default function StepUpConfirmDialog({
         const token = reauth.peekToken();
         if (token) confirmation.token = token;
       } else {
-        if (requiresPassword && (!requiresCode || password.length > 0)) confirmation.password = password;
+        if (requiresPassword && (!requiresCode || password.length > 0))
+          confirmation.password = password;
         if (requiresCode && code.length > 0) confirmation.code = code;
       }
       await onConfirm(confirmation);
@@ -310,6 +322,7 @@ export default function StepUpConfirmDialog({
         {offersReauth && (
           <StepUpReauthButton
             stepUpAction={stepUpAction}
+            stepUpTarget={stepUpTarget}
             providers={factors.reauthProviders}
             surface={testIdPrefix}
             disabled={pending}
@@ -332,6 +345,7 @@ export default function StepUpConfirmDialog({
             value={code}
             onChange={setCode}
             stepUpAction={stepUpAction}
+            stepUpTarget={stepUpTarget}
             disabled={pending}
             testIdPrefix={testIdPrefix}
             onAccountHasPassword={factors.noteAccountHasPassword}

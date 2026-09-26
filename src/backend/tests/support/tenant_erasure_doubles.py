@@ -48,18 +48,27 @@ AUTHORIZED_REQUESTER = User.model_validate(
 )
 
 
-def authorized(slug: str = "t-1", *, origin: TenantErasureOrigin = "tenant_management") -> dict[str, Any]:
+def authorized(
+    slug: str = "t-1", *, origin: TenantErasureOrigin = "tenant_management", tenant_key: str | None = None
+) -> dict[str, Any]:
     """Keyword arguments of an authorised ``delete_tenant`` call for the tenant slugged *slug*.
 
     The federated requester confirms with the one-time code mailed to it (#1815),
     issued here into the process-wide code tier every unwired ``TenantService``
     verifies against (``default_step_up_verifier``) — the tier
-    ``POST /users/me/step-up-code`` writes to in an unwired deployment.
+    ``POST /users/me/step-up-code`` writes to in an unwired deployment. The code is
+    bound to the tenant's key (#1884): *tenant_key*, or *slug* where the two are the
+    same string, as every caller here passes them.
     """
     from app.domain.services.step_up_service import default_step_up_verifier
+    from tests.support.step_up import AdmitEveryTarget
 
-    code, _expires_at = default_step_up_verifier().issue_code(
-        AUTHORIZED_REQUESTER, action="tenant_deletion", authenticated_with_api_key=False, client_ip="203.0.113.10"
+    code, _expires_at = default_step_up_verifier(target_policy=AdmitEveryTarget()).issue_code(
+        AUTHORIZED_REQUESTER,
+        action="tenant_deletion",
+        target=tenant_key or slug,
+        authenticated_with_api_key=False,
+        client_ip="203.0.113.10",
     )
     return {
         "requester": AUTHORIZED_REQUESTER,

@@ -97,14 +97,14 @@ class TestUpdate:
         repo = _repo(_stored(scopes=["user:email"]))
         resp = _client(repo).put(f"{BASE}/cfg1", json={"scopes": ["openid", "email"]})
         assert resp.status_code == 422, resp.text
-        repo.update.assert_not_called()
+        repo.update_fields.assert_not_called()
 
     def test_switching_an_existing_provider_to_github_is_refused(self) -> None:
         """The merged state decides — the body names no scope at all."""
         repo = _repo(_stored(provider_type="oidc", scopes=["openid", "email"]))
         resp = _client(repo).put(f"{BASE}/cfg1", json={"provider_type": "github"})
         assert resp.status_code == 422, resp.text
-        repo.update.assert_not_called()
+        repo.update_fields.assert_not_called()
 
     def test_repairing_a_stored_provider_succeeds(self) -> None:
         """A body that adds the scope to a stored GitHub provider goes through.
@@ -115,7 +115,7 @@ class TestUpdate:
         repo = _repo(_stored(scopes=["openid"]))
         resp = _client(repo).put(f"{BASE}/cfg1", json={"scopes": ["openid", "user:email"]})
         assert resp.status_code == 200, resp.text
-        repo.update.assert_called_once()
+        repo.update_fields.assert_called_once()
 
     def test_an_unrelated_edit_to_a_healthy_provider_still_works(self) -> None:
         repo = _repo(_stored(scopes=["user:email"]))

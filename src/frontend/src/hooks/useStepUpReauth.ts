@@ -30,22 +30,28 @@ export interface PendingStepUpReauth {
 /**
  * What the fresh sign-in (#1815) left behind for one act: a pending token or a
  * callback error. Read from sessionStorage on render while `active` (e.g. while
- * the dialog is open); the mutators re-render.
+ * the dialog is open); the mutators re-render. A token is only offered for the
+ * same act *and* `target` (#1884) — the one for another account, tenant or
+ * provider stays unused.
  */
-export function usePendingStepUpReauth(action: StepUpAction, active = true): PendingStepUpReauth {
+export function usePendingStepUpReauth(
+  action: StepUpAction,
+  target: string | null | undefined,
+  active = true,
+): PendingStepUpReauth {
   // Bumped after every storage mutation so the next render reads the new state.
   const [version, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
   return useMemo(() => {
-    const token = active && version >= 0 ? peekPendingStepUpToken(action) : null;
+    const token = active && version >= 0 ? peekPendingStepUpToken(action, target) : null;
     const callbackError = active ? peekStepUpReauthError(action) : null;
     return {
       hasToken: token !== null,
       callbackError,
-      peekToken: () => peekPendingStepUpToken(action),
+      peekToken: () => peekPendingStepUpToken(action, target),
       consumeToken: () => {
-        const consumed = consumePendingStepUpToken(action);
+        const consumed = consumePendingStepUpToken(action, target);
         bump();
         return consumed;
       },
@@ -54,7 +60,7 @@ export function usePendingStepUpReauth(action: StepUpAction, active = true): Pen
         bump();
       },
     };
-  }, [action, active, version, bump]);
+  }, [action, target, active, version, bump]);
 }
 
 /**
@@ -72,7 +78,10 @@ export function useStepUpResume(surface: string): boolean {
     const record = readStepUpResume();
     if (!record || record.surface !== surface) return false;
     if (returnPathname(record.returnPath) !== location.pathname) return false;
-    return peekPendingStepUpToken(record.action) !== null || peekStepUpReauthError(record.action) !== null;
+    return (
+      peekPendingStepUpToken(record.action, record.target) !== null ||
+      peekStepUpReauthError(record.action) !== null
+    );
   });
 
   useEffect(() => {

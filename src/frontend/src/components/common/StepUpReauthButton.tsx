@@ -15,6 +15,8 @@ import { clearStepUpResume, newStepUpClientNonce, saveStepUpResume } from '@/uti
 interface StepUpReauthButtonProps {
   /** The act the fresh sign-in confirms; the token is bound to it. */
   stepUpAction: StepUpAction;
+  /** What the act acts on (#1884); the token is bound to it too. Absent for an act on the own account. */
+  stepUpTarget?: string;
   /** Linked providers that can re-authenticate; empty → one button, the backend picks. */
   providers: readonly AuthProviderInfo[];
   /**
@@ -57,6 +59,7 @@ function providerLabel(provider: AuthProviderInfo, withEmail: boolean): string {
  */
 export default function StepUpReauthButton({
   stepUpAction,
+  stepUpTarget,
   providers,
   surface,
   disabled = false,
@@ -75,10 +78,16 @@ export default function StepUpReauthButton({
     setError('');
     try {
       const nonce = newStepUpClientNonce();
-      const { authorization_url: url } = await startStepUpReauth(stepUpAction, providerKey, nonce);
+      const { authorization_url: url } = await startStepUpReauth(
+        stepUpAction,
+        providerKey,
+        nonce,
+        stepUpTarget,
+      );
       saveStepUpResume({
         surface,
         action: stepUpAction,
+        target: stepUpTarget,
         returnPath: `${location.pathname}${location.search}${location.hash}`,
         nonce,
       });

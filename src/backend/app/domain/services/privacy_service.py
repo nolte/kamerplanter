@@ -429,6 +429,7 @@ class PrivacyService:
         self._step_up_verifier.verify(
             user,
             action="email_change",
+            target=None,
             echo_ok=None,
             password=password,
             code=step_up_code,
@@ -908,6 +909,7 @@ class PrivacyService:
         step_up = self._step_up_verifier.verify(
             user,
             action="account_erasure",
+            target=None,
             echo_ok=echo_matches(confirmation.echo, user.email, case_insensitive=True),
             password=confirmation.password,
             code=confirmation.code,
@@ -1131,6 +1133,8 @@ class PrivacyService:
         step_up = self._step_up_verifier.verify(
             requester,
             action="admin_account_erasure",
+            # #1884 — a factor obtained to erase this account confirms this one only.
+            target=user_key,
             echo_ok=echo_matches(confirmation.echo, target.email, case_insensitive=True),
             password=confirmation.password,
             code=confirmation.code,

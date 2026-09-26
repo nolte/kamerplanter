@@ -16,7 +16,14 @@ import {
 
 /** `hasResume`: a valid resume context was saved; without one a stale or forged record is dropped. */
 type CallbackOutcome =
-  | { kind: 'token'; token: string; action: StepUpAction; returnPath: string; hasResume: boolean }
+  | {
+      kind: 'token';
+      token: string;
+      action: StepUpAction;
+      target: string | null;
+      returnPath: string;
+      hasResume: boolean;
+    }
   | { kind: 'error'; error: string; action: StepUpAction; returnPath: string; hasResume: boolean }
   | { kind: 'discard'; returnPath: string; hasResume: boolean };
 
@@ -51,7 +58,15 @@ function resolveOutcome(hash: string, search: string): CallbackOutcome {
       resume?.action === tokenAction &&
       fragment.get('client_nonce') === resume.nonce
     ) {
-      return { kind: 'token', token, action: tokenAction, returnPath, hasResume };
+      // #1884 — the token is bound to the target this tab started the sign-in for.
+      return {
+        kind: 'token',
+        token,
+        action: tokenAction,
+        target: resume.target,
+        returnPath,
+        hasResume,
+      };
     }
     return { kind: 'discard', returnPath, hasResume };
   }
@@ -76,7 +91,7 @@ function resolveOutcome(hash: string, search: string): CallbackOutcome {
  *
  * Signs nobody in — the session is untouched. It removes the fragment (the
  * one-time token) and the query from the address bar at once, keeps the token
- * in sessionStorage for five minutes (`{token, action, expiresAt}`), or on
+ * in sessionStorage for five minutes (`{token, action, target, expiresAt}`), or on
  * `?error=` leaves an error marker, and navigates back to the page that started
  * the sign-in. That page reopens its step-up dialog (`useStepUpResume`), which
  * sends the token or shows the translated error.
@@ -92,7 +107,7 @@ export default function StepUpCallbackPage() {
     // The token must not stay in the address bar or the history entry.
     window.history.replaceState(window.history.state, '', window.location.pathname);
     if (outcome.kind === 'token') {
-      storePendingStepUpToken(outcome.token, outcome.action);
+      storePendingStepUpToken(outcome.token, outcome.action, outcome.target);
     } else if (outcome.kind === 'error') {
       storeStepUpReauthError(outcome.error, outcome.action);
     }

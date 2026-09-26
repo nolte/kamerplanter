@@ -169,7 +169,7 @@ describe('AdminEditUserPage — user deletion step-up (#1814)', () => {
 
     await userEvent.click(await within(dialog).findByTestId('delete-user-send-code'));
 
-    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('admin_account_erasure'));
+    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('admin_account_erasure', 'target-key'));
   });
 });
 
@@ -191,8 +191,13 @@ describe('AdminEditUserPage — back from the fresh sign-in (#1815)', () => {
     // Credential-shaped values are assembled at runtime (GitGuardian, #1838).
     const token = ['re', 'auth', '-', 'tok', 'en'].join('');
     const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
-    storePendingStepUpToken(token, 'admin_account_erasure');
-    saveStepUpResume({ surface: 'delete-user', action: 'admin_account_erasure', returnPath: '/' });
+    storePendingStepUpToken(token, 'admin_account_erasure', 'target-key');
+    saveStepUpResume({
+      surface: 'delete-user',
+      action: 'admin_account_erasure',
+      target: 'target-key',
+      returnPath: '/',
+    });
 
     const { default: Page } = await import('@/pages/admin/AdminEditUserPage');
     renderWithProviders(<Page />, { store: createTestStore(authState({ platformAdmin: true })) });

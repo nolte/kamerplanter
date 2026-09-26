@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  STEP_UP_ACTIONS,
+  STEP_UP_REAUTH_RESUME_KEY,
   STEP_UP_REAUTH_TOKEN_KEY,
   consumePendingStepUpToken,
+  isTargetedStepUpAction,
+  readStepUpResume,
+  saveStepUpResume,
   isSafeReturnPath,
   isStepUpAction,
   peekPendingStepUpToken,
@@ -20,31 +25,69 @@ describe('stepUpReauth storage (#1815)', () => {
   });
 
   it('keeps the pending token in sessionStorage only, under one key', () => {
-    storePendingStepUpToken(TOKEN, 'account_erasure', 1_000);
+    storePendingStepUpToken(TOKEN, 'account_erasure', null, 1_000);
     expect(Object.keys(sessionStorage)).toEqual([STEP_UP_REAUTH_TOKEN_KEY]);
     expect(localStorage.length).toBe(0);
     const stored = JSON.parse(sessionStorage.getItem(STEP_UP_REAUTH_TOKEN_KEY) ?? '{}');
-    expect(stored).toEqual({ token: TOKEN, action: 'account_erasure', expiresAt: 1_000 + 5 * 60 * 1000 });
+    expect(stored).toEqual({
+      token: TOKEN,
+      action: 'account_erasure',
+      target: null,
+      expiresAt: 1_000 + 5 * 60 * 1000,
+    });
   });
 
   it('answers the token only for its own act and only before it expires', () => {
-    storePendingStepUpToken(TOKEN, 'tenant_deletion', 0);
-    expect(peekPendingStepUpToken('account_erasure', 1)).toBeNull();
-    expect(peekPendingStepUpToken('tenant_deletion', 1)).toBe(TOKEN);
-    expect(peekPendingStepUpToken('tenant_deletion', 5 * 60 * 1000 + 1)).toBeNull();
+    storePendingStepUpToken(TOKEN, 'tenant_deletion', 't-1', 0);
+    expect(peekPendingStepUpToken('account_erasure', null, 1)).toBeNull();
+    expect(peekPendingStepUpToken('tenant_deletion', 't-1', 1)).toBe(TOKEN);
+    expect(peekPendingStepUpToken('tenant_deletion', 't-1', 5 * 60 * 1000 + 1)).toBeNull();
     // An expired token is dropped, not kept around.
     expect(sessionStorage.getItem(STEP_UP_REAUTH_TOKEN_KEY)).toBeNull();
   });
 
+  it('answers a targeted token only for its own target, and keeps it for that one (#1884)', () => {
+    storePendingStepUpToken(TOKEN, 'admin_account_update', 'user-a', 0);
+    expect(peekPendingStepUpToken('admin_account_update', 'user-b', 1)).toBeNull();
+    expect(consumePendingStepUpToken('admin_account_update', 'user-b', 1)).toBeNull();
+    expect(peekPendingStepUpToken('admin_account_update', null, 1)).toBeNull();
+    // Not dropped by the mismatch: the dialog for user A still finds it.
+    expect(consumePendingStepUpToken('admin_account_update', 'user-a', 1)).toBe(TOKEN);
+  });
+
+  it('keeps the target in the resume record and refuses a malformed one (#1884)', () => {
+    saveStepUpResume({
+      surface: 's',
+      action: 'provider_unlink',
+      target: 'link-1',
+      returnPath: '/account',
+    });
+    expect(readStepUpResume()).toMatchObject({ action: 'provider_unlink', target: 'link-1' });
+
+    const raw = JSON.parse(sessionStorage.getItem(STEP_UP_REAUTH_RESUME_KEY) ?? '{}');
+    sessionStorage.setItem(STEP_UP_REAUTH_RESUME_KEY, JSON.stringify({ ...raw, target: 42 }));
+    expect(readStepUpResume()).toBeNull();
+  });
+
+  it('classifies every act as targeted or not, as the backend does (#1884)', () => {
+    expect(STEP_UP_ACTIONS.filter(isTargetedStepUpAction).sort()).toEqual([
+      'admin_account_erasure',
+      'admin_account_update',
+      'oidc_provider_change',
+      'provider_unlink',
+      'tenant_deletion',
+    ]);
+  });
+
   it('consumes the token once', () => {
-    storePendingStepUpToken(TOKEN, 'password_change', Date.now());
-    expect(consumePendingStepUpToken('password_change')).toBe(TOKEN);
-    expect(consumePendingStepUpToken('password_change')).toBeNull();
+    storePendingStepUpToken(TOKEN, 'password_change', null, Date.now());
+    expect(consumePendingStepUpToken('password_change', null)).toBe(TOKEN);
+    expect(consumePendingStepUpToken('password_change', null)).toBeNull();
   });
 
   it('ignores a malformed stored record', () => {
     sessionStorage.setItem(STEP_UP_REAUTH_TOKEN_KEY, '{not json');
-    expect(peekPendingStepUpToken('account_erasure')).toBeNull();
+    expect(peekPendingStepUpToken('account_erasure', null)).toBeNull();
   });
 
   it('hands a callback error marker out once, for its act only', () => {
@@ -72,7 +115,12 @@ describe('stepUpReauth storage (#1815)', () => {
 
 describe('isStepUpAction (#1847, #1857)', () => {
   it('accepts the credential-change acts, so their fresh sign-in can come back', () => {
-    for (const action of ['api_key_creation', 'device_pairing', 'provider_unlink', 'admin_account_update']) {
+    for (const action of [
+      'api_key_creation',
+      'device_pairing',
+      'provider_unlink',
+      'admin_account_update',
+    ]) {
       expect(isStepUpAction(action)).toBe(true);
     }
   });

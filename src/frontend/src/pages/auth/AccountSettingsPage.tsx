@@ -327,7 +327,7 @@ export default function AccountSettingsPage() {
   // The form is inline, so after the return it simply reads the pending token;
   // the resume context is consumed so it cannot reopen anything later.
   useStepUpResume('change-password');
-  const passwordReauth = usePendingStepUpReauth('password_change');
+  const passwordReauth = usePendingStepUpReauth('password_change', null);
   const passwordReauthed = passwordReauth.hasToken;
   // #1847 — removing a sign-in method is a step-up too. Which provider was being
   // removed does not survive the round trip to the identity provider, so the
@@ -2044,6 +2044,7 @@ export default function AccountSettingsPage() {
         })}
         confirmLabel={t('pages.auth.unlinkProviderStepUpConfirm')}
         stepUpAction="provider_unlink"
+        stepUpTarget={unlinkTarget?.key}
         testIdPrefix="unlink-provider"
         onConfirm={handleUnlinkProvider}
         onCancel={() => setUnlinkTarget(null)}

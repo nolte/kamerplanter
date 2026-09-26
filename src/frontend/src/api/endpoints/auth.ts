@@ -104,7 +104,10 @@ export async function listProviders(): Promise<AuthProviderInfo[]> {
  * password or, for an account without one, `step_up_token` / `step_up_code` for
  * the act `provider_unlink`. Without it the backend answers 401.
  */
-export async function unlinkProvider(providerKey: string, stepUp?: CredentialStepUp): Promise<void> {
+export async function unlinkProvider(
+  providerKey: string,
+  stepUp?: CredentialStepUp,
+): Promise<void> {
   await client.delete(`${USERS}/me/providers/${encodeURIComponent(providerKey)}`, { data: stepUp });
 }
 
@@ -134,14 +137,19 @@ export async function changePassword(
 /**
  * E-mail a one-time step-up code for `action` to the signed-in user (#1815).
  *
- * The code confirms that act only (review SEC-003). Only for an account without
+ * The code confirms that act only (review SEC-003) and, for an act on something
+ * other than the own account, only `target` (#1884). Only for an account without
  * a local password — the backend answers 422 for one that has a password, 403
  * for an API-key caller and 429 `STEP_UP_LOCKED` while the step-up is throttled,
  * an unspent code is younger than a minute, or the hourly code budget is spent
  * (review SEC-002).
  */
-export async function requestStepUpCode(action: StepUpAction): Promise<StepUpCodeSent> {
+export async function requestStepUpCode(
+  action: StepUpAction,
+  target?: string,
+): Promise<StepUpCodeSent> {
   const body: StepUpCodeRequest = { action };
+  if (target) body.target = target;
   const res = await client.post<StepUpCodeSent>(`${USERS}/me/step-up-code`, body);
   return res.data;
 }
@@ -162,8 +170,10 @@ export async function startStepUpReauth(
   action: StepUpAction,
   providerKey?: string,
   clientNonce?: string,
+  target?: string,
 ): Promise<StepUpReauthStart> {
   const body: StepUpReauthRequest = { action };
+  if (target) body.target = target;
   if (providerKey) body.provider_key = providerKey;
   if (clientNonce) body.client_nonce = clientNonce;
   const res = await client.post<StepUpReauthStart>(`${USERS}/me/step-up/oidc`, body);
@@ -222,7 +232,9 @@ export async function revokeApiKey(keyId: string): Promise<void> {
  * (#1847): `stepUp` carries the current password or, for an account without
  * one, `step_up_token` / `step_up_code` for the act `device_pairing`.
  */
-export async function createDevicePairing(stepUp?: CredentialStepUp): Promise<DevicePairingCreated> {
+export async function createDevicePairing(
+  stepUp?: CredentialStepUp,
+): Promise<DevicePairingCreated> {
   const res = await client.post<DevicePairingCreated>(`${BASE}/device-pairing`, stepUp ?? null);
   return res.data;
 }

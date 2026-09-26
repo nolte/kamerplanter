@@ -58,7 +58,7 @@ describe('StepUpCallbackPage (#1815)', () => {
     expect(await screen.findByTestId('landed')).toHaveTextContent('/settings/account#account');
     expect(window.location.hash).toBe('');
     expect(window.location.href).not.toContain(TOKEN);
-    expect(peekPendingStepUpToken('account_erasure')).toBe(TOKEN);
+    expect(peekPendingStepUpToken('account_erasure', null)).toBe(TOKEN);
     expect(localStorage.length).toBe(0);
     const stored = JSON.parse(sessionStorage.getItem(STEP_UP_REAUTH_TOKEN_KEY) ?? '{}');
     expect(stored.expiresAt).toBeGreaterThan(Date.now() + 4 * 60 * 1000);
@@ -137,8 +137,8 @@ describe('StepUpCallbackPage (#1815)', () => {
 
     await screen.findByTestId('landed');
     expect(sessionStorage.getItem(STEP_UP_REAUTH_TOKEN_KEY)).toBeNull();
-    expect(peekPendingStepUpToken('account_erasure')).toBeNull();
-    expect(peekPendingStepUpToken('tenant_deletion')).toBeNull();
+    expect(peekPendingStepUpToken('account_erasure', null)).toBeNull();
+    expect(peekPendingStepUpToken('tenant_deletion', null)).toBeNull();
   });
 
   it('discards a token when the step-up was started more than 10 minutes ago', async () => {

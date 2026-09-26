@@ -210,13 +210,13 @@ describe('AdminEditUserPage — trust-raise step-up (#1857)', () => {
     const dialog = await screen.findByTestId('update-user-dialog');
     await userEvent.click(await within(dialog).findByTestId('update-user-send-code'));
 
-    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('admin_account_update'));
+    await waitFor(() => expect(auth.requestStepUpCode).toHaveBeenCalledWith('admin_account_update', 'target-key'));
   });
 
   it('sends a pending fresh-sign-in token as step_up_token', async () => {
     const token = ['re', 'auth', '-', 'tok', 'en'].join('');
     const { storePendingStepUpToken } = await import('@/utils/stepUpReauth');
-    storePendingStepUpToken(token, 'admin_account_update');
+    storePendingStepUpToken(token, 'admin_account_update', 'target-key');
     (auth.listProviders as ReturnType<typeof vi.fn>).mockResolvedValue([{ key: 'g', provider: 'google' }]);
     await renderPage();
 
@@ -232,5 +232,24 @@ describe('AdminEditUserPage — trust-raise step-up (#1857)', () => {
         expect.objectContaining({ email_verified: true, step_up_token: token }),
       ),
     );
+  });
+
+  it('does not send a token obtained on the page of another account (#1884)', async () => {
+    const token = ['re', 'auth', '-', 'tok', 'en'].join('');
+    const { storePendingStepUpToken, peekPendingStepUpToken } = await import('@/utils/stepUpReauth');
+    storePendingStepUpToken(token, 'admin_account_update', 'another-account');
+    (auth.listProviders as ReturnType<typeof vi.fn>).mockResolvedValue([{ key: 'g', provider: 'google' }]);
+    await renderPage();
+
+    await userEvent.click(switchInput('edit-user-email-verified-switch'));
+    await userEvent.click(screen.getByTestId('edit-user-save'));
+    const dialog = await screen.findByTestId('update-user-dialog');
+
+    // The dialog offers a fresh sign-in for *this* account instead of the other one's token.
+    expect(await within(dialog).findByTestId('update-user-reauth')).toBeInTheDocument();
+    expect(within(dialog).queryByTestId('update-user-reauth-done')).toBeNull();
+    expect(admin.updateAdminUser).not.toHaveBeenCalled();
+    // And the other account's token is left for that account's page.
+    expect(peekPendingStepUpToken('admin_account_update', 'another-account')).toBe(token);
   });
 });

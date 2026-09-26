@@ -503,6 +503,8 @@ class TenantService:
         return self._step_up_verifier.verify(
             requester,
             action="tenant_deletion",
+            # #1884 — a factor obtained to delete this tenant confirms this one only.
+            target=tenant_key,
             echo_ok=matches,
             password=confirmation.password,
             code=confirmation.step_up_code,
