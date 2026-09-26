@@ -356,6 +356,28 @@ SELECTORS: tuple[Selector, ...] = (
         why_undated="expires_at is required; a request whose expiry cannot be read is treated as expired",
     ),
     Selector(
+        name="email_change.close_revert_windows",
+        collection=col.EMAIL_CHANGE_REQUESTS,
+        base={
+            "user_key": USER,
+            "new_email": "new@example.com",
+            "verification_token_hash": "hash-not-a-secret",
+            "status": "confirmed",
+            "previous_email": "old@example.com",
+            "revert_token_hash": "revert-hash-not-a-secret",
+        },
+        field="revert_expires_at",
+        selects="before",
+        run=_flipped_by(
+            col.EMAIL_CHANGE_REQUESTS,
+            "revert_token_hash",
+            None,
+            lambda db, cut: ArangoEmailChangeRepository(db).close_revert_windows(cut),
+        ),
+        undated_selected=True,
+        why_undated="a revert token without a readable window is closed: the conservative reading (#1848)",
+    ),
+    Selector(
         name="invitation.cleanup_expired",
         collection=col.INVITATIONS,
         base={

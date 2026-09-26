@@ -82,6 +82,7 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-05 | Export-Dateien | Dateisystem (Export-Verzeichnis) | 72 Stunden nach Erstellung | Datei löschen, Status auf `expired` setzen | Art. 15/20 DSGVO, Zweckentfall | REQ-025 |
 | R-06 | Erasure-Audit-Logs | `erasure_requests` | 1 Jahr nach Abschluss | **Pseudonymisierung sofort nach User-Hard-Delete (`user_key` → Tombstone-Hash via REQ-025 §3.1 Phase 2.5), anschließend Hard-Delete des Audit-Eintrags nach 1 Jahr** <!-- W-002 --> | Art. 5(2) Rechenschaftspflicht + Art. 5(1)(e) Speicherbegrenzung | REQ-025 |
 | R-07 | E-Mail-Änderungsanfragen | `email_change_requests` | 24 Stunden nach Erstellung | Hard-Delete (abgelaufene Tokens) | Zweckentfall | REQ-025 **Teilweise implementiert** (Stand #1782): Nach Ablauf der Frist setzt `retention.expire_email_change_requests` den Status auf `expired`; ein Hard-Delete findet nicht statt (#1800). |
+| R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung (#1848) | `email_change_requests` (Felder: `previous_email`, `revert_token_hash`, `revert_expires_at`) | 7 Tage nach der Bestätigung (`RETENTION_EMAIL_CHANGE_REVERT_DAYS`) | Felder nullen | Zweckentfall: der Link, mit dem die vorherige Adresse das Konto zurückholt (REQ-025 AK-EC-04), ist abgelaufen | REQ-025 **Implementiert** (#1848): `retention.expire_email_change_requests` nullt die Felder im selben stündlichen Lauf. |
 | R-08 | Passwort-Reset-Tokens | `users` (Felder: `password_reset_token`, `password_reset_expires`) | 1 Stunde (besteht) | Token-Felder nullen | REQ-023 §1 | REQ-023 |
 | R-09 | E-Mail-Verifikations-Tokens | `users` (Felder: `email_verification_token`, `email_verification_expires`) | 24 Stunden (besteht) | Token-Felder nullen | REQ-023 §1 | REQ-023 |
 | R-10 | OAuth State | Redis | 5 Minuten (besteht, Redis TTL) | Automatische Bereinigung durch Redis | REQ-023 §3.2 | REQ-023 |
@@ -206,7 +207,7 @@ Jede Regel läuft als eigener Celery-Beat-Task mit einem Takt, der zu ihrer Fris
 | R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich | `RETENTION_IP_ANONYMIZATION_DAYS` |
 | R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` (bei Fertigstellung in `expires_at` festgeschrieben) |
 | R-06 | `retention.purge_expired_erasure_records` | täglich 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
-| R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` (beim Antrag in `expires_at` festgeschrieben) |
+| R-07, R-07a | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` (beim Antrag in `expires_at` festgeschrieben); `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (bei der Bestätigung in `revert_expires_at` festgeschrieben) |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (Status `expired`; die 30-Tage-Löschung fehlt, #1800) |
 
@@ -384,6 +385,7 @@ Helm-Chart dieses Repositorys betreibt keinen Log-Aggregator.
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 (die Frist selbst) | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
 
 Sind beide Namen gesetzt, gilt der `RETENTION_…`-Name. **Nicht implementiert** (kein Code liest sie, #1800): `CONSENT_RETENTION_YEARS` (R-04, kein Lösch-Task), `INVITATION_RETENTION_DAYS` (R-12, keine Löschung), `SENSOR_*` (R-14; die Intervalle stehen als Literale in `src/backend/app/data_access/timescale/migrations/003_retention_policies.sql`: 90 Tage, 2 Jahre, 5 Jahre; die ADR-003-Stufen je Klassifizierung sind nicht modelliert), `ACTOR_LOG_*` (R-15, es gibt keinen Aktor-Log-Speicher) und `HARVEST_DATA_MIN_…`/`TREATMENT_MIN_…`/`INSPECTION_MIN_…` (R-16..R-18: nichts löscht diese Daten automatisch, eine Untergrenze hätte nichts zu begrenzen). `ERASURE_TOMBSTONE_SALT` heißt im Code `ERASURE_TOMBSTONE_SALT` (ohne Präfix).
 

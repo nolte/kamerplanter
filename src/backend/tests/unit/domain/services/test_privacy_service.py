@@ -487,7 +487,7 @@ class TestEmailChange:
         assert change.status == "pending"
         assert str(change.new_email) == "new@example.com"
         email_change_repo.create.assert_called_once()
-        email_service.send_verification_email.assert_called_once()
+        email_service.send_email_change_email.assert_called_once()
 
     def test_email_change_to_a_taken_address_does_not_disclose_it(
         self,

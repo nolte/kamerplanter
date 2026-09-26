@@ -852,6 +852,7 @@ _PUBLIC_ALLOWLIST: dict[str, str] = {
     "auth.router.verify_email": "authorised by the emailed token",
     "auth.router.redeem_device_pairing": "authorised by the pairing code",
     "privacy.router.confirm_email_change": "authorised by the emailed token (REQ-025)",
+    "privacy.router.revert_email_change": "authorised by the token mailed to the previous address (REQ-025, #1848)",
     "ki_assistent.public_router.public_ask": "REQ-031 light-mode probe, published on purpose",
     # Authenticates from the API key in the REQUEST BODY, inside the handler, the
     # way `login` authenticates from a password — so it carries no transport

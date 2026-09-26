@@ -22,6 +22,14 @@ class IEmailChangeRepository(ABC):
     ) -> EmailChangeRequest: ...
 
     @abstractmethod
+    def get_by_revert_token_hash(self, token_hash: str) -> EmailChangeRequest | None:
+        """The confirmed change whose revert token hashes to *token_hash* (#1848)."""
+
+    @abstractmethod
+    def close_revert_windows(self, now_iso: str) -> int:
+        """Clear ``previous_email`` and the revert token of every change past ``revert_expires_at`` (NFR-011 R-07)."""
+
+    @abstractmethod
     def list_pending_for_user(self, user_key: UserKey) -> list[EmailChangeRequest]: ...
 
     @abstractmethod

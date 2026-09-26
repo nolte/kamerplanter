@@ -446,7 +446,6 @@ class AuthService:
         if self._require_email_verification and verification_token:
             self._email_service.send_verification_email(
                 to_email=email,
-                display_name=display_name,
                 token=verification_token,
                 frontend_url=self._frontend_url,
             )

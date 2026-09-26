@@ -58,13 +58,15 @@ class SmtpEmailAdapter(IEmailService):
             )
             raise
 
-    def send_verification_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
+    def send_verification_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        # Sent to an address nobody has verified yet: no requester-chosen text, not
+        # even escaped — a registrant picks the display name and the recipient (#1856).
         url = f"{frontend_url}/verify-email/{token}"
         html = f"""
         <h2>Email Verification</h2>
-        <p>Hello {display_name},</p>
+        <p>Hello,</p>
         <p>Please verify your email address by clicking the link below:</p>
-        <p><a href="{url}">Verify Email</a></p>
+        <p><a href="{escape(url)}">Verify Email</a></p>
         <p>This link expires in 24 hours.</p>
         """
         self._send(to_email, "Kamerplanter — Email Verification", html)
@@ -73,12 +75,25 @@ class SmtpEmailAdapter(IEmailService):
         url = f"{frontend_url}/password-reset/{token}"
         html = f"""
         <h2>Password Reset</h2>
-        <p>Hello {display_name},</p>
+        <p>Hello {escape(display_name)},</p>
         <p>Click the link below to reset your password:</p>
-        <p><a href="{url}">Reset Password</a></p>
+        <p><a href="{escape(url)}">Reset Password</a></p>
         <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>
         """
         self._send(to_email, "Kamerplanter — Password Reset", html)
+
+    def send_email_change_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        # To the requested new address (#1848): not verified, so no requester-chosen
+        # text (#1856). The link opens the page that confirms the change.
+        url = f"{frontend_url}/email-change/{token}"
+        html = f"""
+        <h2>Confirm your new email address</h2>
+        <p>Hello,</p>
+        <p>A Kamerplanter account asked to use this address from now on. To confirm, open the link below:</p>
+        <p><a href="{escape(url)}">Confirm the new email address</a></p>
+        <p>The link expires in 24 hours. If you did not expect this mail, ignore it — nothing changes.</p>
+        """
+        self._send(to_email, "Kamerplanter — Confirm your new email address", html)
 
     def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
         html = f"""

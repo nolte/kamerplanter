@@ -90,11 +90,12 @@ class TestConsoleAdapter:
     @pytest.mark.parametrize(
         "send",
         [
-            lambda a: a.send_verification_email(RECIPIENT, "Name", "tok", "https://app.test"),
+            lambda a: a.send_verification_email(RECIPIENT, "tok", "https://app.test"),
+            lambda a: a.send_email_change_email(RECIPIENT, "tok", "https://app.test"),
             lambda a: a.send_password_reset_email(RECIPIENT, "Name", "tok", "https://app.test"),
             lambda a: a.send_notification_email(RECIPIENT, "Subject", "<p>body</p>"),
         ],
-        ids=["verification", "password-reset", "notification"],
+        ids=["verification", "email-change", "password-reset", "notification"],
     )
     def test_every_mail_logs_the_digest(self, send: Any) -> None:
         with structlog.testing.capture_logs() as logs:
@@ -107,11 +108,18 @@ class TestConsoleAdapter:
 
 _LINK_MAILS = [
     pytest.param(
-        lambda a: a.send_verification_email(RECIPIENT, DISPLAY_NAME, TOKEN, "https://app.test"),
+        lambda a: a.send_verification_email(RECIPIENT, TOKEN, "https://app.test"),
         "email_verification",
         "verification_url",
         "https://app.test/verify-email/" + TOKEN,
         id="verification",
+    ),
+    pytest.param(
+        lambda a: a.send_email_change_email(RECIPIENT, TOKEN, "https://app.test"),
+        "email_change",
+        "email_change_url",
+        "https://app.test/email-change/" + TOKEN,
+        id="email-change",
     ),
     pytest.param(
         lambda a: a.send_password_reset_email(RECIPIENT, DISPLAY_NAME, TOKEN, "https://app.test"),

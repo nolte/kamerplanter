@@ -156,7 +156,7 @@ class TestNotificationGoesToTheTargetNotTheRequester:
 
         service.request_email_change(USER_KEY, TAKEN_EMAIL, **STEP_UP)
 
-        email_service.send_verification_email.assert_not_called()
+        email_service.send_email_change_email.assert_not_called()
 
     def test_target_address_is_told_what_was_attempted(self) -> None:
         service, _, email_service = _make_service()
@@ -178,7 +178,7 @@ class TestNotificationGoesToTheTargetNotTheRequester:
 
         service.request_email_change(USER_KEY, FREE_EMAIL, **STEP_UP)
 
-        email_service.send_verification_email.assert_called_once()
+        email_service.send_email_change_email.assert_called_once()
         # The only notice is the owner's own (#1841); the new address gets no "someone tried" mail.
         recipients = [c.kwargs["to_email"] for c in email_service.send_notification_email.call_args_list]
         assert recipients == [OWN_EMAIL]

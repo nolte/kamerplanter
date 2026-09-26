@@ -42,6 +42,52 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
             return None
         return EmailChangeRequest(**self._from_doc(docs[0]))
 
+    def get_by_revert_token_hash(self, token_hash: str) -> EmailChangeRequest | None:
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.revert_token_hash == @token_hash
+          LIMIT 1
+          RETURN doc
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.EMAIL_CHANGE_REQUESTS,
+                "token_hash": token_hash,
+            },
+        )
+        docs = list(cursor)
+        if not docs:
+            return None
+        return EmailChangeRequest(**self._from_doc(docs[0]))
+
+    def close_revert_windows(self, now_iso: str) -> int:
+        """Drop the previous address and the revert token once the window closed (NFR-011 R-07, #1848).
+
+        Compared as instants, like :meth:`expire_old`. A change with a revert token
+        but an unreadable window is closed too — the conservative reading.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.revert_token_hash != null
+            AND (
+              DATE_TIMESTAMP(doc.revert_expires_at) == null
+              OR DATE_TIMESTAMP(doc.revert_expires_at) < DATE_TIMESTAMP(@now)
+            )
+          UPDATE doc WITH {
+            previous_email: null, revert_token_hash: null, revert_expires_at: null, updated_at: @now
+          } IN @@collection OPTIONS { keepNull: true }
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.EMAIL_CHANGE_REQUESTS,
+                "now": now_iso,
+            },
+        )
+        return sum(1 for _ in cursor)
+
     def list_pending_for_user(self, user_key: UserKey) -> list[EmailChangeRequest]:
         query = """
         FOR doc IN @@collection

@@ -107,7 +107,7 @@ def test_the_console_adapter_logs_the_code_under_debug(monkeypatch: pytest.Monke
 
 def test_an_adapter_without_the_mail_refuses_loudly() -> None:
     class _Minimal(IEmailService):
-        def send_verification_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
+        def send_verification_email(self, to_email: str, token: str, frontend_url: str) -> None:
             return None
 
         def send_password_reset_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:

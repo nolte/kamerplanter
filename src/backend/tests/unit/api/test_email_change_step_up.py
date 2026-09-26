@@ -121,8 +121,39 @@ class _EmailChanges:
     def update(self, key: str, change: EmailChangeRequest) -> EmailChangeRequest:
         # Stored and read back through validation, as the Arango repository does:
         # a status the model does not know must fail here, not only in production.
-        self.rows[key] = EmailChangeRequest.model_validate(change.model_dump(by_alias=True))
+        # And in merge mode, as that repository writes (``_update_is_full_replace``
+        # is False): a ``None`` is dropped and the stored value survives (#1848).
+        incoming = {k: v for k, v in change.model_dump(by_alias=True).items() if v is not None}
+        stored = self.rows[key].model_dump(by_alias=True) if key in self.rows else {}
+        self.rows[key] = EmailChangeRequest.model_validate({**stored, **incoming})
         return self.rows[key]
+
+    def clear_fields(self, key: str, fields: dict) -> None:
+        """What an AQL ``UPDATE ... OPTIONS { keepNull: true }`` does: the named fields become null."""
+        self.rows[key] = EmailChangeRequest.model_validate({**self.rows[key].model_dump(by_alias=True), **fields})
+
+    def get_by_revert_token_hash(self, token_hash: str) -> EmailChangeRequest | None:
+        return next((c for c in self.rows.values() if c.revert_token_hash == token_hash), None)
+
+    def expire_old(self, now_iso: str) -> int:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        expired = [k for k, c in self.rows.items() if c.status == "pending" and c.expires_at < now]
+        for key in expired:
+            self.update(key, self.rows[key].model_copy(update={"status": "expired"}))
+        return len(expired)
+
+    def close_revert_windows(self, now_iso: str) -> int:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        closed = 0
+        for key, change in list(self.rows.items()):
+            if change.revert_token_hash and (change.revert_expires_at is None or change.revert_expires_at < now):
+                self.clear_fields(key, {"previous_email": None, "revert_token_hash": None, "revert_expires_at": None})
+                closed += 1
+        return closed
 
     def list_pending_for_user(self, user_key: str) -> list[EmailChangeRequest]:
         # A copy, as the Arango repository returns fresh documents: a caller that
@@ -350,7 +381,7 @@ def test_a_passed_step_up_opens_the_request_and_mails_the_new_address() -> None:
 
     assert resp.status_code == 201, resp.text
     assert len(world.changes.rows) == 1
-    assert world.privacy_mail.send_verification_email.call_args.kwargs["to_email"] == world.new_email
+    assert world.privacy_mail.send_email_change_email.call_args.kwargs["to_email"] == world.new_email
 
 
 def test_the_current_address_is_told_at_the_request() -> None:
@@ -374,7 +405,7 @@ def test_the_current_address_is_told_in_the_taken_branch_too() -> None:
     assert not world.changes.rows
     (notice,) = world.notices_to(world.email)
     assert TAKEN in notice["html_body"]
-    world.privacy_mail.send_verification_email.assert_not_called()
+    world.privacy_mail.send_email_change_email.assert_not_called()
 
 
 def test_a_refused_step_up_sends_nothing_to_either_address() -> None:
@@ -388,7 +419,7 @@ def test_a_refused_step_up_sends_nothing_to_either_address() -> None:
 def test_the_old_address_is_told_at_the_confirmation() -> None:
     world = _World()
     world.change(password=PASSWORD)
-    token = world.privacy_mail.send_verification_email.call_args.kwargs["token"]
+    token = world.privacy_mail.send_email_change_email.call_args.kwargs["token"]
     world.privacy_mail.reset_mock()
 
     resp = world.post("/api/v1/privacy/email-change/confirm", {"token": token})
@@ -399,7 +430,8 @@ def test_the_old_address_is_told_at_the_confirmation() -> None:
     body = notice["html_body"]
     assert world.new_email in body
     assert "session" in body.lower()
-    assert "revert" not in body.lower()
+    # Since #1848 the notice carries the way back (tests/unit/api/test_email_change_revert.py).
+    assert "https://app.test/email-change/revert/" in body
     world.refresh_tokens.revoke_all_for_user.assert_called_with(world.key)
 
 
@@ -412,7 +444,7 @@ NEW_PASSWORD = "-".join(["a", "fresh", "owner", "passphrase"])
 def _pending_change_token(world: _World) -> str:
     resp = world.change(password=PASSWORD)
     assert resp.status_code == 201, resp.text
-    return world.privacy_mail.send_verification_email.call_args.kwargs["token"]
+    return world.privacy_mail.send_email_change_email.call_args.kwargs["token"]
 
 
 def _confirm(world: _World, token: str):  # noqa: ANN202 - httpx Response
@@ -542,7 +574,7 @@ def test_a_failing_old_address_notice_does_not_undo_the_confirmation(failure) ->
     """/code-review of #1862: the notice is sent after the change is committed; a failure must not answer 500."""
     world = _World()
     world.change(password=PASSWORD)
-    token = world.privacy_mail.send_verification_email.call_args.kwargs["token"]
+    token = world.privacy_mail.send_email_change_email.call_args.kwargs["token"]
     world.privacy_mail.send_notification_email.side_effect = failure()
 
     resp = world.post("/api/v1/privacy/email-change/confirm", {"token": token})
