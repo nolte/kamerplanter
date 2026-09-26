@@ -1777,6 +1777,8 @@ def get_privacy_service():
         pest_image_repo=get_pest_image_repo(),
         pest_prototype_store=get_pest_prototype_store(),
         personal_data_repo=get_personal_data_repo(),
+        auth_provider_repo=get_auth_provider_repo(),
+        api_key_repo=get_api_key_repo(),
         erasure_executor=get_erasure_executor(),
         # #1788 — the account erasure erases the subject's personal tenant
         # through the tenant-erasure inventory of #1769.

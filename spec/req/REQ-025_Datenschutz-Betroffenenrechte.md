@@ -7,7 +7,7 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.16 (Betreiber-Entscheid Variante 1 zu #1815: E-Mail-Änderung bestätigt sich ohne lokales Passwort primär über eine frische OIDC-Anmeldung, der E-Mail-Code ist nur noch Ausweichweg für ausschließlich GitHub/Apple — v1.15 /code-review of #1862: zustandslose Prüfungen der E-Mail-Änderung laufen jetzt vor dem Step-up, nur der Adress-Nachschlag bleibt dahinter — v1.14 #1841: Step-up auf der E-Mail-Änderung, AK-06 umgesetzt — v1.13 #1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
+Version: 1.17 (#1848/#1856: eigene Mail und Seite für die E-Mail-Änderung, Formular in den Kontoeinstellungen, Rückgängig-Link an die vorherige Adresse; keine vom Anfragenden gewählten Texte in Mails an unbestätigte Adressen — v1.16 Betreiber-Entscheid Variante 1 zu #1815: E-Mail-Änderung bestätigt sich ohne lokales Passwort primär über eine frische OIDC-Anmeldung, der E-Mail-Code ist nur noch Ausweichweg für ausschließlich GitHub/Apple — v1.15 /code-review of #1862: zustandslose Prüfungen der E-Mail-Änderung laufen jetzt vor dem Step-up, nur der Adress-Nachschlag bleibt dahinter — v1.14 #1841: Step-up auf der E-Mail-Änderung, AK-06 umgesetzt — v1.13 #1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt)
 Abhängigkeit: REQ-023 v1.18 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.5 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.17 | 2026-09-26 | **E-Mail-Änderung vollständig (#1848) und Mail-Texte ohne fremdes Markup (#1856):** Die neue Adresse erhält eine eigene Mail mit dem Link `{frontend}/email-change/{token}`; die Seite ruft `POST /privacy/email-change/confirm` auf. Bis dahin öffnete der Link die Kontobestätigungsseite (`POST /auth/verify-email`), die den Token ablehnte. Die Kontoeinstellungen haben ein Formular für die E-Mail-Änderung mit Step-up (REQ-023 §3.9). Die Info-Mail an die vorherige Adresse enthält einen Rückgängig-Link (`{frontend}/email-change/revert/{token}` → `POST /privacy/email-change/revert`): einmalig, gültig `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (7 Tage). Er stellt die vorherige Adresse als bestätigt wieder her, sofern sie noch frei ist, meldet alle Sitzungen ab, entwertet einen Passwort-Reset-Token, widerruft offene E-Mail-Änderungen, entfernt seit der Beantragung verknüpfte föderierte Anmeldewege, widerruft seit der Beantragung erstellte API-Keys und schließt die Rückgängig-Fenster später bestätigter Änderungen; die Adresse, die das Konto dabei wieder verlässt, wird benachrichtigt. Mails an eine noch nicht bestätigte Adresse (Registrierung, E-Mail-Änderung) enthalten keinen vom Anfragenden gewählten Text mehr (kein Anzeigename); jeder andere Platzhalter in HTML-Mails wird escaped. `EmailChangeRequest` erhält `previous_email`, `revert_token_hash`, `revert_expires_at`, `reverted_at` und den Status `reverted`. Aufbewahrung in NFR-011 R-07. Neue **AK-EC-03**, **AK-EC-04**. |
 | 1.16 | 2026-09-26 | **Frische OIDC-Anmeldung als Regelfall der E-Mail-Änderung ohne lokales Passwort (#1815, Betreiber-Entscheid Variante 1, siehe REQ-023 §3.9):** `POST /privacy/email-change` nimmt zusätzlich `step_up_token` — den Regelfall für ein Konto mit mindestens einem OIDC-fähigen verknüpften Anbieter (Google, generisches OIDC); der per E-Mail zugeschickte Code (`step_up_code`) bleibt nur für ein Konto, dessen Anbieter ausschließlich GitHub und/oder Apple sind. §3.2-Pseudocode, der §3.3-Absatz zum Step-up, das Schema und **AK-EC-01** entsprechend präzisiert. |
 | 1.15 | 2026-09-25 | **Prüfreihenfolge der E-Mail-Änderung präzisiert (/code-review of #1862):** Nur die zustandslosen Prüfungen der neuen Adresse (identisch mit der eigenen, reservierte Tombstone-Domain — beide 422) laufen vor dem Step-up nach REQ-023 §3.9; sie verbrauchen deshalb keinen per E-Mail zugeschickten Code und keinen gedrosselten Versuch. Der Nachschlag, ob die Adresse bereits vergeben ist, bleibt weiterhin hinter dem Step-up (kein Adress-Orakel ohne bestandene Bestätigung). §3.2-Pseudocode und **AK-EC-01** entsprechend präzisiert — keine Verhaltensänderung außer der Reihenfolge der beiden 422-Prüfungen. |
 | 1.14 | 2026-09-25 | **#1841 Step-up auf der E-Mail-Änderung; AK-06 jetzt umgesetzt:** `POST /privacy/email-change` läuft durch denselben Step-up wie die Kontolöschung (REQ-023 §3.9) — das aktuelle Passwort bei lokalem Konto, sonst der per E-Mail zugeschickte Einmalcode (`step_up_code`, #1815); API-Key/Service Account 403, gedrosselt im selben Budget (429 `STEP_UP_LOCKED`), geprüft **bevor** die neue Adresse validiert oder nachgeschlagen wird, damit die Route ohne bestandenen Step-up nichts über belegte Adressen verrät. Die **aktuelle** Adresse wird jetzt bei jeder Beantragung benachrichtigt (neu, beide Zweige — freie und bereits vergebene Adresse), die **alte** weiterhin bei der Bestätigung (AK-06, jetzt umgesetzt). Ein Passwort-Reset, eine Passwortänderung (beide hinter dem Step-up) und "alle Sitzungen abmelden" widerrufen jetzt eine offene E-Mail-Änderung — sie kann danach nicht mehr bestätigt werden. Offen bleibt: keine eigene Oberfläche für die E-Mail-Änderung und kein Rückgängig-Link nach einer Bestätigung (#1848). Neue **AK-EC-01**, **AK-EC-02**. |
@@ -201,9 +202,13 @@ umkehrbar und darf ihr Passwort nicht verlieren.
     - `user_key: str` (Referenz auf `users`)
     - `new_email: str` (gewünschte neue E-Mail)
     - `verification_token_hash: str` (SHA-256 Hash des Tokens)
-    - `status: Literal['pending', 'confirmed', 'expired']`
+    - `status: Literal['pending', 'confirmed', 'expired', 'cancelled', 'reverted']`
     - `requested_at: datetime`
     - `expires_at: datetime` (24h nach Erstellung)
+    - `previous_email: Optional[str]` (die bei der Bestätigung verlassene Adresse; nur bis `revert_expires_at`, #1848)
+    - `revert_token_hash: Optional[str]` (Hash des Rückgängig-Tokens; nur bis `revert_expires_at`, #1848)
+    - `revert_expires_at: Optional[datetime]` (Bestätigung + `RETENTION_EMAIL_CHANGE_REVERT_DAYS`)
+    - `reverted_at: Optional[datetime]`
     - `confirmed_at: Optional[datetime]`
 
 ### Edges:
@@ -663,7 +668,8 @@ class PrivacyService:
         #    an deren Inhaber statt Fehler, #957 — Route bleibt indistinguishable)
         # 4. Generiert Verifikations-Token (secrets.token_urlsafe(32))
         # 5. Speichert EmailChangeRequest mit Token-Hash
-        # 6. Sendet Verifikations-E-Mail an NEUE Adresse
+        # 6. Sendet die E-Mail-Änderungs-Mail an die NEUE Adresse: Link
+        #    {frontend}/email-change/{token}, kein Anzeigename (#1848, #1856)
         # 7. Benachrichtigt die AKTUELLE Adresse über die Beantragung (#1841, AK-06)
 
     def confirm_email_change(self, token: str) -> User: ...
@@ -672,8 +678,19 @@ class PrivacyService:
         # 3. Aktualisiert User.email
         # 4. Setzt email_verified: true (neue Adresse wurde ja verifiziert)
         # 5. Invalidiert alle Refresh Tokens (Neuanmeldung)
-        # 6. Sendet Info-E-Mail an ALTE Adresse (AK-06)
-        # 7. Setzt Request status: confirmed
+        # 6. Setzt Request status: confirmed, speichert previous_email, den Hash eines
+        #    Rückgängig-Tokens und revert_expires_at (#1848)
+        # 7. Sendet Info-E-Mail an ALTE Adresse mit dem Rückgängig-Link (AK-06, AK-EC-03)
+
+    def revert_email_change(self, token: str) -> User: ...
+        # Öffentlich, Token aus der Info-Mail an die vorherige Adresse (#1848):
+        # 1. Findet den bestätigten Request per Rückgängig-Token-Hash; unbekannt,
+        #    bereits verwendet oder abgelaufen ⇒ 401 (derselbe Fehler)
+        # 2. Vorherige Adresse inzwischen von einem anderen Konto belegt ⇒ 422
+        # 3. Setzt User.email zurück, email_verified: true, löscht
+        #    password_reset_token/-expires (der Reset-Link ging an die neue Adresse)
+        # 4. Invalidiert alle Refresh Tokens, widerruft offene E-Mail-Änderungen
+        # 5. Setzt Request status: reverted (einmalig)
 
     # Ein Passwort-Reset, eine Passwortänderung (beide hinter dem Step-up) und "alle
     # Sitzungen abmelden" setzen jede offene EmailChangeRequest des Kontos auf
@@ -831,6 +848,9 @@ class EmailChangeCreateRequest(BaseModel):  # Step-up nach REQ-023 §3.9 (#1841)
     step_up_code: Optional[str] = None  # Code aus POST /users/me/step-up-code — nur Ausweichweg (ausschließlich GitHub/Apple, #1815)
 
 class EmailChangeConfirmRequest(BaseModel):
+    token: str
+
+class EmailChangeRevertRequest(BaseModel):  # POST /privacy/email-change/revert (#1848)
     token: str
 
 # --- Löschung (Art. 17) ---
@@ -1294,6 +1314,8 @@ pages.privacy.objection.title: "Widerspruch"
 <!-- Quelle: #1841 (REQ-023 §3.9) -->
 | AK-EC-01 | **Keine E-Mail-Änderung ohne Step-up:** `POST /privacy/email-change` prüft den Step-up nach REQ-023 §3.9, bevor die neue Adresse **nachgeschlagen** wird (ob sie bereits vergeben ist): das aktuelle Passwort bei lokalem Konto (401 sonst); ohne lokales Passwort ein `step_up_token` aus einer frischen Anmeldung beim verknüpften OIDC-Provider (401 `STEP_UP_REAUTH_REQUIRED` ohne, wenn ein solcher Anbieter verknüpft ist), sonst — nur bei ausschließlich GitHub/Apple — der per E-Mail zugeschickte Einmalcode (401 `STEP_UP_CODE_REQUIRED` ohne, #1815); 403 für eine API-Key-Anfrage oder ein Dienstkonto, 429 `STEP_UP_LOCKED` im selben Budget wie jeder andere Step-up des Kontos. Nur die zustandslosen Prüfungen (neue Adresse identisch mit der eigenen, reservierte Tombstone-Domain — beide 422) laufen davor und verbrauchen deshalb keinen Code, keine frische Anmeldung und keinen gedrosselten Versuch (/code-review of #1862). Die aktuelle Adresse wird in beiden Zweigen (freie und bereits vergebene Adresse) über die Beantragung benachrichtigt. | 16 | Unit (Route) |
 | AK-EC-02 | **Ein Passwort-Reset, eine Passwortänderung und "alle Sitzungen abmelden" widerrufen eine offene E-Mail-Änderung:** Alle drei Vorgänge setzen jede `pending` `EmailChangeRequest` des Kontos auf `cancelled`; eine Bestätigung mit deren Token antwortet danach mit demselben Fehler wie ein abgelaufener Token. Ohne dies bliebe eine im Postfach der neuen Adresse gelesene Bestätigungs-Mail wirksam, selbst nachdem die Eigentümerin ihr Konto durch den Reset zurückgeholt hat. | 16 | Unit + Integration |
+| AK-EC-03 | **Eigene Mail, eigene Seite, eigenes Formular (#1848):** Die Mail an die neue Adresse verlinkt `{frontend}/email-change/{token}`; die Seite bestätigt über `POST /privacy/email-change/confirm`. Die Kontoeinstellungen bieten die E-Mail-Änderung mit Step-up an (REQ-023 §3.9) und zeigen `STEP_UP_LOCKED` an. Die Mail an eine noch nicht bestätigte Adresse (Registrierung, E-Mail-Änderung) enthält keinen vom Anfragenden gewählten Text; jeder andere Platzhalter einer HTML-Mail wird escaped (#1856). | 16 | Unit + Vitest |
+| AK-EC-04 | **Rückgängig durch die vorherige Adresse (#1848):** Die Info-Mail an die vorherige Adresse enthält einen einmaligen Link, gültig `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (Standard 7 Tage). `POST /privacy/email-change/revert` stellt die vorherige Adresse als bestätigt wieder her, sofern sie noch frei ist (sonst 422), und nimmt zurück, was eine Übernahme über die Änderung hinterlassen haben kann: alle Sitzungen, einen offenen Passwort-Reset-Token, offene E-Mail-Änderungen, seit der Beantragung verknüpfte föderierte Anmeldewege (ein automatisch verknüpftes Google-/OIDC-Konto meldet sonst per `sub` weiter an) und seit der Beantragung erstellte API-Keys. Ältere Anmeldewege und Keys bleiben. Später bestätigte Änderungen desselben Kontos werden `superseded`: Ihr Rückgängig-Link kann die Rücknahme nicht wieder aufheben. Frühere Fenster bleiben offen. Die Bestätigung und die Rücknahme setzen den Status atomar (compare-and-set) und schreiben die Adresse nur, solange das Konto noch die gelesene Adresse trägt (compare-and-set auf `users.email`); wer ein solches Rennen verliert, gibt seinen Anspruch zurück — der Token bleibt gültig (409, erneut versuchen). Solange das Fenster offen ist, ist die vorherige Adresse **reserviert**: eine Registrierung (lokal oder per OIDC) und die E-Mail-Änderung eines anderen Kontos auf diese Adresse werden wie bei einer vergebenen Adresse behandelt. Die Adresse, die das Konto dabei verlässt, erhält eine Nachricht mit festem Text. Ein unbekannter, bereits verwendeter oder abgelaufener Token antwortet 401, ein zur Löschung geschlossenes Konto 409 `ACCOUNT_BEING_ERASED`; in beiden Fällen bleibt der Token unverbraucht. `previous_email` und der Token-Hash werden mit dem Ablauf des Fensters gelöscht (NFR-011 R-07a). **Restrisiko:** Wer die vorherige Adresse liest — etwa weil sie der Grund für den Wechsel war —, kann das Konto innerhalb des Fensters zurückholen; die neue Adresse wird darüber informiert. | 16 | Unit + Integration |
 <!-- /Quelle: #1841 (REQ-023 §3.9) -->
 **Bekannte Lücke (#1841, #1848).** Es gibt noch keine eigene Oberfläche für die E-Mail-Änderung — die Kontoeinstellungen zeigen die Adresse nur schreibgeschützt an, §4.2 sieht dafür keinen Tab vor — und keinen Rückgängig-Link nach einer Bestätigung.
 

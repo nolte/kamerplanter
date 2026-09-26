@@ -1,4 +1,5 @@
 from arango.database import StandardDatabase
+from arango.exceptions import AQLQueryExecuteError
 
 from app.common.types import UserKey
 from app.data_access.arango import collections as col
@@ -111,6 +112,44 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
             return None
         merged = existing.model_copy(update=fields)
         return super().update(key, merged)
+
+    def move_email(self, key: UserKey, expected_email: str, fields: dict) -> User | None:
+        """Compare-and-set on the address in one AQL write (#1848).
+
+        The e-mail confirmation and the revert each read the account, check, then
+        write it. Two of them racing — a confirmation in flight against the
+        owner's revert, or the reverts of two chained changes — both saw the
+        address they expected; this write lands only for the one whose
+        expectation still holds. ``fields`` is a fixed, named set (address,
+        verified flag, cleared reset token), so the partial ``UPDATE`` needs none
+        of :meth:`update_fields`' model re-validation; ``keepNull`` makes a
+        ``None`` clear its attribute, as the full-replace mode of this collection
+        does.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key AND LOWER(doc.email) == LOWER(@expected)
+          UPDATE doc WITH MERGE(@fields, { updated_at: @now }) IN @@collection OPTIONS { keepNull: true }
+          RETURN NEW
+        """
+        try:
+            cursor = self._db.aql.execute(
+                query,
+                bind_vars={
+                    "@collection": col.USERS,
+                    "key": key,
+                    "expected": expected_email,
+                    "fields": fields,
+                    "now": self._now(),
+                },
+            )
+        except AQLQueryExecuteError as exc:
+            mapped = self._mapped_insert_error(exc, col.USERS, fields)
+            if mapped is not None:
+                raise mapped from exc
+            raise
+        docs = list(cursor)
+        return User(**self._from_doc(docs[0])) if docs else None
 
     def get_by_email(self, email: str) -> User | None:
         query = "FOR doc IN @@collection FILTER LOWER(doc.email) == LOWER(@email) LIMIT 1 RETURN doc"
