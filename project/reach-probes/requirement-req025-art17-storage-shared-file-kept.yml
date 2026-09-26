@@ -1,6 +1,6 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: pending (set by the orchestrating session).
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-26 (probe re-anchoring after #1862/#1893 touched only unrelated REQ-025 sections; migrated to section anchors per #1840).
 #
 # Re-confirmed (not re-derived) after REQ-025 changed again past #1846: derived_from 9cacdb752
 # predates 76e7f4272 (#1862, step-up for the e-mail change) and e12868385 (#1893, e-mail-change
@@ -18,6 +18,9 @@ declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
   location: AK-OS-08 (L1243)
+  sections:
+  - row: "AK-OS-08"
+    digest: 2497c5e43fbe3f57e263bf1270ca46047323cb85fd3a461d162d8d8cd014b48b
 tier: T2
 expected:
   kind: set
@@ -27,7 +30,7 @@ expected:
   - holder-file/present
   - holder-link/present
   - subject-link/absent
-derived_from: blob:60be601a255858aecc7a87f43b3cf2152e65da96
+derived_from: sections:efd75928c8831dd462fd35ad79469bfec01a56bf8f3dc91751a598f5dbaaccfe
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -44,6 +47,6 @@ observe:
   timeout_seconds: 120
 approval:
   observation_digest: 4bf6a8bda34a95972899a0456799f28a9e2a37c651696a8254ca5879d4e127f2
-  approved_by: TO_BE_SET_BY_MAIN_SESSION
-  approved_at: TO_BE_SET_BY_MAIN_SESSION
-  mode: reconfirmed
+  approved_by: nolte
+  approved_at: '2026-09-26T10:27:22Z'
+  mode: derived

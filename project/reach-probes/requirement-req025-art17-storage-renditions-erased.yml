@@ -1,6 +1,6 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: pending (set by the orchestrating session).
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-26 (probe re-anchoring after #1862/#1893 touched only unrelated REQ-025 sections; migrated to section anchors per #1840).
 #
 # Re-confirmed (not re-derived) after REQ-025 changed again past #1846: derived_from 9cacdb752
 # predates 76e7f4272 (#1862, step-up for the e-mail change) and e12868385 (#1893, e-mail-change
@@ -17,13 +17,20 @@ declaration:
   source: requirement
   path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
   location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L268); §3.5 Phase 0 (L905-947); AK-OS-06 (L1239)
+  sections:
+  - heading: "3.1.1"
+    digest: 4d7fcededcc5f66e8bc2ea464c0be33a8b8ad77b2174dcd8dab66cd3fe78ca47
+  - heading: "3.5"
+    digest: 05c138c6ff154f56a2a78cd44046a20fda70aeeb41510fae30aa9697891ca81c
+  - row: "AK-OS-06"
+    digest: 156ab046aeed54392ec5083987e4dade57ae4fc313e282d2609588e464f638f5
 tier: T2
 expected:
   kind: set
   unit: per-category state of the seeded files' renditions after erasure finalisation
   values:
   - renditions-deleted/pest_reference
-derived_from: blob:60be601a255858aecc7a87f43b3cf2152e65da96
+derived_from: sections:be7aefc3af9ddc0ecb8fcdecd4e5ffc4e025e69306994c591ac7c74b8db6376c
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -40,6 +47,6 @@ observe:
   timeout_seconds: 120
 approval:
   observation_digest: a4aec0d25980c17a7b1c9bafefd8bae5bd4debd8e24ed78e3713672997490620
-  approved_by: TO_BE_SET_BY_MAIN_SESSION
-  approved_at: TO_BE_SET_BY_MAIN_SESSION
-  mode: reconfirmed
+  approved_by: nolte
+  approved_at: '2026-09-26T10:27:22Z'
+  mode: derived
