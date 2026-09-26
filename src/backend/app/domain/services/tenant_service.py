@@ -25,7 +25,7 @@ from app.common.exceptions import (
     WriteConflictError,
 )
 from app.common.log_privacy import log_subject
-from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
@@ -411,7 +411,7 @@ class TenantService:
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
-        requested_by = ErasureEngine.log_subject(requester.key or "", self._tombstone_salt)
+        requested_by = log_subject(requester.key)
         logger.info(
             "tenant_erasure.authorized",
             tenant_key=tenant_key,
@@ -687,7 +687,7 @@ class TenantService:
                         # #1791 provenance fields: the erased account as the salted
                         # log reference (never its key), and an explicit statement
                         # that no interactive step-up belongs to this deletion.
-                        requested_by_subject=ErasureEngine.log_subject(subject_user_key, self._tombstone_salt),
+                        requested_by_subject=log_subject(subject_user_key),
                         step_up="account_erasure_no_interactive_step_up",
                         slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
                         requested_at=now,
@@ -740,6 +740,14 @@ class TenantService:
             ErasureEngine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
         except ValueError:
             return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        # #1812 review SEC-001: the record's ``requested_by_subject`` (and the
+        # redacted error texts it keeps) are log pseudonyms. Without the log salt
+        # they would be persisted as the constant ``anon_unavailable`` — a proof
+        # that no longer says who asked for the erasure. Refused like the
+        # tombstone salt, before anything changes (the start gate does not run
+        # with DEBUG=true).
+        if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
+            return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
         if self._reference_index_store is not None:
             reference_error = self._reference_index_store.configuration_error()
             if reference_error is not None:

@@ -38,6 +38,7 @@ def _sane_start(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the sibling receivers inert: a valid salt, no DSN, no SDK initialisation."""
     monkeypatch.delenv("SENTRY_DSN", raising=False)
     monkeypatch.setattr(settings, "erasure_tombstone_salt", "x" * 32)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "l" * 32)  # the #1812 gate
 
 
 def _errors(responses: list) -> list:

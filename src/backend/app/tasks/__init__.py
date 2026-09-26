@@ -3,7 +3,7 @@ from celery import Celery
 from celery.schedules import crontab
 from celery.signals import after_setup_logger, after_setup_task_logger, beat_init, celeryd_init, worker_process_init
 
-from app.config.constants import MIN_TOMBSTONE_SALT_LENGTH
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
@@ -107,6 +107,28 @@ def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
     raise SystemExit(msg)
 
 
+def _refuse_worker_start_without_log_pseudonym_salt(**_kwargs: object) -> None:
+    """Stop the worker when ``LOG_PSEUDONYM_SALT`` is unusable outside debug (#1812).
+
+    The worker writes the same subject references and e-mail digests as the API
+    (retention, erasure and notification tasks); without the salt every one of
+    them is the constant ``anon_unavailable``/``unavailable`` and the lines of
+    different accounts become indistinguishable, silently. The API refuses to
+    start in that configuration (``app.main.insecure_default_secrets``).
+
+    ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives. The message names the setting, never its value.
+    """
+    if settings.debug or len(settings.log_pseudonym_salt) >= MIN_LOG_PSEUDONYM_SALT_LENGTH:
+        return
+    structlog.get_logger().critical("insecure_defaults", fields=["log_pseudonym_salt"])
+    raise SystemExit(
+        "FATAL: LOG_PSEUDONYM_SALT is missing or shorter than "
+        f"{MIN_LOG_PSEUDONYM_SALT_LENGTH} characters (NFR-011 §3.4). Set it to the same "
+        "value as the backend before running the worker in production."
+    )
+
+
 def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
     """Stop the worker when ``FERNET_KEY`` is missing or malformed outside debug (#1859).
 
@@ -136,6 +158,7 @@ def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
 # The salt gate runs on ``celeryd_init`` only — the worker program. Beat
 # schedules, it runs no task and writes no subject reference.
 celeryd_init.connect(_refuse_worker_start_without_tombstone_salt, weak=False)
+celeryd_init.connect(_refuse_worker_start_without_log_pseudonym_salt, weak=False)
 # The key gate likewise: beat stores no secret (#1859).
 celeryd_init.connect(_refuse_worker_start_without_a_usable_fernet_key, weak=False)
 # Worker and beat both set up logging through ``app.log.setup``; see the docstring.
