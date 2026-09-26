@@ -15,9 +15,13 @@ enforces three more, over every tracked text file (``git ls-files``):
 * **URL userinfo password** — ``scheme://user:<password>@``.
 
 **Evident placeholders pass** (§16.3 allows them): a value with a template
-marker (``${…}``, ``{…}``, ``[…]``, ``<…>``), or one whose Shannon entropy is
-below :data:`PLACEHOLDER_ENTROPY` bits per character — ``kp_live_xxxx…``,
-``kp_demo0000…``, ``user:pass@``, ``pw-1795``. Everything else fails unless its
+marker (``${…}``, ``{…}``, ``[…]``, ``<…>``); for the two long shapes (key,
+JWT) one whose Shannon entropy is below :data:`PLACEHOLDER_ENTROPY` bits per
+character (``kp_live_xxxx…``, ``kp_demo0000…``); for a URL password a
+placeholder *word* (``pass``, ``password``, ``pw``, ``secret``, ``changeme``,
+optionally with a number: ``pw-1795``) or a run of one character. Entropy per
+character cannot judge a short password — it is at most log2(length), so
+every 7-character value would pass (/code-review of #1896). Everything else fails unless its
 ``(path, sha256 of the value)`` is in :data:`ALLOWED` with a reason; an entry
 that no longer matches fails too.
 
@@ -63,7 +67,7 @@ ALLOWED: dict[tuple[str, str], str] = {
     (
         "spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md",
         "d57829edd394cabfff7842d7084f3b2f7b0290e790892c78f5c32e5b844b3f5c",
-    ): "a Prometheus metric name (kp_auth_token_family_invalidated_total), not a key",
+    ): "a Prometheus metric name (the auth token-family invalidation counter), not a key",
     (
         "spec/dev-tooling/INTEGRATION-DB-ISOLATION.md",
         "5e10d4f1ac2ab2fa827c29bf4db7ac154953a2da291dfc2d4eca4de0d34618de",
@@ -76,8 +80,18 @@ def entropy(value: str) -> float:
     return -sum(n / len(value) * math.log2(n / len(value)) for n in counts.values())
 
 
-def is_placeholder(value: str) -> bool:
-    return bool(_TEMPLATE.search(value)) or entropy(value) < PLACEHOLDER_ENTROPY
+#: A URL-password placeholder: a placeholder word, optionally with a number, or one repeated character.
+_PASSWORD_PLACEHOLDER = re.compile(
+    r"^(?:(?:p|pw|pass|passwd|password|passwort|secret|changeme|test)(?:[-_]?\d+)?|(.)\1*)$", re.IGNORECASE
+)
+
+
+def is_placeholder(value: str, shape: str = "kp_api_key") -> bool:
+    if _TEMPLATE.search(value):
+        return True
+    if shape == "url_password":
+        return bool(_PASSWORD_PLACEHOLDER.match(value))
+    return entropy(value) < PLACEHOLDER_ENTROPY
 
 
 def shaped_literals_in(text: str) -> list[tuple[str, str]]:
@@ -86,7 +100,7 @@ def shaped_literals_in(text: str) -> list[tuple[str, str]]:
     for shape, pattern in SHAPES.items():
         for match in pattern.finditer(text):
             value = match.group(1)
-            if not is_placeholder(value):
+            if not is_placeholder(value, shape):
                 found.append((shape, value))
     return found
 
@@ -154,6 +168,12 @@ def test_evident_placeholders_pass() -> None:
         "scheme://user:[password]@host",
     ):
         assert shaped_literals_in(text) == [], text
+
+
+def test_a_short_real_looking_url_password_is_seen() -> None:
+    """Per-character entropy of a 7-character value is at most log2(7) ≈ 2.8 — it must not decide (#1896 review)."""
+    short = "".join(("Tr", "0ub", "4d"))
+    assert shaped_literals_in(f"postgresql://app:{short}@db/x") == [("url_password", short)]
 
 
 def test_the_boundaries_hold() -> None:
