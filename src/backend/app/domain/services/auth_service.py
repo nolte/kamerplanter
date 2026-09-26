@@ -381,7 +381,12 @@ class AuthService:
         # brand-new account would carry, so it matches what a genuine
         # registration returns field for field.
         existing = self._user_repo.get_by_email(email)
-        if existing is not None:
+        # An address held for the revert of a confirmed e-mail change counts as
+        # taken (/code-review of #1893): an account registered on it — no mailbox
+        # access needed, registration is unverified — made every revert answer
+        # "taken". No notice: the holder's current address may be the attacker's.
+        reserved = existing is None and self._address_held_for_revert(email)
+        if existing is not None or reserved:
             logger.info("registration_duplicate_suppressed", email_sha256=email_digest(email))
             # Hash the submitted password and throw the result away.
             #
@@ -404,7 +409,7 @@ class AuthService:
             # expensive as the genuine one below. Nothing about ``existing``
             # other than its key crosses this line — the key never reaches the
             # caller, only the worker that resolves it.
-            if on_existing_address is not None and existing.key:
+            if on_existing_address is not None and existing is not None and existing.key:
                 on_existing_address(existing.key)
             decoy = User(
                 email=email,
@@ -767,6 +772,12 @@ class AuthService:
         revoked = self._refresh_token_repo.revoke_all_for_user(user_key)
         self._cancel_pending_email_changes(user_key, reason="logout_all")
         return revoked
+
+    def _address_held_for_revert(self, email: str) -> bool:
+        """Whether *email* is the previous address of a confirmed change whose revert window is open (#1848)."""
+        if self._email_change_repo is None:
+            return False
+        return self._email_change_repo.find_revert_reservation(email, datetime.now(UTC).isoformat()) is not None
 
     def _cancel_pending_email_changes(self, user_key: UserKey, *, reason: str) -> int:
         """Withdraw every pending e-mail change of the account (#1841); return how many.
@@ -1319,7 +1330,12 @@ class AuthService:
                         "This email cannot be linked automatically. Sign in with your password instead.",
                     )
             else:
-                # New user — register via OAuth
+                # New user — register via OAuth. Not onto an address held for the
+                # revert of a confirmed e-mail change (/code-review of #1893).
+                if self._address_held_for_revert(oauth_user.email):
+                    raise OAuthAutoLinkRefusedError(
+                        "This email cannot be used to create an account right now. Sign in with your password instead.",
+                    )
                 user = self._register_oauth_user(oauth_user)
                 self._create_oauth_provider(user.key or "", oauth_user, token_response, config=config)
 

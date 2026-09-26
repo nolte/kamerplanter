@@ -41,7 +41,7 @@ from app.api.v1.privacy.router import router as privacy_router
 from app.api.v1.users.router import router as users_router
 from app.common.auth import get_current_user
 from app.common.dependencies import get_auth_service, get_privacy_service
-from app.common.exceptions import KamerplanterError, NotFoundError
+from app.common.exceptions import DuplicateError, KamerplanterError, NotFoundError
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
@@ -95,6 +95,23 @@ class _Users:
 
     def get_by_password_reset_token(self, token: str) -> User | None:
         return next((u for u in self.rows.values() if u.password_reset_token == token), None)
+
+    def create(self, user: User) -> User:
+        if self.get_by_email(user.email) is not None:
+            raise DuplicateError("User", "email", user.email)
+        user.key = user.key or f"new-{len(self.rows) + 1}"
+        self.rows[user.key] = user
+        return user
+
+    def move_email(self, key: str, expected_email: str, fields: dict[str, Any]) -> User | None:
+        """Compare-and-set on the address, with the unique index on ``users.email``."""
+        if key not in self.rows or self.rows[key].email.lower() != str(expected_email).lower():
+            return None
+        new_email = fields.get("email")
+        holder = self.get_by_email(new_email) if new_email else None
+        if holder is not None and holder.key != key:
+            raise DuplicateError("User", "email", new_email)
+        return self.update_fields(key, fields)
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> User:
         # Validated like the Arango repository's re-read, so an ISO timestamp the
@@ -156,12 +173,57 @@ class _EmailChanges:
         return closed
 
     def claim_status(self, key: str, from_status: str, to_status: str, now_iso: str) -> bool:
-        """Compare-and-set on the status, as the Arango ``UPDATE ... FILTER status == @from`` does."""
+        """Compare-and-set on the status, as the Arango ``UPDATE ... FILTER status == @from`` does.
+
+        Claiming ``confirmed`` stamps ``confirmed_at`` in the same write, as the AQL does.
+        """
         row = self.rows.get(key)
         if row is None or row.status != from_status:
             return False
-        self.rows[key] = EmailChangeRequest.model_validate({**row.model_dump(by_alias=True), "status": to_status})
+        update: dict[str, Any] = {"status": to_status}
+        if to_status == "confirmed":
+            update["confirmed_at"] = now_iso
+        self.rows[key] = EmailChangeRequest.model_validate({**row.model_dump(by_alias=True), **update})
         return True
+
+    def record_confirmation(
+        self,
+        key: str,
+        *,
+        previous_email: str,
+        revert_token_hash: str,
+        revert_expires_at_iso: str,
+        now_iso: str,
+    ) -> bool:
+        row = self.rows.get(key)
+        if row is None or row.status != "confirmed":
+            return False
+        self.rows[key] = EmailChangeRequest.model_validate(
+            {
+                **row.model_dump(by_alias=True),
+                "previous_email": previous_email,
+                "revert_token_hash": revert_token_hash,
+                "revert_expires_at": revert_expires_at_iso,
+            }
+        )
+        return True
+
+    def find_revert_reservation(self, email: str, now_iso: str) -> EmailChangeRequest | None:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        return next(
+            (
+                c
+                for c in self.rows.values()
+                if c.status == "confirmed"
+                and c.previous_email is not None
+                and str(c.previous_email).lower() == email.lower()
+                and c.revert_expires_at is not None
+                and c.revert_expires_at > now
+            ),
+            None,
+        )
 
     def supersede_confirmed_after(self, user_key: str, confirmed_after_iso: str, now_iso: str) -> int:
         from datetime import datetime

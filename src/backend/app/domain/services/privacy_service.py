@@ -440,7 +440,10 @@ class PrivacyService:
         # cannot drift apart (the notice is the same work in either).
         self._notify_current_address_of_email_change(user, new_email)
 
-        if self._user_repo.get_by_email(new_email) is not None:
+        # Taken, or held for the revert of another account's confirmed change
+        # (/code-review of #1893) — the same answer either way.
+        held = self._email_change_repo.find_revert_reservation(new_email, datetime.now(UTC).isoformat())
+        if self._user_repo.get_by_email(new_email) is not None or (held is not None and held.user_key != user_key):
             return self._suppress_taken_email_change(user_key, user, new_email)
 
         raw_token = secrets.token_urlsafe(32)
@@ -661,35 +664,48 @@ class PrivacyService:
         user = self._user_repo.get_or_raise(change.user_key)
 
         old_email = user.email
-        # Narrow write (#1525 SCR-003): the token lookup and validation sit between
-        # the read and the write, and a full-model write-back would remove whatever a
-        # parallel request set in between now that the repository is full-replace.
-        if user.key:
-            user = self._user_repo.update_fields(user.key, {"email": change.new_email, "email_verified": True})
-            self._refresh_token_repo.revoke_all_for_user(user.key)
-        else:  # pragma: no cover - a user read through get_or_raise always carries a key
-            user.email = change.new_email
-            user.email_verified = True
+        # Compare-and-set on the address (/code-review of #1893): only while the
+        # account still has the address read above. A revert or another change
+        # that moved it in between wins; this one gives its claim back.
+        try:
+            moved = self._user_repo.move_email(
+                change.user_key, old_email, {"email": str(change.new_email), "email_verified": True}
+            )
+        except DuplicateError, WriteConflictError:
+            # The new address was registered meanwhile (1210), or a concurrent write
+            # held it (1200): the request stays pending, it is not burnt.
+            self._email_change_repo.claim_status(change.key, "confirmed", "pending", datetime.now(UTC).isoformat())
+            raise
+        if moved is None:
+            self._email_change_repo.claim_status(change.key, "confirmed", "pending", datetime.now(UTC).isoformat())
+            raise InvalidTokenError("email-change token")
+        user = moved
+        self._refresh_token_repo.revoke_all_for_user(change.user_key)
 
         # The way back for the previous address (#1848): a single-use token, stored
         # only as a hash, valid for the R-07 revert window.
+        # Recorded only while the request is still "confirmed": a revert that
+        # superseded it in between must not be overwritten by a plain update, or
+        # the superseded change would get a live revert link back (/code-review
+        # of #1893). Without the record there is no link to send.
         confirmed_at = datetime.now(UTC)
         revert_token = secrets.token_urlsafe(32)
-        change.status = "confirmed"
-        change.confirmed_at = confirmed_at
-        change.previous_email = old_email
-        change.revert_token_hash = self._token_engine.hash_token(revert_token)
-        change.revert_expires_at = self._retention.email_change_revert_expires_at(confirmed_at)
-        if change.key:
-            self._email_change_repo.update(change.key, change)
-
-        self._notify_old_address_of_email_change(
-            old_email,
-            change.new_email,
-            change.user_key,
-            revert_token=revert_token,
-            revert_expires_at=change.revert_expires_at,
+        revert_expires_at = self._retention.email_change_revert_expires_at(confirmed_at)
+        recorded = self._email_change_repo.record_confirmation(
+            change.key,
+            previous_email=old_email,
+            revert_token_hash=self._token_engine.hash_token(revert_token),
+            revert_expires_at_iso=revert_expires_at.isoformat(),
+            now_iso=confirmed_at.isoformat(),
         )
+        if recorded:
+            self._notify_old_address_of_email_change(
+                old_email,
+                change.new_email,
+                change.user_key,
+                revert_token=revert_token,
+                revert_expires_at=revert_expires_at,
+            )
 
         logger.info(
             "privacy_email_change_confirmed",
@@ -749,23 +765,42 @@ class PrivacyService:
             raise InvalidTokenError("email-change revert token")
 
         left_again = account.email
-        user = self._user_repo.update_fields(
-            change.user_key,
-            {
-                "email": previous,
-                "email_verified": True,
-                "password_reset_token": None,
-                "password_reset_expires": None,
-            },
-        )
-        self._refresh_token_repo.revoke_all_for_user(change.user_key)
-        for pending in self._email_change_repo.list_pending_for_user(change.user_key):
-            if pending.key:
-                self._email_change_repo.claim_status(pending.key, "pending", "cancelled", now.isoformat())
+        # Later confirmations lose their revert link first — also one still in
+        # flight, whose claim stamped confirmed_at (/code-review of #1893).
         if change.confirmed_at is not None:
             self._email_change_repo.supersede_confirmed_after(
                 change.user_key, change.confirmed_at.isoformat(), now.isoformat()
             )
+        # Compare-and-set on the address (/code-review of #1893): the reverts of
+        # two chained changes, or a confirmation in flight, each read an address;
+        # only the one whose read still holds writes. The loser gives its claim
+        # back, so the owner's single-use token survives a lost race (409, retry).
+        try:
+            moved = self._user_repo.move_email(
+                change.user_key,
+                left_again,
+                {
+                    "email": previous,
+                    "email_verified": True,
+                    "password_reset_token": None,
+                    "password_reset_expires": None,
+                },
+            )
+        except DuplicateError as exc:
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise ValidationError("The previous email address is now used by another account.") from exc
+        except WriteConflictError:
+            # A concurrent write held the address (1200): retryable, token kept.
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise
+        if moved is None:
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise WriteConflictError("User", "the address changed while the revert ran; try the link again")
+        user = moved
+        self._refresh_token_repo.revoke_all_for_user(change.user_key)
+        for pending in self._email_change_repo.list_pending_for_user(change.user_key):
+            if pending.key:
+                self._email_change_repo.claim_status(pending.key, "pending", "cancelled", now.isoformat())
         since = change.requested_at or change.confirmed_at or now
         dropped_links, revoked_keys = self._take_back_credentials_since(change.user_key, since)
 

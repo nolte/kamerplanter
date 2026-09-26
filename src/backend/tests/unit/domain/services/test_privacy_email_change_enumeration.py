@@ -69,6 +69,8 @@ def _make_service() -> tuple[PrivacyService, MagicMock, MagicMock]:
 
     email_change_repo.create.side_effect = _create
     email_change_repo.get_by_token_hash.return_value = None
+    # #1848: no address held for a revert.
+    email_change_repo.find_revert_reservation.return_value = None
 
     email_service = MagicMock()
     service = PrivacyService(

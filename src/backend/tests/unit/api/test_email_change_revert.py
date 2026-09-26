@@ -31,6 +31,7 @@ from app.domain.models.user import User
 from tests.unit.api.test_email_change_step_up import PASSWORD, _limiter_off, _World  # noqa: F401 - autouse fixture
 
 REVERT = "/api/v1/privacy/email-change/revert"
+CHANGE = "/api/v1/privacy/email-change"
 CONFIRM = "/api/v1/privacy/email-change/confirm"
 
 
@@ -299,3 +300,82 @@ def test_a_revert_on_an_account_being_erased_is_refused() -> None:
 
     assert resp.status_code == 409, resp.text
     assert world.users.rows[world.key].email == world.new_email
+
+
+# ── /code-review of #1893 ────────────────────────────────────────────────────
+
+
+def test_an_address_held_for_the_revert_cannot_be_registered() -> None:
+    # Finding 1: registering an account on the freed previous address — no
+    # mailbox access needed, registration is unverified — made every revert 422.
+    world = _World()
+    revert = _changed(world)
+
+    world.auth.register_local(world.email, PASSWORD, "Squatter")
+
+    assert [u.key for u in world.users.rows.values() if u.email == world.email] == []
+    assert world.post(REVERT, {"token": revert}).status_code == 200
+    assert world.users.rows[world.key].email == world.email
+
+
+def test_another_account_cannot_move_onto_an_address_held_for_the_revert() -> None:
+    world = _World()
+    revert = _changed(world)
+    other = world.users.rows[f"other-{world.key}"]
+    world.users.rows[other.key] = other.model_copy(update={"password_hash": world.users.rows[world.key].password_hash})
+    world.key, owner = other.key, world.key  # act as the other account
+
+    world.post(CHANGE, {"new_email": world.email, "password": PASSWORD})
+    world.key = owner
+
+    assert all(c.user_key != other.key for c in world.changes.rows.values())
+    assert world.post(REVERT, {"token": revert}).status_code == 200
+
+
+def test_a_confirmation_onto_a_taken_address_leaves_the_request_pending() -> None:
+    # Finding 2: the status was claimed before the account write; a unique-index
+    # failure left the request "confirmed" without ever moving the account.
+    world = _World()
+    world.change(password=PASSWORD)
+    token = world.privacy_mail.send_email_change_email.call_args.kwargs["token"]
+    squatter = User.model_validate({"_key": f"squat-{world.key}", "email": world.new_email, "display_name": "S"})
+    world.users.rows[squatter.key] = squatter
+
+    resp = world.post(CONFIRM, {"token": token})
+
+    assert resp.status_code == 409, resp.text
+    assert world.users.rows[world.key].email == world.email
+    (change,) = world.changes.rows.values()
+    assert change.status == "pending"
+
+
+def test_a_revert_that_loses_the_race_keeps_its_token() -> None:
+    # Finding 2/3: a revert whose account write loses to a concurrent move must
+    # not burn the single-use token.
+    world = _World()
+    revert = _changed(world)
+    world.users.move_email = lambda *a, **k: None  # the address moved in between
+
+    resp = world.post(REVERT, {"token": revert})
+
+    assert resp.status_code == 409, resp.text
+    (change,) = [c for c in world.changes.rows.values() if c.previous_email]
+    assert change.status == "confirmed"
+
+
+def test_a_confirmation_in_flight_is_superseded_by_the_revert() -> None:
+    # Finding 3: a confirmation that had claimed its request but not yet stamped
+    # confirmed_at escaped the supersede, then moved the account back.
+    world = _World()
+    owners = _changed(world)
+    third = f"third-{world.key}@example.org"
+    world.change(new_email=third, password=PASSWORD)
+    second_token = world.privacy_mail.send_email_change_email.call_args.kwargs["token"]
+    (second,) = [c for c in world.changes.rows.values() if c.status == "pending"]
+    world.changes.claim_status(second.key, "pending", "confirmed", datetime.now(UTC).isoformat())
+
+    assert world.post(REVERT, {"token": owners}).status_code == 200
+
+    assert world.changes.rows[second.key].status == "superseded"
+    assert world.post(CONFIRM, {"token": second_token}).status_code == 401
+    assert world.users.rows[world.key].email == world.email

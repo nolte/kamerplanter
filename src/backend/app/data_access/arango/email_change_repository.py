@@ -61,6 +61,28 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
             return None
         return EmailChangeRequest(**self._from_doc(docs[0]))
 
+    def find_revert_reservation(self, email: str, now_iso: str) -> EmailChangeRequest | None:
+        """The confirmed change whose revert window still holds *email* for its previous owner (#1848).
+
+        While the window is open the previous address is reserved: an account
+        registered on it — which needs no mailbox access, registration is
+        unverified — would otherwise make every revert answer "taken".
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.status == 'confirmed'
+            AND LOWER(doc.previous_email) == LOWER(@email)
+            AND DATE_TIMESTAMP(doc.revert_expires_at) > DATE_TIMESTAMP(@now)
+          LIMIT 1
+          RETURN doc
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"@collection": col.EMAIL_CHANGE_REQUESTS, "email": email, "now": now_iso},
+        )
+        docs = list(cursor)
+        return EmailChangeRequest(**self._from_doc(docs[0])) if docs else None
+
     def claim_status(self, key: EmailChangeRequestKey, from_status: str, to_status: str, now_iso: str) -> bool:
         """Compare-and-set on ``status`` in one AQL write (#1848).
 
@@ -72,7 +94,10 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
         query = """
         FOR doc IN @@collection
           FILTER doc._key == @key AND doc.status == @from_status
-          UPDATE doc WITH { status: @to_status, updated_at: @now } IN @@collection
+          UPDATE doc WITH MERGE(
+            { status: @to_status, updated_at: @now },
+            @to_status == 'confirmed' ? { confirmed_at: @now } : {}
+          ) IN @@collection
           RETURN 1
         """
         cursor = self._db.aql.execute(
@@ -82,6 +107,44 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
                 "key": key,
                 "from_status": from_status,
                 "to_status": to_status,
+                "now": now_iso,
+            },
+        )
+        return any(True for _ in cursor)
+
+    def record_confirmation(
+        self,
+        key: EmailChangeRequestKey,
+        *,
+        previous_email: str,
+        revert_token_hash: str,
+        revert_expires_at_iso: str,
+        now_iso: str,
+    ) -> bool:
+        """Stamp the revert data onto a confirmed request, conditionally (#1848).
+
+        A plain :meth:`update` would write ``status`` back as well and could turn
+        a request a concurrent revert just superseded into a live one again.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key AND doc.status == 'confirmed'
+          UPDATE doc WITH {
+            previous_email: @previous_email,
+            revert_token_hash: @revert_token_hash,
+            revert_expires_at: @revert_expires_at,
+            updated_at: @now
+          } IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.EMAIL_CHANGE_REQUESTS,
+                "key": key,
+                "previous_email": previous_email,
+                "revert_token_hash": revert_token_hash,
+                "revert_expires_at": revert_expires_at_iso,
                 "now": now_iso,
             },
         )

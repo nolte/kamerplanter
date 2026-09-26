@@ -26,8 +26,24 @@ class IEmailChangeRepository(ABC):
         """The confirmed change whose revert token hashes to *token_hash* (#1848)."""
 
     @abstractmethod
+    def find_revert_reservation(self, email: str, now_iso: str) -> EmailChangeRequest | None:
+        """The confirmed change whose open revert window reserves *email* (#1848), or ``None``."""
+
+    @abstractmethod
     def claim_status(self, key: EmailChangeRequestKey, from_status: str, to_status: str, now_iso: str) -> bool:
         """Move the request from *from_status* to *to_status* atomically; ``False`` when it was not in *from_status*."""
+
+    @abstractmethod
+    def record_confirmation(
+        self,
+        key: EmailChangeRequestKey,
+        *,
+        previous_email: str,
+        revert_token_hash: str,
+        revert_expires_at_iso: str,
+        now_iso: str,
+    ) -> bool:
+        """Store the revert data of a confirmation — only while the request is still ``confirmed`` (#1848)."""
 
     @abstractmethod
     def supersede_confirmed_after(self, user_key: UserKey, confirmed_after_iso: str, now_iso: str) -> int:

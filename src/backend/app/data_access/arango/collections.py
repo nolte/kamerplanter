@@ -2232,6 +2232,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     # #1848: the public revert route looks a request up by this hash; sparse, since
     # only confirmed changes within their window carry one.
     email_change_requests_col.add_persistent_index(fields=["revert_token_hash"], unique=True, sparse=True)
+    # #1848: registration and e-mail changes look up whether an address is held
+    # for the revert of a confirmed change.
+    email_change_requests_col.add_persistent_index(fields=["previous_email"], unique=False, sparse=True)
 
     # REQ-029 plant identification indexes
     identification_requests_col = db.collection(IDENTIFICATION_REQUESTS)
