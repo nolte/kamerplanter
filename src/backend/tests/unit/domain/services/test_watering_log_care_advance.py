@@ -305,12 +305,19 @@ def test_create_log_without_real_plants_skips_advancement(plant_keys) -> None:
     """A compat/empty log (no real plant) creates the log but advances no task."""
     service, task_repo, care_repo, _ = _build(tasks=[_open_watering_task()])
     _forbid_lookup(task_repo, "no plant → no care advancement")
+    # The slot is the tenant's own: slots are resolved under the log's tenant
+    # since #1871 B4 (decided in test_watering_log_slot_scope).
+    from app.domain.models.site import Location, Site, Slot
+
+    service._site_repo.get_slot_by_key.return_value = Slot(_key="slot-x", slot_id="LOCX_A1", location_key="loc-x")
+    service._site_repo.get_location_by_key.return_value = Location(_key="loc-x", name="X", area_m2=1.0, site_key="s")
+    service._site_repo.get_site_by_key.return_value = Site(_key="s", tenant_key=TENANT, name="S")
     log = WateringLog(
         tenant_key=TENANT,
         logged_at=datetime.now(UTC),
         volume_liters=1.0,
         plant_keys=plant_keys,
-        slot_keys=[],  # slot scope is decided in test_watering_log_slot_scope (#1871 B4)
+        slot_keys=["slot-x"],
     )
 
     result = service.create_log(log)
