@@ -172,6 +172,40 @@ class _EmailChanges:
                 closed += 1
         return closed
 
+    #: NFR-011 R-07 (#1800) — mirrors ``ArangoEmailChangeRepository.delete_expired_unconfirmed``.
+    _UNCONFIRMED_STATUSES = ("pending", "expired", "cancelled")
+
+    def delete_expired_unconfirmed(self, now_iso: str) -> int:
+        from datetime import datetime
+
+        now = datetime.fromisoformat(now_iso)
+        due = [
+            key
+            for key, change in self.rows.items()
+            if change.status in self._UNCONFIRMED_STATUSES and (change.expires_at is None or change.expires_at < now)
+        ]
+        for key in due:
+            del self.rows[key]
+        return len(due)
+
+    #: NFR-011 R-07b (#1800) — mirrors ``ArangoEmailChangeRepository.delete_confirmed_past_revert_window``.
+    _CONFIRMED_STATUSES = ("confirmed", "reverted", "superseded")
+
+    def delete_confirmed_past_revert_window(self, cutoff_iso: str) -> int:
+        from datetime import datetime
+
+        cutoff = datetime.fromisoformat(cutoff_iso)
+        due = [
+            key
+            for key, change in self.rows.items()
+            if change.status in self._CONFIRMED_STATUSES
+            and change.confirmed_at is not None
+            and change.confirmed_at < cutoff
+        ]
+        for key in due:
+            del self.rows[key]
+        return len(due)
+
     def claim_status(self, key: str, from_status: str, to_status: str, now_iso: str) -> bool:
         """Compare-and-set on the status, as the Arango ``UPDATE ... FILTER status == @from`` does.
 

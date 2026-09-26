@@ -24,10 +24,19 @@ The retention concerns bundled here, all backed by REQ-025 PrivacyService:
 - ``purge_expired_erasure_records`` — daily beat task that hard-deletes
   completed erasure records past the NFR-011 R-06 period (default one
   year after completion, ``RETENTION_ERASURE_AUDIT_RETENTION_YEARS``).
+- ``purge_expired_consent_records`` — daily beat task that hard-deletes
+  consent records past the NFR-011 R-04 period (default 3 years after
+  revocation, ``RETENTION_CONSENT_RETENTION_YEARS``, #1800).
+- ``anonymize_consent_ips`` — daily beat task that anonymises the IP
+  address of consent records past the NFR-011 R-04a period (default 7
+  days after they were recorded, ``RETENTION_CONSENT_IP_ANONYMIZATION_DAYS``,
+  #1800) — the R-03 analogue for ``consent_records``.
 
 The actual data-walk, manifest-build, soft/hard-delete and expiry
 logic lives in ``PrivacyService``; these tasks are thin schedulers
-that bridge Celery to the async service layer.
+that bridge Celery to the async service layer. ``expire_email_change_requests``
+also hard-deletes (NFR-011 R-07/R-07b, #1800): see its own docstring and
+``PrivacyService.expire_email_change_requests``.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -134,7 +143,12 @@ async def execute_scheduled_erasures() -> dict:
     default_retry_delay=300,
 )
 async def expire_email_change_requests() -> dict:
-    """Flip email-change requests past their R-07 ``expires_at`` to ``status=expired``."""
+    """Flip email-change requests past their R-07 ``expires_at`` to ``status=expired``.
+
+    Also hard-deletes (#1800): an unconfirmed request (R-07) once it is past
+    ``expires_at``, and a confirmed one (R-07b) once its R-07a revert window has
+    elapsed. See ``PrivacyService.expire_email_change_requests``.
+    """
 
     from app.common.dependencies import get_privacy_service
 
@@ -192,6 +206,50 @@ async def purge_expired_erasure_records() -> dict:
     service = get_privacy_service()
     result = await service.purge_expired_erasure_records(now=datetime.now(UTC))
     return {"purged": result.purged, "held_without_tombstone": result.held_without_tombstone}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_consent_records",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_consent_records() -> dict:
+    """Hard-delete consent records past the NFR-011 R-04 period (#1800).
+
+    Only a record with a ``revoked_at`` more than
+    ``settings.retention_consent_retention_years`` in the past goes; a consent
+    never revoked is not selected (it is not a proof still owed, unlike R-06's
+    plaintext-key exception — it is simply not due).
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    purged = await service.purge_expired_consent_records(now=datetime.now(UTC))
+    return {"purged": purged}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.anonymize_consent_ips",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def anonymize_consent_ips() -> dict:
+    """Anonymise the IP address of consent records past the NFR-011 R-04a period (#1800).
+
+    The R-03 analogue for ``consent_records`` instead of ``refresh_tokens``:
+    the period is ``settings.retention_consent_ip_anonymization_days`` (default
+    7 days after ``granted_at``).
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    anonymized = await service.anonymize_consent_ips(now=datetime.now(UTC))
+    logger.info("retention.anonymize_consent_ips.completed", anonymized=anonymized)
+    return {"anonymized": anonymized}
 
 
 @celery_app.task(  # type: ignore[misc]

@@ -61,3 +61,11 @@ class IEmailChangeRepository(ABC):
 
     @abstractmethod
     def delete(self, key: EmailChangeRequestKey) -> bool: ...
+
+    @abstractmethod
+    def delete_expired_unconfirmed(self, now_iso: str) -> int:
+        """Hard-delete every unconfirmed request past its ``expires_at`` (NFR-011 R-07)."""
+
+    @abstractmethod
+    def delete_confirmed_past_revert_window(self, cutoff_iso: str) -> int:
+        """Hard-delete the whole document of a confirmed change past its R-07a revert window (NFR-011 R-07b)."""

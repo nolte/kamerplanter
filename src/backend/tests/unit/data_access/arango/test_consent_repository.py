@@ -126,5 +126,57 @@ class TestDeleteAllForUser:
 
     def test_zero_when_nothing_removed(self, repo, mock_db):
         mock_db.aql.execute.side_effect = lambda *a, **k: iter([])
+        assert repo.delete_all_for_user("u1") == 0
+
+
+class TestListUnanonymizedIpsBefore:
+    """NFR-011 R-04a (#1800) — the R-03 analogue for ``consent_records``."""
+
+    def test_returns_key_ip_pairs(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter(
+            [{"_key": "c1", "ip_address": "192.0.2.42"}, {"_key": "c2", "ip_address": "2001:db8::1"}]
+        )
+
+        result = repo.list_unanonymized_ips_before("2026-09-18T00:00:00+00:00")
+
+        assert result == [("c1", "192.0.2.42"), ("c2", "2001:db8::1")]
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert bind_vars["cutoff"] == "2026-09-18T00:00:00+00:00"
+
+    def test_empty_when_nothing_due(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+        assert repo.list_unanonymized_ips_before("2026-09-18T00:00:00+00:00") == []
+
+
+class TestMarkIpAnonymized:
+    def test_writes_the_anonymised_ip_and_stamp(self, repo, mock_db):
+        coll = mock_db.collection.return_value
+
+        repo.mark_ip_anonymized("c1", "192.0.2.0", "2026-09-25T04:00:00+00:00")
+
+        coll.update.assert_called_once_with(
+            {"_key": "c1", "ip_address": "192.0.2.0", "ip_anonymized_at": "2026-09-25T04:00:00+00:00"}
+        )
+
+
+class TestDeleteRevokedBefore:
+    """NFR-011 R-04 (#1800) — edges removed first, then the revoked-and-expired records."""
+
+    def test_removes_edges_then_documents(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([1, 1])]
+
+        purged = repo.delete_revoked_before("2023-09-25T00:00:00+00:00")
+
+        assert purged == 2
+        assert mock_db.aql.execute.call_count == 2
+        edges_call, docs_call = mock_db.aql.execute.call_args_list
+        assert edges_call.kwargs["bind_vars"]["@edges"] == "has_consent"
+        assert "REMOVE edge" in edges_call.args[0]
+        assert "REMOVE doc" in docs_call.args[0]
+        for call in (edges_call, docs_call):
+            assert call.kwargs["bind_vars"]["cutoff"] == "2023-09-25T00:00:00+00:00"
+
+    def test_zero_when_nothing_due(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([])]
 
         assert repo.delete_all_for_user("u1") == 0

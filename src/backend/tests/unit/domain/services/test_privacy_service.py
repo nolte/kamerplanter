@@ -323,6 +323,29 @@ class TestConsent:
         with pytest.raises(ValidationError):
             service.grant_consent(USER_KEY, "unknown_purpose")
 
+    def test_regrant_resets_the_ip_anonymisation_stamp(self, service, consent_repo):
+        """NFR-011 R-04a (#1800): a re-grant writes a new IP and must anonymise it again in its own time.
+
+        Until #1800 only ``ip_address``/``granted_at``/``revoked_at`` were reset
+        on re-grant; ``ip_anonymized_at`` survived from the *previous* grant, so
+        ``anonymize_consent_ips`` (which selects ``ip_anonymized_at == null``)
+        would never anonymise the new address at all.
+        """
+        consent_repo.get_by_user_and_purpose.return_value = ConsentRecord(
+            _key="consent-existing",
+            user_key=USER_KEY,
+            purpose="error_tracking",
+            granted=False,
+            revoked_at=datetime.now(UTC) - timedelta(days=1),
+            ip_address="203.0.113.5",
+            ip_anonymized_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+
+        record = service.grant_consent(USER_KEY, "error_tracking", ip_address="198.51.100.9")
+
+        assert record.ip_address == "198.51.100.9"
+        assert record.ip_anonymized_at is None
+
     def test_revoke_required_purpose_blocked(self, service):
         with pytest.raises(ValidationError):
             service.revoke_consent(USER_KEY, "core_functionality")
@@ -389,19 +412,24 @@ class TestErasure:
         refresh_token_repo.revoke_all_for_user.assert_called_once_with(USER_KEY)
         erasure_repo.create.assert_called_once()
 
-    def test_the_confirmation_lists_both_categories_off_the_inventory(self, service):
-        """REQ-025 AK-08a — deleted and anonymised categories, both from the plan the erasure runs.
+    def test_the_confirmation_lists_all_three_categories_off_the_inventory(self, service):
+        """REQ-025 AK-08a — deleted, anonymised and pseudonymised categories, all from the plan the erasure runs.
 
         ``deleted_collections`` was declared on the model and never filled, so the
         confirmation named no deleted category at all (#1645).
+        ``pseudonymized_collections`` likewise (#1800): consent_records moved out
+        of ``deleted_collections`` into this third category when R-04 pseudonymises
+        it instead of deleting it outright.
         """
         erasure = service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         engine = ErasureEngine()
         assert erasure.deleted_collections == engine.deleted_collection_names()
         assert erasure.anonymized_collections == engine.anonymized_collection_names()
+        assert erasure.pseudonymized_collections == engine.pseudonymized_collection_names()
         assert "users" in erasure.deleted_collections
-        assert "consent_records" in erasure.deleted_collections
+        assert "consent_records" not in erasure.deleted_collections
+        assert "consent_records" in erasure.pseudonymized_collections
         # #1663 — quality assessments are retained with the harvest and anonymised.
         assert "quality_assessments" in erasure.anonymized_collections
         # #1700 — three categories are split by row, and are truthfully in both

@@ -99,3 +99,43 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
             },
         )
         return sum(1 for _ in cursor)
+
+    def delete_expired_before(self, cutoff_iso: str) -> int:
+        """Hard-delete every ``expired`` invitation past the cutoff, edges first (NFR-011 R-12, #1800).
+
+        Two statements, like ``ArangoErasureRepository.delete_completed_before``
+        (R-06): AQL forbids reading a collection after modifying it in the same
+        query, so the ``has_invitation`` edges into the selected invitations are
+        removed first, then the invitations. ``expires_at`` is required on
+        :class:`Invitation`, so — like :meth:`cleanup_expired` — a missing or
+        unreadable value is treated as already past the cutoff rather than
+        excluded (the documented exception for an ``expires_at`` selector, #1784).
+        """
+        due = """
+          FILTER doc.status == @expired
+            AND (
+              DATE_TIMESTAMP(doc.expires_at) == null
+              OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@cutoff)
+            )
+        """
+        bind_vars = {
+            "@collection": col.INVITATIONS,
+            "expired": InvitationStatus.EXPIRED.value,
+            "cutoff": cutoff_iso,
+        }
+        edges_query = f"""
+        FOR doc IN @@collection
+          {due}
+          FOR edge IN @@edges
+            FILTER edge._to == doc._id
+            REMOVE edge IN @@edges
+        """
+        self._db.aql.execute(edges_query, bind_vars={**bind_vars, "@edges": col.HAS_INVITATION})
+        docs_query = f"""
+        FOR doc IN @@collection
+          {due}
+          REMOVE doc IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(docs_query, bind_vars=bind_vars)
+        return len(list(cursor))

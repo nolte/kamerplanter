@@ -252,3 +252,95 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
         )
         self._db.aql.execute(query, bind_vars={"change_id": change_id})
         return super().delete(key)
+
+    #: Unconfirmed terminal states (NFR-011 R-07, #1800): never reached
+    #: ``confirmed``, so the request served no further purpose once its
+    #: ``expires_at`` passed. ``cancelled`` (#1841) is the owner taking the
+    #: account back while the request was still ``pending`` — it never confirms
+    #: either, so it shares R-07's clock, not R-07b's.
+    _UNCONFIRMED_STATUSES = ["pending", "expired", "cancelled"]
+
+    def delete_expired_unconfirmed(self, now_iso: str) -> int:
+        """Hard-delete every unconfirmed request past its ``expires_at``, edges first (NFR-011 R-07, #1800).
+
+        Until #1800 :meth:`expire_old` only flipped the status; ``new_email``
+        (and every other field) outlived the account this many hours forever.
+        Two statements, like ``ArangoErasureRepository.delete_completed_before``:
+        AQL forbids reading a collection after modifying it in the same query, so
+        the ``requested_email_change`` edges into the selected requests are
+        removed first, then the requests. ``expires_at`` is a required field on
+        :class:`EmailChangeRequest`, so — like :meth:`expire_old` — a missing or
+        unreadable value is treated as already expired rather than excluded.
+        """
+        due = """
+          FILTER doc.status IN @unconfirmed
+            AND (
+              DATE_TIMESTAMP(doc.expires_at) == null
+              OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
+            )
+        """
+        bind_vars = {
+            "@collection": col.EMAIL_CHANGE_REQUESTS,
+            "unconfirmed": self._UNCONFIRMED_STATUSES,
+            "now": now_iso,
+        }
+        edges_query = f"""
+        FOR doc IN @@collection
+          {due}
+          FOR edge IN @@edges
+            FILTER edge._to == doc._id
+            REMOVE edge IN @@edges
+        """
+        self._db.aql.execute(edges_query, bind_vars={**bind_vars, "@edges": col.REQUESTED_EMAIL_CHANGE})
+        docs_query = f"""
+        FOR doc IN @@collection
+          {due}
+          REMOVE doc IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(docs_query, bind_vars=bind_vars)
+        return len(list(cursor))
+
+    #: Confirmed terminal states (NFR-011 R-07b, #1800): every one of these
+    #: reached ``confirmed`` at least once and therefore carries a ``confirmed_at``
+    #: R-07b's window is measured from.
+    _CONFIRMED_STATUSES = ["confirmed", "reverted", "superseded"]
+
+    def delete_confirmed_past_revert_window(self, cutoff_iso: str) -> int:
+        """Hard-delete the whole document of a confirmed change past its R-07a revert window (NFR-011 R-07b, #1800).
+
+        ``cutoff_iso`` is ``now - RETENTION_EMAIL_CHANGE_REVERT_DAYS``
+        (:meth:`RetentionService.email_change_document_purge_cutoff`), compared
+        against ``confirmed_at`` — not the nullable ``revert_expires_at``
+        :meth:`close_revert_windows` (R-07a) itself clears, so this does not
+        depend on R-07a's own write having already run in the same beat cycle.
+        Until #1800 R-07a only nulled ``previous_email`` / ``revert_token_hash`` /
+        ``revert_expires_at``; the rest of the document (``new_email``,
+        ``requested_at``, ``confirmed_at``, …) stayed forever.
+        """
+        due = """
+          FILTER doc.status IN @confirmed
+            AND DATE_TIMESTAMP(doc.confirmed_at) != null
+            AND DATE_TIMESTAMP(doc.confirmed_at) < DATE_TIMESTAMP(@cutoff)
+        """
+        bind_vars = {
+            "@collection": col.EMAIL_CHANGE_REQUESTS,
+            "confirmed": self._CONFIRMED_STATUSES,
+            "cutoff": cutoff_iso,
+        }
+        edges_query = f"""
+        FOR doc IN @@collection
+          {due}
+          FOR edge IN @@edges
+            FILTER edge._to == doc._id
+            REMOVE edge IN @@edges
+        """
+        self._db.aql.execute(edges_query, bind_vars={**bind_vars, "@edges": col.REQUESTED_EMAIL_CHANGE})
+        docs_query = f"""
+        FOR doc IN @@collection
+          {due}
+          REMOVE doc IN @@collection
+          RETURN 1
+        """
+        cursor = self._db.aql.execute(docs_query, bind_vars=bind_vars)
+        return len(list(cursor))

@@ -25,3 +25,15 @@ class IConsentRepository(ABC):
 
     @abstractmethod
     def delete_all_for_user(self, user_key: UserKey) -> int: ...
+
+    @abstractmethod
+    def list_unanonymized_ips_before(self, cutoff_iso: str) -> list[tuple[str, str]]:
+        """``(key, ip_address)`` of every consent record recorded before the cutoff whose IP is still plain (R-04a)."""
+
+    @abstractmethod
+    def mark_ip_anonymized(self, key: ConsentRecordKey, anonymized_ip: str, anonymized_at_iso: str) -> None:
+        """Replace a consent record's IP with its anonymised form and stamp when that happened (NFR-011 R-04a)."""
+
+    @abstractmethod
+    def delete_revoked_before(self, cutoff_iso: str) -> int:
+        """Hard-delete every consent record revoked before the cutoff (NFR-011 R-04)."""

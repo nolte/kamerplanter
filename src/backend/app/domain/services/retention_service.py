@@ -14,15 +14,25 @@ from settings and turned into deadlines or cutoffs:
 * R-07 ``retention_email_change_retention_hours`` — ``expires_at`` of an
   email-change request (``PrivacyService.request_email_change``);
   ``retention_email_change_revert_days`` — the revert window of a confirmed one
-  (``PrivacyService.confirm_email_change``, #1848).
+  (``PrivacyService.confirm_email_change``, #1848) and (#1800, R-07b) the
+  hard-delete of the whole document once that window has elapsed;
+* R-04 ``retention_consent_retention_years`` — a consent record is purged this
+  many years after ``revoked_at`` (``retention.purge_expired_consent_records``,
+  #1800);
+* R-04a ``retention_consent_ip_anonymization_days`` — a consent record's IP is
+  anonymised this many days after it was recorded
+  (``retention.anonymize_consent_ips``, #1800);
+* R-12 ``retention_invitation_retention_days`` — an expired invitation is
+  hard-deleted this many days after ``expires_at``
+  (``tenant_tasks.cleanup_expired_invitations``, #1800).
 
 The tasks and the Art. 13 retention summary read the periods here, so the text
 a data subject reads cannot name a period the code does not apply (#1772,
 #1782). A constructor argument overrides the setting (tests, one-off callers);
 it is held to the same floor as the setting.
 
-The remaining NFR-011 periods (consent records, invitations, sensor
-downsampling, a retention master task) are not wired here yet.
+The remaining NFR-011 periods (sensor downsampling, a retention master task)
+are not wired here yet.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -43,6 +53,9 @@ class RetentionService:
         ip_anonymisation_after_days: int | None = None,
         unverified_account_days: int | None = None,
         erasure_record_retention_years: int | None = None,
+        consent_retention_years: int | None = None,
+        consent_ip_anonymization_days: int | None = None,
+        invitation_retention_days: int | None = None,
     ) -> None:
         self._export_retention_hours = (
             export_retention_hours
@@ -79,12 +92,35 @@ class RetentionService:
             if erasure_record_retention_years is not None
             else settings.retention_erasure_audit_retention_years
         )
+        self._consent_retention_years = (
+            consent_retention_years
+            if consent_retention_years is not None
+            else settings.retention_consent_retention_years
+        )
+        self._consent_ip_anonymization_days = (
+            consent_ip_anonymization_days
+            if consent_ip_anonymization_days is not None
+            else settings.retention_consent_ip_anonymization_days
+        )
+        self._invitation_retention_days = (
+            invitation_retention_days
+            if invitation_retention_days is not None
+            else settings.retention_invitation_retention_days
+        )
         # The settings carry the same floors (``ge=1``); a caller constructing
         # the service directly must not get past them either.
         floors = (
             (self._hard_delete_after_days, "NFR-011 R-01: the soft-delete grace period must be at least one day."),
             (self._unverified_account_days, "NFR-011 R-02: the unverified-account period must be at least one day."),
             (self._ip_anonymisation_after_days, "NFR-011 R-03: the IP-anonymisation period must be at least one day."),
+            (
+                self._consent_retention_years,
+                "NFR-011 R-04: consent records are kept at least one year after revocation.",
+            ),
+            (
+                self._consent_ip_anonymization_days,
+                "NFR-011 R-04a: the consent-record IP-anonymisation period must be at least one day.",
+            ),
             (self._export_retention_hours, "NFR-011 R-05: an export file must stay available at least one hour."),
             (
                 self._erasure_record_retention_years,
@@ -92,6 +128,7 @@ class RetentionService:
             ),
             (self._email_change_ttl_hours, "NFR-011 R-07: an email-change link must stay valid at least one hour."),
             (self._email_change_revert_days, "NFR-011 R-07: the email-change revert link must stay valid a day."),
+            (self._invitation_retention_days, "NFR-011 R-12: an expired invitation must be kept at least one day."),
         )
         for period, message in floors:
             if period < 1:
@@ -150,6 +187,43 @@ class RetentionService:
         year = now.year - self._erasure_record_retention_years
         return replace_year(now, year).replace(microsecond=0)
 
+    def consent_record_purge_cutoff(self, now: datetime) -> datetime:
+        """Return the revocation time before which a consent record is purged (NFR-011 R-04, #1800).
+
+        Counted in calendar years, like :meth:`erasure_record_purge_cutoff` (R-06)
+        and for the same reason: "3 Jahre nach Widerruf" must never be undercut by
+        a fixed ``365 * years`` day count. Normalised to UTC and truncated to whole
+        seconds so the cutoff compares and logs the same way (#1773 review GDPR-008).
+        """
+        now = now.astimezone(UTC)
+        year = now.year - self._consent_retention_years
+        return replace_year(now, year).replace(microsecond=0)
+
+    def consent_ip_anonymisation_cutoff(self, now: datetime) -> datetime:
+        """Return the ``granted_at`` before which a consent record's IP is anonymised (NFR-011 R-04a, #1800).
+
+        The R-03 analogue for ``consent_records`` instead of ``refresh_tokens``:
+        the IP and ``granted_at`` are written together by
+        ``PrivacyService.grant_consent``, so ``granted_at`` is the "recorded" instant
+        R-04a counts from.
+        """
+        return now.astimezone(UTC) - timedelta(days=self._consent_ip_anonymization_days)
+
+    def invitation_purge_cutoff(self, now: datetime) -> datetime:
+        """Return the expiry time before which an expired invitation is hard-deleted (NFR-011 R-12, #1800)."""
+        return now.astimezone(UTC) - timedelta(days=self._invitation_retention_days)
+
+    def email_change_document_purge_cutoff(self, now: datetime) -> datetime:
+        """Return the ``confirmed_at`` before which a confirmed change is fully hard-deleted (NFR-011 R-07b, #1800).
+
+        Recomputed from ``confirmed_at`` with the same period as
+        :meth:`email_change_revert_expires_at` rather than read back from the
+        stored ``revert_expires_at``: R-07a nulls that field once its window
+        closes, and R-07b must not depend on R-07a's own write having already
+        run in the same beat cycle.
+        """
+        return now.astimezone(UTC) - timedelta(days=self._email_change_revert_days)
+
     # ── Predicate helpers ────────────────────────────────────────
 
     def is_export_expired(
@@ -197,3 +271,15 @@ class RetentionService:
     @property
     def erasure_record_retention_years(self) -> int:
         return self._erasure_record_retention_years
+
+    @property
+    def consent_retention_years(self) -> int:
+        return self._consent_retention_years
+
+    @property
+    def consent_ip_anonymization_days(self) -> int:
+        return self._consent_ip_anonymization_days
+
+    @property
+    def invitation_retention_days(self) -> int:
+        return self._invitation_retention_days

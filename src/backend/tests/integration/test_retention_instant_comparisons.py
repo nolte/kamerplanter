@@ -49,6 +49,7 @@ from app.data_access.arango.ai_repository import (
     ArangoAiConversationRepository,
     ArangoAiTipCacheRepository,
 )
+from app.data_access.arango.consent_repository import ArangoConsentRepository
 from app.data_access.arango.data_export_repository import ArangoDataExportRepository
 from app.data_access.arango.email_change_repository import ArangoEmailChangeRepository
 from app.data_access.arango.erasure_repository import ArangoErasureRepository
@@ -90,6 +91,7 @@ _DOCUMENT_COLLECTIONS = (
     col.ERASURE_REQUESTS,
     col.EMAIL_CHANGE_REQUESTS,
     col.INVITATIONS,
+    col.CONSENT_RECORDS,
     col.REFRESH_TOKENS,
     col.AI_CONVERSATIONS,
     col.AI_TIP_CACHE,
@@ -102,7 +104,12 @@ _DOCUMENT_COLLECTIONS = (
     col.PLANT_DIARY_ENTRIES,
     col.TENANT_ERASURE_RECORDS,
 )
-_EDGE_COLLECTIONS = (col.HAS_SESSION,)
+#: #1800 — the three edge collections the new hard-delete selectors clean up
+#: alongside the document (consent.delete_revoked_before, email_change.
+#: delete_expired_unconfirmed / delete_confirmed_past_revert_window,
+#: invitation.delete_expired_before). Must exist for the two-statement query's
+#: edge-removal half even when a test seeds no edge.
+_EDGE_COLLECTIONS = (col.HAS_SESSION, col.HAS_CONSENT, col.REQUESTED_EMAIL_CHANGE, col.HAS_INVITATION)
 
 
 pytestmark = pytest.mark.usefixtures("arango_db")
@@ -255,8 +262,18 @@ SELECTORS: tuple[Selector, ...] = (
         field="expires_at",
         selects="before",
         run=_returned_keys(lambda db, cut: ArangoDataExportRepository(db).list_expiry_due(cut)),
-        undated_selected=False,
-        why_undated="the query already required expires_at != null",
+        undated_selected=True,
+        why_undated=(
+            "#1806 GDPR-005: a completed export with no readable expiry is treated as already due, "
+            "the same convention every other expires_at selector in this system applies"
+        ),
+        # The method returns ``DataExportRequest`` models, not bare keys: a
+        # missing ``expires_at`` parses to ``None`` (Optional field) and is
+        # correctly included, but a present-and-malformed string fails Pydantic
+        # validation on read rather than landing on either side of the cutoff —
+        # not measurable through this path (same reason as
+        # erasure.list_due_for_hard_delete[stale_before] above).
+        unreadable=None,
     ),
     Selector(
         name="data_export.list_stale_pending",
@@ -416,6 +433,81 @@ SELECTORS: tuple[Selector, ...] = (
         ),
         undated_selected=True,
         why_undated="expires_at is required; an invitation whose expiry cannot be read is treated as expired",
+    ),
+    # ── #1800: R-04 / R-07 / R-07b / R-12 hard-delete selectors ───────────────
+    Selector(
+        name="invitation.delete_expired_before",
+        collection=col.INVITATIONS,
+        base={
+            "tenant_key": TENANT,
+            "invited_by_user_key": USER,
+            "token_hash": "hash-not-a-secret-r12",
+            "status": "expired",
+        },
+        field="expires_at",
+        selects="before",
+        run=_removed_by(col.INVITATIONS, lambda db, cut: ArangoInvitationRepository(db).delete_expired_before(cut)),
+        undated_selected=True,
+        why_undated="expires_at is required; an invitation whose expiry cannot be read is treated as expired",
+    ),
+    Selector(
+        name="email_change.delete_expired_unconfirmed",
+        collection=col.EMAIL_CHANGE_REQUESTS,
+        base={
+            "user_key": USER,
+            "new_email": "new@example.com",
+            "verification_token_hash": "hash-not-a-secret-r07",
+            "status": "pending",
+        },
+        field="expires_at",
+        selects="before",
+        run=_removed_by(
+            col.EMAIL_CHANGE_REQUESTS,
+            lambda db, cut: ArangoEmailChangeRepository(db).delete_expired_unconfirmed(cut),
+        ),
+        undated_selected=True,
+        why_undated="expires_at is required; a request whose expiry cannot be read is treated as expired",
+    ),
+    Selector(
+        name="email_change.delete_confirmed_past_revert_window",
+        collection=col.EMAIL_CHANGE_REQUESTS,
+        base={
+            "user_key": USER,
+            "new_email": "new@example.com",
+            "verification_token_hash": "hash-not-a-secret-r07b",
+            "status": "confirmed",
+        },
+        field="confirmed_at",
+        selects="before",
+        run=_removed_by(
+            col.EMAIL_CHANGE_REQUESTS,
+            lambda db, cut: ArangoEmailChangeRepository(db).delete_confirmed_past_revert_window(cut),
+        ),
+        undated_selected=False,
+        why_undated="destructive: a confirmed status with no readable confirmation time is not proven past the window",
+    ),
+    Selector(
+        name="consent.delete_revoked_before",
+        collection=col.CONSENT_RECORDS,
+        base={"user_key": USER, "purpose": "error_tracking", "granted": False},
+        field="revoked_at",
+        selects="before",
+        run=_removed_by(col.CONSENT_RECORDS, lambda db, cut: ArangoConsentRepository(db).delete_revoked_before(cut)),
+        undated_selected=False,
+        why_undated="destructive: a consent never revoked (the ordinary active-grant state) is not due",
+    ),
+    Selector(
+        name="consent.list_unanonymized_ips_before",
+        collection=col.CONSENT_RECORDS,
+        base={"user_key": USER, "purpose": "error_tracking", "granted": True, "ip_address": "192.0.2.10"},
+        field="granted_at",
+        selects="before",
+        run=_returned_keys(lambda db, cut: ArangoConsentRepository(db).list_unanonymized_ips_before(cut)),
+        undated_selected=True,
+        why_undated=(
+            "minimising, not destructive (the R-03 rule applied to consent_records): anonymising an IP of "
+            "unknown age harms nobody, keeping it plain does"
+        ),
     ),
     Selector(
         name="refresh_token.cleanup_expired",

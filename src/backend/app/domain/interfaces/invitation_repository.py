@@ -38,3 +38,7 @@ class IInvitationRepository(ABC):
 
     @abstractmethod
     def cleanup_expired(self, *, now: datetime | None = None) -> int: ...
+
+    @abstractmethod
+    def delete_expired_before(self, cutoff_iso: str) -> int:
+        """Hard-delete every ``expired`` invitation whose ``expires_at`` is before the cutoff (NFR-011 R-12)."""

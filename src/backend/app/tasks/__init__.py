@@ -362,6 +362,16 @@ celery_app.conf.update(
             "task": "retention.purge_expired_erasure_records",
             "schedule": crontab(hour=4, minute=30),  # 04:30 UTC daily, after the erasure run
         },
+        # NFR-011 R-04 (#1800): consent records revoked past their period.
+        "retention-purge-consent-records-daily": {
+            "task": "retention.purge_expired_consent_records",
+            "schedule": crontab(hour=4, minute=35),  # 04:35 UTC daily, after the erasure-record purge
+        },
+        # NFR-011 R-04a (#1800): the R-03 analogue for consent-record IPs.
+        "retention-anonymize-consent-ips-daily": {
+            "task": "retention.anonymize_consent_ips",
+            "schedule": crontab(hour=4, minute=40),  # 04:40 UTC daily
+        },
     },
 )
 
