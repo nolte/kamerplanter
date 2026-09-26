@@ -72,14 +72,19 @@ def test_a_mail_is_posted_to_the_emails_endpoint_with_the_key_as_bearer() -> Non
     ("send", "subject", "needle"),
     [
         (
-            lambda a: a.send_verification_email(RECIPIENT, "Erika", "tok-1821", "https://app.test"),
+            lambda a: a.send_verification_email(RECIPIENT, "tok-1821", "https://app.test"),
             "Verification",
             "https://app.test/verify-email/tok-1821",
         ),
         (
-            lambda a: a.send_password_reset_email(RECIPIENT, "Erika", "tok-1821", "https://app.test"),
+            lambda a: a.send_password_reset_email(RECIPIENT, "tok-1821", "https://app.test"),
             "Password Reset",
             "https://app.test/password-reset/tok-1821",
+        ),
+        (
+            lambda a: a.send_email_change_email(RECIPIENT, "tok-1848", "https://app.test"),
+            "Confirm your new email address",
+            "https://app.test/email-change/tok-1848",
         ),
         (
             lambda a: a.send_step_up_code_email(RECIPIENT, "Erika <b>", CODE, "delete your account"),
@@ -87,7 +92,7 @@ def test_a_mail_is_posted_to_the_emails_endpoint_with_the_key_as_bearer() -> Non
             CODE,
         ),
     ],
-    ids=["verification", "password-reset", "step-up-code"],
+    ids=["verification", "password-reset", "email-change", "step-up-code"],
 )
 def test_the_system_mails_are_the_smtp_adapters_texts(send, subject: str, needle: str) -> None:
     resend = _Resend()
@@ -104,7 +109,12 @@ def test_the_system_mails_are_the_smtp_adapters_texts(send, subject: str, needle
 def test_both_delivering_adapters_render_from_one_template() -> None:
     """One source for the texts: the SMTP and Resend adapters do not define the bodies themselves."""
     for adapter in (SmtpEmailAdapter, ResendEmailAdapter):
-        for method in ("send_verification_email", "send_password_reset_email", "send_step_up_code_email"):
+        for method in (
+            "send_verification_email",
+            "send_password_reset_email",
+            "send_email_change_email",
+            "send_step_up_code_email",
+        ):
             assert method not in vars(adapter), f"{adapter.__name__} redefines {method}"
 
 

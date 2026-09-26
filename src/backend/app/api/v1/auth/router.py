@@ -15,6 +15,7 @@ from app.api.v1.auth.schemas import (
     ApiKeyCreatedResponse,
     ApiKeyCreateRequest,
     ApiKeySummaryResponse,
+    DevicePairingCreateRequest,
     DevicePairingCreateResponse,
     DevicePairingRedeemRequest,
     LoginRequest,
@@ -30,7 +31,11 @@ from app.api.v1.auth.schemas import (
     VerifyEmailRequest,
 )
 from app.api.v1.mcp.deps import require_mcp_enabled
-from app.common.auth import get_refresh_token_from_cookie, require_account_principal
+from app.common.auth import (
+    get_authenticated_with_api_key,
+    get_refresh_token_from_cookie,
+    require_account_principal,
+)
 from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
 from app.common.exceptions import (
     InvalidTokenError,
@@ -40,7 +45,7 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
-from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import CRUD_RESPONSES, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import list_mcp_permissions
@@ -610,11 +615,15 @@ def _remaining_seconds(expires_at: datetime) -> int:
     return max(0, math.ceil((expires_at - datetime.now(UTC)).total_seconds()))
 
 
-@router.post("/device-pairing", response_model=DevicePairingCreateResponse, status_code=201)
+@router.post(
+    "/device-pairing", response_model=DevicePairingCreateResponse, status_code=201, responses=STEP_UP_RESPONSES
+)
 @limiter.limit(settings.rate_limit_auth)
 def create_device_pairing(
     request: Request,
+    body: DevicePairingCreateRequest | None = None,
     current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: AuthService = Depends(get_auth_service),
 ):
     """Mint a one-time QR pairing code for the authenticated user (#1118).
@@ -632,7 +641,13 @@ def create_device_pairing(
     cluster-internal address, so the QR would encode a URL the scanning phone
     cannot reach — and it would do so only in production, where nobody is
     running the test that would have caught it.
+
+    **Step-up (#1847):** the code redeems into a full session, so minting it
+    passes the shared step-up — the current password in the body (or, for an
+    account without one, ``step_up_token`` / ``step_up_code``); 401 without it,
+    403 from an API-key request, 429 ``STEP_UP_LOCKED``.
     """
+    step_up = body or DevicePairingCreateRequest()
     code, expires_at = service.create_device_pairing(
         current_user.key or "",
         # The proxy-aware helper, not ``request.client.host``: see the module
@@ -641,6 +656,10 @@ def create_device_pairing(
         # the direct peer is the proxy for *every* caller — which would collapse
         # a per-IP guard into a single shared bucket.
         resolve_client_ip(request),
+        current_password=step_up.current_password,
+        step_up_code=step_up.step_up_code,
+        step_up_token=step_up.step_up_token,
+        authenticated_with_api_key=via_api_key,
     )
     return DevicePairingCreateResponse(
         payload_version=_QR_PAYLOAD_VERSION,
@@ -697,14 +716,32 @@ def redeem_device_pairing(
 # ── M2M API Keys ───────────────────────────────────────────────────
 
 
-@api_keys_router.post("/api-keys", response_model=ApiKeyCreatedResponse, status_code=201)
+@api_keys_router.post("/api-keys", response_model=ApiKeyCreatedResponse, status_code=201, responses=STEP_UP_RESPONSES)
 def create_api_key(
     body: ApiKeyCreateRequest,
     current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: AuthService = Depends(get_auth_service),
 ):
-    """Create a new M2M API key for the current user."""
-    created = service.create_api_key(current_user.key or "", body.label, body.tenant_scope)
+    """Create a new M2M API key for the current user.
+
+    **Step-up (#1847):** a key survives a password change, so minting one is a
+    credential change — the current password in the body (or, for an account
+    without one, ``step_up_token`` / ``step_up_code``); 401 without it, 403 from
+    an API-key request (a key cannot mint a key), 429 ``STEP_UP_LOCKED``. Light
+    mode needs none: every request there already is the system account.
+    """
+    created = service.create_api_key(
+        current_user.key or "",
+        body.label,
+        body.tenant_scope,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return ApiKeyCreatedResponse(**created.model_dump())
 
 

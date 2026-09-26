@@ -26,19 +26,27 @@ class ConsoleEmailAdapter(IEmailService):
     rather than refusing to start, which would break every Helm install without SMTP.
     """
 
-    def send_verification_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
+    def send_verification_email(self, to_email: str, token: str, frontend_url: str) -> None:
         if not settings.debug:
             logger.info("email_verification", to_sha256=email_digest(to_email), url_logged=False, delivered=False)
             return
         url = f"{frontend_url}/verify-email/{token}"
         logger.info("email_verification", to_sha256=email_digest(to_email), url_logged=True, verification_url=url)
 
-    def send_password_reset_email(self, to_email: str, display_name: str, token: str, frontend_url: str) -> None:
+    def send_password_reset_email(self, to_email: str, token: str, frontend_url: str) -> None:
         if not settings.debug:
             logger.info("email_password_reset", to_sha256=email_digest(to_email), url_logged=False, delivered=False)
             return
         url = f"{frontend_url}/password-reset/{token}"
         logger.info("email_password_reset", to_sha256=email_digest(to_email), url_logged=True, reset_url=url)
+
+    def send_email_change_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        # The link moves the account onto the new address (#1848): the #1795 rule.
+        if not settings.debug:
+            logger.info("email_change", to_sha256=email_digest(to_email), url_logged=False, delivered=False)
+            return
+        url = f"{frontend_url}/email-change/{token}"
+        logger.info("email_change", to_sha256=email_digest(to_email), url_logged=True, email_change_url=url)
 
     def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
         # The code confirms an account erasure or a credential change (#1815) — the

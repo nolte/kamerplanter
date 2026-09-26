@@ -1,4 +1,4 @@
-<!-- REQ-023 — Quelle: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py -->
+<!-- REQ-023 — Quelle: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage,EmailChangeCard,EmailChangeConfirmPage,EmailChangeRevertPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py — REQ-025 (Art. 16) für die E-Mail-Änderung selbst, siehe privacy.md -->
 
 # Konto & Anmeldung
 
@@ -107,11 +107,29 @@ Im Tab **Profil** kannst du folgende Angaben ändern:
 | Einstellung | Beschreibung |
 |-------------|-------------|
 | **Anzeigename** | Wird in der gesamten App angezeigt |
-| **E-Mail** | Nur zur Anzeige — die Anmelde-E-Mail lässt sich hier nicht ändern |
+| **E-Mail** | Nur zur Anzeige an dieser Stelle — deine Anmeldeadresse änderst du im Abschnitt **E-Mail-Adresse ändern** direkt darunter (siehe nächster Abschnitt) |
 | **Sprache** | Deutsch oder Englisch — wechselt die Oberflächensprache sofort |
 | **Zeitzone** | Wird für alle Datums- und Zeitanzeigen verwendet, z. B. `Europe/Berlin` |
 
 Klicke nach Änderungen auf **Speichern**.
+
+---
+
+## E-Mail-Adresse ändern
+
+Im Tab **Profil** der Kontoeinstellungen findest du unterhalb deiner Profildaten den Abschnitt **E-Mail-Adresse ändern**. Das ist der Berichtigungsweg nach DSGVO Art. 16 — die ausführliche Aufschlüsselung, was dabei mit deinen Daten passiert, findest du unter [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
+
+1. Trage die **neue E-Mail-Adresse** ein und klicke auf **Änderung anfordern**
+2. Bestätige dich im aufklappenden Dialog — mit deinem **aktuellen Passwort**, sofern dein Konto eines hat, sonst über **Erneut anmelden** (Google, generischer OIDC-Anbieter) oder, nur bei ausschließlich GitHub/Apple, über **Code per E-Mail senden**
+3. Die Oberfläche bestätigt: An die neue Adresse wurde ein Bestätigungslink geschickt; deine **aktuelle** Adresse erhält sofort eine Information über die angestoßene Änderung
+
+Bis zur Bestätigung meldest du dich weiterhin mit deiner bisherigen Adresse an.
+
+!!! tip "Bestätigung über die neue Adresse"
+    Öffne die E-Mail an der **neuen** Adresse und klicke auf **Neue Adresse bestätigen**. Erst mit diesem Klick wird die neue Adresse zu deiner Anmeldeadresse — das bloße Öffnen der Mail reicht nicht. Danach werden alle deine Sitzungen abgemeldet; du meldest dich anschließend mit der neuen Adresse erneut an.
+
+!!! warning "Falscher Empfänger? Rückgängig machen"
+    Deine **bisherige** Adresse erhält nach der Bestätigung ebenfalls eine Mail — mit einem Link, über den sich die Änderung innerhalb von 7 Tagen einmalig rückgängig machen lässt. Das trennt dabei auch seit der Änderung neu verknüpfte Anmeldeanbieter und widerruft seitdem angelegte API-Schlüssel. Details dazu, was die Wiederherstellung im Einzelnen tut, unter [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
 
 ---
 
@@ -134,6 +152,8 @@ Im Tab **Sicherheit** der Kontoeinstellungen verwaltest du, wie du dich anmeldes
 
 Die Liste zeigt alle mit deinem Konto verknüpften Anmeldewege (lokales Passwort, Google, GitHub, …). Du kannst einen Anbieter trennen, solange danach mindestens ein weiterer Anmeldeweg bestehen bleibt. Dein letzter Anmeldeweg lässt sich nicht entfernen, damit du nicht aus deinem Konto ausgesperrt wirst.
 
+Zum Trennen bestätigst du zusätzlich mit deinem aktuellen Passwort — hast du keines, meldest du dich stattdessen frisch beim betreffenden Anbieter an (**Erneut anmelden**), oder lässt dir, nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, einen Code per E-Mail schicken. Das ist derselbe Bestätigungsweg wie bei der Passwortänderung oben, mit demselben Sperrverhalten nach zu vielen Fehlversuchen. <!-- REQ-023 -->
+
 !!! note "Liste konnte nicht geladen werden?"
     Lässt sich die Liste nicht laden, zeigt die Karte einen Warnhinweis. Solange unklar ist, ob dein Konto ein lokales Passwort hat, zeigt dir das Passwort-Formular oben sicherheitshalber weiterhin das Feld für das aktuelle Passwort an — lade die Seite neu, um es erneut zu versuchen.
 
@@ -155,6 +175,49 @@ Um eine fremde oder nicht mehr benötigte Sitzung zu beenden, klicke auf das Pap
 !!! tip "Verdächtige Sitzung entdeckt?"
     Beende die Sitzung sofort und ändere anschließend dein Passwort — das beendet automatisch alle verbleibenden Sitzungen (siehe oben).
 
+### Mobilgerät per QR-Code verbinden
+
+Im selben Tab **Sitzungen** klickst du auf **Mobilgerät verbinden**, um ein Smartphone oder Tablet mit deinem Konto zu verbinden, ohne dein Passwort auf dem fremden Gerät einzutippen.
+
+1. Klicke auf **Mobilgerät verbinden**
+2. Bestätige mit deinem aktuellen Passwort — hast du keines, meldest du dich stattdessen frisch bei deinem Anmeldeanbieter an, oder lässt dir, nur bei ausschließlich GitHub oder Apple, einen Code per E-Mail schicken
+3. Öffne die Kamerplanter-App auf deinem Smartphone, wähle dort **Gerät verbinden** und scanne den angezeigten QR-Code
+4. Das Gerät erscheint anschließend in der Sitzungsliste oben und lässt sich dort jederzeit wieder abmelden
+
+!!! warning "QR-Code niemals weitergeben"
+    Der QR-Code meldet ein Gerät vollständig und dauerhaft bei deinem Konto an. Zeig ihn niemandem und scanne nur einen Code, den du selbst gerade erzeugt hast — er ist nur wenige Sekunden gültig.
+
+!!! note "Warum eine erneute Bestätigung?"
+    Weil der QR-Code ein neues Gerät vollständig anmeldet, bestätigst du zuerst, dass du es bist — so kann niemand an einem offen gelassenen Browser heimlich ein fremdes Gerät verbinden. <!-- REQ-023 -->
+
+---
+
+## API-Schlüssel verwalten
+
+Im Tab **API-Schlüssel** erstellst und widerrufst du persönliche Zugangsschlüssel für automatisierte Zugriffe — etwa eigene Skripte, den MCP-Server oder eine Home-Assistant-Integration, die sich nicht interaktiv anmelden können.
+
+### API-Schlüssel erstellen
+
+1. Klicke auf **API-Schlüssel erstellen**
+2. Vergib eine **Bezeichnung**, die dir später hilft, den Schlüssel wiederzuerkennen (z. B. „MCP-Server" oder „Home Assistant")
+3. Bestätige mit deinem aktuellen Passwort — hast du keines, meldest du dich stattdessen frisch bei deinem Anmeldeanbieter an, oder lässt dir, nur bei ausschließlich GitHub oder Apple, einen Code per E-Mail schicken
+4. Kopiere den angezeigten Schlüssel sofort an einen sicheren Ort
+
+!!! danger "Der Schlüssel wird nur einmal angezeigt"
+    Aus Sicherheitsgründen zeigt Kamerplanter den vollständigen Schlüssel nur direkt nach dem Erstellen an. Schließt du den Dialog, ohne ihn zu kopieren, musst du einen neuen Schlüssel erstellen.
+
+!!! note "Warum eine erneute Bestätigung?"
+    Ein API-Schlüssel meldet Anwendungen dauerhaft bei deinem Konto an — er bleibt auch gültig, wenn du dein Passwort änderst (siehe unten). Deshalb bestätigst du das Erstellen, damit niemand an einem offen gelassenen Browser heimlich einen Zugang anlegen kann. <!-- REQ-023 -->
+
+### API-Schlüssel widerrufen
+
+Die Liste zeigt alle deine Schlüssel mit Bezeichnung, Erstellungsdatum und letztem Nutzungszeitpunkt. Klicke auf **API-Schlüssel widerrufen**, um einen nicht mehr benötigten oder verdächtigen Schlüssel sofort ungültig zu machen.
+
+!!! warning "Passwortänderung widerruft keine API-Schlüssel"
+    Anders als bei Sitzungen beenden eine Passwortänderung, ein Passwort-Reset und „alle Sitzungen abmelden" **keine** bestehenden API-Schlüssel — ein Schlüssel steht für eine bewusst eingerichtete Integration, die sonst ohne Vorwarnung ausfallen würde. Vermutest du, dass dein Konto kompromittiert wurde: Ändere dein Passwort, melde dich überall ab **und** widerrufe zusätzlich jeden API-Schlüssel, den du nicht wiedererkennst.
+
+Weiterführende technische Details (Endpunkte, IP-Allowlist, Rate-Limits) findest du in der [API-Dokumentation](../api/authentication.md).
+
 ---
 
 ## Erfahrungsstufe und weitere Einstellungen
@@ -167,7 +230,7 @@ Im Tab **Erfahrungsstufe** der Kontoeinstellungen kannst du außerdem:
 
 Welche Funktionsbereiche du unabhängig von deiner Erfahrungsstufe ein- oder ausblendest, regelst du im Tab **Module & Funktionen** — siehe [Module & Funktionen](module-visibility.md).
 
-Im Tab **API-Schlüssel** (Zugangsschlüssel für automatisierte Zugriffe, z. B. eigene Skripte) erstellst und widerrufst du persönliche API-Schlüssel. Details dazu findest du in der [API-Dokumentation](../api/authentication.md).
+Persönliche API-Schlüssel verwaltest du im Tab **API-Schlüssel** — siehe [API-Schlüssel verwalten](#api-schlussel-verwalten) oben.
 
 ---
 
@@ -191,13 +254,19 @@ Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut
     Prüfe zuerst deinen Spam-Ordner. Der Bestätigungslink ist 24 Stunden gültig; danach musst du dich erneut registrieren, um eine neue E-Mail zu erhalten.
 
 ??? question "Kann ich meine E-Mail-Adresse ändern?"
-    In den Kontoeinstellungen ist die E-Mail-Adresse nur zur Anzeige und lässt sich dort nicht bearbeiten. Die E-Mail-Änderung ist Teil der Datenschutz-Funktionen — siehe [Datenschutz & DSGVO](privacy.md).
+    Ja, im Tab **Profil** der Kontoeinstellungen im Abschnitt **E-Mail-Adresse ändern** (siehe oben). Die neue Adresse muss über einen Bestätigungslink freigeschaltet werden; deine bisherige Adresse kann die Änderung anschließend 7 Tage lang rückgängig machen. Details: [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
 
 ??? question "Was passiert, wenn ich einen Anmeldeanbieter wie Google trenne?"
     Du kannst dich danach nicht mehr über diesen Anbieter anmelden. Solange mindestens ein weiterer Anmeldeweg (Passwort oder anderer Anbieter) übrig bleibt, funktioniert die Anmeldung über diesen Weg weiter.
 
 ??? question "Warum wurden alle meine Sitzungen beendet, obwohl ich nur mein Passwort geändert habe?"
     Das ist ein Sicherheitsmechanismus: Nach einer Passwortänderung werden vorsorglich alle Sitzungen beendet, damit ein möglicherweise kompromittiertes Gerät keinen Zugriff mehr hat. Du meldest dich danach überall neu an.
+
+??? question "Warum verlangt das Erstellen eines API-Schlüssels oder das Verbinden eines Mobilgeräts eine erneute Bestätigung?"
+    Ein API-Schlüssel oder ein per QR-Code gekoppeltes Gerät meldet eine Anwendung dauerhaft bei deinem Konto an — beides überlebt sogar eine spätere Passwortänderung. Die erneute Bestätigung stellt sicher, dass wirklich du diesen Schritt auslöst und nicht jemand, der kurzzeitig Zugriff auf einen offen gelassenen Browser hatte.
+
+??? question "Ich vermute, mein Konto wurde kompromittiert — was mache ich?"
+    Ändere dein Passwort (das beendet automatisch alle Sitzungen), oder verwende zusätzlich **Alle Sitzungen abmelden**. Widerrufe danach im Tab **API-Schlüssel** jeden Schlüssel, den du nicht wiedererkennst — API-Schlüssel werden durch eine Passwortänderung **nicht** automatisch widerrufen.
 
 ---
 

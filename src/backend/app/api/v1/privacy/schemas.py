@@ -74,6 +74,12 @@ class EmailChangeConfirmRequest(BaseModel):
     token: str = Field(min_length=1, max_length=200)
 
 
+class EmailChangeRevertRequest(BaseModel):
+    """The one-time token from the notice to the previous address (#1848)."""
+
+    token: str = Field(min_length=1, max_length=200)
+
+
 class EmailChangeResponse(BaseModel):
     key: str
     new_email: str

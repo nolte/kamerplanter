@@ -15,6 +15,7 @@ from app.api.v1.privacy.schemas import (
     EmailChangeConfirmRequest,
     EmailChangeCreateRequest,
     EmailChangeResponse,
+    EmailChangeRevertRequest,
     ErasureCreateRequest,
     ErasureResponse,
     MessageResponse,
@@ -248,6 +249,27 @@ def confirm_email_change(
     """
     service.confirm_email_change(body.token)
     return MessageResponse(message="Email address has been updated.")
+
+
+@router.post("/email-change/revert", response_model=MessageResponse)
+@limiter.limit(settings.rate_limit_email_change_confirm)
+def revert_email_change(
+    request: Request,
+    body: EmailChangeRevertRequest,
+    service: PrivacyService = Depends(get_privacy_service),
+):
+    """Take the account back onto the address a confirmed change left (no auth required, #1848).
+
+    The token comes from the notice mailed to the previous address at the
+    confirmation. It works once and only within the revert window
+    (``RETENTION_EMAIL_CHANGE_REVERT_DAYS``); it restores that address as
+    verified, signs out every session and voids a password-reset token. 401 for
+    an unknown, spent or expired token; 422 when the previous address now belongs
+    to another account. Rate-limited like the confirmation, on the same budget
+    setting and for the same reason (an unauthenticated, state-changing route).
+    """
+    service.revert_email_change(body.token)
+    return MessageResponse(message="Your previous email address has been restored. All sessions were signed out.")
 
 
 # ── Art. 17: erasure ──────────────────────────────────────────────

@@ -184,3 +184,69 @@ describe('StepUpConfirmDialog — e-mailed step-up code (#1815)', () => {
     expect(field(dialog, 'su-code').value).toBe('');
   });
 });
+
+describe('StepUpConfirmDialog — without an echo (#1847, #1857)', () => {
+  beforeEach(() => i18n.changeLanguage('de'));
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  function renderNoEcho(onConfirm: (c: StepUpConfirmation) => Promise<void>) {
+    return renderWithProviders(
+      <StepUpConfirmDialog
+        open
+        title="Create key"
+        description="A key is a credential."
+        confirmLabel="Create"
+        confirmColor="primary"
+        testIdPrefix="ne"
+        stepUpAction="api_key_creation"
+        onConfirm={onConfirm}
+        onCancel={() => {}}
+      />,
+    );
+  }
+
+  it('renders no echo field and confirms with the password alone', async () => {
+    providers([{ provider: 'local' }]);
+    const onConfirm = vi.fn<(c: StepUpConfirmation) => Promise<void>>().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderNoEcho(onConfirm);
+
+    const dialog = await screen.findByTestId('ne-dialog');
+    expect(within(dialog).queryByTestId('ne-echo')).toBeNull();
+    const confirm = within(dialog).getByTestId('ne-confirm');
+    // The factor is still required: an empty password does not confirm.
+    expect(confirm).toBeDisabled();
+
+    await user.type(field(dialog, 'ne-password'), PASSWORD);
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({ echo: '', password: PASSWORD }));
+  });
+
+  it('asks a federated account for a code bound to its own act', async () => {
+    providers([{ provider: 'github' }]);
+    let codeBody: unknown = null;
+    server.use(
+      http.post('/api/v1/users/me/step-up-code', async ({ request }) => {
+        codeBody = await request.json();
+        return HttpResponse.json({ expires_at: '2026-09-26T12:10:00Z', expires_in: 600 });
+      }),
+    );
+    const onConfirm = vi.fn<(c: StepUpConfirmation) => Promise<void>>().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderNoEcho(onConfirm);
+
+    const dialog = await screen.findByTestId('ne-dialog');
+    await user.click(await within(dialog).findByTestId('ne-send-code'));
+    await waitFor(() => expect(codeBody).toEqual({ action: 'api_key_creation' }));
+
+    await user.type(field(dialog, 'ne-code'), CODE);
+    await user.click(within(dialog).getByTestId('ne-confirm'));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({ echo: '', code: CODE }));
+  });
+});

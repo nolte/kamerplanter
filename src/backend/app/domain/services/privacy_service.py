@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from app.common.decoys import decoy_document_key, email_digest
 from app.common.enums import TenantRole
 from app.common.exceptions import (
+    AccountBeingErasedError,
     DuplicateError,
     ErasureIncompleteError,
     FeatureNotConfiguredError,
@@ -37,7 +38,9 @@ from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT, ErasureEn
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.storage.export_bundle_key import loggable_storage_key, mask_export_bundle_keys
 from app.domain.engines.token_engine import TokenEngine
+from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
+from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
 from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.interfaces.data_export_repository import IDataExportRepository
 from app.domain.interfaces.email_change_repository import IEmailChangeRepository
@@ -55,6 +58,7 @@ from app.domain.interfaces.processing_restriction_repository import (
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
+from app.domain.models.auth import AuthProviderType
 from app.domain.models.privacy import (
     AccountErasureReport,
     ConsentRecord,
@@ -203,7 +207,13 @@ class PrivacyService:
         retention: RetentionService | None = None,
         step_up_verifier: StepUpVerifier | None = None,
         light_mode: bool = False,
+        auth_provider_repo: IAuthProviderRepository | None = None,
+        api_key_repo: IApiKeyRepository | None = None,
     ) -> None:
+        # #1848 — what a revert of a hijacked e-mail change takes back besides the
+        # address: sign-in links and API keys created since the change was requested.
+        self._auth_provider_repo = auth_provider_repo
+        self._api_key_repo = api_key_repo
         self._export_repo = export_repo
         self._consent_repo = consent_repo
         self._restriction_repo = restriction_repo
@@ -397,9 +407,10 @@ class PrivacyService:
 
         A pending request is withdrawn when the owner takes the account back — a
         password reset or change, or signing out everywhere
-        (``AuthService._cancel_pending_email_changes``). What is still open: the
-        mailed link targets the account-verification page, there is no
-        e-mail-change UI and no revert path after the confirmation (#1848).
+        (``AuthService._cancel_pending_email_changes``). The new address gets its
+        own link (``/email-change/{token}``, #1848) without any requester-chosen
+        text (#1856); after the confirmation the previous address can take the
+        account back (:meth:`revert_email_change`).
         """
         user = self._user_repo.get_or_raise(user_key)
         # Stateless checks first (/code-review of #1862): they compare the typed
@@ -430,7 +441,10 @@ class PrivacyService:
         # cannot drift apart (the notice is the same work in either).
         self._notify_current_address_of_email_change(user, new_email)
 
-        if self._user_repo.get_by_email(new_email) is not None:
+        # Taken, or held for the revert of another account's confirmed change
+        # (/code-review of #1893) — the same answer either way.
+        held = self._email_change_repo.find_revert_reservation(new_email, datetime.now(UTC).isoformat())
+        if self._user_repo.get_by_email(new_email) is not None or (held is not None and held.user_key != user_key):
             return self._suppress_taken_email_change(user_key, user, new_email)
 
         raw_token = secrets.token_urlsafe(32)
@@ -447,11 +461,11 @@ class PrivacyService:
         )
         created = self._email_change_repo.create(change)
 
-        # Send verification email to the NEW address.
+        # The confirmation link to the NEW address — its own page, not the account
+        # verification one (#1848), and no display name: the address is unverified (#1856).
         try:
-            self._email_service.send_verification_email(
+            self._email_service.send_email_change_email(
                 to_email=new_email,
-                display_name=user.display_name,
                 token=raw_token,
                 frontend_url=self._frontend_url,
             )
@@ -588,18 +602,27 @@ class PrivacyService:
             # failure must not answer differently in the two branches.
             logger.warning("email_change_owner_notice_skipped", subject=self.log_subject(user.key or ""))
 
-    def _notify_old_address_of_email_change(self, old_email: str, new_email: str, user_key: str) -> None:
-        """Tell the address an account just left that it was replaced and every session revoked (#1841).
+    def _notify_old_address_of_email_change(
+        self, old_email: str, new_email: str, user_key: str, *, revert_token: str, revert_expires_at: datetime
+    ) -> None:
+        """Tell the address an account just left that it was replaced, with the link that takes it back (#1841, #1848).
 
-        A password reset now goes to the new address, so the notice does not point
-        at one; it points at the operator. No revert link — there is none yet (#1848).
+        A password reset now goes to the new address, so the notice cannot point
+        at one. It carries the revert link instead: single use, valid until
+        *revert_expires_at*, it restores this address (if still free), signs out
+        every session and voids a reset token mailed to the new address.
         """
+        revert_url = f"{self._frontend_url}/email-change/revert/{revert_token}"
         body = (
             "<h2>Your email address was changed</h2>"
             "<p>The email address of your Kamerplanter account was changed to "
             f"<strong>{html.escape(new_email)}</strong>. All sessions of the account were signed out.</p>"
-            "<p>If you did not make this change, contact the operator of this Kamerplanter installation "
-            "immediately. Password reset mails now go to the new address.</p>"
+            "<p>If you did not make this change, take your account back with the link below. It restores this "
+            "address, signs out every session and cancels password reset links sent to the new address. "
+            f"It works once, until {html.escape(revert_expires_at.strftime('%Y-%m-%d %H:%M UTC'))}.</p>"
+            f'<p><a href="{html.escape(revert_url)}">This was not me — restore my email address</a></p>'
+            "<p>Then reset your password from the sign-in page and contact the operator of this Kamerplanter "
+            "installation.</p>"
         )
         try:
             self._email_service.send_notification_email(
@@ -631,25 +654,59 @@ class PrivacyService:
                 self._email_change_repo.update(change.key, change)
             raise InvalidTokenError("email-change token")
 
+        # Claim the request before the address moves (security review of #1848,
+        # SEC-001): a revert or a second confirmation racing this one saw
+        # "pending" too; exactly one of them may act on it.
+        if not change.key or not self._email_change_repo.claim_status(
+            change.key, "pending", "confirmed", datetime.now(UTC).isoformat()
+        ):
+            raise InvalidTokenError("email-change token")
+
         user = self._user_repo.get_or_raise(change.user_key)
 
         old_email = user.email
-        # Narrow write (#1525 SCR-003): the token lookup and validation sit between
-        # the read and the write, and a full-model write-back would remove whatever a
-        # parallel request set in between now that the repository is full-replace.
-        if user.key:
-            user = self._user_repo.update_fields(user.key, {"email": change.new_email, "email_verified": True})
-            self._refresh_token_repo.revoke_all_for_user(user.key)
-        else:  # pragma: no cover - a user read through get_or_raise always carries a key
-            user.email = change.new_email
-            user.email_verified = True
+        # Compare-and-set on the address (/code-review of #1893): only while the
+        # account still has the address read above. A revert or another change
+        # that moved it in between wins; this one gives its claim back.
+        try:
+            moved = self._user_repo.move_email(
+                change.user_key, old_email, {"email": str(change.new_email), "email_verified": True}
+            )
+        except DuplicateError, WriteConflictError:
+            # The new address was registered meanwhile (1210), or a concurrent write
+            # held it (1200): the request stays pending, it is not burnt.
+            self._email_change_repo.claim_status(change.key, "confirmed", "pending", datetime.now(UTC).isoformat())
+            raise
+        if moved is None:
+            self._email_change_repo.claim_status(change.key, "confirmed", "pending", datetime.now(UTC).isoformat())
+            raise InvalidTokenError("email-change token")
+        user = moved
+        self._refresh_token_repo.revoke_all_for_user(change.user_key)
 
-        change.status = "confirmed"
-        change.confirmed_at = datetime.now(UTC)
-        if change.key:
-            self._email_change_repo.update(change.key, change)
-
-        self._notify_old_address_of_email_change(old_email, change.new_email, change.user_key)
+        # The way back for the previous address (#1848): a single-use token, stored
+        # only as a hash, valid for the R-07 revert window.
+        # Recorded only while the request is still "confirmed": a revert that
+        # superseded it in between must not be overwritten by a plain update, or
+        # the superseded change would get a live revert link back (/code-review
+        # of #1893). Without the record there is no link to send.
+        confirmed_at = datetime.now(UTC)
+        revert_token = secrets.token_urlsafe(32)
+        revert_expires_at = self._retention.email_change_revert_expires_at(confirmed_at)
+        recorded = self._email_change_repo.record_confirmation(
+            change.key,
+            previous_email=old_email,
+            revert_token_hash=self._token_engine.hash_token(revert_token),
+            revert_expires_at_iso=revert_expires_at.isoformat(),
+            now_iso=confirmed_at.isoformat(),
+        )
+        if recorded:
+            self._notify_old_address_of_email_change(
+                old_email,
+                change.new_email,
+                change.user_key,
+                revert_token=revert_token,
+                revert_expires_at=revert_expires_at,
+            )
 
         logger.info(
             "privacy_email_change_confirmed",
@@ -658,6 +715,167 @@ class PrivacyService:
             new_email_sha256=email_digest(user.email),
         )
         return user
+
+    def revert_email_change(self, raw_token: str) -> User:
+        """Take an account back onto the address a confirmed e-mail change left (REQ-025 Art. 16, #1848).
+
+        The notice to the previous address carries the token. Without this, the
+        owner of a hijacked account had no way back: the password reset goes to
+        the new address, and no admin route can change an e-mail. Presenting the
+        token — once, within the window — takes back what a takeover through the
+        change could have left behind:
+
+        * the previous address, restored as verified;
+        * every session, signed out; a password-reset token (it went to the new
+          address) voided; pending e-mail changes withdrawn;
+        * sign-in links (other than the local password) and API keys created
+          since the change was requested (security review, SEC-002/SEC-003);
+        * the revert windows of changes confirmed *after* this one — an
+          attacker's own second hop must not undo the revert with its own token
+          (SEC-001). Earlier windows stay open, so an attacker's revert of a later
+          change cannot void the owner's token.
+
+        The address the account leaves again is told (SEC-004). Refused, with the
+        token left unspent: the previous address now belongs to another account
+        (422), the account is closed and queued for erasure (409, SEC-007).
+        Unknown, spent and expired tokens answer the same 401.
+        """
+        token_hash = self._token_engine.hash_token(raw_token)
+        change = self._email_change_repo.get_by_revert_token_hash(token_hash)
+        now = datetime.now(UTC)
+        if (
+            change is None
+            or change.key is None
+            or change.status != "confirmed"
+            or change.previous_email is None
+            or change.revert_expires_at is None
+            or change.revert_expires_at < now
+        ):
+            raise InvalidTokenError("email-change revert token")
+
+        previous = str(change.previous_email)
+        account = self._user_repo.get_or_raise(change.user_key)
+        if not account.is_active:
+            raise AccountBeingErasedError()
+        holder = self._user_repo.get_by_email(previous)
+        if holder is not None and holder.key != change.user_key:
+            raise ValidationError("The previous email address is now used by another account.")
+        # Single use, atomically: two reverts of one token, or a revert racing
+        # another act on this request, cannot both proceed (SEC-001).
+        if not self._email_change_repo.claim_status(change.key, "confirmed", "reverted", now.isoformat()):
+            raise InvalidTokenError("email-change revert token")
+
+        left_again = account.email
+        # Later confirmations lose their revert link first — also one still in
+        # flight, whose claim stamped confirmed_at (/code-review of #1893).
+        if change.confirmed_at is not None:
+            self._email_change_repo.supersede_confirmed_after(
+                change.user_key, change.confirmed_at.isoformat(), now.isoformat()
+            )
+        # Compare-and-set on the address (/code-review of #1893): the reverts of
+        # two chained changes, or a confirmation in flight, each read an address;
+        # only the one whose read still holds writes. The loser gives its claim
+        # back, so the owner's single-use token survives a lost race (409, retry).
+        try:
+            moved = self._user_repo.move_email(
+                change.user_key,
+                left_again,
+                {
+                    "email": previous,
+                    "email_verified": True,
+                    "password_reset_token": None,
+                    "password_reset_expires": None,
+                },
+            )
+        except DuplicateError as exc:
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise ValidationError("The previous email address is now used by another account.") from exc
+        except WriteConflictError:
+            # A concurrent write held the address (1200): retryable, token kept.
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise
+        if moved is None:
+            self._email_change_repo.claim_status(change.key, "reverted", "confirmed", now.isoformat())
+            raise WriteConflictError("User", "the address changed while the revert ran; try the link again")
+        user = moved
+        self._refresh_token_repo.revoke_all_for_user(change.user_key)
+        for pending in self._email_change_repo.list_pending_for_user(change.user_key):
+            if pending.key:
+                self._email_change_repo.claim_status(pending.key, "pending", "cancelled", now.isoformat())
+        since = change.requested_at or change.confirmed_at or now
+        dropped_links, revoked_keys = self._take_back_credentials_since(change.user_key, since)
+
+        # Single use through the status: only a "confirmed" change reverts. The
+        # hash is not nulled here — this repository merges, so a ``None`` would be
+        # dropped (#1516); the R-07 task clears it with the window.
+        change.status = "reverted"
+        change.reverted_at = now
+        self._email_change_repo.update(change.key, change)
+
+        if left_again and left_again != previous:
+            self._notify_address_left_by_revert(left_again, change.user_key)
+        logger.info(
+            "privacy_email_change_reverted",
+            subject=self.log_subject(change.user_key),
+            sign_in_links_dropped=dropped_links,
+            api_keys_revoked=revoked_keys,
+        )
+        return user
+
+    def _take_back_credentials_since(self, user_key: UserKey, since: datetime) -> tuple[int, int]:
+        """Drop federated sign-in links and revoke API keys created at or after *since* (#1848).
+
+        A takeover through the e-mail change can leave both behind: a Google/OIDC
+        identity auto-linked to the hijacked (verified) address signs its holder
+        in by ``sub`` without comparing the address again, and an API key reads and
+        writes without any step-up. The local password is not a link to drop — the
+        owner resets it. Older links and keys are the owner's own and stay.
+        """
+        dropped = 0
+        if self._auth_provider_repo is not None:
+            for link in self._auth_provider_repo.list_by_user(user_key):
+                if link.key and link.provider != AuthProviderType.LOCAL and link.linked_at >= since:
+                    self._auth_provider_repo.delete(link.key)
+                    dropped += 1
+        else:
+            logger.warning("email_change_revert_links_unchecked", subject=self.log_subject(user_key))
+        revoked = 0
+        if self._api_key_repo is not None:
+            for key in self._api_key_repo.list_by_user(user_key):
+                if key.key and not key.revoked and key.created_at is not None and key.created_at >= since:
+                    self._api_key_repo.revoke(key.key)
+                    revoked += 1
+        else:
+            logger.warning("email_change_revert_api_keys_unchecked", subject=self.log_subject(user_key))
+        return dropped, revoked
+
+    def _notify_address_left_by_revert(self, address: str, user_key: str) -> None:
+        """Tell the address a revert just moved the account off (security review of #1848, SEC-004).
+
+        Fixed text only: the recipient may be the attacker or the owner's own
+        second mailbox, and nothing a requester chose belongs in it.
+        """
+        body = (
+            "<h2>Your Kamerplanter account moved back to its previous email address</h2>"
+            "<p>The owner of the previous address used the link from the change notice to take the account "
+            "back. This address no longer signs in to it, and every session was signed out.</p>"
+            "<p>If you made the change and did not expect this, contact the operator of this Kamerplanter "
+            "installation.</p>"
+        )
+        try:
+            self._email_service.send_notification_email(
+                to_email=address,
+                subject="Kamerplanter — your account moved back to its previous email address",
+                html_body=body,
+            )
+        except NotImplementedError:
+            logger.warning("email_change_revert_notice_skipped", subject=self.log_subject(user_key))
+        except Exception as exc:  # noqa: BLE001 - sent after the revert is committed
+            logger.error(
+                "email_change_revert_notice_failed",
+                subject=self.log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
 
     # ── Art. 17: erasure ───────────────────────────────────────────
 
@@ -2604,10 +2822,14 @@ class PrivacyService:
         ``RETENTION_EMAIL_CHANGE_RETENTION_HOURS`` (:meth:`request_email_change`).
         """
         affected = self._email_change_repo.expire_old(now.isoformat())
-        if affected:
+        # The revert window of confirmed changes closes on the same beat (#1848):
+        # the previous address and the token's hash are kept exactly that long.
+        closed = self._email_change_repo.close_revert_windows(now.isoformat())
+        if affected or closed:
             logger.info(
                 "retention.expire_email_change_requests.completed",
                 expired=affected,
+                revert_windows_closed=closed,
             )
         return affected
 

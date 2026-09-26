@@ -121,6 +121,21 @@ class WriteConflictError(KamerplanterError):
         )
 
 
+class AccountBeingErasedError(KamerplanterError):
+    """The account is closed and queued for erasure, so the e-mail revert cannot restore it (#1848).
+
+    409: the request is well-formed and conflicts with the account's state. The
+    revert token stays unspent; the operator can still act within the grace period.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="This account is closed and scheduled for deletion. Contact the operator of this installation.",
+            error_code="ACCOUNT_BEING_ERASED",
+            status_code=409,
+        )
+
+
 class PhaseTransitionError(KamerplanterError):
     def __init__(self, message: str) -> None:
         super().__init__(

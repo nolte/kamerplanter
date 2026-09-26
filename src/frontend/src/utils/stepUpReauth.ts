@@ -29,14 +29,25 @@ export const STEP_UP_TOKEN_TTL_MS = 5 * 60 * 1000;
 /** How long a started fresh sign-in may take before its callback is no longer accepted. */
 export const STEP_UP_RESUME_TTL_MS = 10 * 60 * 1000;
 
+/**
+ * One entry per act — a `Record` over the union, so an act added to
+ * `StepUpAction` without being listed here fails the type check instead of
+ * silently making its fresh-sign-in callback unacceptable (#1847).
+ */
+const STEP_UP_ACTION_SET: Readonly<Record<StepUpAction, true>> = {
+  account_erasure: true,
+  admin_account_erasure: true,
+  tenant_deletion: true,
+  password_change: true,
+  email_change: true,
+  api_key_creation: true,
+  device_pairing: true,
+  provider_unlink: true,
+  admin_account_update: true,
+};
+
 /** Every act a step-up confirms — mirrors `StepUpAction` in `step_up_service.py`. */
-export const STEP_UP_ACTIONS: readonly StepUpAction[] = [
-  'account_erasure',
-  'admin_account_erasure',
-  'tenant_deletion',
-  'password_change',
-  'email_change',
-];
+export const STEP_UP_ACTIONS: readonly StepUpAction[] = Object.keys(STEP_UP_ACTION_SET) as StepUpAction[];
 
 /** Provider types that cannot prove a fresh sign-in (GitHub: plain OAuth2; Apple: no `auth_time`). */
 const NO_FRESH_REAUTH_PROVIDERS: ReadonlySet<string> = new Set(['local', 'github', 'apple']);

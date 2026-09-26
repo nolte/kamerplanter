@@ -20,6 +20,7 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
 | R-06 | Löschungs-Audit (abgeschlossene Anträge) | 1 Jahr nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
 | R-07 | E-Mail-Änderungsanfragen | 24 Stunden nach Erstellung | Status auf `expired` setzen (kein Hard-Delete) | Zweckentfall |
+| R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
 | R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | **Teilweise implementiert:** Status wird auf `expired` gesetzt, eine Löschung nach 30 Tagen findet nicht statt | Zweckentfall |
 
@@ -89,6 +90,22 @@ unbestätigte E-Mail-Änderungsanfrage `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` 
 der Anfrage (Standard 24 Stunden, Minimum 1 Stunde; der ältere Name
 `PRIVACY_EMAIL_CHANGE_TTL_HOURS` bleibt als Alias gültig) auf den Status `expired`. Ein
 Hard-Delete des Datensatzes findet dabei nicht statt.
+
+### Rückgängig-Fenster einer bestätigten E-Mail-Änderung (R-07a)
+
+Bestätigt sich eine E-Mail-Änderung, erhält die **vorherige** Adresse einen einmalig
+nutzbaren Rückgängig-Link (siehe [Datenschutz — E-Mail-Adresse ändern](../user-guide/privacy.md#e-mail-adresse-andern-art-16-dsgvo)).
+Dafür merkt sich der Datensatz drei zusätzliche Felder: `previous_email`, den Hash des
+Rückgängig-Tokens (`revert_token_hash`) und dessen Ablaufzeitpunkt (`revert_expires_at`),
+gesetzt auf den Bestätigungszeitpunkt plus `RETENTION_EMAIL_CHANGE_REVERT_DAYS` (Standard
+7 Tage, Minimum 1 Tag).
+
+Derselbe stündliche Task wie bei R-07 (`retention.expire_email_change_requests`, Minute
+15) schließt das Fenster in demselben Lauf: Er nullt bei jedem Datensatz, dessen
+`revert_token_hash` gesetzt und dessen `revert_expires_at` erreicht oder nicht lesbar ist,
+alle drei Felder — konservativ, ein Datensatz mit unlesbarem Ablaufzeitpunkt gilt also als
+abgelaufen. Der Rückgängig-Link funktioniert danach nicht mehr; ein Hard-Delete des
+gesamten Datensatzes findet weiterhin nicht statt (siehe R-07).
 
 ---
 
@@ -552,6 +569,7 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
 | R-06 | `retention.purge_expired_erasure_records` | täglich, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
 | R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
+| R-07a | `retention.expire_email_change_requests` (derselbe Lauf) | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
 
@@ -563,7 +581,7 @@ Ereignisnamen mit Zählern, zum Beispiel:
 - `anonymize_old_ips` (`anonymized`)
 - `retention.expire_data_exports.completed` (`expired`)
 - `retention.purge_expired_erasure_records.completed` (`purged`, `held_without_tombstone`)
-- `retention.expire_email_change_requests.completed` (`expired`)
+- `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
 
@@ -590,6 +608,7 @@ Konstruktor prüft dieselbe Untergrenze noch einmal:
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
 
 Sind beide Namen einer Zeile gesetzt, gewinnt der `RETENTION_*`-Name. Die älteren Namen
 waren bis zu dieser Änderung zwar dokumentiert, bewirkten aber nichts — der Code nutzte

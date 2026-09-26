@@ -5,8 +5,12 @@ from app.common.types import UserKey
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User, UserProfile, UserProfileUpdate
+from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
 
 logger = structlog.get_logger()
+
+#: Fields whose false -> true raises the account's trust (#1857).
+_TRUST_FIELDS = ("email_verified", "is_active")
 
 
 class UserService:
@@ -15,9 +19,12 @@ class UserService:
         user_repo: IUserRepository,
         refresh_token_repo: IRefreshTokenRepository,
         tombstone_salt: str = "",
+        step_up_verifier: StepUpVerifier | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
+        # #1857 — the admin's own step-up before an update that raises trust.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(tombstone_salt=tombstone_salt)
         # #1773 — kept for the DI signature; the only line that used it
         # (``account_deleted``) left with ``delete_account`` in #1813.
         self._tombstone_salt = tombstone_salt
@@ -64,7 +71,18 @@ class UserService:
         """
         return self._user_repo.get_or_raise(user_key)
 
-    def admin_update_user(self, user_key: UserKey, data: dict) -> User:
+    def admin_update_user(
+        self,
+        user_key: UserKey,
+        data: dict,
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> User:
         """Apply a partial platform-admin update to one user (#1018).
 
         ``data`` is a partial payload passed straight to
@@ -80,7 +98,30 @@ class UserService:
         Persistence (NFR-001), outside the repository's model re-validation
         (#982/#996), reserved-attribute strip and 1202 → ``NotFoundError``
         mapping.
+
+        **Step-up when it raises trust (#1857).** ``email_verified`` is the trust
+        anchor of the OAuth auto-link (``OAuthEngine.should_auto_link``): a
+        hijacked admin session that verified an attacker's pre-registered account
+        under a victim's address had the victim's next federated sign-in linked
+        into it. Turning ``email_verified`` or ``is_active`` from false to true
+        therefore passes the admin's *own* step-up (``requester`` — their password,
+        the fresh re-authentication or the mailed code; an API key is 403, 429
+        when locked). A display-name edit, a deactivation and a re-send of the
+        current values need none, so the edit form stays one click.
         """
+        current = self._user_repo.get_or_raise(user_key)
+        raises_trust = any(data.get(field) is True and not getattr(current, field) for field in _TRUST_FIELDS)
+        if raises_trust:
+            self._step_up_verifier.verify(
+                requester,
+                action="admin_account_update",
+                echo_ok=None,
+                password=current_password,
+                code=step_up_code,
+                reauth_token=step_up_token,
+                authenticated_with_api_key=authenticated_with_api_key,
+                client_ip=client_ip,
+            )
         user = self._user_repo.update_fields(user_key, data)
         if not user:
             raise NotFoundError("User", user_key)

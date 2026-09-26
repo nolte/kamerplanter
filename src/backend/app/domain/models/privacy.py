@@ -38,7 +38,7 @@ type ErasureStepUp = Literal["oidc_reauth", "email_code", "echo", "password"]
 type PersonalTenantOutcome = Literal["erased", "retained_other_members", "absent"]
 #: ``cancelled`` — withdrawn because the owner took the account back (password
 #: reset, password change, signing out everywhere) while it was pending (#1841).
-type EmailChangeStatus = Literal["pending", "confirmed", "expired", "cancelled"]
+type EmailChangeStatus = Literal["pending", "confirmed", "expired", "cancelled", "reverted", "superseded"]
 type RestrictionReason = Literal[
     "accuracy_contested",
     "unlawful_processing",
@@ -197,6 +197,13 @@ class EmailChangeRequest(BaseModel):
     requested_at: datetime | None = None
     expires_at: datetime
     confirmed_at: datetime | None = None
+    #: The address the account left at confirmation, and the hash of the one-time
+    #: token mailed to it that takes the account back (#1848). Both exist only
+    #: until ``revert_expires_at``; the R-07 task clears them after (NFR-011).
+    previous_email: EmailStr | None = None
+    revert_token_hash: str | None = None
+    revert_expires_at: datetime | None = None
+    reverted_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -15,6 +15,7 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserTenantRole,
     AdminUserUpdate,
 )
+from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
 from app.api.v1.privacy.schemas import ErasureCreateRequest
 from app.api.v1.tenants.schemas import TenantDeleteRequest
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
@@ -184,11 +185,13 @@ def update_tenant(
     )
 
 
-@router.patch("/users/{key}", response_model=AdminUserResponse)
+@router.patch("/users/{key}", response_model=AdminUserResponse, responses=STEP_UP_RESPONSES)
 def update_user(
     key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminUserUpdate,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     user_service: UserService = Depends(get_user_service),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
@@ -201,9 +204,27 @@ def update_user(
     and the 1202 → :class:`NotFoundError` mapping) and raw AQL for the membership
     read. Both now go through the service layer (NFR-001), and the membership
     join is the same one ``list_user_memberships`` / ``list_all_users`` use.
+
+    **Step-up (#1857):** turning ``email_verified`` or ``is_active`` true passes
+    the admin's own step-up — ``current_password`` (or ``step_up_token`` /
+    ``step_up_code`` for an admin without one); 401 without it, 403 from an
+    API-key request, 429 ``STEP_UP_LOCKED``. The step-up fields are never written.
     """
-    update_data = body.model_dump(exclude_none=True)
-    user = user_service.admin_update_user(key, update_data) if update_data else user_service.get_user(key)
+    update_data = body.model_dump(exclude_none=True, exclude=set(CREDENTIAL_STEP_UP_FIELDS))
+    user = (
+        user_service.admin_update_user(
+            key,
+            update_data,
+            requester=admin,
+            current_password=body.current_password,
+            step_up_code=body.step_up_code,
+            step_up_token=body.step_up_token,
+            authenticated_with_api_key=via_api_key,
+            client_ip=client_ip,
+        )
+        if update_data
+        else user_service.get_user(key)
+    )
 
     roles = [
         AdminUserTenantRole(

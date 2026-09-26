@@ -158,6 +158,11 @@ _REVIEWED: dict[str, str] = {
         "grant's ip_address/user_agent when the new one supplies none); ArangoConsentRepository "
         "is full-replace."
     ),
+    "privacy_service::revert_email_change": (
+        "SAFE (#1848) — the cleared password_reset_token/_expires go to ArangoUserRepository.update_fields, "
+        "which is full-replace, so the reset link mailed to the new address dies with the revert. The "
+        "email-change write clears nothing: single use is the status, the R-07 task nulls the revert hash."
+    ),
     "task_service::reopen_task": (
         "REPAIRED (#1516) — a reopened task drops completed_at, actual_duration_minutes, "
         "completion_notes, difficulty_rating and quality_rating; ArangoTaskRepository is "
@@ -231,6 +236,7 @@ _SITE_REPOSITORY: dict[str, str | None] = {
     "import_service::confirm": None,
     "plant_photo_service::assess_photo": None,
     "privacy_service::grant_consent": "consent_repository.ArangoConsentRepository",
+    "privacy_service::revert_email_change": "user_repository.ArangoUserRepository",
     "task_service::reopen_task": "task_repository.ArangoTaskRepository",
     "phase_service::delete_phase_history": "lifecycle_repository._PhaseHistoryRepository",
     "phase_service::update_phase_history_dates": "lifecycle_repository._PhaseHistoryRepository",

@@ -148,7 +148,17 @@ type StepUpMethod = Literal["oidc_reauth", "email_code", "password"]
 #: The acts that pass the verifier; only a log field, never a separate budget —
 #: failures on one route lock the others, or an attacker would get one budget per route.
 type StepUpAction = Literal[
-    "account_erasure", "admin_account_erasure", "tenant_deletion", "password_change", "email_change"
+    "account_erasure",
+    "admin_account_erasure",
+    "tenant_deletion",
+    "password_change",
+    "email_change",
+    # #1847 — minting or removing a sign-in credential of the account.
+    "api_key_creation",
+    "device_pairing",
+    "provider_unlink",
+    # #1857 — a platform admin raising another account's trust (email_verified, is_active).
+    "admin_account_update",
 ]
 
 #: Operator decision on #1815 (variant 1): the e-mailed code is the fallback of an
@@ -187,6 +197,10 @@ CODE_PURPOSES: dict[str, str] = {
     "tenant_deletion": "delete a garden (tenant) and all its data",
     "password_change": "set or change the password of your account",
     "email_change": "change the email address of your account",
+    "api_key_creation": "create an API key for your account",
+    "device_pairing": "sign in a new device to your account",
+    "provider_unlink": "remove a sign-in method from your account",
+    "admin_account_update": "verify or reactivate another user's account as a platform administrator",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.

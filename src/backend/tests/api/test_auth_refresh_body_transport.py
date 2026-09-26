@@ -62,6 +62,7 @@ from app.domain.interfaces.refresh_token_repository import IRefreshTokenReposito
 from app.domain.models.auth import RefreshToken
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from tests.support.step_up import PassedStepUpVerifier
 
 _REFRESH_PATH = "/api/v1/auth/refresh"
 _LOGIN_PATH = "/api/v1/auth/login"
@@ -271,6 +272,7 @@ def _harness() -> Iterator[_Harness]:
     sessions = _MemoryRefreshTokenRepository()
 
     service = AuthService(
+        step_up_verifier=PassedStepUpVerifier(),
         user_repo=user_repo,
         auth_provider_repo=MagicMock(),
         refresh_token_repo=sessions,

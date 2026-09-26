@@ -380,7 +380,12 @@ class AuthService:
         # brand-new account would carry, so it matches what a genuine
         # registration returns field for field.
         existing = self._user_repo.get_by_email(email)
-        if existing is not None:
+        # An address held for the revert of a confirmed e-mail change counts as
+        # taken (/code-review of #1893): an account registered on it — no mailbox
+        # access needed, registration is unverified — made every revert answer
+        # "taken". No notice: the holder's current address may be the attacker's.
+        reserved = existing is None and self._address_held_for_revert(email)
+        if existing is not None or reserved:
             logger.info("registration_duplicate_suppressed", email_sha256=email_digest(email))
             # Hash the submitted password and throw the result away.
             #
@@ -403,7 +408,7 @@ class AuthService:
             # expensive as the genuine one below. Nothing about ``existing``
             # other than its key crosses this line — the key never reaches the
             # caller, only the worker that resolves it.
-            if on_existing_address is not None and existing.key:
+            if on_existing_address is not None and existing is not None and existing.key:
                 on_existing_address(existing.key)
             decoy = User(
                 email=email,
@@ -445,7 +450,6 @@ class AuthService:
         if self._require_email_verification and verification_token:
             self._email_service.send_verification_email(
                 to_email=email,
-                display_name=display_name,
                 token=verification_token,
                 frontend_url=self._frontend_url,
             )
@@ -708,7 +712,6 @@ class AuthService:
 
         self._email_service.send_password_reset_email(
             to_email=email,
-            display_name=user.display_name,
             token=token,
             frontend_url=self._frontend_url,
         )
@@ -769,6 +772,12 @@ class AuthService:
         self._cancel_pending_email_changes(user_key, reason="logout_all")
         return revoked
 
+    def _address_held_for_revert(self, email: str) -> bool:
+        """Whether *email* is the previous address of a confirmed change whose revert window is open (#1848)."""
+        if self._email_change_repo is None:
+            return False
+        return self._email_change_repo.find_revert_reservation(email, datetime.now(UTC).isoformat()) is not None
+
     def _cancel_pending_email_changes(self, user_key: UserKey, *, reason: str) -> int:
         """Withdraw every pending e-mail change of the account (#1841); return how many.
 
@@ -813,7 +822,22 @@ class AuthService:
             for p in providers
         ]
 
-    def unlink_provider(self, user_key: UserKey, provider_key: str) -> None:
+    def unlink_provider(
+        self,
+        user_key: UserKey,
+        provider_key: str,
+        *,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> None:
+        """Remove one sign-in method of the account, behind the step-up (#1847).
+
+        The checks that read only the account's own links run first, so a request
+        that would be refused anyway does not spend the mailed code or an attempt.
+        """
         providers = self._auth_provider_repo.list_by_user(user_key)
         if len(providers) <= 1:
             raise ValidationError("Cannot unlink the last authentication provider.")
@@ -824,7 +848,49 @@ class AuthService:
         if target.user_key != user_key:
             raise ValidationError("Provider does not belong to this user.")
 
+        self._verify_credential_step_up(
+            user_key,
+            action="provider_unlink",
+            current_password=current_password,
+            step_up_code=step_up_code,
+            step_up_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         self._auth_provider_repo.delete(provider_key)
+
+    def _verify_credential_step_up(
+        self,
+        user_key: UserKey,
+        *,
+        action: StepUpAction,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> None:
+        """The shared step-up in front of minting or removing a sign-in credential (#1847).
+
+        A stolen session — or a leaked key, which ``get_current_user`` resolves to
+        its owner — minted an API key or a pairing code that outlives the owner's
+        password change, or removed a sign-in method, on nothing but the session.
+        The verifier refuses an API-key request and a service account (403), wants
+        the current password or, for an account without one, the fresh
+        re-authentication or the mailed code (401), and throttles in the one
+        budget of every step-up (429).
+        """
+        user = self._user_repo.get_or_raise(user_key)
+        self._step_up_verifier.verify(
+            user,
+            action=action,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
     # ── Sessions ────────────────────────────────────────────────────────
 
@@ -1321,7 +1387,12 @@ class AuthService:
                         "This email cannot be linked automatically. Sign in with your password instead.",
                     )
             else:
-                # New user — register via OAuth
+                # New user — register via OAuth. Not onto an address held for the
+                # revert of a confirmed e-mail change (/code-review of #1893).
+                if self._address_held_for_revert(oauth_user.email):
+                    raise OAuthAutoLinkRefusedError(
+                        "This email cannot be used to create an account right now. Sign in with your password instead.",
+                    )
                 user = self._register_oauth_user(oauth_user)
                 self._create_oauth_provider(user.key or "", oauth_user, token_response, config=config)
 
@@ -1415,9 +1486,42 @@ class AuthService:
         user_key: UserKey,
         label: str,
         tenant_scope: str | None = None,
+        *,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> ApiKeyCreated:
+        """Mint an API key for the account, behind the step-up (#1847).
+
+        A key is a credential that survives a password change and "sign out
+        everywhere", so minting one is a credential change like the password
+        itself: a person's session and the current password (or, without one,
+        the fresh re-authentication or the mailed code). An API-key request is
+        refused (403) — a key cannot mint a key.
+
+        **Light mode** skips the step-up: every request there already is the one
+        seeded system account, there is no person to confirm and no mailbox a
+        code could reach, and the key grants nothing a request does not already
+        have (REQ-033 §4.3 — it only makes MCP reachable).
+
+        The step-up runs before the scope is resolved, so the scope check answers
+        nothing to a caller who has not passed it.
+        """
         if not self._api_key_repo:
             raise ValidationError("API keys are not configured.")
+
+        if not self._light_mode:
+            self._verify_credential_step_up(
+                user_key,
+                action="api_key_creation",
+                current_password=current_password,
+                step_up_code=step_up_code,
+                step_up_token=step_up_token,
+                authenticated_with_api_key=authenticated_with_api_key,
+                client_ip=client_ip,
+            )
 
         # #1852: the scope is stored as the tenant's *key*, resolved here from the
         # slug or key the caller typed — never verbatim.
@@ -1553,8 +1657,13 @@ class AuthService:
         self,
         user_key: UserKey,
         ip_address: str | None = None,
+        *,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
     ) -> tuple[str, datetime]:
-        """Mint a one-time pairing code for ``user_key``.
+        """Mint a one-time pairing code for ``user_key``, behind the step-up (#1847).
 
         The code is a bearer credential for the seconds it lives: whoever
         presents it first gets a session on this account. It is therefore drawn
@@ -1567,19 +1676,36 @@ class AuthService:
                 the store, so redemption never has to trust a caller-supplied
                 identity.
             ip_address: Source address of the issuing request, for the audit
-                event. Optional so non-HTTP callers can omit it.
+                event and the step-up throttle.
+            current_password, step_up_code, step_up_token: The step-up
+                (:meth:`_verify_credential_step_up`).
+            authenticated_with_api_key: Whether the request came with a ``kp_``
+                key — refused, a key cannot mint a session.
 
         Returns:
             ``(code, expires_at)`` — the raw code, which the caller shows once
             and never stores, and its expiry in UTC.
 
         Raises:
+            ForbiddenError, UnauthorizedError, StepUpLockedError: The step-up (403 / 401 / 429).
             ValidationError: If no pairing store is configured.
             Exception: Whatever the store raises when it cannot persist the
                 code. Deliberately not swallowed: a caught error would hand the
                 user a QR code that can never be redeemed.
         """
         store = self._require_device_pairing_store()
+        # The code redeems into a full session on this account: a credential
+        # issued like an API key, so the same step-up (#1847). ``ip_address`` is
+        # the client address the step-up throttle buckets on.
+        self._verify_credential_step_up(
+            user_key,
+            action="device_pairing",
+            current_password=current_password,
+            step_up_code=step_up_code,
+            step_up_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=ip_address,
+        )
         code = secrets.token_urlsafe(_PAIRING_CODE_BYTES)
         expires_at = store.issue(code, user_key)
         logger.info(
