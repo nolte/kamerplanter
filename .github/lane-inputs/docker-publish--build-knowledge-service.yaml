@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: knowledge-service
 status: derived
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 4
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 3
 job_spec_sha256: 29f845bad286885ca2a0b700d8917fe42834a7884c03d6b9865686d75b3e085b
 invocations:
 - command: derive-docker --context src/knowledge-service --dockerfile src/knowledge-service/Dockerfile
@@ -24,13 +24,14 @@ invocations:
   - uv.lock
   - app/
   - app/
-  context_files_after_dockerignore: 30
+  context_files_after_dockerignore: 31
 subprocesses: []
 accepted_gaps: []
 reads:
 - src/knowledge-service/.dockerignore
 - src/knowledge-service/Dockerfile
 - src/knowledge-service/app/__init__.py
+- src/knowledge-service/app/access_log.py
 - src/knowledge-service/app/auth.py
 - src/knowledge-service/app/config.py
 - src/knowledge-service/app/embedding.py

@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
 replay_seconds: 41
 job_spec_sha256: 9ee2a68963ef9b450546ce81f6c33ab19494364a2297675b28a5a1ab0517da96
 invocations:
@@ -20,13 +20,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 5455
+  untracked_reads_dropped: 5466
 - command: npm run bundle:check
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 15
+  untracked_reads_dropped: 16
 subprocesses:
 - node
 - npm
@@ -221,6 +221,9 @@ reads:
 - src/frontend/src/components/common/PrintButton.tsx
 - src/frontend/src/components/common/ReferenceImageGrid.tsx
 - src/frontend/src/components/common/ShowAllFieldsToggle.tsx
+- src/frontend/src/components/common/StepUpCodeField.tsx
+- src/frontend/src/components/common/StepUpConfirmDialog.tsx
+- src/frontend/src/components/common/StepUpReauthButton.tsx
 - src/frontend/src/components/common/TabPanel.tsx
 - src/frontend/src/components/common/TaskOriginBadge.tsx
 - src/frontend/src/components/common/TaskTimer.tsx
@@ -308,6 +311,8 @@ reads:
 - src/frontend/src/components/sensors/SensorHistoryChart.tsx
 - src/frontend/src/components/tanks/
 - src/frontend/src/components/tanks/TankStateChart.tsx
+- src/frontend/src/components/tenants/
+- src/frontend/src/components/tenants/TenantDeleteDialog.tsx
 - src/frontend/src/components/water/
 - src/frontend/src/components/water/WaterSourceSection.tsx
 - src/frontend/src/components/weather/
@@ -359,6 +364,8 @@ reads:
 - src/frontend/src/hooks/useSmartHomeEnabled.ts
 - src/frontend/src/hooks/useSowingFavorites.ts
 - src/frontend/src/hooks/useSpeciesReferenceImages.ts
+- src/frontend/src/hooks/useStepUpFactors.ts
+- src/frontend/src/hooks/useStepUpReauth.ts
 - src/frontend/src/hooks/useStickyBarScrollPadding.ts
 - src/frontend/src/hooks/useSurvivalStats.ts
 - src/frontend/src/hooks/useTabUrl.ts
@@ -426,6 +433,9 @@ reads:
 - src/frontend/src/pages/auth/ConnectDeviceDialog.tsx
 - src/frontend/src/pages/auth/ConnectLandingPage.tsx
 - src/frontend/src/pages/auth/DashboardSettingsTab.tsx
+- src/frontend/src/pages/auth/EmailChangeCard.tsx
+- src/frontend/src/pages/auth/EmailChangeConfirmPage.tsx
+- src/frontend/src/pages/auth/EmailChangeRevertPage.tsx
 - src/frontend/src/pages/auth/EmailVerificationPage.tsx
 - src/frontend/src/pages/auth/HaPublishSettingsTab.tsx
 - src/frontend/src/pages/auth/KioskSettingsTab.tsx
@@ -437,6 +447,7 @@ reads:
 - src/frontend/src/pages/auth/PasswordResetRequestPage.tsx
 - src/frontend/src/pages/auth/PrivacySettingsPage.tsx
 - src/frontend/src/pages/auth/RegisterPage.tsx
+- src/frontend/src/pages/auth/StepUpCallbackPage.tsx
 - src/frontend/src/pages/auth/StorageSettingsTab.tsx
 - src/frontend/src/pages/auth/WeatherProvidersSettingsTab.tsx
 - src/frontend/src/pages/duengung/
@@ -734,12 +745,15 @@ reads:
 - src/frontend/src/types/
 - src/frontend/src/types/web-nfc.d.ts
 - src/frontend/src/utils/
+- src/frontend/src/utils/browserNavigation.ts
 - src/frontend/src/utils/careConfirmActions.ts
 - src/frontend/src/utils/formatting.ts
 - src/frontend/src/utils/idGenerator.ts
 - src/frontend/src/utils/imageNormalization.ts
 - src/frontend/src/utils/phaseSequenceMapper.ts
 - src/frontend/src/utils/plantDisplay.ts
+- src/frontend/src/utils/stepUp.ts
+- src/frontend/src/utils/stepUpReauth.ts
 - src/frontend/src/utils/weekCalculation.ts
 - src/frontend/src/validation/
 - src/frontend/src/validation/zodErrorMap.ts

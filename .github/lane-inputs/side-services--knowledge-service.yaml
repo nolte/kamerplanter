@@ -9,9 +9,9 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 11
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 8
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
 - command: task deps:sync:knowledge-service
@@ -25,11 +25,10 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1122
+  untracked_reads_dropped: 1256
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
-- python3
 - task
 - uv
 accepted_gaps: []
@@ -49,6 +48,7 @@ reads:
 - src/knowledge-service/
 - src/knowledge-service/app/
 - src/knowledge-service/app/__init__.py
+- src/knowledge-service/app/access_log.py
 - src/knowledge-service/app/auth.py
 - src/knowledge-service/app/config.py
 - src/knowledge-service/app/embedding.py
@@ -75,9 +75,11 @@ reads:
 - src/knowledge-service/tests/
 - src/knowledge-service/tests/__init__.py
 - src/knowledge-service/tests/conftest.py
+- src/knowledge-service/tests/test_access_log_redacted.py
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
 - src/knowledge-service/tests/test_embedding.py
+- src/knowledge-service/tests/test_logs_carry_no_user_text.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
 - src/knowledge-service/tests/test_reranker_settings.py
@@ -88,9 +90,11 @@ reads:
 - src/libs/kp_vectordb/kp_vectordb/connection.py
 - src/libs/kp_vectordb/kp_vectordb/schema.py
 test_modules:
+- src/knowledge-service/tests/test_access_log_redacted.py
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
 - src/knowledge-service/tests/test_embedding.py
+- src/knowledge-service/tests/test_logs_carry_no_user_text.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
 - src/knowledge-service/tests/test_reranker_settings.py

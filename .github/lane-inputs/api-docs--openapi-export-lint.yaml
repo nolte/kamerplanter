@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 44
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 51
 job_spec_sha256: cdd19fd2744aa844284c6d1c17c2d0d50b118c18891c3b6710253930f5023264
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2729
+  untracked_reads_dropped: 2743
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -142,7 +142,6 @@ reads:
 - src/backend/app/api/v1/cultivars/schemas.py
 - src/backend/app/api/v1/dashboard/
 - src/backend/app/api/v1/dashboard/__init__.py
-- src/backend/app/api/v1/dashboard/router.py
 - src/backend/app/api/v1/dashboard/tenant_router.py
 - src/backend/app/api/v1/diagnose/
 - src/backend/app/api/v1/diagnose/__init__.py
@@ -404,6 +403,7 @@ reads:
 - src/backend/app/common/error_handlers.py
 - src/backend/app/common/error_ids.py
 - src/backend/app/common/exceptions.py
+- src/backend/app/common/log_privacy.py
 - src/backend/app/common/middleware.py
 - src/backend/app/common/openapi_responses.py
 - src/backend/app/common/pagination.py
@@ -499,7 +499,9 @@ reads:
 - src/backend/app/data_access/external/plantnet_adapter.py
 - src/backend/app/data_access/external/redis_oauth_state.py
 - src/backend/app/data_access/external/registration.py
+- src/backend/app/data_access/external/resend_email_adapter.py
 - src/backend/app/data_access/external/smtp_email_adapter.py
+- src/backend/app/data_access/external/templated_email_adapter.py
 - src/backend/app/data_access/external/unknown_account_store.py
 - src/backend/app/data_access/external/weather_attributions.py
 - src/backend/app/data_access/repositories/
@@ -550,6 +552,7 @@ reads:
 - src/backend/app/domain/engines/fertilizer_classification.py
 - src/backend/app/domain/engines/frost_exposure_resolver.py
 - src/backend/app/domain/engines/frost_warning_engine.py
+- src/backend/app/domain/engines/full_auth_provider.py
 - src/backend/app/domain/engines/hardiness_zone_resolver.py
 - src/backend/app/domain/engines/hst_validator.py
 - src/backend/app/domain/engines/hydro_system_monitor.py
@@ -603,6 +606,7 @@ reads:
 - src/backend/app/domain/engines/succession_plan_engine.py
 - src/backend/app/domain/engines/tank_engine.py
 - src/backend/app/domain/engines/tenant_engine.py
+- src/backend/app/domain/engines/tenant_erasure_engine.py
 - src/backend/app/domain/engines/token_engine.py
 - src/backend/app/domain/engines/water_mix_engine.py
 - src/backend/app/domain/engines/watering_engine.py
@@ -681,10 +685,14 @@ reads:
 - src/backend/app/domain/interfaces/sensor_repository.py
 - src/backend/app/domain/interfaces/site_repository.py
 - src/backend/app/domain/interfaces/species_repository.py
+- src/backend/app/domain/interfaces/step_up_code.py
+- src/backend/app/domain/interfaces/step_up_throttle.py
 - src/backend/app/domain/interfaces/substrate_repository.py
 - src/backend/app/domain/interfaces/succession_plan_repository.py
 - src/backend/app/domain/interfaces/tank_repository.py
 - src/backend/app/domain/interfaces/task_repository.py
+- src/backend/app/domain/interfaces/tenant_erasure_executor.py
+- src/backend/app/domain/interfaces/tenant_erasure_repository.py
 - src/backend/app/domain/interfaces/tenant_repository.py
 - src/backend/app/domain/interfaces/unknown_account_store.py
 - src/backend/app/domain/interfaces/user_repository.py
@@ -756,6 +764,7 @@ reads:
 - src/backend/app/domain/models/task.py
 - src/backend/app/domain/models/tenant.py
 - src/backend/app/domain/models/tenant_context.py
+- src/backend/app/domain/models/tenant_erasure.py
 - src/backend/app/domain/models/user.py
 - src/backend/app/domain/models/user_preference.py
 - src/backend/app/domain/models/watering_event.py
@@ -770,6 +779,7 @@ reads:
 - src/backend/app/domain/services/ai_assistant_service.py
 - src/backend/app/domain/services/ai_audit_logger.py
 - src/backend/app/domain/services/ai_context_builder.py
+- src/backend/app/domain/services/api_key_controls.py
 - src/backend/app/domain/services/aquaponik_service.py
 - src/backend/app/domain/services/attachment_service.py
 - src/backend/app/domain/services/auth_service.py
@@ -784,6 +794,7 @@ reads:
 - src/backend/app/domain/services/enrichment_service.py
 - src/backend/app/domain/services/environment_snapshot_service.py
 - src/backend/app/domain/services/favorites_service.py
+- src/backend/app/domain/services/feeding_references.py
 - src/backend/app/domain/services/feeding_service.py
 - src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
@@ -805,6 +816,7 @@ reads:
 - src/backend/app/domain/services/notification_service.py
 - src/backend/app/domain/services/nutrient_plan_service.py
 - src/backend/app/domain/services/observation_service.py
+- src/backend/app/domain/services/oidc_provider_admin_service.py
 - src/backend/app/domain/services/onboarding_service.py
 - src/backend/app/domain/services/overwintering_profile_service.py
 - src/backend/app/domain/services/pest_detection_registry.py
@@ -831,6 +843,8 @@ reads:
 - src/backend/app/domain/services/site_service.py
 - src/backend/app/domain/services/species_service.py
 - src/backend/app/domain/services/starter_kit_service.py
+- src/backend/app/domain/services/step_up_service.py
+- src/backend/app/domain/services/step_up_targets.py
 - src/backend/app/domain/services/substrate_service.py
 - src/backend/app/domain/services/succession_plan_service.py
 - src/backend/app/domain/services/symptom_catalog.py
@@ -841,6 +855,7 @@ reads:
 - src/backend/app/domain/services/tenant_service.py
 - src/backend/app/domain/services/user_preference_service.py
 - src/backend/app/domain/services/user_service.py
+- src/backend/app/domain/services/watering_confirmation_scope.py
 - src/backend/app/domain/services/watering_log_service.py
 - src/backend/app/domain/services/watering_service.py
 - src/backend/app/domain/services/weather_adapter_registry.py
@@ -856,7 +871,6 @@ reads:
 - src/backend/app/mcp_server/dispatcher.py
 - src/backend/app/mcp_server/idempotency.py
 - src/backend/app/mcp_server/principal.py
-- src/backend/app/mcp_server/rate_limit.py
 - src/backend/app/mcp_server/registry.py
 - src/backend/app/mcp_server/session.py
 - src/backend/app/observability/

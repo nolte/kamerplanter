@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: embedding-service
 status: derived
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 5
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 1
 job_spec_sha256: 1078532dd1d7f2915990d25d12fe89734e0463f3452d64c02a3a27e344e95b9c
 invocations:
 - command: derive-docker --context docker/embedding-service --dockerfile docker/embedding-service/Dockerfile
