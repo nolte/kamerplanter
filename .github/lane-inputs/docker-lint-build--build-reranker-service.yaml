@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: reranker-service
 status: derived
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 5
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 1
 job_spec_sha256: 093e26e3c696b8020969c892795e23dae475fbc52c82ebec98f015ed3cf0a6e7
 invocations:
 - command: derive-docker --context docker/reranker-service --dockerfile docker/reranker-service/Dockerfile

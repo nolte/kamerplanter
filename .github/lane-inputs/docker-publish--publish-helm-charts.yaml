@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: helm
 status: measured
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 3
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 2
 job_spec_sha256: cfa02745b53b25a9832ef566db0161995a81fc1e5ccae3a3d8df94ef7ce170e4
 invocations:
 - command: scripts/ci/determine_chart_version.sh

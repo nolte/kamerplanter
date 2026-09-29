@@ -9,9 +9,9 @@ job: dependency-gates
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 13
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 10
 job_spec_sha256: 12f8314c394f484dd60d2b5dbd1436e1d1e0057128f8641d2595745eefe665e2
 invocations:
 - command: task deps:check
@@ -20,7 +20,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 7
+  untracked_reads_dropped: 1
 - command: uv sync --locked --no-install-project
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -34,7 +34,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 27
+  untracked_reads_dropped: 34
 - command: uv export --locked --no-emit-project --format requirements.txt -o /tmp/lane-inputs-scratch/requirements.txt
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -85,9 +85,19 @@ reads:
 - src/backend/app/data_access/arango/
 - src/backend/app/data_access/arango/__init__.py
 - src/backend/app/data_access/arango/connection.py
+- src/backend/app/data_access/external/
+- src/backend/app/data_access/external/__init__.py
+- src/backend/app/data_access/external/step_up_code_store.py
+- src/backend/app/data_access/external/step_up_throttle.py
 - src/backend/app/data_access/timescale/
 - src/backend/app/data_access/timescale/__init__.py
 - src/backend/app/data_access/timescale/connection.py
+- src/backend/app/domain/
+- src/backend/app/domain/__init__.py
+- src/backend/app/domain/interfaces/
+- src/backend/app/domain/interfaces/__init__.py
+- src/backend/app/domain/interfaces/step_up_code.py
+- src/backend/app/domain/interfaces/step_up_throttle.py
 - src/backend/pyproject.toml
 - src/backend/tests/
 - src/backend/tests/__init__.py
