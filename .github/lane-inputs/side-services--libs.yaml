@@ -9,9 +9,9 @@ job: libs
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
-replay_seconds: 4
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+replay_seconds: 6
 job_spec_sha256: 1e40e3da4b7e855c1ee6a261c17b7335c51d7e786a521045a9454e8a66e17004
 invocations:
 - command: task deps:sync:kp-vectordb
@@ -29,7 +29,6 @@ invocations:
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
-- python3
 - task
 - uv
 accepted_gaps: []

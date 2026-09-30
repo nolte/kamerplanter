@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: vectordb
 status: derived
-measured_on: '2026-09-25'
-measured_at_commit: 627783c035aaa58344845843b8d8d3c0d10bef39
+measured_on: '2026-09-28'
+measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
 replay_seconds: 1
 job_spec_sha256: d279891e0a73c91f8d18ee96bec2cee1199fd30bed6753425b2598a2a21f1f15
 invocations:
