@@ -905,6 +905,15 @@ class PrivacyService:
         one, #1815); before #1815 the echo alone confirmed it.
         """
         self._refuse_in_light_mode()
+        # #1843 — refused before the step-up is spent and before anything is
+        # written. The account used to be closed at once, and a deployment that
+        # cannot erase only failed later, in the daily beat: a locked-out subject
+        # whose data nothing would remove. Same check and error shape as
+        # :meth:`erase_account_now`; the derived-index check is left to the run,
+        # because the grace-period erasure executes in the worker process.
+        configuration_error = self._erasure_configuration_error()
+        if configuration_error is not None:
+            raise FeatureNotConfiguredError("account_erasure", configuration_error)
         user = self._user_repo.get_or_raise(user_key)
         step_up = self._step_up_verifier.verify(
             user,
@@ -920,6 +929,9 @@ class PrivacyService:
 
         existing = self._erasure_repo.find_active_for_user(user_key)
         if existing is not None:
+            # #1825 SEC-004: a request-time revocation that failed on the first
+            # request is repeated when the subject asks again.
+            self._revoke_personal_tenant_invitations(user_key)
             raise ValidationError("An erasure request is already in progress.")
 
         now = datetime.now(UTC)
@@ -930,7 +942,7 @@ class PrivacyService:
             origin="self_service",
         )
         erasure.step_up = step_up
-        created = self._erasure_repo.create(erasure)
+        created = self._create_scheduled_request(user_key, erasure)
 
         # Immediate effects: soft-delete the user and revoke all sessions.
         #
@@ -944,6 +956,10 @@ class PrivacyService:
         if user.key:
             self._user_repo.update_fields(user.key, {"is_active": False, "password_hash": None})
             self._refresh_token_repo.revoke_all_for_user(user.key)
+        # REQ-025 AK-IE-06 — nobody joins the subject's personal tenant during
+        # the grace. After the account is closed, so a failure here leaves a
+        # recorded request and a closed account; the hard delete revokes again.
+        self._revoke_personal_tenant_invitations(user_key)
 
         logger.info(
             "privacy_erasure_requested",
@@ -954,6 +970,37 @@ class PrivacyService:
         # Hard-delete is performed by the daily beat task
         # ``retention.execute_scheduled_erasures`` (app/tasks/__init__.py).
         return created
+
+    def _create_scheduled_request(self, user_key: UserKey, erasure: ErasureRequest) -> ErasureRequest:
+        """Persist the self-service request under the per-subject key — one open record per account (#1843).
+
+        ``find_active_for_user`` followed by an auto-keyed insert let two
+        concurrent requests (``POST /privacy/erasure`` and ``DELETE /users/me``
+        at once) each find none and create two open records for one account. The
+        key is the deterministic one :meth:`_create_immediate_request` uses
+        (#1767 SEC-003), so the second insert fails on the primary key; its
+        caller is answered with the record the first one created — the request
+        it asked for exists. A record under the key that is no longer open
+        belongs to an erasure that already ran, and is refused.
+        """
+        key = self._erasure_engine.compute_request_key(user_key, self._tombstone_salt)
+        try:
+            return self._erasure_repo.create_with_key(erasure, key)
+        except (DuplicateError, WriteConflictError) as exc:
+            existing = self._erasure_repo.get_by_key(key)
+            if existing is None:
+                # ``1200``: the other insert is not committed yet.
+                raise WriteConflictError("ErasureRequest", "an erasure of this account is being requested") from exc
+            if existing.user_key != user_key or existing.status == "completed":
+                raise ValidationError("An erasure request is already in progress.") from exc
+            return existing
+
+    def _revoke_personal_tenant_invitations(self, user_key: UserKey) -> None:
+        """REQ-025 AK-IE-06 — the one call both erasure entry points make when the erasure is requested."""
+        tenant_service = self._tenant_service
+        if tenant_service is None:  # pragma: no cover - refused by the configuration check
+            raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        tenant_service.revoke_invitations_into_personal_tenants_of(user_key)
 
     def _new_erasure_request(
         self,
@@ -1085,6 +1132,8 @@ class PrivacyService:
         # data between the storage phases and the ArangoDB plan.
         self._user_repo.update_fields(user_key, {"is_active": False, "password_hash": None})
         self._refresh_token_repo.revoke_all_for_user(user_key)
+        # REQ-025 AK-IE-06 — at request time, like the self-service entry.
+        self._revoke_personal_tenant_invitations(user_key)
 
         logger.info(
             "erasure.immediate_requested",

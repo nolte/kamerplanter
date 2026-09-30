@@ -126,6 +126,20 @@ class FakeTenantErasureRepository(ITenantErasureRepository):
         doc.update(status="in_progress", last_attempt_at=now_iso, updated_at=now_iso)
         return self._model(key)
 
+    def delete_unclaimed(self, key: str) -> bool:
+        """The real conditional remove: only a record no run ever claimed."""
+        doc = self.records.get(key)
+        if (
+            doc is None
+            or doc["origin"] != "account_erasure"
+            or doc["status"] != "in_progress"
+            or doc.get("last_attempt_at") is not None
+            or doc.get("attempt_count")
+        ):
+            return False
+        del self.records[key]
+        return True
+
     def update_fields(self, key: str, fields: dict[str, Any]) -> TenantErasureRecord | None:
         merged = {**self.records[key], **fields}
         TenantErasureRecord.model_validate({**merged, "_key": key})  # the real store holds only valid records

@@ -73,6 +73,33 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
             return None
         return TenantErasureRecord(**self._from_doc(docs[0]))
 
+    def delete_unclaimed(self, key: str) -> bool:
+        """Remove the record only while no run has claimed it: one AQL ``REMOVE`` on one document.
+
+        The mirror of :meth:`claim_for_run`'s first claim, which sets
+        ``last_attempt_at``. A write-write conflict (``1200``) means a claim is
+        landing on the document right now; it reads as *not removed*.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+            AND doc.origin == 'account_erasure'
+            AND doc.status == 'in_progress'
+            AND doc.last_attempt_at == null
+            AND (doc.attempt_count == null OR doc.attempt_count == 0)
+          REMOVE doc IN @@collection
+          RETURN OLD._key
+        """
+        try:
+            removed = list(
+                self._db.aql.execute(query, bind_vars={"@collection": col.TENANT_ERASURE_RECORDS, "key": key})
+            )
+        except AQLQueryExecuteError as exc:
+            if exc.error_code == 1200:
+                return False
+            raise
+        return bool(removed)
+
     def list_due(self, *, stale_before_iso: str) -> list[TenantErasureRecord]:
         query = """
         FOR doc IN @@collection
