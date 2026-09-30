@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 
 from arango.database import StandardDatabase
 
@@ -69,6 +70,48 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
 
     def list_by_tenant(self, tenant_key: str) -> list[Invitation]:
         return self.find_by_field("tenant_key", tenant_key, sort="created_at", sort_direction="DESC")
+
+    def mark_accepted_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
+        """Accept *key* only while it is ``pending``: one AQL ``UPDATE`` on one document (AK-IE-06)."""
+        query = f"""
+        FOR doc IN {col.INVITATIONS}
+          FILTER doc._key == @key AND doc.status == @pending
+          UPDATE doc WITH MERGE(@fields, {{ status: @accepted, updated_at: @now }}) IN {col.INVITATIONS}
+          RETURN NEW
+        """
+        docs = list(
+            self._db.aql.execute(
+                query,
+                bind_vars={
+                    "key": key,
+                    "fields": fields,
+                    "pending": InvitationStatus.PENDING.value,
+                    "accepted": InvitationStatus.ACCEPTED.value,
+                    "now": datetime.now(UTC).isoformat(),
+                },
+            )
+        )
+        return Invitation(**self._from_doc(docs[0])) if docs else None
+
+    def revoke_pending_for_tenant(self, tenant_key: str) -> int:
+        """Revoke every pending invitation into *tenant_key* in one statement (REQ-025 AK-IE-06)."""
+        query = f"""
+        FOR doc IN {col.INVITATIONS}
+          FILTER doc.tenant_key == @tenant_key AND doc.status == @pending
+          UPDATE doc WITH {{ status: @revoked, updated_at: @now }} IN {col.INVITATIONS}
+          COLLECT WITH COUNT INTO affected
+          RETURN affected
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "tenant_key": tenant_key,
+                "pending": InvitationStatus.PENDING.value,
+                "revoked": InvitationStatus.REVOKED.value,
+                "now": datetime.now(UTC).isoformat(),
+            },
+        )
+        return int(next(cursor, 0))
 
     def cleanup_expired(self, *, now: datetime | None = None) -> int:
         """Flip every pending invitation past its ``expires_at`` to ``expired``.

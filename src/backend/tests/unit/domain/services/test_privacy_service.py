@@ -27,11 +27,19 @@ from app.domain.models.privacy import (
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from tests.conftest import wire_get_or_raise
-from tests.support.privacy_doubles import step_up
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor, step_up
 
 USER_KEY = "u1"
 USER_EMAIL = "user@example.com"
 USER_PASSWORD = "correct-horse-battery-staple"
+
+
+@pytest.fixture(autouse=True)
+def _erasure_log_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1843: the erasure request is refused up front on a deployment without the log salt (#1812)."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
 
 
 @pytest.fixture
@@ -115,6 +123,14 @@ def erasure_repo():
         return erasure
 
     repo.create.side_effect = _create
+
+    def _create_with_key(erasure, key):
+        erasure.key = key
+        return erasure
+
+    # #1843: the self-service request is keyed per subject, like the immediate one.
+    repo.create_with_key.side_effect = _create_with_key
+    repo.get_by_key.return_value = None
     wire_get_or_raise(repo, "ErasureRequest")
     return repo
 
@@ -213,6 +229,10 @@ def service(
         token_engine=TokenEngine("test-secret-key-32-chars-min!!!", "HS256"),
         email_service=email_service,
         frontend_url="http://localhost:5173",
+        # #1843: request_erasure refuses up front what erase_account_now refuses.
+        erasure_executor=RecordingErasureExecutor(),
+        tenant_service=FakePersonalTenants(),
+        tombstone_salt="t" * 32,
     )
 
 
@@ -410,7 +430,8 @@ class TestErasure:
         user_repo.update.assert_not_called()
         # Sessions revoked
         refresh_token_repo.revoke_all_for_user.assert_called_once_with(USER_KEY)
-        erasure_repo.create.assert_called_once()
+        erasure_repo.create_with_key.assert_called_once()
+        erasure_repo.create.assert_not_called()
 
     def test_the_confirmation_lists_all_three_categories_off_the_inventory(self, service):
         """REQ-025 AK-08a — deleted, anonymised and pseudonymised categories, all from the plan the erasure runs.

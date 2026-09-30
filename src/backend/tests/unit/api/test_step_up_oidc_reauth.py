@@ -106,6 +106,14 @@ def _public_base_url(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
+def _erasure_log_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1843: the erasure request is refused up front on a deployment without the log salt (#1812)."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
+
+@pytest.fixture(autouse=True)
 def _limiter_off(monkeypatch: pytest.MonkeyPatch):
     limiter.reset()
     monkeypatch.setattr(limiter, "enabled", False)

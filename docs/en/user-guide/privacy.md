@@ -292,6 +292,9 @@ Immediately:
 - Soft-delete of the account (status: deleted)
 - All active sessions are terminated
 - You can no longer log in
+- Pending invitations into your personal garden
+  (email and link invitations) are revoked;
+  nobody can join it during the 90 days any more
 
 Personal data (GDPR Art. 17):
 - Anonymised immediately or deleted after 90 days

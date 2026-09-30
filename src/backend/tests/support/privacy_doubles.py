@@ -345,13 +345,22 @@ class FakePersonalTenants:
         self.fail_with = fail_with
         self.erased: list[str] = []
         self.calls: list[tuple[str, str]] = []
+        self.invitation_revocations: list[str] = []
         self.events = events if events is not None else []
 
     def tenant_erasure_configuration_error(self) -> str | None:
         return self.configuration_error
 
+    def tenant_erasure_wiring_error(self) -> str | None:
+        return self.configuration_error
+
     def personal_tenant_keys_of(self, user_key: str) -> list[str]:
         return list(self.owned)
+
+    def revoke_invitations_into_personal_tenants_of(self, user_key: str) -> int:
+        """REQ-025 AK-IE-06 — recorded, so a test can pin *when* the entry point revokes."""
+        self.invitation_revocations.append(user_key)
+        return 0
 
     def erase_personal_tenant_of(self, user_key: str, tenant_key: str, *, now: Any = None) -> Any:
         from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
