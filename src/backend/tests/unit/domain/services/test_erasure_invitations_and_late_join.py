@@ -561,11 +561,17 @@ class TestADeploymentThatCannotEraseRefusesUpFront:
 
 
 class TestARevocationRacingAnAcceptWins:
-    def test_an_invitation_revoked_between_the_read_and_the_membership_insert_is_not_accepted(self):
+    def test_an_invitation_revoked_between_the_read_and_the_accept_write_is_not_accepted(self):
         """SEC-001: the request-time revocation lands while an accept is already past its status check."""
         tenants = Tenants()
         token = tenants.invite()
-        tenants.memberships.before_create = lambda: tenants.invitations.revoke_pending_for_tenant(PERSONAL)
+        original = tenants.invitations.mark_accepted_if_pending
+
+        def _revoked_meanwhile(key: str, fields: dict[str, Any]) -> Invitation | None:
+            tenants.invitations.revoke_pending_for_tenant(PERSONAL)
+            return original(key, fields)
+
+        tenants.invitations.mark_accepted_if_pending = _revoked_meanwhile  # type: ignore[method-assign]
 
         with pytest.raises(ValidationError, match="no longer pending"):
             tenants.service.accept_invitation(token, JOINER)
@@ -573,6 +579,18 @@ class TestARevocationRacingAnAcceptWins:
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
         (invitation,) = tenants.invitations.stored.values()
         assert invitation.status == InvitationStatus.REVOKED, "the revocation was overwritten with accepted"
+
+    def test_a_revocation_after_the_accept_committed_leaves_the_join_standing(self):
+        """The join came first; the revocation only touches what is still pending."""
+        tenants = Tenants()
+        token = tenants.invite()
+        tenants.memberships.before_create = lambda: tenants.invitations.revoke_pending_for_tenant(PERSONAL)
+
+        membership = tenants.service.accept_invitation(token, JOINER)
+
+        assert membership.is_active
+        (invitation,) = tenants.invitations.stored.values()
+        assert invitation.status == InvitationStatus.ACCEPTED
 
 
 class TestTheDailyTenantBeatLeavesTheRecheckToTheAccountErasure:
@@ -603,3 +621,45 @@ class TestARepeatedRequestRevokesAgain:
             privacy.request_erasure(OWNER, **step_up(OWNER_EMAIL, OWNER_PASSWORD))
 
         assert [i.status for i in tenants.invitations.stored.values()] == [InvitationStatus.REVOKED]
+
+
+class TestNoTransientMemberIsCounted:
+    def test_a_join_whose_invitation_was_revoked_never_creates_a_membership(self):
+        """PR review #1: the conditional accept runs before the membership insert, so nothing transient exists."""
+        tenants = Tenants()
+        token = tenants.invite()
+        created: list[str] = []
+        inner = tenants.memberships.create
+
+        def _create(membership: Membership) -> Membership:
+            created.append(membership.user_key)
+            return inner(membership)
+
+        tenants.memberships.create = _create  # type: ignore[method-assign]
+        original = tenants.invitations.mark_accepted_if_pending
+
+        def _revoked_first(key: str, fields: dict[str, Any]) -> Invitation | None:
+            tenants.invitations.revoke_pending_for_tenant(PERSONAL)
+            return original(key, fields)
+
+        tenants.invitations.mark_accepted_if_pending = _revoked_first  # type: ignore[method-assign]
+
+        with pytest.raises(ValidationError, match="no longer pending"):
+            tenants.service.accept_invitation(token, JOINER)
+
+        assert created == [], "a membership existed, however briefly, for a revoked invitation"
+
+    def test_a_failing_accept_write_leaves_no_membership(self):
+        """PR review #3: a write conflict on the invitation must not leave the member in."""
+        tenants = Tenants()
+        token = tenants.invite()
+
+        def _conflict(key: str, fields: dict[str, Any]) -> Invitation | None:
+            raise RuntimeError("write-write conflict (1200)")
+
+        tenants.invitations.mark_accepted_if_pending = _conflict  # type: ignore[method-assign]
+
+        with pytest.raises(RuntimeError):
+            tenants.service.accept_invitation(token, JOINER)
+
+        assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None

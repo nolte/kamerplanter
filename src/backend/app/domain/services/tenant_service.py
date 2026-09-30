@@ -1411,7 +1411,18 @@ class TenantService:
         if not can_accept:
             raise ValidationError(reason)
 
-        # Create membership
+        # Accepted first, and only while still pending (#1825 SEC-001 and PR
+        # review): a revocation that landed after the status read above — the
+        # request-time revocation of an account erasure — wins before any
+        # membership exists, so no erasure decision can count a member that is
+        # about to be taken back, and a failing write leaves no membership.
+        accepted = self._invitation_repo.mark_accepted_if_pending(
+            invitation.key or "",
+            {"accepted_by_user_key": user_key, "accepted_at": datetime.now(UTC).isoformat()},
+        )
+        if accepted is None:
+            raise ValidationError("Invitation is no longer pending")
+
         membership = Membership(
             user_key=user_key,
             tenant_key=invitation.tenant_key,
@@ -1419,21 +1430,16 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        # Refused and taken back if the tenant froze meanwhile; the invitation
-        # is then left as it was.
-        membership = self._create_membership_unless_erasing(membership)
-
-        # Accepted only while still pending (#1825 SEC-001): a revocation that
-        # landed after the status read above — the request-time revocation of
-        # an account erasure — wins, and the membership is taken back.
-        accepted = self._invitation_repo.mark_accepted_if_pending(
-            invitation.key or "",
-            {"accepted_by_user_key": user_key, "accepted_at": datetime.now(UTC).isoformat()},
-        )
-        if accepted is None:
-            if membership.key:
-                self._membership_repo.delete(membership.key)
-            raise ValidationError("Invitation is no longer pending")
+        try:
+            # Refused and taken back if the tenant froze meanwhile.
+            membership = self._create_membership_unless_erasing(membership)
+        except Exception:
+            # The join did not happen: the invitation is handed back as it was.
+            self._invitation_repo.update_fields(
+                invitation.key or "",
+                {"status": InvitationStatus.PENDING, "accepted_by_user_key": None, "accepted_at": None},
+            )
+            raise
 
         logger.info(
             "invitation_accepted",
