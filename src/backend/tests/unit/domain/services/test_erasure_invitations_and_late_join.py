@@ -663,3 +663,23 @@ class TestNoTransientMemberIsCounted:
             tenants.service.accept_invitation(token, JOINER)
 
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
+
+
+class TestTheRequestGateLeavesProcessBoundChecksToTheRun:
+    def test_a_derived_store_this_process_cannot_reach_does_not_refuse_the_request(self):
+        """The grace-period erasure runs in the worker; a per-process store check belongs to the beat.
+
+        Pinned against the integration test
+        ``test_a_flagless_process_with_contributions_on_record_holds_the_erasure``:
+        an API process without INFERENCE_SERVICE_ENABLED files the request, the beat holds it.
+        """
+        tenants = Tenants()
+        store = MagicMock()
+        store.configuration_error.return_value = "INFERENCE_SERVICE_ENABLED is not set in this process."
+        tenants.service._reference_index_store = store
+        repo = FakeErasureRepo()
+        privacy, _ = _privacy(tenants, repo)
+
+        created = privacy.request_erasure(OWNER, **step_up(OWNER_EMAIL, OWNER_PASSWORD))
+
+        assert created.key in repo.stored

@@ -908,10 +908,11 @@ class PrivacyService:
         # #1843 — refused before the step-up is spent and before anything is
         # written. The account used to be closed at once, and a deployment that
         # cannot erase only failed later, in the daily beat: a locked-out subject
-        # whose data nothing would remove. Same check and error shape as
-        # :meth:`erase_account_now`; the derived-index check is left to the run,
-        # because the grace-period erasure executes in the worker process.
-        configuration_error = self._erasure_configuration_error()
+        # whose data nothing would remove. Same error shape as
+        # :meth:`erase_account_now`; the process-bound derived-store checks
+        # (reference index, pest prototypes) are left to the run, because the
+        # grace-period erasure executes in the worker process, not this one.
+        configuration_error = self._erasure_configuration_error(process_bound=False)
         if configuration_error is not None:
             raise FeatureNotConfiguredError("account_erasure", configuration_error)
         user = self._user_repo.get_or_raise(user_key)
@@ -1936,7 +1937,7 @@ class PrivacyService:
         )
         return finalised
 
-    def _erasure_configuration_error(self) -> str | None:
+    def _erasure_configuration_error(self, *, process_bound: bool = True) -> str | None:
         """Why this deployment cannot erase anything, or ``None`` when it can.
 
         #1666 — a missing executor or tombstone salt is not a property of one
@@ -1959,9 +1960,9 @@ class PrivacyService:
         # with DEBUG=true).
         if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
             return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
-        return self._personal_tenant_configuration_error()
+        return self._personal_tenant_configuration_error(process_bound=process_bound)
 
-    def _personal_tenant_configuration_error(self) -> str | None:
+    def _personal_tenant_configuration_error(self, *, process_bound: bool = True) -> str | None:
         """Why the personal-tenant phase cannot run on this deployment, or ``None`` (#1788).
 
         The account erasure erases the subject's personal tenant through
@@ -1971,6 +1972,8 @@ class PrivacyService:
         """
         if self._tenant_service is None:
             return "No tenant service is wired, so the subject's personal tenant cannot be erased."
+        if not process_bound:
+            return self._tenant_service.tenant_erasure_wiring_error()
         return self._tenant_service.tenant_erasure_configuration_error()
 
     def _derived_index_configuration_error(self) -> str | None:

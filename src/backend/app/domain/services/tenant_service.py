@@ -859,12 +859,8 @@ class TenantService:
             record_key, now_iso=now.isoformat(), stale_before_iso=stale_before.isoformat()
         )
 
-    def _tenant_erasure_configuration_error(self) -> str | None:
-        """Why this deployment cannot erase a tenant, or ``None`` when it can (#1666 shape).
-
-        Checked before anything changes: a configuration fault is not a property
-        of one tenant and would fail every attempt identically.
-        """
+    def _tenant_erasure_wiring_error(self) -> str | None:
+        """Executor, stores and salts — the process-independent part of the tenant-erasure configuration."""
         if self._tenant_erasure_executor is None or self._tenant_erasure_repo is None:
             return "No tenant-erasure executor or record store is wired on this deployment."
         if self._observation_repo is None:
@@ -881,6 +877,28 @@ class TenantService:
         # with DEBUG=true).
         if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
             return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
+        return None
+
+    def tenant_erasure_wiring_error(self) -> str | None:
+        """The deployment-wide half of :meth:`tenant_erasure_configuration_error` (#1843).
+
+        Executor, record store, sensor store and salts — the same in every
+        process. The derived-store checks (reference index, pest prototypes)
+        depend on the process that runs the erasure and are left to it: a
+        self-service request filed in the API process is executed by the
+        worker's beat, which holds it if *its* process cannot reach them.
+        """
+        return self._tenant_erasure_wiring_error()
+
+    def _tenant_erasure_configuration_error(self) -> str | None:
+        """Why this deployment cannot erase a tenant, or ``None`` when it can (#1666 shape).
+
+        Checked before anything changes: a configuration fault is not a property
+        of one tenant and would fail every attempt identically.
+        """
+        wiring_error = self._tenant_erasure_wiring_error()
+        if wiring_error is not None:
+            return wiring_error
         if self._reference_index_store is not None:
             reference_error = self._reference_index_store.configuration_error()
             if reference_error is not None:

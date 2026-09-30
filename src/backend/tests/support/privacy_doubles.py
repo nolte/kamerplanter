@@ -351,6 +351,9 @@ class FakePersonalTenants:
     def tenant_erasure_configuration_error(self) -> str | None:
         return self.configuration_error
 
+    def tenant_erasure_wiring_error(self) -> str | None:
+        return self.configuration_error
+
     def personal_tenant_keys_of(self, user_key: str) -> list[str]:
         return list(self.owned)
 

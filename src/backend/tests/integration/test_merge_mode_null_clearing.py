@@ -51,7 +51,7 @@ import pytest
 from arango import ArangoClient
 
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
-from tests.support.privacy_doubles import step_up
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor, step_up
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
@@ -200,6 +200,11 @@ def _privacy_service(db):
         token_engine=TokenEngine(secret_key="integration-test-secret-not-a-credential"),
         email_service=_SilentEmailService(),
         frontend_url="http://localhost:5173",
+        # #1843: the request is refused up front on a deployment that cannot
+        # erase; the executor and tenant side are not what this file measures.
+        erasure_executor=RecordingErasureExecutor(),
+        tenant_service=FakePersonalTenants(),
+        tombstone_salt="integration-tombstone-salt-not-a-secret-0123",
     )
 
 
