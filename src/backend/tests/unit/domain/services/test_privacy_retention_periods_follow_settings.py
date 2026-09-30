@@ -32,7 +32,16 @@ from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.retention_service import RetentionService
-from tests.support.privacy_doubles import FakeDataExportRepo, step_up
+from tests.support.privacy_doubles import FakeDataExportRepo, FakePersonalTenants, RecordingErasureExecutor, step_up
+
+
+@pytest.fixture(autouse=True)
+def _erasure_log_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1843: the erasure request is refused up front on a deployment without the log salt (#1812)."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
+
 
 USER_KEY = "u-1782"
 PASSWORD = "correct-horse-battery-staple"
@@ -81,6 +90,7 @@ def _service(retention: RetentionService | None, **overrides: Any) -> PrivacySer
     erasure_repo = MagicMock()
     erasure_repo.find_active_for_user.return_value = None
     erasure_repo.create.side_effect = lambda erasure: erasure
+    erasure_repo.create_with_key.side_effect = lambda erasure, _key: erasure
 
     email_change_repo = MagicMock()
     email_change_repo.create.side_effect = lambda change: change
@@ -101,6 +111,10 @@ def _service(retention: RetentionService | None, **overrides: Any) -> PrivacySer
         "email_service": MagicMock(),
         "frontend_url": "https://app.test",
         "retention": retention,
+        # #1843: request_erasure refuses up front what erase_account_now refuses.
+        "erasure_executor": RecordingErasureExecutor(),
+        "tenant_service": FakePersonalTenants(),
+        "tombstone_salt": "t" * 32,
     }
     deps.update(overrides)
     return PrivacyService(**deps)

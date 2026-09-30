@@ -22,6 +22,17 @@ class ITenantErasureRepository(ABC):
         """Atomically mark an open record ``in_progress``; ``None`` when another run holds it or it is complete."""
 
     @abstractmethod
+    def delete_unclaimed(self, key: str) -> bool:
+        """Remove the account-erasure record *key* if no run ever claimed it; ``True`` when it was removed.
+
+        The withdrawal of a deletion that was opened and then decided against
+        before it started (REQ-025 AK-IE-07). Conditional in one statement: a
+        record a run has claimed (``last_attempt_at`` set) or finished, and one
+        another origin (a person's ``delete_tenant``) opened, is never removed — it is the proof of a deletion that ran.
+        """
+        ...
+
+    @abstractmethod
     def update_fields(self, key: str, fields: dict[str, Any]) -> TenantErasureRecord: ...
 
     @abstractmethod

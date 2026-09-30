@@ -270,6 +270,7 @@ def _tenant_service(
         invitation_engine=MagicMock(),
         tenant_erasure_executor=MagicMock(),
         tenant_erasure_repo=erasure_repo,
+        observation_repo=MagicMock(),
         tombstone_salt=SALT,
     )
     delete = MagicMock(
@@ -298,7 +299,10 @@ class TestTheTenantServiceDecides:
 
         outcome = service.erase_personal_tenant_of(USER, PERSONAL, now=NOW)
 
-        delete.assert_called_once_with(PERSONAL, tenant, None, subject_user_key=USER, now=NOW)
+        delete.assert_called_once_with(PERSONAL, tenant, now=NOW)
+        # AK-IE-07: the record (the freeze) is inserted before the run, after the first membership read.
+        (created, key), _ = service._tenant_erasure_repo.create_with_key.call_args
+        assert (created.origin, key) == ("account_erasure", TenantErasureEngine.record_key(PERSONAL))
         assert (outcome.outcome, outcome.tenant_erasure_record_key) == (
             "erased",
             TenantErasureEngine.record_key(PERSONAL),
@@ -367,7 +371,11 @@ class TestTheTenantServiceDecides:
 
 
 class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
-    """``_erase_tenant_for_account_erasure`` — the record, claim, freeze and run of ``delete_tenant``."""
+    """``_open_account_erasure_record`` + ``_erase_tenant_for_account_erasure`` — record, claim, freeze, run.
+
+    Since #1825 the record is inserted by the first and claimed by the second, so
+    the membership can be read again in between (AK-IE-07).
+    """
 
     def _service(self, *, light_mode: bool = False, configuration_error: str | None = None):
         erasure_repo = MagicMock()
@@ -395,9 +403,8 @@ class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
     def test_it_persists_an_account_erasure_record_then_claims_freezes_and_runs(self):
         service, erasure_repo, membership_repo, run, claimed = self._service()
 
-        finished = service._erase_tenant_for_account_erasure(
-            PERSONAL, _personal(), None, subject_user_key=USER, now=NOW
-        )
+        service._open_account_erasure_record(PERSONAL, _personal(), subject_user_key=USER, now=NOW)
+        finished = service._erase_tenant_for_account_erasure(PERSONAL, _personal(), now=NOW)
 
         (created, key), _ = erasure_repo.create_with_key.call_args
         assert (created.origin, created.tenant_key, key) == (
@@ -420,7 +427,11 @@ class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
             tenant_key=PERSONAL, tenant_type="personal", origin="account_erasure", status="partially_completed"
         )
 
-        service._erase_tenant_for_account_erasure(PERSONAL, None, open_record, subject_user_key=USER, now=NOW)
+        erasure_repo.get.return_value = open_record
+        service._tenant_repo.get_by_key.return_value = None
+        service._membership_repo.active_member_user_keys.return_value = []
+
+        assert service.erase_personal_tenant_of(USER, PERSONAL, now=NOW).outcome == "erased"
 
         erasure_repo.create_with_key.assert_not_called()
         run.assert_called_once()
@@ -429,7 +440,9 @@ class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
         service, erasure_repo, membership_repo, run, _ = self._service(configuration_error="no store")
 
         with pytest.raises(FeatureNotConfiguredError):
-            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), None, subject_user_key=USER, now=NOW)
+            service._open_account_erasure_record(PERSONAL, _personal(), subject_user_key=USER, now=NOW)
+        with pytest.raises(FeatureNotConfiguredError):
+            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), now=NOW)
 
         erasure_repo.create_with_key.assert_not_called()
         membership_repo.deactivate_all_for_tenant.assert_not_called()
@@ -440,7 +453,7 @@ class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
         erasure_repo.claim_for_run.return_value = None
 
         with pytest.raises(WriteConflictError):
-            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), None, subject_user_key=USER, now=NOW)
+            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), now=NOW)
 
         membership_repo.deactivate_all_for_tenant.assert_not_called()
         run.assert_not_called()
@@ -449,7 +462,9 @@ class TestTheAccountErasurePathKeepsTheTenantDeletionsProof:
         service, erasure_repo, _, run, _ = self._service(light_mode=True)
 
         with pytest.raises(ForbiddenError):
-            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), None, subject_user_key=USER, now=NOW)
+            service._open_account_erasure_record(PERSONAL, _personal(), subject_user_key=USER, now=NOW)
+        with pytest.raises(ForbiddenError):
+            service._erase_tenant_for_account_erasure(PERSONAL, _personal(), now=NOW)
 
         erasure_repo.create_with_key.assert_not_called()
         run.assert_not_called()

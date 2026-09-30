@@ -541,6 +541,14 @@ class TenantService:
                     next_attempt_at=record.next_attempt_at.isoformat(),
                 )
                 continue
+            if self._is_unclaimed_account_erasure(record):
+                # REQ-025 AK-IE-07 (#1825 SEC-003): an account erasure stopped
+                # between inserting this record and its second membership read.
+                # Its own retry (the open erasure request) re-reads before it
+                # claims; the beat must not deactivate a late joiner blind.
+                result["deferred"] += 1
+                logger.info("tenant_erasure.awaiting_account_erasure", record_key=record.key)
+                continue
             claimed = self._claim_tenant_erasure(record.key or "", now)
             if claimed is None:
                 continue
@@ -569,6 +577,34 @@ class TenantService:
         """
         return self._tenant_repo.personal_tenant_keys_by_owner(user_key)
 
+    def revoke_invitations_into_personal_tenants_of(self, user_key: str) -> int:
+        """Revoke every pending invitation into every personal tenant of *user_key* (REQ-025 AK-IE-06).
+
+        Called when an erasure of the account is **requested** — by
+        :meth:`PrivacyService.request_erasure` and
+        :meth:`PrivacyService.erase_account_now` alike — and once more by
+        :meth:`erase_personal_tenant_of` right before the membership decision.
+        Until #1825 an invitation (a link invitation is bound to no address)
+        stayed acceptable for the whole R-01 grace: whoever held the token
+        could join, keep the tenant from being erased and read the subject's
+        garden.
+
+        E-mail and link invitations alike, ``tenant_type: personal`` only —
+        invitations into an organisation the subject owns are not the
+        subject's personal data decision. A revoked invitation is refused by
+        :meth:`accept_invitation` (``Invitation is no longer pending``).
+        Idempotent; returns how many invitations were revoked.
+        """
+        revoked = sum(
+            self._invitation_repo.revoke_pending_for_tenant(tenant_key)
+            for tenant_key in self._tenant_repo.personal_tenant_keys_by_owner(user_key)
+        )
+        if revoked:
+            logger.info(
+                "tenant_erasure.personal_tenant_invitations_revoked", subject=log_subject(user_key), revoked=revoked
+            )
+        return revoked
+
     def erase_personal_tenant_of(
         self, user_key: str, tenant_key: str, *, now: datetime | None = None
     ) -> PersonalTenantErasure:
@@ -589,10 +625,19 @@ class TenantService:
           kept exactly as before #1788 (the account plan removes only the owner
           reference) and the reason is recorded.
         * Otherwise — the subject is its only active member, or a deletion of it
-          is already open (its memberships are frozen then) — the tenant-erasure
+          is already running (its memberships are frozen then) — the tenant-erasure
           inventory runs with origin ``account_erasure``
           (:meth:`_erase_tenant_for_account_erasure`): same inventory, same
           persisted record, same retry as :meth:`delete_tenant`.
+
+        The membership is read **twice** (REQ-025 AK-IE-07, #1825 SEC-003): once
+        before the deletion record is inserted, and again right after — the
+        record is the freeze :meth:`_refuse_while_erasing` keys on, so a join
+        that slipped between the first read and the insert is seen by the
+        second. Such a tenant is kept, the record withdrawn; before #1825 the
+        joiner was silently deactivated and the tenant erased. Both reads go
+        through :meth:`_personal_tenant_retention`, the one place that decides
+        whether a membership keeps the tenant.
 
         Raises what a failed tenant deletion raises (the record stays open and
         the daily tenant beat retries it too), :class:`TenantErasureIncompleteError`
@@ -624,44 +669,132 @@ class TenantService:
             )
         if tenant is not None and (tenant.owner_user_key != user_key or tenant.tenant_type != TenantType.PERSONAL):
             raise ValidationError("The tenant recorded for this account erasure is not the subject's personal tenant.")
+        now = now or datetime.now(UTC)
+        # A record no run ever claimed was inserted by an attempt that stopped
+        # before its re-check (or before its claim): nothing is deactivated yet,
+        # so the membership still says who uses the tenant.
+        never_started = record is not None and self._is_unclaimed_account_erasure(record)
         if record is None:
-            others = [
-                key for key in self._membership_repo.active_member_user_keys(tenant_key=tenant_key) if key != user_key
-            ]
-            if others:
-                # #1788 review GDPR-05 — no tenant key beside the subject digest:
-                # the key is on the pseudonymised retention rows, and joining a
-                # log line to them is what the salted ``log_subject`` prevents.
-                logger.info(
-                    "tenant_erasure.personal_tenant_retained",
-                    subject=log_subject(user_key),
-                    other_active_members=len(others),
-                )
-                return PersonalTenantErasure(
-                    tenant_key=tenant_key,
-                    outcome="retained_other_members",
-                    reason=(
-                        f"{len(others)} other active member(s) use this tenant; no successor is specified "
-                        "(#1788), so it is kept and only the owner reference is removed."
-                    ),
-                )
-        finished = self._erase_tenant_for_account_erasure(
-            tenant_key, tenant, record, subject_user_key=user_key, now=now or datetime.now(UTC)
-        )
+            # AK-IE-06 backstop — revoked at request time already; an invitation
+            # issued since (or a request-time revocation that failed) goes here,
+            # before the membership is read.
+            self._invitation_repo.revoke_pending_for_tenant(tenant_key)
+            retained = self._personal_tenant_retention(tenant_key, user_key, after_freeze=False)
+            if retained is not None:
+                return retained
+            self._open_account_erasure_record(tenant_key, tenant, subject_user_key=user_key, now=now)
+        if record is None or never_started:
+            # AK-IE-07 — the record is in place, so every later join is refused
+            # or rolls itself back (:meth:`accept_invitation`); whoever is an
+            # active member now joined before the freeze.
+            retained = self._personal_tenant_retention(tenant_key, user_key, after_freeze=True)
+            if retained is not None:
+                if not self._require_tenant_erasure_repo().delete_unclaimed(record_key):
+                    # A run claimed the record in between; it decides, and the
+                    # account erasure is retried against what it leaves.
+                    raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+                return retained
+        finished = self._erase_tenant_for_account_erasure(tenant_key, tenant, now=now)
         if finished.status != "completed":
             raise TenantErasureIncompleteError(list(finished.unreached) or [TenantErasureEngine.TENANT_COLLECTION])
         return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+
+    @staticmethod
+    def _is_unclaimed_account_erasure(record: TenantErasureRecord) -> bool:
+        """Whether *record* was opened by an account erasure and no run has claimed it yet."""
+        return (
+            record.origin == "account_erasure"
+            and record.status == "in_progress"
+            and record.last_attempt_at is None
+            and record.attempt_count == 0
+        )
+
+    def _personal_tenant_retention(
+        self, tenant_key: str, subject_user_key: str, *, after_freeze: bool
+    ) -> PersonalTenantErasure | None:
+        """The retained outcome when a membership keeps the subject's personal tenant, else ``None``.
+
+        The single decision both membership reads of
+        :meth:`erase_personal_tenant_of` share — ``after_freeze`` says which
+        read it is. Today the rule is the same for both: another **active**
+        account with an **active** membership keeps the tenant (#1788). The
+        erasure-together rule of #1824 (the tenant goes even with other
+        members; only a *late* joiner keeps it) changes what the first read
+        decides and leaves the second as it is — that is why the two are told
+        apart here and nowhere else.
+        """
+        others = [
+            key
+            for key in self._membership_repo.active_member_user_keys(tenant_key=tenant_key)
+            if key != subject_user_key
+        ]
+        if not others:
+            return None
+        # #1788 review GDPR-05 — no tenant key beside the subject digest: the key
+        # is on the pseudonymised retention rows, and joining a log line to them
+        # is what the salted ``log_subject`` prevents.
+        logger.info(
+            "tenant_erasure.personal_tenant_retained",
+            subject=log_subject(subject_user_key),
+            other_active_members=len(others),
+            after_freeze=after_freeze,
+        )
+        if after_freeze:
+            reason = (
+                f"{len(others)} active member(s) joined this tenant before its deletion was frozen "
+                "(REQ-025 AK-IE-07); it is kept and only the owner reference is removed."
+            )
+        else:
+            reason = (
+                f"{len(others)} other active member(s) use this tenant; no successor is specified "
+                "(#1788), so it is kept and only the owner reference is removed."
+            )
+        return PersonalTenantErasure(tenant_key=tenant_key, outcome="retained_other_members", reason=reason)
+
+    def _guard_account_erasure_of_tenant(self, tenant: Tenant | None) -> None:
+        """Refuse before anything is written: a tenant that cannot be deleted, a deployment that cannot erase."""
+        if tenant is not None and (tenant.is_platform or self._light_mode):
+            raise ForbiddenError("This tenant cannot be deleted.")
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+
+    def _open_account_erasure_record(
+        self, tenant_key: str, tenant: Tenant | None, *, subject_user_key: str, now: datetime
+    ) -> None:
+        """Insert the one-per-tenant deletion record — the membership freeze — for an account erasure."""
+        self._guard_account_erasure_of_tenant(tenant)
+        try:
+            self._require_tenant_erasure_repo().create_with_key(
+                TenantErasureRecord(
+                    tenant_key=tenant_key,
+                    tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
+                    origin="account_erasure",
+                    # #1791 provenance fields: the erased account as the salted
+                    # log reference (never its key), and an explicit statement
+                    # that no interactive step-up belongs to this deletion.
+                    requested_by_subject=log_subject(subject_user_key),
+                    step_up="account_erasure_no_interactive_step_up",
+                    slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
+                    requested_at=now,
+                ),
+                TenantErasureEngine.record_key(tenant_key),
+            )
+        except (DuplicateError, WriteConflictError) as exc:
+            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
 
     def _erase_tenant_for_account_erasure(
         self,
         tenant_key: str,
         tenant: Tenant | None,
-        record: TenantErasureRecord | None,
         *,
-        subject_user_key: str,
         now: datetime,
     ) -> TenantErasureRecord:
-        """Steps 1-3 of :meth:`delete_tenant` for a deletion the account erasure decided (#1788).
+        """Claim and run a deletion the account erasure decided and recorded (#1788).
+
+        The record exists by now — inserted by :meth:`_open_account_erasure_record`
+        and confirmed by the second membership read, or left open by an earlier
+        attempt.
 
         Not :meth:`delete_tenant` itself: that is the entry of a *person* deleting
         a tenant, and #1791 puts the requester's authorisation and step-up there.
@@ -673,31 +806,8 @@ class TenantService:
         and :meth:`_run_tenant_erasure` with its residue check and backoff; the
         daily :meth:`resume_tenant_erasures` retries the record like any other.
         """
-        if tenant is not None and (tenant.is_platform or self._light_mode):
-            raise ForbiddenError("This tenant cannot be deleted.")
-        configuration_error = self._tenant_erasure_configuration_error()
-        if configuration_error is not None:
-            raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+        self._guard_account_erasure_of_tenant(tenant)
         record_key = TenantErasureEngine.record_key(tenant_key)
-        if record is None:
-            try:
-                self._require_tenant_erasure_repo().create_with_key(
-                    TenantErasureRecord(
-                        tenant_key=tenant_key,
-                        tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
-                        origin="account_erasure",
-                        # #1791 provenance fields: the erased account as the salted
-                        # log reference (never its key), and an explicit statement
-                        # that no interactive step-up belongs to this deletion.
-                        requested_by_subject=log_subject(subject_user_key),
-                        step_up="account_erasure_no_interactive_step_up",
-                        slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
-                        requested_at=now,
-                    ),
-                    record_key,
-                )
-            except (DuplicateError, WriteConflictError) as exc:
-                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
         claimed = self._claim_tenant_erasure(record_key, now)
         if claimed is None:
             raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
@@ -717,6 +827,27 @@ class TenantService:
         if record is not None and record.status != "completed":
             raise ForbiddenError("This tenant is being deleted.")
 
+    def _create_membership_unless_erasing(self, membership: Membership) -> Membership:
+        """Insert a membership into an existing tenant, and take it back if the tenant froze meanwhile.
+
+        REQ-025 AK-IE-07 (#1825 SEC-003 b). The caller's
+        :meth:`_refuse_while_erasing` and this insert are two writes: a deletion
+        record inserted between them froze the tenant while the membership was
+        on its way in. Checked again once the membership exists, and removed,
+        so no active membership stays in a tenant that is being erased — the
+        counterpart of the second membership read in
+        :meth:`erase_personal_tenant_of`. Every path that joins an account to
+        an existing tenant goes through here.
+        """
+        created = self._membership_repo.create(membership)
+        try:
+            self._refuse_while_erasing(membership.tenant_key)
+        except ForbiddenError:
+            if created.key:
+                self._membership_repo.delete(created.key)
+            raise
+        return created
+
     def _require_tenant_erasure_repo(self) -> ITenantErasureRepository:
         if self._tenant_erasure_repo is None:
             raise FeatureNotConfiguredError("tenant_deletion", "No tenant-erasure record store is wired.")
@@ -728,12 +859,8 @@ class TenantService:
             record_key, now_iso=now.isoformat(), stale_before_iso=stale_before.isoformat()
         )
 
-    def _tenant_erasure_configuration_error(self) -> str | None:
-        """Why this deployment cannot erase a tenant, or ``None`` when it can (#1666 shape).
-
-        Checked before anything changes: a configuration fault is not a property
-        of one tenant and would fail every attempt identically.
-        """
+    def _tenant_erasure_wiring_error(self) -> str | None:
+        """Executor, stores and salts — the process-independent part of the tenant-erasure configuration."""
         if self._tenant_erasure_executor is None or self._tenant_erasure_repo is None:
             return "No tenant-erasure executor or record store is wired on this deployment."
         if self._observation_repo is None:
@@ -750,6 +877,28 @@ class TenantService:
         # with DEBUG=true).
         if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
             return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
+        return None
+
+    def tenant_erasure_wiring_error(self) -> str | None:
+        """The deployment-wide half of :meth:`tenant_erasure_configuration_error` (#1843).
+
+        Executor, record store, sensor store and salts — the same in every
+        process. The derived-store checks (reference index, pest prototypes)
+        depend on the process that runs the erasure and are left to it: a
+        self-service request filed in the API process is executed by the
+        worker's beat, which holds it if *its* process cannot reach them.
+        """
+        return self._tenant_erasure_wiring_error()
+
+    def _tenant_erasure_configuration_error(self) -> str | None:
+        """Why this deployment cannot erase a tenant, or ``None`` when it can (#1666 shape).
+
+        Checked before anything changes: a configuration fault is not a property
+        of one tenant and would fail every attempt identically.
+        """
+        wiring_error = self._tenant_erasure_wiring_error()
+        if wiring_error is not None:
+            return wiring_error
         if self._reference_index_store is not None:
             reference_error = self._reference_index_store.configuration_error()
             if reference_error is not None:
@@ -1032,7 +1181,7 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        return self._membership_repo.create(membership)
+        return self._create_membership_unless_erasing(membership)
 
     def admin_change_membership_role(
         self,
@@ -1280,7 +1429,18 @@ class TenantService:
         if not can_accept:
             raise ValidationError(reason)
 
-        # Create membership
+        # Accepted first, and only while still pending (#1825 SEC-001 and PR
+        # review): a revocation that landed after the status read above — the
+        # request-time revocation of an account erasure — wins before any
+        # membership exists, so no erasure decision can count a member that is
+        # about to be taken back, and a failing write leaves no membership.
+        accepted = self._invitation_repo.mark_accepted_if_pending(
+            invitation.key or "",
+            {"accepted_by_user_key": user_key, "accepted_at": datetime.now(UTC).isoformat()},
+        )
+        if accepted is None:
+            raise ValidationError("Invitation is no longer pending")
+
         membership = Membership(
             user_key=user_key,
             tenant_key=invitation.tenant_key,
@@ -1288,17 +1448,16 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        membership = self._membership_repo.create(membership)
-
-        # Mark invitation as accepted
-        self._invitation_repo.update_fields(
-            invitation.key,
-            {
-                "status": InvitationStatus.ACCEPTED,
-                "accepted_by_user_key": user_key,
-                "accepted_at": datetime.now(UTC).isoformat(),
-            },
-        )
+        try:
+            # Refused and taken back if the tenant froze meanwhile.
+            membership = self._create_membership_unless_erasing(membership)
+        except Exception:
+            # The join did not happen: the invitation is handed back as it was.
+            self._invitation_repo.update_fields(
+                invitation.key or "",
+                {"status": InvitationStatus.PENDING, "accepted_by_user_key": None, "accepted_at": None},
+            )
+            raise
 
         logger.info(
             "invitation_accepted",

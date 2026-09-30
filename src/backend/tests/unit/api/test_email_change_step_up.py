@@ -54,6 +54,7 @@ from app.domain.models.privacy import EmailChangeRequest
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.privacy_service import PrivacyService
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
 
 # Probe credentials are assembled at runtime: a literal shaped like one trips the
 # secret scanner (#1838).
@@ -63,6 +64,14 @@ WRONG_PASSWORD = PASSWORD[::-1]
 API_KEY = "kp_" + "x" * 24
 TAKEN = "somebody-else@example.org"
 ROUTE = "/api/v1/privacy/email-change"
+
+
+@pytest.fixture(autouse=True)
+def _erasure_log_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1843: the erasure request is refused up front on a deployment without the log salt (#1812)."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
 
 
 @pytest.fixture(autouse=True)
@@ -364,6 +373,10 @@ class _World:
             reference_index_store=NoopReferenceIndexStore(),
             auth_provider_repo=self.providers,
             api_key_repo=self.api_keys,
+            # #1843: the erasure route refuses up front on a deployment that cannot erase.
+            erasure_executor=RecordingErasureExecutor(),
+            tenant_service=FakePersonalTenants(),
+            tombstone_salt="t" * 32,
         )
         self.auth = AuthService(
             user_repo=self.users,
