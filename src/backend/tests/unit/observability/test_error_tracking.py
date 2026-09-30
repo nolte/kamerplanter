@@ -167,12 +167,26 @@ def test_headers_are_allow_listed_not_deny_listed() -> None:
     assert "X-Some-Future-Proxy-Header" not in headers
 
 
-def test_query_string_credentials_are_redacted_by_name() -> None:
-    event = {"request": {"query_string": "page=2&api_key=s3cr3t&sort=name&session_id=abc"}}
+def test_every_query_string_value_is_withheld_names_stay() -> None:
+    # #1880 review SEC-002: a search term (knowledge-service ``q=``) or a
+    # coordinate is as personal as a token, and has no name that says so.
+    event = {"request": {"query_string": "page=2&api_key=s3cr3t&q=ficus&session_id=abc&flag"}}
 
     query = scrub_event(event)["request"]["query_string"]
 
-    assert query == "page=2&api_key=[redacted]&sort=name&session_id=[redacted]"
+    assert query == "page=[redacted]&api_key=[redacted]&q=[redacted]&session_id=[redacted]&flag"
+
+
+def test_breadcrumb_raw_query_and_fragment_are_withheld() -> None:
+    """#1880 review SEC-001: the httpx/stdlib integrations store the raw query under ``http.query``."""
+    crumb = {
+        "category": "httpx",
+        "data": {"url": "https://api.example.org/v1", "http.query": "appid=SECRET&lat=52.5", "http.fragment": "t=x"},
+    }
+
+    data = scrub_breadcrumb(crumb)["data"]
+
+    assert data == {"url": "https://api.example.org/v1", "http.query": "[redacted]", "http.fragment": "[redacted]"}
 
 
 def test_user_context_keeps_only_the_join_keys() -> None:

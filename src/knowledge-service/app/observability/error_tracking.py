@@ -69,6 +69,12 @@ _SENSITIVE_NAME_PARTS = (
 
 _REDACTED = "[redacted]"
 
+#: Keys under which the SDK's HTTP integrations (httpx, stdlib) put the raw query
+#: string and fragment of every outbound request into a breadcrumb — the
+#: OpenWeatherMap ``appid`` and a site's coordinates. A bare query string has no
+#: URL shape a text redactor could recognise, so the value goes wholesale.
+_RAW_URL_PART_KEYS = frozenset({"http.query", "http.fragment"})
+
 #: What a service hands :func:`init_error_tracking` to redact free text — an
 #: exception's message, a log record's message and arguments, a breadcrumb.
 #: Called with the text and the exceptions the event was captured for (so the
@@ -99,7 +105,7 @@ def _redact_mapping(mapping: MutableMapping[str, Any], depth: int = 0) -> None:
     inside a ``headers`` dict, not at the top level.
     """
     for key in list(mapping):
-        if _is_sensitive_name(str(key)) or depth >= _MAX_DEPTH:
+        if _is_sensitive_name(str(key)) or str(key) in _RAW_URL_PART_KEYS or depth >= _MAX_DEPTH:
             mapping[key] = _REDACTED
         else:
             _redact_nested(mapping[key], depth + 1)
@@ -190,13 +196,11 @@ def _scrub_request(request: MutableMapping[str, Any]) -> None:
 
 
 def _scrub_query_string(query: str) -> str:
+    """Every value withheld, every name kept: a search term or a coordinate is as personal as a token."""
     parts = []
     for pair in query.split("&"):
         name, sep, _value = pair.partition("=")
-        if sep and _is_sensitive_name(name):
-            parts.append(f"{name}={_REDACTED}")
-        else:
-            parts.append(pair)
+        parts.append(f"{name}={_REDACTED}" if sep else pair)
     return "&".join(parts)
 
 

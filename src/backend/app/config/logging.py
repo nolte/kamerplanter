@@ -312,6 +312,9 @@ def _write_stderr(text: str) -> None:
         stream.flush()
 
 
+_MUTE_LOCK = threading.RLock()
+
+
 def _call_muted(hook: Callable[..., object], *args: object) -> None:
     """Run a hook somebody else installed without letting it print.
 
@@ -320,8 +323,18 @@ def _call_muted(hook: Callable[..., object], *args: object) -> None:
     the raw traceback. The capture must still happen — it goes through the
     tracker's own scrubbing — the raw print must not.
     """
-    with contextlib.suppress(Exception), contextlib.redirect_stderr(io.StringIO()):
-        hook(*args)
+    with _MUTE_LOCK:
+        # ``sys.stderr`` is process-global: the lock keeps two muted calls from
+        # restoring each other's buffer, and the saved stream is put back
+        # whatever the hook raised — a BaseException included (review SEC-006/007).
+        saved = sys.stderr
+        sys.stderr = io.StringIO()
+        try:
+            hook(*args)
+        except BaseException:  # noqa: BLE001, S110 — the redacted print follows; a raw re-raise would print the raw text
+            pass
+        finally:
+            sys.stderr = saved
 
 
 def _redacting_excepthook(previous: Callable[..., object]) -> Callable[..., None]:
@@ -356,7 +369,10 @@ def _redacting_unraisablehook(previous: Callable[..., object]) -> Callable[..., 
         # The default hook prints ``repr(object)``; a repr is a runtime value, so
         # only what the object is called is named.
         target = unraisable.object
-        where = getattr(target, "__qualname__", None) or type(target).__name__
+        try:
+            where = getattr(target, "__qualname__", None) or type(target).__name__
+        except Exception:
+            where = type(target).__name__
         label = unraisable.err_msg or "Exception ignored in"
         _write_stderr(f"{label}: {where}\n{_render_uncaught(unraisable.exc_type, unraisable.exc_value)}\n")
 
@@ -369,7 +385,10 @@ def install_uncaught_exception_redaction() -> None:
 
     Three interpreter hooks print an exception raw to stderr, past every record
     factory and handler filter: ``sys.excepthook`` (an exception escaping the
-    process entry — a failing import of ``app.main``, a migration CLI),
+    process entry *after* logging was configured — a failing startup step in
+    ``app.main`` below its ``setup_logging`` call, a migration CLI; an import
+    that fails before that line runs under the interpreter's default hook, which
+    is why settings errors carry no value of their own, #1832),
     ``threading.excepthook`` (an uncaught exception in a thread) and
     ``sys.unraisablehook`` (an exception in a finaliser or a garbage-collected
     coroutine). ``NotFoundError("User", <key>)`` printed the account key that way.

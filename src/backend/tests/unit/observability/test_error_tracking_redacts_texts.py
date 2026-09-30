@@ -81,6 +81,9 @@ try:
 except NotFoundError:
     logging.getLogger("probe").exception("lookup failed")
 # 3. a record without an exception whose ARGUMENTS carry the data
+import httpx
+with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200))) as http:
+    http.get("https://api.openweathermap.org/data/2.5/forecast", params={"lat": "52.5", "appid": api_key})
 bot_url = "https://api.telegram.org" + bot_path
 sentry_sdk.add_breadcrumb(category="http", message="POST " + bot_url, data={"url": bot_url})
 keyed_url = "https://api.example.org/v1?appid=" + api_key
