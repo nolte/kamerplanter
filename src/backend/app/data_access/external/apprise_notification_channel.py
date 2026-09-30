@@ -112,7 +112,7 @@ class AppriseNotificationChannel(INotificationChannel):
             return ChannelResult(
                 channel_key=self.channel_key,
                 success=False,
-                error=f"Apprise send failed: {exc}",
+                error=f"Apprise send failed: {loggable_error(exc)}",
             )
 
     async def send_batch(
@@ -179,7 +179,7 @@ class AppriseNotificationChannel(INotificationChannel):
             return ChannelResult(
                 channel_key=self.channel_key,
                 success=False,
-                error=f"Apprise batch send failed: {exc}",
+                error=f"Apprise batch send failed: {loggable_error(exc)}",
             )
 
     async def health_check(self) -> bool:

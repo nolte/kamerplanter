@@ -29,6 +29,8 @@ import io
 import logging
 import logging.config
 import os
+import sys
+import threading
 import warnings
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -80,6 +82,8 @@ def isolated_logging() -> Iterator[None]:
     structlog_config = structlog.get_config()
     celery_setup = CeleryLogging._setup
     record_factory = logging.getLogRecordFactory()
+    # #1880: the process configs also replace the interpreter's uncaught-exception hooks.
+    interpreter_hooks = sys.excepthook, threading.excepthook, sys.unraisablehook
     environ = dict(os.environ)
     with warnings.catch_warnings():
         yield
@@ -97,6 +101,7 @@ def isolated_logging() -> Iterator[None]:
     structlog.configure(**structlog_config)
     CeleryLogging._setup = celery_setup
     logging.setLogRecordFactory(record_factory)
+    sys.excepthook, threading.excepthook, sys.unraisablehook = interpreter_hooks
     os.environ.clear()
     os.environ.update(environ)
 

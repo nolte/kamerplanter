@@ -20,7 +20,7 @@ from app.common.error_handlers import (
     validation_error_handler,
 )
 from app.common.exceptions import KamerplanterError
-from app.common.log_privacy import register_route_source
+from app.common.log_privacy import redact_text_in_flight, register_route_source
 from app.common.middleware import request_id_middleware
 from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import setup_logging
@@ -47,6 +47,7 @@ logger = structlog.get_logger()
 init_error_tracking(
     component="backend",
     release=resolve_release("kamerplanter-backend", settings.app_version),
+    redact_text=redact_text_in_flight,
 )
 
 # Register every self-registering adapter (weather, pest, identification, storage

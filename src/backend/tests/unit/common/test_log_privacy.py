@@ -374,7 +374,24 @@ def test_a_plain_address_is_still_masked_after_the_reorder(salted: str) -> None:
     assert "<email:" in text
 
 
-@pytest.mark.parametrize("unit", ["a@a/", "x://a@", "with url: /a?", "GET /a?b HTTP/"])
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "a@a/",
+        "x://a@",
+        "with url: /a?",
+        "GET /a?b HTTP/",
+        # #1879: the path-credential shapes and the token-segment scan
+        "/bot1:",
+        "/bot1",
+        "/webhooks/1/",
+        "/services/Ta/Ba/",
+        "/" + "A1" * 16,
+        "/",
+        "aB1",
+        "/abcdef0123",
+    ],
+)
 def test_the_review_patterns_stay_linear(salted: str, unit: str) -> None:
     import time
 

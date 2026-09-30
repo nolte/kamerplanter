@@ -11,6 +11,8 @@ exception text — it hands it the value of one of these helpers:
   bundle keys, e-mail addresses and URL query strings masked;
 * :func:`loggable_ip` — an IP truncated the NFR-011 R-03 way, i.e. no more than
   the database keeps long-term;
+* :func:`loggable_endpoint_host` — the host of a push endpoint, whose path is
+  the device's push token (#1891);
 * :func:`loggable_path` — a request path reduced to the app's literal route
   segments (#1795): no token, tenant slug, key or query string;
 * :func:`redacted_traceback` — a traceback whose every exception line (cause
@@ -21,6 +23,9 @@ exception text — it hands it the value of one of these helpers:
 * :func:`loggable_url_text` — a library's request line with every URL's userinfo
   and query string masked (#1795: the API keys OpenWeatherMap and Perenual carry
   in the query);
+* :func:`mask_path_credentials` — a credential carried in a request *path*
+  (#1879: Telegram's bot token, a Discord or Slack webhook token, a push
+  endpoint's device token); part of the three text redactions above;
 * ``app.common.decoys.email_digest`` — the keyed pseudonym of an address.
 
 ``tests/unit/guards/test_privacy_logs_carry_no_plaintext_subject.py`` enforces
@@ -33,8 +38,9 @@ from __future__ import annotations
 import ipaddress
 import re
 import traceback
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from types import TracebackType
+from urllib.parse import urlsplit
 
 from app.common.decoys import email_digest
 from app.common.exceptions import KamerplanterError
@@ -81,6 +87,24 @@ _BARE_TARGET_QUERIES = (
     re.compile(r"(with url: /[^\s?'\"\\]*)\?[^\s'\"\\)]+"),
     re.compile(r"(\b(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /[^\s?'\"\\]*)\?[^\s'\"\\]+(?= HTTP/)"),
 )
+#: Request paths that carry the credential itself (#1879) — the services Apprise
+#: and the webhook channels talk to: Telegram ``/bot<id>:<token>/…``, Discord
+#: (and Discord-compatible) ``/webhooks/<id>/<token>``, Slack
+#: ``/services/T…/B…/<token>``. Matched anywhere in a text, because urllib3
+#: names the bare request target (no scheme, no host) in its retry warning and
+#: in ``Max retries exceeded with url: …``. Every quantifier is bounded and no
+#: pattern can start inside another's match, so the scan is linear.
+_PATH_CREDENTIAL_SHAPES = (
+    re.compile(r"(/bot)\d{1,32}(?::|%3[Aa])[\w-]{1,512}"),
+    re.compile(r"(/webhooks/)\d{1,32}/[\w-]{1,512}"),
+    re.compile(r"(/services/)T\w{1,64}/B\w{1,64}/\w{1,512}"),
+)
+#: A path segment that is long enough and made of token characters only — the
+#: shape of a credential no pattern above names (a Web Push endpoint's path is
+#: the device's push token, a generic webhook's its secret). Whether a match is
+#: masked is decided by :func:`_looks_like_a_token`.
+_TOKEN_SEGMENT = re.compile(r"(?<=/)[A-Za-z0-9_:\-]{32,}")
+_HEX_RUN = re.compile(r"[0-9A-Fa-f]+")
 #: The longest text :func:`loggable_error` returns; the rest is replaced by a
 #: marker naming how much was cut. Applied after masking, so a cut can never
 #: leave half an address readable.
@@ -136,15 +160,47 @@ def loggable_error(error: BaseException | str, *, user_key: str | None = None) -
     return f"{text[:MAX_LOGGABLE_TEXT]}…<truncated {len(text) - MAX_LOGGABLE_TEXT} chars>"
 
 
+def _looks_like_a_token(segment: str) -> bool:
+    """Whether a long path segment is a credential rather than a name (#1879).
+
+    A generated secret mixes upper case, lower case and digits, or is a run of
+    hex digits; a file, route or migration name
+    (``v0056_backfill_user_key_on_three_models``) does neither.
+    """
+    has_digit = any(char.isdigit() for char in segment)
+    if not has_digit:
+        return False
+    if any(char.isupper() for char in segment) and any(char.islower() for char in segment):
+        return True
+    return _HEX_RUN.fullmatch(segment) is not None and any(char.isalpha() for char in segment)
+
+
+def mask_path_credentials(text: str) -> str:
+    """*text* with every credential carried in a request *path* replaced by ``<redacted>`` (#1879).
+
+    The named shapes (:data:`_PATH_CREDENTIAL_SHAPES`) keep their leading
+    segment — ``/bot<redacted>/sendMessage``, ``/api/webhooks/<redacted>`` — so
+    an operator still sees which API failed; any other token-shaped segment
+    (:data:`_TOKEN_SEGMENT`) becomes ``<redacted>``. Part of every text
+    redaction of this module (:func:`loggable_error`, :func:`loggable_text`,
+    :func:`loggable_url_text`), so it holds at the sink, not per call site.
+    """
+    for pattern in _PATH_CREDENTIAL_SHAPES:
+        text = pattern.sub(r"\1<redacted>", text)
+    return _TOKEN_SEGMENT.sub(lambda m: "<redacted>" if _looks_like_a_token(m.group()) else m.group(), text)
+
+
 def _mask_text(text: str) -> str:
-    """URL userinfo, URL query strings and fragments, bare request-target queries, then addresses — linear (#1796).
+    """URL userinfo, path credentials, URL query strings and fragments, bare request-target queries, then addresses.
+
+    Linear (#1796).
 
     Every pattern either starts only at a run boundary with bounded quantifiers or
     is driven by a cursor that never revisits text, so a 200 000-character
     exception text of any shape masks in milliseconds (the unbounded predecessors
     were quadratic: 8 000 characters of ``a.`` took 0.85 s).
     """
-    text = _URL_USERINFO.sub(r"\1<redacted>@", text)
+    text = mask_path_credentials(_URL_USERINFO.sub(r"\1<redacted>@", text))
     # URL tails before addresses: an address-shaped path segment
     # (``/u/alice@example.org/``, ``tile@2x.png``) must not be turned into an
     # ``<email:…>`` token that hides the URL — and its query — from this step.
@@ -240,15 +296,38 @@ def loggable_ip(ip: str | None) -> str | None:
     return str(ipaddress.IPv6Network(f"{addr}/48", strict=False).network_address)
 
 
+def loggable_endpoint_host(endpoint: str) -> str:
+    """The host of *endpoint* — all a log line may carry of a push endpoint (#1796, #1891).
+
+    A Web Push endpoint's path is the device's push token: whoever holds it (plus
+    the VAPID key) can address that device. The host (``fcm.googleapis.com``,
+    ``updates.push.services.mozilla.com``) tells an operator which push service
+    is meant. An IP literal is truncated like any other address in a log line.
+    """
+    try:
+        host = urlsplit(endpoint).hostname
+    except ValueError:
+        return "<unparsable>"
+    if not host:
+        return "<no host>"
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    return loggable_ip(host) or "<no host>"
+
+
 def loggable_url_text(text: str) -> str:
     """*text* (a library's rendered request line) with every URL userinfo and query string masked.
 
     For the lines httpx and urllib3 write themselves (#1795): the userinfo becomes
-    ``<redacted>@`` and every ``?query`` — of a full URL or of a bare request
-    target — becomes ``?<redacted>``. Nothing else is touched: host and path stay,
-    an operator needs them.
+    ``<redacted>@``, every ``?query`` — of a full URL or of a bare request
+    target — becomes ``?<redacted>``, and a credential carried in the path
+    (:func:`mask_path_credentials`, #1879: urllib3's retry warning names the
+    request target at WARNING) becomes ``<redacted>``. Host and the rest of the
+    path stay, an operator needs them.
     """
-    text = _URL_USERINFO.sub(r"\1<redacted>@", text)
+    text = mask_path_credentials(_URL_USERINFO.sub(r"\1<redacted>@", text))
     return _ANY_QUERY.sub("?<redacted>", text)
 
 
@@ -486,6 +565,20 @@ def redact_exception_texts(message: str, exc: BaseException) -> str:
             if len(rendered) >= _MIN_REPLACED_TEXT and rendered in message:
                 message = message.replace(rendered, substitute)
     return message
+
+
+def redact_text_in_flight(text: str, exceptions: Sequence[BaseException] = ()) -> str:
+    """*text* with the texts of *exceptions* (and their chains) and everything :func:`loggable_text` masks redacted.
+
+    The one redaction every sink without a log record of its own applies: the
+    stdlib record factory and handler filter (``app.config.logging``) and the
+    error-tracking event (``app.observability.error_tracking``, #1880) — an
+    exception text or a log message in a tracker event is the same text as in
+    the log line.
+    """
+    for exc in exceptions:
+        text = redact_exception_texts(text, exc)
+    return loggable_text(text)
 
 
 def _safe_str(exc: BaseException) -> str:

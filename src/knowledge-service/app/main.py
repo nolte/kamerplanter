@@ -45,6 +45,9 @@ SERVICE_VERSION = "1.0.0"
 init_error_tracking(
     component="knowledge-service",
     release=resolve_release("kamerplanter-knowledge-service", SERVICE_VERSION),
+    # This service has no log-text redaction of its own to reuse (the backend's
+    # lives in ``app.common.log_privacy``); structure scrubbing still applies.
+    redact_text=None,
 )
 
 _VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
