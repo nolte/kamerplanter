@@ -137,17 +137,16 @@ _STEP_UP_ERROR_CODES = frozenset({"step_up_failed", "step_up_stale", "step_up_ca
 _STEP_UP_CALLBACK_PATH = "/auth/step-up/callback"
 
 
-def oauth_callback_url(request: Request, slug: str) -> str:
-    """The provider callback URL — one spelling for the login and the step-up request (#1815)."""
-    return f"{str(request.base_url).rstrip('/')}/api/v1/auth/oauth/{slug}/callback"
+def oauth_callback_url(slug: str) -> str:
+    """The provider callback URL — the one spelling for the login and the step-up request.
 
-
-def step_up_callback_url(slug: str) -> str:
-    """The provider callback URL of a step-up re-authentication, from the configured public base (review SEC-002).
-
-    ``settings.app_base_url`` is the public address the frontend and ``/api`` are
-    served under (REQ-032 QR codes and device pairing already use it). The login
-    still builds its URL from the request (#1865).
+    Built from ``settings.app_base_url``, the public address the frontend and
+    ``/api`` are served under (REQ-032 QR codes and device pairing already use it),
+    never from ``request.base_url``: behind the Traefik ingress that resolves to a
+    cluster-internal address, and it follows the ``Host`` header (#1815 review
+    SEC-002, #1865). This is the URL an operator registers at the provider. The
+    service stores it in the OAuth state and the code exchange repeats it exactly
+    (RFC 6749 §4.1.3).
     """
     return f"{settings.app_base_url.rstrip('/')}/api/v1/auth/oauth/{slug}/callback"
 
@@ -507,11 +506,10 @@ def list_oauth_providers(
 @router.get("/oauth/{slug}")
 def initiate_oauth(
     slug: Annotated[str, Path(description="Slug of the configured OAuth/OIDC provider.")],
-    request: Request,
     service: AuthService = Depends(get_auth_service),
 ):
     """302 Redirect to the OAuth provider's authorization URL."""
-    redirect_uri = oauth_callback_url(request, slug)
+    redirect_uri = oauth_callback_url(slug)
     oauth_redirect = service.initiate_oauth(slug, redirect_uri)
     return RedirectResponse(url=oauth_redirect.authorization_url, status_code=302)
 

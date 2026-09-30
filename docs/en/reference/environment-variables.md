@@ -112,7 +112,7 @@ remain valid as aliases in addition.
 | `KAMERPLANTER_MODE` | `full` | No | Operating mode: `full` (auth + tenants) or `light` (no auth, local single-user) |
 | `DEBUG` | `false` | No | Enable debug logging (verbose — never use in production). Also disables the startup gate for production secrets — **never** set this in production. |
 | `FRONTEND_URL` | `http://localhost:5173` | No | Frontend URL (used for email links) |
-| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. Also forms the callback URL of the fresh OIDC sign-in that confirms a step-up (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — register this URL with the identity provider. |
+| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. Also forms the callback URL of the OAuth/OIDC sign-in and of the fresh sign-in that confirms a step-up (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — register this URL with the identity provider. |
 
 ### Light Mode (`KAMERPLANTER_MODE=light`)
 

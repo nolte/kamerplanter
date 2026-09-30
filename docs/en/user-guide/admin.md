@@ -87,6 +87,12 @@ The **Admin > Statistics** section provides an overview of:
 
 Under **Admin > OIDC Providers** you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
 
+!!! info "Register the callback URL with the provider"
+    Register exactly `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` as the provider's callback URL (redirect URI) — with the public address from `APP_BASE_URL` and the provider's short name (slug), e.g. `https://garden.example/api/v1/auth/oauth/google/callback`. Sign-in and the fresh sign-in that confirms an action use the same URL. While `APP_BASE_URL` is still the default `http://localhost:5173`, the provider refuses the sign-in. <!-- #1865 -->
+
+!!! info "Two providers, the same identifier"
+    A link belongs to exactly the provider it was made through. If another provider reports the same user identifier (`sub`), that is a different person — it is never signed in to the linked account. Links from before this binding count only while exactly one provider of their type is set up; if you add a second generic OIDC provider, the people concerned sign in once more through their verified e-mail address. <!-- #1869 -->
+
 !!! warning "Creating, repointing and deleting a provider asks you to confirm again"
     A provider decides whom a sign-in belongs to: whoever can point a provider at a server of their own can sign in as any account whose address that server claims. So `POST /api/v1/admin/oidc-providers` and `PUT` and `DELETE` on `/api/v1/admin/oidc-providers/{key}` require your current password (`current_password`) — or, without a local password, a fresh sign-in or the confirmation code for the action `oidc_provider_change` with the configuration's key as the target (`new:<slug>` when creating). An API key can no longer change providers. Only the display name and the icon need no confirmation — switching a provider on **or off** needs it too: a disabled provider can no longer re-authenticate anyone, and the accounts linked only through it would fall back to the weaker e-mailed code.
 

@@ -190,11 +190,16 @@ class _Providers:
     def list_by_user(self, user_key: str) -> list[AuthProvider]:
         return [r for r in self.rows if r.user_key == user_key]
 
-    def get_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> AuthProvider | None:
-        return next((r for r in self.rows if r.provider == provider and r.provider_user_id == provider_user_id), None)
+    def list_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> list[AuthProvider]:
+        return [r for r in self.rows if r.provider == provider and r.provider_user_id == provider_user_id]
 
     def create(self, row: AuthProvider) -> AuthProvider:
+        """Refuses a second link of one (type, configuration, sub), as the collection's unique index does."""
+        unique = (row.provider, row.oidc_config_slug, row.provider_user_id)
+        if any((r.provider, r.oidc_config_slug, r.provider_user_id) == unique for r in self.rows):
+            raise ValueError(f"unique constraint violated: {unique}")
         self.writes.append("create")
+        self.rows.append(row)
         return row
 
     def update(self, key: str, row: AuthProvider) -> AuthProvider:
@@ -216,6 +221,9 @@ class _Configs:
 
     def list_enabled(self) -> list[OidcProviderConfig]:
         return [c for c in self.by_slug.values() if c.enabled]
+
+    def list_all(self) -> list[OidcProviderConfig]:
+        return list(self.by_slug.values())
 
 
 class _States:

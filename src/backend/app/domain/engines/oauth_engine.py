@@ -692,7 +692,12 @@ class OAuthEngine:
     @staticmethod
     def link_type(config: OidcProviderConfig) -> AuthProviderType:
         """The ``AuthProviderType`` a provider link of *config* is stored under."""
-        return _AUTH_PROVIDER_BY_TYPE.get(config.provider_type, AuthProviderType.OIDC)
+        return OAuthEngine.link_type_for(config.provider_type)
+
+    @staticmethod
+    def link_type_for(provider_type: str) -> AuthProviderType:
+        """The ``AuthProviderType`` a link of a configuration of *provider_type* is stored under."""
+        return _AUTH_PROVIDER_BY_TYPE.get(provider_type, AuthProviderType.OIDC)
 
     @staticmethod
     def _to_provider_type(provider_type: str) -> AuthProviderType:
