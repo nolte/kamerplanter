@@ -37,6 +37,7 @@ from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.storage.export_bundle_key import loggable_storage_key, mask_export_bundle_keys
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
@@ -47,6 +48,7 @@ from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_executor import IErasureExecutor
 from app.domain.interfaces.erasure_repository import IErasureRepository
+from app.domain.interfaces.legal_retention_repository import ILegalRetentionRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
@@ -209,6 +211,7 @@ class PrivacyService:
         light_mode: bool = False,
         auth_provider_repo: IAuthProviderRepository | None = None,
         api_key_repo: IApiKeyRepository | None = None,
+        legal_retention_repo: ILegalRetentionRepository | None = None,
     ) -> None:
         # #1848 — what a revert of a hijacked e-mail change takes back besides the
         # address: sign-in links and API keys created since the change was requested.
@@ -273,6 +276,9 @@ class PrivacyService:
         # Review SEC-003 — in light mode (REQ-027) every caller is the one system
         # account, so no request may erase it (as ``TenantService.delete_tenant``).
         self._light_mode = light_mode
+        # NFR-011 R-16..R-18 / R-06a (#1789, #1793): the purges of what a tenant
+        # deletion keeps. Optional like the executor; the purge refuses without it.
+        self._legal_retention_repo = legal_retention_repo
         # #1813 / #1814 / #1816 — the one throttled step-up of every irreversible account act.
         self._step_up_verifier = step_up_verifier or default_step_up_verifier(
             password_engine, tombstone_salt=tombstone_salt
@@ -1645,6 +1651,11 @@ class PrivacyService:
         # whoever edits them, so without this a writer in any tenant could name
         # a foreign key and plant rows into that subject's disclosure.
         tenant_keys = self._user_tenant_keys(export.user_key)
+        # REQ-025 §3.1.2 rule 6 (#1793): a tenant deletion rewrote the subject's
+        # key on the rows it kept (R-16..R-18) to their tombstone hash. The
+        # subject is still an account, so those rows are still theirs to see.
+        tombstone = self._export_tombstone(export.user_key)
+        pseudonymized = TenantErasureEngine.pseudonymized_account_fields()
         sections: list[tuple[DataSourceDefinition, list[dict[str, object]]]] = []
         for source in manifest:
             if source.disclosure_gap is not None:
@@ -1652,7 +1663,11 @@ class PrivacyService:
                 # empty list that would read as "no data here".
                 sections.append((source, []))
                 continue
-            sections.append((source, self._personal_data_repo.collect_for_user(source, export.user_key, tenant_keys)))
+            by_tombstone = tombstone if (source.collection, source.filter_field) in pseudonymized else None
+            rows = self._personal_data_repo.collect_for_user(
+                source, export.user_key, tenant_keys, tombstone=by_tombstone
+            )
+            sections.append((source, rows))
 
         # Anti-vacuity, in production rather than only in a test: an export that
         # found *nothing at all* is what a broken walk looks like from the
@@ -2742,6 +2757,17 @@ class PrivacyService:
                     keys.append(contribution.tenant_key)
         return keys
 
+    def _export_tombstone(self, user_key: str) -> str | None:
+        """The subject's tombstone hash for the Art. 15 walk, or ``None`` without a usable salt.
+
+        Without the salt no tenant deletion can have written a tombstone either
+        (``TenantService`` refuses to erase without it), so there is nothing to match.
+        """
+        try:
+            return self._erasure_engine.compute_tombstone_hash(user_key, self._tombstone_salt)
+        except ValueError:
+            return None
+
     def _user_tenant_keys(self, user_key: str) -> list[str]:
         """Return the distinct tenant keys the user is a member of."""
         if self._membership_repo is None:
@@ -2900,6 +2926,82 @@ class PrivacyService:
                 count += 1
         logger.info("retention.anonymize_consent_ips.completed", anonymized=count)
         return count
+
+    async def purge_expired_legal_retention_rows(self, now: datetime) -> dict[str, dict[str, int]]:
+        """Hard-delete the R-16/R-17/R-18 rows a tenant deletion kept, once their period is over (#1789).
+
+        NFR-011 §2.3 Q-R1/Q-R2: a tenant or account deletion keeps harvest
+        documentation (R-16, CanG), treatment applications (R-17) and inspections
+        (R-18) pseudonymised until their period — counted from ``harvest_date``,
+        ``applied_at``, ``inspected_at`` — runs out, neither shortened nor
+        restarted by the deletion. Until #1789 nothing removed them afterwards.
+        Each rule reads its period from its own setting
+        (:meth:`RetentionService.legal_retention_cutoff`) and goes with its
+        children and every edge touching them (ADR-001: the inherited
+        ``to_plant``/``to_run`` treatment edges included).
+
+        Only rows whose tenant no longer exists are selected: the rows of a
+        living tenant are that tenant's own records, which no retention *maximum*
+        in NFR-011 bounds (the narrower reading of #1789). One rule failing does
+        not stop the others; the run re-raises the first failure after trying
+        all, so the task's retry sees it.
+
+        Logs counts only — no tenant or row key.
+        """
+        repo = self._require_legal_retention_repo()
+        counts: dict[str, dict[str, int]] = {}
+        failure: Exception | None = None
+        for rule in TenantErasureEngine.LEGAL_RETENTION_RULES:
+            cutoff = self._retention.legal_retention_cutoff(rule.rule, now).isoformat()
+            try:
+                result = repo.delete_expired_rows_of_deleted_tenants(rule, cutoff_iso=cutoff)
+            except Exception as exc:  # noqa: BLE001 — re-raised after the other rules ran
+                logger.error("retention.legal_retention.rule_failed", rule=rule.rule, error_type=type(exc).__name__)
+                failure = failure or exc
+                continue
+            counts[rule.rule] = result.model_dump()
+        logger.info(
+            "retention.purge_expired_legal_retention_rows.completed",
+            purged=counts,
+            retention_years={
+                rule.rule: self._retention.legal_retention_years(rule.rule)
+                for rule in TenantErasureEngine.LEGAL_RETENTION_RULES
+            },
+        )
+        if failure is not None:
+            raise failure
+        return counts
+
+    async def purge_expired_tenant_erasure_records(self, now: datetime) -> int:
+        """Hard-delete completed tenant-erasure records past NFR-011 R-06a (#1793).
+
+        R-06a (Q-R4) keeps the proof of a tenant deletion until the longest
+        R-16..R-18 period of the rows it kept has run out, capped at
+        ``settings.retention_tenant_erasure_record_retention_years`` (5) after the
+        deletion completed. The rows go through
+        :meth:`purge_expired_legal_retention_rows`, so "none of the kept rows
+        still carries the tenant's key" is the moment the longest period ended.
+
+        A record that kept no such row has no R-16..R-18 period to follow; it
+        stays until the cap rather than going the night after the deletion —
+        the narrower of the two readings of R-06a.
+        """
+        repo = self._require_legal_retention_repo()
+        cap_before = self._retention.tenant_erasure_record_purge_cutoff(now).isoformat()
+        anchors = [rule.collection for rule in TenantErasureEngine.LEGAL_RETENTION_RULES]
+        purged = repo.delete_expired_tenant_erasure_records(cap_before_iso=cap_before, retained_collections=anchors)
+        logger.info(
+            "retention.purge_expired_tenant_erasure_records.completed",
+            purged=purged,
+            cap_years=self._retention.tenant_erasure_record_retention_years,
+        )
+        return purged
+
+    def _require_legal_retention_repo(self) -> ILegalRetentionRepository:
+        if self._legal_retention_repo is None:
+            msg = "NFR-011 R-06a / R-16..R-18 purge: no legal-retention repository is configured."
+            raise RuntimeError(msg)
+        return self._legal_retention_repo
 
     async def expire_email_change_requests(self, now: datetime) -> int:
         """Mark unconfirmed email-change requests past their ``expires_at`` as expired (NFR-011 R-07).

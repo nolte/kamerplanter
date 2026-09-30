@@ -778,6 +778,22 @@ class Settings(BaseSettings):
     #: (``tenant_tasks.cleanup_expired_invitations``, which already flips it to
     #: ``expired`` at expiry).
     retention_invitation_retention_days: int = Field(default=30, ge=1)
+    #: NFR-011 R-16 / §4 ``HARVEST_DATA_MIN_RETENTION_YEARS`` (#1789) — harvest
+    #: documentation a tenant deletion kept (pseudonymised) is hard-deleted this many
+    #: years after ``harvest_date`` (``retention.purge_expired_legal_retention_rows``).
+    #: The floor is the legal minimum (CanG): it cannot be configured below it.
+    retention_harvest_data_min_retention_years: int = Field(default=5, ge=5)
+    #: NFR-011 R-17 / §4 ``TREATMENT_MIN_RETENTION_YEARS`` (#1789) — the same for
+    #: treatment applications, counted from ``applied_at``; floor PflSchG §11.
+    retention_treatment_min_retention_years: int = Field(default=3, ge=3)
+    #: NFR-011 R-18 / §4 ``INSPECTION_MIN_RETENTION_YEARS`` (#1789) — the same for
+    #: inspections, counted from ``inspected_at``; floor PflSchG §11.
+    retention_inspection_min_retention_years: int = Field(default=3, ge=3)
+    #: NFR-011 R-06a (#1793, Q-R4) — a completed tenant-erasure record is hard-deleted
+    #: at the latest this many years after the deletion completed
+    #: (``retention.purge_expired_tenant_erasure_records``); earlier once the rows it
+    #: kept under R-16..R-18 are gone. Capped at the spec's five years.
+    retention_tenant_erasure_record_retention_years: int = Field(default=5, ge=1, le=5)
 
     # REQ-030 Notifications
     vapid_private_key: str = ""

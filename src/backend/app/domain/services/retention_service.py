@@ -24,21 +24,34 @@ from settings and turned into deadlines or cutoffs:
   (``retention.anonymize_consent_ips``, #1800);
 * R-12 ``retention_invitation_retention_days`` — an expired invitation is
   hard-deleted this many days after ``expires_at``
-  (``tenant_tasks.cleanup_expired_invitations``, #1800).
+  (``tenant_tasks.cleanup_expired_invitations``, #1800);
+* R-16/R-17/R-18 ``retention_harvest_data_min_retention_years``,
+  ``retention_treatment_min_retention_years``,
+  ``retention_inspection_min_retention_years`` — a row a tenant deletion kept is
+  purged this many years after its ``harvest_date``/``applied_at``/``inspected_at``
+  (``retention.purge_expired_legal_retention_rows``, #1789); the floor is the
+  legal minimum;
+* R-06a ``retention_tenant_erasure_record_retention_years`` — the cap on a
+  tenant-erasure record (``retention.purge_expired_tenant_erasure_records``, #1793).
 
 The tasks and the Art. 13 retention summary read the periods here, so the text
 a data subject reads cannot name a period the code does not apply (#1772,
 #1782). A constructor argument overrides the setting (tests, one-off callers);
 it is held to the same floor as the setting.
 
-The remaining NFR-011 periods (sensor downsampling, a retention master task)
-are not wired here yet.
+The remaining NFR-011 periods (sensor downsampling, actor logs) are not wired
+here yet.
 """
 
 from datetime import UTC, datetime, timedelta
 
 from app.common.datetimes import replace_year
 from app.config.settings import settings
+
+#: NFR-011 §2.3 — the legal minimum of each rule (CanG, PflSchG §11), the floor of its setting.
+LEGAL_RETENTION_FLOOR_YEARS: dict[str, int] = {"R-16": 5, "R-17": 3, "R-18": 3}
+#: NFR-011 R-06a (Q-R4) — a tenant-erasure record is kept at most this long.
+TENANT_ERASURE_RECORD_CAP_YEARS = 5
 
 
 class RetentionService:
@@ -56,6 +69,10 @@ class RetentionService:
         consent_retention_years: int | None = None,
         consent_ip_anonymization_days: int | None = None,
         invitation_retention_days: int | None = None,
+        harvest_data_retention_years: int | None = None,
+        treatment_retention_years: int | None = None,
+        inspection_retention_years: int | None = None,
+        tenant_erasure_record_retention_years: int | None = None,
     ) -> None:
         self._export_retention_hours = (
             export_retention_hours
@@ -107,6 +124,41 @@ class RetentionService:
             if invitation_retention_days is not None
             else settings.retention_invitation_retention_days
         )
+        self._legal_retention_years: dict[str, int] = {
+            "R-16": (
+                harvest_data_retention_years
+                if harvest_data_retention_years is not None
+                else settings.retention_harvest_data_min_retention_years
+            ),
+            "R-17": (
+                treatment_retention_years
+                if treatment_retention_years is not None
+                else settings.retention_treatment_min_retention_years
+            ),
+            "R-18": (
+                inspection_retention_years
+                if inspection_retention_years is not None
+                else settings.retention_inspection_min_retention_years
+            ),
+        }
+        self._tenant_erasure_record_retention_years = (
+            tenant_erasure_record_retention_years
+            if tenant_erasure_record_retention_years is not None
+            else settings.retention_tenant_erasure_record_retention_years
+        )
+        # NFR-011 §4: the legal periods are a floor no configuration undercuts.
+        for rule, years in self._legal_retention_years.items():
+            if years < LEGAL_RETENTION_FLOOR_YEARS[rule]:
+                msg = (
+                    f"NFR-011 {rule}: the legal retention period is at least {LEGAL_RETENTION_FLOOR_YEARS[rule]} years."
+                )
+                raise ValueError(msg)
+        if not 1 <= self._tenant_erasure_record_retention_years <= TENANT_ERASURE_RECORD_CAP_YEARS:
+            msg = (
+                "NFR-011 R-06a: a tenant-erasure record is kept at least one and at most "
+                f"{TENANT_ERASURE_RECORD_CAP_YEARS} years after the deletion."
+            )
+            raise ValueError(msg)
         # The settings carry the same floors (``ge=1``); a caller constructing
         # the service directly must not get past them either.
         floors = (
@@ -213,6 +265,22 @@ class RetentionService:
         """Return the expiry time before which an expired invitation is hard-deleted (NFR-011 R-12, #1800)."""
         return now.astimezone(UTC) - timedelta(days=self._invitation_retention_days)
 
+    def legal_retention_cutoff(self, rule: str, now: datetime) -> datetime:
+        """Return the instant before which a kept R-16/R-17/R-18 row of *rule* is purged (#1789).
+
+        Counted in calendar years back from *now*, like
+        :meth:`erasure_record_purge_cutoff`: "5 Jahre ab ``harvest_date``" must
+        never be undercut by a ``365 * years`` day count. Normalised to UTC and
+        truncated to whole seconds so it compares and logs the same way.
+        """
+        now = now.astimezone(UTC)
+        return replace_year(now, now.year - self._legal_retention_years[rule]).replace(microsecond=0)
+
+    def tenant_erasure_record_purge_cutoff(self, now: datetime) -> datetime:
+        """Return the completion time before which a tenant-erasure record goes regardless (NFR-011 R-06a, #1793)."""
+        now = now.astimezone(UTC)
+        return replace_year(now, now.year - self._tenant_erasure_record_retention_years).replace(microsecond=0)
+
     # ── Predicate helpers ────────────────────────────────────────
 
     def is_export_expired(
@@ -272,3 +340,10 @@ class RetentionService:
     @property
     def invitation_retention_days(self) -> int:
         return self._invitation_retention_days
+
+    def legal_retention_years(self, rule: str) -> int:
+        return self._legal_retention_years[rule]
+
+    @property
+    def tenant_erasure_record_retention_years(self) -> int:
+        return self._tenant_erasure_record_retention_years

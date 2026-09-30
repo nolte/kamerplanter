@@ -31,9 +31,11 @@ data-access constants (NFR-001), and the guard pins each literal to a
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta
 
 from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.models.legal_retention import LegalRetentionChild, LegalRetentionRule
 from app.domain.models.tenant_erasure import (
     TenantErasureEntry,
     TenantErasureParent,
@@ -53,6 +55,8 @@ _R18 = (
     "NFR-011 R-18 / PflSchG section 11: inspection records are kept for 3 years. Account key "
     "pseudonymised, free-text inspector name emptied; the row stays."
 )
+#: An inventory reason that keeps a row for one of the three legal retention rules.
+_LEGAL_RETENTION_REASON = re.compile(r"\bR-1[678]\b")
 _CATALOGUE = "global catalogue: every tenant reads it; the model carries no tenant_key, so no row is a tenant's"
 _LEGACY_STAMP = (
     " A tenant_key stored on a row is the v0004 default-tenant backfill stamp on a seed "
@@ -287,6 +291,29 @@ class TenantErasureEngine:
         "schema_migrations": _PLATFORM,
     }
 
+    # ── What happens to the rows that stay (NFR-011 §2.3, #1789) ────────
+    #
+    # The ``pseudonymize``/``retain`` entries above keep R-16..R-18 rows past the
+    # tenant. These rules say when they go: ``retention.purge_expired_legal_retention_rows``
+    # removes a row whose tenant no longer exists once its period, counted from
+    # ``date_field``, has run out — with its children and every edge touching
+    # either. :meth:`validate` holds the rules to the inventory, so a row kept
+    # for a retention law cannot lack a purge, and a purge cannot reach a
+    # collection this inventory deletes outright.
+    LEGAL_RETENTION_RULES: tuple[LegalRetentionRule, ...] = (
+        LegalRetentionRule(
+            rule="R-16",
+            collection="harvest_batches",
+            date_field="harvest_date",
+            children=(
+                LegalRetentionChild(collection="quality_assessments", parent_field="batch_key"),
+                LegalRetentionChild(collection="yield_metrics", parent_field="batch_key"),
+            ),
+        ),
+        LegalRetentionRule(rule="R-17", collection="treatment_applications", date_field="applied_at"),
+        LegalRetentionRule(rule="R-18", collection="inspections", date_field="inspected_at"),
+    )
+
     # ── Retry lifecycle (the #1666 shape of the account erasure) ────────
     #: The n-th failed attempt defers the next by ``2 ** (n - 1)`` days, capped.
     RETRY_MAX_DELAY_DAYS = 7
@@ -320,6 +347,51 @@ class TenantErasureEngine:
                 msg = f"'{entry.collection}' is pseudonymised but the account erasure declares no tombstone rule for it"
                 raise ValueError(msg)
             seen[entry.collection] = entry
+        cls._validate_legal_retention_rules(seen)
+
+    @classmethod
+    def _validate_legal_retention_rules(cls, inventory: dict[str, TenantErasureEntry]) -> None:
+        """Every row kept for R-16..R-18 has a purge rule, and every rule reaches only kept rows (#1789)."""
+        covered: set[str] = set()
+        for rule in cls.LEGAL_RETENTION_RULES:
+            anchor = inventory.get(rule.collection)
+            if anchor is None or anchor.action == "delete" or anchor.parents:
+                msg = f"{rule.rule} purges '{rule.collection}', which the inventory does not keep under its tenant key"
+                raise ValueError(msg)
+            covered.add(rule.collection)
+            for child in rule.children:
+                entry = inventory.get(child.collection)
+                reached = entry is not None and any(
+                    parent.collection == rule.collection and parent.field == child.parent_field
+                    for parent in entry.parents
+                )
+                if entry is None or entry.action == "delete" or not reached:
+                    msg = f"{rule.rule} purges '{child.collection}' as a child the inventory does not keep through it"
+                    raise ValueError(msg)
+                covered.add(child.collection)
+        kept_for_a_rule = {
+            name
+            for name, entry in inventory.items()
+            if entry.action != "delete" and entry.reason and _LEGAL_RETENTION_REASON.search(entry.reason)
+        }
+        if kept_for_a_rule != covered:
+            msg = f"rows kept for NFR-011 R-16..R-18 without a purge rule: {sorted(kept_for_a_rule - covered)}"
+            raise ValueError(msg)
+
+    @classmethod
+    def pseudonymized_account_fields(cls) -> frozenset[tuple[str, str]]:
+        """``(collection, account field)`` pairs a tenant deletion rewrites to the tombstone hash.
+
+        The Art. 15 walk matches the subject's tombstone on exactly these fields
+        (REQ-025 §3.1.2 rule 6, #1793): derived, so a collection added as
+        ``pseudonymize`` is disclosed by tombstone without a second list.
+        """
+        return frozenset(
+            (rule.collection, rule.user_field)
+            for entry in cls.INVENTORY
+            if entry.action == "pseudonymize"
+            for rule in cls._pseudonymizations_for(entry.collection)
+        )
 
     @staticmethod
     def _pseudonymizations_for(collection: str) -> list[TenantErasurePseudonymization]:
