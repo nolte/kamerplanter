@@ -537,6 +537,24 @@ class OAuthEngine:
         return claims
 
     @staticmethod
+    def same_issuer(stored: str, presented: str | None) -> bool:
+        """Whether *presented* (an ID token's ``iss``) names the issuer *stored* on a provider link.
+
+        Compared without a trailing ``/`` and with a missing scheme read as
+        ``https://`` — Google documents ``iss`` in both spellings,
+        ``https://accounts.google.com`` and ``accounts.google.com`` (/code-review of
+        #1937). Anything else must be equal.
+        """
+        if not presented:
+            return False
+
+        def canonical(value: str) -> str:
+            value = value.strip().rstrip("/")
+            return value if "://" in value else f"https://{value}"
+
+        return canonical(stored) == canonical(presented)
+
+    @staticmethod
     def expected_issuers(config: OidcProviderConfig) -> frozenset[str]:
         """The ``iss`` values this provider may send: its discovery issuer, else the configured one."""
         if config.discovery_document and config.discovery_document.get("issuer"):

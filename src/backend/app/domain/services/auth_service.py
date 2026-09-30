@@ -1290,7 +1290,7 @@ class AuthService:
             if not any(
                 link_config.slug == config.slug
                 and hmac.compare_digest(row.provider_user_id, sub)
-                and (row.issuer is None or row.issuer.rstrip("/") == issuer)
+                and (row.issuer is None or OAuthEngine.same_issuer(row.issuer, issuer))
                 for row, link_config in links
             ):
                 raise FreshReauthRejectedError("failed", "sub is no provider link of this account at this provider")
@@ -1477,19 +1477,25 @@ class AuthService:
         matching is ambiguous as well. "No link" falls through to the e-mail
         auto-link / registration path with its own checks — never to the owner of a
         colliding ``sub``.
+
+        Raises:
+            OAuthAutoLinkRefusedError: a link of this configuration and ``sub``
+                exists but recorded another issuer. Refused here rather than
+                answered "no link": the registration path would create the same
+                (type, configuration, sub) again and fail on the unique index —
+                after creating an account (/code-review of #1937).
         """
         candidates = self._auth_provider_repo.list_by_provider(oauth_user.provider, oauth_user.provider_user_id)
-        bound = [
-            row
-            for row in candidates
-            if row.oidc_config_slug == config.slug
-            and (row.issuer is None or (issuer is not None and row.issuer.rstrip("/") == issuer.rstrip("/")))
-        ]
-        if len({row.user_key for row in bound}) != 1:
-            if bound:
-                logger.warning("oauth_link_ambiguous", provider=config.slug, matches=len(bound))
-            return None
-        return bound[0]
+        of_config = [row for row in candidates if row.oidc_config_slug == config.slug]
+        bound = [row for row in of_config if row.issuer is None or OAuthEngine.same_issuer(row.issuer, issuer)]
+        if len({row.user_key for row in bound}) == 1:
+            return bound[0]
+        if of_config:
+            logger.warning("oauth_link_issuer_mismatch", provider=config.slug, links=len(of_config), matches=len(bound))
+            raise OAuthAutoLinkRefusedError(
+                "This sign-in does not match the account linked to this provider. Sign in with your password instead.",
+            )
+        return None
 
     def _register_oauth_user(self, oauth_user: OAuthUserInfo) -> User:
         """Create a new user from OAuth info (no password).

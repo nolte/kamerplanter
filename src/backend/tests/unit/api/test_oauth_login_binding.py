@@ -178,15 +178,30 @@ def test_a_legacy_link_with_two_configurations_of_its_type_is_not_guessed() -> N
     assert world.rows["legacy-sub-shared"].oidc_config_slug is None
 
 
-def test_a_link_whose_stored_issuer_differs_does_not_sign_in() -> None:
-    """The configuration was re-pointed at another IdP since the link was made."""
+def test_a_link_whose_stored_issuer_differs_is_refused_without_creating_anything() -> None:
+    """The configuration was re-pointed at another IdP since the link was made.
+
+    Refused outright: falling through to registration would create an account and
+    then fail on the (type, configuration, sub) unique key, leaving it orphaned.
+    """
     world = _oidc_world(("corp-a", "sub-a", "https://old-idp.example"))
     registering = _RegisteringUsers(world)
 
     _query, callback = _sign_in(world, "corp-a", sub="sub-a", email="someone@example.net", email_verified=True)
 
-    assert _signed_in_as(world, callback) != world.key
-    assert [u.email for u in registering.created] == ["someone@example.net"]
+    assert parse_qs(urlsplit(callback.headers["location"]).query)["error"] == ["link_requires_password"]
+    assert registering.created == []
+    assert world.providers.writes == []
+    assert world.rows["corp-a"].last_used_at is None
+
+
+def test_google_s_scheme_less_issuer_spelling_matches_the_stored_one() -> None:
+    """Google sends ``iss`` as ``https://accounts.google.com`` or ``accounts.google.com`` — one issuer."""
+    world = _oidc_world(("corp-a", "sub-a", "https://idp-a.example"))
+
+    _query, callback = _sign_in(world, "corp-a", sub="sub-a", iss="idp-a.example")
+
+    assert _signed_in_as(world, callback) == world.key
 
 
 def test_an_unbound_link_signs_nobody_in_even_with_the_only_configuration_of_its_type() -> None:
