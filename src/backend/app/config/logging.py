@@ -1,6 +1,10 @@
+import contextlib
+import io
 import logging
 import sys
+import threading
 from collections.abc import Callable, Mapping
+from types import TracebackType
 from typing import Any
 
 import structlog
@@ -8,9 +12,8 @@ import structlog
 from app.common.log_privacy import (
     loggable_ip,
     loggable_path,
-    loggable_text,
     loggable_url_text,
-    redact_exception_texts,
+    redact_text_in_flight,
     redacted_traceback,
 )
 
@@ -111,9 +114,7 @@ def _exceptions_in_flight(record: logging.LogRecord) -> list[BaseException]:
 
 
 def _redact_text(text: str, exceptions: list[BaseException]) -> str:
-    for exc in exceptions:
-        text = redact_exception_texts(text, exc)
-    return loggable_text(text)
+    return redact_text_in_flight(text, exceptions)
 
 
 def _redact_extra(name: str, value: object, exceptions: list[BaseException]) -> object:
@@ -287,13 +288,134 @@ def install_record_redaction() -> None:
         logging.getLogger(name).addFilter(_EXTRAS_FILTER)
 
 
+_TRACEBACK_WITHHELD = "<exception text withheld>"
+
+
+def _render_uncaught(exc_type: type[BaseException] | None, exc: BaseException | None) -> str:
+    """The redacted traceback of an exception no log record exists for; fails closed to the class name."""
+    name = getattr(exc_type, "__name__", None) or type(exc).__name__
+    if exc is None:
+        return name
+    try:
+        return redacted_traceback(exc)
+    except Exception:
+        return f"{name}: {_TRACEBACK_WITHHELD}"
+
+
+def _write_stderr(text: str) -> None:
+    stream = sys.stderr or sys.__stderr__
+    if stream is None:
+        return
+    # A closed or broken stderr at crash time must not raise out of the hook.
+    with contextlib.suppress(Exception):
+        stream.write(text)
+        stream.flush()
+
+
+_MUTE_LOCK = threading.RLock()
+
+
+def _call_muted(hook: Callable[..., object], *args: object) -> None:
+    """Run a hook somebody else installed without letting it print.
+
+    An error tracker's hook (the Sentry SDK wraps ``sys.excepthook``) captures
+    the exception and then calls the interpreter's default hook, which prints
+    the raw traceback. The capture must still happen — it goes through the
+    tracker's own scrubbing — the raw print must not.
+    """
+    with _MUTE_LOCK:
+        # ``sys.stderr`` is process-global: the lock keeps two muted calls from
+        # restoring each other's buffer, and the saved stream is put back
+        # whatever the hook raised — a BaseException included (review SEC-006/007).
+        saved = sys.stderr
+        sys.stderr = io.StringIO()
+        try:
+            hook(*args)
+        except BaseException:  # noqa: BLE001, S110 — the redacted print follows; a raw re-raise would print the raw text
+            pass
+        finally:
+            sys.stderr = saved
+
+
+def _redacting_excepthook(previous: Callable[..., object]) -> Callable[..., None]:
+    def excepthook(exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> None:
+        if previous is not sys.__excepthook__:
+            _call_muted(previous, exc_type, exc, tb)
+        if exc is not None and exc.__traceback__ is None and tb is not None:
+            exc = exc.with_traceback(tb)
+        _write_stderr(_render_uncaught(exc_type, exc) + "\n")
+
+    excepthook._kp_redacting = True  # type: ignore[attr-defined]
+    return excepthook
+
+
+def _redacting_threading_excepthook(previous: Callable[..., object]) -> Callable[..., None]:
+    def excepthook(args: threading.ExceptHookArgs) -> None:
+        if previous is not threading.__excepthook__:
+            _call_muted(previous, args)
+        if args.exc_type is SystemExit:
+            return
+        name = args.thread.name if args.thread is not None else threading.get_ident()
+        _write_stderr(f"Exception in thread {name}:\n{_render_uncaught(args.exc_type, args.exc_value)}\n")
+
+    excepthook._kp_redacting = True  # type: ignore[attr-defined]
+    return excepthook
+
+
+def _redacting_unraisablehook(previous: Callable[..., object]) -> Callable[..., None]:
+    def unraisablehook(unraisable: Any) -> None:
+        if previous is not sys.__unraisablehook__:
+            _call_muted(previous, unraisable)
+        # The default hook prints ``repr(object)``; a repr is a runtime value, so
+        # only what the object is called is named.
+        target = unraisable.object
+        try:
+            where = getattr(target, "__qualname__", None) or type(target).__name__
+        except Exception:
+            where = type(target).__name__
+        label = unraisable.err_msg or "Exception ignored in"
+        _write_stderr(f"{label}: {where}\n{_render_uncaught(unraisable.exc_type, unraisable.exc_value)}\n")
+
+    unraisablehook._kp_redacting = True  # type: ignore[attr-defined]
+    return unraisablehook
+
+
+def install_uncaught_exception_redaction() -> None:
+    """Render exceptions that never become a log record through ``redacted_traceback`` (#1880). Idempotent.
+
+    Three interpreter hooks print an exception raw to stderr, past every record
+    factory and handler filter: ``sys.excepthook`` (an exception escaping the
+    process entry *after* logging was configured — a failing startup step in
+    ``app.main`` below its ``setup_logging`` call, a migration CLI; an import
+    that fails before that line runs under the interpreter's default hook, which
+    is why settings errors carry no value of their own, #1832),
+    ``threading.excepthook`` (an uncaught exception in a thread) and
+    ``sys.unraisablehook`` (an exception in a finaliser or a garbage-collected
+    coroutine). ``NotFoundError("User", <key>)`` printed the account key that way.
+
+    Each hook is replaced by one that prints the same traceback with every
+    exception line redacted. A hook somebody else installed before (the error
+    tracker's) is still called — muted, so it captures without printing the raw
+    text; one installed afterwards wraps this one and ends up calling it.
+    """
+    if not getattr(sys.excepthook, "_kp_redacting", False):
+        sys.excepthook = _redacting_excepthook(sys.excepthook)
+    if not getattr(threading.excepthook, "_kp_redacting", False):
+        threading.excepthook = _redacting_threading_excepthook(threading.excepthook)
+    if not getattr(sys.unraisablehook, "_kp_redacting", False):
+        sys.unraisablehook = _redacting_unraisablehook(sys.unraisablehook)
+
+
 def install_sink_redaction() -> None:
     """Put the redacting filter on every handler of the loggers that write lines (#1796). Idempotent.
 
     Also installs the record factory and the extras filters
-    (:func:`install_record_redaction`), which do not depend on which handlers exist.
+    (:func:`install_record_redaction`), which do not depend on which handlers
+    exist, and the redacting interpreter hooks for exceptions that never become
+    a record (:func:`install_uncaught_exception_redaction`).
     """
     install_record_redaction()
+    install_uncaught_exception_redaction()
     for name in _SINK_LOGGERS:
         for handler in logging.getLogger(name).handlers:
             handler.addFilter(_SINK_FILTER)

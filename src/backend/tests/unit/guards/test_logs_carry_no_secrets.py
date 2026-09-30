@@ -24,7 +24,8 @@ positional, that *references*:
 * **a secret-named name or attribute** (:data:`_SECRET_NAME`): ``token`` and any
   ``*_token``, ``api_key``/``*_api_key``/``apikey``, ``secret``/``*_secret``/
   ``secret_key``/``private_key``, ``password``/``*_password``/``passwd``,
-  ``authorization``, ``cookie``, ``salt``/``*_salt`` (#1812) — also inside an f-string, ``a or b``,
+  ``authorization``, ``cookie``, ``salt``/``*_salt`` (#1812), ``endpoint``/``*_endpoint``
+  (#1891: a Web Push endpoint's path is the device's push token) — also inside an f-string, ``a or b``,
   ``a if c else b``, a ``+`` concatenation, a subscript (``token[:8]`` is still
   part of the secret) and the arguments or receiver of any call that is not a
   redaction (``str(token)``, ``token.strip()``);
@@ -39,7 +40,8 @@ positional, that *references*:
 
 What passes: a value wrapped in a redaction call (:data:`_REDACTIONS`:
 ``loggable_error``, ``log_subject``, ``email_digest``, ``loggable_path``,
-``loggable_url_text``, ``loggable_ip``, ``len``, ``bool``), ``type(x).__name__``, a comparison
+``loggable_url_text``, ``loggable_ip``, ``loggable_endpoint_host``, ``len``, ``bool``),
+``type(x).__name__``, a comparison
 (``token is not None`` is a bool), and a keyword whose NAME states a non-secret
 (:data:`_NON_SECRET_KEYWORD`: ``token_type``, ``has_*``/``is_*``, ``*_count``,
 ``*_len``, ``*_configured``, ``*_sha256``/``*_digest``/``*_hash``, ``*_type``) —
@@ -62,6 +64,13 @@ if the ``settings.debug`` gate were removed.
   name that never touched a secret-named one in the same function — a parameter
   ``value`` the caller filled with a token, a dict value (``creds["x"]``), an
   attribute of a neutral object (``cfg.value``);
+* a push endpoint (#1891) read by subscript or ``.get`` — ``sub["endpoint"]``,
+  ``sub.get("endpoint")`` — or held under a neutral name (``url``, ``target``)
+  that was never assigned from an ``endpoint`` name in the same function, or
+  an attribute of a call on it (``urlsplit(endpoint).path`` — the detector does
+  not descend into the object of an attribute access, for any secret); the
+  sink masks a token-shaped path segment of whatever still gets through
+  (``mask_path_credentials``);
 * taint across functions, through a tuple unpacking, a ``for`` target, a
   ``with … as``, an augmented assignment or a container (``parts.append(token)``);
 * ``**fields`` splats and ``extra={...}`` dicts built elsewhere, and
@@ -94,7 +103,7 @@ from tests.unit.guards.test_privacy_logs_carry_no_plaintext_subject import (
 
 #: A name or attribute that holds a secret.
 _SECRET_NAME = re.compile(
-    r"(^|_)(token|api_key|apikey|raw_key|secret|secret_key|private_key|password|passwd|authorization|cookie|step_up_code|salt)$",
+    r"(^|_)(token|api_key|apikey|raw_key|secret|secret_key|private_key|password|passwd|authorization|cookie|step_up_code|salt|endpoint)$",
     re.IGNORECASE,
 )
 #: A keyword whose name states that its value is not the secret itself.
@@ -110,6 +119,7 @@ _REDACTIONS = {
     "loggable_path",
     "loggable_url_text",
     "loggable_ip",
+    "loggable_endpoint_host",
     "len",
     "bool",
 }
@@ -132,7 +142,12 @@ _STEP_UP_METHOD = (
     "from the call's password= and authenticated_with_api_key= arguments, not from the returned label "
     "(#1813, #1814, #1815)"
 )
+_AI_FEATURE_NAME = (
+    "endpoint is the AI feature the audit entry belongs to - the literal 'tips', 'daily-tip' or 'explain' "
+    "every caller in ai_assistant_service passes - not a push endpoint or any URL (#1891)"
+)
 _ALLOWED: dict[str, str] = {
+    "app/domain/services/ai_audit_logger.py::AiAuditLogger.record::endpoint": _AI_FEATURE_NAME,
     "app/domain/services/privacy_service.py::PrivacyService.erase_account_by_admin::step_up": _STEP_UP_METHOD,
     "app/domain/services/tenant_service.py::TenantService.delete_tenant::step_up": _STEP_UP_METHOD,
     "app/api/v1/attachments/token_router.py::redeem_token::tenant_key": _TOKEN_CLAIMS,
@@ -462,6 +477,17 @@ def _in_function(body: str) -> str:
         ("logger.info('e', step_up_code=code)", True),
         ("logger.info('e', c=body.step_up_code)", True),
         ("logger.info('e', error_code=code)", False),
+        # #1891 - a Web Push endpoint's path is the device's push token
+        ("logger.info('e', endpoint=endpoint)", True),
+        ("logger.info('e', endpoint=sub.endpoint)", True),
+        ("logger.info('e', push_endpoint=value)", True),
+        ("logger.info('e', where=subscription.push_endpoint)", True),
+        ("logger.info('e', endpoint_host=endpoint)", True),
+        ("logger.info('e', endpoint_host=str(endpoint))", True),
+        ("logger.info('e', endpoint_host=urlsplit(endpoint))", True),
+        ("target = endpoint\nlogger.info('e', target=target)", True),
+        ("logger.info('e', endpoint_host=loggable_endpoint_host(endpoint))", False),
+        ("logger.info('e', endpoint_host=loggable_endpoint_host(sub.endpoint))", False),
         # passes
         ("logger.info('e', token_type='bearer')", False),
         ("logger.info('e', has_token=token is not None)", False),

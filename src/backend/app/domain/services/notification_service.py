@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 
 import structlog
 
-from app.common.log_privacy import log_subject, loggable_error
+from app.common.log_privacy import log_subject, loggable_endpoint_host, loggable_error
 from app.common.url_safety import validate_push_endpoint
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
@@ -461,7 +461,9 @@ class NotificationService:
         channel_pref.enabled = True
 
         self.update_preferences(user_key, prefs)
-        logger.info("pwa_subscription_added", subject=log_subject(user_key), endpoint=endpoint)
+        logger.info(
+            "pwa_subscription_added", subject=log_subject(user_key), endpoint_host=loggable_endpoint_host(endpoint)
+        )
         return endpoint
 
     def unsubscribe_pwa(self, user_key: str, endpoint: str) -> bool:
@@ -486,7 +488,9 @@ class NotificationService:
 
         channel_pref.config["subscriptions"] = remaining
         self.update_preferences(user_key, prefs)
-        logger.info("pwa_subscription_removed", subject=log_subject(user_key), endpoint=endpoint)
+        logger.info(
+            "pwa_subscription_removed", subject=log_subject(user_key), endpoint_host=loggable_endpoint_host(endpoint)
+        )
         return True
 
     # ── Channel status ────────────────────────────────────────────────

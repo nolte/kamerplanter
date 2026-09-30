@@ -375,13 +375,20 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     logged (`error_type=`). Email addresses inside an error text become
     `<email:…>` digests, and URL query strings and fragments (which can hold coordinates or
     API keys) become `?<redacted>`, and credentials embedded directly in a URL
-    (`scheme://user:password@…`) are masked as well. An unexpected error (a traceback)
+    (`scheme://user:password@…`) are masked as well. The same holds for credentials in the
+    *path* of a URL — the bot token of a Telegram address, the token of a Discord or Slack
+    webhook, the device token of a push endpoint — including the lines the HTTP library
+    writes itself on a connection error. When you subscribe to or unsubscribe from push
+    notifications, the log names only the push service, not your device's address.
+    An unexpected error (a traceback)
     goes through the same cleanup: an error message from the application's own domain
     logic appears in the log only as its error class and error code, any other exception
     cleaned as described above. An account key inside the text of a standard or library
     exception is something this cleanup cannot recognise. This applies to the application's
     structured log lines as well as to the tracebacks that uvicorn and the Celery worker
-    write for an unhandled error.
+    write for an unhandled error, and to errors that never become a log line: a crash at
+    startup, an error in a background thread. If an error tracker is connected, it
+    receives the same cleaned texts.
 
     IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
     `0`, IPv6 `/48`), as `ip_prefix=`. That now also applies to the access logs: uvicorn

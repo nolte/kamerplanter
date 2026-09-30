@@ -292,6 +292,9 @@ Sofort:
 - Soft-Delete des Accounts (status: deleted)
 - Alle aktiven Sitzungen werden beendet
 - Du kannst dich nicht mehr anmelden
+- Offene Einladungen in deinen persoenlichen Garten
+  (E-Mail- und Link-Einladungen) werden widerrufen;
+  niemand kann ihm waehrend der 90 Tage mehr beitreten
 
 Persoenliche Daten (Art. 17 DSGVO):
 - Werden sofort anonymisiert oder nach 90 Tagen geloescht
