@@ -115,7 +115,7 @@ _IMPORT_PROBE = textwrap.dedent(
     after_import = dict(fake.tags)
 
     from app.observability.error_tracking import init_error_tracking
-    init_error_tracking(component="control", release="control@0")
+    init_error_tracking(component="control", release="control@0", redact_text=None)
 
     print("RESULT " + json.dumps({"after_import": after_import, "after_control": dict(fake.tags)}))
     """

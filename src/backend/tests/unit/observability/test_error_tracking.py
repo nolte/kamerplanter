@@ -54,7 +54,7 @@ def fake_sentry(monkeypatch: pytest.MonkeyPatch) -> _FakeSentry:
 def test_no_dsn_means_the_sdk_is_never_touched(monkeypatch: pytest.MonkeyPatch, fake_sentry: _FakeSentry) -> None:
     monkeypatch.delenv("SENTRY_DSN", raising=False)
 
-    assert init_error_tracking(component="backend", release="x@1") is False
+    assert init_error_tracking(component="backend", release="x@1", redact_text=None) is False
     assert fake_sentry.init_kwargs is None
 
 
@@ -62,7 +62,7 @@ def test_blank_dsn_is_treated_as_absent(monkeypatch: pytest.MonkeyPatch, fake_se
     # A Helm value or compose default of "" arrives as whitespace, not as unset.
     monkeypatch.setenv("SENTRY_DSN", "   ")
 
-    assert init_error_tracking(component="backend", release="x@1") is False
+    assert init_error_tracking(component="backend", release="x@1", redact_text=None) is False
     assert fake_sentry.init_kwargs is None
 
 
@@ -72,7 +72,7 @@ def test_dsn_enables_the_sdk_with_the_mandated_settings(
     monkeypatch.setenv("SENTRY_DSN", "https://key@tracker.example/1")
     monkeypatch.setenv("SENTRY_ENVIRONMENT", "staging")
 
-    assert init_error_tracking(component="backend", release="kamerplanter-backend@1.0.0") is True
+    assert init_error_tracking(component="backend", release="kamerplanter-backend@1.0.0", redact_text=None) is True
 
     kwargs = fake_sentry.init_kwargs
     assert kwargs is not None
@@ -82,6 +82,8 @@ def test_dsn_enables_the_sdk_with_the_mandated_settings(
     # The three non-negotiables of the integration contract.
     assert kwargs["send_default_pii"] is False
     assert kwargs["before_send"] is scrub_event
+    # #1880: a frame local's name does not say what it holds — locals stay home.
+    assert kwargs["include_local_variables"] is False
     assert kwargs["before_breadcrumb"] is scrub_breadcrumb
     assert fake_sentry.tags["component"] == "backend"
 
@@ -90,7 +92,7 @@ def test_unknown_environment_still_initialises(monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setenv("SENTRY_DSN", "https://key@tracker.example/1")
     monkeypatch.setenv("SENTRY_ENVIRONMENT", "producton")
 
-    assert init_error_tracking(component="backend", release="x@1") is True
+    assert init_error_tracking(component="backend", release="x@1", redact_text=None) is True
     # Passed through, not corrected: a stray value is visible in the tracker's
     # environment list, whereas a refusal looks like a healthy quiet service.
     assert fake_sentry.init_kwargs is not None
@@ -108,7 +110,7 @@ def test_sample_rate_falls_back_to_full_capture_on_nonsense(
     monkeypatch.setenv("SENTRY_DSN", "https://key@tracker.example/1")
     monkeypatch.setenv("SENTRY_SAMPLE_RATE", raw)
 
-    init_error_tracking(component="backend", release="x@1")
+    init_error_tracking(component="backend", release="x@1", redact_text=None)
 
     assert fake_sentry.init_kwargs is not None
     assert fake_sentry.init_kwargs["sample_rate"] == expected
@@ -238,3 +240,42 @@ def test_scrubbing_tolerates_a_minimal_event() -> None:
     # The hook runs on every event the SDK produces, including ones with none of
     # the sections above. A KeyError here would drop the event entirely.
     assert scrub_event({"message": "something broke"}) == {"message": "something broke"}
+
+
+# ── Text redaction is wired at every process entry (#1880) ──────────────────
+
+
+def test_every_backend_process_entry_passes_the_log_redaction() -> None:
+    """``redact_text`` has no default, and no backend entry may opt out with ``None``.
+
+    The API (``app.main``) and the worker (``app.tasks``) each call
+    ``init_error_tracking``; an entry that passed ``None`` would send exception
+    texts and log messages to the tracker as the SDK built them.
+    """
+    import ast
+    import pathlib
+
+    app_root = pathlib.Path(__file__).resolve().parents[3] / "app"
+    calls: dict[str, str] = {}
+    for path in sorted(app_root.rglob("*.py")):
+        if path.parent.name == "observability":
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", "")) == (
+                "init_error_tracking"
+            ):
+                keywords = {kw.arg: ast.unparse(kw.value) for kw in node.keywords}
+                calls[str(path.relative_to(app_root))] = keywords.get("redact_text", "<missing>")
+
+    assert calls == {"main.py": "redact_text_in_flight", "tasks/__init__.py": "redact_text_in_flight"}
+
+
+def test_init_registers_the_redactor_even_without_a_dsn(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.observability import error_tracking
+
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.setattr(error_tracking, "_text_redactor", None)
+
+    init_error_tracking(component="backend", release="x@1", redact_text=lambda text, _exceptions: text.upper())
+
+    assert scrub_event({"message": "kept"}, None)["message"] == "KEPT"

@@ -66,7 +66,9 @@ Error events can contain personal data, so filtering happens at the SDK boundary
 
 - **Request bodies and cookies** are dropped wholesale. A request body is the richest source of personal data this application has — plant notes, harvest records, invitations.
 - **Headers** follow an allow-list (`Content-Type`, `User-Agent` and a few more). A header some future proxy adds is therefore withheld by default, instead of leaking until someone remembers to block it.
-- **Query parameters, stack-frame locals and context fields** are redacted by *name* (`token`, `password`, `email`, `secret`, …). The key stays visible, the value does not — so a reader can tell a credential was present there.
+- **Query parameters and context fields** are redacted by *name* (`token`, `password`, `email`, `secret`, …), in nested structures too. The key stays visible, the value does not — so a reader can tell a credential was present there.
+- **Stack-frame locals** are not sent. A variable's name does not say what it holds — `url` or `html` in a mail adapter hold the password-reset link. An event therefore shows files, functions and lines, but no runtime values.
+- **Exception texts and log messages** go through the same cleanup as the log lines, in the backend and the Celery worker: an error message from the application's own domain logic appears only as its error code, email addresses become digests, query strings and credentials in URLs (in the path too, such as a Telegram bot token) become `<redacted>`. The same holds for breadcrumbs. The two side services (inference-service, knowledge-service) do not have this text cleanup; only the other rules of this list apply there.
 - **Of the user**, only `id` and tenant survive. They make an issue actionable; name, email and IP address do not.
 - **Input breadcrumbs** (`ui.input`) are discarded entirely in the browser.
 

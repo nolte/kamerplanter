@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import structlog
 
 from app.common.exceptions import ValidationError
 from app.domain.engines.notification_engine import NotificationEngine
@@ -365,6 +366,23 @@ class TestPwaSubscriptions:
         assert len(subs) == 1
         assert subs[0]["endpoint"] == "https://push/a"
         assert subs[0]["user_agent"] == "Firefox"
+
+    def test_subscribe_and_unsubscribe_log_the_push_service_host_only(self, echo_service):
+        """#1891: an endpoint's path is the device's push token — the log names the host."""
+        device_token = "dXVpZC0xODkx" + "k9Zq" * 10
+        endpoint = f"https://fcm.googleapis.com/fcm/send/{device_token}"
+
+        with structlog.testing.capture_logs() as logs:
+            echo_service.subscribe_pwa(user_key="user_1", endpoint=endpoint, p256dh="pub", auth="auth")
+            repo = echo_service._preference_repo
+            repo.get_by_user.return_value = repo.upsert.call_args.args[0]
+            echo_service.unsubscribe_pwa("user_1", endpoint)
+
+        events = {entry["event"]: entry for entry in logs}
+        assert set(events) >= {"pwa_subscription_added", "pwa_subscription_removed"}
+        for name in ("pwa_subscription_added", "pwa_subscription_removed"):
+            assert events[name]["endpoint_host"] == "fcm.googleapis.com"
+            assert device_token not in repr(events[name])
 
     def test_subscribe_dedupes_by_endpoint(self, mock_engine, mock_notification_repo):
         existing = NotificationPreferences(

@@ -369,13 +369,21 @@ lassen sie sich dagegen nicht verknüpfen.
     der Fehlertyp (`error_type=`). E-Mail-Adressen in einem Fehlertext werden zu
     `<email:…>`-Digests, Query-Strings und Fragmente in URLs (sie können Koordinaten oder
     API-Schlüssel enthalten) zu `?<redacted>`, und Zugangsdaten direkt in einer URL
-    (`schema://nutzer:passwort@…`) werden ebenfalls maskiert. Ein unerwarteter Fehler
+    (`schema://nutzer:passwort@…`) werden ebenfalls maskiert. Dasselbe gilt für
+    Zugangsdaten im *Pfad* einer URL — das Bot-Token einer Telegram-Adresse, das Token
+    eines Discord- oder Slack-Webhooks, das Geräte-Token eines Push-Endpunkts —, auch in
+    den Zeilen, die die HTTP-Bibliothek bei einem Verbindungsfehler selbst schreibt. Beim
+    An- und Abmelden von Push-Benachrichtigungen steht im Protokoll nur der Name des
+    Push-Dienstes, nicht die Adresse deines Geräts. Ein unerwarteter Fehler
     (ein Traceback) läuft durch dieselbe Bereinigung: Eine Fehlermeldung aus der
     Anwendungslogik erscheint im Protokoll nur als Fehlerklasse und Fehlercode, jede
     andere Ausnahme bereinigt wie eben beschrieben. Eine Kontokennung im Text einer
     Standard- oder Bibliotheks-Ausnahme kann diese Bereinigung nicht erkennen. Das gilt für die
     strukturierten Protokollzeilen der Anwendung ebenso wie für die Tracebacks, die
-    uvicorn und der Celery-Worker bei einem unbehandelten Fehler ausgeben.
+    uvicorn und der Celery-Worker bei einem unbehandelten Fehler ausgeben, und für
+    Fehler, die nie zu einer Protokollzeile werden: ein Absturz beim Start, ein Fehler in
+    einem Hintergrund-Thread. Ist ein Fehler-Tracker angebunden, erhält er dieselben
+    bereinigten Texte.
 
     IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
     Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Das gilt inzwischen auch für die

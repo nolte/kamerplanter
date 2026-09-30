@@ -66,7 +66,9 @@ Fehlerereignisse können personenbezogene Daten enthalten, deshalb wird an der S
 
 - **Anfrage-Inhalte und Cookies** werden vollständig verworfen. Ein Request-Body ist die dichteste Quelle personenbezogener Daten, die diese Anwendung hat — Pflanzennotizen, Erntedaten, Einladungen.
 - **Header** folgen einer Positivliste (`Content-Type`, `User-Agent` und wenige weitere). Ein Header, den ein künftiger Proxy hinzufügt, wird also zurückgehalten, statt so lange zu lecken, bis jemand daran denkt, ihn zu sperren.
-- **Query-Parameter, lokale Variablen im Stacktrace und Kontextfelder** werden anhand ihres *Namens* geschwärzt (`token`, `password`, `email`, `secret`, …). Der Schlüssel bleibt sichtbar, der Wert nicht — so ist beim Auswerten erkennbar, dass an dieser Stelle ein Geheimnis lag.
+- **Query-Parameter und Kontextfelder** werden anhand ihres *Namens* geschwärzt (`token`, `password`, `email`, `secret`, …), auch in verschachtelten Strukturen. Der Schlüssel bleibt sichtbar, der Wert nicht — so ist beim Auswerten erkennbar, dass an dieser Stelle ein Geheimnis lag.
+- **Lokale Variablen im Stacktrace** werden nicht übertragen. Der Name einer Variablen verrät nicht, was sie enthält — `url` oder `html` in einem Mail-Adapter enthalten den Passwort-Reset-Link. Ein Ereignis zeigt deshalb Dateien, Funktionen und Zeilen, aber keine Laufzeitwerte.
+- **Fehlertexte und Protokollmeldungen** durchlaufen in Backend und Celery-Worker dieselbe Bereinigung wie die Protokollzeilen: Eine Fehlermeldung aus der Anwendungslogik erscheint nur als Fehlercode, E-Mail-Adressen werden zu Digests, Query-Strings und Zugangsdaten in URLs (auch im Pfad, etwa ein Telegram-Bot-Token) zu `<redacted>`. Das gilt auch für Breadcrumbs. Die beiden Nebendienste (inference-service, knowledge-service) haben diese Textbereinigung nicht; dort greifen nur die übrigen Regeln dieser Liste.
 - **Vom Nutzer** bleiben nur `id` und Mandant übrig. Sie machen einen Vorgang bearbeitbar; Name, E-Mail und IP-Adresse tun das nicht.
 - **Eingabe-Breadcrumbs** (`ui.input`) werden im Browser komplett verworfen.
 
