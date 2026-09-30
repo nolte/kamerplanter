@@ -3029,7 +3029,7 @@ class PrivacyService:
 
         R-06a (Q-R4) keeps the proof of a tenant deletion until the longest
         R-16..R-18 period of the rows it kept has run out, capped at
-        ``settings.retention_tenant_erasure_record_retention_years`` (5) after the
+        ``TENANT_ERASURE_RECORD_CAP_YEARS`` (5, fixed — review SEC-002) after the
         deletion completed. The rows go through
         :meth:`purge_expired_legal_retention_rows`, so "none of the kept rows
         still carries the tenant's key" is the moment the longest period ended.

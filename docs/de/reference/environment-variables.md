@@ -90,7 +90,6 @@ Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anony
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | `5` | Nein | Anzahl Jahre ab `harvest_date`, nach denen die bei einer Mandantenlöschung aufbewahrten Erntedaten (Ernte, Qualitätsbewertung, Ertragskennzahl) endgültig gelöscht werden (NFR-011 R-16). Minimum: `5` (gesetzliche Mindestfrist nach CanG). |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | `3` | Nein | Dasselbe für Behandlungsanwendungen, gezählt ab `applied_at` (NFR-011 R-17). Minimum: `3` (PflSchG §11). |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | `3` | Nein | Dasselbe für Inspektionsprotokolle, gezählt ab `inspected_at` (NFR-011 R-18). Minimum: `3` (PflSchG §11). |
-| `RETENTION_TENANT_ERASURE_RECORD_RETENTION_YEARS` | `5` | Nein | Höchstdauer, die der Nachweis einer Mandantenlöschung (`tenant_erasure_records`) nach Abschluss aufbewahrt wird; früher gelöscht, sobald keine aufbewahrten Ernte-, Behandlungs- oder Inspektionsdaten des Mandanten mehr existieren (NFR-011 R-06a). Minimum: `1`, Maximum: `5`. |
 
 Für `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` und
 `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` waren die älteren `PRIVACY_*`-Namen zwar bereits

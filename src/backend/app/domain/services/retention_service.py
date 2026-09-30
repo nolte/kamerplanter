@@ -31,8 +31,10 @@ from settings and turned into deadlines or cutoffs:
   purged this many years after its ``harvest_date``/``applied_at``/``inspected_at``
   (``retention.purge_expired_legal_retention_rows``, #1789); the floor is the
   legal minimum;
-* R-06a ``retention_tenant_erasure_record_retention_years`` — the cap on a
-  tenant-erasure record (``retention.purge_expired_tenant_erasure_records``, #1793).
+* R-06a — the five-year cap on a tenant-erasure record
+  (``retention.purge_expired_tenant_erasure_records``, #1793) is the spec's fixed
+  :data:`TENANT_ERASURE_RECORD_CAP_YEARS`, not a setting: a shorter cap would drop
+  the proof while R-16 rows it kept (at least five years) still run.
 
 The tasks and the Art. 13 retention summary read the periods here, so the text
 a data subject reads cannot name a period the code does not apply (#1772,
@@ -50,7 +52,9 @@ from app.config.settings import settings
 
 #: NFR-011 §2.3 — the legal minimum of each rule (CanG, PflSchG §11), the floor of its setting.
 LEGAL_RETENTION_FLOOR_YEARS: dict[str, int] = {"R-16": 5, "R-17": 3, "R-18": 3}
-#: NFR-011 R-06a (Q-R4) — a tenant-erasure record is kept at most this long.
+#: NFR-011 R-06a (Q-R4) — a tenant-erasure record is kept at most this long. Fixed,
+#: not a setting: it equals the longest legal floor (R-16), so no value below it keeps
+#: the proof for as long as the rows it proves, and the spec caps it here (#1793 review SEC-002).
 TENANT_ERASURE_RECORD_CAP_YEARS = 5
 
 
@@ -72,7 +76,6 @@ class RetentionService:
         harvest_data_retention_years: int | None = None,
         treatment_retention_years: int | None = None,
         inspection_retention_years: int | None = None,
-        tenant_erasure_record_retention_years: int | None = None,
     ) -> None:
         self._export_retention_hours = (
             export_retention_hours
@@ -141,11 +144,6 @@ class RetentionService:
                 else settings.retention_inspection_min_retention_years
             ),
         }
-        self._tenant_erasure_record_retention_years = (
-            tenant_erasure_record_retention_years
-            if tenant_erasure_record_retention_years is not None
-            else settings.retention_tenant_erasure_record_retention_years
-        )
         # NFR-011 §4: the legal periods are a floor no configuration undercuts.
         for rule, years in self._legal_retention_years.items():
             if years < LEGAL_RETENTION_FLOOR_YEARS[rule]:
@@ -153,12 +151,6 @@ class RetentionService:
                     f"NFR-011 {rule}: the legal retention period is at least {LEGAL_RETENTION_FLOOR_YEARS[rule]} years."
                 )
                 raise ValueError(msg)
-        if not 1 <= self._tenant_erasure_record_retention_years <= TENANT_ERASURE_RECORD_CAP_YEARS:
-            msg = (
-                "NFR-011 R-06a: a tenant-erasure record is kept at least one and at most "
-                f"{TENANT_ERASURE_RECORD_CAP_YEARS} years after the deletion."
-            )
-            raise ValueError(msg)
         # The settings carry the same floors (``ge=1``); a caller constructing
         # the service directly must not get past them either.
         floors = (
@@ -279,7 +271,7 @@ class RetentionService:
     def tenant_erasure_record_purge_cutoff(self, now: datetime) -> datetime:
         """Return the completion time before which a tenant-erasure record goes regardless (NFR-011 R-06a, #1793)."""
         now = now.astimezone(UTC)
-        return replace_year(now, now.year - self._tenant_erasure_record_retention_years).replace(microsecond=0)
+        return replace_year(now, now.year - TENANT_ERASURE_RECORD_CAP_YEARS).replace(microsecond=0)
 
     # ── Predicate helpers ────────────────────────────────────────
 
@@ -346,4 +338,4 @@ class RetentionService:
 
     @property
     def tenant_erasure_record_retention_years(self) -> int:
-        return self._tenant_erasure_record_retention_years
+        return TENANT_ERASURE_RECORD_CAP_YEARS

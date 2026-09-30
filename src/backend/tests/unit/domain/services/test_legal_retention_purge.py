@@ -122,8 +122,6 @@ class TestThePeriods:
             ("harvest_data_retention_years", 4),
             ("treatment_retention_years", 2),
             ("inspection_retention_years", 2),
-            ("tenant_erasure_record_retention_years", 6),
-            ("tenant_erasure_record_retention_years", 0),
         ],
     )
     def test_the_service_refuses_a_period_outside_the_legal_bounds(self, argument, value):
@@ -136,7 +134,6 @@ class TestThePeriods:
             ("RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS", "4"),
             ("RETENTION_TREATMENT_MIN_RETENTION_YEARS", "2"),
             ("RETENTION_INSPECTION_MIN_RETENTION_YEARS", "2"),
-            ("RETENTION_TENANT_ERASURE_RECORD_RETENTION_YEARS", "6"),
         ],
     )
     def test_the_setting_refuses_it_at_start(self, monkeypatch, variable, value):

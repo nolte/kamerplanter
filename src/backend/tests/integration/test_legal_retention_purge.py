@@ -263,3 +263,28 @@ class TestTheLastRetainedRowGoes:
         assert asyncio.run(service.purge_expired_tenant_erasure_records(now=capped)) == 2
         assert database.collection(col.TENANT_ERASURE_RECORDS).get(TenantErasureEngine.record_key(ERASED)) is None
         assert database.collection(col.TENANT_ERASURE_RECORDS).get(TenantErasureEngine.record_key(EMPTY)) is None
+
+
+class TestTheRowPurgeRunsInBatches:
+    """Security review SEC-003: one transaction per batch, looped until nothing expired is left."""
+
+    def test_more_rows_than_one_batch_all_go(self, database, world):
+        from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
+
+        gone_tenant = "t-never-there"
+        keys = [f"batch-in-{i}" for i in range(5)]
+        for key in keys:
+            ids = _insert(
+                database,
+                col.INSPECTIONS,
+                {"_key": key, "tenant_key": gone_tenant, "inspected_at": "2020-01-01T00:00:00Z"},
+            )
+            _insert(database, col.DETECTED_PEST, {"_from": ids, "_to": "pests/global-aphid"})
+        rule = next(r for r in TenantErasureEngine.LEGAL_RETENTION_RULES if r.rule == "R-18")
+
+        count = ArangoLegalRetentionRepository(database, batch_size=2).delete_expired_rows_of_deleted_tenants(
+            rule, cutoff_iso="2023-01-01T00:00:00+00:00"
+        )
+
+        assert (count.rows, count.edges) == (5, 5)
+        assert all(database.collection(col.INSPECTIONS).get(key) is None for key in keys)

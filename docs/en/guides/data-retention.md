@@ -577,7 +577,7 @@ keeping the record longer than declared.
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly | Expiry of the token |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily | Expiry of the invitation (status `expired` only) |
 | R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | daily, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
-| R-06a | `retention.purge_expired_tenant_erasure_records` | daily, 04:50 | `RETENTION_TENANT_ERASURE_RECORD_RETENTION_YEARS` |
+| R-06a | `retention.purge_expired_tenant_erasure_records` | daily, 04:50 | fixed 5 years (cap), or the end of the tenant's retained data |
 
 Each task logs its run in structured form (structlog) under its own event name with
 counters, for example:
@@ -620,7 +620,6 @@ checks the same floor again:
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — |
-| `RETENTION_TENANT_ERASURE_RECORD_RETENTION_YEARS` | R-06a | 5 | 1 (at most 5) | — |
 
 If both names of a row are set, the `RETENTION_*` name wins. The older names were
 documented before this change but had no effect — the code used fixed values; they now

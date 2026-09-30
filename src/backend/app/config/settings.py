@@ -789,11 +789,6 @@ class Settings(BaseSettings):
     #: NFR-011 R-18 / §4 ``INSPECTION_MIN_RETENTION_YEARS`` (#1789) — the same for
     #: inspections, counted from ``inspected_at``; floor PflSchG §11.
     retention_inspection_min_retention_years: int = Field(default=3, ge=3)
-    #: NFR-011 R-06a (#1793, Q-R4) — a completed tenant-erasure record is hard-deleted
-    #: at the latest this many years after the deletion completed
-    #: (``retention.purge_expired_tenant_erasure_records``); earlier once the rows it
-    #: kept under R-16..R-18 are gone. Capped at the spec's five years.
-    retention_tenant_erasure_record_retention_years: int = Field(default=5, ge=1, le=5)
 
     # REQ-030 Notifications
     vapid_private_key: str = ""

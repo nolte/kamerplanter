@@ -90,7 +90,6 @@ These variables control the legally mandated deletion/anonymization of personal 
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | `5` | No | Number of years after `harvest_date` after which the harvest data a tenant deletion retained (harvest, quality assessment, yield metric) is permanently deleted (NFR-011 R-16). Minimum: `5` (statutory minimum under the CanG). |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | `3` | No | The same for treatment applications, counted from `applied_at` (NFR-011 R-17). Minimum: `3` (PflSchG §11). |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | `3` | No | The same for inspection records, counted from `inspected_at` (NFR-011 R-18). Minimum: `3` (PflSchG §11). |
-| `RETENTION_TENANT_ERASURE_RECORD_RETENTION_YEARS` | `5` | No | Maximum time the proof of a tenant deletion (`tenant_erasure_records`) is kept after completion; deleted earlier once no retained harvest, treatment or inspection data of the tenant remains (NFR-011 R-06a). Minimum: `1`, maximum: `5`. |
 
 For `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` and
 `RETENTION_EMAIL_CHANGE_RETENTION_HOURS`, the older `PRIVACY_*` names were already

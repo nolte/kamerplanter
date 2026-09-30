@@ -32,6 +32,7 @@ FOR doc IN @@collection
   LET happened = DATE_TIMESTAMP(doc[@date_field])
   FILTER happened != null AND happened < DATE_TIMESTAMP(@cutoff)
   FILTER LENGTH(FOR tenant IN @@tenants FILTER tenant._key == doc.tenant_key LIMIT 1 RETURN 1) == 0
+  LIMIT @batch
   RETURN {id: doc._id, key: doc._key}
 """
 
@@ -82,15 +83,40 @@ _REMAINING_TERM = "LENGTH(FOR row IN @@retained{index} FILTER row.tenant_key == 
 class ArangoLegalRetentionRepository(ILegalRetentionRepository):
     """Runs the R-16..R-18 and R-06a purges; see :class:`ILegalRetentionRepository`."""
 
-    def __init__(self, db: StandardDatabase) -> None:
+    #: Rows of one rule purged per transaction (SEC-003).
+    BATCH_SIZE = 500
+
+    def __init__(self, db: StandardDatabase, *, batch_size: int | None = None) -> None:
         self._db = db
+        self._batch_size = batch_size or self.BATCH_SIZE
 
     def delete_expired_rows_of_deleted_tenants(
         self, rule: LegalRetentionRule, *, cutoff_iso: str
     ) -> LegalRetentionPurgeCount:
+        """Purge in batches of :attr:`BATCH_SIZE` rows, one transaction each (security review SEC-003).
+
+        A deleted tenant with years of harvests would otherwise put every row,
+        child and edge into one stream transaction, which could outgrow the
+        server's transaction limits and abort every night. Each batch is still
+        atomic for a row together with its children and edges.
+        """
         existing = {c["name"]: c for c in self._db.collections() if not c["system"]}
         if rule.collection not in existing:
             return LegalRetentionPurgeCount()
+        total = LegalRetentionPurgeCount()
+        while True:
+            batch, selected = self._purge_batch(rule, cutoff_iso, existing)
+            total.rows += batch.rows
+            total.children += batch.children
+            total.edges += batch.edges
+            # A full batch may have left more behind; a batch that removed
+            # nothing it selected must not spin.
+            if selected < self._batch_size or batch.rows == 0:
+                return total
+
+    def _purge_batch(
+        self, rule: LegalRetentionRule, cutoff_iso: str, existing: dict[str, Any]
+    ) -> tuple[LegalRetentionPurgeCount, int]:
         children = [child for child in rule.children if child.collection in existing]
         edge_collections = sorted(name for name, info in existing.items() if info["type"] == "edge")
         writes = [rule.collection, *(child.collection for child in children), *edge_collections]
@@ -108,12 +134,13 @@ class ArangoLegalRetentionRepository(ILegalRetentionRepository):
                         "@tenants": col.TENANTS,
                         "date_field": rule.date_field,
                         "cutoff": cutoff_iso,
+                        "batch": self._batch_size,
                     },
                 )
             ]
             if not rows:
                 transaction.commit_transaction()
-                return count
+                return count, 0
             row_keys = [row["key"] for row in rows]
             doomed_ids = [row["id"] for row in rows]
             child_keys: dict[str, list[str]] = {}
@@ -150,7 +177,7 @@ class ArangoLegalRetentionRepository(ILegalRetentionRepository):
         except BaseException:
             self._abort_quietly(transaction)
             raise
-        return count
+        return count, len(rows)
 
     def delete_expired_tenant_erasure_records(self, *, cap_before_iso: str, retained_collections: Sequence[str]) -> int:
         existing = {c["name"] for c in self._db.collections() if not c["system"]}
