@@ -212,7 +212,7 @@ Only records whose tenant no longer exists are deleted. The harvests, treatments
 inspections of an existing garden are that garden's own records; this rule sets no
 maximum for them, and they stay.
 
-A record without a readable date is never deleted — its age is not established.
+A record without a readable date is never deleted — its age is not established. Exception: a harvest without a harvest date counts from its creation, because that is the date the system assumed as the harvest date when it was created.
 
 !!! info "First run after the update"
     The first run immediately deletes every retained record of a deleted tenant whose

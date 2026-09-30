@@ -216,7 +216,7 @@ Gelöscht werden nur Datensätze, deren Mandant nicht mehr existiert. Die Ernten
 Behandlungen und Inspektionen eines bestehenden Gartens sind dessen eigene Aufzeichnungen;
 für sie legt diese Regel keine Höchstdauer fest, sie bleiben erhalten.
 
-Ein Datensatz ohne lesbares Datum wird nie gelöscht — sein Alter ist nicht belegt.
+Ein Datensatz ohne lesbares Datum wird nie gelöscht — sein Alter ist nicht belegt. Ausnahme: Eine Ernte ohne Erntedatum zählt ab ihrer Anlage, denn genau dieses Datum hat das System beim Anlegen als Erntedatum angenommen.
 
 !!! info "Erster Lauf nach dem Update"
     Der erste Lauf löscht sofort alle aufbewahrten Datensätze gelöschter Mandanten,

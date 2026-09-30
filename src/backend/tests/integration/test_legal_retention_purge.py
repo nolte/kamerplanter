@@ -288,3 +288,32 @@ class TestTheRowPurgeRunsInBatches:
 
         assert (count.rows, count.edges) == (5, 5)
         assert all(database.collection(col.INSPECTIONS).get(key) is None for key in keys)
+
+    def test_a_harvest_stored_without_its_date_counts_from_its_creation(self, database, world):
+        """/code-review of #1789: the create path used "now" for a missing ``harvest_date`` without storing it."""
+        from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
+
+        undated = _insert(
+            database,
+            col.HARVEST_BATCHES,
+            {
+                "_key": "undated-hb",
+                "tenant_key": "t-never-there",
+                "harvest_date": None,
+                "created_at": "2019-05-01T00:00:00Z",
+            },
+        )
+        young = _insert(
+            database,
+            col.HARVEST_BATCHES,
+            {"_key": "undated-young-hb", "tenant_key": "t-never-there", "created_at": "2025-05-01T00:00:00Z"},
+        )
+        rule = next(r for r in TenantErasureEngine.LEGAL_RETENTION_RULES if r.rule == "R-16")
+
+        count = ArangoLegalRetentionRepository(database).delete_expired_rows_of_deleted_tenants(
+            rule, cutoff_iso="2021-09-30T04:45:00+00:00"
+        )
+
+        assert count.rows == 1
+        assert _read(database, undated) is None
+        assert _read(database, young) is not None

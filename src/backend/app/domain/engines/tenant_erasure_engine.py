@@ -305,6 +305,7 @@ class TenantErasureEngine:
             rule="R-16",
             collection="harvest_batches",
             date_field="harvest_date",
+            fallback_date_field="created_at",
             children=(
                 LegalRetentionChild(collection="quality_assessments", parent_field="batch_key"),
                 LegalRetentionChild(collection="yield_metrics", parent_field="batch_key"),

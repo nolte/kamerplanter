@@ -35,6 +35,10 @@ class LegalRetentionRule(BaseModel):
     #: The instant the period counts from (NFR-011 §2.3 Q-R1: ``harvest_date``,
     #: ``applied_at``, ``inspected_at``) — never ``inherited_at`` (ADR-001).
     date_field: str
+    #: Read when ``date_field`` holds no instant. R-16 only: before the /code-review
+    #: of #1789 the harvest create path used "now" for a missing ``harvest_date``
+    #: without storing it, so ``created_at`` is the instant it counted from.
+    fallback_date_field: str | None = None
     children: tuple[LegalRetentionChild, ...] = ()
 
 

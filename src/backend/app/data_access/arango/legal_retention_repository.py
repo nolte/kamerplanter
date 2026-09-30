@@ -29,7 +29,7 @@ logger = structlog.get_logger()
 _SELECT_EXPIRED = """
 FOR doc IN @@collection
   FILTER IS_STRING(doc.tenant_key) AND doc.tenant_key != ""
-  LET happened = DATE_TIMESTAMP(doc[@date_field])
+  LET happened = NOT_NULL(DATE_TIMESTAMP(doc[@date_field]), DATE_TIMESTAMP(doc[@fallback_field]))
   FILTER happened != null AND happened < DATE_TIMESTAMP(@cutoff)
   FILTER LENGTH(FOR tenant IN @@tenants FILTER tenant._key == doc.tenant_key LIMIT 1 RETURN 1) == 0
   LIMIT @batch
@@ -133,6 +133,7 @@ class ArangoLegalRetentionRepository(ILegalRetentionRepository):
                         "@collection": rule.collection,
                         "@tenants": col.TENANTS,
                         "date_field": rule.date_field,
+                        "fallback_field": rule.fallback_date_field or rule.date_field,
                         "cutoff": cutoff_iso,
                         "batch": self._batch_size,
                     },
