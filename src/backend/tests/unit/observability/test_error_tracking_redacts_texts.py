@@ -220,3 +220,13 @@ def test_without_a_redactor_the_structure_scrubbing_still_runs(monkeypatch: pyte
 
     assert scrubbed["exception"]["values"][0]["value"] == "kept"
     assert scrubbed["extra"] == {"api_key": "[redacted]", "note": "kept"}
+
+
+@pytest.mark.usefixtures("backend_redactor")
+def test_the_request_url_goes_through_the_text_redaction() -> None:
+    event = {"request": {"url": f"https://kp.example.org/hooks/{BOT_TOKEN}1Z/notify?x=1", "query_string": "x=1"}}
+
+    url = scrub_event(event, None)["request"]["url"]
+
+    assert BOT_TOKEN not in url, url
+    assert url.startswith("https://kp.example.org/hooks/<redacted>/notify"), url

@@ -172,6 +172,12 @@ def _scrub_texts(event: MutableMapping[str, Any], exceptions: Sequence[BaseExcep
                 logentry[field] = _redact_strings(logentry[field], exceptions)
     if isinstance(event.get("message"), str):
         event["message"] = _redact_text(event["message"], exceptions)
+    request = event.get("request")
+    if isinstance(request, dict) and isinstance(request.get("url"), str):
+        # The raw request path: a webhook or download token in it is masked by
+        # the same shapes as in a log line (#1880 review). Reducing it to route
+        # literals needs the service's route table — #1925.
+        request["url"] = _redact_text(request["url"], exceptions)
     extra = event.get("extra")
     if isinstance(extra, dict):
         event["extra"] = _redact_strings(extra, exceptions)
