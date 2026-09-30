@@ -1,12 +1,13 @@
 """v0064 — bind every unambiguous provider link to the configuration it was made through (#1869).
 
 A provider link (``auth_providers``) records ``oidc_config_slug`` and ``issuer``
-since #1815 (review SEC-001); links made before carry neither. The login now
-matches a link by (configuration, ``sub``) — ``sub`` is unique per issuer only, and
-every generic OIDC configuration stores its links under the one type ``oidc`` — and
-accepts an unbound link only while exactly one configuration of its type exists
-(``AuthService._login_link``). This migration writes that binding down once, so a
-second configuration added later does not make the existing links ambiguous.
+since #1815 (review SEC-001); links made before carry neither. The login and the
+step-up re-authentication now match a link by (configuration, ``sub``) only —
+``sub`` is unique per issuer, and every generic OIDC configuration stores its links
+under the one type ``oidc`` — and an unbound link matches nothing
+(``AuthService._login_link``, ``FederatedReauthPolicy``). This migration binds the
+links for which that is decidable, once, at deploy: an unbound link decided later
+could look unambiguous only because a configuration was deleted in between.
 
 **Per link without ``oidc_config_slug``:**
 
@@ -17,12 +18,13 @@ second configuration added later does not make the existing links ambiguous.
    (verified addresses) or signs in with a password.
 
 ``issuer`` is not backfilled: the configuration's current issuer need not be the
-one the link was made with, and the login accepts a link without an issuer.
+one the link was made with. The first sign-in of the link records it.
 
 **What this cannot decide.** A link made through a configuration that has since
 been *deleted* is indistinguishable from one of the remaining configuration of the
 same type; rule 1 binds it there — exactly the link the login accepted before this
-migration. It widens nothing.
+migration. It widens nothing; and because an unbound link is never decided after
+this run, no later deletion widens anything either.
 
 **The unique index.** ``auth_providers`` carried a unique index over
 (``provider``, ``provider_user_id``) — the same "one subject per type" assumption in

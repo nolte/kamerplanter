@@ -1382,11 +1382,12 @@ class AuthService:
             user = self._user_repo.get_by_key(existing_provider.user_key)
             if user is None or not user.is_active:
                 raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
-            # Update last_used_at on provider; a link made before the configuration
-            # was recorded, matched unambiguously, is bound to it now.
+            # Update last_used_at on provider. A link without a recorded issuer — one
+            # v0064 bound, or one made without an ID token — records this sign-in's,
+            # so a later repointing of the configuration at another IdP is refused
+            # (/security review of #1869, SEC-001).
             existing_provider.last_used_at = datetime.now(UTC)
-            if existing_provider.oidc_config_slug is None:
-                existing_provider.oidc_config_slug = config.slug
+            if existing_provider.issuer is None and issuer:
                 existing_provider.issuer = issuer
             if existing_provider.key:
                 self._auth_provider_repo.update(existing_provider.key, existing_provider)
@@ -1463,36 +1464,27 @@ class AuthService:
         OIDC guarantees ``sub`` unique per issuer only, and every generic OIDC
         configuration stores its links under the one type ``oidc`` — so (type,
         ``sub``) is no identity: an identity at IdP A whose ``sub`` equals a
-        victim's at IdP B would sign in as the victim. A link matches only
+        victim's at IdP B would sign in as the victim. A link matches only when it
+        records *this* configuration (``oidc_config_slug``) and — where it recorded
+        the ID token's issuer — the sign-in's issuer is that one (the configuration
+        may since point at another IdP).
 
-        * when it records *this* configuration (``oidc_config_slug``), and — where
-          it recorded the ID token's issuer — the sign-in's issuer is that one (the
-          configuration may since point at another IdP); or
-        * when it records no configuration (made before #1815 SEC-001) **and** this
-          is the only configuration of the link's type, enabled or not — a disabled
-          one made links too. With two such configurations the link could belong to
-          either; it is not guessed.
-
-        More than one account matching is ambiguous as well: no link. "No link"
-        falls through to the e-mail auto-link / registration path with its own
-        checks — never to the owner of a colliding ``sub``.
+        A link that records no configuration (made before #1815 SEC-001) matches
+        nothing: migration v0064 bound every such link whose type had exactly one
+        configuration when it ran, so one still unbound could belong to either of
+        two — it is not guessed, and no later deletion of a configuration makes it
+        look unambiguous (/security review of #1869, SEC-003). More than one account
+        matching is ambiguous as well. "No link" falls through to the e-mail
+        auto-link / registration path with its own checks — never to the owner of a
+        colliding ``sub``.
         """
         candidates = self._auth_provider_repo.list_by_provider(oauth_user.provider, oauth_user.provider_user_id)
-        if not candidates:
-            return None
-        bound = [row for row in candidates if row.oidc_config_slug == config.slug]
-        if bound:
-            bound = [
-                row
-                for row in bound
-                if row.issuer is None or (issuer is not None and row.issuer.rstrip("/") == issuer.rstrip("/"))
-            ]
-        else:
-            link_type = OAuthEngine.link_type(config)
-            configs = self._oidc_config_repo.list_all() if self._oidc_config_repo else []
-            of_type = [c.slug for c in configs if OAuthEngine.link_type(c) == link_type]
-            if of_type == [config.slug]:
-                bound = [row for row in candidates if row.oidc_config_slug is None]
+        bound = [
+            row
+            for row in candidates
+            if row.oidc_config_slug == config.slug
+            and (row.issuer is None or (issuer is not None and row.issuer.rstrip("/") == issuer.rstrip("/")))
+        ]
         if len({row.user_key for row in bound}) != 1:
             if bound:
                 logger.warning("oauth_link_ambiguous", provider=config.slug, matches=len(bound))

@@ -189,17 +189,32 @@ def test_a_link_whose_stored_issuer_differs_does_not_sign_in() -> None:
     assert [u.email for u in registering.created] == ["someone@example.net"]
 
 
-def test_a_legacy_link_with_the_only_configuration_of_its_type_signs_in_and_is_bound() -> None:
+def test_an_unbound_link_signs_nobody_in_even_with_the_only_configuration_of_its_type() -> None:
+    """v0064 binds such a link at deploy; one still unbound was ambiguous then and is not guessed now.
+
+    A configuration deleted since would otherwise make it look unambiguous (security review SEC-003).
+    """
     world = _oidc_world((None, "sub-a", None))
     world.configs = _Configs(GOOGLE, GITHUB, CORP_A)
     world.auth._oidc_config_repo = world.configs
+    registering = _RegisteringUsers(world)
+
+    _query, callback = _sign_in(world, "corp-a", sub="sub-a", email="someone@example.net", email_verified=True)
+
+    assert _signed_in_as(world, callback) != world.key
+    assert [u.email for u in registering.created] == ["someone@example.net"]
+    assert world.rows["legacy-sub-a"].last_used_at is None
+
+
+def test_a_bound_link_without_an_issuer_records_it_on_sign_in() -> None:
+    """A link v0064 bound carries no issuer; the first sign-in records it, so a later repointing is refused."""
+    world = _oidc_world(("corp-a", "sub-a", None))
 
     _query, callback = _sign_in(world, "corp-a", sub="sub-a", email=world.email, email_verified=True)
 
     assert _signed_in_as(world, callback) == world.key
-    row = world.rows["legacy-sub-a"]
-    assert (row.oidc_config_slug, row.issuer) == ("corp-a", "https://idp-a.example")
-    assert row.last_used_at is not None
+    row = world.rows["corp-a"]
+    assert (row.issuer, row.last_used_at is not None) == ("https://idp-a.example", True)
 
 
 def test_a_disabled_configuration_of_the_same_type_keeps_a_legacy_link_ambiguous() -> None:

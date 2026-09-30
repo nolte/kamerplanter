@@ -266,8 +266,12 @@ class _World:
         self.rows: dict[str, AuthProvider] = {}
         for name in providers:
             kind = {"google": AuthProviderType.GOOGLE, "github": AuthProviderType.GITHUB}[name]
-            self.rows[name] = self.providers.add(self.key, kind, self.sub if name == "google" else f"gh-{self.key}")
-        self.other_row = self.providers.add(self.other_key, AuthProviderType.GOOGLE, f"google-{self.other_key}")
+            self.rows[name] = self.providers.add(
+                self.key, kind, self.sub if name == "google" else f"gh-{self.key}", config_slug=name
+            )
+        self.other_row = self.providers.add(
+            self.other_key, AuthProviderType.GOOGLE, f"google-{self.other_key}", config_slug="google"
+        )
         self.configs = _Configs(GOOGLE, GITHUB)
         self.states = _States()
         self.engine = _Provider()
@@ -667,7 +671,9 @@ def test_an_account_with_an_oidc_provider_cannot_confirm_with_a_code() -> None:
     code = world.post("/api/v1/users/me/step-up-code", {"action": "account_erasure"})
     assert code.status_code == 202
     mailed = world.mail.send_step_up_code_email.call_args.kwargs["code"]
-    world.rows["google"] = world.providers.add(world.key, AuthProviderType.GOOGLE, world.sub)  # linked since
+    world.rows["google"] = world.providers.add(
+        world.key, AuthProviderType.GOOGLE, world.sub, config_slug="google"
+    )  # linked since
 
     resp = world.post("/api/v1/privacy/erasure", {"confirm_email": world.email, "step_up_code": mailed})
 
@@ -763,6 +769,21 @@ def test_a_link_of_the_second_oidc_configuration_re_authenticates_there() -> Non
 def test_a_pre_review_link_with_two_matching_configurations_keeps_the_code() -> None:
     """Ambiguous: re-authenticating could go to the wrong IdP — so not re-auth capable, and not locked out."""
     world = _oidc_world((None, "sub-x", None))
+
+    started = world.start()
+    code = world.post("/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert started.status_code == 422, started.text
+    assert started.json()["error_code"] == "STEP_UP_REAUTH_UNAVAILABLE"
+    assert code.status_code == 202, code.text
+
+
+def test_an_unbound_link_is_not_re_authentication_capable_even_with_one_configuration() -> None:
+    """#1869: v0064 bound every unambiguous link; one still unbound is not guessed — the code stays open."""
+    world = _oidc_world((None, "sub-x", None))
+    world.configs = _Configs(GOOGLE, GITHUB, CORP_A)
+    world.verifier._reauth_policy = FederatedReauthPolicy(world.providers, world.configs)
+    world.auth._reauth_policy = FederatedReauthPolicy(world.providers, world.configs)
 
     started = world.start()
     code = world.post("/api/v1/users/me/step-up-code", {"action": "account_erasure"})
