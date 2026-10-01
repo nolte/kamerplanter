@@ -23,6 +23,7 @@ inventory:
     - api-documentation-audit
     - api-error-check
     - bdd-scenario-generate
+    - capability-reach-audit
     - dependency-audit
     - deployment-chart-manage
     - dockerfile-audit
@@ -43,6 +44,7 @@ inventory:
     - bdd-scenario-reviewer
     - bjw-common-deployment-generator
     - capability-maturity-scanner
+    - capability-reach-scanner
     - code-security-reviewer
     - component-test-generator
     - component-test-reviewer
@@ -154,21 +156,13 @@ inventory:
     - tech-stack-fitness-reviewer
     - vocab-drift-scanner
 
-# Reasoned exemptions from the no-shadowing rule. Each entry is a debt with a
-# named reason, not a permission: the check goes red when an entry stops
-# colliding (a stale exemption) and when an entry carries no reason, so the list
-# cannot quietly outlive its cause. Removing an entry is the goal, not keeping it.
 allowlist:
-  - local: fullstack-developer
-    reason: >-
-      Pre-existing shadow of nolte-engineering:fullstack-developer, surfaced by
-      this check on the day it was written (#1405) and deliberately left for its
-      own change: the local agent is the one the project's recorded practice
-      routes source-code work to, so retiring it needs the same
-      verify-before-remove parity pass #1405 ran for the two skills, not a
-      drive-by deletion.
-  - local: frontend-usability-optimizer
-    reason: >-
-      Pre-existing shadow of nolte-engineering:frontend-usability-optimizer,
-      same finding and same treatment as fullstack-developer above: measured by
-      #1405, parity not yet checked, retirement owed a separate change.
+- local: fullstack-developer
+  reason: 'Pre-existing shadow of nolte-engineering:fullstack-developer, surfaced by this check on the
+    day it was written (#1405) and deliberately left for its own change: the local agent is the one the
+    project''s recorded practice routes source-code work to, so retiring it needs the same verify-before-remove
+    parity pass #1405 ran for the two skills, not a drive-by deletion.'
+- local: frontend-usability-optimizer
+  reason: 'Pre-existing shadow of nolte-engineering:frontend-usability-optimizer, same finding and same
+    treatment as fullstack-developer above: measured by #1405, parity not yet checked, retirement owed
+    a separate change.'
