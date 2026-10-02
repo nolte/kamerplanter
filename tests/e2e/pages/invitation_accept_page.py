@@ -72,7 +72,7 @@ class InvitationAcceptPage(BasePage):
     #: can leave a session-scoped browser on English.
     RESULT_HEADINGS = {
         "success": (
-            "Einladung angenommen! Sie sind jetzt Mitglied.",
+            "Einladung angenommen! Du bist jetzt Mitglied.",
             "Invitation accepted! You are now a member.",
         ),
         "error": ("Einladung fehlgeschlagen", "Invitation failed"),

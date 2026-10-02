@@ -63,7 +63,7 @@ Dieser Testfall-Katalog deckt die gesamte Ernte-Funktionalität aus Nutzerperspe
 
 **Erwartetes Ergebnis:**
 - Seiten-Überschrift "Erntechargen" ist sichtbar
-- Einleitungstext "Erntechargen dokumentieren den Ernteprozess vom Nassgewicht bis zur Qualitätsbewertung und Ertragsanalyse. Klicken Sie auf eine Charge für Details." ist sichtbar
+- Einleitungstext "Erntechargen dokumentieren den Ernteprozess vom Nassgewicht bis zur Qualitätsbewertung und Ertragsanalyse. Klicke auf eine Charge für Details." ist sichtbar
 - DataTable enthält die vorhandene Charge mit den Spalten: "Chargen-ID", "Erntedatum", "Erntetyp", "Nassgewicht (g)", "Qualitätsstufe"
 - Zeile zeigt: "PLANT_001_20260215_001", "15.2.2026", Chip "Endernte", "450 g", Chip "B" (blau)
 - Schaltfläche "Erntecharge erstellen" ist sichtbar und aktiviert
@@ -602,7 +602,7 @@ Dieser Testfall-Katalog deckt die gesamte Ernte-Funktionalität aus Nutzerperspe
 3. Nutzer klickt im Browser auf "Zurück" oder navigiert zu einer anderen Seite
 
 **Erwartetes Ergebnis:**
-- Browser zeigt einen Bestätigungs-Dialog: "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?"
+- Browser zeigt einen Bestätigungs-Dialog: "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?"
 - Wenn Nutzer "Abbrechen" klickt: bleibt auf der Bearbeitungsseite, Daten sind noch im Formular
 - Wenn Nutzer "Verlassen" klickt: Navigation erfolgt, Änderungen gehen verloren
 

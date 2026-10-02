@@ -131,7 +131,7 @@ REQ-010 bildet das Fundament des integrierten Pflanzenschutzes: von Schädlings-
 1. Nutzer gibt in das Suchfeld einen nicht vorhandenen Begriff ein, z. B. "XYZUnbekannt"
 
 **Erwartete Ergebnisse**:
-- Die Tabelle zeigt den Text "Keine Ergebnisse für Ihre Suche gefunden"
+- Die Tabelle zeigt den Text "Keine Ergebnisse für deine Suche gefunden"
 - Die Tabelle zeigt keine Datenzeilen
 - Kein Absturz oder Fehlerdialog erscheint
 

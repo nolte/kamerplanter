@@ -1456,7 +1456,7 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 1. Nutzer wechselt im Tab "Erfahrungsstufe" auf "Fortgeschritten"
 
 **Erwartete Ergebnisse**:
-- Anstelle der Erfolgs-Snackbar "Gespeichert" erscheint eine Fehler-Snackbar (z.B. "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung." oder "Serverfehler. Bitte versuchen Sie es später erneut.")
+- Anstelle der Erfolgs-Snackbar "Gespeichert" erscheint eine Fehler-Snackbar (z.B. "Netzwerkfehler. Bitte überprüfe deine Verbindung." oder "Serverfehler. Bitte versuche es später erneut.")
 - Die UI behält den vorherigen Zustand bei (kein falscher Toggle-Zustand)
 
 **Nachbedingungen**:

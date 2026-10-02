@@ -121,7 +121,7 @@ Alle Test-IDs folgen dem Schema `TC-003-NNN`.
 2. Nutzer klickt auf einen anderen Tab (z.B. "Sorten") ohne zu speichern
 
 **Erwartetes Ergebnis:**
-- Browser-Bestätigungsdialog erscheint mit dem Text "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?"
+- Browser-Bestätigungsdialog erscheint mit dem Text "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?"
 - Wenn Nutzer "Abbrechen" klickt: Dialog schließt sich, Nutzer bleibt auf "Lebenszyklus-Konfiguration"-Tab mit der ungespeicherten Änderung
 - Wenn Nutzer "Bestätigen" klickt: Nutzer wechselt zum angeklickten Tab ohne zu speichern
 

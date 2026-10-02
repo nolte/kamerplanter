@@ -116,7 +116,7 @@ export default function ConsentBanner({
     >
       <Stack spacing={1.5}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          {t('consent.banner.title', 'Wir respektieren Ihre Privatsphäre')}
+          {t('consent.banner.title', 'Wir respektieren deine Privatsphäre')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {t(
