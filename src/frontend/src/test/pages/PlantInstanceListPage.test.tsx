@@ -103,7 +103,7 @@ describe('PlantInstanceListPage', () => {
   it('shows the introduction text once plants are loaded', async () => {
     renderWithProviders(<PlantInstanceListPage />);
     await waitFor(() => {
-      expect(screen.getByText(/Hier sehen Sie alle angelegten Pflanzen/)).toBeTruthy();
+      expect(screen.getByText(/Hier siehst du alle angelegten Pflanzen/)).toBeTruthy();
     });
   });
 

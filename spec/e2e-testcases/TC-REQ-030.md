@@ -1251,7 +1251,7 @@ REQ-030 schliesst die Zustellluecke von REQ-022 (Pflegeerinnerungen) und REQ-006
 1. Nutzer klickt auf einen anderen Tab in den Kontoeinstellungen (z.B. "Profil")
 
 **Erwartete Ergebnisse**:
-- Ein Bestaetgungsdialog erscheint: "Sie haben ungespeicherte Aenderungen. Moechten Sie die Seite wirklich verlassen?"
+- Ein Bestaetgungsdialog erscheint: "Du hast ungespeicherte Aenderungen. Moechtest du die Seite wirklich verlassen?"
 - Nutzer kann "Verlassen" oder "Bleiben" waehlen
 - Bei "Verlassen": Tab wechselt, Aenderungen werden verworfen
 - Bei "Bleiben": Nutzer bleibt auf dem Benachrichtigungseinstellungen-Tab

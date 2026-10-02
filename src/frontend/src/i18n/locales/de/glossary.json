@@ -72,7 +72,7 @@
     "dinov2": {
       "short": "KI-Bilderkennungsmodell von Meta — erkennt Pflanzen anhand visueller Merkmale",
       "long": "DINOv2 ist ein selbstlernend trainiertes KI-Modell von Meta, das Bilder in numerische Merkmalsvektoren (Embeddings) umwandelt. Kamerplanter vergleicht Fotos mit gespeicherten Referenzmerkmalen aller Pflanzenarten, um Pflanzen zu erkennen — ohne Cloud-Anbindung.",
-      "beginnerTip": "Sie müssen nichts konfigurieren — DINOv2 läuft lokal auf Ihrem Server und sendet keine Fotos nach außen.",
+      "beginnerTip": "Du musst nichts konfigurieren — DINOv2 läuft lokal auf deinem Server und sendet keine Fotos nach außen.",
       "category": "allgemein"
     },
     "confidence_score": {
@@ -84,8 +84,8 @@
       "category": "allgemein"
     },
     "embedding_adapter": {
-      "short": "Erkennungs-Verfahren — welcher Algorithmus Ihr Pflanzenfoto verarbeitet",
-      "long": "Ein Adapter ist die Software-Schicht, die ein Pflanzenfoto in vergleichbare Zahlenwerte (Merkmale) umrechnet. 'local_embedding' bedeutet: Das passiert auf Ihrem eigenen Server mit dem DINOv2-Modell, ohne externe Dienste.",
+      "short": "Erkennungs-Verfahren — welcher Algorithmus dein Pflanzenfoto verarbeitet",
+      "long": "Ein Adapter ist die Software-Schicht, die ein Pflanzenfoto in vergleichbare Zahlenwerte (Merkmale) umrechnet. 'local_embedding' bedeutet: Das passiert auf deinem eigenen Server mit dem DINOv2-Modell, ohne externe Dienste.",
       "beginnerTip": "Für die meisten Installationen ist 'local_embedding' die richtige Wahl.",
       "category": "allgemein"
     },

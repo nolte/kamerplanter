@@ -1038,7 +1038,7 @@ URL-Muster:
 1. Nutzer klickt in der Sidebar auf einen anderen Navigationspunkt (z.B. "Pflanzen")
 
 **Erwartete Ergebnisse**:
-- Browser zeigt einen Bestaetigungs-Dialog: "Sie haben ungespeicherte Aenderungen. Moechten Sie die Seite wirklich verlassen?"
+- Browser zeigt einen Bestaetigungs-Dialog: "Du hast ungespeicherte Aenderungen. Moechtest du die Seite wirklich verlassen?"
 - Nutzer klickt "Abbrechen": Browser bleibt auf der Tank-Seite
 - Nutzer klickt "Verlassen": Browser navigiert weg, Aenderungen gehen verloren
 
