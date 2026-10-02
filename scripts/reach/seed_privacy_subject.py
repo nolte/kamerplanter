@@ -103,6 +103,11 @@ DISTINCT_CONTENT: dict[str, Any] = {
     # requests; a unique request time is what tells the seeded one apart.
     "data_export_requests": lambda key: {"requested_at": _unique_timestamp(key)},
     "erasure_requests": lambda key: {"requested_at": _unique_timestamp(key)},
+    # An organisation carries its own name: the tenants rule renames name and slug
+    # only for a personal tenant, so a name derived from the subject would stay
+    # behind as residue. The export discloses both, which tells the seeded tenant
+    # apart without naming the subject.
+    "tenants": lambda key: {"name": f"Reach community garden {key}", "slug": f"reach-community-{key}"},
 }
 
 #: Filter fields that name an edge endpoint; a manifest source filtered on one is
@@ -428,29 +433,31 @@ class Seeder:
         )
         self.covered.add((users, "_key", "{}"))
 
-        # The subject's personal tenant carries the owner reference the tenants
-        # rule declares, and every tenant-scoped row points at it.
+        # The subject's (organisational) tenant carries the owner reference the
+        # tenants rule declares, and every tenant-scoped row points at it. It is
+        # organisational on purpose: since #1824 an account erasure erases a
+        # personal tenant together with its owner, also when other members exist,
+        # so rows in one would be gone, not anonymised, and the probes built on
+        # this seed measure the anonymisation rules.
         tenant_rules = [rule for rule in plan.anonymize if rule.collection == col.TENANTS]
         tenant_field = tenant_rules[0].user_field if tenant_rules else "owner_user_key"
         tenant = self.document(
             col.TENANTS,
             {
                 tenant_field: self.subject,
-                "name": f"{self.display_name}'s garden",
-                "slug": f"{self.subject}-garden",
-                "tenant_type": "personal",
+                # name and slug: DISTINCT_CONTENT["tenants"] (an organisation's own).
+                "tenant_type": "organization",
             },
             role=f"rule:{col.TENANTS}.{tenant_field}",
         )
         self.tenant_key = tenant["key"]
         self.covered.add((col.TENANTS, tenant_field, "{}"))
         # A second, active member of that tenant — another account, not the
-        # subject, so it is no row of the subject and not recorded. Since #1788 an
-        # account erasure erases a personal tenant the subject used alone through
-        # the tenant-erasure inventory; with a companion the tenant is kept and the
-        # account plan's own rules (anonymise the tenant, the tasks, the diary …)
-        # are what reaches the subject's rows in it — the case the probes built on
-        # this seed measure. The sole-member case has its own seed
+        # subject, so it is no row of the subject and not recorded. With a
+        # companion the organisational tenant is kept and the account plan's own
+        # rules (anonymise the tenant, the tasks, the diary …) are what reaches the
+        # subject's rows in it — the case the probes built on this seed measure.
+        # The personal-tenant case has its own seed
         # (``seed_tenant_for_erasure.py --personal-of``).
         # The companion is a real, active account: an account that no longer
         # exists or is itself being erased does not keep a tenant (#1788 review
