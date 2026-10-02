@@ -35,7 +35,8 @@ FRONTEND = "https://app.test"
 class _FakeSmtp:
     sent: list[tuple[str, str, str]] = []
 
-    def __init__(self, host: str, port: int) -> None:
+    def __init__(self, host: str, port: int, timeout: float | None = None) -> None:
+        self.timeout = timeout
         self.host = host
 
     def __enter__(self) -> _FakeSmtp:

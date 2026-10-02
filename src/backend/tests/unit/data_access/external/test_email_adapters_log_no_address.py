@@ -41,7 +41,8 @@ class _FakeSmtp:
 
     refuse = False
 
-    def __init__(self, host: str, port: int) -> None:
+    def __init__(self, host: str, port: int, timeout: float | None = None) -> None:
+        self.timeout = timeout
         self.host = host
 
     def __enter__(self) -> _FakeSmtp:
@@ -194,3 +195,20 @@ class TestConsoleAdapterStartupWarning:
         assert warned is warns
         events = [(entry["event"], entry["log_level"]) for entry in logs]
         assert events == ([("email_adapter_console_in_production", "warning")] if warns else [])
+
+
+def test_the_smtp_connection_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``smtplib.SMTP`` has no default timeout: a hung server would hold a worker thread for good (#1890 review)."""
+    seen: list[float | None] = []
+
+    class _Probe(_FakeSmtp):
+        def __init__(self, host: str, port: int, timeout: float | None = None) -> None:
+            super().__init__(host, port, timeout)
+            seen.append(timeout)
+
+    monkeypatch.setattr("app.data_access.external.smtp_email_adapter.smtplib.SMTP", _Probe)
+    adapter = SmtpEmailAdapter(host="smtp.invalid", port=587, username="u", password="p", from_email="a@example.com")
+
+    adapter.send_notification_email("to@example.org", "subject", "<p>body</p>")
+
+    assert seen == [10]
