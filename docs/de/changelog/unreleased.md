@@ -48,12 +48,14 @@
 
 ### Frontend
 
+- Admin: Nach dem Löschen einer Organisation meldet die Oberfläche „Löschung angenommen“ statt „Organisation gelöscht“ — die Löschung läuft im Hintergrund (Issue #1792)
 - Pflanzinstanzen werden überall mit einem sprechenden Namen angezeigt (z. B. `BASIL-001 (Basilikum – Genovese)`) statt nur der technischen Instanz-ID; die Instanz-ID bleibt als sekundäre Information erhalten
 - Aufgaben: Die Formulare in den Tabs **Bearbeiten** und **Abschließen** zeigen Validierungsfehler jetzt als Hinweistext direkt am betroffenen Feld statt als kurzlebige Browser-Sprechblase (`noValidate`)
 - Konto: Die Seite zur E-Mail-Bestätigung bietet auch im Fehlerfall (ungültiger oder abgelaufener Link) einen **Anmelden**-Button — vorher war diese Seite eine Sackgasse
 
 ### Backend
 
+- **BREAKING (API):** Die Mandantenlöschung ist asynchron (Issue #1792, REQ-024 AK-53). `DELETE /api/v1/tenants/{slug}` und `DELETE /api/v1/admin/platform/tenants/{key}` antworten jetzt mit `202 Accepted` und einem Body `{tenant_key, status, requested_at, message}` (zuvor `200` mit `{"message": "Tenant deleted"}` bzw. `204` ohne Body). Die Anfrage prüft die Berechtigung und den Step-up, legt den Löschungs-Datensatz an und friert den Mandanten ein (Mitgliedschaften deaktiviert); ein Celery-Task (`app.tasks.tenant_tasks.run_tenant_erasure`) löscht danach in Stapeln zu je 1000 Datensätzen, jeder in einer eigenen ArangoDB-Transaktion, und meldet zwischen den Stapeln ein Lebenszeichen am Datensatz. Die Fehlerantworten `500 TENANT_ERASURE_INCOMPLETE` und `502` der Lösch-Endpunkte entfallen — Fehler des Laufs stehen am Datensatz und werden vom täglichen Lauf wiederholt; ab dem dritten erfolglosen Versuch erscheint das Log-Ereignis `tenant_erasure.escalated`. Aufrufer, die auf einen abgeschlossenen Löschvorgang warteten, müssen den Mandanten als eingefroren behandeln. Beim Deploy bereits laufende Löschungen übernimmt der tägliche Lauf nach sechs Stunden ohne Lebenszeichen
 - Plant-Instance- und Pflanzdurchlauf-Pflanzen-Responses enthalten eingebettete `species`- und `cultivar`-Kurzinfos (Denormalisierung), damit das Frontend lesbare Namen ohne zusätzliche Abfragen bilden kann
 - Ernte: `batch_id` ist in API-Responses nullbar (`string | null`) statt einer leeren Zeichenkette; der Eindeutigkeitsindex auf `harvest_batches.batch_id` ist `unique + sparse`. Bestandsdaten werden von Migration `v0030` angepasst
 - Pflegeerinnerungen: Das Abschließen einer fälligen Gieß-Aufgabe legt die Folgeaufgabe unmittelbar an — zuvor entstand sie erst beim nächtlichen Planungslauf

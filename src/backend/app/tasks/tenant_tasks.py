@@ -36,3 +36,19 @@ def resume_tenant_erasures() -> dict:
     applies the backoff and holds every record while the deployment cannot erase.
     """
     return get_tenant_service().resume_tenant_erasures(datetime.now(UTC))
+
+
+@celery_app.task(name="app.tasks.tenant_tasks.run_tenant_erasure")
+def run_tenant_erasure(record_key: str) -> dict:
+    """Run one accepted tenant deletion (#1792), dispatched by ``DELETE /tenants/{slug}``.
+
+    The request recorded the deletion and froze the tenant, then answered
+    ``202 Accepted``; this task claims the record atomically and erases in
+    bounded batches, refreshing the claim between them. A second dispatch, the
+    daily :func:`resume_tenant_erasures` beat and a still-live run all find the
+    claim held and do nothing; a run that crashed is claimed again once its
+    heartbeat is stale. A failed run is recorded on the record (backoff,
+    escalation), never raised — the broker must not redeliver a deletion that the
+    record already retries.
+    """
+    return get_tenant_service().run_tenant_erasure_task(record_key)

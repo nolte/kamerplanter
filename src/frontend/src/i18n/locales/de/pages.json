@@ -768,7 +768,7 @@
       "tenantDeleteSlugHelper": "Tippe den Kurznamen „{{slug}}“ ein, um zu bestätigen, welche Organisation du löschst.",
       "tenantDeletePasswordLabel": "Dein aktuelles Passwort",
       "tenantDeletePasswordHelper": "Zur Sicherheit bestätigst du das Löschen mit deinem Passwort.",
-      "adminTenantDeleted": "Organisation gelöscht",
+      "adminTenantDeletionAccepted": "Löschung angenommen: Die Organisation ist eingefroren, ihre Daten werden im Hintergrund gelöscht",
       "adminDeleteUser": "Benutzer löschen",
       "adminDeleteUserConfirm": "Möchtest du den Benutzer \"{{name}}\" ({{email}}) und alle zugehörigen Daten wirklich unwiderruflich löschen?",
       "adminUserDeleted": "Benutzer gelöscht",

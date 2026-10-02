@@ -53,8 +53,11 @@ describe('tenants endpoints — tenant CRUD', () => {
   });
 
   it('deleteTenant deletes tenant by slug and carries the step-up (#1791)', async () => {
-    client.delete.mockResolvedValue({ data: undefined });
-    await tenants.deleteTenant('org', { confirm_slug: 'org', password: 'pw' });
+    const accepted = { tenant_key: 't-1', status: 'in_progress', requested_at: null, message: 'ok' };
+    client.delete.mockResolvedValue({ data: accepted });
+    await expect(tenants.deleteTenant('org', { confirm_slug: 'org', password: 'pw' })).resolves.toEqual(
+      accepted,
+    );
     expect(client.delete).toHaveBeenCalledWith('/tenants/org', {
       data: { confirm_slug: 'org', password: 'pw' },
     });

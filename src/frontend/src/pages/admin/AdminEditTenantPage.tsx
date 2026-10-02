@@ -177,7 +177,7 @@ export default function AdminEditTenantPage() {
     if (!tenant || isPlatform) return;
     await deleteAdminTenant(tenant.key, stepUp);
     setConfirmDelete(false);
-    enqueueSnackbar(t('pages.auth.adminTenantDeleted'), { variant: 'success' });
+    enqueueSnackbar(t('pages.auth.adminTenantDeletionAccepted'), { variant: 'success' });
     navigate('/settings#platform');
   };
 

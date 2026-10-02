@@ -49,7 +49,12 @@ from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_pest_inference_service import FakePestInferenceService, route_pest_requests_to
 from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
-from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, authorized, tenant_service_for_deletion
+from tests.support.tenant_erasure_doubles import (
+    RecordingTenantErasureExecutor,
+    authorized,
+    delete_and_run,
+    tenant_service_for_deletion,
+)
 from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
 TOKEN = "svc-token-1759"
@@ -281,7 +286,7 @@ def test_tenant_deletion_deletes_the_tenants_prototypes_including_orphans(pest_i
     service = _tenant_service(dependencies.get_pest_prototype_store(), repo)
 
     with structlog.testing.capture_logs() as logs:
-        assert service.delete_tenant(TENANT, **authorized(TENANT)).status == "completed"
+        assert delete_and_run(service, TENANT, **authorized(TENANT)).status == "completed"
 
     assert sorted((r["source"], r["source_record_id"]) for r in pest_index.rows) == [
         ("gbif", "c-promoted"),
@@ -302,11 +307,12 @@ def test_a_failing_prototype_delete_keeps_the_tenant_and_its_data(pest_index):
     repo = _repo()
     service = _tenant_service(dependencies.get_pest_prototype_store(), repo, storage=storage)
 
-    with pytest.raises(ExternalSourceError) as caught:
-        service.delete_tenant(TENANT, **authorized(TENANT))
+    # Since #1792 the failure happens in the worker: recorded and retried, not an HTTP 502.
+    record = delete_and_run(service, TENANT, **authorized(TENANT))
 
-    assert caught.value.status_code == 502
-    assert TENANT not in str(caught.value)
+    assert record.status == "partially_completed"
+    assert (record.error_message or "").startswith("Attempt 1 failed (ExternalSourceError)")
+    assert TENANT not in (record.error_message or "")
     assert service._tenant_erasure_executor.plans == []
     storage.delete_prefix.assert_not_awaited()
     assert "c-promoted" in repo.docs

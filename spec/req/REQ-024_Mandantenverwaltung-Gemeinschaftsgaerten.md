@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.10 (Datenschutzplan-Entscheidungen Batch 4-6: Q-O1/Q-L1/Q-L2/Q-L3, #1792/#1805/#1878)
+Version: 1.11 (Q-O1 umgesetzt: asynchrone Mandantenlöschung, #1792; v1.10 Datenschutzplan-Entscheidungen Batch 4-6: Q-O1/Q-L1/Q-L2/Q-L3, #1792/#1805/#1878)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.11 | 2026-10-02 | **#1792 umgesetzt (AK-53, brechende API-Änderung):** `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` antworten `202 Accepted` (Körper `{tenant_key, status, requested_at, message}`) statt `200`/`204`. Die Anfrage prüft Berechtigung und Step-up, legt den Löschnachweis an und friert den Mandanten ein; der Celery-Task `run_tenant_erasure` beansprucht den Nachweis atomar und löscht in Stapeln zu 1000 Zeilen (eine ArangoDB-Transaktion je Stapel statt einer Transaktion über alle ~95 Collections), schreibt zwischen den Stapeln einen Heartbeat (bedingt auf den eigenen Claim-Stempel; ein verlorener Claim beendet den Lauf ohne Fehlereintrag) und eskaliert ab dem dritten erfolglosen Versuch (Log-Ereignis `tenant_erasure.escalated`, `escalated_at` am Nachweis). **Engere Lesart (bewusst):** Die Gnadenfrist AK-52 ist **weiterhin nicht umgesetzt** — AK-53 gilt für den heutigen Sofort-Pfad; sobald AK-52 gebaut ist, löst deren Frist-Task denselben Task aus. Der Weg über `DELETE /admin/platform/users/{key}` bleibt synchron in der Anfrage (die Kontolöschung braucht das Ergebnis der Mandantenlöschung, bevor ihr eigener Plan läuft), nutzt aber dieselben begrenzten Stapel und den Heartbeat; die Umstellung dieses Wegs ist als Folge-Issue #1949 erfasst. |
 | 1.10 | 2026-09-26 | **Datenschutzplan-Entscheidungen, Batch 4–6 (#1792, #1805, #1878):** Mandantenlöschung wird zusätzlich zur v1.9-Gnadenfrist (AK-52) **asynchron** (202 Accepted, Celery-Batches mit Heartbeat und Eskalation) — Betreiberentscheidung, **noch nicht umgesetzt**, Breaking-Change-Kennzeichnung (Q-O1, **AK-53**). §2 dokumentiert die Datenkorrektur für v0004-Altstempel auf globalen Seed-Zeilen von `fertilizers`/`nutrient_plans`/`task_templates` (Q-L1/Q-L2, **AK-54**) und für verwaiste globale Referenzen aus den #1871-Lücken (Q-L3, **AK-55**). |
 | 1.9 | 2026-09-26 | **Datenschutzplan-Betreiberentscheidungen, Batch 1-3 (#1790, #1793; reine Spec-Änderung, Umsetzung folgt in eigenen PRs).** **#1790:** AK-16 und die API-Tabelle (§API) beschrieben die Mandantenlöschung noch als Soft-Delete (`status: deleted`) — seit #1769 löscht sie über das Mandanten-Löschinventar. Beide auf das tatsächliche/gewollte Verhalten nachgeführt (AK-44d beschrieb das bereits korrekt). **Q-O2 (#1790):** neue, noch nicht umgesetzte Anforderung **AK-52** — die Mandantenlöschung erhält eine Gnadenfrist analog zur 90-Tage-Frist der Kontolöschung (NFR-011 R-01), statt sofort zu löschen. **Q-R4 (#1793):** `tenant_erasure_records` bekommt eine Aufbewahrungsfrist, siehe NFR-011 R-06a. |
 | 1.8 | 2026-09-25 | **Mandant löschen verlangt beide Achsen und einen Step-up (#1791).** Seit #1769 löscht die Mandantenlöschung jede mandantenbezogene Collection unwiderruflich. Bis v1.7 hing sie allein an **Verwaltung** — eine Schriftführerin mit der Rolle Beobachter konnte damit einen ganzen Gemeinschaftsgarten mit einer Anfrage löschen. Neu: **Verwaltung und Leitung** (Schnittmenge, keine Vermischung der Achsen — die Irreversibilitätsgrenze aus REQ-049 §2.3 gilt auch hier), dazu ein **Step-up** im Anfragekörper: der Kurzname des Mandanten wird zurückgetippt, und ein Konto mit lokalem Passwort gibt es erneut ein; ein nur föderiert angemeldetes Konto bestätigt über den Kurznamen (Muster der Kontolöschung, REQ-394). Eigentümerschaft (`owner_user_key`) ist kein Recht und spielt keine Rolle. Dienstkonten und API-Schlüssel (auch die eines menschlichen Kontos) löschen nie einen Mandanten. Der Plattform-Admin-Weg (`DELETE /admin/platform/tenants/{key}`) verlangt denselben Step-up. Geprüft wird im Dienst, nicht nur am Router, sodass beide Wege dieselbe Regel haben; der Löschnachweis hält `step_up` und den Anfragenden als salzgehashte Log-Referenz fest. §1a.2, Rollentabelle §1, API §5 und **AK-44d** nachgeführt. |
@@ -162,20 +163,22 @@ Diese Aktionen hängen an der Zusatzberechtigung **Verwaltung** (REQ-049 §2.4) 
 **Eine Ausnahme: Mandant löschen (#1791).** Die Löschung vernichtet seit #1769 alle Daten des Mandanten unwiderruflich und liegt damit zugleich auf der Irreversibilitätsgrenze der fachlichen Achse (REQ-049 §2.3). Sie verlangt deshalb **Verwaltung und Leitung** — beide, nicht eine von beiden — und einen **Step-up** im Anfragekörper: `confirm_slug` (der Kurzname des Mandanten, zurückgetippt) und, bei einem Konto mit lokalem Passwort, `password` (das aktuelle Passwort). Ein nur föderiert angemeldetes Konto hat kein lokales Geheimnis und bestätigt über den Kurznamen (wie die Kontolöschung, REQ-394). Antworten: `403` ohne beide Achsen, als Dienstkonto oder mit einem API-Schlüssel (auch dem eines menschlichen Kontos — ein Schlüssel kann sich nicht erneut anmelden), `422` bei falschem Kurznamen, `401` bei fehlendem oder falschem Passwort — jeweils bevor sich etwas ändert. Eigentümerschaft (`owner_user_key`) ist Herkunft, kein Recht: Sie genügt nicht und wird nicht verlangt, sonst wäre ein Garten unlöschbar, sobald sein Gründer ihn verlässt. Der Plattform-Admin löscht über `DELETE /admin/platform/tenants/{key}` mit demselben Step-up.
 
 <!-- Quelle: Datenschutzplan Q-O1, #1792 -->
-**Geplant: asynchrone Ausführung des Mandanten-Löschinventars (Betreiberentscheidung
-2026-09-26, #1792). Noch nicht umgesetzt — Breaking-Change-Ankündigung.** Das gilt
-zusätzlich zur AK-52-Gnadenfrist (Q-O2, #1790) und betrifft den Schritt **nach** deren
-Ablauf: Heute läuft die eigentliche Löschung synchron im HTTP-Handler (bzw. im
-Gnadenfrist-Task, sobald AK-52 gebaut ist) — der externe Phase-0-Schritt, dann eine
-einzelne ArangoDB-Stream-Transaktion über ~95 inventarisierte Collections. Bei einem
+**Asynchrone Ausführung des Mandanten-Löschinventars (Betreiberentscheidung
+2026-09-26, #1792) — umgesetzt am 2026-10-02 (v1.11), brechende API-Änderung.** Das gilt
+zusätzlich zur AK-52-Gnadenfrist (Q-O2, #1790, **noch nicht umgesetzt**) und betrifft den
+Schritt **nach** deren Ablauf (bis AK-52 gebaut ist: unmittelbar nach der Annahme). Bis v1.10
+lief die eigentliche Löschung synchron im HTTP-Handler — der externe Phase-0-Schritt, dann eine
+einzelne ArangoDB-Stream-Transaktion über ~95 inventarisierte Collections (gemessen: bei
+200 000 Zeilen und 100 000 Kanten über 198 s, die Gegenstelle brach bei 60 s ab und auch der
+Abbruch der Transaktion schlug fehl). Bei einem
 großen Mandanten kann diese Transaktion die Server-Limits
 (`--transaction.streaming-max-transaction-size`, Idle-Timeout) überschreiten; der Fehler
 ist deterministisch, jeder tägliche Retry scheitert gleich, der Mandant bleibt eingefroren
 (`partially_completed`), der aufrufende Proxy antwortet zwischenzeitlich mit 504.
-Beschlossen:
+Umgesetzt:
 
 - `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` antworten **`202
-  Accepted`** statt heute `200`/`204` — der Löschnachweis wird angelegt und der Mandant
+  Accepted`** statt zuvor `200`/`204` — der Löschnachweis wird angelegt und der Mandant
   eingefroren (Memberships deaktiviert), aber die Löschung selbst läuft danach.
 - Ein **Celery-Task** führt die Löschung in **begrenzten, idempotenten Batches** aus
   (Elternschlüssel sind bereits am Löschnachweis persistiert, #1769); kein einzelner
@@ -185,13 +188,15 @@ Beschlossen:
   nur langsamen Laufs erneut beansprucht.
 - Ein deterministisch scheiternder Batch **eskaliert** nach N Versuchen (Alarmierung des
   Betreibers), statt täglich lautlos denselben Fehler zu wiederholen.
-- Derselbe Mechanismus bedient auch den Weg über `DELETE /admin/platform/users/{key}`
-  (REQ-025 AK-PT-01..03), soweit er die Löschung eines persönlichen Mandanten auslöst.
+- Der Weg über `DELETE /admin/platform/users/{key}` (REQ-025 AK-PT-01..03) löscht einen
+  persönlichen Mandanten weiterhin **synchron** in der Anfrage, aber über dieselben
+  begrenzten Stapel und denselben Heartbeat; ein `202` für diesen Weg ist als Folge-Issue
+  #1949 offen (engere Lesart).
 
 Dies ist eine **brechende API-Änderung** (Antwortcode und -semantik ändern sich für jeden
-bestehenden Aufrufer, der auf einen synchronen Abschluss wartet) und wird erst mit dem
-Release umgesetzt, das §3.2 `TenantService.delete_tenant`, §3.6 Celery-Tasks und **AK-53**
-tatsächlich baut. Refs #1769, REQ-025.
+bestehenden Aufrufer, der auf einen synchronen Abschluss wartet); sie ist im Changelog als
+solche gekennzeichnet. Ein Lauf, der beim Deploy bereits läuft, wird vom täglichen
+`resume_tenant_erasures`-Lauf nach `STALE_AFTER_HOURS` (6 h) ohne Heartbeat übernommen. Refs #1769, REQ-025.
 <!-- /Quelle: Datenschutzplan Q-O1, #1792 -->
 
 | Aktion | Verwaltung | ohne Verwaltung |
@@ -1171,7 +1176,7 @@ Globale Ressourcen bleiben unter dem bestehenden Pfad:
 | POST | `/tenants` | Neuen Org-Tenant erstellen | Ja |
 | GET | `/tenants/{slug}` | Tenant-Details abrufen | Alle Rollen |
 | PATCH | `/tenants/{slug}` | Tenant aktualisieren | Verwaltung |
-| DELETE | `/tenants/{slug}` | Tenant löschen (Erasure über das Mandanten-Löschinventar, #1769 — **kein** Soft-Delete, Nachführung #1790); Körper `{confirm_slug, password?}`. Heute synchron im Request; **geplant `202 Accepted`** asynchron über Celery-Batches (Q-O1, #1792, **noch nicht umgesetzt**, Breaking Change — siehe §1a.2) | Verwaltung **und** Leitung + Step-up (§1a.2) |
+| DELETE | `/tenants/{slug}` | Tenant löschen (Erasure über das Mandanten-Löschinventar, #1769 — **kein** Soft-Delete, Nachführung #1790); Körper `{confirm_slug, password?}`. Antwortet **`202 Accepted`** (Körper `{tenant_key, status, requested_at, message}`): die Löschung ist angenommen und der Mandant eingefroren, ausgeführt wird sie danach asynchron über Celery-Batches (Q-O1, #1792, Breaking Change gegenüber `200` — siehe §1a.2) | Verwaltung **und** Leitung + Step-up (§1a.2) |
 
 **Router: `/api/v1/tenants/{slug}/members`** — Mitgliederverwaltung:
 
@@ -1224,7 +1229,7 @@ class PlantInstanceRepository:
 |------|----------|-------------|
 | `cleanup_expired_invitations` | Täglich 02:00 | Setzt abgelaufene Einladungen auf `status: expired` |
 | `cleanup_inactive_memberships` | Wöchentlich | Warnung per E-Mail bei Memberships ohne Login > 90 Tage |
-| `run_tenant_erasure_batches` <!-- Q-O1, #1792, geplant --> | Bei `202`-Annahme einer Mandantenlöschung, danach bis Abschluss | **Nicht implementiert** (#1792): löscht einen eingefrorenen Mandanten in begrenzten, idempotenten Batches, schreibt einen Heartbeat zwischen den Batches und eskaliert nach N deterministisch gescheiterten Versuchen (§1a.2) |
+| `run_tenant_erasure` (`app.tasks.tenant_tasks`) <!-- Q-O1, #1792 --> | Bei `202`-Annahme einer Mandantenlöschung (`.delay`); Auffangnetz: der tägliche `resume_tenant_erasures` (04:30 UTC) beansprucht einen Nachweis ohne frischen Heartbeat | Beansprucht den Nachweis atomar (`claim_for_run`), löscht den eingefrorenen Mandanten in begrenzten, idempotenten Stapeln zu je 1000 Zeilen (eine Transaktion je Stapel), schreibt zwischen den Stapeln einen Heartbeat (`heartbeat`, bedingt auf den eigenen Claim-Stempel) und eskaliert ab dem 3. erfolglosen Versuch (`tenant_erasure.escalated`, `escalated_at`); Fehler werden am Nachweis vermerkt, nie geworfen (§1a.2) |
 
 ## 4. Frontend
 
@@ -1511,7 +1516,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
         Ist-Zustands.
 <!-- /Quelle: #1790 -->
 <!-- Quelle: Datenschutzplan Q-O1, #1792 -->
-| AK-53 | **Nicht implementiert** (#1792): Nach Ablauf der AK-52-Gnadenfrist antworten `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` mit `202 Accepted`, der Mandant ist eingefroren (Memberships deaktiviert, Löschnachweis angelegt), und ein Celery-Task führt das Mandanten-Löschinventar in begrenzten, idempotenten Batches mit fortlaufendem Heartbeat aus. Ein deterministisch scheiternder Batch eskaliert nach N Versuchen, statt täglich lautlos zu wiederholen. Dies ist eine brechende API-Änderung gegenüber dem heutigen synchronen `200`/`204`-Vertrag (§1a.2, §3.6). | Unit + Integration |
+| AK-53 | **Umgesetzt (v1.11, #1792; Gnadenfrist AK-52 weiterhin offen — AK-53 gilt für den heutigen Sofort-Pfad):** Nach Annahme (bzw. künftig nach Ablauf der AK-52-Gnadenfrist) antworten `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` mit `202 Accepted`, der Mandant ist eingefroren (Memberships deaktiviert, Löschnachweis angelegt), und ein Celery-Task führt das Mandanten-Löschinventar in begrenzten, idempotenten Batches mit fortlaufendem Heartbeat aus. Ein deterministisch scheiternder Batch eskaliert nach N = 3 Versuchen (`TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS`), statt täglich lautlos zu wiederholen. Dies ist eine brechende API-Änderung gegenüber dem bis v1.10 synchronen `200`/`204`-Vertrag (§1a.2, §3.6). | Unit (`test_tenant_erasure_async.py`, `test_tenant_delete_authorization.py`) + Integration (`test_tenant_erasure_batches.py`, `test_tenant_erasure_reach.py`) |
 <!-- /Quelle: Datenschutzplan Q-O1, #1792 -->
 <!-- Quelle: Datenschutzplan Q-L1/Q-L2, #1805 -->
 | AK-54 | Eine Migration setzt v0004-Altstempel auf globalen Seed-Zeilen von `fertilizers`, `nutrient_plans` und `task_templates` auf `tenant_key == ""` zurück (Form wie `v0036`/`v0038`); ihre Vorab-Prüfung läuft ausschließlich gegen einen Dev-Cluster oder ein wiederhergestelltes Backup, nie gegen die Produktionsdatenbank direkt; ein Task-Template eines erhaltenen System-Workflows wird mit ihm zurückgesetzt | Integration |
