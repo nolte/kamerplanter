@@ -1525,7 +1525,9 @@ class PrivacyService:
                 enforcement_status="enforced",
                 exception_note=(
                     "An account with a linked login provider (e.g. Google, GitHub, OIDC) is never removed by this "
-                    "rule, whether or not its e-mail address was confirmed: its owner can still sign in."
+                    "rule, whether or not its e-mail address was confirmed: its owner can still sign in. "
+                    "An account whose registration time is missing or unreadable is likewise never removed by "
+                    "this rule (it is counted and reported to the operator instead)."
                 ),
             ),
             RetentionCategoryInfo(
