@@ -1,5 +1,8 @@
+from datetime import datetime
+
 from arango.database import StandardDatabase
 
+from app.common.datetimes import ensure_aware_utc
 from app.common.enums import AdminScope
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -223,3 +226,49 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
         )
         return list(cursor)
+
+    def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
+        """Active member account key -> start of the membership (#1824); same population as ``active_member_user_keys``.
+
+        An account holding several active memberships of the tenant reports the
+        **latest** start, so a join is never hidden behind an older row.
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false
+              RETURN { user_key: m.user_key, joined_at: m.joined_at }
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        joined: dict[str, datetime | None] = {}
+        for row in cursor:
+            at = _parse_instant(row.get("joined_at"))
+            current = joined.get(row["user_key"])
+            joined[row["user_key"]] = at if row["user_key"] not in joined else _later(current, at)
+        return joined
+
+
+def _later(first: datetime | None, second: datetime | None) -> datetime | None:
+    """The later of two optional instants; ``None`` (unknown) on either side stays unknown."""
+    if first is None or second is None:
+        return None
+    return max(first, second)
+
+
+def _parse_instant(value: object) -> datetime | None:
+    """A stored start as an aware instant; ``None`` when absent or unreadable (#1824).
+
+    An unreadable value must not raise: it would fail every retry of the account
+    erasure that reads it. ``None`` is the "start not recorded" answer the caller
+    already handles.
+    """
+    if not isinstance(value, str | datetime) or value == "":
+        return None
+    try:
+        return ensure_aware_utc(value)
+    except ValueError:
+        return None

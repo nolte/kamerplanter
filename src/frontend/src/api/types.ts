@@ -4917,6 +4917,18 @@ export interface TenantDeleteRequest {
   step_up_token?: string;
 }
 
+export interface ErasurePreviewTenant {
+  /** The caller's own tenant name — never another member's. */
+  name: string;
+  /** How many other active members lose the tenant with it; a count only. */
+  other_member_count: number;
+}
+
+/** GET /privacy/erasure-preview (REQ-025 AK-FK-06, #1824). */
+export interface ErasurePreview {
+  personal_tenants: ErasurePreviewTenant[];
+}
+
 /**
  * Step-up body of the three account-erasure routes (#1813, #1814):
  * `DELETE /users/me`, `POST /privacy/erasure`, `DELETE /admin/platform/users/{key}`.

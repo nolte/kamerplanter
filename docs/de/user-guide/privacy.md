@@ -273,7 +273,7 @@ Du hast das Recht auf Löschung deiner Daten.
 ### Ablauf der Löschung
 
 1. Zu **Datenschutz** > Tab **Konto löschen** navigieren
-2. Auf **Konto löschen** klicken
+2. Auf **Konto löschen** klicken — schon im Tab und noch einmal im Dialog siehst du, welche persönlichen Gärten mit deinem Konto gelöscht werden und wie viele weitere Mitglieder das betrifft
 3. Im Bestätigungsdialog deine **eigene E-Mail-Adresse** erneut eintippen. Hat dein Konto ein **lokales Passwort**, zusätzlich dein **aktuelles Passwort** eingeben (zur Autorisierung der Löschung). Meldest du dich über Google oder einen generischen OIDC-Anbieter an, klickst du stattdessen auf **Erneut anmelden** und bestätigst dich frisch beim Anbieter; nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, klickst du auf **Code per E-Mail senden** und gibst den zugeschickten Bestätigungscode ein.
 4. Im Bestätigungsdialog auf **Ja, Konto löschen** klicken
 
@@ -312,7 +312,7 @@ Nach 90 Tagen:
     Das Cannabisgesetz (CanG) und das Pflanzenschutzmittelgesetz (PflSchG) schreiben vor, dass Ernte- und Behandlungsdaten für Prüf- und Nachweiszwecke aufbewahrt werden müssen. Dein Name und deine Kontaktdaten werden entfernt, die Mengen- und Behandlungsdaten bleiben als anonymisierte Einträge erhalten. Dies ist rechtlich durch Art. 17 Abs. 3 lit. b DSGVO gedeckt.
 
 !!! danger "Dein persönlicher Garten geht mit"
-    Bist du das einzige aktive Mitglied deines persönlichen Gartens, wird er mit allem, was darin ist, unwiderruflich gelöscht — außer jemand anderes ist auch Mitglied darin; dann bleibt er für diese Person erhalten, ohne deinen Namen. Details dazu: [Datenaufbewahrung — Was mit deinem persönlichen Garten passiert](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
+    Dein persönlicher Garten wird mit allem, was darin ist, unwiderruflich gelöscht — auch wenn weitere Mitglieder darin sind; ihre Einträge gehen dann mit. Diese Mitglieder bekommen eine E-Mail, sobald du die Löschung beantragst, und können bis zur endgültigen Löschung ihre Daten sichern. Die E-Mail nennt weder deinen Namen noch deine Adresse. Nur wenn nach deinem Antrag noch jemand neu beitritt, bleibt der Garten für diese Person erhalten, ohne deinen Namen. Details dazu: [Datenaufbewahrung — Was mit deinem persönlichen Garten passiert](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
 
 ---
 

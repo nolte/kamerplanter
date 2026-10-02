@@ -273,7 +273,7 @@ You have the right to erasure of your data.
 ### Deletion Process
 
 1. Navigate to **Privacy** > the **Delete Account** tab
-2. Click **Delete Account**
+2. Click **Delete Account** — already on the tab, and again in the dialog, you see which personal gardens are deleted with your account and how many other members this affects
 3. In the confirmation dialog, type your **own email address** back in. For accounts with a **local password**, also enter your **current password** (to authorize the deletion). If you sign in through Google or a generic OIDC provider, you instead click **Sign in again** and confirm with a fresh sign-in at that provider; only if you sign in exclusively through GitHub or Apple, click **Send code by email** and enter the confirmation code it mails you.
 4. In the confirmation dialog, click **Yes, Delete Account**
 
@@ -312,7 +312,7 @@ After 90 days:
     The CanG (German Cannabis Act) and the PflSchG (German Plant Protection Act) require that harvest and treatment data be retained for audit and verification purposes. Your name and contact details are removed; the quantity and treatment data remains as anonymized records. This is legally covered by GDPR Art. 17(3)(b).
 
 !!! danger "Your personal garden is deleted with it"
-    If you are the only active member of your personal garden, it is irreversibly deleted with everything in it — unless someone else is also a member of it; then it is kept for them without your name. Details: [Data Retention — What happens to your personal garden](../guides/data-retention.md#what-happens-to-your-personal-garden).
+    Your personal garden is irreversibly deleted with everything in it — even when other members are in it; their entries go with it. Those members get an email as soon as you request the deletion and can secure their data until the final deletion. The email names neither you nor your address. Only if someone newly joins after your request is the garden kept for that person, without your name. Details: [Data Retention — What happens to your personal garden](../guides/data-retention.md#what-happens-to-your-personal-garden).
 
 ---
 

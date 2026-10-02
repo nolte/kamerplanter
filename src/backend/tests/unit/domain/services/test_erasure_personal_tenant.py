@@ -147,9 +147,9 @@ class TestTheAccountErasureTakesThePersonalTenant:
             (PERSONAL, "erased", TenantErasureEngine.record_key(PERSONAL))
         ]
 
-    async def test_a_personal_tenant_someone_else_uses_is_kept_and_the_reason_recorded(self):
+    async def test_a_personal_tenant_a_late_joiner_uses_is_kept_and_the_reason_recorded(self):
         repo = FakeErasureRepo()
-        tenants = FakePersonalTenants(PERSONAL, others={PERSONAL: 1})
+        tenants = FakePersonalTenants(PERSONAL, late_joiners={PERSONAL: 1})
 
         await _service(repo, RecordingErasureExecutor(), tenants).erase_account_now(
             USER, origin="platform_admin", now=NOW
@@ -159,7 +159,7 @@ class TestTheAccountErasureTakesThePersonalTenant:
         assert tenants.erased == []
         assert request.status == "completed"
         (outcome,) = request.personal_tenants
-        assert (outcome.outcome, bool(outcome.reason)) == ("retained_other_members", True)
+        assert (outcome.outcome, bool(outcome.reason)) == ("retained_late_joiner", True)
 
     async def test_a_deployment_that_cannot_erase_a_tenant_changes_nothing(self):
         repo, executor = FakeErasureRepo(), RecordingErasureExecutor()
@@ -308,14 +308,26 @@ class TestTheTenantServiceDecides:
             TenantErasureEngine.record_key(PERSONAL),
         )
 
-    def test_another_active_member_keeps_the_tenant(self):
+    def test_other_active_members_do_not_keep_the_tenant(self):
+        """#1824 Q-E1 — erasure together: a personal tenant goes with its owner, members or not."""
+        tenant = _personal()
+        service, delete = _tenant_service(tenant=tenant, members=[USER, "u-2", "u-3"])
+
+        outcome = service.erase_personal_tenant_of(USER, PERSONAL, now=NOW)
+
+        delete.assert_called_once_with(PERSONAL, tenant, now=NOW)
+        assert outcome.outcome == "erased"
+
+    def test_only_a_member_who_joined_after_the_first_read_keeps_the_tenant(self):
+        """REQ-025 AK-IE-07 — the late joiner is the one case left of the retained branch."""
         service, delete = _tenant_service(tenant=_personal(), members=[USER, "u-2"])
+        service._membership_repo.active_member_user_keys.side_effect = [[USER, "u-2"], [USER, "u-2", "u-late"]]
 
         outcome = service.erase_personal_tenant_of(USER, PERSONAL, now=NOW)
 
         delete.assert_not_called()
-        assert outcome.outcome == "retained_other_members"
-        assert "1 other active member" in (outcome.reason or "")
+        assert outcome.outcome == "retained_late_joiner"
+        assert "1 member(s) joined" in (outcome.reason or "")
 
     def test_an_open_deletion_is_resumed_whatever_the_frozen_memberships_say(self):
         record = TenantErasureRecord(
@@ -358,7 +370,7 @@ class TestTheTenantServiceDecides:
 
         outcome = service.erase_personal_tenant_of(USER, PERSONAL)
 
-        assert outcome.outcome == "retained_other_members"
+        assert outcome.outcome == "retained_late_joiner"
         delete.assert_not_called()
 
     def test_an_incomplete_deletion_is_not_reported_erased(self):

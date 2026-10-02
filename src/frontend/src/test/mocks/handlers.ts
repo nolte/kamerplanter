@@ -700,6 +700,10 @@ export const handlers = [
   http.post('/api/v1/privacy/export', () => {
     return HttpResponse.json({ key: 'exp-1', status: 'pending', requested_at: '2024-01-01T00:00:00Z', completed_at: null });
   }),
+  // AK-FK-06 — no personal tenant by default; per-test overrides via server.use()
+  http.get('/api/v1/privacy/erasure-preview', () => {
+    return HttpResponse.json({ personal_tenants: [] });
+  }),
   http.post('/api/v1/privacy/erasure', () => {
     return new HttpResponse(null, { status: 202 });
   }),

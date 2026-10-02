@@ -102,6 +102,8 @@ import {
   isStepUpRejection,
   parseApiError,
 } from '@/api/errors';
+import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
+import { useErasurePreview } from '@/hooks/useErasurePreview';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import StepUpCodeField from '@/components/common/StepUpCodeField';
@@ -316,6 +318,8 @@ export default function AccountSettingsPage() {
   // account-deletion dialog it was started from (it then sends the token).
   const resumeDeleteAccount = useStepUpResume('delete-account');
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(resumeDeleteAccount);
+  // AK-FK-06 — the personal tenants this deletion takes along, read when the dialog opens.
+  const erasurePreview = useErasurePreview(deleteAccountOpen);
 
   // Which step-up factor the password form asks for — the same fail-closed
   // rule as StepUpConfirmDialog (#1842): the current-password field is hidden
@@ -2019,7 +2023,12 @@ export default function AccountSettingsPage() {
       <StepUpConfirmDialog
         open={deleteAccountOpen}
         title={t('pages.auth.deleteAccountDialogTitle')}
-        description={t('pages.auth.deleteAccountConfirm')}
+        description={
+          <>
+            {t('pages.auth.deleteAccountConfirm')}
+            <ErasurePreviewNotice preview={erasurePreview} testIdPrefix="delete-account-preview" />
+          </>
+        }
         echoLabel={t('pages.auth.deleteAccountEmailLabel')}
         echoHelper={t('pages.auth.deleteAccountEmailHelper', { email: user?.email ?? '' })}
         expectedEcho={user?.email ?? ''}

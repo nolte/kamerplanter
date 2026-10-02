@@ -16,9 +16,9 @@ grace):
   ``delete`` row gone, the tenant document gone, the retention rows kept under
   the subject's tombstone hash; the tenant-erasure record ``completed`` with
   origin ``account_erasure``; the erasure request ``completed`` and naming it;
-* the subject's **personal tenant with a second active member** — kept (the
-  spec does not say who takes it over; #1788 holds it and says why), every row
-  of it still there, the request naming the reason;
+* the subject's **personal tenant with a second active member** — erased too
+  (erasure together, #1824: it goes with the account, the other member is
+  told beforehand), every ``delete`` row gone, the request naming it ``erased``;
 * an **organisation tenant** the subject owns — untouched by the tenant
   inventory (it is the group's, not the subject's).
 
@@ -333,23 +333,26 @@ def test_the_tenant_erasure_record_and_the_erasure_request_prove_it(database, er
     outcomes = {item["tenant_key"]: item for item in request["personal_tenants"]}
     assert outcomes[tenant]["outcome"] == "erased"
     assert outcomes[tenant]["tenant_erasure_record_key"] == TenantErasureEngine.record_key(tenant)
-    assert outcomes[f"s-{entry_point}"]["outcome"] == "retained_other_members"
-    assert outcomes[f"s-{entry_point}"]["reason"]
+    assert outcomes[f"s-{entry_point}"]["outcome"] == "erased"
+    assert outcomes[f"s-{entry_point}"]["tenant_erasure_record_key"] == TenantErasureEngine.record_key(
+        f"s-{entry_point}"
+    )
     assert f"o-{entry_point}" not in outcomes
 
 
 @pytest.mark.parametrize("entry_point", list(ENTRY_POINTS))
-def test_a_personal_tenant_with_another_member_is_kept_whole(database, erased, entry_point):
+def test_a_personal_tenant_with_another_member_goes_with_the_account(database, erased, entry_point):
+    """#1824 Q-E1 — another active member no longer keeps the tenant; every row of it is gone."""
     run = erased[entry_point]
     tenant = f"s-{entry_point}"
-    gone = [doc_id for doc_id in run.before["shared"] if _read(database, doc_id) is None]
-    # The account plan removes the subject's own membership (and its edges); the
-    # tenant's domain rows, the companion's membership and the tenant stay.
-    assert gone == [run.shared[col.MEMBERSHIPS]]
-    assert _read(database, run.shared[f"membership:{COMPANION}"])["is_active"] is True
-    kept = _read(database, f"{col.TENANTS}/{tenant}")
-    assert kept is not None and kept["owner_user_key"] != run.subject
-    assert database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant)) is None
+    survivors = [run.shared[c] for c in _entries("delete") if _read(database, run.shared[c]) is not None]
+    assert survivors == []
+    assert _read(database, f"{col.TENANTS}/{tenant}") is None
+    assert _stamped(database, tenant) == {}
+    record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant))
+    assert record is not None and (record["status"], record["origin"]) == ("completed", "account_erasure")
+    # The companion's own account is not touched — only its membership of the erased tenant went with it.
+    assert database.collection(col.USERS).get(COMPANION) is not None
 
 
 @pytest.mark.parametrize("entry_point", list(ENTRY_POINTS))

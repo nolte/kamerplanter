@@ -20,6 +20,9 @@ When you register, the system automatically creates your **personal tenant**. Yo
 !!! info "Personal data stays private"
     Your personal tenant is completely isolated from all other tenants. No member of another tenant can see your private houseplants or balcony garden — even if you belong to the same community garden.
 
+!!! warning "Your personal tenant ends with your account"
+    If you invite someone into your personal tenant, it is deleted with your account — including everything the other members created in it. They receive an email as soon as you request the deletion. For a garden you want to run together for the long term, create a separate community garden instead. Details: [Data Retention](../guides/data-retention.md#what-happens-to-your-personal-garden).
+
 ---
 
 ## Switching Between Tenants

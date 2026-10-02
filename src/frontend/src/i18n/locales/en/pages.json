@@ -568,7 +568,7 @@
       "erasureDescription": "Exercise the right to be forgotten (Art. 17 GDPR) here. After confirmation, your account is deactivated immediately; the final deletion happens once retention periods expire.",
       "erasureRequestButton": "Delete account",
       "erasureDialogTitle": "Delete account?",
-      "erasureDialogText": "Your account is closed immediately and you are signed out. Once the deletion period has passed, your data is permanently deleted. This action cannot be undone.",
+      "erasureDialogText": "Your account is closed immediately and you are signed out. Once the deletion period has passed, your data is permanently deleted. Personal gardens are deleted with everything in them, even when other members use them. This action cannot be undone.",
       "erasureDialogConfirm": "Yes, delete account",
       "erasureDialogPasswordLabel": "Current password",
       "erasureDialogPasswordHelper": "Confirm with your current password that it is really you.",
@@ -591,7 +591,14 @@
         "objection_pending": "Objection pending"
       },
       "erasureDialogEmailLabel": "Your email address to confirm",
-      "erasureDialogEmailHelper": "Type your email address \"{{email}}\" to confirm that you want to delete your account."
+      "erasureDialogEmailHelper": "Type your email address \"{{email}}\" to confirm that you want to delete your account.",
+      "erasurePreviewHeading": "These personal gardens are deleted with your account:",
+      "erasurePreviewTenantAlone": "\"{{name}}\" is deleted.",
+      "erasurePreviewTenantShared_one": "\"{{name}}\" is deleted, {{count}} other member is affected.",
+      "erasurePreviewTenantShared_other": "\"{{name}}\" is deleted, {{count}} other members are affected.",
+      "erasurePreviewSharedHint": "Everything in it is lost: sites, plants, diary and tasks, including those of the other members. The other members are notified by email as soon as you request the deletion and can secure their data until the final deletion.",
+      "erasurePreviewLoading": "Checking which personal gardens are affected …",
+      "erasurePreviewError": "We could not check which personal gardens are affected. Your personal gardens are deleted with everything in them in any case, even when other members use them."
     },
     "activities": {
       "title": "Activities",
@@ -837,7 +844,7 @@
       "dangerZone": "Danger Zone",
       "deleteAccountWarning": "Deleting your account cannot be undone. Your account is closed immediately, and your data is permanently removed once the deletion period has passed.",
       "deleteAccount": "Delete Account",
-      "deleteAccountConfirm": "Your account is closed immediately and you are signed out. Once the deletion period has passed, your data is permanently deleted. Harvest and treatment records are kept only as long as the law requires and name no one afterwards.",
+      "deleteAccountConfirm": "Your account is closed immediately and you are signed out. Once the deletion period has passed, your data is permanently deleted, including your personal gardens with everything in them. Harvest and treatment records are kept only as long as the law requires and name no one afterwards.",
       "logout": "Log out",
       "accountMenu": "Account Menu",
       "rememberMe": "Remember me",

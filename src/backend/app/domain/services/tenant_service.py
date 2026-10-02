@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.datetimes import ensure_aware_utc
 from app.common.decoys import email_digest
 from app.common.enums import (
     AdminScope,
@@ -47,7 +48,7 @@ from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
-from app.domain.models.privacy import PersonalTenantErasure
+from app.domain.models.privacy import PersonalTenantErasure, PersonalTenantErasurePreview
 from app.domain.models.tenant import Tenant, TenantWithRole
 from app.domain.models.tenant_erasure import (
     TenantDeletionConfirmation,
@@ -606,7 +607,12 @@ class TenantService:
         return revoked
 
     def erase_personal_tenant_of(
-        self, user_key: str, tenant_key: str, *, now: datetime | None = None
+        self,
+        user_key: str,
+        tenant_key: str,
+        *,
+        now: datetime | None = None,
+        requested_at: datetime | None = None,
     ) -> PersonalTenantErasure:
         """Erase *tenant_key*, a personal tenant of the erased account *user_key*, unless someone else uses it.
 
@@ -619,25 +625,34 @@ class TenantService:
         * A deletion already ``completed`` for it → ``erased`` (a retry after the
           tenant went, or a deletion someone else finished).
         * Neither tenant nor deletion record → ``absent``.
-        * No deletion open yet and another **active** account holds an **active**
-          membership → ``retained_other_members``: REQ-049 AK-19 lets a personal
-          tenant take members, and no spec says who would take it over, so it is
-          kept exactly as before #1788 (the account plan removes only the owner
-          reference) and the reason is recorded.
-        * Otherwise — the subject is its only active member, or a deletion of it
+        * No deletion open yet → the tenant goes, **whoever else is a member**
+          (erasure together, REQ-025 §3.1.3 / NFR-011 AK-PT-03, #1824): the
+          members are notified when the erasure is requested
+          (:meth:`PrivacyService.request_erasure`), not here. The one exception
+          is a member who joined *after* the first read — see below —
+          → ``retained_late_joiner``: the tenant is kept and only the owner
+          reference is removed (REQ-025 AK-IE-07).
+        * Otherwise — nobody joined late, or a deletion of it
           is already running (its memberships are frozen then) — the tenant-erasure
           inventory runs with origin ``account_erasure``
           (:meth:`_erase_tenant_for_account_erasure`): same inventory, same
           persisted record, same retry as :meth:`delete_tenant`.
 
         The membership is read **twice** (REQ-025 AK-IE-07, #1825 SEC-003): once
-        before the deletion record is inserted, and again right after — the
-        record is the freeze :meth:`_refuse_while_erasing` keys on, so a join
-        that slipped between the first read and the insert is seen by the
-        second. Such a tenant is kept, the record withdrawn; before #1825 the
-        joiner was silently deactivated and the tenant erased. Both reads go
-        through :meth:`_personal_tenant_retention`, the one place that decides
-        whether a membership keeps the tenant.
+        before the deletion record is inserted — who is a member *now* — and
+        again right after; with ``requested_at`` — when the account erasure was
+        asked for — a member whose membership began after it also counts as late,
+        because the notice (REQ-025 §3.1.3) went to those who were members at
+        that moment. The record is the freeze :meth:`_refuse_while_erasing`
+        keys on, so a join that slipped between the first read and the insert is
+        seen by the second as someone the first did not list. Such a tenant is
+        kept, the record withdrawn; before #1825 the joiner was silently
+        deactivated and the tenant erased. A record an earlier attempt left
+        unclaimed has no first read to compare with; there a member whose
+        membership began at or after the record's ``requested_at`` — or whose
+        start is not recorded — counts as late. The decision is
+        :meth:`_personal_tenant_retention`, the one place that decides whether
+        a membership keeps the tenant.
 
         Raises what a failed tenant deletion raises (the record stays open and
         the daily tenant beat retries it too), :class:`TenantErasureIncompleteError`
@@ -664,7 +679,7 @@ class TenantService:
             # attempt; a retry must not fail on it and block the Art. 17 duty.
             return PersonalTenantErasure(
                 tenant_key=tenant_key,
-                outcome="retained_other_members",
+                outcome="retained_late_joiner",
                 reason="Kept on an earlier attempt of this erasure; its owner reference is already removed.",
             )
         if tenant is not None and (tenant.owner_user_key != user_key or tenant.tenant_type != TenantType.PERSONAL):
@@ -674,20 +689,28 @@ class TenantService:
         # before its re-check (or before its claim): nothing is deactivated yet,
         # so the membership still says who uses the tenant.
         never_started = record is not None and self._is_unclaimed_account_erasure(record)
+        known_members: frozenset[str] | None = None
         if record is None:
             # AK-IE-06 backstop — revoked at request time already; an invitation
             # issued since (or a request-time revocation that failed) goes here,
             # before the membership is read.
             self._invitation_repo.revoke_pending_for_tenant(tenant_key)
-            retained = self._personal_tenant_retention(tenant_key, user_key, after_freeze=False)
-            if retained is not None:
-                return retained
+            # #1824 — the first read no longer decides anything: whoever is a
+            # member now goes with the tenant. It only records who they are, so
+            # the read after the freeze can tell a late joiner from them.
+            known_members = self._other_active_members(tenant_key, user_key)
             self._open_account_erasure_record(tenant_key, tenant, subject_user_key=user_key, now=now)
         if record is None or never_started:
             # AK-IE-07 — the record is in place, so every later join is refused
             # or rolls itself back (:meth:`accept_invitation`); whoever is an
-            # active member now joined before the freeze.
-            retained = self._personal_tenant_retention(tenant_key, user_key, after_freeze=True)
+            # active member now and was not in the first read joined late.
+            retained = self._personal_tenant_retention(
+                tenant_key,
+                user_key,
+                known_members=known_members,
+                frozen_at=record.requested_at if record is not None else None,
+                requested_at=requested_at,
+            )
             if retained is not None:
                 if not self._require_tenant_erasure_repo().delete_unclaimed(record_key):
                     # A run claimed the record in between; it decides, and the
@@ -709,26 +732,66 @@ class TenantService:
             and record.attempt_count == 0
         )
 
-    def _personal_tenant_retention(
-        self, tenant_key: str, subject_user_key: str, *, after_freeze: bool
-    ) -> PersonalTenantErasure | None:
-        """The retained outcome when a membership keeps the subject's personal tenant, else ``None``.
-
-        The single decision both membership reads of
-        :meth:`erase_personal_tenant_of` share — ``after_freeze`` says which
-        read it is. Today the rule is the same for both: another **active**
-        account with an **active** membership keeps the tenant (#1788). The
-        erasure-together rule of #1824 (the tenant goes even with other
-        members; only a *late* joiner keeps it) changes what the first read
-        decides and leaves the second as it is — that is why the two are told
-        apart here and nowhere else.
-        """
-        others = [
+    def _other_active_members(self, tenant_key: str, subject_user_key: str) -> frozenset[str]:
+        """The active accounts other than the subject that use *tenant_key* (#1788)."""
+        return frozenset(
             key
             for key in self._membership_repo.active_member_user_keys(tenant_key=tenant_key)
             if key != subject_user_key
-        ]
-        if not others:
+        )
+
+    def _personal_tenant_retention(
+        self,
+        tenant_key: str,
+        subject_user_key: str,
+        *,
+        known_members: frozenset[str] | None,
+        frozen_at: datetime | None,
+        requested_at: datetime | None = None,
+    ) -> PersonalTenantErasure | None:
+        """The retained outcome when a *late* member keeps the subject's personal tenant, else ``None``.
+
+        Erasure together (#1824): another active member no longer keeps the
+        tenant — only one who joined after the erasure froze it does
+        (REQ-025 AK-IE-07). Called with the freeze in place.
+
+        * ``known_members`` — the members the read before the freeze listed:
+          whoever is active now and is not among them joined late.
+        * ``None`` — a retried record no run claimed has no such read; a member
+          is late when the membership began at or after ``frozen_at`` (the
+          record's ``requested_at``), or when its start is not recorded — the
+          tenant is kept rather than erased over someone who may have joined
+          after the notice.
+        * ``requested_at`` — when the **account erasure** was requested. Whoever
+          joined after it was not among the members the notice went to (an
+          invitation created during the grace, an administrator adding a
+          member) and is late whichever read lists them; a start that is not
+          recorded does not make a member late here, the first read already
+          vouched for them.
+
+        """
+        current = self._other_active_members(tenant_key, subject_user_key)
+        joined = (
+            self._membership_repo.active_member_joined_at(tenant_key=tenant_key)
+            if known_members is None or requested_at is not None
+            else {}
+        )
+        late: set[str] = set()
+        if known_members is not None:
+            late |= current - known_members
+        else:
+            cutoff = ensure_aware_utc(frozen_at)
+            for key in current:
+                began = ensure_aware_utc(joined.get(key))
+                if cutoff is None or began is None or began >= cutoff:
+                    late.add(key)
+        if requested_at is not None:
+            asked = ensure_aware_utc(requested_at)
+            for key in current:
+                began = ensure_aware_utc(joined.get(key))
+                if began is not None and asked is not None and began > asked:
+                    late.add(key)
+        if not late:
             return None
         # #1788 review GDPR-05 — no tenant key beside the subject digest: the key
         # is on the pseudonymised retention rows, and joining a log line to them
@@ -736,20 +799,45 @@ class TenantService:
         logger.info(
             "tenant_erasure.personal_tenant_retained",
             subject=log_subject(subject_user_key),
-            other_active_members=len(others),
-            after_freeze=after_freeze,
+            late_members=len(late),
         )
-        if after_freeze:
-            reason = (
-                f"{len(others)} active member(s) joined this tenant before its deletion was frozen "
-                "(REQ-025 AK-IE-07); it is kept and only the owner reference is removed."
+        reason = (
+            f"{len(late)} member(s) joined this tenant after its deletion was requested "
+            "(REQ-025 AK-IE-07); it is kept for them and only the owner reference is removed."
+        )
+        return PersonalTenantErasure(tenant_key=tenant_key, outcome="retained_late_joiner", reason=reason)
+
+    def other_active_members_of_personal_tenants_of(self, user_key: str) -> list[str]:
+        """The distinct accounts, other than *user_key*, that use one of its personal tenants (#1824).
+
+        Who has to be told before an erasure takes the tenant with it. An
+        account whose own erasure is pending is not among them (it is already
+        inactive, #1788 review GDPR-01).
+        """
+        members: dict[str, None] = {}
+        for tenant_key in self._tenant_repo.personal_tenant_keys_by_owner(user_key):
+            for key in sorted(self._other_active_members(tenant_key, user_key)):
+                members.setdefault(key)
+        return list(members)
+
+    def personal_tenant_erasure_preview(self, user_key: str) -> list[PersonalTenantErasurePreview]:
+        """What an account erasure would take with it, per personal tenant, before it is confirmed (AK-FK-06, #1824).
+
+        The subject's own tenant name and a *count* of the others — nothing
+        about who they are. Read-only and caller-scoped: the keys are those the
+        subject owns.
+        """
+        preview: list[PersonalTenantErasurePreview] = []
+        for tenant_key in self._tenant_repo.personal_tenant_keys_by_owner(user_key):
+            tenant = self._tenant_repo.get_by_key(tenant_key)
+            if tenant is None:
+                continue
+            preview.append(
+                PersonalTenantErasurePreview(
+                    name=tenant.name, other_member_count=len(self._other_active_members(tenant_key, user_key))
+                )
             )
-        else:
-            reason = (
-                f"{len(others)} other active member(s) use this tenant; no successor is specified "
-                "(#1788), so it is kept and only the owner reference is removed."
-            )
-        return PersonalTenantErasure(tenant_key=tenant_key, outcome="retained_other_members", reason=reason)
+        return preview
 
     def _guard_account_erasure_of_tenant(self, tenant: Tenant | None) -> None:
         """Refuse before anything is written: a tenant that cannot be deleted, a deployment that cannot erase."""

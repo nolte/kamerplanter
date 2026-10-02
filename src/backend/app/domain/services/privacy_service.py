@@ -74,6 +74,7 @@ from app.domain.models.privacy import (
     ErasureRequest,
     ErasureStepUp,
     PersonalTenantErasure,
+    PersonalTenantErasurePreview,
     PrivacyPolicyInfo,
     ProcessingRestriction,
     RestrictionReason,
@@ -950,7 +951,7 @@ class PrivacyService:
             origin="self_service",
         )
         erasure.step_up = step_up
-        created = self._create_scheduled_request(user_key, erasure)
+        created, created_here = self._create_scheduled_request(user_key, erasure)
 
         # Immediate effects: soft-delete the user and revoke all sessions.
         #
@@ -968,6 +969,10 @@ class PrivacyService:
         # the grace. After the account is closed, so a failure here leaves a
         # recorded request and a closed account; the hard delete revokes again.
         self._revoke_personal_tenant_invitations(user_key)
+        # #1824 Q-E1 — the other members of the personal tenant lose it with the
+        # account; they hear of it now, with the whole grace left to export.
+        if created_here:
+            self._notify_members_of_personal_tenant_erasure(user_key, delete_at=erasure.hard_delete_scheduled_at)
 
         logger.info(
             "privacy_erasure_requested",
@@ -979,7 +984,7 @@ class PrivacyService:
         # ``retention.execute_scheduled_erasures`` (app/tasks/__init__.py).
         return created
 
-    def _create_scheduled_request(self, user_key: UserKey, erasure: ErasureRequest) -> ErasureRequest:
+    def _create_scheduled_request(self, user_key: UserKey, erasure: ErasureRequest) -> tuple[ErasureRequest, bool]:
         """Persist the self-service request under the per-subject key — one open record per account (#1843).
 
         ``find_active_for_user`` followed by an auto-keyed insert let two
@@ -990,10 +995,14 @@ class PrivacyService:
         caller is answered with the record the first one created — the request
         it asked for exists. A record under the key that is no longer open
         belongs to an erasure that already ran, and is refused.
+
+        Returns the record and whether **this** call created it — only the
+        creating call tells the other members of the personal tenant (#1824), so
+        two concurrent requests mail them once.
         """
         key = self._erasure_engine.compute_request_key(user_key, self._tombstone_salt)
         try:
-            return self._erasure_repo.create_with_key(erasure, key)
+            return self._erasure_repo.create_with_key(erasure, key), True
         except (DuplicateError, WriteConflictError) as exc:
             existing = self._erasure_repo.get_by_key(key)
             if existing is None:
@@ -1001,7 +1010,7 @@ class PrivacyService:
                 raise WriteConflictError("ErasureRequest", "an erasure of this account is being requested") from exc
             if existing.user_key != user_key or existing.status == "completed":
                 raise ValidationError("An erasure request is already in progress.") from exc
-            return existing
+            return existing, False
 
     def _revoke_personal_tenant_invitations(self, user_key: UserKey) -> None:
         """REQ-025 AK-IE-06 — the one call both erasure entry points make when the erasure is requested."""
@@ -1043,12 +1052,75 @@ class PrivacyService:
             retained_reason=(
                 "Harvest records (including quality assessments), treatment and inspection records are "
                 "retained per CanG and PflSchG and will be pseudonymised. "
-                "Your personal garden is deleted with everything else in it, unless another active member "
-                "still uses it; then the garden and what you entered in it stay for them, without your name. "
+                "Your personal garden is deleted with everything in it, also when other people are members of it; "
+                "they are notified when you request the deletion. Only a member who joins after the request keeps "
+                "the garden, and what you entered in it stays for them, without your name. "
                 "Diary entries in shared gardens stay with the plant record of their tenant; their author and "
                 "AI-analysis references are anonymised (REQ-050 section 7.4)."
             ),
         )
+
+    def erasure_preview(self, user_key: UserKey) -> list[PersonalTenantErasurePreview]:
+        """The personal tenants an erasure of *user_key* takes with it, and how many others use each (AK-FK-06, #1824).
+
+        Read-only. Scoped by construction to the tenants the account owns —
+        the route passes the authenticated account, never a caller-chosen key.
+        """
+        tenant_service = self._tenant_service
+        if tenant_service is None:  # pragma: no cover - the preview needs the same wiring as the erasure
+            raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        return tenant_service.personal_tenant_erasure_preview(user_key)
+
+    def _notify_members_of_personal_tenant_erasure(self, user_key: UserKey, *, delete_at: datetime | None) -> None:
+        """Tell the other members of the subject's personal tenants that those go with the account (#1824, Q-E1).
+
+        Best effort and **after** the account is closed: a mail that cannot be
+        sent must not keep the subject from exercising Art. 17, so a failure is
+        logged (without the address) and the erasure goes on. The text names
+        neither the subject nor the garden — a personal tenant is named after
+        its owner, so the name would identify them to people who may only know
+        the garden — only the date, so the member can export or leave in time.
+        """
+        tenant_service = self._tenant_service
+        if tenant_service is None:  # pragma: no cover - refused by the configuration check
+            raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        due = f"on {delete_at.strftime('%Y-%m-%d')} (UTC)" if delete_at is not None else "shortly"
+        body = (
+            "<h2>A shared personal garden will be deleted</h2>"
+            "<p>The owner of a personal garden you are a member of has asked Kamerplanter to delete their account. "
+            "A personal garden is deleted together with its owner's account, including everything in it: "
+            f"its sites, plants, diary entries and tasks. This will happen {due}.</p>"
+            "<p>If you want to keep anything from it, export it from your own data export in the privacy settings "
+            "or copy it elsewhere before then. Your own account is not affected.</p>"
+        )
+        try:
+            member_keys = tenant_service.other_active_members_of_personal_tenants_of(user_key)
+        except Exception as exc:  # noqa: BLE001 - the request and the closed account are already written
+            logger.error(
+                "personal_tenant_erasure_notice_failed",
+                subject=self.log_subject(user_key),
+                stage="members",
+                error_type=type(exc).__name__,
+            )
+            return
+        for member_key in member_keys:
+            try:
+                member = self._user_repo.get_by_key(member_key)
+                if member is None or not member.email:
+                    continue
+                self._email_service.send_notification_email(
+                    to_email=member.email,
+                    subject="Kamerplanter — a shared personal garden will be deleted",
+                    html_body=body,
+                )
+            except NotImplementedError:
+                logger.warning("personal_tenant_erasure_notice_skipped", member=self.log_subject(member_key))
+            except Exception as exc:  # noqa: BLE001 - never block an Art. 17 request on somebody else's mailbox
+                logger.error(
+                    "personal_tenant_erasure_notice_failed",
+                    member=self.log_subject(member_key),
+                    error_type=type(exc).__name__,
+                )
 
     async def erase_account_now(
         self,
@@ -1117,6 +1189,7 @@ class PrivacyService:
 
         # The request first, so a failure after the account is closed still
         # leaves a duty the beat retries (#1767 review SEC-D).
+        newly_requested = erasure is None
         if erasure is None:
             erasure = self._create_immediate_request(
                 user_key, now=now, origin=origin, step_up=step_up, requested_by_subject=requested_by_subject
@@ -1142,6 +1215,12 @@ class PrivacyService:
         self._refresh_token_repo.revoke_all_for_user(user_key)
         # REQ-025 AK-IE-06 — at request time, like the self-service entry.
         self._revoke_personal_tenant_invitations(user_key)
+        if newly_requested and origin != "unverified_cleanup":
+            # #1824 — no grace here, so "before the deletion" is as early as the
+            # request: right before the run below. A request that already
+            # existed (a self-service one pulled forward) told them at its own
+            # request time. An unverified account never had a shared garden.
+            self._notify_members_of_personal_tenant_erasure(user_key, delete_at=now)
 
         logger.info(
             "erasure.immediate_requested",
@@ -2268,6 +2347,7 @@ class PrivacyService:
                 on_pre_arango_complete=_checkpoint,
                 recorded_personal_tenant_keys=erasure.personal_tenant_keys,
                 on_personal_tenants_resolved=_record_personal_tenants,
+                erasure_requested_at=erasure.requested_at,
             )
         except Exception as exc:  # noqa: BLE001 — any failure leaves the duty open for a later run
             self._record_failed_attempt(
@@ -2393,6 +2473,7 @@ class PrivacyService:
         on_pre_arango_complete: Callable[[AccountErasureReport], None] | None = None,
         recorded_personal_tenant_keys: list[str] | None = None,
         on_personal_tenants_resolved: Callable[[list[str]], None] | None = None,
+        erasure_requested_at: datetime | None = None,
     ) -> AccountErasureReport:
         """Erase one account: every declared phase, then the ArangoDB plan (#1664).
 
@@ -2510,6 +2591,7 @@ class PrivacyService:
             user_key,
             list(recorded_personal_tenant_keys or []),
             on_personal_tenants_resolved,
+            erasure_requested_at,
         )
         # NFR-011 R-04 (#1800 security review): an unrevoked consent record
         # would otherwise be pseudonymised below with revoked_at still null,
@@ -2545,6 +2627,7 @@ class PrivacyService:
         user_key: str,
         recorded_keys: list[str],
         on_resolved: Callable[[list[str]], None] | None,
+        requested_at: datetime | None = None,
     ) -> list[PersonalTenantErasure]:
         """Step 4 of :meth:`erase_account` — the subject's personal tenants (#1788).
 
@@ -2553,7 +2636,8 @@ class PrivacyService:
         Before #1788 the account plan kept it with the owner reference replaced,
         and nothing ever deleted it. Each personal tenant is now handed to
         :meth:`TenantService.erase_personal_tenant_of`, which runs the declared
-        tenant-erasure inventory unless another account is an active member.
+        tenant-erasure inventory — also when other accounts are members (#1824); only a member
+        who joined after the erasure froze the tenant keeps it.
 
         The keys are recorded (``on_resolved``) before the first tenant is
         erased: the plan in step 5 replaces the owner reference they are found
@@ -2567,7 +2651,10 @@ class PrivacyService:
         keys = list(dict.fromkeys([*recorded_keys, *tenant_service.personal_tenant_keys_of(user_key)]))
         if on_resolved is not None and keys != recorded_keys:
             on_resolved(keys)
-        return [tenant_service.erase_personal_tenant_of(user_key, tenant_key) for tenant_key in keys]
+        return [
+            tenant_service.erase_personal_tenant_of(user_key, tenant_key, requested_at=requested_at)
+            for tenant_key in keys
+        ]
 
     async def _run_export_file_cleanup(self, user_key: str) -> int:
         """Delete the stored Art. 15 bundles of *user_key* before their records go.

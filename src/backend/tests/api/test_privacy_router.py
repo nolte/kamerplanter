@@ -32,6 +32,7 @@ from app.domain.models.privacy import (
     DataExportRequest,
     EmailChangeRequest,
     ErasureRequest,
+    PersonalTenantErasurePreview,
     PrivacyPolicyInfo,
     ProcessingRestriction,
     RetentionCategoryInfo,
@@ -186,6 +187,24 @@ class TestExportEndpoints:
 
 
 class TestErasureEndpoints:
+    def test_erasure_preview_lists_the_callers_personal_tenants_and_only_a_count(
+        self, client: TestClient, service: MagicMock
+    ) -> None:
+        """AK-FK-06 — GET /privacy/erasure-preview, scoped to the authenticated account (#1824)."""
+        service.erasure_preview.return_value = [PersonalTenantErasurePreview(name="Ada", other_member_count=2)]
+
+        response = client.get("/api/v1/privacy/erasure-preview")
+
+        assert response.status_code == 200
+        assert response.json() == {"personal_tenants": [{"name": "Ada", "other_member_count": 2}]}
+        service.erasure_preview.assert_called_once_with(USER_KEY)
+
+    def test_erasure_preview_is_not_shadowed_by_the_status_route(self, client: TestClient, service: MagicMock) -> None:
+        service.erasure_preview.return_value = []
+
+        assert client.get("/api/v1/privacy/erasure-preview").json() == {"personal_tenants": []}
+        service.get_erasure_status.assert_not_called()
+
     def test_request_erasure(self, client: TestClient, service: MagicMock) -> None:
         service.request_erasure.return_value = ErasureRequest(
             _key="er1",
