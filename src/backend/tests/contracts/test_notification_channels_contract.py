@@ -94,11 +94,12 @@ class TestEmailConfigKeyContract:
     def _notification() -> Notification:
         return Notification(notification_type="test", title="Hi", body="Body")
 
-    def test_contract_declares_email_and_digest(self) -> None:
+    def test_contract_declares_digest_only(self) -> None:
+        """The recipient is no writable preference key since #1885: the engine supplies the account address."""
         keys = _load_contract_config_keys()
-        assert sorted(keys["email"]) == ["digest", "email"]
+        assert keys["email"] == ["digest"]
 
-    async def test_email_channel_reads_the_email_config_key(self) -> None:
+    async def test_email_channel_mails_the_recipient_the_engine_hands_it(self) -> None:
         channel = EmailNotificationChannel(MagicMock())
         result = await channel.send(self._notification(), {"email": "user@example.com"})
         assert result.success is True
