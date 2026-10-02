@@ -148,6 +148,11 @@ tasks:
       Backend integration tests (repositories and AQL against a real ArangoDB) —
       the CI gate's exact invocation.
 
+      Also needs a TimescaleDB (#1793): `docker compose --profile timescaledb up -d
+      timescaledb`, or TIMESCALEDB_HOST / _PORT / _USERNAME / _PASSWORD. Without
+      one the TimescaleDB modules skip locally (red under --max-skipped 0) and
+      fail in CI.
+
       Safe to run while a sibling worktree runs it against the same server
       (#1661): every module names its database through
       tests/support/arango_integration.run_database_name(), so two sessions no

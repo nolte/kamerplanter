@@ -180,6 +180,12 @@ SELECT add_retention_policy('sensor_hourly',   INTERVAL '2 years');
 SELECT add_retention_policy('sensor_daily',    INTERVAL '5 years');
 ```
 
+!!! info "Löschung von Sensor oder Mandant"
+    Wird ein Sensor oder ein ganzer Mandant gelöscht, entfernt Kamerplanter neben den
+    Rohdaten auch die zugehörigen Stunden- und Tagesmittel (`sensor_hourly`,
+    `sensor_daily`) — in jedem Alter, im selben Löschvorgang. Die Mittelwerte anderer
+    Mandanten und Sensoren bleiben unverändert erhalten.
+
 ---
 
 ## Gesetzliche Mindestaufbewahrungsfristen
