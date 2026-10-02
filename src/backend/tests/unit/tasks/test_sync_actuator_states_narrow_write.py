@@ -62,3 +62,25 @@ def test_an_edit_landing_during_the_ha_round_trip_survives(deps):
     assert result["synced"] == 1
     assert repo.doc["is_online"] is False
     assert repo.doc["name"] == "Fan (renamed)"
+
+
+def test_an_actuator_deleted_during_the_poll_does_not_abort_the_run(deps):
+    from app.common.exceptions import NotFoundError
+
+    class _Repo(_ReplacingActuatorRepo):
+        def get_all(self, offset=0, limit=50, *, all_tenants=False):
+            return [_Actuator(key="gone", ha_entity_id="switch.a", is_online=True), _Actuator(**self.doc)], 2
+
+        def update_fields(self, key, fields):
+            if key == "gone":
+                raise NotFoundError("Actuator", key)
+            super().update_fields(key, fields)
+
+    repo = _Repo({"key": "a2", "ha_entity_id": "switch.b", "is_online": True})
+    deps.get_actuator_repo.return_value = repo
+    deps.get_ha_client.return_value = SimpleNamespace(get_state=lambda _entity_id: None)
+
+    from app.tasks.actuator_tasks import sync_actuator_states
+
+    assert sync_actuator_states.run()["synced"] == 1
+    assert repo.doc["is_online"] is False
