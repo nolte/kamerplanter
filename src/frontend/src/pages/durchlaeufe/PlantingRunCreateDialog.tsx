@@ -46,6 +46,7 @@ import EmptyState from '@/components/common/EmptyState';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useAppDispatch } from '@/store/hooks';
 import { resetShowAllFields } from '@/store/slices/uiSlice';
+import { useResetShowAllFieldsOnClose } from '@/hooks/useResetShowAllFieldsOnClose';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { plantingRunFieldConfig } from '@/config/fieldConfigs';
@@ -243,6 +244,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const dispatch = useAppDispatch();
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
+  useResetShowAllFieldsOnClose(open);
   const handleClose = useCallback(() => {
     dispatch(resetShowAllFields());
     onClose();
