@@ -1,10 +1,29 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.enums import OidcProviderType
-from app.domain.models.oidc_config import ProviderScopeCheck, ProviderTypeCheck
+from app.common.url_safety import https_endpoint_problem
+from app.domain.models.oidc_config import (
+    ProviderIssuerCheck,
+    ProviderJwksCheck,
+    ProviderScopeCheck,
+    ProviderTypeCheck,
+)
+
+#: The request fields that are URLs the server dials during a sign-in (#1987).
+OIDC_URL_FIELDS = ("issuer_url", "authorization_url", "token_url", "userinfo_url", "jwks_url")
+
+
+def _require_https(value: str | None) -> str | None:
+    """The one rule for every endpoint of a configuration: ``https`` (loopback ``http`` in debug only)."""
+    if value is None:
+        return None
+    problem = https_endpoint_problem(value)
+    if problem is not None:
+        raise ValueError(f"the URL {problem}")
+    return value
 
 
 class OidcProviderCreateRequest(CredentialStepUp):
@@ -33,10 +52,15 @@ class OidcProviderCreateRequest(CredentialStepUp):
     authorization_url: str | None = None
     token_url: str | None = None
     userinfo_url: str | None = None
+    jwks_url: str | None = None
     auto_discover: bool = True
     enabled: bool = False
     icon_url: str | None = None
     default_tenant_key: str | None = None
+
+    #: https only (#1987) — a plain-http issuer or endpoint makes the discovery document,
+    #: the code exchange and the key set answerable by whoever is on the path.
+    _urls_are_https = field_validator(*OIDC_URL_FIELDS)(_require_https)
 
 
 class OidcProviderUpdateRequest(CredentialStepUp):
@@ -61,10 +85,16 @@ class OidcProviderUpdateRequest(CredentialStepUp):
     authorization_url: str | None = None
     token_url: str | None = None
     userinfo_url: str | None = None
+    jwks_url: str | None = None
     auto_discover: bool | None = None
     enabled: bool | None = None
     icon_url: str | None = None
     default_tenant_key: str | None = None
+
+    #: Same rule as on create (#1987). Sending ``issuer_url`` also clears the explicit
+    #: ``authorization_url`` / ``token_url`` / ``userinfo_url`` / ``jwks_url`` of the
+    #: stored configuration that this body does not repeat (see the service).
+    _urls_are_https = field_validator(*OIDC_URL_FIELDS)(_require_https)
 
 
 class OidcProviderDeleteRequest(CredentialStepUp):
@@ -113,8 +143,15 @@ class OidcProviderTestResponse(BaseModel):
     and it is reported on every path — a GitHub provider publishes no OIDC
     discovery document at all, so the discovery step always fails for exactly
     the provider type the check is about.
+
+    ``jwks_check`` and ``issuer_check`` (#1987) judge what the sign-in itself needs: that the
+    signing keys can be fetched and used, and that the issuer the provider announces is the one
+    an ID token's ``iss`` is checked against. They are reported on every path as well — before
+    them an operator learnt of a failing check only from ``oauth_login_refused`` in the log.
     """
 
     message: str
     scope_check: ProviderScopeCheck
     provider_type_check: ProviderTypeCheck
+    jwks_check: ProviderJwksCheck
+    issuer_check: ProviderIssuerCheck

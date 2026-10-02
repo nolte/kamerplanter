@@ -35,6 +35,7 @@ from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.oauth_engine import (
     FreshReauthRejectedError,
+    InsecureEndpointError,
     LoginIdentityRejectedError,
     OAuthEngine,
     supports_fresh_reauth,
@@ -201,6 +202,16 @@ def _code_fingerprint(code: str) -> str:
     two layers' lines correlate on the same value.
     """
     return hashlib.sha256(code.encode("utf-8")).hexdigest()[:16]
+
+
+def _refusal_reason(exc: ValueError) -> str:
+    """What may be logged of a ``ValueError`` from the provider-facing steps (#1987).
+
+    The text of an :class:`InsecureEndpointError` names the endpoint kind and the rule, never a value.
+    Any other ``ValueError`` here can be a ``pydantic.ValidationError`` whose text quotes the
+    provider's claims (an e-mail address, a name): only its type is logged.
+    """
+    return str(exc) if isinstance(exc, InsecureEndpointError) else type(exc).__name__
 
 
 def _id_token_issuer(token_response: dict) -> str | None:
@@ -1141,7 +1152,7 @@ class AuthService:
         if config is None or not config.enabled:
             raise NotFoundError("OidcProviderConfig", provider_slug)
 
-        redirect = self._oauth_engine.build_authorization_url(config, redirect_uri)
+        redirect = self._build_redirect(config, redirect_uri)
 
         # The state keeps the redirect URI so the code exchange repeats it exactly
         # (RFC 6749 §4.1.3, #1865) — as the step-up request does.
@@ -1156,6 +1167,37 @@ class AuthService:
         )
 
         return redirect
+
+    def _require_configuration_unchanged(self, config: OidcProviderConfig) -> None:
+        """Refuse when the configuration a login loaded is no longer the enabled one at its slug (#1987).
+
+        The callback loads the configuration, exchanges the code (up to the HTTP timeout) and
+        verifies the token, and only then writes. In between an admin can delete the provider and
+        create another under the same slug — possibly at another IdP — or switch it off or repoint
+        it; a write made on the strength of the old one would land under the new. The same ``_key``,
+        still enabled, at the same issuer: nothing moved. Anything else is the generic refusal.
+        """
+        assert self._oidc_config_repo is not None  # noqa: S101 — checked by the caller
+        current = self._oidc_config_repo.get_by_slug(config.slug)
+        if (
+            current is None
+            or not current.enabled
+            or current.key != config.key
+            or current.issuer_url != config.issuer_url
+        ):
+            logger.info("oauth_login_refused", provider=config.slug, reason="configuration_changed")
+            raise ValidationError("OAuth sign-in could not be completed.")
+
+    def _build_redirect(
+        self, config: OidcProviderConfig, redirect_uri: str, *, fresh_login: bool = False
+    ) -> OAuthRedirect:
+        """The authorization request of *config*; an unusable endpoint is a 422, not a 500 (#1987)."""
+        assert self._oauth_engine is not None  # noqa: S101 — the callers checked
+        try:
+            return self._oauth_engine.build_authorization_url(config, redirect_uri, fresh_login=fresh_login)
+        except ValueError as exc:
+            logger.warning("oauth_endpoint_refused", provider=config.slug, reason=_refusal_reason(exc))
+            raise ValidationError("This sign-in provider is not configured correctly.") from exc
 
     def complete_oauth(
         self,
@@ -1270,7 +1312,7 @@ class AuthService:
         _row, config = links[0]
 
         redirect_uri = callback_url(config.slug)
-        redirect = self._oauth_engine.build_authorization_url(config, redirect_uri, fresh_login=True)
+        redirect = self._build_redirect(config, redirect_uri, fresh_login=True)
         self._oauth_state_store.save_state(
             redirect.state,
             {
@@ -1410,13 +1452,18 @@ class AuthService:
             client_secret = self._encryption_engine.decrypt(client_secret)
 
         # Exchange code for tokens
-        token_response = self._oauth_engine.exchange_code_for_tokens(
-            config,
-            code,
-            state_data["code_verifier"],
-            redirect_uri,
-            client_secret,
-        )
+        try:
+            token_response = self._oauth_engine.exchange_code_for_tokens(
+                config,
+                code,
+                state_data["code_verifier"],
+                redirect_uri,
+                client_secret,
+            )
+        except ValueError as exc:
+            # A stored token endpoint that is not https (#1987): nothing was sent to it.
+            logger.warning("oauth_endpoint_refused", provider=provider_slug, reason=_refusal_reason(exc))
+            raise ValidationError("OAuth sign-in could not be completed.") from exc
 
         access_token = token_response.get("access_token", "")
         # The ID token's signature, ``iss``, ``aud``, ``nonce`` and ``exp``, and the
@@ -1434,6 +1481,16 @@ class AuthService:
         except LoginIdentityRejectedError as exc:
             logger.info("oauth_login_refused", provider=provider_slug, reason=exc.reason)
             raise ValidationError("OAuth sign-in could not be completed.") from exc
+        except ValueError as exc:
+            # A stored userinfo endpoint that is not https (#1987), or a response that
+            # carries no identity: refused like any other failed check.
+            logger.warning("oauth_endpoint_refused", provider=provider_slug, reason=_refusal_reason(exc))
+            raise ValidationError("OAuth sign-in could not be completed.") from exc
+
+        # The configuration was loaded before the exchange, which can take its full timeout.
+        # Whatever is written from here on is written against it — so it must still be the
+        # configuration at that slug (#1987).
+        self._require_configuration_unchanged(config)
 
         # Find the existing link — of *this* configuration (#1869).
         issuer = _id_token_issuer(token_response)
@@ -1452,6 +1509,7 @@ class AuthService:
             if existing_provider.issuer is None and issuer:
                 existing_provider.issuer = issuer
             if existing_provider.key:
+                self._require_configuration_unchanged(config)
                 self._auth_provider_repo.update(existing_provider.key, existing_provider)
         else:
             # No link — check if email matches existing user (auto-link)
@@ -1508,6 +1566,7 @@ class AuthService:
                     raise OAuthAutoLinkRefusedError(
                         "This email cannot be used to create an account right now. Sign in with your password instead.",
                     )
+                self._require_configuration_unchanged(config)
                 user = self._register_oauth_user(oauth_user)
                 self._create_oauth_provider(user.key or "", oauth_user, token_response, config=config)
 
@@ -1548,7 +1607,20 @@ class AuthService:
                 after creating an account (/code-review of #1937).
         """
         candidates = self._auth_provider_repo.list_by_provider(oauth_user.provider, oauth_user.provider_user_id)
-        of_config = [row for row in candidates if row.oidc_config_slug == config.slug]
+        of_slug = [row for row in candidates if row.oidc_config_slug == config.slug]
+        # A link that recorded the configuration's key (#1987) belongs to THAT configuration. One
+        # whose key is not this configuration's was written by a login that loaded a configuration
+        # since deleted, under a slug since re-used: it is an orphan of the old one. It matches
+        # nothing, and is removed — it would also collide on the (type, slug, sub) unique key with
+        # the link this sign-in is about to make.
+        of_config = []
+        for row in of_slug:
+            if config.key is not None and row.oidc_config_key not in (None, config.key):
+                if row.key:
+                    self._auth_provider_repo.delete(row.key)
+                logger.warning("oauth_orphan_link_removed", provider=config.slug)
+                continue
+            of_config.append(row)
         bound = [row for row in of_config if row.issuer is None or OAuthEngine.same_issuer(row.issuer, issuer)]
         if len({row.user_key for row in bound}) == 1:
             return bound[0]
@@ -1605,6 +1677,9 @@ class AuthService:
         so a step-up re-authentication can send the link only to its own provider.
         """
         issuer = _id_token_issuer(token_response)
+        # The last check before the write: the link is bound to this configuration's key, and the
+        # slug is only its label (#1987).
+        self._require_configuration_unchanged(config)
 
         encrypted_access = token_response.get("access_token", "")
         encrypted_refresh = token_response.get("refresh_token", "")
@@ -1619,6 +1694,7 @@ class AuthService:
             provider=oauth_user.provider,
             provider_user_id=oauth_user.provider_user_id,
             oidc_config_slug=config.slug,
+            oidc_config_key=config.key,
             issuer=issuer,
             provider_email=oauth_user.email,
             provider_display_name=oauth_user.display_name,

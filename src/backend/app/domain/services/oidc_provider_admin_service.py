@@ -78,6 +78,24 @@ def _repoints_discovery(current: OidcProviderConfig, changes: dict[str, Any]) ->
     return any(field in changes and changes[field] != getattr(current, field) for field in _DISCOVERY_BOUND_FIELDS)
 
 
+#: The explicitly configured endpoints; each one belongs to the issuer it was typed for.
+_EXPLICIT_ENDPOINT_FIELDS = ("authorization_url", "token_url", "userinfo_url", "jwks_url")
+
+
+def _endpoints_of_the_old_issuer(current: OidcProviderConfig, data: dict[str, Any]) -> list[str]:
+    """The explicit endpoints a repoint of the issuer leaves behind: set, and not replaced by this request (#1987).
+
+    "Repoint" is a change of the issuer a token's ``iss`` is checked against — compared the way
+    the login compares it, so adding a trailing ``/`` or dropping a scheme-less spelling is not
+    one. A field the request sends is the operator's answer for the new issuer and stays (it was
+    validated as https at the boundary); a field it does not send is cleared.
+    """
+    new_issuer = data.get("issuer_url")
+    if new_issuer is None or OAuthEngine.same_issuer(current.issuer_url, new_issuer):
+        return []
+    return [name for name in _EXPLICIT_ENDPOINT_FIELDS if getattr(current, name) and name not in data]
+
+
 class OidcProviderAdminService:
     """The write side of ``/admin/oidc-providers`` (#1883)."""
 
@@ -132,8 +150,24 @@ class OidcProviderAdminService:
         # deleted before deletion removed them, and would be inherited — possibly
         # by a different IdP. Nothing legitimate can be bound to a slug that has no
         # configuration, so this removes only orphans.
-        purged = self._auth_provider_repo.delete_by_config_slug(config.slug)
-        created = self._oidc_config_repo.create(config)
+        #
+        # **Created first, switched off; purged; then switched on (#1987).** The
+        # ``get_by_slug`` check above is not atomic: two creations of one slug can both
+        # pass it, and with the purge first the loser deleted the winner's links before
+        # its own ``create`` failed on the unique index. The ``create`` is the one
+        # operation the index serialises, so it goes first — the loser fails there and
+        # touches no link — and it is created disabled, so nobody can sign in at the
+        # slug while its orphans still exist. A failed purge takes the new row with it.
+        wanted_enabled = config.enabled
+        created = self._oidc_config_repo.create(config.model_copy(update={"enabled": False}))
+        try:
+            purged = self._auth_provider_repo.delete_by_config_slug(created.slug)
+            if wanted_enabled:
+                created = self._oidc_config_repo.update_fields(created.key or "", {"enabled": True})
+        except Exception:
+            if created.key:
+                self._oidc_config_repo.delete(created.key)
+            raise
         logger.info(
             "oidc_provider.created",
             provider=created.slug,
@@ -192,6 +226,15 @@ class OidcProviderAdminService:
         # Only the changed fields (security review SEC-003): a full write of the
         # snapshot read above would revert whatever another admin changed while
         # this request was being confirmed.
+        stale_endpoints = _endpoints_of_the_old_issuer(config, data)
+        if stale_endpoints:
+            # Explicit endpoints are the OLD provider's: sign-in prefers them to anything
+            # discovered, so left in place a repointed provider would still send the code and
+            # the client secret to the issuer it was moved away from — or fetch its keys from
+            # there (#1987). Cleared in the same write as the repoint; the request may name
+            # new ones, which it did if they appear in ``data``.
+            changes = {**changes, **dict.fromkeys(stale_endpoints)}
+            merged = merged.model_copy(update=dict.fromkeys(stale_endpoints))
         if changes and _repoints_discovery(config, changes):
             # The stored discovery document is the OLD issuer's (or provider type's):
             # sign-in prefers its endpoints to the configured ones. Cleared in the
