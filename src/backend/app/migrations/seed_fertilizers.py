@@ -165,6 +165,7 @@ def _build_phase_entries(
 def run_seed_fertilizers() -> None:
     """Create fertilizer products and nutrient plans."""
     from app.migrations.seed_upsert_helpers import (
+        global_plan_map,
         load_species_key_map,
         resolve_plan_species_keys,
         upsert_fertilizers,
@@ -192,8 +193,8 @@ def run_seed_fertilizers() -> None:
     # ── Upsert nutrient plans ─────────────────────────────────────────────
     # #1618: seeded plans are linked to the species their source names.
     species_key_map = load_species_key_map(get_db())
-    existing_plans, _ = plan_repo.get_all(offset=0, limit=100, all_tenants=True)  # seed: global catalog
-    existing_plan_map = {p.name: p for p in existing_plans}
+    # #1957: global rows only (never a tenant's same-named plan), whole catalogue, first row wins.
+    existing_plan_map = global_plan_map(plan_repo)
 
     plan_data_list = data["nutrient_plans"]
     for plan_data in plan_data_list:

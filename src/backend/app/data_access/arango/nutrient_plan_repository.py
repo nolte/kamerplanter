@@ -24,6 +24,26 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
 
     # ── Plan CRUD ────────────────────────────────────────────────────
 
+    def get_global_plans(self) -> list[NutrientPlan]:
+        """Every global (system) plan, the whole catalogue, no row limit (#1957).
+
+        Seed loaders match a seed to its row through this and nothing wider: a plan
+        is global when its ``tenant_key`` is empty or absent, so a tenant's own plan
+        that happens to carry a seed's name is never returned and can never be
+        rewritten as the seed. Deliberately not :meth:`get_all` — that is paged, and a
+        fixed ``limit`` truncated the catalogue once enough plans existed. Ordered by
+        ``_key`` so that two global rows of one name resolve the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.NUTRIENT_PLANS}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [NutrientPlan(**self._from_doc(doc)) for doc in cursor]
+
     def get_all(
         self,
         offset: int = 0,
