@@ -784,6 +784,40 @@ where it left off.
 
 ---
 
+## Migration v0066: Cleaning Up Legacy References From the #1871 Holes
+
+Before #1871/#1876 some routes let a tenant store a reference to **another tenant's** data.
+The fixes stop new cases; migration `v0066_clean_legacy_foreign_references` cleans the
+existing data:
+
+1. **Shared workflow templates of a private species** (generated, `tenant_key == ""`) are
+   assigned to the tenant that owns the species. Nothing is deleted.
+2. **Slots whose location field and `has_slot` edge disagree:** the edge follows the field,
+   but only when both locations belong to the same tenant.
+3. **Foreign edges** (`equipment_at`, `assigned_to_location`, `log_slot`, `feeds_from`,
+   `entry_for_species`) are deleted when both tenants are known and differ. Global targets
+   and species granted to the tenant stay.
+
+Also left unchanged, on purpose: templates of species granted to a tenant or when the owner
+already holds a generated plan, `log_slot` edges on slots whose field and edge name different
+tenants, and `entry_for_species` edges younger than the merge of the #1871 fixes (2026-09-26),
+where a grant that was later withdrawn can be the cause.
+
+Anything that cannot be classified with certainty is left unchanged and shows up as
+`…__left_unclassified` in the counts. The run logs counts only and is idempotent. Count
+first with `python -m app.migrations upgrade --dry-run`.
+
+!!! danger "Not reversible"
+    A deleted edge and the previous owner of a re-assigned template cannot be restored. Take
+    a backup (`arangodump` of `workflow_templates`, `has_slot`, `equipment_at`,
+    `assigned_to_location`, `log_slot`, `feeds_from`, `entry_for_species`) before running it.
+
+!!! note "What stays"
+    The source document keeps its field (for example the equipment's `location_key`); only
+    the edge is removed.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Can I extend the 90-day soft-delete period?"

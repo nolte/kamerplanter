@@ -252,7 +252,66 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         return created
 
     def update_slot(self, key: SlotKey, slot: Slot) -> Slot:
-        return self._slots.update(key, slot)
+        """Rewrite a slot and keep its ``has_slot`` edge on ``slot.location_key`` (#1878).
+
+        The field and the edge are two spellings of the same fact — the field is
+        read by the ownership anchor (``resolve_owned_slot``), the edge by
+        ``get_slots_by_location`` — and this method used to write only the field,
+        so a re-parented slot was listed under its old location and owned through
+        its new one. The edge is re-pointed whenever the stored one does not
+        already hang off the new location; an unchanged location writes nothing.
+
+        The edge is **never** moved across a tenant boundary. Internal callers
+        (a planting run occupying a slot, a plant being placed) hand back the slot
+        they read, whose field on a pre-#1871 row may point into another tenant;
+        following it would re-parent the owner's slot into the stranger's location.
+        Such a row is left as it is for the v0066 migration to count.
+        """
+        updated = self._slots.update(key, slot)
+        if updated.location_key:
+            self._point_has_slot_at(key, updated.location_key)
+        return updated
+
+    def _location_tenant(self, location_key: str) -> str | None:
+        """The tenant of the site a location hangs off, ``None`` when the location or its site is missing."""
+        rows = list(
+            self._db.aql.execute(
+                "LET l = DOCUMENT(CONCAT(@locations, @key)) "
+                "LET s = (l == null OR l.site_key == null) ? null : DOCUMENT(CONCAT(@sites, l.site_key)) "
+                "RETURN s == null ? null : (s.tenant_key == null ? '' : s.tenant_key)",
+                bind_vars={"locations": f"{col.LOCATIONS}/", "sites": f"{col.SITES}/", "key": location_key},
+            )
+        )
+        return rows[0] if rows else None
+
+    def _point_has_slot_at(self, key: SlotKey, location_key: LocationKey) -> None:
+        slot_id = f"{col.SLOTS}/{key}"
+        location_id = f"{col.LOCATIONS}/{location_key}"
+        current = list(
+            self._db.aql.execute(
+                "FOR e IN @@edges FILTER e._to == @slot_id RETURN e",
+                bind_vars={"@edges": col.HAS_SLOT, "slot_id": slot_id},
+            )
+        )
+        if len(current) == 1 and current[0]["_from"] == location_id:
+            return
+        if current:
+            target_tenant = self._location_tenant(location_key)
+            if target_tenant is None or any(
+                self._location_tenant(edge["_from"].split("/", 1)[1]) != target_tenant for edge in current
+            ):
+                return
+        # Ensure the target edge first, then drop the others: a concurrent reader
+        # never finds the slot without a parent, and a lost race leaves a duplicate
+        # the next update (or v0066's count) sees rather than an orphan.
+        self._db.aql.execute(
+            "UPSERT {_from: @loc, _to: @slot} INSERT {_from: @loc, _to: @slot, created_at: @now} UPDATE {} IN @@edges",
+            bind_vars={"loc": location_id, "slot": slot_id, "now": self._now(), "@edges": col.HAS_SLOT},
+        )
+        self._db.aql.execute(
+            "FOR e IN @@edges FILTER e._to == @slot AND e._from != @loc REMOVE e IN @@edges",
+            bind_vars={"loc": location_id, "slot": slot_id, "@edges": col.HAS_SLOT},
+        )
 
     def delete_slot(self, key: SlotKey) -> bool:
         return self._delete_slot_internal(key)
