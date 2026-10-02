@@ -4900,10 +4900,9 @@ export interface TaskTemplateUpdateRequest {
 // ── Admin Platform Types ──────────────────────────────────────────────
 
 /**
- * The step-up every tenant deletion carries (#1791) — `DELETE /tenants/{slug}`
- * and `DELETE /admin/platform/tenants/{key}` alike. `confirm_slug` is the
- * tenant's slug typed back; `password` is the requester's current password,
- * omitted only by an account that signs in through a federated provider alone.
+ * Response of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`.
+ * Since #1792 both answer `202 Accepted` with this body: the deletion is recorded
+ * and the tenant frozen, the erasure itself runs afterwards in a worker.
  */
 export interface TenantDeletionAccepted {
   tenant_key: string;
@@ -4914,9 +4913,11 @@ export interface TenantDeletionAccepted {
 }
 
 /**
- * Body of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`. Since #1792
- * both answer `202 Accepted` with a {@link TenantDeletionAccepted} body: the deletion is
- * recorded and the tenant frozen, the erasure itself runs afterwards in a worker.
+ * The step-up every tenant deletion carries (#1791) — `DELETE /tenants/{slug}`
+ * and `DELETE /admin/platform/tenants/{key}` alike. `confirm_slug` is the
+ * tenant's slug typed back; `password` is the requester's current password,
+ * omitted only by an account that signs in through a federated provider alone.
+ * The answer is a {@link TenantDeletionAccepted} (202, #1792).
  */
 export interface TenantDeleteRequest {
   confirm_slug: string;

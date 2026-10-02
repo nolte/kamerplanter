@@ -441,7 +441,10 @@ class TenantService:
 
         elif self._is_held_by_a_live_run(record, now):
             # An earlier request's run is working on it right now (its heartbeat is
-            # fresh): refuse as before, do not queue a second one.
+            # fresh): refuse as before, do not queue a second one. A record a failed run left
+            # ``partially_completed`` is re-dispatched at once instead of waiting for its
+            # backoff — an authorised caller asking again is an operator retry (as it was
+            # before #1792, when the repeated request re-ran the erasure inline).
             raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
 
         # Freeze, then hand the work to a Celery task (#1792). The task claims the
