@@ -6,17 +6,19 @@ consequence holds on rows written by the real repositories into a database
 built by the real ``ensure_collections`` (unique indexes included):
 
 * a calendar feed's token stops serving once its owner is erased (REQ-015);
-* a personal tenant another member still uses survives, readable through its
-  model and its unique ``slug`` index, but no longer carries the owner's key or
-  display name (a personal tenant only the subject used is erased with its data
-  since #1788); an organisation tenant the subject founded keeps its name and
-  loses only the owner reference, and its other member is untouched (REQ-024);
+* a personal tenant is erased with its owner even when another member uses it
+  (erasure together, #1824); only one a member joined *late* survives, readable
+  through its model and its unique ``slug`` index, but no longer carrying the
+  owner's key or display name; an organisation tenant the subject founded keeps
+  its name and loses only the owner reference, and its other member is
+  untouched (REQ-024);
 * the narrow ``account_cascade`` delete removes the membership registration
   created, and the location assignment hanging off it; the unverified-account
   cleanup task itself runs the full erasure and, since #1788, erases the
   personal tenant of the reaped registration;
-* a slug squatted under the old ``anonymized-<key>`` rule no longer blocks an
-  erasure, and a tip dismissed for the tenant stays dismissed.
+* a slug squatted under the old ``anonymized-<key>`` rule no longer blocks the
+  rename of a tenant a late joiner keeps, and a tip dismissed for the tenant
+  stays dismissed.
 
 Runs against a real ArangoDB (see ``tests/integration/conftest.py``).
 """
@@ -96,6 +98,29 @@ def _erase(database, user_key: str) -> None:
     asyncio.run(privacy_service.erase_account(user_key))
 
 
+def _erase_with_a_late_joiner(database, user_key: str, tenant_key: str, joiner: str) -> None:
+    """Erase *user_key* while *joiner* joins *tenant_key* right after the first membership read (AK-IE-07).
+
+    The only way a personal tenant survives an account erasure since #1824: the
+    join lands between the read that lists the members and the freeze, so the
+    read after the freeze sees someone the first did not.
+    """
+    privacy_service, _ = reach._services(database)
+    memberships = privacy_service._tenant_service._membership_repo  # noqa: SLF001 - the seam the join races through
+    first_read = memberships.active_member_user_keys
+    reads: list[str] = []
+
+    def _read(*, tenant_key: str) -> list[str]:
+        keys = first_read(tenant_key=tenant_key)
+        reads.append(tenant_key)
+        if len(reads) == 1:
+            memberships.create(Membership(user_key=joiner, tenant_key=tenant_key, role=TenantRole.GROWER))
+        return keys
+
+    memberships.active_member_user_keys = _read  # type: ignore[method-assign]
+    asyncio.run(privacy_service.erase_account(user_key))
+
+
 class TestCalendarFeedTokenStopsServing:
     def test_the_feed_token_of_an_erased_user_no_longer_resolves(self, database):
         _insert_user(database, "feed-owner")
@@ -120,8 +145,8 @@ class TestTenantsOfAnErasedOwner:
         _insert_user(database, OTHER)
         service = _tenant_service(database)
         personal = service.create_personal_tenant(SUBJECT, DISPLAY_NAME)
-        # #1788 — only a personal tenant someone else still uses is kept; one the
-        # subject used alone is erased (``test_personal_tenant_erasure_reach``).
+        # #1824 — erased with the subject although OTHER is a member
+        # (``test_personal_tenant_erasure_reach``); only a late joiner keeps it.
         service.admin_add_membership(personal.key, OTHER, TenantRole.GROWER)
         organisation = service.create_organization(SUBJECT, "Gemeinschaftsgarten Nord")
         service.admin_add_membership(organisation.key, OTHER, TenantRole.GROWER)
@@ -131,25 +156,18 @@ class TestTenantsOfAnErasedOwner:
         _erase(database, SUBJECT)
         return personal, organisation, before_other
 
-    def test_the_shared_personal_tenant_stays_readable_and_names_nobody(self, database, tenants):
+    def test_the_shared_personal_tenant_is_erased_with_its_owner(self, database, tenants):
         personal, _, _ = tenants
-        after = ArangoTenantRepository(database).get_by_key(personal.key)
 
-        assert after is not None, "a personal tenant another member uses is retained (#1788)"
-        assert after.owner_user_key == ANONYMIZED_MARKER
-        expected = ErasureEngine.anonymized_rename_value(
-            ErasureEngine.compute_tombstone_hash(SUBJECT, reach.SALT), personal.key
+        assert ArangoTenantRepository(database).get_by_key(personal.key) is None, (
+            "a personal tenant another member uses must go with the owner's account (#1824)"
         )
-        assert after.name == expected
-        assert after.slug == expected
-        # Not derivable from the (guessable) tenant key: a registration could
-        # otherwise have occupied the slug first (see TestAnonymisedSlugCannotBeSquatted).
-        assert personal.key not in after.slug
-        raw = database.collection(col.TENANTS).get(personal.key)
-        assert SUBJECT not in str(raw.values())
-        assert DISPLAY_NAME not in str(raw.values())
-        # The slug index is unique; the rewritten slug resolves to exactly this tenant.
-        assert ArangoTenantRepository(database).get_by_slug(after.slug).key == personal.key
+        assert database.collection(col.TENANTS).get(personal.key) is None
+        record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(personal.key))
+        assert record is not None and record["status"] == "completed"
+
+    def test_the_other_member_of_the_personal_tenant_keeps_the_account(self, database, tenants):
+        assert database.collection(col.USERS).get(OTHER) is not None
 
     def test_an_organisation_keeps_its_name_and_loses_the_owner_reference(self, database, tenants):
         _, organisation, _ = tenants
@@ -168,6 +186,43 @@ class TestTenantsOfAnErasedOwner:
         assert ArangoMembershipRepository(database).list_by_user(SUBJECT) == []
 
 
+class TestATenantALateJoinerKeepsNamesNobody:
+    """AK-IE-07 — the one personal tenant that survives an account erasure (#1824)."""
+
+    @pytest.fixture(scope="class")
+    def kept(self, database):
+        _insert_user(database, "late-owner")
+        _insert_user(database, "late-joiner")
+        personal = _tenant_service(database).create_personal_tenant("late-owner", DISPLAY_NAME)
+        _erase_with_a_late_joiner(database, "late-owner", personal.key, "late-joiner")
+        return personal
+
+    def test_the_tenant_stays_readable_and_names_nobody(self, database, kept):
+        after = ArangoTenantRepository(database).get_by_key(kept.key)
+
+        assert after is not None, "a member who joined after the request keeps the tenant (AK-IE-07)"
+        assert after.owner_user_key == ANONYMIZED_MARKER
+        expected = ErasureEngine.anonymized_rename_value(
+            ErasureEngine.compute_tombstone_hash("late-owner", reach.SALT), kept.key
+        )
+        assert after.name == expected
+        assert after.slug == expected
+        # Not derivable from the (guessable) tenant key: a registration could
+        # otherwise have occupied the slug first (see TestAnonymisedSlugCannotBeSquatted).
+        assert kept.key not in after.slug
+        raw = database.collection(col.TENANTS).get(kept.key)
+        assert "late-owner" not in str(raw.values())
+        assert DISPLAY_NAME not in str(raw.values())
+        # The slug index is unique; the rewritten slug resolves to exactly this tenant.
+        assert ArangoTenantRepository(database).get_by_slug(after.slug).key == kept.key
+
+    def test_the_late_joiner_is_still_a_member_and_no_deletion_record_is_left(self, database, kept):
+        joiner = ArangoMembershipRepository(database).get_by_user_and_tenant("late-joiner", kept.key)
+
+        assert joiner is not None and joiner.is_active
+        assert database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(kept.key)) is None
+
+
 class TestAnonymisedSlugCannotBeSquatted:
     """#1700 review — the rename target must not be something another tenant can already hold.
 
@@ -184,11 +239,8 @@ class TestAnonymisedSlugCannotBeSquatted:
     def test_a_slug_squatted_under_the_old_rule_does_not_block_the_erasure(self, database):
         _insert_user(database, "squat-victim")
         personal = _tenant_service(database).create_personal_tenant("squat-victim", "Opfer Beispiel")
-        # Renamed, not erased: another member still uses it (#1788).
+        # Renamed, not erased: a member joins after the request (AK-IE-07, #1824).
         _insert_user(database, "squat-neighbour")
-        ArangoMembershipRepository(database).create(
-            Membership(user_key="squat-neighbour", tenant_key=personal.key, role=TenantRole.GROWER)
-        )
         old_rule_slug = f"{ANONYMIZED_KEY_PREFIX}{personal.key}"
         database.collection(col.TENANTS).insert(
             {
@@ -200,7 +252,7 @@ class TestAnonymisedSlugCannotBeSquatted:
             }
         )
 
-        _erase(database, "squat-victim")
+        _erase_with_a_late_joiner(database, "squat-victim", personal.key, "squat-neighbour")
 
         assert database.collection(col.USERS).get("squat-victim") is None
         after = database.collection(col.TENANTS).get(personal.key)

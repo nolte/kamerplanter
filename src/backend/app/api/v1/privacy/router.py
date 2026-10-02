@@ -17,9 +17,11 @@ from app.api.v1.privacy.schemas import (
     EmailChangeResponse,
     EmailChangeRevertRequest,
     ErasureCreateRequest,
+    ErasurePreviewResponse,
     ErasureResponse,
     MessageResponse,
     ObjectionRequest,
+    PersonalTenantErasurePreviewItem,
     PrivacyPolicyResponse,
     RestrictionCreateRequest,
     RestrictionResponse,
@@ -300,6 +302,26 @@ def request_erasure(
         client_ip=client_ip,
     )
     return _to_erasure_response(erasure)
+
+
+@router.get("/erasure-preview", response_model=ErasurePreviewResponse)
+def get_erasure_preview(
+    current_user: User = Depends(require_account_principal),
+    service: PrivacyService = Depends(get_privacy_service),
+):
+    """Which personal tenants confirming the erasure would delete with the account (REQ-025 AK-FK-06, #1824).
+
+    Read-only and scoped to the authenticated account: the tenant names are the
+    caller's own, the other members only a count. A separate path rather than
+    ``/erasure/preview``, which ``/erasure/{erasure_key}`` would shadow.
+    """
+    preview = service.erasure_preview(current_user.key or "")
+    return ErasurePreviewResponse(
+        personal_tenants=[
+            PersonalTenantErasurePreviewItem(name=item.name, other_member_count=item.other_member_count)
+            for item in preview
+        ]
+    )
 
 
 @router.get("/erasure/{erasure_key}", response_model=ErasureResponse)

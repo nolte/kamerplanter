@@ -169,6 +169,27 @@ class ErasureResponse(BaseModel):
     retained_reason: str | None = None
 
 
+class PersonalTenantErasurePreviewItem(BaseModel):
+    """One personal tenant an account erasure takes with it (AK-FK-06)."""
+
+    #: The subject's own tenant name — never another member's.
+    name: str
+    #: How many *other* active members lose the tenant; a count, never who.
+    other_member_count: int = Field(ge=0)
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"name": "Ada's garden", "other_member_count": 2}]})
+
+
+class ErasurePreviewResponse(BaseModel):
+    """What confirming the erasure would delete beyond the account itself (REQ-025 AK-FK-06, #1824)."""
+
+    personal_tenants: list[PersonalTenantErasurePreviewItem] = Field(default_factory=list)
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"personal_tenants": [{"name": "Ada's garden", "other_member_count": 2}]}]}
+    )
+
+
 # ── Restriction (Art. 18) ──────────────────────────────────────────
 
 

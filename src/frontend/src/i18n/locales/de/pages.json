@@ -568,7 +568,7 @@
       "erasureDescription": "Das Recht auf Vergessenwerden (Art. 17 DSGVO) lässt sich hier ausüben. Nach Bestätigung wird dein Konto sofort deaktiviert; die endgültige Löschung erfolgt nach Ablauf der gesetzlichen Aufbewahrungsfristen.",
       "erasureRequestButton": "Konto löschen",
       "erasureDialogTitle": "Konto wirklich löschen?",
-      "erasureDialogText": "Dein Konto wird sofort geschlossen und du wirst abgemeldet. Nach Ablauf der Löschfrist werden deine Daten endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "erasureDialogText": "Dein Konto wird sofort geschlossen und du wirst abgemeldet. Nach Ablauf der Löschfrist werden deine Daten endgültig gelöscht. Persönliche Gärten werden mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind. Diese Aktion kann nicht rückgängig gemacht werden.",
       "erasureDialogConfirm": "Ja, Konto löschen",
       "erasureDialogPasswordLabel": "Aktuelles Passwort",
       "erasureDialogPasswordHelper": "Bestätige mit deinem aktuellen Passwort, dass du es wirklich bist.",
@@ -591,7 +591,14 @@
         "objection_pending": "Widerspruch anhängig"
       },
       "erasureDialogEmailLabel": "Deine E-Mail-Adresse zur Bestätigung",
-      "erasureDialogEmailHelper": "Tippe deine E-Mail-Adresse „{{email}}“ ein, um zu bestätigen, dass du dein Konto löschen willst."
+      "erasureDialogEmailHelper": "Tippe deine E-Mail-Adresse „{{email}}“ ein, um zu bestätigen, dass du dein Konto löschen willst.",
+      "erasurePreviewHeading": "Diese persönlichen Gärten werden mit deinem Konto gelöscht:",
+      "erasurePreviewTenantAlone": "„{{name}}“ wird gelöscht.",
+      "erasurePreviewTenantShared_one": "„{{name}}“ wird gelöscht, {{count}} weiteres Mitglied ist betroffen.",
+      "erasurePreviewTenantShared_other": "„{{name}}“ wird gelöscht, {{count}} weitere Mitglieder sind betroffen.",
+      "erasurePreviewSharedHint": "Alles darin geht mit verloren: Standorte, Pflanzen, Tagebuch und Aufgaben, auch die der anderen Mitglieder. Die anderen Mitglieder werden per E-Mail benachrichtigt, sobald du die Löschung beantragst, und können ihre Daten bis zur endgültigen Löschung sichern.",
+      "erasurePreviewLoading": "Wir prüfen, welche persönlichen Gärten betroffen sind …",
+      "erasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Deine persönlichen Gärten werden in jedem Fall mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind."
     },
     "activities": {
       "title": "Tätigkeiten",
@@ -838,7 +845,7 @@
       "dangerZone": "Gefahrenzone",
       "deleteAccountWarning": "Das Löschen deines Kontos kann nicht rückgängig gemacht werden. Dein Konto wird sofort geschlossen, deine Daten werden nach Ablauf der Löschfrist endgültig entfernt.",
       "deleteAccount": "Konto löschen",
-      "deleteAccountConfirm": "Dein Konto wird sofort geschlossen und du wirst abgemeldet. Nach Ablauf der Löschfrist werden deine Daten endgültig gelöscht. Ernte- und Behandlungsnachweise bleiben nur so lange erhalten, wie das Gesetz es verlangt, und nennen danach niemanden mehr.",
+      "deleteAccountConfirm": "Dein Konto wird sofort geschlossen und du wirst abgemeldet. Nach Ablauf der Löschfrist werden deine Daten endgültig gelöscht, auch deine persönlichen Gärten mit allem Inhalt. Ernte- und Behandlungsnachweise bleiben nur so lange erhalten, wie das Gesetz es verlangt, und nennen danach niemanden mehr.",
       "logout": "Abmelden",
       "accountMenu": "Konto-Menü",
       "rememberMe": "Angemeldet bleiben",
