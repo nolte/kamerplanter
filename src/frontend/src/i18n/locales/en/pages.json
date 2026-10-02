@@ -760,7 +760,7 @@
       "tenantDeleteSlugHelper": "Type the short name \"{{slug}}\" to confirm which organization you are deleting.",
       "tenantDeletePasswordLabel": "Your current password",
       "tenantDeletePasswordHelper": "For your security, confirm the deletion with your password.",
-      "adminTenantDeleted": "Organization deleted",
+      "adminTenantDeletionAccepted": "Deletion accepted: the organization is frozen and its data is being erased in the background",
       "adminDeleteUser": "Delete User",
       "adminDeleteUserConfirm": "Are you sure you want to permanently delete user \"{{name}}\" ({{email}}) and all associated data?",
       "adminUserDeleted": "User deleted",

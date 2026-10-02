@@ -73,6 +73,46 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
             return None
         return TenantErasureRecord(**self._from_doc(docs[0]))
 
+    def heartbeat(
+        self, key: str, *, claimed_at_iso: str, now_iso: str, parent_keys: dict[str, list[str]] | None = None
+    ) -> bool:
+        """Refresh ``updated_at`` (and optionally ``parent_keys``) while the run's claim still stands.
+
+        One AQL ``UPDATE`` on one document, conditional on the claim stamp
+        (``last_attempt_at``) the run wrote: a claim another worker took over
+        changed that stamp, so this finds nothing and returns ``False``. A
+        write-write conflict (``1200``) means that claim is landing right now —
+        also ``False``.
+        """
+        changes: dict[str, object] = {"updated_at": now_iso}
+        if parent_keys is not None:
+            changes["parent_keys"] = parent_keys
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+            AND doc.status == 'in_progress'
+            AND doc.last_attempt_at == @claimed_at
+          UPDATE doc WITH @changes IN @@collection OPTIONS { mergeObjects: false }
+          RETURN NEW._key
+        """
+        try:
+            refreshed = list(
+                self._db.aql.execute(
+                    query,
+                    bind_vars={
+                        "@collection": col.TENANT_ERASURE_RECORDS,
+                        "key": key,
+                        "claimed_at": claimed_at_iso,
+                        "changes": changes,
+                    },
+                )
+            )
+        except AQLQueryExecuteError as exc:
+            if exc.error_code == 1200:
+                return False
+            raise
+        return bool(refreshed)
+
     def delete_unclaimed(self, key: str) -> bool:
         """Remove the record only while no run has claimed it: one AQL ``REMOVE`` on one document.
 

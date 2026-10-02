@@ -160,6 +160,10 @@ class _World:
             return client.delete(path, headers=headers)
         return client.request("DELETE", path, json=body, headers=headers)
 
+    def run_worker(self) -> dict[str, Any]:
+        """The Celery task body the route dispatched (#1792): claims the record and erases."""
+        return self.service.run_tenant_erasure_task(TenantErasureEngine.record_key(TENANT_KEY))
+
     def nothing_erased(self) -> bool:
         return self.executor.plans == [] and self.records.records == {}
 
@@ -206,7 +210,13 @@ def test_a_lead_with_management_who_is_not_the_owner_may_delete() -> None:
 
     resp = world.delete(TENANT_ROUTE, STEP_UP)
 
-    assert resp.status_code == 200, resp.text
+    # #1792 — accepted, frozen and recorded; the erasure itself is the worker's.
+    assert resp.status_code == 202, resp.text
+    assert resp.json()["status"] == "in_progress"
+    assert resp.json()["tenant_key"] == TENANT_KEY
+    assert world.executor.plans == []
+    assert world.service.dispatched == [TenantErasureEngine.record_key(TENANT_KEY)]
+    world.run_worker()
     assert len(world.executor.plans) == 1
     assert world.record()["status"] == "completed"
 
@@ -216,7 +226,8 @@ def test_the_owner_holding_lead_and_management_may_delete() -> None:
 
     resp = world.delete(TENANT_ROUTE, STEP_UP)
 
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 202, resp.text
+    world.run_worker()
     assert world.record()["status"] == "completed"
 
 
@@ -281,7 +292,7 @@ def test_a_federated_account_deletes_with_the_mailed_code() -> None:
 
     resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_code": code})
 
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 202, resp.text
     assert world.record()["step_up"] == "email_code"
 
 
@@ -320,7 +331,8 @@ def test_a_platform_admin_deletes_with_the_step_up() -> None:
 
     resp = world.delete(ADMIN_ROUTE, STEP_UP)
 
-    assert resp.status_code == 204, resp.text
+    assert resp.status_code == 202, resp.text
+    assert resp.json()["status"] == "in_progress"
     record = world.record()
     assert record["origin"] == "platform_admin"
     assert record["step_up"] == "password"
@@ -384,7 +396,7 @@ def test_a_session_token_is_not_mistaken_for_an_api_key() -> None:
 
     resp = world.delete(TENANT_ROUTE, STEP_UP, bearer="eyJhbGciOiJIUzI1NiJ9.session.token")
 
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 202, resp.text
 
 
 def test_a_deactivated_lead_with_management_is_refused() -> None:
@@ -437,7 +449,7 @@ def test_a_retry_whose_tenant_document_is_gone_echoes_the_key() -> None:
     accepted = world.delete(ADMIN_ROUTE, {"confirm_slug": TENANT_KEY, "password": PASSWORD})
 
     assert refused.status_code == 422, refused.text
-    assert accepted.status_code == 204, accepted.text
+    assert accepted.status_code == 202, accepted.text
 
 
 def test_a_retry_after_the_document_went_still_accepts_the_slug_the_dialog_sends() -> None:
@@ -450,14 +462,19 @@ def test_a_retry_after_the_document_went_still_accepts_the_slug_the_dialog_sends
     world = _World(role=None, scopes=[], platform_admin=True)
     world.executor._raises = RuntimeError("storage phase failed after the ArangoDB commit")
     first = world.delete(ADMIN_ROUTE, STEP_UP)
-    assert first.status_code == 500, first.text
+    assert first.status_code == 202, first.text
+    # The failure is the worker's now: recorded and retried, no longer an HTTP 500.
+    world.run_worker()
+    assert world.record()["status"] == "partially_completed"
     assert SLUG not in str(world.record())
 
     world.executor._raises = None
     world.service._tenant_repo.get_by_key.side_effect = lambda key: None  # the document is gone now
     retry = world.delete(ADMIN_ROUTE, STEP_UP)
 
-    assert retry.status_code == 204, retry.text
+    assert retry.status_code == 202, retry.text
+    assert retry.json()["status"] == "partially_completed"
+    world.run_worker()
     assert world.record()["status"] == "completed"
 
 
@@ -468,7 +485,7 @@ def test_a_federated_account_deletes_with_a_fresh_re_authentication() -> None:
 
     resp = world.delete(TENANT_ROUTE, {"confirm_slug": SLUG, "step_up_token": token})
 
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 202, resp.text
     assert world.record()["step_up"] == "oidc_reauth"
 
 

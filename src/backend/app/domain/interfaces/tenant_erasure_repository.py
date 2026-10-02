@@ -22,6 +22,20 @@ class ITenantErasureRepository(ABC):
         """Atomically mark an open record ``in_progress``; ``None`` when another run holds it or it is complete."""
 
     @abstractmethod
+    def heartbeat(
+        self, key: str, *, claimed_at_iso: str, now_iso: str, parent_keys: dict[str, list[str]] | None = None
+    ) -> bool:
+        """Refresh the claim a run holds, atomically; ``False`` when the claim is no longer that run's.
+
+        *claimed_at_iso* is the ``last_attempt_at`` the run's own claim wrote. The
+        refresh applies only while the record is still ``in_progress`` under that
+        claim — a second worker that claimed it after the heartbeat lapsed
+        overwrote ``last_attempt_at``, and the first run's next heartbeat must see
+        that instead of extending the other run's claim (#1792). *parent_keys*,
+        when given, replaces the persisted parent keys in the same write.
+        """
+
+    @abstractmethod
     def delete_unclaimed(self, key: str) -> bool:
         """Remove the account-erasure record *key* if no run ever claimed it; ``True`` when it was removed.
 

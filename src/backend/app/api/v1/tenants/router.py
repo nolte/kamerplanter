@@ -16,6 +16,7 @@ from app.api.v1.tenants.schemas import (
     MessageResponse,
     TenantCreateRequest,
     TenantDeleteRequest,
+    TenantDeletionAcceptedResponse,
     TenantResponse,
     TenantUpdateRequest,
     TenantWithRoleResponse,
@@ -114,7 +115,12 @@ def update_tenant(
     return _tenant_response(tenant)
 
 
-@router.delete("/{tenant_slug}", response_model=MessageResponse, responses=STEP_UP_RESPONSES)
+@router.delete(
+    "/{tenant_slug}",
+    status_code=202,
+    response_model=TenantDeletionAcceptedResponse,
+    responses=STEP_UP_RESPONSES,
+)
 def delete_tenant(
     body: TenantDeleteRequest,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
@@ -123,7 +129,15 @@ def delete_tenant(
     client_ip: str | None = Depends(resolve_client_ip),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Delete the tenant and all its data (declared tenant-erasure inventory, #1769).
+    """Accept the deletion of the tenant and all its data (declared tenant-erasure inventory, #1769).
+
+    **Asynchronous since #1792 (breaking: ``200`` -> ``202``).** The request
+    authorises, records the deletion and freezes the tenant (every membership is
+    deactivated), then answers ``202 Accepted``; a Celery task runs the external
+    phase and the ArangoDB inventory in bounded batches with a claim heartbeat.
+    Nothing is erased when the response arrives — the tenant is gone once the
+    record says ``completed``. A failed run is retried by the daily beat and
+    escalates after repeated failures; the caller no longer sees it as a 5xx.
 
     **Lead role and management scope, plus a step-up (#1791).** The management
     scope gate here is the first filter; ``TenantService.delete_tenant`` decides —
@@ -137,11 +151,11 @@ def delete_tenant(
 
     Same path as ``DELETE /admin/platform/tenants/{key}``: 403 for the platform
     tenant, 409 while another deletion runs, 503 when the deployment cannot erase
-    (nothing changed), 502 for a failed external store, 500
-    ``TENANT_ERASURE_INCOMPLETE`` when something still holds the tenant — the
-    deletion then stays recorded and is retried daily.
+    (nothing changed). The 502 (external store) and 500 ``TENANT_ERASURE_INCOMPLETE``
+    answers of the synchronous contract no longer reach the caller: they happen in
+    the worker and are recorded and retried there.
     """
-    service.delete_tenant(
+    record = service.delete_tenant(
         ctx.tenant_key,
         requester=user,
         authenticated_with_api_key=via_api_key,
@@ -149,7 +163,7 @@ def delete_tenant(
         origin="tenant_management",
         client_ip=client_ip,
     )
-    return MessageResponse(message="Tenant deleted")
+    return TenantDeletionAcceptedResponse.from_record(record)
 
 
 # ── Members ──────────────────────────────────────────────────────────
