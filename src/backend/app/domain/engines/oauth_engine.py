@@ -977,7 +977,7 @@ class OAuthEngine:
         """
         discovery = self.usable_discovery(config)
         stored_uri = discovery.get("jwks_uri") if discovery else None
-        cache_key = (config.key, config.slug, config.issuer_url, config.jwks_url, stored_uri)
+        cache_key = (config.key, config.slug, config.provider_type, config.issuer_url, config.jwks_url, stored_uri)
         try:
             return jwks_cache.cached_key_set(cache_key, lambda: self._fetch_key_set(config), kid=kid)
         except JwksFetchError as exc:
