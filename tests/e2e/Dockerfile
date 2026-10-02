@@ -9,7 +9,7 @@ WORKDIR /axe
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
-FROM python:3.14-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+FROM python:3.14-slim@sha256:0741d101873c12ab927e6f8653feb8862b9bd58771177acb1b885b95141f91b4
 
 LABEL org.opencontainers.image.title="kamerplanter-e2e-tests" \
       org.opencontainers.image.description="Kamerplanter Selenium E2E test runner" \
