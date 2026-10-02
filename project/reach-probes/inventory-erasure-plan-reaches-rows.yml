@@ -6,6 +6,13 @@
 # observe argv below run on the operator's machine with their environment, as `task` in this
 # repository does.
 #
+# Re-derived after #1912 changed erasure_engine.py: consent records are no longer deleted on erasure but
+# pseudonymised (NFR-011 R-04, REQ-025 section 3.1.3 rule 3, operator decision Q-R5; purged 3 years
+# after revocation). The expectation moves erased/consent_records -> redacted/consent_records (still
+# 64 values). The changed expectation was approved explicitly by the repository owner on 2026-10-02.
+# Observe step, environment and teardown are unchanged (identical digest); derived_from is now a
+# content anchor.
+# Earlier:
 # Re-derived after #1786 (16667ac9a) changed erasure_engine.py: only the log-subject helpers were added
 # (12 lines above the class body, two methods after it), so the cited lines moved +12.
 # The declared content, order and count are unchanged; derived_from is now 16667ac9a, the
@@ -19,7 +26,7 @@ summary: collections of the executing erasure plan left without the subject afte
 declaration:
   source: inventory
   path: src/backend/app/domain/engines/erasure_engine.py
-  location: ErasureEngine.DELETE_STEPS (L404), ANONYMIZE_COLLECTIONS (L79), PSEUDONYMIZE_AUDIT_COLLECTIONS (L692)
+  location: ErasureEngine.DELETE_STEPS (L405), ANONYMIZE_COLLECTIONS (L80), PSEUDONYMIZE_AUDIT_COLLECTIONS (L692)
 tier: T2
 expected:
   kind: set
@@ -33,7 +40,6 @@ expected:
   - erased/attachments
   - erased/auth_providers
   - erased/calendar_feeds
-  - erased/consent_records
   - erased/cv_attached_to_inspection
   - erased/cv_diagnosed_for
   - erased/cv_diagnosis_found
@@ -74,6 +80,7 @@ expected:
   - redacted/ai_audit_log
   - redacted/ai_tip_cache
   - redacted/attachments
+  - redacted/consent_records
   - redacted/erasure_requests
   - redacted/harvest_batches
   - redacted/import_jobs
@@ -89,7 +96,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: 16667ac9ae0fc8c6c2018351388e8d8b5f328ff8
+derived_from: blob:3662da700d8326aaa1954a659bd57a836d08a9b0
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -104,6 +111,7 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-25T11:41:19Z'
+  approved_at: '2026-10-02T08:52:00Z'
   approved_by: nolte
   observation_digest: 584da5deab1a64e149f8a3f1e6fc9081a4ba4fb13aa522276966e372999ac96f
+  mode: derived
