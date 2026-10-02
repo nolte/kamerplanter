@@ -297,6 +297,22 @@ Ein persönlicher Garten kann, wie jeder Garten, weitere Mitglieder haben (siehe
   dahin ihre Daten sichern können. Die E-Mail nennt weder deinen Namen noch deine
   Adresse noch den Namen des Gartens, weil ein persönlicher Garten nach seinem
   Besitzer benannt ist.
+- **Was zugesichert ist, wenn die E-Mail nicht ankommt:** Kamerplanter vermerkt am
+  Löschantrag, ob die Mitglieder benachrichtigt wurden, und wiederholt eine nicht
+  versandte Nachricht jede Nacht, **bevor** der Garten gelöscht wird. Ein Löschantrag,
+  der aus der Zeit vor dieser Regel stammt und dem noch niemand etwas mitgeteilt hat,
+  bekommt die Nachricht beim nächsten nächtlichen Lauf; der Garten wird dann frühestens
+  `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` Tage danach gelöscht (Standard 7). Lässt sich
+  die Nachricht in dieser ganzen Wartezeit nicht zustellen (zum Beispiel weil der
+  Betreiber keinen Mailversand eingerichtet hat), geht die Löschung trotzdem weiter:
+  dein Recht auf Löschung hängt nicht am Postfach eines anderen. Der Betreiber sieht
+  den Fehler im Protokoll und am Löschantrag (`members_notice_failures`), ohne dass dort
+  eine Adresse steht.
+- **Löschung durch einen Administrator:** Löscht ein Plattform-Administrator ein
+  Konto, geschieht das sofort. Die anderen Mitglieder des persönlichen Gartens bekommen
+  eine E-Mail, dass die Löschung jetzt stattfindet; eine Frist zum Sichern gibt es dabei
+  nicht. Der Administrator sieht vor der Bestätigung, welche Gärten betroffen sind und
+  wie viele weitere Mitglieder das trifft.
 - **Ihr Inhalt geht mit:** Alles, was die anderen Mitglieder in diesem Garten angelegt
   haben, wird mit gelöscht. Ihre eigenen Konten und ihre Mitgliedschaften in anderen
   Gärten bleiben unberührt.
@@ -696,6 +712,7 @@ Konstruktor prüft dieselben Unter- und Obergrenzen noch einmal (NFR-011 AK-14):
 | `RETENTION_CONSENT_RETENTION_YEARS` | R-04 | 3 | 1 | 3 | — |
 | `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | R-04a | 7 | 1 | 7 | — |
 | `RETENTION_INVITATION_RETENTION_DAYS` | R-12 | 30 | 1 | 30 | — |
+| `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` | R-01a | 7 | 1 | 7 | — |
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |

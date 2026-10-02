@@ -66,6 +66,10 @@ RETENTION_CEILINGS: dict[str, int] = {
     "retention_consent_retention_years": 3,  # R-04
     "retention_consent_ip_anonymization_days": 7,  # R-04a
     "retention_invitation_retention_days": 30,  # R-12
+    # #1960 — the wait between telling the other members of a personal tenant and erasing it, for a
+    # request that was not told at request time. It lengthens how long personal data of an erasure
+    # request stays, so it has a ceiling like the periods above: a week, the NFR's own default.
+    "retention_erasure_member_notice_days": 7,  # R-01a
 }
 
 
@@ -755,6 +759,18 @@ class Settings(BaseSettings):
         ge=1,
         le=RETENTION_CEILINGS["retention_soft_delete_retention_days"],
         validation_alias=AliasChoices("retention_soft_delete_retention_days", "privacy_hard_delete_after_days"),
+    )
+    #: NFR-011 R-01a (#1960) — the hard delete of an erasure request whose other
+    #: members of a personal tenant were told only *after* the request was
+    #: scheduled (a request from before #1824, or one whose first notice failed)
+    #: waits this many days after that notice; ``retention.execute_scheduled_erasures``
+    #: sends the notice and applies the wait. A request told at request time is not
+    #: delayed by it.
+    retention_erasure_member_notice_days: int = Field(
+        default=7,
+        ge=1,
+        le=RETENTION_CEILINGS["retention_erasure_member_notice_days"],
+        validation_alias=AliasChoices("retention_erasure_member_notice_days"),
     )
     #: NFR-011 R-03 — the IP address of a login session is anonymised this many
     #: days after the session was issued (``auth_tasks.anonymize_old_ips``).

@@ -16,7 +16,7 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserUpdate,
 )
 from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
-from app.api.v1.privacy.schemas import ErasureCreateRequest
+from app.api.v1.privacy.schemas import ErasureCreateRequest, ErasurePreviewResponse, PersonalTenantErasurePreviewItem
 from app.api.v1.tenants.schemas import TenantDeleteRequest, TenantDeletionAcceptedResponse
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
@@ -297,6 +297,31 @@ def delete_tenant(
         client_ip=client_ip,
     )
     return TenantDeletionAcceptedResponse.from_record(record)
+
+
+@router.get("/users/{key}/erasure-preview", response_model=ErasurePreviewResponse)
+def get_user_erasure_preview(
+    key: Annotated[str, Path(description="Document key of the user the admin considers deleting.")],
+    _admin: User = Depends(require_platform_admin),
+    user_service: UserService = Depends(get_user_service),
+    privacy_service: PrivacyService = Depends(get_privacy_service),
+):
+    """Which personal tenants deleting this account takes with it, before the admin confirms (REQ-025 AK-FK-06, #1961).
+
+    The platform-admin counterpart of ``GET /privacy/erasure-preview``, in the
+    same shape: the target's own tenant name and a *count* of the other active
+    members — never their names, e-mails or roles. Read-only and scoped to the
+    one account in the path (404 when it does not exist); it returns nothing about
+    any other tenant. The deletion itself, ``DELETE /admin/platform/users/{key}``,
+    gives the other members no grace period: they are told it happens now.
+    """
+    user_service.get_user(key)
+    return ErasurePreviewResponse(
+        personal_tenants=[
+            PersonalTenantErasurePreviewItem(name=item.name, other_member_count=item.other_member_count)
+            for item in privacy_service.erasure_preview(key)
+        ]
+    )
 
 
 @router.delete("/users/{key}", status_code=204, responses=STEP_UP_RESPONSES)

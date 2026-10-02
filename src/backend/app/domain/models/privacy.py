@@ -194,6 +194,25 @@ class ErasureRequest(BaseModel):
     personal_tenant_keys: list[str] = Field(default_factory=list)
     #: What the erasure did with each of them; written with ``completed``.
     personal_tenants: list[PersonalTenantErasure] = Field(default_factory=list)
+    #: The notice to the other members of the subject's personal tenants (#1960).
+    #: ``members_notified_at`` is the marker: set once every reachable member has
+    #: been mailed (also when there was nobody to tell, ``members_notified_count``
+    #: 0). A record written before #1960 carries none, which is what the daily beat
+    #: acts on. ``members_notified_pseudonyms`` are the salted log references of the
+    #: members already mailed — never an address or an account key — so a retry
+    #: does not mail them twice. ``members_notice_failures`` counts the runs that
+    #: left somebody unmailed; ``members_notice_first_attempt_at`` is when the
+    #: first one did, the clock after which a notice that cannot be delivered no
+    #: longer holds the hard delete.
+    members_notified_at: datetime | None = None
+    members_notified_count: int | None = Field(default=None, ge=0)
+    members_notified_pseudonyms: list[str] = Field(default_factory=list)
+    members_notice_failures: int = Field(default=0, ge=0)
+    members_notice_first_attempt_at: datetime | None = None
+    #: An administrator's immediate erasure pulled this request forward (or created
+    #: it): the other members are told it happens now, and no notice wait applies
+    #: (REQ-025 §3.1.3, #1961).
+    immediate_erasure: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

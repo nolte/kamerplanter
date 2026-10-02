@@ -27,6 +27,7 @@ vi.mock('@/api/endpoints/adminPlatform', () => ({
   fetchAdminTenants: vi.fn().mockResolvedValue([]),
   updateAdminUser: vi.fn(),
   deleteAdminUser: vi.fn(),
+  getAdminUserErasurePreview: vi.fn().mockResolvedValue({ personal_tenants: [] }),
   fetchUserMemberships: vi.fn().mockResolvedValue([]),
   addUserToTenant: vi.fn(),
   removeUserFromTenant: vi.fn(),
