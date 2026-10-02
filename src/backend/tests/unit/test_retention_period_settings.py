@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.config.settings import Settings
+from app.config.settings import RETENTION_CEILINGS, Settings
 
 #: (field, documented env name, legacy env name or None, NFR-011 default)
 PERIODS = [
@@ -50,6 +50,15 @@ PERIODS = [
 LEGACY = [p for p in PERIODS if p[2] is not None]
 
 
+def _other(field: str, default: int, step: int) -> int:
+    """A value that differs from the default and is legal for *field*.
+
+    The periods with a ceiling (NFR-011 §4, AK-14) may only be shortened, so the
+    "another value" they are tested with sits below the default; the rest may grow.
+    """
+    return default - step if field in RETENTION_CEILINGS else default + step
+
+
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
     for _field, documented, legacy, _default in PERIODS:
@@ -65,24 +74,24 @@ def test_the_default_is_the_spec_period(field, documented, legacy, default):
 
 @pytest.mark.parametrize(("field", "documented", "legacy", "default"), PERIODS)
 def test_the_documented_env_name_sets_the_period(monkeypatch, field, documented, legacy, default):
-    monkeypatch.setenv(documented, str(default + 3))
+    monkeypatch.setenv(documented, str(_other(field, default, 1)))
 
-    assert getattr(Settings(), field) == default + 3
+    assert getattr(Settings(), field) == _other(field, default, 1)
 
 
 @pytest.mark.parametrize(("field", "documented", "legacy", "default"), LEGACY)
 def test_the_legacy_env_name_still_sets_the_period(monkeypatch, field, documented, legacy, default):
-    monkeypatch.setenv(legacy, str(default + 5))
+    monkeypatch.setenv(legacy, str(_other(field, default, 2)))
 
-    assert getattr(Settings(), field) == default + 5
+    assert getattr(Settings(), field) == _other(field, default, 2)
 
 
 @pytest.mark.parametrize(("field", "documented", "legacy", "default"), LEGACY)
 def test_the_documented_name_wins_when_both_are_set(monkeypatch, field, documented, legacy, default):
-    monkeypatch.setenv(legacy, str(default + 5))
-    monkeypatch.setenv(documented, str(default + 3))
+    monkeypatch.setenv(legacy, str(_other(field, default, 2)))
+    monkeypatch.setenv(documented, str(_other(field, default, 1)))
 
-    assert getattr(Settings(), field) == default + 3
+    assert getattr(Settings(), field) == _other(field, default, 1)
 
 
 @pytest.mark.parametrize(("field", "documented", "legacy", "default"), PERIODS)

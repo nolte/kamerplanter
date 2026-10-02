@@ -305,3 +305,30 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
             bind_vars={"@collection": col.USERS, "@providers": col.AUTH_PROVIDERS, "cutoff": cutoff_iso},
         )
         return [User(**self._from_doc(doc)) for doc in cursor]
+
+    def count_unverified_undated(self) -> int:
+        """Unverified, unlinked accounts that :meth:`get_unverified_before` can never select (#1806 GDPR-003).
+
+        The R-02 selector skips an account whose ``created_at`` is missing or
+        unreadable — its age is unknown and everything it returns is erased, so
+        skipping is the safe side. The price is that such a row is held for ever
+        without anyone being told. This counts exactly those rows (same predicate
+        as the selector, with the date test inverted) so the task can report the
+        number next to its other counters, like R-06's ``held_without_tombstone``.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.email_verified == false
+            AND DATE_TIMESTAMP(doc.created_at) == null
+          LET linked = LENGTH(
+            FOR provider IN @@providers
+              FILTER provider.user_key == doc._key
+              LIMIT 1
+              RETURN 1
+          )
+          FILTER linked == 0
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.USERS, "@providers": col.AUTH_PROVIDERS})
+        return int(next(iter(cursor), 0))

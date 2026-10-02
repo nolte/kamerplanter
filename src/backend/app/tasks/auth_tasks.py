@@ -52,10 +52,22 @@ def cleanup_unverified_accounts() -> dict:
     from app.common.async_bridge import run_async
     from app.common.dependencies import get_privacy_service, get_retention_service, get_user_repo
     from app.common.exceptions import FeatureNotConfiguredError
+    from app.common.held_count import held_undated_count
 
     cutoff = get_retention_service().unverified_account_cutoff(datetime.now(UTC)).isoformat()
-    candidates = [user.key for user in get_user_repo().get_unverified_before(cutoff) if user.key]
-    result: dict = {"removed": 0, "failed": 0, "deferred": 0, "skipped": 0, "blocked": 0}
+    user_repo = get_user_repo()
+    candidates = [user.key for user in user_repo.get_unverified_before(cutoff) if user.key]
+    # #1806 GDPR-003: accounts the selector skips because their age is unreadable
+    # are held for ever; say how many instead of staying silent (the R-06
+    # ``held_without_tombstone`` convention).
+    result: dict = {
+        "removed": 0,
+        "failed": 0,
+        "deferred": 0,
+        "skipped": 0,
+        "blocked": 0,
+        "held_undated": held_undated_count(user_repo.count_unverified_undated, task="cleanup_unverified_accounts"),
+    }
     if not candidates:
         logger.info("cleanup_unverified_accounts", **result)
         return result
