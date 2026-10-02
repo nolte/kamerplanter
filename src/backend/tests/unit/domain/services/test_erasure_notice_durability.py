@@ -344,3 +344,55 @@ class TestAnAdministratorRunThatFailsBeforeTheNoticeIsStillTold:
 
         assert tenants.runs == [], "nobody was told yet: the beat tells them and holds the garden"
         assert len(_sent(email_service)) == 2
+
+
+class TestReviewFollowUps:
+    @pytest.mark.asyncio
+    async def test_a_retried_administrator_run_does_not_mail_the_members_who_already_got_it(self):
+        tenants, privacy, email_service, _ = _legacy_shared()
+        calls = {"n": 0}
+
+        def _flaky(**kwargs: Any) -> None:
+            calls["n"] += 1
+            if kwargs["to_email"] == OTHER_EMAIL and calls["n"] <= 2:
+                raise RuntimeError("mailbox full")
+
+        email_service.send_notification_email.side_effect = _flaky
+        failing = {"on": True}
+        inner = tenants.service.erase_personal_tenant_of
+
+        def _erase(user_key: str, tenant_key: str, **kwargs: Any) -> Any:
+            if failing["on"]:
+                raise RuntimeError("tenant erasure down")
+            return inner(user_key, tenant_key, **kwargs)
+
+        tenants.service.erase_personal_tenant_of = _erase  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError):
+            await privacy.erase_account_now(OWNER, origin="platform_admin", now=NOW)
+        failing["on"] = False
+
+        await privacy.erase_account_now(OWNER, origin="platform_admin", now=NOW + timedelta(hours=1))
+
+        to = sorted(mail["to_email"] for mail in _sent(email_service))
+        assert to == [FRIEND_EMAIL, OTHER_EMAIL, OTHER_EMAIL], "FRIEND once, the failed OTHER retried"
+
+    @pytest.mark.asyncio
+    async def test_a_failing_marker_write_does_not_let_the_run_erase_unattempted(self):
+        tenants, privacy, _, repo = _legacy_shared()
+
+        def _boom(*_: Any) -> list[ErasureRequest]:
+            raise RuntimeError("aql down")
+
+        repo.list_open_without_member_notice = _boom  # type: ignore[method-assign]
+        inner = repo.update_fields
+
+        def _no_notice_writes(key: str, fields: dict[str, Any]) -> ErasureRequest:
+            if any(name.startswith("members_notice") for name in fields):
+                raise RuntimeError("write down")
+            return inner(key, fields)
+
+        repo.update_fields = _no_notice_writes  # type: ignore[method-assign]
+
+        await privacy.execute_scheduled_erasures(NOW)
+
+        assert tenants.runs == [], "the clock lives in memory for this run even when it cannot be stored"

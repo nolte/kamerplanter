@@ -1192,6 +1192,10 @@ class PrivacyService:
             fields["members_notice_failures"] = erasure.members_notice_failures + 1
             if erasure.members_notice_first_attempt_at is None:
                 fields["members_notice_first_attempt_at"] = now
+        # The in-memory request is updated first: when the write below fails, this run still sees the
+        # clock it started (the hold it computes), and the next run starts it again.
+        for name, value in fields.items():
+            setattr(erasure, name, value)
         try:
             self._erasure_repo.update_fields(erasure.key, _persistable(fields))
         except Exception as exc:  # noqa: BLE001 - the notice was sent; an unrecorded marker only means one more try
@@ -1200,9 +1204,6 @@ class PrivacyService:
                 subject=self.log_subject(erasure.user_key),
                 error_type=type(exc).__name__,
             )
-            return
-        for name, value in fields.items():
-            setattr(erasure, name, value)
 
     def _member_notice_release_at(self, erasure: ErasureRequest) -> datetime | None:
         """The earliest moment the hard delete may run for the other members' sake (#1960); ``None``: not held.
@@ -1413,7 +1414,16 @@ class PrivacyService:
             # forward was told a later date at its own request time (#1961: that date
             # no longer holds, so they are told again, now); one never told at all
             # (#1960) is told now. An unverified account never had a shared garden.
-            self._deliver_member_notice(erasure, now=now, delete_at=now, immediate=True, resend=True)
+            self._deliver_member_notice(
+                erasure,
+                now=now,
+                delete_at=now,
+                immediate=True,
+                # Told a later date at request time: that date no longer holds, so tell them again. A
+                # retry of an immediate run whose first notice only partly got through skips the members
+                # already told (the dedupe of a request nobody finished telling).
+                resend=pulled_forward and erasure.members_notified_at is not None,
+            )
         if erasure.key is not None and origin != "unverified_cleanup" and not erasure.immediate_erasure:
             # #1961 — an administrator's erasure waits for nobody: neither this run nor a retry of it by
             # the beat is held for the notice wait of a self-service request (#1960). Written only now,
