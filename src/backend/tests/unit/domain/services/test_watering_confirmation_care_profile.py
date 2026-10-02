@@ -15,6 +15,7 @@ production.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -44,7 +45,18 @@ class _Runs:
         return [
             {"_key": "plant_with_profile", "slot_key": "s1"},
             {"_key": "plant_without_profile", "slot_key": "s2"},
+            {"_key": "plant_foreign", "slot_key": "s3"},
         ]
+
+
+class _Plants:
+    """Plant repository double; ``plant_foreign`` belongs to another tenant."""
+
+    def get_by_key(self, key: str):
+        owners = {"plant_with_profile": TENANT, "plant_without_profile": TENANT, "plant_foreign": "t_b"}
+        if key not in owners:
+            return None
+        return SimpleNamespace(key=key, tenant_key=owners[key])
 
 
 class _Tasks:
@@ -71,7 +83,7 @@ class _CareRepo:
         self.confirmations: list[CareConfirmation] = []
 
     def get_profile_by_plant_key(self, plant_key: str) -> CareProfile | None:
-        if plant_key == "plant_with_profile":
+        if plant_key in {"plant_with_profile", "plant_foreign"}:
             return CareProfile(_key="profile_1", plant_key=plant_key, tenant_key=TENANT)
         return None
 
@@ -90,12 +102,19 @@ def _event_service(tasks: _Tasks, care: _CareRepo) -> WateringService:
         task_repo=tasks,
         feeding_repo=_Store(),
         care_repo=care,
+        plant_repo=_Plants(),
     )  # type: ignore[arg-type]
 
 
 def _log_service(tasks: _Tasks, care: _CareRepo) -> WateringLogService:
     return WateringLogService(
-        _Store(), WateringEngine(), site_repo=MagicMock(), run_repo=_Runs(), task_repo=tasks, care_repo=care
+        _Store(),
+        WateringEngine(),
+        site_repo=MagicMock(),
+        run_repo=_Runs(),
+        task_repo=tasks,
+        care_repo=care,
+        plant_repo=_Plants(),
     )  # type: ignore[arg-type]
 
 
@@ -122,3 +141,13 @@ def test_a_plant_without_a_care_profile_is_skipped_not_fatal(path: str) -> None:
     _FACTORIES[path](tasks, care).confirm_watering("run_a", "task_a", tenant_key=TENANT)
 
     assert "plant_without_profile" not in [c.plant_key for c in care.confirmations]
+
+
+@pytest.mark.parametrize("path", sorted(_FACTORIES))
+def test_a_foreign_tenant_plant_in_the_run_gets_no_confirmation(path: str) -> None:
+    """SEC-001: the profile lookup is not tenant-scoped, so the plant is resolved under the tenant first."""
+    tasks, care = _Tasks(), _CareRepo()
+
+    _FACTORIES[path](tasks, care).confirm_watering("run_a", "task_a", tenant_key=TENANT)
+
+    assert "plant_foreign" not in [c.plant_key for c in care.confirmations]
