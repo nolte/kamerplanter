@@ -211,8 +211,8 @@ def update_user(
     read. Both now go through the service layer (NFR-001), and the membership
     join is the same one ``list_user_memberships`` / ``list_all_users`` use.
 
-    **Step-up (#1857):** turning ``email_verified`` or ``is_active`` true passes
-    the admin's own step-up — ``current_password`` (or ``step_up_token`` /
+    **Step-up (#1857, #1992):** any *change* of ``email_verified`` or ``is_active`` —
+    raising or lowering — passes the admin's own step-up — ``current_password`` (or ``step_up_token`` /
     ``step_up_code`` for an admin without one); 401 without it, 403 from an
     API-key request, 429 ``STEP_UP_LOCKED``. The step-up fields are never written.
     """

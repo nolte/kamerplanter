@@ -1210,8 +1210,8 @@ class PrivacyService:
 
         A request is held only when it is a scheduled self-service one — an
         administrator's immediate erasure tells the members it happens now and
-        waits for nobody, a cleanup of an unverified account never had a shared
-        garden. For a request that was told the wait counts from that notice
+        waits for nobody, and the cleanup of an unverified account is told and erased
+        in one run (#1992). For a request that was told the wait counts from that notice
         (so a request told at request time, whose hard delete is months away, is
         not delayed at all, and one told by the beat — it predates #1960 or its
         first mail failed — is erased one wait later); with nobody to tell there is
