@@ -380,7 +380,13 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     the field reads `unavailable`. Object-storage log
     lines (`storage_put_object`, `storage_delete_object`, and similar) mask the account
     segment of export-bundle keys: `privacy/exports/<account key>/<export>.json` becomes
-    `privacy/exports/<subject>/<export>.json`.
+    `privacy/exports/<subject>/<export>.json`. They replace the tenant key of an
+    attachment (`t/<tenant>/<category>/…`) with the tenant reference `ten_…`; category,
+    date, ULID and file extension stay for debugging. The same reference appears as
+    `tenant=` on the invitation and tenant-deletion lines next to the subject
+    reference: the tenant key itself sits on the retained, pseudonymised rows and would
+    otherwise join the pseudonym back to your tenant. In log lines the erasure-record
+    key `ter_<tenant>` reads `ter_ten_…`.
 
     `LOG_PSEUDONYM_SALT` keys only these log references (and the `requested_by_subject`
     provenance field on erasure and tenant-erasure records) — separate from
@@ -407,7 +413,9 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     structured log lines as well as to the tracebacks that uvicorn and the Celery worker
     write for an unhandled error, and to errors that never become a log line: a crash at
     startup, an error in a background thread. If an error tracker is connected, it
-    receives the same cleaned texts.
+    receives the same cleaned texts; as the address of the request its event carries only
+    the route pattern (`/api/v1/t/{tenant_slug}/attachments/{key}/…`), never the requested
+    path with tenant slug and download token.
 
     IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
     `0`, IPv6 `/48`), as `ip_prefix=`. That now also applies to the access logs: uvicorn

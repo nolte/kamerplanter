@@ -27,7 +27,7 @@ from app.common.exceptions import (
     ValidationError,
     WriteConflictError,
 )
-from app.common.log_privacy import log_subject
+from app.common.log_privacy import log_subject, log_tenant, log_tenant_record_key
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
@@ -172,7 +172,7 @@ class TenantService:
         )
         self._membership_repo.create(membership)
 
-        logger.info("personal_tenant_created", subject=log_subject(user_key), tenant_key=tenant.key)
+        logger.info("personal_tenant_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
 
     def create_organization(
@@ -213,7 +213,7 @@ class TenantService:
         )
         self._membership_repo.create(membership)
 
-        logger.info("organization_created", subject=log_subject(user_key), tenant_key=tenant.key)
+        logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
 
     def get_tenant(self, tenant_key: str) -> Tenant:
@@ -415,7 +415,7 @@ class TenantService:
         requested_by = log_subject(requester.key)
         logger.info(
             "tenant_erasure.authorized",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             origin=origin,
             step_up=step_up,
             subject=requested_by,
@@ -475,9 +475,13 @@ class TenantService:
             run_tenant_erasure.apply_async(
                 (record_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
             )
-            logger.info("tenant_erasure.dispatched", record_key=record_key)
+            logger.info("tenant_erasure.dispatched", record_key=log_tenant_record_key(record_key))
         except Exception as exc:  # noqa: BLE001 — broker outage is survivable, the beat retries
-            logger.error("tenant_erasure.dispatch_failed", record_key=record_key, error_type=type(exc).__name__)
+            logger.error(
+                "tenant_erasure.dispatch_failed",
+                record_key=log_tenant_record_key(record_key),
+                error_type=type(exc).__name__,
+            )
 
     def run_tenant_erasure_task(self, record_key: str, now: datetime | None = None) -> dict[str, object]:
         """Run the deletion *record_key* names, as the Celery worker (#1792).
@@ -495,7 +499,11 @@ class TenantService:
             return {"record_key": record_key, "outcome": "nothing_to_do"}
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
-            logger.error("tenant_erasure.run_not_configured", record_key=record_key, reason=configuration_error)
+            logger.error(
+                "tenant_erasure.run_not_configured",
+                record_key=log_tenant_record_key(record_key),
+                reason=configuration_error,
+            )
             return {"record_key": record_key, "outcome": "held"}
         claimed = self._claim_tenant_erasure(record_key, now)
         if claimed is None:
@@ -597,7 +605,7 @@ class TenantService:
                 result["deferred"] += 1
                 logger.info(
                     "tenant_erasure.deferred",
-                    record_key=record.key,
+                    record_key=log_tenant_record_key(record.key),
                     attempt_count=record.attempt_count,
                     next_attempt_at=record.next_attempt_at.isoformat(),
                 )
@@ -608,7 +616,7 @@ class TenantService:
                 # Its own retry (the open erasure request) re-reads before it
                 # claims; the beat must not deactivate a late joiner blind.
                 result["deferred"] += 1
-                logger.info("tenant_erasure.awaiting_account_erasure", record_key=record.key)
+                logger.info("tenant_erasure.awaiting_account_erasure", record_key=log_tenant_record_key(record.key))
                 continue
             claimed = self._claim_tenant_erasure(record.key or "", now)
             if claimed is None:
@@ -1110,7 +1118,7 @@ class TenantService:
         except TenantErasureClaimLostError:
             # The record is another run's now; writing a failure onto it would
             # clobber that run's state. Stop quietly.
-            logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+            logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
             if raise_on_failure:
                 raise
             return record
@@ -1119,7 +1127,7 @@ class TenantService:
             next_attempt_at = TenantErasureEngine.next_attempt_at(attempt, now)
             logger.error(
                 "tenant_erasure.attempt_failed",
-                record_key=record_key,
+                record_key=log_tenant_record_key(record_key),
                 attempt=attempt,
                 error_type=type(exc).__name__,
                 next_attempt_at=next_attempt_at.isoformat(),
@@ -1139,7 +1147,7 @@ class TenantService:
                 )
             except TenantErasureClaimLostError:
                 # The record is another run's now: its state is not ours to overwrite.
-                logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+                logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
                 if raise_on_failure:
                     raise
                 return record
@@ -1170,14 +1178,14 @@ class TenantService:
             )
             logger.error(
                 "tenant_erasure.unreached",
-                record_key=record_key,
+                record_key=log_tenant_record_key(record_key),
                 attempt=attempt,
                 unreached=report.unreached,
             )
             try:
                 updated = conclude(fields)
             except TenantErasureClaimLostError:
-                logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+                logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
                 if raise_on_failure:
                     raise
                 return record
@@ -1195,11 +1203,13 @@ class TenantService:
         try:
             updated = conclude(fields)
         except TenantErasureClaimLostError:
-            logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+            logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
             if raise_on_failure:
                 raise
             return record
-        logger.info("tenant_deleted", tenant_key=record.tenant_key, record_key=record_key)
+        logger.info(
+            "tenant_deleted", tenant=log_tenant(record.tenant_key), record_key=log_tenant_record_key(record_key)
+        )
         return updated
 
     @staticmethod
@@ -1215,7 +1225,7 @@ class TenantService:
         """
         if attempt < TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS:
             return {}
-        logger.error("tenant_erasure.escalated", record_key=record.key, attempt=attempt)
+        logger.error("tenant_erasure.escalated", record_key=log_tenant_record_key(record.key), attempt=attempt)
         if record.escalated_at is not None:
             return {}
         return {"escalated_at": now.isoformat()}
@@ -1233,7 +1243,7 @@ class TenantService:
         if self._observation_repo is None:
             return {}
         removed = self._observation_repo.delete_by_tenant(tenant_key)
-        logger.info("tenant_sensor_readings_deleted", tenant_key=tenant_key, removed=removed)
+        logger.info("tenant_sensor_readings_deleted", tenant=log_tenant(tenant_key), removed=removed)
         return {"timeseries_rows_removed": removed}
 
     def _purge_tenant_storage(self, tenant_key: str, on_step: Callable[[], None] | None = None) -> dict[str, object]:
@@ -1275,7 +1285,7 @@ class TenantService:
             reported["reference_index_removed"] = removed_vectors
             logger.info(
                 "tenant_reference_index_cleanup",
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 binding=self._reference_index_store.binding,
                 removed=removed_vectors,
             )
@@ -1292,7 +1302,7 @@ class TenantService:
             reported["pest_prototypes_removed"] = removed_prototypes
             logger.info(
                 "tenant_pest_prototype_cleanup",
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 binding=self._pest_prototype_store.binding,
                 removed=removed_prototypes,
             )
@@ -1308,8 +1318,7 @@ class TenantService:
             reported["storage_objects_removed"] = deleted_objects
             logger.info(
                 "tenant_storage_prefix_deleted",
-                tenant_key=tenant_key,
-                prefix=prefix,
+                tenant=log_tenant(tenant_key),
                 deleted=deleted_objects,
             )
         return reported
@@ -1595,7 +1604,7 @@ class TenantService:
         )
         invitation = self._invitation_repo.create(invitation)
 
-        logger.info("email_invitation_created", tenant_key=tenant_key, email_sha256=email_digest(email))
+        logger.info("email_invitation_created", tenant=log_tenant(tenant_key), email_sha256=email_digest(email))
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
@@ -1621,7 +1630,7 @@ class TenantService:
         )
         invitation = self._invitation_repo.create(invitation)
 
-        logger.info("link_invitation_created", tenant_key=tenant_key)
+        logger.info("link_invitation_created", tenant=log_tenant(tenant_key))
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
@@ -1692,7 +1701,7 @@ class TenantService:
 
         logger.info(
             "invitation_accepted",
-            tenant_key=invitation.tenant_key,
+            tenant=log_tenant(invitation.tenant_key),
             subject=log_subject(user_key),
         )
         return membership
