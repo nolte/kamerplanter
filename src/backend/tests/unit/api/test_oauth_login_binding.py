@@ -17,8 +17,9 @@ before the configuration was recorded counts only when exactly one configuration
 of its type exists; it is then bound on first use.
 
 The requests run the real auth router and the real ``AuthService``; the identity
-provider is the real ``OAuthEngine`` with only its token endpoint doubled — the
-double records the ``redirect_uri`` it receives.
+provider is the real ``OAuthEngine`` with only the network doubled by
+:class:`tests.support.oidc_idp.FakeIdp` — it signs real ID tokens (the login
+verifies them since #1936) and records the ``redirect_uri`` it receives.
 """
 
 from __future__ import annotations
@@ -31,7 +32,9 @@ import pytest
 
 from app.api.v1.auth.router import limiter
 from app.common.enums import AuthProviderType
+from app.domain.engines.oauth_engine import OAuthEngine
 from app.domain.models.user import User
+from tests.support.oidc_idp import FakeIdp
 from tests.unit.api.test_step_up_oidc_reauth import (
     CLIENT_ID,
     CORP_A,
@@ -40,9 +43,9 @@ from tests.unit.api.test_step_up_oidc_reauth import (
     GITHUB,
     GOOGLE,
     _Configs,
-    _oidc_world,
     _World,
 )
+from tests.unit.api.test_step_up_oidc_reauth import _oidc_world as _unsigned_world
 
 #: Deliberately not the frontend URL and not the test client's host: the callback
 #: must come from this setting and nothing else.
@@ -62,6 +65,27 @@ def _limiter_off(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(limiter, "enabled", False)
     yield
     limiter.reset()
+
+
+@pytest.fixture(autouse=True)
+def _idp(monkeypatch: pytest.MonkeyPatch):
+    """The provider the world's engine talks to; every test of this module signs in through it."""
+    global _IDP  # noqa: PLW0603
+    _IDP = FakeIdp()
+    _IDP.install(monkeypatch)
+
+
+_IDP = FakeIdp()
+
+
+def _oidc_world(*links: tuple[str | None, str, str | None]) -> _World:
+    """The step-up suite's world, with the real engine in front of the doubled network."""
+    world = _unsigned_world(*links)
+    engine = OAuthEngine()
+    world.engine = engine  # type: ignore[assignment]
+    world.auth._oauth_engine = engine
+    world.idp = _IDP  # type: ignore[attr-defined]
+    return world
 
 
 class _RegisteringUsers:
@@ -88,7 +112,7 @@ def _sign_in(world: _World, slug: str, *, host: str | None = None, **claims: Any
     query = parse_qs(urlsplit(started.headers["location"]).query)
     config = world.configs.by_slug[slug]
     now = int(time.time())
-    world.engine.claims = {
+    world.idp.claims = {
         "iss": config.discovery_document["issuer"],
         "aud": CLIENT_ID,
         "nonce": query["nonce"][0],
@@ -121,7 +145,7 @@ def test_the_login_exchange_repeats_the_redirect_uri_of_the_authorization_reques
     query, callback = _sign_in(world, "corp-a", sub="sub-a", email=world.email, email_verified=True)
 
     assert query["redirect_uri"] == [f"{PUBLIC_BASE}/api/v1/auth/oauth/corp-a/callback"]
-    assert world.engine.exchange_redirect_uris == query["redirect_uri"]
+    assert world.idp.redirect_uris == query["redirect_uri"]
     assert _signed_in_as(world, callback) == world.key
 
 
@@ -131,7 +155,7 @@ def test_the_host_header_does_not_steer_the_login_callback_url() -> None:
     query, _callback = _sign_in(world, "corp-a", host="backend.cluster.local:8000", sub="sub-a")
 
     assert query["redirect_uri"] == [f"{PUBLIC_BASE}/api/v1/auth/oauth/corp-a/callback"]
-    assert world.engine.exchange_redirect_uris == query["redirect_uri"]
+    assert world.idp.redirect_uris == query["redirect_uri"]
 
 
 def test_a_login_state_without_its_redirect_uri_is_refused_before_any_exchange() -> None:
@@ -144,7 +168,7 @@ def test_a_login_state_without_its_redirect_uri_is_refused_before_any_exchange()
     )
 
     assert parse_qs(urlsplit(callback.headers["location"]).query)["error"] == ["invalid_state"]
-    assert world.engine.exchange_redirect_uris == []
+    assert world.idp.redirect_uris == []
 
 
 # ── #1869: a link is matched by (configuration, sub) ───────────────────────
