@@ -21,7 +21,7 @@ expected:
   kind: count
   value: 300
   unit: runs executed
-derived_from: f4dd154210c2962968dba719d686fd7b0138e6c5
+derived_from: blob:569027fde61a00c5b23b419451099e80c38c85e0
 observe:
   argv:
   - python3
@@ -34,6 +34,7 @@ observe:
     \ in runs if run.get(\"conclusion\") not in not_executed))"
   timeout_seconds: 120
 approval:
-  approved_at: '2026-09-24T04:46:06Z'
+  approved_at: '2026-10-02T13:12:55Z'
   approved_by: nolte
   observation_digest: 62958e4b63332cfc6b7d3acf728b8dfd02b48eaf7f1cc1c7104da83d1624a409
+  mode: reconfirmed
