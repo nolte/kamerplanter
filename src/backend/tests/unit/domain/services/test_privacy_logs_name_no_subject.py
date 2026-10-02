@@ -90,7 +90,7 @@ def _event(logs: list[dict[str, Any]], name: str) -> dict[str, Any]:
 
 
 class _ProfileOnlyRepo(IPersonalDataRepository):
-    def collect_for_user(self, source, user_key, tenant_keys) -> list[dict[str, Any]]:
+    def collect_for_user(self, source, user_key, tenant_keys, *, tombstone=None) -> list[dict[str, Any]]:
         return [{"email": OLD_EMAIL}] if source.filter_field == "_key" else []
 
 

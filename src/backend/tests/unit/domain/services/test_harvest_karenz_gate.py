@@ -159,3 +159,16 @@ def test_explicit_batch_id_is_never_overwritten():
     result = service.create_harvest_batch("plant-1", batch)
 
     assert result.batch_id == "HARVEST-2026-001"
+
+
+def test_a_batch_without_a_harvest_date_is_stored_with_the_date_the_gate_checked():
+    """/code-review of #1789 — NFR-011 R-16 counts from ``harvest_date``; a batch stored
+    without one could never be purged after its tenant was deleted."""
+    service, repo = _build_harvest_service([])
+    before = datetime.now(UTC)
+
+    service.create_harvest_batch("plant-1", HarvestBatch(tenant_key=TENANT_KEY, harvest_type="final"))
+
+    stored = repo.created[0].harvest_date
+    assert stored is not None
+    assert before <= stored <= datetime.now(UTC)

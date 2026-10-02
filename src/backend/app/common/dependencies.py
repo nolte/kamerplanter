@@ -1810,7 +1810,15 @@ def get_privacy_service():
         retention=get_retention_service(),
         step_up_verifier=get_step_up_verifier(),
         light_mode=settings.kamerplanter_mode == "light",
+        legal_retention_repo=get_legal_retention_repo(),
     )
+
+
+def get_legal_retention_repo():
+    """NFR-011 R-16..R-18 / R-06a — the purge of what a tenant deletion keeps (#1789, #1793)."""
+    from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
+
+    return ArangoLegalRetentionRepository(get_db())
 
 
 def get_erasure_executor():

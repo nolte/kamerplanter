@@ -23,6 +23,8 @@ class IPersonalDataRepository(ABC):
         source: DataSourceDefinition,
         user_key: UserKey,
         tenant_keys: Sequence[str],
+        *,
+        tombstone: str | None = None,
     ) -> list[dict[str, Any]]:
         """Return the declared ``source.fields`` of every document of *user_key*.
 
@@ -31,6 +33,11 @@ class IPersonalDataRepository(ABC):
         not a member of can never reach their disclosure — whoever wrote the
         user-reference field (#1662 SCR-001). A source with a
         ``disclosure_gap`` must be refused, not answered with ``[]``.
+
+        ``tombstone`` is the subject's tombstone hash, passed only for a field a
+        tenant deletion pseudonymises (REQ-025 §3.1.2 rule 6, #1793). The rows
+        carrying it are matched as well — for a ``tenant_scoped`` source only
+        while their tenant no longer exists, whatever ``tenant_keys`` says.
 
         Three shapes, all declared by the source itself:
 
