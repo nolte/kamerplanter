@@ -23,6 +23,7 @@ from app.domain.services.notification_service import (
 @pytest.fixture
 def mock_engine():
     engine = MagicMock(spec=NotificationEngine)
+    engine.resolve_email_recipient.return_value = "a@x"
     engine.notify = AsyncMock(
         return_value={
             "status": "delivered",
@@ -538,7 +539,7 @@ class TestSendEmailDigest:
         mock_engine._channel_registry.get.return_value = fake_channel
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result == {"status": "sent", "count": 3}
         mock_notification_repo.list_for_user_since.assert_called_once_with("user_1", since)
@@ -549,7 +550,7 @@ class TestSendEmailDigest:
         mock_notification_repo.list_for_user_since.return_value = []
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result == {"status": "empty", "count": 0}
         mock_engine._channel_registry.get.assert_not_called()
@@ -560,7 +561,7 @@ class TestSendEmailDigest:
         mock_engine._channel_registry.get.return_value = None
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result["status"] == "failed"
         assert result["count"] == 0
@@ -579,7 +580,7 @@ class TestSendEmailDigest:
         mock_engine._channel_registry.get.return_value = fake_channel
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result == {"status": "failed", "count": 2}
 

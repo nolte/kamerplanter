@@ -358,12 +358,10 @@ def send_email_digests(self) -> dict:
     from app.common.dependencies import (
         get_notification_preference_repo,
         get_notification_service,
-        get_user_repo,
     )
 
     preference_repo = get_notification_preference_repo()
     service = get_notification_service()
-    user_repo = get_user_repo()
 
     since = datetime.now(UTC) - timedelta(hours=24)
     candidates = preference_repo.list_users_with_digest_enabled()
@@ -371,24 +369,15 @@ def send_email_digests(self) -> dict:
     digests_sent = 0
     digests_empty = 0
     digests_failed = 0
+    digests_unconfirmed = 0
 
     for prefs in candidates:
         user_key = prefs.user_key
         if not user_key:
             continue
 
-        channel_pref = prefs.channels.get("email")
-        to_email = (channel_pref.config.get("email") if channel_pref else None) or None
-        if not to_email:
-            user = user_repo.get_by_key(user_key)
-            to_email = user.email if user else None
-        if not to_email:
-            logger.warning("email_digest_no_address", subject=log_subject(user_key))
-            digests_failed += 1
-            continue
-
         try:
-            result = asyncio.run(service.send_email_digest(user_key, to_email, since))
+            result = asyncio.run(service.send_email_digest(user_key, since))
         except Exception:
             logger.exception("email_digest_user_failed", subject=log_subject(user_key))
             digests_failed += 1
@@ -398,11 +387,15 @@ def send_email_digests(self) -> dict:
             digests_sent += 1
         elif result["status"] == "empty":
             digests_empty += 1
+        elif result["status"] == "no_confirmed_address":
+            # Not a delivery failure: the account has no confirmed address (#1885).
+            digests_unconfirmed += 1
         else:
             digests_failed += 1
 
     logger.info(
         "email_digests_complete",
+        digests_unconfirmed=digests_unconfirmed,
         candidates=len(candidates),
         digests_sent=digests_sent,
         digests_empty=digests_empty,
@@ -415,4 +408,5 @@ def send_email_digests(self) -> dict:
         "digests_sent": digests_sent,
         "digests_empty": digests_empty,
         "digests_failed": digests_failed,
+        "digests_unconfirmed": digests_unconfirmed,
     }

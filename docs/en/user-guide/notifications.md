@@ -90,7 +90,9 @@ Additionally, Kamerplanter fires a Home Assistant event for every notification (
 
 ### Email
 
-Enter your email address and choose the delivery mode:
+The email channel sends notifications to the **confirmed email address of your account**. You cannot enter a different address here; to use another one, change it in your account settings under “Change email address” and confirm it through the link. While your address is unconfirmed, Kamerplanter sends no emails, and the settings show a notice.
+
+Choose the delivery mode:
 
 - **Immediate** — every notification is sent as a separate email
 - **Daily digest** — all of the day's notifications are bundled into a single email
@@ -127,7 +129,7 @@ You can find the exact URL syntax for your desired service in the [Apprise docum
 
 After enabling a channel, you can verify it directly in the notification settings:
 
-1. Enable the desired channel and save any related details (email address, Apprise URLs, …).
+1. Enable the desired channel and save any related details (Apprise URLs, Home Assistant options, …).
 2. Click **Send test** for that channel.
 3. A success or error message appears as a brief notification (snackbar) at the bottom of the screen.
 

@@ -1593,6 +1593,7 @@ def get_notification_service():
         preference_repo=get_notification_preference_repo(),
         channel_registry=NotificationChannelRegistry,
         redis_client=_get_redis_client(),
+        user_repo=get_user_repo(),
     )
     return NotificationService(
         engine=engine,
