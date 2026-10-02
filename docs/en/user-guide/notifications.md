@@ -120,6 +120,9 @@ gotify://<hostname>/<token>
 
 You can find the exact URL syntax for your desired service in the [Apprise documentation](https://github.com/caronc/apprise/wiki). Kamerplanter itself requires no additional operator configuration for this channel — you manage the target URLs entirely yourself in your notification settings.
 
+!!! info "Allowed services"
+    For security, Kamerplanter only accepts Apprise URLs for Telegram (`tgram://`, `telegram://`), Slack, Discord, ntfy (`ntfy://`, `ntfys://`), Gotify (`gotify://`, `gotifys://`), Pushover (`pover://`, `pushover://`) and Matrix (`matrix://`, `matrixs://`). Other schemes such as `mailto://`, `json://` or `https://` are rejected when you save, as are several URLs on one line and addresses such as `localhost` or `169.254.x.x`. A URL that was stored before this rule and is not allowed is no longer sent; remove it so the settings can be saved again.
+
 !!! warning "Operator prerequisite: install the Apprise package"
     The Apprise channel is active on the server by default, but requires the `apprise` Python package, which is not shipped automatically with the backend image. If it is not installed, the channel shows **Not configured** and test messages fail with "apprise package is not installed". The operator needs to add the package to the backend image (`pip install apprise`).
 

@@ -523,3 +523,141 @@ def validate_push_endpoint(endpoint: str) -> str:
             )
 
     return endpoint
+
+
+# ── Apprise notification URLs (#1947) ───────────────────────────────
+
+#: The Apprise schemes a user may address, and nothing else. The documented chat
+#: and push services only (``docs/*/user-guide/notifications.md``, REQ-030 §3.6):
+#: Telegram, Slack, Discord, ntfy, Gotify, Pushover, Matrix. Apprise itself speaks
+#: ~100 more, among them ``mailto://`` (mail through a server the user names),
+#: ``json://`` / ``xml://`` / ``form://`` and plain ``http(s)://`` (an arbitrary
+#: request, with title and body of the sender's choosing, from the operator's
+#: backend). A positive list, so a scheme nobody thought of is refused too.
+APPRISE_ALLOWED_SCHEMES: frozenset[str] = frozenset(
+    {
+        "tgram",
+        "telegram",
+        "slack",
+        "discord",
+        "ntfy",
+        "ntfys",
+        "gotify",
+        "gotifys",
+        "pover",
+        "pushover",
+        "matrix",
+        "matrixs",
+    }
+)
+#: At most this many URLs per channel and this many characters per URL.
+APPRISE_MAX_URLS = 10
+_APPRISE_MAX_URL_LENGTH = 512
+#: Apprise splits one string on whitespace and commas into several URLs
+#: (``tgram://a/b mailto://x`` is two), so a single list entry could carry a
+#: second, un-vetted scheme. Control characters are refused with them.
+_APPRISE_FORBIDDEN_CHARS = frozenset(",;[]")
+#: Query parameters that change how Apprise talks to the target: connect/read
+#: timeouts (a slow target would hold an executor thread) and TLS verification.
+_APPRISE_FORBIDDEN_QUERY_KEYS = frozenset({"cto", "rto", "verify"})
+
+
+def _apprise_url_refusal(url: object) -> str | None:
+    """Why ``url`` may not be handed to Apprise; ``None`` when it may.
+
+    The reason names the rule, never the value: a URL carries its credential in
+    the path (``tgram://<bot-token>/<chat>``) and must not travel into an error
+    body or a log line (#1879, #1930).
+    """
+    if not isinstance(url, str) or not url.strip():
+        return "Each Apprise URL must be a non-empty string."
+    if len(url) > _APPRISE_MAX_URL_LENGTH:
+        return "An Apprise URL is too long."
+    # Printable ASCII only, and no whitespace of any kind: Apprise splits a string
+    # with a Unicode-aware ``\\s`` (NEL, NBSP, U+2028 ...), so an ASCII-only
+    # blacklist let ``tgram://a/b<NBSP>json://internal/x`` through.
+    if not url.isascii() or not url.isprintable() or any(ch.isspace() or ch in _APPRISE_FORBIDDEN_CHARS for ch in url):
+        return "An Apprise URL must contain only printable ASCII without whitespace, commas or brackets."
+    scheme, separator, _rest = url.partition("://")
+    if not separator or scheme.lower() not in APPRISE_ALLOWED_SCHEMES:
+        return "An Apprise URL uses a scheme that is not allowed."
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        query_keys = {pair.split("=", 1)[0].lower() for pair in parts.query.split("&") if pair}
+    except ValueError:
+        return "An Apprise URL is malformed."
+    if query_keys & _APPRISE_FORBIDDEN_QUERY_KEYS:
+        return "An Apprise URL must not set timeouts or TLS verification."
+    if host:
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            # Numeric spellings ``ip_address`` rejects but ``getaddrinfo`` resolves
+            # (``127.1``, ``0x7f.1``, ``2130706433``).
+            try:
+                address = ipaddress.ip_address(socket.inet_aton(host))
+            except OSError, ValueError:
+                address = None
+        if host.lower().rstrip(".") == "localhost" or (
+            address is not None
+            and (
+                address.is_loopback
+                or address.is_link_local
+                or address.is_unspecified
+                or address.is_reserved
+                or address.is_multicast
+            )
+        ):
+            return "An Apprise URL points at a loopback, link-local or reserved address."
+    return None
+
+
+def partition_apprise_urls(urls: object) -> tuple[list[str], int]:
+    """Split a stored ``urls`` value into ``(allowed, refused_count)``.
+
+    Never raises: the send path uses it so a legacy row that predates the
+    allow-list neither delivers to a refused target nor aborts the rest.
+    """
+    if not isinstance(urls, list):
+        return [], 1 if urls else 0
+    allowed = [u for u in urls[:APPRISE_MAX_URLS] if _apprise_url_refusal(u) is None]
+    return allowed, len(urls) - len(allowed)
+
+
+def validate_apprise_urls(urls: object) -> list[str]:
+    """Validate the ``urls`` of an Apprise channel preference on save.
+
+    Raises:
+        ValidationError: a value-free message when the list is not a list of at
+            most :data:`APPRISE_MAX_URLS` strings, or an entry is outside the
+            scheme allow-list, carries a second URL, or addresses loopback /
+            link-local / reserved space. Private (RFC1918) hosts stay allowed:
+            a self-hosted Gotify or ntfy on the LAN is the documented use.
+    """
+    if not isinstance(urls, list) or len(urls) > APPRISE_MAX_URLS:
+        raise ValidationError(
+            f"Apprise URLs must be a list of at most {APPRISE_MAX_URLS} entries.",
+            details=[
+                {
+                    "field": "channels.apprise.config.urls",
+                    "reason": "Not a list or too long.",
+                    "code": "INVALID_APPRISE_URLS",
+                }
+            ],
+        )
+    for index, url in enumerate(urls):
+        reason = _apprise_url_refusal(url)
+        if reason is not None:
+            logger.warning("apprise_url_rejected", index=index, reason=reason)
+            raise ValidationError(
+                "An Apprise URL is not allowed.",
+                details=[
+                    {
+                        "field": f"channels.apprise.config.urls[{index}]",
+                        "reason": reason,
+                        "code": "APPRISE_URL_NOT_ALLOWED",
+                    }
+                ],
+            )
+    return urls

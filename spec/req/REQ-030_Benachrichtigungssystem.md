@@ -7,7 +7,7 @@ Kategorie: Pflege & Kommunikation
 Fokus: Beides
 Technologie: Python, FastAPI, Celery, Redis, ArangoDB, React, TypeScript, MUI, Home Assistant
 Status: Entwurf
-Version: 1.2 (#1885 umgesetzt: E-Mail-Kanal sendet nur an die bestätigte Konto-Adresse)
+Version: 1.3 (#1947 umgesetzt: Apprise-Kanal nur für Chat-/Push-Schemata auf der Positivliste)
 Abhaengigkeit: REQ-022 v2.4 (Pflegeerinnerungen), REQ-006 v2.7 (Aufgabenplanung), REQ-018 v1.0 (Umgebungssteuerung), REQ-024 v1.3 (Mandantenverwaltung), REQ-023 v1.7 (Service Accounts)
 ```
 
@@ -15,6 +15,7 @@ Abhaengigkeit: REQ-022 v2.4 (Pflegeerinnerungen), REQ-006 v2.7 (Aufgabenplanung)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-10-02 | **#1947 umgesetzt.** §3.6 Der Apprise-Kanal liefert nur an **Chat-/Push-Dienste auf einer Positivliste**: `tgram`/`telegram`, `slack`, `discord`, `ntfy`/`ntfys`, `gotify`/`gotifys`, `pover`/`pushover`, `matrix`/`matrixs`. Alles andere (`mailto://`, `json://`, `xml://`, `form://`, `http(s)://` und jedes weitere Apprise-Schema) wird abgelehnt, ebenso Einträge mit Nicht-ASCII-Zeichen, Whitespace jeder Art, Komma oder Klammern (Apprise teilt einen String unicode-bewusst in mehrere URLs), die Query-Parameter `cto`, `rto` und `verify`, mehr als 10 URLs sowie Loopback-, Link-Local- und reservierte Literal-Hosts. Private LAN-Adressen (RFC1918) bleiben erlaubt, weil ein selbst gehostetes Gotify/ntfy der dokumentierte Anwendungsfall ist; ein Hostname, der intern auflöst, wird nicht geprüft (offen, siehe Folge-Issue). Geprüft **beim Speichern** (`PUT /preferences` → 422, wertfreie Meldung, nichts gespeichert) und **erneut beim Senden** (abgelehnte URLs werden verworfen und gezählt, nie geloggt; bleibt keine übrig, schlägt der Versand fehl). Bereits gespeicherte URLs außerhalb der Liste werden nicht gesendet und nicht stillschweigend behalten: sie bleiben bis zum nächsten Speichern liegen, das mit 422 abgelehnt wird, bis der Nutzer sie entfernt. Web-Push-An-/Abmeldung schreibt die Präferenzen ohne diese Prüfung, damit ein Altbestand sie nicht blockiert. |
 | 1.2 | 2026-10-02 | **#1885 umgesetzt (enge Lesart von Q-O4).** §3.4 Der E-Mail-Kanal sendet ausschließlich an die **verifizierte Konto-Adresse** (`users.email` mit `email_verified`, aktives Konto, `account_type = human`); der Empfänger wird von der `NotificationEngine` aus dem Konto aufgelöst (`resolve_email_recipient`), nie aus den Präferenzen. `channels.email.config.email` / `.address` werden nicht mehr akzeptiert: das Modell `NotificationPreferences` verwirft sie bei jedem Schreiben und Lesen, Migration v0065 löscht gespeicherte Werte. Ohne bestätigte Adresse wird nichts gesendet (kein Rückfall; Einzel-Mail, Test-Mail und Digest, Digest-Status `no_confirmed_address`). Die in 1.1 ebenfalls erlaubte **abweichende, per Mail-Link bestätigte Benachrichtigungs-Adresse** ist **nicht** umgesetzt (Folgeentscheidung, falls gewünscht). Frontend: Der Kanal zeigt die Konto-Adresse schreibgeschützt; `CHANNEL_CONFIG_KEYS.email` ist nur noch `digest`. |
 | 1.1 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O4 (Betreiberentscheidung, #1885, #1856/#1848):** §3.4 Der E-Mail-Kanal darf nur an eine **bestätigte** Adresse senden — die verifizierte Konto-Adresse, oder eine davon abweichende Benachrichtigungs-Adresse erst nach einer eigenen Bestätigung per Mail-Link. Bisher sendete `EmailNotificationChannel` an jede in `channel_config.get("address")` eingetragene Adresse ungeprüft. **Noch nicht umgesetzt.** |
 
@@ -731,6 +732,12 @@ class AppriseNotificationChannel(INotificationChannel):
     - pover://user@token (Pushover)
 
     Abhaengigkeit: `pip install apprise` (optional dependency)
+
+    Erlaubte Schemata (Positivliste, #1947): tgram/telegram, slack, discord,
+    ntfy(s), gotify(s), pover/pushover, matrix(s). Die URLs stammen aus einem
+    nutzereditierbaren Feld; jedes andere Apprise-Schema (mailto, json, http(s) ...)
+    liesse den Backend-Server an beliebige Dritte senden. Pruefung beim Speichern
+    und erneut beim Senden.
     """
 
     channel_key = "apprise"
