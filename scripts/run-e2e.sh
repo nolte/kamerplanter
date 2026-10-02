@@ -213,6 +213,39 @@ for SVC in $INFRA_SERVICES; do
     docker compose "${COMPOSE_ARGS[@]}" $PROFILE_FLAG logs --no-color "$SVC" > "$REPORT_DIR/logs/${SVC}.log" 2>&1 || true
 done
 
+# Failure-time diagnostics for a lost Selenium session (#1903). The node logs
+# alone could not say WHY a chromedriver went away: a cgroup OOM kill of one
+# child process leaves the container running, so `docker inspect` State can read
+# OOMKilled=false while chrome was still killed for memory. The cumulative
+# `oom_kill` counter in the node's cgroup (memory.events) is the observation
+# that separates the two. Every probe is best-effort and never changes EXIT_CODE.
+DIAG_DIR="$REPORT_DIR/diagnostics"
+mkdir -p "$DIAG_DIR"
+for SVC in $INFRA_SERVICES; do
+    CID=$(docker compose "${COMPOSE_ARGS[@]}" $PROFILE_FLAG ps -a -q "$SVC" 2>/dev/null | head -1)
+    [ -n "$CID" ] || continue
+    docker inspect --format '{{json .State}}' "$CID" > "$DIAG_DIR/${SVC}.state.json" 2>&1 || true
+    docker inspect --format '{{json .HostConfig.Memory}} {{json .HostConfig.ShmSize}}' "$CID" > "$DIAG_DIR/${SVC}.limits.txt" 2>&1 || true
+done
+CHROME_CID=$(docker compose "${COMPOSE_ARGS[@]}" $PROFILE_FLAG ps -q chrome 2>/dev/null | head -1)
+if [ -n "$CHROME_CID" ]; then
+    {
+        for F in memory.events memory.peak memory.current memory.max; do
+            echo "== /sys/fs/cgroup/$F"
+            docker exec "$CHROME_CID" cat "/sys/fs/cgroup/$F" 2>&1
+        done
+        echo "== df /dev/shm"
+        docker exec "$CHROME_CID" df -k /dev/shm 2>&1
+        echo "== processes"
+        docker exec "$CHROME_CID" ps -eo pid,rss,etime,args 2>&1 | cut -c1-200
+    } > "$DIAG_DIR/chrome.cgroup.txt" 2>&1 || true
+fi
+{
+    echo "== free -m"; free -m 2>&1
+    echo "== docker stats"; docker stats --no-stream 2>&1
+    echo "== kernel oom (dmesg)"; (dmesg 2>/dev/null || sudo -n dmesg 2>/dev/null) | grep -i -E "out of memory|oom-kill|killed process" | tail -50
+} > "$DIAG_DIR/host.txt" 2>&1 || true
+
 # Move screenshots/protocol from the container-created report dir into our report dir
 CONTAINER_REPORT=$(find test-reports/e2e -maxdepth 1 -mindepth 1 -type d -name "2*" ! -path "$REPORT_DIR" -newer "$REPORT_DIR/logs" 2>/dev/null | head -1)
 if [ -n "$CONTAINER_REPORT" ] && [ "$CONTAINER_REPORT" != "$REPORT_DIR" ]; then
