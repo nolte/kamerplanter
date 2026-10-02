@@ -28,9 +28,10 @@ import functools
 import hashlib
 import hmac
 import json
+import os
 import shutil
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -58,6 +59,9 @@ BACKEND_KEY = "local-fs"
 
 # Stream chunk size for get_object (256 KiB).
 _CHUNK_SIZE = 256 * 1024
+
+# Keys per ``list_objects`` page — the S3 default, so both adapters page alike.
+LIST_PAGE_SIZE = 1000
 
 
 def _require_tenant_scoped_prefix(prefix: str) -> str:
@@ -209,19 +213,46 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
                 count += 1
         return count
 
-    def _list_sync(self, prefix: str) -> list[str]:
+    def _iter_keys_sorted(self, directory: Path, rel: str, prefix_rel: str, after: str | None) -> Iterator[str]:
+        """Yield the keys under *directory* in lexicographic key order, lazily.
+
+        Entries are ordered by ``name`` (``name/`` for a directory) so the merged
+        stream is the same order a bucket listing has — a plain per-directory sort
+        would put ``a0`` after ``a/b``. Subtrees that cannot contain a key past
+        *after* or under *prefix_rel* are not entered, so resuming a listing does
+        not re-walk what it already returned.
+        """
+        try:
+            entries = [(e.name + "/" if e.is_dir(follow_symlinks=False) else e.name, e) for e in os.scandir(directory)]
+        except OSError:
+            return
+        entries.sort(key=lambda pair: pair[0])
+        for ordered_name, entry in entries:
+            key = f"{rel}{ordered_name}"
+            if ordered_name.endswith("/"):
+                if after is not None and key < after and not after.startswith(key):
+                    continue  # every key in here sorts before the resume point
+                if prefix_rel and not key.startswith(prefix_rel) and not prefix_rel.startswith(key):
+                    continue
+                yield from self._iter_keys_sorted(Path(entry.path), key, prefix_rel, after)
+            elif (
+                not entry.is_symlink()  # a link would be unlinked *through*, deleting its target
+                and not entry.name.endswith(".meta.json")
+                and (not prefix_rel or key.startswith(prefix_rel))
+            ):
+                if after is None or key > after:
+                    yield key
+
+    def _list_page_sync(self, prefix: str, page_token: str | None, limit: int) -> dict[str, Any]:
         prefix_rel = prefix.replace("\\", "/").strip("/")
         keys: list[str] = []
         if not self._root.exists():
-            return keys
-        for p in self._root.rglob("*"):
-            if not p.is_file() or p.name.endswith(".meta.json"):
-                continue
-            rel = p.relative_to(self._root).as_posix()
-            if not prefix_rel or rel.startswith(prefix_rel):
-                keys.append(rel)
-        keys.sort()
-        return keys
+            return {"keys": keys, "next_page_token": None}
+        for key in self._iter_keys_sorted(self._root, "", prefix_rel, page_token):
+            if len(keys) == limit:
+                return {"keys": keys, "next_page_token": keys[-1]}
+            keys.append(key)
+        return {"keys": keys, "next_page_token": None}
 
     def _copy_sync(self, src: Path, dst: Path) -> None:
         if not src.exists():
@@ -292,9 +323,10 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         return count
 
     async def list_objects(self, prefix: str, page_token: str | None = None) -> dict[str, Any]:
-        keys = await asyncio.to_thread(self._list_sync, prefix)
-        # local-fs returns the full listing in one page (no native pagination).
-        return {"keys": keys, "next_page_token": None}
+        # Paged like a bucket listing (#1834): the token is the last key returned, a
+        # page holds at most ``LIST_PAGE_SIZE`` keys, and nothing here materialises
+        # the whole tree — a reconciliation walks every object of every tenant.
+        return await asyncio.to_thread(self._list_page_sync, prefix, page_token, LIST_PAGE_SIZE)
 
     async def head_object(self, key: str) -> ObjectMetadata:
         path = self._path_for(key)

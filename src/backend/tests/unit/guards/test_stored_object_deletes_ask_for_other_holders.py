@@ -29,6 +29,11 @@ DELETE_METHODS = frozenset({"delete_object", "delete_prefix"})
 #: The question a caller asks before deleting an object records may share.
 HOLDER_QUESTION = "storage_keys_held_elsewhere"
 
+#: The reconciliation (#1834) asks the same question without the tenant filter and
+#: without an ``excluding`` list — "does *any* record hold this key" — which can only
+#: keep more objects than ``storage_keys_held_elsewhere``, never fewer.
+HOLDER_QUESTIONS = frozenset({HOLDER_QUESTION, "held_storage_keys"})
+
 #: ``(path relative to app/, function)`` → why the objects it deletes are never an
 #: object another attachment record could share.
 NOT_SHARED: dict[tuple[str, str], str] = {
@@ -77,7 +82,7 @@ def _destructive_functions() -> dict[tuple[str, str], ast.AST]:
 
 
 def _asks_the_holder_question(function: ast.AST) -> bool:
-    return any(isinstance(node, ast.Attribute) and node.attr == HOLDER_QUESTION for node in ast.walk(function))
+    return any(isinstance(node, ast.Attribute) and node.attr in HOLDER_QUESTIONS for node in ast.walk(function))
 
 
 def test_the_selector_sees_the_known_destructive_paths():
