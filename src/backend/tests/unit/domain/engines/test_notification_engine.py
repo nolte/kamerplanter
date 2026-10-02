@@ -62,6 +62,7 @@ def engine(channel):
         preference_repo=preference_repo,
         channel_registry=registry,
         redis_client=redis,
+        user_repo=MagicMock(),
     )
     # Force the quiet-hours window so the bypass decision is the only variable.
     eng._is_quiet_hours = MagicMock(return_value=True)  # type: ignore[method-assign]
@@ -196,7 +197,7 @@ def _pwa_world(monkeypatch: pytest.MonkeyPatch):
     notifications.create.side_effect = lambda n: n
     redis = MagicMock()
     redis.get.return_value = None
-    return NotificationEngine(notifications, repo, registry, redis), repo
+    return NotificationEngine(notifications, repo, registry, redis, user_repo=MagicMock()), repo
 
 
 def _stored_endpoints(repo: _Prefs) -> list[str]:
@@ -232,7 +233,7 @@ async def test_the_batch_path_prunes_too(monkeypatch) -> None:
 
 def test_a_result_without_expired_endpoints_writes_nothing() -> None:
     repo = _Prefs(_prefs())
-    engine = NotificationEngine(MagicMock(), repo, MagicMock(), MagicMock())
+    engine = NotificationEngine(MagicMock(), repo, MagicMock(), MagicMock(), user_repo=MagicMock())
 
     pruned = engine.prune_expired_subscriptions("u1", ChannelResult(channel_key="pwa", success=True))
 
@@ -263,7 +264,7 @@ def test_pruning_never_rewrites_the_whole_preferences_document() -> None:
 
     prefs.channels["pwa"] = ChannelPreference(enabled=True, config={"subscriptions": [{"endpoint": _GONE}]})
     repo = _ErasedMeanwhile(prefs)
-    engine = NotificationEngine(MagicMock(), repo, MagicMock(), MagicMock())
+    engine = NotificationEngine(MagicMock(), repo, MagicMock(), MagicMock(), user_repo=MagicMock())
 
     pruned = engine.prune_expired_subscriptions(
         "u1", ChannelResult(channel_key="pwa", success=False, expired_endpoints=[_GONE])

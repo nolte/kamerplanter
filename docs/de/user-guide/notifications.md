@@ -90,7 +90,9 @@ Zusätzlich feuert Kamerplanter bei jeder Benachrichtigung ein Home-Assistant-Ev
 
 ### E-Mail
 
-Trage deine E-Mail-Adresse ein und wähle den Zustellmodus:
+Der E-Mail-Kanal schickt Benachrichtigungen an die **bestätigte E-Mail-Adresse deines Kontos**. Eine andere Adresse kannst du hier nicht eintragen; willst du eine andere nutzen, änderst du sie in den Kontoeinstellungen unter „E-Mail-Adresse ändern“ und bestätigst sie per Link. Solange deine Adresse nicht bestätigt ist, verschickt Kamerplanter keine E-Mails — die Einstellungen zeigen dir dann einen Hinweis.
+
+Wähle den Zustellmodus:
 
 - **Sofort** — jede Benachrichtigung wird einzeln als E-Mail verschickt
 - **Tägliche Zusammenfassung** — alle Benachrichtigungen des Tages werden in einer einzigen E-Mail gebündelt
@@ -127,7 +129,7 @@ Die genaue URL-Syntax für deinen gewünschten Dienst findest du in der [Apprise
 
 Nach dem Aktivieren eines Kanals kannst du direkt in den Benachrichtigungseinstellungen prüfen, ob er funktioniert:
 
-1. Aktiviere den gewünschten Kanal und speichere ggf. die zugehörigen Angaben (E-Mail-Adresse, Apprise-URLs, …).
+1. Aktiviere den gewünschten Kanal und speichere ggf. die zugehörigen Angaben (Apprise-URLs, Home-Assistant-Optionen, …).
 2. Klicke bei diesem Kanal auf **Test senden**.
 3. Eine Erfolgs- oder Fehlermeldung erscheint als kurze Benachrichtigung (Snackbar) am unteren Bildschirmrand.
 

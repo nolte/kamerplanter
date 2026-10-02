@@ -7,7 +7,7 @@ Kategorie: Pflege & Kommunikation
 Fokus: Beides
 Technologie: Python, FastAPI, Celery, Redis, ArangoDB, React, TypeScript, MUI, Home Assistant
 Status: Entwurf
-Version: 1.1 (Datenschutzplan-Entscheidung Q-O4, #1885: E-Mail-Kanal verlangt bestätigte Adresse)
+Version: 1.2 (#1885 umgesetzt: E-Mail-Kanal sendet nur an die bestätigte Konto-Adresse)
 Abhaengigkeit: REQ-022 v2.4 (Pflegeerinnerungen), REQ-006 v2.7 (Aufgabenplanung), REQ-018 v1.0 (Umgebungssteuerung), REQ-024 v1.3 (Mandantenverwaltung), REQ-023 v1.7 (Service Accounts)
 ```
 
@@ -15,6 +15,7 @@ Abhaengigkeit: REQ-022 v2.4 (Pflegeerinnerungen), REQ-006 v2.7 (Aufgabenplanung)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-10-02 | **#1885 umgesetzt (enge Lesart von Q-O4).** §3.4 Der E-Mail-Kanal sendet ausschließlich an die **verifizierte Konto-Adresse** (`users.email` mit `email_verified`, aktives Konto, `account_type = human`); der Empfänger wird von der `NotificationEngine` aus dem Konto aufgelöst (`resolve_email_recipient`), nie aus den Präferenzen. `channels.email.config.email` / `.address` werden nicht mehr akzeptiert: das Modell `NotificationPreferences` verwirft sie bei jedem Schreiben und Lesen, Migration v0065 löscht gespeicherte Werte. Ohne bestätigte Adresse wird nichts gesendet (kein Rückfall; Einzel-Mail, Test-Mail und Digest, Digest-Status `no_confirmed_address`). Die in 1.1 ebenfalls erlaubte **abweichende, per Mail-Link bestätigte Benachrichtigungs-Adresse** ist **nicht** umgesetzt (Folgeentscheidung, falls gewünscht). Frontend: Der Kanal zeigt die Konto-Adresse schreibgeschützt; `CHANNEL_CONFIG_KEYS.email` ist nur noch `digest`. |
 | 1.1 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O4 (Betreiberentscheidung, #1885, #1856/#1848):** §3.4 Der E-Mail-Kanal darf nur an eine **bestätigte** Adresse senden — die verifizierte Konto-Adresse, oder eine davon abweichende Benachrichtigungs-Adresse erst nach einer eigenen Bestätigung per Mail-Link. Bisher sendete `EmailNotificationChannel` an jede in `channel_config.get("address")` eingetragene Adresse ungeprüft. **Noch nicht umgesetzt.** |
 
 ## 1. Business Case
@@ -161,9 +162,7 @@ Eskalation ist **nur fuer Giess-Erinnerungen** aktiv — eine nicht gegossene Pf
       "enabled": true,
       "priority": 2,
       "config": {
-        "address": "anna@example.com",
-        "digest_mode": "daily",
-        "digest_time": "07:00"
+        "digest": true
       }
     },
     "pwa": {
@@ -581,11 +580,11 @@ class HomeAssistantClient:
 
 ### 3.4 Email Notification Channel
 
-<!-- Quelle: Datenschutzplan Q-O4, #1885. Betreiberentscheidung 2026-09-26. Noch nicht umgesetzt. -->
-**Nur an eine bestätigte Adresse (Q-O4, #1885, GEPLANT — bisheriger Zustand ungeprüft).**
-`channel_config.get("address")` wird heute ungeprüft von der Benachrichtigungs-Engine
-verwendet — ein Mitglied kann eine beliebige, frei eingetippte Adresse in seine Präferenzen
-eintragen, und der Kanal verschickt Titel und Text (frei gewählte Aufgaben-/Pflanzennamen)
+<!-- Quelle: Datenschutzplan Q-O4, #1885. Betreiberentscheidung 2026-09-26. Umgesetzt in 1.2 (enge Lesart). -->
+**Nur an eine bestätigte Adresse (Q-O4, #1885, umgesetzt in 1.2 — enge Lesart).**
+Bis 1.1 verwendete die Benachrichtigungs-Engine die in den Präferenzen eingetragene Adresse
+(`channel_config`) ungeprüft — ein Mitglied konnte eine beliebige, frei eingetippte Adresse
+eintragen, und der Kanal verschickte Titel und Text (frei gewählte Aufgaben-/Pflanzennamen)
 dorthin, unter dem Absender-Ruf der Instanz. Beschlossen:
 
 - Der E-Mail-Kanal sendet **nur** an eine bestätigte Adresse: entweder die verifizierte
@@ -595,6 +594,20 @@ dorthin, unter dem Absender-Ruf der Instanz. Beschlossen:
 - Bis zur Bestätigung sendet der Kanal an eine solche abweichende Adresse **nichts** — kein
   automatischer Rückfall auf einen unbestätigten Wert in `channel_config`.
 - Die Bestätigungs-Mail trägt keinen vom Anfragenden gewählten Text (analog #1856).
+
+**Umsetzungsstand (1.2).** Umgesetzt ist die Konto-Adresse; eine separat bestätigte, abweichende
+Benachrichtigungs-Adresse gibt es nicht. Konkret:
+
+- Der Empfänger kommt aus `NotificationEngine.resolve_email_recipient(user_key)`: die Adresse des
+  Kontos, nur wenn `email_verified`, `is_active` und `account_type == "human"`. Sonst `None` —
+  der Kanal meldet „No email address configured" und sendet nichts.
+- `channels.email.config` kennt nur noch `digest`. `email` und `address` werden von
+  `NotificationPreferences` bei jeder Konstruktion verworfen (Schreib- wie Lesepfad), Migration
+  v0065 entfernt gespeicherte Werte. Wer die Adresse ändern will, nutzt den E-Mail-Wechsel
+  (REQ-023, #1848), der die neue Adresse per Link bestätigt.
+- „Bestätigt“ heißt `email_verified` des Kontos (REQ-023). Mit `REQUIRE_EMAIL_VERIFICATION=false` (Entwicklungs-Default) setzt die Registrierung dieses Flag ohne Bestätigung — dort ist die Adresse nicht belegt; Produktivbetrieb setzt die Variable auf `true`. Ein eigener Bestätigungsnachweis (z. B. `email_confirmed_at`) ist Folgearbeit.
+- Dieselbe Auflösung gilt für Einzel-Mail, Test-Mail (`send_test`) und Digest
+  (`send_email_digest(user_key, since)` — ohne Adressparameter).
 
 ```python
 class EmailNotificationChannel(INotificationChannel):
@@ -616,7 +629,8 @@ class EmailNotificationChannel(INotificationChannel):
         notification: Notification,
         channel_config: dict,
     ) -> ChannelResult:
-        address = channel_config.get("address")
+        # Vom Engine aus dem Konto aufgelöst (1.2), nie aus den Präferenzen.
+        address = channel_config.get("email")
         if not address:
             return ChannelResult(
                 channel_key=self.channel_key,
@@ -646,7 +660,8 @@ class EmailNotificationChannel(INotificationChannel):
         channel_config: dict,
     ) -> ChannelResult:
         """Sendet Batch als eine zusammengefasste E-Mail."""
-        address = channel_config.get("address")
+        # Vom Engine aus dem Konto aufgelöst (1.2), nie aus den Präferenzen.
+        address = channel_config.get("email")
         if not address:
             return ChannelResult(
                 channel_key=self.channel_key,
@@ -1437,7 +1452,7 @@ class KamerplanterCareCard extends HTMLElement {
 
 | Sektion | Inhalt |
 |---------|--------|
-| **Kanaele** | Toggle pro Kanal (HA, E-Mail, PWA, Apprise). HA-Kanal zeigt Verbindungsstatus. E-Mail-Feld fuer Adresse. Apprise-URLs als Textarea. |
+| **Kanaele** | Toggle pro Kanal (HA, E-Mail, PWA, Apprise). HA-Kanal zeigt Verbindungsstatus. E-Mail: Konto-Adresse schreibgeschuetzt mit Hinweis, wenn unbestaetigt (kein frei editierbarer Empfaenger, 1.2). Apprise-URLs als Textarea. |
 | **Zeitplan** | Quiet Hours (Start/Ende), Daily Summary (Zeit + Kanal) |
 | **Batching** | Toggle + Zeitfenster (Default 30 Min) |
 | **Eskalation** | Toggle fuer Giess-Eskalation + Tage-Konfiguration |
@@ -1592,7 +1607,7 @@ Die HA-Integration nutzt den bestehenden **Service Account** (REQ-023 v1.7) oder
 - [ ] **INotificationChannel Interface** implementiert
 - [ ] **HomeAssistantChannel:** Events, Persistent Notifications, Mobile Push, TTS
 - [ ] **EmailChannel:** Einzel-Mail und Daily Digest
-- [ ] **Nicht implementiert** (Q-O4, #1885): EmailChannel sendet nur an eine bestätigte Adresse (Konto-Adresse oder per Link bestätigte abweichende Benachrichtigungs-Adresse)
+- [x] **EmailChannel (Q-O4, #1885, 1.2):** sendet nur an die verifizierte Konto-Adresse; eine per Link bestätigte abweichende Benachrichtigungs-Adresse ist nicht implementiert
 - [ ] **PwaChannel:** Web Push via Service Worker + VAPID
 - [ ] **AppriseChannel:** 100+ Dienste via Apprise-URLs
 - [ ] **InAppChannel:** Fallback wenn kein externer Kanal aktiv
