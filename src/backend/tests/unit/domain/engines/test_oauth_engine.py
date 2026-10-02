@@ -64,7 +64,12 @@ class TestBuildAuthorizationUrl:
     def test_discovery_fallback(self):
         config = _make_config(
             provider_type="custom",
-            discovery_document={"authorization_endpoint": "https://disc.example.com/auth"},
+            # A real discovery document names its issuer (OIDC Discovery 3), and the engine
+            # reads it only while that is the configured one (#1969).
+            discovery_document={
+                "issuer": "https://auth.example.com",
+                "authorization_endpoint": "https://disc.example.com/auth",
+            },
         )
         result = self.engine.build_authorization_url(config, "https://app.example.com/cb")
         assert result.authorization_url.startswith("https://disc.example.com/auth?")
@@ -185,3 +190,10 @@ class TestResolveUrls:
     def test_userinfo_url_none_for_unknown(self):
         config = _make_config(provider_type="unknown")
         assert self.engine._resolve_userinfo_url(config) is None
+
+
+def test_apple_expects_its_own_issuer_whatever_issuer_url_says() -> None:
+    """Apple's endpoints are fixed, so a placeholder ``issuer_url`` never mattered; ``iss`` must not break it."""
+    config = _make_config(provider_type="apple", issuer_url="https://example.invalid")
+
+    assert OAuthEngine.expected_issuers(config) == frozenset({"https://appleid.apple.com"})

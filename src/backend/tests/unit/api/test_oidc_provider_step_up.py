@@ -161,7 +161,7 @@ class _World:
             ),
         )
         self.service = OidcProviderAdminService(
-            self.configs, EncryptionEngine(Fernet.generate_key().decode()), OAuthEngine(), self.verifier
+            self.configs, EncryptionEngine(Fernet.generate_key().decode()), OAuthEngine(), self.verifier, MagicMock()
         )
         self.mail = MagicMock()
         self.auth = AuthService(

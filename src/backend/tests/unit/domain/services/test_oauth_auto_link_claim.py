@@ -84,7 +84,9 @@ def _service(oauth_user: OAuthUserInfo) -> tuple[AuthService, MagicMock]:
 
     oauth_engine = MagicMock(wraps=OAuthEngine())
     oauth_engine.exchange_code_for_tokens.return_value = {"access_token": "t", "id_token": ""}
-    oauth_engine.extract_user_info.return_value = oauth_user
+    # The identity checks of the login (ID token, subject — #1936) are pinned in
+    # test_oauth_login_id_token; what is real here is the auto-link decision.
+    oauth_engine.authenticate_login.return_value = oauth_user
 
     state_store = MagicMock()
     state_store.get_and_delete.return_value = {

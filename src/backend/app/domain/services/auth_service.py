@@ -33,7 +33,12 @@ from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOU
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
-from app.domain.engines.oauth_engine import FreshReauthRejectedError, OAuthEngine, supports_fresh_reauth
+from app.domain.engines.oauth_engine import (
+    FreshReauthRejectedError,
+    LoginIdentityRejectedError,
+    OAuthEngine,
+    supports_fresh_reauth,
+)
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
@@ -1414,7 +1419,21 @@ class AuthService:
         )
 
         access_token = token_response.get("access_token", "")
-        oauth_user = self._oauth_engine.extract_user_info(config, token_response, access_token)
+        # The ID token's signature, ``iss``, ``aud``, ``nonce`` and ``exp``, and the
+        # subject, are checked before an identity is trusted (#1936). Every refusal
+        # is one generic error to the caller — which check failed is not an oracle —
+        # and one value-free line here.
+        try:
+            oauth_user = self._oauth_engine.authenticate_login(
+                config,
+                token_response,
+                access_token,
+                nonce=str(state_data.get("nonce", "")),
+                now=datetime.now(UTC),
+            )
+        except LoginIdentityRejectedError as exc:
+            logger.info("oauth_login_refused", provider=provider_slug, reason=exc.reason)
+            raise ValidationError("OAuth sign-in could not be completed.") from exc
 
         # Find the existing link — of *this* configuration (#1869).
         issuer = _id_token_issuer(token_response)

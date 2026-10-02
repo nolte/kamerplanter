@@ -39,6 +39,7 @@ from app.common.exceptions import DuplicateError, NotFoundError
 from app.common.log_privacy import log_subject
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.oauth_engine import OAuthEngine
+from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
 from app.domain.interfaces.oidc_config_repository import IOidcConfigRepository
 from app.domain.models.oidc_config import OidcProviderConfig
 from app.domain.models.user import User
@@ -68,6 +69,15 @@ def update_requires_step_up(current: OidcProviderConfig, data: dict[str, Any]) -
     return False
 
 
+#: The fields whose change makes the stored discovery document belong to another issuer.
+_DISCOVERY_BOUND_FIELDS = frozenset({"issuer_url", "provider_type"})
+
+
+def _repoints_discovery(current: OidcProviderConfig, changes: dict[str, Any]) -> bool:
+    """Whether *changes* move the provider to another issuer or type (#1969)."""
+    return any(field in changes and changes[field] != getattr(current, field) for field in _DISCOVERY_BOUND_FIELDS)
+
+
 class OidcProviderAdminService:
     """The write side of ``/admin/oidc-providers`` (#1883)."""
 
@@ -77,7 +87,9 @@ class OidcProviderAdminService:
         encryption_engine: EncryptionEngine,
         oauth_engine: OAuthEngine,
         step_up_verifier: StepUpVerifier,
+        auth_provider_repo: IAuthProviderRepository,
     ) -> None:
+        self._auth_provider_repo = auth_provider_repo
         self._oidc_config_repo = oidc_config_repo
         self._encryption = encryption_engine
         self._oauth = oauth_engine
@@ -115,8 +127,19 @@ class OidcProviderAdminService:
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
+        # A new configuration starts with no links (#1935). Links are matched by
+        # (slug, sub); any still bound to this slug were left by a configuration
+        # deleted before deletion removed them, and would be inherited — possibly
+        # by a different IdP. Nothing legitimate can be bound to a slug that has no
+        # configuration, so this removes only orphans.
+        purged = self._auth_provider_repo.delete_by_config_slug(config.slug)
         created = self._oidc_config_repo.create(config)
-        logger.info("oidc_provider.created", provider=created.slug, requested_by=log_subject(requester.key))
+        logger.info(
+            "oidc_provider.created",
+            provider=created.slug,
+            orphan_links_deleted=purged,
+            requested_by=log_subject(requester.key),
+        )
         return created
 
     def update_provider(
@@ -169,11 +192,26 @@ class OidcProviderAdminService:
         # Only the changed fields (security review SEC-003): a full write of the
         # snapshot read above would revert whatever another admin changed while
         # this request was being confirmed.
+        if changes and _repoints_discovery(config, changes):
+            # The stored discovery document is the OLD issuer's (or provider type's):
+            # sign-in prefers its endpoints to the configured ones. Cleared in the
+            # same write as the change, so no sign-in can see the new issuer with
+            # the old document (#1969). The next refresh (or ``POST /{key}/test``)
+            # fetches the new one.
+            changes = {**changes, "discovery_document": None, "discovery_refreshed_at": None}
+            merged = merged.model_copy(update={"discovery_document": None, "discovery_refreshed_at": None})
         updated = (
             self._oidc_config_repo.update_fields(key, merged.model_dump(mode="json", include=set(changes)))
             if changes
             else config
         )
+        if "issuer_url" in changes and changes["issuer_url"] != config.issuer_url:
+            # A link that recorded no issuer matches any issuer, and the first
+            # sign-in from the new IdP would claim it (security review SEC-001, the
+            # #1935 class on the update path). After the write, so a failed update
+            # takes no link with it. Links with an issuer refuse the new IdP on
+            # their own and stay.
+            self._auth_provider_repo.delete_by_config_slug(config.slug, only_without_issuer=True)
         logger.info(
             "oidc_provider.updated",
             provider=updated.slug,
@@ -207,8 +245,25 @@ class OidcProviderAdminService:
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
+        # The configuration first, then its links, and creation sweeps again (#1935):
+        # a failure between the two leaves orphans that the next creation under the
+        # slug removes, whereas links first would let a sign-in in that window write
+        # a fresh one against a configuration about to go.
         self._oidc_config_repo.delete(key)
-        logger.info("oidc_provider.deleted", provider=config.slug, requested_by=log_subject(requester.key))
+        # Deleted, not unbound. A link is useless without its configuration — nobody
+        # can sign in through it, and a re-created slug must not match it — and no
+        # "unbound" state exists that is safe: a link with no slug is the legacy,
+        # ambiguous kind (never matched, but it collides on the (type, slug, sub)
+        # unique key when two deleted configurations held the same ``sub``), and a
+        # tombstone slug would be an unreviewed vocabulary. Deleting also drops the
+        # link's encrypted provider tokens. The accounts keep every other way in.
+        links_deleted = self._auth_provider_repo.delete_by_config_slug(config.slug)
+        logger.info(
+            "oidc_provider.deleted",
+            provider=config.slug,
+            links_deleted=links_deleted,
+            requested_by=log_subject(requester.key),
+        )
 
     def _verify(
         self,

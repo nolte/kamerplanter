@@ -591,16 +591,27 @@ class PlantingRunService:
             "slots_assigned": min(len(available_slots), len(created_plants)),
         }
 
-    def adopt_plants(self, run_key: PlantingRunKey, plant_keys: list[str]) -> dict:
+    def adopt_plants(self, run_key: PlantingRunKey, plant_keys: list[str], *, tenant_key: str) -> dict:
         """Adopt existing standalone PlantInstances into the run.
 
+        ``tenant_key`` is keyword-only and has no default (#1973): the plant is
+        loaded by key through the unscoped ``get_by_key``, and the write that follows
+        (``link_run_to_plant`` + the run's phase) is aimed at it, so the predicate
+        sits here on the plant rather than on the run alone. A plant of another
+        tenant is answered exactly like an unknown key ("Plant not found", no
+        existence oracle) and nothing is linked. An empty ``tenant_key`` owns
+        nothing and is refused, not read as "skip the check".
+
         Validates:
+        - Run must belong to the tenant
         - Run must be planned or active
         - Each plant must not be in another active run
         - Each plant must not be removed
         - Species must match the run's entry
         """
-        run = self.get_run(run_key)
+        if not tenant_key:
+            raise NotFoundError("PlantingRun", run_key)
+        run = self.get_run(run_key, tenant_key=tenant_key)
         if run.status not in (PlantingRunStatus.PLANNED, PlantingRunStatus.ACTIVE):
             raise InvalidRunStateError("adopt_plants", run.status.value)
 
@@ -610,9 +621,10 @@ class PlantingRunService:
         adopted: list[str] = []
         skipped: list[dict] = []
 
-        for pk in plant_keys:
+        # Deduplicated: a repeated key would be linked and counted twice.
+        for pk in dict.fromkeys(plant_keys):
             plant = self._plant_repo.get_by_key(pk)
-            if plant is None:
+            if plant is None or plant.tenant_key != tenant_key:
                 skipped.append({"plant_key": pk, "reason": "Plant not found"})
                 continue
             if plant.removed_on is not None:

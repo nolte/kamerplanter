@@ -810,6 +810,7 @@ def get_oidc_provider_admin_service():
         get_encryption_engine(),
         get_oauth_engine(),
         get_step_up_verifier(),
+        get_auth_provider_repo(),
     )
 
 

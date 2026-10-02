@@ -99,7 +99,7 @@ def admin_client(repo: MagicMock) -> TestClient:
     # tests/unit/api/test_oidc_provider_step_up.py; these suites are about the
     # scope and type gates, so the step-up is one that has already passed.
     app.dependency_overrides[get_oidc_provider_admin_service] = lambda: OidcProviderAdminService(
-        repo, EncryptionEngine(Fernet.generate_key().decode()), OAuthEngine(), PassedStepUpVerifier()
+        repo, EncryptionEngine(Fernet.generate_key().decode()), OAuthEngine(), PassedStepUpVerifier(), MagicMock()
     )
     return TestClient(app)
 

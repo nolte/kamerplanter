@@ -4,6 +4,10 @@ Supports 100+ notification services (Telegram, Slack, Pushover, Gotify, ntfy,
 email, etc.) via the Apprise library. Apprise is an optional dependency —
 imported lazily to avoid hard failures when not installed.
 
+Only a fixed allow-list of chat/push schemes is delivered to (#1947): the URL
+list comes from a user-editable preference, and Apprise would otherwise mail or
+POST to any third party the user names. Checked on save and again here.
+
 Channel config expects:
   {
     "urls": ["tgram://bottoken/ChatID", "slack://token_a/token_b/..."],
@@ -19,6 +23,7 @@ from functools import partial
 import structlog
 
 from app.common.log_privacy import loggable_error
+from app.common.url_safety import partition_apprise_urls
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import (
     ChannelResult,
@@ -49,12 +54,16 @@ class AppriseNotificationChannel(INotificationChannel):
         notification: Notification,
         channel_config: dict,
     ) -> ChannelResult:
-        urls = channel_config.get("urls", [])
+        urls, refused = partition_apprise_urls(channel_config.get("urls", []))
+        if refused:
+            logger.warning("apprise_urls_refused_at_send", refused_count=refused)
         if not urls:
             return ChannelResult(
                 channel_key=self.channel_key,
                 success=False,
-                error="No Apprise URLs configured in channel_config",
+                error="No allowed Apprise URLs configured in channel_config"
+                if refused
+                else "No Apprise URLs configured in channel_config",
             )
 
         try:
@@ -123,12 +132,16 @@ class AppriseNotificationChannel(INotificationChannel):
         if not notifications:
             return ChannelResult(channel_key=self.channel_key, success=True)
 
-        urls = channel_config.get("urls", [])
+        urls, refused = partition_apprise_urls(channel_config.get("urls", []))
+        if refused:
+            logger.warning("apprise_urls_refused_at_send", refused_count=refused)
         if not urls:
             return ChannelResult(
                 channel_key=self.channel_key,
                 success=False,
-                error="No Apprise URLs configured in channel_config",
+                error="No allowed Apprise URLs configured in channel_config"
+                if refused
+                else "No Apprise URLs configured in channel_config",
             )
 
         try:
