@@ -338,3 +338,18 @@ class TestBeatCalledReads:
         double = PagingRepo(profiles, tenant_scoped=False)
         with patch.object(ArangoCareReminderRepository, "get_all", double.get_all):
             assert len(repo.get_all_profiles()) == 10001
+
+
+def test_a_task_due_date_stored_without_an_offset_does_not_abort_the_dispatch(monkeypatch, deps):
+    import app.tasks.notification_tasks as module
+
+    now = datetime.now(UTC)
+    naive_due = datetime(now.year, now.month, now.day, 12, 0)  # no tzinfo
+    task = _care_tasks(1)[0].model_copy(update={"due_date": naive_due})
+    service = MagicMock()
+    service.send_care_notifications = AsyncMock(return_value={"users_notified": 1, "total_sent": 1})
+    _repoint(monkeypatch, module, deps, get_task_repo=PagingRepo([task]), get_notification_service=service)
+
+    result = module.dispatch_due_care_notifications()
+
+    assert result["tasks_found"] == 1

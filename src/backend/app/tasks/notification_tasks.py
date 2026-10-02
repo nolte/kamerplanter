@@ -88,6 +88,8 @@ def dispatch_due_care_notifications() -> dict:
             due_dt = due_date_raw
         else:
             continue
+        if due_dt.tzinfo is None:  # stored without an offset: the beat windows are UTC
+            due_dt = due_dt.replace(tzinfo=UTC)
 
         if due_dt < today_start or due_dt > today_end:
             continue
@@ -298,6 +300,8 @@ def send_daily_summary() -> dict:
                 due_dt = due_date_raw
             else:
                 continue
+            if due_dt.tzinfo is None:  # stored without an offset: the beat windows are UTC
+                due_dt = due_dt.replace(tzinfo=UTC)
 
             task_name = task_doc.get("name", "Unknown")
             if due_dt < today_start:

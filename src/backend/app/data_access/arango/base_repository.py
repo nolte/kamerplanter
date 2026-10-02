@@ -70,6 +70,12 @@ def get_all_pages(
     task passes ``all_tenants=True`` by design; the helper does not widen or narrow
     tenant scope, it forwards what the caller states.
 
+    Limits: rows *deleted by someone else* while the pages are being read shift the
+    window of the pages still to come and can skip a row; the read is a snapshot only
+    from the first page on, as the single page it replaces was. ``get_all`` has no
+    filter, so a caller that needs a subset (open tasks only) still reads the whole
+    collection and filters in Python.
+
     Raises :class:`PagingCeilingError` (logged first) instead of looping past
     ``max_pages`` pages.
     """
