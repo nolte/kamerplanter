@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 
@@ -62,3 +63,12 @@ class IMembershipRepository(ABC):
     @abstractmethod
     def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
         """The distinct account keys holding an active membership of the tenant (#1788)."""
+
+    @abstractmethod
+    def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
+        """Active member account key → when that membership began (``None`` when not recorded), #1824.
+
+        Same population as :meth:`active_member_user_keys`. Tells a member who
+        was there when an account erasure froze the tenant from one who joined
+        after it.
+        """

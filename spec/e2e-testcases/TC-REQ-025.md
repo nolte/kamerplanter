@@ -2,7 +2,7 @@
 req_id: REQ-025
 title: Datenschutz & Betroffenenrechte (DSGVO)
 category: Plattform & Datenschutz
-test_count: 62
+test_count: 63
 coverage_areas:
   - PrivacySettingsPage Navigation und Tab-Struktur
   - Tab "Einwilligungen" — Consent-Verwaltung (Art. 7)
@@ -1257,13 +1257,41 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 
 ---
 
+### TC-025-047: Loesch-Vorschau nennt die mitgeloeschten persoenlichen Gaerten
+
+**Requirement**: REQ-025 § 4.2 Tab "Account loeschen" (Mandanten-Vorschau), AK-FK-06, § 3.1.3 Erasure-together (Q-E1, #1824)
+**Priority**: Critical
+**Category**: Detailansicht
+**Preconditions**:
+- Nutzer ist eingeloggt; sein persoenlicher Garten hat ein weiteres aktives Mitglied
+- Nutzer navigiert zum Tab "Account loeschen"
+
+**Testschritte**:
+1. Nutzer klickt auf den Tab "Account loeschen"
+2. Nutzer liest den Hinweis oberhalb der Schaltflaeche "Konto loeschen"
+3. Nutzer klickt auf "Konto loeschen" und liest den Text im Bestaetigungsdialog
+
+**Erwartete Ergebnisse**:
+- Im Tab und im Dialog steht je persoenlichem Garten eine Zeile: der Gartenname und "wird geloescht, 1 weiteres Mitglied ist betroffen"
+- Ein Hinweis erklaert, dass auch die Eintraege der anderen Mitglieder verloren gehen und diese per E-Mail benachrichtigt werden
+- Hat der Garten kein weiteres Mitglied, steht dort nur "wird geloescht" ohne den Mitglieder-Zusatz
+- Nirgends erscheinen Namen oder E-Mail-Adressen der anderen Mitglieder
+- Laesst sich die Vorschau nicht laden, steht eine Fehlermeldung statt einer leeren Liste
+
+**Nachbedingungen**:
+- Kein Loeschauftrag wurde erstellt (nur Anzeige, Dialog wird abgebrochen)
+
+**Tags**: [req-025, erasure, tenant-preview, erasure-together, fk-06]
+
+---
+
 ## 11. Vollstaendige Abdeckungs-Matrix
 
 | REQ-025 Spezifikations-Abschnitt | Testfall-IDs |
 |----------------------------------|--------------|
 | § 1.1 Szenario 1: Datenexport | TC-025-010, TC-025-011, TC-025-012, TC-025-013, TC-025-014, TC-025-015, TC-025-041, TC-025-045 |
 | § 1.1 Szenario 2: E-Mail-Aenderung | TC-025-029, TC-025-030, TC-025-031, TC-025-032, TC-025-033, TC-025-034, TC-025-037 |
-| § 1.1 Szenario 3: Account-Loeschung | TC-025-016, TC-025-017, TC-025-018, TC-025-019, TC-025-020, TC-025-021, TC-025-022, TC-025-038 |
+| § 1.1 Szenario 3: Account-Loeschung | TC-025-016, TC-025-017, TC-025-018, TC-025-019, TC-025-020, TC-025-021, TC-025-022, TC-025-038, TC-025-047 |
 | § 1.1 Szenario 4: Einwilligungsverwaltung | TC-025-004, TC-025-005, TC-025-006, TC-025-007, TC-025-008 |
 | § 3.1 DataExportEngine | TC-025-010, TC-025-011, TC-025-045 |
 | § 3.1 ErasureEngine | TC-025-016, TC-025-019, TC-025-021 |

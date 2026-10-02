@@ -3,6 +3,7 @@ import type {
   ConsentRecord,
   EmailChangeCreateRequest,
   EmailChangeResponse,
+  ErasurePreview,
   PrivacyMessageResponse,
 } from '../types';
 
@@ -63,5 +64,15 @@ export async function confirmEmailChange(token: string): Promise<PrivacyMessageR
  */
 export async function revertEmailChange(token: string): Promise<PrivacyMessageResponse> {
   const { data } = await client.post<PrivacyMessageResponse>(`${BASE}/email-change/revert`, { token });
+  return data;
+}
+
+/**
+ * GET /privacy/erasure-preview — which personal tenants confirming the account
+ * erasure would delete with the account, and how many *other* members each has
+ * (REQ-025 AK-FK-06, #1824). Scoped to the caller; a count, never who.
+ */
+export async function getErasurePreview(): Promise<ErasurePreview> {
+  const { data } = await client.get<ErasurePreview>(`${BASE}/erasure-preview`);
   return data;
 }
