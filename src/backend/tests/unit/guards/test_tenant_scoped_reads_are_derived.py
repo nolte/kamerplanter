@@ -861,9 +861,6 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoMcpAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide mcp_audit_log retention task (#1806 GDPR-003)"
     ),
-    ("ArangoCareReminderRepository", "get_all_profiles"): Exclusion(
-        "system", "the care-reminder Celery task walks every profile to generate due tasks"
-    ),
     ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
         "system", "the escalation Celery task re-notifies every overdue watering reminder"
     ),

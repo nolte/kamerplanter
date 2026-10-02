@@ -1,23 +1,10 @@
 import structlog
 
 from app.common.log_privacy import loggable_error
+from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
-
-
-_PAGE_SIZE = 1000
-
-
-def _iter_all_plants(plant_repo):
-    """Every plant of every tenant, page by page (a single page silently dropped the rest)."""
-    offset = 0
-    while True:
-        page, total = plant_repo.get_all(offset=offset, limit=_PAGE_SIZE, all_tenants=True)  # system task
-        yield from page
-        offset += _PAGE_SIZE
-        if not page or offset >= total:
-            return
 
 
 @celery_app.task(name="update_vernalization_progress")
@@ -32,7 +19,7 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
 
     updated = 0
     is_cold = tracker.is_cold_day(avg_temp_c)
-    for plant in _iter_all_plants(plant_repo):
+    for plant in get_all_pages(plant_repo, all_tenants=True):  # system task: all tenants
         if plant.removed_on is not None:
             continue
 
