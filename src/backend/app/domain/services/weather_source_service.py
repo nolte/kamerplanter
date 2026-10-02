@@ -59,7 +59,6 @@ if TYPE_CHECKING:
     from app.domain.models.site import Site
     from app.domain.models.weather import ClimateNormal
     from app.domain.services.weather_settings_service import EffectiveWeatherSettings
-    from app.domain.services.weather_source_resolver import WeatherSourceResolver
 
 logger = structlog.get_logger(__name__)
 
@@ -107,7 +106,6 @@ class WeatherSourceService:
         weather_source_config_repo: ArangoWeatherSourceConfigRepository,
         site_repo: ArangoSiteRepository,
         encryption_engine: EncryptionEngine,
-        resolver: WeatherSourceResolver,
         ha_client_factory: Callable[[], HomeAssistantClient | None],
         weather_settings_provider: Callable[[], EffectiveWeatherSettings] | None = None,
         climate_normal_repo: IClimateNormalRepository | None = None,
@@ -115,10 +113,6 @@ class WeatherSourceService:
         self._config_repo = weather_source_config_repo
         self._site_repo = site_repo
         self._encryption = encryption_engine
-        # The resolver is injected for parity with the fetch pipeline; the test
-        # endpoint deliberately builds adapters from the unsaved body instead of
-        # decrypting stored config, so it is not used here yet.
-        self._resolver = resolver
         self._ha_client_factory = ha_client_factory
         # DB-backed effective provider config; when absent, the enable flags fall
         # back to the raw env kill-switches (``settings.<p>_enabled``).

@@ -50,7 +50,6 @@ from app.common.log_privacy import log_subject, loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter, IPlantDiaryRepository
-from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.plant_diary_entry import DiaryAnalysis, PlantDiaryEntry
 from app.domain.services.environment_snapshot_service import EnvironmentSnapshot, EnvironmentSnapshotService
@@ -391,14 +390,12 @@ class PlantDiaryService:
         self,
         diary_repo: IPlantDiaryRepository,
         run_repo: IPlantingRunRepository | None = None,
-        plant_repo: IPlantInstanceRepository | None = None,
         consent_checker: ConsentChecker | None = None,
         attachment_repo: IAttachmentRepository | None = None,
         environment_service_factory: Callable[[], EnvironmentSnapshotService | None] | None = None,
     ) -> None:
         self._repo = diary_repo
         self._run_repo = run_repo
-        self._plant_repo = plant_repo
         #: REQ-013 §2.3a — resolves the plant's environment on create.
         #:
         #: A **factory**, not an instance, and the distinction is load-bearing:

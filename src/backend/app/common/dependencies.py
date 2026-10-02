@@ -462,7 +462,6 @@ def get_plant_diary_service():
     return PlantDiaryService(
         diary_repo=get_plant_diary_repo(),
         run_repo=get_planting_run_repo(),
-        plant_repo=get_plant_repo(),
         # REQ-013 §2.3a — the environment snapshot taken on create. Passed as a
         # **factory**, deliberately un-called: building it opens six repositories
         # and a Home Assistant client, none of which the diary service needs in
@@ -977,7 +976,6 @@ def get_api_key_rate_limiter():
 def get_user_service() -> UserService:
     return UserService(
         get_user_repo(),
-        get_refresh_token_repo(),
         step_up_verifier=get_step_up_verifier(),
     )
 
@@ -1406,20 +1404,13 @@ def _effective_weather_settings():
 
 
 def get_weather_source_service():
-    from app.domain.services.weather_source_resolver import WeatherSourceResolver
     from app.domain.services.weather_source_service import WeatherSourceService
 
     encryption = get_encryption_engine()
-    resolver = WeatherSourceResolver(
-        encryption,
-        get_ha_client,
-        weather_settings_provider=_effective_weather_settings,
-    )
     return WeatherSourceService(
         weather_source_config_repo=get_weather_source_config_repo(),
         site_repo=get_site_repo(),
         encryption_engine=encryption,
-        resolver=resolver,
         ha_client_factory=get_ha_client,
         weather_settings_provider=_effective_weather_settings,
         climate_normal_repo=get_climate_normal_repo(),
@@ -1986,7 +1977,6 @@ def get_dashboard_service():
         task_repo=get_task_repo(),
         tank_repo=get_tank_repo(),
         care_repo=get_care_reminder_repo(),
-        activity_repo=get_activity_repo(),
     )
 
 
