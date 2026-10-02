@@ -37,7 +37,7 @@ class SmtpEmailAdapter(TemplatedEmailAdapter):
         msg.attach(MIMEText(html_body, "html"))
 
         try:
-            with smtplib.SMTP(self._host, self._port) as server:
+            with smtplib.SMTP(self._host, self._port, timeout=10) as server:
                 if self._use_tls:
                     server.starttls()
                 if self._username:
