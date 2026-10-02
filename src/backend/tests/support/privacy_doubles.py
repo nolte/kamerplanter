@@ -323,7 +323,9 @@ class FakePersonalTenants:
     """The :class:`TenantService` surface the account erasure uses (#1788).
 
     ``owned`` are the personal tenants the subject still owns; ``others`` maps a
-    tenant to how many other active members it has. Like the real service, an
+    tenant to how many other active members it has — they no longer keep it
+    (erasure together, #1824); ``late_joiners`` maps a tenant to how many members
+    joined after the erasure froze it, which do (REQ-025 AK-IE-07). Like the real service, an
     erased tenant is no longer listed by owner (its document is gone) and a
     second call for it answers ``erased`` from its completed record; a tenant
     neither owned nor erased is ``absent``. ``fail_with`` makes the erasure of a
@@ -335,16 +337,19 @@ class FakePersonalTenants:
         self,
         *owned: str,
         others: dict[str, int] | None = None,
+        late_joiners: dict[str, int] | None = None,
         configuration_error: str | None = None,
         fail_with: BaseException | None = None,
         events: list[str] | None = None,
     ) -> None:
         self.owned = list(owned)
         self.others = dict(others or {})
+        self.late_joiners = dict(late_joiners or {})
         self.configuration_error = configuration_error
         self.fail_with = fail_with
         self.erased: list[str] = []
         self.calls: list[tuple[str, str]] = []
+        self.requested_ats: list[Any] = []
         self.invitation_revocations: list[str] = []
         self.events = events if events is not None else []
 
@@ -357,24 +362,31 @@ class FakePersonalTenants:
     def personal_tenant_keys_of(self, user_key: str) -> list[str]:
         return list(self.owned)
 
+    def other_active_members_of_personal_tenants_of(self, user_key: str) -> list[str]:
+        """The accounts the pre-erasure notice goes to (#1824): ``others[tenant]`` anonymous keys per owned tenant."""
+        return [f"member-{tenant}-{index}" for tenant in self.owned for index in range(self.others.get(tenant, 0))]
+
     def revoke_invitations_into_personal_tenants_of(self, user_key: str) -> int:
         """REQ-025 AK-IE-06 — recorded, so a test can pin *when* the entry point revokes."""
         self.invitation_revocations.append(user_key)
         return 0
 
-    def erase_personal_tenant_of(self, user_key: str, tenant_key: str, *, now: Any = None) -> Any:
+    def erase_personal_tenant_of(
+        self, user_key: str, tenant_key: str, *, now: Any = None, requested_at: Any = None
+    ) -> Any:
         from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
         from app.domain.models.privacy import PersonalTenantErasure
 
         self.calls.append((user_key, tenant_key))
+        self.requested_ats.append(requested_at)
         self.events.append(f"tenant:{tenant_key}")
         record_key = TenantErasureEngine.record_key(tenant_key)
         if tenant_key in self.erased:
             return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
         if tenant_key not in self.owned:
             return PersonalTenantErasure(tenant_key=tenant_key, outcome="absent")
-        if self.others.get(tenant_key):
-            return PersonalTenantErasure(tenant_key=tenant_key, outcome="retained_other_members", reason="others")
+        if self.late_joiners.get(tenant_key):
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="retained_late_joiner", reason="late joiner")
         if self.fail_with is not None:
             raise self.fail_with
         self.owned.remove(tenant_key)

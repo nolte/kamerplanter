@@ -245,8 +245,8 @@ whether the erased account's records must stay linkable to each other for an aud
 | Manual actuator override | `created_by` | Marker `_anonymized` | — |
 | AI audit entry | `user_key` | Marker `_anonymized` | — |
 | Pest photo you promoted as an admin | `promoted_by` | Marker `_anonymized` | — |
-| Personal garden whose only active member you are | — | fully deleted, see below | — |
-| Community garden, or garden with other members, you created | `owner_user_key` | Marker `_anonymized` | for your personal garden also its name and short name, see below |
+| Your personal garden, also with other members | — | fully deleted, see below | — |
+| Community garden or other garden you created (not a personal one) | `owner_user_key` | Marker `_anonymized` | for a personal garden a late joiner keeps, also its name and short name, see below |
 | Erasure audit (ErasureRequest) | `user_key` | Tombstone hash `anon_…` | — |
 | MCP audit entry of a service account | `service_account_key` | Tombstone hash `anon_…` | — |
 
@@ -271,20 +271,32 @@ whether the erased account's records must stay linkable to each other for an aud
 
 ### What happens to your personal garden
 
-When you register, Kamerplanter creates a personal garden for you. What happens to it
-on account deletion depends on whether anyone else is still an active member:
+When you register, Kamerplanter creates a personal garden for you. On account deletion it
+is **always deleted with the account** — even when other members are in it. It is fully
+deleted through the [tenant-erasure inventory](#tenant-deletion): sites, plants,
+planting runs, diary, tasks, tanks and everything else in it is gone afterward. Only
+harvest, quality, treatment and inspection records remain — as with any account
+deletion — under your tombstone hash, because the CanG (5 years) and PflSchG
+(3 years) require it; their free-text name fields are emptied. This garden deletion
+gets its own deletion record, and your erasure request states in the end what
+happened to the garden.
 
-- **You are its only active member** — the normal case — and the garden is fully
-  deleted through the [tenant-erasure inventory](#tenant-deletion): sites, plants,
-  planting runs, diary, tasks, tanks and everything else in it is gone afterward. Only
-  harvest, quality, treatment and inspection records remain — as with any account
-  deletion — under your tombstone hash, because the CanG (5 years) and PflSchG
-  (3 years) require it; their free-text name fields are emptied. This garden deletion
-  gets its own deletion record, and your erasure request states in the end what
-  happened to the garden.
-- **Another active member is still in it** — a personal tenant can, like any tenant,
-  take further members (see [Tenants & Gardens](../user-guide/tenants.md)) — it stays
-  as it was, and only your owner reference is removed:
+A personal garden can, like any garden, take further members (see
+[Tenants & Gardens](../user-guide/tenants.md)). For them:
+
+- **Warned beforehand:** as soon as you request the deletion, every other active
+  member gets an email. It states the date of the final deletion so they can secure
+  their data until then. The email names neither you nor your address nor the garden,
+  because a personal garden is named after its owner.
+- **Their content goes with it:** everything the other members created in this garden
+  is deleted too. Their own accounts and their memberships in other gardens are
+  unaffected.
+- **Preview before you confirm:** the delete-account dialog shows, for each personal
+  garden, that it is deleted and how many other members this affects.
+- **Only exception — a late joiner:** if someone newly joins between your request and
+  the deletion run (invitations into the garden are revoked when you request the
+  deletion, so this only happens by detours), the garden is kept for that person.
+  Then only your owner reference is removed:
     - The owner reference is replaced with `_anonymized`.
     - The name and the short name become `anonymized-` followed by a string that cannot
       be traced back to the key. The short name stays unique, and no new garden can take
@@ -293,9 +305,11 @@ on account deletion depends on whether anyone else is still an active member:
 
 !!! danger "This affects your own data irreversibly, too"
     There is no separate switch to keep only the personal garden while deleting your
-    account: if you are its only active member, it is irreversibly gone with
-    everything in it — sites, plants, diary, photos, tasks, tanks. Download your data
-    export first (GDPR Art. 15/20) if you want to keep a copy of anything.
+    account: it is irreversibly gone with everything in it — sites, plants, diary,
+    photos, tasks, tanks, including the other members' entries. Download your data
+    export first (GDPR Art. 15/20) if you want to keep a copy of anything. If you want
+    to run a garden together with others, create it as a garden of its own with several
+    members instead of sharing your personal one.
 
 If the deployment cannot delete your personal garden — for example because a
 sensor-reading store, the tombstone salt, or the reference-index/pest-image store is
@@ -556,8 +570,8 @@ another attempt.
 The members' own accounts are unaffected — they keep their account and their
 memberships in other tenants. A member's personal tenant is not touched by the deletion
 of an *other* tenant. Deleting your own account, however, runs your personal tenant
-through this exact tenant-erasure inventory — fully, if you are its only active member;
-with only the owner reference replaced, if another active member uses it (see above,
+through this exact tenant-erasure inventory — fully, even when other members use it;
+only a late joiner keeps it alive (see above,
 [What happens to your personal garden](#what-happens-to-your-personal-garden)).
 
 ---
@@ -677,8 +691,8 @@ flowchart TD
 | Export files | Delete immediately |
 | Harvest data, quality assessments, treatments, inspections | Anonymize (tombstone hash `anon_…`, name fields emptied), do not delete (Art. 17(3)) |
 | Tasks, task comments, diary entries, files, import jobs, settings and overrides in a (possibly shared) garden | Replace the account reference with `_anonymized`, content remains |
-| Personal garden whose only active member you are | Fully delete (tenant-erasure inventory); harvest/treatment/inspection records pseudonymized as above |
-| Community garden, or garden with other members, you created | Replace the owner reference; for your personal garden also its name and short name |
+| Your personal garden, also with other members | Fully delete (tenant-erasure inventory); harvest/treatment/inspection records pseudonymized as above; the other members are notified at the request |
+| Community garden or other garden you created (not a personal one) | Replace the owner reference; for a personal garden a late joiner keeps, also its name and short name |
 | Erasure audit | Replace the account reference with the tombstone hash, keep for 1 year |
 | Memberships, location assignments, sessions, API keys, consents, export requests, favorites, pest detections, own pest photos, AI conversations, notifications, calendar feeds, diagnosis requests, accepted invitations | Delete |
 
@@ -894,12 +908,12 @@ first with `python -m app.migrations upgrade --dry-run`.
 
 ??? question "Are sensor data deleted when an account is deleted?"
     Sensor data in TimescaleDB has no direct user reference — it is assigned to a
-    location (`location_key`), not an account. If your personal garden is unaffected by
-    the deletion (another active member is still in it, see [What happens to your
-    personal garden](#what-happens-to-your-personal-garden)), its sensor data is
-    retained and is only subject to the time-based retention policies. If your personal
-    garden is fully deleted instead, because you were its only active member, its sensor
-    data is deleted with it — like with any [tenant deletion](#tenant-deletion).
+    location (`location_key`), not an account. Your personal garden is
+    fully deleted with your account (see [What happens to your personal
+    garden](#what-happens-to-your-personal-garden)), so its sensor data is deleted with
+    it — like with any [tenant deletion](#tenant-deletion). Only when a late joiner
+    keeps the garden by exception is its sensor data retained, subject to the
+    time-based retention policies only.
 
 ## See also
 

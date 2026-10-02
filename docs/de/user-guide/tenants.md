@@ -20,6 +20,9 @@ Bei der Registrierung erstellt das System automatisch deinen **persönlichen Ten
 !!! info "Persönliche Daten bleiben privat"
     Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Kein Mitglied eines anderen Tenants kann deine privaten Zimmerpflanzen oder deinen Balkongarten sehen — auch wenn du demselben Gemeinschaftsgarten angehörst.
 
+!!! warning "Dein persönlicher Tenant endet mit deinem Konto"
+    Lädst du jemanden in deinen persönlichen Tenant ein, wird er mit deinem Konto gelöscht — auch mit allem, was die anderen Mitglieder darin angelegt haben. Sie bekommen eine E-Mail, sobald du die Löschung beantragst. Für einen Garten, den ihr gemeinsam und dauerhaft führen wollt, lege deshalb einen eigenen Gemeinschaftsgarten an. Details: [Datenaufbewahrung](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
+
 ---
 
 ## Zwischen Tenants wechseln

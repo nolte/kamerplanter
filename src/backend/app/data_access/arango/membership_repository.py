@@ -1,5 +1,8 @@
+from datetime import datetime
+
 from arango.database import StandardDatabase
 
+from app.common.datetimes import ensure_aware_utc
 from app.common.enums import AdminScope
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -223,3 +226,34 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
         )
         return list(cursor)
+
+    def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
+        """Active member account key -> start of the membership (#1824), as ``active_member_user_keys`` counts them."""
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false
+              RETURN { user_key: m.user_key, joined_at: m.joined_at }
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        # One row per account: the (user_key, tenant_key) index is unique.
+        return {row["user_key"]: _parse_instant(row.get("joined_at")) for row in cursor}
+
+
+def _parse_instant(value: object) -> datetime | None:
+    """A stored start as an aware instant; ``None`` when absent or unreadable (#1824).
+
+    An unreadable value must not raise: it would fail every retry of the account
+    erasure that reads it. ``None`` is the "start not recorded" answer the caller
+    already handles.
+    """
+    if not isinstance(value, str | datetime) or value == "":
+        return None
+    try:
+        return ensure_aware_utc(value)
+    except ValueError:
+        return None

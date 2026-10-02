@@ -29,13 +29,16 @@ type ErasureOrigin = Literal["self_service", "platform_admin", "unverified_clean
 #: account confirmed by typing the target's e-mail back alone — kept readable.
 #: ``None`` on records of the unverified-account cleanup and on older records.
 type ErasureStepUp = Literal["oidc_reauth", "email_code", "echo", "password"]
-#: What an account erasure did with one personal tenant of the subject (#1788).
-#: ``erased`` — the subject was its only active member, and the tenant-erasure
-#: inventory (#1769) completed on it; ``retained_other_members`` — another active
-#: member uses it, so it is kept and only the owner reference goes (the spec names
-#: no successor, #1788); ``absent`` — neither the tenant nor a deletion record of
-#: it exists any more.
-type PersonalTenantOutcome = Literal["erased", "retained_other_members", "absent"]
+#: What an account erasure did with one personal tenant of the subject (#1788,
+#: #1824). ``erased`` — the tenant-erasure inventory (#1769) completed on it, with
+#: or without other members (erasure together, REQ-025 §3.1.3); ``retained_late_joiner``
+#: — a member joined after the erasure was requested or frozen (AK-IE-07), so the
+#: tenant is kept for them and only the owner reference goes; ``absent`` — neither
+#: the tenant nor a deletion record of it exists any more. ``retained_other_members``
+#: is the pre-#1824 value (any other active member kept the tenant): no run writes it
+#: any more, but erasure requests recorded before #1824 still carry it and must stay
+#: readable.
+type PersonalTenantOutcome = Literal["erased", "retained_late_joiner", "retained_other_members", "absent"]
 #: ``cancelled`` — withdrawn because the owner took the account back (password
 #: reset, password change, signing out everywhere) while it was pending (#1841).
 type EmailChangeStatus = Literal["pending", "confirmed", "expired", "cancelled", "reverted", "superseded"]
@@ -122,6 +125,17 @@ class PersonalTenantErasure(BaseModel):
     outcome: PersonalTenantOutcome
     tenant_erasure_record_key: str | None = None
     reason: str | None = None
+
+
+class PersonalTenantErasurePreview(BaseModel):
+    """What the erasure of an account would take with one of its personal tenants (AK-FK-06, #1824).
+
+    Shown to the subject **before** they confirm. ``name`` is the subject's own
+    tenant name; the others are a count only — never a name, e-mail or role.
+    """
+
+    name: str
+    other_member_count: int = Field(ge=0)
 
 
 class ErasureRequest(BaseModel):

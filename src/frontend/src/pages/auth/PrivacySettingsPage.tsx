@@ -20,6 +20,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import client from '@/api/client';
 import { parseApiError } from '@/api/errors';
 import type { AccountErasureRequest } from '@/api/types';
+import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
+import { useErasurePreview } from '@/hooks/useErasurePreview';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { toStepUpBody } from '@/utils/stepUp';
@@ -100,6 +102,8 @@ export default function PrivacySettingsPage() {
   const ownEmail = useAppSelector((s) => s.auth.user?.email ?? '');
   const [erasureDialogOpen, setErasureDialogOpen] = useState(resumeErasure);
   const [erasureMessage, setErasureMessage] = useState('');
+  // AK-FK-06 — which personal tenants the erasure takes along, read as soon as the tab is open.
+  const erasurePreview = useErasurePreview(TAB_KEYS[tabIndex] === 'erasure' || erasureDialogOpen);
 
   // ── Restrict tab state ────────────────────────────────────────────
   const [restrictions, setRestrictions] = useState<RestrictionItem[]>([]);
@@ -406,6 +410,12 @@ export default function PrivacySettingsPage() {
               {t('pages.privacy.erasureDescription')}
             </Typography>
 
+            <ErasurePreviewNotice
+              preview={erasurePreview}
+              testIdPrefix="privacy-erasure-preview"
+              variant="alert"
+            />
+
             {erasureMessage && (
               <Alert severity="info" sx={{ mb: 2 }}>
                 {erasureMessage}
@@ -518,7 +528,15 @@ export default function PrivacySettingsPage() {
       <StepUpConfirmDialog
         open={erasureDialogOpen}
         title={t('pages.privacy.erasureDialogTitle')}
-        description={t('pages.privacy.erasureDialogText')}
+        description={
+          <>
+            {t('pages.privacy.erasureDialogText')}
+            <ErasurePreviewNotice
+              preview={erasurePreview}
+              testIdPrefix="privacy-erasure-dialog-preview"
+            />
+          </>
+        }
         echoLabel={t('pages.privacy.erasureDialogEmailLabel')}
         echoHelper={t('pages.privacy.erasureDialogEmailHelper', { email: ownEmail })}
         expectedEcho={ownEmail}

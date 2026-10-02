@@ -57,6 +57,7 @@ OWNER = "u-owner"
 OWNER_EMAIL = "owner@example.org"
 OWNER_PASSWORD = "correct-horse-battery-staple"
 JOINER = "u-joiner"
+FRIEND = "u-friend"
 PERSONAL = "t-personal"
 SHARED = "t-club"
 NOW = datetime(2026, 9, 30, 10, 0, tzinfo=UTC)
@@ -173,6 +174,13 @@ class FakeMembershipRepo:
             }
         )
 
+    def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
+        return {
+            m.user_key: m.joined_at
+            for m in self.stored.values()
+            if m.tenant_key == tenant_key and m.is_active and m.user_key not in self.inactive_accounts
+        }
+
     def deactivate_all_for_tenant(self, tenant_key: str) -> int:
         hit = [m for m in self.stored.values() if m.tenant_key == tenant_key and m.is_active]
         for membership in hit:
@@ -202,8 +210,10 @@ def _personal_tenant(key: str = PERSONAL, owner: str = OWNER) -> Tenant:
     return Tenant(_key=key, name="Garden", slug=f"garden-{key}", tenant_type=TenantType.PERSONAL, owner_user_key=owner)
 
 
-def _member(user_key: str, tenant_key: str = PERSONAL) -> Membership:
-    return Membership(user_key=user_key, tenant_key=tenant_key, role=TenantRole.GROWER, is_active=True)
+def _member(user_key: str, tenant_key: str = PERSONAL, joined_at: datetime | None = None) -> Membership:
+    return Membership(
+        user_key=user_key, tenant_key=tenant_key, role=TenantRole.GROWER, is_active=True, joined_at=joined_at
+    )
 
 
 class Tenants:
@@ -331,9 +341,9 @@ class TestInvitationsAreRevokedWhenTheErasureIsRequested:
         seen: list[InvitationStatus] = []
         inner = tenants.service.erase_personal_tenant_of
 
-        def _erase(user_key: str, tenant_key: str, *, now: datetime | None = None) -> Any:
+        def _erase(user_key: str, tenant_key: str, *, now: datetime | None = None, **kwargs: Any) -> Any:
             seen.extend(i.status for i in tenants.invitations.stored.values())
-            return inner(user_key, tenant_key, now=now)
+            return inner(user_key, tenant_key, now=now, **kwargs)
 
         tenants.service.erase_personal_tenant_of = _erase  # type: ignore[method-assign]
         privacy, user_repo = _privacy(tenants, FakeErasureRepo())
@@ -391,7 +401,7 @@ class TestTheMembershipIsRecheckedAfterTheFreeze:
 
         outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
 
-        assert outcome.outcome == "retained_other_members"
+        assert outcome.outcome == "retained_late_joiner"
         assert tenants.runs == [], "the tenant inventory ran over a tenant someone had just joined"
         joined = tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL)
         assert joined is not None and joined.is_active, "the late joiner was silently deactivated"
@@ -410,16 +420,72 @@ class TestTheMembershipIsRecheckedAfterTheFreeze:
         owner = tenants.memberships.get_by_user_and_tenant(OWNER, PERSONAL)
         assert owner is not None and not owner.is_active
 
-    def test_a_retry_over_a_record_no_run_claimed_rechecks_too(self):
-        """A crash between the insert and the re-check left the record; the joiner of that window is still seen."""
+    def test_a_member_without_a_recorded_start_predates_the_notice(self):
+        """Production paths stamp ``joined_at``; an undated member is a seed/legacy one, not late (#1824)."""
         tenants = Tenants(members=[_member(OWNER), _member(JOINER)])
         tenants.memberships.inactive_accounts.add(OWNER)
         tenants.open_record()
 
         outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
 
-        assert outcome.outcome == "retained_other_members"
-        assert tenants.runs == []
+        assert (outcome.outcome, tenants.runs) == ("erased", [PERSONAL])
+
+    def test_a_member_who_was_there_before_the_freeze_goes_with_the_tenant(self):
+        """#1824 — erasure together: members listed by the first read do not keep the tenant."""
+        tenants = Tenants(members=[_member(OWNER), _member(JOINER), _member("u-3")])
+        tenants.memberships.inactive_accounts.add(OWNER)
+
+        outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
+
+        assert outcome.outcome == "erased"
+        assert tenants.runs == [PERSONAL]
+
+    def test_a_retry_over_an_unclaimed_record_erases_over_members_who_joined_before_it(self):
+        tenants = Tenants(members=[_member(OWNER), _member(JOINER, joined_at=NOW - timedelta(days=3))])
+        tenants.memberships.inactive_accounts.add(OWNER)
+        tenants.open_record()  # requested_at = NOW
+
+        outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
+
+        assert outcome.outcome == "erased"
+        assert tenants.runs == [PERSONAL]
+
+    def test_a_retry_over_an_unclaimed_record_keeps_the_tenant_for_a_member_who_joined_after_it(self):
+        tenants = Tenants(members=[_member(OWNER), _member(JOINER, joined_at=NOW + timedelta(seconds=1))])
+        tenants.memberships.inactive_accounts.add(OWNER)
+        tenants.open_record()
+
+        outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
+
+        assert (outcome.outcome, tenants.runs) == ("retained_late_joiner", [])
+
+    def test_a_member_added_during_the_grace_keeps_the_tenant(self):
+        """The notice went to the members at the request; a later one was never told (#1824 review SEC-001)."""
+        asked = NOW - timedelta(days=30)
+        tenants = Tenants(
+            members=[
+                _member(OWNER),
+                _member(FRIEND, joined_at=asked - timedelta(days=5)),
+                _member(JOINER, joined_at=asked + timedelta(days=10)),
+            ]
+        )
+        tenants.memberships.inactive_accounts.add(OWNER)
+
+        outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW, requested_at=asked)
+
+        assert (outcome.outcome, tenants.runs) == ("retained_late_joiner", [])
+        assert "1 member(s) joined" in (outcome.reason or "")
+
+    def test_members_from_before_the_request_or_without_a_recorded_start_do_not_keep_it(self):
+        asked = NOW - timedelta(days=30)
+        tenants = Tenants(
+            members=[_member(OWNER), _member(FRIEND, joined_at=asked - timedelta(days=5)), _member(JOINER)]
+        )
+        tenants.memberships.inactive_accounts.add(OWNER)
+
+        outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW, requested_at=asked)
+
+        assert (outcome.outcome, tenants.runs) == ("erased", [PERSONAL])
 
     def test_a_claimed_deletion_is_resumed_whatever_the_frozen_memberships_say(self):
         tenants = Tenants(members=[_member(OWNER), _member(JOINER)])

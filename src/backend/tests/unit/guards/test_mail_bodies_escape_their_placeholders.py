@@ -33,8 +33,9 @@ APP = Path(__file__).resolve().parents[3] / "app"
 SCOPES = (APP / "data_access" / "external", APP / "domain" / "services", APP / "domain" / "engines", APP / "tasks")
 _TAG = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?/?>|<[a-zA-Z][a-zA-Z0-9]*\s")
 
-#: The class size measured when this guard was written (#1856): 8 on develop, +1 the e-mail change mail (#1848).
-EXPECTED_HTML_FSTRINGS = 9
+#: The class size measured when this guard was written (#1856): 8 on develop, +1 the e-mail change mail (#1848),
+#: +1 the notice to the other members of a personal tenant its owner has asked to erase (#1824; the date is escaped).
+EXPECTED_HTML_FSTRINGS = 10
 
 
 def _is_escape_call(node: ast.expr) -> bool:
