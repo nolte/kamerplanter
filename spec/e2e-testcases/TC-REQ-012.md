@@ -1370,7 +1370,7 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 
 **Erwartete Ergebnisse**:
 - Ein roter Error-Alert erscheint auf der Seite (nicht ein leerer Bildschirm)
-- Die Fehlermeldung ist für den Nutzer verständlich (z.B. "Upload fehlgeschlagen. Bitte versuchen Sie es erneut.")
+- Die Fehlermeldung ist für den Nutzer verständlich (z.B. "Upload fehlgeschlagen. Bitte versuche es erneut.")
 - Der Stepper verbleibt auf Schritt 1
 - Der "Hochladen"-Button ist wieder aktiv
 

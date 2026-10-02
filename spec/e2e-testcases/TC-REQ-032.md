@@ -913,7 +913,7 @@ URL-Muster (Print-Endpunkte werden vom Browser automatisch als Download ausgelö
 
 **Erwartete Ergebnisse**:
 - Der Lade-Indikator im PrintButton erlischt nach Timeout
-- Eine Fehlerbenachrichtigung erscheint als Snackbar: "PDF-Generierung fehlgeschlagen. Bitte versuchen Sie es erneut." oder ähnlicher Text
+- Eine Fehlerbenachrichtigung erscheint als Snackbar: "PDF-Generierung fehlgeschlagen. Bitte versuche es erneut." oder ähnlicher Text
 - Der PrintButton ist wieder aktiviert (nicht mehr im Lade-Zustand)
 - Kein leeres oder beschädigtes PDF wurde heruntergeladen
 - Ein "Erneut versuchen"-Hinweis oder Button ist sichtbar
@@ -942,7 +942,7 @@ URL-Muster (Print-Endpunkte werden vom Browser automatisch als Download ausgelö
 3. Nutzer beobachtet das UI-Verhalten nach Ablauf des Timeouts
 
 **Erwartete Ergebnisse**:
-- Nach Ablauf des Timeouts erscheint eine Fehlermeldung: "PDF-Generierung hat zu lange gedauert. Bitte versuchen Sie es erneut." oder ähnlich
+- Nach Ablauf des Timeouts erscheint eine Fehlermeldung: "PDF-Generierung hat zu lange gedauert. Bitte versuche es erneut." oder ähnlich
 - Der PrintButton verlässt den Lade-Zustand und ist wieder klickbar
 - Kein Browser-Freeze oder unendlicher Lade-Zustand
 - Die Seiten-Navigation ist weiterhin möglich
@@ -997,7 +997,7 @@ URL-Muster (Print-Endpunkte werden vom Browser automatisch als Download ausgelö
 2. Nutzer beobachtet die UI-Reaktion
 
 **Erwartete Ergebnisse**:
-- Eine Fehler-Snackbar erscheint mit einer verständlichen Meldung (z.B. "PDF konnte nicht erstellt werden. Bitte versuchen Sie es später erneut.")
+- Eine Fehler-Snackbar erscheint mit einer verständlichen Meldung (z.B. "PDF konnte nicht erstellt werden. Bitte versuche es später erneut.")
 - Der PrintButton verlässt den Lade-Zustand
 - Keine technischen Details (Stack-Trace, Datenbankfehler, Python-Fehlermeldungen) sind für den Nutzer sichtbar
 - Die restliche Seite bleibt bedienbar

@@ -132,7 +132,7 @@ version: "4.2"
 3. Nutzer wartet ca. 300 ms (debounce)
 
 **Erwartetes Ergebnis**:
-- Tabelle zeigt die Meldung "Keine Ergebnisse für Ihre Suche gefunden"
+- Tabelle zeigt die Meldung "Keine Ergebnisse für deine Suche gefunden"
 
 **Nachbedingungen**:
 - Keine Zustandsänderung im System
@@ -527,7 +527,7 @@ abgelehnt — das ist TC-019-099, nicht eine schwächere Zusicherung hier.
 2. Nutzer klickt die Schaltfläche "Abbrechen" (oder navigiert im Browser zurück)
 
 **Erwartetes Ergebnis**:
-- Ein Browser-Bestätigungsdialog erscheint mit der Meldung "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?"
+- Ein Browser-Bestätigungsdialog erscheint mit der Meldung "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?"
 - Wenn Nutzer "Verlassen" bestätigt: Navigation erfolgt, Änderungen werden verworfen
 - Wenn Nutzer "Bleiben" wählt: Nutzer verbleibt auf der Detailseite, Formular bleibt dirty
 
@@ -1163,7 +1163,7 @@ Plattform-Admin (REQ-027), es gibt dort also keinen abzulehnenden Aufrufer.
 3. Nutzer lädt die Seite neu
 
 **Erwartetes Ergebnis**:
-- Eine **sichtbare** Fehlermeldung erscheint („Sie haben keine Berechtigung für
+- Eine **sichtbare** Fehlermeldung erscheint („Du hast keine Berechtigung für
   diese Aktion.")
 - Nach dem Neuladen zeigt "pH-Basis" **unverändert** den ursprünglichen Wert
 

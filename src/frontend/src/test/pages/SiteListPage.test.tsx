@@ -43,7 +43,7 @@ describe('SiteListPage', () => {
   it('shows the introduction text once sites are loaded', async () => {
     renderWithProviders(<SiteListPage />);
     await waitFor(() => {
-      expect(screen.getByText(/Standorte sind Ihre Anbauflächen/)).toBeTruthy();
+      expect(screen.getByText(/Standorte sind deine Anbauflächen/)).toBeTruthy();
     });
   });
 

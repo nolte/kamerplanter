@@ -331,7 +331,7 @@ Die Standort-Hierarchie bildet das zentrale Rückgrat aller räumlichen Zuordnun
 2. Nutzer klickt in der Seitennavigation auf einen anderen Menüpunkt (z. B. "Stammdaten")
 
 **Erwartete Ergebnisse**:
-- Ein Browser-Bestätigungsdialog erscheint mit der Meldung "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?"
+- Ein Browser-Bestätigungsdialog erscheint mit der Meldung "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?"
 - Bei Klick auf "Abbrechen" bleibt der Nutzer auf der Site-Detailseite, Änderungen bleiben erhalten
 - Bei Klick auf "OK" verlässt der Nutzer die Seite, Änderungen werden verworfen
 

@@ -993,7 +993,7 @@ version: "1.5 (REQ-015) / 1.2 (REQ-015-A)"
 2. Nutzer waehlt einen Standort ohne zugeordnete Pflanzen mit Aussaatdaten
 
 **Erwartetes Ergebnis:**
-- Statt einer leeren Tabelle erscheint der Text: "Keine Pflanzen mit Aussaatdaten vorhanden. Tragen Sie Aussaat- und Erntedaten bei den Arten ein."
+- Statt einer leeren Tabelle erscheint der Text: "Keine Pflanzen mit Aussaatdaten vorhanden. Trage Aussaat- und Erntedaten bei den Arten ein."
 - Kein Fehler-Dialog oder Absturz
 
 ---

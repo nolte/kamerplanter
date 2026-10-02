@@ -670,7 +670,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 3. Nutzer klickt "Einladung annehmen" (o.ä.)
 
 **Erwartete Ergebnisse**:
-- Erfolgs-Meldung erscheint: "Einladung angenommen! Sie sind jetzt Mitglied."
+- Erfolgs-Meldung erscheint: "Einladung angenommen! Du bist jetzt Mitglied."
 - Nutzer wird zum Dashboard des Tenants "Gemeinschaftsgarten Sonnenschein" weitergeleitet
 - Im Tenant-Switcher erscheint "Gemeinschaftsgarten Sonnenschein" als neuer Tenant
 
