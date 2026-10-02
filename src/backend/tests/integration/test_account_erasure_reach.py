@@ -33,6 +33,7 @@ Runs in CI against a service container; locally it needs a database::
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
@@ -284,12 +285,18 @@ def _admin_delete(database, captured: dict[str, Any]) -> None:
             return report
 
         privacy_service.erase_account = spy  # type: ignore[method-assign]
-    admin_router.delete_user(
+    # #1949 — the route only accepts; the Celery task body (no broker here) does the erasure.
+    dispatched: list[str] = []
+    privacy_service._dispatch_account_erasure = dispatched.append  # type: ignore[method-assign]
+    accepted = admin_router.delete_user(
         SUBJECT,
         **admin_erasure_route_args(
             privacy_service, admin_key=ADMIN, target_key=SUBJECT, target_email=f"{SUBJECT}@example.com"
         ),
     )
+    assert dispatched == [accepted.erasure_key]
+    outcome = asyncio.run(privacy_service.run_account_erasure_task(dispatched[0]))
+    assert outcome["outcome"] == "completed", outcome
 
 
 @pytest.fixture(scope="module")

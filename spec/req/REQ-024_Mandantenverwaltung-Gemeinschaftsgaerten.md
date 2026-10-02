@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.13 (Q-L3 umgesetzt: Migration `v0067`, #1878; v1.12 v0004-Altstempel-Migration umgesetzt: AK-54, #1805; v1.11: Q-O1 umgesetzt, asynchrone Mandantenlöschung, #1792)
+Version: 1.14 (Konto-Löschung durch Plattform-Admin asynchron: `202`, #1949; v1.13 Q-L3 umgesetzt: Migration `v0067`, #1878; v1.12 v0004-Altstempel-Migration umgesetzt: AK-54, #1805; v1.11: Q-O1 umgesetzt, asynchrone Mandantenlöschung, #1792)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.14 | 2026-10-03 | **#1949 umgesetzt (brechende API-Änderung):** `DELETE /admin/platform/users/{key}` antwortet `202 Accepted` (Körper `{erasure_key, status, requested_at, message}`) statt `204`. Die Anfrage prüft Step-up und Berechtigung, legt den Löschauftrag an, sperrt das Konto, widerruft Sitzungen und Einladungen und benachrichtigt die anderen Mitglieder der persönlichen Mandanten **jetzt** (Sofortlöschung ohne Karenzzeit bleibt); der Celery-Task `retention.run_account_erasure` beansprucht den Auftrag atomar und führt die Löschung aus — die persönlichen Mandanten über die begrenzten Stapel mit Heartbeat aus §1a.2 (AK-53), danach den ArangoDB-Plan des Kontos. Ein fehlgeschlagener oder unvollständiger Lauf ist kein HTTP-Status mehr, sondern der Auftragsstatus `partially_completed` (täglicher Lauf wiederholt ihn), lesbar über das neue `GET /admin/platform/erasures/{erasure_key}`. Vor dem Schließen des Kontos entschieden und weiter synchron: 401/403/404/422/429 (Step-up, Berechtigung), 409 (ein lebender Lauf hält den Auftrag), 503 (Deployment kann nicht löschen, nichts geändert). |
 | 1.13 | 2026-10-02 | **Q-L3 / AK-55 umgesetzt (#1878):** Migration `v0067_clean_legacy_foreign_references` bereinigt die #1871-Altlasten und `SiteRepository.update_slot` verschiebt die `HAS_SLOT`-Kante mit dem Feld `location_key`. Konservativ: Zeilen, deren Mandant nicht zweifelsfrei feststeht, bleiben liegen und werden gezählt. Die Umhänge-Variante für fremde Kanten entfällt, weil jedes Quell-Dokument denselben fremden Schlüssel auch in einem eigenen Feld trägt — ein eindeutiges richtiges Ziel ist aus dem Bestand nicht ableitbar; die Kante wird gelöscht. Messwerte aus echten Installationen liegen nicht vor (Befund war „vermutet, nicht gemessen“). |
 | 1.12 | 2026-10-02 | **AK-54 umgesetzt (#1805).** Migration `v0066` setzt die v0004-Altstempel auf Seed-Zeilen von `fertilizers`, `nutrient_plans` (samt `nutrient_plan_phase_entries`), `workflow_templates` und `task_templates` auf `tenant_key == ""` zurück. Die Messung auf einer echten ArangoDB (synthetisches Altvolumen, echtes `backfill_tenant_key`, danach die Seed-Loader) ergab: die vier Eltern-Collections heilen die Seed-Loader beim Start selbst (`tenant_key` wird aus dem Modell mit `""` neu geschrieben); **nicht** geheilt wurden die Kinder `nutrient_plan_phase_entries` (198 von 198 blieben gestempelt) — die Mandantenlöschung hätte jedem Seed-Plan seine Phaseneinträge genommen. Seed-Identität = Name laut Seed-YAML **und** ein bewiesener Stempel (Kind unter globalem Elternteil oder Schlüssel auf mehr als der Hälfte der erwarteten Seed-Düngemittel/-Workflows); nicht beweisbare Zeilen bleiben unberührt. |
 | 1.11 | 2026-10-02 | **#1792 umgesetzt (AK-53, brechende API-Änderung):** `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` antworten `202 Accepted` (Körper `{tenant_key, status, requested_at, message}`) statt `200`/`204`. Die Anfrage prüft Berechtigung und Step-up, legt den Löschnachweis an und friert den Mandanten ein; der Celery-Task `run_tenant_erasure` beansprucht den Nachweis atomar und löscht in Stapeln zu 1000 Zeilen (eine ArangoDB-Transaktion je Stapel statt einer Transaktion über alle ~95 Collections), schreibt zwischen den Stapeln einen Heartbeat (bedingt auf den eigenen Claim-Stempel; ein verlorener Claim beendet den Lauf ohne Fehlereintrag) und eskaliert ab dem dritten erfolglosen Versuch (Log-Ereignis `tenant_erasure.escalated`, `escalated_at` am Nachweis). **Engere Lesart (bewusst):** Die Gnadenfrist AK-52 ist **weiterhin nicht umgesetzt** — AK-53 gilt für den heutigen Sofort-Pfad; sobald AK-52 gebaut ist, löst deren Frist-Task denselben Task aus. Der Weg über `DELETE /admin/platform/users/{key}` bleibt synchron in der Anfrage (die Kontolöschung braucht das Ergebnis der Mandantenlöschung, bevor ihr eigener Plan läuft), nutzt aber dieselben begrenzten Stapel und den Heartbeat; die Umstellung dieses Wegs ist als Folge-Issue #1949 erfasst. |
@@ -190,10 +191,13 @@ Umgesetzt:
   nur langsamen Laufs erneut beansprucht.
 - Ein deterministisch scheiternder Batch **eskaliert** nach N Versuchen (Alarmierung des
   Betreibers), statt täglich lautlos denselben Fehler zu wiederholen.
-- Der Weg über `DELETE /admin/platform/users/{key}` (REQ-025 AK-PT-01..03) löscht einen
-  persönlichen Mandanten weiterhin **synchron** in der Anfrage, aber über dieselben
-  begrenzten Stapel und denselben Heartbeat; ein `202` für diesen Weg ist als Folge-Issue
-  #1949 offen (engere Lesart).
+- Der Weg über `DELETE /admin/platform/users/{key}` (REQ-025 AK-PT-01..03, AK-IE-01..03)
+  ist seit **#1949** ebenfalls asynchron (`202`): Die Anfrage erfasst die Kontolöschung und
+  sperrt das Konto, der Celery-Task `retention.run_account_erasure` löscht danach die
+  persönlichen Mandanten über dieselben begrenzten Stapel und denselben Heartbeat und
+  führt anschließend den Plan des Kontos aus. Der Kontolöschauftrag (nicht der
+  Mandantennachweis) trägt den Status; ein unvollständiger Lauf ist `partially_completed`
+  und wird vom täglichen Lauf (`retention.execute_scheduled_erasures`) wiederholt.
 
 Dies ist eine **brechende API-Änderung** (Antwortcode und -semantik ändern sich für jeden
 bestehenden Aufrufer, der auf einen synchronen Abschluss wartet); sie ist im Changelog als
@@ -1268,6 +1272,7 @@ class PlantInstanceRepository:
 |------|----------|-------------|
 | `cleanup_expired_invitations` | Täglich 02:00 | Setzt abgelaufene Einladungen auf `status: expired` |
 | `cleanup_inactive_memberships` | Wöchentlich | Warnung per E-Mail bei Memberships ohne Login > 90 Tage |
+| `retention.run_account_erasure` (`app.tasks.retention_tasks`) <!-- #1949 --> | Bei `202`-Annahme einer Konto-Löschung durch einen Plattform-Admin (`apply_async`); Auffangnetz: der tägliche `retention.execute_scheduled_erasures` (der Auftrag ist sofort fällig) | Beansprucht den Löschauftrag atomar (`claim_for_run`), löscht Objektspeicher, die persönlichen Mandanten in begrenzten Stapeln mit Heartbeat (siehe `run_tenant_erasure`) und führt den ArangoDB-Plan des Kontos aus; Fehler werden am Auftrag als `partially_completed` vermerkt (Backoff), nie geworfen |
 | `run_tenant_erasure` (`app.tasks.tenant_tasks`) <!-- Q-O1, #1792 --> | Bei `202`-Annahme einer Mandantenlöschung (`.delay`); Auffangnetz: der tägliche `resume_tenant_erasures` (04:30 UTC) beansprucht einen Nachweis ohne frischen Heartbeat | Beansprucht den Nachweis atomar (`claim_for_run`), löscht den eingefrorenen Mandanten in begrenzten, idempotenten Stapeln zu je 1000 Zeilen (eine Transaktion je Stapel), schreibt zwischen den Stapeln einen Heartbeat (`heartbeat`, bedingt auf den eigenen Claim-Stempel) und eskaliert ab dem 3. erfolglosen Versuch (`tenant_erasure.escalated`, `escalated_at`); Fehler werden am Nachweis vermerkt, nie geworfen (§1a.2) |
 
 ## 4. Frontend

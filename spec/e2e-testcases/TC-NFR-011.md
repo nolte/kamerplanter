@@ -134,13 +134,13 @@ Admin-Panel.
 7. Admin klickt auf den roten Button "Endgueltig loeschen" (`data-testid="confirm-delete-user-btn"`)
 
 **Erwartete Ergebnisse**:
-- Die Seite zeigt eine Erfolgs-Snackbar: "Benutzer geloescht"
+- Die Seite zeigt eine Erfolgs-Snackbar: "Loeschung angenommen: Das Konto ist gesperrt, seine Daten werden im Hintergrund geloescht" (die Route antwortet seit #1949 mit `202 Accepted`, nicht mehr `204` — das Konto ist erfasst und gesperrt, die Loeschung selbst laeuft im Celery-Task `retention.run_account_erasure`)
 - Admin wird zur Nutzerliste `/admin/users` weitergeleitet
-- Der geloeschte Nutzer erscheint **nicht** mehr in der Nutzerliste
-- Eine Suche nach der E-Mail-Adresse des Nutzers liefert keine Ergebnisse
+- Sobald der Worker den Lauf beendet hat (Status der Loeschanfrage `completed`, lesbar ueber `GET /admin/platform/erasures/{erasure_key}`), erscheint der geloeschte Nutzer **nicht** mehr in der Nutzerliste
+- Eine Suche nach der E-Mail-Adresse des Nutzers liefert dann keine Ergebnisse
 
 **Postconditions**:
-- Nutzer-Account wurde entfernt
+- Nutzer-Account wurde entfernt (nach Abschluss des Hintergrundlaufs); bis dahin ist er deaktiviert und kann sich nicht anmelden
 - Login mit den Zugangsdaten des geloeschten Nutzers schlaegt fehl
 
 **Tags**: [nfr-011, R-01, hard-delete, admin, req-023, admin-panel]
