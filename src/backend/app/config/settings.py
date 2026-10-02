@@ -164,7 +164,11 @@ class Settings(BaseSettings):
     # Phase-1 primary adapter is Pl@ntNet (REQ-029-A §0.1.1: DINOv2/local_embedding
     # is Phase 2). Phase 2 switches this to "local_embedding" without touching
     # engine/service/API.
-    identification_primary_adapter: str = "plantnet"
+    #: A ``Literal`` since #1887: an unknown key (a typo) is refused when the
+    #: settings load instead of silently resolving another provider — possibly one
+    #: that sends images to a third party the operator did not choose. A guard test
+    #: pins the values to the keys ``IdentificationAdapterRegistry`` holds.
+    identification_primary_adapter: Literal["plantnet", "local_embedding"] = "plantnet"
     # HTTP timeout (seconds) for the external identification call, env-configurable
     # via ``IDENTIFICATION_HTTP_TIMEOUT``. The Pl@ntNet ``/identify`` request
     # (multipart image upload + server-side ML inference) regularly exceeds the
@@ -218,7 +222,11 @@ class Settings(BaseSettings):
     pest_detection_cloud_api_key: str = ""
     pest_detection_cloud_base_url: str = "https://plant.id/api/v3"
     # Config-driven primary adapter (analog identification) — nie hart kodiert.
-    pest_detection_primary_adapter: str = "local_pest_symptom"
+    #: A ``Literal`` since #1887 (see ``identification_primary_adapter``); a guard
+    #: test pins the values to the keys ``PestDetectionAdapterRegistry`` holds.
+    pest_detection_primary_adapter: Literal[
+        "local_pest_symptom", "local_pest_detector", "kindwise_pest", "demo_pest"
+    ] = "local_pest_symptom"
     pest_detection_max_image_size_mb: int = 8  # §6 multipart upload limit
     # EXIF-Strip behält für das Tiling mehr Auflösung als der ID-Pfad (1024).
     pest_detection_max_image_dimension: int = 2048
@@ -844,7 +852,8 @@ class Settings(BaseSettings):
     notification_escalation_days: str = "2,4,7"
 
     # NFR-013 Object storage (§4.1) — defaults target the local-fs backend.
-    storage_backend: str = "local-fs"  # local-fs | s3
+    #: A ``Literal`` since #1887: an unknown backend stopped at first use only; now at start.
+    storage_backend: Literal["local-fs", "s3"] = "local-fs"
     storage_max_file_size_mb: int = 25
     storage_presign_ttl_seconds: int = 900
     storage_virus_scan_enabled: bool = False
