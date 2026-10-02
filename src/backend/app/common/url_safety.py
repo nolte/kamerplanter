@@ -566,10 +566,14 @@ _APPRISE_FORBIDDEN_CHARS = frozenset(",;[]")
 _APPRISE_FORBIDDEN_QUERY_KEYS = frozenset({"cto", "rto", "verify"})
 
 
-#: Beyond the stdlib flags, the two metadata addresses the stdlib calls plain
-#: private/global: Alibaba's ``100.100.100.200`` and AWS IMDS over IPv6,
-#: ``fd00:ec2::254``.
-_APPRISE_EXTRA_BLOCKED_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("100.100.100.200/32", "fd00:ec2::/32"))
+#: Beyond the stdlib flags: the two metadata addresses the stdlib calls plain
+#: private/global (Alibaba's ``100.100.100.200``, AWS IMDS over IPv6
+#: ``fd00:ec2::254``) and the two IPv6 transition prefixes that embed an IPv4
+#: address in a position this module does not unpack: local-use NAT64
+#: ``64:ff9b:1::/48`` (RFC 8215) and Teredo ``2001::/32``.
+_APPRISE_EXTRA_BLOCKED_NETWORKS = tuple(
+    ipaddress.ip_network(n) for n in ("100.100.100.200/32", "fd00:ec2::/32", "64:ff9b:1::/48", "2001::/32")
+)
 #: ``0.0.0.0/8`` ("this network") — the stdlib files it under ``is_private``, so it
 #: cannot be refused by flag with RFC1918 left allowed. Judged for *resolved*
 #: addresses only: a literal host check also sees the leading digits of a
@@ -587,6 +591,8 @@ APPRISE_RESOLVE_TIMEOUT_SECONDS = 3.0
 #: (``ntfy://host/topic``; ``ntfy://topic`` is the public ntfy.sh).
 _APPRISE_HOST_SCHEMES = frozenset({"gotify", "gotifys", "matrix", "matrixs"})
 _APPRISE_NTFY_SCHEMES = frozenset({"ntfy", "ntfys"})
+#: Schemes whose syntax has no use for ``#``; elsewhere it names a channel or room.
+_APPRISE_NO_FRAGMENT_SCHEMES = frozenset({"gotify", "gotifys", "ntfy", "ntfys"})
 _resolver_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="apprise-dns")
 
 
@@ -642,15 +648,23 @@ def _is_apprise_blocked_address(address: ipaddress._BaseAddress, *, resolved: bo
     )
 
 
-def _apprise_host_to_resolve(url: str) -> str | None:
-    """The hostname Apprise will connect to for ``url``, or ``None`` if none is dialled by name."""
+def _apprise_host_to_resolve(url: str) -> tuple[str, bool] | None:
+    """``(host, unresolvable_ok)`` Apprise may connect to by name for ``url``, else ``None``.
+
+    ``unresolvable_ok`` marks ``ntfy://name`` without a topic path: Apprise reads
+    that as a *topic* on the public ntfy.sh unless a query (``?to=``, ``?mode=``)
+    makes it a host, so a name that does not resolve is tolerated there, while a
+    name that resolves into blocked space is refused either way.
+    """
     parts = urlsplit(url)
     scheme = parts.scheme.lower()
     host = (parts.hostname or "").rstrip(".")
     if not host or _apprise_literal_address(host) is not None or host.lower() == "localhost":
         return None  # a literal is judged by ``_apprise_url_refusal`` without DNS
-    if scheme in _APPRISE_HOST_SCHEMES or (scheme in _APPRISE_NTFY_SCHEMES and parts.path.strip("/")):
-        return host
+    if scheme in _APPRISE_HOST_SCHEMES:
+        return host, False
+    if scheme in _APPRISE_NTFY_SCHEMES:
+        return host, not parts.path.strip("/")
     return None
 
 
@@ -658,16 +672,17 @@ def _apprise_resolution_refusals(urls: list[str]) -> dict[int, str]:
     """Index -> reason for every URL whose host resolves to blocked space, or not at all.
 
     All distinct hosts are resolved concurrently under one shared deadline, so a
-    list of ten slow names costs one timeout, not ten. Fail closed: NXDOMAIN, a
-    resolver error and a timeout each refuse the URL. A DNS-rebinding window
-    remains between this check and the connect Apprise performs itself.
+    list of ten slow names costs one timeout, not ten. Fail closed: NXDOMAIN
+    (except for a possible ntfy topic), a resolver error and a timeout each refuse
+    the URL. A DNS-rebinding window remains between this check and the connect
+    Apprise performs itself.
     """
-    hosts = {i: h for i, u in enumerate(urls) if (h := _apprise_host_to_resolve(u)) is not None}
-    if not hosts:
+    targets = {i: t for i, u in enumerate(urls) if (t := _apprise_host_to_resolve(u)) is not None}
+    if not targets:
         return {}
     resolve: Callable[[str], list[str]] = resolve_host_addresses
-    futures = {h: _resolver_pool.submit(resolve, h) for h in set(hosts.values())}
-    verdict: dict[str, str | None] = {}
+    futures = {h: _resolver_pool.submit(resolve, h) for h in {host for host, _ in targets.values()}}
+    verdict: dict[str, str] = {}  # host -> "ok" | "blocked" | "unresolvable" | "timeout"
     started = time.monotonic()
     for host, future in futures.items():
         remaining = max(0.0, APPRISE_RESOLVE_TIMEOUT_SECONDS - (time.monotonic() - started))
@@ -675,23 +690,34 @@ def _apprise_resolution_refusals(urls: list[str]) -> dict[int, str]:
             addresses = future.result(timeout=remaining)
         except FutureTimeoutError:
             future.cancel()
-            verdict[host] = "An Apprise URL host did not resolve in time."
+            verdict[host] = "timeout"
             continue
         except Exception:
-            verdict[host] = "An Apprise URL host could not be resolved."
+            verdict[host] = "unresolvable"
             continue
         try:
             parsed = [ipaddress.ip_address(a.split("%", 1)[0]) for a in addresses]
         except ValueError:
-            verdict[host] = "An Apprise URL host could not be resolved."
+            verdict[host] = "unresolvable"
             continue
         if not parsed:
-            verdict[host] = "An Apprise URL host could not be resolved."
+            verdict[host] = "unresolvable"
         elif any(_is_apprise_blocked_address(a, resolved=True) for a in parsed):
-            verdict[host] = "An Apprise URL host resolves to a loopback, link-local or reserved address."
+            verdict[host] = "blocked"
         else:
-            verdict[host] = None
-    return {i: reason for i, h in hosts.items() if (reason := verdict[h]) is not None}
+            verdict[host] = "ok"
+    reasons = {
+        "blocked": "An Apprise URL host resolves to a loopback, link-local or reserved address.",
+        "unresolvable": "An Apprise URL host could not be resolved.",
+        "timeout": "An Apprise URL host did not resolve in time.",
+    }
+    refusals: dict[int, str] = {}
+    for index, (host, unresolvable_ok) in targets.items():
+        state = verdict[host]
+        if state == "ok" or (state == "unresolvable" and unresolvable_ok):
+            continue
+        refusals[index] = reasons[state]
+    return refusals
 
 
 def _apprise_url_refusal(url: object) -> str | None:
@@ -710,9 +736,22 @@ def _apprise_url_refusal(url: object) -> str | None:
     # blacklist let ``tgram://a/b<NBSP>json://internal/x`` through.
     if not url.isascii() or not url.isprintable() or any(ch.isspace() or ch in _APPRISE_FORBIDDEN_CHARS for ch in url):
         return "An Apprise URL must contain only printable ASCII without whitespace, commas or brackets."
-    scheme, separator, _rest = url.partition("://")
-    if not separator or scheme.lower() not in APPRISE_ALLOWED_SCHEMES:
+    scheme, separator, rest = url.partition("://")
+    scheme = scheme.lower()
+    if not separator or scheme not in APPRISE_ALLOWED_SCHEMES:
         return "An Apprise URL uses a scheme that is not allowed."
+    # Spellings ``urlsplit`` and Apprise's own parser read differently, so the host
+    # judged here is not the host dialled: a second ``@`` in the userinfo
+    # (``a@127.0.0.1@public.example``), a backslash, and a ``#`` that Apprise does not
+    # treat as a fragment (it hides ``?verify=no`` from the query check).
+    authority = rest.split("/", 1)[0].split("?", 1)[0]
+    if authority.count("@") > 1 or "\\" in url:
+        return "An Apprise URL is malformed."
+    fragment_start = url.find("#")
+    if fragment_start != -1 and (
+        scheme in _APPRISE_NO_FRAGMENT_SCHEMES or "?" in url[fragment_start:]
+    ):  # ``slack://.../#channel`` and ``matrix://.../#room`` stay valid
+        return "An Apprise URL is malformed."
     try:
         parts = urlsplit(url)
         host = (parts.hostname or "").rstrip(".")
@@ -721,9 +760,13 @@ def _apprise_url_refusal(url: object) -> str | None:
         return "An Apprise URL is malformed."
     if query_keys & _APPRISE_FORBIDDEN_QUERY_KEYS:
         return "An Apprise URL must not set timeouts or TLS verification."
+    if not host and scheme in _APPRISE_HOST_SCHEMES:
+        return "An Apprise URL is malformed."
     if host:
         address = _apprise_literal_address(host)
-        if host.lower().rstrip(".") == "localhost" or (address is not None and _is_apprise_blocked_address(address)):
+        if host.lower().rstrip(".") == "localhost" or (
+            address is not None and _is_apprise_blocked_address(address, resolved=scheme in _APPRISE_HOST_SCHEMES)
+        ):
             return "An Apprise URL points at a loopback, link-local or reserved address."
     return None
 

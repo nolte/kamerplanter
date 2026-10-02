@@ -186,7 +186,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
     ) -> None:
         # The service comes from a user-editable preference: re-checked here, so a
         # row stored before the shape rule is never dialled (#1985).
-        notify_service = ha_notify_service_slug(channel_config.get("notify_service", HA_DEFAULT_NOTIFY_SERVICE))
+        notify_service = ha_notify_service_slug(channel_config.get("notify_service") or HA_DEFAULT_NOTIFY_SERVICE)
         if notify_service is None:
             logger.warning("ha_destination_refused_at_send", key="notify_service", refused_count=1)
             errors.append("mobile_push refused: notify_service is not allowed")
@@ -229,7 +229,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
         errors: list[str],
     ) -> None:
         entity_id = ha_tts_entity_id(channel_config["tts_entity_id"])
-        tts_service = ha_tts_service_slug(channel_config.get("tts_service", HA_DEFAULT_TTS_SERVICE))
+        tts_service = ha_tts_service_slug(channel_config.get("tts_service") or HA_DEFAULT_TTS_SERVICE)
         if entity_id is None or tts_service is None:
             logger.warning("ha_destination_refused_at_send", key="tts", refused_count=1)
             errors.append("tts refused: destination is not allowed")

@@ -120,7 +120,6 @@ BAD_NOTIFY = [
     "mobile_app_x\n",
     "mobile_app_ä",
     "a" * 65,
-    "",
     ".",
     "notify.",
     ["notify"],
@@ -190,6 +189,13 @@ def test_ha_send_still_delivers_a_valid_notify_service(configured, dialled):
     assert [(d, s) for d, s, _ in ha.calls] == [("notify", dialled)]
 
 
+def test_stored_empty_string_means_default_not_refusal():
+    """The UI sends "" for a cleared field; that is "unset", so the default service is dialled."""
+    ha, result = _ha_send({"mobile_push": True, "persistent_notification": False, "notify_service": ""})
+    assert result.success is True
+    assert [(d, s) for d, s, _ in ha.calls] == [("notify", "notify")]
+
+
 def test_ha_send_still_delivers_valid_tts():
     ha, result = _ha_send(
         {
@@ -208,7 +214,7 @@ def test_ha_send_still_delivers_valid_tts():
 
 @pytest.mark.parametrize(
     ("key", "bad"),
-    [("notify_service", b) for b in BAD_NOTIFY if b != ""]
+    [("notify_service", b) for b in BAD_NOTIFY]
     + [("tts_entity_id", b) for b in BAD_TTS_ENTITY]
     + [("tts_service", b) for b in BAD_TTS_SERVICE],
 )
@@ -354,11 +360,53 @@ def test_rfc1918_and_public_hosts_stay_allowed(resolver, stub_apprise):
     assert stub_apprise == urls
 
 
-def test_token_style_schemes_and_ntfy_cloud_topics_are_not_resolved(resolver, stub_apprise):
-    urls = ["tgram://123:TOKEN/4711", "slack://a/b/c", "discord://id/tok", "pover://user@tok", "ntfy://mytopic"]
+def test_token_style_schemes_are_not_resolved(resolver, stub_apprise):
+    urls = ["tgram://123:TOKEN/4711", "slack://a/b/c/#general", "discord://id/tok", "pover://user@tok"]
     client, _ = _client()
     assert _put(client, "apprise", {"urls": urls}).status_code == 200
     assert resolver == []
+
+
+def test_ntfy_topic_without_path_is_tolerated_unless_it_resolves_internally(resolver):
+    """``ntfy://mytopic`` is a topic on ntfy.sh: NXDOMAIN is fine, a blocked answer is not."""
+    client, _ = _client()
+    assert _put(client, "apprise", {"urls": ["ntfy://mytopic"]}).status_code == 200
+    assert _put(client, "apprise", {"urls": ["ntfy://localtest.me"]}).status_code == 422
+    assert _put(client, "apprise", {"urls": ["ntfy://localtest.me?to=x"]}).status_code == 422
+    assert _put(client, "apprise", {"urls": ["ntfys://u:p@localtest.me?mode=private"]}).status_code == 422
+
+
+# Spellings urlsplit and Apprise read differently: the host judged must be the host dialled.
+PARSER_DIFFERENTIAL = [
+    "gotify://x@127.0.0.1@gotify.public.example/token",
+    "gotify://x@169.254.169.254@gotify.public.example/token",
+    "gotify://gotify.public.example\\@127.0.0.1/token",
+    "gotify://gotify.public.example/token#?verify=no",
+    "gotify://gotify.public.example/token#?cto=600",
+    "slack://a/b/c#?verify=no",
+    "ntfy://localtest.me#/topic",
+    "gotify://::1/token",
+    "gotify:///token",
+    "gotify://1/token",
+    "gotify://[::1]/token",
+]
+
+
+@pytest.mark.parametrize("bad", PARSER_DIFFERENTIAL)
+def test_parser_differential_spellings_are_refused(resolver, stub_apprise, bad):
+    client, repo = _client()
+    assert _put(client, "apprise", {"urls": [bad]}).status_code == 422
+    assert repo.upserts == 0
+    result = asyncio.run(AppriseNotificationChannel().send(_notification(), {"urls": [bad]}))
+    assert result.success is False
+    assert stub_apprise == []
+
+
+@pytest.mark.parametrize("bad", ["64:ff9b:1::7f00:1", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "100.100.100.200"])
+def test_transition_and_metadata_addresses_are_refused(monkeypatch, bad):
+    monkeypatch.setattr(url_safety, "resolve_host_addresses", lambda host: [bad], raising=False)
+    client, _ = _client()
+    assert _put(client, "apprise", {"urls": ["gotify://x.example/t"]}).status_code == 422
 
 
 def test_only_the_bad_entry_is_dropped_at_send(resolver, stub_apprise):
