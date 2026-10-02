@@ -34,14 +34,24 @@ _TENANT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:@()=;$!*',+%-]+$")
 #: The shape :meth:`ErasureEngine.compute_tombstone_hash` produces, for AQL.
 _TOMBSTONE_REGEX = "^anon_[0-9a-f]{16}$"
 
-_SELECT_IDS = "FOR doc IN @@collection FILTER {match} RETURN {{id: doc._id, key: doc._key}}"
+_SELECT_KEYS = "FOR doc IN @@collection FILTER {match} RETURN doc._key"
 
-_REMOVE_BY_KEYS = """
+#: One page of a collection whose rows go (the next page is selected after the removal).
+_SELECT_KEYS_PAGE = "FOR doc IN @@collection FILTER {match} LIMIT @page RETURN doc._key"
+
+#: One page of a collection whose rows stay (pseudonymised): a key cursor, since the rows still match.
+_SELECT_KEYS_AFTER = (
+    "FOR doc IN @@collection FILTER {match} AND doc._key > @after SORT doc._key LIMIT @page RETURN doc._key"
+)
+
+#: The tenant predicate is applied again inside the batch transaction (#1792 review SEC-003): a row selected a
+#: moment ago may meanwhile have been granted to another tenant or re-parented, and removal by key alone
+#: would delete it. Returns the ids actually removed, so only their edges are swept.
+_REMOVE_MATCHING = """
 FOR doc IN @@collection
-  FILTER doc._key IN @keys
+  FILTER doc._key IN @keys AND {match}
   REMOVE doc IN @@collection
-  COLLECT WITH COUNT INTO affected
-  RETURN affected
+  RETURN OLD._id
 """
 
 _REMOVE_EDGES = """
@@ -54,7 +64,7 @@ FOR edge IN @@collection
 
 _DISTINCT_VALUES = """
 FOR doc IN @@collection
-  FILTER doc._key IN @keys
+  FILTER doc._key IN @keys AND {match}
   RETURN DISTINCT doc[@field]
 """
 
@@ -62,7 +72,7 @@ FOR doc IN @@collection
 # account keys found on these rows, each mapped to its tombstone hash.
 _PSEUDONYMIZE = """
 FOR doc IN @@collection
-  FILTER doc._key IN @keys
+  FILTER doc._key IN @keys AND {match}
   LET current = doc[@field]
   LET replaced = IS_STRING(current) AND HAS(@mapping, current) ? @mapping[current] : current
   UPDATE doc WITH MERGE(@clear, {[@field]: replaced}) IN @@collection
@@ -140,97 +150,102 @@ def _match(
 
 
 class ArangoTenantErasureExecutor(ITenantErasureExecutor):
-    """Erases one tenant in one ArangoDB stream transaction, then counts the residue.
+    """Erases one tenant in bounded ArangoDB transactions, then counts the residue.
 
-    **Atomicity.** Selection, edge sweep, removal, pseudonymisation and the tenant
-    document all run in one transaction declaring every collection it writes; a
-    failure aborts it, so the tenant is either fully erased in ArangoDB or not
-    touched. The storage and derived-index phases cannot join it; they run before
-    it in ``TenantService`` and are idempotent on their own.
+    **Bounded, not atomic (#1792).** Until #1792 selection, edge sweep, removal,
+    pseudonymisation and the tenant document ran in *one* stream transaction over
+    every inventoried collection: for a large tenant that transaction can exceed
+    the server's ``--transaction.streaming-max-transaction-size`` or idle limit,
+    and because the failure is deterministic every retry failed the same way.
+    Now each inventory entry is processed in turn and its rows are removed in
+    batches of at most :attr:`batch_size` keys; **one batch is one transaction**
+    declaring the entry's collection and every edge collection, so a batch's rows
+    and the edges touching them go together or not at all. The tenant predicate is
+    evaluated again inside that transaction (a row granted to another tenant since
+    it was selected is not removed), and only the edges of the rows actually
+    removed are swept. Memory is bounded by a page for every collection that is
+    not a parent; a parent's keys are held (its children are selected through
+    them) and persisted before its first row goes. The tenant document and
+    the edges onto it are removed last, in their own transaction — a run that
+    stopped earlier leaves the tenant document, which the deletion record and the
+    memberships' freeze already cover.
 
-    **Completion is measured, not assumed.** After the commit the executor counts,
-    outside the transaction, what still holds the tenant: rows of every ``delete``
-    entry, account keys left on ``pseudonymize`` rows, the tenant document, and — in
-    every collection the plan does not classify — rows stamped with the tenant's
-    key. A row written concurrently after the transaction's snapshot shows up
+    **Re-runnable at every point.** Every selection filters on the tenant, so a
+    second run finds only what the first did not reach. A parent row (a site, a
+    location) cannot be re-selected once it is deleted, so the resolved parent keys
+    are handed to ``on_progress`` *before* the first row of a parent collection is
+    removed, and the service persists them on the record.
+
+    **Heartbeat.** ``on_progress`` is also called after every batch; the service
+    uses it to refresh the claim on the record, so a long run is not claimed a
+    second time and a crashed one is.
+
+    **Completion is measured, not assumed.** After the last batch the executor
+    counts, outside any transaction, what still holds the tenant: rows of every
+    ``delete`` entry, account keys left on ``pseudonymize`` rows, the tenant
+    document, and — in every collection the plan does not classify — rows stamped
+    with the tenant's key. A row written concurrently after the selection shows up
     here, as does a collection nobody declared.
-
-    **Re-runnable.** Every selection filters on the tenant, so a second run finds
-    only what the first did not reach.
     """
 
-    def __init__(self, db: StandardDatabase) -> None:
+    #: Rows removed per transaction. Small enough that one batch stays far below the
+    #: server's transaction-size limit, large enough that a tenant of a million rows
+    #: is a thousand transactions, not a million.
+    DEFAULT_BATCH_SIZE = 1000
+
+    def __init__(self, db: StandardDatabase, *, batch_size: int = DEFAULT_BATCH_SIZE) -> None:
+        if batch_size < 1:
+            msg = "batch_size must be at least 1"
+            raise ValueError(msg)
         self._db = db
+        self._batch_size = batch_size
 
     def run_tenant_erasure(
         self,
         plan: TenantErasurePlan,
         *,
         pseudonymize: Callable[[str], str],
+        on_progress: Callable[[dict[str, list[str]]], None] | None = None,
     ) -> TenantErasureReport:
         self._refuse_unexecutable(plan)
         report = TenantErasureReport()
+        progress = on_progress or (lambda _keys: None)
 
         existing = {c["name"]: c for c in self._db.collections() if not c["system"]}
         edge_collections = sorted(name for name, info in existing.items() if info["type"] == "edge")
         entries = [entry for entry in plan.entries if entry.collection in existing]
         report.absent_collections = [entry.collection for entry in plan.entries if entry.collection not in existing]
-
-        writes = [entry.collection for entry in entries if entry.action != "retain"] + edge_collections
-        reads = [entry.collection for entry in entries if entry.action == "retain"]
-        if plan.tenant_collection in existing:
-            writes.append(plan.tenant_collection)
         tenant_id = f"{plan.tenant_collection}/{plan.tenant_key}"
 
         parent_collections = {parent.collection for entry in plan.entries for parent in entry.parents}
         parent_keys: dict[str, list[str]] = {}
-        transaction = self._db.begin_transaction(read=reads, write=writes, allow_implicit=False)
-        try:
-            rows: dict[str, list[dict[str, str]]] = {}
-            for entry in entries:
-                rows[entry.collection] = self._select(transaction, entry, plan, self._with_known(plan, parent_keys))
-                parent_keys[entry.collection] = [row["key"] for row in rows[entry.collection]]
-
-            deleted_ids = [row["id"] for entry in entries if entry.action == "delete" for row in rows[entry.collection]]
-            deleted_ids.append(tenant_id)
-            for edge_collection in edge_collections:
-                report.edges_removed += self._counted(
-                    transaction.aql.execute(
-                        _REMOVE_EDGES, bind_vars={"@collection": edge_collection, "ids": deleted_ids}
-                    )
+        for entry in entries:
+            known = self._with_known(plan, parent_keys)
+            beat = lambda: progress(self._persistable(plan, parent_keys, parent_collections))  # noqa: E731
+            if entry.collection in parent_collections:
+                # A parent's keys are all held (its children are selected through them) and handed out before
+                # the first of its rows goes: after that only these keys reach the children.
+                keys = self._select_keys(entry, plan, known)
+                parent_keys[entry.collection] = keys
+                beat()
+                matched, affected, edges = self._run_over_keys(
+                    entry, plan, known, keys, edge_collections, pseudonymize, beat
                 )
-
-            for entry in entries:
-                keys = parent_keys[entry.collection]
-                affected = 0
-                if keys and entry.action == "delete":
-                    affected = self._counted(
-                        transaction.aql.execute(
-                            _REMOVE_BY_KEYS, bind_vars={"@collection": entry.collection, "keys": keys}
-                        )
-                    )
-                elif keys and entry.action == "pseudonymize":
-                    for rule in self._rules_of(plan, entry.collection):
-                        affected += self._pseudonymize(transaction, rule, keys, pseudonymize)
-                report.outcomes.append(
-                    TenantErasureOutcome(
-                        collection=entry.collection, action=entry.action, matched=len(keys), affected=affected
-                    )
+            else:
+                # Everything else is selected, changed and re-selected one page at a time, so memory is
+                # bounded by the page and not by the tenant (#1792 review SEC-002).
+                matched, affected, edges = self._run_paged(entry, plan, known, edge_collections, pseudonymize, beat)
+            report.edges_removed += edges
+            report.outcomes.append(
+                TenantErasureOutcome(
+                    collection=entry.collection, action=entry.action, matched=matched, affected=affected
                 )
+            )
 
-            if plan.tenant_collection in existing:
-                report.tenant_document_removed = bool(
-                    self._counted(
-                        transaction.aql.execute(
-                            _REMOVE_TENANT,
-                            bind_vars={"@collection": plan.tenant_collection, "key": plan.tenant_key},
-                        )
-                    )
-                )
-            transaction.commit_transaction()
-        except BaseException:
-            self._abort_quietly(transaction)
-            raise
+        if plan.tenant_collection in existing:
+            removed, edges = self._remove_tenant_document(plan, tenant_id, edge_collections)
+            report.tenant_document_removed = removed
+            report.edges_removed += edges
 
         resolved = self._with_known(plan, parent_keys)
         report.parent_keys = {name: keys for name, keys in resolved.items() if name in parent_collections and keys}
@@ -268,20 +283,190 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
 
     # ── steps ──────────────────────────────────────────────────────────
 
-    def _select(
+    def _select_keys(
+        self, entry: TenantErasureEntry, plan: TenantErasurePlan, known: dict[str, list[str]]
+    ) -> list[str]:
+        """Every key of the tenant's rows of *entry*, read outside any transaction (parent collections only)."""
+        match, binds = _match(entry, known, plan.tenant_collection)
+        cursor = self._db.aql.execute(
+            _SELECT_KEYS.format(match=match),
+            bind_vars={"@collection": entry.collection, "tenant_key": plan.tenant_key, **binds},
+            batch_size=self._batch_size,
+        )
+        return [str(key) for key in cursor]
+
+    def _page_to_remove(
+        self, entry: TenantErasureEntry, plan: TenantErasurePlan, known: dict[str, list[str]]
+    ) -> list[str]:
+        """The next page of keys of the tenant's rows of *entry* that go (earlier pages are already removed)."""
+        match, binds = _match(entry, known, plan.tenant_collection)
+        cursor = self._db.aql.execute(
+            _SELECT_KEYS_PAGE.format(match=match),
+            bind_vars={
+                "@collection": entry.collection,
+                "tenant_key": plan.tenant_key,
+                "page": self._batch_size,
+                **binds,
+            },
+        )
+        return [str(key) for key in cursor]
+
+    def _page_to_pseudonymize(
+        self, entry: TenantErasureEntry, plan: TenantErasurePlan, known: dict[str, list[str]], after: str
+    ) -> list[str]:
+        """The next page of keys (after the cursor *after*) of the tenant's rows of *entry* that stay."""
+        match, binds = _match(entry, known, plan.tenant_collection)
+        cursor = self._db.aql.execute(
+            _SELECT_KEYS_AFTER.format(match=match),
+            bind_vars={
+                "@collection": entry.collection,
+                "tenant_key": plan.tenant_key,
+                "page": self._batch_size,
+                "after": after,
+                **binds,
+            },
+        )
+        return [str(key) for key in cursor]
+
+    def _run_over_keys(
         self,
-        transaction: TransactionDatabase,
         entry: TenantErasureEntry,
         plan: TenantErasurePlan,
-        parent_keys: dict[str, list[str]],
-    ) -> list[dict[str, str]]:
-        tenant_key = plan.tenant_key
-        match, binds = _match(entry, parent_keys, plan.tenant_collection)
-        cursor = transaction.aql.execute(
-            _SELECT_IDS.format(match=match),
-            bind_vars={"@collection": entry.collection, "tenant_key": tenant_key, **binds},
+        known: dict[str, list[str]],
+        keys: list[str],
+        edge_collections: list[str],
+        pseudonymize: Callable[[str], str],
+        beat: Callable[[], None],
+    ) -> tuple[int, int, int]:
+        """Apply the entry's action to already selected *keys*, one bounded batch per transaction."""
+        affected = edges = 0
+        for start in range(0, len(keys), self._batch_size):
+            batch = keys[start : start + self._batch_size]
+            if entry.action == "delete":
+                removed, swept = self._delete_batch(entry, plan, known, batch, edge_collections)
+                affected += removed
+                edges += swept
+            elif entry.action == "pseudonymize":
+                affected += self._pseudonymize_batch(entry, plan, known, batch, pseudonymize)
+            beat()
+        return len(keys), affected, edges
+
+    def _run_paged(
+        self,
+        entry: TenantErasureEntry,
+        plan: TenantErasurePlan,
+        known: dict[str, list[str]],
+        edge_collections: list[str],
+        pseudonymize: Callable[[str], str],
+        beat: Callable[[], None],
+    ) -> tuple[int, int, int]:
+        """Apply the entry's action page by page; nothing but the current page is held."""
+        matched = affected = edges = 0
+        if entry.action == "retain":
+            match, binds = _match(entry, known, plan.tenant_collection)
+            matched = self._counted(
+                self._db.aql.execute(
+                    _COUNT_MATCHING.format(match=match),
+                    bind_vars={"@collection": entry.collection, "tenant_key": plan.tenant_key, **binds},
+                )
+            )
+            return matched, 0, 0
+        after = ""
+        while True:
+            if entry.action == "delete":
+                page = self._page_to_remove(entry, plan, known)
+            else:
+                page = self._page_to_pseudonymize(entry, plan, known, after)
+            if not page:
+                return matched, affected, edges
+            matched += len(page)
+            if entry.action == "delete":
+                removed, swept = self._delete_batch(entry, plan, known, page, edge_collections)
+                affected += removed
+                edges += swept
+                if removed == 0:
+                    # The predicate re-checked inside the transaction refused every selected row (it no
+                    # longer is the tenant's): another page would select the same rows again.
+                    return matched, affected, edges
+            else:
+                affected += self._pseudonymize_batch(entry, plan, known, page, pseudonymize)
+                after = page[-1]
+            beat()
+
+    def _delete_batch(
+        self,
+        entry: TenantErasureEntry,
+        plan: TenantErasurePlan,
+        known: dict[str, list[str]],
+        keys: list[str],
+        edge_collections: list[str],
+    ) -> tuple[int, int]:
+        """Remove one batch of rows and every edge touching the removed ones in ONE transaction; (rows, edges)."""
+        match, binds = _match(entry, known, plan.tenant_collection)
+        write = [entry.collection, *edge_collections]
+        read = (
+            [entry.keep_if_granted_via] if entry.keep_if_granted_via and entry.keep_if_granted_via not in write else []
         )
-        return [dict(row) for row in cursor]
+        transaction = self._db.begin_transaction(read=read, write=write, allow_implicit=False)
+        try:
+            removed_ids = list(
+                transaction.aql.execute(
+                    _REMOVE_MATCHING.replace("{match}", match),
+                    bind_vars={"@collection": entry.collection, "tenant_key": plan.tenant_key, "keys": keys, **binds},
+                )
+            )
+            edges = 0
+            if removed_ids:
+                edges = sum(
+                    self._counted(
+                        transaction.aql.execute(
+                            _REMOVE_EDGES, bind_vars={"@collection": edge_collection, "ids": removed_ids}
+                        )
+                    )
+                    for edge_collection in edge_collections
+                )
+            transaction.commit_transaction()
+        except BaseException:
+            self._abort_quietly(transaction)
+            raise
+        return len(removed_ids), edges
+
+    def _remove_tenant_document(
+        self, plan: TenantErasurePlan, tenant_id: str, edge_collections: list[str]
+    ) -> tuple[bool, int]:
+        """Remove the tenant document and the edges onto it, last, in one transaction."""
+        transaction = self._db.begin_transaction(
+            write=[plan.tenant_collection, *edge_collections], allow_implicit=False
+        )
+        try:
+            edges = sum(
+                self._counted(
+                    transaction.aql.execute(
+                        _REMOVE_EDGES, bind_vars={"@collection": edge_collection, "ids": [tenant_id]}
+                    )
+                )
+                for edge_collection in edge_collections
+            )
+            removed = bool(
+                self._counted(
+                    transaction.aql.execute(
+                        _REMOVE_TENANT, bind_vars={"@collection": plan.tenant_collection, "key": plan.tenant_key}
+                    )
+                )
+            )
+            transaction.commit_transaction()
+        except BaseException:
+            self._abort_quietly(transaction)
+            raise
+        return removed, edges
+
+    @staticmethod
+    def _persistable(
+        plan: TenantErasurePlan, parent_keys: dict[str, list[str]], parent_collections: set[str]
+    ) -> dict[str, list[str]]:
+        """The parent keys worth persisting for a retry: those of parent collections, earlier attempts' included."""
+        merged = ArangoTenantErasureExecutor._with_known(plan, parent_keys)
+        return {name: keys for name, keys in merged.items() if name in parent_collections and keys}
 
     @staticmethod
     def _with_known(plan: TenantErasurePlan, parent_keys: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -295,34 +480,50 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
     def _rules_of(plan: TenantErasurePlan, collection: str) -> list[TenantErasurePseudonymization]:
         return [rule for rule in plan.pseudonymizations if rule.collection == collection]
 
-    def _pseudonymize(
+    def _pseudonymize_batch(
         self,
-        transaction: TransactionDatabase,
-        rule: TenantErasurePseudonymization,
+        entry: TenantErasureEntry,
+        plan: TenantErasurePlan,
+        known: dict[str, list[str]],
         keys: list[str],
         pseudonymize: Callable[[str], str],
     ) -> int:
-        """Replace every account key on the rows with its tombstone; empty the free-text names."""
-        values = transaction.aql.execute(
-            _DISTINCT_VALUES, bind_vars={"@collection": rule.collection, "keys": keys, "field": rule.user_field}
-        )
-        mapping = {
-            value: pseudonymize(value)
-            for value in values
-            if isinstance(value, str) and value and value != ANONYMIZED_MARKER and not ErasureEngine.is_tombstone(value)
-        }
-        return self._counted(
-            transaction.aql.execute(
-                _PSEUDONYMIZE,
-                bind_vars={
-                    "@collection": rule.collection,
-                    "keys": keys,
-                    "field": rule.user_field,
-                    "mapping": mapping,
-                    "clear": dict.fromkeys(rule.clear_fields, ""),
-                },
-            )
-        )
+        """Replace every account key on one batch of rows with its tombstone; empty the free-text names."""
+        match, binds = _match(entry, known, plan.tenant_collection)
+        base = {"@collection": entry.collection, "tenant_key": plan.tenant_key, "keys": keys, **binds}
+        write = [entry.collection]
+        read = [entry.keep_if_granted_via] if entry.keep_if_granted_via else []
+        transaction = self._db.begin_transaction(read=read, write=write, allow_implicit=False)
+        affected = 0
+        try:
+            for rule in self._rules_of(plan, entry.collection):
+                values = transaction.aql.execute(
+                    _DISTINCT_VALUES.replace("{match}", match), bind_vars={**base, "field": rule.user_field}
+                )
+                mapping = {
+                    value: pseudonymize(value)
+                    for value in values
+                    if isinstance(value, str)
+                    and value
+                    and value != ANONYMIZED_MARKER
+                    and not ErasureEngine.is_tombstone(value)
+                }
+                affected += self._counted(
+                    transaction.aql.execute(
+                        _PSEUDONYMIZE.replace("{match}", match),
+                        bind_vars={
+                            **base,
+                            "field": rule.user_field,
+                            "mapping": mapping,
+                            "clear": dict.fromkeys(rule.clear_fields, ""),
+                        },
+                    )
+                )
+            transaction.commit_transaction()
+        except BaseException:
+            self._abort_quietly(transaction)
+            raise
+        return affected
 
     # ── the completion measurement (after the commit) ───────────────────
 

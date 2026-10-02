@@ -1,4 +1,6 @@
+import os
 import re
+from collections.abc import Mapping
 from typing import Annotated, Literal
 
 from pydantic import AliasChoices, BaseModel, Field, SecretStr, ValidationError, ValidationInfo, field_validator
@@ -42,6 +44,29 @@ class GBIFSettings(BaseModel):
     plantae_taxon_key: int = 6
     max_description_length: int = 2000
     max_habitat_length: int = 500
+
+
+#: NFR-011 §4 / AK-14 (#1806 GDPR-004, #1946) — the ceiling of every configurable
+#: retention period (the seven of Q-R9 plus R-04, R-04a and R-12), equal to the
+#: NFR's own default for it. An operator may shorten a period (more data
+#: minimisation, Art. 5(1)(c)) but never lengthen it past the
+#: value the NFR fixes; a larger value stops ``Settings`` from loading, so API and
+#: worker (both import it) refuse to start. ``RetentionService`` re-checks the same
+#: table for a caller that builds it with explicit values.
+RETENTION_CEILINGS: dict[str, int] = {
+    "retention_soft_delete_retention_days": 90,  # R-01
+    "retention_unverified_account_days": 7,  # R-02
+    "retention_ip_anonymization_days": 7,  # R-03
+    "retention_export_file_retention_hours": 72,  # R-05
+    "retention_erasure_audit_retention_years": 3,  # R-06 (Q-R12)
+    "retention_email_change_retention_hours": 24,  # R-07
+    "retention_email_change_revert_days": 7,  # R-07a
+    # #1946 — operator decision (default taken by the orchestrating session): the three periods
+    # that were enforced from #1912 on without a bound get the NFR's own period as their ceiling.
+    "retention_consent_retention_years": 3,  # R-04
+    "retention_consent_ip_anonymization_days": 7,  # R-04a
+    "retention_invitation_retention_days": 30,  # R-12
+}
 
 
 class Settings(BaseSettings):
@@ -720,6 +745,7 @@ class Settings(BaseSettings):
     retention_soft_delete_retention_days: int = Field(
         default=90,
         ge=1,
+        le=RETENTION_CEILINGS["retention_soft_delete_retention_days"],
         validation_alias=AliasChoices("retention_soft_delete_retention_days", "privacy_hard_delete_after_days"),
     )
     #: NFR-011 R-03 — the IP address of a login session is anonymised this many
@@ -727,6 +753,7 @@ class Settings(BaseSettings):
     retention_ip_anonymization_days: int = Field(
         default=7,
         ge=1,
+        le=RETENTION_CEILINGS["retention_ip_anonymization_days"],
         validation_alias=AliasChoices("retention_ip_anonymization_days"),
     )
     #: NFR-011 R-05 — a built Art. 15 bundle stays downloadable this many hours
@@ -735,6 +762,7 @@ class Settings(BaseSettings):
     retention_export_file_retention_hours: int = Field(
         default=72,
         ge=1,
+        le=RETENTION_CEILINGS["retention_export_file_retention_hours"],
         validation_alias=AliasChoices("retention_export_file_retention_hours", "privacy_export_retention_hours"),
     )
     #: NFR-011 R-07 — an email-change confirmation link is valid this many hours
@@ -743,41 +771,65 @@ class Settings(BaseSettings):
     retention_email_change_retention_hours: int = Field(
         default=24,
         ge=1,
+        le=RETENTION_CEILINGS["retention_email_change_retention_hours"],
         validation_alias=AliasChoices("retention_email_change_retention_hours", "privacy_email_change_ttl_hours"),
     )
     #: NFR-011 R-07 / REQ-025 Art. 16 (#1848) — how long the previous address of a
     #: confirmed e-mail change can take the account back through the revert link
     #: mailed to it. ``previous_email`` and the revert token's hash are kept exactly
     #: this long, then cleared by ``retention.expire_email_change_requests``.
-    retention_email_change_revert_days: int = Field(default=7, ge=1)
+    retention_email_change_revert_days: int = Field(
+        default=7, ge=1, le=RETENTION_CEILINGS["retention_email_change_revert_days"]
+    )
     #: NFR-011 R-02 / §4 ``UNVERIFIED_ACCOUNT_DAYS`` and REQ-023 AK-17 — an account
     #: whose address was never confirmed is erased this many days after
     #: registration (``auth_tasks.cleanup_unverified_accounts``). The task carried
     #: a literal 72 hours until #1772; the spec's 7 days is canonical.
-    retention_unverified_account_days: int = Field(default=7, ge=1)
+    retention_unverified_account_days: int = Field(
+        default=7, ge=1, le=RETENTION_CEILINGS["retention_unverified_account_days"]
+    )
     #: NFR-011 R-06 / §4 ``ERASURE_AUDIT_RETENTION_YEARS`` — a completed erasure
     #: request (pseudonymised at erasure) is kept this many years as the
     #: Art. 5(2) accountability proof, then hard-deleted by
-    #: ``retention.purge_expired_erasure_records`` (#1772). The floor is the
-    #: spec's period: keeping the proof longer is a configuration choice,
-    #: shortening it below one year needs a spec / DPO decision, not an env var.
-    retention_erasure_audit_retention_years: int = Field(default=1, ge=1)
+    #: ``retention.purge_expired_erasure_records`` (#1772). The default and the
+    #: ceiling are the spec's 3 years (Q-R12, §195 BGB; the code default was 1
+    #: until #1946); an operator may shorten it, never lengthen it.
+    retention_erasure_audit_retention_years: int = Field(
+        default=3, ge=1, le=RETENTION_CEILINGS["retention_erasure_audit_retention_years"]
+    )
     #: NFR-011 R-04 / §4 ``CONSENT_RETENTION_YEARS`` (#1800) — a consent record is
     #: hard-deleted this many years after it was revoked
     #: (``retention.purge_expired_consent_records``). Pseudonymised at account
     #: erasure instead of deleted immediately when the period has not run out yet
     #: (REQ-025 §3.1.3 rule 3); the clock keeps counting from ``revoked_at``.
-    retention_consent_retention_years: int = Field(default=3, ge=1)
+    retention_consent_retention_years: int = Field(
+        default=3, ge=1, le=RETENTION_CEILINGS["retention_consent_retention_years"]
+    )
     #: NFR-011 R-04a (#1800) — the IP address on a consent record is anonymised this
     #: many days after it was recorded (``retention.anonymize_consent_ips``), the R-03
     #: analogue for ``consent_records`` instead of ``refresh_tokens``. Reset to
     #: unanonymised whenever the purpose is granted again (a fresh IP is recorded).
-    retention_consent_ip_anonymization_days: int = Field(default=7, ge=1)
+    retention_consent_ip_anonymization_days: int = Field(
+        default=7, ge=1, le=RETENTION_CEILINGS["retention_consent_ip_anonymization_days"]
+    )
     #: NFR-011 R-12 / §4 ``INVITATION_RETENTION_DAYS`` (#1800) — an expired invitation
     #: is hard-deleted this many days after its ``expires_at``
     #: (``tenant_tasks.cleanup_expired_invitations``, which already flips it to
     #: ``expired`` at expiry).
-    retention_invitation_retention_days: int = Field(default=30, ge=1)
+    retention_invitation_retention_days: int = Field(
+        default=30, ge=1, le=RETENTION_CEILINGS["retention_invitation_retention_days"]
+    )
+    #: NFR-011 R-16 / §4 ``HARVEST_DATA_MIN_RETENTION_YEARS`` (#1789) — harvest
+    #: documentation a tenant deletion kept (pseudonymised) is hard-deleted this many
+    #: years after ``harvest_date`` (``retention.purge_expired_legal_retention_rows``).
+    #: The floor is the legal minimum (CanG): it cannot be configured below it.
+    retention_harvest_data_min_retention_years: int = Field(default=5, ge=5)
+    #: NFR-011 R-17 / §4 ``TREATMENT_MIN_RETENTION_YEARS`` (#1789) — the same for
+    #: treatment applications, counted from ``applied_at``; floor PflSchG §11.
+    retention_treatment_min_retention_years: int = Field(default=3, ge=3)
+    #: NFR-011 R-18 / §4 ``INSPECTION_MIN_RETENTION_YEARS`` (#1789) — the same for
+    #: inspections, counted from ``inspected_at``; floor PflSchG §11.
+    retention_inspection_min_retention_years: int = Field(default=3, ge=3)
 
     # REQ-030 Notifications
     vapid_private_key: str = ""
@@ -982,4 +1034,49 @@ def load_settings() -> Settings:
     )
 
 
+# NFR-011 §4 — (deprecated ``PRIVACY_*`` name, documented ``RETENTION_*`` name). The
+# first one still works as an alias; the second one wins when both are set.
+_DEPRECATED_RETENTION_ALIASES: tuple[tuple[str, str], ...] = (
+    ("PRIVACY_HARD_DELETE_AFTER_DAYS", "RETENTION_SOFT_DELETE_RETENTION_DAYS"),
+    ("PRIVACY_EXPORT_RETENTION_HOURS", "RETENTION_EXPORT_FILE_RETENTION_HOURS"),
+    ("PRIVACY_EMAIL_CHANGE_TTL_HOURS", "RETENTION_EMAIL_CHANGE_RETENTION_HOURS"),
+)
+
+
+def report_retention_alias_use(environ: Mapping[str, str] | None = None) -> list[tuple[str, str, bool]]:
+    """Log which deprecated retention names the environment still sets (#1806 GDPR-008).
+
+    A ``PRIVACY_*`` name keeps working, but an operator who set both it and the
+    ``RETENTION_*`` name was silently overruled: the ``RETENTION_*`` value wins.
+    A deprecated name alone gets a warning; both names set to *different* values
+    get an error-level line, because the effective period is not the one the
+    operator's older variable says. Only names are logged, never values (the same
+    rule as :func:`load_settings`); the comparison is made in memory.
+
+    Returns ``(deprecated, canonical, conflicting)`` for each deprecated name set.
+    """
+    import structlog  # noqa: PLC0415 — keeps the settings module importable without logging configured
+
+    env = {key.upper(): value for key, value in (os.environ if environ is None else environ).items()}
+    found: list[tuple[str, str, bool]] = []
+    log = structlog.get_logger("app.config.settings")
+    for deprecated, canonical in _DEPRECATED_RETENTION_ALIASES:
+        if deprecated not in env:
+            continue
+        conflicting = canonical in env and env[canonical].strip() != env[deprecated].strip()
+        found.append((deprecated, canonical, conflicting))
+        if conflicting:
+            log.error(
+                "retention_setting_conflict",
+                deprecated=deprecated,
+                canonical=canonical,
+                effective=canonical,
+                hint="both names are set to different values; the canonical name wins, remove the deprecated one",
+            )
+        else:
+            log.warning("retention_setting_deprecated_name", deprecated=deprecated, canonical=canonical)
+    return found
+
+
 settings = load_settings()
+report_retention_alias_use()

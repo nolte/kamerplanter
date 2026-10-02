@@ -199,6 +199,9 @@ class TenantErasureRecord(BaseModel):
     last_attempt_at: datetime | None = None
     next_attempt_at: datetime | None = None
     error_message: str | None = None
+    #: When the deletion first failed ``TENANT_ERASURE_ESCALATE_AFTER_ATTEMPTS``
+    #: times in a row — the operator is alerted once (#1792). ``None`` until then.
+    escalated_at: datetime | None = None
     #: The external/storage phase, as it reported (#1753, #1759).
     reference_index_binding: str | None = None
     reference_index_removed: int | None = Field(default=None, ge=0)

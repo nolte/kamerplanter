@@ -847,6 +847,15 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoAttachmentRepository", "find_orphaned_task_photos"): Exclusion(
         "system", "the orphaned task-photo sweep of the storage Celery task (#1393)"
     ),
+    ("ArangoAttachmentRepository", "count_undated_orphaned_task_photos"): Exclusion(
+        "system", "held-count of the same installation-wide orphan sweep (#1806 GDPR-003)"
+    ),
+    ("ArangoAiAuditRepository", "count_undated"): Exclusion(
+        "system", "held-count of the installation-wide ai_audit_log retention task (#1806 GDPR-003)"
+    ),
+    ("ArangoMcpAuditRepository", "count_undated"): Exclusion(
+        "system", "held-count of the installation-wide mcp_audit_log retention task (#1806 GDPR-003)"
+    ),
     ("ArangoCareReminderRepository", "get_all_profiles"): Exclusion(
         "system", "the care-reminder Celery task walks every profile to generate due tasks"
     ),
@@ -855,6 +864,9 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ),
     ("ArangoTenantErasureRepository", "list_due"): Exclusion(
         "system", "the daily tenant-erasure retry beat walks every open deletion record (#1769)"
+    ),
+    ("ArangoLegalRetentionRepository", "delete_expired_tenant_erasure_records"): Exclusion(
+        "system", "the daily NFR-011 R-06a beat purges every completed deletion record past its period (#1793)"
     ),
     ("ArangoPlantingRunRepository", "get_active_runs_with_schedule"): Exclusion(
         "system", "the watering-task generator iterates every run with an active schedule"

@@ -31,7 +31,7 @@ expected:
   values:
   - export-manifest
   - erasure-plan
-derived_from: 16667ac9ae0fc8c6c2018351388e8d8b5f328ff8
+derived_from: blob:580db063831352c99d1717953b5df042814582b5
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -47,6 +47,7 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-09-25T11:41:19Z'
+  approved_at: '2026-10-02T08:52:00Z'
   approved_by: nolte
   observation_digest: 38c1d41959f0f33b1c9090366a04800fe2915708cf664d44001ab7b93b4fcc87
+  mode: reconfirmed

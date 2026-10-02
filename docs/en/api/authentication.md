@@ -416,16 +416,16 @@ GET /api/v1/auth/oauth/providers
 GET /api/v1/auth/oauth/{slug}
 ```
 
-The server responds with a `302` redirect to the provider's authorization URL. After a successful login at the provider, the user is redirected back to the callback endpoint.
+The server responds with a `302` redirect to the provider's authorization URL. After a successful login at the provider, the user is redirected back to the callback endpoint. The callback URL is `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` — built from `APP_BASE_URL`, never from the Host header — and it is exactly the URL you register with the provider. The server exchanges the code with the same URL the authorization request carried (RFC 6749 §4.1.3).
 
 ```
 GET /api/v1/auth/oauth/{slug}/callback?code=...&state=...
 ```
 
-The server sets the cookies and redirects to the frontend:
+The server sets the HttpOnly refresh cookie and redirects to the frontend — with no token in the URL; the frontend obtains the access token through `POST /api/v1/auth/refresh`:
 
 ```
-{frontend_url}/auth/callback?access_token=...&expires_in=900
+{frontend_url}/auth/callback
 ```
 
 ---

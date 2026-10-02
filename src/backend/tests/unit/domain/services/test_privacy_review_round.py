@@ -61,7 +61,7 @@ class _ProfileOnlyRepo(IPersonalDataRepository):
     def __init__(self) -> None:
         self.asked: list[tuple[str, tuple[str, ...]]] = []
 
-    def collect_for_user(self, source, user_key, tenant_keys):
+    def collect_for_user(self, source, user_key, tenant_keys, *, tombstone=None):
         self.asked.append((source.collection, tuple(tenant_keys)))
         if source.filter_field == "_key":
             return [{"email": "s@example.invalid"}]

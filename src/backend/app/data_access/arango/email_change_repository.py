@@ -319,6 +319,32 @@ class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEma
     #: latency and negligible next to the multi-day revert window itself.
     _RECORD_CONFIRMATION_RACE_GRACE = timedelta(minutes=5)
 
+    def count_undated_confirmed(self) -> int:
+        """Confirmed changes :meth:`delete_confirmed_past_revert_window` can never select (#1946, #1806 GDPR-003).
+
+        Both arms of the R-07b selector need a readable instant: ``confirmed_at``
+        (window already closed) or ``revert_expires_at`` (window still open). A
+        confirmed change with neither keeps ``previous_email`` for ever, silently.
+        Same status set as the selector, with the date tests inverted. A row that
+        still carries a revert token and an unreadable ``revert_expires_at`` is not
+        counted here: :meth:`close_revert_windows` clears its token earlier in the
+        same run, after which the ``confirmed_at`` arm applies to it (the order in
+        ``PrivacyService.expire_email_change_requests`` is part of that contract).
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.status IN @confirmed
+            AND DATE_TIMESTAMP(doc.confirmed_at) == null
+            AND DATE_TIMESTAMP(doc.revert_expires_at) == null
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"@collection": col.EMAIL_CHANGE_REQUESTS, "confirmed": self._CONFIRMED_STATUSES},
+        )
+        return int(next(iter(cursor), 0))
+
     def delete_confirmed_past_revert_window(self, now_iso: str) -> int:
         """Hard-delete a confirmed change whose R-07a revert window has closed (NFR-011 R-07b, #1800).
 

@@ -17,7 +17,7 @@ from app.api.v1.admin.platform.schemas import (
 )
 from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
 from app.api.v1.privacy.schemas import ErasureCreateRequest
-from app.api.v1.tenants.schemas import TenantDeleteRequest
+from app.api.v1.tenants.schemas import TenantDeleteRequest, TenantDeletionAcceptedResponse
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
@@ -250,7 +250,12 @@ def update_user(
     )
 
 
-@router.delete("/tenants/{key}", status_code=204, responses=STEP_UP_RESPONSES)
+@router.delete(
+    "/tenants/{key}",
+    status_code=202,
+    response_model=TenantDeletionAcceptedResponse,
+    responses=STEP_UP_RESPONSES,
+)
 def delete_tenant(
     key: Annotated[str, Path(description="Document key of the tenant.")],
     body: TenantDeleteRequest,
@@ -259,14 +264,16 @@ def delete_tenant(
     client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """Delete a tenant and all its data, as the declared tenant-erasure inventory says. Platform admin only.
+    """Accept the deletion of a tenant and all its data (declared tenant-erasure inventory). Platform admin only.
 
     Routes through ``TenantService.delete_tenant`` — the same path as the
-    tenant-scoped ``DELETE /t/{slug}`` (#1769): the external phase (reference
-    vectors, pest prototypes, storage prefix), then one ArangoDB transaction over
-    ``TenantErasureEngine.INVENTORY`` — every tenant-scoped collection deleted,
-    CanG/PflSchG records kept with their account keys pseudonymised — and a
-    persisted ``tenant_erasure_records`` entry as proof.
+    tenant-scoped ``DELETE /t/{slug}`` (#1769). **Asynchronous since #1792
+    (breaking: ``204`` -> ``202`` with a body):** the request records the deletion
+    (``tenant_erasure_records``, the proof) and freezes the tenant, then a Celery
+    task runs the external phase (reference vectors, pest prototypes, storage
+    prefix) and the inventory in bounded batches — every tenant-scoped collection
+    deleted, CanG/PflSchG records kept with their account keys pseudonymised — with
+    a claim heartbeat. Nothing is erased when the response arrives.
 
     **Step-up (#1791):** the body echoes the tenant's slug (422 otherwise) and
     carries the admin's current password when the account has one (401
@@ -275,13 +282,13 @@ def delete_tenant(
     429 ``STEP_UP_LOCKED`` after too many failures; the service re-proves the
     platform-admin membership.
 
-    Answers: 204 erased; 403 the platform tenant; 404 no such tenant; 409 another
-    deletion of it is running; 503 the deployment cannot erase (nothing changed);
-    502 an external store failed; 500 ``TENANT_ERASURE_INCOMPLETE`` when something
-    still holds the tenant — in every failure case after the record exists, the
-    deletion stays open and the daily beat retries it.
+    Answers: 202 accepted (recorded, frozen, erasure running); 403 the platform
+    tenant; 404 no such tenant; 409 another deletion of it is running; 503 the
+    deployment cannot erase (nothing changed). A failure of the run itself (an
+    external store, residue) is recorded on the record and retried by the beat,
+    escalating after repeated failures — it is no longer an HTTP answer.
     """
-    tenant_service.delete_tenant(
+    record = tenant_service.delete_tenant(
         key,
         requester=user,
         authenticated_with_api_key=via_api_key,
@@ -289,6 +296,7 @@ def delete_tenant(
         origin="platform_admin",
         client_ip=client_ip,
     )
+    return TenantDeletionAcceptedResponse.from_record(record)
 
 
 @router.delete("/users/{key}", status_code=204, responses=STEP_UP_RESPONSES)

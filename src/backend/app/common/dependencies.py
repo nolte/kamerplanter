@@ -1593,6 +1593,7 @@ def get_notification_service():
         preference_repo=get_notification_preference_repo(),
         channel_registry=NotificationChannelRegistry,
         redis_client=_get_redis_client(),
+        user_repo=get_user_repo(),
     )
     return NotificationService(
         engine=engine,
@@ -1810,7 +1811,15 @@ def get_privacy_service():
         retention=get_retention_service(),
         step_up_verifier=get_step_up_verifier(),
         light_mode=settings.kamerplanter_mode == "light",
+        legal_retention_repo=get_legal_retention_repo(),
     )
+
+
+def get_legal_retention_repo():
+    """NFR-011 R-16..R-18 / R-06a — the purge of what a tenant deletion keeps (#1789, #1793)."""
+    from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
+
+    return ArangoLegalRetentionRepository(get_db())
 
 
 def get_erasure_executor():

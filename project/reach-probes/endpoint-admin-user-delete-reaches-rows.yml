@@ -2,6 +2,13 @@
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
 # Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
 #
+# Re-derived after #1912 changed erasure_engine.py and router.py: consent records are no longer deleted on erasure but
+# pseudonymised (NFR-011 R-04, REQ-025 section 3.1.3 rule 3, operator decision Q-R5; purged 3 years
+# after revocation). The expectation moves erased/consent_records -> redacted/consent_records (still
+# 64 values). The changed expectation was approved explicitly by the repository owner on 2026-10-02.
+# Observe step, environment and teardown are unchanged (identical digest); derived_from is now a
+# content anchor.
+# Earlier:
 # Re-derived after #1846 (#1813/#1814/#1816, squash 9cacdb752): router.py's delete_user now
 # takes a step-up body (confirm_email = the target's e-mail, password = the admin's own current
 # password), refuses an API key (403) and goes through PrivacyService.erase_account_by_admin,
@@ -29,7 +36,6 @@ expected:
   - erased/attachments
   - erased/auth_providers
   - erased/calendar_feeds
-  - erased/consent_records
   - erased/cv_attached_to_inspection
   - erased/cv_diagnosed_for
   - erased/cv_diagnosis_found
@@ -70,6 +76,7 @@ expected:
   - redacted/ai_audit_log
   - redacted/ai_tip_cache
   - redacted/attachments
+  - redacted/consent_records
   - redacted/erasure_requests
   - redacted/harvest_batches
   - redacted/import_jobs
@@ -85,7 +92,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
+derived_from: blob:bacf50ff7a11f3248f8461f7f52b23f60afb167e
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -100,6 +107,7 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  observation_digest: 2e7df4233825e713e429ffad28c5b00a97c7b77db1556925790868093ea0b7bf
+  approved_at: '2026-10-02T11:13:27Z'
   approved_by: nolte
-  approved_at: '2026-09-25T18:35:52Z'
+  observation_digest: 2e7df4233825e713e429ffad28c5b00a97c7b77db1556925790868093ea0b7bf
+  mode: reconfirmed

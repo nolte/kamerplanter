@@ -31,6 +31,11 @@ The retention concerns bundled here, all backed by REQ-025 PrivacyService:
   address of consent records past the NFR-011 R-04a period (default 7
   days after they were recorded, ``RETENTION_CONSENT_IP_ANONYMIZATION_DAYS``,
   #1800) — the R-03 analogue for ``consent_records``.
+- ``purge_expired_legal_retention_rows`` — daily beat task that hard-deletes
+  the harvest (R-16), treatment (R-17) and inspection (R-18) rows a tenant
+  deletion kept, once their legal period is over (#1789).
+- ``purge_expired_tenant_erasure_records`` — daily beat task that hard-deletes
+  tenant-erasure records past NFR-011 R-06a (#1793).
 
 The actual data-walk, manifest-build, soft/hard-delete and expiry
 logic lives in ``PrivacyService``; these tasks are thin schedulers
@@ -251,6 +256,46 @@ async def anonymize_consent_ips() -> dict:
     # (#1800 /code-review) — logging it again here doubled every daily event.
     anonymized = await service.anonymize_consent_ips(now=datetime.now(UTC))
     return {"anonymized": anonymized}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_legal_retention_rows",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_legal_retention_rows() -> dict:
+    """Hard-delete the NFR-011 R-16/R-17/R-18 rows of deleted tenants past their period (#1789).
+
+    Only rows whose tenant no longer exists are selected, each with its
+    children and edges; the service logs the counts per rule.
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    purged = await service.purge_expired_legal_retention_rows(now=datetime.now(UTC))
+    return {"purged": purged}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_tenant_erasure_records",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_tenant_erasure_records() -> dict:
+    """Hard-delete completed tenant-erasure records past NFR-011 R-06a (#1793).
+
+    Runs after :func:`purge_expired_legal_retention_rows`: a record goes once
+    none of the rows it kept remains, or five years after the deletion.
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    purged = await service.purge_expired_tenant_erasure_records(now=datetime.now(UTC))
+    return {"purged": purged}
 
 
 @celery_app.task(  # type: ignore[misc]

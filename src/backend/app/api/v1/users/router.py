@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, Path, Request
 
-from app.api.v1.auth.router import limiter, step_up_callback_url
+from app.api.v1.auth.router import limiter, oauth_callback_url
 from app.api.v1.auth.schemas import (
     AuthProviderResponse,
     MessageResponse,
@@ -285,7 +285,7 @@ def start_step_up_reauth(
         # header is the caller's to choose, and the callback URL must be the one
         # registered at the provider. ``app_base_url`` is the address /api is
         # reachable under (the QR-code and device-pairing SSOT).
-        callback_url=lambda slug: step_up_callback_url(slug),
+        callback_url=oauth_callback_url,
         authenticated_with_api_key=via_api_key,
         client_ip=client_ip,
     )

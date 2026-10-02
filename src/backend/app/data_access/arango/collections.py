@@ -75,6 +75,8 @@ USERS = "users"
 AUTH_PROVIDERS = "auth_providers"
 REFRESH_TOKENS = "refresh_tokens"
 OIDC_PROVIDER_CONFIGS = "oidc_provider_configs"
+#: The unique key of a provider link (#1869) — see ``ensure_collections``.
+AUTH_PROVIDER_UNIQUE_FIELDS = ["provider", "oidc_config_slug", "provider_user_id"]
 API_KEYS = "api_keys"
 
 # REQ-024 Tenants
@@ -2055,7 +2057,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     users_col.add_persistent_index(fields=["email"], unique=True)
 
     auth_providers_col = db.collection(AUTH_PROVIDERS)
-    auth_providers_col.add_persistent_index(fields=["provider", "provider_user_id"], unique=True)
+    # A subject is unique per issuer, not per link type (#1869): two generic OIDC
+    # configurations may each hold the same ``sub``. The unique key is therefore
+    # (type, configuration, sub); v0064 drops the (type, sub) index of an existing
+    # volume.
+    auth_providers_col.add_persistent_index(fields=AUTH_PROVIDER_UNIQUE_FIELDS, unique=True)
     auth_providers_col.add_persistent_index(fields=["user_key"], unique=False)
 
     refresh_tokens_col = db.collection(REFRESH_TOKENS)

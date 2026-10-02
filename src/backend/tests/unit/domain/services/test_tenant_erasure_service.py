@@ -21,7 +21,6 @@ from app.common.exceptions import (
     FeatureNotConfiguredError,
     ForbiddenError,
     NotFoundError,
-    TenantErasureIncompleteError,
     ValidationError,
     WriteConflictError,
 )
@@ -32,6 +31,7 @@ from tests.support.tenant_erasure_doubles import (
     FakeTenantErasureRepository,
     RecordingTenantErasureExecutor,
     authorized,
+    delete_and_run,
     tenant,
     tenant_service_for_deletion,
 )
@@ -59,12 +59,23 @@ class TestTheDeletionRunsTheInventory:
         repo = FakeTenantErasureRepository()
         service = tenant_service_for_deletion(executor=executor, record_repo=repo)
 
-        result = service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
+        accepted = service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
 
+        # The request only records and freezes (the 202): nothing ran, the worker is dispatched.
+        assert accepted.status == "in_progress"
+        assert executor.plans == []
+        assert service.dispatched == [RECORD]
+        service._membership_repo.deactivate_all_for_tenant.assert_called_once_with(KEY)
+
+        result = service.run_tenant_erasure_task(RECORD, NOW)
+
+        assert result == {"record_key": RECORD, "outcome": "completed"}
+        record = service._tenant_erasure_repo.get(RECORD)
         (plan,) = executor.plans
         assert plan.tenant_key == KEY
         assert plan.entries == TenantErasureEngine.INVENTORY
-        assert result.status == "completed"
+        assert record is not None
+        assert record.status == "completed"
         assert _record(repo)["status"] == "completed"
         assert _record(repo)["origin"] == "platform_admin"
         assert _record(repo)["unreached"] == []
@@ -73,7 +84,7 @@ class TestTheDeletionRunsTheInventory:
         executor = RecordingTenantErasureExecutor(account_keys=["member-1"])
         service = tenant_service_for_deletion(executor=executor)
 
-        service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+        delete_and_run(service, KEY, **authorized(KEY), now=NOW)
 
         assert executor.pseudonyms == {"member-1": ErasureEngine.compute_tombstone_hash("member-1", SALT)}
 
@@ -87,11 +98,12 @@ class TestTheDeletionRunsTheInventory:
         service = tenant_service_for_deletion(executor=executor, storage_adapter=storage, observation_repo=readings)
         service._membership_repo.deactivate_all_for_tenant.side_effect = lambda key: order.append("freeze") or 1
 
-        service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+        delete_and_run(service, KEY, **authorized(KEY), now=NOW)
 
         # Readings last: ingestion is not stopped by the freeze, only by the
         # sensors being gone (#1769 code review).
-        assert order == ["freeze", "storage", "arango", "readings"]
+        # Frozen by the request (the 202) and again, idempotently, by the worker that claims it.
+        assert order == ["freeze", "freeze", "storage", "arango", "readings"]
         storage.delete_prefix.assert_awaited_once_with(f"t/{KEY}/")
 
     def test_the_tenants_sensor_readings_are_deleted_and_counted(self) -> None:
@@ -99,8 +111,8 @@ class TestTheDeletionRunsTheInventory:
         repo = FakeTenantErasureRepository()
         readings = MagicMock()
         readings.delete_by_tenant.return_value = 12
-        tenant_service_for_deletion(record_repo=repo, observation_repo=readings).delete_tenant(
-            KEY, **authorized(KEY), now=NOW
+        delete_and_run(
+            tenant_service_for_deletion(record_repo=repo, observation_repo=readings), KEY, **authorized(KEY), now=NOW
         )
 
         readings.delete_by_tenant.assert_called_once_with(KEY)
@@ -108,22 +120,21 @@ class TestTheDeletionRunsTheInventory:
 
     def test_the_record_names_no_tenant_name_slug_or_owner(self) -> None:
         repo = FakeTenantErasureRepository()
-        tenant_service_for_deletion(record_repo=repo).delete_tenant(KEY, **authorized(KEY), now=NOW)
+        delete_and_run(tenant_service_for_deletion(record_repo=repo), KEY, **authorized(KEY), now=NOW)
 
         assert {"name", "slug", "owner_user_key"}.isdisjoint(_record(repo))
 
 
 class TestCompletionDependsOnWhatWasRemoved:
-    def test_residue_keeps_the_deletion_open_and_answers_500(self) -> None:
+    def test_residue_keeps_the_deletion_open_and_is_retried(self) -> None:
         repo = FakeTenantErasureRepository()
         executor = RecordingTenantErasureExecutor(unreached=["undeclared:legacy_orphans"])
         service = tenant_service_for_deletion(executor=executor, record_repo=repo)
 
-        with pytest.raises(TenantErasureIncompleteError) as raised:
-            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+        # Since #1792 the residue is the worker's finding, not an HTTP 500: the
+        # request answered 202 long before, and the record carries the outcome.
+        delete_and_run(service, KEY, **authorized(KEY), now=NOW)
 
-        assert raised.value.status_code == 500
-        assert KEY not in raised.value.message
         record = _record(repo)
         assert record["status"] == "partially_completed"
         assert record["unreached"] == ["undeclared:legacy_orphans"]
@@ -139,8 +150,7 @@ class TestCompletionDependsOnWhatWasRemoved:
         store.delete_tenant_contributions = AsyncMock(side_effect=ExternalSourceError("inference", "down"))
         service = tenant_service_for_deletion(executor=executor, record_repo=repo, reference_index_store=store)
 
-        with pytest.raises(ExternalSourceError):
-            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+        delete_and_run(service, KEY, **authorized(KEY), now=NOW)
 
         assert executor.plans == []
         assert _record(repo)["status"] == "partially_completed"

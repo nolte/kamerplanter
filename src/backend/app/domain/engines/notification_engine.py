@@ -11,7 +11,9 @@ from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
 )
 from app.domain.interfaces.notification_repository import INotificationRepository
+from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.notification import (
+    EMAIL_RECIPIENT_KEYS,
     ChannelPreference,
     ChannelResult,
     EscalationPreference,
@@ -54,10 +56,13 @@ class NotificationEngine:
         preference_repo: INotificationPreferenceRepository,
         channel_registry: NotificationChannelRegistry,
         redis_client: object,
+        *,
+        user_repo: IUserRepository,
     ) -> None:
         self._notification_repo = notification_repo
         self._preference_repo = preference_repo
         self._channel_registry = channel_registry
+        self._user_repo = user_repo
         self._redis = redis_client
 
     # ── Public API ────────────────────────────────────────────────────
@@ -204,7 +209,7 @@ class NotificationEngine:
                 total_failed += len(notifications)
                 continue
 
-            channel_config = self._get_channel_config(channel_key, prefs)
+            channel_config = self.get_channel_config(user_key, channel_key, prefs)
 
             if channel.supports_batching:
                 try:
@@ -421,7 +426,7 @@ class NotificationEngine:
                 error=f"Channel '{channel_key}' not registered",
             )
 
-        channel_config = self._get_channel_config(channel_key, prefs)
+        channel_config = self.get_channel_config(user_key, channel_key, prefs)
 
         try:
             result = await channel.send(notification, channel_config)
@@ -476,16 +481,46 @@ class NotificationEngine:
             )
         return pruned
 
-    def _get_channel_config(
+    def resolve_email_recipient(self, user_key: str) -> str | None:
+        """The one address the e-mail channel may mail for *user_key*, or ``None`` (#1885).
+
+        Only the account's own address, and only while it is confirmed: a
+        verified login address of a live, human account. A recipient typed into
+        the preferences is never consulted, so nobody can aim the operator's
+        sender reputation at a third party's inbox. ``None`` means "mail
+        nothing", never "fall back to something else".
+        """
+        try:
+            user = self._user_repo.get_by_key(user_key)
+        except Exception:
+            # Fail closed, and keep the failure inside this channel: a lookup
+            # error must not abort the delivery to the other channels.
+            logger.exception("email_recipient_lookup_failed", subject=log_subject(user_key))
+            return None
+        if user is None or not user.email_verified or not user.is_active:
+            return None
+        if user.account_type != "human":
+            return None
+        return str(user.email)
+
+    def get_channel_config(
         self,
+        user_key: str,
         channel_key: str,
         prefs: NotificationPreferences,
     ) -> dict:
-        """Extract per-channel config from user preferences."""
+        """Per-channel config for one delivery; the e-mail recipient comes from the account, not the preferences."""
         channel_pref = prefs.channels.get(channel_key)
-        if channel_pref is not None:
-            return channel_pref.config
-        return {}
+        config = dict(channel_pref.config) if channel_pref is not None else {}
+        if channel_key == "email":
+            # Whatever a stored row or a request carried under these keys is not
+            # a recipient; the account address replaces it or nothing remains.
+            for legacy in EMAIL_RECIPIENT_KEYS:
+                config.pop(legacy, None)
+            address = self.resolve_email_recipient(user_key)
+            if address is not None:
+                config["email"] = address
+        return config
 
     def _build_dedup_key(
         self,

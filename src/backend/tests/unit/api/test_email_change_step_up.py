@@ -229,6 +229,16 @@ class _EmailChanges:
             del self.rows[key]
         return len(due)
 
+    def count_undated_confirmed(self) -> int:
+        """Mirrors ``ArangoEmailChangeRepository.count_undated_confirmed`` (#1946): neither stamp is readable."""
+        return sum(
+            1
+            for change in self.rows.values()
+            if change.status in self._CONFIRMED_STATUSES
+            and change.confirmed_at is None
+            and change.revert_expires_at is None
+        )
+
     def claim_status(self, key: str, from_status: str, to_status: str, now_iso: str) -> bool:
         """Compare-and-set on the status, as the Arango ``UPDATE ... FILTER status == @from`` does.
 

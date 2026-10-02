@@ -422,6 +422,8 @@ _IRREVERSIBLE = {
     "run_tenant_erasure",
     "_erase_tenant_for_account_erasure",
     "erase_personal_tenant_of",
+    # #1792: ``delete_tenant`` no longer runs the erasure — it hands it to the Celery task through this.
+    "_dispatch_tenant_erasure",
 }
 
 _IRREVERSIBLE_CALLERS: dict[tuple[str, str], str] = {
@@ -450,8 +452,12 @@ _IRREVERSIBLE_CALLERS: dict[tuple[str, str], str] = {
         "the tenant half of an account erasure, reached only from erase_personal_tenant_of"
     ),
     ("domain/services/tenant_service.py", "TenantService._run_tenant_erasure"): (
-        "the runner of a claimed record; its callers (delete_tenant, resume_tenant_erasures, "
+        "the runner of a claimed record; its callers (run_tenant_erasure_task, resume_tenant_erasures, "
         "_erase_tenant_for_account_erasure) are checked here themselves"
+    ),
+    ("domain/services/tenant_service.py", "TenantService.run_tenant_erasure_task"): (
+        "the body of the Celery task delete_tenant dispatches (#1792): runs a record that exists only because "
+        "delete_tenant created it behind the step-up (the task takes a record key, never a tenant to erase)"
     ),
     ("tasks/auth_tasks.py", "cleanup_unverified_accounts"): (
         "Celery: erases registrations never verified past their deadline — no person, no session"
@@ -519,7 +525,7 @@ def irreversible_callers(root: Path = APP) -> dict[tuple[str, str], tuple[set[st
 
 
 #: Measured when the second class was added (review SEC-004 d).
-EXPECTED_IRREVERSIBLE_CALLERS = 11
+EXPECTED_IRREVERSIBLE_CALLERS = 12
 
 
 def test_every_caller_of_an_irreversible_core_reaches_the_step_up_or_is_classified() -> None:

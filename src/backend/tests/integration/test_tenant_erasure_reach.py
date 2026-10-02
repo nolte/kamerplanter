@@ -45,7 +45,7 @@ from arango import ArangoClient
 from app.api.v1.admin.platform import router as admin_router
 from app.api.v1.tenants import router as tenant_router
 from app.api.v1.tenants.schemas import TenantDeleteRequest
-from app.common.exceptions import ForbiddenError, KamerplanterError
+from app.common.exceptions import ForbiddenError
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
@@ -184,7 +184,11 @@ def _service(database) -> TenantService:
         "observation_repo": NullObservationRepository(),
     }
     accepted = inspect.signature(TenantService).parameters
-    return TenantService(**{name: value for name, value in kwargs.items() if name in accepted})
+    service = TenantService(**{name: value for name, value in kwargs.items() if name in accepted})
+    # The request dispatches a Celery task (#1792); the integration tier has no broker,
+    # so the test runs the task body itself (``_delete_through``).
+    service._dispatch_tenant_erasure = lambda record_key: None  # type: ignore[method-assign]
+    return service
 
 
 #: The requester of every deletion here (#1791): a federated account (no
@@ -220,12 +224,13 @@ def _grant(database, tenant: str) -> None:
     )
 
 
-def _delete_through(database, entry_point: str, tenant: str) -> None:
+def _delete_through(database, entry_point: str, tenant: str) -> dict[str, object]:
+    """The request (202), then the task body the request dispatched; returns the task's outcome."""
     service = _service(database)
     body = TenantDeleteRequest(confirm_slug=tenant, password=REQUESTER_PASSWORD)
     if entry_point == "tenant_management":
         _grant(database, tenant)
-        tenant_router.delete_tenant(
+        accepted = tenant_router.delete_tenant(
             body=body,
             ctx=SimpleNamespace(tenant_key=tenant),
             user=REQUESTER,
@@ -235,9 +240,13 @@ def _delete_through(database, entry_point: str, tenant: str) -> None:
         )
     else:
         _grant(database, "platform")
-        admin_router.delete_tenant(
+        accepted = admin_router.delete_tenant(
             tenant, body=body, user=REQUESTER, via_api_key=False, client_ip="203.0.113.1", tenant_service=service
         )
+    # 202: recorded and frozen, nothing erased yet (the tenant document is still there).
+    assert accepted.status == "in_progress"
+    assert database.collection("tenants").has(tenant)
+    return service.run_tenant_erasure_task(TenantErasureEngine.record_key(tenant))
 
 
 @pytest.fixture(scope="module")
@@ -316,10 +325,8 @@ def test_an_undeclared_collection_keeps_the_deletion_open(database, erased):
     _ensure(database, "legacy_orphans")
     database.collection("legacy_orphans").insert({"_key": "orphan", "tenant_key": tenant})
 
-    with pytest.raises(KamerplanterError) as raised:
-        _delete_through(database, "platform_admin", tenant)
-
-    assert raised.value.error_code == "TENANT_ERASURE_INCOMPLETE"
+    # Since #1792 the residue is the worker's finding, recorded on the record, not an HTTP 500.
+    assert _delete_through(database, "platform_admin", tenant)["outcome"] == "partially_completed"
     record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant))
     assert record["status"] == "partially_completed"
     assert record["unreached"] == ["undeclared:legacy_orphans"]
@@ -359,6 +366,7 @@ def test_a_retry_reaches_a_child_whose_parent_the_first_attempt_deleted(database
         origin="platform_admin",
         client_ip="203.0.113.1",
     )
+    service.run_tenant_erasure_task(TenantErasureEngine.record_key(tenant))
     late = database.collection("locations").insert({"site_key": site_key})["_id"]
     records = ArangoTenantErasureRepository(database)
     key = TenantErasureEngine.record_key(tenant)

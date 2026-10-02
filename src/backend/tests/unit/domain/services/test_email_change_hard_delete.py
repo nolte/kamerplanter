@@ -53,6 +53,7 @@ def _repo() -> MagicMock:
     repo.close_revert_windows.return_value = 0
     repo.delete_expired_unconfirmed.return_value = 0
     repo.delete_confirmed_past_revert_window.return_value = 0
+    repo.count_undated_confirmed.return_value = 0
     return repo
 
 

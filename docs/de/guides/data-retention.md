@@ -16,9 +16,9 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-01 | Soft-gelöschte User-Accounts | 90 Tage nach Soft-Delete | Hard-Delete (inkl. Edges, Auth-Provider, Sessions) | Art. 17 DSGVO |
 | R-02 | Unbestätigte Accounts | 7 Tage nach Erstellung | Hard-Delete (`app.tasks.auth_tasks.cleanup_unverified_accounts`, täglich) | Art. 5(1)(e), Zweckentfall |
 | R-03 | IP-Adressen in Sessions | 7 Tage nach Speicherung | Anonymisierung (IPv4: letztes Oktett → `0`) | Art. 5(1)(c) Datenminimierung |
-| R-04 | Consent Records | 3 Jahre nach Widerruf | **Nicht implementiert:** Kein Task löscht `consent_records`; auch die IP-Adresse eines Consent Records wird nicht anonymisiert | Art. 7(1) Nachweispflicht |
+| R-04 | Consent Records | 3 Jahre nach Widerruf | Hard-Delete (`retention.purge_expired_consent_records`, täglich 04:35 UTC); die IP-Adresse wird nach 7 Tagen anonymisiert (R-04a, `retention.anonymize_consent_ips`, 04:40 UTC) | Art. 7(1) Nachweispflicht |
 | R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
-| R-06 | Löschungs-Audit (abgeschlossene Anträge) | 1 Jahr nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
+| R-06 | Löschungs-Audit (abgeschlossene Anträge) | 3 Jahre nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
 | R-07 | E-Mail-Änderungsanfragen | 24 Stunden nach Erstellung | Status auf `expired` setzen (kein Hard-Delete) | Zweckentfall |
 | R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
@@ -74,8 +74,8 @@ umzustellen.
 Der tägliche Task `retention.purge_expired_erasure_records` (04:30 UTC, nach dem
 Löschungs-Task um 04:00 UTC) entfernt abgeschlossene Löschungs-Anträge
 (`erasure_requests`, `status=completed`), deren `completed_at` mehr als
-`RETENTION_ERASURE_AUDIT_RETENTION_YEARS` Jahre zurückliegt (Standard 1 Jahr, Minimum
-1 Jahr, gezählt in Kalenderjahren). Das gilt unabhängig davon, wer die Löschung
+`RETENTION_ERASURE_AUDIT_RETENTION_YEARS` Jahre zurückliegt (Standard 3 Jahre, Minimum
+1 Jahr, Maximum 3 Jahre, gezählt in Kalenderjahren). Das gilt unabhängig davon, wer die Löschung
 ausgelöst hat (`origin`: `self_service`, `platform_admin` oder `unverified_cleanup`).
 
 Ein noch offener oder nur teilweise abgeschlossener Antrag (`scheduled`, `in_progress`,
@@ -180,6 +180,12 @@ SELECT add_retention_policy('sensor_hourly',   INTERVAL '2 years');
 SELECT add_retention_policy('sensor_daily',    INTERVAL '5 years');
 ```
 
+!!! info "Löschung von Sensor oder Mandant"
+    Wird ein Sensor oder ein ganzer Mandant gelöscht, entfernt Kamerplanter neben den
+    Rohdaten auch die zugehörigen Stunden- und Tagesmittel (`sensor_hourly`,
+    `sensor_daily`) — in jedem Alter, im selben Löschvorgang. Die Mittelwerte anderer
+    Mandanten und Sensoren bleiben unverändert erhalten.
+
 ---
 
 ## Gesetzliche Mindestaufbewahrungsfristen
@@ -199,6 +205,29 @@ aber nicht gelöscht (Art. 17 Abs. 3 lit. b):
     das CanG bzw. PflSchG. Die Konto-Löschung löscht diese Datensätze deshalb nicht,
     sondern entfernt nur den Personenbezug. Der Datensatz selbst bleibt bis zum Ablauf
     der Frist erhalten.
+
+### Ablauf der Frist nach einer Mandantenlöschung
+
+Die Frist zählt ab dem Datum, das der Datensatz selbst trägt — `harvest_date` (Ernte),
+`applied_at` (Behandlung), `inspected_at` (Inspektion) — und läuft unverändert weiter,
+wenn der Mandant oder dein Konto in der Zwischenzeit gelöscht wird. Sie beginnt durch
+die Löschung weder neu, noch wird sie verkürzt.
+
+Ist sie abgelaufen, löscht der tägliche Task `retention.purge_expired_legal_retention_rows`
+(04:45 UTC) den Datensatz endgültig: zusammen mit seinen Qualitätsbewertungen und
+Ertragskennzahlen (bei einer Ernte) und jeder Verknüpfung, die ihn noch berührt —
+bei Behandlungen auch die geerbten Karenz-Verknüpfungen auf Pflanzen und Durchläufe.
+
+Gelöscht werden nur Datensätze, deren Mandant nicht mehr existiert. Die Ernten,
+Behandlungen und Inspektionen eines bestehenden Gartens sind dessen eigene Aufzeichnungen;
+für sie legt diese Regel keine Höchstdauer fest, sie bleiben erhalten.
+
+Ein Datensatz ohne lesbares Datum wird nie gelöscht — sein Alter ist nicht belegt. Ausnahme: Eine Ernte ohne Erntedatum zählt ab ihrer Anlage, denn genau dieses Datum hat das System beim Anlegen als Erntedatum angenommen.
+
+!!! info "Erster Lauf nach dem Update"
+    Der erste Lauf löscht sofort alle aufbewahrten Datensätze gelöschter Mandanten,
+    deren Frist bereits abgelaufen ist — auch solche, die eine Mandantenlöschung vor
+    der Einführung des Löschinventars zurückgelassen hat.
 
 ### So sieht ein anonymisierter Datensatz aus
 
@@ -537,6 +566,14 @@ MCP-Aufruf-Protokoll bis zum Ablauf ihrer eigenen Aufbewahrungsfrist, sowie der
 Löschungs-Datensatz selbst — er ist der Nachweis der Löschung und treibt ihre
 Wiederholung an.
 
+Die aufbewahrten Ernte-, Behandlungs- und Inspektionsdaten werden gelöscht, sobald ihre
+Frist abgelaufen ist (siehe [Ablauf der Frist nach einer Mandantenlöschung](#ablauf-der-frist-nach-einer-mandantenloschung)).
+Der Löschungs-Datensatz bleibt so lange erhalten wie der längste noch aufbewahrte
+Datensatz des Mandanten, höchstens aber 5 Jahre nach Abschluss der Löschung (R-06a);
+der tägliche Task `retention.purge_expired_tenant_erasure_records` (04:50 UTC) löscht
+ihn danach. Hat die Löschung keine Ernte-, Behandlungs- oder Inspektionsdaten
+aufbewahrt, bleibt der Datensatz die vollen 5 Jahre erhalten.
+
 ### Vollständigkeit wird gemessen, nicht angenommen
 
 Nach der Transaktion zählt das System, ob noch irgendein Datensatz — auch in einer
@@ -572,14 +609,16 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | Regel | Celery-Task | Takt (UTC) | Frist-Einstellung |
 |-------|-------------|-----------|--------------------|
 | R-01 | `retention.execute_scheduled_erasures` | täglich, 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` |
-| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | täglich | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
-| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich | `RETENTION_IP_ANONYMIZATION_DAYS` |
+| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | täglich, 03:10 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
+| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich, 03:20 | `RETENTION_IP_ANONYMIZATION_DAYS` |
 | R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
 | R-06 | `retention.purge_expired_erasure_records` | täglich, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
 | R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
 | R-07a | `retention.expire_email_change_requests` (derselbe Lauf) | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
-| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
-| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
+| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich, Minute 10 | Ablaufzeitpunkt des Tokens |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich, 02:00 | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
+| R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | täglich, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
+| R-06a | `retention.purge_expired_tenant_erasure_records` | täglich, 04:50 | fest 5 Jahre (Deckelung) bzw. Ende der aufbewahrten Daten des Mandanten |
 
 Jeder Task protokolliert seinen Lauf strukturiert (structlog) unter seinem eigenen
 Ereignisnamen mit Zählern, zum Beispiel:
@@ -592,8 +631,22 @@ Ereignisnamen mit Zählern, zum Beispiel:
 - `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
+- `retention.purge_expired_legal_retention_rows.completed` (`purged` je Regel: `rows`, `children`, `edges`)
+- `retention.purge_expired_tenant_erasure_records.completed` (`purged`)
 
 Eine gemeinsame Ereigniszeile, die alle Regeln zusammenfasst, gibt es nicht.
+
+Alle Retention-Tasks laufen nach der Uhr (Cron-Ausdruck), nicht als fester Abstand ab
+dem Start des Beat-Prozesses: Ein Neustart des Beat-Pods verschiebt keinen Lauf, und die
+„spätestens"-Angaben der Datenschutzerklärung (Frist plus ein Takt) gelten damit auch
+über Neustarts hinweg.
+
+Wo ein Altersfilter einen Datensatz ohne lesbaren Zeitstempel nicht beurteilen kann,
+löscht er ihn nicht, sondern zählt ihn und meldet den Zähler als `held_undated` im
+Lauf-Ereignis: beim Konto-Bereinigungs-Task (R-02), bei den Aufrufprotokollen, bei den
+verwaisten Aufgabenfotos, bei den Consent Records (R-04, `purge_expired_consent_records`),
+bei den bestätigten E-Mail-Änderungen (R-07b, `expire_email_change_requests`) und beim
+Glossar-Cache (`glossary_cleanup_cache`).
 
 ### Metriken
 
@@ -606,17 +659,23 @@ zum Beispiel per `kubectl logs -l app=celery-beat`.
 ## Konfiguration per Umgebungsvariablen
 
 Jede Frist wird über genau eine Einstellung gelesen (`RetentionService`); der
-Konstruktor prüft dieselbe Untergrenze noch einmal:
+Konstruktor prüft dieselben Unter- und Obergrenzen noch einmal (NFR-011 AK-14):
 
-| Einstellung | Regel | Standard | Minimum | Älterer Name (weiterhin gültig) |
-|-------------|-------|---------|---------|----------------------------------|
-| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
-| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | — |
-| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | — |
-| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
-| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
-| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
-| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
+| Einstellung | Regel | Standard | Minimum | Maximum | Älterer Name (weiterhin gültig) |
+|-------------|-------|---------|---------|---------|----------------------------------|
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | 90 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | 7 | — |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | 7 | — |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | 72 | `PRIVACY_EXPORT_RETENTION_HOURS` |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 3 | 1 | 3 | — |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | 24 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | 7 | — |
+| `RETENTION_CONSENT_RETENTION_YEARS` | R-04 | 3 | 1 | 3 | — |
+| `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | R-04a | 7 | 1 | 7 | — |
+| `RETENTION_INVITATION_RETENTION_DAYS` | R-12 | 30 | 1 | 30 | — |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |
 
 Sind beide Namen einer Zeile gesetzt, gewinnt der `RETENTION_*`-Name. Die älteren Namen
 waren bis zu dieser Änderung zwar dokumentiert, bewirkten aber nichts — der Code nutzte
@@ -626,21 +685,11 @@ feste Werte; jetzt werden sie tatsächlich angewendet.
     Für die folgenden Regeln gibt es keine wirksame Umgebungsvariable — kein Code liest
     sie (interne Referenz: Issue #1800):
 
-    - **R-04** (Consent Records): `RETENTION_CONSENT_RETENTION_YEARS` — es gibt keinen
-      Task, der `consent_records` löscht.
-    - **R-12** (abgelaufene Einladungen): `RETENTION_INVITATION_RETENTION_DAYS` — der
-      tägliche Task setzt abgelaufene Einladungen nur auf den Status `expired`, löscht
-      sie aber nicht.
     - **R-14** (Sensordaten): `RETENTION_SENSOR_*` — die Fristen (90 Tage / 2 Jahre /
       5 Jahre) stehen als feste Werte in der TimescaleDB-Migration und sind nicht per
       Umgebungsvariable änderbar.
     - **R-15** (Aktor-Logs): Es gibt im Code keinen Aktor-Log-Speicher, deshalb auch
       keine `RETENTION_ACTOR_LOG_*`-Einstellung.
-    - **R-16 bis R-18** (Ernte-, Behandlungs- und Inspektionsdaten): Für diese
-      gesetzlichen Mindestfristen gibt es keine `_MIN_RETENTION_YEARS`-Einstellung und
-      auch keinen Start-Check, der eine Untergrenze erzwingt — nichts löscht diese
-      Datensätze automatisch, es gibt also nichts zu begrenzen. Bei einer Konto-Löschung
-      werden sie stattdessen anonymisiert und unbegrenzt aufbewahrt (siehe oben).
 
 ---
 
@@ -771,6 +820,66 @@ keinen inkonsistenten Zustand: Der Split-Schlüssel ist deterministisch und wird
     hart gelöscht, weil die Dokumentations-Regel sie anonymisiert und behält — es geht
     also nichts verloren. Der Datenexport (Art. 15) des zweiten Uploaders listet aber
     keinen Eintrag, den er nie besaß.
+
+---
+
+## Migration v0066: Altstempel auf Seed-Zeilen zurücksetzen
+
+Die alte Migration `v0004` hat beim Einführen der Mandanten jede Zeile ohne Eigentümer einem
+„Default-Mandanten" zugeordnet — auch die mitgelieferten Seed-Daten. Seit die Mandantenlöschung
+(#1769) die Zeilen ihres Mandanten entfernt, würde das Löschen dieses Mandanten Seed-Daten
+mitnehmen, die für alle gedacht sind. Auf einem Altbestand betrifft das Düngemittel,
+Nährstoffpläne samt Phaseneinträgen, Workflow-Vorlagen und Aufgabenvorlagen.
+
+Die Migration `v0066_reset_legacy_seed_tenant_stamps` setzt diese Zeilen auf global
+(`tenant_key == ""`) zurück, aber nur, wenn zwei Dinge zusammenkommen: Die mitgelieferte
+Seed-Datei benennt die Zeile (gleicher Schlüssel wie der Seed-Loader: Produkt und Marke,
+Plan- oder Workflow-Name, Workflow-Name und Aufgaben-Name), **und** der Eigentümerschlüssel ist
+als `v0004`-Stempel bewiesen (ein Phaseneintrag oder eine Aufgabenvorlage trägt ihn unter einem
+globalen Elternteil, oder er steht auf mehr als der Hälfte der erwarteten Seed-Düngemittel und -Workflows). Ein
+Plan, den ein Mandant selbst angelegt und wie ein Seed benannt hat, bleibt seiner: Gibt es
+zu einem Namen eine zweite globale oder gleich gestempelte Zeile oder einen Klon, wird nichts
+zurückgesetzt. Zeilen, die die
+Seed-Datei nicht benennt, bleiben unberührt.
+
+!!! info "Was die Messung ergab"
+    Die Seed-Loader setzen Düngemittel, Pläne, Workflows und Aufgabenvorlagen bei jedem Start
+    selbst wieder auf global. Übrig blieben die **Phaseneinträge** der Seed-Pläne — sie behielten
+    den Stempel, und die Mandantenlöschung hätte jedem Seed-Plan seine Phasen genommen. Die
+    Migration schließt genau diese Lücke und deckt die übrigen Collections ab, falls ein
+    Seed-Lauf fehlgeschlagen ist.
+
+!!! warning "Vorab prüfen: nur auf einem Backup"
+    Zähle die betroffenen Zeilen **nie gegen die Produktionsdatenbank**, sondern auf einem
+    wiederhergestellten Backup oder einem Dev-Cluster (arangosh oder Web-UI, Datenbank
+    `kamerplanter`):
+
+    ```aql
+    RETURN {
+      entries_under_global_plan: LENGTH(
+        FOR d IN nutrient_plan_phase_entries
+          FILTER d.tenant_key != null AND d.tenant_key != ""
+          LET p = DOCUMENT(CONCAT("nutrient_plans/", d.plan_key))
+          FILTER p != null AND (p.tenant_key == null OR p.tenant_key == "")
+          RETURN 1),
+      nutrient_plans_stamped_by_tenant: (FOR d IN nutrient_plans
+        FILTER d.tenant_key != null AND d.tenant_key != ""
+        COLLECT t = d.tenant_key WITH COUNT INTO n RETURN {tenant_key: t, rows: n})
+    }
+    ```
+
+    `entries_under_global_plan` größer als 0 heißt: Die Migration ändert etwas. Dieselbe
+    Abfrage für `fertilizers`, `workflow_templates` und `task_templates` steht als
+    `OPERATOR_COUNT_QUERY` in der Migration. Der Schlüssel, der in diesen Zählungen dominiert,
+    ist der damalige Default-Mandant.
+
+Ausführung wie jede Migration über `python -m app.migrations upgrade`; `--dry-run` zählt die
+Änderungen (`reset_legacy_seed_tenant_stamps_dry_run`), ohne etwas zu schreiben. Ein zweiter
+Lauf ändert nichts.
+
+!!! danger "Nicht reversibel"
+    Der alte Default-Mandanten-Schlüssel auf den Seed-Zeilen ist danach nicht wiederherstellbar.
+    Sichere die Datenbank vor dem Upgrade.
 
 ---
 

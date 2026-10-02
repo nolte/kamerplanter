@@ -111,6 +111,11 @@ class TestTimescaleDeleteByTenant:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.rowcount = 7
+        # The aggregate purge (#1793) resolves both materialisation tables first.
+        mock_cursor.fetchall.return_value = [
+            ("sensor_hourly", "_timescaledb_internal", "_materialized_hypertable_2"),
+            ("sensor_daily", "_timescaledb_internal", "_materialized_hypertable_3"),
+        ]
         mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
         mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
         mock_pool.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -118,7 +123,7 @@ class TestTimescaleDeleteByTenant:
 
         assert repo.delete_by_tenant("t-1") == 7
 
-        sql, params = mock_cursor.execute.call_args.args
+        sql, params = mock_cursor.execute.call_args_list[0].args
         assert "DELETE FROM sensor_readings" in sql
         assert "tenant_key = %(tenant_key)s" in sql
         assert "sensor_key" not in sql

@@ -346,63 +346,36 @@ class TestSendEmailDigests:
         assert result["digests_sent"] == 2
         assert result["digests_empty"] == 0
         assert result["digests_failed"] == 0
-        # Two coroutines created — one per user with the resolved address.
+        # Two coroutines created, one per user. The task passes no address:
+        # the service resolves the account's confirmed one (#1885).
         assert mock_service.send_email_digest.call_count == 2
-        called_addresses = {c.args[1] for c in mock_service.send_email_digest.call_args_list}
-        assert called_addresses == {"a@x", "b@x"}
+        called_users = {c.args[0] for c in mock_service.send_email_digest.call_args_list}
+        assert called_users == {"user_1", "user_2"}
+        assert all(len(c.args) == 2 for c in mock_service.send_email_digest.call_args_list)
         # since-window is roughly now - 24h
-        since_arg = mock_service.send_email_digest.call_args_list[0].args[2]
+        since_arg = mock_service.send_email_digest.call_args_list[0].args[1]
         delta = datetime.now(UTC) - since_arg
         assert abs(delta.total_seconds() - 24 * 3600) < 120
 
-    def test_address_fallback_to_user_email(self, _mock_dependencies):
-        from types import SimpleNamespace
-
-        pref_repo = MagicMock()
-        pref_repo.list_users_with_digest_enabled.return_value = [
-            self._prefs("user_1", {"digest": True}),  # no email in config
-        ]
-        _mock_dependencies.get_notification_preference_repo.return_value = pref_repo
-
-        user_repo = MagicMock()
-        user_repo.get_by_key.return_value = SimpleNamespace(email="fallback@x")
-        _mock_dependencies.get_user_repo.return_value = user_repo
-
-        mock_service = MagicMock()
-        _mock_dependencies.get_notification_service.return_value = mock_service
-
-        with patch("asyncio.run") as mock_asyncio_run:
-            mock_asyncio_run.return_value = {"status": "sent", "count": 1}
-
-            from app.tasks.notification_tasks import send_email_digests
-
-            result = send_email_digests()
-
-        assert result["digests_sent"] == 1
-        user_repo.get_by_key.assert_called_once_with("user_1")
-        assert mock_service.send_email_digest.call_args.args[1] == "fallback@x"
-
-    def test_missing_address_counts_failed(self, _mock_dependencies):
+    def test_user_without_a_confirmed_address_is_counted_apart_from_failures(self, _mock_dependencies):
         pref_repo = MagicMock()
         pref_repo.list_users_with_digest_enabled.return_value = [
             self._prefs("user_1", {"digest": True}),
         ]
         _mock_dependencies.get_notification_preference_repo.return_value = pref_repo
-
-        user_repo = MagicMock()
-        user_repo.get_by_key.return_value = None
-        _mock_dependencies.get_user_repo.return_value = user_repo
-
         mock_service = MagicMock()
         _mock_dependencies.get_notification_service.return_value = mock_service
 
-        from app.tasks.notification_tasks import send_email_digests
+        with patch("asyncio.run") as mock_asyncio_run:
+            mock_asyncio_run.return_value = {"status": "no_confirmed_address", "count": 2}
 
-        result = send_email_digests()
+            from app.tasks.notification_tasks import send_email_digests
 
-        assert result["digests_failed"] == 1
+            result = send_email_digests()
+
+        assert result["digests_failed"] == 0
+        assert result["digests_unconfirmed"] == 1
         assert result["digests_sent"] == 0
-        mock_service.send_email_digest.assert_not_called()
 
     def test_per_user_failure_does_not_abort(self, _mock_dependencies):
         pref_repo = MagicMock()

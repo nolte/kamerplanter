@@ -15,9 +15,9 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-01 | Soft-deleted user accounts | 90 days after soft-delete | Hard-delete (incl. edges, auth providers, sessions) | GDPR Art. 17 |
 | R-02 | Unconfirmed accounts | 7 days after creation | Hard-delete (`app.tasks.auth_tasks.cleanup_unverified_accounts`, daily) | Art. 5(1)(e), purpose lapse |
 | R-03 | IP addresses in sessions | 7 days after storage | Anonymization (IPv4: last octet → `0`) | Art. 5(1)(c) data minimization |
-| R-04 | Consent records | 3 years after revocation | **Not implemented:** no task deletes `consent_records`; the IP address of a consent record is not anonymized either | Art. 7(1) accountability |
+| R-04 | Consent records | 3 years after revocation | Hard-delete (`retention.purge_expired_consent_records`, daily at 04:35 UTC); the IP address is anonymized after 7 days (R-04a, `retention.anonymize_consent_ips`, 04:40 UTC) | Art. 7(1) accountability |
 | R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file first, then set status to `expired` | Purpose lapse |
-| R-06 | Erasure audit (completed requests) | 1 year after completion | Hard-delete (`retention.purge_expired_erasure_records`, daily at 04:30 UTC) | Art. 5(2) accountability |
+| R-06 | Erasure audit (completed requests) | 3 years after completion | Hard-delete (`retention.purge_expired_erasure_records`, daily at 04:30 UTC) | Art. 5(2) accountability |
 | R-07 | Email change requests | 24 hours after creation | Set status to `expired` (no hard-delete) | Purpose lapse |
 | R-07a | Revert window of a confirmed email change | 7 days after confirmation | Clear `previous_email`, the revert token's hash, and its expiry | Purpose lapse — the revert link has expired |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
@@ -71,7 +71,7 @@ instead of flipping the status anyway.
 The daily `retention.purge_expired_erasure_records` task (04:30 UTC, after the erasure
 task at 04:00 UTC) hard-deletes completed erasure requests (`erasure_requests`,
 `status=completed`) whose `completed_at` is more than `RETENTION_ERASURE_AUDIT_RETENTION_YEARS`
-years in the past (default 1 year, minimum 1 year, counted in calendar years). This applies
+years in the past (default 3 years, minimum 1 year, maximum 3 years, counted in calendar years). This applies
 regardless of who triggered the erasure (`origin`: `self_service`, `platform_admin`, or
 `unverified_cleanup`).
 
@@ -177,6 +177,11 @@ SELECT add_retention_policy('sensor_hourly',   INTERVAL '2 years');
 SELECT add_retention_policy('sensor_daily',    INTERVAL '5 years');
 ```
 
+!!! info "Deleting a sensor or a tenant"
+    When a sensor or a whole tenant is deleted, Kamerplanter removes the hourly and daily
+    averages (`sensor_hourly`, `sensor_daily`) together with the raw data — of any age, in
+    the same deletion. The averages of other tenants and sensors are left untouched.
+
 ---
 
 ## Statutory Minimum Retention Periods
@@ -195,6 +200,29 @@ but not deleted (Art. 17(3)(b)):
     Deleting an active harvest or treatment record would violate the CanG (German Cannabis Act) or PflSchG (German Plant Protection Act).
     Account deletion therefore does not delete these records; it only removes the
     personal reference. The record itself remains until the statutory period has elapsed.
+
+### When the period ends after a tenant deletion
+
+The period counts from the date the record itself carries — `harvest_date` (harvest),
+`applied_at` (treatment), `inspected_at` (inspection) — and keeps running unchanged if
+the tenant or your account is deleted in the meantime. The deletion neither restarts
+nor shortens it.
+
+Once it has ended, the daily task `retention.purge_expired_legal_retention_rows`
+(04:45 UTC) deletes the record for good: together with its quality assessments and
+yield metrics (for a harvest) and every link that still touches it — for treatments,
+the inherited pre-harvest-interval links to plants and runs as well.
+
+Only records whose tenant no longer exists are deleted. The harvests, treatments and
+inspections of an existing garden are that garden's own records; this rule sets no
+maximum for them, and they stay.
+
+A record without a readable date is never deleted — its age is not established. Exception: a harvest without a harvest date counts from its creation, because that is the date the system assumed as the harvest date when it was created.
+
+!!! info "First run after the update"
+    The first run immediately deletes every retained record of a deleted tenant whose
+    period has already ended — including records a tenant deletion left behind before
+    the deletion inventory existed.
 
 ### What an anonymized record looks like
 
@@ -504,6 +532,14 @@ fields are emptied. The AI call log and the MCP call log are likewise retained u
 their own retention window expires, as is the deletion record itself — it is the proof
 of the deletion and drives its retry.
 
+The retained harvest, treatment and inspection data is deleted once its period has
+ended (see [When the period ends after a tenant deletion](#when-the-period-ends-after-a-tenant-deletion)).
+The deletion record is kept as long as the tenant's longest-retained record, but at most
+5 years after the deletion completed (R-06a); the daily task
+`retention.purge_expired_tenant_erasure_records` (04:50 UTC) deletes it afterwards. If
+the deletion retained no harvest, treatment or inspection data, the record is kept for
+the full 5 years.
+
 ### Completeness is measured, not assumed
 
 After the transaction, the system counts whether any record — even in a collection
@@ -537,14 +573,16 @@ keeping the record longer than declared.
 | Rule | Celery task | Schedule (UTC) | Period setting |
 |------|-------------|-----------------|-----------------|
 | R-01 | `retention.execute_scheduled_erasures` | daily, 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` |
-| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | daily | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
-| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | daily | `RETENTION_IP_ANONYMIZATION_DAYS` |
+| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | daily, 03:10 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
+| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | daily, 03:20 | `RETENTION_IP_ANONYMIZATION_DAYS` |
 | R-05 | `retention.expire_data_exports` | hourly, minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
 | R-06 | `retention.purge_expired_erasure_records` | daily, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
 | R-07 | `retention.expire_email_change_requests` | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
 | R-07a | `retention.expire_email_change_requests` (same run) | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
-| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly | Expiry of the token |
-| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily | Expiry of the invitation (status `expired` only) |
+| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly, minute 10 | Expiry of the token |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily, 02:00 | Expiry of the invitation (status `expired` only) |
+| R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | daily, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
+| R-06a | `retention.purge_expired_tenant_erasure_records` | daily, 04:50 | fixed 5 years (cap), or the end of the tenant's retained data |
 
 Each task logs its run in structured form (structlog) under its own event name with
 counters, for example:
@@ -557,6 +595,19 @@ counters, for example:
 - `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
+- `retention.purge_expired_legal_retention_rows.completed` (`purged` per rule: `rows`, `children`, `edges`)
+- `retention.purge_expired_tenant_erasure_records.completed` (`purged`)
+
+All retention tasks run on the clock (a cron expression), not as a fixed interval from
+the start of the beat process: restarting the beat pod does not move a run, so the
+"at the latest" statements of the privacy policy (period plus one beat interval) also
+hold across restarts.
+
+Where an age filter cannot judge a record because its timestamp is missing or unreadable,
+it does not delete it but counts it and reports the counter as `held_undated` in the run
+event: in the account cleanup task (R-02), the call logs, the orphaned task photos, the
+consent records (R-04, `purge_expired_consent_records`), the confirmed e-mail changes
+(R-07b, `expire_email_change_requests`) and the glossary cache (`glossary_cleanup_cache`).
 
 There is no single event line that summarizes every rule.
 
@@ -573,15 +624,21 @@ example via `kubectl logs -l app=celery-beat`.
 Every period is read from exactly one setting (`RetentionService`); its constructor
 checks the same floor again:
 
-| Setting | Rule | Default | Minimum | Older name (still valid) |
-|---------|------|---------|---------|---------------------------|
-| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
-| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | — |
-| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | — |
-| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
-| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
-| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
-| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
+| Setting | Rule | Default | Minimum | Maximum | Older name (still valid) |
+|---------|------|---------|---------|---------|---------------------------|
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | 90 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | 7 | — |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | 7 | — |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | 72 | `PRIVACY_EXPORT_RETENTION_HOURS` |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 3 | 1 | 3 | — |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | 24 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | 7 | — |
+| `RETENTION_CONSENT_RETENTION_YEARS` | R-04 | 3 | 1 | 3 | — |
+| `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | R-04a | 7 | 1 | 7 | — |
+| `RETENTION_INVITATION_RETENTION_DAYS` | R-12 | 30 | 1 | 30 | — |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |
 
 If both names of a row are set, the `RETENTION_*` name wins. The older names were
 documented before this change but had no effect — the code used fixed values; they now
@@ -591,20 +648,11 @@ actually apply.
     For the following rules there is no effective environment variable — no code reads
     them (internal reference: issue #1800):
 
-    - **R-04** (consent records): `RETENTION_CONSENT_RETENTION_YEARS` — there is no task
-      that deletes `consent_records`.
-    - **R-12** (expired invitations): `RETENTION_INVITATION_RETENTION_DAYS` — the daily
-      task only sets expired invitations to `expired`; it does not delete them.
     - **R-14** (sensor data): `RETENTION_SENSOR_*` — the periods (90 days / 2 years /
       5 years) are fixed values in the TimescaleDB migration and cannot be changed via
       an environment variable.
     - **R-15** (actor logs): there is no actor-log store in the code, so there is no
       `RETENTION_ACTOR_LOG_*` setting either.
-    - **R-16 through R-18** (harvest, treatment and inspection data): for these
-      statutory minimum periods there is no `_MIN_RETENTION_YEARS` setting and no
-      startup check that enforces a floor — nothing deletes these records
-      automatically, so there is nothing to bound. On account erasure they are
-      anonymized instead and kept indefinitely (see above).
 
 ---
 
@@ -733,6 +781,62 @@ where it left off.
     are left unchanged; their file is never hard-deleted, because the documentation rule
     anonymizes and retains it — so nothing is lost. The second uploader's Art. 15 data
     export, however, will not list a record they never had.
+
+---
+
+## Migration v0066: Resetting Legacy Stamps on Seed Rows
+
+When tenants were introduced, the old migration `v0004` assigned every row without an
+owner to a "default tenant" — including the bundled seed data. Since tenant deletion (#1769)
+removes the rows of its tenant, deleting that tenant would take seed data with it that is meant
+for everyone. On a legacy volume this concerns fertilizers, nutrient plans with their phase
+entries, workflow templates and task templates.
+
+The migration `v0066_reset_legacy_seed_tenant_stamps` resets those rows to global
+(`tenant_key == ""`), but only when two things hold: the bundled seed file names the row (same
+key as the seed loader: product and brand, plan or workflow name, workflow name and task name),
+**and** the owner key is proven to be the `v0004` stamp (a phase entry or task template carries
+it under a global parent, or it is on more than half of the expected seed fertilizers and workflows). A plan a tenant
+created itself and named like a seed stays that tenant's: if a name has a second global or
+identically stamped row, or is a clone, nothing is reset. Rows the seed file does not name
+are left alone.
+
+!!! info "What the measurement showed"
+    The seed loaders reset fertilizers, plans, workflows and task templates to global on every
+    start. What was left behind were the **phase entries** of the seed plans — they kept the
+    stamp, and a tenant deletion would have stripped every seed plan of its phases. The
+    migration closes exactly that gap and covers the other collections in case a seed run
+    failed.
+
+!!! warning "Check first: on a backup only"
+    Never count the affected rows **against the production database**; use a restored backup or
+    a dev cluster (arangosh or web UI, database `kamerplanter`):
+
+    ```aql
+    RETURN {
+      entries_under_global_plan: LENGTH(
+        FOR d IN nutrient_plan_phase_entries
+          FILTER d.tenant_key != null AND d.tenant_key != ""
+          LET p = DOCUMENT(CONCAT("nutrient_plans/", d.plan_key))
+          FILTER p != null AND (p.tenant_key == null OR p.tenant_key == "")
+          RETURN 1),
+      nutrient_plans_stamped_by_tenant: (FOR d IN nutrient_plans
+        FILTER d.tenant_key != null AND d.tenant_key != ""
+        COLLECT t = d.tenant_key WITH COUNT INTO n RETURN {tenant_key: t, rows: n})
+    }
+    ```
+
+    `entries_under_global_plan` above 0 means the migration changes something. The same query
+    for `fertilizers`, `workflow_templates` and `task_templates` is `OPERATOR_COUNT_QUERY` in the
+    migration. The key that dominates these counts is the former default tenant.
+
+Run it like any migration via `python -m app.migrations upgrade`; `--dry-run` counts the
+changes (`reset_legacy_seed_tenant_stamps_dry_run`) without writing anything. A second run
+changes nothing.
+
+!!! danger "Not reversible"
+    The old default-tenant key on the seed rows cannot be restored afterwards. Back up the
+    database before upgrading.
 
 ---
 
