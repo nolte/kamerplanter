@@ -223,9 +223,10 @@ def _scrub_route(event: MutableMapping[str, Any]) -> None:
     pattern: str | None = None
     if isinstance(transaction, str) and source in _PATTERN_SOURCES and transaction.startswith("/"):
         pattern = transaction
-    elif isinstance(transaction, str):
+    elif isinstance(transaction, str) and (source == "url" or transaction.startswith("/") or "://" in transaction):
         # No framework pattern: the SDK named the transaction after the request
-        # target — a bare path, or (uvicorn sets ``server``) an absolute URL.
+        # target — a bare path, or (uvicorn sets ``server``) an absolute URL. A
+        # task name (``source=task``, the worker) is not a request target: kept.
         path = _path_of(transaction)
         pattern = event["transaction"] = path if path is not None else _REDACTED
         event["transaction_info"] = {**(event.get("transaction_info") or {}), "source": "route"}

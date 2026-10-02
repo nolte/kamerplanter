@@ -177,3 +177,13 @@ def test_a_scheme_less_request_url_is_only_a_path_and_userinfo_is_dropped() -> N
 
     assert SLUG not in bare and not bare.startswith("://")
     assert userinfo == "https://[::1]:8000/api/v1/{}"
+
+
+@pytest.mark.usefixtures("backend_path_redactor")
+def test_a_worker_task_name_is_not_a_request_path() -> None:
+    event = {"transaction": "app.tasks.care_tasks.generate", "transaction_info": {"source": "task"}}
+
+    scrubbed = scrub_event(event, None)
+
+    assert scrubbed["transaction"] == "app.tasks.care_tasks.generate"
+    assert scrubbed["transaction_info"] == {"source": "task"}
