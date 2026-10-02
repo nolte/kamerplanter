@@ -334,7 +334,6 @@ def _auth_service(user_repo: MagicMock) -> AuthService:
         email_service=MagicMock(),
         frontend_url="http://localhost:5173",
         tenant_service=MagicMock(),
-        tombstone_salt=SALT,
     )
 
 

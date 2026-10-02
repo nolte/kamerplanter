@@ -377,7 +377,6 @@ class StepUpVerifier:
         throttle_store: IStepUpThrottleStore,
         password_engine: PasswordEngine | None = None,
         throttle_engine: LoginThrottleEngine | None = None,
-        tombstone_salt: str = "",
         *,
         code_store: IStepUpCodeStore | None = None,
         code_secret: str | None = None,
@@ -388,7 +387,6 @@ class StepUpVerifier:
         self._store = throttle_store
         self._password_engine = password_engine or PasswordEngine()
         self._throttle_engine = throttle_engine or LoginThrottleEngine()
-        self._tombstone_salt = tombstone_salt
         if code_store is None:
             # The process-wide tier, as for the throttle: a store made per service
             # instance would forget the code between the two requests.
@@ -701,7 +699,6 @@ class StepUpVerifier:
 def default_step_up_verifier(
     password_engine: PasswordEngine | None = None,
     *,
-    tombstone_salt: str = "",
     target_policy: StepUpTargetPolicy | None = None,
 ) -> StepUpVerifier:
     """A verifier over the process-wide in-memory tiers — what a service gets when not wired.
@@ -718,7 +715,6 @@ def default_step_up_verifier(
     return StepUpVerifier(
         DEFAULT_STEP_UP_THROTTLE_STORE,
         password_engine,
-        tombstone_salt=tombstone_salt,
         code_store=DEFAULT_STEP_UP_CODE_STORE,
         target_policy=target_policy,
     )

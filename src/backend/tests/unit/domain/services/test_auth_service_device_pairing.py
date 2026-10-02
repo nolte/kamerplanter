@@ -69,8 +69,6 @@ USER_KEY = "u-pairing-owner"
 USER_EMAIL = "owner@example.com"
 PASSWORD = "device-pairing-password-2024"
 IP = "203.0.113.7"
-#: Salt of the subject reference the audit lines carry (#1773).
-TOMBSTONE_SALT = "pairing-test-salt-not-a-secret-0123456789"
 LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
 
 
@@ -229,7 +227,6 @@ def _make_harness(
         tenant_service=tenant_service,
         device_pairing_code_store=store,
         device_pairing_throttle_store=throttle,
-        tombstone_salt=TOMBSTONE_SALT,
     )
     return _Harness(
         service=service,

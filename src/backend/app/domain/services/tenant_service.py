@@ -141,9 +141,7 @@ class TenantService:
         # #1791 — the password step-up of a tenant deletion. Stateless (bcrypt).
         self._password_engine = password_engine or PasswordEngine()
         # #1816 — the one throttled step-up every irreversible account action passes.
-        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
-            self._password_engine, tombstone_salt=tombstone_salt
-        )
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(self._password_engine)
 
     # --- Tenant CRUD ---
 
