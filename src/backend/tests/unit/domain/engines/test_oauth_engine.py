@@ -64,7 +64,12 @@ class TestBuildAuthorizationUrl:
     def test_discovery_fallback(self):
         config = _make_config(
             provider_type="custom",
-            discovery_document={"authorization_endpoint": "https://disc.example.com/auth"},
+            # A real discovery document names its issuer (OIDC Discovery 3), and the engine
+            # reads it only while that is the configured one (#1969).
+            discovery_document={
+                "issuer": "https://auth.example.com",
+                "authorization_endpoint": "https://disc.example.com/auth",
+            },
         )
         result = self.engine.build_authorization_url(config, "https://app.example.com/cb")
         assert result.authorization_url.startswith("https://disc.example.com/auth?")

@@ -45,3 +45,13 @@ class ArangoAuthProviderRepository(BaseArangoRepository[AuthProvider], IAuthProv
 
     def list_by_user(self, user_key: UserKey) -> list[AuthProvider]:
         return self.find_by_field("user_key", user_key)
+
+    def delete_by_config_slug(self, oidc_config_slug: str) -> int:
+        """One by one through :meth:`delete`, so the ``has_auth_provider`` edge goes with each link."""
+        if not oidc_config_slug:
+            return 0
+        deleted = 0
+        for link in self.find_by_field("oidc_config_slug", oidc_config_slug):
+            if link.key and self.delete(link.key):
+                deleted += 1
+        return deleted

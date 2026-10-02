@@ -428,6 +428,8 @@ Der Server setzt das HttpOnly-Refresh-Cookie und leitet zum Frontend weiter — 
 {frontend_url}/auth/callback
 ```
 
+Bevor der Server jemanden anmeldet, prüft er das ID-Token des Anbieters (OIDC Core 3.1.3.7): die **Signatur** gegen die Schlüssel (JWKS), die der Anbieter veröffentlicht (`jwks_url` der Konfiguration, sonst `jwks_uri` des Discovery-Dokuments), `iss`, `aud`/`azp` (diese Instanz), die `nonce` der Anfrage sowie `exp` und `iat`. Liefert der Anbieter die Identität über den Userinfo-Endpunkt, muss dessen `sub` mit dem `sub` des ID-Tokens übereinstimmen (OIDC Core 5.3.2); ein leeres oder fehlendes `sub` verweigert die Anmeldung. Jede Verweigerung sieht für den Browser gleich aus (`?error=provider_error`, keine Sitzung, kein neues Konto); der Grund steht nur als Log-Ereignis `oauth_login_refused` mit dem Feld `reason` (`signature`, `iss`, `aud`, `azp`, `nonce`, `exp`, `iat`, `sub_missing`, `sub_mismatch`, `id_token_missing`, `jwks_unavailable`) — nie mit Werten aus dem Token. Anbieter ohne ID-Token (GitHub, reines OAuth2) liefern ein Konto-`id` statt eines `sub`; auch hier verweigert ein fehlender Wert die Anmeldung. <!-- #1936 -->
+
 ---
 
 ## API-Keys (M2M-Integration)

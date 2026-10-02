@@ -26,3 +26,14 @@ class IAuthProviderRepository(ABC):
 
     @abstractmethod
     def list_by_user(self, user_key: UserKey) -> list[AuthProvider]: ...
+
+    @abstractmethod
+    def delete_by_config_slug(self, oidc_config_slug: str) -> int:
+        """Delete every link bound to the OIDC configuration *oidc_config_slug*; return how many (#1935).
+
+        A link is matched by (configuration slug, ``sub``), so one left behind by a
+        deleted configuration would be inherited by any configuration created later
+        under the same slug. Deleting also drops the link's encrypted provider
+        tokens, which are useless once the configuration they were issued through
+        is gone. Exact slug only: a link bound to no configuration is not touched.
+        """

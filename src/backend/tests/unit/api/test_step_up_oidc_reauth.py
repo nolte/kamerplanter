@@ -211,6 +211,13 @@ class _Providers:
         self.deleted.append(key)
         return True
 
+    def delete_by_config_slug(self, oidc_config_slug: str) -> int:
+        """Every link bound to exactly that slug — a link bound to none is not touched (#1935)."""
+        doomed = [r for r in self.rows if oidc_config_slug and r.oidc_config_slug == oidc_config_slug]
+        self.rows = [r for r in self.rows if r not in doomed]
+        self.writes.extend("delete" for _ in doomed)
+        return len(doomed)
+
 
 class _Configs:
     def __init__(self, *configs: OidcProviderConfig) -> None:

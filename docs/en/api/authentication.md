@@ -428,6 +428,8 @@ The server sets the HttpOnly refresh cookie and redirects to the frontend — wi
 {frontend_url}/auth/callback
 ```
 
+Before the server signs anyone in, it checks the provider's ID token (OIDC Core 3.1.3.7): the **signature** against the keys (JWKS) the provider publishes (the configuration's `jwks_url`, otherwise the `jwks_uri` of its discovery document), `iss`, `aud`/`azp` (this instance), the request's `nonce`, and `exp` and `iat`. When the provider delivers the identity through the userinfo endpoint, its `sub` must equal the ID token's `sub` (OIDC Core 5.3.2); an empty or missing `sub` refuses the sign-in. Every refusal looks the same to the browser (`?error=provider_error`, no session, no new account); the reason appears only as the log event `oauth_login_refused` with a `reason` field (`signature`, `iss`, `aud`, `azp`, `nonce`, `exp`, `iat`, `sub_missing`, `sub_mismatch`, `id_token_missing`, `jwks_unavailable`) — never with values from the token. Providers without an ID token (GitHub, plain OAuth2) deliver an account `id` instead of a `sub`; there too a missing value refuses the sign-in. <!-- #1936 -->
+
 ---
 
 ## API Keys (M2M Integration)
