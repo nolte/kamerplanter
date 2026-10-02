@@ -9,9 +9,10 @@ same predicate with the date test inverted. Measured here, per selector, from bo
 sides: the selector must *not* take the undated record, the counter must count exactly
 it, and a dated record must be counted by neither.
 
-Runs in CI against the service container; locally ``docker run -d -p
-127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12`` (a missing
-database is a failure in CI, a loud skip locally — ``conftest.py``).
+Runs in CI against the service container; locally it needs a database of its own
+(a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one with::
+
+    docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 """
 
 from __future__ import annotations

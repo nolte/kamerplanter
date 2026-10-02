@@ -148,6 +148,10 @@ class HarvestService:
         """
         batch.plant_key = plant_key
         harvest_date = ensure_aware_utc(batch.harvest_date) or now_utc()
+        # The date the Karenz gate checked is the harvest date the row keeps: NFR-011
+        # R-16 counts its five years from it, and a batch stored without one could
+        # never be purged (/code-review of #1789).
+        batch.harvest_date = harvest_date
 
         # KARENZ-GATE: check safety intervals
         can_harvest, blocking = self._ipm.check_harvest_safety(plant_key, harvest_date, tenant_key=batch.tenant_key)

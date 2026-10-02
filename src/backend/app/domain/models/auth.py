@@ -23,9 +23,12 @@ class AuthProvider(BaseModel):
     #: The configuration the link was made through, and the ``iss`` of its ID token
     #: (#1815 review SEC-001). A link type alone (``oidc``) cannot tell two generic
     #: OIDC providers apart; the step-up re-authentication matches a link only to its
-    #: own configuration. ``None`` on links made before these fields existed — see
-    #: ``FederatedReauthPolicy`` for how those are treated (no migration: a backfill
-    #: would have to guess the configuration exactly where it is ambiguous).
+    #: own configuration, and the login matches a link only through it (#1869).
+    #: ``None`` on links made before these fields existed. Migration v0064 bound
+    #: every such link whose type had exactly one configuration; one still unbound
+    #: matches nothing — neither the login (``AuthService._login_link``) nor the
+    #: step-up (``FederatedReauthPolicy``) guesses it. ``issuer`` is recorded on the
+    #: first sign-in of a link that has none.
     oidc_config_slug: str | None = None
     issuer: str | None = None
     provider_email: str | None = None

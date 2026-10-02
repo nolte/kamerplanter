@@ -374,6 +374,17 @@ celery_app.conf.update(
             "task": "retention.anonymize_consent_ips",
             "schedule": crontab(hour=4, minute=40),  # 04:40 UTC daily
         },
+        # NFR-011 R-16/R-17/R-18 (#1789): harvest, treatment and inspection rows
+        # a tenant deletion kept, once their legal period is over.
+        "retention-purge-legal-retention-rows-daily": {
+            "task": "retention.purge_expired_legal_retention_rows",
+            "schedule": crontab(hour=4, minute=45),  # 04:45 UTC daily
+        },
+        # NFR-011 R-06a (#1793): tenant-erasure records, after the rows they kept.
+        "retention-purge-tenant-erasure-records-daily": {
+            "task": "retention.purge_expired_tenant_erasure_records",
+            "schedule": crontab(hour=4, minute=50),  # 04:50 UTC daily, after the row purge
+        },
     },
 )
 

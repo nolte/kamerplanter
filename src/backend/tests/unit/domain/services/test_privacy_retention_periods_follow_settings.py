@@ -53,7 +53,9 @@ _CLOCK_SLACK = timedelta(seconds=30)
 class _OneRowRepo(IPersonalDataRepository):
     """Answers one synthetic row for ``users`` so the export walk is not empty."""
 
-    def collect_for_user(self, source: DataSourceDefinition, user_key: str, tenant_keys) -> list[dict[str, Any]]:
+    def collect_for_user(
+        self, source: DataSourceDefinition, user_key: str, tenant_keys, *, tombstone=None
+    ) -> list[dict[str, Any]]:
         if source.collection == "users":
             return [{"display_name": "Synthetic Subject"}]
         return []

@@ -155,6 +155,47 @@ class TestAnonymizeConsentIps:
         assert completed == [], "the task must not log this event itself — the service (mocked here) already does"
 
 
+class TestPurgeExpiredLegalRetentionRows:
+    """NFR-011 R-16/R-17/R-18 (#1789): the beat task delegates to the service, no AQL of its own."""
+
+    def test_returns_the_per_rule_counts(self, _mock_dependencies):
+        counts = {"R-16": {"rows": 1, "children": 2, "edges": 3}}
+        service = MagicMock()
+        service.purge_expired_legal_retention_rows = AsyncMock(return_value=counts)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import purge_expired_legal_retention_rows
+
+        assert purge_expired_legal_retention_rows() == {"purged": counts}
+        service.purge_expired_legal_retention_rows.assert_awaited_once()
+
+    def test_the_task_is_registered_on_the_daily_beat_before_the_record_purge(self):
+        from app.tasks import celery_app
+
+        schedule = celery_app.conf.beat_schedule.values()
+        rows = [e for e in schedule if e["task"] == "retention.purge_expired_legal_retention_rows"]
+        records = [e for e in schedule if e["task"] == "retention.purge_expired_tenant_erasure_records"]
+        assert len(rows) == 1
+        assert len(records) == 1
+        # R-06a follows the rows: a record goes once the rows it kept are gone.
+        row_at = (min(rows[0]["schedule"].hour), min(rows[0]["schedule"].minute))
+        record_at = (min(records[0]["schedule"].hour), min(records[0]["schedule"].minute))
+        assert row_at < record_at
+
+
+class TestPurgeExpiredTenantErasureRecords:
+    """NFR-011 R-06a (#1793)."""
+
+    def test_returns_purged_count(self, _mock_dependencies):
+        service = MagicMock()
+        service.purge_expired_tenant_erasure_records = AsyncMock(return_value=2)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import purge_expired_tenant_erasure_records
+
+        assert purge_expired_tenant_erasure_records() == {"purged": 2}
+
+
 class TestExpireDataExports:
     def test_returns_expired_count(self, _mock_dependencies):
         service = MagicMock()
@@ -238,6 +279,8 @@ class TestRetryHardening:
             "purge_expired_erasure_records",
             "purge_expired_consent_records",
             "anonymize_consent_ips",
+            "purge_expired_legal_retention_rows",
+            "purge_expired_tenant_erasure_records",
         ],
     )
     def test_beat_tasks_retry_on_transient_transport_errors(self, task_name):

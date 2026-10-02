@@ -184,6 +184,15 @@ class TestTheLatestMomentAndTheRuleStatus:
             assert rule in by_rule, f"{rule} missing from the Art. 13 summary"
             assert by_rule[rule].enforcement_status in {"enforced", "partial", "not_implemented"}
 
+    def test_the_legal_retention_rows_are_partial_not_unimplemented_and_all_three_are_listed(self):
+        rows = {row.rule_id: row for row in _full_policy(RetentionService()).retention_summary}
+
+        for rule in ("R-16", "R-17", "R-18"):
+            assert rows[rule].enforcement_status == "partial", rule
+            assert "tenant deletion" in rows[rule].latest_deletion_point
+        assert "5 years and 1 day" in rows["R-16"].latest_deletion_point
+        assert "3 years and 1 day" in rows["R-17"].latest_deletion_point
+
     def test_an_enforced_row_has_a_beat_task_behind_it(self):
         """The status is not free text: ``enforced`` needs a scheduled task for the rule."""
         from app.tasks import celery_app

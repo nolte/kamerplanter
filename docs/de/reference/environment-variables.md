@@ -87,6 +87,9 @@ Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anony
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | Nein | Anzahl Jahre, die ein abgeschlossener Löschungs-Antrag (`erasure_requests`, `status=completed`) als Rechenschaftsnachweis (Art. 5 Abs. 2 DSGVO) aufbewahrt wird, bevor er endgültig gelöscht wird (NFR-011 R-06). Gezählt in Kalenderjahren. Minimum: `1`, Maximum: `3`. |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung (NFR-011 R-07); danach wird die Anfrage auf den Status `expired` gesetzt, ein Hard-Delete findet nicht statt. Minimum: `1`, Maximum: `24`. Älterer Name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | `7` | Nein | Gültigkeitsdauer des Rückgängig-Links, den die vorherige Adresse nach einer bestätigten E-Mail-Änderung erhält (NFR-011 R-07a). Danach nullt derselbe stündliche Retention-Task wie bei R-07 die Felder `previous_email` und den Hash des Rückgängig-Tokens. Minimum: `1`, Maximum: `7`. |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | `5` | Nein | Anzahl Jahre ab `harvest_date`, nach denen die bei einer Mandantenlöschung aufbewahrten Erntedaten (Ernte, Qualitätsbewertung, Ertragskennzahl) endgültig gelöscht werden (NFR-011 R-16). Minimum: `5` (gesetzliche Mindestfrist nach CanG). |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | `3` | Nein | Dasselbe für Behandlungsanwendungen, gezählt ab `applied_at` (NFR-011 R-17). Minimum: `3` (PflSchG §11). |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | `3` | Nein | Dasselbe für Inspektionsprotokolle, gezählt ab `inspected_at` (NFR-011 R-18). Minimum: `3` (PflSchG §11). |
 
 Ein Wert oberhalb des Maximums bricht den Start von API und Worker ab (die Meldung nennt Variable und Grenzwert, nie den Wert). Das Maximum ist der NFR-011-Wert: Fristen dürfen zur Datenminimierung verkürzt, aber nicht verlängert werden. Wird ein älterer `PRIVACY_*`-Name gesetzt, schreibt der Start eine Warnung; sind beide Namen mit verschiedenen Werten gesetzt, eine Fehlermeldung (der `RETENTION_*`-Wert gilt).
 
@@ -114,7 +117,7 @@ jetzt tatsächlich und bleiben zusätzlich als Alias gültig.
 | `KAMERPLANTER_MODE` | `full` | Nein | Betriebsmodus: `full` (Auth + Mandanten) oder `light` (kein Auth, lokale Einzelnutzung) |
 | `DEBUG` | `false` | Nein | Debug-Logging aktivieren (verbose, nie in Produktion). Deaktiviert zusätzlich den Startup-Gate für Produktions-Secrets — **niemals** in Produktion setzen. |
 | `FRONTEND_URL` | `http://localhost:5173` | Nein | URL des Frontends (wird für E-Mail-Links verwendet) |
-| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. Bildet auch die Rückruf-URL der erneuten OIDC-Anmeldung zur Bestätigung (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — diese URL beim Identity-Provider hinterlegen. |
+| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. Bildet auch die Rückruf-URL der OAuth/OIDC-Anmeldung und der erneuten Anmeldung zur Bestätigung (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — diese URL beim Identity-Provider hinterlegen. |
 
 ### Light-Modus (`KAMERPLANTER_MODE=light`)
 

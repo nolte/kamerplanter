@@ -30,6 +30,8 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
         source: DataSourceDefinition,
         user_key: UserKey,
         tenant_keys: Sequence[str],
+        *,
+        tombstone: str | None = None,
     ) -> list[dict[str, Any]]:
         if source.disclosure_gap is not None:
             # Refused rather than answered: an empty list from a source that
@@ -78,23 +80,38 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
             # in their own tenant could name a foreign, enumerable user key and
             # plant rows into that subject's disclosure (#1662 SCR-001). No
             # membership means no tenant-scoped rows, not all of them.
-            if not tenant_keys:
+            #
+            # REQ-025 §3.1.2 rule 6 (#1793): a tenant deletion rewrote the
+            # subject's key on its retained rows to their tombstone hash, and the
+            # subject is no member of a tenant that no longer exists. Those rows
+            # are matched by the tombstone, and only while their tenant is gone —
+            # a salted hash nobody can type, on a row of a tenant nobody writes to.
+            if not tenant_keys and tombstone is None:
                 return []
             query = """
             FOR doc IN @@collection
-              FILTER doc[@field] == @user_key
-                AND doc.tenant_key IN @tenant_keys
+              FILTER (doc[@field] == @user_key AND doc.tenant_key IN @tenant_keys)
+                OR (
+                  @tombstone != null
+                  AND doc[@field] == @tombstone
+                  AND LENGTH(FOR tenant IN @@tenants FILTER tenant._key == doc.tenant_key LIMIT 1 RETURN 1) == 0
+                )
               RETURN KEEP(doc, @fields)
             """
             bind_vars["field"] = field
             bind_vars["tenant_keys"] = list(tenant_keys)
+            bind_vars["tombstone"] = tombstone
+            bind_vars["@tenants"] = col.TENANTS
         else:
+            # A row without a tenant key (``quality_assessments`` hangs off its
+            # batch) carries the tombstone only where an erasure wrote it.
             query = """
             FOR doc IN @@collection
-              FILTER doc[@field] == @user_key
+              FILTER doc[@field] == @user_key OR (@tombstone != null AND doc[@field] == @tombstone)
               RETURN KEEP(doc, @fields)
             """
             bind_vars["field"] = field
+            bind_vars["tombstone"] = tombstone
         return [dict(doc) for doc in self._db.aql.execute(query, bind_vars=bind_vars)]
 
     def _collect_via_edge(self, source: DataSourceDefinition, user_key: UserKey) -> list[dict[str, Any]]:
