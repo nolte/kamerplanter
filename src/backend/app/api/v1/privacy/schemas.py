@@ -235,6 +235,10 @@ class RetentionCategoryInfoResponse(BaseModel):
     category: str
     description: str
     retention_period: str
+    rule_id: str
+    latest_deletion_point: str
+    enforcement_status: Literal["enforced", "partial", "not_implemented"]
+    exception_note: str | None = None
 
 
 class DataControllerInfoResponse(BaseModel):

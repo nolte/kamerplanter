@@ -717,3 +717,26 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
 
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Attachment(**self._from_doc(doc)) for doc in cursor]
+
+    def count_undated_orphaned_task_photos(self) -> int:
+        """Unreferenced task photos :meth:`find_orphaned_task_photos` can never select (#1806 GDPR-003).
+
+        The sweep needs ``created_at`` to apply its age floor, so a task photo
+        without a readable one is held for ever, silently. Same reference test as
+        the sweep (nothing mentions the key), with the date test inverted.
+        """
+        query = f"""
+{self._aql_referenced_prelude()}
+        FOR att IN @@collection
+          FILTER att.category == @category
+            AND DATE_TIMESTAMP(att.created_at) == null
+            AND {self._aql_unreferenced("referenced", "att")}
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "category": AttachmentCategory.TASK.value,
+        }
+        bind_vars.update(self._reference_bind_vars())
+        return int(next(iter(self._db.aql.execute(query, bind_vars=bind_vars)), 0))

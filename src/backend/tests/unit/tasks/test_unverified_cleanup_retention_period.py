@@ -43,11 +43,11 @@ class TestTheCleanupCutoffFollowsTheSetting:
         assert abs(cutoff - expected) < _CLOCK_SLACK
 
     def test_a_configured_period_moves_the_cutoff(self, monkeypatch):
-        monkeypatch.setattr(settings, "retention_unverified_account_days", 10)
+        monkeypatch.setattr(settings, "retention_unverified_account_days", 3)
 
         cutoff = _cutoff_the_task_uses()
 
-        expected = datetime.now(UTC) - timedelta(days=10)
+        expected = datetime.now(UTC) - timedelta(days=3)
         assert abs(cutoff - expected) < _CLOCK_SLACK
 
 

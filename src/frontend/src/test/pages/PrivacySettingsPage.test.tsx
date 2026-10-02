@@ -137,7 +137,10 @@ describe('PrivacySettingsPage', () => {
     await user.click(await screen.findByTestId('privacy-export-request-btn'));
 
     const result = await screen.findByTestId('privacy-export-result');
-    expect(result.textContent).toContain('72');
+    // REQ-025 AK-02a: the period is a setting (R-05), so no text may hard-code it.
+    // The old text said "72 hours" and was wrong for any other configured value.
+    expect(result.textContent).toBeTruthy();
+    expect(result.textContent).not.toMatch(/\d/);
     expect(screen.queryByTestId('privacy-export-download-btn')).toBeNull();
     // The way forward stays available: the request button is still there.
     expect(screen.getByTestId('privacy-export-request-btn')).toBeTruthy();
