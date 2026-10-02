@@ -266,6 +266,26 @@ def test_creating_a_configuration_purges_links_orphaned_by_an_earlier_deletion()
     assert [r for r in world.providers.rows if r.oidc_config_slug == "gone"] == []
 
 
+def test_a_repoint_deletes_the_links_without_an_issuer_and_keeps_those_with_one(idp: FakeIdp) -> None:
+    """A link with no recorded issuer matches any issuer: the first sign-in from the new IdP would claim it."""
+    world = _oidc_world(("corp-a", "sub-bare", None), ("corp-a", "sub-bound", ISSUER_A))
+    configs = _ConfigStore(_stored())
+    service = _service(configs, world)
+
+    _update(service, "cfg-corp-a", {"issuer_url": ISSUER_B})
+
+    assert [r.provider_user_id for r in world.providers.list_by_user(world.key)] == ["sub-bound"]
+
+
+def test_a_change_that_keeps_the_issuer_deletes_no_link() -> None:
+    world = _oidc_world(("corp-a", "sub-bare", None))
+    service = _service(_ConfigStore(_stored()), world)
+
+    _update(service, "cfg-corp-a", {"display_name": "Renamed"})
+
+    assert [r.provider_user_id for r in world.providers.list_by_user(world.key)] == ["sub-bare"]
+
+
 # ══ #1969 ═══════════════════════════════════════════════════════════════════
 
 _DISCOVERY_A = {
@@ -354,6 +374,7 @@ def test_a_stored_document_that_names_no_issuer_is_not_used() -> None:
         pytest.param({k: v for k, v in _DISCOVERY_A.items() if k != "issuer"}, "issuer", id="no issuer"),
         pytest.param({k: v for k, v in _DISCOVERY_A.items() if k != "token_endpoint"}, "token_endpoint", id="no token"),
         pytest.param({k: v for k, v in _DISCOVERY_A.items() if k != "jwks_uri"}, "jwks_uri", id="no jwks"),
+        pytest.param({**_DISCOVERY_A, "token_endpoint": "http://idp-a.example/token"}, "not https", id="http token"),
         pytest.param(["not", "an", "object"], "JSON object", id="a list"),
     ],
 )

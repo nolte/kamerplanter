@@ -199,6 +199,12 @@ class OidcProviderAdminService:
             # the old document (#1969). The next refresh (or ``POST /{key}/test``)
             # fetches the new one.
             changes = {**changes, "discovery_document": None, "discovery_refreshed_at": None}
+            if "issuer_url" in changes and changes["issuer_url"] != config.issuer_url:
+                # A link that recorded no issuer matches any issuer, and the first
+                # sign-in from the new IdP would claim it (security review SEC-001,
+                # the #1935 class on the update path). Links with an issuer refuse
+                # the new IdP on their own and stay.
+                self._auth_provider_repo.delete_by_config_slug(config.slug, only_without_issuer=True)
             merged = merged.model_copy(update={"discovery_document": None, "discovery_refreshed_at": None})
         updated = (
             self._oidc_config_repo.update_fields(key, merged.model_dump(mode="json", include=set(changes)))

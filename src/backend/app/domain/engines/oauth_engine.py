@@ -98,6 +98,7 @@ _FRESH_REAUTH_PROVIDER_TYPES: frozenset[str] = frozenset({OidcProviderType.GOOGL
 #: names one. Google documents both spellings.
 _KNOWN_ISSUERS: dict[str, frozenset[str]] = {
     OidcProviderType.GOOGLE.value: frozenset({"https://accounts.google.com", "accounts.google.com"}),
+    OidcProviderType.APPLE.value: frozenset({"https://appleid.apple.com"}),
 }
 
 #: How old the provider sign-in may be when its ID token arrives (#1815). The
@@ -723,6 +724,15 @@ class OAuthEngine:
         ]
         if missing:
             raise ValueError(f"The discovery document lacks {', '.join(missing)}.")
+        # The endpoints carry the code, the client secret and the identity; over plain
+        # HTTP a network attacker answers them (security review SEC-002).
+        insecure = [
+            field
+            for field in (*_DISCOVERY_REQUIRED_ENDPOINTS, "userinfo_endpoint")
+            if isinstance(document.get(field), str) and not document[field].lower().startswith("https://")
+        ]
+        if insecure:
+            raise ValueError(f"The discovery document's {', '.join(insecure)} is not https.")
         return document
 
     # ── The login's identity checks (#1936) ──────────────────────────
