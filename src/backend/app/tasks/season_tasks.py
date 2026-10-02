@@ -14,6 +14,7 @@ import structlog
 from app.common.enums import OVERWINTERING_SITE_TYPES
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
+from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -90,7 +91,7 @@ def evaluate_quarter_climate(self) -> dict:  # noqa: ANN001 — Celery bound-tas
     plant_repo = get_plant_repo()
     service = get_quarter_climate_service()
 
-    plants, _total = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)
+    plants = get_all_pages(plant_repo, all_tenants=True)  # system task: all tenants
     evaluated = 0
     warnings = 0
     errors = 0

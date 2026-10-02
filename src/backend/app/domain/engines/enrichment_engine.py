@@ -6,6 +6,7 @@ import structlog
 
 from app.common.enums import DataOrigin, SyncStatus, SyncTrigger
 from app.common.log_privacy import loggable_error
+from app.data_access.arango.base_repository import get_all_pages
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.interfaces.enrichment_repository import IExternalMappingRepository, ISyncRunRepository
 from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
@@ -104,7 +105,7 @@ class EnrichmentEngine:
 
     def _full_sync(self, adapter: ExternalSourceAdapter) -> SyncResult:
         result = SyncResult()
-        species_list, _ = self._species_repo.get_all(offset=0, limit=10000)
+        species_list = get_all_pages(self._species_repo)  # every species, not the first 10000 (#2012)
 
         for species in species_list:
             assert species.key is not None
