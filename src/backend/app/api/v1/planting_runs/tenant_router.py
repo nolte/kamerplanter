@@ -221,7 +221,7 @@ def adopt_plants(
 ):
     """Attach existing plant instances to a planting run."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.adopt_plants(key, body.plant_keys)
+    result = service.adopt_plants(key, body.plant_keys, tenant_key=ctx.tenant_key)
     return AdoptPlantsResponse(**result)
 
 

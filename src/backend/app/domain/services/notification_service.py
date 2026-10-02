@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 import structlog
 
 from app.common.log_privacy import log_subject, loggable_endpoint_host, loggable_error
-from app.common.url_safety import validate_push_endpoint
+from app.common.url_safety import validate_apprise_urls, validate_push_endpoint
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
@@ -396,7 +396,27 @@ class NotificationService:
         user_key: str,
         preferences: NotificationPreferences,
     ) -> NotificationPreferences:
-        """Create or update user notification preferences."""
+        """Create or update user notification preferences.
+
+        An Apprise channel's ``urls`` must stay inside the scheme allow-list
+        (#1947) — refused with a value-free 422 before anything is stored.
+        """
+        apprise = preferences.channels.get("apprise")
+        if apprise is not None and "urls" in apprise.config:
+            validate_apprise_urls(apprise.config["urls"])
+        return self._store_preferences(user_key, preferences)
+
+    def _store_preferences(
+        self,
+        user_key: str,
+        preferences: NotificationPreferences,
+    ) -> NotificationPreferences:
+        """Persist preferences without re-validating the Apprise URLs.
+
+        The Web Push subscribe/unsubscribe paths rewrite the whole document; a
+        legacy Apprise URL stored before the allow-list must not make a device
+        registration fail. Such a URL is never *sent* (the channel re-checks).
+        """
         preferences.user_key = user_key
         preferences.updated_at = datetime.now(UTC)
         return self._preference_repo.upsert(preferences)
@@ -467,7 +487,7 @@ class NotificationService:
         channel_pref.config["subscriptions"] = subscriptions
         channel_pref.enabled = True
 
-        self.update_preferences(user_key, prefs)
+        self._store_preferences(user_key, prefs)
         logger.info(
             "pwa_subscription_added", subject=log_subject(user_key), endpoint_host=loggable_endpoint_host(endpoint)
         )
@@ -494,7 +514,7 @@ class NotificationService:
             return False
 
         channel_pref.config["subscriptions"] = remaining
-        self.update_preferences(user_key, prefs)
+        self._store_preferences(user_key, prefs)
         logger.info(
             "pwa_subscription_removed", subject=log_subject(user_key), endpoint_host=loggable_endpoint_host(endpoint)
         )
