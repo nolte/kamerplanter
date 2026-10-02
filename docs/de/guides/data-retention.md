@@ -883,11 +883,14 @@ zurückgesetzt. Zeilen, die die
 Seed-Datei nicht benennt, bleiben unberührt.
 
 !!! info "Was die Messung ergab"
-    Die Seed-Loader setzen Düngemittel, Pläne, Workflows und Aufgabenvorlagen bei jedem Start
-    selbst wieder auf global. Übrig blieben die **Phaseneinträge** der Seed-Pläne — sie behielten
-    den Stempel, und die Mandantenlöschung hätte jedem Seed-Plan seine Phasen genommen. Die
-    Migration schließt genau diese Lücke und deckt die übrigen Collections ab, falls ein
-    Seed-Lauf fehlgeschlagen ist.
+    Vor #1957 setzten die Seed-Loader Düngemittel, Pläne, Workflows und Aufgabenvorlagen bei
+    jedem Start selbst wieder auf global. Übrig blieben die **Phaseneinträge** der Seed-Pläne —
+    sie behielten den Stempel, und die Mandantenlöschung hätte jedem Seed-Plan seine Phasen
+    genommen. Die Migration schließt genau diese Lücke und deckt die übrigen Collections ab,
+    falls ein Seed-Lauf fehlgeschlagen ist. Die Nährstoffplan-Loader setzen einen Plan nicht
+    mehr allein über den Namen zurück: Sie ordnen nur globale Pläne zu. Ein gestempelter Plan,
+    den diese Migration nicht beweist, bleibt deshalb beim Mandanten, und der Loader legt den
+    globalen Seed-Plan daneben an.
 
 !!! warning "Vorab prüfen: nur auf einem Backup"
     Zähle die betroffenen Zeilen **nie gegen die Produktionsdatenbank**, sondern auf einem

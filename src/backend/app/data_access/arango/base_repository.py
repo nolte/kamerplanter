@@ -997,6 +997,30 @@ class BaseArangoRepository[TModel: BaseModel]:
             raise
         return result["new"]
 
+    def create_edge_if_absent(
+        self,
+        edge_collection: str,
+        from_id: str,
+        to_id: str,
+        data: dict[str, Any] | None = None,
+    ) -> bool:
+        """Create the edge unless ``from_id -> to_id`` already exists; ``True`` when created.
+
+        For relations whose identity is the vertex pair alone, written by code that
+        runs more than once (a seed on every boot). :meth:`create_edge` never
+        rejects a second edge between the same vertices — the edge collections carry
+        no unique index — so a caller that wrapped it in ``try/except`` to mean "this
+        exists already" was writing the whole set again on every run (#1956).
+        """
+        cursor = self._db.aql.execute(
+            "FOR e IN @@edge_col FILTER e._from == @from_id AND e._to == @to_id LIMIT 1 RETURN 1",
+            bind_vars={"@edge_col": edge_collection, "from_id": from_id, "to_id": to_id},
+        )
+        if next(iter(cursor), None) is not None:
+            return False
+        self.create_edge(edge_collection, from_id, to_id, data)
+        return True
+
     def get_edges(self, edge_collection: str, vertex_id: str, direction: str = "outbound") -> list[dict[str, Any]]:
         query = f"""
         FOR v, e IN 1..1 {direction.upper()} @start
