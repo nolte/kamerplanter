@@ -572,14 +572,31 @@ class OnboardingWizardPage(BasePage):
         locator = (By.CSS_SELECTOR, f"[data-testid='kit-{kit_id}']")
         return len(self.driver.find_elements(*locator)) > 0
 
-    def click_kit(self, kit_id: str) -> None:
-        """Click a starter kit card by its kit_id."""
-        import time
+    def click_kit(self, kit_id: str, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Click a starter kit card and return only once its selection has flipped (#1902).
 
+        The card toggles: a click on the selected kit deselects it. ``StarterKitStep``
+        renders ``data-selected`` as ``'true'``/``'false'`` on the same node in the
+        commit that restyles the border, so the effect is read from there. This
+        used to sleep 0.5 s and return; a click that did not land is now refused
+        here, naming the card and its state.
+        """
         locator = (By.CSS_SELECTOR, f"[data-testid='kit-{kit_id}']")
         card = self.wait_for_element_clickable(locator)
+        before = card.get_attribute("data-selected")
         self.scroll_and_click(card)
-        time.sleep(0.5)  # Allow React state to update border styling
+
+        def _flipped(_driver: WebDriver) -> bool:
+            current = self.driver.find_elements(*locator)
+            return bool(current) and current[0].get_attribute("data-selected") != before
+
+        try:
+            self.poll(timeout).until(_flipped)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"Starter kit {kit_id!r} did not change its selection within {timeout}s "
+                f"(data-selected stayed {before!r})"
+            ) from exc
 
     def is_kit_selected(self, kit_id: str, timeout: int = 3) -> bool:
         """Return True if the given kit card is in selected state.
@@ -1008,15 +1025,27 @@ class OnboardingWizardPage(BasePage):
         self._deselect_all_kits()
 
     def _deselect_all_kits(self) -> None:
-        """Deselect any currently selected kit cards (clean state for tests)."""
-        import time
+        """Deselect any currently selected kit cards (clean state for tests).
 
+        ``data-selected`` is a real DOM signal (``StarterKitStep``): each click
+        waits for *that* card to report ``'false'`` instead of sleeping (#1902).
+        """
         selected = self.driver.find_elements(By.CSS_SELECTOR, "[data-selected='true']")
         for kit in selected:
+            testid = kit.get_attribute("data-testid")
             self.scroll_and_click(kit)
-            # bounded: deselection flips data-selected on the next React render
-            # with no distinct DOM signal to wait on
-            time.sleep(0.3)
+            locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
+
+            def _deselected(_driver: WebDriver, locator: tuple[str, str] = locator) -> bool:
+                current = self.driver.find_elements(*locator)
+                return bool(current) and current[0].get_attribute("data-selected") == "false"
+
+            try:
+                self.poll(DEFAULT_TIMEOUT).until(_deselected)
+            except TimeoutException as exc:
+                raise AssertionError(
+                    f"Kit {testid!r} stayed selected within {DEFAULT_TIMEOUT}s of its deselecting click"
+                ) from exc
 
     def advance_to_step_favorites(self) -> None:
         """Navigate from Step 2 to Step 3 (Favorites) and wait for its grid."""
