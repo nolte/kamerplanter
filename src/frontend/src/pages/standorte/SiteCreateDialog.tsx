@@ -22,6 +22,7 @@ import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/com
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useAppDispatch } from '@/store/hooks';
 import { resetShowAllFields } from '@/store/slices/uiSlice';
+import { useResetShowAllFieldsOnClose } from '@/hooks/useResetShowAllFieldsOnClose';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { siteFieldConfig } from '@/config/fieldConfigs';
@@ -56,6 +57,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false);
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
+  useResetShowAllFieldsOnClose(open);
   const handleClose = useCallback(() => {
     dispatch(resetShowAllFields());
     onClose();

@@ -25,6 +25,7 @@ import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useAppDispatch } from '@/store/hooks';
 import { resetShowAllFields } from '@/store/slices/uiSlice';
+import { useResetShowAllFieldsOnClose } from '@/hooks/useResetShowAllFieldsOnClose';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useNavigate } from 'react-router-dom';
@@ -121,6 +122,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   );
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
+  useResetShowAllFieldsOnClose(open);
   const handleClose = useCallback(() => {
     dispatch(resetShowAllFields());
     onClose();
