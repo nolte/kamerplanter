@@ -65,18 +65,24 @@ def _executor(database, **kwargs: Any) -> ArangoTenantErasureExecutor:
 
 
 class _CountingExecutor(ArangoTenantErasureExecutor):
-    """Records the size of every batch transaction, and can fail the n-th one."""
+    """Records the size of every batch transaction and of every selected page, and can fail the n-th batch."""
 
     def __init__(self, db, *, fail_on: int | None = None) -> None:
         super().__init__(db, batch_size=BATCH)
         self.batch_sizes: list[int] = []
+        self.page_sizes: list[int] = []
         self._fail_on = fail_on
 
-    def _delete_batch(self, collection, batch, edge_collections):  # type: ignore[no-untyped-def]
+    def _page_to_remove(self, entry, plan, known):  # type: ignore[no-untyped-def]
+        page = super()._page_to_remove(entry, plan, known)
+        self.page_sizes.append(len(page))
+        return page
+
+    def _delete_batch(self, entry, plan, known, keys, edge_collections):  # type: ignore[no-untyped-def]
         if self._fail_on is not None and len(self.batch_sizes) + 1 == self._fail_on:
             raise RuntimeError("the server refused this batch")
-        self.batch_sizes.append(len(batch))
-        return super()._delete_batch(collection, batch, edge_collections)
+        self.batch_sizes.append(len(keys))
+        return super()._delete_batch(entry, plan, known, keys, edge_collections)
 
 
 def test_a_large_tenant_is_erased_in_bounded_transactions(database):
@@ -91,6 +97,8 @@ def test_a_large_tenant_is_erased_in_bounded_transactions(database):
     assert report.unreached == []
     assert report.tenant_document_removed is True
     assert max(executor.batch_sizes) <= BATCH
+    # A collection that is not a parent is selected a page at a time: memory is bounded by the page.
+    assert executor.page_sizes and max(executor.page_sizes) <= BATCH
     # 25 sites and 50 locations at 4 rows per transaction: far more than the one transaction of before.
     assert len(executor.batch_sizes) >= (ROWS + 2 * ROWS) // BATCH
     assert database.collection("sites").count() == 2  # only the other tenant's
@@ -148,3 +156,43 @@ def test_the_progress_callback_runs_between_batches_and_may_stop_the_run(databas
     assert len(beats) == 5
     assert database.collection("sites").count() >= ROWS - BATCH * 4
     assert database.collection("tenants").has(TENANT)
+
+
+def test_a_row_granted_to_another_tenant_after_the_selection_is_not_removed(database):
+    """#1792 review SEC-003 — the tenant predicate is applied again inside the batch transaction.
+
+    The rows are selected outside it; between the selection and the removal another tenant is
+    granted one of them (``tenant_has_access``). Removal by key alone would delete the species and
+    sweep the grant; the re-check keeps both.
+    """
+    database.collection("tenants").insert({"_key": TENANT, "slug": TENANT, "name": TENANT})
+    database.collection("tenants").insert({"_key": OTHER, "slug": OTHER, "name": OTHER})
+    for index in range(3):
+        database.collection("species").insert(
+            {
+                "_key": f"sp{index}",
+                "tenant_key": TENANT,
+                "scientific_name": f"Specius {index}",
+                "scientific_name_normalized": f"specius {index}",
+            }
+        )
+
+    class _Granting(_CountingExecutor):
+        granted = False
+
+        def _delete_batch(self, entry, plan, known, keys, edge_collections):  # type: ignore[no-untyped-def]
+            if entry.collection == "species" and not self.granted:
+                type(self).granted = True
+                database.collection("tenant_has_access").insert(
+                    {"_from": f"tenants/{OTHER}", "_to": f"species/{keys[0]}"}
+                )
+            return super()._delete_batch(entry, plan, known, keys, edge_collections)
+
+    report = _Granting(database).run_tenant_erasure(
+        TenantErasureEngine().build_plan(TENANT), pseudonymize=lambda key: "x"
+    )
+
+    kept = [doc["_key"] for doc in database.collection("species").all()]
+    assert len(kept) == 1  # exactly the granted row survived; the other two went
+    assert database.collection("tenant_has_access").count() == 1  # and its grant was not swept
+    assert report.unreached == []  # a granted row is not residue

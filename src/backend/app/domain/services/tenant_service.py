@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -467,7 +468,11 @@ class TenantService:
         try:
             from app.tasks.tenant_tasks import run_tenant_erasure
 
-            run_tenant_erasure.delay(record_key)
+            # A short, bounded publish retry: an unreachable broker must not hold the request thread
+            # (kombu's default retries for a long time); the beat is the safety net.
+            run_tenant_erasure.apply_async(
+                (record_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+            )
             logger.info("tenant_erasure.dispatched", record_key=record_key)
         except Exception as exc:  # noqa: BLE001 — broker outage is survivable, the beat retries
             logger.error("tenant_erasure.dispatch_failed", record_key=record_key, error_type=type(exc).__name__)
@@ -998,8 +1003,15 @@ class TenantService:
             if changed and parent_keys is not None:
                 persisted_parent_keys = {name: list(keys) for name, keys in parent_keys.items()}
 
+        def conclude(fields: dict[str, object]) -> TenantErasureRecord:
+            """Write the run's outcome, only while its own claim stands (#1792 review SEC-001)."""
+            written = repo.update_fields_while_claimed(record_key, claimed_at_iso=claimed_at_iso, fields=fields)
+            if written is None:
+                raise TenantErasureClaimLostError
+            return written
+
         try:
-            external = self._purge_tenant_storage(record.tenant_key)
+            external = self._purge_tenant_storage(record.tenant_key, on_step=heartbeat)
             heartbeat()
             report = executor.run_tenant_erasure(
                 self._tenant_erasure_engine.build_plan(record.tenant_key, known_parent_keys=record.parent_keys),
@@ -1025,19 +1037,25 @@ class TenantService:
                 error_type=type(exc).__name__,
                 next_attempt_at=next_attempt_at.isoformat(),
             )
-            repo.update_fields(
-                record_key,
-                {
-                    "status": "partially_completed",
-                    "attempt_count": attempt,
-                    "next_attempt_at": next_attempt_at.isoformat(),
-                    "error_message": (
-                        f"Attempt {attempt} failed ({type(exc).__name__}); "
-                        f"the next one is due after {next_attempt_at.date()}."
-                    ),
-                    **self._escalation_fields(record, attempt, now),
-                },
-            )
+            try:
+                conclude(
+                    {
+                        "status": "partially_completed",
+                        "attempt_count": attempt,
+                        "next_attempt_at": next_attempt_at.isoformat(),
+                        "error_message": (
+                            f"Attempt {attempt} failed ({type(exc).__name__}); "
+                            f"the next one is due after {next_attempt_at.date()}."
+                        ),
+                        **self._escalation_fields(record, attempt, now),
+                    }
+                )
+            except TenantErasureClaimLostError:
+                # The record is another run's now: its state is not ours to overwrite.
+                logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+                if raise_on_failure:
+                    raise
+                return record
             if raise_on_failure:
                 raise
             return record.model_copy(update={"status": "partially_completed", "attempt_count": attempt})
@@ -1069,10 +1087,16 @@ class TenantService:
                 attempt=attempt,
                 unreached=report.unreached,
             )
-            updated = repo.update_fields(record_key, fields)
+            try:
+                updated = conclude(fields)
+            except TenantErasureClaimLostError:
+                logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+                if raise_on_failure:
+                    raise
+                return record
             if raise_on_failure:
                 raise TenantErasureIncompleteError(list(report.unreached))
-            return updated or record
+            return updated
         fields.update(
             {
                 "status": "completed",
@@ -1081,9 +1105,15 @@ class TenantService:
                 "error_message": None,
             }
         )
-        updated = repo.update_fields(record_key, fields)
+        try:
+            updated = conclude(fields)
+        except TenantErasureClaimLostError:
+            logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+            if raise_on_failure:
+                raise
+            return record
         logger.info("tenant_deleted", tenant_key=record.tenant_key, record_key=record_key)
-        return updated or record
+        return updated
 
     @staticmethod
     def _escalation_fields(record: TenantErasureRecord, attempt: int, now: datetime) -> dict[str, object]:
@@ -1119,7 +1149,7 @@ class TenantService:
         logger.info("tenant_sensor_readings_deleted", tenant_key=tenant_key, removed=removed)
         return {"timeseries_rows_removed": removed}
 
-    def _purge_tenant_storage(self, tenant_key: str) -> dict[str, object]:
+    def _purge_tenant_storage(self, tenant_key: str, on_step: Callable[[], None] | None = None) -> dict[str, object]:
         """NFR-013 §6.1 — the phase outside ArangoDB.
 
         Steps (with audit logs):
@@ -1162,6 +1192,8 @@ class TenantService:
                 binding=self._reference_index_store.binding,
                 removed=removed_vectors,
             )
+            if on_step is not None:
+                on_step()  # a slow external service must not let the claim go stale (#1792)
 
         # #1759 — the tenant's contributed pest-recognition prototypes, by tenant
         # rather than by contribution key, so a prototype whose contribution
@@ -1177,6 +1209,8 @@ class TenantService:
                 binding=self._pest_prototype_store.binding,
                 removed=removed_prototypes,
             )
+            if on_step is not None:
+                on_step()
 
         # The ``attachments`` metadata and the ``pest_image_contributions`` link
         # documents are ArangoDB rows of the tenant: the inventory removes them in

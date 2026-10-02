@@ -140,6 +140,18 @@ class FakeTenantErasureRepository(ITenantErasureRepository):
             doc["parent_keys"] = parent_keys
         return True
 
+    def update_fields_while_claimed(
+        self, key: str, *, claimed_at_iso: str, fields: dict[str, Any]
+    ) -> TenantErasureRecord | None:
+        """The real conditional merge: only the run whose claim stamp is still on the record."""
+        doc = self.records.get(key)
+        if doc is None or doc["status"] != "in_progress" or doc.get("last_attempt_at") != claimed_at_iso:
+            return None
+        merged = {**doc, **fields}
+        TenantErasureRecord.model_validate({**merged, "_key": key})  # the real store holds only valid records
+        self.records[key] = merged
+        return self._model(key)
+
     def delete_unclaimed(self, key: str) -> bool:
         """The real conditional remove: only a record no run ever claimed."""
         doc = self.records.get(key)

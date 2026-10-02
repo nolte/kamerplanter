@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentInsertError
 
@@ -112,6 +114,43 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
                 return False
             raise
         return bool(refreshed)
+
+    def update_fields_while_claimed(
+        self, key: str, *, claimed_at_iso: str, fields: dict[str, Any]
+    ) -> TenantErasureRecord | None:
+        """Merge *fields* (and ``updated_at``) in one conditional AQL ``UPDATE``; ``None`` when the claim is gone.
+
+        The condition is :meth:`heartbeat`'s — ``in_progress`` and ``last_attempt_at`` still the
+        run's own claim stamp — so a run that lost its claim cannot overwrite the record the
+        run holding it now owns. ``fields`` is built by ``TenantService`` from a literal
+        allow-list, never from a request. A write-write conflict (``1200``) reads as *claim gone*.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+            AND doc.status == 'in_progress'
+            AND doc.last_attempt_at == @claimed_at
+          UPDATE doc WITH @changes IN @@collection OPTIONS { mergeObjects: false }
+          RETURN NEW
+        """
+        changes = {**fields, "updated_at": self._now()}
+        try:
+            docs = list(
+                self._db.aql.execute(
+                    query,
+                    bind_vars={
+                        "@collection": col.TENANT_ERASURE_RECORDS,
+                        "key": key,
+                        "claimed_at": claimed_at_iso,
+                        "changes": changes,
+                    },
+                )
+            )
+        except AQLQueryExecuteError as exc:
+            if exc.error_code == 1200:
+                return None
+            raise
+        return TenantErasureRecord(**self._from_doc(docs[0])) if docs else None
 
     def delete_unclaimed(self, key: str) -> bool:
         """Remove the record only while no run has claimed it: one AQL ``REMOVE`` on one document.

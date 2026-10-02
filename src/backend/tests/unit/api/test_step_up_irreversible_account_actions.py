@@ -851,7 +851,7 @@ def test_a_federated_tenant_deletion_needs_the_code() -> None:
     code = world.issue_code("tenant_deletion")
     resp = world.call("DELETE", f"/api/v1/tenants/{SLUG}", {"confirm_slug": SLUG, "step_up_code": code})
 
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 202, resp.text  # accepted (#1792): erased afterwards by the worker
     (record,) = world.tenant_records.records.values()
     assert record["step_up"] == "email_code"
 
@@ -869,7 +869,7 @@ def test_a_federated_admin_tenant_deletion_needs_the_code() -> None:
     code = world.issue_code("tenant_deletion")
     resp = world.call("DELETE", route, {"confirm_slug": SLUG, "step_up_code": code})
 
-    assert resp.status_code == 204, resp.text
+    assert resp.status_code == 202, resp.text  # accepted (#1792): erased afterwards by the worker
 
 
 def test_a_federated_account_sets_its_first_password_only_with_the_code() -> None:

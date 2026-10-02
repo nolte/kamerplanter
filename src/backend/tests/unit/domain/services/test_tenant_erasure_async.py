@@ -81,7 +81,8 @@ class TestTheRequestAcceptsTheWorkerErases:
         with patch("app.tasks.tenant_tasks.run_tenant_erasure") as task:
             service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
-        task.delay.assert_called_once_with(RECORD)
+        task.apply_async.assert_called_once()
+        assert task.apply_async.call_args.args == ((RECORD,),)
 
     def test_a_broker_outage_keeps_the_freeze_and_the_record_for_the_beat(self) -> None:
         repo = FakeTenantErasureRepository()
@@ -89,7 +90,7 @@ class TestTheRequestAcceptsTheWorkerErases:
         del service._dispatch_tenant_erasure
 
         with patch("app.tasks.tenant_tasks.run_tenant_erasure") as task:
-            task.delay.side_effect = ConnectionError("broker down")
+            task.apply_async.side_effect = ConnectionError("broker down")
             accepted = service.delete_tenant(KEY, **authorized(KEY), now=NOW)
 
         assert accepted.status == "in_progress"
@@ -240,6 +241,39 @@ class TestTheClaimIsRefreshedBetweenBatches:
 
         with pytest.raises(TenantErasureClaimLostError):
             service._run_tenant_erasure(claimed, NOW, raise_on_failure=True)
+
+
+class TestARunThatLostItsClaimWritesNothing:
+    """#1792 review SEC-001 — the outcome write is conditional on the claim, like the heartbeat."""
+
+    def _stolen(self, repo: FakeTenantErasureRepository) -> Any:
+        def steal() -> None:  # a second worker re-claims the record while this run works
+            repo.records[RECORD]["last_attempt_at"] = (NOW + timedelta(hours=7)).isoformat()
+
+        return steal
+
+    @pytest.mark.parametrize(
+        "executor_kwargs",
+        [
+            pytest.param({"raises": RuntimeError("storage failed")}, id="failure"),
+            pytest.param({"unreached": ["sites"]}, id="residue"),
+            pytest.param({}, id="completed"),
+        ],
+    )
+    def test_no_outcome_is_written_over_the_record_another_run_holds(self, executor_kwargs: dict[str, Any]) -> None:
+        repo = FakeTenantErasureRepository()
+        service = tenant_service_for_deletion(record_repo=repo)
+        service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+        service._tenant_erasure_executor = RecordingTenantErasureExecutor(on_run=self._stolen(repo), **executor_kwargs)
+
+        outcome = service.run_tenant_erasure_task(RECORD, NOW)
+
+        record = repo.records[RECORD]
+        assert outcome["outcome"] == "in_progress"
+        assert record["status"] == "in_progress"  # still the other run's
+        assert record["attempt_count"] == 0
+        assert record.get("completed_at") is None
+        assert record.get("unreached") in (None, [])
 
 
 class TestARunThatKeepsFailingEscalates:

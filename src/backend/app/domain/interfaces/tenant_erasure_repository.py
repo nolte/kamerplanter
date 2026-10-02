@@ -36,6 +36,18 @@ class ITenantErasureRepository(ABC):
         """
 
     @abstractmethod
+    def update_fields_while_claimed(
+        self, key: str, *, claimed_at_iso: str, fields: dict[str, Any]
+    ) -> TenantErasureRecord | None:
+        """Merge *fields* into the record only while the run's claim still stands; ``None`` when it does not.
+
+        The write a run makes to conclude itself (completed, failed, residue). Same
+        condition as :meth:`heartbeat` (``in_progress`` under *claimed_at_iso*): a run
+        whose claim a second worker took over must not write its outcome over the
+        record that worker now holds (#1792 review SEC-001).
+        """
+
+    @abstractmethod
     def delete_unclaimed(self, key: str) -> bool:
         """Remove the account-erasure record *key* if no run ever claimed it; ``True`` when it was removed.
 
