@@ -177,6 +177,11 @@ SELECT add_retention_policy('sensor_hourly',   INTERVAL '2 years');
 SELECT add_retention_policy('sensor_daily',    INTERVAL '5 years');
 ```
 
+!!! info "Deleting a sensor or a tenant"
+    When a sensor or a whole tenant is deleted, Kamerplanter removes the hourly and daily
+    averages (`sensor_hourly`, `sensor_daily`) together with the raw data — of any age, in
+    the same deletion. The averages of other tenants and sensors are left untouched.
+
 ---
 
 ## Statutory Minimum Retention Periods
