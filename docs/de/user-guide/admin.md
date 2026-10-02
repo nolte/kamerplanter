@@ -85,7 +85,12 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 ## OIDC-Provider
 
-Unter **Admin > OIDC-Provider** konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
+Hier konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
+
+!!! info "Nur über API: OIDC-Provider"
+    Es gibt dafür keine Seite in der Oberfläche. Als Plattform-Admin legst du Provider über die REST-Schnittstelle unter `/api/v1/admin/oidc-providers` an, änderst, testest und löschst sie. Anlegen, Umstellen auf einen anderen Aussteller und Löschen verlangen eine erneute Bestätigung deiner Admin-Anmeldung. <!-- #1906 -->
+
+    Eine Admin-Seite für Provider gibt es noch nicht; dieser Abschnitt beschreibt deshalb den API-Weg.
 
 !!! info "Rückruf-URL beim Provider hinterlegen"
     Trage beim Provider als Rückruf-URL (Redirect URI) genau `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` ein — mit der öffentlichen Adresse aus `APP_BASE_URL` und dem Kurznamen (Slug) des Providers, z.B. `https://garten.example/api/v1/auth/oauth/google/callback`. Anmeldung und erneute Anmeldung zur Bestätigung nutzen dieselbe URL. Steht `APP_BASE_URL` noch auf der Voreinstellung `http://localhost:5173`, lehnt der Provider die Anmeldung ab. <!-- #1865 -->

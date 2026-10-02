@@ -85,7 +85,12 @@ The **Admin > Statistics** section provides an overview of:
 
 ## OIDC Providers
 
-Under **Admin > OIDC Providers** you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
+Here you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
+
+!!! info "API only: OIDC providers"
+    There is no page for this in the user interface. As a platform admin you create, change, test and delete providers through the REST API under `/api/v1/admin/oidc-providers`. Creating, repointing to a different issuer and deleting require you to confirm your admin sign-in again. <!-- #1906 -->
+
+    An admin page for providers is not built yet; this section therefore describes the API route.
 
 !!! info "Register the callback URL with the provider"
     Register exactly `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` as the provider's callback URL (redirect URI) — with the public address from `APP_BASE_URL` and the provider's short name (slug), e.g. `https://garden.example/api/v1/auth/oauth/google/callback`. Sign-in and the fresh sign-in that confirms an action use the same URL. While `APP_BASE_URL` is still the default `http://localhost:5173`, the provider refuses the sign-in. <!-- #1865 -->
