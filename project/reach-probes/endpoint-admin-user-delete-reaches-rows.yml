@@ -92,7 +92,7 @@ expected:
   - redacted/tenants
   - redacted/treatment_applications
   - redacted/weather_source_configs
-derived_from: blob:3a14beef84feccb123a769c78790fe941db2cdc3
+derived_from: blob:bacf50ff7a11f3248f8461f7f52b23f60afb167e
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -107,7 +107,7 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-10-02T08:52:00Z'
+  approved_at: '2026-10-02T11:13:27Z'
   approved_by: nolte
   observation_digest: 2e7df4233825e713e429ffad28c5b00a97c7b77db1556925790868093ea0b7bf
-  mode: derived
+  mode: reconfirmed
