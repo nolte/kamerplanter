@@ -264,11 +264,16 @@ class TestTheMemberNoticeSelection:
         repo.create(ErasureRequest(user_key="notice-admin", status="scheduled", origin="platform_admin"))
         repo.create(ErasureRequest(user_key="notice-unverified", status="scheduled", origin="unverified_cleanup"))
         repo.create(ErasureRequest(user_key="notice-done", status="completed"))
-        repo.create(ErasureRequest(user_key="notice-running", status="in_progress"))
 
         assert self._keys(repo).isdisjoint(
-            {"notice-told", "notice-immediate", "notice-admin", "notice-unverified", "notice-done", "notice-running"}
+            {"notice-told", "notice-immediate", "notice-admin", "notice-unverified", "notice-done"}
         )
+
+    def test_a_crashed_workers_in_progress_request_is_selected_too(self, database):
+        repo = ArangoErasureRepository(database)
+        repo.create(ErasureRequest(user_key="notice-crashed-run", status="in_progress"))
+
+        assert "notice-crashed-run" in self._keys(repo)
 
     def test_a_failed_notice_stays_selected_and_the_counter_round_trips(self, database):
         repo = ArangoErasureRepository(database)
