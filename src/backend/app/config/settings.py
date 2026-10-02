@@ -885,6 +885,29 @@ class Settings(BaseSettings):
     # plausible form-filling session, never a tuning knob — 48 was the figure this
     # change was built and tested around.
     storage_task_photo_orphan_hours: int = 0
+    # #1834 — periodic reconciliation of the object store against the attachment
+    # catalogue: objects under ``t/{tenant}/`` that no record holds any more.
+    #
+    # **Report-only unless ``STORAGE_RECONCILE_DELETE_ENABLED`` is true, and false is
+    # the shipped default** (operator decision, Datenschutzplan): the first release
+    # counts what it would delete and deletes nothing, so the operator reads a run's
+    # report before arming a job that removes bytes. Flip it only after a report
+    # shows ``eligible`` objects that match expectations.
+    storage_reconcile_delete_enabled: bool = False
+    # An upload writes the object *before* its record (``AttachmentService.upload``
+    # step 8 then 9), so a young unheld object is legitimate in flight. The longest
+    # plausible window is one request (<= ``STORAGE_MAX_FILE_SIZE_MB`` through virus
+    # scan and EXIF strip) plus the thumbnail task's three retries at 60 s: minutes.
+    # ``ge=1`` enforces an hour as the floor — never a tuning knob. 24 h ships.
+    storage_reconcile_min_age_hours: int = Field(default=24, ge=1)
+    # Objects examined per run; the listing resumes where the last run stopped, so a
+    # bucket larger than this is covered over several nights.
+    storage_reconcile_max_objects_per_run: int = Field(default=200_000, ge=1000)
+    # The brake: a page (>= 20 objects) in which more than this share of the objects is
+    # unheld is never deleted from. A wrong database over a bucket, a restore older than
+    # the store, or two installations on one bucket make *every* object look unheld
+    # without any query failing; this is what stops the first armed run there.
+    storage_reconcile_max_orphan_fraction: float = Field(default=0.5, gt=0, le=1)
     # REQ-034 §3 (SR-004) — max gallery photos per plant instance (0 = unlimited).
     storage_max_photos_per_instance: int = 50
     # REQ-034 §4.3 (SR-005a) — per-tenant cap on open ``pending_review``
