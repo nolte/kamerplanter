@@ -10,6 +10,12 @@ interface ErasurePreviewNoticeProps {
   testIdPrefix: string;
   /** `alert` frames it in a warning `Alert` (the tab panel); `inline` leaves it bare (inside a dialog text). */
   variant?: 'inline' | 'alert';
+  /**
+   * Whose erasure it is. `self` (default) speaks to the person deleting their own account and
+   * promises their members a grace period; `admin` (#1961) is a platform admin deleting another
+   * account, which gives the other members none — the text says so.
+   */
+  audience?: 'self' | 'admin';
 }
 
 /**
@@ -25,8 +31,10 @@ export default function ErasurePreviewNotice({
   preview,
   testIdPrefix,
   variant = 'inline',
+  audience = 'self',
 }: ErasurePreviewNoticeProps) {
   const { t } = useTranslation();
+  const admin = audience === 'admin';
   const block = { display: 'block' } as const;
 
   let content: ReactNode = null;
@@ -38,7 +46,7 @@ export default function ErasurePreviewNotice({
         role="status"
         data-testid={`${testIdPrefix}-loading`}
       >
-        {t('pages.privacy.erasurePreviewLoading')}
+        {admin ? t('pages.auth.adminErasurePreviewLoading') : t('pages.privacy.erasurePreviewLoading')}
       </Box>
     );
   } else if (preview.status === 'error') {
@@ -49,7 +57,7 @@ export default function ErasurePreviewNotice({
         role="alert"
         data-testid={`${testIdPrefix}-error`}
       >
-        {t('pages.privacy.erasurePreviewError')}
+        {admin ? t('pages.auth.adminErasurePreviewError') : t('pages.privacy.erasurePreviewError')}
       </Box>
     );
   } else if (preview.status === 'ready' && preview.tenants.length > 0) {
@@ -57,7 +65,7 @@ export default function ErasurePreviewNotice({
     content = (
       <Box component="span" sx={{ ...block, mt: 1 }} data-testid={testIdPrefix}>
         <Box component="strong" sx={block}>
-          {t('pages.privacy.erasurePreviewHeading')}
+          {admin ? t('pages.auth.adminErasurePreviewHeading') : t('pages.privacy.erasurePreviewHeading')}
         </Box>
         {preview.tenants.map((tenant, index) => (
           // The preview carries no id (names and counts only, AK-FK-06), so the position disambiguates two tenants of one name.
@@ -68,11 +76,18 @@ export default function ErasurePreviewNotice({
             data-testid={`${testIdPrefix}-tenant`}
           >
             {tenant.other_member_count > 0
-              ? t('pages.privacy.erasurePreviewTenantShared', {
-                  name: tenant.name,
-                  count: tenant.other_member_count,
-                })
-              : t('pages.privacy.erasurePreviewTenantAlone', { name: tenant.name })}
+              ? admin
+                ? t('pages.auth.adminErasurePreviewTenantShared', {
+                    name: tenant.name,
+                    count: tenant.other_member_count,
+                  })
+                : t('pages.privacy.erasurePreviewTenantShared', {
+                    name: tenant.name,
+                    count: tenant.other_member_count,
+                  })
+              : admin
+                ? t('pages.auth.adminErasurePreviewTenantAlone', { name: tenant.name })
+                : t('pages.privacy.erasurePreviewTenantAlone', { name: tenant.name })}
           </Box>
         ))}
         {anyShared && (
@@ -81,7 +96,7 @@ export default function ErasurePreviewNotice({
             sx={{ ...block, mt: 1 }}
             data-testid={`${testIdPrefix}-shared-hint`}
           >
-            {t('pages.privacy.erasurePreviewSharedHint')}
+            {admin ? t('pages.auth.adminErasurePreviewSharedHint') : t('pages.privacy.erasurePreviewSharedHint')}
           </Box>
         )}
       </Box>

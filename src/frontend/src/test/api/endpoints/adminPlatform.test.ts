@@ -76,6 +76,13 @@ describe('adminPlatform endpoints — stats, tenants, users', () => {
     });
   });
 
+  it('getAdminUserErasurePreview reads the encoded target key and returns the preview (#1961)', async () => {
+    client.get.mockResolvedValue({ data: { personal_tenants: [{ name: 'Garden', other_member_count: 2 }] } });
+    const preview = await admin.getAdminUserErasurePreview('u 1');
+    expect(client.get).toHaveBeenCalledWith('/admin/platform/users/u%201/erasure-preview');
+    expect(preview.personal_tenants).toEqual([{ name: 'Garden', other_member_count: 2 }]);
+  });
+
   it("deleteAdminUser deletes encoded user key and carries the target's e-mail step-up (#1814)", async () => {
     client.delete.mockResolvedValue({ data: undefined });
     await admin.deleteAdminUser('u/1', { confirm_email: 'target@example.org', password: 'admin-pw' });

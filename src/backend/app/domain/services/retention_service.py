@@ -5,6 +5,9 @@ from settings and turned into deadlines or cutoffs:
 
 * R-01 ``retention_soft_delete_retention_days`` — hard-delete date of an
   erasure request (``PrivacyService.request_erasure``);
+* R-01a ``retention_erasure_member_notice_days`` — the wait between the notice to
+  the other members of a personal tenant and its hard delete, for a request that
+  was not told at request time (``PrivacyService.execute_scheduled_erasures``, #1960);
 * R-02 ``retention_unverified_account_days`` — ``cleanup_unverified_accounts``;
 * R-03 ``retention_ip_anonymization_days`` — ``anonymize_old_ips``;
 * R-05 ``retention_export_file_retention_hours`` — ``expires_at`` of a built
@@ -73,6 +76,7 @@ class RetentionService:
         consent_retention_years: int | None = None,
         consent_ip_anonymization_days: int | None = None,
         invitation_retention_days: int | None = None,
+        erasure_member_notice_days: int | None = None,
         harvest_data_retention_years: int | None = None,
         treatment_retention_years: int | None = None,
         inspection_retention_years: int | None = None,
@@ -127,6 +131,11 @@ class RetentionService:
             if invitation_retention_days is not None
             else settings.retention_invitation_retention_days
         )
+        self._erasure_member_notice_days = (
+            erasure_member_notice_days
+            if erasure_member_notice_days is not None
+            else settings.retention_erasure_member_notice_days
+        )
         self._legal_retention_years: dict[str, int] = {
             "R-16": (
                 harvest_data_retention_years
@@ -173,6 +182,10 @@ class RetentionService:
             (self._email_change_ttl_hours, "NFR-011 R-07: an email-change link must stay valid at least one hour."),
             (self._email_change_revert_days, "NFR-011 R-07: the email-change revert link must stay valid a day."),
             (self._invitation_retention_days, "NFR-011 R-12: an expired invitation must be kept at least one day."),
+            (
+                self._erasure_member_notice_days,
+                "NFR-011 R-01a: the wait after telling the other members of a personal tenant is at least one day.",
+            ),
         )
         for period, message in floors:
             if period < 1:
@@ -191,6 +204,7 @@ class RetentionService:
             (self._consent_retention_years, "retention_consent_retention_years", "R-04"),
             (self._consent_ip_anonymization_days, "retention_consent_ip_anonymization_days", "R-04a"),
             (self._invitation_retention_days, "retention_invitation_retention_days", "R-12"),
+            (self._erasure_member_notice_days, "retention_erasure_member_notice_days", "R-01a"),
         )
         for period, setting_name, rule in ceilings:
             if period > RETENTION_CEILINGS[setting_name]:
@@ -209,6 +223,11 @@ class RetentionService:
     def hard_delete_at(self, soft_deleted_at: datetime) -> datetime:
         """Return the moment a soft-deleted user is hard-deleted (NFR-011 R-01)."""
         return soft_deleted_at + timedelta(days=self._hard_delete_after_days)
+
+    @property
+    def erasure_member_notice_wait(self) -> timedelta:
+        """How long the hard delete waits after the other members of a personal tenant were told (R-01a, #1960)."""
+        return timedelta(days=self._erasure_member_notice_days)
 
     def email_change_expires_at(self, requested_at: datetime) -> datetime:
         """Return the moment an email-change request expires (NFR-011 R-07)."""

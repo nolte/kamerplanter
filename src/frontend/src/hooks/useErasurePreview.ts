@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getAdminUserErasurePreview } from '@/api/endpoints/adminPlatform';
 import { getErasurePreview } from '@/api/endpoints/privacy';
 import type { ErasurePreviewTenant } from '@/api/types';
 
@@ -15,10 +16,13 @@ export interface ErasurePreviewState {
  * AK-FK-06, #1824). Loaded when `enabled` turns on, so a page that only holds
  * the delete button does not ask until the person is about to confirm.
  *
+ * With `targetUserKey` a platform admin reads the preview of *that* account
+ * (`GET /admin/platform/users/{key}/erasure-preview`, #1961) instead of their own.
+ *
  * A failed read is a state of its own, not an empty list: "nothing is affected"
  * and "we could not tell" must not look alike before an irreversible action.
  */
-export function useErasurePreview(enabled: boolean): ErasurePreviewState {
+export function useErasurePreview(enabled: boolean, targetUserKey?: string): ErasurePreviewState {
   // `null` — not answered yet; `'error'` — the read failed. Deriving the status
   // from it keeps a state write out of the effect body.
   const [result, setResult] = useState<readonly ErasurePreviewTenant[] | 'error' | null>(null);
@@ -26,7 +30,8 @@ export function useErasurePreview(enabled: boolean): ErasurePreviewState {
   useEffect(() => {
     if (!enabled) return undefined;
     let cancelled = false;
-    getErasurePreview()
+    const read = targetUserKey === undefined ? getErasurePreview() : getAdminUserErasurePreview(targetUserKey);
+    read
       .then((preview) => {
         if (!cancelled) setResult(preview.personal_tenants);
       })
@@ -39,7 +44,7 @@ export function useErasurePreview(enabled: boolean): ErasurePreviewState {
       // show last time's member count while the new one loads.
       setResult(null);
     };
-  }, [enabled]);
+  }, [enabled, targetUserKey]);
 
   return useMemo(() => {
     if (result === 'error') return { tenants: [], status: 'error' };
