@@ -1,6 +1,7 @@
 import structlog
 
 from app.common.log_privacy import loggable_error
+from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -18,9 +19,7 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
 
     updated = 0
     is_cold = tracker.is_cold_day(avg_temp_c)
-    plants, _ = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
-
-    for plant in plants:
+    for plant in get_all_pages(plant_repo, all_tenants=True):  # system task: all tenants
         if plant.removed_on is not None:
             continue
 

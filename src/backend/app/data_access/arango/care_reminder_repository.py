@@ -8,7 +8,7 @@ from arango.exceptions import DocumentInsertError, TransactionCommitError
 from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.common.types import CareProfileKey
 from app.data_access.arango import collections as col
-from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.base_repository import BaseArangoRepository, get_all_pages
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
@@ -163,8 +163,9 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         return super().update(key, profile)
 
     def get_all_profiles(self) -> list[CareProfile]:
-        profiles, _ = super().get_all(offset=0, limit=10000)
-        return profiles
+        # Every profile, page by page: the daily care beat task evaluates each one, and a
+        # single 10000-row window would silently stop evaluating past it (#2012).
+        return get_all_pages(self)
 
     # ── CareConfirmation ───────────────────────────────────────────────
 

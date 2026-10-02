@@ -3,6 +3,7 @@ import structlog
 from app.common.dependencies import get_lifecycle_repo, get_phase_sequence_repo, get_plant_repo, get_species_repo
 from app.common.enums import TransitionTrigger
 from app.common.log_privacy import loggable_error
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.dormancy_trigger import DormancyTrigger
 from app.tasks import celery_app
 
@@ -18,7 +19,7 @@ def check_dormancy_triggers(current_temp_c: float, day_length_hours: float) -> d
     trigger = DormancyTrigger(phase_repo, species_repo, phase_seq_repo=get_phase_sequence_repo())
 
     triggered = 0
-    plants, _ = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
+    plants = get_all_pages(plant_repo, all_tenants=True)  # system task: all tenants
 
     for plant in plants:
         if plant.removed_on is not None:

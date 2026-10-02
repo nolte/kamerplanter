@@ -30,6 +30,68 @@ type SortDirection = Literal["ASC", "DESC"]
 _RESERVED_DOC_ATTRIBUTES: frozenset[str] = frozenset({"_key", "_id", "_rev", "_from", "_to"})
 
 
+#: Rows per ``get_all`` call made by :func:`get_all_pages`.
+DEFAULT_PAGE_SIZE = 1000
+
+#: Hard ceiling on the pages :func:`get_all_pages` reads (``DEFAULT_PAGE_SIZE`` x this
+#: = one million rows). A repository that never reports a consistent ``total`` would
+#: otherwise loop forever inside a beat task.
+MAX_PAGES = 1000
+
+
+class PagingCeilingError(RuntimeError):
+    """:func:`get_all_pages` hit its page ceiling before the collection ended."""
+
+
+def get_all_pages(
+    repo: Any,
+    *,
+    tenant_key: str | None = None,
+    all_tenants: bool = False,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    max_pages: int = MAX_PAGES,
+) -> list[Any]:
+    """Every row ``repo.get_all`` can return, not just the first page (#2012).
+
+    ``get_all`` is paged and sorted by ``_key``; a beat task that asked for
+    ``get_all(offset=0, limit=1000, all_tenants=True)`` once and iterated the result
+    silently ignored row 1001 onwards. This reads page after page until the offset
+    reaches the reported ``total`` (or a page comes back empty).
+
+    **Returns a list, not a generator, on purpose.** All pages are read *before* the
+    caller touches a row. A task that mutates rows while iterating (moves a plant out
+    of the filter it reads on, deletes a task) would otherwise shift the offset
+    window of the pages still to come and skip rows. Reading first removes that
+    class; the cost is holding the rows in memory, which the single-page reads this
+    replaces already did for their first ``limit`` rows.
+
+    ``repo`` is anything with ``get_all(offset, limit, tenant_key, *, all_tenants)``
+    (the repositories and the test doubles that page like them). A platform beat
+    task passes ``all_tenants=True`` by design; the helper does not widen or narrow
+    tenant scope, it forwards what the caller states.
+
+    Raises :class:`PagingCeilingError` (logged first) instead of looping past
+    ``max_pages`` pages.
+    """
+    if page_size < 1:
+        raise ValueError("page_size must be >= 1")
+    rows: list[Any] = []
+    offset = 0
+    for _ in range(max_pages):
+        kwargs: dict[str, Any] = {"offset": offset, "limit": page_size}
+        if tenant_key is not None:
+            kwargs["tenant_key"] = tenant_key
+        if all_tenants:
+            kwargs["all_tenants"] = True
+        page, total = repo.get_all(**kwargs)
+        rows.extend(page)
+        offset += len(page)
+        if not page or offset >= total:
+            return rows
+    logger.error("get_all_pages_ceiling", max_pages=max_pages, page_size=page_size, rows_read=len(rows))
+    raise PagingCeilingError(f"get_all_pages read {max_pages} pages of {page_size} rows without reaching the end")
+
+
 class BaseArangoRepository[TModel: BaseModel]:
     """Generic, typed ArangoDB CRUD operations for one primary collection.
 
