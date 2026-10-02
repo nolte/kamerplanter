@@ -96,7 +96,10 @@ def _admin() -> User:
 def _client(repo: ArangoUserRepository) -> TestClient:
     tenants = MagicMock()
     tenants.list_user_memberships.return_value = []
-    service = UserService(repo, MagicMock())
+    # No second argument: the default is the real step-up verifier, which is what this
+    # test measures. A positional mock here would become the verifier (the former
+    # second parameter, `refresh_token_repo`, is gone since #2013) and enforce nothing.
+    service = UserService(repo)
     app = FastAPI()
     app.include_router(mod.router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
