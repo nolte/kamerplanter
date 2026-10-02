@@ -59,6 +59,14 @@ def database():
     name = ts.provision_database("tsaggregate")
     pool = ts.open_pool(name)
     ensure_timescale_schema(pool)
+    # The policy jobs (refresh / retention) would run in the background of this
+    # test database and move buckets under the assertions. The seed applies the
+    # raw retention by hand and the tests call no refresh in the window they
+    # measure, so nothing but the code under test changes the aggregates.
+    with psycopg.connect(ts.conninfo(name), autocommit=True) as conn:
+        conn.execute(
+            "SELECT alter_job(job_id, scheduled => false) FROM timescaledb_information.jobs WHERE job_id >= 1000"
+        )
     yield name, pool
     pool.close()
 
@@ -197,3 +205,34 @@ def test_an_empty_tenant_key_still_deletes_nothing(seeded):
         repo.delete_by_tenant("")
 
     assert _buckets(name, "sensor_hourly", GONE) == 2 * len(AGES)
+
+
+def test_a_later_refresh_does_not_disturb_the_other_tenants_daily_buckets(seeded):
+    """The purge deletes inside the hierarchy (hourly feeds daily); a refresh afterwards must not corrupt the rest."""
+    repo, name = seeded
+    before = _daily_values(name, KEPT)
+
+    _tenant_service(repo)._purge_tenant_readings(GONE)
+    with psycopg.connect(ts.conninfo(name), autocommit=True) as conn:
+        conn.execute("CALL refresh_continuous_aggregate('sensor_daily', NULL, NULL)")
+
+    assert _daily_values(name, KEPT) == before
+
+
+def test_a_sensor_delete_needs_both_keys(seeded):
+    repo, name = seeded
+
+    for sensor_key, tenant_key in (("", GONE), (SENSOR_A, ""), (None, GONE)):
+        with pytest.raises(ValueError):
+            repo.delete_by_sensor(sensor_key, tenant_key)
+
+    assert _buckets(name, "sensor_daily", GONE) == 2 * len(AGES)
+
+
+def _daily_values(name: str, tenant: str) -> list[tuple]:
+    with psycopg.connect(ts.conninfo(name), autocommit=True) as conn:
+        return conn.execute(
+            "SELECT bucket, sensor_key, avg_value, sample_count FROM sensor_daily "
+            "WHERE tenant_key = %s ORDER BY bucket, sensor_key",
+            (tenant,),
+        ).fetchall()

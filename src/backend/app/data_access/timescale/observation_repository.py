@@ -86,6 +86,7 @@ _MATERIALIZATION_SQL = """
 SELECT view_name, materialization_hypertable_schema, materialization_hypertable_name
 FROM timescaledb_information.continuous_aggregates
 WHERE view_name = ANY(%(views)s)
+  AND view_schema = current_schema()
 """
 
 
@@ -198,12 +199,17 @@ class TimescaleObservationRepository(IObservationRepository):
         (``tenant_key``, ``sensor_key``) the aggregates carry.
 
         Runs on the caller's cursor, so the raw delete and this one commit or
-        roll back together. A pending invalidation of the deleted raw range is
+        roll back together. A policy refresh that is already running on a
+        snapshot from before the raw delete can still re-materialise a bucket of
+        the hot window (last 3 hours / 3 days) after this commit; the raw delete
+        has logged an invalidation for that range, so the next policy run removes
+        it again, and the erasure record's retry repeats this idempotent delete.
+        A pending invalidation of the deleted raw range is
         harmless: the next refresh recomputes from raw rows that no longer exist
         and materialises nothing for the deleted tenant.
         """
         cur.execute(_MATERIALIZATION_SQL, {"views": list(_AGGREGATE_VIEWS)})
-        found = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
+        found = {row[0]: (row[1], row[2]) for row in cur.fetchall()}  # one row per view: the schema is fixed above
         missing = set(_AGGREGATE_VIEWS) - found.keys()
         if missing:
             # Fail loud: skipping would report an erasure that left the aggregated
@@ -227,7 +233,14 @@ class TimescaleObservationRepository(IObservationRepository):
         sensor_key: str,
         tenant_key: str,
     ) -> int:
-        """Delete one sensor's raw readings **and its hourly/daily buckets** (#1793)."""
+        """Delete one sensor's raw readings **and its hourly/daily buckets** (#1793).
+
+        Both keys are required: ``_purge_aggregates`` reads a missing sensor key
+        as "every sensor of the tenant", which must never be reachable from here.
+        """
+        if not sensor_key or not tenant_key:
+            msg = "delete_by_sensor needs a sensor key and a tenant key"
+            raise ValueError(msg)
         params = {"sensor_key": sensor_key, "tenant_key": tenant_key}
         with self._pool.connection() as conn, conn.cursor() as cur:
             cur.execute(_DELETE_BY_SENSOR_SQL, params)
