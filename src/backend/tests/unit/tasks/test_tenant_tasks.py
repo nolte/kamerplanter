@@ -120,3 +120,23 @@ class TestResumeTenantErasures:
         assert result == {"candidates": 1, "completed": 1}
         (now,) = service.resume_tenant_erasures.call_args.args
         assert now.tzinfo is not None
+
+
+class TestRunTenantErasure:
+    """#1792 — the task the delete routes dispatch runs one recorded deletion through the service."""
+
+    def test_is_registered_under_the_name_the_service_dispatches(self, _task_module):
+        module, _deps = _task_module
+
+        assert module.run_tenant_erasure.name == "app.tasks.tenant_tasks.run_tenant_erasure"
+
+    def test_delegates_the_record_key_to_the_service(self, _task_module):
+        module, deps = _task_module
+        service = MagicMock()
+        service.run_tenant_erasure_task.return_value = {"record_key": "ter_t-1", "outcome": "completed"}
+        deps.get_tenant_service.return_value = service
+
+        result = module.run_tenant_erasure("ter_t-1")
+
+        assert result == {"record_key": "ter_t-1", "outcome": "completed"}
+        service.run_tenant_erasure_task.assert_called_once_with("ter_t-1")

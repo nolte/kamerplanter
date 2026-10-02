@@ -24,7 +24,7 @@ import pytest
 import structlog.testing
 
 from app.common import dependencies
-from app.common.exceptions import ExternalSourceError, FeatureNotConfiguredError
+from app.common.exceptions import FeatureNotConfiguredError
 from app.config.settings import settings
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.consent_engine import ConsentEngine
@@ -36,7 +36,12 @@ from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 from tests.support.fake_inference_service import FakeInferenceService, route_httpx_post_to
 from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor
-from tests.support.tenant_erasure_doubles import RecordingTenantErasureExecutor, authorized, tenant_service_for_deletion
+from tests.support.tenant_erasure_doubles import (
+    RecordingTenantErasureExecutor,
+    authorized,
+    delete_and_run,
+    tenant_service_for_deletion,
+)
 from tests.support.tenant_erasure_doubles import tenant as tenant_fixture
 
 TOKEN = "svc-token-1753"
@@ -214,7 +219,7 @@ def test_tenant_deletion_removes_the_tenants_contributions(inference):
     service = _tenant_service(dependencies.get_reference_index_store())
 
     with structlog.testing.capture_logs() as logs:
-        assert service.delete_tenant(TENANT, **authorized(TENANT)).status == "completed"
+        assert delete_and_run(service, TENANT, **authorized(TENANT)).status == "completed"
 
     assert inference.records() == {"subject-2", "curated"}
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
@@ -228,11 +233,12 @@ def test_a_failing_reference_index_keeps_the_tenant_and_its_data(inference):
     storage.delete_prefix = AsyncMock(return_value=0)
     service = _tenant_service(dependencies.get_reference_index_store(), storage=storage)
 
-    with pytest.raises(ExternalSourceError) as caught:
-        service.delete_tenant(TENANT, **authorized(TENANT))
+    # Since #1792 the failure happens in the worker: recorded and retried, not an HTTP 502.
+    record = delete_and_run(service, TENANT, **authorized(TENANT))
 
-    assert caught.value.status_code == 502
-    assert TENANT not in str(caught.value)
+    assert record.status == "partially_completed"
+    assert (record.error_message or "").startswith("Attempt 1 failed (ExternalSourceError)")
+    assert TENANT not in (record.error_message or "")
     # Nothing else was removed: the delete is retryable as a whole.
     assert service._tenant_erasure_executor.plans == []
     storage.delete_prefix.assert_not_awaited()
@@ -244,7 +250,7 @@ def test_the_noop_tenant_binding_is_logged(monkeypatch):
     service = _tenant_service(NoopReferenceIndexStore())
 
     with structlog.testing.capture_logs() as logs:
-        service.delete_tenant(TENANT, **authorized(TENANT))
+        delete_and_run(service, TENANT, **authorized(TENANT))
 
     (event,) = [e for e in logs if e["event"] == "tenant_reference_index_cleanup"]
     assert event["binding"] == "noop"

@@ -9,7 +9,7 @@ from app.common.enums import (
     TenantRole,
     TenantType,
 )
-from app.domain.models.tenant_erasure import TenantDeletionConfirmation
+from app.domain.models.tenant_erasure import TenantDeletionConfirmation, TenantErasureRecord, TenantErasureStatus
 
 # ── Tenant schemas ───────────────────────────────────────────────────
 
@@ -82,6 +82,39 @@ class TenantDeleteRequest(BaseModel):
             step_up_code=self.step_up_code,
             step_up_token=self.step_up_token,
         )
+
+
+class TenantDeletionAcceptedResponse(BaseModel):
+    """The ``202 Accepted`` body of both tenant-deletion routes (#1792, REQ-024 AK-53).
+
+    The deletion is *recorded* and the tenant *frozen* (memberships deactivated);
+    the erasure itself runs afterwards in a Celery task, in bounded batches. The
+    body says so — it is never "deleted". ``status`` is ``in_progress`` for a
+    deletion just recorded and ``partially_completed`` for one an earlier run left
+    open and this request re-dispatched. Names no slug and no account.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "tenant_key": "4711",
+                    "status": "in_progress",
+                    "requested_at": "2026-10-02T10:00:00Z",
+                    "message": "Tenant deletion accepted: the tenant is frozen and its data is being erased.",
+                }
+            ]
+        }
+    )
+
+    tenant_key: str
+    status: TenantErasureStatus
+    requested_at: datetime | None = None
+    message: str = "Tenant deletion accepted: the tenant is frozen and its data is being erased."
+
+    @classmethod
+    def from_record(cls, record: TenantErasureRecord) -> TenantDeletionAcceptedResponse:
+        return cls(tenant_key=record.tenant_key, status=record.status, requested_at=record.requested_at)
 
 
 class TenantResponse(BaseModel):

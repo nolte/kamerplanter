@@ -320,6 +320,10 @@ class TenantErasureEngine:
     RETRY_MAX_DELAY_DAYS = 7
     #: A claim older than this is taken to belong to a crashed run.
     STALE_AFTER_HOURS = 6
+    #: The n-th consecutive failed attempt escalates the deletion to the operator
+    #: (an error-level ``tenant_erasure.escalated`` event and ``escalated_at`` on the
+    #: record, #1792): a failure that deterministic needs a person, not the next retry.
+    ESCALATE_AFTER_ATTEMPTS = 3
 
     @classmethod
     def validate(cls) -> None:

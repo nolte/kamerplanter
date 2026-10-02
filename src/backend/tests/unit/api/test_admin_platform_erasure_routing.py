@@ -20,8 +20,12 @@ from app.api.v1.admin.platform import router as mod
 from app.api.v1.privacy.schemas import ErasureCreateRequest
 from app.api.v1.tenants.schemas import TenantDeleteRequest
 from app.common.exceptions import ForbiddenError, NotFoundError
+from app.domain.models.tenant_erasure import TenantErasureRecord
 
 _BODY = TenantDeleteRequest(confirm_slug="garden", password="pw")
+
+
+_ACCEPTED = TenantErasureRecord(tenant_key="t-2", tenant_type="organization", origin="tenant_management")
 
 
 class TestDeleteTenantRouting:
@@ -34,12 +38,14 @@ class TestDeleteTenantRouting:
 
     def test_admin_route_runs_the_service_deletion_as_platform_admin(self):
         tenant_service = MagicMock()
+        tenant_service.delete_tenant.return_value = _ACCEPTED
         admin = SimpleNamespace(key="admin-1")
 
-        mod.delete_tenant(
+        response = mod.delete_tenant(
             "t-1", body=_BODY, user=admin, via_api_key=False, client_ip="203.0.113.1", tenant_service=tenant_service
         )
 
+        assert response.status == "in_progress"  # 202 body, #1792
         # The requester and the step-up reach the service, which decides (#1791).
         assert tenant_service.mock_calls == [
             call.delete_tenant(
@@ -56,9 +62,10 @@ class TestDeleteTenantRouting:
         from app.api.v1.tenants import router as tenant_router
 
         service = MagicMock()
+        service.delete_tenant.return_value = _ACCEPTED
         member = SimpleNamespace(key="member-1")
 
-        tenant_router.delete_tenant(
+        response = tenant_router.delete_tenant(
             body=_BODY,
             ctx=SimpleNamespace(tenant_key="t-2"),
             user=member,
@@ -67,6 +74,7 @@ class TestDeleteTenantRouting:
             service=service,
         )
 
+        assert response.tenant_key == "t-2"
         assert service.mock_calls == [
             call.delete_tenant(
                 "t-2",
