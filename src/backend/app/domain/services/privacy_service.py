@@ -282,9 +282,7 @@ class PrivacyService:
         # deletion keeps. Optional like the executor; the purge refuses without it.
         self._legal_retention_repo = legal_retention_repo
         # #1813 / #1814 / #1816 — the one throttled step-up of every irreversible account act.
-        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
-            password_engine, tombstone_salt=tombstone_salt
-        )
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(password_engine)
 
     # ── Art. 15 / 20: data export ──────────────────────────────────
 
