@@ -83,7 +83,7 @@ async def detect_pests_global(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
     image_data = await image.read()
     result = service.detect_pests(
@@ -134,7 +134,7 @@ async def detect_pests(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
     image_data = await image.read()
     result = service.detect_pests(

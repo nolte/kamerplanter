@@ -109,8 +109,6 @@ class PlantInstanceService:
         # carries. Optional, like every other collaborator here, so the service stays
         # constructible in pure-domain contexts; the production wiring supplies both
         # and an absence check pins that, so the escape cannot become the default.
-        self._substrate_service = substrate_service
-        self._species_service = species_service
         # One resolver per catalogue reference, bound once. A mapping rather than the
         # ``if/elif`` chain this started as: that chain had no ``else``, so a field
         # it did not name fell through unchecked and looked exactly like a field that

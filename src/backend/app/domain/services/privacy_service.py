@@ -229,7 +229,6 @@ class PrivacyService:
         self._data_export_engine = data_export_engine
         self._erasure_engine = erasure_engine
         self._consent_engine = consent_engine
-        self._password_engine = password_engine
         self._token_engine = token_engine
         self._email_service = email_service
         self._frontend_url = frontend_url

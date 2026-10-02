@@ -269,7 +269,7 @@ def _services(database) -> tuple[PrivacyService, UserService]:
         tenant_service=tenant_erasure_service(database, SALT),
         tombstone_salt=SALT,
     )
-    return privacy_service, UserService(user_repo, MagicMock())
+    return privacy_service, UserService(user_repo)
 
 
 def _admin_delete(database, captured: dict[str, Any]) -> None:

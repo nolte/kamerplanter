@@ -186,7 +186,7 @@ class _World:
             device_pairing_code_store=self.pairing,
             light_mode=light_mode,
         )
-        self.user_service = UserService(user_repo=self.users, refresh_token_repo=MagicMock())
+        self.user_service = UserService(user_repo=self.users)
         self.tenants = MagicMock()
         self.tenants.list_user_memberships.return_value = []
 

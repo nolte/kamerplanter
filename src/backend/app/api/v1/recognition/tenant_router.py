@@ -70,7 +70,7 @@ def _parse_organ(value: str) -> PlantOrgan:
     try:
         return PlantOrgan(value)
     except ValueError as exc:
-        raise UnsupportedMediaTypeError(value, [o.value for o in PlantOrgan]) from exc
+        raise UnsupportedMediaTypeError([o.value for o in PlantOrgan]) from exc
 
 
 def _parse_content_length(request: Request) -> int | None:
@@ -110,7 +110,7 @@ def _validate_reference_image(image_data: bytes, max_bytes: int) -> None:
     if len(image_data) > max_bytes:
         raise PayloadTooLargeError(max_bytes)
     if not is_supported_image(image_data):
-        raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"])
+        raise UnsupportedMediaTypeError(["image/jpeg", "image/png"])
     try:
         with Image.open(io.BytesIO(image_data)) as img:
             width, height = img.size
@@ -146,7 +146,7 @@ async def identify_plant(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
     image_data = await image.read()
     parsed_organ = _parse_organ(organ)
@@ -201,7 +201,7 @@ async def contribute_reference(
 
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
     # SEC-004 — reject oversized uploads before buffering, then bound the read
     # and fully validate the bytes (magic/decode/bomb) before any embedding.
