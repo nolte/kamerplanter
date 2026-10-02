@@ -7,7 +7,13 @@ from app.domain.models.auth import AuthProvider
 
 class IAuthProviderRepository(ABC):
     @abstractmethod
-    def get_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> AuthProvider | None: ...
+    def list_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> list[AuthProvider]:
+        """Every link of *provider* type with this subject — across all configurations (#1869).
+
+        A subject is unique per issuer only, so this is a candidate list, never an
+        identity: the caller picks the link of the configuration the sign-in came
+        through (``AuthService._login_link``).
+        """
 
     @abstractmethod
     def create(self, auth_provider: AuthProvider) -> AuthProvider: ...

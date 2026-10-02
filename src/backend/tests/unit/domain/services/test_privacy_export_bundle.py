@@ -64,7 +64,9 @@ class _FakePersonalDataRepo(IPersonalDataRepository):
     def __init__(self) -> None:
         self.asked_for: list[str] = []
 
-    def collect_for_user(self, source: DataSourceDefinition, user_key: str, tenant_keys) -> list[dict[str, Any]]:
+    def collect_for_user(
+        self, source: DataSourceDefinition, user_key: str, tenant_keys, *, tombstone=None
+    ) -> list[dict[str, Any]]:
         assert user_key == USER
         self.asked_for.append(source.collection)
         return [dict(row) for row in FIXTURE_ROWS.get(source.collection, [])]
@@ -206,7 +208,7 @@ class TestTheBundleReachesTheUser:
         """The anti-vacuity guard lives in production, not only in this file."""
 
         class _EmptyRepo(IPersonalDataRepository):
-            def collect_for_user(self, source, user_key, tenant_keys):
+            def collect_for_user(self, source, user_key, tenant_keys, *, tombstone=None):
                 return []
 
         storage = _InMemoryStorage()

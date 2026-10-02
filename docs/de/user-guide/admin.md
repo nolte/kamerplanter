@@ -87,6 +87,12 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 Unter **Admin > OIDC-Provider** konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
 
+!!! info "Rückruf-URL beim Provider hinterlegen"
+    Trage beim Provider als Rückruf-URL (Redirect URI) genau `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` ein — mit der öffentlichen Adresse aus `APP_BASE_URL` und dem Kurznamen (Slug) des Providers, z.B. `https://garten.example/api/v1/auth/oauth/google/callback`. Anmeldung und erneute Anmeldung zur Bestätigung nutzen dieselbe URL. Steht `APP_BASE_URL` noch auf der Voreinstellung `http://localhost:5173`, lehnt der Provider die Anmeldung ab. <!-- #1865 -->
+
+!!! info "Zwei Provider, dieselbe Kennung"
+    Eine Verknüpfung gehört zu genau dem Provider, über den sie entstand. Meldet ein anderer Provider dieselbe Nutzerkennung (`sub`), ist das eine andere Person — sie wird nie in das verknüpfte Konto angemeldet. Ältere Verknüpfungen hat das Update dem Provider zugeordnet, wenn es genau einen ihres Typs gab. Waren zu dem Zeitpunkt schon zwei generische OIDC-Provider eingerichtet, ist die Zuordnung offen: Die Betroffenen melden sich einmal über ihre bestätigte E-Mail-Adresse neu an (oder mit ihrem Passwort). <!-- #1869 -->
+
 !!! warning "Provider anlegen, umstellen und löschen verlangt deine erneute Bestätigung"
     Ein Provider entscheidet, wem eine Anmeldung zugeordnet wird: Wer einen Provider auf einen eigenen Server umstellen kann, kann sich als jedes Konto anmelden, dessen Adresse dieser Server behauptet. Deshalb verlangen `POST /api/v1/admin/oidc-providers` sowie `PUT` und `DELETE` auf `/api/v1/admin/oidc-providers/{key}` dein aktuelles Passwort (`current_password`) — oder, ohne lokales Passwort, eine frische Anmeldung bzw. den Bestätigungscode für die Aktion `oidc_provider_change` mit dem Schlüssel der Konfiguration als Ziel (beim Anlegen `new:<slug>`). Ein API-Key kann Provider nicht mehr ändern. Ohne Bestätigung bleiben nur Anzeigename und Icon — auch das Ein- **und** Abschalten eines Providers verlangt sie: Ein abgeschalteter Provider kann niemanden mehr frisch anmelden, und die Konten, die nur über ihn verknüpft sind, würden dann auf den schwächeren E-Mail-Code ausweichen.
 

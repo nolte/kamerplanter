@@ -39,7 +39,7 @@ USER = "u-42"
 
 
 class _ProfileOnlyRepo(IPersonalDataRepository):
-    def collect_for_user(self, source, user_key, tenant_keys) -> list[dict[str, Any]]:
+    def collect_for_user(self, source, user_key, tenant_keys, *, tombstone=None) -> list[dict[str, Any]]:
         return [{"email": "subject@example.invalid"}] if source.filter_field == "_key" else []
 
 

@@ -87,6 +87,9 @@ These variables control the legally mandated deletion/anonymization of personal 
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `1` | No | Number of years a completed erasure request (`erasure_requests`, `status=completed`) is kept as the Art. 5(2) GDPR accountability proof before it is permanently deleted (NFR-011 R-06). Counted in calendar years. Minimum: `1`. |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | No | Validity of the confirmation link when changing an email address (NFR-011 R-07); after that the request is set to `expired`, no hard-delete happens. Minimum: `1`. The older name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` is still accepted; if both are set, the new name wins. |
 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | `7` | No | Validity of the undo link the previous address receives after a confirmed email change (NFR-011 R-07a). After that, the same hourly retention task as R-07 clears the `previous_email` field and the undo token's hash. Minimum: `1`. |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | `5` | No | Number of years after `harvest_date` after which the harvest data a tenant deletion retained (harvest, quality assessment, yield metric) is permanently deleted (NFR-011 R-16). Minimum: `5` (statutory minimum under the CanG). |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | `3` | No | The same for treatment applications, counted from `applied_at` (NFR-011 R-17). Minimum: `3` (PflSchG §11). |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | `3` | No | The same for inspection records, counted from `inspected_at` (NFR-011 R-18). Minimum: `3` (PflSchG §11). |
 
 For `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` and
 `RETENTION_EMAIL_CHANGE_RETENTION_HOURS`, the older `PRIVACY_*` names were already
@@ -112,7 +115,7 @@ remain valid as aliases in addition.
 | `KAMERPLANTER_MODE` | `full` | No | Operating mode: `full` (auth + tenants) or `light` (no auth, local single-user) |
 | `DEBUG` | `false` | No | Enable debug logging (verbose — never use in production). Also disables the startup gate for production secrets — **never** set this in production. |
 | `FRONTEND_URL` | `http://localhost:5173` | No | Frontend URL (used for email links) |
-| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. Also forms the callback URL of the fresh OIDC sign-in that confirms a step-up (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — register this URL with the identity provider. |
+| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. Also forms the callback URL of the OAuth/OIDC sign-in and of the fresh sign-in that confirms a step-up (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — register this URL with the identity provider. |
 
 ### Light Mode (`KAMERPLANTER_MODE=light`)
 

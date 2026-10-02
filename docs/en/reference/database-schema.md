@@ -138,7 +138,7 @@ planned → active → harvesting → completed
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
 | `users` | User accounts | `email` (unique), `account_type`, `is_active` |
-| `auth_providers` | Linked OAuth/OIDC providers | `provider`, `provider_user_id` (unique per pair) |
+| `auth_providers` | Linked OAuth/OIDC providers | `provider`, `oidc_config_slug`, `provider_user_id` (unique per triple — `sub` is unique per issuer only) |
 | `refresh_tokens` | Active session tokens | `token_hash` (unique), `user_key`, `expires_at` |
 | `oidc_provider_configs` | OIDC provider configurations | `slug` (unique), `client_id` |
 | `api_keys` | API keys for M2M | `key_hash` (unique), `user_key` |

@@ -328,11 +328,12 @@ class FederatedReauthPolicy:
     A link is matched to **its own** configuration only (review SEC-001): the one
     named by ``oidc_config_slug``, if that configuration is enabled, of the link's
     type and supports a fresh re-authentication (:func:`supports_fresh_reauth`).
-    A link made before the slug was recorded counts only when exactly one such
-    configuration of its type exists — with two generic OIDC providers it could
-    belong to either, and re-authenticating at the wrong one would confirm a
-    stranger's ``sub``. Such an ambiguous link is not re-auth capable; the account
-    keeps the e-mailed code (it is not locked out).
+    A link that records no configuration is not re-auth capable (#1869): migration
+    v0064 bound every link whose type had exactly one configuration, enabled or
+    not, so one still unbound could belong to either of two, and re-authenticating
+    at the wrong one would confirm a stranger's ``sub``. The login refuses the same
+    links by the same rule (``AuthService._login_link``); the account keeps the
+    e-mailed code (it is not locked out).
     """
 
     def __init__(self, auth_provider_repo: IAuthProviderRepository, oidc_config_repo: _OidcConfigSource) -> None:
@@ -344,10 +345,7 @@ class FederatedReauthPolicy:
         links: list[tuple[AuthProvider, OidcProviderConfig]] = []
         for row in self._providers.list_by_user(user_key):
             of_type = [c for c in configs if OAuthEngine.link_type(c) == row.provider]
-            if row.oidc_config_slug is not None:
-                config = next((c for c in of_type if c.slug == row.oidc_config_slug), None)
-            else:
-                config = of_type[0] if len(of_type) == 1 else None
+            config = next((c for c in of_type if c.slug == row.oidc_config_slug), None)
             if config is not None:
                 links.append((row, config))
         return links

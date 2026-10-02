@@ -206,6 +206,29 @@ aber nicht gelöscht (Art. 17 Abs. 3 lit. b):
     sondern entfernt nur den Personenbezug. Der Datensatz selbst bleibt bis zum Ablauf
     der Frist erhalten.
 
+### Ablauf der Frist nach einer Mandantenlöschung
+
+Die Frist zählt ab dem Datum, das der Datensatz selbst trägt — `harvest_date` (Ernte),
+`applied_at` (Behandlung), `inspected_at` (Inspektion) — und läuft unverändert weiter,
+wenn der Mandant oder dein Konto in der Zwischenzeit gelöscht wird. Sie beginnt durch
+die Löschung weder neu, noch wird sie verkürzt.
+
+Ist sie abgelaufen, löscht der tägliche Task `retention.purge_expired_legal_retention_rows`
+(04:45 UTC) den Datensatz endgültig: zusammen mit seinen Qualitätsbewertungen und
+Ertragskennzahlen (bei einer Ernte) und jeder Verknüpfung, die ihn noch berührt —
+bei Behandlungen auch die geerbten Karenz-Verknüpfungen auf Pflanzen und Durchläufe.
+
+Gelöscht werden nur Datensätze, deren Mandant nicht mehr existiert. Die Ernten,
+Behandlungen und Inspektionen eines bestehenden Gartens sind dessen eigene Aufzeichnungen;
+für sie legt diese Regel keine Höchstdauer fest, sie bleiben erhalten.
+
+Ein Datensatz ohne lesbares Datum wird nie gelöscht — sein Alter ist nicht belegt. Ausnahme: Eine Ernte ohne Erntedatum zählt ab ihrer Anlage, denn genau dieses Datum hat das System beim Anlegen als Erntedatum angenommen.
+
+!!! info "Erster Lauf nach dem Update"
+    Der erste Lauf löscht sofort alle aufbewahrten Datensätze gelöschter Mandanten,
+    deren Frist bereits abgelaufen ist — auch solche, die eine Mandantenlöschung vor
+    der Einführung des Löschinventars zurückgelassen hat.
+
 ### So sieht ein anonymisierter Datensatz aus
 
 Die Kontenreferenz wird nicht auf `null` gesetzt, sondern ersetzt. Welche Form sie
@@ -543,6 +566,14 @@ MCP-Aufruf-Protokoll bis zum Ablauf ihrer eigenen Aufbewahrungsfrist, sowie der
 Löschungs-Datensatz selbst — er ist der Nachweis der Löschung und treibt ihre
 Wiederholung an.
 
+Die aufbewahrten Ernte-, Behandlungs- und Inspektionsdaten werden gelöscht, sobald ihre
+Frist abgelaufen ist (siehe [Ablauf der Frist nach einer Mandantenlöschung](#ablauf-der-frist-nach-einer-mandantenloschung)).
+Der Löschungs-Datensatz bleibt so lange erhalten wie der längste noch aufbewahrte
+Datensatz des Mandanten, höchstens aber 5 Jahre nach Abschluss der Löschung (R-06a);
+der tägliche Task `retention.purge_expired_tenant_erasure_records` (04:50 UTC) löscht
+ihn danach. Hat die Löschung keine Ernte-, Behandlungs- oder Inspektionsdaten
+aufbewahrt, bleibt der Datensatz die vollen 5 Jahre erhalten.
+
 ### Vollständigkeit wird gemessen, nicht angenommen
 
 Nach der Transaktion zählt das System, ob noch irgendein Datensatz — auch in einer
@@ -586,6 +617,8 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | R-07a | `retention.expire_email_change_requests` (derselbe Lauf) | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
+| R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | täglich, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
+| R-06a | `retention.purge_expired_tenant_erasure_records` | täglich, 04:50 | fest 5 Jahre (Deckelung) bzw. Ende der aufbewahrten Daten des Mandanten |
 
 Jeder Task protokolliert seinen Lauf strukturiert (structlog) unter seinem eigenen
 Ereignisnamen mit Zählern, zum Beispiel:
@@ -598,6 +631,8 @@ Ereignisnamen mit Zählern, zum Beispiel:
 - `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
+- `retention.purge_expired_legal_retention_rows.completed` (`purged` je Regel: `rows`, `children`, `edges`)
+- `retention.purge_expired_tenant_erasure_records.completed` (`purged`)
 
 Eine gemeinsame Ereigniszeile, die alle Regeln zusammenfasst, gibt es nicht.
 
@@ -623,6 +658,9 @@ Konstruktor prüft dieselbe Untergrenze noch einmal:
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — |
 
 Sind beide Namen einer Zeile gesetzt, gewinnt der `RETENTION_*`-Name. Die älteren Namen
 waren bis zu dieser Änderung zwar dokumentiert, bewirkten aber nichts — der Code nutzte
@@ -642,11 +680,6 @@ feste Werte; jetzt werden sie tatsächlich angewendet.
       Umgebungsvariable änderbar.
     - **R-15** (Aktor-Logs): Es gibt im Code keinen Aktor-Log-Speicher, deshalb auch
       keine `RETENTION_ACTOR_LOG_*`-Einstellung.
-    - **R-16 bis R-18** (Ernte-, Behandlungs- und Inspektionsdaten): Für diese
-      gesetzlichen Mindestfristen gibt es keine `_MIN_RETENTION_YEARS`-Einstellung und
-      auch keinen Start-Check, der eine Untergrenze erzwingt — nichts löscht diese
-      Datensätze automatisch, es gibt also nichts zu begrenzen. Bei einer Konto-Löschung
-      werden sie stattdessen anonymisiert und unbegrenzt aufbewahrt (siehe oben).
 
 ---
 
