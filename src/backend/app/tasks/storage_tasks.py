@@ -304,3 +304,85 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
 
     logger.info("cleanup_orphaned_task_photos_audit", **result)
     return result
+
+
+class _RedisCursorStore:
+    """The reconciliation's resume point, kept in Redis; fails open (a lost cursor restarts the walk)."""
+
+    _KEY = "storage:reconcile:cursor"
+    # Long enough to bridge a missed night, short because a local-fs token is an
+    # object key (it names a tenant) and Valkey is not covered by a retention rule.
+    _TTL_SECONDS = 2 * 24 * 3600
+
+    def __init__(self, client, backend: str) -> None:  # type: ignore[no-untyped-def]
+        self._client = client
+        # A token only means something to the backend that issued it: an S3
+        # continuation token handed to local-fs (or the reverse) after a migration
+        # would skip keys or fail every night.
+        self._prefix = f"{backend}\x1f"
+
+    def get(self) -> str | None:
+        try:
+            value = self._client.get(self._KEY)
+        except Exception as exc:  # noqa: BLE001 — an unreachable cursor means "start over"
+            logger.warning("storage_reconcile_cursor_unavailable", error_type=type(exc).__name__)
+            return None
+        if not value or not value.startswith(self._prefix):
+            return None
+        return value[len(self._prefix) :]
+
+    def set(self, token: str) -> None:
+        try:
+            self._client.set(self._KEY, self._prefix + token, ex=self._TTL_SECONDS)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("storage_reconcile_cursor_unavailable", error_type=type(exc).__name__)
+
+    def clear(self) -> None:
+        try:
+            self._client.delete(self._KEY)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("storage_reconcile_cursor_unavailable", error_type=type(exc).__name__)
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[misc]
+def reconcile_orphaned_storage_objects(self) -> dict:  # type: ignore[no-untyped-def]
+    """Find stored objects no attachment record holds any more (#1834).
+
+    Every deletion path decides from the ``attachments`` catalogue, so an object
+    whose last record went without its bytes was never looked at again: a storage
+    call that failed after its record was removed, a record created inside an
+    erasure's window, a pest reference uploaded in a tenant the user later left.
+    This walks ``t/`` through the storage adapter instead.
+
+    **Report-only unless ``STORAGE_RECONCILE_DELETE_ENABLED`` is true; false is the
+    shipped default.** A run returns ``found`` / ``eligible`` / ``would_delete`` /
+    ``deleted`` / ``failed`` counts and nothing that names a tenant, user or key (its
+    own log lines are the same; the storage adapter's generic ``storage_delete_object``
+    line, which every delete path emits, still carries the object key);
+    the operator reads a run's ``would_delete`` before arming deletion. Objects
+    younger than ``STORAGE_RECONCILE_MIN_AGE_HOURS`` (default 24, never below 1)
+    are left alone — an upload writes the object before its record.
+    """
+    from app.common.dependencies import _get_redis_client
+    from app.domain.services.storage_reconciliation_service import StorageReconciliationService
+
+    service = StorageReconciliationService(
+        storage=get_object_storage(),
+        attachment_repo=get_attachment_repo(),
+        min_age=timedelta(hours=settings.storage_reconcile_min_age_hours),
+        delete_enabled=settings.storage_reconcile_delete_enabled,
+        max_objects_per_run=settings.storage_reconcile_max_objects_per_run,
+        max_orphan_fraction=settings.storage_reconcile_max_orphan_fraction,
+        cursor_store=_RedisCursorStore(_get_redis_client(), settings.storage_backend),
+    )
+    try:
+        result = asyncio.run(service.run()).as_dict()
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("reconcile_orphaned_storage_objects_failed", error_type=type(exc).__name__)
+        # Retried under the exception *type* only: Celery logs the retried exception
+        # and stores it in the result backend, and a storage or catalogue error text
+        # can embed an object path (which embeds the tenant).
+        raise self.retry(exc=RuntimeError(f"reconciliation failed: {type(exc).__name__}")) from None
+
+    logger.info("reconcile_orphaned_storage_objects_audit", **result)
+    return result
