@@ -2,7 +2,6 @@ import structlog
 
 from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
-from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User, UserProfile, UserProfileUpdate
 from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
@@ -17,11 +16,9 @@ class UserService:
     def __init__(
         self,
         user_repo: IUserRepository,
-        refresh_token_repo: IRefreshTokenRepository,
         step_up_verifier: StepUpVerifier | None = None,
     ) -> None:
         self._user_repo = user_repo
-        self._refresh_token_repo = refresh_token_repo
         # #1857 — the admin's own step-up before an update that raises trust.
         self._step_up_verifier = step_up_verifier or default_step_up_verifier()
 

@@ -92,14 +92,12 @@ class DashboardService:
         task_repo: TaskDashboardRepository,
         tank_repo: TankDashboardRepository | None = None,
         care_repo: CareReminderDashboardRepository | None = None,
-        activity_repo: object | None = None,  # reserved for a future activity event-log feed
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._plant_repo = plant_repo
         self._task_repo = task_repo
         self._tank_repo = tank_repo
         self._care_repo = care_repo
-        self._activity_repo = activity_repo
         self._clock = clock
 
     def get_summary(self, tenant_key: str) -> DashboardSummary:

@@ -129,8 +129,12 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
         except Exception:  # noqa: BLE001 — an unreachable entity is treated as offline
             is_online = False
         if is_online != actuator.is_online:
-            updated = actuator.model_copy(update={"is_online": is_online, "last_seen": datetime.now(UTC)})
-            repo.update_actuator(actuator.key or "", updated)
+            # Field-level write (#1970 class): the HA round trip above can take long enough for
+            # an edit of the actuator to land, and a whole-document write would revert it.
+            repo.update_fields(
+                actuator.key or "",
+                {"is_online": is_online, "last_seen": datetime.now(UTC).isoformat()},
+            )
             synced += 1
         if not is_online:
             offline += 1

@@ -573,7 +573,7 @@ class PayloadTooLargeError(KamerplanterError):
 
 
 class UnsupportedMediaTypeError(KamerplanterError):
-    def __init__(self, content_type: str, allowed: list[str]) -> None:
+    def __init__(self, allowed: list[str]) -> None:
         super().__init__(
             message=f"Unsupported file type. Allowed types: {', '.join(allowed)}.",
             error_code="UNSUPPORTED_MEDIA_TYPE",

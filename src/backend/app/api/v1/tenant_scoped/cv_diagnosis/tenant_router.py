@@ -75,7 +75,7 @@ def _validate_image_bytes(image_data: bytes, max_bytes: int) -> None:
     if len(image_data) > max_bytes:
         raise PayloadTooLargeError(max_bytes)
     if not is_supported_image(image_data):
-        raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"])
+        raise UnsupportedMediaTypeError(["image/jpeg", "image/png"])
     try:
         with Image.open(io.BytesIO(image_data)) as img:
             width, height = img.size
@@ -115,7 +115,7 @@ async def diagnose(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
     max_bytes = settings.cv_diagnosis_max_image_size_mb * 1024 * 1024
     content_length = _parse_content_length(request)

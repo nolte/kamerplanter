@@ -277,7 +277,7 @@ class _World:
         app.dependency_overrides[get_privacy_service] = lambda: self.privacy
         app.dependency_overrides[get_tenant_service] = lambda: self.tenants
         app.dependency_overrides[get_auth_service] = lambda: self.auth
-        app.dependency_overrides[get_user_service] = lambda: UserService(self.users, self.refresh_tokens)
+        app.dependency_overrides[get_user_service] = lambda: UserService(self.users)
         return TestClient(app, raise_server_exceptions=False)
 
     def call(
