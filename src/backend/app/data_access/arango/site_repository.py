@@ -265,7 +265,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         (a planting run occupying a slot, a plant being placed) hand back the slot
         they read, whose field on a pre-#1871 row may point into another tenant;
         following it would re-parent the owner's slot into the stranger's location.
-        Such a row is left as it is for the v0066 migration to count.
+        Such a row is left as it is for the v0067 migration to count.
         """
         updated = self._slots.update(key, slot)
         if updated.location_key:
@@ -303,7 +303,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
                 return
         # Ensure the target edge first, then drop the others: a concurrent reader
         # never finds the slot without a parent, and a lost race leaves a duplicate
-        # the next update (or v0066's count) sees rather than an orphan.
+        # the next update (or v0067's count) sees rather than an orphan.
         self._db.aql.execute(
             "UPSERT {_from: @loc, _to: @slot} INSERT {_from: @loc, _to: @slot, created_at: @now} UPDATE {} IN @@edges",
             bind_vars={"loc": location_id, "slot": slot_id, "now": self._now(), "@edges": col.HAS_SLOT},

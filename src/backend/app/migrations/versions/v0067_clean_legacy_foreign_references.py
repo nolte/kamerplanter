@@ -1,4 +1,4 @@
-"""v0066 — clean the references written through the #1871 holes before the fixes (#1878).
+"""v0067 — clean the references written through the #1871 holes before the fixes (#1878).
 
 Before #1876 several tenant routes stored a caller-supplied reference unchecked.
 The fixes stop new rows; this migration repairs the rows the holes already
@@ -56,7 +56,7 @@ _BATCH = 500
 
 
 class CleanLegacyForeignReferencesMigration(Migration):
-    version = "0066"
+    version = "0067"
     name = "clean_legacy_foreign_references"
     description = (
         "Re-own shared workflow templates of private species, move has_slot edges to the slot's "

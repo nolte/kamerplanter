@@ -1,11 +1,11 @@
-"""v0066 (#1878): a dry run only reads, a clean store runs no write, a missing collection is skipped."""
+"""v0067 (#1878): a dry run only reads, a clean store runs no write, a missing collection is skipped."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from app.migrations.support.legacy_foreign_references import CLASSES, COUNT_QUERIES, REQUIRED_COLLECTIONS
-from app.migrations.versions.v0066_clean_legacy_foreign_references import migration
+from app.migrations.versions.v0067_clean_legacy_foreign_references import migration
 
 
 class _Db:

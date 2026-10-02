@@ -1,4 +1,4 @@
-"""#1878 — v0066 and its count queries, driven against a real ArangoDB.
+"""#1878 — v0067 and its count queries, driven against a real ArangoDB.
 
 Each class is seeded with the shape a volume written before #1871 carries, **next
 to** the rows that must survive: the tenant's own legitimate rows, global-catalogue
@@ -20,10 +20,10 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.migrations.support.legacy_foreign_references import COUNT_QUERIES
-from app.migrations.versions.v0066_clean_legacy_foreign_references import migration
+from app.migrations.versions.v0067_clean_legacy_foreign_references import migration
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = run_database_name("v0066_legacy_refs")
+TEST_DATABASE = run_database_name("v0067_legacy_refs")
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 _DOCS = [
