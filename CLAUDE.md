@@ -108,36 +108,7 @@ stays local for now).
 
 ## Requirements Overview
 
-| REQ | Title | Category |
-|-----|-------|----------|
-| REQ-001 | Stammdatenverwaltung | Stammdaten |
-| REQ-002 | Standortverwaltung | Standorte |
-| REQ-003 | Phasensteuerung | Wachstumslogik |
-| REQ-004 | Dünge-Logik | Bewässerung & Düngung |
-| REQ-005 | Hybrid-Sensorik | Monitoring |
-| REQ-006 | Aufgabenplanung | Workflow |
-| REQ-007 | Erntemanagement | Ernte |
-| REQ-008 | Post-Harvest | Nacherntebehandlung |
-| REQ-009 | Dashboard | Visualisierung |
-| REQ-010 | IPM-System | Pflanzenschutz |
-| REQ-011 | Externe Stammdatenanreicherung | Integration |
-| REQ-012 | Stammdaten-Import | Import |
-| REQ-013 | Pflanzdurchlauf | Gruppenmanagement |
-| REQ-014 | Tankmanagement | Bewässerung & Düngung |
-| REQ-015 | Kalenderansicht | Visualisierung |
-| REQ-016 | InvenTree-Integration (optional) | Integration |
-| REQ-017 | Vermehrungsmanagement | Pflanzenvermehrung |
-| REQ-018 | Umgebungssteuerung & Aktorik | Automatisierung |
-| REQ-019 | Substratverwaltung | Infrastruktur |
-| REQ-020 | Onboarding-Wizard | Benutzerführung |
-| REQ-021 | UI-Erfahrungsstufen | Benutzerführung |
-| REQ-022 | Pflegeerinnerungen | Pflege & Erinnerungen |
-| REQ-023 | Benutzerverwaltung & Authentifizierung | Plattform & Sicherheit |
-| REQ-024 | Mandantenverwaltung & Gemeinschaftsgärten | Plattform & Kollaboration |
-| REQ-025 | Datenschutz & Betroffenenrechte (DSGVO) | Plattform & Datenschutz |
-| REQ-027 | Light-Modus (Anonymer Zugang) | Plattform & Deployment |
-| REQ-028 | Mischkultur & Companion Planting | Pflanzenplanung |
-| REQ-032 | Druckansichten & Export | Ausgabe & Dokumentation |
+The REQ index lives in `spec/req/` (one file per requirement, `REQ-<NNN>_<Title>.md`; list with `ls spec/req`). NFRs: `spec/nfr/`.
 
 ## Verbindliche Style Guides
 
@@ -185,26 +156,8 @@ These constraints are documented across multiple files and must be respected whe
 
 ## Tech Stack Summary
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python 3.14+, FastAPI >= 0.115, Celery >= 5.4, Authlib (JWT/OAuth2/OIDC) |
-| Frontend | React 19, TypeScript 6, Redux Toolkit, MUI 9, Vite 8, react-router-dom v7 |
-| Mobile | Flutter 3.16+ (not yet implemented) |
-| Primary DB | ArangoDB 3.11+ (multi-model) |
-| Time-Series DB | TimescaleDB 2.13+ |
-| Cache/Queue | Valkey 8.0+ (Redis-Wire-Protokoll-kompatibel; `redis-py` als Client) |
-| Orchestration | Kubernetes 1.28+, Helm, Traefik |
-| Code Quality | Ruff (Python); ESLint (TypeScript) |
-| Testing | pytest + pytest-asyncio (backend); vitest (frontend) |
-| CI/CD | GitHub Actions |
-
-> **This table is a summary, not the source of truth.** Verify a frontend version
-> against `src/frontend/package.json` and a backend one against
-> `src/backend/pyproject.toml` before reasoning about library-specific behaviour.
-> The frontend runs **MUI 9**, whose DOM/interaction details differ materially
-> from MUI 7 (role assignment per `Drawer` variant, `Select` opening on
-> `mousedown` only, the click-away guard) — an earlier stale "MUI 7" entry here
-> misled several E2E investigations.
+Full stack: `spec/stack.md`. Versions: `src/frontend/package.json`, `src/backend/pyproject.toml` — verify there before reasoning about library-specific behaviour.
+Backend Python/FastAPI/Celery (ArangoDB, TimescaleDB, Valkey); frontend React 19 + **MUI 9** (not 7: `Drawer` role per variant, `Select` opens on `mousedown` only, click-away guard) — a stale "MUI 7" entry once misled E2E investigations.
 
 ## Domain Concepts
 

@@ -29,7 +29,7 @@ expected:
   - requester-in-records/0
   - step-up/platform_admin/password
   - subject-in-records/0
-derived_from: 9cacdb752ec7f3d2305b6d91bdd7a94c586f9cc4
+derived_from: blob:bacf50ff7a11f3248f8461f7f52b23f60afb167e
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -44,6 +44,7 @@ observe:
   - reach-subject
   timeout_seconds: 120
 approval:
-  observation_digest: fe814f713d7729b1c4193deff99ca704d264974b061764aa33f8ec45be7eee5d
+  approved_at: '2026-10-02T11:13:27Z'
   approved_by: nolte
-  approved_at: '2026-09-25T18:35:52Z'
+  observation_digest: fe814f713d7729b1c4193deff99ca704d264974b061764aa33f8ec45be7eee5d
+  mode: reconfirmed

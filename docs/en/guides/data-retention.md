@@ -798,6 +798,62 @@ where it left off.
 
 ---
 
+## Migration v0066: Resetting Legacy Stamps on Seed Rows
+
+When tenants were introduced, the old migration `v0004` assigned every row without an
+owner to a "default tenant" — including the bundled seed data. Since tenant deletion (#1769)
+removes the rows of its tenant, deleting that tenant would take seed data with it that is meant
+for everyone. On a legacy volume this concerns fertilizers, nutrient plans with their phase
+entries, workflow templates and task templates.
+
+The migration `v0066_reset_legacy_seed_tenant_stamps` resets those rows to global
+(`tenant_key == ""`), but only when two things hold: the bundled seed file names the row (same
+key as the seed loader: product and brand, plan or workflow name, workflow name and task name),
+**and** the owner key is proven to be the `v0004` stamp (a phase entry or task template carries
+it under a global parent, or it is on more than half of the expected seed fertilizers and workflows). A plan a tenant
+created itself and named like a seed stays that tenant's: if a name has a second global or
+identically stamped row, or is a clone, nothing is reset. Rows the seed file does not name
+are left alone.
+
+!!! info "What the measurement showed"
+    The seed loaders reset fertilizers, plans, workflows and task templates to global on every
+    start. What was left behind were the **phase entries** of the seed plans — they kept the
+    stamp, and a tenant deletion would have stripped every seed plan of its phases. The
+    migration closes exactly that gap and covers the other collections in case a seed run
+    failed.
+
+!!! warning "Check first: on a backup only"
+    Never count the affected rows **against the production database**; use a restored backup or
+    a dev cluster (arangosh or web UI, database `kamerplanter`):
+
+    ```aql
+    RETURN {
+      entries_under_global_plan: LENGTH(
+        FOR d IN nutrient_plan_phase_entries
+          FILTER d.tenant_key != null AND d.tenant_key != ""
+          LET p = DOCUMENT(CONCAT("nutrient_plans/", d.plan_key))
+          FILTER p != null AND (p.tenant_key == null OR p.tenant_key == "")
+          RETURN 1),
+      nutrient_plans_stamped_by_tenant: (FOR d IN nutrient_plans
+        FILTER d.tenant_key != null AND d.tenant_key != ""
+        COLLECT t = d.tenant_key WITH COUNT INTO n RETURN {tenant_key: t, rows: n})
+    }
+    ```
+
+    `entries_under_global_plan` above 0 means the migration changes something. The same query
+    for `fertilizers`, `workflow_templates` and `task_templates` is `OPERATOR_COUNT_QUERY` in the
+    migration. The key that dominates these counts is the former default tenant.
+
+Run it like any migration via `python -m app.migrations upgrade`; `--dry-run` counts the
+changes (`reset_legacy_seed_tenant_stamps_dry_run`) without writing anything. A second run
+changes nothing.
+
+!!! danger "Not reversible"
+    The old default-tenant key on the seed rows cannot be restored afterwards. Back up the
+    database before upgrading.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Can I extend the 90-day soft-delete period?"
