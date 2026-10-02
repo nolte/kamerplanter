@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '@/test/helpers';
+import { renderWithProviders, createTestStore, authState } from '@/test/helpers';
+import type { UserProfile } from '@/api/types';
 
 /**
- * Email channel config keys — NotificationSettingsTab (issue #367 item #4).
+ * Email channel — NotificationSettingsTab (issue #1885).
  *
- * The email address field and digest select used to write `config.address` and
- * `config.digest_mode`, while the backend reads `config.email` and
- * `config.digest` — so the settings never reached the backend. This test locks
- * in the canonical keys through the actual save flow.
+ * The channel mails the account's confirmed address only. The tab shows that
+ * address read-only (no free-text recipient field), warns when it is not
+ * confirmed, and never writes a recipient key back to the backend.
  */
 
 const api = vi.hoisted(() => ({
@@ -33,7 +33,7 @@ const BASE_PREFS = {
     email: {
       enabled: true,
       priority: 0,
-      config: { email: 'old@example.com', digest: false },
+      config: { digest: false },
     },
   },
   quiet_hours: { enabled: false, start: '22:00', end: '07:00', timezone: 'Europe/Berlin' },
@@ -54,34 +54,48 @@ beforeEach(() => {
   api.updatePreferences.mockImplementation((payload) => Promise.resolve(payload));
 });
 
-describe('NotificationSettingsTab — email channel config keys', () => {
-  it('reads the existing address from config.email', async () => {
-    renderWithProviders(<NotificationSettingsTab />);
-    const input = (await screen.findByTestId('email-address')).querySelector('input');
-    expect(input).not.toBeNull();
-    expect((input as HTMLInputElement).value).toBe('old@example.com');
+const ACCOUNT = {
+  key: 'u1',
+  email: 'owner@example.org',
+  display_name: 'Owner',
+  email_verified: true,
+} as UserProfile;
+
+const render = (user: UserProfile) => {
+  const base = authState() as { auth: Record<string, unknown> };
+  const store = createTestStore({ auth: { ...base.auth, user } });
+  return renderWithProviders(<NotificationSettingsTab />, { store });
+};
+
+describe('NotificationSettingsTab — email recipient', () => {
+  it('shows the confirmed account address read-only and offers no recipient field', async () => {
+    render(ACCOUNT);
+
+    expect(await screen.findByTestId('email-recipient-address')).toHaveTextContent('owner@example.org');
+    expect(screen.getByTestId('email-recipient-helper')).toBeInTheDocument();
+    expect(screen.queryByTestId('email-address')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /e-mail|email/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('email-recipient-unverified')).not.toBeInTheDocument();
   });
 
-  it('writes the address to config.email and digest to config.digest on save', async () => {
+  it('warns that nothing is mailed while the account address is unconfirmed', async () => {
+    render({ ...ACCOUNT, email_verified: false });
+
+    expect(await screen.findByTestId('email-recipient-unverified')).toBeInTheDocument();
+    expect(screen.queryByTestId('email-recipient-helper')).not.toBeInTheDocument();
+  });
+
+  it('saves the digest flag without any recipient key', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<NotificationSettingsTab />);
+    render(ACCOUNT);
 
-    const input = (await screen.findByTestId('email-address')).querySelector(
-      'input',
-    ) as HTMLInputElement;
-    await user.clear(input);
-    await user.type(input, 'new@example.com');
-
+    await screen.findByTestId('email-recipient-address');
     await user.click(screen.getByTestId('notification-settings-save'));
 
     await waitFor(() => expect(api.updatePreferences).toHaveBeenCalledTimes(1));
-    const payload = api.updatePreferences.mock.calls[0][0];
-    const emailConfig = payload.channels.email.config;
-    expect(emailConfig.email).toBe('new@example.com');
-    // The legacy keys must never be written again.
+    const emailConfig = api.updatePreferences.mock.calls[0][0].channels.email.config;
+    expect(emailConfig.digest).toBe(false);
     expect(emailConfig).not.toHaveProperty('address');
     expect(emailConfig).not.toHaveProperty('digest_mode');
-    // digest is a boolean the backend checks with `== true`.
-    expect(typeof emailConfig.digest).toBe('boolean');
   });
 });

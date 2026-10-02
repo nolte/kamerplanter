@@ -251,7 +251,6 @@ class NotificationService:
     async def send_email_digest(
         self,
         user_key: str,
-        to_email: str,
         since: datetime,
     ) -> dict:
         """Send one digest email summarising the user's notifications since ``since``.
@@ -260,9 +259,12 @@ class NotificationService:
         single batch email through the registered ``email`` channel, reusing its
         batch HTML rendering (REQ-030).
 
-        Returns a dict ``{"status": "sent"|"empty"|"failed", "count": int}``.
-        An empty window sends no mail; a missing/unhealthy channel or a failed
-        send returns ``"failed"`` without raising.
+        The recipient is the account's confirmed address (#1885), resolved here
+        and not accepted from the caller. Returns a dict
+        ``{"status": "sent"|"empty"|"failed"|"no_confirmed_address", "count": int}``.
+        An empty window sends no mail; an account without a confirmed address
+        gets none (``"no_confirmed_address"``); a missing/unhealthy channel or a
+        failed send returns ``"failed"`` without raising.
         """
         notifications = self._notification_repo.list_for_user_since(user_key, since)
         if not notifications:
@@ -272,6 +274,11 @@ class NotificationService:
         if channel is None:
             logger.warning("email_digest_channel_unavailable", subject=log_subject(user_key))
             return {"status": "failed", "count": 0}
+
+        to_email = self._engine.resolve_email_recipient(user_key)
+        if to_email is None:
+            logger.warning("email_digest_no_confirmed_address", subject=log_subject(user_key))
+            return {"status": "no_confirmed_address", "count": len(notifications)}
 
         result = await channel.send_batch(notifications, {"email": to_email})
         if not result.success:
@@ -540,7 +547,7 @@ class NotificationService:
             return {"status": "error", "error": f"Channel '{channel_key}' not found"}
 
         prefs = self._engine._load_preferences(user_key)
-        channel_config = self._engine._get_channel_config(channel_key, prefs)
+        channel_config = self._engine.get_channel_config(user_key, channel_key, prefs)
 
         try:
             result = await channel.send(notification, channel_config)

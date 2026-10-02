@@ -30,6 +30,7 @@ import {
   getChannelStatus,
   sendTest,
 } from '@/api/endpoints/notifications';
+import { useAppSelector } from '@/store/hooks';
 import { usePwaPush } from '@/hooks/usePwaPush';
 import { parseApiError } from '@/api/errors';
 import type {
@@ -56,7 +57,8 @@ export const CHANNEL_KEYS = ['home_assistant', 'email', 'pwa', 'apprise'] as con
 
 // The per-channel `config.*` keys this component reads/writes and sends to the
 // backend. These MUST match the keys the backend reads (e.g. the email channel
-// reads `config.email`/`config.digest`), otherwise settings are silently lost.
+// reads `config.digest`; the recipient is the account's confirmed address and is
+// not configurable, #1885), otherwise settings are silently lost.
 // Guarded by the shared contract in src/contracts/notification-channels.json
 // (frontend: notificationChannels.contract.test.ts; backend:
 // test_notification_channels_contract.py).
@@ -70,7 +72,7 @@ export const CHANNEL_CONFIG_KEYS: Record<
     'tts_enabled',
     'tts_entity_id',
   ],
-  email: ['email', 'digest'],
+  email: ['digest'],
   pwa: [],
   apprise: ['urls'],
 } as const;
@@ -88,11 +90,6 @@ const DEFAULT_CHANNEL_PREF: ChannelPreference = {
   config: {},
 };
 
-// Lightweight client-side format check for the email channel's address field.
-// The backend performs the authoritative validation on save — this only gives
-// immediate feedback while typing, it never blocks the save action.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function getChannelPref(
   prefs: NotificationPreferencesResponse | null,
   key: string,
@@ -104,6 +101,7 @@ export default function NotificationSettingsTab() {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const pwaPush = usePwaPush();
+  const accountUser = useAppSelector((st) => st.auth.user);
 
   const [prefs, setPrefs] = useState<NotificationPreferencesResponse | null>(null);
   const [channelStatuses, setChannelStatuses] = useState<ChannelStatusResponse[]>([]);
@@ -405,39 +403,29 @@ export default function NotificationSettingsTab() {
                 )}
 
                 {pref.enabled && channelKey === 'email' && (() => {
-                  const emailValue = (pref.config?.email as string) ?? '';
-                  const emailInvalid =
-                    emailValue.trim().length > 0 && !EMAIL_PATTERN.test(emailValue);
                   const digestEnabled = (pref.config?.digest as boolean) ?? false;
 
                   return (
                     <Box
                       sx={{ pl: 4, display: 'flex', flexDirection: 'column', gap: 1.5 }}
                     >
-                      <TextField
-                        label={t('pages.notifications.settings.emailAddress')}
-                        size="small"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        placeholder="name@example.com"
-                        value={emailValue}
-                        onChange={(e) =>
-                          updateChannelConfig(
-                            channelKey,
-                            'email',
-                            e.target.value,
-                          )
-                        }
-                        error={emailInvalid}
-                        helperText={
-                          emailInvalid
-                            ? t('pages.notifications.settings.emailAddressError')
-                            : t('pages.notifications.settings.emailAddressHelper')
-                        }
-                        data-testid="email-address"
-                        sx={{ maxWidth: 400 }}
-                      />
+                      <Box data-testid="email-recipient">
+                        <Typography variant="body2" color="text.secondary">
+                          {t('pages.notifications.settings.emailRecipient')}
+                        </Typography>
+                        <Typography variant="body1" data-testid="email-recipient-address" sx={{ wordBreak: 'break-all' }}>
+                          {accountUser?.email ?? ''}
+                        </Typography>
+                        {accountUser?.email_verified ? (
+                          <FormHelperText data-testid="email-recipient-helper">
+                            {t('pages.notifications.settings.emailRecipientHelper')}
+                          </FormHelperText>
+                        ) : (
+                          <Alert severity="warning" sx={{ mt: 1, maxWidth: 400 }} data-testid="email-recipient-unverified">
+                            {t('pages.notifications.settings.emailRecipientUnverified')}
+                          </Alert>
+                        )}
+                      </Box>
                       <Box>
                         <Typography
                           id="email-digest-label"

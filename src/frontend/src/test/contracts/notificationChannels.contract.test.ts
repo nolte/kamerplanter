@@ -44,8 +44,9 @@ describe('notification channel contract (frontend ↔ backend)', () => {
     );
   });
 
-  it('the email channel uses the canonical email/digest config keys', () => {
-    expect([...CHANNEL_CONFIG_KEYS.email].sort()).toEqual(['digest', 'email']);
+  it('the email channel is configured by the digest key only; the recipient is not a config key (#1885)', () => {
+    expect([...CHANNEL_CONFIG_KEYS.email]).toEqual(['digest']);
+    expect(CHANNEL_CONFIG_KEYS.email).not.toContain('email');
     expect(CHANNEL_CONFIG_KEYS.email).not.toContain('address');
     expect(CHANNEL_CONFIG_KEYS.email).not.toContain('digest_mode');
   });
