@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urlsplit
+from urllib.parse import unquote_plus, urlsplit
 
 import structlog
 
@@ -583,8 +583,8 @@ def _apprise_url_refusal(url: object) -> str | None:
         return "An Apprise URL uses a scheme that is not allowed."
     try:
         parts = urlsplit(url)
-        host = parts.hostname
-        query_keys = {pair.split("=", 1)[0].lower() for pair in parts.query.split("&") if pair}
+        host = (parts.hostname or "").rstrip(".")
+        query_keys = {unquote_plus(pair.split("=", 1)[0]).lower() for pair in parts.query.split("&") if pair}
     except ValueError:
         return "An Apprise URL is malformed."
     if query_keys & _APPRISE_FORBIDDEN_QUERY_KEYS:
