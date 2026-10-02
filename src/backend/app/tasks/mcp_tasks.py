@@ -28,10 +28,11 @@ logger = structlog.get_logger(__name__)
 def cleanup_expired_audit_log() -> int:
     """Remove ``mcp_audit_log`` entries older than the retention window (AC-S4)."""
     db = ArangoConnection().db
-    removed = ArangoMcpAuditRepository(db).delete_expired(
-        retention_days=settings.mcp_audit_retention_days,
-    )
-    logger.info("mcp_cleanup_audit_log", removed=removed)
+    repo = ArangoMcpAuditRepository(db)
+    removed = repo.delete_expired(retention_days=settings.mcp_audit_retention_days)
+    # #1806 GDPR-003: entries without a readable ``created_at`` are never selected.
+    held_undated = repo.count_undated()
+    logger.info("mcp_cleanup_audit_log", removed=removed, held_undated=held_undated)
     return removed
 
 

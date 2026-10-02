@@ -1455,16 +1455,30 @@ class PrivacyService:
                     f"{self._retention.hard_delete_after_days} days after a self-service erasure request "
                     "(NFR-011 R-01)."
                 ),
+                rule_id="R-01",
+                latest_deletion_point=(
+                    f"At the daily 04:00 UTC run after the {self._retention.hard_delete_after_days}-day period "
+                    f"has elapsed: at the latest {self._retention.hard_delete_after_days + 1} days after the "
+                    "erasure request. The request itself takes effect immediately; the period only holds the "
+                    "remaining record."
+                ),
+                enforcement_status="enforced",
             ),
             RetentionCategoryInfo(
                 category="harvest_records",
                 description="Harvest documentation (CanG)",
                 retention_period="5 years (anonymised after deletion).",
+                rule_id="R-16",
+                latest_deletion_point="Not deleted automatically: kept for at least 5 years (statutory minimum).",
+                enforcement_status="not_implemented",
             ),
             RetentionCategoryInfo(
                 category="treatment_records",
                 description="Plant-protection and treatment records (PflSchG)",
                 retention_period="3 years (anonymised after deletion).",
+                rule_id="R-17",
+                latest_deletion_point="Not deleted automatically: kept for at least 3 years (statutory minimum).",
+                enforcement_status="not_implemented",
             ),
             RetentionCategoryInfo(
                 category="unverified_accounts",
@@ -1472,6 +1486,17 @@ class PrivacyService:
                 retention_period=(
                     f"Deleted {self._retention.unverified_account_days} days after registration "
                     "if not confirmed (NFR-011 R-02)."
+                ),
+                rule_id="R-02",
+                latest_deletion_point=(
+                    f"At the daily cleanup run after the {self._retention.unverified_account_days}-day period "
+                    f"has elapsed: at the latest {self._retention.unverified_account_days + 1} days after "
+                    "registration."
+                ),
+                enforcement_status="enforced",
+                exception_note=(
+                    "An account with a linked login provider (e.g. Google, GitHub, OIDC) is never removed by this "
+                    "rule, whether or not its e-mail address was confirmed: its owner can still sign in."
                 ),
             ),
             RetentionCategoryInfo(
@@ -1483,6 +1508,13 @@ class PrivacyService:
                 # (#1773 review GDPR-005).
                 description="IP addresses of login sessions",
                 retention_period=f"Anonymised after {self._retention.ip_anonymisation_after_days} days (NFR-011 R-03).",
+                rule_id="R-03",
+                latest_deletion_point=(
+                    f"At the daily anonymisation run after the {self._retention.ip_anonymisation_after_days}-day "
+                    f"period has elapsed: at the latest {self._retention.ip_anonymisation_after_days + 1} days "
+                    "after the session was issued."
+                ),
+                enforcement_status="enforced",
             ),
             RetentionCategoryInfo(
                 category="consent_records",
@@ -1492,11 +1524,26 @@ class PrivacyService:
                     f"(NFR-011 R-04a). The record is pseudonymised at account erasure and hard-deleted "
                     f"{self._retention.consent_retention_years} year(s) after revocation (NFR-011 R-04)."
                 ),
+                rule_id="R-04",
+                latest_deletion_point=(
+                    "IP: at the daily 04:40 UTC run, at the latest "
+                    f"{self._retention.consent_ip_anonymization_days + 1} days after it was recorded. "
+                    "Record: at the daily 04:35 UTC run, at the latest "
+                    f"{self._retention.consent_retention_years} year(s) and 1 day after revocation."
+                ),
+                enforcement_status="enforced",
             ),
             RetentionCategoryInfo(
                 category="export_files",
                 description="Generated data-export files",
                 retention_period=f"{self._retention.export_retention_hours} hours after completion (NFR-011 R-05).",
+                rule_id="R-05",
+                latest_deletion_point=(
+                    f"The download stops working exactly {self._retention.export_retention_hours} hours after "
+                    "completion; the file itself is deleted by the hourly run (minute 20), at the latest "
+                    f"{self._retention.export_retention_hours} hours and 1 hour after completion."
+                ),
+                enforcement_status="enforced",
             ),
             RetentionCategoryInfo(
                 category="erasure_records",
@@ -1505,6 +1552,37 @@ class PrivacyService:
                     "Pseudonymised at erasure, deleted "
                     f"{self._retention.erasure_record_retention_years} year(s) after completion (NFR-011 R-06)."
                 ),
+                rule_id="R-06",
+                latest_deletion_point=(
+                    "At the daily 04:30 UTC run: at the latest "
+                    f"{self._retention.erasure_record_retention_years} year(s) and 1 day after completion."
+                ),
+                enforcement_status="enforced",
+            ),
+            RetentionCategoryInfo(
+                category="email_change_requests",
+                description="E-mail change requests, including the previous address kept for the revert link",
+                retention_period=(
+                    f"Unconfirmed request deleted {self._retention.email_change_ttl_hours} hours after it was made "
+                    f"(NFR-011 R-07); after a confirmed change the previous address is kept "
+                    f"{self._retention.email_change_revert_days} days for the revert link, then the whole request "
+                    "is deleted (R-07a, R-07b)."
+                ),
+                rule_id="R-07",
+                latest_deletion_point=(
+                    f"At the hourly run (minute 15): at the latest {self._retention.email_change_ttl_hours} hours "
+                    "and 1 hour after the request; a confirmed request at the latest "
+                    f"{self._retention.email_change_revert_days} days and 1 hour after confirmation."
+                ),
+                enforcement_status="enforced",
+            ),
+            RetentionCategoryInfo(
+                category="refresh_tokens",
+                description="Expired and revoked login sessions (refresh tokens)",
+                retention_period="Deleted once expired or revoked (NFR-011 R-11).",
+                rule_id="R-11",
+                latest_deletion_point="At the hourly cleanup run: at the latest 1 hour after expiry or revocation.",
+                enforcement_status="enforced",
             ),
         ]
 

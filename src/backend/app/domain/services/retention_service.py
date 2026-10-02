@@ -38,7 +38,7 @@ are not wired here yet.
 from datetime import UTC, datetime, timedelta
 
 from app.common.datetimes import replace_year
-from app.config.settings import settings
+from app.config.settings import RETENTION_CEILINGS, settings
 
 
 class RetentionService:
@@ -133,6 +133,25 @@ class RetentionService:
         for period, message in floors:
             if period < 1:
                 raise ValueError(message)
+        # The ceilings (NFR-011 §4, AK-14): the settings refuse them at load, and a
+        # caller constructing the service with explicit values meets the same wall.
+        # The message names the limit, never the offered value.
+        ceilings = (
+            (self._hard_delete_after_days, "retention_soft_delete_retention_days", "R-01"),
+            (self._unverified_account_days, "retention_unverified_account_days", "R-02"),
+            (self._ip_anonymisation_after_days, "retention_ip_anonymization_days", "R-03"),
+            (self._export_retention_hours, "retention_export_file_retention_hours", "R-05"),
+            (self._erasure_record_retention_years, "retention_erasure_audit_retention_years", "R-06"),
+            (self._email_change_ttl_hours, "retention_email_change_retention_hours", "R-07"),
+            (self._email_change_revert_days, "retention_email_change_revert_days", "R-07a"),
+        )
+        for period, setting_name, rule in ceilings:
+            if period > RETENTION_CEILINGS[setting_name]:
+                msg = (
+                    f"NFR-011 {rule}: {setting_name.upper()} may not exceed "
+                    f"{RETENTION_CEILINGS[setting_name]} (the NFR's own period)."
+                )
+                raise ValueError(msg)
 
     # ── Deadline calculators ──────────────────────────────────────
 
@@ -252,6 +271,10 @@ class RetentionService:
     @property
     def ip_anonymisation_after_days(self) -> int:
         return self._ip_anonymisation_after_days
+
+    @property
+    def email_change_revert_days(self) -> int:
+        return self._email_change_revert_days
 
     @property
     def unverified_account_days(self) -> int:
