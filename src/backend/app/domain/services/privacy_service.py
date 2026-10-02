@@ -1084,7 +1084,7 @@ class PrivacyService:
         tenant_service = self._tenant_service
         if tenant_service is None:  # pragma: no cover - refused by the configuration check
             raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
-        due = f"on {delete_at.strftime('%Y-%m-%d')} (UTC)" if delete_at is not None else "shortly"
+        due = html.escape(f"on {delete_at.strftime('%Y-%m-%d')} (UTC)" if delete_at is not None else "shortly")
         body = (
             "<h2>A shared personal garden will be deleted</h2>"
             "<p>The owner of a personal garden you are a member of has asked Kamerplanter to delete their account. "
