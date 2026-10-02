@@ -61,6 +61,7 @@ def _build_jobs() -> list[SeedJob]:
     from app.migrations.seed_gardol import run_seed_gardol
     from app.migrations.seed_glossary import run_seed_glossary
     from app.migrations.seed_hardiness_zones import run_seed_hardiness_zones
+    from app.migrations.seed_harvest_indicators import run_seed_harvest_indicators
     from app.migrations.seed_lifecycles_outdoor import run_seed_lifecycles_outdoor
     from app.migrations.seed_location_types import seed_location_types
     from app.migrations.seed_nutrient_plans_outdoor import run_seed_nutrient_plans_outdoor
@@ -85,6 +86,9 @@ def _build_jobs() -> list[SeedJob]:
         # every species record exists (base + plant-info), so facultative species
         # defined only in the plant-info files are covered too.
         SeedJob("cultivation_flexible", lambda db: run_seed_cultivation_flexible()),
+        # After every species exists (base + plant-info): an indicator is created only for a
+        # species it resolves to, and create-if-absent by (species, type, unit) (#1956).
+        SeedJob("harvest_indicators", lambda db: run_seed_harvest_indicators()),
         SeedJob("substrates", lambda db: run_seed_substrates()),
         SeedJob("hardiness_zones", lambda db: run_seed_hardiness_zones()),
         SeedJob("fish_species", lambda db: run_seed_fish_species()),

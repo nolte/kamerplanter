@@ -12,7 +12,6 @@ from app.common.dependencies import (
     get_db,
     get_family_repo,
     get_graph_repo,
-    get_harvest_repo,
     get_ipm_repo,
     get_lifecycle_repo,
     get_phase_sequence_repo,
@@ -30,7 +29,6 @@ from app.data_access.arango.phase_sequence_repository import BOUND_BY_SEED
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.botanical_family import BotanicalFamily
-from app.domain.models.harvest import HarvestIndicator
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.species import Species
@@ -102,12 +100,6 @@ def _load_ipm_data() -> dict:
 def _load_workflow_data() -> dict:
     """Load workflow and task template data from YAML."""
     return load_yaml("workflows.yaml")
-
-
-def _load_harvest_indicators() -> list[dict]:
-    """Load harvest indicator data from YAML."""
-    data = load_yaml("harvest_indicators.yaml")
-    return data.get("harvest_indicators", [])
 
 
 def _enum_value(value: object) -> str | None:
@@ -542,7 +534,6 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     companion_data = _load_companion_planting()
     ipm_data = _load_ipm_data()
     workflow_data = _load_workflow_data()
-    harvest_indicator_data = _load_harvest_indicators()
 
     # ── Seed families (upsert) ───────────────────────────────────────
     family_map: dict[str, str] = {}
@@ -860,23 +851,9 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         except Exception:
             logger.info("beneficial_seed_skipped", slug=taxon.slug)
 
-    # ── Seed Harvest indicators (REQ-007) ────────────────────────────
-    harvest_repo = get_harvest_repo()
-    for ind_data in harvest_indicator_data:
-        sp_key = species_key_map.get(ind_data["species_name"], "")
-        indicator = HarvestIndicator(
-            indicator_type=ind_data["indicator_type"],
-            measurement_unit=ind_data["measurement_unit"],
-            measurement_method=ind_data["measurement_method"],
-            observation_frequency=ind_data["observation_frequency"],
-            reliability_score=ind_data["reliability_score"],
-            species_key=sp_key or None,
-        )
-        try:
-            harvest_repo.create_indicator(indicator)
-            logger.info("harvest_indicator_created", type=ind_data["indicator_type"], species=ind_data["species_name"])
-        except Exception:
-            logger.info("harvest_indicator_exists", type=ind_data["indicator_type"], species=ind_data["species_name"])
+    # Harvest indicators (REQ-007) are seeded by ``seed_harvest_indicators`` — its own
+    # registry job *after* the plant-info seeds, so a species defined only there resolves
+    # (#1956).
 
     # ── Deduplicate task templates (one-time cleanup) ────────────────
     from app.data_access.arango import collections as seed_col

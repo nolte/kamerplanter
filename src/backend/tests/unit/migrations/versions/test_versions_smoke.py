@@ -23,6 +23,12 @@ class _NoopAql:
 
 
 class _NoopCollection:
+    def all(self):
+        return iter(())
+
+    def count(self) -> int:
+        return 0
+
     def update(self, *args, **kwargs):  # pragma: no cover - never reached on empty data
         raise AssertionError("no document should be written on an empty database")
 
