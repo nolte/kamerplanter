@@ -709,8 +709,9 @@ class AuthService:
     def request_password_reset(self, email: str, *, defer_mail: MailDeferrer | None = None) -> None:
         """Always succeeds (no email enumeration).
 
-        The mail goes through :meth:`_deliver_mail`: a failing adapter must not
-        answer a known address differently from an unknown one (#1890).
+        The token write and the mail go through :meth:`_deliver_mail`: neither a
+        failing adapter or database nor the time they take may answer a known
+        address differently from an unknown one (#1890).
         """
         user = self._user_repo.get_by_email(email)
         if user is None:
@@ -725,30 +726,28 @@ class AuthService:
         if not allows_interactive_auth(user):
             return
 
-        token = secrets.token_urlsafe(32)
-        user.password_reset_token = token
-        user.password_reset_expires = datetime.now(UTC) + timedelta(hours=1)
-        if user.key:
-            self._user_repo.update_fields(
-                user.key,
-                {
-                    "password_reset_token": token,
-                    "password_reset_expires": _iso(user.password_reset_expires),
-                },
-            )
-
-        self._deliver_mail(
-            "password_reset",
-            lambda: self._email_service.send_password_reset_email(
+        # Token write AND mail are deferred together: a request that persisted the
+        # token inline would do database work only for a known address and answer
+        # measurably later than for an unknown one (security review of #1890), and a
+        # failing write would answer 5xx on that branch alone.
+        def _issue_and_send() -> None:
+            token = secrets.token_urlsafe(32)
+            expires = datetime.now(UTC) + timedelta(hours=1)
+            if user.key:
+                self._user_repo.update_fields(
+                    user.key,
+                    {"password_reset_token": token, "password_reset_expires": _iso(expires)},
+                )
+            self._email_service.send_password_reset_email(
                 to_email=email,
                 token=token,
                 frontend_url=self._frontend_url,
-            ),
-            defer_mail,
-        )
+            )
+
+        self._deliver_mail("password_reset", _issue_and_send, defer_mail)
 
     def _deliver_mail(self, kind: str, send: Callable[[], None], defer: MailDeferrer | None) -> None:
-        """Send an anonymous-flow mail so that neither its outcome nor its duration reaches the response (#1890).
+        """Run an anonymous-flow mail step so that neither its outcome nor its duration reaches the response (#1890).
 
         ``/auth/register`` and ``/auth/password-reset/request`` are anonymous and
         answer the same for a known and an unknown address (SEC-H-009/010). Only

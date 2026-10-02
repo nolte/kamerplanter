@@ -78,7 +78,7 @@ class _OrderRecordingApp:
         await self._app(scope, receive, _send)
 
 
-def _service(mail: IEmailService, *, require_verification: bool) -> AuthService:
+def _service(mail: IEmailService, order: list[str], *, require_verification: bool) -> AuthService:
     repo = MagicMock()
     stored = User(
         _key="8271634",
@@ -97,6 +97,7 @@ def _service(mail: IEmailService, *, require_verification: bool) -> AuthService:
         return created
 
     repo.create.side_effect = _create
+    repo.update_fields.side_effect = lambda *a, **k: order.append("write")
     return AuthService(
         user_repo=repo,
         auth_provider_repo=MagicMock(),
@@ -121,7 +122,7 @@ def _client(order: list[str], error: Exception, *, require_verification: bool) -
         from app.main import app
 
         app.dependency_overrides[get_auth_service] = lambda: _service(
-            _FailingMail(error, order), require_verification=require_verification
+            _FailingMail(error, order), order, require_verification=require_verification
         )
         try:
             yield TestClient(_OrderRecordingApp(app, order), raise_server_exceptions=False)
@@ -155,9 +156,19 @@ class TestPasswordResetRequest:
         for client in _client(order, RuntimeError("down"), require_verification=False):
             _reset(client, KNOWN)
 
-        assert order == ["response-sent", "send"]
+        assert order == ["response-sent", "write", "send"]
 
-    def test_unknown_address_triggers_no_send(self, order: list[str]) -> None:
+    def test_a_failing_token_write_answers_like_an_unknown_address(self, order: list[str]) -> None:
+        """The write is deferred with the mail; a database error must not answer 5xx for a known address only."""
+        with patch("app.domain.services.auth_service._iso", side_effect=RuntimeError("db down")):
+            for client in _client(order, RuntimeError("down"), require_verification=False):
+                known = _reset(client, KNOWN)
+                unknown = _reset(client, UNKNOWN)
+
+        assert known.status_code == unknown.status_code == 200
+        assert known.json() == unknown.json()
+
+    def test_unknown_address_triggers_no_write_and_no_send(self, order: list[str]) -> None:
         for client in _client(order, RuntimeError("down"), require_verification=False):
             _reset(client, UNKNOWN)
 
