@@ -278,8 +278,14 @@ class WateringService:
             for plant in plants:
                 plant_key = plant.get("_key", "")
                 if plant_key:
+                    # ``care_profile_key`` is required: a plant without a care
+                    # profile has no reminder to confirm, so it is skipped (#1898).
+                    profile = self._care_repo.get_profile_by_plant_key(plant_key)
+                    if profile is None or not profile.key:
+                        continue
                     confirmation = CareConfirmation(
                         plant_key=plant_key,
+                        care_profile_key=profile.key,
                         reminder_type=ReminderType.WATERING,
                         action=ConfirmAction.CONFIRMED,
                         confirmed_at=now,
