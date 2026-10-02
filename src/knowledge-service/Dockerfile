@@ -17,7 +17,7 @@ WORKDIR /app
 # environment lives in /opt/venv, OUTSIDE /app, because the stages below
 # `chown -R 1000:1000 /app` and a venv under /app would be copied into that
 # layer and left writable by the UID the server runs as.
-COPY --from=ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.22@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1 \
