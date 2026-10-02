@@ -34,7 +34,7 @@ _APP = find_project_root(Path(__file__)) / "app"
 #: The caller that reads the log salt, and the engine that implements the HMAC
 #: (its ``redact_subject`` hands the salt it was given on to ``log_subject``).
 _EXEMPT = {"common/log_privacy.py", "domain/engines/erasure_engine.py"}
-_KEYED = {"log_subject", "redact_subject"}
+_KEYED = {"log_subject", "redact_subject", "log_tenant"}
 
 
 def scan_source(source: str, rel: str) -> list[str]:

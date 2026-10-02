@@ -44,6 +44,10 @@ LOG_SUBJECT_PREFIX = "sub_"
 #: configured — a constant, never the plaintext key it stands in for.
 UNAVAILABLE_LOG_SUBJECT = "anon_unavailable"
 
+#: Prefix of :meth:`ErasureEngine.log_tenant`, and its constant for an unusable salt (#1928).
+LOG_TENANT_PREFIX = "ten_"
+UNAVAILABLE_LOG_TENANT = "ten_unavailable"
+
 
 class ErasureEngine:
     """Defines the deletion order, anonymisation rules and storage-cleanup steps.
@@ -991,6 +995,27 @@ class ErasureEngine:
             return UNAVAILABLE_LOG_SUBJECT
         digest = hmac.new(salt.encode(), f"log-subject:{user_key}".encode(), hashlib.sha256).hexdigest()
         return f"{LOG_SUBJECT_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def log_tenant(tenant_key: str, salt: str) -> str:
+        """The reference a log line carries instead of a tenant key (#1928).
+
+        A tenant key sits on the pseudonymised retention rows (the erasure
+        records, the CanG/PflSchG harvest and treatment rows), and for a
+        personal tenant it identifies its owner. A log line that carries it
+        beside ``subject=`` joins the pseudonym back to that tenant, and the
+        tenant's rows to the subject. This is the tenant counterpart of
+        :meth:`log_subject`: ``ten_`` + 16 hex chars of an HMAC-SHA256 over the
+        tenant key under the log salt, with its own purpose label
+        (``log-tenant``) so it equals neither the subject reference nor the
+        slug digest of the deletion step-up. Lines of one tenant stay
+        correlatable with each other; a missing or short salt yields the
+        constant ``ten_unavailable``, never the key.
+        """
+        if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
+            return UNAVAILABLE_LOG_TENANT
+        digest = hmac.new(salt.encode(), f"log-tenant:{tenant_key}".encode(), hashlib.sha256).hexdigest()
+        return f"{LOG_TENANT_PREFIX}{digest[:16]}"
 
     @staticmethod
     def redact_subject(text: str, user_key: str, salt: str) -> str:

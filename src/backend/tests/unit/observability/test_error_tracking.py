@@ -131,11 +131,13 @@ def test_release_falls_back_to_component_and_version(monkeypatch: pytest.MonkeyP
 
 def test_request_body_and_cookies_never_leave_the_process() -> None:
     event = {
+        "transaction": "/api/v1/auth/login",
+        "transaction_info": {"source": "route"},
         "request": {
             "url": "https://kp.example/api/v1/auth/login",
             "data": {"email": "grower@example.org", "password": "hunter2"},
             "cookies": {"refresh_token": "eyJ..."},
-        }
+        },
     }
 
     scrubbed = scrub_event(event)

@@ -74,6 +74,10 @@ def _delete(collection: str, *parents: TenantErasureParent) -> TenantErasureEntr
     return TenantErasureEntry(collection=collection, action="delete", parents=parents)
 
 
+#: A tenant's erasure record is keyed ``ter_<tenant_key>``: the record key *is* the tenant key.
+RECORD_KEY_PREFIX = "ter_"
+
+
 class TenantErasureEngine:
     """Declares and validates what tenant deletion does with every collection."""
 
@@ -446,7 +450,7 @@ class TenantErasureEngine:
     @staticmethod
     def record_key(tenant_key: str) -> str:
         """The document key of a tenant's erasure record: one per tenant, so two deletions collide."""
-        return f"ter_{tenant_key}"
+        return f"{RECORD_KEY_PREFIX}{tenant_key}"
 
     @classmethod
     def next_attempt_at(cls, attempt: int, now: datetime) -> datetime:
