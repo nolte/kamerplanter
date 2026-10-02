@@ -811,7 +811,11 @@ class OAuthEngine:
         if (len(audiences) > 1 or "azp" in claims) and claims.get("azp") != config.client_id:
             raise LoginIdentityRejectedError("azp")
         claimed_nonce = claims.get("nonce")
-        if not nonce or not isinstance(claimed_nonce, str) or not hmac.compare_digest(claimed_nonce, nonce):
+        if (
+            not nonce
+            or not isinstance(claimed_nonce, str)
+            or not hmac.compare_digest(claimed_nonce.encode(), nonce.encode())
+        ):
             raise LoginIdentityRejectedError("nonce")
         epoch = now.timestamp()
         exp = claims.get("exp")

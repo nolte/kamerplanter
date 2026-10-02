@@ -304,3 +304,11 @@ def test_the_world_double_is_a_real_account(idp: FakeIdp) -> None:
     """Guard on the harness: the refusals above are about the token, not about a missing account."""
     world = _world(idp)
     assert isinstance(world.users.rows[world.key], User)
+
+
+def test_a_non_ascii_nonce_in_a_signed_token_is_a_refusal_not_a_crash(idp: FakeIdp) -> None:
+    world = _world(idp)
+
+    callback = _login(world, idp, nonce="nönce-é")
+
+    _refused(world, callback)
