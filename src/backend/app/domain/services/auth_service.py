@@ -73,6 +73,10 @@ from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
 
+#: Hands a no-argument callable to whatever runs work after the response (FastAPI's
+#: ``BackgroundTasks.add_task``). The service never imports the web layer (#1890).
+MailDeferrer = Callable[[Callable[[], None]], object]
+
 
 def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
     """Serialize an optional datetime for a partial update doc (JSON mode)."""
@@ -335,6 +339,7 @@ class AuthService:
         display_name: str,
         *,
         on_existing_address: Callable[[UserKey], None] | None = None,
+        defer_mail: MailDeferrer | None = None,
     ) -> UserProfile:
         """Register a local account, or answer as if one had been registered.
 
@@ -351,6 +356,9 @@ class AuthService:
                 the response's background tasks; the enqueue itself then runs
                 after the response has been written. ``None`` means "no notice",
                 which is what unit tests and any non-HTTP caller want.
+            defer_mail: Runs the verification mail after the response (#1890);
+                see :meth:`_deliver_mail`. ``None`` sends inline, still without
+                letting a delivery failure out.
 
         Returns:
             The profile of the created account — or, for a taken address, one
@@ -459,10 +467,14 @@ class AuthService:
 
         # Send verification email (only when required)
         if self._require_email_verification and verification_token:
-            self._email_service.send_verification_email(
-                to_email=email,
-                token=verification_token,
-                frontend_url=self._frontend_url,
+            self._deliver_mail(
+                "verification",
+                lambda: self._email_service.send_verification_email(
+                    to_email=email,
+                    token=verification_token,
+                    frontend_url=self._frontend_url,
+                ),
+                defer_mail,
             )
 
         logger.info("user_registered", email_sha256=email_digest(email), verified=skip_verification)
@@ -694,8 +706,12 @@ class AuthService:
 
     # ── Password reset ──────────────────────────────────────────────────
 
-    def request_password_reset(self, email: str) -> None:
-        """Always succeeds (no email enumeration)."""
+    def request_password_reset(self, email: str, *, defer_mail: MailDeferrer | None = None) -> None:
+        """Always succeeds (no email enumeration).
+
+        The mail goes through :meth:`_deliver_mail`: a failing adapter must not
+        answer a known address differently from an unknown one (#1890).
+        """
         user = self._user_repo.get_by_email(email)
         if user is None:
             return  # Silent fail to prevent enumeration
@@ -721,11 +737,45 @@ class AuthService:
                 },
             )
 
-        self._email_service.send_password_reset_email(
-            to_email=email,
-            token=token,
-            frontend_url=self._frontend_url,
+        self._deliver_mail(
+            "password_reset",
+            lambda: self._email_service.send_password_reset_email(
+                to_email=email,
+                token=token,
+                frontend_url=self._frontend_url,
+            ),
+            defer_mail,
         )
+
+    def _deliver_mail(self, kind: str, send: Callable[[], None], defer: MailDeferrer | None) -> None:
+        """Send an anonymous-flow mail so that neither its outcome nor its duration reaches the response (#1890).
+
+        ``/auth/register`` and ``/auth/password-reset/request`` are anonymous and
+        answer the same for a known and an unknown address (SEC-H-009/010). Only
+        one branch sends, so a send that raises (SMTP outage; a Resend 429 an
+        attacker can provoke) or merely takes a round trip would tell the caller
+        which branch it hit. Hence:
+
+        * the failure is caught here, whatever the adapter raises, and logged by
+          type only — ``SMTPRecipientsRefused`` embeds the refused address in its
+          text, so neither ``str(exc)`` nor the address may reach the log;
+        * the API layer passes ``defer`` (``BackgroundTasks.add_task``), which runs
+          the send after the response has been written.
+
+        Not retried: the user asks again, and the request path has no durable
+        outbox that would not put the token or the address in a second store.
+        """
+
+        def _run() -> None:
+            try:
+                send()
+            except Exception as exc:  # noqa: BLE001 - a delivery failure must never reach the caller
+                logger.error("auth_mail_send_failed", kind=kind, error_type=type(exc).__name__)
+
+        if defer is None:
+            _run()
+        else:
+            defer(_run)
 
     def reset_password(self, token: str, new_password: str) -> None:
         errors = self._password_engine.validate_password_policy(new_password)
