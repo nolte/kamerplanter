@@ -22,7 +22,6 @@ def _service(**overrides) -> DashboardService:
         "task_repo": MagicMock(),
         "tank_repo": MagicMock(),
         "care_repo": MagicMock(),
-        "activity_repo": MagicMock(),
         "clock": _frozen_clock(datetime(2026, 4, 29, 9, 0, tzinfo=UTC)),
     }
     deps.update(overrides)
@@ -42,15 +41,12 @@ class TestDashboardSummary:
         tank_repo.count_below_threshold.return_value = 0
         care_repo = MagicMock()
         care_repo.count_due_on.return_value = 0
-        activity_repo = MagicMock()
-        activity_repo.list_recent.return_value = []
 
         svc = _service(
             plant_repo=plant_repo,
             task_repo=task_repo,
             tank_repo=tank_repo,
             care_repo=care_repo,
-            activity_repo=activity_repo,
         )
 
         result = svc.get_summary("t-1")
@@ -80,15 +76,12 @@ class TestDashboardSummary:
         tank_repo.count_below_threshold.return_value = 1
         care_repo = MagicMock()
         care_repo.count_due_on.return_value = 7
-        activity_repo = MagicMock()
-        activity_repo.list_recent.return_value = [{"key": "act-1"}]
 
         svc = _service(
             plant_repo=plant_repo,
             task_repo=task_repo,
             tank_repo=tank_repo,
             care_repo=care_repo,
-            activity_repo=activity_repo,
         )
 
         result = svc.get_summary("t-1")
@@ -101,12 +94,11 @@ class TestDashboardSummary:
         assert result.counts.care_reminders_due == 7
         assert result.upcoming_tasks == [{"key": "task-1"}]
         # recent_activities is deferred (no per-tenant event log yet): the section
-        # is an explicit empty list and the activity repo is never consulted.
+        # is an explicit empty list.
         assert result.recent_activities == []
-        activity_repo.list_recent.assert_not_called()
 
     def test_optional_repos_none_degrade_to_empty(self):
-        # Absent OPTIONAL repos (tank/care/activity) are a legit configuration,
+        # Absent OPTIONAL repos (tank/care) are a legit configuration,
         # not an error: their tiles degrade to 0/[] via a plain presence check.
         plant_repo = MagicMock()
         plant_repo.count_for_tenant.return_value = 4
@@ -121,7 +113,6 @@ class TestDashboardSummary:
             task_repo=task_repo,
             tank_repo=None,
             care_repo=None,
-            activity_repo=None,
         )
 
         result = svc.get_summary("t-1")
@@ -141,7 +132,7 @@ class TestDashboardSummary:
         task_repo.count_overdue.return_value = 0
         task_repo.list_upcoming.return_value = []
 
-        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None)
 
         with pytest.raises(AttributeError):
             svc.get_summary("t-1")
@@ -157,7 +148,7 @@ class TestDashboardSummary:
         task_repo.count_overdue.return_value = 0
         task_repo.list_upcoming.return_value = []
 
-        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None)
 
         result = svc.get_summary("t-1")
 
@@ -178,7 +169,7 @@ class TestDashboardSummary:
         task_repo.count_overdue.return_value = 0
         task_repo.list_upcoming.return_value = []
 
-        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None)
         result = svc.get_summary("t-1")
 
         assert result.active_plants == rows
@@ -193,7 +184,7 @@ class TestDashboardSummary:
         task_repo.count_overdue.return_value = 0
         task_repo.list_upcoming.return_value = []
 
-        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None)
         result = svc.get_summary("t-1")
 
         assert result.active_plants == []  # one broken section never breaks the summary

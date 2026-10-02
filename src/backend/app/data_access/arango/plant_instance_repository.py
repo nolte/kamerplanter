@@ -86,6 +86,19 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         """
         return super().update(key, plant)
 
+    def increment_chill_days(self, key: PlantID) -> int | None:
+        """One AQL statement: the liveness check and the increment cannot be interleaved (#1970)."""
+        query = (
+            "FOR doc IN @@collection FILTER doc._key == @key AND doc.removed_on == null "
+            "UPDATE doc WITH {chill_days_accumulated: (doc.chill_days_accumulated || 0) + 1, updated_at: @now} "
+            "IN @@collection RETURN NEW.chill_days_accumulated"
+        )
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"@collection": col.PLANT_INSTANCES, "key": key, "now": self._now()},
+        )
+        return next(iter(cursor), None)
+
     def delete(self, key: PlantID) -> bool:
         plant_id = f"{col.PLANT_INSTANCES}/{key}"
         self.delete_edges(col.PLACED_IN, from_id=plant_id)

@@ -31,14 +31,17 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
             if is_cold:
                 # Accumulate + persist the chill day (REQ-003 E2). The
                 # vernalization_based trigger reads chill_days_accumulated.
-                plant.chill_days_accumulated += 1
-                plant_repo.update(plant.key or "", plant)
+                # One server-side increment (#1970): writing the snapshot back would
+                # revert a phase change or removal made since the read.
+                chill_days = plant_repo.increment_chill_days(plant.key or "")
+                if chill_days is None:  # removed since the read
+                    continue
                 updated += 1
                 logger.info(
                     "vernalization_cold_day",
                     plant_key=plant.key,
                     avg_temp=avg_temp_c,
-                    chill_days=plant.chill_days_accumulated,
+                    chill_days=chill_days,
                 )
         except Exception as e:
             logger.error("vernalization_error", plant_key=plant.key, error=loggable_error(e))

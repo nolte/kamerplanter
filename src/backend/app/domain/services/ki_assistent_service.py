@@ -9,6 +9,8 @@ class KiAssistentService:
     """Scaffold service — pins the public surface for REQ-031."""
 
     def __init__(self, llm_adapter: Any | None = None, knowledge_client: Any | None = None) -> None:
+        # Deliberately kept (#1972): REQ-031 scaffold that pins the constructor seam of the
+        # future assistant; nothing constructs it yet and ``answer`` raises NotImplementedError.
         self._llm_adapter = llm_adapter
         self._knowledge_client = knowledge_client
 

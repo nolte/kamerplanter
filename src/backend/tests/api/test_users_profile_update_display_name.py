@@ -14,7 +14,6 @@ schema the whitespace was returned (200) and stored; after the shared
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -109,7 +108,7 @@ def writes() -> list[str]:
 @pytest.fixture
 def client(store: dict[str, dict[str, Any]], writes: list[str]) -> TestClient:
     db = _FakeDb(store, writes)
-    service = UserService(ArangoUserRepository(db), MagicMock())  # type: ignore[arg-type]
+    service = UserService(ArangoUserRepository(db))  # type: ignore[arg-type]
 
     app = FastAPI()
     app.include_router(mod.router, prefix="/api/v1")

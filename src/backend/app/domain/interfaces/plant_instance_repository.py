@@ -25,6 +25,17 @@ class IPlantInstanceRepository(ABC):
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance: ...
 
     @abstractmethod
+    def increment_chill_days(self, key: PlantID) -> int | None:
+        """Add one vernalisation chill day to a live plant, atomically (#1970).
+
+        Returns the new ``chill_days_accumulated``, or ``None`` when the plant is
+        gone or removed. A single server-side increment, so it commutes with any
+        concurrent write of another field and with a concurrent run of itself;
+        the beat task must not write a whole-plant snapshot back instead.
+        """
+        ...
+
+    @abstractmethod
     def delete(self, key: PlantID) -> bool: ...
 
     @abstractmethod
