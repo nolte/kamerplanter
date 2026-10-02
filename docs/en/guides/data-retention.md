@@ -196,6 +196,29 @@ but not deleted (Art. 17(3)(b)):
     Account deletion therefore does not delete these records; it only removes the
     personal reference. The record itself remains until the statutory period has elapsed.
 
+### When the period ends after a tenant deletion
+
+The period counts from the date the record itself carries — `harvest_date` (harvest),
+`applied_at` (treatment), `inspected_at` (inspection) — and keeps running unchanged if
+the tenant or your account is deleted in the meantime. The deletion neither restarts
+nor shortens it.
+
+Once it has ended, the daily task `retention.purge_expired_legal_retention_rows`
+(04:45 UTC) deletes the record for good: together with its quality assessments and
+yield metrics (for a harvest) and every link that still touches it — for treatments,
+the inherited pre-harvest-interval links to plants and runs as well.
+
+Only records whose tenant no longer exists are deleted. The harvests, treatments and
+inspections of an existing garden are that garden's own records; this rule sets no
+maximum for them, and they stay.
+
+A record without a readable date is never deleted — its age is not established. Exception: a harvest without a harvest date counts from its creation, because that is the date the system assumed as the harvest date when it was created.
+
+!!! info "First run after the update"
+    The first run immediately deletes every retained record of a deleted tenant whose
+    period has already ended — including records a tenant deletion left behind before
+    the deletion inventory existed.
+
 ### What an anonymized record looks like
 
 The account reference is not set to `null`; it is replaced. Its new form depends on
@@ -504,6 +527,14 @@ fields are emptied. The AI call log and the MCP call log are likewise retained u
 their own retention window expires, as is the deletion record itself — it is the proof
 of the deletion and drives its retry.
 
+The retained harvest, treatment and inspection data is deleted once its period has
+ended (see [When the period ends after a tenant deletion](#when-the-period-ends-after-a-tenant-deletion)).
+The deletion record is kept as long as the tenant's longest-retained record, but at most
+5 years after the deletion completed (R-06a); the daily task
+`retention.purge_expired_tenant_erasure_records` (04:50 UTC) deletes it afterwards. If
+the deletion retained no harvest, treatment or inspection data, the record is kept for
+the full 5 years.
+
 ### Completeness is measured, not assumed
 
 After the transaction, the system counts whether any record — even in a collection
@@ -545,6 +576,8 @@ keeping the record longer than declared.
 | R-07a | `retention.expire_email_change_requests` (same run) | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly | Expiry of the token |
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily | Expiry of the invitation (status `expired` only) |
+| R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | daily, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
+| R-06a | `retention.purge_expired_tenant_erasure_records` | daily, 04:50 | fixed 5 years (cap), or the end of the tenant's retained data |
 
 Each task logs its run in structured form (structlog) under its own event name with
 counters, for example:
@@ -557,6 +590,8 @@ counters, for example:
 - `retention.expire_email_change_requests.completed` (`expired`, `revert_windows_closed`)
 - `cleanup_expired_tokens` (`removed`)
 - `expired_invitations_cleaned` (`count`)
+- `retention.purge_expired_legal_retention_rows.completed` (`purged` per rule: `rows`, `children`, `edges`)
+- `retention.purge_expired_tenant_erasure_records.completed` (`purged`)
 
 There is no single event line that summarizes every rule.
 
@@ -582,6 +617,9 @@ checks the same floor again:
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — |
 
 If both names of a row are set, the `RETENTION_*` name wins. The older names were
 documented before this change but had no effect — the code used fixed values; they now
@@ -600,11 +638,6 @@ actually apply.
       an environment variable.
     - **R-15** (actor logs): there is no actor-log store in the code, so there is no
       `RETENTION_ACTOR_LOG_*` setting either.
-    - **R-16 through R-18** (harvest, treatment and inspection data): for these
-      statutory minimum periods there is no `_MIN_RETENTION_YEARS` setting and no
-      startup check that enforces a floor — nothing deletes these records
-      automatically, so there is nothing to bound. On account erasure they are
-      anonymized instead and kept indefinitely (see above).
 
 ---
 
