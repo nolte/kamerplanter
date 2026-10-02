@@ -163,7 +163,10 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         return super().update(key, profile)
 
     def get_all_profiles(self) -> list[CareProfile]:
-        # Every profile, page by page: the daily care beat task evaluates each one, and a
+        # System read by design: every profile of every tenant, for the care-reminder beat task
+        # (this was an excluded finding of test_tenant_scoped_reads_are_derived; the guard no
+        # longer sees it because the read goes through get_all_pages, not a direct get_all).
+        # Page by page: the daily care beat task evaluates each one, and a
         # single 10000-row window would silently stop evaluating past it (#2012).
         return get_all_pages(self)
 
