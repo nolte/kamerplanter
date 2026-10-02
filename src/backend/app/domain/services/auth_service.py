@@ -232,7 +232,6 @@ class AuthService:
         unknown_account_store: IUnknownAccountStore | None = None,
         device_pairing_code_store: IDevicePairingCodeStore | None = None,
         device_pairing_throttle_store: IDevicePairingThrottleStore | None = None,
-        tombstone_salt: str = "",
         step_up_verifier: StepUpVerifier | None = None,
         email_change_repo: IEmailChangeRepository | None = None,
         light_mode: bool = False,
@@ -273,13 +272,8 @@ class AuthService:
         # * the throttle store is never ``None`` — it is the *guard*, and a
         #   missing one would not disable the feature, it would silently unbound
         #   guessing against it. Same reasoning as ``_unknown_account_store``.
-        # Unused since #1812 (the auth log lines' subject reference is keyed with
-        # LOG_PSEUDONYM_SALT, see ``_log_subject``); removal tracked in #1881.
-        self._tombstone_salt = tombstone_salt
         # #1816 — the one throttled step-up; the password change re-checks through it.
-        self._step_up_verifier = step_up_verifier or default_step_up_verifier(
-            password_engine, tombstone_salt=tombstone_salt
-        )
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(password_engine)
         # #1815 — which provider links can re-authenticate freshly; the same rule
         # the verifier asks (``get_step_up_verifier`` builds it over the same repos).
         self._reauth_policy = (

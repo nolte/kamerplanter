@@ -278,8 +278,20 @@ class WateringService:
             for plant in plants:
                 plant_key = plant.get("_key", "")
                 if plant_key:
+                    # Fail-closed tenant guard (SEC-001): the run's plants come from graph
+                    # edges, so resolve each one under the tenant before its care profile
+                    # is read or a confirmation is written; skip silently otherwise.
+                    plant = self._plant_repo.get_by_key(plant_key) if self._plant_repo else None
+                    if plant is None or plant.tenant_key != tenant_key:
+                        continue
+                    # ``care_profile_key`` is required: a plant without a care
+                    # profile has no reminder to confirm, so it is skipped (#1898).
+                    profile = self._care_repo.get_profile_by_plant_key(plant_key)
+                    if profile is None or not profile.key:
+                        continue
                     confirmation = CareConfirmation(
                         plant_key=plant_key,
+                        care_profile_key=profile.key,
                         reminder_type=ReminderType.WATERING,
                         action=ConfirmAction.CONFIRMED,
                         confirmed_at=now,

@@ -524,7 +524,7 @@ These variables configure optional plant recognition by photo. If none of the AP
 | `PLANT_ID_BASE_URL` | `https://plant.id/api/v3` | No | Plant.id API base URL. |
 | `INFERENCE_SERVICE_ENABLED` | `false` | No | Enables the self-hosted DINOv2 recognition path (REQ-029-A). **Must be set identically on the backend AND the celery-worker** once users can contribute their own reference images — the worker runs the scheduled Art. 17 erasure of those contributions (issue #1753); if the variable is missing there, the worker holds due erasures as a configuration error and a tenant deletion answers with HTTP 503. For the full setup (VectorDB, reference-index population, activation order) see [Setting Up Plant Identification](../deployment/inference-service.md). |
 | `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | No | Internal URL of the inference service. Also set identically on the backend and the celery-worker (see above). |
-| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`, `local_embedding` (DINOv2, once `INFERENCE_SERVICE_ENABLED=true`). |
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`, `local_embedding` (DINOv2, once `INFERENCE_SERVICE_ENABLED=true`). Any other value — for example a typo — is rejected at startup: the API and the worker refuse to start rather than silently using another provider. |
 | `IDENTIFICATION_HTTP_TIMEOUT` | `60` | No | HTTP timeout (seconds) for the external identification call (Pl@ntNet's upload + server-side ML inference can exceed the previous 30-second default under load). |
 | `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | No | Confidence threshold (0–1) above which a suggestion is highlighted as "very certain". |
 | `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | No | Minimum confidence (0–1) required to show a suggestion. Results below this are filtered out. |
@@ -572,7 +572,7 @@ These variables configure the optional image-based pest detection feature. The f
 | `PEST_DETECTION_DEMO_ENABLED` | `false` | No | Demo adapter (no external service, no real model). Previews the full UI flow with clearly-labelled placeholder findings while the trained backend is externally blocked. Preview only — not for real decisions. Active when `PEST_DETECTION_ENABLED=true` is also set. |
 | `PEST_DETECTION_CLOUD_ENABLED` | `false` | No | Cloud adapter (Kindwise) on/off. Requires `PEST_DETECTION_CLOUD_API_KEY`. |
 | `PEST_DETECTION_CLOUD_API_KEY` | — | No | API key for Kindwise (cloud detection). Without a key the cloud adapter is disabled. |
-| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | No | Preferred adapter. Possible values: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise`. |
+| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | No | Preferred adapter. Possible values: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise_pest`, `demo_pest`. Any other value — for example a typo — is rejected at startup: the API and the worker refuse to start rather than silently using another provider. |
 | `PEST_DETECTION_MAX_IMAGE_SIZE_MB` | `8` | No | Maximum image size in megabytes. Larger images are rejected with HTTP 400. |
 
 !!! note "Self-hosted first"
@@ -779,7 +779,7 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `STORAGE_BACKEND` | `local-fs` | No | Active backend: `local-fs` or `s3` |
+| `STORAGE_BACKEND` | `local-fs` | No | Active backend: `local-fs` or `s3`. Any other value is rejected at startup. |
 | `STORAGE_MAX_FILE_SIZE_MB` | `25` | No | Maximum upload size in megabytes (applies to all categories, overridable per category) |
 | `STORAGE_PRESIGN_TTL_SECONDS` | `900` | No | Validity period of pre-signed URLs in seconds (max. 3600) |
 | `STORAGE_ALLOWED_MIME_TYPES` | *(list)* | No | Comma-separated global whitelist of allowed MIME types |

@@ -525,7 +525,7 @@ Diese Variablen konfigurieren die optionale Pflanzenerkennung per Foto. Wenn kei
 | `PLANT_ID_BASE_URL` | `https://plant.id/api/v3` | Nein | Basis-URL der Plant.id-API. |
 | `INFERENCE_SERVICE_ENABLED` | `false` | Nein | Aktiviert den selbst-gehosteten DINOv2-Erkennungspfad (REQ-029-A). **Muss auf Backend UND Celery-Worker identisch gesetzt sein**, sobald Nutzer eigene Referenzbilder beitragen können — der Worker führt die planmäßige DSGVO-Art.-17-Löschung dieser Beiträge aus (Issue #1753); fehlt die Variable dort, hält der Worker fällige Löschungen als Konfigurationsfehler zurück und eine Mandantenlöschung antwortet mit HTTP 503. Details zur vollständigen Inbetriebnahme (VectorDB, Referenz-Index-Befüllung, Aktivierungsreihenfolge) siehe [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md). |
 | `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | Nein | Interne URL des Inferenz-Service. Ebenfalls auf Backend und Celery-Worker identisch setzen (siehe oben). |
-| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | Nein | Bevorzugter Adapter. Mögliche Werte: `plantnet`, `local_embedding` (DINOv2, sobald `INFERENCE_SERVICE_ENABLED=true`). |
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | Nein | Bevorzugter Adapter. Mögliche Werte: `plantnet`, `local_embedding` (DINOv2, sobald `INFERENCE_SERVICE_ENABLED=true`). Ein anderer Wert — etwa ein Tippfehler — wird beim Start abgelehnt: API und Worker starten dann gar nicht erst, statt still einen anderen Anbieter zu verwenden. |
 | `IDENTIFICATION_HTTP_TIMEOUT` | `60` | Nein | HTTP-Timeout (Sekunden) für den externen Identifikations-Aufruf (Pl@ntNet-Upload + serverseitige ML-Inferenz kann den früheren 30-Sekunden-Standard unter Last überschreiten). |
 | `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | Nein | Übereinstimmungsschwelle (0–1), ab der ein Vorschlag als „sehr sicher" hervorgehoben wird. |
 | `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | Nein | Mindest-Übereinstimmung (0–1) für die Anzeige eines Vorschlags. Ergebnisse darunter werden gefiltert. |
@@ -573,7 +573,7 @@ Diese Variablen konfigurieren die optionale bildbasierte Schädlingserkennung. D
 | `PEST_DETECTION_DEMO_ENABLED` | `false` | Nein | Demo-Adapter (kein externer Service, kein echtes Modell). Zeigt den kompletten UI-Ablauf mit klar gekennzeichneten Platzhalter-Befunden, während das trainierte Backend extern blockiert ist. Nur zur Vorschau — nicht für echte Entscheidungen. Aktiv, wenn zusätzlich `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_CLOUD_ENABLED` | `false` | Nein | Cloud-Adapter (Kindwise) ein/aus. Erfordert `PEST_DETECTION_CLOUD_API_KEY`. |
 | `PEST_DETECTION_CLOUD_API_KEY` | — | Nein | API-Key für Kindwise (Cloud-Erkennung). Ohne Key ist der Cloud-Adapter deaktiviert. |
-| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Nein | Bevorzugter Adapter. Mögliche Werte: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise`. |
+| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Nein | Bevorzugter Adapter. Mögliche Werte: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise_pest`, `demo_pest`. Ein anderer Wert — etwa ein Tippfehler — wird beim Start abgelehnt: API und Worker starten dann gar nicht erst, statt still einen anderen Anbieter zu verwenden. |
 | `PEST_DETECTION_MAX_IMAGE_SIZE_MB` | `8` | Nein | Maximale Bildgröße in Megabyte. Größere Bilder werden mit HTTP 400 abgelehnt. |
 
 !!! note "Self-Hosted-First"
@@ -780,7 +780,7 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `STORAGE_BACKEND` | `local-fs` | Nein | Aktives Backend: `local-fs` oder `s3` |
+| `STORAGE_BACKEND` | `local-fs` | Nein | Aktives Backend: `local-fs` oder `s3`. Ein anderer Wert wird beim Start abgelehnt. |
 | `STORAGE_MAX_FILE_SIZE_MB` | `25` | Nein | Maximale Upload-Größe in Megabyte (gilt für alle Kategorien, überschreibbar per Kategorie) |
 | `STORAGE_PRESIGN_TTL_SECONDS` | `900` | Nein | Gültigkeitsdauer von Pre-Signed URLs in Sekunden (max. 3600) |
 | `STORAGE_ALLOWED_MIME_TYPES` | *(Liste)* | Nein | Kommagetrennte globale Whitelist erlaubter MIME-Types |

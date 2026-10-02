@@ -18,16 +18,12 @@ class UserService:
         self,
         user_repo: IUserRepository,
         refresh_token_repo: IRefreshTokenRepository,
-        tombstone_salt: str = "",
         step_up_verifier: StepUpVerifier | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
         # #1857 — the admin's own step-up before an update that raises trust.
-        self._step_up_verifier = step_up_verifier or default_step_up_verifier(tombstone_salt=tombstone_salt)
-        # #1773 — kept for the DI signature; the only line that used it
-        # (``account_deleted``) left with ``delete_account`` in #1813.
-        self._tombstone_salt = tombstone_salt
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier()
 
     def get_profile(self, user_key: UserKey) -> UserProfile:
         user = self._user_repo.get_or_raise(user_key)

@@ -878,7 +878,6 @@ def get_step_up_verifier():
     return StepUpVerifier(
         RedisStepUpThrottleStore(redis_client),
         get_password_engine(),
-        tombstone_salt=settings.erasure_tombstone_salt,
         # #1815 — the one-time code of an account without a local password; shared
         # so a code mailed by one replica is accepted by another.
         code_store=RedisStepUpCodeStore(redis_client),
@@ -956,7 +955,6 @@ def get_auth_service() -> AuthService:
         # throttle store would still redeem codes, only without a lockout.
         device_pairing_code_store=get_device_pairing_code_store(),
         device_pairing_throttle_store=get_device_pairing_throttle_store(),
-        tombstone_salt=settings.erasure_tombstone_salt,
         step_up_verifier=get_step_up_verifier(),
         # #1841 — a password reset/change or signing out everywhere withdraws a
         # pending e-mail change; unwired, the owner's take-back would stop nothing.
@@ -979,7 +977,6 @@ def get_user_service() -> UserService:
     return UserService(
         get_user_repo(),
         get_refresh_token_repo(),
-        tombstone_salt=settings.erasure_tombstone_salt,
         step_up_verifier=get_step_up_verifier(),
     )
 
