@@ -388,6 +388,7 @@ PARSER_DIFFERENTIAL = [
     "gotify://::1/token",
     "gotify:///token",
     "gotify://1/token",
+    "ntfys://0.1.2.3/topic",
     "gotify://[::1]/token",
 ]
 

@@ -760,12 +760,16 @@ def _apprise_url_refusal(url: object) -> str | None:
         return "An Apprise URL is malformed."
     if query_keys & _APPRISE_FORBIDDEN_QUERY_KEYS:
         return "An Apprise URL must not set timeouts or TLS verification."
+    # ``ntfy://1234`` is a topic, ``ntfy://0.1.2.3/topic`` a host: only the latter is dialled.
+    host_addressed = scheme in _APPRISE_HOST_SCHEMES or (
+        scheme in _APPRISE_NTFY_SCHEMES and bool(parts.path.strip("/"))
+    )
     if not host and scheme in _APPRISE_HOST_SCHEMES:
         return "An Apprise URL is malformed."
     if host:
         address = _apprise_literal_address(host)
         if host.lower().rstrip(".") == "localhost" or (
-            address is not None and _is_apprise_blocked_address(address, resolved=scheme in _APPRISE_HOST_SCHEMES)
+            address is not None and _is_apprise_blocked_address(address, resolved=host_addressed)
         ):
             return "An Apprise URL points at a loopback, link-local or reserved address."
     return None
