@@ -883,6 +883,42 @@ Lauf ändert nichts.
 
 ---
 
+## Migration v0067: Altlasten aus den #1871-Lücken bereinigen
+
+Vor #1871/#1876 konnten Mandanten über einige Routen Verweise auf Daten **eines anderen
+Mandanten** speichern. Die Fixes verhindern neue Fälle; die Migration
+`v0067_clean_legacy_foreign_references` bereinigt den Bestand:
+
+1. **Geteilte Workflow-Templates einer privaten Species** (generiert, `tenant_key == ""`)
+   werden dem Mandanten zugeordnet, dem die Species gehört — nichts wird gelöscht.
+2. **Slots, deren Standort-Feld und `has_slot`-Kante auseinanderlaufen:** die Kante folgt dem
+   Feld, aber nur, wenn beide Standorte demselben Mandanten gehören.
+3. **Fremde Kanten** (`equipment_at`, `assigned_to_location`, `log_slot`, `feeds_from`,
+   `entry_for_species`) werden gelöscht, wenn beide Mandanten bekannt sind und sich
+   unterscheiden. Globale Ziele und an den Mandanten freigegebene Arten bleiben.
+
+Konservativ bleiben außerdem unverändert: Templates zu an einen Mandanten freigegebenen
+Arten oder wenn der Eigentümer schon einen generierten Plan besitzt, `log_slot`-Kanten auf Slots,
+deren Feld und Kante nicht denselben Mandanten nennen, und `entry_for_species`-Kanten, die jünger
+sind als der Merge der #1871-Fixes (2026-09-26) — dort kann eine später widerrufene Freigabe
+die Ursache sein.
+
+Was sich nicht zweifelsfrei einordnen lässt, bleibt unverändert und erscheint als
+`…__left_unclassified` in der Zählung. Der Lauf protokolliert nur Anzahlen und ist
+idempotent. Vorab zählen: `python -m app.migrations upgrade --dry-run`.
+
+!!! danger "Nicht reversibel"
+    Eine gelöschte Kante und der bisherige Eigentümer eines zugeordneten Templates sind
+    danach nicht wiederherstellbar. Vor dem Lauf ein Backup (`arangodump` der Collections
+    `workflow_templates`, `has_slot`, `equipment_at`, `assigned_to_location`, `log_slot`,
+    `feeds_from`, `entry_for_species`) anlegen.
+
+!!! note "Was bleibt"
+    Das Quell-Dokument behält sein Feld (z. B. `location_key` einer Ausrüstung); nur die
+    Kante wird entfernt.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Kann ich die 90-Tage-Frist für Soft-Delete verlängern?"
