@@ -21,7 +21,7 @@ const FORMAL = /\b(Sie|Ihnen|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres)\b/;
 
 // Read the raw files, not the imported JSON modules: the i18n bootstrap merges
 // the catalogue files into one shared object, which would re-key every string
-// under "core.json". Globbing also covers any German catalogue file added later.
+// under "core.json". Globbing means a German catalogue file added later is scanned too; the file-list assertion below makes that addition a deliberate edit.
 const RAW = import.meta.glob('@/i18n/locales/de/*.json', {
   eager: true,
   query: '?raw',
