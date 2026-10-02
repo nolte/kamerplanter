@@ -80,7 +80,13 @@ def _legacy_volume(db) -> dict[str, str]:
     seed_tt = next(name for wf, name in sorted(ids.task_templates) if wf == seed_wf)
 
     rows: dict[str, str] = {}
-    rows["seed_fert"] = _insert(db, col.FERTILIZERS, product_name=seed_fert_name, brand=seed_fert_brand)
+    # Every seed fertilizer and workflow exists, as on a volume that booted once before v0004.
+    for name, brand in sorted(ids.fertilizers):
+        doc_id = _insert(db, col.FERTILIZERS, product_name=name, brand=brand)
+        if (name, brand) == (seed_fert_name, seed_fert_brand):
+            rows["seed_fert"] = doc_id
+    for wf in sorted(ids.workflow_templates - {seed_wf}):
+        _insert(db, col.WORKFLOW_TEMPLATES, name=wf, is_system=True)
     rows["own_fert"] = _insert(db, col.FERTILIZERS, product_name="Mein Eigenbau", brand="Hausmarke")
     rows["seed_plan"] = _insert(db, col.NUTRIENT_PLANS, name=seed_plan)
     rows["own_plan"] = _insert(db, col.NUTRIENT_PLANS, name="Mein Plan")
@@ -213,3 +219,46 @@ def test_the_operator_count_query_runs_and_names_the_stamp(db) -> None:
     stamped = {row["tenant_key"]: row["rows"] for row in counts["nutrient_plans_stamped_by_tenant"]}
     assert stamped == {DEFAULT: 2, OTHER: 1}
     assert counts["task_templates_stamped_by_tenant"] == [{"tenant_key": DEFAULT, "rows": 2}]
+
+
+def test_a_tenant_holding_every_seed_plan_name_cannot_make_its_plans_global(db) -> None:
+    """#1805 review W-1: plan names repeat, so a tenant can own as many seed-named plans as it likes."""
+    ids = seed_identities()
+    own = [_insert(db, col.NUTRIENT_PLANS, name=name, tenant_key=OTHER) for name in sorted(ids.nutrient_plans)]
+    # Even on a volume that lost its seeds there is no stamp to prove: nothing is global, nothing orphaned.
+    report = migration.up(db)
+
+    assert report.changed == 0
+    assert all(_row(db, doc_id)["tenant_key"] == OTHER for doc_id in own)
+
+
+def test_a_plan_the_default_tenant_made_after_v0004_under_a_seed_name_stays_its_own(db) -> None:
+    """#1805 review W-2: the default tenant's own same-named plan, a clone or a duplicate, is not the seed."""
+    rows = _legacy_volume(db)
+    seed_plan = _row(db, rows["seed_plan"])["name"]
+    own_duplicate = _insert(db, col.NUTRIENT_PLANS, name=seed_plan, tenant_key=DEFAULT)
+    own_clone = _insert(
+        db,
+        col.NUTRIENT_PLANS,
+        name=sorted(seed_identities().nutrient_plans)[1],
+        tenant_key=DEFAULT,
+        cloned_from_key="x",
+    )
+    own_entry = _insert(
+        db,
+        col.NUTRIENT_PLAN_PHASE_ENTRIES,
+        plan_key=own_duplicate.split("/", 1)[1],
+        sequence_order=1,
+        tenant_key=DEFAULT,
+    )
+
+    migration.up(db)
+    _delete_default_tenant(db)
+
+    # Two stamped rows of one identity: neither is provably the seed, so neither is touched ...
+    assert _row(db, own_duplicate) is None
+    assert _row(db, own_clone) is None
+    assert _row(db, own_entry) is None
+    # ... and the unambiguous rest of the legacy volume is still repaired.
+    assert _row(db, rows["seed_fert"]) is not None
+    assert _row(db, rows["seed_wf"]) is not None

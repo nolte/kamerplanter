@@ -836,8 +836,10 @@ Die Migration `v0066_reset_legacy_seed_tenant_stamps` setzt diese Zeilen auf glo
 Seed-Datei benennt die Zeile (gleicher Schlüssel wie der Seed-Loader: Produkt und Marke,
 Plan- oder Workflow-Name, Workflow-Name und Aufgaben-Name), **und** der Eigentümerschlüssel ist
 als `v0004`-Stempel bewiesen (ein Phaseneintrag oder eine Aufgabenvorlage trägt ihn unter einem
-globalen Elternteil, oder er steht auf mehr als der Hälfte aller Seed-Zeilen). Ein Plan, den ein
-Mandant selbst angelegt und zufällig wie ein Seed benannt hat, bleibt seiner. Zeilen, die die
+globalen Elternteil, oder er steht auf mehr als der Hälfte der erwarteten Seed-Düngemittel und -Workflows). Ein
+Plan, den ein Mandant selbst angelegt und wie ein Seed benannt hat, bleibt seiner: Gibt es
+zu einem Namen eine zweite globale oder gleich gestempelte Zeile oder einen Klon, wird nichts
+zurückgesetzt. Zeilen, die die
 Seed-Datei nicht benennt, bleiben unberührt.
 
 !!! info "Was die Messung ergab"

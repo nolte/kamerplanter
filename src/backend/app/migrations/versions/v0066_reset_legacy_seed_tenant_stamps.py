@@ -32,19 +32,24 @@ by the shipped seed YAML, by the same key its loader matches on:
 * ``workflow_templates`` — ``name``; ``task_templates`` — ``(workflow name, name)``.
 
 A name alone is not enough, because a tenant may have given its own plan a
-seed's name. ``v0004`` stamped *one* tenant onto the seed rows, so the stamp is
-proven by one of two facts (see ``_proven_stamps``): a child that carries it under
-a *global* parent, or it being the key of more than half of all seed-named rows.
-A seed-named row of any other tenant is left alone, and when no stamp is proven
-nothing is reset. A volume whose parents the loaders already reset (the usual
-state of a deployed volume) still yields the stamp from the entries left behind.
+seed's name — plan names are not unique, so it can do so any number of times.
+``v0004`` stamped *one* tenant onto the seed rows, so the stamp is proven by one of
+two facts (see ``_proven_stamps``): a child that carries it under a *global* parent,
+or it being the key of more than half of the seed fertilizers and workflows the YAML
+expects (the two collections whose identity is unique-indexed, so a tenant cannot
+inflate the tally). A row is then reset only when it is the sole global-or-stamped
+row of its identity and not a clone: a second row of the same identity (a global
+one the loaders already reset, another with the same stamp) means this one may be a
+tenant's own plan, and it is left alone, as is every seed-named row of any other
+tenant. A phase entry or task template follows a parent that is global or reset in
+the same run, never a tenant's own. The writes are one transaction.
 
 A row the YAML does not name — anything a tenant created, or a seed since
 renamed or dropped — is left alone: resetting it would turn a tenant's own data
 global, which is worse than leaving a stamp. A stamp on such a row is not
-provable as a stamp, so it is not repaired. The loaders themselves claim a
-same-named row of any tenant on the next boot, so this goes no further than they
-already do.
+provable as a stamp, so it is not repaired. (The seed loaders find a same-named
+plan across all tenants and rewrite it as global; that is a separate defect, #1957,
+and this migration deliberately does not lean on it.)
 
 Idempotency (M-3) — keyed on the stamp. A reset row has ``tenant_key == ""`` and
 is skipped, so a re-run writes nothing. Dry-run (M-5) counts the plan and writes
@@ -123,33 +128,45 @@ RETURN {
 }
 """
 
-#: One row per seed-named row, stamped or not: ``{collection, key, tenant_key[, parent_tenant_key]}``.
-type Candidate = dict[str, str]
+#: One row per seed-named row, stamped or not. ``ident`` is the identity the YAML gives it;
+#: children also carry their parent's key and ``tenant_key``; plans say whether they are a clone.
+type Candidate = dict[str, Any]
 
 _QUERIES: dict[str, str] = {
     col.FERTILIZERS: (
-        f"FOR d IN @@collection FILTER CONCAT(d.product_name, '{_SEP}', d.brand) IN @fertilizers "
-        "RETURN {key: d._key, tenant_key: d.tenant_key || ''}"
+        "FOR d IN @@collection FILTER CONCAT(d.product_name, @sep, d.brand) IN @fertilizers "
+        "RETURN {key: d._key, tenant_key: d.tenant_key || '', ident: CONCAT(d.product_name, @sep, d.brand)}"
     ),
     col.NUTRIENT_PLANS: (
-        "FOR d IN @@collection FILTER d.name IN @plans RETURN {key: d._key, tenant_key: d.tenant_key || ''}"
+        "FOR d IN @@collection FILTER d.name IN @plans "
+        "RETURN {key: d._key, tenant_key: d.tenant_key || '', ident: d.name, clone: d.cloned_from_key != null}"
     ),
     col.NUTRIENT_PLAN_PHASE_ENTRIES: (
         "FOR d IN @@collection "
         "LET p = DOCUMENT(CONCAT(@plan_collection, '/', d.plan_key)) "
         "FILTER p != null AND p.name IN @plans "
-        "RETURN {key: d._key, tenant_key: d.tenant_key || '', parent_tenant_key: p.tenant_key || ''}"
+        "RETURN {key: d._key, tenant_key: d.tenant_key || '', parent_key: p._key, "
+        "parent_tenant_key: p.tenant_key || ''}"
     ),
     col.WORKFLOW_TEMPLATES: (
-        "FOR d IN @@collection FILTER d.name IN @workflows RETURN {key: d._key, tenant_key: d.tenant_key || ''}"
+        "FOR d IN @@collection FILTER d.name IN @workflows "
+        "RETURN {key: d._key, tenant_key: d.tenant_key || '', ident: d.name}"
     ),
     col.TASK_TEMPLATES: (
         "FOR d IN @@collection "
         "LET w = DOCUMENT(CONCAT(@workflow_collection, '/', d.workflow_template_key)) "
-        f"FILTER w != null AND CONCAT(w.name, '{_SEP}', d.name) IN @task_templates "
-        "RETURN {key: d._key, tenant_key: d.tenant_key || '', parent_tenant_key: w.tenant_key || ''}"
+        "FILTER w != null AND CONCAT(w.name, @sep, d.name) IN @task_templates "
+        "RETURN {key: d._key, tenant_key: d.tenant_key || '', ident: CONCAT(w.name, @sep, d.name), "
+        "parent_key: w._key, parent_tenant_key: w.tenant_key || ''}"
     ),
 }
+
+#: Collections whose seed identity a tenant cannot occupy more than once (unique index on the
+#: identity), so a stamp counted over them cannot be inflated by a tenant's own rows.
+_UNIQUE_IDENTITY = (col.FERTILIZERS, col.WORKFLOW_TEMPLATES)
+#: Collections whose rows are selected for their own identity (the children follow their parent).
+_PARENTS = (col.FERTILIZERS, col.NUTRIENT_PLANS, col.WORKFLOW_TEMPLATES)
+_CHILD_PARENT = {col.NUTRIENT_PLAN_PHASE_ENTRIES: col.NUTRIENT_PLANS, col.TASK_TEMPLATES: col.WORKFLOW_TEMPLATES}
 
 
 class ResetLegacySeedTenantStampsMigration(Migration):
@@ -172,6 +189,7 @@ class ResetLegacySeedTenantStampsMigration(Migration):
             "task_templates": [f"{wf}{_SEP}{name}" for wf, name in sorted(ids.task_templates)],
             "plan_collection": col.NUTRIENT_PLANS,
             "workflow_collection": col.WORKFLOW_TEMPLATES,
+            "sep": _SEP,
         }
         found: list[Candidate] = []
         for collection, query in _QUERIES.items():
@@ -183,7 +201,7 @@ class ResetLegacySeedTenantStampsMigration(Migration):
         return found
 
     @staticmethod
-    def _proven_stamps(candidates: list[Candidate]) -> set[str]:
+    def _proven_stamps(candidates: list[Candidate], expected_unique_rows: int) -> set[str]:
         """The ``tenant_key`` values proven to be the ``v0004`` default-tenant stamp.
 
         A key is proven by either of two facts:
@@ -192,58 +210,102 @@ class ResetLegacySeedTenantStampsMigration(Migration):
           *global* parent. A tenant cannot own a row under a global parent, so the
           key was stamped, not assigned (the state of a deployed volume, where the
           loaders already reset the parents);
-        * **a majority** — it is on more than half of *all* seed-named rows, reset
-          ones counted (the state right after ``v0004``, when every seed row
-          carries it).
+        * **a majority of the expected seed fertilizers and workflows** — it is on
+          more than half of the rows the seed YAML puts there (the state right
+          after ``v0004``). Only these two collections count, because their identity
+          is unique-indexed: a tenant can hold a seed-named row at most once and
+          cannot inflate the tally the way it could with plans, whose names repeat.
+          The denominator is the *expected* number, not the rows found, so one
+          surviving row of a tenant on a volume without its seeds is not a majority.
 
-        Nothing else qualifies: a lone seed-named row of another tenant is neither,
-        so it stays that tenant's.
+        Nothing else qualifies.
         """
-        proven = {row["tenant_key"] for row in candidates if row["tenant_key"] and row.get("parent_tenant_key") == ""}
+        proven = {
+            row["tenant_key"]
+            for row in candidates
+            if row["tenant_key"] and "parent_tenant_key" in row and row["parent_tenant_key"] == ""
+        }
         tally: dict[str, int] = {}
         for row in candidates:
-            if row["tenant_key"]:
+            if row["collection"] in _UNIQUE_IDENTITY and row["tenant_key"]:
                 tally[row["tenant_key"]] = tally.get(row["tenant_key"], 0) + 1
-        proven.update(key for key, count in tally.items() if count * 2 > len(candidates))
+        proven.update(key for key, count in tally.items() if count * 2 > expected_unique_rows)
         return proven
 
+    @classmethod
+    def _select(cls, candidates: list[Candidate]) -> tuple[list[Candidate], int]:
+        """The rows to reset, and how many seed-named stamped rows were left alone as ambiguous or foreign."""
+        ids = seed_identities()
+        stamps = cls._proven_stamps(candidates, len(ids.fertilizers) + len(ids.workflow_templates))
+        held: dict[tuple[str, str], list[str]] = {}
+        for row in candidates:
+            if "ident" in row:
+                held.setdefault((row["collection"], row["ident"]), []).append(row["tenant_key"])
+
+        selected: list[Candidate] = []
+        selected_parents: set[tuple[str, str]] = set()
+        for row in candidates:
+            if row["collection"] not in _PARENTS or row["tenant_key"] not in stamps:
+                continue
+            # The seed row is the only global-or-stamped row of its identity. A second one — a global row
+            # the loaders already reset, another row with the same stamp, a clone — means this one may be
+            # a tenant's own. A row of an unrelated tenant does not make it ambiguous.
+            others = list(held[(row["collection"], row["ident"])])
+            others.remove(row["tenant_key"])
+            if any(owner in ("", row["tenant_key"]) for owner in others) or row.get("clone"):
+                continue
+            selected.append(row)
+            selected_parents.add((row["collection"], row["key"]))
+        for row in candidates:
+            parent = _CHILD_PARENT.get(row["collection"])
+            if parent is None or row["tenant_key"] not in stamps:
+                continue
+            # A child follows a parent that is global or is reset in this run — never a tenant's own.
+            if row["parent_tenant_key"] == "" or (parent, row["parent_key"]) in selected_parents:
+                selected.append(row)
+        stamped = sum(1 for row in candidates if row["tenant_key"])
+        return selected, stamped - len(selected)
+
     @staticmethod
-    def _apply(db: StandardDatabase, collection: str, keys: list[str]) -> None:
-        if keys:
-            db.aql.execute(
-                "FOR key IN @keys UPDATE {_key: key, tenant_key: ''} IN @@collection",
-                bind_vars={"keys": keys, "@collection": collection},
-            )
+    def _apply(db: StandardDatabase, selected: list[Candidate]) -> None:
+        """Write every reset in one transaction, so an interrupted run leaves the proof intact."""
+        by_collection: dict[str, list[str]] = {}
+        for row in selected:
+            by_collection.setdefault(row["collection"], []).append(row["key"])
+        if not by_collection:
+            return
+        transaction = db.begin_transaction(write=list(by_collection))
+        try:
+            for collection, keys in by_collection.items():
+                transaction.aql.execute(
+                    "FOR key IN @keys UPDATE {_key: key, tenant_key: ''} IN @@collection",
+                    bind_vars={"keys": keys, "@collection": collection},
+                )
+            transaction.commit_transaction()
+        except Exception:
+            transaction.abort_transaction()
+            raise
 
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
         candidates = self._candidates(db)
-        stamps = self._proven_stamps(candidates)
-        selected = [row for row in candidates if row["tenant_key"] and row["tenant_key"] in stamps]
-        stamped = sum(1 for row in candidates if row["tenant_key"])
+        selected, left_alone = self._select(candidates)
 
         per_collection: dict[str, int] = {}
         for row in selected:
             per_collection[row["collection"]] = per_collection.get(row["collection"], 0) + 1
         if not dry_run:
-            for collection in per_collection:
-                self._apply(db, collection, [row["key"] for row in selected if row["collection"] == collection])
+            self._apply(db, selected)
 
         changed = len(selected)
-        left_alone = stamped - changed
         logger.info(
             "reset_legacy_seed_tenant_stamps_dry_run" if dry_run else "reset_legacy_seed_tenant_stamps_applied",
             seed_named=len(candidates),
             changed=0 if dry_run else changed,
             to_update=changed,
-            seed_named_other_tenant_left_alone=left_alone,
-            proven_stamps=len(stamps),
+            seed_named_stamped_left_alone=left_alone,
             **per_collection,
         )
-        details: dict[str, Any] = {
-            **per_collection,
-            "seed_named_other_tenant_left_alone": left_alone,
-            "proven_stamps": len(stamps),
-        }
+        details: dict[str, Any] = {**per_collection, "seed_named_stamped_left_alone": left_alone}
         return MigrationReport(
             version=self.version,
             name=self.name,

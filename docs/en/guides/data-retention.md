@@ -796,8 +796,9 @@ The migration `v0066_reset_legacy_seed_tenant_stamps` resets those rows to globa
 (`tenant_key == ""`), but only when two things hold: the bundled seed file names the row (same
 key as the seed loader: product and brand, plan or workflow name, workflow name and task name),
 **and** the owner key is proven to be the `v0004` stamp (a phase entry or task template carries
-it under a global parent, or it is on more than half of all seed rows). A plan a tenant created
-itself and happened to name like a seed stays that tenant's. Rows the seed file does not name
+it under a global parent, or it is on more than half of the expected seed fertilizers and workflows). A plan a tenant
+created itself and named like a seed stays that tenant's: if a name has a second global or
+identically stamped row, or is a clone, nothing is reset. Rows the seed file does not name
 are left alone.
 
 !!! info "What the measurement showed"
