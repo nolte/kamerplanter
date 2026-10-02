@@ -48,6 +48,10 @@ class IConsentRepository(ABC):
         """Hard-delete every consent record revoked before the cutoff (NFR-011 R-04)."""
 
     @abstractmethod
+    def count_undated_revoked(self) -> int:
+        """Count revoked records :meth:`delete_revoked_before` can never select: no readable ``revoked_at`` (#1946)."""
+
+    @abstractmethod
     def revoke_all_unrevoked(self, user_key: UserKey, now_iso: str) -> int:
         """Mark every consent record of *user_key* with no ``revoked_at`` as revoked *now* (NFR-011 R-04).
 

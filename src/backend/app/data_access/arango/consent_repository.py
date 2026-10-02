@@ -199,6 +199,24 @@ class ArangoConsentRepository(BaseArangoRepository[ConsentRecord], IConsentRepos
         cursor = self._db.aql.execute(docs_query, bind_vars=bind_vars)
         return len(list(cursor))
 
+    def count_undated_revoked(self) -> int:
+        """Revoked records :meth:`delete_revoked_before` can never select (#1946, #1806 GDPR-003).
+
+        The R-04 clock runs from ``revoked_at``. A record that *is* revoked
+        (``granted`` false, or a ``revoked_at`` that is present) but carries no
+        readable instant never ages out and is held for ever without a trace. An
+        active grant is not counted: without a ``revoked_at`` it is simply not due.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER DATE_TIMESTAMP(doc.revoked_at) == null
+            AND (doc.revoked_at != null OR doc.granted == false)
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.CONSENT_RECORDS})
+        return int(next(iter(cursor), 0))
+
     def revoke_all_unrevoked(self, user_key: UserKey, now_iso: str) -> int:
         """Mark every consent record of *user_key* with no ``revoked_at`` as revoked *now* (NFR-011 R-04, #1800).
 

@@ -101,10 +101,10 @@ class TestTheConsentRecordsEntry:
         assert "3 year(s)" in summary["consent_records"]
 
     def test_the_periods_follow_the_configuration(self):
-        summary = _policy(RetentionService(consent_retention_years=5, consent_ip_anonymization_days=2))
+        summary = _policy(RetentionService(consent_retention_years=2, consent_ip_anonymization_days=2))
 
         assert "2 days" in summary["consent_records"]
-        assert "5 year(s)" in summary["consent_records"]
+        assert "2 year(s)" in summary["consent_records"]
 
     def test_the_ip_addresses_entry_still_names_sessions_only(self):
         """The pre-existing R-03 (``refresh_tokens``) entry is untouched by the new R-04a entry."""
@@ -158,6 +158,28 @@ class TestTheLatestMomentAndTheRuleStatus:
             assert row.rule_id.startswith("R-"), row.category
             assert row.latest_deletion_point.strip(), row.category
             assert row.latest_deletion_point != row.retention_period, row.category
+
+    def test_the_clock_times_in_the_text_are_the_beat_s_own(self):
+        """#1946 — "at the latest" holds because the task runs on the clock; the text names the real time.
+
+        Read from the real beat entry, so moving a task without moving its wording fails here.
+        """
+        from app.tasks import celery_app
+
+        def beat(task):
+            return next(e["schedule"] for e in celery_app.conf.beat_schedule.values() if e["task"] == task)
+
+        rows = self._rows()
+        daily = {
+            "unverified_accounts": "app.tasks.auth_tasks.cleanup_unverified_accounts",
+            "ip_addresses": "app.tasks.auth_tasks.anonymize_old_ips",
+        }
+        for category, task in daily.items():
+            schedule = beat(task)
+            stamp = f"{min(schedule.hour):02d}:{min(schedule.minute):02d} UTC"
+            assert stamp in rows[category].latest_deletion_point, category
+        tokens = beat("app.tasks.auth_tasks.cleanup_expired_tokens")
+        assert f"minute {min(tokens.minute)}" in rows["refresh_tokens"].latest_deletion_point
 
     def test_the_latest_point_adds_the_worst_case_gap_to_the_period(self):
         rows = self._rows(hard_delete_after_days=30, unverified_account_days=5, ip_anonymisation_after_days=3)

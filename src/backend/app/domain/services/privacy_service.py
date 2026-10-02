@@ -29,6 +29,7 @@ from app.common.exceptions import (
     ValidationError,
     WriteConflictError,
 )
+from app.common.held_count import held_undated_count
 from app.common.log_privacy import log_subject, loggable_ip, redact_subject
 from app.common.types import UserKey
 from app.domain.engines.consent_engine import ConsentEngine
@@ -1518,9 +1519,9 @@ class PrivacyService:
                 ),
                 rule_id="R-02",
                 latest_deletion_point=(
-                    f"At the daily cleanup run after the {self._retention.unverified_account_days}-day period "
-                    f"has elapsed: at the latest {self._retention.unverified_account_days + 1} days after "
-                    "registration."
+                    f"At the daily 03:10 UTC cleanup run after the "
+                    f"{self._retention.unverified_account_days}-day period has elapsed: at the latest "
+                    f"{self._retention.unverified_account_days + 1} days after registration."
                 ),
                 enforcement_status="enforced",
                 exception_note=(
@@ -1541,9 +1542,9 @@ class PrivacyService:
                 retention_period=f"Anonymised after {self._retention.ip_anonymisation_after_days} days (NFR-011 R-03).",
                 rule_id="R-03",
                 latest_deletion_point=(
-                    f"At the daily anonymisation run after the {self._retention.ip_anonymisation_after_days}-day "
-                    f"period has elapsed: at the latest {self._retention.ip_anonymisation_after_days + 1} days "
-                    "after the session was issued."
+                    f"At the daily 03:20 UTC anonymisation run after the "
+                    f"{self._retention.ip_anonymisation_after_days}-day period has elapsed: at the latest "
+                    f"{self._retention.ip_anonymisation_after_days + 1} days after the session was issued."
                 ),
                 enforcement_status="enforced",
             ),
@@ -1612,7 +1613,9 @@ class PrivacyService:
                 description="Expired and revoked login sessions (refresh tokens)",
                 retention_period="Deleted once expired or revoked (NFR-011 R-11).",
                 rule_id="R-11",
-                latest_deletion_point="At the hourly cleanup run: at the latest 1 hour after expiry or revocation.",
+                latest_deletion_point=(
+                    "At the hourly cleanup run (minute 10): at the latest 1 hour after expiry or revocation."
+                ),
                 enforcement_status="enforced",
             ),
         ]
@@ -3050,9 +3053,17 @@ class PrivacyService:
         """
         cutoff = self._retention.consent_record_purge_cutoff(now).isoformat()
         purged = self._consent_repo.delete_revoked_before(cutoff)
+        # #1946: a revoked record without a readable ``revoked_at`` is never selected.
+        held_undated = held_undated_count(
+            self._consent_repo.count_undated_revoked, task="purge_expired_consent_records"
+        )
+        if held_undated:
+            # A record held for ever is over-retention an operator has to look at (#1946).
+            logger.warning("retention.held_undated", rule="R-04", held_undated=held_undated)
         logger.info(
             "retention.purge_expired_consent_records.completed",
             purged=purged,
+            held_undated=held_undated,
             retention_years=self._retention.consent_retention_years,
         )
         return purged
@@ -3188,13 +3199,21 @@ class PrivacyService:
         closed = self._email_change_repo.close_revert_windows(now.isoformat())
         deleted_unconfirmed = self._email_change_repo.delete_expired_unconfirmed(now.isoformat())
         deleted_confirmed = self._email_change_repo.delete_confirmed_past_revert_window(now.isoformat())
-        if affected or closed or deleted_unconfirmed or deleted_confirmed:
+        # #1946: a confirmed change with no readable ``confirmed_at`` / ``revert_expires_at``
+        # is never selected by R-07b. Counted on every run, reported whenever it is non-zero.
+        held_undated = held_undated_count(
+            self._email_change_repo.count_undated_confirmed, task="expire_email_change_requests"
+        )
+        if held_undated:
+            logger.warning("retention.held_undated", rule="R-07b", held_undated=held_undated)
+        if affected or closed or deleted_unconfirmed or deleted_confirmed or held_undated:
             logger.info(
                 "retention.expire_email_change_requests.completed",
                 expired=affected,
                 revert_windows_closed=closed,
                 deleted_unconfirmed=deleted_unconfirmed,
                 deleted_confirmed=deleted_confirmed,
+                held_undated=held_undated,
             )
         return affected
 

@@ -244,6 +244,17 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
         cursor = self._db.aql.execute(query, bind_vars={"@collection": self._collection_name})
         return next(cursor, 0)
 
+    def count_undated(self) -> int:
+        """Rows :meth:`delete_expired` can never select: no readable ``valid_until`` (#1946, #1806 GDPR-003)."""
+        query = """
+        FOR doc IN @@collection
+          FILTER DATE_TIMESTAMP(doc.valid_until) == null
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": self._collection_name})
+        return int(next(iter(cursor), 0))
+
     def delete_expired(self, *, now: datetime | None = None) -> int:
         """Remove cache rows whose ``valid_until`` has passed (§4.3 cleanup)."""
         cutoff = (now or datetime.now(UTC)).isoformat()
