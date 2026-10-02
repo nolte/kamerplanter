@@ -6,7 +6,10 @@ imported lazily to avoid hard failures when not installed.
 
 Only a fixed allow-list of chat/push schemes is delivered to (#1947): the URL
 list comes from a user-editable preference, and Apprise would otherwise mail or
-POST to any third party the user names. Checked on save and again here.
+POST to any third party the user names. Checked on save and again here; host
+targets are also resolved and refused when they land in loopback/link-local/
+reserved space (#1986). Redirects and Matrix discovery happen inside Apprise
+and are not controllable here: that is the operator's egress policy.
 
 Channel config expects:
   {
@@ -54,7 +57,7 @@ class AppriseNotificationChannel(INotificationChannel):
         notification: Notification,
         channel_config: dict,
     ) -> ChannelResult:
-        urls, refused = partition_apprise_urls(channel_config.get("urls", []))
+        urls, refused = await _partition(channel_config.get("urls", []))
         if refused:
             logger.warning("apprise_urls_refused_at_send", refused_count=refused)
         if not urls:
@@ -132,7 +135,7 @@ class AppriseNotificationChannel(INotificationChannel):
         if not notifications:
             return ChannelResult(channel_key=self.channel_key, success=True)
 
-        urls, refused = partition_apprise_urls(channel_config.get("urls", []))
+        urls, refused = await _partition(channel_config.get("urls", []))
         if refused:
             logger.warning("apprise_urls_refused_at_send", refused_count=refused)
         if not urls:
@@ -204,6 +207,11 @@ class AppriseNotificationChannel(INotificationChannel):
 
 
 # ── Module-level helpers ─────────────────────────────────────────────
+
+
+async def _partition(urls: object) -> tuple[list[str], int]:
+    """``partition_apprise_urls`` off the event loop: it resolves host targets (#1986)."""
+    return await asyncio.get_running_loop().run_in_executor(None, partition_apprise_urls, urls)
 
 
 def _import_apprise():  # noqa: ANN202

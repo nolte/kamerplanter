@@ -512,6 +512,18 @@ storage:
       secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
 ```
 
+### Egress für Benachrichtigungskanäle (Apprise)
+
+Kamerplanter prüft Apprise-Ziele beim Speichern und beim Senden (Schema-Positivliste, Literal-Hosts, aufgelöste Adressen von Gotify-, Matrix- und ntfy-Servern). Zwei Dinge liegen **außerhalb des Prozesses** und sind Sache der Netzwerk-Policy des Betreibers:
+
+- Apprise folgt HTTP-Redirects und führt bei Matrix die `.well-known`-Erkennung selbst aus; beides lässt sich im Backend nicht kontrollieren.
+- Zwischen der DNS-Prüfung und dem Verbindungsaufbau bleibt ein kleines Zeitfenster (DNS-Rebinding).
+
+Das Chart schränkt den Egress von `backend` und `celery-worker` deshalb bereits ein (`networkpolicies.backend` und `networkpolicies.celery-worker` in `values.yaml`): Ziel `0.0.0.0/0` ohne `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` und `169.254.0.0/16`, nur auf den Ports 80, 443, 465 und 587. Das schließt Cloud-Metadaten und Cluster-interne Ziele aus, auch wenn eine Weiterleitung dorthin führt.
+
+!!! warning "LAN-Gotify oder -ntfy braucht eine eigene Regel"
+    Ein Gotify oder ntfy im Heimnetz (`192.168.x.x`) ist für Kamerplanter als Ziel erlaubt, wird vom Standard-Egress des Charts aber blockiert. Ergänze in deinem `valuesObject` eine zusätzliche Egress-Regel für genau diese Adresse und diesen Port in `networkpolicies.backend.rules.egress` und `networkpolicies.celery-worker.rules.egress`. Ohne Cluster-NetworkPolicy (Docker Compose) gilt keine dieser Schranken; dann bleibt nur die Prüfung im Backend.
+
 ### Virenscan (optional)
 
 ```yaml
