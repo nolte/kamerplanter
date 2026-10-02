@@ -147,6 +147,33 @@ def _report(request: pytest.FixtureRequest, what: str, names: list[str]) -> None
     )
 
 
+@pytest.fixture(scope="session")
+def timescale_server(request: pytest.FixtureRequest):
+    """The TimescaleDB gate of the modules that measure the time-series side (#1793).
+
+    Same contract as :func:`arango_db`: in CI a missing server is a failure, on a
+    developer machine a skip with the address and the command that starts one.
+    Modules attach with ``pytest.mark.usefixtures("timescale_server")``.
+    """
+    from tests.support import timescale_integration as ts
+
+    reason = ts.probe_failure()
+    if reason is not None:
+        message = (
+            f"TimescaleDB did not answer at {ts.connection_address()}: {reason}\n"
+            "Start one with the image the dev stack and the CI lane share:\n"
+            "    docker compose --profile timescaledb up -d timescaledb\n"
+            "Point the tier elsewhere with TIMESCALEDB_HOST / TIMESCALEDB_PORT / "
+            "TIMESCALEDB_USERNAME / TIMESCALEDB_PASSWORD."
+        )
+        if _running_in_ci():
+            pytest.fail(message, pytrace=False)
+        pytest.skip(message)
+    _report(request, "stale run-scoped TimescaleDB database", ts.drop_stale_databases())
+    yield
+    _report(request, "TimescaleDB database this session left behind", ts.drop_this_runs_databases())
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _configured_log_pseudonym_salt():
     """The tier runs a deployment that can erase, and that needs a log salt (#1812).

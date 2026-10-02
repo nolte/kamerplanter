@@ -1,6 +1,8 @@
 from datetime import datetime
 
+import psycopg
 import structlog
+from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -71,6 +73,19 @@ WHERE sensor_key = %(sensor_key)s
 _DELETE_BY_TENANT_SQL = """
 DELETE FROM sensor_readings
 WHERE tenant_key = %(tenant_key)s
+"""
+
+#: The continuous aggregates (migration 002) that hold a derived copy of every
+#: raw reading, and the only two names resolved to materialisation tables below.
+_AGGREGATE_VIEWS = ("sensor_hourly", "sensor_daily")
+
+#: Where each aggregate keeps its buckets. A continuous aggregate is a read-only
+#: view: ``DELETE FROM sensor_hourly`` is refused, the rows live in an internal
+#: materialisation hypertable that TimescaleDB names itself.
+_MATERIALIZATION_SQL = """
+SELECT view_name, materialization_hypertable_schema, materialization_hypertable_name
+FROM timescaledb_information.continuous_aggregates
+WHERE view_name = ANY(%(views)s)
 """
 
 
@@ -169,25 +184,67 @@ class TimescaleObservationRepository(IObservationRepository):
             return None
         return SensorReading(**row)
 
+    def _purge_aggregates(self, cur: psycopg.Cursor, tenant_key: str, sensor_key: str | None = None) -> int:
+        """Delete the tenant's (or one sensor's) buckets from the continuous aggregates (#1793).
+
+        Deleting raw rows does not reach them: a bucket is only recomputed when a
+        refresh covers its range, and the policies cover the last 3 hours /
+        3 days. Buckets older than the raw retention (90 days) cannot be
+        recomputed at all — the raw rows they were built from are gone — which is
+        also why *refreshing* the deleted window is not the fix: it would leave
+        those buckets behind, and a wider refresh would wipe other tenants'
+        history for the same reason. The buckets are therefore deleted
+        explicitly from the materialisation tables, by the grouping columns
+        (``tenant_key``, ``sensor_key``) the aggregates carry.
+
+        Runs on the caller's cursor, so the raw delete and this one commit or
+        roll back together. A pending invalidation of the deleted raw range is
+        harmless: the next refresh recomputes from raw rows that no longer exist
+        and materialises nothing for the deleted tenant.
+        """
+        cur.execute(_MATERIALIZATION_SQL, {"views": list(_AGGREGATE_VIEWS)})
+        found = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
+        missing = set(_AGGREGATE_VIEWS) - found.keys()
+        if missing:
+            # Fail loud: skipping would report an erasure that left the aggregated
+            # copy of the data behind (the failure #1793 is about).
+            msg = f"continuous aggregate(s) not found, cannot erase their buckets: {sorted(missing)}"
+            raise RuntimeError(msg)
+        total = 0
+        for view in _AGGREGATE_VIEWS:
+            schema, table = found[view]
+            query = sql.SQL("DELETE FROM {} WHERE tenant_key = %(tenant_key)s").format(sql.Identifier(schema, table))
+            params = {"tenant_key": tenant_key}
+            if sensor_key is not None:
+                query += sql.SQL(" AND sensor_key = %(sensor_key)s")
+                params["sensor_key"] = sensor_key
+            cur.execute(query, params)
+            total += cur.rowcount
+        return total
+
     def delete_by_sensor(
         self,
         sensor_key: str,
         tenant_key: str,
     ) -> int:
+        """Delete one sensor's raw readings **and its hourly/daily buckets** (#1793)."""
         params = {"sensor_key": sensor_key, "tenant_key": tenant_key}
         with self._pool.connection() as conn, conn.cursor() as cur:
             cur.execute(_DELETE_BY_SENSOR_SQL, params)
             count = cur.rowcount
+            aggregates = self._purge_aggregates(cur, tenant_key, sensor_key)
             conn.commit()
+        logger.info("sensor_aggregates_deleted", sensor_key=sensor_key, buckets=aggregates)
         return count
 
     def delete_by_tenant(self, tenant_key: str) -> int:
-        """#1769 — every raw reading of a deleted tenant.
+        """#1769 — every raw reading of a deleted tenant, and (#1793) its aggregate buckets.
 
         An empty key would match nothing here (``tenant_key`` is ``NOT NULL`` and
-        stamped from the tenant context), but the caller validates it anyway. The
-        continuous aggregates are not refreshed by this delete (the same holds
-        for :meth:`delete_by_sensor`); see the follow-up recorded on #1769.
+        stamped from the tenant context), but the caller validates it anyway.
+        Returns the raw rows removed; the aggregate buckets are removed in the
+        same transaction whether or not any raw row was left (a tenant whose raw
+        data all aged out still has up to 5 years of daily buckets).
         """
         if not tenant_key:
             msg = "delete_by_tenant needs a tenant key"
@@ -195,7 +252,9 @@ class TimescaleObservationRepository(IObservationRepository):
         with self._pool.connection() as conn, conn.cursor() as cur:
             cur.execute(_DELETE_BY_TENANT_SQL, {"tenant_key": tenant_key})
             count = cur.rowcount
+            aggregates = self._purge_aggregates(cur, tenant_key)
             conn.commit()
+        logger.info("tenant_aggregates_deleted", tenant_key=tenant_key, buckets=aggregates)
         return count
 
     def is_available(self) -> bool:
