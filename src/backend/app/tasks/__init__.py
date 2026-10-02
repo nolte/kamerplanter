@@ -267,15 +267,16 @@ celery_app.conf.update(
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {
             "task": "app.tasks.auth_tasks.cleanup_expired_tokens",
-            "schedule": 3600,
+            # R-11. Clock-anchored (#1946): an interval restarts with every beat-pod restart.
+            "schedule": crontab(minute=10),
         },
         "auth-cleanup-unverified-daily": {
             "task": "app.tasks.auth_tasks.cleanup_unverified_accounts",
-            "schedule": 86400,
+            "schedule": crontab(hour=3, minute=10),  # R-02, 03:10 UTC daily (#1946)
         },
         "auth-anonymize-ips-daily": {
             "task": "app.tasks.auth_tasks.anonymize_old_ips",
-            "schedule": 86400,
+            "schedule": crontab(hour=3, minute=20),  # R-03, 03:20 UTC daily (#1946)
         },
         "auth-rotate-oidc-discovery": {
             "task": "app.tasks.auth_tasks.rotate_oidc_discovery",
@@ -284,7 +285,7 @@ celery_app.conf.update(
         # REQ-024 Tenant tasks
         "tenant-cleanup-invitations-daily": {
             "task": "app.tasks.tenant_tasks.cleanup_expired_invitations",
-            "schedule": 86400,
+            "schedule": crontab(hour=2, minute=0),  # R-12, 02:00 UTC daily (#1946)
         },
         # #1769 — retry tenant deletions left open (partially_completed / stale).
         "tenant-resume-erasures-daily": {

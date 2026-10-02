@@ -13,7 +13,8 @@ import pytest
 
 from app.config.settings import Settings, SettingsError, load_settings
 
-# (environment variable, ceiling) — NFR-011 §4, the seven settings with a ceiling.
+# (environment variable, ceiling) — NFR-011 §4, the ten settings with a ceiling
+# (the seven of Q-R9 plus R-04 / R-04a / R-12, #1946).
 CEILINGS = [
     ("RETENTION_SOFT_DELETE_RETENTION_DAYS", 90),
     ("RETENTION_UNVERIFIED_ACCOUNT_DAYS", 7),
@@ -22,6 +23,9 @@ CEILINGS = [
     ("RETENTION_ERASURE_AUDIT_RETENTION_YEARS", 3),
     ("RETENTION_EMAIL_CHANGE_RETENTION_HOURS", 24),
     ("RETENTION_EMAIL_CHANGE_REVERT_DAYS", 7),
+    ("RETENTION_CONSENT_RETENTION_YEARS", 3),
+    ("RETENTION_CONSENT_IP_ANONYMIZATION_DAYS", 7),
+    ("RETENTION_INVITATION_RETENTION_DAYS", 30),
 ]
 # The pre-#1782 names still accepted as aliases (NFR-011 §4 last column).
 ALIAS_CEILINGS = [
@@ -67,9 +71,16 @@ def test_every_default_is_within_its_own_ceiling():
         assert getattr(settings, variable.lower()) <= ceiling, variable
 
 
-def test_periods_without_a_ceiling_in_the_nfr_stay_unbounded():
-    # R-04/R-04a/R-12 are not among the seven; a ceiling there would be invented.
-    Settings(retention_consent_retention_years=10, retention_invitation_retention_days=365)
+def test_the_legal_minimum_periods_have_no_ceiling():
+    # R-16..R-18 carry a legal floor and no Q-R9 ceiling (a ceiling equal to the floor
+    # would make the setting inert); R-04/R-04a/R-12 do have one since #1946.
+    Settings(retention_harvest_data_min_retention_years=50, retention_treatment_min_retention_years=50)
+
+
+def test_the_ceiling_table_names_every_ceilinged_setting():
+    from app.config.settings import RETENTION_CEILINGS
+
+    assert set(RETENTION_CEILINGS) == {variable.lower() for variable, _ in CEILINGS}
 
 
 class TestTheServiceRepeatsTheCeilings:
@@ -83,6 +94,9 @@ class TestTheServiceRepeatsTheCeilings:
             ("erasure_record_retention_years", 3, "R-06"),
             ("email_change_ttl_hours", 24, "R-07"),
             ("email_change_revert_days", 7, "R-07a"),
+            ("consent_retention_years", 3, "R-04"),
+            ("consent_ip_anonymization_days", 7, "R-04a"),
+            ("invitation_retention_days", 30, "R-12"),
         ],
     )
     def test_an_explicit_period_above_the_ceiling_is_refused(self, keyword, ceiling, rule):
@@ -91,7 +105,11 @@ class TestTheServiceRepeatsTheCeilings:
         RetentionService(**{keyword: ceiling})  # at the ceiling: fine
         with pytest.raises(ValueError, match=rule) as raised:
             RetentionService(**{keyword: ceiling + 1})
-        assert str(ceiling + 1) not in str(raised.value)
+        # Value-free: the message is the same whatever the offending value was
+        # (a digit check would false-positive on "R-04" for a ceiling of 3).
+        with pytest.raises(ValueError, match=rule) as other:
+            RetentionService(**{keyword: ceiling + 987})
+        assert str(raised.value) == str(other.value)
 
 
 class TestADeprecatedNameIsNeverSilent:

@@ -142,8 +142,9 @@ class TestTheServicePassesTheR06Cutoff:
 
 class TestTheR06Setting:
     def test_the_default_is_the_spec_period(self):
-        """NFR-011 R-06 / §4 ``ERASURE_AUDIT_RETENTION_YEARS = 1``."""
-        assert Settings.model_fields["retention_erasure_audit_retention_years"].default == 1
+        """NFR-011 R-06 / §4 ``ERASURE_AUDIT_RETENTION_YEARS = 3`` (Q-R12, §195 BGB; #1946)."""
+        assert Settings.model_fields["retention_erasure_audit_retention_years"].default == 3
+        assert RetentionService().erasure_record_retention_years == 3
 
     def test_zero_years_is_refused(self):
         # ``0`` would drop the Art. 5(2) proof the moment the erasure completed.

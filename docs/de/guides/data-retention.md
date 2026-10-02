@@ -16,9 +16,9 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-01 | Soft-gelöschte User-Accounts | 90 Tage nach Soft-Delete | Hard-Delete (inkl. Edges, Auth-Provider, Sessions) | Art. 17 DSGVO |
 | R-02 | Unbestätigte Accounts | 7 Tage nach Erstellung | Hard-Delete (`app.tasks.auth_tasks.cleanup_unverified_accounts`, täglich) | Art. 5(1)(e), Zweckentfall |
 | R-03 | IP-Adressen in Sessions | 7 Tage nach Speicherung | Anonymisierung (IPv4: letztes Oktett → `0`) | Art. 5(1)(c) Datenminimierung |
-| R-04 | Consent Records | 3 Jahre nach Widerruf | **Nicht implementiert:** Kein Task löscht `consent_records`; auch die IP-Adresse eines Consent Records wird nicht anonymisiert | Art. 7(1) Nachweispflicht |
+| R-04 | Consent Records | 3 Jahre nach Widerruf | Hard-Delete (`retention.purge_expired_consent_records`, täglich 04:35 UTC); die IP-Adresse wird nach 7 Tagen anonymisiert (R-04a, `retention.anonymize_consent_ips`, 04:40 UTC) | Art. 7(1) Nachweispflicht |
 | R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
-| R-06 | Löschungs-Audit (abgeschlossene Anträge) | 1 Jahr nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
+| R-06 | Löschungs-Audit (abgeschlossene Anträge) | 3 Jahre nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
 | R-07 | E-Mail-Änderungsanfragen | 24 Stunden nach Erstellung | Status auf `expired` setzen (kein Hard-Delete) | Zweckentfall |
 | R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
@@ -74,8 +74,8 @@ umzustellen.
 Der tägliche Task `retention.purge_expired_erasure_records` (04:30 UTC, nach dem
 Löschungs-Task um 04:00 UTC) entfernt abgeschlossene Löschungs-Anträge
 (`erasure_requests`, `status=completed`), deren `completed_at` mehr als
-`RETENTION_ERASURE_AUDIT_RETENTION_YEARS` Jahre zurückliegt (Standard 1 Jahr, Minimum
-1 Jahr, gezählt in Kalenderjahren). Das gilt unabhängig davon, wer die Löschung
+`RETENTION_ERASURE_AUDIT_RETENTION_YEARS` Jahre zurückliegt (Standard 3 Jahre, Minimum
+1 Jahr, Maximum 3 Jahre, gezählt in Kalenderjahren). Das gilt unabhängig davon, wer die Löschung
 ausgelöst hat (`origin`: `self_service`, `platform_admin` oder `unverified_cleanup`).
 
 Ein noch offener oder nur teilweise abgeschlossener Antrag (`scheduled`, `in_progress`,
@@ -609,14 +609,14 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | Regel | Celery-Task | Takt (UTC) | Frist-Einstellung |
 |-------|-------------|-----------|--------------------|
 | R-01 | `retention.execute_scheduled_erasures` | täglich, 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` |
-| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | täglich | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
-| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich | `RETENTION_IP_ANONYMIZATION_DAYS` |
+| R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | täglich, 03:10 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
+| R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich, 03:20 | `RETENTION_IP_ANONYMIZATION_DAYS` |
 | R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
 | R-06 | `retention.purge_expired_erasure_records` | täglich, 04:30 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` |
 | R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
 | R-07a | `retention.expire_email_change_requests` (derselbe Lauf) | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
-| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich | Ablaufzeitpunkt des Tokens |
-| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
+| R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich, Minute 10 | Ablaufzeitpunkt des Tokens |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich, 02:00 | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
 | R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | täglich, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
 | R-06a | `retention.purge_expired_tenant_erasure_records` | täglich, 04:50 | fest 5 Jahre (Deckelung) bzw. Ende der aufbewahrten Daten des Mandanten |
 
@@ -635,6 +635,18 @@ Ereignisnamen mit Zählern, zum Beispiel:
 - `retention.purge_expired_tenant_erasure_records.completed` (`purged`)
 
 Eine gemeinsame Ereigniszeile, die alle Regeln zusammenfasst, gibt es nicht.
+
+Alle Retention-Tasks laufen nach der Uhr (Cron-Ausdruck), nicht als fester Abstand ab
+dem Start des Beat-Prozesses: Ein Neustart des Beat-Pods verschiebt keinen Lauf, und die
+„spätestens"-Angaben der Datenschutzerklärung (Frist plus ein Takt) gelten damit auch
+über Neustarts hinweg.
+
+Wo ein Altersfilter einen Datensatz ohne lesbaren Zeitstempel nicht beurteilen kann,
+löscht er ihn nicht, sondern zählt ihn und meldet den Zähler als `held_undated` im
+Lauf-Ereignis: beim Konto-Bereinigungs-Task (R-02), bei den Aufrufprotokollen, bei den
+verwaisten Aufgabenfotos, bei den Consent Records (R-04, `purge_expired_consent_records`),
+bei den bestätigten E-Mail-Änderungen (R-07b, `expire_email_change_requests`) und beim
+Glossar-Cache (`glossary_cleanup_cache`).
 
 ### Metriken
 
@@ -655,9 +667,12 @@ Konstruktor prüft dieselben Unter- und Obergrenzen noch einmal (NFR-011 AK-14):
 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | 7 | — |
 | `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | 7 | — |
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | 72 | `PRIVACY_EXPORT_RETENTION_HOURS` |
-| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | 3 | — |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 3 | 1 | 3 | — |
 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | 24 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | 7 | — |
+| `RETENTION_CONSENT_RETENTION_YEARS` | R-04 | 3 | 1 | 3 | — |
+| `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | R-04a | 7 | 1 | 7 | — |
+| `RETENTION_INVITATION_RETENTION_DAYS` | R-12 | 30 | 1 | 30 | — |
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |
@@ -670,11 +685,6 @@ feste Werte; jetzt werden sie tatsächlich angewendet.
     Für die folgenden Regeln gibt es keine wirksame Umgebungsvariable — kein Code liest
     sie (interne Referenz: Issue #1800):
 
-    - **R-04** (Consent Records): `RETENTION_CONSENT_RETENTION_YEARS` — es gibt keinen
-      Task, der `consent_records` löscht.
-    - **R-12** (abgelaufene Einladungen): `RETENTION_INVITATION_RETENTION_DAYS` — der
-      tägliche Task setzt abgelaufene Einladungen nur auf den Status `expired`, löscht
-      sie aber nicht.
     - **R-14** (Sensordaten): `RETENTION_SENSOR_*` — die Fristen (90 Tage / 2 Jahre /
       5 Jahre) stehen als feste Werte in der TimescaleDB-Migration und sind nicht per
       Umgebungsvariable änderbar.
