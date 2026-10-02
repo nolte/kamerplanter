@@ -11,10 +11,13 @@ import json
 import math
 import secrets
 from datetime import datetime
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
 import structlog
+from authlib.jose import JsonWebKey, JsonWebToken
+from authlib.jose.errors import JoseError
 
 from app.common.enums import AuthProviderType, OidcProviderType
 from app.common.exceptions import ValidationError
@@ -95,6 +98,7 @@ _FRESH_REAUTH_PROVIDER_TYPES: frozenset[str] = frozenset({OidcProviderType.GOOGL
 #: names one. Google documents both spellings.
 _KNOWN_ISSUERS: dict[str, frozenset[str]] = {
     OidcProviderType.GOOGLE.value: frozenset({"https://accounts.google.com", "accounts.google.com"}),
+    OidcProviderType.APPLE.value: frozenset({"https://appleid.apple.com"}),
 }
 
 #: How old the provider sign-in may be when its ID token arrives (#1815). The
@@ -106,6 +110,25 @@ FRESH_REAUTH_MAX_AGE_SECONDS = 300
 #: ``exp``. Thirty seconds is what NTP-synced hosts stay well inside; more would
 #: stretch the five-minute window by an amount nobody reviews.
 FRESH_REAUTH_CLOCK_SKEW_SECONDS = 30
+
+#: Where a provider type publishes its signing keys when no discovery document names
+#: them. Google and Apple document these; GitHub issues no ID token at all.
+_KNOWN_JWKS_URLS: dict[str, str] = {
+    OidcProviderType.GOOGLE.value: "https://www.googleapis.com/oauth2/v3/certs",
+    OidcProviderType.APPLE.value: "https://appleid.apple.com/auth/keys",
+}
+
+#: What a signed ID token may use (#1936): the asymmetric algorithms of RFC 7518 and
+#: EdDSA. Never ``none`` and never ``HS*`` — a symmetric algorithm would let whoever
+#: knows the client secret mint a token for it.
+_LOGIN_ID_TOKEN_ALGORITHMS = ["RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA"]
+
+#: The fields OIDC Discovery 3 marks REQUIRED that this application reads. ``issuer``
+#: is checked separately, against the issuer the document was fetched from (4.3).
+_DISCOVERY_REQUIRED_ENDPOINTS = ("authorization_endpoint", "token_endpoint", "jwks_uri")
+
+#: Clock skew tolerated for ``iat`` of a login ID token (``exp`` uses the step-up's).
+_LOGIN_CLOCK_SKEW_SECONDS = FRESH_REAUTH_CLOCK_SKEW_SECONDS
 
 
 def supports_fresh_reauth(config: OidcProviderConfig) -> bool:
@@ -137,6 +160,19 @@ def _token_endpoint_is_tls(config: OidcProviderConfig) -> bool:
     return token_url.lower().startswith("https://")
 
 
+def _subject_text(value: object) -> str:
+    """A provider's account identifier as text; ``""`` when it names none (#1936).
+
+    ``str(None)`` is ``"None"`` — a subject, to every check downstream — so an
+    absent or null identifier is mapped to the empty string, which
+    :meth:`OAuthEngine.authenticate_login` refuses. A JSON string or integer is an
+    identifier; a bool, list or object is not.
+    """
+    if isinstance(value, bool) or not isinstance(value, str | int):
+        return ""
+    return str(value)
+
+
 def _is_finite_number(value: object) -> bool:
     """A JSON number that can be compared with a clock: not a bool, not NaN, not ±Infinity (review SEC-004)."""
     return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
@@ -160,6 +196,26 @@ class FreshReauthRejectedError(Exception):
         self.detail = detail
 
 
+class LoginIdentityRejectedError(Exception):
+    """A login's ID token or subject failed a check (#1936).
+
+    ``reason`` is one word from a fixed vocabulary (``signature``, ``iss``, ``aud``,
+    ``azp``, ``nonce``, ``exp``, ``iat``, ``sub_missing``, ``sub_mismatch``,
+    ``id_token_missing``, ``jwks_unavailable``, ``malformed``) — it names the check,
+    never the value that failed it, so it is safe in a log line and carries no
+    secret. The caller answers every refusal with the same generic error.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _canonical_issuer(value: str) -> str:
+    """The comparison form of an issuer for a discovery document: no surrounding space, no trailing ``/``."""
+    return value.strip().rstrip("/")
+
+
 #: Which stored ``provider_type`` becomes which ``AuthProviderType`` on the link
 #: record. Keyed from ``OidcProviderType`` for the same reason as
 #: ``_PROVIDER_ENDPOINTS`` (#1497); anything not listed falls back to the generic
@@ -173,6 +229,25 @@ _AUTH_PROVIDER_BY_TYPE: dict[str, AuthProviderType] = {
 
 class OAuthEngine:
     """Pure logic for OAuth/OIDC flows."""
+
+    @staticmethod
+    def usable_discovery(config: OidcProviderConfig) -> dict | None:
+        """The stored discovery document of *config*, only while it is the configured issuer's (#1969).
+
+        OIDC Discovery 4.3: a document belongs to the issuer it was fetched from,
+        and its ``issuer`` equals that issuer. A stored document that names another
+        issuer — left by a repoint of ``issuer_url`` before the repoint cleared it —
+        or none is **ignored**, not read: sign-in prefers a discovery endpoint to the
+        configured one, so honouring it would send the authorization request, the
+        code and the client secret to the issuer the provider was moved away from.
+        """
+        document = config.discovery_document
+        if not isinstance(document, dict):
+            return None
+        issuer = document.get("issuer")
+        if not isinstance(issuer, str) or _canonical_issuer(issuer) != _canonical_issuer(config.issuer_url):
+            return None
+        return document
 
     def build_authorization_url(
         self,
@@ -462,7 +537,7 @@ class OAuthEngine:
 
         return OAuthUserInfo(
             provider=AuthProviderType.GITHUB,
-            provider_user_id=str(profile["id"]),
+            provider_user_id=_subject_text(profile.get("id")),
             email=email,
             display_name=profile.get("name") or profile.get("login", ""),
             avatar_url=profile.get("avatar_url"),
@@ -487,7 +562,7 @@ class OAuthEngine:
 
         return OAuthUserInfo(
             provider=self._to_provider_type(provider_type),
-            provider_user_id=str(data.get("sub", "")),
+            provider_user_id=_subject_text(data.get("sub")),
             email=data.get("email", ""),
             display_name=data.get("name", data.get("preferred_username", "")),
             avatar_url=data.get("picture"),
@@ -507,7 +582,7 @@ class OAuthEngine:
 
         return OAuthUserInfo(
             provider=self._to_provider_type(provider_type),
-            provider_user_id=str(claims.get("sub", "")),
+            provider_user_id=_subject_text(claims.get("sub")),
             email=claims.get("email", ""),
             display_name=claims.get("name", claims.get("email", "")),
             avatar_url=claims.get("picture"),
@@ -556,9 +631,13 @@ class OAuthEngine:
 
     @staticmethod
     def expected_issuers(config: OidcProviderConfig) -> frozenset[str]:
-        """The ``iss`` values this provider may send: its discovery issuer, else the configured one."""
-        if config.discovery_document and config.discovery_document.get("issuer"):
-            return frozenset({str(config.discovery_document["issuer"]).rstrip("/")})
+        """The ``iss`` values this provider may send: a known spelling set, else the configured issuer.
+
+        Never the stored discovery document's ``issuer`` (#1969): a document is
+        accepted only while it equals ``issuer_url`` (:meth:`usable_discovery`), so
+        reading it added nothing but a way for a stale one to keep the issuer a
+        provider was moved away from in force.
+        """
         known = _KNOWN_ISSUERS.get(config.provider_type)
         if known:
             return known
@@ -613,12 +692,180 @@ class OAuthEngine:
         return sub
 
     def fetch_discovery_document(self, issuer_url: str) -> dict:
-        """Fetch OIDC discovery document from .well-known/openid-configuration."""
+        """Fetch OIDC discovery document from .well-known/openid-configuration.
+
+        The one validator every caller shares (#1969): the rotation task, the admin
+        test and the login's own key lookup. A document that is not a JSON object,
+        whose ``issuer`` is not the issuer it was fetched from (OIDC Discovery 4.3),
+        or that lacks the endpoints this application reads, raises ``ValueError``
+        and is never returned — so none of them can store it.
+        """
         url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
         with httpx.Client(timeout=15) as client:
             resp = client.get(url)
             resp.raise_for_status()
-            return resp.json()
+            document = resp.json()
+        return self.validate_discovery_document(document, issuer_url)
+
+    @staticmethod
+    def validate_discovery_document(document: Any, issuer_url: str) -> dict:
+        """Check *document* is the discovery document of *issuer_url*; return it or raise ``ValueError``."""
+        if not isinstance(document, dict):
+            raise ValueError("The discovery document is not a JSON object.")
+        issuer = document.get("issuer")
+        if not isinstance(issuer, str) or not issuer:
+            raise ValueError("The discovery document names no issuer.")
+        if _canonical_issuer(issuer) != _canonical_issuer(issuer_url):
+            raise ValueError("The discovery document's issuer is not the issuer it was fetched from.")
+        missing = [
+            field
+            for field in _DISCOVERY_REQUIRED_ENDPOINTS
+            if not isinstance(document.get(field), str) or not document[field]
+        ]
+        if missing:
+            raise ValueError(f"The discovery document lacks {', '.join(missing)}.")
+        # The endpoints carry the code, the client secret and the identity; over plain
+        # HTTP a network attacker answers them (security review SEC-002).
+        insecure = [
+            field
+            for field in (*_DISCOVERY_REQUIRED_ENDPOINTS, "userinfo_endpoint")
+            if isinstance(document.get(field), str) and not document[field].lower().startswith("https://")
+        ]
+        if insecure:
+            raise ValueError(f"The discovery document's {', '.join(insecure)} is not https.")
+        return document
+
+    # ── The login's identity checks (#1936) ──────────────────────────
+
+    def authenticate_login(
+        self,
+        config: OidcProviderConfig,
+        token_response: dict,
+        access_token: str,
+        *,
+        nonce: str,
+        now: datetime,
+    ) -> OAuthUserInfo:
+        """The identity of a login callback, with the ID token and the ``sub`` checked (OIDC Core 3.1.3.7, 5.3.2).
+
+        Where the provider issues an ID token it is verified — signature against
+        the provider's JWKS, ``iss``, ``aud`` / ``azp``, the ``nonce`` stored with
+        the state, ``exp`` and ``iat`` — and its ``sub`` must be non-empty. The
+        identity itself then comes from the provider's own branch
+        (:meth:`extract_user_info`); where that is the userinfo endpoint its ``sub``
+        must equal the ID token's. A login whose ``sub`` is empty or missing is
+        refused whether or not there was an ID token: it is no identity, and two of
+        them at one configuration would land on the same link.
+
+        Raises:
+            LoginIdentityRejectedError: any check failed. The reason names the check only.
+        """
+        claims: dict | None = None
+        if token_response.get("id_token"):
+            claims = self.verify_login_id_token(config, token_response["id_token"], nonce=nonce, now=now)
+        elif self._expects_id_token(config):
+            raise LoginIdentityRejectedError("id_token_missing")
+
+        user = self.extract_user_info(config, token_response, access_token)
+
+        subject = user.provider_user_id
+        if not isinstance(subject, str) or not subject.strip():
+            raise LoginIdentityRejectedError("sub_missing")
+        if claims is not None and not hmac.compare_digest(str(claims["sub"]).encode(), subject.encode()):
+            raise LoginIdentityRejectedError("sub_mismatch")
+        return user
+
+    @staticmethod
+    def _expects_id_token(config: OidcProviderConfig) -> bool:
+        """Whether a token response of *config* must carry an ID token.
+
+        OIDC Core 3.1.3.3: an authorization request with the ``openid`` scope is
+        answered with one. Apple always does; GitHub is plain OAuth2.
+        """
+        if is_github_provider(config.provider_type):
+            return False
+        return config.provider_type == OidcProviderType.APPLE.value or "openid" in scope_tokens(config.scopes)
+
+    def verify_login_id_token(self, config: OidcProviderConfig, id_token: str, *, nonce: str, now: datetime) -> dict:
+        """Verify *id_token* for a login at *config* and return its claims (OIDC Core 3.1.3.7).
+
+        Raises:
+            LoginIdentityRejectedError: the signature, ``iss``, ``aud``, ``azp``, ``nonce``,
+                ``exp``, ``iat`` or ``sub`` check failed (the reason names which).
+        """
+        key_set = self._load_jwks(config)
+        try:
+            claims = dict(JsonWebToken(_LOGIN_ID_TOKEN_ALGORITHMS).decode(id_token, key_set))
+        except (JoseError, ValueError, KeyError, TypeError) as exc:
+            raise LoginIdentityRejectedError("signature") from exc
+
+        issuer = claims.get("iss")
+        if not isinstance(issuer, str) or not any(
+            self.same_issuer(expected, issuer) for expected in self.expected_issuers(config)
+        ):
+            raise LoginIdentityRejectedError("iss")
+        audience = claims.get("aud")
+        audiences = [audience] if isinstance(audience, str) else audience if isinstance(audience, list) else []
+        if config.client_id not in audiences:
+            raise LoginIdentityRejectedError("aud")
+        if (len(audiences) > 1 or "azp" in claims) and claims.get("azp") != config.client_id:
+            raise LoginIdentityRejectedError("azp")
+        claimed_nonce = claims.get("nonce")
+        if (
+            not nonce
+            or not isinstance(claimed_nonce, str)
+            or not hmac.compare_digest(claimed_nonce.encode(), nonce.encode())
+        ):
+            raise LoginIdentityRejectedError("nonce")
+        epoch = now.timestamp()
+        exp = claims.get("exp")
+        if not _is_finite_number(exp) or exp + _LOGIN_CLOCK_SKEW_SECONDS < epoch:
+            raise LoginIdentityRejectedError("exp")
+        iat = claims.get("iat")
+        if not _is_finite_number(iat) or iat > epoch + _LOGIN_CLOCK_SKEW_SECONDS:
+            raise LoginIdentityRejectedError("iat")
+        subject = claims.get("sub")
+        if not isinstance(subject, str) or not subject.strip():
+            raise LoginIdentityRejectedError("sub_missing")
+        return claims
+
+    def _load_jwks(self, config: OidcProviderConfig) -> Any:
+        """The provider's signing keys, fetched now over TLS; a failure refuses the login (fail closed)."""
+        try:
+            url = self._resolve_jwks_url(config)
+            if not url or not url.lower().startswith("https://"):
+                raise LoginIdentityRejectedError("jwks_unavailable")
+            with httpx.Client(timeout=15) as client:
+                resp = client.get(url)
+                resp.raise_for_status()
+                return JsonWebKey.import_key_set(resp.json())
+        except LoginIdentityRejectedError:
+            raise
+        except (httpx.HTTPError, JoseError, ValueError, KeyError, TypeError) as exc:
+            raise LoginIdentityRejectedError("jwks_unavailable") from exc
+
+    def _resolve_jwks_url(self, config: OidcProviderConfig) -> str | None:
+        """Where *config*'s signing keys are published.
+
+        The configured ``jwks_url``, else the ``jwks_uri`` of its (current) discovery
+        document, else the documented URL of a built-in provider type, else a
+        discovery document fetched now — a provider stored without one still signs
+        in, and the fetched document is validated like any other.
+        """
+        if config.jwks_url:
+            return config.jwks_url
+        discovery = self.usable_discovery(config)
+        if discovery and isinstance(discovery.get("jwks_uri"), str):
+            return discovery["jwks_uri"]
+        known = _KNOWN_JWKS_URLS.get(config.provider_type)
+        if known:
+            return known
+        try:
+            fetched = self.fetch_discovery_document(config.issuer_url)
+        except (httpx.HTTPError, ValueError) as exc:  # `as exc` keeps ruff-format from rewriting the tuple
+            logger.info("oidc_login_discovery_unavailable", provider=config.slug, error_type=type(exc).__name__)
+            return None
+        return fetched["jwks_uri"]
 
     def should_auto_link(self, existing_email_verified: bool, oauth_email_verified: bool | None) -> bool:
         """Auto-link only if BOTH sides are verified, with absent counting as unverified.
@@ -683,8 +930,9 @@ class OAuthEngine:
         if known.get("authorization_url"):
             return known["authorization_url"]
         # Try discovery
-        if config.discovery_document:
-            return config.discovery_document.get("authorization_endpoint", "")
+        discovery = self.usable_discovery(config)
+        if discovery:
+            return discovery.get("authorization_endpoint", "")
         raise ValueError(f"Cannot resolve authorization URL for provider '{config.slug}'.")
 
     def _resolve_token_url(self, config: OidcProviderConfig) -> str:
@@ -693,8 +941,9 @@ class OAuthEngine:
         known = _PROVIDER_ENDPOINTS.get(config.provider_type, {})
         if known.get("token_url"):
             return known["token_url"]
-        if config.discovery_document:
-            return config.discovery_document.get("token_endpoint", "")
+        discovery = self.usable_discovery(config)
+        if discovery:
+            return discovery.get("token_endpoint", "")
         raise ValueError(f"Cannot resolve token URL for provider '{config.slug}'.")
 
     def _resolve_userinfo_url(self, config: OidcProviderConfig) -> str | None:
@@ -703,8 +952,9 @@ class OAuthEngine:
         known = _PROVIDER_ENDPOINTS.get(config.provider_type, {})
         if known.get("userinfo_url"):
             return known["userinfo_url"]
-        if config.discovery_document:
-            return config.discovery_document.get("userinfo_endpoint")
+        discovery = self.usable_discovery(config)
+        if discovery:
+            return discovery.get("userinfo_endpoint")
         return None
 
     @staticmethod

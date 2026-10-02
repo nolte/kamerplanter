@@ -41,7 +41,9 @@ def _service(token_response: dict, config: OidcProviderConfig) -> tuple[AuthServ
 
     engine = MagicMock(wraps=OAuthEngine())
     engine.exchange_code_for_tokens.return_value = token_response
-    engine.extract_user_info.return_value = OAuthUserInfo(
+    # The ID token's checks are pinned in test_oauth_login_id_token (#1936); the
+    # token here is unsigned, and this suite is about which configuration a link records.
+    engine.authenticate_login.return_value = OAuthUserInfo(
         provider=AuthProviderType.OIDC,
         provider_user_id="sub-b",
         email="owner@example.org",
