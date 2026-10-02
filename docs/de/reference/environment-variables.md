@@ -115,7 +115,7 @@ jetzt tatsächlich und bleiben zusätzlich als Alias gültig.
 | `KAMERPLANTER_MODE` | `full` | Nein | Betriebsmodus: `full` (Auth + Mandanten) oder `light` (kein Auth, lokale Einzelnutzung) |
 | `DEBUG` | `false` | Nein | Debug-Logging aktivieren (verbose, nie in Produktion). Deaktiviert zusätzlich den Startup-Gate für Produktions-Secrets — **niemals** in Produktion setzen. |
 | `FRONTEND_URL` | `http://localhost:5173` | Nein | URL des Frontends (wird für E-Mail-Links verwendet) |
-| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. Bildet auch die Rückruf-URL der erneuten OIDC-Anmeldung zur Bestätigung (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — diese URL beim Identity-Provider hinterlegen. |
+| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. Bildet auch die Rückruf-URL der OAuth/OIDC-Anmeldung und der erneuten Anmeldung zur Bestätigung (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — diese URL beim Identity-Provider hinterlegen. |
 
 ### Light-Modus (`KAMERPLANTER_MODE=light`)
 

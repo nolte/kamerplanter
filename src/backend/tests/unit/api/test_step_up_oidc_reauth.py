@@ -190,11 +190,16 @@ class _Providers:
     def list_by_user(self, user_key: str) -> list[AuthProvider]:
         return [r for r in self.rows if r.user_key == user_key]
 
-    def get_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> AuthProvider | None:
-        return next((r for r in self.rows if r.provider == provider and r.provider_user_id == provider_user_id), None)
+    def list_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> list[AuthProvider]:
+        return [r for r in self.rows if r.provider == provider and r.provider_user_id == provider_user_id]
 
     def create(self, row: AuthProvider) -> AuthProvider:
+        """Refuses a second link of one (type, configuration, sub), as the collection's unique index does."""
+        unique = (row.provider, row.oidc_config_slug, row.provider_user_id)
+        if any((r.provider, r.oidc_config_slug, r.provider_user_id) == unique for r in self.rows):
+            raise ValueError(f"unique constraint violated: {unique}")
         self.writes.append("create")
+        self.rows.append(row)
         return row
 
     def update(self, key: str, row: AuthProvider) -> AuthProvider:
@@ -216,6 +221,9 @@ class _Configs:
 
     def list_enabled(self) -> list[OidcProviderConfig]:
         return [c for c in self.by_slug.values() if c.enabled]
+
+    def list_all(self) -> list[OidcProviderConfig]:
+        return list(self.by_slug.values())
 
 
 class _States:
@@ -258,8 +266,12 @@ class _World:
         self.rows: dict[str, AuthProvider] = {}
         for name in providers:
             kind = {"google": AuthProviderType.GOOGLE, "github": AuthProviderType.GITHUB}[name]
-            self.rows[name] = self.providers.add(self.key, kind, self.sub if name == "google" else f"gh-{self.key}")
-        self.other_row = self.providers.add(self.other_key, AuthProviderType.GOOGLE, f"google-{self.other_key}")
+            self.rows[name] = self.providers.add(
+                self.key, kind, self.sub if name == "google" else f"gh-{self.key}", config_slug=name
+            )
+        self.other_row = self.providers.add(
+            self.other_key, AuthProviderType.GOOGLE, f"google-{self.other_key}", config_slug="google"
+        )
         self.configs = _Configs(GOOGLE, GITHUB)
         self.states = _States()
         self.engine = _Provider()
@@ -659,7 +671,9 @@ def test_an_account_with_an_oidc_provider_cannot_confirm_with_a_code() -> None:
     code = world.post("/api/v1/users/me/step-up-code", {"action": "account_erasure"})
     assert code.status_code == 202
     mailed = world.mail.send_step_up_code_email.call_args.kwargs["code"]
-    world.rows["google"] = world.providers.add(world.key, AuthProviderType.GOOGLE, world.sub)  # linked since
+    world.rows["google"] = world.providers.add(
+        world.key, AuthProviderType.GOOGLE, world.sub, config_slug="google"
+    )  # linked since
 
     resp = world.post("/api/v1/privacy/erasure", {"confirm_email": world.email, "step_up_code": mailed})
 
@@ -755,6 +769,21 @@ def test_a_link_of_the_second_oidc_configuration_re_authenticates_there() -> Non
 def test_a_pre_review_link_with_two_matching_configurations_keeps_the_code() -> None:
     """Ambiguous: re-authenticating could go to the wrong IdP — so not re-auth capable, and not locked out."""
     world = _oidc_world((None, "sub-x", None))
+
+    started = world.start()
+    code = world.post("/api/v1/users/me/step-up-code", {"action": "account_erasure"})
+
+    assert started.status_code == 422, started.text
+    assert started.json()["error_code"] == "STEP_UP_REAUTH_UNAVAILABLE"
+    assert code.status_code == 202, code.text
+
+
+def test_an_unbound_link_is_not_re_authentication_capable_even_with_one_configuration() -> None:
+    """#1869: v0064 bound every unambiguous link; one still unbound is not guessed — the code stays open."""
+    world = _oidc_world((None, "sub-x", None))
+    world.configs = _Configs(GOOGLE, GITHUB, CORP_A)
+    world.verifier._reauth_policy = FederatedReauthPolicy(world.providers, world.configs)
+    world.auth._reauth_policy = FederatedReauthPolicy(world.providers, world.configs)
 
     started = world.start()
     code = world.post("/api/v1/users/me/step-up-code", {"action": "account_erasure"})

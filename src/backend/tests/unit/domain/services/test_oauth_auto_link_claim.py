@@ -80,14 +80,18 @@ def _service(oauth_user: OAuthUserInfo) -> tuple[AuthService, MagicMock]:
     user_repo.get_by_email.return_value = _victim()
 
     auth_provider_repo = MagicMock()
-    auth_provider_repo.get_by_provider.return_value = None  # no existing link
+    auth_provider_repo.list_by_provider.return_value = []  # no existing link
 
     oauth_engine = MagicMock(wraps=OAuthEngine())
     oauth_engine.exchange_code_for_tokens.return_value = {"access_token": "t", "id_token": ""}
     oauth_engine.extract_user_info.return_value = oauth_user
 
     state_store = MagicMock()
-    state_store.get_and_delete.return_value = {"provider_slug": "acme", "code_verifier": "v"}
+    state_store.get_and_delete.return_value = {
+        "provider_slug": "acme",
+        "code_verifier": "v",
+        "redirect_uri": "https://app.example/api/v1/auth/oauth/cb",
+    }
 
     config_repo = MagicMock()
     config_repo.get_by_slug.return_value = OidcProviderConfig(

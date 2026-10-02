@@ -194,6 +194,16 @@ def _code_fingerprint(code: str) -> str:
     return hashlib.sha256(code.encode("utf-8")).hexdigest()[:16]
 
 
+def _id_token_issuer(token_response: dict) -> str | None:
+    """The ``iss`` of the ID token in a token response; ``None`` without one (plain OAuth2, GitHub)."""
+    if not token_response.get("id_token"):
+        return None
+    try:
+        return str(OAuthEngine.id_token_claims(token_response).get("iss") or "") or None
+    except ValueError:
+        return None
+
+
 class AuthService:
     def __init__(
         self,
@@ -1085,13 +1095,15 @@ class AuthService:
 
         redirect = self._oauth_engine.build_authorization_url(config, redirect_uri)
 
-        # Store state -> { code_verifier, nonce, provider_slug } in Redis
+        # The state keeps the redirect URI so the code exchange repeats it exactly
+        # (RFC 6749 §4.1.3, #1865) — as the step-up request does.
         self._oauth_state_store.save_state(
             redirect.state,
             {
                 "code_verifier": redirect.code_verifier,
                 "nonce": redirect.nonce,
                 "provider_slug": provider_slug,
+                "redirect_uri": redirect_uri,
             },
         )
 
@@ -1278,7 +1290,7 @@ class AuthService:
             if not any(
                 link_config.slug == config.slug
                 and hmac.compare_digest(row.provider_user_id, sub)
-                and (row.issuer is None or row.issuer.rstrip("/") == issuer)
+                and (row.issuer is None or OAuthEngine.same_issuer(row.issuer, issuer))
                 for row, link_config in links
             ):
                 raise FreshReauthRejectedError("failed", "sub is no provider link of this account at this provider")
@@ -1334,6 +1346,12 @@ class AuthService:
         """The sign-in half of the callback: exchange, find or create the account, issue a session."""
         if not self._oauth_engine or not self._oidc_config_repo:
             raise ValidationError("OAuth is not configured.")
+        # The exchange repeats the authorization request's redirect URI (#1865). A
+        # state that does not carry it — written before #1865 — cannot say which one
+        # that was; it is refused rather than guessed.
+        redirect_uri = state_data.get("redirect_uri")
+        if not isinstance(redirect_uri, str) or not redirect_uri:
+            raise InvalidTokenError("OAuth state")
         config = self._oidc_config_repo.get_by_slug(provider_slug)
         if config is None or not config.enabled:
             raise NotFoundError("OidcProviderConfig", provider_slug)
@@ -1342,8 +1360,6 @@ class AuthService:
         client_secret = config.client_secret_encrypted
         if self._encryption_engine:
             client_secret = self._encryption_engine.decrypt(client_secret)
-
-        redirect_uri = f"{self._frontend_url}/auth/callback"
 
         # Exchange code for tokens
         token_response = self._oauth_engine.exchange_code_for_tokens(
@@ -1357,19 +1373,22 @@ class AuthService:
         access_token = token_response.get("access_token", "")
         oauth_user = self._oauth_engine.extract_user_info(config, token_response, access_token)
 
-        # Find existing auth provider link
-        existing_provider = self._auth_provider_repo.get_by_provider(
-            oauth_user.provider,
-            oauth_user.provider_user_id,
-        )
+        # Find the existing link — of *this* configuration (#1869).
+        issuer = _id_token_issuer(token_response)
+        existing_provider = self._login_link(config, oauth_user, issuer)
 
         if existing_provider:
             # Existing link — login
             user = self._user_repo.get_by_key(existing_provider.user_key)
             if user is None or not user.is_active:
                 raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
-            # Update last_used_at on provider
+            # Update last_used_at on provider. A link without a recorded issuer — one
+            # v0064 bound, or one made without an ID token — records this sign-in's,
+            # so a later repointing of the configuration at another IdP is refused
+            # (/security review of #1869, SEC-001).
             existing_provider.last_used_at = datetime.now(UTC)
+            if existing_provider.issuer is None and issuer:
+                existing_provider.issuer = issuer
             if existing_provider.key:
                 self._auth_provider_repo.update(existing_provider.key, existing_provider)
         else:
@@ -1437,6 +1456,47 @@ class AuthService:
         logger.info("oauth_login", provider=provider_slug, email_sha256=email_digest(oauth_user.email))
         return self._create_tokens(user, user_agent, ip_address, is_persistent=True)
 
+    def _login_link(
+        self, config: OidcProviderConfig, oauth_user: OAuthUserInfo, issuer: str | None
+    ) -> AuthProvider | None:
+        """The provider link a sign-in through *config* with this ``sub`` belongs to, if any (#1869).
+
+        OIDC guarantees ``sub`` unique per issuer only, and every generic OIDC
+        configuration stores its links under the one type ``oidc`` — so (type,
+        ``sub``) is no identity: an identity at IdP A whose ``sub`` equals a
+        victim's at IdP B would sign in as the victim. A link matches only when it
+        records *this* configuration (``oidc_config_slug``) and — where it recorded
+        the ID token's issuer — the sign-in's issuer is that one (the configuration
+        may since point at another IdP).
+
+        A link that records no configuration (made before #1815 SEC-001) matches
+        nothing: migration v0064 bound every such link whose type had exactly one
+        configuration when it ran, so one still unbound could belong to either of
+        two — it is not guessed, and no later deletion of a configuration makes it
+        look unambiguous (/security review of #1869, SEC-003). More than one account
+        matching is ambiguous as well. "No link" falls through to the e-mail
+        auto-link / registration path with its own checks — never to the owner of a
+        colliding ``sub``.
+
+        Raises:
+            OAuthAutoLinkRefusedError: a link of this configuration and ``sub``
+                exists but recorded another issuer. Refused here rather than
+                answered "no link": the registration path would create the same
+                (type, configuration, sub) again and fail on the unique index —
+                after creating an account (/code-review of #1937).
+        """
+        candidates = self._auth_provider_repo.list_by_provider(oauth_user.provider, oauth_user.provider_user_id)
+        of_config = [row for row in candidates if row.oidc_config_slug == config.slug]
+        bound = [row for row in of_config if row.issuer is None or OAuthEngine.same_issuer(row.issuer, issuer)]
+        if len({row.user_key for row in bound}) == 1:
+            return bound[0]
+        if of_config:
+            logger.warning("oauth_link_issuer_mismatch", provider=config.slug, links=len(of_config), matches=len(bound))
+            raise OAuthAutoLinkRefusedError(
+                "This sign-in does not match the account linked to this provider. Sign in with your password instead.",
+            )
+        return None
+
     def _register_oauth_user(self, oauth_user: OAuthUserInfo) -> User:
         """Create a new user from OAuth info (no password).
 
@@ -1482,12 +1542,7 @@ class AuthService:
         Records the configuration and the ID token's issuer (#1815 review SEC-001),
         so a step-up re-authentication can send the link only to its own provider.
         """
-        issuer: str | None = None
-        if token_response.get("id_token"):
-            try:
-                issuer = str(OAuthEngine.id_token_claims(token_response).get("iss") or "") or None
-            except ValueError:
-                issuer = None
+        issuer = _id_token_issuer(token_response)
 
         encrypted_access = token_response.get("access_token", "")
         encrypted_refresh = token_response.get("refresh_token", "")

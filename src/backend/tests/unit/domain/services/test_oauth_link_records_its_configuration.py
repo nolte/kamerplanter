@@ -36,7 +36,7 @@ def _service(token_response: dict, config: OidcProviderConfig) -> tuple[AuthServ
     user_repo = MagicMock()
     user_repo.get_by_email.return_value = existing
     auth_provider_repo = MagicMock()
-    auth_provider_repo.get_by_provider.return_value = None
+    auth_provider_repo.list_by_provider.return_value = []
     auth_provider_repo.create.side_effect = lambda row: row
 
     engine = MagicMock(wraps=OAuthEngine())
@@ -49,7 +49,12 @@ def _service(token_response: dict, config: OidcProviderConfig) -> tuple[AuthServ
         email_verified=True,
     )
     state_store = MagicMock()
-    state_store.get_and_delete.return_value = {"provider_slug": config.slug, "code_verifier": "v", "nonce": "n"}
+    state_store.get_and_delete.return_value = {
+        "provider_slug": config.slug,
+        "code_verifier": "v",
+        "redirect_uri": "https://app.example/api/v1/auth/oauth/cb",
+        "nonce": "n",
+    }
     config_repo = MagicMock()
     config_repo.get_by_slug.return_value = config
     token_engine = MagicMock()

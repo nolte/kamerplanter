@@ -14,11 +14,10 @@ class ArangoAuthProviderRepository(BaseArangoRepository[AuthProvider], IAuthProv
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.AUTH_PROVIDERS)
 
-    def get_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> AuthProvider | None:
+    def list_by_provider(self, provider: AuthProviderType, provider_user_id: str) -> list[AuthProvider]:
         query = """
         FOR doc IN @@collection
           FILTER doc.provider == @provider AND doc.provider_user_id == @pid
-          LIMIT 1
           RETURN doc
         """
         cursor = self._db.aql.execute(
@@ -29,10 +28,7 @@ class ArangoAuthProviderRepository(BaseArangoRepository[AuthProvider], IAuthProv
                 "pid": provider_user_id,
             },
         )
-        docs = list(cursor)
-        if not docs:
-            return None
-        return AuthProvider(**self._from_doc(docs[0]))
+        return [AuthProvider(**self._from_doc(doc)) for doc in cursor]
 
     def create(self, auth_provider: AuthProvider) -> AuthProvider:
         created = super().create(auth_provider)
