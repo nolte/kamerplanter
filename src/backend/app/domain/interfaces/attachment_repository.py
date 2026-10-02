@@ -135,6 +135,15 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def held_storage_keys(self, storage_keys: list[str]) -> set[str]:
+        """Which of *storage_keys* any attachment record holds, in any tenant (#1834).
+
+        The reconciliation's question, and deliberately not tenant-filtered: a key
+        embeds its tenant, so a record of another tenant cannot hold it, and for a
+        job that deletes objects the broad answer is the safe one.
+        """
+
+    @abstractmethod
     def count_by_tenant(self, tenant_key: str) -> int:
         """Return the number of attachments belonging to a tenant."""
 
