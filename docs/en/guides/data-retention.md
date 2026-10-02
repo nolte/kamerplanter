@@ -824,11 +824,13 @@ identically stamped row, or is a clone, nothing is reset. Rows the seed file doe
 are left alone.
 
 !!! info "What the measurement showed"
-    The seed loaders reset fertilizers, plans, workflows and task templates to global on every
-    start. What was left behind were the **phase entries** of the seed plans — they kept the
-    stamp, and a tenant deletion would have stripped every seed plan of its phases. The
-    migration closes exactly that gap and covers the other collections in case a seed run
-    failed.
+    Before #1957 the seed loaders reset fertilizers, plans, workflows and task templates to
+    global on every start. What was left behind were the **phase entries** of the seed plans —
+    they kept the stamp, and a tenant deletion would have stripped every seed plan of its
+    phases. The migration closes exactly that gap and covers the other collections in case a
+    seed run failed. The nutrient-plan loaders no longer reset a plan by name alone: they match
+    only global plans, so a stamped plan this migration does not prove stays the tenant's and
+    the loader creates the global seed plan next to it.
 
 !!! warning "Check first: on a backup only"
     Never count the affected rows **against the production database**; use a restored backup or

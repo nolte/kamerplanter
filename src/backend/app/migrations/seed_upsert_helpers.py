@@ -89,6 +89,23 @@ def resolve_plan_species_keys(
     return keys
 
 
+def global_plan_map(plan_repo: ArangoNutrientPlanRepository) -> dict[str, NutrientPlan]:
+    """``name → global plan`` for the nutrient-plan seed loaders (#1957).
+
+    A seed is matched to a row only when that row is global (``tenant_key`` empty),
+    through :meth:`ArangoNutrientPlanRepository.get_global_plans`: not a paged
+    ``get_all`` (a fixed ``limit`` cut the catalogue and re-created a seed beyond
+    it on every boot) and not across tenants (``nutrient_plans.name`` is not
+    unique, so a tenant's own plan named like a seed was found by name, rewritten
+    from the seed model as global, and stripped of the phase entries the YAML does
+    not carry). The first row per name wins; the rows come ordered by ``_key``.
+    """
+    plans: dict[str, NutrientPlan] = {}
+    for plan in plan_repo.get_global_plans():
+        plans.setdefault(plan.name, plan)
+    return plans
+
+
 def upsert_nutrient_plan_with_entries(
     plan_repo: ArangoNutrientPlanRepository,
     plan: NutrientPlan,
