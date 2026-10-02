@@ -77,7 +77,10 @@ describe('AccountSettingsPage — account deletion step-up (#1813)', () => {
     originalLocation = window.location;
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { ...originalLocation, href: 'http://localhost/account' },
+      // msw >= 3 resolves a handler's relative path against `location.href`, so the
+      // replacement must keep the real origin (with its port) — a bare
+      // `http://localhost/account` no longer matches the requests the page sends.
+      value: { ...originalLocation, href: `${originalLocation.origin}/account` },
     });
   });
 

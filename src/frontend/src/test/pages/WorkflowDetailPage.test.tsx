@@ -865,10 +865,9 @@ describe('WorkflowDetailPage', () => {
     );
     renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
 
-    // ErrorDisplay renders the stringified error; the page chrome is absent.
-    await waitFor(() =>
-      expect(screen.queryByTestId('workflow-detail-page')).not.toBeInTheDocument(),
-    );
-    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+    // ErrorDisplay renders the stringified error; the page chrome is absent. The chrome is
+    // also absent while the page is still loading, so the alert is what proves the failure.
+    expect((await screen.findAllByRole('alert')).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('workflow-detail-page')).not.toBeInTheDocument();
   });
 });

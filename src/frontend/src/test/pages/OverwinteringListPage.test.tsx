@@ -135,8 +135,9 @@ describe('OverwinteringListPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('hardiness-chip-ow-1')).toBeTruthy();
     });
-    // plant-1 resolves to the mocked plant name "Big Red (TOM-001)"
-    expect(screen.getByText(/Big Red/)).toBeTruthy();
+    // plant-1 resolves to the mocked plant name "Big Red (TOM-001)" through a second
+    // request that can land after the chip, so wait for it instead of reading at once.
+    expect(await screen.findByText(/Big Red/)).toBeTruthy();
     expect(
       screen.getByText(i18n.t('enums.hardinessRating.frost_free')),
     ).toBeTruthy();

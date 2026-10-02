@@ -452,6 +452,17 @@ describe('PlantInstanceCreateDialog', () => {
       await user.click(await screen.findByRole('option', { name: /Solanum lycopersicum/ }));
     }
 
+    // The default start phase comes from an asynchronous lookup, and submitting before it
+    // has landed sends `null`. The select shows the chosen phase's name once the default is
+    // set (an empty select renders only a zero-width space), so that is what to wait for.
+    async function waitForPhaseOptions() {
+      const field = await screen.findByTestId('form-field-current_phase_key');
+      await waitFor(() => {
+        const shown = (within(field).getByRole('combobox').textContent ?? '').replace(/[\u200b\s]/g, '');
+        expect(shown).not.toBe('');
+      });
+    }
+
     function phaseSequenceWithEntries() {
       // Entry keys (seq-entry-*) deliberately differ from the LifecycleConfig
       // growth-phase keys (gp-*) so the assertion proves the default came from
@@ -559,6 +570,7 @@ describe('PlantInstanceCreateDialog', () => {
         <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
       );
       await selectTomato(user);
+      await waitForPhaseOptions();
       await user.click(screen.getByTestId('form-submit-button'));
 
       await waitFor(() => expect(payloads).toHaveLength(1));
@@ -583,6 +595,7 @@ describe('PlantInstanceCreateDialog', () => {
         <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
       );
       await selectTomato(user);
+      await waitForPhaseOptions();
       await user.click(screen.getByTestId('form-submit-button'));
 
       await waitFor(() => expect(payloads).toHaveLength(1));
