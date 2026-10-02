@@ -43,6 +43,8 @@ import {
 } from '@/api/endpoints/adminPlatform';
 import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
+import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
+import { useErasurePreview } from '@/hooks/useErasurePreview';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
@@ -75,6 +77,8 @@ export default function AdminEditUserPage() {
   // account-deletion dialog it was started from (it then sends the token).
   const resumeDelete = useStepUpResume('delete-user');
   const [confirmDelete, setConfirmDelete] = useState(resumeDelete);
+  // AK-FK-06 / #1961 — the personal tenants this deletion takes along, read for the target when the dialog opens.
+  const erasurePreview = useErasurePreview(confirmDelete && key !== undefined, key);
   // #1857 — raising another account's trust (e-mail verified, reactivated)
   // passes the admin's own step-up. The toggled switches do not survive the
   // round trip to the identity provider, so the resume context is only consumed;
@@ -369,7 +373,12 @@ export default function AdminEditUserPage() {
             <StepUpConfirmDialog
               open={confirmDelete}
               title={t('pages.auth.adminDeleteUserDialogTitle')}
-              description={t('pages.auth.adminDeleteUserConfirm', { name: user.display_name, email: user.email })}
+              description={
+                <>
+                  {t('pages.auth.adminDeleteUserConfirm', { name: user.display_name, email: user.email })}
+                  <ErasurePreviewNotice preview={erasurePreview} testIdPrefix="delete-user-preview" audience="admin" />
+                </>
+              }
               echoLabel={t('pages.auth.adminDeleteUserEmailLabel')}
               echoHelper={t('pages.auth.adminDeleteUserEmailHelper', { email: user.email })}
               expectedEcho={user.email}

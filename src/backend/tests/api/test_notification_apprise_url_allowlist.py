@@ -98,6 +98,14 @@ def _put(client, urls):
     )
 
 
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch):
+    """Every host name the allow-list cases use resolves to a public address (no network)."""
+    from app.common import url_safety  # noqa: PLC0415
+
+    monkeypatch.setattr(url_safety, "resolve_host_addresses", lambda host: ["93.184.216.34"])
+
+
 @pytest.fixture
 def stub_apprise(monkeypatch):
     seen: list[str] = []

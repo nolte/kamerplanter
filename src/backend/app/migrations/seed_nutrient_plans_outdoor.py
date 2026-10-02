@@ -135,6 +135,7 @@ def _build_nutrient_plan(raw: dict[str, Any]) -> NutrientPlan:
 def run_seed_nutrient_plans_outdoor() -> None:
     """Create outdoor Plagron Terra nutrient plans."""
     from app.migrations.seed_upsert_helpers import (
+        global_plan_map,
         load_species_key_map,
         resolve_plan_species_keys,
         upsert_nutrient_plan_with_entries,
@@ -161,8 +162,8 @@ def run_seed_nutrient_plans_outdoor() -> None:
     # ── Upsert nutrient plans ──
     # #1618: seeded plans are linked to the species their source names.
     species_key_map = load_species_key_map(get_db())
-    existing_plans, _ = plan_repo.get_all(offset=0, limit=200, all_tenants=True)  # seed: global catalog
-    existing_plan_map = {p.name: p for p in existing_plans}
+    # #1957: global rows only (never a tenant's same-named plan), whole catalogue, first row wins.
+    existing_plan_map = global_plan_map(plan_repo)
 
     raw_plans = data["nutrient_plans"]
     for raw_plan in raw_plans:

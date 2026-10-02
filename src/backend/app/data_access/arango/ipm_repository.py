@@ -216,17 +216,17 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     def create_targets_pest_edge(self, treatment_key: TreatmentKey, pest_key: PestKey) -> None:
         from_id = f"{col.TREATMENTS}/{treatment_key}"
         to_id = f"{col.PESTS}/{pest_key}"
-        self.create_edge(col.TARGETS_PEST, from_id, to_id)
+        self.create_edge_if_absent(col.TARGETS_PEST, from_id, to_id)
 
     def create_targets_disease_edge(self, treatment_key: TreatmentKey, disease_key: str) -> None:
         from_id = f"{col.TREATMENTS}/{treatment_key}"
         to_id = f"{col.DISEASES}/{disease_key}"
-        self.create_edge(col.TARGETS_DISEASE, from_id, to_id)
+        self.create_edge_if_absent(col.TARGETS_DISEASE, from_id, to_id)
 
     def create_contraindicated_edge(self, treatment_a_key: TreatmentKey, treatment_b_key: TreatmentKey) -> None:
         from_id = f"{col.TREATMENTS}/{treatment_a_key}"
         to_id = f"{col.TREATMENTS}/{treatment_b_key}"
-        self.create_edge(col.CONTRAINDICATED_WITH, from_id, to_id)
+        self.create_edge_if_absent(col.CONTRAINDICATED_WITH, from_id, to_id)
 
     # ── Queries ──
 

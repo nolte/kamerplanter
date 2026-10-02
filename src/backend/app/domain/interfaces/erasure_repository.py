@@ -49,6 +49,17 @@ class IErasureRepository(ABC):
     def list_due_for_hard_delete(self, now_iso: str, stale_before_iso: str) -> list[ErasureRequest]: ...
 
     @abstractmethod
+    def list_open_without_member_notice(self) -> list[ErasureRequest]:
+        """Open self-service requests whose other personal-tenant members were not yet told (#1960).
+
+        ``scheduled``, ``partially_completed`` or ``in_progress`` (a crashed worker's run), origin self-service, no
+        ``members_notified_at`` and not an immediate (administrator) erasure — due
+        or not: a request still in its grace must be told as early as possible. A
+        record written before #1960 has no marker and is selected.
+        """
+        ...
+
+    @abstractmethod
     def claim_for_run(self, key: ErasureRequestKey, *, now_iso: str, stale_before_iso: str) -> ErasureRequest | None:
         """Atomically move an open request to ``in_progress``, or return ``None`` (#1767 SEC-003).
 

@@ -48,6 +48,34 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
             )
         return ind
 
+    def find_indicator(self, species_key: str, indicator_type: str, measurement_unit: str) -> HarvestIndicator | None:
+        """The indicator a seed entry names, or ``None`` (#1956).
+
+        ``(species, indicator_type, measurement_unit)`` is the identity the seed
+        YAML gives an indicator: ``(species, indicator_type)`` alone is not unique
+        there (a species lists several ``texture`` or ``color`` indicators with
+        different units). Lowest ``_key`` first, so two rows of one identity resolve
+        the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.HARVEST_INDICATORS}
+                FILTER doc.species_key == @species_key
+                    AND doc.indicator_type == @indicator_type
+                    AND doc.measurement_unit == @measurement_unit
+                SORT doc._key
+                LIMIT 1
+                RETURN doc
+            """,
+            bind_vars={
+                "species_key": species_key,
+                "indicator_type": indicator_type,
+                "measurement_unit": measurement_unit,
+            },
+        )
+        doc = next(iter(cursor), None)
+        return HarvestIndicator(**self._indicators._from_doc(doc)) if doc is not None else None
+
     def get_indicators_for_species(self, species_key: str) -> list[HarvestIndicator]:
         return self._indicators.find_by_field("species_key", species_key)
 
