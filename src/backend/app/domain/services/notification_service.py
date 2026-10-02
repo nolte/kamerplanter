@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 import structlog
 
 from app.common.log_privacy import log_subject, loggable_endpoint_host, loggable_error
+from app.common.notification_targets import validate_ha_channel_config
 from app.common.url_safety import validate_apprise_urls, validate_push_endpoint
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
@@ -399,11 +400,16 @@ class NotificationService:
         """Create or update user notification preferences.
 
         An Apprise channel's ``urls`` must stay inside the scheme allow-list
-        (#1947) — refused with a value-free 422 before anything is stored.
+        (#1947) and a Home Assistant channel's ``notify_service`` /
+        ``tts_entity_id`` / ``tts_service`` inside their shape (#1985) —
+        refused with a value-free 422 before anything is stored.
         """
         apprise = preferences.channels.get("apprise")
         if apprise is not None and "urls" in apprise.config:
             validate_apprise_urls(apprise.config["urls"])
+        home_assistant = preferences.channels.get("home_assistant")
+        if home_assistant is not None:
+            validate_ha_channel_config(home_assistant.config)
         return self._store_preferences(user_key, preferences)
 
     def _store_preferences(

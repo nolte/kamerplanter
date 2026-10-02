@@ -83,6 +83,9 @@ Aktivierbare Optionen:
 - **Mobile Push (Companion App)** — sendet an alle in Home Assistant registrierten Companion-App-Geräte (Standard: an)
 - **Sprachansage (TTS)** — liest die Nachricht über eine ausgewählte Lautsprecher-Entity vor (z. B. `media_player.kueche`); standardmäßig deaktiviert und erfordert die Angabe der Entity-ID
 
+!!! info "Zulässige Ziele"
+    Die Entity-ID für die Sprachansage muss eine `media_player.*`- oder `tts.*`-Entität sein. Kamerplanter ruft in Home Assistant nur Dienste der Bereiche `notify` und `tts` auf; ein anderer Wert wird beim Speichern abgelehnt. Ein früher gespeicherter ungültiger Wert wird nicht mehr gesendet — korrigiere ihn, damit sich die Einstellungen wieder speichern lassen.
+
 Zusätzlich feuert Kamerplanter bei jeder Benachrichtigung ein Home-Assistant-Event (z. B. `kamerplanter_care_due`), mit dem du eigene HA-Automationen auslösen kannst — etwa eine Bewässerungsventil-Schaltung bei einer Gieß-Erinnerung.
 
 !!! tip "Mehrere Erinnerungen werden gebündelt"
@@ -121,7 +124,7 @@ gotify://<hostname>/<token>
 Die genaue URL-Syntax für deinen gewünschten Dienst findest du in der [Apprise-Dokumentation](https://github.com/caronc/apprise/wiki). Kamerplanter selbst benötigt für diesen Kanal keine zusätzliche Konfiguration durch den Betreiber — die Ziel-URLs verwaltest du komplett selbst in deinen Benachrichtigungseinstellungen.
 
 !!! info "Erlaubte Dienste"
-    Aus Sicherheitsgründen akzeptiert Kamerplanter nur Apprise-URLs für Telegram (`tgram://`, `telegram://`), Slack, Discord, ntfy (`ntfy://`, `ntfys://`), Gotify (`gotify://`, `gotifys://`), Pushover (`pover://`, `pushover://`) und Matrix (`matrix://`, `matrixs://`). Andere Schemata wie `mailto://`, `json://` oder `https://` werden beim Speichern abgelehnt, ebenso mehrere URLs in einer Zeile und Adressen wie `localhost` oder `169.254.x.x`. Eine URL, die schon vor dieser Regel gespeichert war und nicht erlaubt ist, wird nicht mehr gesendet; entferne sie, damit sich die Einstellungen wieder speichern lassen.
+    Aus Sicherheitsgründen akzeptiert Kamerplanter nur Apprise-URLs für Telegram (`tgram://`, `telegram://`), Slack, Discord, ntfy (`ntfy://`, `ntfys://`), Gotify (`gotify://`, `gotifys://`), Pushover (`pover://`, `pushover://`) und Matrix (`matrix://`, `matrixs://`). Andere Schemata wie `mailto://`, `json://` oder `https://` werden beim Speichern abgelehnt, ebenso mehrere URLs in einer Zeile und Adressen wie `localhost` oder `169.254.x.x`. Bei Gotify und Matrix (und bei ntfy mit eigenem Server) löst Kamerplanter den Hostnamen auf und lehnt die URL ab, wenn er auf eine solche Adresse zeigt oder gar nicht auflösbar ist; Adressen im eigenen Heimnetz (`192.168.x.x`, `10.x.x.x`) bleiben erlaubt. Eine URL, die schon vor dieser Regel gespeichert war und nicht erlaubt ist, wird nicht mehr gesendet; entferne sie, damit sich die Einstellungen wieder speichern lassen.
 
 !!! warning "Voraussetzung für Betreiber: Apprise-Paket installieren"
     Der Apprise-Kanal ist serverseitig standardmäßig aktiv, benötigt aber das Python-Paket `apprise`, das nicht automatisch mit dem Backend-Image ausgeliefert wird. Ist es nicht installiert, zeigt der Kanal **Nicht konfiguriert** und Testnachrichten schlagen mit dem Hinweis "apprise package is not installed" fehl. Der Betreiber muss das Paket zusätzlich in das Backend-Image aufnehmen (`pip install apprise`).

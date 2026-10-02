@@ -511,6 +511,18 @@ storage:
       secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
 ```
 
+### Egress for notification channels (Apprise)
+
+Kamerplanter checks Apprise targets when saving and again when sending (scheme allow-list, literal hosts, resolved addresses of Gotify, Matrix and ntfy servers). Two things lie **outside the process** and are up to the operator's network policy:
+
+- Apprise follows HTTP redirects and performs Matrix `.well-known` discovery itself; neither can be controlled in the backend.
+- A small window remains between the DNS check and the actual connection (DNS rebinding).
+
+The chart therefore already restricts egress for `backend` and `celery-worker` (`networkpolicies.backend` and `networkpolicies.celery-worker` in `values.yaml`): destination `0.0.0.0/0` excluding `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and `169.254.0.0/16`, on ports 80, 443, 465 and 587 only. This keeps cloud metadata and in-cluster targets out of reach even if a redirect leads there.
+
+!!! warning "A LAN Gotify or ntfy needs its own rule"
+    A Gotify or ntfy on your home network (`192.168.x.x`) is allowed as a target by Kamerplanter, but the chart's default egress blocks it. Add an extra egress rule for exactly that address and port to `networkpolicies.backend.rules.egress` and `networkpolicies.celery-worker.rules.egress` in your `valuesObject`. Without a cluster NetworkPolicy (Docker Compose) none of these limits apply; only the backend check remains.
+
 ### Virus Scanning (optional)
 
 ```yaml
