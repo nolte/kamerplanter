@@ -59,7 +59,7 @@ if (typeof Blob.prototype.stream !== 'function') {
 }
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'warn' });
+  server.listen({ onUnhandledFrame: 'warn' });
 });
 beforeEach(() => {
   // Set tenant slug for tenantClient before each test
