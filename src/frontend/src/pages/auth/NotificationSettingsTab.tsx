@@ -416,7 +416,7 @@ export default function NotificationSettingsTab() {
                         <Typography variant="body1" data-testid="email-recipient-address" sx={{ wordBreak: 'break-all' }}>
                           {accountUser?.email ?? ''}
                         </Typography>
-                        {accountUser?.email_verified ? (
+                        {!accountUser || accountUser.email_verified ? (
                           <FormHelperText data-testid="email-recipient-helper">
                             {t('pages.notifications.settings.emailRecipientHelper')}
                           </FormHelperText>

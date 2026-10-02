@@ -369,6 +369,7 @@ def send_email_digests(self) -> dict:
     digests_sent = 0
     digests_empty = 0
     digests_failed = 0
+    digests_unconfirmed = 0
 
     for prefs in candidates:
         user_key = prefs.user_key
@@ -386,11 +387,15 @@ def send_email_digests(self) -> dict:
             digests_sent += 1
         elif result["status"] == "empty":
             digests_empty += 1
+        elif result["status"] == "no_confirmed_address":
+            # Not a delivery failure: the account has no confirmed address (#1885).
+            digests_unconfirmed += 1
         else:
             digests_failed += 1
 
     logger.info(
         "email_digests_complete",
+        digests_unconfirmed=digests_unconfirmed,
         candidates=len(candidates),
         digests_sent=digests_sent,
         digests_empty=digests_empty,
@@ -403,4 +408,5 @@ def send_email_digests(self) -> dict:
         "digests_sent": digests_sent,
         "digests_empty": digests_empty,
         "digests_failed": digests_failed,
+        "digests_unconfirmed": digests_unconfirmed,
     }

@@ -357,7 +357,7 @@ class TestSendEmailDigests:
         delta = datetime.now(UTC) - since_arg
         assert abs(delta.total_seconds() - 24 * 3600) < 120
 
-    def test_user_without_a_confirmed_address_counts_failed(self, _mock_dependencies):
+    def test_user_without_a_confirmed_address_is_counted_apart_from_failures(self, _mock_dependencies):
         pref_repo = MagicMock()
         pref_repo.list_users_with_digest_enabled.return_value = [
             self._prefs("user_1", {"digest": True}),
@@ -373,7 +373,8 @@ class TestSendEmailDigests:
 
             result = send_email_digests()
 
-        assert result["digests_failed"] == 1
+        assert result["digests_failed"] == 0
+        assert result["digests_unconfirmed"] == 1
         assert result["digests_sent"] == 0
 
     def test_per_user_failure_does_not_abort(self, _mock_dependencies):
