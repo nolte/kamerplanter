@@ -366,6 +366,28 @@ jobs:
           --health-timeout 10s
           --health-retries 12
           --health-start-period 20s
+      timescaledb:
+        # The time-series side of the tier (#1793): the tenant/sensor erasure
+        # must reach the continuous aggregates, and only a real TimescaleDB can
+        # say whether the buckets are gone. The SAME digest as the
+        # `timescaledb` service in docker-compose.yml, for the reason given on
+        # `arangodb` above (Renovate groups the two by image identity). A
+        # service of THIS job and not a second job, so the required context
+        # `Integration tests (ArangoDB)` keeps one runner slot and one queue
+        # wait (see the relevance step below).
+        image: timescale/timescaledb:2.30.2-pg16@sha256:6f139d56042989bd35f50ba5986e492cd32e35cc6778c50be2659add298dc09f
+        env:
+          # Throwaway, matches the tier's default (`tests/support/timescale_integration.py`).
+          POSTGRES_PASSWORD: changeme
+        # Loopback (#1750), as for ArangoDB.
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 10s
     env:
       # `Settings`' own variable names (env_prefix: ""), read by
       # tests/support/arango_integration.py. Both routes into the database — a
@@ -375,6 +397,10 @@ jobs:
       ARANGODB_PORT: '8529'
       ARANGODB_USERNAME: root
       ARANGODB_PASSWORD: rootpassword
+      TIMESCALEDB_HOST: localhost
+      TIMESCALEDB_PORT: '5432'
+      TIMESCALEDB_USERNAME: postgres
+      TIMESCALEDB_PASSWORD: changeme
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

@@ -216,6 +216,17 @@ class ArangoAiAuditRepository(BaseArangoRepository[AiAuditLogEntry]):
         )
         return next(cursor, 0)
 
+    def count_undated(self) -> int:
+        """Entries :meth:`delete_older_than` can never select: no readable ``created_at`` (#1806 GDPR-003)."""
+        query = """
+        FOR doc IN @@collection
+          FILTER DATE_TIMESTAMP(doc.created_at) == null
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": self._collection_name})
+        return int(next(iter(cursor), 0))
+
     def anonymize_user(self, user_key: str) -> int:
         """DSGVO Art. 17 — null out ``user_key`` while keeping the hashes (§7.5)."""
         query = """

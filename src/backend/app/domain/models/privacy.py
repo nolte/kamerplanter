@@ -611,9 +611,22 @@ class AccountErasureReport(BaseModel):
 
 
 class RetentionCategoryInfo(BaseModel):
+    """One row of the Art. 13 retention summary (REQ-025 §3.4, AK-15a/AK-15b).
+
+    ``retention_period`` is the period; ``latest_deletion_point`` is the latest
+    *moment* — the period plus the worst-case gap to the next run of the task that
+    enforces it (a daily or hourly beat adds up to one interval). ``rule_id`` and
+    ``enforcement_status`` say which NFR-011 rule the row is and how far the code
+    enforces it, so a rule that is not fully built is listed, not left out.
+    """
+
     category: str
     description: str
     retention_period: str
+    rule_id: str
+    latest_deletion_point: str
+    enforcement_status: Literal["enforced", "partial", "not_implemented"]
+    exception_note: str | None = None
 
 
 class DataControllerInfo(BaseModel):

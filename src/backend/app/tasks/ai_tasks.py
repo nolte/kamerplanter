@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.held_count import held_undated_count
 from app.data_access.arango.ai_repository import (
     ArangoAiAuditRepository,
     ArangoAiConversationRepository,
@@ -37,8 +38,11 @@ def cleanup_expired_audit_log() -> int:
     """Remove ``ai_audit_log`` entries older than the retention window (§4.6)."""
     db = ArangoConnection().db
     cutoff = datetime.now(UTC) - timedelta(days=_AUDIT_RETENTION_DAYS)
-    removed = ArangoAiAuditRepository(db).delete_older_than(cutoff)
-    logger.info("ai_cleanup_audit_log", removed=removed, cutoff=cutoff.isoformat())
+    repo = ArangoAiAuditRepository(db)
+    removed = repo.delete_older_than(cutoff)
+    # #1806 GDPR-003: entries without a readable ``created_at`` are never selected.
+    held_undated = held_undated_count(repo.count_undated, task="ai.cleanup_expired_audit_log")
+    logger.info("ai_cleanup_audit_log", removed=removed, held_undated=held_undated, cutoff=cutoff.isoformat())
     return removed
 
 
