@@ -613,18 +613,18 @@ example via `kubectl logs -l app=celery-beat`.
 Every period is read from exactly one setting (`RetentionService`); its constructor
 checks the same floor again:
 
-| Setting | Rule | Default | Minimum | Older name (still valid) |
-|---------|------|---------|---------|---------------------------|
-| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
-| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | — |
-| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | — |
-| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | `PRIVACY_EXPORT_RETENTION_HOURS` |
-| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | — |
-| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
-| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | — |
-| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — |
-| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — |
-| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — |
+| Setting | Rule | Default | Minimum | Maximum | Older name (still valid) |
+|---------|------|---------|---------|---------|---------------------------|
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | 90 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | 7 | — |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | 7 | — |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | 72 | `PRIVACY_EXPORT_RETENTION_HOURS` |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 1 | 1 | 3 | — |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | R-07 | 24 | 1 | 24 | `PRIVACY_EMAIL_CHANGE_TTL_HOURS` |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | R-07a | 7 | 1 | 7 | — |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |
 
 If both names of a row are set, the `RETENTION_*` name wins. The older names were
 documented before this change but had no effect — the code used fixed values; they now

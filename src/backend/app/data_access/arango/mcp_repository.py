@@ -107,6 +107,17 @@ class ArangoMcpAuditRepository:
         result = list(cursor)
         return int(result[0]) if result else 0
 
+    def count_undated(self) -> int:
+        """Entries :meth:`delete_expired` can never select: no readable ``created_at`` (#1806 GDPR-003)."""
+        query = """
+        FOR doc IN @@collection
+          FILTER DATE_TIMESTAMP(doc.created_at) == null
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.MCP_AUDIT_LOG})
+        return int(next(iter(cursor), 0))
+
 
 class ArangoMcpIdempotencyRepository:
     """ArangoDB-backed idempotency store for MCP write tools (§2.6, §3)."""

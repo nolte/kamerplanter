@@ -207,9 +207,11 @@ def migrate_photo_refs(self, *, dry_run: bool = True) -> dict:  # type: ignore[n
 
 async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> dict:
     from app.common.dependencies import get_attachment_repo, get_attachment_service
+    from app.common.held_count import held_undated_count
 
     cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
-    orphans = get_attachment_repo().find_orphaned_task_photos(older_than=cutoff, limit=limit)
+    attachment_repo = get_attachment_repo()
+    orphans = attachment_repo.find_orphaned_task_photos(older_than=cutoff, limit=limit)
 
     service = get_attachment_service()
     deleted = 0
@@ -253,6 +255,10 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
         "failed": failed,
         "skipped": skipped,
         "freed_bytes": freed_bytes,
+        # #1806 GDPR-003: orphans the age floor cannot judge (no readable ``created_at``).
+        "held_undated": held_undated_count(
+            attachment_repo.count_undated_orphaned_task_photos, task="cleanup_orphaned_task_photos"
+        ),
         "cutoff": cutoff.isoformat(),
     }
 
