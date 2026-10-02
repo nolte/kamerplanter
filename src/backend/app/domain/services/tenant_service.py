@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -20,6 +21,7 @@ from app.common.exceptions import (
     FeatureNotConfiguredError,
     ForbiddenError,
     NotFoundError,
+    TenantErasureClaimLostError,
     TenantErasureIncompleteError,
     ValidationError,
     WriteConflictError,
@@ -437,11 +439,71 @@ class TenantService:
             except (DuplicateError, WriteConflictError) as exc:
                 raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
 
+        elif self._is_held_by_a_live_run(record, now):
+            # An earlier request's run is working on it right now (its heartbeat is
+            # fresh): refuse as before, do not queue a second one. A record a failed run left
+            # ``partially_completed`` is re-dispatched at once instead of waiting for its
+            # backoff — an authorised caller asking again is an operator retry (as it was
+            # before #1792, when the repeated request re-ran the erasure inline).
+            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+
+        # Freeze, then hand the work to a Celery task (#1792). The task claims the
+        # record atomically; a request that repeats an open deletion only
+        # re-dispatches it, and of two tasks the claim lets one run.
+        self._membership_repo.deactivate_all_for_tenant(tenant_key)
+        self._dispatch_tenant_erasure(record_key)
+        return record
+
+    def _is_held_by_a_live_run(self, record: TenantErasureRecord, now: datetime) -> bool:
+        """Whether a run claimed *record* and its heartbeat is still inside the stale window."""
+        if record.status != "in_progress" or record.last_attempt_at is None or record.updated_at is None:
+            return False
+        return record.updated_at > now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+
+    def _dispatch_tenant_erasure(self, record_key: str) -> None:
+        """Enqueue the worker that runs the deletion of *record_key* (#1792).
+
+        Lazy import — the task module imports the dependency wiring that imports
+        this service. A broker outage must not undo the freeze or fail the request:
+        the record stays open and the daily ``resume_tenant_erasures`` beat claims it
+        once its ``updated_at`` is stale (the same recovery as a crashed worker).
+        """
+        try:
+            from app.tasks.tenant_tasks import run_tenant_erasure
+
+            # A short, bounded publish retry: an unreachable broker must not hold the request thread
+            # (kombu's default retries for a long time); the beat is the safety net.
+            run_tenant_erasure.apply_async(
+                (record_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+            )
+            logger.info("tenant_erasure.dispatched", record_key=record_key)
+        except Exception as exc:  # noqa: BLE001 — broker outage is survivable, the beat retries
+            logger.error("tenant_erasure.dispatch_failed", record_key=record_key, error_type=type(exc).__name__)
+
+    def run_tenant_erasure_task(self, record_key: str, now: datetime | None = None) -> dict[str, object]:
+        """Run the deletion *record_key* names, as the Celery worker (#1792).
+
+        Claims the record atomically — a second dispatch, the daily beat, or a run
+        that is still alive finds it held and does nothing — then runs the same
+        batched, heartbeat-refreshing erasure as every other path. Never raises for
+        a failed run: the failure is recorded on the record (backoff, escalation)
+        and the beat retries it.
+        """
+        now = now or datetime.now(UTC)
+        repo = self._require_tenant_erasure_repo()
+        record = repo.get(record_key)
+        if record is None or record.status == "completed":
+            return {"record_key": record_key, "outcome": "nothing_to_do"}
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            logger.error("tenant_erasure.run_not_configured", record_key=record_key, reason=configuration_error)
+            return {"record_key": record_key, "outcome": "held"}
         claimed = self._claim_tenant_erasure(record_key, now)
         if claimed is None:
-            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
-        self._membership_repo.deactivate_all_for_tenant(tenant_key)
-        return self._run_tenant_erasure(claimed, now, raise_on_failure=True)
+            return {"record_key": record_key, "outcome": "not_claimed"}
+        self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
+        finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
+        return {"record_key": record_key, "outcome": finished.status}
 
     def _authorize_tenant_deletion(
         self, tenant_key: str, *, requester: User, authenticated_with_api_key: bool, origin: TenantErasureOrigin
@@ -523,7 +585,7 @@ class TenantService:
         repo = self._require_tenant_erasure_repo()
         stale_before = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
         candidates = repo.list_due(stale_before_iso=stale_before.isoformat())
-        result = {"candidates": len(candidates), "completed": 0, "open": 0, "deferred": 0, "held": 0}
+        result = {"candidates": len(candidates), "completed": 0, "open": 0, "deferred": 0, "held": 0, "escalated": 0}
         if not candidates:
             return result
         configuration_error = self._tenant_erasure_configuration_error()
@@ -555,6 +617,8 @@ class TenantService:
             self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
             finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
             result["completed" if finished.status == "completed" else "open"] += 1
+            if finished.status != "completed" and finished.attempt_count >= TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS:
+                result["escalated"] += 1
         logger.info("tenant_erasure.retry_completed", **result)
         return result
 
@@ -912,19 +976,60 @@ class TenantService:
     def _run_tenant_erasure(
         self, record: TenantErasureRecord, now: datetime, *, raise_on_failure: bool
     ) -> TenantErasureRecord:
-        """External phase, then the ArangoDB inventory; the record says what happened."""
+        """External phase, then the ArangoDB inventory; the record says what happened.
+
+        *now* is the instant the caller's claim stamped on the record
+        (``last_attempt_at``): it is the claim's identity, and every heartbeat of
+        this run is conditional on it still standing (#1792). The heartbeat is
+        refreshed after the external phase, after every ArangoDB batch and before
+        the time-series purge, so a long run is not claimed a second time while a
+        crashed one — whose heartbeat stops — is.
+        """
         record_key = record.key or TenantErasureEngine.record_key(record.tenant_key)
         repo = self._require_tenant_erasure_repo()
         executor = self._tenant_erasure_executor
         assert executor is not None  # checked by _tenant_erasure_configuration_error
         salt = self._tombstone_salt
+        claimed_at_iso = now.isoformat()
+        persisted_parent_keys: dict[str, list[str]] = dict(record.parent_keys)
+
+        def heartbeat(parent_keys: dict[str, list[str]] | None = None) -> None:
+            nonlocal persisted_parent_keys
+            changed = parent_keys is not None and parent_keys != persisted_parent_keys
+            if not repo.heartbeat(
+                record_key,
+                claimed_at_iso=claimed_at_iso,
+                now_iso=datetime.now(UTC).isoformat(),
+                parent_keys=parent_keys if changed else None,
+            ):
+                raise TenantErasureClaimLostError
+            if changed and parent_keys is not None:
+                persisted_parent_keys = {name: list(keys) for name, keys in parent_keys.items()}
+
+        def conclude(fields: dict[str, object]) -> TenantErasureRecord:
+            """Write the run's outcome, only while its own claim stands (#1792 review SEC-001)."""
+            written = repo.update_fields_while_claimed(record_key, claimed_at_iso=claimed_at_iso, fields=fields)
+            if written is None:
+                raise TenantErasureClaimLostError
+            return written
+
         try:
-            external = self._purge_tenant_storage(record.tenant_key)
+            external = self._purge_tenant_storage(record.tenant_key, on_step=heartbeat)
+            heartbeat()
             report = executor.run_tenant_erasure(
                 self._tenant_erasure_engine.build_plan(record.tenant_key, known_parent_keys=record.parent_keys),
                 pseudonymize=lambda user_key: ErasureEngine.compute_tombstone_hash(user_key, salt),
+                on_progress=heartbeat,
             )
+            heartbeat()
             external.update(self._purge_tenant_readings(record.tenant_key))
+        except TenantErasureClaimLostError:
+            # The record is another run's now; writing a failure onto it would
+            # clobber that run's state. Stop quietly.
+            logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+            if raise_on_failure:
+                raise
+            return record
         except Exception as exc:
             attempt = record.attempt_count + 1
             next_attempt_at = TenantErasureEngine.next_attempt_at(attempt, now)
@@ -935,18 +1040,25 @@ class TenantService:
                 error_type=type(exc).__name__,
                 next_attempt_at=next_attempt_at.isoformat(),
             )
-            repo.update_fields(
-                record_key,
-                {
-                    "status": "partially_completed",
-                    "attempt_count": attempt,
-                    "next_attempt_at": next_attempt_at.isoformat(),
-                    "error_message": (
-                        f"Attempt {attempt} failed ({type(exc).__name__}); "
-                        f"the next one is due after {next_attempt_at.date()}."
-                    ),
-                },
-            )
+            try:
+                conclude(
+                    {
+                        "status": "partially_completed",
+                        "attempt_count": attempt,
+                        "next_attempt_at": next_attempt_at.isoformat(),
+                        "error_message": (
+                            f"Attempt {attempt} failed ({type(exc).__name__}); "
+                            f"the next one is due after {next_attempt_at.date()}."
+                        ),
+                        **self._escalation_fields(record, attempt, now),
+                    }
+                )
+            except TenantErasureClaimLostError:
+                # The record is another run's now: its state is not ours to overwrite.
+                logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+                if raise_on_failure:
+                    raise
+                return record
             if raise_on_failure:
                 raise
             return record.model_copy(update={"status": "partially_completed", "attempt_count": attempt})
@@ -969,6 +1081,7 @@ class TenantService:
                     "error_message": (
                         f"Still holding the tenant after attempt {attempt}: {', '.join(report.unreached)}."
                     ),
+                    **self._escalation_fields(record, attempt, now),
                 }
             )
             logger.error(
@@ -977,10 +1090,16 @@ class TenantService:
                 attempt=attempt,
                 unreached=report.unreached,
             )
-            updated = repo.update_fields(record_key, fields)
+            try:
+                updated = conclude(fields)
+            except TenantErasureClaimLostError:
+                logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+                if raise_on_failure:
+                    raise
+                return record
             if raise_on_failure:
                 raise TenantErasureIncompleteError(list(report.unreached))
-            return updated or record
+            return updated
         fields.update(
             {
                 "status": "completed",
@@ -989,9 +1108,33 @@ class TenantService:
                 "error_message": None,
             }
         )
-        updated = repo.update_fields(record_key, fields)
+        try:
+            updated = conclude(fields)
+        except TenantErasureClaimLostError:
+            logger.warning("tenant_erasure.claim_lost", record_key=record_key)
+            if raise_on_failure:
+                raise
+            return record
         logger.info("tenant_deleted", tenant_key=record.tenant_key, record_key=record_key)
-        return updated or record
+        return updated
+
+    @staticmethod
+    def _escalation_fields(record: TenantErasureRecord, attempt: int, now: datetime) -> dict[str, object]:
+        """Escalate a deletion that failed ``ESCALATE_AFTER_ATTEMPTS`` times: one alert event per failing attempt.
+
+        #1792 — a deterministic failure (a batch the server refuses every time)
+        used to repeat at the backoff, one error line among many. From the n-th
+        failed attempt on, each failing run also emits ``tenant_erasure.escalated``
+        (the event an operator alert keys on) and the record carries ``escalated_at``
+        from the first one. Retries continue at the existing backoff: a person fixes
+        the cause, the beat then finishes the deletion.
+        """
+        if attempt < TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS:
+            return {}
+        logger.error("tenant_erasure.escalated", record_key=record.key, attempt=attempt)
+        if record.escalated_at is not None:
+            return {}
+        return {"escalated_at": now.isoformat()}
 
     def _purge_tenant_readings(self, tenant_key: str) -> dict[str, object]:
         """#1769 review GDPR-001 — the tenant's raw sensor readings (TimescaleDB).
@@ -1009,7 +1152,7 @@ class TenantService:
         logger.info("tenant_sensor_readings_deleted", tenant_key=tenant_key, removed=removed)
         return {"timeseries_rows_removed": removed}
 
-    def _purge_tenant_storage(self, tenant_key: str) -> dict[str, object]:
+    def _purge_tenant_storage(self, tenant_key: str, on_step: Callable[[], None] | None = None) -> dict[str, object]:
         """NFR-013 §6.1 — the phase outside ArangoDB.
 
         Steps (with audit logs):
@@ -1052,6 +1195,8 @@ class TenantService:
                 binding=self._reference_index_store.binding,
                 removed=removed_vectors,
             )
+            if on_step is not None:
+                on_step()  # a slow external service must not let the claim go stale (#1792)
 
         # #1759 — the tenant's contributed pest-recognition prototypes, by tenant
         # rather than by contribution key, so a prototype whose contribution
@@ -1067,6 +1212,8 @@ class TenantService:
                 binding=self._pest_prototype_store.binding,
                 removed=removed_prototypes,
             )
+            if on_step is not None:
+                on_step()
 
         # The ``attachments`` metadata and the ``pest_image_contributions`` link
         # documents are ArangoDB rows of the tenant: the inventory removes them in

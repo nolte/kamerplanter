@@ -68,8 +68,9 @@ describe('adminPlatform endpoints — stats, tenants, users', () => {
   });
 
   it('deleteAdminTenant deletes encoded tenant key and carries the step-up (#1791)', async () => {
-    client.delete.mockResolvedValue({ data: undefined });
-    await admin.deleteAdminTenant('t/1', { confirm_slug: 't-1' });
+    const accepted = { tenant_key: 't/1', status: 'in_progress', requested_at: null, message: 'ok' };
+    client.delete.mockResolvedValue({ data: accepted });
+    await expect(admin.deleteAdminTenant('t/1', { confirm_slug: 't-1' })).resolves.toEqual(accepted);
     expect(client.delete).toHaveBeenCalledWith('/admin/platform/tenants/t%2F1', {
       data: { confirm_slug: 't-1' },
     });

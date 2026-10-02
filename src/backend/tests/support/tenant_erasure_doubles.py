@@ -16,11 +16,13 @@ value the service's salt produces.
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 from unittest.mock import MagicMock
 
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import DuplicateError
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
 from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
 from app.domain.models.membership import Membership
@@ -126,6 +128,30 @@ class FakeTenantErasureRepository(ITenantErasureRepository):
         doc.update(status="in_progress", last_attempt_at=now_iso, updated_at=now_iso)
         return self._model(key)
 
+    def heartbeat(
+        self, key: str, *, claimed_at_iso: str, now_iso: str, parent_keys: dict[str, list[str]] | None = None
+    ) -> bool:
+        """The real conditional refresh: only the run whose claim stamp is still on the record."""
+        doc = self.records.get(key)
+        if doc is None or doc["status"] != "in_progress" or doc.get("last_attempt_at") != claimed_at_iso:
+            return False
+        doc["updated_at"] = now_iso
+        if parent_keys is not None:
+            doc["parent_keys"] = parent_keys
+        return True
+
+    def update_fields_while_claimed(
+        self, key: str, *, claimed_at_iso: str, fields: dict[str, Any]
+    ) -> TenantErasureRecord | None:
+        """The real conditional merge: only the run whose claim stamp is still on the record."""
+        doc = self.records.get(key)
+        if doc is None or doc["status"] != "in_progress" or doc.get("last_attempt_at") != claimed_at_iso:
+            return None
+        merged = {**doc, **fields}
+        TenantErasureRecord.model_validate({**merged, "_key": key})  # the real store holds only valid records
+        self.records[key] = merged
+        return self._model(key)
+
     def delete_unclaimed(self, key: str) -> bool:
         """The real conditional remove: only a record no run ever claimed."""
         doc = self.records.get(key)
@@ -172,7 +198,13 @@ class RecordingTenantErasureExecutor(ITenantErasureExecutor):
         self._raises = raises
         self._on_run = on_run
 
-    def run_tenant_erasure(self, plan: TenantErasurePlan, *, pseudonymize: Callable[[str], str]) -> TenantErasureReport:
+    def run_tenant_erasure(
+        self,
+        plan: TenantErasurePlan,
+        *,
+        pseudonymize: Callable[[str], str],
+        on_progress: Callable[[dict[str, list[str]]], None] | None = None,
+    ) -> TenantErasureReport:
         if self._on_run is not None:
             self._on_run()
         self.plans.append(plan)
@@ -220,4 +252,29 @@ def tenant_service_for_deletion(
         "observation_repo": MagicMock(**{"delete_by_tenant.return_value": 0}),
     }
     kwargs.update(overrides)
-    return TenantService(**kwargs)
+    service = TenantService(**kwargs)
+    # ``delete_tenant`` hands the run to a Celery task (#1792); no unit test has a
+    # broker, so the dispatch is recorded and the test runs the task body itself
+    # (``delete_and_run``). The real dispatch is pinned in test_tenant_erasure_async.py.
+    dispatched: list[str] = []
+    service._dispatch_tenant_erasure = dispatched.append  # type: ignore[method-assign]
+    service.dispatched = dispatched  # type: ignore[attr-defined]
+    return service
+
+
+def delete_and_run(
+    service: TenantService, tenant_key: str, *, now: datetime | None = None, **request: Any
+) -> TenantErasureRecord:
+    """A deletion as the product runs it: the request accepts it, the worker erases (#1792).
+
+    ``delete_tenant`` records and freezes and returns at once; the task body
+    (:meth:`TenantService.run_tenant_erasure_task`) then claims and runs. Returns
+    the record as the worker left it.
+    """
+    accepted = service.delete_tenant(tenant_key, now=now, **request)
+    assert accepted.status in {"in_progress", "partially_completed"}  # the 202 answer, never "completed"
+    record_key = TenantErasureEngine.record_key(tenant_key)
+    service.run_tenant_erasure_task(record_key, now)
+    finished = service._require_tenant_erasure_repo().get(record_key)
+    assert finished is not None
+    return finished

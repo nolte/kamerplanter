@@ -48,12 +48,14 @@ Changes not yet published in a release.
 
 ### Frontend
 
+- Admin: After deleting an organization the interface reports "Deletion accepted" instead of "Organization deleted" — the deletion runs in the background (issue #1792)
 - Plant instances are displayed everywhere with a speaking name (e.g. `BASIL-001 (Basil – Genovese)`) instead of only the technical instance ID; the instance ID is preserved as secondary information
 - Tasks: the forms in the **Edit** and **Complete** tabs now render validation errors as helper text directly on the affected field instead of a short-lived native browser bubble (`noValidate`)
 - Account: the email verification page now offers a **Log in** button in the error case as well (invalid or expired link) — previously that page was a dead end
 
 ### Backend
 
+- **BREAKING (API):** Tenant deletion is asynchronous (issue #1792, REQ-024 AK-53). `DELETE /api/v1/tenants/{slug}` and `DELETE /api/v1/admin/platform/tenants/{key}` now answer `202 Accepted` with a body `{tenant_key, status, requested_at, message}` (formerly `200` with `{"message": "Tenant deleted"}` or `204` without a body). The request checks the permission and the step-up, creates the deletion record and freezes the tenant (memberships deactivated); a Celery task (`app.tasks.tenant_tasks.run_tenant_erasure`) then deletes in batches of 1000 records, each in its own ArangoDB transaction, and reports a heartbeat on the record between batches. The `500 TENANT_ERASURE_INCOMPLETE` and `502` error responses of the delete endpoints are gone — failures of the run are recorded on the record and retried by the daily run; from the third unsuccessful attempt on, the log event `tenant_erasure.escalated` appears. Callers that waited for a completed deletion must treat the tenant as frozen. Deletions already running at deploy time are taken over by the daily run after six hours without a heartbeat
 - Plant-instance and planting-run plant responses now embed `species` and `cultivar` summaries (denormalization), so the frontend can build readable names without extra requests
 - Harvest: `batch_id` is nullable in API responses (`string | null`) instead of an empty string; the uniqueness index on `harvest_batches.batch_id` is `unique + sparse`. Existing data is migrated by `v0030`
 - Care reminders: completing a due watering task creates the follow-up task immediately — previously it only appeared with the nightly planning run

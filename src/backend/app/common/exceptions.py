@@ -766,6 +766,22 @@ class TenantErasureIncompleteError(KamerplanterError):
         )
 
 
+class TenantErasureClaimLostError(KamerplanterError):
+    """A tenant-deletion run lost its claim on the record (#1792).
+
+    The heartbeat between two batches found the claim re-taken — a second worker
+    claimed the record after this run's heartbeat lapsed. The run stops without
+    recording a failure: the record is the other run's now, and it decides.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The tenant deletion is held by another run.",
+            error_code="TENANT_ERASURE_CLAIM_LOST",
+            status_code=409,
+        )
+
+
 class AiDisabledError(KamerplanterError):
     """REQ-031 §1.3 stage 2 — KI features are disabled for this tenant.
 

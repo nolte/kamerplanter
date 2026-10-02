@@ -8,6 +8,7 @@ import type {
   Tenant,
   TenantCreate,
   TenantDeleteRequest,
+  TenantDeletionAccepted,
   TenantUpdate,
   TenantWithRole,
 } from '../types';
@@ -36,8 +37,13 @@ export async function updateTenant(slug: string, data: TenantUpdate): Promise<Te
   return res.data;
 }
 
-export async function deleteTenant(slug: string, stepUp: TenantDeleteRequest): Promise<void> {
-  await client.delete(`${BASE}/${slug}`, { data: stepUp });
+/** Accepts the deletion (202, #1792): the tenant is frozen and erased afterwards — not yet gone. */
+export async function deleteTenant(
+  slug: string,
+  stepUp: TenantDeleteRequest,
+): Promise<TenantDeletionAccepted> {
+  const res = await client.delete<TenantDeletionAccepted>(`${BASE}/${slug}`, { data: stepUp });
+  return res.data;
 }
 
 // ── Members ─────────────────────────────────────────────────────────

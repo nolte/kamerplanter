@@ -11,6 +11,7 @@ import type {
   AdminUserMembership,
   AdminUserUpdate,
   TenantDeleteRequest,
+  TenantDeletionAccepted,
   TenantRole,
 } from '@/api/types';
 
@@ -57,8 +58,16 @@ export async function updateAdminUser(
   return data;
 }
 
-export async function deleteAdminTenant(key: string, stepUp: TenantDeleteRequest): Promise<void> {
-  await apiClient.delete(`/admin/platform/tenants/${encodeURIComponent(key)}`, { data: stepUp });
+/** Accepts the deletion (202, #1792): the tenant is frozen and erased afterwards — not yet gone. */
+export async function deleteAdminTenant(
+  key: string,
+  stepUp: TenantDeleteRequest,
+): Promise<TenantDeletionAccepted> {
+  const { data } = await apiClient.delete<TenantDeletionAccepted>(
+    `/admin/platform/tenants/${encodeURIComponent(key)}`,
+    { data: stepUp },
+  );
+  return data;
 }
 
 /**
