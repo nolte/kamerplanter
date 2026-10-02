@@ -30,7 +30,7 @@ from app.common.exceptions import (
     WriteConflictError,
 )
 from app.common.held_count import held_undated_count
-from app.common.log_privacy import log_subject, loggable_ip, redact_subject
+from app.common.log_privacy import log_subject, log_tenant, loggable_ip, redact_subject
 from app.common.types import UserKey
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
@@ -3002,7 +3002,7 @@ class PrivacyService:
                     logger.info(
                         "retention.erasure.storage_hard_delete",
                         scope=rule.scope,
-                        tenant_key=tenant_key,
+                        tenant=log_tenant(tenant_key),
                         subject=self.log_subject(user_key),
                         deleted=result.removed,
                         retained_shared=result.retained_shared,
@@ -3027,7 +3027,7 @@ class PrivacyService:
                     logger.info(
                         "retention.erasure.storage_anonymize",
                         scope=rule.scope,
-                        tenant_key=tenant_key,
+                        tenant=log_tenant(tenant_key),
                         subject=self.log_subject(user_key),
                         metadata_anonymized=anonymised,
                         exif_stripped=stripped,

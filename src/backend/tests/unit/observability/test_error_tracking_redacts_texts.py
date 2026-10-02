@@ -222,11 +222,12 @@ def test_without_a_redactor_the_structure_scrubbing_still_runs(monkeypatch: pyte
     assert scrubbed["extra"] == {"api_key": "[redacted]", "note": "kept"}
 
 
-@pytest.mark.usefixtures("backend_redactor")
-def test_the_request_url_goes_through_the_text_redaction() -> None:
+def test_the_request_url_carries_no_path_token() -> None:
+    # The request path is reduced to a route pattern / literal segments (#1925,
+    # test_error_tracking_redacts_paths); a webhook token in it never survives.
     event = {"request": {"url": f"https://kp.example.org/hooks/{BOT_TOKEN}1Z/notify?x=1", "query_string": "x=1"}}
 
     url = scrub_event(event, None)["request"]["url"]
 
-    assert BOT_TOKEN not in url, url
-    assert url.startswith("https://kp.example.org/hooks/<redacted>/notify"), url
+    assert BOT_TOKEN not in url and "?" not in url, url
+    assert url.startswith("https://kp.example.org/"), url

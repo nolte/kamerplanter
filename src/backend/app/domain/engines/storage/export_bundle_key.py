@@ -33,16 +33,37 @@ def export_bundle_key(user_key: str, export_key: str) -> str:
     return f"{EXPORT_BUNDLE_NAMESPACE}{user_key}/{export_key}.json"
 
 
-def loggable_storage_key(key: str) -> str:
-    """*key* as it may appear in a log line: the account-key segment masked.
+#: The attachment namespace: ``t/{tenant_key}/{category}/{yyyy}/{mm}/{ulid}.{ext}``
+#: (``StorageKeyBuilder.build``). The segment after it names a tenant.
+TENANT_NAMESPACE = "t/"
 
-    A bundle key keeps its namespace and the export key, which is what a log
-    reader correlates on; the segment that names the account is replaced. A
-    prefix (``privacy/exports/<user_key>/``) and a bare account segment are
-    masked the same way. Every other key is returned unchanged — it carries no
-    account key.
+
+def loggable_storage_key(key: str) -> str:
+    """*key* as it may appear in a log line: every segment that names a person or a tenant masked.
+
+    * An export-bundle key (``privacy/exports/<user_key>/<export_key>.json``)
+      keeps its namespace and the export key, which is what a log reader
+      correlates on; the account segment is replaced (#1773).
+    * An attachment key (``t/<tenant_key>/<category>/<yyyy>/<mm>/<ulid>.<ext>``)
+      keeps the category, the date partition, the ULID and the extension; the
+      tenant segment becomes its salted log reference (``ten_…``,
+      :func:`app.common.log_privacy.log_tenant`) — the same reference the
+      service log lines carry, so a delete line still correlates with its
+      tenant without naming it (#1966). The tenant key sits on the pseudonymised
+      retention rows, and for a personal tenant it identifies its owner.
+    * A prefix (``t/<tenant_key>/``, ``privacy/exports/<user_key>/``) and a bare
+      segment are masked the same way. Every other key is returned unchanged —
+      it carries neither.
     """
     stripped = key.lstrip("/")
+    if stripped.startswith(TENANT_NAMESPACE):
+        tenant_key, separator, rest = stripped[len(TENANT_NAMESPACE) :].partition("/")
+        if not tenant_key:
+            return key
+        # Imported here: ``log_privacy`` imports this module for the free-text masking below.
+        from app.common.log_privacy import log_tenant
+
+        return f"{TENANT_NAMESPACE}{log_tenant(tenant_key)}{separator}{rest}"
     if not stripped.startswith(EXPORT_BUNDLE_NAMESPACE):
         return key
     remainder = stripped[len(EXPORT_BUNDLE_NAMESPACE) :]

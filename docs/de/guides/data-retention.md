@@ -421,7 +421,14 @@ lassen sie sich dagegen nicht verknüpfen.
     Objektspeicher-Log-Zeilen (`storage_put_object`, `storage_delete_object` und
     ähnliche) maskieren den Kontoschlüssel in Export-Bundle-Pfaden: Aus
     `privacy/exports/<Kontoschlüssel>/<Export>.json` wird
-    `privacy/exports/<subject>/<Export>.json`.
+    `privacy/exports/<subject>/<Export>.json`. Den Mandantenschlüssel eines Anhangs
+    (`t/<Mandant>/<Kategorie>/…`) ersetzen sie durch die Mandanten-Referenz
+    `ten_…`; Kategorie, Datum, ULID und Dateiendung bleiben für die Fehlersuche.
+    Dieselbe Referenz steht als `tenant=` auf den Einladungs- und Mandanten-Lösch-Zeilen
+    neben der Subjekt-Referenz: Der Mandantenschlüssel selbst hängt an den
+    aufbewahrten, pseudonymisierten Zeilen und würde das Pseudonym sonst wieder mit
+    deinem Mandanten verbinden. Aus dem Lösch-Nachweis-Schlüssel `ter_<Mandant>` wird
+    in Protokollzeilen `ter_ten_…`.
 
     Fehlertexte in diesen Zeilen (`error=`) sind ebenso bereinigt: Der Kontoschlüssel
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
@@ -443,7 +450,9 @@ lassen sie sich dagegen nicht verknüpfen.
     uvicorn und der Celery-Worker bei einem unbehandelten Fehler ausgeben, und für
     Fehler, die nie zu einer Protokollzeile werden: ein Absturz beim Start, ein Fehler in
     einem Hintergrund-Thread. Ist ein Fehler-Tracker angebunden, erhält er dieselben
-    bereinigten Texte.
+    bereinigten Texte; als Adresse der Anfrage trägt sein Ereignis nur das Routenmuster
+    (`/api/v1/t/{tenant_slug}/attachments/{key}/…`), nie den aufgerufenen Pfad mit
+    Mandanten-Kürzel und Download-Token.
 
     IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
     Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Das gilt inzwischen auch für die

@@ -38,6 +38,7 @@ from typing import Any
 import structlog
 
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import log_tenant
 from app.domain.engines.storage.exif_stripper import (
     is_unsupported_photo_format,
     strip_exif,
@@ -460,7 +461,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
                 logger.warning(
                     "exif_strip_unsupported_format",
                     backend=BACKEND_KEY,
-                    tenant_key=tenant_key,
+                    tenant=log_tenant(tenant_key),
                     mime_type=att.mime_type,
                 )
                 continue
