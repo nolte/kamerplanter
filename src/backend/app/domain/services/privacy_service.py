@@ -1071,7 +1071,9 @@ class PrivacyService:
             raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
         return tenant_service.personal_tenant_erasure_preview(user_key)
 
-    def _notify_members_of_personal_tenant_erasure(self, user_key: UserKey, *, delete_at: datetime | None) -> None:
+    def _notify_members_of_personal_tenant_erasure(
+        self, user_key: UserKey, *, delete_at: datetime | None, immediate: bool = False
+    ) -> None:
         """Tell the other members of the subject's personal tenants that those go with the account (#1824, Q-E1).
 
         Best effort and **after** the account is closed: a mail that cannot be
@@ -1079,19 +1081,30 @@ class PrivacyService:
         logged (without the address) and the erasure goes on. The text names
         neither the subject nor the garden — a personal tenant is named after
         its owner, so the name would identify them to people who may only know
-        the garden — only the date, so the member can export or leave in time.
+        the garden — only the date (or that there is none), so the member can copy what they need in time.
         """
         tenant_service = self._tenant_service
         if tenant_service is None:  # pragma: no cover - refused by the configuration check
             raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
-        due = html.escape(f"on {delete_at.strftime('%Y-%m-%d')} (UTC)" if delete_at is not None else "shortly")
+        if immediate:
+            # An administrator's deletion has no grace: say so rather than promise time.
+            timing = "This is happening now; there was no grace period."
+            advice = "Contact your administrator if you need anything from it."
+        else:
+            due = html.escape(f"on {delete_at.strftime('%Y-%m-%d')} (UTC)" if delete_at is not None else "shortly")
+            timing = f"This will happen {due}."
+            # The personal data export holds the member's own data, not the garden's sites, plants or diary
+            # (docs: privacy guide) — so it is not offered as a way to keep them.
+            advice = (
+                "Data of the garden itself is not part of the personal data export, "
+                "so copy anything you want to keep before then."
+            )
         body = (
             "<h2>A shared personal garden will be deleted</h2>"
             "<p>The owner of a personal garden you are a member of has asked Kamerplanter to delete their account. "
             "A personal garden is deleted together with its owner's account, including everything in it: "
-            f"its sites, plants, diary entries and tasks. This will happen {due}.</p>"
-            "<p>If you want to keep anything from it, export it from your own data export in the privacy settings "
-            "or copy it elsewhere before then. Your own account is not affected.</p>"
+            f"its sites, plants, diary entries and tasks. {timing}</p>"
+            f"<p>{advice} Your own account is not affected.</p>"
         )
         try:
             member_keys = tenant_service.other_active_members_of_personal_tenants_of(user_key)
@@ -1220,7 +1233,7 @@ class PrivacyService:
             # request: right before the run below. A request that already
             # existed (a self-service one pulled forward) told them at its own
             # request time. An unverified account never had a shared garden.
-            self._notify_members_of_personal_tenant_erasure(user_key, delete_at=now)
+            self._notify_members_of_personal_tenant_erasure(user_key, delete_at=now, immediate=True)
 
         logger.info(
             "erasure.immediate_requested",

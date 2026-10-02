@@ -420,16 +420,15 @@ class TestTheMembershipIsRecheckedAfterTheFreeze:
         owner = tenants.memberships.get_by_user_and_tenant(OWNER, PERSONAL)
         assert owner is not None and not owner.is_active
 
-    def test_a_retry_over_a_record_no_run_claimed_rechecks_too(self):
-        """A crash between the insert and the re-check left the record; the joiner of that window is still seen."""
+    def test_a_member_without_a_recorded_start_predates_the_notice(self):
+        """Production paths stamp ``joined_at``; an undated member is a seed/legacy one, not late (#1824)."""
         tenants = Tenants(members=[_member(OWNER), _member(JOINER)])
         tenants.memberships.inactive_accounts.add(OWNER)
         tenants.open_record()
 
         outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
 
-        assert outcome.outcome == "retained_late_joiner"
-        assert tenants.runs == []
+        assert (outcome.outcome, tenants.runs) == ("erased", [PERSONAL])
 
     def test_a_member_who_was_there_before_the_freeze_goes_with_the_tenant(self):
         """#1824 — erasure together: members listed by the first read do not keep the tenant."""

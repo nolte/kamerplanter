@@ -228,11 +228,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         return list(cursor)
 
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
-        """Active member account key -> start of the membership (#1824); same population as ``active_member_user_keys``.
-
-        An account holding several active memberships of the tenant reports the
-        **latest** start, so a join is never hidden behind an older row.
-        """
+        """Active member account key -> start of the membership (#1824), as ``active_member_user_keys`` counts them."""
         cursor = self._db.aql.execute(
             """
             FOR m IN @@collection
@@ -244,19 +240,8 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             """,
             bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
         )
-        joined: dict[str, datetime | None] = {}
-        for row in cursor:
-            at = _parse_instant(row.get("joined_at"))
-            current = joined.get(row["user_key"])
-            joined[row["user_key"]] = at if row["user_key"] not in joined else _later(current, at)
-        return joined
-
-
-def _later(first: datetime | None, second: datetime | None) -> datetime | None:
-    """The later of two optional instants; ``None`` (unknown) on either side stays unknown."""
-    if first is None or second is None:
-        return None
-    return max(first, second)
+        # One row per account: the (user_key, tenant_key) index is unique.
+        return {row["user_key"]: _parse_instant(row.get("joined_at")) for row in cursor}
 
 
 def _parse_instant(value: object) -> datetime | None:

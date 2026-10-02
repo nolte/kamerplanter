@@ -101,6 +101,15 @@ class TestTheOtherMembersAreToldWhenTheErasureIsRequested:
             # A personal tenant is named after its owner (create_personal_tenant), so its name identifies them.
             assert not any(leak in text for leak in (OWNER_EMAIL, "Ada Owner", "Garden", OWNER))
 
+    def test_the_notice_does_not_offer_the_personal_export_as_a_way_to_keep_the_garden(self):
+        """Garden data is not part of a member's personal data export (docs: privacy guide)."""
+        _, privacy, email_service = _shared()
+
+        privacy.request_erasure(OWNER, **step_up(OWNER_EMAIL, OWNER_PASSWORD))
+
+        body = _sent(email_service)[0]["html_body"]
+        assert "not part of the personal data export" in body
+
     def test_a_subject_nobody_shares_with_sends_nothing(self):
         tenants = Tenants()
         privacy, _ = _privacy(tenants, FakeErasureRepo(), user_repo=_users())
@@ -188,6 +197,15 @@ class TestTheOtherMembersAreToldWhenTheErasureIsRequested:
         await privacy.erase_account_now(OWNER, origin="platform_admin", now=NOW)
 
         assert mails_when_erased == [2]
+
+    @pytest.mark.asyncio
+    async def test_an_immediate_erasure_does_not_promise_a_date_or_time_to_export(self):
+        _, privacy, email_service = _shared()
+
+        await privacy.erase_account_now(OWNER, origin="platform_admin", now=NOW)
+
+        body = _sent(email_service)[0]["html_body"]
+        assert "no grace period" in body and "(UTC)" not in body
 
     @pytest.mark.asyncio
     async def test_the_cleanup_of_an_unverified_account_sends_nothing(self):

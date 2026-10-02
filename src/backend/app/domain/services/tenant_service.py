@@ -823,15 +823,13 @@ class TenantService:
           whoever is active now and is not among them joined late.
         * ``None`` — a retried record no run claimed has no such read; a member
           is late when the membership began at or after ``frozen_at`` (the
-          record's ``requested_at``), or when its start is not recorded — the
-          tenant is kept rather than erased over someone who may have joined
-          after the notice.
+          record's ``requested_at``). A start that is not recorded does not make
+          a member late: every production path stamps ``joined_at``, so only a
+          membership from before the field existed (seeds) lacks it.
         * ``requested_at`` — when the **account erasure** was requested. Whoever
           joined after it was not among the members the notice went to (an
           invitation created during the grace, an administrator adding a
-          member) and is late whichever read lists them; a start that is not
-          recorded does not make a member late here, the first read already
-          vouched for them.
+          member) and is late whichever read lists them.
 
         """
         current = self._other_active_members(tenant_key, subject_user_key)
@@ -847,7 +845,7 @@ class TenantService:
             cutoff = ensure_aware_utc(frozen_at)
             for key in current:
                 began = ensure_aware_utc(joined.get(key))
-                if cutoff is None or began is None or began >= cutoff:
+                if cutoff is None or (began is not None and began >= cutoff):
                     late.add(key)
         if requested_at is not None:
             asked = ensure_aware_utc(requested_at)
