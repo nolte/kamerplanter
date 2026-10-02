@@ -30,7 +30,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 from app.api.v1.auth.router import limiter
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import DuplicateError, NotFoundError
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.oauth_engine import OAuthEngine
 from app.domain.models.oidc_config import OidcProviderConfig
@@ -91,6 +91,9 @@ class _ConfigStore:
         return [c for c in self.rows.values() if c.enabled]
 
     def create(self, config: OidcProviderConfig) -> OidcProviderConfig:
+        """Refuses a second configuration of one slug, as the collection's unique index does (#1987)."""
+        if config.slug in self.by_slug:
+            raise DuplicateError("OidcProviderConfig", "slug", config.slug)
         self._next += 1
         stored = config.model_copy(update={"key": f"cfg-new-{self._next}"})
         self.rows[stored.key] = stored  # type: ignore[index]

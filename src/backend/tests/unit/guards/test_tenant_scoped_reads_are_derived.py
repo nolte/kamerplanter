@@ -241,6 +241,7 @@ ANCHOR_TARGETS: dict[str, str | None] = {
     "cultivar_key": col.CULTIVARS,
     # Not tenant anchors.
     "user_key": None,  # an account; spans every tenant it is a member of
+    "oidc_config_key": None,  # a platform-wide sign-in provider configuration (#1987); tenants do not own it
     "owner_user_key": None,
     "default_tenant_key": None,  # a tenant id, not a document of one
     "personal_tenant_keys": None,  # tenant ids an account erasure recorded (#1788), not documents of one

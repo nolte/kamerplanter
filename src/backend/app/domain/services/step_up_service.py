@@ -345,7 +345,11 @@ class FederatedReauthPolicy:
         links: list[tuple[AuthProvider, OidcProviderConfig]] = []
         for row in self._providers.list_by_user(user_key):
             of_type = [c for c in configs if OAuthEngine.link_type(c) == row.provider]
-            config = next((c for c in of_type if c.slug == row.oidc_config_slug), None)
+            # By slug, and — where the link recorded it (#1987) — by the configuration's key:
+            # a link of a deleted configuration whose slug was re-used re-authenticates nobody.
+            config = next(
+                (c for c in of_type if c.slug == row.oidc_config_slug and row.oidc_config_key in (None, c.key)), None
+            )
             if config is not None:
                 links.append((row, config))
         return links

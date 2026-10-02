@@ -93,6 +93,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "sign-in path: links the provider identity the OAuth callback just authenticated; reached only from "
         "_complete_login (the sign-in half of the provider callback), never from a signed-in session"
     ),
+    ("auth_service.py", "AuthService._login_link"): (
+        "sign-in path: removes a link whose recorded configuration key is not the configuration's own (#1987) — "
+        "an orphan of a deleted provider whose slug was re-used, which matches no sign-in and would collide with "
+        "the link the sign-in is about to make; reached only from _complete_login, never from a signed-in session"
+    ),
     ("privacy_service.py", "PrivacyService.confirm_email_change"): (
         "gated upstream: the token exists only for a request that passed the step-up in request_email_change, "
         "and possession of the new mailbox is proven by the token"
@@ -291,7 +296,9 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#1841). A change in either
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 24  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider
+EXPECTED_MEMBERS = (
+    25  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link
+)
 
 
 def test_every_credential_change_is_step_up_gated_or_classified() -> None:
