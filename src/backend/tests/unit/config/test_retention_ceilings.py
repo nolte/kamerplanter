@@ -13,8 +13,8 @@ import pytest
 
 from app.config.settings import Settings, SettingsError, load_settings
 
-# (environment variable, ceiling) — NFR-011 §4, the ten settings with a ceiling
-# (the seven of Q-R9 plus R-04 / R-04a / R-12, #1946).
+# (environment variable, ceiling) — NFR-011 §4, the eleven settings with a ceiling
+# (the seven of Q-R9 plus R-04 / R-04a / R-12, #1946, and R-01a, #1960).
 CEILINGS = [
     ("RETENTION_SOFT_DELETE_RETENTION_DAYS", 90),
     ("RETENTION_UNVERIFIED_ACCOUNT_DAYS", 7),
@@ -26,6 +26,7 @@ CEILINGS = [
     ("RETENTION_CONSENT_RETENTION_YEARS", 3),
     ("RETENTION_CONSENT_IP_ANONYMIZATION_DAYS", 7),
     ("RETENTION_INVITATION_RETENTION_DAYS", 30),
+    ("RETENTION_ERASURE_MEMBER_NOTICE_DAYS", 7),
 ]
 # The pre-#1782 names still accepted as aliases (NFR-011 §4 last column).
 ALIAS_CEILINGS = [
@@ -97,6 +98,7 @@ class TestTheServiceRepeatsTheCeilings:
             ("consent_retention_years", 3, "R-04"),
             ("consent_ip_anonymization_days", 7, "R-04a"),
             ("invitation_retention_days", 30, "R-12"),
+            ("erasure_member_notice_days", 7, "R-01a"),
         ],
     )
     def test_an_explicit_period_above_the_ceiling_is_refused(self, keyword, ceiling, rule):

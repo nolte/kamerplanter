@@ -229,3 +229,71 @@ class TestTheExportCompletionGuard:
         assert started.status == "processing"
         assert refused is None
         assert repo.get_by_key(closed.key).status == "failed"
+
+
+class TestTheMemberNoticeSelection:
+    """#1960 — what the daily beat tells the other members about, against a real ArangoDB.
+
+    A record written before #1960 has **no** ``members_notified_at`` attribute at
+    all; AQL reads the missing attribute as ``null``, which is what the selection
+    and the unit double rely on. The marker fields written by the service round-trip
+    through the real ``update_fields``.
+    """
+
+    def _keys(self, repo: ArangoErasureRepository) -> set[str]:
+        return {request.user_key for request in repo.list_open_without_member_notice()}
+
+    def test_a_record_without_the_marker_is_selected_whether_due_or_not(self, database):
+        repo = ArangoErasureRepository(database)
+        # Inserted raw, as a pre-#1960 document is stored: none of the new attributes exist.
+        for user_key, due in (
+            ("notice-legacy-due", NOW - timedelta(days=1)),
+            ("notice-legacy-grace", NOW + timedelta(days=40)),
+        ):
+            database.collection(col.ERASURE_REQUESTS).insert(
+                {"user_key": user_key, "status": "scheduled", "hard_delete_scheduled_at": due.isoformat()}
+            )
+
+        assert {"notice-legacy-due", "notice-legacy-grace"} <= self._keys(repo)
+
+    def test_a_told_request_an_immediate_one_an_admin_one_and_a_finished_one_are_not(self, database):
+        repo = ArangoErasureRepository(database)
+        told = repo.create(ErasureRequest(user_key="notice-told", status="scheduled", hard_delete_scheduled_at=NOW))
+        repo.update_fields(told.key, {"members_notified_at": NOW.isoformat(), "members_notified_count": 1})
+        repo.create(ErasureRequest(user_key="notice-immediate", status="scheduled", immediate_erasure=True))
+        repo.create(ErasureRequest(user_key="notice-admin", status="scheduled", origin="platform_admin"))
+        repo.create(ErasureRequest(user_key="notice-unverified", status="scheduled", origin="unverified_cleanup"))
+        repo.create(ErasureRequest(user_key="notice-done", status="completed"))
+        repo.create(ErasureRequest(user_key="notice-running", status="in_progress"))
+
+        assert self._keys(repo).isdisjoint(
+            {"notice-told", "notice-immediate", "notice-admin", "notice-unverified", "notice-done", "notice-running"}
+        )
+
+    def test_a_failed_notice_stays_selected_and_the_counter_round_trips(self, database):
+        repo = ArangoErasureRepository(database)
+        request = repo.create(ErasureRequest(user_key="notice-failed", status="partially_completed"))
+
+        repo.update_fields(
+            request.key,
+            {
+                "members_notice_failures": 2,
+                "members_notice_first_attempt_at": NOW.isoformat(),
+                "members_notified_pseudonyms": ["sub_x"],
+            },
+        )
+
+        stored = repo.get_by_key(request.key)
+        assert stored is not None
+        assert (stored.members_notice_failures, stored.members_notified_pseudonyms) == (2, ["sub_x"])
+        assert stored.members_notice_first_attempt_at == NOW
+        assert "notice-failed" in self._keys(repo)
+
+    def test_the_marker_takes_the_request_out_of_the_selection(self, database):
+        repo = ArangoErasureRepository(database)
+        request = repo.create(ErasureRequest(user_key="notice-marked", status="scheduled"))
+        assert "notice-marked" in self._keys(repo)
+
+        repo.update_fields(request.key, {"members_notified_at": NOW.isoformat(), "members_notified_count": 0})
+
+        assert "notice-marked" not in self._keys(repo)

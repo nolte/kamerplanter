@@ -970,7 +970,7 @@ class PrivacyService:
         # #1824 Q-E1 — the other members of the personal tenant lose it with the
         # account; they hear of it now, with the whole grace left to export.
         if created_here:
-            self._notify_members_of_personal_tenant_erasure(user_key, delete_at=erasure.hard_delete_scheduled_at)
+            self._deliver_member_notice(created, now=now, delete_at=erasure.hard_delete_scheduled_at)
 
         logger.info(
             "privacy_erasure_requested",
@@ -1069,21 +1069,91 @@ class PrivacyService:
             raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
         return tenant_service.personal_tenant_erasure_preview(user_key)
 
-    def _notify_members_of_personal_tenant_erasure(
-        self, user_key: UserKey, *, delete_at: datetime | None, immediate: bool = False
-    ) -> None:
-        """Tell the other members of the subject's personal tenants that those go with the account (#1824, Q-E1).
+    def _deliver_member_notice(
+        self,
+        erasure: ErasureRequest,
+        *,
+        now: datetime,
+        delete_at: datetime | None,
+        immediate: bool = False,
+        resend: bool = False,
+    ) -> bool:
+        """Tell the other members of the subject's personal tenants that those go with the account (#1824, #1960).
 
-        Best effort and **after** the account is closed: a mail that cannot be
-        sent must not keep the subject from exercising Art. 17, so a failure is
-        logged (without the address) and the erasure goes on. The text names
-        neither the subject nor the garden — a personal tenant is named after
-        its owner, so the name would identify them to people who may only know
-        the garden — only the date (or that there is none), so the member can copy what they need in time.
+        Best effort towards the subject and **durable** on the request: the mail
+        is sent after the account is closed, so one that cannot be sent never keeps
+        the subject from exercising Art. 17 — but the outcome is written to the
+        request, which the daily beat reads (:meth:`_send_pending_member_notices`).
+
+        * every member told: ``members_notified_at`` and ``members_notified_count``
+          are set — also with count 0 when nobody else uses the garden;
+        * a member not reachable (no mail configured, SMTP failure, a failing read
+          of the members): ``members_notice_failures`` is counted, the first
+          attempt is stamped and an error is logged without the address; the
+          members already told stay recorded (salted references, never an address)
+          so the retry does not mail them twice.
+
+        The text names neither the subject nor the garden — a personal tenant is
+        named after its owner, so the name would identify them to people who may
+        only know the garden — only the date (or that there is none), so the member
+        can copy what they need in time. ``resend`` mails also the members told
+        before: an administrator pulled the erasure forward, so the date they were
+        given no longer holds.
+
+        Returns ``True`` when nobody was left unmailed.
         """
         tenant_service = self._tenant_service
         if tenant_service is None:  # pragma: no cover - refused by the configuration check
             raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        user_key = erasure.user_key
+        body = self._member_notice_body(delete_at=delete_at, immediate=immediate)
+        told = list(erasure.members_notified_pseudonyms)
+        failures = 0
+        sent = 0
+        try:
+            member_keys = tenant_service.other_active_members_of_personal_tenants_of(user_key)
+        except Exception as exc:  # noqa: BLE001 - the request and the closed account are already written
+            logger.error(
+                "personal_tenant_erasure_notice_failed",
+                subject=self.log_subject(user_key),
+                stage="members",
+                error_type=type(exc).__name__,
+            )
+            self._record_member_notice(erasure, now=now, told=told, failures=1, sent=0)
+            return False
+        for member_key in member_keys:
+            reference = self.log_subject(member_key)
+            # Without the log salt every member shares one reference: nobody can be skipped by it.
+            dedupe = reference != UNAVAILABLE_LOG_SUBJECT
+            if dedupe and reference in told and not resend:
+                continue
+            try:
+                member = self._user_repo.get_by_key(member_key)
+                if member is None or not member.email:
+                    continue
+                self._email_service.send_notification_email(
+                    to_email=member.email,
+                    subject="Kamerplanter — a shared personal garden will be deleted",
+                    html_body=body,
+                )
+            except NotImplementedError:
+                failures += 1
+                logger.warning(
+                    "personal_tenant_erasure_notice_not_sent", member=reference, reason="mail_not_configured"
+                )
+                continue
+            except Exception as exc:  # noqa: BLE001 - never block an Art. 17 request on somebody else's mailbox
+                failures += 1
+                logger.error("personal_tenant_erasure_notice_failed", member=reference, error_type=type(exc).__name__)
+                continue
+            sent += 1
+            if dedupe and reference not in told:
+                told.append(reference)
+        self._record_member_notice(erasure, now=now, told=told, failures=failures, sent=sent)
+        return failures == 0
+
+    @staticmethod
+    def _member_notice_body(*, delete_at: datetime | None, immediate: bool) -> str:
         if immediate:
             # An administrator's deletion has no grace: say so rather than promise time.
             timing = "This is happening now; there was no grace period."
@@ -1097,41 +1167,151 @@ class PrivacyService:
                 "Data of the garden itself is not part of the personal data export, "
                 "so copy anything you want to keep before then."
             )
-        body = (
+        return (
             "<h2>A shared personal garden will be deleted</h2>"
             "<p>The owner of a personal garden you are a member of has asked Kamerplanter to delete their account. "
             "A personal garden is deleted together with its owner's account, including everything in it: "
             f"its sites, plants, diary entries and tasks. {timing}</p>"
             f"<p>{advice} Your own account is not affected.</p>"
         )
+
+    def _record_member_notice(
+        self, erasure: ErasureRequest, *, now: datetime, told: list[str], failures: int, sent: int
+    ) -> None:
+        """Write what the notice achieved onto the request (#1960); a failure to write is logged, never raised."""
+        if erasure.key is None:
+            return
+        fields: dict[str, object] = {"members_notified_pseudonyms": told}
+        if failures == 0:
+            fields["members_notified_at"] = now
+            fields["members_notified_count"] = max(len(told), erasure.members_notified_count or 0, sent)
+            # Everybody is told: the references served the retry only. The record outlives the erasure by
+            # years and must not keep a pseudonym of anybody else (they also are not exported or exposed).
+            fields["members_notified_pseudonyms"] = []
+        else:
+            fields["members_notice_failures"] = erasure.members_notice_failures + 1
+            if erasure.members_notice_first_attempt_at is None:
+                fields["members_notice_first_attempt_at"] = now
         try:
-            member_keys = tenant_service.other_active_members_of_personal_tenants_of(user_key)
-        except Exception as exc:  # noqa: BLE001 - the request and the closed account are already written
+            self._erasure_repo.update_fields(erasure.key, _persistable(fields))
+        except Exception as exc:  # noqa: BLE001 - the notice was sent; an unrecorded marker only means one more try
             logger.error(
-                "personal_tenant_erasure_notice_failed",
-                subject=self.log_subject(user_key),
-                stage="members",
+                "personal_tenant_erasure_notice_unrecorded",
+                subject=self.log_subject(erasure.user_key),
                 error_type=type(exc).__name__,
             )
             return
-        for member_key in member_keys:
-            try:
-                member = self._user_repo.get_by_key(member_key)
-                if member is None or not member.email:
-                    continue
-                self._email_service.send_notification_email(
-                    to_email=member.email,
-                    subject="Kamerplanter — a shared personal garden will be deleted",
-                    html_body=body,
+        for name, value in fields.items():
+            setattr(erasure, name, value)
+
+    def _member_notice_release_at(self, erasure: ErasureRequest) -> datetime | None:
+        """The earliest moment the hard delete may run for the other members' sake (#1960); ``None``: not held.
+
+        A request is held only when it is a scheduled self-service one — an
+        administrator's immediate erasure tells the members it happens now and
+        waits for nobody, a cleanup of an unverified account never had a shared
+        garden. For a request that was told the wait counts from that notice
+        (so a request told at request time, whose hard delete is months away, is
+        not delayed at all, and one told by the beat — it predates #1960 or its
+        first mail failed — is erased one wait later); with nobody to tell there is
+        nothing to wait for. A request whose notice could not be delivered waits one
+        interval from the first attempt and then goes ahead: the Art. 17 duty is not
+        hostage to somebody else's mailbox. A request the notice pass has not reached
+        (it was not selected, or the pass failed) starts that clock itself in
+        :meth:`_member_notice_holds`, so the hold is bounded for every state.
+        """
+        if erasure.origin != "self_service" or erasure.immediate_erasure:
+            return None
+        wait = self._retention.erasure_member_notice_wait
+        if erasure.members_notified_at is not None:
+            if erasure.members_notified_count == 0:
+                return None
+            return erasure.members_notified_at + wait
+        if erasure.members_notice_first_attempt_at is not None:
+            return erasure.members_notice_first_attempt_at + wait
+        return None
+
+    def _member_notice_holds(self, erasure: ErasureRequest, now: datetime, *, notice_pass_ran: bool) -> bool:
+        """True while the hard delete of *erasure* waits for the members to have had their notice (#1960).
+
+        ``notice_pass_ran`` — the beat's notice pass listed the open requests this
+        run. A request it did list has been told or tried by now; when the pass
+        could not run (its query failed) a never-told request is **held** and its
+        clock started here, so the hold is bounded by one wait and the operator
+        hears of it, instead of the garden going without a word or being held
+        for ever.
+        """
+        if self._tenant_service is None:
+            # Nothing wired that could erase a personal tenant, so nobody to wait for (the configuration
+            # check refuses the real erasure without it).
+            return False
+        never_told_or_tried = erasure.members_notified_at is None and erasure.members_notice_first_attempt_at is None
+        if (
+            never_told_or_tried
+            and not notice_pass_ran
+            and erasure.origin == "self_service"
+            and not erasure.immediate_erasure
+        ):
+            logger.error("personal_tenant_erasure_notice_unattempted", erasure_key=erasure.key)
+            self._record_member_notice(
+                erasure, now=now, told=list(erasure.members_notified_pseudonyms), failures=1, sent=0
+            )
+        release_at = self._member_notice_release_at(erasure)
+        if release_at is None:
+            return False
+        if release_at <= now:
+            if erasure.members_notified_at is None:
+                # The notice never got through for the whole wait; the duty goes ahead, loudly.
+                logger.error(
+                    "personal_tenant_erasure_notice_given_up",
+                    erasure_key=erasure.key,
+                    failures=erasure.members_notice_failures,
                 )
-            except NotImplementedError:
-                logger.warning("personal_tenant_erasure_notice_skipped", member=self.log_subject(member_key))
-            except Exception as exc:  # noqa: BLE001 - never block an Art. 17 request on somebody else's mailbox
+            return False
+        logger.info(
+            "retention.erasure.held_for_member_notice",
+            erasure_key=erasure.key,
+            release_at=release_at.isoformat(),
+        )
+        return True
+
+    def _send_pending_member_notices(self, now: datetime) -> bool:
+        """The beat's first step: tell the members of every open request nobody told yet (#1960).
+
+        Covers a request scheduled before #1824 (no marker at all) and one whose
+        notice failed at request time; both are selected whether they are due or
+        still in their grace, so the members get the longest possible time. The
+        date they are given is the earliest the hard delete can then run. One
+        request failing never stops the others. Returns whether the pass could list
+        the open requests at all (``False``: its query failed).
+        """
+        if self._tenant_service is None:
+            return True
+        wait = self._retention.erasure_member_notice_wait
+        try:
+            pending = self._erasure_repo.list_open_without_member_notice()
+        except Exception as exc:  # noqa: BLE001 - a failing notice query must not stop the erasures themselves
+            logger.error("personal_tenant_erasure_notice_query_failed", error_type=type(exc).__name__)
+            return False
+        for erasure in pending:
+            if erasure.key is None or self._erasure_engine.is_tombstone(erasure.user_key):
+                continue
+            due = erasure.hard_delete_scheduled_at
+            earliest = max(due, now + wait) if due is not None else now + wait
+            try:
+                self._deliver_member_notice(erasure, now=now, delete_at=earliest)
+            except Exception as exc:  # noqa: BLE001 - one request must not stop the beat
                 logger.error(
                     "personal_tenant_erasure_notice_failed",
-                    member=self.log_subject(member_key),
+                    subject=self.log_subject(erasure.user_key),
+                    stage="beat",
                     error_type=type(exc).__name__,
                 )
+                # Counted and stamped, so the request is held one wait and not erased unattempted.
+                self._record_member_notice(
+                    erasure, now=now, told=list(erasure.members_notified_pseudonyms), failures=1, sent=0
+                )
+        return True
 
     async def erase_account_now(
         self,
@@ -1212,9 +1392,8 @@ class PrivacyService:
                 erasure.key, {"step_up": step_up, "requested_by_subject": requested_by_subject}
             )
             erasure.step_up, erasure.requested_by_subject = step_up, requested_by_subject
-        if erasure.key is not None and (
-            erasure.hard_delete_scheduled_at is None or erasure.hard_delete_scheduled_at > now
-        ):
+        pulled_forward = erasure.hard_delete_scheduled_at is None or erasure.hard_delete_scheduled_at > now
+        if erasure.key is not None and pulled_forward:
             # A self-service request still in its grace: the beat must be able
             # to retry it at once if this run fails.
             self._erasure_repo.update_fields(erasure.key, _persistable({"hard_delete_scheduled_at": now}))
@@ -1226,12 +1405,22 @@ class PrivacyService:
         self._refresh_token_repo.revoke_all_for_user(user_key)
         # REQ-025 AK-IE-06 — at request time, like the self-service entry.
         self._revoke_personal_tenant_invitations(user_key)
-        if newly_requested and origin != "unverified_cleanup":
+        if origin != "unverified_cleanup" and (
+            newly_requested or pulled_forward or erasure.members_notified_at is None
+        ):
             # #1824 — no grace here, so "before the deletion" is as early as the
-            # request: right before the run below. A request that already
-            # existed (a self-service one pulled forward) told them at its own
-            # request time. An unverified account never had a shared garden.
-            self._notify_members_of_personal_tenant_erasure(user_key, delete_at=now, immediate=True)
+            # request: right before the run below. A self-service request pulled
+            # forward was told a later date at its own request time (#1961: that date
+            # no longer holds, so they are told again, now); one never told at all
+            # (#1960) is told now. An unverified account never had a shared garden.
+            self._deliver_member_notice(erasure, now=now, delete_at=now, immediate=True, resend=True)
+        if erasure.key is not None and origin != "unverified_cleanup" and not erasure.immediate_erasure:
+            # #1961 — an administrator's erasure waits for nobody: neither this run nor a retry of it by
+            # the beat is held for the notice wait of a self-service request (#1960). Written only now,
+            # after the notice: a failure before it leaves a request the beat still tells and holds,
+            # never one it erases without a word.
+            self._erasure_repo.update_fields(erasure.key, {"immediate_erasure": True})
+            erasure.immediate_erasure = True
 
         logger.info(
             "erasure.immediate_requested",
@@ -2088,6 +2277,9 @@ class PrivacyService:
         ``in_progress`` request — one updated within ``ERASURE_STALE_AFTER_HOURS``
         — is skipped so a run still executing is never processed twice.
         """
+        # #1960 — the members of a personal tenant are told before it is erased: first the requests
+        # nobody told yet (a record from before #1824, or a mail that failed), due or still in grace.
+        notice_pass_ok = self._send_pending_member_notices(now)
         stale_before = now - timedelta(hours=self.ERASURE_STALE_AFTER_HOURS)
         candidates = self._erasure_repo.list_due_for_hard_delete(now.isoformat(), stale_before.isoformat())
         if not candidates:
@@ -2115,7 +2307,9 @@ class PrivacyService:
                 # Committed already; closed at once, not after a backoff (#1767 review GDPR-002).
                 finalised += int(self._record_committed_erasure(erasure, now))
                 continue
-            if self._erasure_deferred(erasure, now):
+            if self._erasure_deferred(erasure, now) or self._member_notice_holds(
+                erasure, now, notice_pass_ran=notice_pass_ok
+            ):
                 deferred += 1
                 continue
             if reference_index_error is not None and self._needs_reference_index(erasure):
@@ -3095,6 +3289,9 @@ class PrivacyService:
         if status == "completed":
             fields["error_message"] = None
             fields["next_attempt_at"] = None
+            # #1960 — the references of the members told are a retry aid, not part of the proof: the
+            # record outlives the erasure by years and must not keep a pseudonym of anybody else.
+            fields["members_notified_pseudonyms"] = []
         for field, value in fields.items():
             setattr(erasure, field, value)
         self._erasure_repo.update_fields(erasure.key, _persistable(fields))

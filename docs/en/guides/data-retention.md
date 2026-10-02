@@ -288,6 +288,21 @@ A personal garden can, like any garden, take further members (see
   member gets an email. It states the date of the final deletion so they can secure
   their data until then. The email names neither you nor your address nor the garden,
   because a personal garden is named after its owner.
+- **What is guaranteed when the email does not arrive:** Kamerplanter records on the
+  deletion request whether the members were notified and retries an unsent message
+  every night **before** the garden is deleted. A deletion request from before this
+  rule, which nobody has been told about yet, gets the message in the next nightly run;
+  the garden is then deleted no earlier than `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` days
+  after it (default 7). If the message cannot be delivered during that whole wait (for
+  example because the operator has not set up mail), the deletion goes ahead anyway:
+  your right to erasure does not depend on somebody else's mailbox. The operator sees
+  the failure in the log and on the deletion request (`members_notice_failures`), with
+  no address in either.
+- **Deletion by an administrator:** when a platform administrator deletes an account,
+  it happens at once. The other members of the personal garden get an email saying the
+  deletion is happening now; there is no grace period to secure anything. The
+  administrator sees before confirming which gardens are affected and how many other
+  members this hits.
 - **Their content goes with it:** everything the other members created in this garden
   is deleted too. Their own accounts and their memberships in other gardens are
   unaffected.
@@ -650,6 +665,7 @@ checks the same floor again:
 | `RETENTION_CONSENT_RETENTION_YEARS` | R-04 | 3 | 1 | 3 | — |
 | `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | R-04a | 7 | 1 | 7 | — |
 | `RETENTION_INVITATION_RETENTION_DAYS` | R-12 | 30 | 1 | 30 | — |
+| `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` | R-01a | 7 | 1 | 7 | — |
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |

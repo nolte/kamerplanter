@@ -10,6 +10,7 @@ import type {
   AdminUser,
   AdminUserMembership,
   AdminUserUpdate,
+  ErasurePreview,
   TenantDeleteRequest,
   TenantDeletionAccepted,
   TenantRole,
@@ -77,6 +78,18 @@ export async function deleteAdminTenant(
  */
 export async function deleteAdminUser(key: string, stepUp: AccountErasureRequest): Promise<void> {
   await apiClient.delete(`/admin/platform/users/${encodeURIComponent(key)}`, { data: stepUp });
+}
+
+/**
+ * GET /admin/platform/users/{key}/erasure-preview — which personal tenants deleting
+ * *that* account takes with it, and how many other members each has (REQ-025
+ * AK-FK-06, #1961). The shape of the self-service preview; a count, never who.
+ */
+export async function getAdminUserErasurePreview(key: string): Promise<ErasurePreview> {
+  const { data } = await apiClient.get<ErasurePreview>(
+    `/admin/platform/users/${encodeURIComponent(key)}/erasure-preview`,
+  );
+  return data;
 }
 
 export async function fetchTenantMembers(tenantKey: string): Promise<AdminTenantMember[]> {

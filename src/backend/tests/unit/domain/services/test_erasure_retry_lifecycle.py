@@ -161,6 +161,16 @@ class _ErasureRepo:
             return [e]
         return []
 
+    def list_open_without_member_notice(self) -> list[ErasureRequest]:
+        e = self.erasure
+        open_unnotified = (
+            e.status in ("scheduled", "partially_completed", "in_progress")
+            and e.origin == "self_service"
+            and e.members_notified_at is None
+            and not e.immediate_erasure
+        )
+        return [e] if open_unnotified else []
+
     def claim_for_run(self, key: str, *, now_iso: str, stale_before_iso: str) -> ErasureRequest | None:
         """The atomic claim (#1767): refused for ``completed`` and a fresh ``in_progress``."""
         e = self.erasure

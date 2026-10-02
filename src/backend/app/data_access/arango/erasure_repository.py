@@ -144,6 +144,20 @@ class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepo
         )
         return [ErasureRequest(**self._from_doc(doc)) for doc in cursor]
 
+    def list_open_without_member_notice(self) -> list[ErasureRequest]:
+        """Open self-service requests whose members were not told yet (#1960); a pre-#1960 record has no marker."""
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.status IN ['scheduled', 'partially_completed', 'in_progress']
+            AND (doc.origin == null OR doc.origin == 'self_service')
+            AND doc.members_notified_at == null
+            AND doc.immediate_erasure != true
+          SORT DATE_TIMESTAMP(doc.requested_at) ASC, doc._key ASC
+          RETURN doc
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.ERASURE_REQUESTS})
+        return [ErasureRequest(**self._from_doc(doc)) for doc in cursor]
+
     def claim_for_run(self, key: str, *, now_iso: str, stale_before_iso: str) -> ErasureRequest | None:
         """Atomically claim an open request for one erasure run (#1767 SEC-003).
 
