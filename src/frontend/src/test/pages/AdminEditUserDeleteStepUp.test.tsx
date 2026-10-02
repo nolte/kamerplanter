@@ -55,6 +55,14 @@ const TARGET = {
   roles: [],
 };
 
+// The 202 body since #1949: recorded and closed, not yet erased.
+const ACCEPTED = {
+  erasure_key: 'er-1',
+  status: 'scheduled',
+  requested_at: '2026-10-02T10:00:00Z',
+  message: 'Account deletion accepted',
+};
+
 function apiError(status: number, body: Partial<ApiErrorResponse>): ApiError {
   return new ApiError(
     {
@@ -87,7 +95,7 @@ describe('AdminEditUserPage — user deletion step-up (#1814)', () => {
     i18n.changeLanguage('de');
     vi.clearAllMocks();
     (admin.fetchAdminUsers as ReturnType<typeof vi.fn>).mockResolvedValue([TARGET]);
-    (admin.deleteAdminUser as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (admin.deleteAdminUser as ReturnType<typeof vi.fn>).mockResolvedValue(ACCEPTED);
     (auth.listProviders as ReturnType<typeof vi.fn>).mockResolvedValue([{ provider: 'local' }]);
   });
   afterEach(() => cleanup());
@@ -111,6 +119,9 @@ describe('AdminEditUserPage — user deletion step-up (#1814)', () => {
         password: 'admin-password',
       }),
     );
+    // #1949 — 202: the page says the deletion was ACCEPTED, never that the user is already gone.
+    expect(await screen.findByText(i18n.t('pages.auth.adminUserDeletionAccepted'))).toBeInTheDocument();
+    expect(i18n.t('pages.auth.adminUserDeletionAccepted')).toMatch(/angenommen/i);
   });
 
   it("says the password is the admin's own", async () => {
@@ -180,7 +191,7 @@ describe('AdminEditUserPage — back from the fresh sign-in (#1815)', () => {
     vi.clearAllMocks();
     sessionStorage.clear();
     (admin.fetchAdminUsers as ReturnType<typeof vi.fn>).mockResolvedValue([TARGET]);
-    (admin.deleteAdminUser as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (admin.deleteAdminUser as ReturnType<typeof vi.fn>).mockResolvedValue(ACCEPTED);
     (auth.listProviders as ReturnType<typeof vi.fn>).mockResolvedValue([{ key: 'g', provider: 'google' }]);
   });
   afterEach(() => {

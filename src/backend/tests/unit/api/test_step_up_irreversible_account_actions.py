@@ -228,6 +228,9 @@ class _World:
         # (test_erasure_immediate_entry.py); here only *whether* it started matters.
         self.immediate_runs = AsyncMock(return_value=None)
         self.privacy._finalize_erasure = self.immediate_runs  # type: ignore[method-assign]
+        # #1949 — the admin route only accepts; the worker runs the erasure. No broker in the unit tier.
+        self.dispatched = MagicMock()
+        self.privacy._dispatch_account_erasure = self.dispatched  # type: ignore[method-assign]
         garden = Tenant.model_validate(
             {"_key": TENANT_KEY, "name": "Garden", "slug": SLUG, "tenant_type": "organization", "owner_user_key": "o"}
         )
@@ -515,15 +518,20 @@ def test_a_platform_admin_erases_with_the_step_up_and_the_record_says_how(monkey
 
     resp = world.call("DELETE", _admin_route(world), world.admin_step_up())
 
-    assert resp.status_code == 204, resp.text
+    # #1949 — accepted, not erased: the request recorded and closed the account, the worker runs the rest.
+    assert resp.status_code == 202, resp.text
     (erasure,) = world.erasures.stored.values()
+    assert resp.json()["erasure_key"] == erasure.key
+    assert world.target_key not in resp.text
     assert erasure.user_key == world.target_key
     assert erasure.origin == "platform_admin"
     assert erasure.step_up == "password"
     # The requester by salted reference, never by key — the record outlives both accounts.
     assert erasure.requested_by_subject == ErasureEngine.log_subject(world.caller_key, log_salt)
     assert world.caller_key not in (erasure.requested_by_subject or "")
-    assert world.immediate_runs.await_count == 1
+    assert world.immediate_runs.await_count == 0, "the erasure itself must not run in the request"
+    world.dispatched.assert_called_once_with(erasure.key)
+    assert world.users.rows[world.target_key].is_active is False
 
 
 def test_a_federated_platform_admin_no_longer_erases_on_the_echo_alone() -> None:
@@ -542,7 +550,7 @@ def test_a_federated_platform_admin_erases_with_the_mailed_code() -> None:
 
     resp = world.call("DELETE", _admin_route(world), {"confirm_email": world.target_email, "step_up_code": code})
 
-    assert resp.status_code == 204, resp.text
+    assert resp.status_code == 202, resp.text
     (erasure,) = world.erasures.stored.values()
     assert erasure.step_up == "email_code"
 

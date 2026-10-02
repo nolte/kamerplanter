@@ -104,6 +104,7 @@ _STEP_UP_ARGS = {"authenticated_with_api_key", "client_ip"}
 _STEP_UP_ENTRIES: dict[tuple[str, str], set[str]] = {
     ("domain/services/privacy_service.py", "request_erasure"): _STEP_UP_ARGS | {"confirmation"},
     ("domain/services/privacy_service.py", "erase_account_by_admin"): _STEP_UP_ARGS | {"confirmation"},
+    ("domain/services/privacy_service.py", "request_account_erasure_by_admin"): _STEP_UP_ARGS | {"confirmation"},
     ("domain/services/tenant_service.py", "delete_tenant"): _STEP_UP_ARGS | {"confirmation"},
     ("domain/services/privacy_service.py", "request_email_change"): _STEP_UP_ARGS
     | {"password", "step_up_code", "step_up_token"},
@@ -144,7 +145,14 @@ def test_every_irreversible_account_entry_takes_the_step_up_keyword_only_without
 
 
 def test_the_immediate_admin_erasure_starts_only_behind_the_step_up() -> None:
-    """``erase_account_now(origin="platform_admin")`` is reachable only through ``erase_account_by_admin``."""
+    """``origin="platform_admin"`` reaches the immediate-erasure core only through the two step-up'd admin entries.
+
+    Two spellings of the same act (#1949): ``erase_account_now`` (the in-process run) and
+    ``_open_immediate_erasure`` (the record-and-close half the asynchronous route uses). A call
+    whose origin is not a literal may only forward the caller's own ``origin`` parameter inside
+    ``erase_account_now`` — the entry the unverified cleanup shares.
+    """
+    entries = {"erase_account_now", "_open_immediate_erasure"}
     sites = []
     for path in sorted(APP.rglob("*.py")):
         rel = path.relative_to(APP).as_posix()
@@ -154,12 +162,18 @@ def test_the_immediate_admin_erasure_starts_only_behind_the_step_up() -> None:
             for call in ast.walk(node):
                 if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)):
                     continue
-                if call.func.attr != "erase_account_now":
+                if call.func.attr not in entries:
                     continue
                 origin = next((k.value for k in call.keywords if k.arg == "origin"), None)
                 if isinstance(origin, ast.Constant) and origin.value == "platform_admin":
-                    sites.append((rel, node.name))
-                elif not isinstance(origin, ast.Constant):
-                    sites.append((rel, f"{node.name} (origin not a literal)"))
+                    sites.append((rel, node.name, call.func.attr))
+                elif not isinstance(origin, ast.Constant) and (node.name, call.func.attr) != (
+                    "erase_account_now",
+                    "_open_immediate_erasure",
+                ):
+                    sites.append((rel, f"{node.name} (origin not a literal)", call.func.attr))
 
-    assert sites == [("domain/services/privacy_service.py", "erase_account_by_admin")]
+    assert sites == [
+        ("domain/services/privacy_service.py", "erase_account_by_admin", "erase_account_now"),
+        ("domain/services/privacy_service.py", "request_account_erasure_by_admin", "_open_immediate_erasure"),
+    ]

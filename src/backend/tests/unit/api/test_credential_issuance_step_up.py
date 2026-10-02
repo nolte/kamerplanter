@@ -16,9 +16,10 @@ The rule now (REQ-023 §3.9): each of them passes :class:`StepUpVerifier` —
 * in the one budget of every step-up (429 ``STEP_UP_LOCKED``);
 * checked before anything is minted, removed or written.
 
-The admin update is gated only when it raises trust — ``email_verified`` or
-``is_active`` turning true. A display-name edit, a deactivation and a re-send of
-the current values stay one click. In light mode the API key needs no step-up:
+The admin update is gated whenever a trust field *changes* — ``email_verified`` or
+``is_active`` turning true (#1857) **or false** (#1992: a demoted address is what the
+unverified cleanup erases, a deactivation locks the owner out). A display-name edit
+and a re-send of the current values stay one click. In light mode the API key needs no step-up:
 there is no person to confirm, every request already is the system account.
 
 The requests run the real routers and services over in-memory doubles; every
@@ -419,16 +420,73 @@ def test_an_admin_verifies_an_address_with_the_own_password() -> None:
     "fields",
     [
         {"display_name": "Renamed"},
-        {"is_active": False},
-        {"email_verified": False},
-        # The edit form re-sends the current values; nothing is raised.
+        # The edit form re-sends the current values; nothing changes.
         {"display_name": "Renamed", "is_active": True},
+        {"email_verified": False},
     ],
 )
-def test_an_admin_update_that_raises_no_trust_needs_no_step_up(fields: dict[str, Any]) -> None:
+def test_an_admin_update_that_changes_no_trust_needs_no_step_up(fields: dict[str, Any]) -> None:
     world = _World()
 
     resp = world.admin_update(fields)
 
     assert resp.status_code == 200, resp.text
     assert world.users.writes
+
+
+# ── lowering a trust field (#1992) ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize("password", [None, WRONG_PASSWORD])
+def test_an_admin_cannot_demote_a_verified_address_without_the_step_up(password: str | None) -> None:
+    world = _World(target_verified=True)
+
+    resp = world.admin_update({"email_verified": False}, current_password=password)
+
+    assert resp.status_code == 401, resp.text
+    assert world.target().email_verified is True
+    assert world.target().email_verified_lowered_at is None
+    assert world.users.writes == []
+
+
+def test_an_admin_api_key_cannot_demote_a_verified_address() -> None:
+    world = _World(target_verified=True)
+
+    resp = world.send(
+        "PATCH",
+        f"/api/v1/admin/platform/users/{world.target_key}",
+        {"email_verified": False, "current_password": PASSWORD},
+        bearer=API_KEY,
+    )
+
+    assert resp.status_code == 403, resp.text
+    assert world.target().email_verified is True
+
+
+def test_a_demotion_with_the_step_up_is_recorded_so_the_cleanup_spares_the_account() -> None:
+    world = _World(target_verified=True)
+
+    resp = world.admin_update({"email_verified": False}, current_password=PASSWORD)
+
+    assert resp.status_code == 200, resp.text
+    assert world.target().email_verified is False
+    assert world.target().email_verified_lowered_at is not None
+
+
+def test_an_admin_cannot_deactivate_an_account_without_the_step_up() -> None:
+    world = _World()
+
+    resp = world.admin_update({"is_active": False})
+
+    assert resp.status_code == 401, resp.text
+    assert world.target().is_active is True
+    assert world.users.writes == []
+
+
+def test_an_admin_deactivates_an_account_with_the_own_password() -> None:
+    world = _World()
+
+    resp = world.admin_update({"is_active": False}, current_password=PASSWORD)
+
+    assert resp.status_code == 200, resp.text
+    assert world.target().is_active is False

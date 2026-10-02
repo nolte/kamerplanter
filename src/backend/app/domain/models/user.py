@@ -57,6 +57,10 @@ class User(BaseModel):
     display_name: DisplayName
     password_hash: str | None = None
     email_verified: bool = False
+    #: When an administrator lowered ``email_verified`` on a verified account (#1992). Set, the
+    #: account is not an abandoned registration, whatever ``email_verified`` says now: the
+    #: unverified-account cleanup (NFR-011 R-02) never selects or erases it.
+    email_verified_lowered_at: datetime | None = None
     email_verification_token: str | None = None
     email_verification_expires: datetime | None = None
     password_reset_token: str | None = None

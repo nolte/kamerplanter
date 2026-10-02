@@ -16,7 +16,13 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserUpdate,
 )
 from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
-from app.api.v1.privacy.schemas import ErasureCreateRequest, ErasurePreviewResponse, PersonalTenantErasurePreviewItem
+from app.api.v1.privacy.schemas import (
+    AccountDeletionAcceptedResponse,
+    ErasureCreateRequest,
+    ErasurePreviewResponse,
+    ErasureResponse,
+    PersonalTenantErasurePreviewItem,
+)
 from app.api.v1.tenants.schemas import TenantDeleteRequest, TenantDeletionAcceptedResponse
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
@@ -324,7 +330,12 @@ def get_user_erasure_preview(
     )
 
 
-@router.delete("/users/{key}", status_code=204, responses=STEP_UP_RESPONSES)
+@router.delete(
+    "/users/{key}",
+    status_code=202,
+    response_model=AccountDeletionAcceptedResponse,
+    responses=STEP_UP_RESPONSES,
+)
 def delete_user(
     key: Annotated[str, Path(description="Document key of the user.")],
     body: ErasureCreateRequest,
@@ -333,38 +344,60 @@ def delete_user(
     client_ip: str | None = Depends(resolve_client_ip),
     privacy_service: PrivacyService = Depends(get_privacy_service),
 ):
-    """Erase a user account and all associated data at once. Platform admin only.
+    """Accept the immediate erasure of a user account and all its data. Platform admin only.
+
+    **Asynchronous since #1949 (breaking: ``204`` -> ``202`` with a body).** The
+    request records the erasure (the proof: ``origin="platform_admin"``, the
+    ``step_up`` and the admin as a salted ``requested_by_subject``), closes the
+    account (deactivated, sessions and invitations revoked) and tells the other
+    members of its personal gardens *now* (no grace period), then a Celery task runs
+    the declared REQ-025 erasure plan — object storage, the personal tenants in
+    bounded batches with a claim heartbeat, the ArangoDB plan. **Nothing is erased
+    when the response arrives.** Read the outcome from
+    ``GET /admin/platform/erasures/{erasure_key}``: ``completed``, or
+    ``partially_completed`` for a run that failed or left a declared step open — the
+    daily beat retries it, so it is no longer an HTTP answer (it used to be 500
+    ``ERASURE_INCOMPLETE`` / 502).
 
     **Step-up (#1814):** the body echoes the *target's* e-mail (422 otherwise) and
     carries the *admin's own* current password when the admin's account has one
     (401 otherwise), or the code mailed to the admin when it has none (401
-    ``STEP_UP_CODE_REQUIRED``, #1815); a request authenticated with an API key is refused (403),
-    and too many failed confirmations answer 429 ``STEP_UP_LOCKED`` (#1816). All
-    of it is decided in ``PrivacyService.erase_account_by_admin``, which also
-    refuses the admin's own account (403) and re-proves the platform-admin
-    membership from the store.
+    ``STEP_UP_CODE_REQUIRED``, #1815); a request authenticated with an API key is
+    refused (403), and too many failed confirmations answer 429 ``STEP_UP_LOCKED``
+    (#1816). All of it is decided in
+    ``PrivacyService.request_account_erasure_by_admin``, which also refuses the
+    admin's own account (403) and re-proves the platform-admin membership from the
+    store.
 
-    Then the declared REQ-025 erasure plan through ``erase_account_now`` (#1664,
-    #1767): the account is deactivated and its sessions revoked first, an erasure
-    request (``origin="platform_admin"``, with ``step_up`` and the admin as a
-    salted ``requested_by_subject``) is persisted as the proof, and 204 is
-    answered only when the report accounts for every declared step. Otherwise the
-    request stays ``partially_completed`` and the daily beat retries it; the
-    answer is the run's error (500 ``ERASURE_INCOMPLETE``, 502 for a failed
-    external delete), 409 while another run holds the request, 503 when the
-    deployment cannot erase — then nothing was changed.
+    Answers: 202 accepted (recorded, closed, erasure running); 404 no such account;
+    409 another run holds the request; 503 the deployment cannot erase — nothing was
+    changed. A repeated request re-dispatches the open erasure and answers 202 again.
     """
-    from app.common.async_bridge import run_async
-
-    run_async(
-        privacy_service.erase_account_by_admin(
-            key,
-            requester=current_user,
-            confirmation=body.to_confirmation(),
-            authenticated_with_api_key=via_api_key,
-            client_ip=client_ip,
-        )
+    erasure = privacy_service.request_account_erasure_by_admin(
+        key,
+        requester=current_user,
+        confirmation=body.to_confirmation(),
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
     )
+    return AccountDeletionAcceptedResponse(
+        erasure_key=erasure.key or "", status=erasure.status, requested_at=erasure.requested_at
+    )
+
+
+@router.get("/erasures/{erasure_key}", response_model=ErasureResponse)
+def get_erasure(
+    erasure_key: Annotated[str, Path(description="Key of the erasure request, from the 202 of the account deletion.")],
+    _admin: User = Depends(require_platform_admin),
+    privacy_service: PrivacyService = Depends(get_privacy_service),
+):
+    """Status of an account erasure a platform admin accepted (#1949). Platform admin only.
+
+    ``completed`` once the run accounted for every declared step; ``in_progress``
+    while a worker holds it; ``partially_completed`` after a run that failed or left a
+    step open — the daily beat retries it with backoff. Names no account.
+    """
+    return ErasureResponse.from_request(privacy_service.get_erasure_for_admin(erasure_key))
 
 
 # ── Tenant membership management ──────────────────────────────────────

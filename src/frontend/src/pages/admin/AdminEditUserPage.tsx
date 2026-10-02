@@ -171,16 +171,16 @@ export default function AdminEditUserPage() {
     email_verified: emailVerified !== current.email_verified ? emailVerified : undefined,
   });
 
-  // The backend asks for the admin's step-up exactly when the update turns
-  // `email_verified` or `is_active` from false to true (#1857): a verified
-  // address is the trust anchor of the OAuth auto-link. Lowering either, or
-  // renaming, saves as before.
-  const raisesTrust = (current: AdminUser): boolean =>
-    (emailVerified && !current.email_verified) || (isActive && !current.is_active);
+  // The backend asks for the admin's step-up whenever the update CHANGES `email_verified` or
+  // `is_active` (#1857, #1992): raising either widens what the account is trusted with, lowering
+  // either can lead to its erasure (an unverified account is what the cleanup erases) or lock its
+  // owner out. Renaming saves as before.
+  const changesTrust = (current: AdminUser): boolean =>
+    emailVerified !== current.email_verified || isActive !== current.is_active;
 
   const handleSave = async () => {
     if (!user) return;
-    if (raisesTrust(user)) {
+    if (changesTrust(user)) {
       setConfirmTrustRaise(true);
       return;
     }
@@ -216,7 +216,7 @@ export default function AdminEditUserPage() {
     if (!user) return;
     await deleteAdminUser(user.key, { confirm_email: echo, ...toStepUpBody(credentials) });
     setConfirmDelete(false);
-    enqueueSnackbar(t('pages.auth.adminUserDeleted'), { variant: 'success' });
+    enqueueSnackbar(t('pages.auth.adminUserDeletionAccepted'), { variant: 'success' });
     navigate('/settings#platform');
   };
 

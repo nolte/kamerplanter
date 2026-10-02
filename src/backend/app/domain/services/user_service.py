@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import structlog
 
 from app.common.exceptions import NotFoundError
@@ -9,7 +11,10 @@ from app.domain.services.step_up_service import StepUpVerifier, default_step_up_
 
 logger = structlog.get_logger()
 
-#: Fields whose false -> true raises the account's trust (#1857).
+#: Fields whose change by an administrator is a step-up act (#1857, #1992): raising them
+#: widens what the account is trusted with, lowering them can lead to the account's erasure
+#: (``email_verified`` -> the unverified-account cleanup) or lock its owner out
+#: (``is_active``).
 _TRUST_FIELDS = ("email_verified", "is_active")
 
 
@@ -95,19 +100,30 @@ class UserService:
         (#982/#996), reserved-attribute strip and 1202 → ``NotFoundError``
         mapping.
 
-        **Step-up when it raises trust (#1857).** ``email_verified`` is the trust
-        anchor of the OAuth auto-link (``OAuthEngine.should_auto_link``): a
-        hijacked admin session that verified an attacker's pre-registered account
+        **Step-up when a trust field changes (#1857, #1992).** ``email_verified`` is
+        the trust anchor of the OAuth auto-link (``OAuthEngine.should_auto_link``):
+        a hijacked admin session that verified an attacker's pre-registered account
         under a victim's address had the victim's next federated sign-in linked
-        into it. Turning ``email_verified`` or ``is_active`` from false to true
-        therefore passes the admin's *own* step-up (``requester`` — their password,
-        the fresh re-authentication or the mailed code; an API key is 403, 429
-        when locked). A display-name edit, a deactivation and a re-send of the
-        current values need none, so the edit form stays one click.
+        into it. Lowering it is just as much an act on another account: an
+        unverified account is what ``cleanup_unverified_accounts`` erases, and a
+        deactivated one cannot sign in. The rule is "a change that can lead to
+        erasure or lockout of another account is a step-up act", so *any* actual
+        change of ``email_verified`` or ``is_active`` passes the admin's *own*
+        step-up (``requester`` — their password, the fresh re-authentication or
+        the mailed code; an API key is 403, 429 when locked). A display-name edit
+        and a re-send of the current values need none, so the edit form stays one
+        click.
+
+        **A lowered ``email_verified`` is recorded** (``email_verified_lowered_at``)
+        so the unverified-account cleanup can tell a demoted, established account
+        from an abandoned registration and never erases it.
         """
         current = self._user_repo.get_or_raise(user_key)
-        raises_trust = any(data.get(field) is True and not getattr(current, field) for field in _TRUST_FIELDS)
-        if raises_trust:
+        changes_trust = any(
+            data.get(field) is not None and bool(data[field]) != bool(getattr(current, field))
+            for field in _TRUST_FIELDS
+        )
+        if changes_trust:
             self._step_up_verifier.verify(
                 requester,
                 action="admin_account_update",
@@ -120,6 +136,8 @@ class UserService:
                 authenticated_with_api_key=authenticated_with_api_key,
                 client_ip=client_ip,
             )
+        if data.get("email_verified") is False and current.email_verified:
+            data = {**data, "email_verified_lowered_at": datetime.now(UTC)}
         user = self._user_repo.update_fields(user_key, data)
         if not user:
             raise NotFoundError("User", user_key)
