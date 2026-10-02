@@ -23,9 +23,11 @@ copy.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from os import environ
 from typing import Any
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +88,20 @@ TextRedactor = Callable[[str, Sequence[BaseException]], str]
 #: Set by :func:`init_error_tracking`. ``None`` means the service declared that
 #: it has no text redaction; structure scrubbing (names, headers, bodies) still runs.
 _text_redactor: TextRedactor | None = None
+
+#: What a service hands :func:`init_error_tracking` to reduce a raw request path
+#: to what may leave the process (the backend passes ``loggable_path``: every
+#: segment that is not a literal of one of its routes becomes ``{}``). Used only
+#: where the framework gave no route pattern for the request (#1925).
+PathRedactor = Callable[[str], str]
+
+#: Set by :func:`init_error_tracking`. ``None``: the service has no route table
+#: to consult, and :func:`_redact_path` keeps only ``api`` and ``v<digits>``.
+_path_redactor: PathRedactor | None = None
+_PATH_SAFE_SEGMENT = re.compile(r"api|v\d+")
+#: ``transaction_info.source`` values for which the SDK's ``transaction`` is a
+#: route *template* (``/t/{tenant_slug}/attachments/{key}``), not the raw path.
+_PATTERN_SOURCES = frozenset({"route", "component"})
 #: Nesting beyond this is replaced wholesale — the scrubber must not recurse
 #: without bound over a value an attacker (or a cyclic structure) shaped.
 _MAX_DEPTH = 8
@@ -172,15 +188,77 @@ def _scrub_texts(event: MutableMapping[str, Any], exceptions: Sequence[BaseExcep
                 logentry[field] = _redact_strings(logentry[field], exceptions)
     if isinstance(event.get("message"), str):
         event["message"] = _redact_text(event["message"], exceptions)
-    request = event.get("request")
-    if isinstance(request, dict) and isinstance(request.get("url"), str):
-        # The raw request path: a webhook or download token in it is masked by
-        # the same shapes as in a log line (#1880 review). Reducing it to route
-        # literals needs the service's route table — #1925.
-        request["url"] = _redact_text(request["url"], exceptions)
     extra = event.get("extra")
     if isinstance(extra, dict):
         event["extra"] = _redact_strings(extra, exceptions)
+
+
+def _redact_path(path: str) -> str:
+    """*path* with everything that is not a route literal replaced; fails closed."""
+    redactor = _path_redactor
+    if redactor is not None:
+        try:
+            return redactor(path).partition("?")[0]
+        except Exception:
+            pass
+    target = path.partition("?")[0]
+    return "/".join(
+        segment if not segment or _PATH_SAFE_SEGMENT.fullmatch(segment) else "{}" for segment in target.split("/")
+    )
+
+
+def _scrub_route(event: MutableMapping[str, Any]) -> None:
+    """Reduce the event's request URL and transaction name to the route pattern (#1925).
+
+    The SDK's ASGI integration fills ``request.url`` from the raw request target
+    — the attachment download token (which *is* the authorisation) and a tenant
+    slug derived from a person's display name — while the transaction name is
+    already the route template when the framework matched one. So: a framework
+    pattern is used for both; without one (404, an error before routing) the
+    service's path redactor reduces them. Scheme, host and method stay; the
+    query string and fragment never do.
+    """
+    transaction = event.get("transaction")
+    source = (event.get("transaction_info") or {}).get("source")
+    pattern: str | None = None
+    if isinstance(transaction, str) and source in _PATTERN_SOURCES and transaction.startswith("/"):
+        pattern = transaction
+    elif isinstance(transaction, str):
+        # No framework pattern: the SDK named the transaction after the request
+        # target — a bare path, or (uvicorn sets ``server``) an absolute URL.
+        path = _path_of(transaction)
+        pattern = event["transaction"] = path if path is not None else _REDACTED
+        event["transaction_info"] = {**(event.get("transaction_info") or {}), "source": "route"}
+    request = event.get("request")
+    if isinstance(request, dict) and isinstance(request.get("url"), str):
+        raw = request["url"]
+        try:
+            parts = urlsplit(raw)
+            origin = f"{parts.scheme}://{_host_of(parts)}" if parts.scheme and parts.hostname else ""
+        except ValueError:
+            request["url"] = _REDACTED
+            return
+        # Without a scheme the string is only a path (``//slug/x`` is not a host).
+        target = parts.path if origin else raw.partition("?")[0].partition("#")[0]
+        request["url"] = origin + (pattern if pattern is not None else _redact_path(target))
+
+
+def _host_of(parts: Any) -> str:
+    """``host[:port]`` of a split URL: no userinfo, IPv6 literals re-bracketed."""
+    host = parts.hostname or ""
+    if ":" in host:
+        host = f"[{host}]"
+    return f"{host}:{parts.port}" if parts.port else host
+
+
+def _path_of(target: str) -> str | None:
+    """The redacted path of a request target — a bare path or an absolute URL; ``None`` if unparsable."""
+    try:
+        parts = urlsplit(target)
+        raw = parts.path if parts.scheme and parts.hostname else target.partition("?")[0].partition("#")[0]
+    except ValueError:
+        return None
+    return _redact_path(raw)
 
 
 def _scrub_request(request: MutableMapping[str, Any]) -> None:
@@ -256,6 +334,7 @@ def scrub_event(event: MutableMapping[str, Any], _hint: Mapping[str, Any] | None
         if isinstance(value, dict):
             _redact_mapping(value)
 
+    _scrub_route(event)
     _scrub_frames(event)
     _scrub_texts(event, _exceptions_of(_hint))
     return event
@@ -310,7 +389,13 @@ def resolve_release(component: str, version: str) -> str:
     return environ.get("SENTRY_RELEASE", "").strip() or f"{component}@{version}"
 
 
-def init_error_tracking(*, component: str, release: str, redact_text: TextRedactor | None) -> bool:
+def init_error_tracking(
+    *,
+    component: str,
+    release: str,
+    redact_text: TextRedactor | None,
+    redact_path: PathRedactor | None = None,
+) -> bool:
     """Initialise the Sentry-compatible SDK if a DSN is configured.
 
     Args:
@@ -325,13 +410,18 @@ def init_error_tracking(*, component: str, release: str, redact_text: TextRedact
             and without a default on purpose: every call site states whether it
             has one, so a second process entry cannot silently go without.
             ``None`` declares that the service has no text redaction.
+        redact_path: The service's request-path redaction (see
+            :data:`PathRedactor`), used for the event's request URL and
+            transaction name when the framework provided no route pattern.
+            ``None`` keeps only ``api`` and ``v<digits>`` segments.
 
     Returns:
         ``True`` when the SDK was initialised, ``False`` when it stayed a no-op.
         Callers ignore this; it exists so the behaviour is directly testable.
     """
-    global _text_redactor
+    global _text_redactor, _path_redactor
     _text_redactor = redact_text
+    _path_redactor = redact_path
 
     dsn = environ.get("SENTRY_DSN", "").strip()
     if not dsn:

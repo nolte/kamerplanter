@@ -47,6 +47,7 @@ from app.common.exceptions import KamerplanterError
 from app.config.settings import settings
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.storage.export_bundle_key import mask_export_bundle_keys
+from app.domain.engines.tenant_erasure_engine import RECORD_KEY_PREFIX
 
 #: The domain half of an e-mail address inside free text (an
 #: ``SMTPRecipientsRefused`` names the refused address, a ``NotFoundError`` may
@@ -128,6 +129,32 @@ def log_subject(user_key: str | None) -> str | None:
     if not user_key:
         return None
     return ErasureEngine.log_subject(user_key, settings.log_pseudonym_salt)
+
+
+def log_tenant(tenant_key: str | None) -> str | None:
+    """The reference a log line carries instead of *tenant_key*; ``None`` for no key (#1928).
+
+    ``ErasureEngine.log_tenant`` keyed with ``LOG_PSEUDONYM_SALT``; the salt is
+    read at call time. For lines that also name a subject (``subject=``), where
+    the raw tenant key would join the subject pseudonym to the tenant.
+    """
+    if not tenant_key:
+        return None
+    return ErasureEngine.log_tenant(tenant_key, settings.log_pseudonym_salt)
+
+
+def log_tenant_record_key(record_key: str | None) -> str | None:
+    """A tenant-erasure record key as a log line may carry it (#1928).
+
+    The record key is ``ter_<tenant_key>`` — the tenant key under another
+    spelling — so ``record_key=ter_<key>`` on a ``tenant_erasure.*`` line names
+    the tenant as plainly as ``tenant_key=`` does. The prefix is kept and the
+    tenant segment becomes :func:`log_tenant`'s reference, so the lines of one
+    erasure still correlate and the keyword operators filter on stays.
+    """
+    if not record_key:
+        return None
+    return f"{RECORD_KEY_PREFIX}{log_tenant(record_key.removeprefix(RECORD_KEY_PREFIX))}"
 
 
 def redact_subject(text: str, user_key: str) -> str:

@@ -3,7 +3,7 @@ from celery import Celery
 from celery.schedules import crontab
 from celery.signals import after_setup_logger, after_setup_task_logger, beat_init, celeryd_init, worker_process_init
 
-from app.common.log_privacy import redact_text_in_flight
+from app.common.log_privacy import loggable_path, redact_text_in_flight
 from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
@@ -53,6 +53,7 @@ def _init_worker_error_tracking(**_kwargs: object) -> None:
         component="worker",
         release=resolve_release("kamerplanter-worker", settings.app_version),
         redact_text=redact_text_in_flight,
+        redact_path=loggable_path,
     )
 
 
