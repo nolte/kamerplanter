@@ -46,9 +46,10 @@ class GBIFSettings(BaseModel):
     max_habitat_length: int = 500
 
 
-#: NFR-011 §4 / AK-14 (#1806 GDPR-004) — the ceiling of every configurable
-#: retention period, equal to the NFR's own default for it. An operator may shorten
-#: a period (more data minimisation, Art. 5(1)(c)) but never lengthen it past the
+#: NFR-011 §4 / AK-14 (#1806 GDPR-004, #1946) — the ceiling of every configurable
+#: retention period (the seven of Q-R9 plus R-04, R-04a and R-12), equal to the
+#: NFR's own default for it. An operator may shorten a period (more data
+#: minimisation, Art. 5(1)(c)) but never lengthen it past the
 #: value the NFR fixes; a larger value stops ``Settings`` from loading, so API and
 #: worker (both import it) refuse to start. ``RetentionService`` re-checks the same
 #: table for a caller that builds it with explicit values.
@@ -60,6 +61,11 @@ RETENTION_CEILINGS: dict[str, int] = {
     "retention_erasure_audit_retention_years": 3,  # R-06 (Q-R12)
     "retention_email_change_retention_hours": 24,  # R-07
     "retention_email_change_revert_days": 7,  # R-07a
+    # #1946 — operator decision (default taken by the orchestrating session): the three periods
+    # that were enforced from #1912 on without a bound get the NFR's own period as their ceiling.
+    "retention_consent_retention_years": 3,  # R-04
+    "retention_consent_ip_anonymization_days": 7,  # R-04a
+    "retention_invitation_retention_days": 30,  # R-12
 }
 
 
@@ -785,28 +791,34 @@ class Settings(BaseSettings):
     #: NFR-011 R-06 / §4 ``ERASURE_AUDIT_RETENTION_YEARS`` — a completed erasure
     #: request (pseudonymised at erasure) is kept this many years as the
     #: Art. 5(2) accountability proof, then hard-deleted by
-    #: ``retention.purge_expired_erasure_records`` (#1772). The floor is the
-    #: spec's period: keeping the proof longer is a configuration choice,
-    #: shortening it below one year needs a spec / DPO decision, not an env var.
+    #: ``retention.purge_expired_erasure_records`` (#1772). The default and the
+    #: ceiling are the spec's 3 years (Q-R12, §195 BGB; the code default was 1
+    #: until #1946); an operator may shorten it, never lengthen it.
     retention_erasure_audit_retention_years: int = Field(
-        default=1, ge=1, le=RETENTION_CEILINGS["retention_erasure_audit_retention_years"]
+        default=3, ge=1, le=RETENTION_CEILINGS["retention_erasure_audit_retention_years"]
     )
     #: NFR-011 R-04 / §4 ``CONSENT_RETENTION_YEARS`` (#1800) — a consent record is
     #: hard-deleted this many years after it was revoked
     #: (``retention.purge_expired_consent_records``). Pseudonymised at account
     #: erasure instead of deleted immediately when the period has not run out yet
     #: (REQ-025 §3.1.3 rule 3); the clock keeps counting from ``revoked_at``.
-    retention_consent_retention_years: int = Field(default=3, ge=1)
+    retention_consent_retention_years: int = Field(
+        default=3, ge=1, le=RETENTION_CEILINGS["retention_consent_retention_years"]
+    )
     #: NFR-011 R-04a (#1800) — the IP address on a consent record is anonymised this
     #: many days after it was recorded (``retention.anonymize_consent_ips``), the R-03
     #: analogue for ``consent_records`` instead of ``refresh_tokens``. Reset to
     #: unanonymised whenever the purpose is granted again (a fresh IP is recorded).
-    retention_consent_ip_anonymization_days: int = Field(default=7, ge=1)
+    retention_consent_ip_anonymization_days: int = Field(
+        default=7, ge=1, le=RETENTION_CEILINGS["retention_consent_ip_anonymization_days"]
+    )
     #: NFR-011 R-12 / §4 ``INVITATION_RETENTION_DAYS`` (#1800) — an expired invitation
     #: is hard-deleted this many days after its ``expires_at``
     #: (``tenant_tasks.cleanup_expired_invitations``, which already flips it to
     #: ``expired`` at expiry).
-    retention_invitation_retention_days: int = Field(default=30, ge=1)
+    retention_invitation_retention_days: int = Field(
+        default=30, ge=1, le=RETENTION_CEILINGS["retention_invitation_retention_days"]
+    )
     #: NFR-011 R-16 / §4 ``HARVEST_DATA_MIN_RETENTION_YEARS`` (#1789) — harvest
     #: documentation a tenant deletion kept (pseudonymised) is hard-deleted this many
     #: years after ``harvest_date`` (``retention.purge_expired_legal_retention_rows``).

@@ -188,6 +188,9 @@ class RetentionService:
             (self._erasure_record_retention_years, "retention_erasure_audit_retention_years", "R-06"),
             (self._email_change_ttl_hours, "retention_email_change_retention_hours", "R-07"),
             (self._email_change_revert_days, "retention_email_change_revert_days", "R-07a"),
+            (self._consent_retention_years, "retention_consent_retention_years", "R-04"),
+            (self._consent_ip_anonymization_days, "retention_consent_ip_anonymization_days", "R-04a"),
+            (self._invitation_retention_days, "retention_invitation_retention_days", "R-12"),
         )
         for period, setting_name, rule in ceilings:
             if period > RETENTION_CEILINGS[setting_name]:
