@@ -9,9 +9,29 @@ import asyncio
 import structlog
 
 from app.common.log_privacy import log_subject
+from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
+
+
+def _as_doc(row) -> dict:
+    """One repository row as the plain dict the loops below read with ``.get``.
+
+    ``BaseArangoRepository.get_all`` returns the bound domain model (``Task``,
+    ``Tenant``), not a dict, so ``row.get(...)`` raised ``AttributeError`` on the
+    first row of a real collection (the unit doubles returned dicts and never saw
+    it). The care-reminder fields the loops use are mapped from the model's own
+    names: the assignee is ``assigned_to_user_key`` and the plant is the task's
+    ``entity_key`` when it targets a ``plant_instance``.
+    """
+    if isinstance(row, dict):
+        return row
+    doc = row.model_dump(mode="json", by_alias=True)
+    doc.setdefault("assigned_to", doc.get("assigned_to_user_key") or "")
+    if doc.get("entity_type") == "plant_instance":
+        doc.setdefault("plant_key", doc.get("entity_key") or "")
+    return doc
 
 
 @celery_app.task(name="notifications.dispatch_due_care")
@@ -42,7 +62,7 @@ def dispatch_due_care_notifications() -> dict:
     today_end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC)
 
     # Find all pending/in-progress care reminder tasks due today
-    all_tasks, _ = task_repo.get_all(offset=0, limit=500, all_tenants=True)  # system task: all tenants
+    all_tasks = [_as_doc(t) for t in get_all_pages(task_repo, all_tenants=True)]  # system task: all tenants
     due_tasks: list[dict] = []
 
     for task_doc in all_tasks:
@@ -68,6 +88,8 @@ def dispatch_due_care_notifications() -> dict:
             due_dt = due_date_raw
         else:
             continue
+        if due_dt.tzinfo is None:  # stored without an offset: the beat windows are UTC
+            due_dt = due_dt.replace(tzinfo=UTC)
 
         if due_dt < today_start or due_dt > today_end:
             continue
@@ -162,7 +184,7 @@ def escalate_overdue_notifications() -> dict:
     tenant_repo = get_tenant_repo()
 
     # Get all tenants
-    tenants, _ = tenant_repo.get_all(offset=0, limit=1000)
+    tenants = [_as_doc(t) for t in get_all_pages(tenant_repo)]
 
     total_escalated = 0
     tenants_processed = 0
@@ -225,7 +247,7 @@ def send_daily_summary() -> dict:
     today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
 
     # Find all due/overdue care tasks
-    all_tasks, _ = task_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
+    all_tasks = [_as_doc(t) for t in get_all_pages(task_repo, all_tenants=True)]  # system task: all tenants
     care_tasks: list[dict] = []
 
     for task_doc in all_tasks:
@@ -278,6 +300,8 @@ def send_daily_summary() -> dict:
                 due_dt = due_date_raw
             else:
                 continue
+            if due_dt.tzinfo is None:  # stored without an offset: the beat windows are UTC
+                due_dt = due_dt.replace(tzinfo=UTC)
 
             task_name = task_doc.get("name", "Unknown")
             if due_dt < today_start:
