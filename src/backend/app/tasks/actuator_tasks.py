@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.exceptions import NotFoundError
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
@@ -129,8 +130,15 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
         except Exception:  # noqa: BLE001 — an unreachable entity is treated as offline
             is_online = False
         if is_online != actuator.is_online:
-            updated = actuator.model_copy(update={"is_online": is_online, "last_seen": datetime.now(UTC)})
-            repo.update_actuator(actuator.key or "", updated)
+            # Field-level write (#1970 class): the HA round trip above can take long enough for
+            # an edit of the actuator to land, and a whole-document write would revert it.
+            try:
+                repo.update_fields(
+                    actuator.key or "",
+                    {"is_online": is_online, "last_seen": datetime.now(UTC).isoformat()},
+                )
+            except NotFoundError:
+                continue  # deleted while Home Assistant was polled; the rest of the run proceeds
             synced += 1
         if not is_online:
             offline += 1

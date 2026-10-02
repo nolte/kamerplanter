@@ -113,7 +113,7 @@ async def upload_csv(
     # SEC-M-008: Validate MIME type
     content_type = (file.content_type or "").lower().strip()
     if content_type not in ALLOWED_MIME_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(ALLOWED_MIME_TYPES))
+        raise UnsupportedMediaTypeError(sorted(ALLOWED_MIME_TYPES))
 
     content = await file.read()
 

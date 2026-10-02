@@ -122,7 +122,6 @@ def client(
 
     service = UserService(
         ArangoUserRepository(service_db),  # type: ignore[arg-type]
-        MagicMock(),
     )
 
     # #1019: the roles block now routes through TenantService; no memberships are
