@@ -148,11 +148,24 @@ def rotate_oidc_discovery() -> dict:
             continue
         try:
             discovery = engine.fetch_discovery_document(config.issuer_url)
-            config.discovery_document = discovery
-            config.discovery_refreshed_at = datetime.now(UTC)
-            if config.key:
-                repo.update(config.key, config)
-            updated += 1
+            if not config.key:
+                continue
+            # Only the two fields this task owns, and only while the issuer is still
+            # the one fetched from (#1909). ``config`` is a snapshot from before the
+            # fetches of every provider ahead of it, each paced by its issuer up to
+            # its timeout; a write of the whole snapshot would revert a provider
+            # switched off, a rotated secret or a repointed issuer — changes that pass
+            # an admin step-up (#1883) which this task does not.
+            stored = repo.update_discovery(
+                config.key,
+                issuer_url=config.issuer_url,
+                discovery_document=discovery,
+                refreshed_at=datetime.now(UTC),
+            )
+            if stored:
+                updated += 1
+            else:
+                logger.info("oidc_discovery_issuer_changed", slug=config.slug)
         except Exception:
             logger.warning("oidc_discovery_failed", slug=config.slug)
             errors += 1

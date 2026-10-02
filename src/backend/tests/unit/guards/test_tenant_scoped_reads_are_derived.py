@@ -847,6 +847,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoAttachmentRepository", "find_orphaned_task_photos"): Exclusion(
         "system", "the orphaned task-photo sweep of the storage Celery task (#1393)"
     ),
+    ("ArangoAttachmentRepository", "held_storage_keys"): Exclusion(
+        "system",
+        "the installation-wide object reconciliation (#1834) asks whether ANY record holds a key; "
+        "deliberately not tenant-filtered, so the answer can only keep more objects than a tenant-scoped one",
+    ),
     ("ArangoAttachmentRepository", "count_undated_orphaned_task_photos"): Exclusion(
         "system", "held-count of the same installation-wide orphan sweep (#1806 GDPR-003)"
     ),

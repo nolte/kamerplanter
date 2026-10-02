@@ -263,6 +263,9 @@ def register(
             _enqueue_duplicate_registration_notice,
             user_key,
         ),
+        # The verification mail only the free address sends: after the response,
+        # and a failure never reaches it (#1890).
+        defer_mail=background_tasks.add_task,
     )
     return UserProfileResponse(**profile.model_dump())
 
@@ -472,10 +475,15 @@ def verify_email(
 def request_password_reset(
     request: Request,
     body: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
     service: AuthService = Depends(get_auth_service),
 ):
-    """Send a password-reset link if an account exists for the email."""
-    service.request_password_reset(body.email)
+    """Send a password-reset link if an account exists for the email.
+
+    The mail is sent after the response (#1890): its duration and a delivery
+    failure must not tell the caller whether the address has an account.
+    """
+    service.request_password_reset(body.email, defer_mail=background_tasks.add_task)
     return MessageResponse(message="If the email exists, a reset link has been sent.")
 
 

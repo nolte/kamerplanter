@@ -403,6 +403,18 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         }
         return set(self._db.aql.execute(query, bind_vars=bind_vars))
 
+    def held_storage_keys(self, storage_keys: list[str]) -> set[str]:
+        if not storage_keys:
+            return set()
+        query = """
+        FOR att IN @@collection
+          FILTER att.storage_key IN @storage_keys
+          COLLECT storage_key = att.storage_key
+          RETURN storage_key
+        """
+        bind_vars = {"@collection": self._collection_name, "storage_keys": list(storage_keys)}
+        return set(self._db.aql.execute(query, bind_vars=bind_vars))
+
     def count_by_tenant(self, tenant_key: str) -> int:
         query = """
         RETURN LENGTH(
