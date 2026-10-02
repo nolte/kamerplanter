@@ -136,6 +136,14 @@ class UserService:
                 authenticated_with_api_key=authenticated_with_api_key,
                 client_ip=client_ip,
             )
+        # Only a trust field that really changes is written (#1992 review SEC-003): a form that re-sends
+        # the value it loaded must not undo a verification that happened in between, nor demote an
+        # account without the step-up and the marker above.
+        data = {
+            k: v
+            for k, v in data.items()
+            if k not in _TRUST_FIELDS or (v is not None and bool(v) != bool(getattr(current, k)))
+        }
         if data.get("email_verified") is False and current.email_verified:
             data = {**data, "email_verified_lowered_at": datetime.now(UTC)}
         user = self._user_repo.update_fields(user_key, data)

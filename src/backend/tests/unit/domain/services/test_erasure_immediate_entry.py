@@ -673,3 +673,35 @@ class TestTheAdminDeleteAcceptsAndTheWorkerErases:
         assert accepted is request and request.status != "completed"
         # Already due: the daily ``execute_scheduled_erasures`` beat selects and runs it.
         assert repo.list_due_for_hard_delete(NOW.isoformat(), NOW.isoformat()) == [request]
+
+    def test_a_worker_message_for_a_self_service_request_in_its_grace_erases_nothing(self):
+        """#1949 review SEC-001 — the task runs requests opened as immediate erasures, never a scheduled one."""
+        scheduled = ErasureRequest(
+            key="er-grace", user_key=USER, status="scheduled", hard_delete_scheduled_at=NOW + timedelta(days=30)
+        )
+        repo = FakeErasureRepo(scheduled)
+        executor = RecordingErasureExecutor()
+        service, _, _ = self._accepting(repo, executor)
+
+        outcome = asyncio.run(service.run_account_erasure_task("er-grace", now=NOW))
+
+        assert outcome["outcome"] == "not_immediate"
+        assert executor.runs == [] and scheduled.status == "scheduled"
+
+    def test_a_repeated_admin_request_keeps_the_proof_of_the_admin_who_asked_first(self):
+        """#1949 review SEC-004 — the audit record names who asked first; a repeat re-dispatches only."""
+        first_admin = "sub_first_admin_reference"
+        pulled = ErasureRequest(
+            key="er-self",
+            user_key=USER,
+            status="scheduled",
+            hard_delete_scheduled_at=NOW + timedelta(days=30),
+            step_up="password",
+            requested_by_subject=first_admin,
+        )
+        repo = FakeErasureRepo(pulled)
+        service, recorder, _ = self._accepting(repo, RecordingErasureExecutor())
+
+        service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+
+        assert pulled.requested_by_subject == first_admin and pulled.step_up == "password"

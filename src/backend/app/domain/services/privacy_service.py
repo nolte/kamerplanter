@@ -1430,9 +1430,11 @@ class PrivacyService:
             erasure = self._create_immediate_request(
                 user_key, now=now, origin=origin, step_up=step_up, requested_by_subject=requested_by_subject
             )
-        elif step_up is not None and erasure.key is not None:
+        elif step_up is not None and erasure.key is not None and erasure.requested_by_subject is None:
             # An admin erasing an account whose own request is still open: the
             # record now also names the admin act that pulled it forward (#1814).
+            # Written once: a repeated request (#1949) must not replace the proof of the admin
+            # who asked first.
             self._erasure_repo.update_fields(
                 erasure.key, {"step_up": step_up, "requested_by_subject": requested_by_subject}
             )
@@ -1601,6 +1603,12 @@ class PrivacyService:
         erasure = self._erasure_repo.get_by_key(erasure_key)
         if erasure is None or erasure.status == "completed":
             return {"erasure_key": erasure_key, "outcome": "nothing_to_do"}
+        if not erasure.immediate_erasure:
+            # Fail closed (#1949 review SEC-001): only a request that was opened as an immediate erasure
+            # is this task's to run. A self-service request in its grace period has its own due date,
+            # notice wait and undo; a message naming its key must not erase the account early.
+            logger.error("account_erasure.run_refused_not_immediate", erasure_key=erasure_key)
+            return {"erasure_key": erasure_key, "outcome": "not_immediate"}
         configuration_error = self._erasure_configuration_error() or self._derived_index_configuration_error()
         if configuration_error is not None:
             logger.error("account_erasure.run_not_configured", erasure_key=erasure_key, reason=configuration_error)

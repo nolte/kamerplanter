@@ -159,3 +159,26 @@ def test_an_account_demoted_directly_in_the_store_is_spared_by_the_marker_alone(
 
     assert [user.key for user in repo.get_unverified_before(CUTOFF.isoformat())] == []
     assert repo.count_unverified_undated() == 0
+
+
+def test_an_account_that_ever_signed_in_is_spared_even_without_a_marker(db):
+    """A demotion made before the marker existed left no record; ``last_login_at`` is the second signal."""
+    db.collection(col.USERS).insert({**_doc("in-use", verified=False), "last_login_at": LONG_AGO})
+    db.collection(col.USERS).insert(_doc("abandoned", verified=False))
+
+    erased = [user.key for user in ArangoUserRepository(db).get_unverified_before(CUTOFF.isoformat())]
+
+    assert erased == ["abandoned"]
+
+
+def test_a_locally_registered_account_is_not_selected_at_all_today(db):
+    """Measured, not assumed (#1992 review): registration writes a LOCAL ``auth_providers`` row, and the
+    selector counts *any* provider row as linked. So the demote-then-reap chain of the issue reaches
+    provider-less accounts (seeds, imports, legacy), not a normally registered local account. Pinned so a
+    later narrowing of the selector to federated providers is a conscious change that re-reads #1992."""
+    db.collection(col.USERS).insert(_doc("registered", verified=False))
+    db.collection(col.AUTH_PROVIDERS).insert(
+        {"_key": "local-registered", "user_key": "registered", "provider": "local", "provider_user_id": "registered"}
+    )
+
+    assert ArangoUserRepository(db).get_unverified_before(CUTOFF.isoformat()) == []

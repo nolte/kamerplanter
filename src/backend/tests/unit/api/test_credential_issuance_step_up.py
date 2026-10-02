@@ -490,3 +490,14 @@ def test_an_admin_deactivates_an_account_with_the_own_password() -> None:
 
     assert resp.status_code == 200, resp.text
     assert world.target().is_active is False
+
+
+def test_a_re_sent_trust_value_is_not_written_back() -> None:
+    """#1992 review SEC-003 — the form re-sends what it loaded; that must never overwrite a concurrent change."""
+    world = _World(target_verified=True)
+
+    resp = world.admin_update({"display_name": "Renamed", "email_verified": True, "is_active": True})
+
+    assert resp.status_code == 200, resp.text
+    ((_key, written),) = world.users.writes
+    assert written == {"display_name": "Renamed"}, "only what changed reaches the store"
