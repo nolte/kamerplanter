@@ -177,6 +177,7 @@ def legacy(_database):
     # been legitimate under a grant B later withdrew. Neither it nor an undated edge is judged.
     e["en_post_fix"] = _edge(db, col.ENTRY_FOR_SPECIES, "planting_run_entries/enA", "species/spB", _NEW)
     e["en_undated"] = _edge(db, col.ENTRY_FOR_SPECIES, "planting_run_entries/enA", "species/spB", None)
+    e["en_unparsable"] = _edge(db, col.ENTRY_FOR_SPECIES, "planting_run_entries/enA", "species/spB", "not a date")
     return db, e
 
 
@@ -207,7 +208,7 @@ EXPECTED = {
     "assigned_to_location_foreign": {"drop": 1},
     "log_slot_foreign": {"drop": 1, "unclassified": 3},
     "feeds_from_foreign": {"drop": 1, "unclassified": 1},
-    "entry_for_species_foreign": {"drop": 2, "unclassified": 3},
+    "entry_for_species_foreign": {"drop": 2, "unclassified": 4},
 }
 
 

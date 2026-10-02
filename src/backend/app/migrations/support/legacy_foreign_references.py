@@ -174,7 +174,8 @@ FOR e IN {col.ENTRY_FOR_SPECIES}
   LET granted = {_known("a")} AND LENGTH(
     FOR g IN {col.TENANT_HAS_ACCESS} FILTER g._from == CONCAT('{col.TENANTS}/', a) AND g._to == e._to LIMIT 1 RETURN 1
   ) > 0
-  LET before_fix = IS_STRING(e.created_at) AND DATE_TIMESTAMP(e.created_at) < DATE_TIMESTAMP('{FIX_MERGED_AT}')
+  LET created = IS_STRING(e.created_at) ? DATE_TIMESTAMP(e.created_at) : null
+  LET before_fix = IS_NUMBER(created) AND created < DATE_TIMESTAMP('{FIX_MERGED_AT}')
   LET verdict = (NOT {_known("a")} OR NOT IS_STRING(b)) ? 'unclassified'
     : (b == '' OR a == b OR granted) ? 'keep'
     : before_fix ? 'drop' : 'unclassified'
