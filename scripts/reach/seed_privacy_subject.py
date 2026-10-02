@@ -103,6 +103,11 @@ DISTINCT_CONTENT: dict[str, Any] = {
     # requests; a unique request time is what tells the seeded one apart.
     "data_export_requests": lambda key: {"requested_at": _unique_timestamp(key)},
     "erasure_requests": lambda key: {"requested_at": _unique_timestamp(key)},
+    # An organisation carries its own name: the tenants rule renames name and slug
+    # only for a personal tenant, so a name derived from the subject would stay
+    # behind as residue. The export discloses both, which tells the seeded tenant
+    # apart without naming the subject.
+    "tenants": lambda key: {"name": f"Reach community garden {key}", "slug": f"reach-community-{key}"},
 }
 
 #: Filter fields that name an edge endpoint; a manifest source filtered on one is
@@ -440,11 +445,7 @@ class Seeder:
             col.TENANTS,
             {
                 tenant_field: self.subject,
-                # An organisation carries its own name: the tenants rule renames
-                # name and slug only for a personal tenant, so a name derived from
-                # the subject would stay behind as residue by construction.
-                "name": "Reach community garden",
-                "slug": f"reach-community-{secrets.token_hex(4)}",
+                # name and slug: DISTINCT_CONTENT["tenants"] (an organisation's own).
                 "tenant_type": "organization",
             },
             role=f"rule:{col.TENANTS}.{tenant_field}",
