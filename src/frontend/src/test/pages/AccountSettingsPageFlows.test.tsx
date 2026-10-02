@@ -167,7 +167,8 @@ describe('AccountSettingsPage — security tab', () => {
     // Local provider present → current password field is shown.
     expect(await screen.findByTestId('current-password-field')).toBeInTheDocument();
     expect(screen.getByTestId('new-password-field')).toBeInTheDocument();
-    expect(screen.getByText('google')).toBeInTheDocument();
+    // The linked-provider list is a separate request from the one behind the field above.
+    expect(await screen.findByText('google')).toBeInTheDocument();
   });
 
   it('changes the password through the change-password endpoint', async () => {
