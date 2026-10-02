@@ -52,6 +52,7 @@ def cleanup_unverified_accounts() -> dict:
     from app.common.async_bridge import run_async
     from app.common.dependencies import get_privacy_service, get_retention_service, get_user_repo
     from app.common.exceptions import FeatureNotConfiguredError
+    from app.common.held_count import held_undated_count
 
     cutoff = get_retention_service().unverified_account_cutoff(datetime.now(UTC)).isoformat()
     user_repo = get_user_repo()
@@ -65,7 +66,7 @@ def cleanup_unverified_accounts() -> dict:
         "deferred": 0,
         "skipped": 0,
         "blocked": 0,
-        "held_undated": user_repo.count_unverified_undated(),
+        "held_undated": held_undated_count(user_repo.count_unverified_undated, task="cleanup_unverified_accounts"),
     }
     if not candidates:
         logger.info("cleanup_unverified_accounts", **result)

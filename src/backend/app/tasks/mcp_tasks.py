@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.held_count import held_undated_count
 from app.config.settings import settings
 from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.mcp_repository import (
@@ -31,7 +32,7 @@ def cleanup_expired_audit_log() -> int:
     repo = ArangoMcpAuditRepository(db)
     removed = repo.delete_expired(retention_days=settings.mcp_audit_retention_days)
     # #1806 GDPR-003: entries without a readable ``created_at`` are never selected.
-    held_undated = repo.count_undated()
+    held_undated = held_undated_count(repo.count_undated, task="mcp.cleanup_expired_audit_log")
     logger.info("mcp_cleanup_audit_log", removed=removed, held_undated=held_undated)
     return removed
 
