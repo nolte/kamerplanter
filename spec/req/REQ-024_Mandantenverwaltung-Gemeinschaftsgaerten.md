@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.12 (v0004-Altstempel-Migration umgesetzt: AK-54, #1805; v1.11: Q-O1 umgesetzt, asynchrone Mandantenlöschung, #1792)
+Version: 1.13 (Q-L3 umgesetzt: Migration `v0067`, #1878; v1.12 v0004-Altstempel-Migration umgesetzt: AK-54, #1805; v1.11: Q-O1 umgesetzt, asynchrone Mandantenlöschung, #1792)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.13 | 2026-10-02 | **Q-L3 / AK-55 umgesetzt (#1878):** Migration `v0067_clean_legacy_foreign_references` bereinigt die #1871-Altlasten und `SiteRepository.update_slot` verschiebt die `HAS_SLOT`-Kante mit dem Feld `location_key`. Konservativ: Zeilen, deren Mandant nicht zweifelsfrei feststeht, bleiben liegen und werden gezählt. Die Umhänge-Variante für fremde Kanten entfällt, weil jedes Quell-Dokument denselben fremden Schlüssel auch in einem eigenen Feld trägt — ein eindeutiges richtiges Ziel ist aus dem Bestand nicht ableitbar; die Kante wird gelöscht. Messwerte aus echten Installationen liegen nicht vor (Befund war „vermutet, nicht gemessen“). |
 | 1.12 | 2026-10-02 | **AK-54 umgesetzt (#1805).** Migration `v0066` setzt die v0004-Altstempel auf Seed-Zeilen von `fertilizers`, `nutrient_plans` (samt `nutrient_plan_phase_entries`), `workflow_templates` und `task_templates` auf `tenant_key == ""` zurück. Die Messung auf einer echten ArangoDB (synthetisches Altvolumen, echtes `backfill_tenant_key`, danach die Seed-Loader) ergab: die vier Eltern-Collections heilen die Seed-Loader beim Start selbst (`tenant_key` wird aus dem Modell mit `""` neu geschrieben); **nicht** geheilt wurden die Kinder `nutrient_plan_phase_entries` (198 von 198 blieben gestempelt) — die Mandantenlöschung hätte jedem Seed-Plan seine Phaseneinträge genommen. Seed-Identität = Name laut Seed-YAML **und** ein bewiesener Stempel (Kind unter globalem Elternteil oder Schlüssel auf mehr als der Hälfte der erwarteten Seed-Düngemittel/-Workflows); nicht beweisbare Zeilen bleiben unberührt. |
 | 1.11 | 2026-10-02 | **#1792 umgesetzt (AK-53, brechende API-Änderung):** `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` antworten `202 Accepted` (Körper `{tenant_key, status, requested_at, message}`) statt `200`/`204`. Die Anfrage prüft Berechtigung und Step-up, legt den Löschnachweis an und friert den Mandanten ein; der Celery-Task `run_tenant_erasure` beansprucht den Nachweis atomar und löscht in Stapeln zu 1000 Zeilen (eine ArangoDB-Transaktion je Stapel statt einer Transaktion über alle ~95 Collections), schreibt zwischen den Stapeln einen Heartbeat (bedingt auf den eigenen Claim-Stempel; ein verlorener Claim beendet den Lauf ohne Fehlereintrag) und eskaliert ab dem dritten erfolglosen Versuch (Log-Ereignis `tenant_erasure.escalated`, `escalated_at` am Nachweis). **Engere Lesart (bewusst):** Die Gnadenfrist AK-52 ist **weiterhin nicht umgesetzt** — AK-53 gilt für den heutigen Sofort-Pfad; sobald AK-52 gebaut ist, löst deren Frist-Task denselben Task aus. Der Weg über `DELETE /admin/platform/users/{key}` bleibt synchron in der Anfrage (die Kontolöschung braucht das Ergebnis der Mandantenlöschung, bevor ihr eigener Plan läuft), nutzt aber dieselben begrenzten Stapel und den Heartbeat; die Umstellung dieses Wegs ist als Folge-Issue #1949 erfasst. |
 | 1.10 | 2026-09-26 | **Datenschutzplan-Entscheidungen, Batch 4–6 (#1792, #1805, #1878):** Mandantenlöschung wird zusätzlich zur v1.9-Gnadenfrist (AK-52) **asynchron** (202 Accepted, Celery-Batches mit Heartbeat und Eskalation) — Betreiberentscheidung, **noch nicht umgesetzt**, Breaking-Change-Kennzeichnung (Q-O1, **AK-53**). §2 dokumentiert die Datenkorrektur für v0004-Altstempel auf globalen Seed-Zeilen von `fertilizers`/`nutrient_plans`/`task_templates` (Q-L1/Q-L2, **AK-54**) und für verwaiste globale Referenzen aus den #1871-Lücken (Q-L3, **AK-55**). |
@@ -829,6 +830,31 @@ Beschlossen:
 - Die Migration ist eine Zähl-Migration mit anschließendem, idempotentem Korrekturlauf; sie
   protokolliert nur Anzahlen, nie Inhalte einer fremden Species.
 
+**Umsetzung (v1.13, Migration `v0067`).** Die Zählabfragen sind dieselben Prädikate, nach
+denen die Migration repariert (`app/migrations/support/legacy_foreign_references.py`); der
+Dry-Run der Migration liefert die Zahlen vorab. Festgelegte Grenzen:
+
+- Ein Slot folgt dem Feld **nur**, wenn Feld-Standort und aktueller Kanten-Standort demselben
+  Mandanten gehören. Zeigt das Feld in einen fremden Mandanten, hat der Slot keine oder
+  mehrere `HAS_SLOT`-Kanten, bleibt die Zeile unverändert und wird gezählt.
+- Eine fremde Kante wird nur gelöscht, wenn beide Endpunkt-Mandanten bekannt (nicht leer)
+  sind und sich unterscheiden. Ein globales Ziel (`tenant_key == ""`, z. B. eine globale
+  Species), eine an den Mandanten **freigegebene** Species (`tenant_has_access`) und jede
+  Kante mit nicht bestimmbarem Endpunkt bleiben erhalten (Zählung `left_unclassified`).
+- Ein geteiltes Template wird **nicht** zugeordnet (und nur gezählt), wenn die Species an einen
+  Mandanten freigegeben ist (der Empfänger würde seinen genutzten Plan verlieren) oder der
+  Eigentümer bereits einen generierten Plan für die Species besitzt (ein Duplikat könnte dessen
+  bearbeitete Kopie verdecken).
+- `LOG_SLOT` wird nur beurteilt, wenn Feld und `HAS_SLOT`-Kante des Slots denselben Mandanten
+  nennen — das Feld ist bei Altzeilen genau der durch die Lücke geschriebene Wert.
+- `ENTRY_FOR_SPECIES` wird nur gelöscht, wenn die Kante **vor** dem Merge der #1871-Fixes
+  (2026-09-26) entstand: Eine Freigabe ist widerrufbar, eine jüngere Kante ohne aktuelle
+  Freigabe kann unter einer später entzogenen Freigabe legitim entstanden sein.
+- `SiteRepository.update_slot` verschiebt die Kante nie über eine Mandantengrenze (interne
+  Aufrufer reichen den gelesenen Slot zurück, dessen Feld bei Altzeilen fremd sein kann).
+- Das Quell-Dokument behält sein Feld (`location_key`, `slot_keys`, `species_key`, …); nur die
+  Kante wird entfernt. Das Aufräumen dieser Felder ist nicht Teil von #1878.
+
 ### Indizes:
 
 ```
@@ -1535,7 +1561,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-54 | Eine Migration setzt v0004-Altstempel auf globalen Seed-Zeilen von `fertilizers`, `nutrient_plans` und `task_templates` auf `tenant_key == ""` zurück (Form wie `v0036`/`v0038`); ihre Vorab-Prüfung läuft ausschließlich gegen einen Dev-Cluster oder ein wiederhergestelltes Backup, nie gegen die Produktionsdatenbank direkt; ein Task-Template eines erhaltenen System-Workflows wird mit ihm zurückgesetzt | Integration |
 <!-- /Quelle: Datenschutzplan Q-L1/Q-L2, #1805 -->
 <!-- Quelle: Datenschutzplan Q-L3, #1878 -->
-| AK-55 | Ein geteiltes globales Template mit dem Namen einer privaten Species wird der aktuellen Eigentümerin dieser Species als privates Template zugeordnet; eine fremde Kante aus den #1871-Lücken wird bei eindeutigem Ziel auf den korrekten Mandanten umgehängt, sonst gelöscht; die Korrektur-Migration ist idempotent und protokolliert nur Anzahlen | Integration |
+| AK-55 | **Umgesetzt (v1.13, #1878; Migration `v0067`, Test `test_v0067_clean_legacy_foreign_references.py`):** Ein geteiltes globales Template mit dem Namen einer privaten Species wird der aktuellen Eigentümerin dieser Species als privates Template zugeordnet; eine fremde Kante aus den #1871-Lücken wird bei eindeutigem Ziel auf den korrekten Mandanten umgehängt, sonst gelöscht; die Korrektur-Migration ist idempotent und protokolliert nur Anzahlen | Integration |
 <!-- /Quelle: Datenschutzplan Q-L3, #1878 -->
 
 ### Frontend-Kriterien:
