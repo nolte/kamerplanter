@@ -440,8 +440,11 @@ class Seeder:
             col.TENANTS,
             {
                 tenant_field: self.subject,
-                "name": f"{self.display_name}'s garden",
-                "slug": f"{self.subject}-garden",
+                # An organisation carries its own name: the tenants rule renames
+                # name and slug only for a personal tenant, so a name derived from
+                # the subject would stay behind as residue by construction.
+                "name": "Reach community garden",
+                "slug": f"reach-community-{secrets.token_hex(4)}",
                 "tenant_type": "organization",
             },
             role=f"rule:{col.TENANTS}.{tenant_field}",
