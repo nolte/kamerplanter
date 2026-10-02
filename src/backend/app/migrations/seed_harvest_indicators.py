@@ -18,6 +18,8 @@ exist only in the plant-info files. Resolved from ``core_data`` they were create
 with no species at all — rows no species could ever reach.
 """
 
+from typing import Any
+
 import structlog
 
 from app.common.dependencies import get_db, get_harvest_repo
@@ -28,9 +30,10 @@ from app.migrations.yaml_loader import load_yaml
 logger = structlog.get_logger()
 
 
-def load_harvest_indicator_entries() -> list[dict]:
+def load_harvest_indicator_entries() -> list[dict[str, Any]]:
     """The indicator entries of ``harvest_indicators.yaml``."""
-    return load_yaml("harvest_indicators.yaml").get("harvest_indicators", [])
+    entries: list[dict[str, Any]] = load_yaml("harvest_indicators.yaml").get("harvest_indicators", [])
+    return entries
 
 
 def run_seed_harvest_indicators() -> None:
