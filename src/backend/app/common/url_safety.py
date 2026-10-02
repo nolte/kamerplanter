@@ -24,6 +24,10 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from urllib.parse import unquote_plus, urlsplit
 
 import structlog
@@ -562,6 +566,134 @@ _APPRISE_FORBIDDEN_CHARS = frozenset(",;[]")
 _APPRISE_FORBIDDEN_QUERY_KEYS = frozenset({"cto", "rto", "verify"})
 
 
+#: Beyond the stdlib flags, the two metadata addresses the stdlib calls plain
+#: private/global: Alibaba's ``100.100.100.200`` and AWS IMDS over IPv6,
+#: ``fd00:ec2::254``.
+_APPRISE_EXTRA_BLOCKED_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("100.100.100.200/32", "fd00:ec2::/32"))
+#: ``0.0.0.0/8`` ("this network") — the stdlib files it under ``is_private``, so it
+#: cannot be refused by flag with RFC1918 left allowed. Judged for *resolved*
+#: addresses only: a literal host check also sees the leading digits of a
+#: Telegram bot token (``tgram://123456:TOKEN/chat`` parses as the host ``123456``).
+_THIS_NETWORK = ipaddress.ip_network("0.0.0.0/8")
+_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+_SIXTOFOUR_PREFIX = ipaddress.ip_network("2002::/16")
+
+#: Seconds the whole resolution of one URL list may take (save and send alike).
+#: A resolver that does not answer in time counts as a refusal (fail closed).
+APPRISE_RESOLVE_TIMEOUT_SECONDS = 3.0
+#: Schemes whose host part is a server the backend (through Apprise) connects to.
+#: ``tgram``/``slack``/``discord``/``pover`` carry tokens there and talk to a fixed
+#: vendor host; ``ntfy`` is host-addressed only when a topic path follows
+#: (``ntfy://host/topic``; ``ntfy://topic`` is the public ntfy.sh).
+_APPRISE_HOST_SCHEMES = frozenset({"gotify", "gotifys", "matrix", "matrixs"})
+_APPRISE_NTFY_SCHEMES = frozenset({"ntfy", "ntfys"})
+_resolver_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="apprise-dns")
+
+
+def resolve_host_addresses(host: str) -> list[str]:
+    """Resolve ``host`` to its address strings. The seam tests replace.
+
+    Raises:
+        OSError: the name does not resolve (NXDOMAIN, no A/AAAA record).
+    """
+    infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    return [str(info[4][0]) for info in infos]
+
+
+def _apprise_literal_address(host: str) -> ipaddress._BaseAddress | None:
+    """The address ``host`` spells, or ``None`` for a name.
+
+    Also numeric spellings ``ip_address`` rejects but ``getaddrinfo`` resolves
+    (``127.1``, ``0x7f.1``, ``2130706433``).
+    """
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            return ipaddress.ip_address(socket.inet_aton(host))
+        except OSError, ValueError:
+            return None
+
+
+def _is_apprise_blocked_address(address: ipaddress._BaseAddress, *, resolved: bool = False) -> bool:
+    """True for loopback / link-local / reserved / unspecified / multicast space.
+
+    RFC1918 and unique-local stay allowed (REQ-030 §3.6: a LAN Gotify/ntfy is the
+    documented use). IPv4 carried inside IPv6 (``::ffff:127.0.0.1``, NAT64,
+    6to4) is judged by the IPv4 address it carries.
+    """
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return _is_apprise_blocked_address(address.ipv4_mapped, resolved=resolved)
+        if address in _NAT64_PREFIX:
+            return _is_apprise_blocked_address(ipaddress.IPv4Address(int(address) & 0xFFFFFFFF), resolved=resolved)
+        if address in _SIXTOFOUR_PREFIX:
+            return _is_apprise_blocked_address(
+                ipaddress.IPv4Address((int(address) >> 80) & 0xFFFFFFFF), resolved=resolved
+            )
+    return (
+        (resolved and address.version == 4 and address in _THIS_NETWORK)
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_unspecified
+        or address.is_reserved
+        or address.is_multicast
+        or any(address in net for net in _APPRISE_EXTRA_BLOCKED_NETWORKS if net.version == address.version)
+    )
+
+
+def _apprise_host_to_resolve(url: str) -> str | None:
+    """The hostname Apprise will connect to for ``url``, or ``None`` if none is dialled by name."""
+    parts = urlsplit(url)
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").rstrip(".")
+    if not host or _apprise_literal_address(host) is not None or host.lower() == "localhost":
+        return None  # a literal is judged by ``_apprise_url_refusal`` without DNS
+    if scheme in _APPRISE_HOST_SCHEMES or (scheme in _APPRISE_NTFY_SCHEMES and parts.path.strip("/")):
+        return host
+    return None
+
+
+def _apprise_resolution_refusals(urls: list[str]) -> dict[int, str]:
+    """Index -> reason for every URL whose host resolves to blocked space, or not at all.
+
+    All distinct hosts are resolved concurrently under one shared deadline, so a
+    list of ten slow names costs one timeout, not ten. Fail closed: NXDOMAIN, a
+    resolver error and a timeout each refuse the URL. A DNS-rebinding window
+    remains between this check and the connect Apprise performs itself.
+    """
+    hosts = {i: h for i, u in enumerate(urls) if (h := _apprise_host_to_resolve(u)) is not None}
+    if not hosts:
+        return {}
+    resolve: Callable[[str], list[str]] = resolve_host_addresses
+    futures = {h: _resolver_pool.submit(resolve, h) for h in set(hosts.values())}
+    verdict: dict[str, str | None] = {}
+    started = time.monotonic()
+    for host, future in futures.items():
+        remaining = max(0.0, APPRISE_RESOLVE_TIMEOUT_SECONDS - (time.monotonic() - started))
+        try:
+            addresses = future.result(timeout=remaining)
+        except FutureTimeoutError:
+            future.cancel()
+            verdict[host] = "An Apprise URL host did not resolve in time."
+            continue
+        except Exception:
+            verdict[host] = "An Apprise URL host could not be resolved."
+            continue
+        try:
+            parsed = [ipaddress.ip_address(a.split("%", 1)[0]) for a in addresses]
+        except ValueError:
+            verdict[host] = "An Apprise URL host could not be resolved."
+            continue
+        if not parsed:
+            verdict[host] = "An Apprise URL host could not be resolved."
+        elif any(_is_apprise_blocked_address(a, resolved=True) for a in parsed):
+            verdict[host] = "An Apprise URL host resolves to a loopback, link-local or reserved address."
+        else:
+            verdict[host] = None
+    return {i: reason for i, h in hosts.items() if (reason := verdict[h]) is not None}
+
+
 def _apprise_url_refusal(url: object) -> str | None:
     """Why ``url`` may not be handed to Apprise; ``None`` when it may.
 
@@ -590,25 +722,8 @@ def _apprise_url_refusal(url: object) -> str | None:
     if query_keys & _APPRISE_FORBIDDEN_QUERY_KEYS:
         return "An Apprise URL must not set timeouts or TLS verification."
     if host:
-        try:
-            address = ipaddress.ip_address(host)
-        except ValueError:
-            # Numeric spellings ``ip_address`` rejects but ``getaddrinfo`` resolves
-            # (``127.1``, ``0x7f.1``, ``2130706433``).
-            try:
-                address = ipaddress.ip_address(socket.inet_aton(host))
-            except OSError, ValueError:
-                address = None
-        if host.lower().rstrip(".") == "localhost" or (
-            address is not None
-            and (
-                address.is_loopback
-                or address.is_link_local
-                or address.is_unspecified
-                or address.is_reserved
-                or address.is_multicast
-            )
-        ):
+        address = _apprise_literal_address(host)
+        if host.lower().rstrip(".") == "localhost" or (address is not None and _is_apprise_blocked_address(address)):
             return "An Apprise URL points at a loopback, link-local or reserved address."
     return None
 
@@ -617,11 +732,15 @@ def partition_apprise_urls(urls: object) -> tuple[list[str], int]:
     """Split a stored ``urls`` value into ``(allowed, refused_count)``.
 
     Never raises: the send path uses it so a legacy row that predates the
-    allow-list neither delivers to a refused target nor aborts the rest.
+    allow-list neither delivers to a refused target nor aborts the rest. Blocking
+    (it resolves host targets, bounded by :data:`APPRISE_RESOLVE_TIMEOUT_SECONDS`);
+    async callers run it in an executor.
     """
     if not isinstance(urls, list):
         return [], 1 if urls else 0
-    allowed = [u for u in urls[:APPRISE_MAX_URLS] if _apprise_url_refusal(u) is None]
+    literal_ok = [u for u in urls[:APPRISE_MAX_URLS] if _apprise_url_refusal(u) is None]
+    refused_by_dns = _apprise_resolution_refusals(literal_ok)
+    allowed = [u for i, u in enumerate(literal_ok) if i not in refused_by_dns]
     return allowed, len(urls) - len(allowed)
 
 
@@ -632,8 +751,10 @@ def validate_apprise_urls(urls: object) -> list[str]:
         ValidationError: a value-free message when the list is not a list of at
             most :data:`APPRISE_MAX_URLS` strings, or an entry is outside the
             scheme allow-list, carries a second URL, or addresses loopback /
-            link-local / reserved space. Private (RFC1918) hosts stay allowed:
-            a self-hosted Gotify or ntfy on the LAN is the documented use.
+            link-local / reserved space, or a host name of a host-addressed
+            scheme resolves to such space (or not at all, or not in time).
+            Private (RFC1918) hosts stay allowed: a self-hosted Gotify or ntfy
+            on the LAN is the documented use.
     """
     if not isinstance(urls, list) or len(urls) > APPRISE_MAX_URLS:
         raise ValidationError(
@@ -660,4 +781,16 @@ def validate_apprise_urls(urls: object) -> list[str]:
                     }
                 ],
             )
+    for index, reason in sorted(_apprise_resolution_refusals(urls).items()):
+        logger.warning("apprise_url_rejected", index=index, reason=reason)
+        raise ValidationError(
+            "An Apprise URL is not allowed.",
+            details=[
+                {
+                    "field": f"channels.apprise.config.urls[{index}]",
+                    "reason": reason,
+                    "code": "APPRISE_URL_NOT_ALLOWED",
+                }
+            ],
+        )
     return urls

@@ -12,6 +12,13 @@ from __future__ import annotations
 import structlog
 
 from app.common.log_privacy import loggable_error
+from app.common.notification_targets import (
+    HA_DEFAULT_NOTIFY_SERVICE,
+    HA_DEFAULT_TTS_SERVICE,
+    ha_notify_service_slug,
+    ha_tts_entity_id,
+    ha_tts_service_slug,
+)
 from app.data_access.external.ha_client import HomeAssistantClient
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import (
@@ -177,7 +184,13 @@ class HomeAssistantNotificationChannel(INotificationChannel):
         channel_config: dict,
         errors: list[str],
     ) -> None:
-        notify_service = channel_config.get("notify_service", "notify")
+        # The service comes from a user-editable preference: re-checked here, so a
+        # row stored before the shape rule is never dialled (#1985).
+        notify_service = ha_notify_service_slug(channel_config.get("notify_service", HA_DEFAULT_NOTIFY_SERVICE))
+        if notify_service is None:
+            logger.warning("ha_destination_refused_at_send", key="notify_service", refused_count=1)
+            errors.append("mobile_push refused: notify_service is not allowed")
+            return
         importance = _URGENCY_TO_IMPORTANCE.get(notification.urgency, "default")
         service_data: dict = {
             "title": notification.title,
@@ -215,8 +228,12 @@ class HomeAssistantNotificationChannel(INotificationChannel):
         channel_config: dict,
         errors: list[str],
     ) -> None:
-        entity_id = channel_config["tts_entity_id"]
-        tts_service = channel_config.get("tts_service", "speak")
+        entity_id = ha_tts_entity_id(channel_config["tts_entity_id"])
+        tts_service = ha_tts_service_slug(channel_config.get("tts_service", HA_DEFAULT_TTS_SERVICE))
+        if entity_id is None or tts_service is None:
+            logger.warning("ha_destination_refused_at_send", key="tts", refused_count=1)
+            errors.append("tts refused: destination is not allowed")
+            return
         service_data = {
             "entity_id": entity_id,
             "message": notification.body,
