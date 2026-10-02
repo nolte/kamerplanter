@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.6 (Datenschutzplan-Entscheidung Q-O3, #1834: Objekt-Rekonziliation)
+Version: 1.7 (#1834: Objekt-Rekonziliation umgesetzt, nur Bericht per Default — v1.6 Datenschutzplan-Entscheidung Q-O3)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.7 | 2026-10-02 | **#1834 Objekt-Rekonziliation umgesetzt (§6.6, AC-12):** Task `app.tasks.storage_tasks.reconcile_orphaned_storage_objects` (Beat täglich 04:10) listet `t/` über beide Adapter seitenweise (local-fs paginiert jetzt wie S3, Token = letzter Key; je Lauf höchstens `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` Objekte, der Folgelauf setzt fort), bildet Renditionen über jede mögliche Original-Endung auf den haltenden Datensatz ab und meldet `found` / `young` / `eligible` / `would_delete` / `deleted` / `failed`. **Löschen ist per Default aus** (`STORAGE_RECONCILE_DELETE_ENABLED=false`, Betreiberentscheidung: erster Release nur Bericht); die Sicherheitsmarge ist `STORAGE_RECONCILE_MIN_AGE_HOURS` (Default 24, Untergrenze 1). Eine Notbremse (`STORAGE_RECONCILE_MAX_ORPHAN_FRACTION`, Default 0,5) verhindert das Löschen bei einem gültig, aber leer antwortenden Katalog. Bericht und Logzeilen des Laufs tragen nur Zählwerte, nie Mandant, Nutzer oder Objektpfad. Vier Pfade der Issue sind rot-zuerst gegen ArangoDB und den echten local-fs-Adapter belegt. |
 | 1.6 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O3 (Betreiberentscheidung, #1834):** Neuer §6.6 Objekt-Rekonziliation — ein periodischer Lauf listet Objekte im Storage, die kein `attachments`-Datensatz mehr hält, mit 24h-Sicherheitsmarge gegen den Schreib-vor-Datensatz-Zeitpunkt eines Uploads; für den ersten Release **nur Bericht, keine Löschung**. **AC-12** neu. |
 | 1.5 | 2026-09-25 | **Deduplizierung pro Hochlader (#1770):** Schritt 8 der Upload-Pipeline gibt einem zweiten Hochlader identischer Bytes nicht mehr den Datensatz des ersten zurück, sondern einen eigenen Datensatz über dasselbe gespeicherte Objekt; `storage_key` ist deshalb nicht mehr eindeutig (Migration v0062 entfernt den eindeutigen Index). Ein Objekt wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält; die Quota zählt es einmal. |
 | 1.4 | 2026-08-05 | **Umsetzungsstand `STORAGE_KEEP_EXIF_<CATEGORY>` festgehalten (Korrektur aus der REQ-050-Umsetzung, Issue #921):** §6.4 haelt jetzt ausdruecklich fest, dass die kategoriescharfe Keep-EXIF-Variante **spezifiziert, aber nicht implementiert** ist — es existiert ausschliesslich das globale `STORAGE_STRIP_EXIF`. §8.2 nennt entsprechend das tatsaechlich vorhandene Setting. Die Zusage „Renditions sind EXIF-frei" bleibt unveraendert gueltig und ist unabhaengig von der Konfiguration. Keine Aenderung am Adapter-Vertrag, an Kategorien oder am Pfadschema. |
@@ -455,11 +456,35 @@ Beschlossen:
   Datensatz, ein frisch hochgeladenes Objekt ohne (noch nicht committeten) Datensatz ist
   also erwartungsgemäß kurzzeitig "verwaist" und kein Rekonziliationsfall.
 - **Erste Release-Stufe: nur Bericht, keine Löschung.** Der Lauf zählt und protokolliert
-  gefundene Kandidaten (analog `cleanup_orphaned_task_photos`, gefunden/gelöscht/fehlgeschlagen),
-  löscht in dieser Stufe aber **nichts** automatisch — ein manueller Löschschritt bleibt
-  Betreiberentscheidung, bis Messwerte aus dem Bericht Vertrauen in die Erkennung
-  geschaffen haben. Eine spätere Stufe kann das automatische Löschen nachrüsten; das ist
-  eine gesonderte Entscheidung.
+  gefundene Kandidaten (analog `cleanup_orphaned_task_photos`, gefunden/gelöscht/fehlgeschlagen).
+  Löschen schaltet ausschließlich `STORAGE_RECONCILE_DELETE_ENABLED=true` ein; der Default ist
+  `false`, die Umschaltung ist Betreiberentscheidung nach dem Lesen eines Laufberichts
+  (`would_delete`). Mit eingeschaltetem Löschen entfernt der Lauf genau die Objekte ohne
+  Datensatz, die älter als die Marge sind — nie ein Objekt, das ein Datensatz hält, nie eine
+  Rendition eines gehaltenen Originals (jede mögliche Original-Endung wird gefragt), und er
+  fragt den Katalog unmittelbar vor dem Löschen noch einmal. Ein Datenbankfehler bricht den
+  Lauf ab (fail-closed), er gilt nie als „niemand hält das Objekt".
+- **Notbremse:** Fail-closed deckt nur eine fehlschlagende Katalogabfrage ab. Antwortet der Katalog
+  gültig, aber leer (falsche Datenbank über einem bestehenden Bucket, Restore älter als der Speicher,
+  zwei Installationen auf einem Bucket), erscheint jedes Objekt als verwaist. Ist auf einer Seite (ab
+  20 Objekten) mehr als `STORAGE_RECONCILE_MAX_ORPHAN_FRACTION` (Default 0,5) der Objekte ohne Datensatz,
+  löscht der Lauf dort nichts und meldet `brake_tripped`. Nur kanonische Schlüssel werden beurteilt
+  (kein Backslash, keine leeren oder Punkt-Segmente, keine Symlinks im local-fs-Listing).
+- **Marge:** `STORAGE_RECONCILE_MIN_AGE_HOURS`, Default 24, per `ge=1` nach unten begrenzt. Das
+  Fenster zwischen Schreiben des Objekts und Anlegen des Datensatzes ist ein Request (Quota →
+  Virenscan → EXIF → `put_object` → `create`) plus die drei Wiederholungen des Thumbnail-Tasks
+  im Minutenabstand; eine Stunde ist die Untergrenze darüber, 24 Stunden der ausgelieferte Wert.
+  Das Alter liest der Lauf aus dem Store (`last_modified`); ein Objekt ohne lesbares Alter wird
+  gezählt (`undated`) und behalten.
+- **Datenschutz des Berichts:** Der Bericht und die Logzeilen des Laufs enthalten ausschließlich Zahlen und
+  den Ausnahmetyp. (Die allgemeine Adapterzeile `storage_delete_object` trägt den Objektschlüssel, wie bei jedem
+  anderen Löschpfad; ihre Maskierung ist eigenes Thema.) Kein Mandantenschlüssel, Nutzerschlüssel oder Objektpfad (der Pfad trägt den
+  Mandanten) — auch kein Ausnahmetext, weil Dateisystem- und S3-Fehler den Pfad einbetten.
+- **Begrenzung:** Der Lauf liest Seiten zu je 1000 Schlüsseln, hält nie die gesamte Liste im
+  Speicher und stoppt nach `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` Objekten; der Listing-Token
+  liegt in Valkey (fail-open: ohne Token beginnt der nächste Lauf von vorn).
+- Nur der Namensraum `t/` wird beurteilt. Export-Bündel unter `privacy/exports/` haben eigenen
+  Lebenszyklus und eigenen Datensatz (`data_exports`).
 
 Refs #1770, REQ-025, NFR-013.
 
@@ -611,7 +636,7 @@ storage:
 | **AC-09** | Existierende `photo_refs`-Felder (REQ-006/007/008/010/013) werden auf `attachment_id`-Listen migriert; eine vorhandene Migrations-Routine konvertiert Bestandsdaten. |
 | **AC-10** | Adapter-Vertrag (Abschnitt 4.2) ist als ABC implementiert und durch ein gemeinsames Test-Set verifiziert, das fuer jeden Adapter (Phase 1: `local-fs`, `s3`) gruen sein muss. |
 | **AC-11** | Dokumentation enthaelt Adapter-Roadmap (Phase 2: `azure-blob`, `gcs`, `webdav`, `gdrive`, `dropbox`, `onedrive`, `b2`) als Erweiterungspunkt. |
-| **AC-12** | Der Rekonziliationslauf (§6.6) findet ein Objekt, dessen einziger Datensatz seit über 24 Stunden entfernt ist, meldet es (gefunden/gelöscht/fehlgeschlagen-Zählung), löscht es in der ersten Release-Stufe aber nicht automatisch; ein Objekt jünger als 24 Stunden ohne Datensatz wird nicht gemeldet. |
+| **AC-12** | Der Rekonziliationslauf (§6.6) findet ein Objekt, dessen einziger Datensatz seit über 24 Stunden entfernt ist, meldet es (gefunden/gelöscht/fehlgeschlagen-Zählung), löscht es in der ersten Release-Stufe aber nicht automatisch (`STORAGE_RECONCILE_DELETE_ENABLED` ist per Default aus; eingeschaltet löscht er genau diese Objekte samt Renditionen, nie ein gehaltenes Objekt oder die Rendition eines gehaltenen Originals); ein Objekt jünger als die Marge (24 Stunden) ohne Datensatz wird nicht gelöscht und als `young` gezählt. **Umgesetzt** (#1834): `tests/integration/test_storage_reconciliation.py` belegt die vier Pfade der Issue gegen ArangoDB und den echten local-fs-Adapter. |
 
 ---
 

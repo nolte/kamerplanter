@@ -237,6 +237,13 @@ celery_app.conf.update(
             "task": "app.tasks.storage_tasks.cleanup_orphaned_task_photos",
             "schedule": crontab(hour=3, minute=40),
         },
+        # #1834 — reconcile the object store against the attachment catalogue.
+        # 04:10, after the task-photo sweep; report-only until the operator sets
+        # STORAGE_RECONCILE_DELETE_ENABLED, bounded per run and resumable.
+        "storage-reconcile-orphaned-objects-daily": {
+            "task": "app.tasks.storage_tasks.reconcile_orphaned_storage_objects",
+            "schedule": crontab(hour=4, minute=10),
+        },
         # REQ-031 KI-Assistent retention (§4.6)
         "ai-cleanup-conversations-daily": {
             "task": "ai.cleanup_expired_conversations",
