@@ -211,3 +211,22 @@ def test_a_volume_without_duplicates_is_untouched(db) -> None:
 
     assert report.changed == 0
     assert _rows(db, col.HARVEST_INDICATORS) == before
+
+
+def test_an_observation_written_between_plan_and_apply_keeps_its_row(db, monkeypatch) -> None:
+    """The reference check is repeated inside the write transaction, not only when the plan is read."""
+    facts = _legacy_volume(db)
+    victim = facts["resolved_keys"][1]  # planned for removal: unreferenced when the plan is read
+    original = migration._plan_indicators
+
+    def plan_then_observe(database):
+        plan = original(database)
+        database.collection(col.HARVEST_OBSERVATIONS).insert({"plant_key": "p2", "indicator_key": victim})
+        return plan
+
+    monkeypatch.setattr(migration, "_plan_indicators", plan_then_observe)
+
+    migration.up(db)
+
+    assert db.collection(col.HARVEST_INDICATORS).get(victim) is not None
+    assert db.collection(col.HARVEST_INDICATORS).get(facts["resolved_keys"][2]) is None

@@ -169,18 +169,37 @@ class DedupeSeedRowsMultipliedPerBootMigration(Migration):
 
     @staticmethod
     def _apply(db: StandardDatabase, indicator_keys: list[str], edge_plan: dict[str, list[str]]) -> None:
+        """One transaction. The reference check runs again inside it: the plan was read earlier, and an
+        observation written in between (a pod of the previous release still serving) must keep its row."""
         writes = [col.HARVEST_INDICATORS, col.HAS_HARVEST_INDICATOR, *(c for c, keys in edge_plan.items() if keys)]
-        transaction = db.begin_transaction(write=writes)
+        reads = [name for name in (col.HARVEST_OBSERVATIONS, col.USES_INDICATOR) if db.has_collection(name)]
+        transaction = db.begin_transaction(read=reads, write=writes)
         try:
             if indicator_keys:
-                ids = [f"{col.HARVEST_INDICATORS}/{key}" for key in indicator_keys]
+                removable = list(
+                    transaction.aql.execute(
+                        """
+                        LET referenced = UNION_DISTINCT(
+                            (FOR o IN @@observations FILTER o.indicator_key IN @keys RETURN o.indicator_key),
+                            (FOR e IN @@uses LET k = PARSE_IDENTIFIER(e._to).key FILTER k IN @keys RETURN k)
+                        )
+                        FOR key IN @keys FILTER key NOT IN referenced RETURN key
+                        """,
+                        bind_vars={
+                            "keys": indicator_keys,
+                            "@observations": col.HARVEST_OBSERVATIONS,
+                            "@uses": col.USES_INDICATOR,
+                        },
+                    )
+                )
+                ids = [f"{col.HARVEST_INDICATORS}/{key}" for key in removable]
                 transaction.aql.execute(
                     "FOR e IN @@edges FILTER e._to IN @ids REMOVE e IN @@edges",
                     bind_vars={"@edges": col.HAS_HARVEST_INDICATOR, "ids": ids},
                 )
                 transaction.aql.execute(
                     "FOR key IN @keys REMOVE key IN @@collection",
-                    bind_vars={"keys": indicator_keys, "@collection": col.HARVEST_INDICATORS},
+                    bind_vars={"keys": removable, "@collection": col.HARVEST_INDICATORS},
                 )
             for collection, keys in edge_plan.items():
                 if keys:
