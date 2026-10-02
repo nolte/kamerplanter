@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.10 (Datenschutzplan-Entscheidungen Batch 4-6: Q-O1/Q-L1/Q-L2/Q-L3, #1792/#1805/#1878)
+Version: 1.11 (v0004-Altstempel-Migration umgesetzt: AK-54, #1805)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.11 | 2026-10-02 | **AK-54 umgesetzt (#1805).** Migration `v0066` setzt die v0004-Altstempel auf Seed-Zeilen von `fertilizers`, `nutrient_plans` (samt `nutrient_plan_phase_entries`), `workflow_templates` und `task_templates` auf `tenant_key == ""` zurück. Die Messung auf einer echten ArangoDB (synthetisches Altvolumen, echtes `backfill_tenant_key`, danach die Seed-Loader) ergab: die vier Eltern-Collections heilen die Seed-Loader beim Start selbst (`tenant_key` wird aus dem Modell mit `""` neu geschrieben); **nicht** geheilt wurden die Kinder `nutrient_plan_phase_entries` (198 von 198 blieben gestempelt) — die Mandantenlöschung hätte jedem Seed-Plan seine Phaseneinträge genommen. Seed-Identität = Name laut Seed-YAML **und** ein bewiesener Stempel (Kind unter globalem Elternteil oder Schlüssel auf mehr als der Hälfte aller Seed-Zeilen); nicht beweisbare Zeilen bleiben unberührt. |
 | 1.10 | 2026-09-26 | **Datenschutzplan-Entscheidungen, Batch 4–6 (#1792, #1805, #1878):** Mandantenlöschung wird zusätzlich zur v1.9-Gnadenfrist (AK-52) **asynchron** (202 Accepted, Celery-Batches mit Heartbeat und Eskalation) — Betreiberentscheidung, **noch nicht umgesetzt**, Breaking-Change-Kennzeichnung (Q-O1, **AK-53**). §2 dokumentiert die Datenkorrektur für v0004-Altstempel auf globalen Seed-Zeilen von `fertilizers`/`nutrient_plans`/`task_templates` (Q-L1/Q-L2, **AK-54**) und für verwaiste globale Referenzen aus den #1871-Lücken (Q-L3, **AK-55**). |
 | 1.9 | 2026-09-26 | **Datenschutzplan-Betreiberentscheidungen, Batch 1-3 (#1790, #1793; reine Spec-Änderung, Umsetzung folgt in eigenen PRs).** **#1790:** AK-16 und die API-Tabelle (§API) beschrieben die Mandantenlöschung noch als Soft-Delete (`status: deleted`) — seit #1769 löscht sie über das Mandanten-Löschinventar. Beide auf das tatsächliche/gewollte Verhalten nachgeführt (AK-44d beschrieb das bereits korrekt). **Q-O2 (#1790):** neue, noch nicht umgesetzte Anforderung **AK-52** — die Mandantenlöschung erhält eine Gnadenfrist analog zur 90-Tage-Frist der Kontolöschung (NFR-011 R-01), statt sofort zu löschen. **Q-R4 (#1793):** `tenant_erasure_records` bekommt eine Aufbewahrungsfrist, siehe NFR-011 R-06a. |
 | 1.8 | 2026-09-25 | **Mandant löschen verlangt beide Achsen und einen Step-up (#1791).** Seit #1769 löscht die Mandantenlöschung jede mandantenbezogene Collection unwiderruflich. Bis v1.7 hing sie allein an **Verwaltung** — eine Schriftführerin mit der Rolle Beobachter konnte damit einen ganzen Gemeinschaftsgarten mit einer Anfrage löschen. Neu: **Verwaltung und Leitung** (Schnittmenge, keine Vermischung der Achsen — die Irreversibilitätsgrenze aus REQ-049 §2.3 gilt auch hier), dazu ein **Step-up** im Anfragekörper: der Kurzname des Mandanten wird zurückgetippt, und ein Konto mit lokalem Passwort gibt es erneut ein; ein nur föderiert angemeldetes Konto bestätigt über den Kurznamen (Muster der Kontolöschung, REQ-394). Eigentümerschaft (`owner_user_key`) ist kein Recht und spielt keine Rolle. Dienstkonten und API-Schlüssel (auch die eines menschlichen Kontos) löschen nie einen Mandanten. Der Plattform-Admin-Weg (`DELETE /admin/platform/tenants/{key}`) verlangt denselben Step-up. Geprüft wird im Dienst, nicht nur am Router, sodass beide Wege dieselbe Regel haben; der Löschnachweis hält `step_up` und den Anfragenden als salzgehashte Log-Referenz fest. §1a.2, Rollentabelle §1, API §5 und **AK-44d** nachgeführt. |
@@ -787,6 +788,15 @@ Beschlossen:
   Produktionsverbindung erzeugen.
 - Ist auf dem gemessenen Bestand keine betroffene Zeile vorhanden, dokumentiert die
   Migration diesen Befund und bleibt ein No-op (idempotent, wie bei `v0036`/`v0038`).
+
+**Umsetzung (v1.11, `v0066_reset_legacy_seed_tenant_stamps`).** Die Migration läuft vor den
+Seed-Loadern. Eine Zeile wird nur zurückgesetzt, wenn die Seed-YAML sie benennt (Schlüssel wie im
+Loader: `(product_name, brand)`, Plan-/Workflow-Name, `(Workflow-Name, Task-Name)`) **und** ihr
+`tenant_key` als v0004-Stempel bewiesen ist: ein Kind (Phaseneintrag, Task-Template) trägt ihn unter
+einem globalen Elternteil, oder er steht auf mehr als der Hälfte aller Seed-benannten Zeilen. Der
+Seed-Name eines fremden Mandanten reicht nicht. Eine Zeile, die die YAML nicht benennt (z. B. ein
+später umbenannter oder entfernter Seed), bleibt unberührt — ein Stempel ist dort nicht beweisbar,
+und ein Überreset würde fremde Daten global machen. Nicht gemessen: echte produktive Volumes.
 
 <!-- Quelle: Datenschutzplan Q-L3, #1878 -->
 **Datenkorrektur: verwaiste globale Referenzen aus den #1871-Lücken (Betreiberentscheidung

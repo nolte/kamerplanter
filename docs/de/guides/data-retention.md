@@ -823,6 +823,64 @@ keinen inkonsistenten Zustand: Der Split-Schlüssel ist deterministisch und wird
 
 ---
 
+## Migration v0066: Altstempel auf Seed-Zeilen zurücksetzen
+
+Die alte Migration `v0004` hat beim Einführen der Mandanten jede Zeile ohne Eigentümer einem
+„Default-Mandanten" zugeordnet — auch die mitgelieferten Seed-Daten. Seit die Mandantenlöschung
+(#1769) die Zeilen ihres Mandanten entfernt, würde das Löschen dieses Mandanten Seed-Daten
+mitnehmen, die für alle gedacht sind. Auf einem Altbestand betrifft das Düngemittel,
+Nährstoffpläne samt Phaseneinträgen, Workflow-Vorlagen und Aufgabenvorlagen.
+
+Die Migration `v0066_reset_legacy_seed_tenant_stamps` setzt diese Zeilen auf global
+(`tenant_key == ""`) zurück, aber nur, wenn zwei Dinge zusammenkommen: Die mitgelieferte
+Seed-Datei benennt die Zeile (gleicher Schlüssel wie der Seed-Loader: Produkt und Marke,
+Plan- oder Workflow-Name, Workflow-Name und Aufgaben-Name), **und** der Eigentümerschlüssel ist
+als `v0004`-Stempel bewiesen (ein Phaseneintrag oder eine Aufgabenvorlage trägt ihn unter einem
+globalen Elternteil, oder er steht auf mehr als der Hälfte aller Seed-Zeilen). Ein Plan, den ein
+Mandant selbst angelegt und zufällig wie ein Seed benannt hat, bleibt seiner. Zeilen, die die
+Seed-Datei nicht benennt, bleiben unberührt.
+
+!!! info "Was die Messung ergab"
+    Die Seed-Loader setzen Düngemittel, Pläne, Workflows und Aufgabenvorlagen bei jedem Start
+    selbst wieder auf global. Übrig blieben die **Phaseneinträge** der Seed-Pläne — sie behielten
+    den Stempel, und die Mandantenlöschung hätte jedem Seed-Plan seine Phasen genommen. Die
+    Migration schließt genau diese Lücke und deckt die übrigen Collections ab, falls ein
+    Seed-Lauf fehlgeschlagen ist.
+
+!!! warning "Vorab prüfen: nur auf einem Backup"
+    Zähle die betroffenen Zeilen **nie gegen die Produktionsdatenbank**, sondern auf einem
+    wiederhergestellten Backup oder einem Dev-Cluster (arangosh oder Web-UI, Datenbank
+    `kamerplanter`):
+
+    ```aql
+    RETURN {
+      entries_under_global_plan: LENGTH(
+        FOR d IN nutrient_plan_phase_entries
+          FILTER d.tenant_key != null AND d.tenant_key != ""
+          LET p = DOCUMENT(CONCAT("nutrient_plans/", d.plan_key))
+          FILTER p != null AND (p.tenant_key == null OR p.tenant_key == "")
+          RETURN 1),
+      nutrient_plans_stamped_by_tenant: (FOR d IN nutrient_plans
+        FILTER d.tenant_key != null AND d.tenant_key != ""
+        COLLECT t = d.tenant_key WITH COUNT INTO n RETURN {tenant_key: t, rows: n})
+    }
+    ```
+
+    `entries_under_global_plan` größer als 0 heißt: Die Migration ändert etwas. Dieselbe
+    Abfrage für `fertilizers`, `workflow_templates` und `task_templates` steht als
+    `OPERATOR_COUNT_QUERY` in der Migration. Der Schlüssel, der in diesen Zählungen dominiert,
+    ist der damalige Default-Mandant.
+
+Ausführung wie jede Migration über `python -m app.migrations upgrade`; `--dry-run` zählt die
+Änderungen (`reset_legacy_seed_tenant_stamps_dry_run`), ohne etwas zu schreiben. Ein zweiter
+Lauf ändert nichts.
+
+!!! danger "Nicht reversibel"
+    Der alte Default-Mandanten-Schlüssel auf den Seed-Zeilen ist danach nicht wiederherstellbar.
+    Sichere die Datenbank vor dem Upgrade.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Kann ich die 90-Tage-Frist für Soft-Delete verlängern?"
