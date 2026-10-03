@@ -25,6 +25,7 @@ from app.common.enums import (
     PhotoperiodType,
     StressTolerance,
 )
+from app.data_access.arango.base_repository import get_all_pages
 from app.data_access.arango.phase_sequence_repository import BOUND_BY_SEED
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -161,8 +162,9 @@ def link_indoor_species_to_phase_sequence() -> None:
         )
         return
 
-    # Load every species (paginated). ~210 rows — a 1000 page covers it with headroom.
-    all_species, _ = species_repo.get_all(0, 1000)
+    # Load every species, global and tenant-owned: a species past a fixed window was
+    # never bound (#2015; a CSV import grows the collection without bound).
+    all_species = get_all_pages(species_repo)
 
     edge_col = db.collection(col.HAS_PHASE_SEQUENCE)
     linked = 0

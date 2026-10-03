@@ -82,7 +82,10 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
-        query += " SORT doc.product_name LIMIT @offset, @limit RETURN doc"
+        # ``product_name`` is not unique (one name, several brands; a tenant's copy of
+        # a global product), so ``_key`` breaks the tie: offset paging over a partial
+        # order may swap equal-named rows between pages (get_all_pages, #2015).
+        query += " SORT doc.product_name, doc._key LIMIT @offset, @limit RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [Fertilizer(**self._from_doc(doc)) for doc in cursor]
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)

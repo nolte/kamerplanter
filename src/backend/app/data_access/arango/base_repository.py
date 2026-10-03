@@ -48,6 +48,7 @@ def get_all_pages(
     *,
     tenant_key: str | None = None,
     all_tenants: bool = False,
+    filters: dict[str, Any] | None = None,
     page_size: int = DEFAULT_PAGE_SIZE,
     max_pages: int = MAX_PAGES,
 ) -> list[Any]:
@@ -70,11 +71,16 @@ def get_all_pages(
     task passes ``all_tenants=True`` by design; the helper does not widen or narrow
     tenant scope, it forwards what the caller states.
 
+    ``filters`` is forwarded as the ``filters=`` keyword for the repositories whose
+    ``get_all`` takes one (fertilizers, tanks, activities, #2015) and is omitted
+    otherwise; the base ``get_all`` has no filter, so a caller of a repository
+    without one still reads the whole collection and filters in Python. Paging is
+    only sound over a total order: a repository must sort on a unique key (or break
+    ties on ``_key``), otherwise rows with equal sort values may swap between pages.
+
     Limits: rows *deleted by someone else* while the pages are being read shift the
     window of the pages still to come and can skip a row; the read is a snapshot only
-    from the first page on, as the single page it replaces was. ``get_all`` has no
-    filter, so a caller that needs a subset (open tasks only) still reads the whole
-    collection and filters in Python.
+    from the first page on, as the single page it replaces was.
 
     Raises :class:`PagingCeilingError` (logged first) instead of looping past
     ``max_pages`` pages.
@@ -89,6 +95,8 @@ def get_all_pages(
             kwargs["tenant_key"] = tenant_key
         if all_tenants:
             kwargs["all_tenants"] = True
+        if filters is not None:
+            kwargs["filters"] = filters
         page, total = repo.get_all(**kwargs)
         rows.extend(page)
         offset += len(page)

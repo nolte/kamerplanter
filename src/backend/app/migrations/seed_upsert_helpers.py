@@ -10,6 +10,7 @@ import structlog
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.base_repository import get_all_pages
 from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.domain.models.fertilizer import Fertilizer
@@ -18,12 +19,26 @@ from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 logger = structlog.get_logger()
 
 
+def load_all_fertilizers(fert_repo: ArangoFertilizerRepository) -> list[Fertilizer]:
+    """Every fertilizer row, all tenants, every page (#2015).
+
+    The four fertilizer seed loaders read ``get_all(offset=0, limit=1000,
+    all_tenants=True)`` once: past the 1000th row (sorted by ``product_name``) an
+    existing seed product was treated as missing, created again and refused by the
+    collection-wide ``(product_name, brand)`` unique index, and a plan seed lost the
+    key of a product it references. Matching across tenants is unchanged here; that
+    is #2000's decision (it needs the unique-index call), not a paging fix.
+    """
+    rows: list[Fertilizer] = get_all_pages(fert_repo, all_tenants=True)
+    return rows
+
+
 def upsert_fertilizers(
     fert_repo: ArangoFertilizerRepository,
     fertilizers: list[Fertilizer],
 ) -> dict[str, str]:
     """Upsert fertilizers: update existing, create new. Returns product_name→key map."""
-    all_existing, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
+    all_existing = load_all_fertilizers(fert_repo)
     existing_map = {(f.product_name, f.brand): f for f in all_existing}
 
     fert_keys: dict[str, str] = {}
