@@ -128,7 +128,7 @@ services:
       # NFR-011 §3.4 (#1812): >= 32 chars, keys the log pseudonyms; same gate,
       # same value as the celery-worker's. Rotatable.
       LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT:-}
-      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-true}
       KAMERPLANTER_MODE: light
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb

@@ -65,3 +65,16 @@ def test_the_mail_less_stacks_switch_verification_off_explicitly():
         backends, "false"
     )
     assert dev_env["REQUIRE_EMAIL_VERIFICATION"] == "false"
+
+
+def test_the_service_default_agrees_with_the_settings_default(monkeypatch: pytest.MonkeyPatch):
+    """The wiring passes the setting, but a service built without it (a test, a
+    script) must not quietly fall back to the old, unverified behaviour."""
+    import inspect
+
+    from app.domain.services.auth_service import AuthService
+
+    monkeypatch.delenv("REQUIRE_EMAIL_VERIFICATION", raising=False)
+    parameter = inspect.signature(AuthService.__init__).parameters["require_email_verification"]
+
+    assert parameter.default is Settings().require_email_verification

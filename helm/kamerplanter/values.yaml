@@ -222,11 +222,13 @@ controllers:
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "false"
           # #1948 — a self-registered account must confirm its address before it
-          # can sign in (also the application default). The chart sets no
-          # EMAIL_ADAPTER, so an installation without outbound mail MUST override
-          # this with "false" in its values; otherwise new accounts wait for a
-          # confirmation mail that never arrives (the backend logs
-          # email_adapter_console_in_production at startup).
+          # can sign in (also the application default).
+          # WARNING: this chart sets NO EMAIL_ADAPTER, so the backend uses the
+          # console adapter, which delivers no mail. Without a mail adapter
+          # (EMAIL_ADAPTER=smtp or resend plus its settings), NEW REGISTRATIONS
+          # CANNOT LOG IN unless you set REQUIRE_EMAIL_VERIFICATION: "false" in
+          # your values. Existing accounts are unaffected. The backend logs
+          # email_adapter_console_in_production at startup in that state.
           REQUIRE_EMAIL_VERIFICATION: "true"
           # #1236 — the last delivery hop, made measurable. `GET /api/health`
           # discloses `build_revision` (the full 40-character commit the running
