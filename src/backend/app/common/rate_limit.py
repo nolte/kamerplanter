@@ -55,10 +55,9 @@ several addresses for one name, connect and handshake together, and reloading
 the script after ``NOSCRIPT``. Requests already in flight at that moment wait
 out their own timeout alongside it, not after it. Every other request during
 the outage is answered from memory without waiting — this applies to the
-limiter only. The mail-budget stores of the sign-in routes use the same client
-options (:func:`bounded_redis_client_options`) but have no probe plan: they try
-Valkey on every request, so while it hangs every request that reaches one of
-them waits one socket timeout per store call before it falls back.
+limiter. The mail-budget stores of the sign-in routes use the same client
+options (:func:`bounded_redis_client_options`) and, since #2062, the same probe
+plan (``app.data_access.external.latched_redis.LatchedRedis``).
 
 **Off the event loop (#2048).** slowapi runs the limit check synchronously,
 also inside the wrapper of an ``async def`` route — there it is a storage round

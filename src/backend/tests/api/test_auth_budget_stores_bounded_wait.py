@@ -274,3 +274,34 @@ def test_a_failed_login_for_an_unknown_address_waits_one_short_timeout_per_store
     print(f"\n{_LOGIN} (unknown address): one request against a hanging Valkey took {elapsed:.2f}s")
     assert elapsed < 3.0, f"one request took {elapsed:.2f}s"
     assert _shape(hanging) == _shape(healthy)
+
+
+#: A store call that does not touch the socket at all — the latch answers it.
+_NO_WAIT_S = 0.25
+
+
+@pytest.mark.allow_db_connection(
+    "connects to a loopback socket this test opens itself, which accepts and never answers — "
+    "the hanging-Valkey case needs redis-py's real socket timeouts"
+)
+def test_after_one_request_noticed_the_hang_the_next_ones_do_not_wait(blackhole_url: str) -> None:
+    """The throttle client latches like the IP limiter (#2062).
+
+    Measured before: every reset request waited one timeout per store call —
+    1.0 s each with the two reservations of #2059 — for as long as Valkey hung.
+    Now the first call that meets the hang marks Valkey down for this process,
+    and every call until the next probe (1 s later) falls back at once.
+    """
+    dependencies._throttle_redis_client_for.cache_clear()
+    try:
+        for client in _client(wired=True):
+            first = _post(client, _RESET, {"email": OWNER})
+            following = [_post(client, _RESET, {"email": f"other-{i}@example.com"}) for i in range(3)]
+    finally:
+        dependencies._throttle_redis_client_for.cache_clear()
+
+    times = [round(elapsed, 2) for _, elapsed in following]
+    print(f"\n{_RESET}: first {first[1]:.2f}s, then {times}")
+    assert first[1] < _BOUND_S
+    assert max(times) < _NO_WAIT_S, f"requests after the first still waited: {times}"
+    assert {response.status_code for response, _ in [first, *following]} == {200}

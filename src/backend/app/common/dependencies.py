@@ -103,7 +103,7 @@ from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
 
 if TYPE_CHECKING:
-    import redis
+    from app.data_access.external.latched_redis import LatchedRedis
 
 _connection: ArangoConnection | None = None
 _timescale_connection = None
@@ -1650,7 +1650,7 @@ def _get_redis_client():
     return redis.Redis.from_url(settings.redis_url, decode_responses=True)
 
 
-def _get_throttle_redis_client() -> redis.Redis:
+def _get_throttle_redis_client() -> LatchedRedis:
     """The Valkey client of the sign-in routes' mail budgets and the unknown-account counter (#2045 SEC-001).
 
     These stores sit on anonymous request paths and fall back to an in-process
@@ -1659,8 +1659,10 @@ def _get_throttle_redis_client() -> redis.Redis:
     TCP and never answers held every password-reset request and every
     unverified-login refusal for about 5 s — measured. This client waits one
     0.5 s socket timeout per connection attempt and address and never retries,
-    the options of the IP limiter (``app.common.rate_limit``). It has no probe
-    plan: the stores try Valkey on every request.
+    the options of the IP limiter (``app.common.rate_limit``). Since #2062 it
+    also has the limiter's probe plan (``LatchedRedis``): after a Valkey error
+    every store call falls back at once, and one call at a time probes — 1 to
+    32 s apart — instead of each call waiting its own timeout.
 
     One client per URL, built on first use and shared, so its connection pool is
     reused across requests instead of rebuilt per request.
@@ -1669,12 +1671,13 @@ def _get_throttle_redis_client() -> redis.Redis:
 
 
 @functools.lru_cache(maxsize=4)
-def _throttle_redis_client_for(redis_url: str) -> redis.Redis:
+def _throttle_redis_client_for(redis_url: str) -> LatchedRedis:
     import redis
 
     from app.common.rate_limit import bounded_redis_client_options
+    from app.data_access.external.latched_redis import LatchedRedis
 
-    return redis.Redis.from_url(redis_url, decode_responses=True, **bounded_redis_client_options())
+    return LatchedRedis(redis.Redis.from_url(redis_url, decode_responses=True, **bounded_redis_client_options()))
 
 
 def get_notification_service():
