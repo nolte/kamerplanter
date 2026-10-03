@@ -30,8 +30,14 @@ unique ``(tenant_key, name)`` index exists after the creation step, nothing is
 dropped and the run reports ``precondition_unmet`` with the counts, so the runner
 leaves this version pending and a later boot retries it.
 
-**No data moves.** A set unique on ``name`` is unique on any superset of the fields,
-so no existing row can violate the compound index.
+**One value moves: a missing ``tenant_key`` becomes ``""``.** Before the index work
+every row without ``tenant_key`` (indexed as ``null``) is normalised to ``""``
+(:func:`~app.migrations.support.null_tenant_keys.normalise_null_tenant_keys`):
+``null`` and ``""`` are two values for the compound index, so a legacy global row
+without the field and a later global row with ``""`` of the same name would both be
+admitted. A ``null`` row whose name a ``""`` row already holds is counted, not
+rewritten. Otherwise no row can violate the compound index: a set unique on
+``name`` is unique on any superset of the fields.
 
 Idempotent (M-3): a re-run finds the compound present and no legacy index →
 ``changed == 0``. Dry-run (M-5) reports the plan and touches no index. Irreversible
@@ -51,6 +57,7 @@ from app.data_access.arango import collections as col
 from app.migrations.framework.base import Migration
 from app.migrations.framework.report import MigrationReport
 from app.migrations.support.legacy_indexes import IndexShape, retire_legacy_index
+from app.migrations.support.null_tenant_keys import normalise_null_tenant_keys
 
 logger = structlog.get_logger(__name__)
 
@@ -86,6 +93,10 @@ class TenantScopedActivityNameIndexMigration(Migration):
             return MigrationReport(version=self.version, name=self.name, dry_run=dry_run)
         activities = db.collection(col.ACTIVITIES)
 
+        # Global rows written without the field become ``""`` first, so the compound
+        # index sees one value for "global" (null != "" for a unique index).
+        nulls = normalise_null_tenant_keys(db, col.ACTIVITIES, dry_run=dry_run)
+
         needs_compound = not _has_replacement(activities)
         compound_created = False
         if needs_compound and not dry_run:
@@ -107,6 +118,7 @@ class TenantScopedActivityNameIndexMigration(Migration):
 
         details: dict[str, Any] = {
             **outcome.details(),
+            **nulls.details(),
             "refused_without_replacement": refused,
             "compound_created": compound_created,
         }
@@ -119,8 +131,8 @@ class TenantScopedActivityNameIndexMigration(Migration):
         return MigrationReport(
             version=self.version,
             name=self.name,
-            scanned=len(outcome.legacy_ids) + int(needs_compound),
-            changed=0 if dry_run else int(compound_created) + outcome.dropped,
+            scanned=len(outcome.legacy_ids) + int(needs_compound) + nulls.candidates + nulls.conflicts,
+            changed=0 if dry_run else int(compound_created) + outcome.dropped + nulls.normalised,
             dry_run=dry_run,
             precondition_unmet=refused,
             details=details,

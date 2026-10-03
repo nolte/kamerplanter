@@ -41,10 +41,22 @@ class _Collection:
         return True
 
 
+class _Aql:
+    """No row lacks ``tenant_key``; the null normalisation is measured on a real server."""
+
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    def execute(self, query: str, **_: Any) -> Any:
+        self.queries.append(query)
+        return iter([])
+
+
 class _Db:
     def __init__(self, rows: list[dict[str, Any]] | None) -> None:
         self.target = _Collection(rows or [])
         self.present = rows is not None
+        self.aql = _Aql()
 
     def has_collection(self, name: str) -> bool:
         return self.present and name == _COLLECTION
@@ -101,6 +113,8 @@ def test_a_dry_run_writes_nothing() -> None:
     db = _Db([_row("c/1", "hash", ["name"])])
 
     report = migration.up(db, dry_run=True)  # type: ignore[arg-type]
+
+    assert not [q for q in db.aql.queries if "UPDATE" in q], "the dry run issued a write"
 
     assert report.changed == 0
     assert report.precondition_unmet is False

@@ -194,3 +194,42 @@ def test_without_the_replacement_nothing_is_dropped(
     assert report.details["replacement_indexes"] == 0
     assert report.details["legacy_indexes"] == len(legacy_types)
     assert _name_indexes(db) == _legacy_rows(legacy_types)
+
+
+def test_a_global_row_without_tenant_key_is_normalised_and_holds_its_name(db: StandardDatabase) -> None:
+    """``null`` and ``""`` are two values for the compound index; the legacy global row gets ``""``."""
+    target = db.collection(_COLLECTION)
+    _drop_compound(db)
+    _persistent_legacy(db)
+    legacy_key = target.insert({"name": "Topping"})["_key"]  # written before the field existed
+
+    dry = migration.up(db, dry_run=True)
+    assert dry.details["null_tenant_keys"] == 1
+    assert dry.details["null_tenant_keys_normalised"] == 0
+    assert "tenant_key" not in target.get(legacy_key)
+
+    report = migration.up(db)
+
+    assert report.details["null_tenant_keys_normalised"] == 1
+    assert report.changed == 1 + 1 + 1  # normalised, compound created, legacy dropped
+    assert target.get(legacy_key)["tenant_key"] == ""
+    with pytest.raises(DocumentInsertError):
+        target.insert(_row(GLOBAL))  # global exactly once, whichever spelling came first
+    target.insert(_row(TENANT))
+    again = migration.up(db)
+    assert again.changed == 0
+    assert again.details["null_tenant_keys"] == 0
+
+
+def test_a_null_row_whose_name_a_global_row_holds_is_counted_not_rewritten(db: StandardDatabase) -> None:
+    """The compound index alone admits both; rewriting the null row would abort the boot."""
+    target = db.collection(_COLLECTION)
+    null_key = target.insert({"name": "Topping"})["_key"]
+    target.insert(_row(GLOBAL))
+
+    report = migration.up(db)
+
+    assert report.precondition_unmet is False
+    assert report.details["null_tenant_key_name_conflicts"] == 1
+    assert report.details["null_tenant_keys_normalised"] == 0
+    assert "tenant_key" not in target.get(null_key)
