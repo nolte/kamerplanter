@@ -76,3 +76,25 @@ def test_a_profile_another_phase_still_points_at_is_kept(repo) -> None:
     repo.delete_phase(doomed)
 
     assert _exists(repo, col.REQUIREMENT_PROFILES, req_key)
+
+
+def test_a_failure_part_way_never_leaves_an_edge_to_a_removed_profile(repo, monkeypatch) -> None:
+    """The steps are not one transaction; a failure between them must leave a readable phase.
+
+    Measured before the reorder: profiles removed first, the edge detach failed, and
+    ``get_requirement_profile`` dereferenced the dangling edge (``AttributeError``, a 500).
+    """
+    phase_key, req_key, nut_key = _phase_with_profiles(repo, "vegetative")
+
+    def fail(*_args: object, **_kwargs: object) -> int:
+        raise RuntimeError("injected failure while detaching edges")
+
+    monkeypatch.setattr(repo, "delete_edges", fail)
+    with pytest.raises(RuntimeError):
+        repo.delete_phase(phase_key)
+    monkeypatch.undo()
+
+    assert repo.get_requirement_profile(phase_key) is not None
+    assert repo.get_nutrient_profile(phase_key) is not None
+    assert _exists(repo, col.REQUIREMENT_PROFILES, req_key)
+    assert _exists(repo, col.NUTRIENT_PROFILES, nut_key)
