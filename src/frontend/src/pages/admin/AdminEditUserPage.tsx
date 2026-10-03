@@ -87,6 +87,10 @@ export default function AdminEditUserPage() {
   // the account's key, so a token obtained on another account's page stays unused).
   useStepUpResume('update-user');
   const [confirmTrustRaise, setConfirmTrustRaise] = useState(false);
+  // #2009 — removing the account from a tenant passes the admin's own step-up,
+  // bound to the membership (#1884); the resume context is only consumed, as above.
+  useStepUpResume('remove-membership');
+  const [membershipToRemove, setMembershipToRemove] = useState<AdminUserMembership | null>(null);
 
   // Memberships
   const [memberships, setMemberships] = useState<AdminUserMembership[]>([]);
@@ -237,15 +241,15 @@ export default function AdminEditUserPage() {
     }
   };
 
-  const handleRemoveFromTenant = async (m: AdminUserMembership) => {
-    if (!key) return;
-    try {
-      await removeUserFromTenant(key, m.membership_key);
-      setMemberships((prev) => prev.filter((x) => x.membership_key !== m.membership_key));
-      enqueueSnackbar(t('pages.auth.adminMemberRemoved'), { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
+  // The admin's OWN step-up (#2009); a rejection propagates to the dialog,
+  // which shows it inside itself and stays open.
+  const handleRemoveFromTenant = async (credentials: StepUpConfirmation) => {
+    if (!key || !membershipToRemove) return;
+    const removed = membershipToRemove;
+    await removeUserFromTenant(key, removed.membership_key, toCredentialStepUpBody(credentials));
+    setMemberships((prev) => prev.filter((x) => x.membership_key !== removed.membership_key));
+    setMembershipToRemove(null);
+    enqueueSnackbar(t('pages.auth.adminMemberRemoved'), { variant: 'success' });
   };
 
   const handleRoleChange = async (m: AdminUserMembership, newRole: TenantRole) => {
@@ -479,7 +483,7 @@ export default function AdminEditUserPage() {
                           </Select>
                         </TableCell>
                         <TableCell align="right">
-                          <IconButton size="small" onClick={() => handleRemoveFromTenant(m)} data-testid={`remove-membership-${m.tenant_key}`}>
+                          <IconButton size="small" onClick={() => setMembershipToRemove(m)} data-testid={`remove-membership-${m.tenant_key}`}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -498,6 +502,22 @@ export default function AdminEditUserPage() {
                 </Table>
               </TableContainer>
             )}
+            <StepUpConfirmDialog
+              open={membershipToRemove !== null}
+              title={t('pages.auth.adminRemoveMemberStepUpTitle')}
+              description={t('pages.auth.adminRemoveMemberStepUpDescription', {
+                name: user.display_name,
+                tenant: membershipToRemove?.tenant_name ?? '',
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminRemoveMemberStepUpConfirm')}
+              testIdPrefix="remove-membership"
+              stepUpAction="admin_membership_removal"
+              stepUpTarget={membershipToRemove?.membership_key}
+              onConfirm={handleRemoveFromTenant}
+              onCancel={() => setMembershipToRemove(null)}
+            />
           </CardContent>
         </Card>
       </Box>

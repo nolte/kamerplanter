@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Body, Depends, Path
 
 from app.api.v1.admin.platform.schemas import (
     AdminAddMemberRequest,
     AdminAddUserToTenantRequest,
+    AdminMembershipRemovalRequest,
     AdminStatsResponse,
     AdminTenantMemberResponse,
     AdminTenantResponse,
@@ -135,11 +136,13 @@ def list_all_users(
     return results
 
 
-@router.patch("/tenants/{key}", response_model=AdminTenantResponse)
+@router.patch("/tenants/{key}", response_model=AdminTenantResponse, responses=STEP_UP_RESPONSES)
 def update_tenant(
     key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminTenantUpdate,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Update a tenant. Platform admin only.
@@ -165,13 +168,32 @@ def update_tenant(
       the tenant's name. The new slug is returned in the response.
 
     ``is_active`` is the one field the tenant-scoped request schema does not
-    carry; ``update_tenant`` takes a partial payload and does not refuse it, so
-    the platform-admin path needs no separate service method — only the closed
-    ``AdminTenantUpdate`` schema that keeps ``owner_user_key``, ``is_platform``,
-    ``tenant_type``, ``slug`` and ``settings`` out of it.
+    carry; the closed ``AdminTenantUpdate`` schema keeps ``owner_user_key``,
+    ``is_platform``, ``tenant_type``, ``slug`` and ``settings`` out of it.
+
+    **Step-up (#2009, REQ-024 AK-56):** any *change* of ``is_active`` —
+    deactivating locks every member out — passes the admin's own step-up —
+    ``current_password`` (or ``step_up_token`` / ``step_up_code`` obtained for
+    ``admin_tenant_update`` with the tenant's key, for an admin without one); 401
+    without it, 403 from an API-key request, 429 ``STEP_UP_LOCKED``; nothing is
+    written then. Decided in ``TenantService.admin_update_tenant``. The step-up
+    fields are never written.
     """
-    update_data = body.model_dump(exclude_none=True)
-    tenant = tenant_service.update_tenant(key, update_data) if update_data else tenant_service.get_tenant(key)
+    update_data = body.model_dump(exclude_none=True, exclude=set(CREDENTIAL_STEP_UP_FIELDS))
+    tenant = (
+        tenant_service.admin_update_tenant(
+            key,
+            update_data,
+            requester=admin,
+            current_password=body.current_password,
+            step_up_code=body.step_up_code,
+            step_up_token=body.step_up_token,
+            authenticated_with_api_key=via_api_key,
+            client_ip=client_ip,
+        )
+        if update_data
+        else tenant_service.get_tenant(key)
+    )
 
     member_count = sum(1 for member in tenant_service.list_members(key) if member.is_active)
 
@@ -477,11 +499,15 @@ def add_tenant_member(
 @router.delete(
     "/tenants/{tenant_key}/members/{membership_key}",
     status_code=204,
+    responses=STEP_UP_RESPONSES,
 )
 def remove_tenant_member(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
-    _user: User = Depends(require_platform_admin),
+    body: Annotated[AdminMembershipRemovalRequest | None, Body()] = None,
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Remove a member from a tenant (tenant perspective). Platform admin only.
@@ -490,8 +516,24 @@ def remove_tenant_member(
     drops the membership's location assignments — the raw-AQL router copy removed
     only the two graph edges and orphaned them. The ``tenant_key`` constraint
     404s a membership addressed under the wrong tenant.
+
+    **Step-up (#2009, REQ-024 AK-56):** the body carries the admin's own
+    ``current_password`` (or ``step_up_token`` / ``step_up_code`` obtained for
+    ``admin_membership_removal`` with the membership's key); 401 without it — also
+    without a body —, 403 from an API-key request, 429 ``STEP_UP_LOCKED``; the
+    membership stays then.
     """
-    tenant_service.admin_remove_membership(membership_key, tenant_key=tenant_key)
+    step_up = body or AdminMembershipRemovalRequest()
+    tenant_service.admin_remove_membership(
+        membership_key,
+        tenant_key=tenant_key,
+        requester=admin,
+        current_password=step_up.current_password,
+        step_up_code=step_up.step_up_code,
+        step_up_token=step_up.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
 
 
 @router.patch(
@@ -595,11 +637,15 @@ def add_user_to_tenant(
 @router.delete(
     "/users/{user_key}/memberships/{membership_key}",
     status_code=204,
+    responses=STEP_UP_RESPONSES,
 )
 def remove_user_from_tenant(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
-    _user: User = Depends(require_platform_admin),
+    body: Annotated[AdminMembershipRemovalRequest | None, Body()] = None,
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Remove a user from a tenant (user perspective). Platform admin only.
@@ -607,8 +653,23 @@ def remove_user_from_tenant(
     Converges on ``TenantService.admin_remove_membership`` (#1019), shared with
     the tenant-perspective ``remove_tenant_member``. The ``user_key`` constraint
     404s a membership addressed under the wrong user.
+
+    **Step-up (#2009, REQ-024 AK-56):** the same as the tenant perspective — the
+    admin's own ``current_password`` (or ``step_up_token`` / ``step_up_code`` for
+    ``admin_membership_removal`` with the membership's key) in the body; 401
+    without it, 403 from an API-key request, 429 ``STEP_UP_LOCKED``.
     """
-    tenant_service.admin_remove_membership(membership_key, user_key=user_key)
+    step_up = body or AdminMembershipRemovalRequest()
+    tenant_service.admin_remove_membership(
+        membership_key,
+        user_key=user_key,
+        requester=admin,
+        current_password=step_up.current_password,
+        step_up_code=step_up.step_up_code,
+        step_up_token=step_up.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
 
 
 @router.patch(
