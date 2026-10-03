@@ -1935,6 +1935,85 @@ def ensure_care_task_dedup_index(tasks_col: StandardCollection) -> None:
         )
 
 
+#: Fields of the fertilizer identity index (#2000).
+#:
+#: Compound, the same decision ``species`` took in #1162: ``(tenant_key,
+#: product_name, brand)``. The pre-#2000 index was collection-wide on
+#: ``(product_name, brand)``, so a tenant's private product and a global seed product
+#: of the same name could not coexist: the seed loader found the tenant's row,
+#: rewrote it as global and overwrote it — and a loader that only matches global rows
+#: would have been refused by the index instead, denying the seed product to every
+#: tenant. It also made a second tenant's create of a privately held name a ``409``,
+#: which told that tenant the other one owns such a product. The shared catalogue
+#: (``tenant_key == ""``) still holds exactly one row per pair.
+FERTILIZER_IDENTITY_INDEX_FIELDS = ["tenant_key", "product_name", "brand"]
+
+#: The pre-#2000 collection-wide index; ``v0069`` recognises and drops it. Left in
+#: place it would keep the old, stricter constraint in force and make the compound
+#: index cosmetic.
+LEGACY_GLOBAL_FERTILIZER_INDEX_FIELDS = ["product_name", "brand"]
+
+#: The identity a seed gives a harvest indicator (#1956, #2001):
+#: ``(species, indicator_type, measurement_unit)`` — see
+#: ``ArangoHarvestRepository.find_indicator``. **Sparse**, so a legacy species-less
+#: row (written when the species was not yet resolvable) is outside the constraint;
+#: the seed never writes one any more.
+HARVEST_INDICATOR_IDENTITY_FIELDS = ["species_key", "indicator_type", "measurement_unit"]
+
+#: The vertex pair of an IPM treatment edge — the identity
+#: ``BaseArangoRepository.create_edge_if_absent`` gives it (#1956, #2001).
+EDGE_PAIR_FIELDS = ["_from", "_to"]
+
+#: The edge collections the seed writes create-if-absent by vertex pair. A unique
+#: index on the pair makes the storage layer reject the loser of two replicas that
+#: boot at the same time; the read-then-write check alone cannot.
+UNIQUE_PAIR_EDGE_COLLECTIONS = (TARGETS_PEST, TARGETS_DISEASE, CONTRAINDICATED_WITH)
+
+
+def has_unique_index(collection: StandardCollection, fields: list[str], *, sparse: bool = False) -> bool:
+    """Whether ``collection`` carries a unique persistent index on exactly ``fields``."""
+    return any(
+        isinstance(idx, dict)
+        and idx.get("type") == "persistent"
+        and idx.get("fields") == fields
+        and idx.get("unique")
+        and bool(idx.get("sparse")) == sparse
+        for idx in collection.indexes()
+    )
+
+
+def ensure_unique_index_when_clean(collection: StandardCollection, fields: list[str], *, sparse: bool = False) -> bool:
+    """Create a unique index on ``fields`` unless duplicates prevent it; ``True`` when present.
+
+    ``ensure_collections`` runs at startup *before* the migration runner, so on a
+    volume that still carries the duplicates a migration is about to remove, the
+    creation fails — and must not take startup down. The collection is then left
+    unconstrained (the shape of :func:`ensure_care_task_dedup_index`); the migration
+    that removes the duplicates calls this again, and every later boot retries.
+    """
+    if has_unique_index(collection, fields, sparse=sparse):
+        return True
+    try:
+        collection.add_persistent_index(fields=fields, unique=True, sparse=sparse)
+    except IndexCreateError:
+        return False
+    return True
+
+
+def ensure_seed_identity_indexes(db: StandardDatabase) -> None:
+    """The unique identity indexes of the create-if-absent seed writes (#2001).
+
+    ``harvest_indicators`` on :data:`HARVEST_INDICATOR_IDENTITY_FIELDS` (sparse) and
+    the vertex pair of every :data:`UNIQUE_PAIR_EDGE_COLLECTIONS` edge. The seed
+    registry runs on every replica without a lock; with these in place a second
+    replica's insert of the same row is refused by the storage layer and read as
+    "exists" (``create_edge_if_absent``, ``run_seed_harvest_indicators``).
+    """
+    ensure_unique_index_when_clean(db.collection(HARVEST_INDICATORS), HARVEST_INDICATOR_IDENTITY_FIELDS, sparse=True)
+    for name in UNIQUE_PAIR_EDGE_COLLECTIONS:
+        ensure_unique_index_when_clean(db.collection(name), EDGE_PAIR_FIELDS)
+
+
 def ensure_collections(db: StandardDatabase) -> None:
     """Create all collections and the graph if they don't exist."""
     for name in DOCUMENT_COLLECTIONS:
@@ -1983,7 +2062,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     tank_states_col.add_persistent_index(fields=["recorded_at"], unique=False)
 
     fertilizers_col = db.collection(FERTILIZERS)
-    fertilizers_col.add_persistent_index(fields=["product_name", "brand"], unique=True)
+    # Tenant-scoped identity since #2000; v0069 drops the legacy collection-wide index.
+    # Always creatable on a legacy volume: the old, stricter index implies it holds.
+    fertilizers_col.add_persistent_index(fields=FERTILIZER_IDENTITY_INDEX_FIELDS, unique=True)
 
     feeding_events_col = db.collection(FEEDING_EVENTS)
     feeding_events_col.add_persistent_index(fields=["plant_key"], unique=False)
@@ -2011,6 +2092,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     treatment_apps_col = db.collection(TREATMENT_APPLICATIONS)
     treatment_apps_col.add_persistent_index(fields=["plant_key"], unique=False)
     treatment_apps_col.add_persistent_index(fields=["treatment_key"], unique=False)
+
+    # #2001: seed identity of harvest indicators and IPM treatment edges.
+    ensure_seed_identity_indexes(db)
 
     # REQ-007 Harvest indexes
     harvest_obs_col = db.collection(HARVEST_OBSERVATIONS)

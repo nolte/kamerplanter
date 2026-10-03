@@ -15,7 +15,13 @@ from arango import ArangoClient
 from arango.database import StandardDatabase
 
 from app.common import dependencies
-from app.data_access.arango.collections import ensure_collections
+from app.data_access.arango.collections import (
+    EDGE_PAIR_FIELDS,
+    HARVEST_INDICATOR_IDENTITY_FIELDS,
+    HARVEST_INDICATORS,
+    UNIQUE_PAIR_EDGE_COLLECTIONS,
+    ensure_collections,
+)
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
 
 
@@ -34,3 +40,18 @@ def create_database(name: str) -> tuple[StandardDatabase, StandardDatabase]:
 def bind_database(monkeypatch: pytest.MonkeyPatch, database: StandardDatabase) -> None:
     """Make ``get_db()`` and every repository factory built on it use ``database``."""
     monkeypatch.setattr(dependencies, "get_connection", lambda: SimpleNamespace(db=database))
+
+
+def drop_seed_identity_indexes(database: StandardDatabase) -> None:
+    """Remove the #2001 unique identity indexes, giving the shape of a volume from before v0070.
+
+    ``ensure_collections`` creates them on every boot; a test that builds the duplicates
+    the old loaders wrote has to take them away first, as a legacy volume never had them.
+    """
+    targets = [(HARVEST_INDICATORS, HARVEST_INDICATOR_IDENTITY_FIELDS)]
+    targets += [(name, EDGE_PAIR_FIELDS) for name in UNIQUE_PAIR_EDGE_COLLECTIONS]
+    for name, fields in targets:
+        collection = database.collection(name)
+        for idx in collection.indexes():
+            if idx.get("fields") == fields and idx.get("unique"):
+                collection.delete_index(idx["id"])
