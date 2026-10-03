@@ -154,6 +154,24 @@ class MemoryStepUpThrottleStore(IStepUpThrottleStore):
 DEFAULT_STEP_UP_THROTTLE_STORE = MemoryStepUpThrottleStore()
 
 
+#: Window of the per-address budget of ``POST /auth/resend-verification`` (#2037).
+#:
+#: That budget is a second, separate user of this mechanism: an atomic counter
+#: per subject whose window is renewed by every request. It needs nothing else
+#: the step-up does (no strikes, no locks), and its subjects —
+#: ``verification-resend:<address>`` — can never digest to a step-up subject (an
+#: account key, or a key plus a client address), so the two never touch each
+#: other's counters. One hour: the budget refills once an address has been left
+#: alone that long.
+VERIFICATION_RESEND_WINDOW_SECONDS = 3_600
+
+#: Process-wide in-process tier of the resend budget, and the degradation target
+#: of its Redis tier — its own instance, so the step-up's 24-hour window and this
+#: one-hour window are never applied to each other's subjects. Module-level for
+#: the same reason as :data:`DEFAULT_STEP_UP_THROTTLE_STORE`.
+DEFAULT_VERIFICATION_RESEND_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
+
+
 class RedisStepUpThrottleStore(IStepUpThrottleStore):
     """Valkey/Redis-backed counters shared across replicas, with an in-process fallback.
 

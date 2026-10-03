@@ -495,6 +495,7 @@ Der Wert wird vor der Ausgabe gegen `^[0-9a-f]{7,40}$` geprüft (nach dem Abschn
 | `RATE_LIMIT_AUTH` | `20/minute` | Nein | Rate-Limit für Authentifizierungsendpunkte |
 | `TRUSTED_PROXY_HOPS` | `0` | **Ja, hinter zwei Proxys** | Wie viele Proxy-Adressen die eigene Infrastruktur an `X-Forwarded-For` anhängt, von rechts gezählt. `0` = Client → nginx → Backend (Dev/E2E); `1` = Client → Traefik → nginx → Backend (das Helm-Chart setzt diesen Wert). Zu niedrig löst jeden Aufrufer auf den nächsten Proxy auf — der Device-Pairing-Lockout sperrt dann alle Nutzer gleichzeitig und IP-Allowlist-Service-Accounts scheitern; zu hoch liest Einträge, die ein Aufrufer fälschen kann. |
 | `RATE_LIMIT_GENERAL` | `100/minute` | Nein | Rate-Limit für allgemeine API-Endpunkte |
+| `RATE_LIMIT_RESEND_VERIFICATION` | `10/hour` | Nein | Rate-Limit je Client-IP für `POST /api/v1/auth/resend-verification`. Begrenzt E-Mails an frei wählbare Adressen, deshalb weit unter `RATE_LIMIT_AUTH`. Die zusätzliche Grenze je Adresse (3 Anfragen, Auffüllung nach einer Stunde Ruhe) ist fest und nicht konfigurierbar. |
 | `RATE_LIMIT_HEALTH` | `60/minute` | Nein | Rate-Limit für `GET /api/health` — siehe [Health-Endpunkt und Build-Kennung](#health-endpunkt) |
 
 **Format:** `[anzahl]/[einheit]` — Einheiten: `second`, `minute`, `hour`, `day`

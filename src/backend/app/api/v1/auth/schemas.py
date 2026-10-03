@@ -85,6 +85,14 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr
 
 
+class ResendVerificationRequest(BaseModel):
+    """The address a new verification link is asked for (#2037)."""
+
+    email: EmailStr
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"email": "grower@example.com"}]})
+
+
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(min_length=10, max_length=128)

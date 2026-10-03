@@ -19,6 +19,7 @@ import { isLightMode } from '@/config/mode';
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
 const EmailVerificationPage = lazy(() => import('@/pages/auth/EmailVerificationPage'));
+const ResendVerificationPage = lazy(() => import('@/pages/auth/ResendVerificationPage'));
 const PasswordResetRequestPage = lazy(() => import('@/pages/auth/PasswordResetRequestPage'));
 const PasswordResetConfirmPage = lazy(() => import('@/pages/auth/PasswordResetConfirmPage'));
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
@@ -236,6 +237,14 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <EmailVerificationPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="resend-verification"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <ResendVerificationPage />
               </Suspense>
             }
           />

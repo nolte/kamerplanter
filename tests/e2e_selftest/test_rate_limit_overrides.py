@@ -58,6 +58,13 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "a handful of times at most. The hourly budget is a scraping defence on a "
         "full personal-data copy; raising it here would test nothing the suite uses."
     ),
+    "rate_limit_resend_verification": (
+        "No E2E test calls the resend-verification route (grep over tests/e2e finds no "
+        "reference, #2037); it is reached only from the login refusal of an unverified "
+        "account or its own page, one deliberate request per recovery. The hourly budget "
+        "is a mail-flood defence per address and client; raising it here would test "
+        "nothing the suite uses."
+    ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "
         "deliberate send per channel a user is configuring. It is not on any bootstrap "

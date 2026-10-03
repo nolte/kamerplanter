@@ -15,8 +15,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Tooltip from '@mui/material/Tooltip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { loginLocal, clearError } from '@/store/slices/authSlice';
+import { loginLocal, clearError, EMAIL_NOT_VERIFIED } from '@/store/slices/authSlice';
 import { getOAuthProviders } from '@/api/endpoints/auth';
+import ResendVerificationAction from '@/pages/auth/ResendVerificationAction';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import Form from '@/components/form/Form';
 
@@ -29,6 +30,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  // #2037 — the address of the last sign-in the backend refused as unverified.
+  // Kept apart from the typed field so a later edit of the field does not move
+  // the resend to an address nobody signed in with.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   // AP-12 (FE-L3): load the optional OAuth providers with explicit error state
   // instead of a silent `.catch(() => {})`, so a failed load surfaces a hint
@@ -46,9 +51,17 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(loginLocal({ email, password, remember_me: rememberMe }));
+    setUnverifiedEmail(null);
+    try {
+      await dispatch(loginLocal({ email, password, remember_me: rememberMe })).unwrap();
+    } catch (rejection) {
+      // Every other refusal is shown from the store's `error`, as before.
+      if ((rejection as { code?: string } | null)?.code === EMAIL_NOT_VERIFIED) {
+        setUnverifiedEmail(email);
+      }
+    }
   };
 
   return (
@@ -59,7 +72,18 @@ export default function LoginPage() {
             {t('pages.auth.login')}
           </Typography>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {/* An unverified address gets its own message and the way out instead of
+              the backend's English refusal text (#2037). */}
+          {unverifiedEmail ? (
+            <Box sx={{ mb: 2 }}>
+              <Alert severity="warning" data-testid="login-email-not-verified">
+                {t('pages.auth.emailNotVerified')}
+              </Alert>
+              <ResendVerificationAction email={unverifiedEmail} />
+            </Box>
+          ) : (
+            error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+          )}
 
           <Form onSubmit={handleSubmit}>
             <TextField

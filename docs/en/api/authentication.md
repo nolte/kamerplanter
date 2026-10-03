@@ -65,6 +65,40 @@ Content-Type: application/json
 }
 ```
 
+A link is valid for 24 hours and only once. A wrong, expired or already used token yields `401 Unauthorized` (`INVALID_TOKEN`).
+
+### Requesting a New Verification Link
+
+For an account whose first link got lost or has expired. Signing in to an unverified account answers `403 Forbidden` with `error_code` `EMAIL_NOT_VERIFIED` — that is the cue to offer this endpoint.
+
+```http
+POST /api/v1/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "grower@example.com"
+}
+```
+
+**Response** `202 Accepted`, always with the same body:
+
+```json
+{
+  "message": "If this address belongs to an account that still needs verification, a new verification email is on its way."
+}
+```
+
+The answer is the same for **every** address — unknown, unverified, already verified, a service account or an account without a local password. The work before the response is the same for all of them too; the account lookup, the new token and the mail run only afterwards. So the endpoint reveals neither through its content nor through its response time whether an account exists.
+
+A mail goes out only when `REQUIRE_EMAIL_VERIFICATION` is on and the account is active, unverified, interactive (not a service account) and has a local password. Every send writes a **new** token valid for 24 hours; every link sent before it stops working.
+
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_RESEND_VERIFICATION`, default `10/hour` | `429 Too Many Requests` |
+| Per address | 3 requests; the budget refills once no request for the address has arrived for an hour | Still `202` — only no mail goes out |
+
+The per-address limit counts **every** submitted address alike, whether it has an account or not. That is why it answers silently: a `429` would reveal nothing, but a budget that counted only real accounts would.
+
 ---
 
 ## Login

@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948); 1.28 (Default `REQUIRE_EMAIL_VERIFICATION=true` und OIDC-Admin-Seite festgelegt, #1948, #1906)
+Version: 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.30 | 2026-10-03 | **Neuer Bestätigungslink (#2037):** Neuer §3.2b — `POST /auth/resend-verification` stellt einem Konto, dessen erster Bestätigungslink verloren ging oder abgelaufen ist, einen neuen aus. Ohne ihn kam ein solches Konto mit `REQUIRE_EMAIL_VERIFICATION=true` nie mehr in die Anmeldung (`/auth/register` antwortet einer belegten Adresse nur mit der Info-Mail, ohne neuen Token). Enumerationssicher: immer `202` mit demselben Body für unbekannte, unbestätigte und bestätigte Adressen; vor der Antwort für jede Adresse dieselbe Arbeit (eine Budget-Reservierung), Kontosuche, Token-Schreiben und Versand danach (#1890). Jeder Versand schreibt einen neuen Einmal-Token (24 h) und macht damit alle früheren Links ungültig. Grenzen: je Client-IP `RATE_LIMIT_RESEND_VERIFICATION` (Default `10/hour`, `429`), je Adresse 3 Anfragen mit Auffüllung nach einer Stunde Ruhe (stumm, unveränderte `202`). Keine Mail ohne `REQUIRE_EMAIL_VERIFICATION`, an Service-Accounts, an Konten ohne lokales Passwort (nur föderiert) oder an deaktivierte Konten. Die Login-Ablehnung `EMAIL_NOT_VERIFIED` nennt den Weg; das Frontend bietet ihn auf der Login-Seite und auf der Fehlerseite eines ungültigen Links an (§4.1 `ResendVerificationPage`). |
 | 1.29 | 2026-10-03 | **#1948 umgesetzt:** Der Default `true` ist ausgeliefert (Settings, Helm-Chart, Doku); E2E-Compose und Skaffold-Dev-Werte setzen `false` ausdrücklich. SEC-H-009 Bedingung 1 sagte noch „per Default `false`“ und begründete damit, dass eine echte Registrierung keine Mail verschickt — das stimmt nur noch mit `false`; mit `true` geht die Bestätigungsmail nach der Antwort raus (#1890). Die Bedingung bleibt unverändert gültig. |
 | 1.28 | 2026-10-03 | **Betreiberentscheidungen #1948, #1906:** `REQUIRE_EMAIL_VERIFICATION` hat den Default `true`; OIDC-Provider werden über eine eigene Admin-Seite im Optionen-Bereich verwaltet (neuer Abschnitt vor „Benannte SSO-Provider“). |
 | 1.27 | 2026-10-03 | **#2007, #2008 (Nacharbeit zu #1987):** (1) Der **Token-Endpunkt** (erhält Client-Secret und Autorisierungscode) und der **Userinfo-Endpunkt** (erhält das Access-Token) laufen vor dem Abruf durch `validate_oidc_fetch_url` (`app/common/url_safety.py`) — beim Login und beim Step-up (§3.9): Stammt der Endpunkt aus dem Discovery-Dokument, nie eine Metadaten-/Link-Local-Adresse, eine private nur auf dem Host des Ausstellers selbst oder mit `DEBUG`; vom Admin gesetzt (`token_url`, `userinfo_url`), nie eine Metadaten-/Link-Local-Adresse, eine private ist seine Wahl; die eingebauten Endpunkte von Google/GitHub bleiben ungeprüfte Konstanten. Ebenso wird `issuer_url` vor dem Abruf des Discovery-Dokuments geprüft (wie ein vom Admin gesetzter Endpunkt). Beide Antworten werden wie Discovery und JWKS gestreamt und auf 256 KiB (dekodiert, `Accept-Encoding: identity`) mit 10 s Gesamtfrist begrenzt gelesen; eine Antwort, die kein JSON-Objekt ist, verweigert. Ein verweigerter Endpunkt wird nie angesprochen; der Login endet mit `provider_error` (`oauth_endpoint_refused`, Grund nennt Endpunktart und Regel, nie Adresse), der Step-up mit `step_up_failed`. (2) **Step-up prüft `nbf` und `iat` bewusst nicht** (Entscheidung zu #2008, §3.9): ohne Signaturprüfung stammen die Claims nur vom Provider, und `nonce` (je Anfrage, State einmalig, 5 Minuten) sowie `auth_time` (≤ 300 s + 30 s) begrenzen enger, was eine `iat`-Untergrenze leisten würde. |
@@ -919,6 +920,66 @@ Frontend-Anforderungen sind in **UI-NFR-012 §3.9** definiert:
 
 <!-- /Quelle: Widerspruchsanalyse W-004 -->
 
+<!-- Quelle: Issue #2037 -->
+### 3.2b Neuer Bestätigungslink (`POST /auth/resend-verification`, #2037)
+
+Ein Konto, dessen erster Bestätigungslink verloren ging oder abgelaufen ist,
+kommt mit `REQUIRE_EMAIL_VERIFICATION=true` sonst nie in die Anmeldung: der Login
+antwortet `403 EMAIL_NOT_VERIFIED`, und eine erneute Registrierung derselben
+Adresse nimmt den Duplikat-Zweig (§3.2, SEC-H-009 — Info-Mail, kein neuer Token).
+Der Endpunkt ist **anonym** und unterliegt denselben Anti-Enumerations-Regeln wie
+Registrierung und Passwort-Reset.
+
+**Eine Antwort für jede Adresse.** Immer `202 Accepted` mit demselben Body
+(`"If this address belongs to an account that still needs verification, a new
+verification email is on its way."`) — für eine unbekannte, eine unbestätigte, eine
+bestätigte Adresse, einen Service-Account, ein Konto ohne lokales Passwort, eine
+Adresse über ihrem Budget und eine Installation ohne Verifikationspflicht.
+
+**Dieselbe Arbeit vor der Antwort.** Im Request-Pfad passiert für jede Adresse
+genau eine Reservierung im Budget je Adresse (unten) und — innerhalb des Budgets —
+die Übergabe einer Aufgabe an die FastAPI-Background-Tasks. Kontosuche,
+Token-Schreiben und Versand laufen erst, nachdem die Antwort geschrieben ist
+(#1890-Muster, einen Schritt weiter als der Passwort-Reset, dessen Kontosuche noch
+im Request-Pfad liegt). Ein Zustellfehler wird gefangen und nur mit Typ geloggt
+(`auth_mail_send_failed`, `kind=verification_resend`), nie mit Adresse.
+
+**Wer eine Mail bekommt.** Nur mit `REQUIRE_EMAIL_VERIFICATION=true` (sonst wird
+nichts reserviert und nichts verschickt) und nur ein Konto, das aktiv, unbestätigt,
+interaktiv (`account_type` nicht `service`, #1559) ist und ein lokales Passwort hat.
+Ein nur föderiertes Konto meldet sich beim Anbieter an und braucht keinen Link.
+
+**Frischer Einmal-Token.** Jeder Versand schreibt einen neuen
+`email_verification_token` (32 Byte, `secrets.token_urlsafe`) mit 24 h Gültigkeit
+über den gespeicherten — jeder früher verschickte Link ist ab da ungültig.
+`POST /auth/verify-email` löscht den Token beim Einlösen (einmalig verwendbar).
+
+**Grenzen.**
+
+| Grenze | Wert | Antwort bei Überschreitung | Umsetzung |
+|--------|------|----------------------------|-----------|
+| Je Client-IP | `settings.rate_limit_resend_verification`, Env `RATE_LIMIT_RESEND_VERIFICATION`, Default `10/hour` | `429 Too Many Requests` | slowapi-Limiter des Auth-Routers, Schlüssel über `resolve_client_ip` (#1130) |
+| Je Adresse | 3 Anfragen; Auffüllung, sobald eine Stunde lang keine Anfrage für die Adresse kam (Fenster wird je Anfrage erneuert) | Unverändert `202`, es wird nur nichts verschickt | Zähler-Mechanik des Step-up-Throttles (`reserve_attempt`, atomar per `MULTI/EXEC`), eigene Instanz mit 1-h-Fenster und eigenem In-Process-Rückfall; Subject `verification-resend:<Adresse>`, normalisiert und als SHA-256 abgelegt (NFR-011); bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open |
+
+Die Grenze je IP darf `429` antworten, weil sie eine Eigenschaft der Quelle ist,
+nie der Adresse. Die Grenze je Adresse zählt **jede** eingegebene Adresse gleich,
+bevor irgendetwas über sie bekannt ist — ein Budget nur für echte Konten wäre selbst
+das Orakel —, und antwortet deshalb stumm. Beide Werte sind nach der legitimen
+Nutzung bemessen (ein, höchstens zwei neue Links; mehrere Personen hinter einem
+NAT). Die Grenze je Adresse ist bewusst nicht konfigurierbar: ein höherer Wert
+macht den Endpunkt wieder zum Werkzeug, ein fremdes Postfach zu fluten.
+
+**Restrisiko.** Wer eine fremde Adresse dauerhaft über ihrem Budget hält (eine
+Anfrage pro Stunde reicht), verhindert neue Links für dieses Konto. Das ist der
+Preis der stummen Grenze je Adresse; ein Plattform-Admin kann `email_verified`
+über `PATCH /admin/platform/users/{key}` setzen.
+
+**Frontend.** Die Login-Seite zeigt bei `error_code=EMAIL_NOT_VERIFIED` statt des
+englischen Backend-Texts einen lokalisierten Hinweis mit der Aktion
+„Neue Bestätigungs-E-Mail senden" (für die Adresse des abgelehnten Logins; Ergebnis
+in einer `role="status"`-Live-Region). Die Fehlerseite eines ungültigen Links
+verweist auf `ResendVerificationPage` (`/resend-verification`, §4.1).
+
 <!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
 ### 3.7 M2M-Authentifizierung (API-Keys)
 
@@ -1070,6 +1131,7 @@ class UserService:
 | POST | `/auth/device-pairing` | Einmaligen QR-Kopplungscode erzeugen (#1118, §3.8) — Step-up nach §3.9 (#1847) | Ja (Bearer) |
 | POST | `/auth/device-pairing/redeem` | QR-Kopplungscode gegen Token-Paar einlösen (#1118, §3.8) | Nein (öffentlich) |
 | POST | `/auth/verify-email` | E-Mail bestätigen | Nein |
+| POST | `/auth/resend-verification` | Neuen Bestätigungslink anfordern — immer `202`, gleicher Body für jede Adresse; 10/h je IP, 3 je Adresse (§3.2b, #2037) | Nein |
 | POST | `/auth/password-reset/request` | Passwort-Reset anfordern | Nein |
 | POST | `/auth/password-reset/confirm` | Passwort-Reset durchführen | Nein |
 | GET | `/auth/oauth/providers` | Aktivierte Provider auflisten (für Login-Seite) | Nein |
@@ -1289,7 +1351,8 @@ Nach Ablauf einer Sperre wird genau ein weiterer Versuch geprüft; schlägt er f
 |-------|-------|-------------|
 | `LoginPage` | `/login` | E-Mail/Passwort-Login + SSO-Buttons |
 | `RegisterPage` | `/register` | Lokale Registrierung |
-| `EmailVerificationPage` | `/verify-email/:token` | E-Mail-Bestätigung |
+| `EmailVerificationPage` | `/verify-email/:token` | E-Mail-Bestätigung; im Fehlerfall Verweis auf `ResendVerificationPage` |
+| `ResendVerificationPage` | `/resend-verification` | Neuen Bestätigungslink anfordern (§3.2b, #2037) |
 | `PasswordResetRequestPage` | `/password-reset` | Passwort-Reset anfordern |
 | `PasswordResetConfirmPage` | `/password-reset/:token` | Neues Passwort setzen |
 | `AccountSettingsPage` | `/settings/account` | Profil, Auth-Provider, Sessions |
