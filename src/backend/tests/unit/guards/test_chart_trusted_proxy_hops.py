@@ -1,4 +1,4 @@
-"""#2045 — every chart release that runs the backend keeps ``TRUSTED_PROXY_HOPS >= 1``.
+"""#2045, #2053 — every chart release that runs the backend sets ``TRUSTED_PROXY_HOPS`` to exactly ``1``.
 
 The reference request path is ingress -> frontend nginx -> backend, so the
 caller sits one entry in from the right of ``X-Forwarded-For``. The application
@@ -14,6 +14,11 @@ overlay is checked as Helm would see it: ``values.yaml`` deep-merged with the
 overlay (maps merge, everything else is replaced, ``null`` deletes). Releases
 that disable the backend controller (the ki / recognition overlays) are
 skipped — they serve no rate-limited route.
+
+Exactly, not "at least" (#2053): a value above the real depth reads an entry
+further left, which the caller wrote — ``2`` behind ingress + nginx lets every
+caller choose the address every IP-keyed control keys on. Too low and too high
+both break the controls; only the documented depth is right.
 
 A deployment that deliberately routes ``/api`` straight to the backend has one
 proxy fewer and must set ``0`` in its own GitOps values; that is outside this
@@ -31,6 +36,9 @@ import yaml
 _CHART = Path(__file__).resolve().parents[5] / "helm" / "kamerplanter"
 _BASE = _CHART / "values.yaml"
 _KEY = "TRUSTED_PROXY_HOPS"
+#: ingress -> frontend nginx -> backend: nginx appends the ingress's entry, so
+#: the caller sits one entry in from the right.
+_REFERENCE_DEPTH = 1
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -79,7 +87,7 @@ def _releases() -> list[Path]:
 
 
 @pytest.mark.parametrize("path", _releases(), ids=lambda p: p.name)
-def test_backend_trusts_at_least_one_proxy_hop(path: Path) -> None:
+def test_backend_trusts_exactly_the_documented_proxy_depth(path: Path) -> None:
     backend = _backend(_merged(path))
 
     env = ((backend.get("containers") or {}).get("main") or {}).get("env") or {}
@@ -92,9 +100,10 @@ def test_backend_trusts_at_least_one_proxy_hop(path: Path) -> None:
         hops = int(str(raw))
     except ValueError:
         pytest.fail(f"{path.name}: backend {_KEY}={raw!r} is not an integer")
-    assert hops >= 1, (
-        f"{path.name}: backend {_KEY}={raw!r}; behind ingress + nginx it must be >= 1, "
-        "or every IP-keyed limit shares one bucket (#2045)"
+    assert hops == _REFERENCE_DEPTH, (
+        f"{path.name}: backend {_KEY}={raw!r}; behind ingress + nginx it must be exactly "
+        f"{_REFERENCE_DEPTH}: lower and every IP-keyed limit shares one bucket (#2045), higher "
+        "and the caller chooses the address (#2053)"
     )
 
 

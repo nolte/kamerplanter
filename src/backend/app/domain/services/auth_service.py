@@ -1019,24 +1019,25 @@ class AuthService:
             _report_budget_crossing("address", address, per_address, MAX_PASSWORD_RESETS_PER_ADDRESS_PER_WINDOW)
             return
 
-        user = self._user_repo.get_by_email(email)
-        if user is None:
-            return  # Silent fail to prevent enumeration
-
-        # A service account has no interactive credential to reset (#1559), and
-        # minting a token for one would write reset state onto a machine identity
-        # and mail a link to whatever address it carries. Refused the same way the
-        # unknown address is — silently — because a distinct answer here would tell
-        # an anonymous caller which addresses belong to machine accounts, the
-        # enumeration oracle SEC-H-009/SEC-H-010 exist to close.
-        if not allows_interactive_auth(user):
-            return
-
-        # Token write AND mail are deferred together: a request that persisted the
-        # token inline would do database work only for a known address and answer
-        # measurably later than for an unknown one (security review of #1890), and a
-        # failing write would answer 5xx on that branch alone.
+        # Lookup, token write AND mail are deferred together, like the resend
+        # (#2062): the request path does the two reservations and nothing else,
+        # for every address and on either side of the budget. A lookup on the
+        # request path made an answer inside the budget measurably slower than one
+        # above it, and a token written inline would do database work only for a
+        # known address (security review of #1890); a failing lookup or write is
+        # caught by ``_deliver_mail`` instead of answering 5xx on one branch.
         def _issue_and_send() -> None:
+            user = self._user_repo.get_by_email(email)
+            if user is None:
+                return  # Silent fail to prevent enumeration
+            # A service account has no interactive credential to reset (#1559), and
+            # minting a token for one would write reset state onto a machine
+            # identity and mail a link to whatever address it carries. Refused the
+            # same way the unknown address is — silently — because a distinct answer
+            # would tell an anonymous caller which addresses belong to machine
+            # accounts, the enumeration oracle SEC-H-009/SEC-H-010 exist to close.
+            if not allows_interactive_auth(user):
+                return
             token = secrets.token_urlsafe(32)
             expires = datetime.now(UTC) + timedelta(hours=1)
             if user.key:

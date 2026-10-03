@@ -404,23 +404,26 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 ### TC-023-015: Login mit nicht-verifiziertem Account
 
-**Requirement**: REQ-023 §1 E-Mail-Verifizierung
+**Requirement**: REQ-023 §1 E-Mail-Verifizierung, §3.2b (#2037, #2046)
 **Priority**: Medium
 **Category**: Fehlermeldung
 
 **Vorbedingungen**:
 - Ein Nutzer hat sich registriert, aber die Verifizierungs-E-Mail noch nicht bestätigt (Status: `unverified`)
+- `REQUIRE_EMAIL_VERIFICATION` ist aktiv; die Instanz kann Mails zustellen (für den letzten erwarteten Punkt)
 
 **Testschritte**:
 1. Nutzer navigiert zu `/login`
-2. Nutzer gibt E-Mail und Passwort des unverifiziertes Accounts ein
+2. Nutzer gibt E-Mail und das **richtige** Passwort des unverifizierten Accounts ein
 3. Nutzer klickt "Anmelden"
 
 **Erwartete Ergebnisse**:
-- Ein roter Fehler-Alert erscheint mit einer Meldung, dass das Konto noch nicht verifiziert wurde (oder generische Fehlermeldung)
+- Ein **gelber Warn-Alert** (`severity="warning"`, `data-testid="login-email-not-verified"`) erscheint — kein roter Fehler-Alert — mit dem Hinweis, dass die E-Mail-Adresse noch nicht bestätigt ist und ein neuer Bestätigungslink unterwegs ist, falls einer fällig war (seit #2037 Warnung statt Fehler)
+- Unter dem Alert steht die Aktion zum Anfordern eines neuen Bestätigungslinks
 - Kein Redirect zum Dashboard
+- Die Ablehnung mit richtigem Passwort verschickt selbst einen neuen Bestätigungslink an die **gespeicherte** Adresse des Kontos (#2046; höchstens 3 je Konto und Stunde) — prüfbar über das Test-Postfach; die Antwort selbst verrät nicht, ob eine Mail rausging
 
-**Tags**: [REQ-023, login, unverifiziert, fehler]
+**Tags**: [REQ-023, login, unverifiziert, warnung]
 
 ---
 

@@ -29,6 +29,14 @@ starts at zero if the process has not counted itself in the current window;
 those counts are kept across a recovery until their own window expires, so a
 flapping storage does not hand out a fresh per-process window per outage.
 
+**Signals (#2049).** The first failure logs ``rate_limit_storage_unavailable``
+— or, when the storage has never answered since the process started (a wrong
+credential or host looks exactly like that), ``rate_limit_storage_never_reached``
+at error level. While it stays down, every tenth failed probe — past the
+back-off about every five minutes — logs ``rate_limit_storage_still_unavailable``.
+Readiness is deliberately untouched: an unready pod would turn a Valkey outage
+into a full outage.
+
 **Recovery, per process.** While the storage is down, requests in this process
 do not touch it. One request at a time carries a probe, at intervals of 1, 2,
 4, 8, 16 and 32 s after the failure, and every 32 s from there on; a probe that
@@ -104,6 +112,11 @@ _REDIS_SOCKET_TIMEOUT_S = 0.5
 #: every failed probe up to :data:`_PROBE_MAX_DELAY_S`, where it stays.
 _PROBE_INITIAL_DELAY_S = 1.0
 _PROBE_MAX_DELAY_S = 32.0
+
+#: A process that still cannot reach the storage logs
+#: ``rate_limit_storage_still_unavailable`` on every this-many failed probes —
+#: past the back-off about every five minutes (10 × 32 s), #2049.
+_REMINDER_EVERY_FAILED_PROBES = 10
 
 #: Schemes whose ``limits`` storage hands its options straight to
 #: ``redis.from_url``, so the socket timeouts and the retry policy are understood.
@@ -185,6 +198,12 @@ class FailoverStorage(Storage):
         self._probe_in_flight = False
         self._probe_delay_s = _PROBE_INITIAL_DELAY_S
         self._next_probe_at = 0.0
+        #: Whether the primary has answered once since this process started:
+        #: a failure before that is a misconfiguration as often as an outage
+        #: (a wrong credential in ``REDIS_URL`` is a ``RedisError`` too), #2049.
+        self._ever_answered = False
+        self._down_since = 0.0
+        self._failed_probes = 0
 
     @property
     def base_exceptions(self) -> type[Exception] | tuple[type[Exception], ...]:
@@ -211,14 +230,47 @@ class FailoverStorage(Storage):
         with self._lock:
             if probe:
                 self._probe_failed_locked()
-                return
-            if self._down:
-                # A concurrent call already recorded this outage and set the schedule.
-                return
-            self._down = True
-            self._probe_delay_s = _PROBE_INITIAL_DELAY_S
-            self._next_probe_at = time.monotonic() + self._probe_delay_s
+                self._failed_probes += 1
+                remind = self._failed_probes % _REMINDER_EVERY_FAILED_PROBES == 0
+                down_for_s = time.monotonic() - self._down_since
+                never_answered = not self._ever_answered
+            else:
+                if self._down:
+                    # A concurrent call already recorded this outage and set the schedule.
+                    return
+                self._down = True
+                self._down_since = time.monotonic()
+                self._failed_probes = 0
+                self._probe_delay_s = _PROBE_INITIAL_DELAY_S
+                self._next_probe_at = time.monotonic() + self._probe_delay_s
+                never_answered = not self._ever_answered
         # Only the type: a redis-py message names host and port.
+        if probe:
+            if remind:
+                # #2049: one warning per outage was the only signal, and a process
+                # that counted for itself for days said so once, at the start.
+                logger.warning(
+                    "rate_limit_storage_still_unavailable",
+                    error_type=type(error).__name__,
+                    down_for_s=int(down_for_s),
+                    never_answered=never_answered,
+                    detail="IP rate limits count per process; every replica and worker grants the full budget",
+                )
+            return
+        if never_answered:
+            # #2049: never reached since start — a wrong REDIS_URL credential or
+            # host looks exactly like this, and it reproduces the per-process
+            # counting #2045 removed. Error level, not a readiness failure: an
+            # unready pod would turn a Valkey outage into a full outage.
+            logger.error(
+                "rate_limit_storage_never_reached",
+                error_type=type(error).__name__,
+                detail=(
+                    "IP rate limits count per process until the storage answers; "
+                    "check RATE_LIMIT_STORAGE_URL / REDIS_URL"
+                ),
+            )
+            return
         logger.warning("rate_limit_storage_unavailable", error_type=type(error).__name__)
 
     def _primary_answered(self, *, probe: bool) -> None:
@@ -250,6 +302,7 @@ class FailoverStorage(Storage):
                         self._probe_failed_locked()
                 raise
             else:
+                self._ever_answered = True
                 self._primary_answered(probe=probe)
                 return result
         return operation(self.fallback)
