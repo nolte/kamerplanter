@@ -46,6 +46,8 @@ const STEP_UP_ACTION_SET: Readonly<Record<StepUpAction, true>> = {
   provider_unlink: true,
   admin_account_update: true,
   oidc_provider_change: true,
+  admin_tenant_update: true,
+  admin_membership_removal: true,
 };
 
 /**
@@ -65,6 +67,8 @@ const TARGETED_STEP_UP_ACTIONS: Readonly<Record<StepUpAction, boolean>> = {
   provider_unlink: true,
   admin_account_update: true,
   oidc_provider_change: true,
+  admin_tenant_update: true,
+  admin_membership_removal: true,
 };
 
 export function isTargetedStepUpAction(action: StepUpAction): boolean {

@@ -261,33 +261,95 @@ class TenantService:
         allow-list**: build it from a closed request schema's ``model_dump()``
         or from named fields, never from a raw request body.
 
-        Two endpoints reach this, and both do the former:
+        The tenant-scoped ``PATCH /t/{slug}`` reaches this with
+        ``TenantUpdateRequest`` (``name``, ``description``, ``max_members``).
+        Neither that schema nor ``AdminTenantUpdate`` sets ``extra="allow"``, and
+        that closedness is the only thing keeping ``owner_user_key``,
+        ``is_platform``, ``tenant_type``, ``slug`` and ``settings`` out of the
+        payload: ``update_fields`` applies ``data`` through
+        ``model_copy(update=...)``, which does not validate. ``slug`` is derived
+        here, from ``name``, and never accepted from a caller.
 
-        * ``PATCH /t/{slug}`` with ``TenantUpdateRequest`` (``name``,
-          ``description``, ``max_members``);
-        * ``PATCH /admin/platform/tenants/{key}`` with ``AdminTenantUpdate``
-          (the same three plus ``is_active``, which only a platform admin may
-          set) — routed here by #997, which ended a router that wrote to the
-          tenants collection itself.
+        **``is_active`` is refused here (#2009).** Deactivating a tenant locks every
+        member out of it; it is a step-up act and goes through
+        :meth:`admin_update_tenant`, which verifies the platform admin's step-up
+        before it writes. A payload carrying ``is_active`` on this path is a
+        programming error (no request schema of this path has the field), so it
+        fails loudly instead of writing the flag past the step-up.
+        """
+        if "is_active" in data:
+            raise ValueError("is_active changes go through admin_update_tenant, which verifies the step-up (#2009)")
+        return self._apply_tenant_update(tenant_key, data)
 
-        Neither schema sets ``extra="allow"``, and that closedness is the only
-        thing keeping ``owner_user_key``, ``is_platform``, ``tenant_type``,
-        ``slug`` and ``settings`` out of the payload: ``update_fields`` applies
-        ``data`` through ``model_copy(update=...)``, which does not validate.
-        ``slug`` is derived here, from ``name``, and never accepted from a
-        caller.
+    def admin_update_tenant(
+        self,
+        tenant_key: str,
+        data: dict,
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> Tenant:
+        """Apply a partial platform-admin update to one tenant (#997, #2009).
+
+        ``PATCH /admin/platform/tenants/{key}`` with ``AdminTenantUpdate`` — the
+        fields of the tenant-scoped update plus ``is_active``, which only a platform
+        admin may set. Routed here by #997, which ended a router that wrote to the
+        tenants collection itself.
+
+        **Step-up when ``is_active`` changes (#2009, REQ-024 AK-56).** Deactivating a
+        tenant locks every member out of it with one request. The rule of #1992 — "a
+        change that can lead to erasure or lockout of another account is a step-up
+        act" — therefore applies: any actual change of ``is_active`` passes the
+        admin's *own* step-up (``requester`` — the password, the fresh
+        re-authentication or the mailed code; an API key is 403, 429 when locked),
+        bound to this tenant (#1884). Reactivating is gated as well, as it is for an
+        account (#1857): it restores access a deliberate deactivation took away. A
+        rename, a description or a re-send of the current value needs none, so the
+        edit form stays one click — and a re-sent value is not written back, so it
+        cannot undo a concurrent change (#1992 review SEC-003).
+
+        The platform tenant is refused (403, #1021) before any step-up is asked for.
+        Without a valid step-up nothing is written.
+        """
+        current = self._tenant_repo.get_by_key(tenant_key)
+        if current is None:
+            raise NotFoundError("Tenant", tenant_key)
+        wanted = data.get("is_active")
+        changes_active = wanted is not None and bool(wanted) != bool(current.is_active)
+        if changes_active and not wanted and current.is_platform:
+            raise ForbiddenError("The platform tenant cannot be deactivated.")
+        if changes_active:
+            self._step_up_verifier.verify(
+                requester,
+                action="admin_tenant_update",
+                # #1884 — a factor obtained to deactivate this tenant confirms this one only.
+                target=tenant_key,
+                echo_ok=None,
+                password=current_password,
+                code=step_up_code,
+                reauth_token=step_up_token,
+                authenticated_with_api_key=authenticated_with_api_key,
+                client_ip=client_ip,
+            )
+        data = {k: v for k, v in data.items() if k != "is_active" or changes_active}
+        if not data:
+            return current
+        return self._apply_tenant_update(tenant_key, data)
+
+    def _apply_tenant_update(self, tenant_key: str, data: dict) -> Tenant:
+        """The write both update paths share: the #1021 guard, the slug on rename, the store.
 
         **The platform tenant cannot be deactivated (#1021).** ``delete_tenant``
-        already refuses the platform tenant (``is_platform`` → 403) from the
-        router; deactivating it via ``{"is_active": False}`` slipped through
-        because this path had no such guard. The check lives here, not on the
-        router, so both entry points are covered — the platform-admin
-        ``PATCH /admin/platform/tenants/{key}`` and the tenant-scoped
-        ``PATCH /t/{slug}`` (which does not carry ``is_active`` today, but would
-        be guarded if it ever did). It refuses with the same
-        :class:`ForbiddenError` (403) shape ``delete_tenant`` uses, and is scoped
-        to deactivation only — renaming or re-describing the platform tenant
-        still works.
+        refuses the platform tenant (``is_platform`` → 403); deactivating it via
+        ``{"is_active": False}`` slipped through because this path had no such
+        guard. It stays here, under both entry points, with the same
+        :class:`ForbiddenError` (403) shape ``delete_tenant`` uses, scoped to
+        deactivation only — renaming or re-describing the platform tenant still
+        works.
         """
         if data.get("is_active") is False:
             tenant = self._tenant_repo.get_by_key(tenant_key)
@@ -1454,6 +1516,12 @@ class TenantService:
         *,
         tenant_key: str | None = None,
         user_key: str | None = None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> bool:
         """Remove a membership on the platform-admin path.
 
@@ -1462,8 +1530,30 @@ class TenantService:
         drops the ``has_membership`` / ``membership_in`` edges **and** any
         location assignments for the membership — the latter was orphaned by the
         pre-#1019 router, which deleted only the two edges.
+
+        **Step-up (#2009, REQ-024 AK-56).** Removing a member — also a tenant's last
+        ``lead`` — locks that person out of the tenant, so it passes the admin's
+        *own* step-up (``requester``: the password, the fresh re-authentication or
+        the mailed code; an API key is 403, 429 when locked), bound to this
+        membership (#1884). It lives here, not on the routes, so both views pass
+        the same check; the step-up arguments are keyword-only without a default,
+        so a new caller cannot forget them. The membership is resolved first (404
+        for an unknown one or one under another parent); without a valid step-up
+        nothing is removed.
         """
         self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        self._step_up_verifier.verify(
+            requester,
+            action="admin_membership_removal",
+            # #1884 — a factor obtained to remove this membership confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         return self._membership_repo.delete(membership_key)
 
     def _resolve_admin_membership(

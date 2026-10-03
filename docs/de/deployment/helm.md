@@ -266,7 +266,7 @@ valkey:
 | `CORS_ORIGINS` | Ja | — | Erlaubte Origins als JSON-Array |
 | `DEBUG` | Nein | `false` | Debug-Modus aktivieren. Deaktiviert bei `true` zusätzlich den Boot-Blocker der sechs Zeilen oben — **niemals** in Produktion setzen. |
 | `KAMERPLANTER_MODE` | Nein | `full` | `light` (ohne Auth, ein Nutzer) oder `full` (mit JWT-Auth und Mandantenverwaltung). Der Chart setzt diese Variable am Backend-Controller standardmäßig **nicht** — es gilt der Python-seitige Default `full`. Am Frontend-InitContainer ist sie fest auf `full` gesetzt und muss für den Light-Modus explizit überschrieben werden. |
-| `REQUIRE_EMAIL_VERIFICATION` | Nein | `false` | E-Mail-Verifikation bei Registrierung |
+| `REQUIRE_EMAIL_VERIFICATION` | Nein | `true` | E-Mail-Verifikation bei Registrierung. Ohne ausgehenden Mailversand (`EMAIL_ADAPTER` ist `console`) setzt du `false` ausdrücklich — sonst kann sich ein selbst registriertes Konto nicht anmelden, weil die Bestätigungsmail nie ankommt. |
 
 Vollständige Liste aller Pflicht-Secrets je aktivierter Funktion: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 

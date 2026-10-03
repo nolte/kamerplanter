@@ -163,6 +163,10 @@ type StepUpAction = Literal[
     "admin_account_update",
     # #1883 — a platform admin creating, repointing or deleting an OIDC provider configuration.
     "oidc_provider_change",
+    # #2009 — a platform admin deactivating (or reactivating) a whole tenant.
+    "admin_tenant_update",
+    # #2009 — a platform admin removing a member from a tenant.
+    "admin_membership_removal",
 ]
 
 #: The acts that act on something other than the requester's own account (#1884).
@@ -173,10 +177,20 @@ type StepUpAction = Literal[
 #: (``admin_account_update``, ``admin_account_erasure``), the tenant's key
 #: (``tenant_deletion``), the provider link's key (``provider_unlink``) and the
 #: configuration's key — or ``new:<slug>`` for one being created —
-#: (``oidc_provider_change``). Every other act acts on the requester's own account,
-#: which the digest already binds; it carries no target.
+#: (``oidc_provider_change``), the tenant's key again (``admin_tenant_update``) and
+#: the membership's key (``admin_membership_removal``, #2009 — the same membership
+#: whichever of the two admin views removes it). Every other act acts on the
+#: requester's own account, which the digest already binds; it carries no target.
 TARGETED_ACTIONS: frozenset[str] = frozenset(
-    {"admin_account_update", "admin_account_erasure", "tenant_deletion", "provider_unlink", "oidc_provider_change"}
+    {
+        "admin_account_update",
+        "admin_account_erasure",
+        "tenant_deletion",
+        "provider_unlink",
+        "oidc_provider_change",
+        "admin_tenant_update",
+        "admin_membership_removal",
+    }
 )
 
 #: The longest target an issuing request may name — an ArangoDB document key is at
@@ -227,6 +241,8 @@ CODE_PURPOSES: dict[str, str] = {
     "provider_unlink": "remove a sign-in method from your account",
     "admin_account_update": "verify or reactivate another user's account as a platform administrator",
     "oidc_provider_change": "change the sign-in provider configuration of this installation",
+    "admin_tenant_update": "deactivate or reactivate a garden (tenant) as a platform administrator",
+    "admin_membership_removal": "remove a member from a garden (tenant) as a platform administrator",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.

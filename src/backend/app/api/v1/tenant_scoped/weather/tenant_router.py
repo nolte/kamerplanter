@@ -166,7 +166,7 @@ def get_site_weather_forecast(
     / ``forecast_min_temperature`` / ``forecast_source``). Graceful for owned sites:
     no source, no coordinates, or ``weather_enabled`` off → empty ``forecasts`` +
     ``None`` summary, never a 500. Site ownership is enforced at the API layer
-    (404 unknown / 403 foreign), consistent with the sibling weather-source
+    (404 for an unknown and a foreign site alike), consistent with the sibling weather-source
     endpoints — defense-in-depth on top of the tenant-scoped service read (R10).
     """
     service.verify_site_owned(site_key, ctx.tenant_key)
@@ -203,7 +203,7 @@ def get_site_climate_normals(
     """REQ-041 — the site's long-term climate normals (NASA POWER) for the
     "Klima am Standort" section.
 
-    Site ownership is enforced in the service (404 unknown / 403 foreign);
+    Site ownership is enforced in the service (404 for an unknown and a foreign site alike);
     graceful for owned sites with no populated normals yet (empty ``normals``).
     Each record carries its source's CC-BY attribution string.
     """

@@ -117,10 +117,12 @@ describe('adminPlatform endpoints — tenant members', () => {
     expect(client.post).toHaveBeenCalledWith('/admin/platform/tenants/t1/members', payload);
   });
 
-  it('removeTenantMember deletes member from tenant', async () => {
+  it("removeTenantMember deletes member from tenant with the admin's step-up (#2009)", async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await admin.removeTenantMember('t1', 'm1');
-    expect(client.delete).toHaveBeenCalledWith('/admin/platform/tenants/t1/members/m1');
+    await admin.removeTenantMember('t1', 'm1', { current_password: 'pw' });
+    expect(client.delete).toHaveBeenCalledWith('/admin/platform/tenants/t1/members/m1', {
+      data: { current_password: 'pw' },
+    });
   });
 
   it('changeTenantMemberRole patches member role', async () => {
@@ -146,10 +148,12 @@ describe('adminPlatform endpoints — user memberships', () => {
     expect(client.post).toHaveBeenCalledWith('/admin/platform/users/u1/memberships', payload);
   });
 
-  it('removeUserFromTenant deletes membership for user', async () => {
+  it("removeUserFromTenant deletes membership for user with the admin's step-up (#2009)", async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await admin.removeUserFromTenant('u1', 'm1');
-    expect(client.delete).toHaveBeenCalledWith('/admin/platform/users/u1/memberships/m1');
+    await admin.removeUserFromTenant('u1', 'm1', { step_up_code: '12345678' });
+    expect(client.delete).toHaveBeenCalledWith('/admin/platform/users/u1/memberships/m1', {
+      data: { step_up_code: '12345678' },
+    });
   });
 
   it('changeUserMembershipRole patches membership role', async () => {

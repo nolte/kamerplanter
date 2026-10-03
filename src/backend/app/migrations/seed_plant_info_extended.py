@@ -55,6 +55,7 @@ from app.domain.models.species import (
     WateringGuide,
 )
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_phase_ownership import phases_owned_elsewhere
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -651,6 +652,12 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                     if updated_count:
                         logger.info("phases_updated", species=sci_name, count=updated_count)
                     continue
+
+            if phases_owned_elsewhere(sci_name, phase_data):
+                # This file carries no phases for the species and another seed file does:
+                # those phases are that file's, and stay (#2002). Deleting them made two
+                # loaders trade one species' phases on every boot.
+                continue
 
             # Delete generic phases (retry on write-write conflict)
             for phase in existing_phases:

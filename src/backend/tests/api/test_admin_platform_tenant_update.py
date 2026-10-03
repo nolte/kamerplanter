@@ -17,7 +17,6 @@ real, valid tenant documents on every path, so the only thing that can reject a
 payload is a real validator.
 """
 
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -35,13 +34,27 @@ from app.common.exceptions import KamerplanterError
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import MemberInfo
+from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 
 TENANT_KEY = "t-1"
 ORIGINAL_NAME = "Community Garden"
 ORIGINAL_SLUG = "community-garden"
+
+# #2009 — a change of ``is_active`` passes the admin's own step-up; this is the admin's password.
+# Assembled at runtime: a literal shaped like a credential trips the secret scanner (#1838).
+ADMIN_PASSWORD = " ".join(["correct", "horse", "battery", "staple"])
+ADMIN = User.model_validate(
+    {
+        "_key": "admin-1",
+        "email": "admin-1@example.com",
+        "display_name": "Admin",
+        "password_hash": PasswordEngine().hash_password(ADMIN_PASSWORD),
+    }
+)
 
 PLATFORM_KEY = "platform"
 PLATFORM_NAME = "Platform"
@@ -185,7 +198,7 @@ def client(
     app.include_router(mod.router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
-    app.dependency_overrides[require_platform_admin] = lambda: SimpleNamespace(key="admin-1")
+    app.dependency_overrides[require_platform_admin] = lambda: ADMIN
     app.dependency_overrides[get_tenant_service] = lambda: service
     return TestClient(app)
 
@@ -279,9 +292,10 @@ class TestExistingBehaviourIsPreserved:
         """``is_active`` is the one field ``TenantUpdateRequest`` does not carry.
 
         It has to keep working, or the fix would be a refusal that passes by
-        blocking the very thing this endpoint exists for.
+        blocking the very thing this endpoint exists for. Since #2009 it carries
+        the admin's step-up.
         """
-        response = _patch(client, {"is_active": False})
+        response = _patch(client, {"is_active": False, "current_password": ADMIN_PASSWORD})
 
         assert response.status_code == 200
         assert response.json()["is_active"] is False
@@ -342,8 +356,8 @@ class TestPlatformTenantCannotBeDeactivated:
         assert store[PLATFORM_KEY]["is_active"] is True
 
     def test_an_ordinary_tenant_stays_deactivable(self, client, store):
-        """The half that catches a guard refusing everyone."""
-        response = _patch(client, {"is_active": False})
+        """The half that catches a guard refusing everyone (with the #2009 step-up)."""
+        response = _patch(client, {"is_active": False, "current_password": ADMIN_PASSWORD})
 
         assert response.status_code == 200
         assert response.json()["is_active"] is False

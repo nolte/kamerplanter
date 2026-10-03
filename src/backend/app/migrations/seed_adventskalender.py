@@ -31,6 +31,7 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import Species
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_phase_ownership import phases_owned_elsewhere
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -412,6 +413,12 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
             has_germination = any(p.name == "germination" for p in existing_phases)
             if has_germination:
                 logger.info("phases_already_artspezifisch", species=sci_name)
+                continue
+
+            if phases_owned_elsewhere(sci_name, phase_data):
+                # This file carries no phases for the species and another seed file does:
+                # those phases are that file's, and stay (#2002). Deleting them made two
+                # loaders trade one species' phases on every boot.
                 continue
 
             # Delete generic phases

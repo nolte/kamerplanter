@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.enums import TenantRole, TenantType
@@ -49,11 +49,26 @@ class AdminStatsResponse(BaseModel):
     total_memberships: int
 
 
-class AdminTenantUpdate(BaseModel):
+class AdminTenantUpdate(CredentialStepUp):
+    """A partial platform-admin update of a tenant; the step-up fields are the *admin's* own (#2009).
+
+    They are needed only when the update changes ``is_active`` — deactivating locks
+    every member out — and are never written to the tenant.
+    """
+
     name: str | None = None
     description: str | None = None
     max_members: int | None = Field(default=None, ge=1)
     is_active: bool | None = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"name": "Community garden"},
+                {"is_active": False, "current_password": "<the admin's own current password>"},
+            ]
+        },
+    )
 
 
 class AdminUserUpdate(CredentialStepUp):
@@ -76,6 +91,21 @@ class AdminTenantMemberResponse(BaseModel):
     role: TenantRole
     is_active: bool
     joined_at: datetime | None
+
+
+class AdminMembershipRemovalRequest(CredentialStepUp):
+    """The body of a platform-admin membership removal: the *admin's* own step-up (#2009).
+
+    ``current_password`` for an admin with a local password; for one without,
+    ``step_up_token`` / ``step_up_code`` obtained for ``admin_membership_removal``
+    with the membership's key as the target. Never written anywhere.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"current_password": "<the admin's own current password>"}, {"step_up_code": "48213907"}]
+        },
+    )
 
 
 class AdminAddMemberRequest(BaseModel):

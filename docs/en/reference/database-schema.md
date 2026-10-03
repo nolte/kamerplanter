@@ -91,7 +91,7 @@ planned → active → harvesting → completed
 | `tanks` | Water tanks | `name` (unique), `capacity_liters`, `tenant_key` |
 | `tank_states` | Point-in-time tank snapshots | `ec_ms`, `ph`, `volume_liters`, `recorded_at` |
 | `tank_fill_events` | Tank fill events | `filled_at`, `water_mix_ratio_ro_percent` |
-| `fertilizers` | Fertilizer master data | `product_name`, `brand` (unique per pair), `mixing_priority` |
+| `fertilizers` | Fertilizer master data | `tenant_key`, `product_name`, `brand` (unique per tenant and pair; exactly once globally), `mixing_priority` |
 | `fertilizer_stocks` | Inventory levels | `quantity_g`, `expiry_date` |
 | `nutrient_plans` | Nutrient solution plans | `name`, `watering_schedule`, `is_template` |
 | `nutrient_plan_phase_entries` | Phase-specific plan data | `phase_name`, `target_ec_ms`, `fertilizer_doses` |
