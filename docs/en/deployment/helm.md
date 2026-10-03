@@ -265,7 +265,7 @@ valkey:
 | `CORS_ORIGINS` | Yes | — | Allowed origins as JSON array |
 | `DEBUG` | No | `false` | Enable debug mode. Setting `true` also disables the boot blocker for the six rows above — **never** set this in production. |
 | `KAMERPLANTER_MODE` | No | `full` | `light` (no auth, single user) or `full` (with JWT auth and tenant management). The chart does **not** set this variable on the backend controller by default — the Python-side default `full` applies. On the frontend init container it is hard-set to `full` and must be explicitly overridden for light mode. |
-| `REQUIRE_EMAIL_VERIFICATION` | No | `false` | Email verification on registration |
+| `REQUIRE_EMAIL_VERIFICATION` | No | `true` | Email verification on registration. Without outbound mail (`EMAIL_ADAPTER` is `console`) set `false` explicitly — otherwise a self-registered account cannot sign in, because the confirmation mail never arrives. |
 
 Full list of every mandatory secret per enabled feature: [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 

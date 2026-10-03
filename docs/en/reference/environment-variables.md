@@ -55,7 +55,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | No | Refresh token validity in days |
 | `SESSION_TOKEN_EXPIRE_HOURS` | `24` | No | Validity of server-side session tokens, in hours. |
 | `FERNET_KEY` | — | Yes | Fernet key for encrypting OIDC provider secrets and integration tokens. **Required regardless of whether OIDC is used** — the startup gate refuses to start in production when this is empty (AP-4, INF-S5). Must be a valid Fernet key: 32 bytes, url-safe base64-encoded (44 characters) — generate e.g. with `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. The celery worker now checks the same gate at start-up and also refuses to start with `DEBUG=false` when the value is missing or not a valid Fernet key — the backend and the celery worker must use the same key. Decrypting a stored value with a different key now fails loudly (`SecretKeyMismatchError`) instead of silently handing the ciphertext to the integration as its credential. |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | No | Require email verification at registration |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | No | Require email verification at registration. An installation without outbound mail sets `false` explicitly |
 | `HIBP_ENABLED` | `false` | No | Enable "Have I Been Pwned" check on password change |
 | `COOKIE_SECURE` | `true` | No | Sets the `Secure` flag on the refresh-token cookie. Only set to `false` for plain-HTTP E2E test environments without TLS — **always** leave `true` in production. |
 
@@ -726,7 +726,8 @@ JWT_SECRET_KEY=generate-with-openssl-rand-hex-32
 FERNET_KEY=generate-with-Fernet.generate_key
 ERASURE_TOMBSTONE_SALT=generate-with-openssl-rand-hex-32
 LOG_PSEUDONYM_SALT=generate-with-openssl-rand-hex-32
-REQUIRE_EMAIL_VERIFICATION=false
+# Default true; set false only without outbound mail
+REQUIRE_EMAIL_VERIFICATION=true
 
 # CORS
 CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]

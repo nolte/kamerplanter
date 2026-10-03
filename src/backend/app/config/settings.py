@@ -290,7 +290,12 @@ class Settings(BaseSettings):
     fernet_key: str = ""  # For encrypting OIDC provider secrets
     frontend_url: str = "http://localhost:5173"
     hibp_enabled: bool = False
-    require_email_verification: bool = False  # Set True in production
+    #: Default ``True`` since the operator decision #1948 (REQ-023 v1.28): with it
+    #: off, registration stamps ``email_verified`` without a confirmation, and every
+    #: gate trusting that flag (REQ-030 §3.4 mail recipient, OAuth auto-link)
+    #: admits an address the registrant need not own. An installation without
+    #: outbound mail sets ``REQUIRE_EMAIL_VERIFICATION=false`` explicitly.
+    require_email_verification: bool = True
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
