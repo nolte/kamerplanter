@@ -64,8 +64,8 @@ storage at all: :func:`build_process_memory_rate_limiter`.
 
 from __future__ import annotations
 
-import asyncio
 import functools
+import inspect
 import threading
 import time
 from collections.abc import Callable
@@ -341,8 +341,8 @@ class OffLoopLimiter(Limiter):
         decorate = super().limit(*args, **kwargs)
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            wrapped = decorate(func)
-            if not asyncio.iscoroutinefunction(func):
+            wrapped: Callable[..., Any] = decorate(func)
+            if not inspect.iscoroutinefunction(func):
                 return wrapped
 
             @functools.wraps(func)
