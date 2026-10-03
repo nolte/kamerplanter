@@ -52,7 +52,7 @@ Content-Type: application/json
 }
 ```
 
-Nach der Registrierung wird ein persönlicher Mandant automatisch angelegt. Wenn E-Mail-Verifikation aktiv ist (`REQUIRE_EMAIL_VERIFICATION=true`), muss die E-Mail-Adresse vor dem ersten Login bestätigt werden.
+Nach der Registrierung wird ein persönlicher Mandant automatisch angelegt. Ist die E-Mail-Verifikation aktiv (`REQUIRE_EMAIL_VERIFICATION=true`, der Default), muss die E-Mail-Adresse vor dem ersten Login bestätigt werden. Eine Installation ohne ausgehenden Mailversand setzt die Variable ausdrücklich auf `false`.
 
 ### E-Mail-Verifizierung
 
@@ -723,7 +723,7 @@ Nach mehreren fehlgeschlagenen Login-Versuchen wird das Konto temporär gesperrt
 | `JWT_ALGORITHM` | `HS256` | Signierungsalgorithmus |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Gültigkeitsdauer des Access Tokens in Minuten |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Gültigkeitsdauer des Refresh Tokens in Tagen |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | E-Mail-Verifikation vor erstem Login erzwingen |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | E-Mail-Verifikation vor erstem Login erzwingen. Ohne ausgehenden Mailversand ausdrücklich auf `false` setzen |
 | `KAMERPLANTER_MODE` | `full` | `light` deaktiviert die gesamte Authentifizierung |
 | `FERNET_KEY` | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets |
 

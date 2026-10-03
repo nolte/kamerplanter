@@ -196,6 +196,25 @@ class TestConsoleAdapterStartupWarning:
         events = [(entry["event"], entry["log_level"]) for entry in logs]
         assert events == ([("email_adapter_console_in_production", "warning")] if warns else [])
 
+    @pytest.mark.parametrize("required", [True, False])
+    def test_the_warning_names_the_verification_switch_only_while_it_is_on(
+        self, monkeypatch: pytest.MonkeyPatch, required: bool
+    ) -> None:
+        """#1948: with verification on by default, a console-adapter install locks
+        new self-registered accounts out — the warning says how to switch it off."""
+        from app.main import warn_if_console_email_adapter
+
+        monkeypatch.setattr(settings, "email_adapter", "console")
+        monkeypatch.setattr(settings, "debug", False)
+        monkeypatch.setattr(settings, "require_email_verification", required)
+
+        with structlog.testing.capture_logs() as logs:
+            warn_if_console_email_adapter()
+
+        (entry,) = logs
+        assert entry["require_email_verification"] is required
+        assert ("REQUIRE_EMAIL_VERIFICATION=false" in entry["detail"]) is required
+
 
 def test_the_smtp_connection_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     """``smtplib.SMTP`` has no default timeout: a hung server would hold a worker thread for good (#1890 review)."""

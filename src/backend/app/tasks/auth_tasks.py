@@ -259,11 +259,13 @@ def dispatch_duplicate_registration_notice(user_key: str) -> None:
     response has been written to the socket. Both halves of that matter:
 
     * *Asynchronous* — the notice may not be timeable. ``/auth/register`` answers
-      201 for a taken address exactly as for a free one (SEC-H-009), and
-      ``require_email_verification`` defaults to ``False``, so a genuine
-      registration sends no mail at all. An SMTP round trip on the duplicate
-      branch alone would make it the *slower* one and hand the caller the same
-      answer through the clock — the oracle #957 closed, read from the other side.
+      201 for a taken address exactly as for a free one (SEC-H-009), and a genuine
+      registration sends no mail inside the request: none at all with
+      ``require_email_verification`` off, and with it on (the default since
+      #1948) the verification mail goes out after the response (#1890). An SMTP
+      round trip on the duplicate branch alone would make it the *slower* one and
+      hand the caller the same answer through the clock — the oracle #957 closed,
+      read from the other side.
     * *Swallowed* — ``SmtpEmailAdapter._send`` re-raises. A delivery failure that
       reached the request would answer 500 where a genuine registration answers
       201: an oracle that works even better than the original, and one an
