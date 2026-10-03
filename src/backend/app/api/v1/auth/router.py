@@ -7,7 +7,6 @@ import structlog
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Path, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.v1.auth.csrf import set_csrf_cookie, verify_csrf
@@ -46,6 +45,7 @@ from app.common.exceptions import (
     ValidationError,
 )
 from app.common.openapi_responses import CRUD_RESPONSES, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.rate_limit import build_rate_limiter
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import list_mcp_permissions
@@ -93,7 +93,10 @@ def _rate_limit_key(request: Request) -> str:
     return resolve_client_ip(request) or get_remote_address(request)
 
 
-limiter = Limiter(key_func=_rate_limit_key)
+#: The one IP limiter every ``@limiter.limit`` in the API shares. Its counters live
+#: in the storage ``settings.rate_limit_storage_url`` / ``redis_url`` names, so
+#: the limits hold per deployment rather than per process (#2045).
+limiter = build_rate_limiter(_rate_limit_key)
 router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
 #: API-key management, mounted in **both** deployment modes (REQ-027, REQ-033 §4.3).

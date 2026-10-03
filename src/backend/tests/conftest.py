@@ -10,13 +10,23 @@ live values and turns a message into a session failure.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
-import app
-from app.common.exceptions import NotFoundError
+# #2045: the IP limiter counts in ``redis_url`` unless told otherwise. One test
+# process *is* the whole deployment here, and the unit/api tiers refuse a real
+# Valkey connection (tests/support/db_guard.py), so the suite counts in memory —
+# which also keeps ``limiter.reset()`` (MemoryStorage.reset) usable between tests.
+# Set before the first ``app`` import: the limiter is built when the auth router
+# module is imported, from the settings loaded at that moment. ``setdefault`` so
+# a run that deliberately points the limiter elsewhere still can.
+os.environ.setdefault("RATE_LIMIT_STORAGE_URL", "memory://")
+
+import app  # noqa: E402 — must follow the environment default above
+from app.common.exceptions import NotFoundError  # noqa: E402
 from tests.support.execution_guards import (
     find_project_root,
     interpreter_violation,

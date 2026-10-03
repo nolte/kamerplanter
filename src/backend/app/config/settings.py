@@ -559,6 +559,25 @@ class Settings(BaseSettings):
     instance_id: Annotated[str, Field(max_length=64, pattern=r"^[a-zA-Z0-9\-]*$")] = ""
 
     # Rate limiting
+    #: Where the IP rate limits (the shared slowapi ``limiter``) keep their
+    #: counters (#2045). A ``limits`` storage URI — ``redis://…``, ``rediss://…``
+    #: or ``memory://``.
+    #:
+    #: **Empty means "use ``redis_url``", and that default is the fix.** slowapi
+    #: falls back to ``memory://`` when given no storage, so every replica and
+    #: every worker process counted on its own and ``N`` processes multiplied each
+    #: documented limit by ``N`` — including the mail bound on
+    #: ``/auth/resend-verification``. Requiring an explicit value instead would
+    #: let a forgotten one reproduce exactly that, silently; deriving it from the
+    #: Valkey the backend already needs makes the shared count the state nobody
+    #: has to remember.
+    #:
+    #: Set it to point the counters at a different Valkey database, or to
+    #: ``memory://`` where one process *is* the deployment (the unit-test suite,
+    #: a single-process dev server). If the configured storage is unreachable the
+    #: limiter counts per process until it is back — the pre-#2045 bound, never
+    #: open and never a 500 (``app/common/rate_limit.py``).
+    rate_limit_storage_url: str = ""
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"
     #: ``POST /api/v1/privacy/email-change`` (REQ-025 Art. 16), per client IP.
