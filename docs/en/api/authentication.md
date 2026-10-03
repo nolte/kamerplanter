@@ -219,6 +219,13 @@ Content-Type: application/json
 
 For security reasons, this endpoint always returns the same success response regardless of whether the email address exists.
 
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_AUTH`, default `20/minute` | `429 Too Many Requests` |
+| Per address | 3 requests; the budget refills once no request for the address has arrived for an hour | Still `200` with the same body — only no link goes out |
+
+The per-address limit works like the one for the [verification link](#requesting-a-new-verification-link), with a budget of its own: it counts **every** submitted address alike, whether it has an account or not, and therefore answers silently. Case and surrounding whitespace do not matter — `Grower@Example.com` and `grower@example.com` share one budget. If you requested three links and none arrived, wait an hour without asking again; your current password stays valid until then.
+
 ### Set a new password
 
 ```http

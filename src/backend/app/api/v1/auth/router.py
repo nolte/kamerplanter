@@ -531,6 +531,12 @@ def request_password_reset(
 
     The mail is sent after the response (#1890): its duration and a delivery
     failure must not tell the caller whether the address has an account.
+
+    **Limits.** Per client IP ``settings.rate_limit_auth`` (answers 429 — a
+    property of the source, never of the address); per address three requests,
+    refilled once the address has been left alone for an hour (#2043). The
+    per-address budget is enforced silently and counts unknown addresses alike:
+    a request over it answers exactly like an accepted one and only sends nothing.
     """
     service.request_password_reset(body.email, defer_mail=background_tasks.add_task)
     return MessageResponse(message="If the email exists, a reset link has been sent.")

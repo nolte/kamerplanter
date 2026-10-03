@@ -854,6 +854,28 @@ def get_verification_resend_store() -> IStepUpThrottleStore:
     )
 
 
+def get_password_reset_store() -> IStepUpThrottleStore:
+    """#2043 per-address budget of ``POST /auth/password-reset/request``.
+
+    Built like :func:`get_verification_resend_store`: the step-up counter
+    mechanism with its own one-hour window and its own in-process fallback,
+    Valkey-backed so replicas share one budget per address. Degrades to the
+    in-process tier when Valkey is unreachable — failing open would unbound the
+    reset mail an anonymous caller can send to a chosen address.
+    """
+    from app.data_access.external.step_up_throttle import (
+        DEFAULT_PASSWORD_RESET_STORE,
+        PASSWORD_RESET_WINDOW_SECONDS,
+        RedisStepUpThrottleStore,
+    )
+
+    return RedisStepUpThrottleStore(
+        _get_redis_client(),
+        ttl_seconds=PASSWORD_RESET_WINDOW_SECONDS,
+        fallback=DEFAULT_PASSWORD_RESET_STORE,
+    )
+
+
 def get_device_pairing_code_store() -> IDevicePairingCodeStore:
     """REQ-023 / #1118 one-time custody of QR pairing codes.
 
@@ -987,6 +1009,8 @@ def get_auth_service() -> AuthService:
         api_key_rate_limiter=get_api_key_rate_limiter(),
         # #2037 — the resend endpoint's per-address budget, shared across replicas.
         verification_resend_store=get_verification_resend_store(),
+        # #2043 — the reset request's per-address budget, shared across replicas.
+        password_reset_store=get_password_reset_store(),
     )
 
 

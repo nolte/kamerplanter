@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948); 1.28 (Default `REQUIRE_EMAIL_VERIFICATION=true` und OIDC-Admin-Seite festgelegt, #1948, #1906)
+Version: 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948); 1.28 (Default `REQUIRE_EMAIL_VERIFICATION=true` und OIDC-Admin-Seite festgelegt, #1948, #1906)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.32 | 2026-10-03 | **Budget je Adresse beim Passwort-Reset (#2043):** `POST /auth/password-reset/request` war nur je Client-IP begrenzt (`RATE_LIMIT_AUTH`, `20/minute`); gemessen über die echte Route: 20 Reset-Mails an eine Adresse aus einer Quelle in einer Minute, jede mit neuem Link — rechnerisch 1200 je Stunde und Quelle, mit jeder weiteren Quelle mehr. Neu: ein Budget je Adresse wie beim Bestätigungslink (§3.2b) — 3 Anfragen, Auffüllung nach einer Stunde Ruhe, eigenes Budget (Subject `password-reset:<Adresse>`), reserviert vor der Kontosuche für jede eingegebene Adresse gleich, stumm (unverändert `200`, gleicher Body, gleiche Header). Groß-/Kleinschreibung und umgebende Leerzeichen teilen ein Budget. Bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open. Details in §3.2c. |
 | 1.31 | 2026-10-03 | **IP-Rate-Limits geteilt über Replikas (#2045):** Der slowapi-Limiter aller Auth-Routen zählte bisher im Prozessspeicher (`memory://`); N Prozesse vervielfachten jedes Limit um N. Der Zähler liegt jetzt im Speicher aus `RATE_LIMIT_STORAGE_URL` (leer = Valkey aus `REDIS_URL`); scheitert der Speicher mit einem Fehler des Redis-Clients, zählt jeder Prozess für sich weiter (kein Fail-open, kein 500, auch nicht für Anfragen, die beim Ausfall gerade warten; ein frisches Fenster je Prozess und Fenster, nicht je Ausfall); ein hängender Speicher kostet eine Anfrage einen Socket-Timeout von 0,5 s je Verbindungsversuch und Adresse (DNS, mehrere Adressen, Verbindungsaufbau plus Handshake und `NOSCRIPT`-Nachladen nicht abgedeckt); jeder Prozess kehrt mit seiner eigenen nächsten Prüfanfrage zum geteilten Zähler zurück; `RATE_LIMIT_STORAGE_URL` (Schema `redis`, `rediss`, `redis+unix`, `memory` und Form) und `REDIS_URL` (Form) werden beim Laden geprüft, ohne den Wert zu nennen. Neues Log-Ereignis `forwarded_chain_deeper_than_trusted_proxy_hops` bei `TRUSTED_PROXY_HOPS=0` und mehrteiliger `X-Forwarded-For`-Kette (nicht gezählter Proxy oder vom Aufrufer selbst gesendeter Header). Details am Ende von §3.8 (Rate-Limit und Sperre bei Einlösung). |
 | 1.30 | 2026-10-03 | **Neuer Bestätigungslink (#2037):** Neuer §3.2b — `POST /auth/resend-verification` stellt einem Konto, dessen erster Bestätigungslink verloren ging oder abgelaufen ist, einen neuen aus. Ohne ihn kam ein solches Konto mit `REQUIRE_EMAIL_VERIFICATION=true` nie mehr in die Anmeldung (`/auth/register` antwortet einer belegten Adresse nur mit der Info-Mail, ohne neuen Token). Enumerationssicher: immer `202` mit demselben Body für unbekannte, unbestätigte und bestätigte Adressen; vor der Antwort für jede Adresse dieselbe Arbeit (eine Budget-Reservierung), Kontosuche, Token-Schreiben und Versand danach (#1890). Jeder Versand schreibt einen neuen Einmal-Token (24 h) und macht damit alle früheren Links ungültig. Grenzen: je Client-IP `RATE_LIMIT_RESEND_VERIFICATION` (Default `10/hour`, `429`), je Adresse 3 Anfragen mit Auffüllung nach einer Stunde Ruhe (stumm, unveränderte `202`). Keine Mail ohne `REQUIRE_EMAIL_VERIFICATION`, an Service-Accounts, an Konten ohne lokales Passwort (nur föderiert) oder an deaktivierte Konten. Die Login-Ablehnung `EMAIL_NOT_VERIFIED` nennt den Weg; das Frontend bietet ihn auf der Login-Seite und auf der Fehlerseite eines ungültigen Links an (§4.1 `ResendVerificationPage`). |
 | 1.29 | 2026-10-03 | **#1948 umgesetzt:** Der Default `true` ist ausgeliefert (Settings, Helm-Chart, Doku); E2E-Compose und Skaffold-Dev-Werte setzen `false` ausdrücklich. SEC-H-009 Bedingung 1 sagte noch „per Default `false`“ und begründete damit, dass eine echte Registrierung keine Mail verschickt — das stimmt nur noch mit `false`; mit `true` geht die Bestätigungsmail nach der Antwort raus (#1890). Die Bedingung bleibt unverändert gültig. |
@@ -981,6 +982,32 @@ englischen Backend-Texts einen lokalisierten Hinweis mit der Aktion
 in einer `role="status"`-Live-Region). Die Fehlerseite eines ungültigen Links
 verweist auf `ResendVerificationPage` (`/resend-verification`, §4.1).
 
+<!-- Quelle: Issue #2043 -->
+### 3.2c Budget je Adresse beim Passwort-Reset (`POST /auth/password-reset/request`, #2043)
+
+Der Reset-Endpunkt ist anonym, und der Aufrufer wählt den Empfänger. Bis #2043
+begrenzte ihn nur das IP-Limit `RATE_LIMIT_AUTH` (`20/minute`): Eine Quelle konnte
+einem Postfach zwanzig Reset-Links pro Minute schicken, jede weitere Quelle zwanzig
+mehr — Last auf dem Postfach und auf der Absender-Reputation (ein Resend-`429`
+blockiert dann auch legitime Mails).
+
+| Grenze | Wert | Antwort bei Überschreitung | Umsetzung |
+|--------|------|----------------------------|-----------|
+| Je Client-IP | `settings.rate_limit_auth`, Env `RATE_LIMIT_AUTH`, Default `20/minute` | `429 Too Many Requests` | slowapi-Limiter des Auth-Routers, Schlüssel über `resolve_client_ip` (#1130) |
+| Je Adresse | 3 Anfragen; Auffüllung, sobald eine Stunde lang keine Anfrage für die Adresse kam (Fenster wird je Anfrage erneuert) | Unverändert `200` mit demselben Body und denselben Headern, es wird nur nichts verschickt | Wie das Budget in §3.2b, aber eigene Instanz: Zähler-Mechanik des Step-up-Throttles (`reserve_attempt`, atomar per `MULTI/EXEC`), 1-h-Fenster, eigener In-Process-Rückfall; Subject `password-reset:<Adresse>`, die Adresse getrimmt und kleingeschrieben, als SHA-256 abgelegt (NFR-011); bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open |
+
+Die Reservierung läuft **vor** der Kontosuche, für jede eingegebene Adresse gleich —
+unbekannt, Service-Account oder echtes Konto. Über dem Budget folgt weder Kontosuche
+noch Token noch Mail. Beide Budgets sind getrennt: Wer das Budget des
+Bestätigungslinks einer Adresse ausschöpft, verbraucht nicht ihr Reset-Budget, und
+umgekehrt. Wert und Fenster sind die des Bestätigungslinks und ebenso bewusst
+nicht konfigurierbar.
+
+**Restrisiko.** Wer eine fremde Adresse dauerhaft über ihrem Budget hält (eine
+Anfrage pro Stunde reicht), verhindert neue Reset-Links für dieses Konto. Die
+Inhaberin kann sich mit ihrem bisherigen Passwort weiter anmelden; ein
+Plattform-Admin kann helfen.
+
 <!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
 ### 3.7 M2M-Authentifizierung (API-Keys)
 
@@ -1133,7 +1160,7 @@ class UserService:
 | POST | `/auth/device-pairing/redeem` | QR-Kopplungscode gegen Token-Paar einlösen (#1118, §3.8) | Nein (öffentlich) |
 | POST | `/auth/verify-email` | E-Mail bestätigen | Nein |
 | POST | `/auth/resend-verification` | Neuen Bestätigungslink anfordern — immer `202`, gleicher Body für jede Adresse; 10/h je IP, 3 je Adresse (§3.2b, #2037) | Nein |
-| POST | `/auth/password-reset/request` | Passwort-Reset anfordern | Nein |
+| POST | `/auth/password-reset/request` | Passwort-Reset anfordern — immer `200`, gleicher Body für jede Adresse; 20/min je IP, 3 je Adresse und Stunde (§3.2c, #2043) | Nein |
 | POST | `/auth/password-reset/confirm` | Passwort-Reset durchführen | Nein |
 | GET | `/auth/oauth/providers` | Aktivierte Provider auflisten (für Login-Seite) | Nein |
 | GET | `/auth/oauth/{provider_slug}` | OAuth-Redirect initiieren | Nein |

@@ -32,7 +32,7 @@ from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.external.device_pairing_throttle import DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
 from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
-from app.data_access.external.step_up_throttle import DEFAULT_VERIFICATION_RESEND_STORE
+from app.data_access.external.step_up_throttle import DEFAULT_PASSWORD_RESET_STORE, DEFAULT_VERIFICATION_RESEND_STORE
 from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOUNT_STORE
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT
@@ -156,6 +156,22 @@ MAX_VERIFICATION_RESENDS_PER_WINDOW = 3
 #: share one budget and the address is never stored in the clear.
 _VERIFICATION_RESEND_SUBJECT = "verification-resend:"
 
+#: Requests one address may make to ``/auth/password-reset/request`` before the
+#: mail stops (#2043). The same number and window as the resend budget
+#: (:data:`MAX_VERIFICATION_RESENDS_PER_WINDOW`) and for the same reason: the
+#: route is anonymous and the caller chooses the recipient, so the per-IP limit
+#: alone let one source mail one inbox twenty links a minute. The window is
+#: ``step_up_throttle.PASSWORD_RESET_WINDOW_SECONDS`` (one hour, renewed by every
+#: request). A request over the budget answers exactly like one inside it; it
+#: only sends nothing. Fixed rather than configurable, like the resend budget.
+MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW = 3
+
+#: Subject prefix of the reset budget — its own, so it never shares a counter
+#: with the resend budget or a step-up subject. The address is stripped and
+#: lowercased before the prefix is put in front (the lookup compares
+#: ``LOWER(doc.email) == LOWER(@email)``); the store then digests the subject.
+_PASSWORD_RESET_SUBJECT = "password-reset:"
+
 #: Lifetime of a mailed e-mail verification link — at registration and on every
 #: resend (#2037). One constant, so the two issuance paths cannot drift apart.
 _VERIFICATION_TOKEN_TTL = timedelta(hours=24)
@@ -278,6 +294,7 @@ class AuthService:
         light_mode: bool = False,
         api_key_rate_limiter: ApiKeyRateLimiter | None = None,
         verification_resend_store: IStepUpThrottleStore | None = None,
+        password_reset_store: IStepUpThrottleStore | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -332,6 +349,11 @@ class AuthService:
         # not disable the endpoint, it would unbound the mail it sends.
         self._verification_resend_store: IStepUpThrottleStore = (
             verification_resend_store if verification_resend_store is not None else DEFAULT_VERIFICATION_RESEND_STORE
+        )
+        # #2043 — the per-address budget of the reset request. Never ``None``, for
+        # the reason ``_verification_resend_store`` is not.
+        self._password_reset_store: IStepUpThrottleStore = (
+            password_reset_store if password_reset_store is not None else DEFAULT_PASSWORD_RESET_STORE
         )
         self._device_pairing_throttle_store: IDevicePairingThrottleStore = (
             device_pairing_throttle_store
@@ -833,7 +855,23 @@ class AuthService:
         The token write and the mail go through :meth:`_deliver_mail`: neither a
         failing adapter or database nor the time they take may answer a known
         address differently from an unknown one (#1890).
+
+        Per-address budget (#2043): every call reserves one attempt for the
+        submitted address before anything is looked up, for an unknown address
+        exactly like for a registered one. Past
+        :data:`MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW` the call returns without
+        a lookup, a token or a mail — and without any other visible difference.
         """
+        # Counted before anything is known about the address, for every address
+        # alike, so reaching the budget says nothing about whether an account
+        # stands behind it. Silent on purpose, like the resend budget. The address
+        # is normalised here and not only by the store: the store strips the
+        # whole subject, so whitespace between the prefix and the address would
+        # survive it and buy a fresh budget for the same inbox.
+        reserved = self._password_reset_store.reserve_attempt(_PASSWORD_RESET_SUBJECT + email.strip().lower())
+        if reserved > MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW:
+            return
+
         user = self._user_repo.get_by_email(email)
         if user is None:
             return  # Silent fail to prevent enumeration

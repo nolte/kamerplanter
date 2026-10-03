@@ -219,6 +219,13 @@ Content-Type: application/json
 
 Aus Sicherheitsgründen gibt dieser Endpunkt immer dieselbe Erfolgsantwort zurück, unabhängig davon, ob die E-Mail-Adresse existiert.
 
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_AUTH`, Default `20/minute` | `429 Too Many Requests` |
+| Je Adresse | 3 Anfragen; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anfrage für die Adresse kam | Unverändert `200` mit demselben Body — es geht nur kein Link mehr raus |
+
+Die Grenze je Adresse funktioniert wie beim [Bestätigungslink](#bestatigungslink-erneut-anfordern), hat aber ihr eigenes Budget: Sie zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht, und antwortet deshalb stumm. Groß-/Kleinschreibung und Leerzeichen um die Adresse spielen keine Rolle — `Gartner@Example.com` und `gartner@example.com` teilen sich ein Budget. Hast du drei Links angefordert und keiner kam an, warte eine Stunde, ohne erneut anzufragen; dein bisheriges Passwort bleibt bis dahin gültig.
+
 ### Neues Passwort setzen
 
 ```http

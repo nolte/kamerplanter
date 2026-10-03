@@ -172,6 +172,22 @@ VERIFICATION_RESEND_WINDOW_SECONDS = 3_600
 DEFAULT_VERIFICATION_RESEND_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
 
 
+#: Window of the per-address budget of ``POST /auth/password-reset/request``
+#: (#2043) — the third user of this mechanism, shaped exactly like the resend
+#: budget above: an atomic counter per subject, window renewed by every request,
+#: no strikes, no locks. Its subjects — ``password-reset:<address>`` — digest to
+#: neither a step-up subject nor a ``verification-resend:`` one, so the budgets
+#: never spend each other. One hour, like the resend budget: the reset link
+#: itself lives one hour, so a fourth link inside it would only replace a link
+#: that is still valid.
+PASSWORD_RESET_WINDOW_SECONDS = 3_600
+
+#: Process-wide in-process tier of the reset budget, and the degradation target
+#: of its Redis tier. Its own instance, for the reason
+#: :data:`DEFAULT_VERIFICATION_RESEND_STORE` is one.
+DEFAULT_PASSWORD_RESET_STORE = MemoryStepUpThrottleStore(ttl_seconds=PASSWORD_RESET_WINDOW_SECONDS)
+
+
 class RedisStepUpThrottleStore(IStepUpThrottleStore):
     """Valkey/Redis-backed counters shared across replicas, with an in-process fallback.
 
