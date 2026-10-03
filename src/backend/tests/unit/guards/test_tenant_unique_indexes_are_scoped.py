@@ -70,14 +70,14 @@ OPEN: dict[tuple[str, tuple[str, ...]], str] = {
     (col.WORKFLOW_TEMPLATES, ("name",)): "hybrid catalogue; decided in #2027, not here",
     (col.SPECIES, ("scientific_name",)): (
         "hybrid catalogue; #1162 scoped scientific_name_normalized to the tenant but left the raw "
-        "scientific_name index collection-wide (found by the #2029 sweep)"
+        "scientific_name index collection-wide (#2063)"
     ),
     (col.PLANT_INSTANCES, ("instance_id",)): (
         "caller-supplied id; onboarding derives it as onb-<species_key>-<n> from a global species, "
-        "so two tenants onboarding the same species collide (found by the #2029 sweep)"
+        "so two tenants onboarding the same species collide (#2065)"
     ),
-    (col.HARVEST_BATCHES, ("batch_id",)): "caller-supplied lot label (found by the #2029 sweep)",
-    (col.SLOTS, ("slot_id",)): "caller-supplied slot label such as TENT01_A1 (found by the #2029 sweep)",
+    (col.HARVEST_BATCHES, ("batch_id",)): "caller-supplied lot label (#2065)",
+    (col.SLOTS, ("slot_id",)): "caller-supplied slot label such as TENT01_A1 (#2065)",
 }
 
 

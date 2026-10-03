@@ -88,7 +88,7 @@ planned → active → harvesting → completed
 
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
-| `tanks` | Wassertanks | `name` (unique je Mandant), `capacity_liters`, `tenant_key` |
+| `tanks` | Wassertanks | `name` (unique je Mandant), `volume_liters`, `tenant_key` |
 | `tank_states` | Messzeitpunkt-Snapshots eines Tanks | `ec_ms`, `ph`, `volume_liters`, `recorded_at` |
 | `tank_fill_events` | Befüllereignisse | `filled_at`, `water_mix_ratio_ro_percent` |
 | `fertilizers` | Dünger-Stammdaten | `tenant_key`, `product_name`, `brand` (unique je Mandant und Paar; global genau einmal), `mixing_priority` |
@@ -314,7 +314,7 @@ Kamerplanter legt beim Start automatisch folgende Indizes an:
 | `users` | `email` | Persistent | Ja |
 | `tenants` | `slug` | Persistent | Ja |
 | `memberships` | `user_key, tenant_key` | Persistent | Ja |
-| `fertilizers` | `product_name, brand` | Persistent | Ja |
+| `fertilizers` | `tenant_key, product_name, brand` | Persistent | Ja |
 | `harvest_batches` | `batch_id` | Persistent (sparse) | Ja |
 | `tanks` | `tenant_key, name` | Persistent | Ja |
 | `refresh_tokens` | `token_hash` | Persistent | Ja |
