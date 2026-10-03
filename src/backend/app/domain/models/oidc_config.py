@@ -104,6 +104,43 @@ class ProviderTypeCheck(BaseModel):
     detail: str = ""
 
 
+class ProviderJwksCheck(BaseModel):
+    """Structured verdict on whether the login can obtain the provider's signing keys (#1987).
+
+    Carried by ``POST /admin/oidc-providers/{key}/test`` beside the scope and type verdicts,
+    for the same reason: the login verifies every ID token's signature against these keys, and
+    until this check an operator learnt that it could not from ``oauth_login_refused`` in the
+    log — after the first users had been turned away. ``applicable`` is ``False`` for a
+    provider that issues no ID token (GitHub, or a configuration without the ``openid`` scope):
+    there is nothing to verify and no key to fetch.
+    """
+
+    ok: bool
+    applicable: bool = True
+    jwks_url: str | None = None
+    key_count: int = 0
+    skipped_key_count: int = 0
+    key_ids: list[str] = Field(default_factory=list)
+    detail: str = ""
+
+
+class ProviderIssuerCheck(BaseModel):
+    """Structured verdict on whether the ``iss`` the provider sends is one the login accepts (#1987).
+
+    The login refuses an ID token whose ``iss`` is not the configured issuer (or, for Google
+    and Apple, a documented spelling). A provider's discovery document names the issuer it
+    puts in its tokens; when that differs from ``issuer_url`` every login fails with the
+    reason ``iss`` — the commonest cause being a realm or tenant path the operator left out.
+    """
+
+    ok: bool
+    applicable: bool = True
+    configured_issuer: str = ""
+    accepted_issuers: list[str] = Field(default_factory=list)
+    discovery_issuer: str | None = None
+    detail: str = ""
+
+
 #: The spelling of a provider slug — the URL segment of ``/auth/oauth/{slug}/...``.
 OIDC_SLUG_MAX_LENGTH = 50
 OIDC_SLUG_PATTERN = r"^[a-z0-9-]+$"

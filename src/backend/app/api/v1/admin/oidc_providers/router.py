@@ -23,7 +23,7 @@ from app.common.openapi_responses import (
 )
 from app.common.request_ip import resolve_client_ip
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
-from app.domain.engines.oauth_engine import OAuthEngine
+from app.domain.engines.oauth_engine import DiscoveryIssuerMismatchError, OAuthEngine
 from app.domain.models.oidc_config import OidcProviderConfig
 from app.domain.models.user import User
 from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
@@ -233,7 +233,14 @@ def test_provider(
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     oauth_engine: OAuthEngine = Depends(get_oauth_engine),
 ):
-    """Fetch and validate the OIDC discovery document, and judge type and scopes.
+    """Fetch and validate the OIDC discovery document, and judge type, scopes, signing keys and issuer.
+
+    **Login checks (#1987).** ``jwks_check`` fetches the provider's key set the way a sign-in does
+    (the key URL resolved and checked, the response size-capped, an unusable key skipped and
+    counted) and says whether it worked; ``issuer_check`` says whether the ``iss`` the provider
+    announces is one the sign-in accepts. Both are verdicts, never errors: a failing one is what
+    would otherwise reach the operator as ``oauth_login_refused`` after the first users were
+    turned away. Neither fills the login's key cache.
 
     Both verdicts — the scope one (#1477) and the provider-type one (#1497) — are
     reported on EVERY path, before the discovery fetch. A provider stored before
@@ -250,13 +257,32 @@ def test_provider(
     scope_check = oauth_engine.check_provider_scopes(config)
     provider_type_check = oauth_engine.check_provider_type(config)
 
+    discovery: dict | None = None
+    announced: str | None = None
+    discovery_error: str | None = None
     try:
         discovery = oauth_engine.fetch_discovery_document(config.issuer_url)
+        announced = discovery.get("issuer")
+    except DiscoveryIssuerMismatchError as e:
+        announced = e.announced
+        discovery_error = str(e)
     except Exception as e:
+        discovery_error = str(e)
+
+    # The two verdicts about the login's own checks (#1987), reported whether or not the
+    # discovery document could be fetched: a provider whose discovery fails may still have
+    # an explicit key endpoint, and "the issuer it announces is not the one configured" is the
+    # most useful thing to say about a document refused for exactly that.
+    jwks_check = oauth_engine.check_jwks(config, discovery=discovery, discovery_error=discovery_error)
+    issuer_check = oauth_engine.check_issuer(config, announced=announced, discovery_error=discovery_error)
+
+    if discovery is None:
         return OidcProviderTestResponse(
-            message=f"Discovery fetch failed: {e}",
+            message=f"Discovery fetch failed: {discovery_error}",
             scope_check=scope_check,
             provider_type_check=provider_type_check,
+            jwks_check=jwks_check,
+            issuer_check=issuer_check,
         )
 
     # Validate required fields
@@ -267,6 +293,8 @@ def test_provider(
             message=f"Discovery document missing fields: {', '.join(missing)}",
             scope_check=scope_check,
             provider_type_check=provider_type_check,
+            jwks_check=jwks_check,
+            issuer_check=issuer_check,
         )
 
     # Save the discovery document — and only it (#1883 security review SEC-002).
@@ -286,6 +314,8 @@ def test_provider(
             message="The provider's issuer changed during the discovery fetch; nothing was stored. Run the test again.",
             scope_check=scope_check,
             provider_type_check=provider_type_check,
+            jwks_check=jwks_check,
+            issuer_check=issuer_check,
         )
 
     return OidcProviderTestResponse(
@@ -294,4 +324,6 @@ def test_provider(
         f"token={discovery.get('token_endpoint', 'N/A')}",
         scope_check=scope_check,
         provider_type_check=provider_type_check,
+        jwks_check=jwks_check,
+        issuer_check=issuer_check,
     )

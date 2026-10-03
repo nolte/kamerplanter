@@ -169,6 +169,123 @@ def validate_server_side_url(url: str, *, field: str = "url") -> str:
     return url
 
 
+#: Hosts that name this machine — the only ``http`` an OIDC endpoint may have, and
+#: only while the application runs in ``settings.debug`` (#1987).
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def https_endpoint_problem(url: object) -> str | None:
+    """Why *url* is not an acceptable OIDC endpoint, or ``None`` when it is (#1987).
+
+    A **pure predicate** — no DNS, no log — shared by the request schemas (which turn
+    the answer into a 422) and by the login (which refuses to dial the URL). The rule is
+    the scheme: an OIDC endpoint carries the discovery document, the authorization code
+    and the client secret, or the signing keys, and over ``http`` whoever sits on the
+    path answers it. ``http`` to a loopback host is accepted only when
+    ``settings.debug`` is on — the existing development switch, not a new one.
+
+    The host check is on the parsed hostname, never a prefix: ``http://localhost.evil``
+    is not loopback.
+    """
+    if not isinstance(url, str) or not url or len(url) > _MAX_ENDPOINT_LENGTH:
+        return "must be a non-empty URL of at most 2048 characters"
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        parts.port  # noqa: B018 — raises ValueError for a port outside 0-65535, which httpx would raise later
+    except ValueError:
+        return "is not a valid URL"
+    if not host:
+        return "has no host"
+    if parts.username is not None or parts.password is not None:
+        return "must not carry credentials"
+    if parts.scheme == "https":
+        return None
+    if parts.scheme == "http" and settings.debug and host.lower() in _LOOPBACK_HOSTS:
+        return None
+    return "must use https"
+
+
+def _unwrap_embedded_ipv4(address: ipaddress._BaseAddress) -> ipaddress._BaseAddress:
+    """The IPv4 address an IPv6 one carries (mapped, NAT64, 6to4), else *address* itself."""
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return address.ipv4_mapped
+        if address in _NAT64_PREFIX:
+            return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+        if address in _SIXTOFOUR_PREFIX:
+            return ipaddress.IPv4Address((int(address) >> 80) & 0xFFFFFFFF)
+    return address
+
+
+def validate_oidc_fetch_url(
+    url: str, *, field: str = "url", trusted_host: str | None = None, allow_private: bool = False
+) -> str:
+    """Validate a URL the server is about to fetch for an OIDC provider (#1987).
+
+    The scheme rule of :func:`https_endpoint_problem`, plus the address rule of the
+    other server-side validators here: a host that resolves to a link-local /
+    cloud-metadata / reserved / multicast / unspecified address is **always** refused
+    (:func:`_is_metadata_or_link_local` plus the extra metadata addresses of the Apprise
+    validator, an IPv4 address carried in IPv6 judged as itself — never opt-in-able). A private
+    or loopback address is refused too unless one of three things holds:
+
+    * ``allow_private`` — the URL was typed by the platform admin behind a step-up
+      (an explicitly configured ``jwks_url``), which is the same trust the admin already
+      has over ``issuer_url``;
+    * *trusted_host* — the host the provider itself is configured at (the name is compared; the
+      address is not pinned, so a name that changes its answer between this check and the
+      connection is the residual DNS-rebinding risk every validator in this module has — TLS
+      with a valid certificate for that name is what bounds it). A self-hosted IdP
+      on the LAN publishes a key set on its own host, and that is the one case where the
+      provider-supplied ``jwks_uri`` of a discovery document is allowed a private address;
+      a key endpoint on *another* private host is exactly the SSRF this exists to stop;
+    * ``settings.debug`` — development against a local provider.
+
+    Raises:
+        ValidationError: not acceptable; the ``code`` in the details says which rule.
+    """
+    problem = https_endpoint_problem(url)
+    if problem is not None:
+        raise ValidationError(
+            f"{field} {problem}.",
+            details=[{"field": field, "reason": f"The URL {problem}.", "code": "INVALID_URL_SCHEME"}],
+        )
+    host = urlsplit(url).hostname or ""
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError:
+        raise ValidationError(
+            f"{field} host could not be resolved.",
+            details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
+        ) from None
+    private_ok = allow_private or settings.debug or (trusted_host is not None and host.lower() == trusted_host.lower())
+    for resolved in addresses:
+        # Judged by the IPv4 address an IPv6 one carries (mapped, NAT64, 6to4), and against the
+        # metadata addresses the stdlib files under "private" or "global" (Alibaba's
+        # 100.100.100.200, AWS IMDS over IPv6 fd00:ec2::254) — the Apprise validator's list, so the
+        # two cannot drift (#1987 security review).
+        address = _unwrap_embedded_ipv4(resolved)
+        # ``::1`` is "reserved" to the stdlib as well as loopback; loopback is the opt-in's to give.
+        always_blocked = (not address.is_loopback and _is_metadata_or_link_local(address)) or any(
+            address in network for network in _APPRISE_EXTRA_BLOCKED_NETWORKS
+        )
+        internal = _is_blocked_address(address) or not address.is_global
+        if always_blocked or (internal and not private_ok):
+            logger.warning("oidc_url_rejected_ssrf", host=host, address=resolved.compressed, field=field)
+            raise ValidationError(
+                f"{field} resolves to a blocked address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": "Host resolves to an internal, link-local or reserved address.",
+                        "code": "URL_PRIVATE_ADDRESS",
+                    }
+                ],
+            )
+    return url
+
+
 def _is_metadata_or_link_local(address: ipaddress._BaseAddress) -> bool:
     """True if ``address`` is link-local — covers the cloud metadata endpoint.
 

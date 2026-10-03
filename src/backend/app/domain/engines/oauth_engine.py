@@ -10,22 +10,28 @@ import hmac
 import json
 import math
 import secrets
+import time
 from datetime import datetime
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 import structlog
-from authlib.jose import JsonWebKey, JsonWebToken
+from authlib.jose import JsonWebKey, JsonWebToken, KeySet
 from authlib.jose.errors import JoseError
 
 from app.common.enums import AuthProviderType, OidcProviderType
 from app.common.exceptions import ValidationError
+from app.common.url_safety import https_endpoint_problem, validate_oidc_fetch_url
+from app.domain.engines import jwks_cache
+from app.domain.engines.jwks_cache import JwksFetchError
 from app.domain.models.auth import OAuthRedirect, OAuthUserInfo
 from app.domain.models.oidc_config import (
     GITHUB_EMAIL_SCOPES,
     GITHUB_REQUIRED_SCOPE,
     OidcProviderConfig,
+    ProviderIssuerCheck,
+    ProviderJwksCheck,
     ProviderScopeCheck,
     ProviderTypeCheck,
     is_github_provider,
@@ -127,8 +133,15 @@ _LOGIN_ID_TOKEN_ALGORITHMS = ["RS256", "RS384", "RS512", "PS256", "PS384", "PS51
 #: is checked separately, against the issuer the document was fetched from (4.3).
 _DISCOVERY_REQUIRED_ENDPOINTS = ("authorization_endpoint", "token_endpoint", "jwks_uri")
 
-#: Clock skew tolerated for ``iat`` of a login ID token (``exp`` uses the step-up's).
+#: Clock skew tolerated for ``iat``, ``nbf`` and ``exp`` of a login ID token.
 _LOGIN_CLOCK_SKEW_SECONDS = FRESH_REAUTH_CLOCK_SKEW_SECONDS
+
+#: How old a login ID token's ``iat`` may be (#1987). The provider issues the token in the
+#: response to the code exchange this server just made, seconds after the person finished
+#: signing in, and the state that carries the nonce lives five minutes; a token issued an hour
+#: ago is a replayed or long-held one, whatever its ``exp`` says. Ten minutes leaves room for
+#: a slow second factor and a skewed provider clock, and no more.
+_LOGIN_ID_TOKEN_MAX_AGE_SECONDS = 600
 
 
 def supports_fresh_reauth(config: OidcProviderConfig) -> bool:
@@ -182,6 +195,19 @@ def _refuse_non_finite(constant: str) -> float:
     raise ValueError(f"Non-finite number {constant} in id_token.")
 
 
+class DiscoveryIssuerMismatchError(ValueError):
+    """The discovery document names another issuer than the one it was fetched from (OIDC Discovery 4.3).
+
+    A ``ValueError`` like every other reason a document is refused, but one that keeps what
+    the provider announced, so ``POST /admin/oidc-providers/{key}/test`` can tell the operator
+    which issuer to configure (#1987).
+    """
+
+    def __init__(self, announced: str) -> None:
+        super().__init__("The discovery document's issuer is not the issuer it was fetched from.")
+        self.announced = announced
+
+
 class FreshReauthRejectedError(Exception):
     """The ID token of a step-up callback does not prove a fresh sign-in of the account (#1815).
 
@@ -209,6 +235,110 @@ class LoginIdentityRejectedError(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+class InsecureEndpointError(ValueError):
+    """A provider endpoint is unusable (not ``https``, no host, ...); the text names a rule, never a value (#1987)."""
+
+
+def _https_endpoint(url: str, what: str) -> str:
+    """*url* if it is an acceptable endpoint, else ``ValueError`` — the login never dials a plain-http one (#1987).
+
+    The request schemas refuse such a URL since #1987, but a configuration stored before
+    that is still read, and so is a stored discovery document: this is the check at the
+    point of use. ``ValueError`` is what the resolvers already raise for "cannot
+    resolve", so :func:`_token_endpoint_is_tls` and the callers treat it the same way.
+    """
+    problem = https_endpoint_problem(url)
+    if problem is not None:
+        raise InsecureEndpointError(f"The {what} {problem}.")
+    return url
+
+
+def _get_json_bounded(client: httpx.Client, url: str) -> Any:
+    """GET *url* and parse it as JSON, reading no more than ``JWKS_MAX_BYTES`` of the body (#1987).
+
+    Streamed and counted on the DECODED bytes, so neither a huge ``Content-Length`` nor a
+    compressed body that inflates past the cap is read to the end. No redirect is followed
+    (httpx's default): a provider answering with a redirect to an internal address is an
+    error, not a detour.
+
+    Raises:
+        httpx.HTTPError: the request failed or the status is not 2xx.
+        ValueError: the body is larger than the cap, or is not JSON.
+    """
+    limit = jwks_cache.JWKS_MAX_BYTES
+    deadline = time.monotonic() + jwks_cache.JWKS_FETCH_DEADLINE_SECONDS
+    # ``identity``: the cap counts decoded bytes, and a decoder inflates a whole raw chunk at once —
+    # a small compressed chunk can be many megabytes. A key set is a few kilobytes; nothing is lost.
+    headers = {"Accept": "application/json", "Accept-Encoding": "identity"}
+    with client.stream("GET", url, headers=headers) as response:
+        response.raise_for_status()
+        declared = response.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > limit:
+            raise ValueError("The response is larger than the limit.")
+        body = bytearray()
+        for chunk in response.iter_bytes():
+            body.extend(chunk)
+            if len(body) > limit:
+                raise ValueError("The response is larger than the limit.")
+            # httpx's timeout is per phase: a provider that sends a byte every few seconds would
+            # otherwise hold the request (and the per-configuration fetch lock) for as long as it
+            # cares to — and every sign-in at that configuration with it.
+            if time.monotonic() > deadline:
+                raise ValueError("The response took longer than the limit.")
+    return json.loads(bytes(body), parse_constant=_refuse_non_finite)
+
+
+def _unverified_kid(token: str) -> str | None:
+    """The ``kid`` a compact JWT's header claims — used only to decide whether the cached keys can verify it.
+
+    Nothing is trusted from the header: the signature is checked against the key set afterwards,
+    and a header that cannot be read yields ``None`` (the decode then fails on its own).
+    """
+    try:
+        header_b64 = token.split(".", 1)[0]
+        header = json.loads(base64.urlsafe_b64decode(header_b64 + "=" * (-len(header_b64) % 4)))
+    except ValueError, TypeError:
+        return None
+    kid = header.get("kid") if isinstance(header, dict) else None
+    return kid if isinstance(kid, str) else None
+
+
+def _import_key_set(document: Any) -> tuple[KeySet, int]:
+    """The usable keys of a JWKS document, and how many entries were skipped (#1987).
+
+    One key the library cannot import — an unknown ``kty``, a malformed modulus, an entry that
+    is not an object — used to discard the whole set, so a provider that added a key type this
+    library does not know locked everybody out. It is skipped. A symmetric (``oct``) key is
+    skipped as well: login accepts asymmetric algorithms only (``_LOGIN_ID_TOKEN_ALGORITHMS``),
+    so one in the set can only be a mistake or an attack.
+
+    Raises:
+        ValueError: the document is no key set, or no key in it is usable.
+    """
+    entries = document.get("keys") if isinstance(document, dict) else None
+    if not isinstance(entries, list):
+        raise ValueError("The JWKS document has no key list.")
+    keys = []
+    skipped = 0
+    for entry in entries:
+        try:
+            key = JsonWebKey.import_key(entry)
+            usable = isinstance(entry, dict) and entry.get("kty") in _ASYMMETRIC_KEY_TYPES
+        except JoseError, ValueError, KeyError, TypeError, AttributeError:
+            usable = False
+        if usable:
+            keys.append(key)
+        else:
+            skipped += 1
+    if not keys:
+        raise ValueError("The JWKS document holds no usable key.")
+    return KeySet(keys), skipped
+
+
+#: The JWK key types an ID token signature can be verified with here (RFC 7518 6, RFC 8037).
+_ASYMMETRIC_KEY_TYPES = frozenset({"RSA", "EC", "OKP"})
 
 
 def _canonical_issuer(value: str) -> str:
@@ -700,11 +830,10 @@ class OAuthEngine:
         or that lacks the endpoints this application reads, raises ``ValueError``
         and is never returned — so none of them can store it.
         """
+        _https_endpoint(issuer_url, "issuer")
         url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
         with httpx.Client(timeout=15) as client:
-            resp = client.get(url)
-            resp.raise_for_status()
-            document = resp.json()
+            document = _get_json_bounded(client, url)
         return self.validate_discovery_document(document, issuer_url)
 
     @staticmethod
@@ -716,7 +845,7 @@ class OAuthEngine:
         if not isinstance(issuer, str) or not issuer:
             raise ValueError("The discovery document names no issuer.")
         if _canonical_issuer(issuer) != _canonical_issuer(issuer_url):
-            raise ValueError("The discovery document's issuer is not the issuer it was fetched from.")
+            raise DiscoveryIssuerMismatchError(issuer)
         missing = [
             field
             for field in _DISCOVERY_REQUIRED_ENDPOINTS
@@ -793,7 +922,7 @@ class OAuthEngine:
             LoginIdentityRejectedError: the signature, ``iss``, ``aud``, ``azp``, ``nonce``,
                 ``exp``, ``iat`` or ``sub`` check failed (the reason names which).
         """
-        key_set = self._load_jwks(config)
+        key_set = self._load_jwks(config, kid=_unverified_kid(id_token))
         try:
             claims = dict(JsonWebToken(_LOGIN_ID_TOKEN_ALGORITHMS).decode(id_token, key_set))
         except (JoseError, ValueError, KeyError, TypeError) as exc:
@@ -822,50 +951,180 @@ class OAuthEngine:
         if not _is_finite_number(exp) or exp + _LOGIN_CLOCK_SKEW_SECONDS < epoch:
             raise LoginIdentityRejectedError("exp")
         iat = claims.get("iat")
-        if not _is_finite_number(iat) or iat > epoch + _LOGIN_CLOCK_SKEW_SECONDS:
+        if (
+            not _is_finite_number(iat)
+            or iat > epoch + _LOGIN_CLOCK_SKEW_SECONDS
+            or iat < epoch - _LOGIN_ID_TOKEN_MAX_AGE_SECONDS - _LOGIN_CLOCK_SKEW_SECONDS
+        ):
             raise LoginIdentityRejectedError("iat")
+        # ``nbf`` is optional (OIDC Core 2, RFC 7519 4.1.5), but a token that carries one is
+        # not valid before it: present-and-wrong is a refusal, not an absence (#1987).
+        if "nbf" in claims:
+            nbf = claims["nbf"]
+            if not _is_finite_number(nbf) or nbf - _LOGIN_CLOCK_SKEW_SECONDS > epoch:
+                raise LoginIdentityRejectedError("nbf")
         subject = claims.get("sub")
         if not isinstance(subject, str) or not subject.strip():
             raise LoginIdentityRejectedError("sub_missing")
         return claims
 
-    def _load_jwks(self, config: OidcProviderConfig) -> Any:
-        """The provider's signing keys, fetched now over TLS; a failure refuses the login (fail closed)."""
+    def _load_jwks(self, config: OidcProviderConfig, *, kid: str | None = None) -> Any:
+        """The provider's signing keys, from the per-configuration cache or fetched over TLS (#1987).
+
+        ``kid`` is the key id the token claims; the cache refetches once, rate-limited, when it
+        holds no such key (:mod:`app.domain.engines.jwks_cache`). A failure refuses the login
+        (fail closed) and is remembered for seconds only.
+        """
+        discovery = self.usable_discovery(config)
+        stored_uri = discovery.get("jwks_uri") if discovery else None
+        cache_key = (config.key, config.slug, config.provider_type, config.issuer_url, config.jwks_url, stored_uri)
         try:
-            url = self._resolve_jwks_url(config)
-            if not url or not url.lower().startswith("https://"):
-                raise LoginIdentityRejectedError("jwks_unavailable")
-            with httpx.Client(timeout=15) as client:
-                resp = client.get(url)
-                resp.raise_for_status()
-                return JsonWebKey.import_key_set(resp.json())
-        except LoginIdentityRejectedError:
-            raise
-        except (httpx.HTTPError, JoseError, ValueError, KeyError, TypeError) as exc:
+            return jwks_cache.cached_key_set(cache_key, lambda: self._fetch_key_set(config), kid=kid)
+        except JwksFetchError as exc:
             raise LoginIdentityRejectedError("jwks_unavailable") from exc
 
-    def _resolve_jwks_url(self, config: OidcProviderConfig) -> str | None:
-        """Where *config*'s signing keys are published.
+    def _fetch_key_set(self, config: OidcProviderConfig) -> tuple[KeySet, frozenset[str]]:
+        """Resolve where *config*'s keys live, check that URL, and read the set — bounded.
 
-        The configured ``jwks_url``, else the ``jwks_uri`` of its (current) discovery
-        document, else the documented URL of a built-in provider type, else a
-        discovery document fetched now — a provider stored without one still signs
-        in, and the fetched document is validated like any other.
+        Raises:
+            JwksFetchError: every way this can fail; the cause is logged value-free.
+        """
+        try:
+            key_set, _skipped, _url = self._fetch_key_set_detailed(config)
+        except Exception as exc:  # noqa: BLE001 — whatever it was, the failure must be cached and the login refused
+            # Not an enumerated list: an exception that escaped it (``RecursionError`` from a document
+            # of nested brackets, ``httpx.InvalidURL`` for a port out of range) would skip the negative
+            # cache and the refetch interval, and every login would fetch again.
+            logger.info("oidc_jwks_unavailable", provider=config.slug, error_type=type(exc).__name__)
+            raise JwksFetchError(type(exc).__name__) from exc
+        return key_set, frozenset(str(key.kid) for key in key_set.keys if key.kid)
+
+    def _fetch_key_set_detailed(self, config: OidcProviderConfig) -> tuple[KeySet, int, str]:
+        """:meth:`_fetch_key_set` without the translation: the set, the skipped count and the URL used."""
+        url, origin = self._resolve_jwks_source(config)
+        # An explicitly configured URL is the admin's, behind a step-up — as trusted as the issuer
+        # they typed, so a private address is theirs to choose. One the provider's discovery
+        # document supplies is the provider's: private only on the provider's own host.
+        validate_oidc_fetch_url(
+            url,
+            field="jwks_uri",
+            trusted_host=urlsplit(config.issuer_url).hostname if origin == "discovery" else None,
+            allow_private=origin == "configured",
+        )
+        with httpx.Client(timeout=15) as client:
+            document = _get_json_bounded(client, url)
+        key_set, skipped = _import_key_set(document)
+        return key_set, skipped, url
+
+    def _resolve_jwks_source(self, config: OidcProviderConfig) -> tuple[str, str]:
+        """Where *config*'s signing keys are published, and whose word that is.
+
+        The configured ``jwks_url`` (``"configured"``), else the ``jwks_uri`` of its (current)
+        discovery document (``"discovery"``), else the documented URL of a built-in provider
+        type (``"known"``), else a discovery document fetched now — a provider stored without
+        one still signs in, and the fetched document is validated like any other.
+
+        Raises:
+            ValueError: no source can be found.
         """
         if config.jwks_url:
-            return config.jwks_url
+            return config.jwks_url, "configured"
         discovery = self.usable_discovery(config)
         if discovery and isinstance(discovery.get("jwks_uri"), str):
-            return discovery["jwks_uri"]
+            return discovery["jwks_uri"], "discovery"
         known = _KNOWN_JWKS_URLS.get(config.provider_type)
         if known:
-            return known
+            return known, "known"
         try:
             fetched = self.fetch_discovery_document(config.issuer_url)
         except (httpx.HTTPError, ValueError) as exc:  # `as exc` keeps ruff-format from rewriting the tuple
             logger.info("oidc_login_discovery_unavailable", provider=config.slug, error_type=type(exc).__name__)
-            return None
-        return fetched["jwks_uri"]
+            raise ValueError("No key endpoint can be resolved.") from exc
+        return fetched["jwks_uri"], "discovery"
+
+    # ── What ``POST /admin/oidc-providers/{key}/test`` reports about the login's own checks (#1987) ──
+
+    def check_jwks(
+        self, config: OidcProviderConfig, *, discovery: dict | None = None, discovery_error: str | None = None
+    ) -> ProviderJwksCheck:
+        """Whether the login could fetch and use *config*'s signing keys right now — a verdict, never an exception.
+
+        Reads the provider fresh (the cache is neither consulted nor filled), through exactly the
+        steps a login takes: where the keys live, that URL checked, the bounded read, the import.
+        *discovery* is the document the caller has just fetched, so a provider whose stored
+        document is stale is judged by the current one; *discovery_error* is why that fetch failed.
+        """
+        if not self._expects_id_token(config):
+            return ProviderJwksCheck(
+                ok=True, applicable=False, detail="This provider issues no ID token; there is no key set to verify."
+            )
+        probe = config.model_copy(update={"discovery_document": discovery}) if discovery else config
+        if not probe.jwks_url and not self.usable_discovery(probe) and not _KNOWN_JWKS_URLS.get(probe.provider_type):
+            reason = discovery_error or "The provider's discovery document names no key endpoint."
+            return ProviderJwksCheck(ok=False, detail=f"No key endpoint could be resolved: {reason}")
+        try:
+            key_set, skipped, url = self._fetch_key_set_detailed(probe)
+        except ValidationError as exc:
+            return ProviderJwksCheck(ok=False, detail=f"The key endpoint is not acceptable: {exc.message}")
+        except Exception as exc:  # noqa: BLE001 — a verdict, never an exception
+            return ProviderJwksCheck(ok=False, detail=f"The key set could not be read ({type(exc).__name__}): {exc}")
+        key_ids = sorted(str(key.kid) for key in key_set.keys if key.kid)
+        return ProviderJwksCheck(
+            ok=True,
+            jwks_url=url,
+            key_count=len(key_set.keys),
+            skipped_key_count=skipped,
+            key_ids=key_ids,
+            detail=(
+                f"{len(key_set.keys)} usable key(s) fetched"
+                + (f"; {skipped} entr{'y' if skipped == 1 else 'ies'} skipped as unusable." if skipped else ".")
+            ),
+        )
+
+    def check_issuer(
+        self, config: OidcProviderConfig, *, announced: str | None = None, discovery_error: str | None = None
+    ) -> ProviderIssuerCheck:
+        """Whether the ``iss`` the provider announces is one the login accepts — a verdict, never an exception.
+
+        *announced* is the ``issuer`` of the provider's discovery document — also when the
+        document was refused for naming another issuer than the one it was fetched from, which
+        is exactly the case an operator needs to see.
+        """
+        accepted = sorted(self.expected_issuers(config))
+        if not self._expects_id_token(config):
+            return ProviderIssuerCheck(
+                ok=True,
+                applicable=False,
+                configured_issuer=config.issuer_url,
+                accepted_issuers=accepted,
+                detail="This provider issues no ID token; there is no issuer to check.",
+            )
+        if not isinstance(announced, str) or not announced:
+            reason = discovery_error or "The discovery document names no issuer."
+            return ProviderIssuerCheck(
+                ok=False,
+                configured_issuer=config.issuer_url,
+                accepted_issuers=accepted,
+                detail=f"The issuer the provider announces could not be read: {reason}",
+            )
+        if any(self.same_issuer(expected, announced) for expected in accepted):
+            return ProviderIssuerCheck(
+                ok=True,
+                configured_issuer=config.issuer_url,
+                accepted_issuers=accepted,
+                discovery_issuer=announced,
+                detail="The provider announces an issuer the login accepts.",
+            )
+        return ProviderIssuerCheck(
+            ok=False,
+            configured_issuer=config.issuer_url,
+            accepted_issuers=accepted,
+            discovery_issuer=announced,
+            detail=(
+                f"The provider announces the issuer {announced}, but the login accepts only {', '.join(accepted)}: "
+                "every sign-in would be refused (reason iss). Set issuer_url to the announced value."
+            ),
+        )
 
     def should_auto_link(self, existing_email_verified: bool, oauth_email_verified: bool | None) -> bool:
         """Auto-link only if BOTH sides are verified, with absent counting as unverified.
@@ -923,38 +1182,43 @@ class OAuthEngine:
 
     # ── Internal helpers ─────────────────────────────────────────────
 
+    # The three resolvers hand back an endpoint the caller is about to dial with a code, a
+    # client secret or an access token: each passes it through ``_https_endpoint`` (#1987),
+    # whichever of the configuration, the built-in table or the stored discovery document
+    # it came from.
+
     def _resolve_authorization_url(self, config: OidcProviderConfig) -> str:
         if config.authorization_url:
-            return config.authorization_url
+            return _https_endpoint(config.authorization_url, "authorization endpoint")
         known = _PROVIDER_ENDPOINTS.get(config.provider_type, {})
         if known.get("authorization_url"):
             return known["authorization_url"]
         # Try discovery
         discovery = self.usable_discovery(config)
         if discovery:
-            return discovery.get("authorization_endpoint", "")
+            return _https_endpoint(discovery.get("authorization_endpoint", ""), "authorization endpoint")
         raise ValueError(f"Cannot resolve authorization URL for provider '{config.slug}'.")
 
     def _resolve_token_url(self, config: OidcProviderConfig) -> str:
         if config.token_url:
-            return config.token_url
+            return _https_endpoint(config.token_url, "token endpoint")
         known = _PROVIDER_ENDPOINTS.get(config.provider_type, {})
         if known.get("token_url"):
             return known["token_url"]
         discovery = self.usable_discovery(config)
         if discovery:
-            return discovery.get("token_endpoint", "")
+            return _https_endpoint(discovery.get("token_endpoint", ""), "token endpoint")
         raise ValueError(f"Cannot resolve token URL for provider '{config.slug}'.")
 
     def _resolve_userinfo_url(self, config: OidcProviderConfig) -> str | None:
         if config.userinfo_url:
-            return config.userinfo_url
+            return _https_endpoint(config.userinfo_url, "userinfo endpoint")
         known = _PROVIDER_ENDPOINTS.get(config.provider_type, {})
         if known.get("userinfo_url"):
             return known["userinfo_url"]
         discovery = self.usable_discovery(config)
-        if discovery:
-            return discovery.get("userinfo_endpoint")
+        if discovery and discovery.get("userinfo_endpoint"):
+            return _https_endpoint(discovery["userinfo_endpoint"], "userinfo endpoint")
         return None
 
     @staticmethod
