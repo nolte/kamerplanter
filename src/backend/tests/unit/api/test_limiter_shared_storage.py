@@ -282,17 +282,27 @@ class TestStorageOutage:
         assert statuses == [200, 200, 429]
 
     def test_shared_count_resumes_once_the_storage_answers_again(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # A short but non-zero probe delay: with 0 every request would be a
-        # probe, and a wrapper that never leaves the "down" state would pass.
-        monkeypatch.setattr(rate_limit, "_PROBE_INITIAL_DELAY_S", _SHORT_PROBE_DELAY_S)
-        client = _client(_build("kp-dropping-test://"))
+        # The probe plan runs on a controlled clock, so the outage requests below
+        # cannot drift into extra (failing) probes on a slow runner — which would
+        # stretch the probe delay and push the first recovered request into the
+        # exhausted per-process count. ``MemoryStorage`` expiry still uses the
+        # real clock; nothing here comes near a 60 s window.
+        now = [1000.0]
+        monkeypatch.setattr(rate_limit, "time", SimpleNamespace(monotonic=lambda: now[0]))
+        limiter = _build("kp-dropping-test://")
+        storage = limiter.limiter.storage
+        assert isinstance(storage, rate_limit.FailoverStorage)
+        client = _client(limiter)
 
         assert client.get("/probe-sync").status_code == 200  # shared count: 1
         _DroppingStorage.down = True
+        calls_before_outage = _DroppingStorage.calls
         # Spend the whole per-process budget while the storage is down.
         assert [client.get("/probe-sync").status_code for _ in range(10)] == [200] * 10
+        # Only the request that met the outage reached the storage: no probe is due yet.
+        assert _DroppingStorage.calls == calls_before_outage + 1
         _DroppingStorage.down = False
-        time.sleep(_SHORT_PROBE_DELAY_S + 0.05)
+        now[0] += rate_limit._PROBE_INITIAL_DELAY_S  # the first probe is due
 
         with capture_logs() as logs:
             # Recovered: these count in the shared storage again (2..5 of 10),
@@ -300,7 +310,12 @@ class TestStorageOutage:
             statuses = [client.get("/probe-sync").status_code for _ in range(4)]
 
         assert statuses == [200] * 4
-        # One return to the shared count, not one "recovery" per request.
+        # The first request was the one probe; it left the outage state, so the
+        # other three are plain shared-storage calls, not further probes. This
+        # assertion and the log assertion below are what catch a wrapper that
+        # answers from the storage again but never leaves the "down" state —
+        # there every later request becomes a probe of its own.
+        assert storage._down is False
         assert [entry["event"] for entry in logs if entry["event"] == "rate_limit_storage_recovered"] == [
             "rate_limit_storage_recovered"
         ]

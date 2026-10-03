@@ -127,3 +127,66 @@ def test_a_well_formed_redis_url_with_an_encoded_password_loads(monkeypatch: pyt
     monkeypatch.setenv("REDIS_URL", value)
 
     assert load_settings().redis_url == value
+
+
+#: Forms an operator or a chart actually writes. Each was measured to build a
+#: ``limits`` ``RedisStorage`` (lazily, no connection) on the installed limits
+#: 5.8 / redis-py 8.1 — host, port, password and socket path parsed as meant.
+_ACCEPTED_URLS = [
+    "redis://kamerplanter-valkey:6379/0",  # the chart's value
+    "redis://valkey:6379/1",  # docker-compose.e2e
+    "redis://localhost:6379/0",  # the settings default
+    "rediss://h:6379/0?ssl_cert_reqs=required",
+    "redis://[::1]:6379/0",
+    "redis://:p%40ss@h:6379/0",  # percent-encoded '@' in the password
+    "redis+unix://:pw@/run/valkey.sock",
+]
+
+
+@pytest.mark.parametrize("variable", [_VARIABLE, "REDIS_URL"])
+@pytest.mark.parametrize("value", _ACCEPTED_URLS)
+def test_a_usable_url_loads_and_builds_the_limiter(monkeypatch: pytest.MonkeyPatch, variable: str, value: str) -> None:
+    """The validators refuse only what breaks: every real-world form still loads (R3-04)."""
+    from app.api.v1.auth.router import _rate_limit_key
+    from app.common import rate_limit
+
+    monkeypatch.setenv(variable, value)
+    loaded = load_settings()
+
+    assert getattr(loaded, variable.lower()) == value
+    # The same value through the limiter factory, as the auth router builds it.
+    monkeypatch.setattr(rate_limit, "settings", loaded)
+    assert rate_limit.resolve_rate_limit_storage_url() == value
+    storage = rate_limit.build_rate_limiter(_rate_limit_key).limiter.storage
+    assert isinstance(storage, rate_limit.FailoverStorage)
+
+
+def test_an_empty_storage_url_falls_back_to_redis_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.common import rate_limit
+
+    monkeypatch.setenv(_VARIABLE, "")
+    monkeypatch.setenv("REDIS_URL", "redis://valkey:6379/1")
+    loaded = load_settings()
+    monkeypatch.setattr(rate_limit, "settings", loaded)
+
+    assert loaded.rate_limit_storage_url == ""
+    assert rate_limit.resolve_rate_limit_storage_url() == "redis://valkey:6379/1"
+
+
+def test_an_empty_redis_url_loads_but_gives_the_limiter_nothing_to_count_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``REDIS_URL=""`` passes the shape check (other consumers decide about it); the limiter refuses it.
+
+    With both variables empty there is no storage to count in, and the factory
+    says so without a value instead of falling back to per-process counting.
+    """
+    from app.api.v1.auth.router import _rate_limit_key
+    from app.common import rate_limit
+
+    monkeypatch.setenv(_VARIABLE, "")
+    monkeypatch.setenv("REDIS_URL", "")
+    loaded = load_settings()
+    monkeypatch.setattr(rate_limit, "settings", loaded)
+
+    assert loaded.redis_url == ""
+    with pytest.raises(rate_limit.RateLimitStorageConfigError):
+        rate_limit.build_rate_limiter(_rate_limit_key)
