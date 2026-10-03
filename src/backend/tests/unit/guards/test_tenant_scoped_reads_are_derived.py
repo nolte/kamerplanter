@@ -870,6 +870,21 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "the fertilizer seed loaders match a seed product to a GLOBAL row only (tenant_key empty, never a tenant's "
         "own product), over the whole catalogue (#2000); no request handler reaches it",
     ),
+    ("ArangoActivityRepository", "get_global_activities"): Exclusion(
+        "system",
+        "the activity seed matches a seed entry to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own activity), over the whole catalogue (#2027); no request handler reaches it",
+    ),
+    ("ArangoTaskRepository", "get_global_workflow_templates"): Exclusion(
+        "system",
+        "the workflow seed matches a seed template to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own template), over the whole catalogue (#2027); no request handler reaches it",
+    ),
+    ("ArangoSubstrateRepository", "get_global_substrates"): Exclusion(
+        "system",
+        "the substrate seed checks a seed identity against the GLOBAL rows only (tenant_key empty, never a "
+        "tenant's own mix), over the whole catalogue (#2027); no request handler reaches it",
+    ),
     ("ArangoNutrientPlanRepository", "get_global_plans"): Exclusion(
         "system",
         "the nutrient-plan seed loaders match a seed to a GLOBAL row only (tenant_key empty, never a tenant's "

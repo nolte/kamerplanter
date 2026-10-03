@@ -18,6 +18,26 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
 
     # ── Substrate CRUD ────────────────────────────────────────────────
 
+    def get_global_substrates(self) -> list[Substrate]:
+        """Every global substrate, the whole catalogue, no row limit (#2027).
+
+        The substrate seed decides whether a seed medium already exists through this
+        and nothing wider — the twin of ``ArangoNutrientPlanRepository.get_global_plans``
+        (#1957). A row is global when its ``tenant_key`` is empty or absent, so a
+        tenant's own mix that carries a seed's identity can no longer stand in for the
+        global row and keep it from being created for every tenant. Ordered by
+        ``_key`` so the result is the same on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.SUBSTRATES}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [Substrate(**self._from_doc(doc)) for doc in cursor]
+
     def get_all_substrates(
         self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
     ) -> tuple[list[Substrate], int]:

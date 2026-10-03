@@ -877,8 +877,12 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── Seed Workflow templates + Task templates (REQ-006) ───────────
     task_repo = get_task_repo()
-    existing_wfs, _ = task_repo.get_all_workflow_templates(0, 200)
-    existing_wf_map = {w.name: w for w in existing_wfs}
+    # Global rows only (#2027): a tenant's own template named like a seed is neither
+    # rewritten as a global system template nor given the seed's phases and task
+    # templates. The first row per name wins; the rows come ordered by ``_key``.
+    existing_wf_map: dict[str, WorkflowTemplate] = {}
+    for existing_wf in task_repo.get_global_workflow_templates():
+        existing_wf_map.setdefault(existing_wf.name, existing_wf)
     wf_key_map: dict[str, str] = {}
 
     for wt_data in workflow_data.get("workflow_templates", []):

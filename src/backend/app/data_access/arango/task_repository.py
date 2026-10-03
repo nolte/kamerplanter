@@ -172,6 +172,28 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         total = next(count_cursor, 0)
         return items, total
 
+    def get_global_workflow_templates(self) -> list[WorkflowTemplate]:
+        """Every global workflow template, the whole catalogue, no row limit (#2027).
+
+        The workflow seed matches a seed template to its row through this and nothing
+        wider — the twin of ``ArangoNutrientPlanRepository.get_global_plans`` (#1957).
+        A row is global when its ``tenant_key`` is empty or absent, so a tenant's own
+        template that carries a seed's name is never returned: the seed can neither
+        rewrite it as a global system template nor hang its phases and task templates
+        on the tenant's key. Deliberately not :meth:`get_all_workflow_templates`,
+        which is paged and, without a ``tenant_key``, reads every tenant's rows.
+        Ordered by ``_key`` so a lookup by name resolves the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.WORKFLOW_TEMPLATES}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
+
     def get_workflow_template_by_key(self, key: WorkflowTemplateKey) -> WorkflowTemplate | None:
         coll = self._db.collection(col.WORKFLOW_TEMPLATES)
         doc = coll.get(key)
