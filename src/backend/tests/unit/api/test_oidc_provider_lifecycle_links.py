@@ -384,13 +384,21 @@ def test_a_stored_document_that_names_no_issuer_is_not_used() -> None:
 def test_a_discovery_document_that_is_not_the_issuers_is_rejected(
     monkeypatch: pytest.MonkeyPatch, document: Any, why: str
 ) -> None:
+    import ipaddress
+
     import httpx
 
+    from app.common import url_safety
     from app.domain.engines import oauth_engine
+    from tests.support.oidc_idp import PUBLIC_ADDRESS
 
     real = httpx.Client
     transport = httpx.MockTransport(lambda request: httpx.Response(200, json=document))
     monkeypatch.setattr(oauth_engine.httpx, "Client", lambda *a, **k: real(*a, **{**k, "transport": transport}))
+    # The issuer is resolved before it is dialled (#2007): without this double an unresolvable
+    # fixture host would raise "issuer host could not be resolved" — which matches ``why="issuer"``
+    # and would pass two of these cases without the document ever being read.
+    monkeypatch.setattr(url_safety, "_resolved_addresses", lambda host: [ipaddress.ip_address(PUBLIC_ADDRESS)])
 
     with pytest.raises(ValueError, match=why):
         OAuthEngine().fetch_discovery_document(ISSUER_A)

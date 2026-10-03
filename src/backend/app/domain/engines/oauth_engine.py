@@ -258,21 +258,40 @@ def _https_endpoint(url: str, what: str) -> str:
 def _get_json_bounded(client: httpx.Client, url: str) -> Any:
     """GET *url* and parse it as JSON, reading no more than ``JWKS_MAX_BYTES`` of the body (#1987).
 
-    Streamed and counted on the DECODED bytes, so neither a huge ``Content-Length`` nor a
-    compressed body that inflates past the cap is read to the end. No redirect is followed
-    (httpx's default): a provider answering with a redirect to an internal address is an
-    error, not a detour.
-
     Raises:
         httpx.HTTPError: the request failed or the status is not 2xx.
         ValueError: the body is larger than the cap, or is not JSON.
     """
+    return _request_json_bounded(client, "GET", url)
+
+
+def _request_json_bounded(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    data: dict[str, str] | None = None,
+) -> Any:
+    """Send one request to a provider and parse the answer as JSON, reading no more than ``JWKS_MAX_BYTES``.
+
+    The one bounded read of every provider answer (#1987 for discovery and keys, #2007 for the
+    token and userinfo answers). Streamed and counted on the DECODED bytes, so neither a huge
+    ``Content-Length`` nor a compressed body that inflates past the cap is read to the end. No
+    redirect is followed (httpx's default): a provider answering with a redirect to an internal
+    address is an error, not a detour. *headers* are added to the ``Accept`` / ``Accept-Encoding``
+    pair, which they cannot override.
+
+    Raises:
+        httpx.HTTPError: the request failed or the status is not 2xx.
+        ValueError: the body is larger than the cap, took longer than the deadline, or is not JSON.
+    """
     limit = jwks_cache.JWKS_MAX_BYTES
     deadline = time.monotonic() + jwks_cache.JWKS_FETCH_DEADLINE_SECONDS
     # ``identity``: the cap counts decoded bytes, and a decoder inflates a whole raw chunk at once —
-    # a small compressed chunk can be many megabytes. A key set is a few kilobytes; nothing is lost.
-    headers = {"Accept": "application/json", "Accept-Encoding": "identity"}
-    with client.stream("GET", url, headers=headers) as response:
+    # a small compressed chunk can be many megabytes. Every answer read here is a few kilobytes.
+    request_headers = {**(headers or {}), "Accept": "application/json", "Accept-Encoding": "identity"}
+    with client.stream(method, url, headers=request_headers, data=data) as response:
         response.raise_for_status()
         declared = response.headers.get("content-length", "")
         if declared.isdigit() and int(declared) > limit:
@@ -288,6 +307,36 @@ def _get_json_bounded(client: httpx.Client, url: str) -> Any:
             if time.monotonic() > deadline:
                 raise ValueError("The response took longer than the limit.")
     return json.loads(bytes(body), parse_constant=_refuse_non_finite)
+
+
+def _checked_fetch_url(url: str, origin: str, *, what: str, issuer_url: str) -> str:
+    """*url* if the server may dial it for a provider, else :class:`InsecureEndpointError` (#2007).
+
+    *origin* says whose word the URL is, as :meth:`OAuthEngine._resolve_jwks_source` does for the
+    key endpoint:
+
+    * ``"configured"`` — typed by the platform admin behind a step-up: the metadata / link-local
+      rule only, a private address is theirs to choose (the same trust as ``issuer_url``);
+    * ``"discovery"`` — the provider's own discovery document: a private address only on the
+      issuer's own host (or with ``DEBUG``), never the metadata address;
+    * ``"known"`` — the built-in table of this module, constants nobody outside the code can
+      change: the scheme rule only, no lookup.
+
+    The address check raises the application's ``ValidationError``; the login and the step-up
+    handle a refused endpoint as a ``ValueError`` (nothing was sent), so it is translated here.
+    Its text names the endpoint kind and the rule, never the URL or the address — it is logged.
+    """
+    if origin == "known":
+        return _https_endpoint(url, what)
+    try:
+        return validate_oidc_fetch_url(
+            url,
+            field=what,
+            trusted_host=urlsplit(issuer_url).hostname if origin == "discovery" else None,
+            allow_private=origin == "configured",
+        )
+    except ValidationError as exc:
+        raise InsecureEndpointError(f"The {exc.message}") from exc
 
 
 def _unverified_kid(token: str) -> str | None:
@@ -439,8 +488,19 @@ class OAuthEngine:
         redirect_uri: str,
         client_secret: str,
     ) -> dict:
-        """Exchange authorization code for tokens (synchronous with httpx)."""
-        token_url = self._resolve_token_url(config)
+        """Exchange authorization code for tokens (synchronous with httpx).
+
+        The request carries the client secret and the code, so the endpoint is checked before it
+        is dialled — whoever's word it is (:func:`_checked_fetch_url`) — and the answer is read
+        bounded (#2007).
+
+        Raises:
+            InsecureEndpointError: the token endpoint may not be dialled; nothing was sent.
+            ValueError: the answer is larger than the cap, too slow, or not JSON.
+            httpx.HTTPError: the request failed or the status is not 2xx.
+        """
+        token_url, origin = self._resolve_token_endpoint(config)
+        _checked_fetch_url(token_url, origin, what="token endpoint", issuer_url=config.issuer_url)
 
         data = {
             "grant_type": "authorization_code",
@@ -451,12 +511,11 @@ class OAuthEngine:
             "code_verifier": code_verifier,
         }
 
-        headers = {"Accept": "application/json"}
-
         with httpx.Client(timeout=30) as client:
-            resp = client.post(token_url, data=data, headers=headers)
-            resp.raise_for_status()
-            return resp.json()
+            response = _request_json_bounded(client, "POST", token_url, data=data)
+        if not isinstance(response, dict):
+            raise ValueError("The token response is not a JSON object.")
+        return response
 
     def check_provider_type(self, config: OidcProviderConfig) -> ProviderTypeCheck:
         """Judge a stored ``provider_type`` against the vocabulary this engine dispatches on (#1497).
@@ -578,8 +637,11 @@ class OAuthEngine:
             return self._extract_apple_user_info(token_response)
         else:
             # Google and generic OIDC — use userinfo endpoint
-            userinfo_url = self._resolve_userinfo_url(config)
-            if userinfo_url:
+            userinfo = self._resolve_userinfo_endpoint(config)
+            if userinfo is not None:
+                userinfo_url, origin = userinfo
+                # The request carries the access token: checked before it is dialled (#2007).
+                _checked_fetch_url(userinfo_url, origin, what="userinfo endpoint", issuer_url=config.issuer_url)
                 return self._fetch_userinfo_endpoint(
                     userinfo_url,
                     access_token,
@@ -684,11 +746,12 @@ class OAuthEngine:
         access_token: str,
         provider_type: str,
     ) -> OAuthUserInfo:
+        """Read the userinfo answer at *userinfo_url* — an endpoint the caller has checked — bounded (#2007)."""
         headers = {"Authorization": f"Bearer {access_token}"}
         with httpx.Client(timeout=15) as client:
-            resp = client.get(userinfo_url, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
+            data = _request_json_bounded(client, "GET", userinfo_url, headers=headers)
+        if not isinstance(data, dict):
+            raise ValueError("The userinfo answer is not a JSON object.")
 
         return OAuthUserInfo(
             provider=self._to_provider_type(provider_type),
@@ -791,6 +854,17 @@ class OAuthEngine:
         :data:`FRESH_REAUTH_CLOCK_SKEW_SECONDS` tolerance). Whose ``sub`` it is is
         the caller's check: only the service knows the account's provider links.
 
+        **``nbf`` and ``iat`` are not read, deliberately (#2008).** Unlike the login
+        (:meth:`verify_login_id_token`), nothing here checks a signature: the claims are trusted
+        because they arrive over TLS from the token endpoint in the exchange this server just
+        authenticated (OIDC Core 3.1.3.7 step 6), so only the provider can have written them. What
+        an ``iat`` lower bound would add is already bounded tighter: the ``nonce`` was minted for
+        this request and its state is single-use and lives five minutes, so no token issued before
+        the request can carry it, and ``auth_time`` bounds the sign-in itself to
+        :data:`FRESH_REAUTH_MAX_AGE_SECONDS`. ``nbf`` is not among OIDC Core's ID-token checks, and
+        a provider-written ``nbf`` the provider wants honoured cannot come from anyone else on this
+        path. REQ-023 §3.9 records the decision.
+
         Raises:
             FreshReauthRejectedError: ``reason="stale"`` for an old sign-in, ``"failed"`` otherwise.
         """
@@ -830,7 +904,9 @@ class OAuthEngine:
         or that lacks the endpoints this application reads, raises ``ValueError``
         and is never returned — so none of them can store it.
         """
-        _https_endpoint(issuer_url, "issuer")
+        # The issuer is the admin's (behind a step-up): a private address is theirs to choose,
+        # the metadata / link-local one is nobody's (#2007 class sweep).
+        _checked_fetch_url(issuer_url, "configured", what="issuer", issuer_url=issuer_url)
         url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
         with httpx.Client(timeout=15) as client:
             document = _get_json_bounded(client, url)
@@ -1185,7 +1261,8 @@ class OAuthEngine:
     # The three resolvers hand back an endpoint the caller is about to dial with a code, a
     # client secret or an access token: each passes it through ``_https_endpoint`` (#1987),
     # whichever of the configuration, the built-in table or the stored discovery document
-    # it came from.
+    # it came from. The token and userinfo resolvers also say whose word the endpoint is, so
+    # the caller can check its address before dialling it (``_checked_fetch_url``, #2007).
 
     def _resolve_authorization_url(self, config: OidcProviderConfig) -> str:
         if config.authorization_url:
@@ -1200,25 +1277,34 @@ class OAuthEngine:
         raise ValueError(f"Cannot resolve authorization URL for provider '{config.slug}'.")
 
     def _resolve_token_url(self, config: OidcProviderConfig) -> str:
+        return self._resolve_token_endpoint(config)[0]
+
+    def _resolve_token_endpoint(self, config: OidcProviderConfig) -> tuple[str, str]:
+        """The token endpoint of *config* and its origin (``configured`` / ``known`` / ``discovery``)."""
         if config.token_url:
-            return _https_endpoint(config.token_url, "token endpoint")
+            return _https_endpoint(config.token_url, "token endpoint"), "configured"
         known = _PROVIDER_ENDPOINTS.get(config.provider_type, {})
         if known.get("token_url"):
-            return known["token_url"]
+            return known["token_url"], "known"
         discovery = self.usable_discovery(config)
         if discovery:
-            return _https_endpoint(discovery.get("token_endpoint", ""), "token endpoint")
+            return _https_endpoint(discovery.get("token_endpoint", ""), "token endpoint"), "discovery"
         raise ValueError(f"Cannot resolve token URL for provider '{config.slug}'.")
 
     def _resolve_userinfo_url(self, config: OidcProviderConfig) -> str | None:
+        endpoint = self._resolve_userinfo_endpoint(config)
+        return endpoint[0] if endpoint is not None else None
+
+    def _resolve_userinfo_endpoint(self, config: OidcProviderConfig) -> tuple[str, str] | None:
+        """The userinfo endpoint of *config* and its origin, or ``None`` when it has none (Apple)."""
         if config.userinfo_url:
-            return _https_endpoint(config.userinfo_url, "userinfo endpoint")
+            return _https_endpoint(config.userinfo_url, "userinfo endpoint"), "configured"
         known = _PROVIDER_ENDPOINTS.get(config.provider_type, {})
         if known.get("userinfo_url"):
-            return known["userinfo_url"]
+            return known["userinfo_url"], "known"
         discovery = self.usable_discovery(config)
         if discovery and discovery.get("userinfo_endpoint"):
-            return _https_endpoint(discovery["userinfo_endpoint"], "userinfo endpoint")
+            return _https_endpoint(discovery["userinfo_endpoint"], "userinfo endpoint"), "discovery"
         return None
 
     @staticmethod
