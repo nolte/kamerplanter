@@ -941,6 +941,12 @@
       "adminUpdateUserStepUpTitle": "Confirm the change to this account",
       "adminUpdateUserStepUpDescription": "You are changing whether the e-mail address of \"{{name}}\" ({{email}}) counts as verified, or whether the account is active. A verified address lets sign-in providers link to this account automatically, an unverified account can be removed by the clean-up, and a deactivated one cannot sign in – so you confirm this change with your own credentials.",
       "adminUpdateUserStepUpConfirm": "Save change",
+      "adminUpdateTenantStepUpTitle": "Confirm the organization's status change",
+      "adminUpdateTenantStepUpDescription": "You are changing whether the organization \"{{name}}\" is active. A deactivated organization locks all of its members out – so you confirm this change with your own credentials.",
+      "adminUpdateTenantStepUpConfirm": "Save change",
+      "adminRemoveMemberStepUpTitle": "Confirm removing the member",
+      "adminRemoveMemberStepUpDescription": "You are removing \"{{name}}\" from the organization \"{{tenant}}\". They lose access to this organization at once – if they are its last lead, it has none afterwards. So you confirm this with your own credentials.",
+      "adminRemoveMemberStepUpConfirm": "Remove member",
       "providerUnlinked": "Sign-in method removed"
     },
     "tenants": {

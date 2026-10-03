@@ -5002,7 +5002,11 @@ export type StepUpAction =
   // #1857 — a platform admin raising another account's trust (email_verified, is_active).
   | 'admin_account_update'
   // #1883 — a platform admin creating, repointing or deleting an OIDC provider configuration.
-  | 'oidc_provider_change';
+  | 'oidc_provider_change'
+  // #2009 — a platform admin deactivating (or reactivating) a whole tenant.
+  | 'admin_tenant_update'
+  // #2009 — a platform admin removing a member from a tenant.
+  | 'admin_membership_removal';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023
@@ -5109,7 +5113,12 @@ export interface AdminPlatformStats {
   total_memberships: number;
 }
 
-export interface AdminTenantUpdate {
+/**
+ * `PATCH /admin/platform/tenants/{key}`. The step-up fields are the **admin's
+ * own** (#2009) and are needed only when `is_active` changes — deactivating
+ * locks every member out; they are never written to the tenant.
+ */
+export interface AdminTenantUpdate extends CredentialStepUp {
   name?: string;
   description?: string;
   max_members?: number;

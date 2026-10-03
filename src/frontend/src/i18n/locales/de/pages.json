@@ -941,6 +941,12 @@
       "adminUpdateUserStepUpTitle": "Änderung am Benutzerkonto bestätigen",
       "adminUpdateUserStepUpDescription": "Du änderst, ob die E-Mail-Adresse von „{{name}}“ ({{email}}) als bestätigt gilt oder ob das Konto aktiv ist. Eine bestätigte Adresse erlaubt es, Anmeldedienste automatisch mit diesem Konto zu verknüpfen, ein unbestätigtes Konto kann die Bereinigung entfernen, und ein deaktiviertes Konto kann sich nicht anmelden – deshalb bestätigst du diese Änderung mit deinem eigenen Zugang.",
       "adminUpdateUserStepUpConfirm": "Änderung speichern",
+      "adminUpdateTenantStepUpTitle": "Aktivierung der Organisation bestätigen",
+      "adminUpdateTenantStepUpDescription": "Du änderst, ob die Organisation „{{name}}“ aktiv ist. Eine deaktivierte Organisation sperrt alle ihre Mitglieder aus – deshalb bestätigst du diese Änderung mit deinem eigenen Zugang.",
+      "adminUpdateTenantStepUpConfirm": "Änderung speichern",
+      "adminRemoveMemberStepUpTitle": "Mitglied entfernen bestätigen",
+      "adminRemoveMemberStepUpDescription": "Du entfernst „{{name}}“ aus der Organisation „{{tenant}}“. Die Person verliert sofort den Zugriff auf diese Organisation – ist sie die letzte Leitung, hat die Organisation danach keine mehr. Deshalb bestätigst du das mit deinem eigenen Zugang.",
+      "adminRemoveMemberStepUpConfirm": "Mitglied entfernen",
       "providerUnlinked": "Anmeldeweg entfernt"
     },
     "tenants": {
