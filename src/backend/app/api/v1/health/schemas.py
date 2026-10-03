@@ -15,3 +15,13 @@ class ReadinessResponse(BaseModel):
     status: str = Field(description="Overall readiness state: ``ready`` or ``not_ready``.")
     database: bool = Field(description="Whether the primary database is reachable.")
     object_storage: bool = Field(description="Whether the configured object-storage backend is reachable.")
+    retired_indexes_refused: int = Field(
+        default=0,
+        description=(
+            "How many retired unique indexes an older image re-created that this replica's boot "
+            "could not retire again because their replacement is missing (#2064); the boot log "
+            "event ``retired_index_refused_without_replacement`` names them. Does not change "
+            "``status``: the stricter constraint loses no data and no restart creates the "
+            "replacement — an operator has to. ``0`` when every catalogued index is retired."
+        ),
+    )

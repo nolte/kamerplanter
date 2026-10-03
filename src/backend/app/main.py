@@ -158,7 +158,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # (fatal on failure — a stale-enum volume must be repaired before any seed
     # reads it, e.g. the retired `harvest` phase from #306). Then the seed
     # registry runs with per-seed error isolation (a bad reference-data seed no
-    # longer wedges the whole startup).
+    # longer wedges the whole startup). Inside the same migration lock, after the
+    # pending migrations, every boot retires the catalogued legacy indexes an older
+    # image's ensure_collections may have re-created (#2064,
+    # app/migrations/support/retired_indexes.py) — on every boot, also with nothing pending.
     from app.migrations.framework.runner import run_pending_migrations
     from app.migrations.seeds.registry import run_seeds
 

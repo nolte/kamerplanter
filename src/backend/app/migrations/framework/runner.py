@@ -22,6 +22,7 @@ from app.migrations.framework.report import (
     MigrationReport,
     NonLinearHistoryError,
 )
+from app.migrations.support.retired_indexes import RETIRED_INDEXES, RetiredIndex, enforce_retired_indexes
 
 logger = structlog.get_logger()
 
@@ -38,11 +39,19 @@ class MigrationRunner:
     """Orchestrates versioned migrations against an ArangoDB database.
 
     ``migrations`` may be injected (primarily for tests); when omitted the runner
-    discovers the ``versions/`` package.
+    discovers the ``versions/`` package. ``retired_indexes`` is the catalogue an
+    upgrade enforces after the pending migrations (#2064); the default is
+    :data:`~app.migrations.support.retired_indexes.RETIRED_INDEXES`.
     """
 
-    def __init__(self, migrations: list[Migration] | None = None) -> None:
+    def __init__(
+        self,
+        migrations: list[Migration] | None = None,
+        *,
+        retired_indexes: tuple[RetiredIndex, ...] = RETIRED_INDEXES,
+    ) -> None:
         self._migrations: list[Migration] = migrations if migrations is not None else load_migrations()
+        self._retired_indexes = retired_indexes
         self._migrations.sort(key=lambda m: m.version)
         validate_sequence(self._migrations)
 
@@ -119,7 +128,12 @@ class MigrationRunner:
         *,
         dry_run: bool = False,
     ) -> list[MigrationReport]:
-        """Apply all pending migrations (optionally up to ``target``) under the lock."""
+        """Apply all pending migrations (optionally up to ``target``) under the lock.
+
+        Then, still under the lock and on every call — also when nothing was pending —
+        retire every catalogued legacy index an older image re-created (#2064,
+        :mod:`app.migrations.support.retired_indexes`). A dry run skips that step.
+        """
         normalized_target = normalize_version(target) if target is not None else None
 
         owner = tracking.acquire_lock(db)
@@ -162,6 +176,9 @@ class MigrationRunner:
                     dry_run=dry_run,
                 )
                 reports.append(report)
+            if not dry_run:
+                # Re-read: the loop above may have recorded the retiring migration itself.
+                enforce_retired_indexes(db, applied=tracking.applied_versions(db), catalogue=self._retired_indexes)
             return reports
         finally:
             tracking.release_lock(db, owner)
