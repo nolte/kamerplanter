@@ -499,7 +499,7 @@ class TestTheProvenBudget:
 
         assert DEFAULT_VERIFICATION_RESEND_PROVEN_STORE is not DEFAULT_VERIFICATION_RESEND_STORE
         subject = f"verification-resend-proven:{PENDING_KEY}"
-        with patch("app.common.dependencies._get_redis_client", return_value=_BrokenRedis()):
+        with patch("app.common.dependencies._get_throttle_redis_client", return_value=_BrokenRedis()):
             store = get_verification_resend_proven_store()
         before = DEFAULT_VERIFICATION_RESEND_PROVEN_STORE.reserve_attempt(subject)
 
@@ -509,7 +509,7 @@ class TestTheProvenBudget:
         from app.common.dependencies import get_verification_resend_proven_store
 
         redis = _CountingRedis()
-        with patch("app.common.dependencies._get_redis_client", return_value=redis):
+        with patch("app.common.dependencies._get_throttle_redis_client", return_value=redis):
             store = get_verification_resend_proven_store()
 
         counts = [store.reserve_attempt(f"verification-resend-proven:{PENDING_KEY}") for _ in range(2)]

@@ -46,7 +46,11 @@ connection attempt and address. Not covered by that bound: DNS resolution,
 several addresses for one name, connect and handshake together, and reloading
 the script after ``NOSCRIPT``. Requests already in flight at that moment wait
 out their own timeout alongside it, not after it. Every other request during
-the outage is answered from memory without waiting.
+the outage is answered from memory without waiting — this applies to the
+limiter only. The mail-budget stores of the sign-in routes use the same client
+options (:func:`bounded_redis_client_options`) but have no probe plan: they try
+Valkey on every request, so while it hangs every request that reaches one of
+them waits one socket timeout per store call before it falls back.
 """
 
 from __future__ import annotations
@@ -74,11 +78,14 @@ logger = structlog.get_logger(__name__)
 
 _T = TypeVar("_T")
 
-#: Seconds to wait for the rate-limit storage to accept a connection / answer a
-#: command. The counters are a single ``INCR`` + ``EXPIRE`` on an in-cluster
-#: Valkey, sub-millisecond when healthy; half a second is far beyond a healthy
-#: answer and short enough that a hung store degrades to the fallback instead of
-#: stalling logins.
+#: Seconds to wait for the rate-limit storage — and the mail-budget stores of
+#: the sign-in routes, see :func:`bounded_redis_client_options` — to accept a
+#: connection / answer a command, per connection attempt and address. The
+#: counters are a single round trip on an in-cluster Valkey, sub-millisecond when
+#: healthy; half a second is far beyond a healthy answer and short enough that a
+#: hung store degrades to the in-process tier instead of stalling logins. Not
+#: covered: DNS resolution, several addresses for one name, connect and handshake
+#: together, the script reload after ``NOSCRIPT``.
 _REDIS_SOCKET_TIMEOUT_S = 0.5
 
 #: Seconds after a storage failure before the first recovery probe; doubled after
@@ -268,7 +275,13 @@ def _scheme(uri: str) -> str:
     return uri.partition("://")[0]
 
 
-def _redis_options() -> dict[str, object]:
+def bounded_redis_client_options() -> dict[str, object]:
+    """Keyword arguments for ``redis.from_url`` that bound one socket operation to 0.5 s, no retry.
+
+    Shared by this limiter's storage and by the mail-budget stores of the
+    sign-in routes (``app.common.dependencies._get_throttle_redis_client``),
+    which sit on the same request paths and degrade the same way.
+    """
     return {
         "socket_connect_timeout": _REDIS_SOCKET_TIMEOUT_S,
         "socket_timeout": _REDIS_SOCKET_TIMEOUT_S,
@@ -321,7 +334,7 @@ def build_rate_limiter(key_func: Callable[[Request], str], *, storage_url: str |
 
     options: dict[str, object] = {"primary_uri": uri}
     if _scheme(uri) in _REDIS_SCHEMES:
-        options.update(_redis_options())
+        options.update(bounded_redis_client_options())
     return Limiter(
         key_func=key_func,
         storage_uri=f"{_FAILOVER_SCHEME}://",

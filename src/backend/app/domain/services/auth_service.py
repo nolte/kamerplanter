@@ -865,7 +865,7 @@ class AuthService:
         # alike: the budget is a property of the submitted string, so reaching it
         # says nothing about whether an account stands behind it. Silent on
         # purpose — no log line here, so the request path stays one store call.
-        reserved = self._verification_resend_store.reserve_attempt(_VERIFICATION_RESEND_SUBJECT + email)
+        reserved = self._verification_resend_store.reserve_attempt(_VERIFICATION_RESEND_SUBJECT + email.strip().lower())
         if reserved > MAX_VERIFICATION_RESENDS_PER_WINDOW:
             return
 

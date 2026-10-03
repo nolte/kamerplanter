@@ -381,7 +381,7 @@ class TestAStorageOutage:
 
     def test_the_wired_store_degrades_to_its_own_in_process_tier(self) -> None:
         subject = "password-reset:outage-probe-2043@example.com"
-        with patch("app.common.dependencies._get_redis_client", return_value=_BrokenRedis()):
+        with patch("app.common.dependencies._get_throttle_redis_client", return_value=_BrokenRedis()):
             store = get_password_reset_store()
         before = DEFAULT_PASSWORD_RESET_STORE.reserve_attempt(subject)
 
@@ -390,7 +390,7 @@ class TestAStorageOutage:
 
     def test_the_wired_store_counts_in_the_shared_tier_with_a_one_hour_window(self) -> None:
         redis = _CountingRedis()
-        with patch("app.common.dependencies._get_redis_client", return_value=redis):
+        with patch("app.common.dependencies._get_throttle_redis_client", return_value=redis):
             store = get_password_reset_store()
 
         counts = [store.reserve_attempt(f"password-reset:{OWNER}") for _ in range(2)]

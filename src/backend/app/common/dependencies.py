@@ -1,4 +1,6 @@
+import functools
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from arango.database import StandardDatabase
 
@@ -99,6 +101,9 @@ from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
+
+if TYPE_CHECKING:
+    import redis
 
 _connection: ArangoConnection | None = None
 _timescale_connection = None
@@ -830,7 +835,7 @@ def get_unknown_account_store():
     """
     from app.data_access.external.unknown_account_store import RedisUnknownAccountStore
 
-    return RedisUnknownAccountStore(_get_redis_client())
+    return RedisUnknownAccountStore(_get_throttle_redis_client())
 
 
 def get_verification_resend_store() -> IStepUpThrottleStore:
@@ -848,7 +853,7 @@ def get_verification_resend_store() -> IStepUpThrottleStore:
     )
 
     return RedisStepUpThrottleStore(
-        _get_redis_client(),
+        _get_throttle_redis_client(),
         ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS,
         fallback=DEFAULT_VERIFICATION_RESEND_STORE,
     )
@@ -871,7 +876,7 @@ def get_verification_resend_proven_store() -> IStepUpThrottleStore:
     )
 
     return RedisStepUpThrottleStore(
-        _get_redis_client(),
+        _get_throttle_redis_client(),
         ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS,
         fallback=DEFAULT_VERIFICATION_RESEND_PROVEN_STORE,
     )
@@ -893,7 +898,7 @@ def get_password_reset_store() -> IStepUpThrottleStore:
     )
 
     return RedisStepUpThrottleStore(
-        _get_redis_client(),
+        _get_throttle_redis_client(),
         ttl_seconds=PASSWORD_RESET_WINDOW_SECONDS,
         fallback=DEFAULT_PASSWORD_RESET_STORE,
     )
@@ -1643,6 +1648,33 @@ def _get_redis_client():
     import redis
 
     return redis.Redis.from_url(settings.redis_url, decode_responses=True)
+
+
+def _get_throttle_redis_client() -> redis.Redis:
+    """The Valkey client of the sign-in routes' mail budgets and the unknown-account counter (#2045 SEC-001).
+
+    These stores sit on anonymous request paths and fall back to an in-process
+    tier when Valkey fails. With the redis-py defaults of
+    :func:`_get_redis_client` (5 s per socket operation) a Valkey that accepts
+    TCP and never answers held every password-reset request and every
+    unverified-login refusal for about 5 s — measured. This client waits one
+    0.5 s socket timeout per connection attempt and address and never retries,
+    the options of the IP limiter (``app.common.rate_limit``). It has no probe
+    plan: the stores try Valkey on every request.
+
+    One client per URL, built on first use and shared, so its connection pool is
+    reused across requests instead of rebuilt per request.
+    """
+    return _throttle_redis_client_for(settings.redis_url)
+
+
+@functools.lru_cache(maxsize=4)
+def _throttle_redis_client_for(redis_url: str) -> redis.Redis:
+    import redis
+
+    from app.common.rate_limit import bounded_redis_client_options
+
+    return redis.Redis.from_url(redis_url, decode_responses=True, **bounded_redis_client_options())
 
 
 def get_notification_service():
