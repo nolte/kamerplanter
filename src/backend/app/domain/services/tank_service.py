@@ -2,6 +2,7 @@ from app.common.enums import IrrigationSystem
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import MaintenanceScheduleKey, TankKey
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.tank_engine import TankEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.tank_repository import ITankRepository
@@ -203,7 +204,7 @@ class TankService:
 
     def get_all_due_maintenances(self, tenant_key: str = "") -> list[dict]:
         """Get due maintenances across all tanks of the tenant."""
-        tanks, _total = self._repo.get_all(offset=0, limit=1000, tenant_key=tenant_key)
+        tanks = get_all_pages(self._repo, tenant_key=tenant_key)  # every tank, not the first 1000 (#2015)
         results = []
         for tank in tanks:
             if tank.key:

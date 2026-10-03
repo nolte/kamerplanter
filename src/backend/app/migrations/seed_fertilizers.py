@@ -166,6 +166,7 @@ def run_seed_fertilizers() -> None:
     """Create fertilizer products and nutrient plans."""
     from app.migrations.seed_upsert_helpers import (
         global_plan_map,
+        load_all_fertilizers,
         load_species_key_map,
         resolve_plan_species_keys,
         upsert_fertilizers,
@@ -185,7 +186,7 @@ def run_seed_fertilizers() -> None:
     # PK 13-14 from plagron.yaml).  Look up any existing fertilizers in
     # the DB that are not yet in fert_keys so cross-file references
     # resolve correctly.
-    all_existing, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
+    all_existing = load_all_fertilizers(fert_repo)
     for fert in all_existing:
         if fert.product_name not in fert_keys:
             fert_keys[fert.product_name] = fert.key or ""

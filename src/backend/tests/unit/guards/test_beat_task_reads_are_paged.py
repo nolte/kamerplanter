@@ -1,28 +1,35 @@
-"""#2012 class guard: a beat task must not treat one ``get_all`` page as the whole collection.
+"""#2012/#2015 class guard: no code in ``app/`` treats one ``get_all`` page as the whole collection.
 
 ``repo.get_all(offset=0, limit=1000, all_tenants=True)`` returns *at most* 1000 rows
-plus a ``total``. Nine reads in ``app/tasks`` called it once, iterated the rows and
-dropped the ``total``: past the page every row (a plant's dormancy check, a tank's
-alert, a care task's reminder) was silently never visited.
+plus a ``total``. Nine reads in ``app/tasks`` (#2012) and fifteen more in services,
+seed loaders and repositories (#2015) called it once, iterated the rows and dropped
+the ``total``: past the page every row was silently never visited (a plant missing
+from the care dashboard, a seed product created twice, an import duplicate not seen).
 
-**The rule.** In ``app/tasks/``, a ``<anything>.get_all(...)`` call whose ``limit`` is
-an integer literal and whose ``offset`` is absent or an integer literal is a single
-fixed window, i.e. one page. Such a call is a violation. The sanctioned spelling is
+**The rule.** Anywhere under ``app/``, a ``<anything>.get_all(...)`` call whose
+``limit`` is an integer literal and whose ``offset`` is absent or an integer literal
+is a single fixed window, i.e. one page. Such a call is a violation unless
+:data:`ALLOWED` names it with a reason. The sanctioned spelling is
 ``get_all_pages(repo, ...)`` from ``app.data_access.arango.base_repository`` (it pages
 until the offset reaches ``total``); a hand-written paging loop passes because its
-``offset`` is a variable. This is a superset of the issue's predicate (it also covers
-reads without ``all_tenants=True``, and the positional spelling ``get_all(0, 1000)``).
+``offset`` is a variable. The scan is an AST walk, so a call split over several
+lines is seen (two of the #2015 sites were missed by the issue's line-based grep).
 
 Spellings this does NOT see
 ---------------------------
 
-* a limit held in a variable or constant (``limit=PAGE``, ``limit=settings.x``)
-  together with a fixed offset: the call is not recognised as a fixed window;
+* a limit held in a variable or constant (``limit=PAGE``, ``limit=_SCAN_LIMIT``,
+  ``limit=settings.x``) together with a fixed offset: the call is not recognised as
+  a fixed window (the MCP tools use this spelling on purpose and report
+  ``truncated``);
 * a ``get_all`` reached through an alias (``fetch = repo.get_all; fetch(...)``) or
   through ``getattr(repo, "get_all")``;
-* other list methods with the same defect (``list_by_*``, ``find_*`` with a limit);
-* paging code outside ``app/tasks/`` (services called from a beat task; swept once
-  by hand in #2012, not guarded).
+* other list methods with the same defect (``get_all_pests(0, 200)``,
+  ``get_all_sequences(0, 500)``, ``list_by_tenant(..., offset=0, limit=1000)``,
+  ``list_plants(offset=0, limit=10000)``); swept by hand in #2015 and tracked as
+  #2025, not guarded here;
+* an AQL ``LIMIT <n>`` literal inside a repository query, and a ``[:n]`` slice applied
+  after a complete read.
 """
 
 from __future__ import annotations
@@ -32,11 +39,25 @@ from pathlib import Path
 
 import pytest
 
-TASKS = Path(__file__).resolve().parents[3] / "app" / "tasks"
+APP = Path(__file__).resolve().parents[3] / "app"
 
-#: ``(file name, enclosing function)`` -> reason this single-window read is correct.
-#: An entry needs a reason that says why the collection cannot outgrow the window.
-ALLOWED: dict[tuple[str, str], str] = {}
+#: ``(path relative to app/, enclosing function)`` -> reason this single-window read is
+#: correct. An entry needs a reason that says why the collection cannot outgrow the
+#: window (bounded by construction), or why only the ``total`` is read.
+ALLOWED: dict[tuple[str, str], str] = {
+    ("domain/services/starter_kit_service.py", "list_kits"): (
+        "starter kits come only from starter_kits.yaml (11 rows); no API or service caller writes the collection"
+    ),
+    ("data_access/arango/enrichment_repository.py", "get_all"): (
+        "nothing in app/ writes external_sources; the rows are the registered enrichment adapters"
+    ),
+    ("data_access/arango/aquaponik_repository.py", "list_species"): (
+        "fish species come only from fish_species.yaml (8 rows); create_species has no API or service caller"
+    ),
+    ("api/v1/admin/recognition/router.py", "get_recognition_status"): (
+        "limit=1 is a count probe: only the returned total is used, the rows are discarded"
+    ),
+}
 
 
 def _int_literal(node: ast.expr | None) -> bool:
@@ -71,35 +92,42 @@ def _is_fixed_window(call: ast.Call) -> bool:
     return _int_literal(limit) and (offset is None or _int_literal(offset))
 
 
-def violations(directory: Path) -> list[tuple[str, str, int]]:
+def _live_reads(root: Path) -> list[tuple[str, str, int]]:
     out: list[tuple[str, str, int]] = []
-    for path in sorted(directory.glob("*.py")):
+    for path in sorted(root.rglob("*.py")):
+        relative = path.relative_to(root).as_posix()
         for function, line in fixed_window_reads(path.read_text(encoding="utf-8")):
-            if (path.name, function) not in ALLOWED:
-                out.append((path.name, function, line))
+            out.append((relative, function, line))
     return out
 
 
-def test_no_beat_task_reads_a_single_fixed_page() -> None:
-    assert violations(TASKS) == [], (
-        "a fixed get_all window reads one page and ignores the rest (#2012); use "
-        "app.data_access.arango.base_repository.get_all_pages(repo, ...)"
+def violations(root: Path) -> list[tuple[str, str, int]]:
+    return [(path, function, line) for path, function, line in _live_reads(root) if (path, function) not in ALLOWED]
+
+
+def test_scan_reaches_every_layer() -> None:
+    """The walk is recursive: tasks, services, migrations and repositories are all read."""
+    scanned = {path.relative_to(APP).parts[0] for path in APP.rglob("*.py")}
+    assert {"tasks", "domain", "migrations", "data_access", "api"} <= scanned
+
+
+def test_no_code_reads_a_single_fixed_page() -> None:
+    assert violations(APP) == [], (
+        "a fixed get_all window reads one page and ignores the rest (#2012, #2015); use "
+        "app.data_access.arango.base_repository.get_all_pages(repo, ...) or add an ALLOWED "
+        "entry that says why the collection cannot outgrow the window"
     )
 
 
 def test_every_allow_list_entry_is_still_a_real_fixed_window_read() -> None:
-    live = {
-        (path.name, function)
-        for path in TASKS.glob("*.py")
-        for function, _line in fixed_window_reads(path.read_text(encoding="utf-8"))
-    }
+    live = {(path, function) for path, function, _line in _live_reads(APP)}
     stale = sorted(set(ALLOWED) - live)
     assert stale == [], f"stale allow-list entries (the read was fixed or removed): {stale}"
     assert all(len(reason) > 20 for reason in ALLOWED.values()), "an allow-list entry needs a real reason"
 
 
 class TestDetector:
-    """Each spelling the old tasks used is caught; a paged or helper-routed read is not."""
+    """Each spelling the old code used is caught; a paged or helper-routed read is not."""
 
     @pytest.mark.parametrize(
         "call",
@@ -107,9 +135,11 @@ class TestDetector:
             "repo.get_all(offset=0, limit=1000, all_tenants=True)",
             "repo.get_all(offset=0, limit=500, all_tenants=True)",
             "repo.get_all(0, 1000, all_tenants=True)",
+            "repo.get_all(0, 10000)",
             "repo.get_all(limit=5000, all_tenants=True)",
             "repo.get_all(offset=0, limit=1000)",
             "self.repo.get_all(offset=0, limit=50, tenant_key=tk)",
+            "repo.get_all(\n        offset=0,\n        limit=500,\n        tenant_key=tk,\n    )",
         ],
     )
     def test_fixed_window_is_flagged(self, call: str) -> None:
@@ -119,10 +149,12 @@ class TestDetector:
         "call",
         [
             "get_all_pages(repo, all_tenants=True)",
+            "get_all_pages(repo, tenant_key=tk, filters={'a': 1})",
             "repo.get_all(offset=offset, limit=100)",
             "repo.get_all(offset=offset, limit=batch_size)",
             "repo.get_all(offset=0, limit=PAGE, all_tenants=True)",  # the documented blind spot
             "repo.get_all_tasks(0, 200, {})",
+            "repo.get_all_pests(0, 200)",  # other list methods: swept by hand, not guarded
         ],
     )
     def test_paged_or_unrecognised_read_is_not_flagged(self, call: str) -> None:
@@ -134,3 +166,9 @@ class TestDetector:
         )
         monkeypatch.setitem(ALLOWED, ("t.py", "a"), "a bounded lookup table that cannot exceed ten rows")
         assert violations(tmp_path) == [("t.py", "b", 4)]
+
+    def test_nested_directories_are_scanned_and_keyed_by_relative_path(self, tmp_path: Path) -> None:
+        nested = tmp_path / "domain" / "services"
+        nested.mkdir(parents=True)
+        (nested / "s.py").write_text("def load():\n    repo.get_all(0, 500)\n")
+        assert violations(tmp_path) == [("domain/services/s.py", "load", 2)]
