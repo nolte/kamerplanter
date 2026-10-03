@@ -5,6 +5,7 @@ from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import TerminationType
 from app.common.exceptions import KarenzViolationError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
@@ -111,10 +112,12 @@ class HarvestService:
             if obs.indicator_key:
                 reliabilities[obs.indicator_key] = 0.5  # Default
 
-        # Try to get actual reliability scores from indicators
-        for _key in indicator_keys:
-            indicators = self._repo.get_all_indicators(0, 1000)
-            for ind in indicators[0]:
+        # Actual reliability scores from the indicators: read every indicator once.
+        # The read used to sit inside a loop over ``indicator_keys`` and fetch one
+        # fixed page of 1000 per key; an observed indicator past that page kept the
+        # 0.5 default (#2025).
+        if indicator_keys:
+            for ind in read_all_pages(self._repo.get_all_indicators):
                 if ind.key in indicator_keys:
                     reliabilities[ind.key or ""] = ind.reliability_score
 

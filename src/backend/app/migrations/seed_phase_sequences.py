@@ -8,6 +8,7 @@ import structlog
 
 from app.common.dependencies import get_phase_sequence_repo
 from app.common.enums import CycleType, PhotoperiodType, StressTolerance
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.phase_sequence import (
     PhaseDefinition,
     PhaseSequence,
@@ -66,7 +67,7 @@ def run_seed_phase_sequences() -> None:
     seqs_updated = 0
 
     # Build a lookup of existing sequences by name
-    existing_seqs, _ = repo.get_all_sequences(0, 200)
+    existing_seqs = read_all_pages(repo.get_all_sequences)  # not the first 200 (#2025)
     seq_by_name: dict[str, PhaseSequence] = {s.name: s for s in existing_seqs}
 
     for s in data.get("phase_sequences", []):

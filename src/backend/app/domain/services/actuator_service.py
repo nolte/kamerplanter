@@ -522,14 +522,13 @@ class ActuatorService:
 
     def get_event_stats(self, actuator_key: str, tenant_key: str) -> dict[str, Any]:
         actuator = self.get_actuator(actuator_key, tenant_key)
-        events = self._repo.list_events(actuator_key, tenant_key, offset=0, limit=500)
-        switch_cycles = sum(1 for e in events if e.previous_state != e.new_state)
-        failures = sum(1 for e in events if not e.success)
+        # Over the whole event history, not the newest 500 events (#2025).
+        counts = self._repo.count_events(actuator_key, tenant_key=tenant_key)
         return {
             "actuator_key": actuator.key,
-            "total_events": len(events),
-            "switch_cycles": switch_cycles,
-            "failures": failures,
+            "total_events": counts["total"],
+            "switch_cycles": counts["switch_cycles"],
+            "failures": counts["failures"],
             "power_watts": actuator.power_watts,
         }
 

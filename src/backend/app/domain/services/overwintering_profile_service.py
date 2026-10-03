@@ -19,6 +19,7 @@ from app.common.enums import (
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import OverwinteringProfileKey
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.winter_hardiness_engine import (
     derive_winter_path,
@@ -661,7 +662,10 @@ class OverwinteringProfileService:
         Counts each subject once: a per-instance profile (user override) wins over a
         shared-template reference, so a subject that has both is not double-counted.
         """
-        profiles, _total = self._repo.list_by_tenant(tenant_key, offset=0, limit=1000)
+        # Every profile, not the first 1000: the counts are an aggregate (#2025).
+        profiles = read_all_pages(
+            lambda offset, limit: self._repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
+        )
         counts = {WinterHardinessLight.GREEN: 0, WinterHardinessLight.YELLOW: 0, WinterHardinessLight.RED: 0}
         red_plants: list[WinterHardinessOverviewEntry] = []
         seen_subjects: set[tuple[str | None, str | None]] = set()

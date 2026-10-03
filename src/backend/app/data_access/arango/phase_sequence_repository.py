@@ -174,7 +174,9 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         offset: int,
         limit: int,
     ) -> tuple[list[PhaseSequence], int]:
-        query = f"FOR doc IN {col.PHASE_SEQUENCES} SORT doc.name LIMIT @offset, @limit RETURN doc"
+        # ``_key`` breaks name ties: names are not unique, and paging (read_all_pages,
+        # #2025) is only sound over a total order.
+        query = f"FOR doc IN {col.PHASE_SEQUENCES} SORT doc.name, doc._key LIMIT @offset, @limit RETURN doc"
         count_query = f"FOR doc IN {col.PHASE_SEQUENCES} COLLECT WITH COUNT INTO total RETURN total"
         cursor = self._db.aql.execute(
             query,

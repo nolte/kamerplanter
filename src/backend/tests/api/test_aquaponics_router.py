@@ -176,6 +176,10 @@ class FakeAquaponikRepo:
         items = [f for f in self.feedings.values() if f.system_key == system_key and f.tenant_key == tenant_key]
         return items[offset : offset + limit]
 
+    def sum_feedings(self, system_key, *, tenant_key):
+        items = [f for f in self.feedings.values() if f.system_key == system_key and f.tenant_key == tenant_key]
+        return len(items), sum(f.amount_g for f in items)
+
     # supplements
     def create_supplementation(self, event):
         key = self._next("supp")
@@ -441,6 +445,24 @@ class TestFeedingSupplementHealth:
         resp = client.get(_base(f"/systems/{sys_key}/fcr-analysis"))
         assert resp.status_code == 200
         assert "fcr" in resp.json()
+
+    def test_fcr_analysis_sums_every_feeding_not_the_newest_500(self):
+        """#2025: the FCR summed one page of 500 feedings."""
+        client, repo = _build()
+        sys_key, stock_key = self._system_with_stock(client)
+        for i in range(600):
+            repo.feedings[f"bulk{i}"] = FishFeedingEvent(
+                _key=f"bulk{i}",
+                tenant_key=_ctx().tenant_key,
+                system_key=sys_key,
+                stock_key=stock_key,
+                amount_g=10,
+                water_temp_c=25,
+            )
+
+        body = client.get(_base(f"/systems/{sys_key}/fcr-analysis")).json()
+
+        assert (body["feeding_count"], body["total_feed_kg"]) == (600, 6.0)
 
     def test_supplementation_and_deficiency(self):
         client, _repo = _build()

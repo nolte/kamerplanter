@@ -29,6 +29,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.common.enums import McpPermission, PestPressureLevel, PlantPart
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.ipm import Inspection, InspectionFinding
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import (
@@ -42,9 +43,6 @@ from app.mcp_server.base import (
 from app.mcp_server.context import ToolContext
 
 _MAX_LIMIT = 100
-#: The catalogue is small enough to scan in one go for a substring filter, but
-#: large enough that returning all of it would swamp the answer.
-_SCAN_LIMIT = 500
 
 
 def _matches(*fields: Any, needle: str) -> bool:
@@ -122,7 +120,11 @@ class ListPests(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        pests, total = ctx.ipm_service.list_pests(offset=0, limit=_SCAN_LIMIT)
+        # Filter over the whole catalogue: a scan capped at 500 rows answered "no match"
+        # for a pest past it and never said it had stopped (#2025). Only the answer is
+        # bounded, by ``args.limit``.
+        pests = read_all_pages(lambda offset, limit: ctx.ipm_service.list_pests(offset=offset, limit=limit))
+        total = len(pests)
         selected = list(pests)
         if args.query:
             needle = args.query.strip().lower()
@@ -204,7 +206,8 @@ class ListDiseases(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        diseases, total = ctx.ipm_service.list_diseases(offset=0, limit=_SCAN_LIMIT)
+        diseases = read_all_pages(lambda offset, limit: ctx.ipm_service.list_diseases(offset=offset, limit=limit))
+        total = len(diseases)
         selected = list(diseases)
         if args.query:
             needle = args.query.strip().lower()

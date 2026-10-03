@@ -11,8 +11,9 @@ values) and every tenant-scoped list query filters on ``tenant_key`` (SEC-B4).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -224,6 +225,24 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
                 f"{col.FISH_STOCKS}/{feeding.stock_key}",
             )
         return created
+
+    def sum_feedings(self, system_key: str, *, tenant_key: str) -> tuple[int, float]:
+        """``(count, total amount_g)`` over every feeding of the system, in AQL (#2025).
+
+        The FCR analysis summed one page of 500 feedings and under-reported the feed
+        given past it.
+        """
+        query = f"""
+        FOR doc IN {col.FISH_FEEDING_EVENTS}
+          FILTER doc.system_key == @system_key AND doc.tenant_key == @tenant_key
+          COLLECT AGGREGATE feeding_count = COUNT(1), total_g = SUM(doc.amount_g)
+          RETURN {{ feeding_count, total_g }}
+        """
+        cursor = cast(
+            Cursor, self._db.aql.execute(query, bind_vars={"system_key": system_key, "tenant_key": tenant_key})
+        )
+        row = next(cursor, None) or {}
+        return int(row.get("feeding_count") or 0), float(row.get("total_g") or 0.0)
 
     def list_feedings(
         self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50

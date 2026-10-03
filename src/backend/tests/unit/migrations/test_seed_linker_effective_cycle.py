@@ -45,7 +45,7 @@ def _run_linker_for(lifecycle: LifecycleConfig, monkeypatch: pytest.MonkeyPatch)
     )
 
     ps_repo = MagicMock()
-    ps_repo.get_all_sequences.return_value = (list(_SEQUENCES), None)
+    ps_repo.get_all_sequences.return_value = (list(_SEQUENCES), len(_SEQUENCES))
     species_repo = MagicMock()
     species_repo.get_all.return_value = ([species], 1)  # real get_all reports an int total
     lifecycle_repo = MagicMock()

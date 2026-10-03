@@ -7,6 +7,7 @@ import structlog
 from app.common.dependencies import get_db, get_lifecycle_repo, get_phase_sequence_repo
 from app.common.enums import CycleType, PhotoperiodType, StressTolerance, TransitionTriggerType
 from app.data_access.arango import collections as col
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
@@ -29,7 +30,7 @@ def _build_species_name_map() -> dict[str, str]:
 def _build_sequence_name_map() -> dict[str, str]:
     """Build a name->key lookup for PhaseSequences."""
     ps_repo = get_phase_sequence_repo()
-    seqs, _ = ps_repo.get_all_sequences(0, 200)
+    seqs = read_all_pages(ps_repo.get_all_sequences)  # not the first 200 (#2025)
     return {s.name: s.key or "" for s in seqs}
 
 

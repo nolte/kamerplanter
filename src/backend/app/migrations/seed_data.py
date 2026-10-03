@@ -27,7 +27,7 @@ from app.common.enums import (
     PhotoperiodType,
     StressTolerance,
 )
-from app.data_access.arango.base_repository import get_all_pages
+from app.data_access.arango.base_repository import get_all_pages, read_all_pages
 from app.data_access.arango.phase_sequence_repository import BOUND_BY_SEED
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -153,7 +153,7 @@ def link_indoor_species_to_phase_sequence() -> None:
     # every sequence exists — the binding is completed within the same seed run, not on a
     # later boot. ``verify_all_species_bound`` runs at the end of that job and reports at
     # error level if it was not, so this early return can no longer be silent-by-default.
-    all_seqs, _ = ps_repo.get_all_sequences(0, 500)
+    all_seqs = read_all_pages(ps_repo.get_all_sequences)  # every sequence, not the first 500 (#2025)
     seq_key_by_name: dict[str, str] = {s.name: (s.key or "") for s in all_seqs}
     indoor_key = seq_key_by_name.get(INDOOR_DEFAULT_SEQUENCE, "")
     if not indoor_key:
@@ -812,7 +812,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── Seed IPM data (REQ-010) ──────────────────────────────────────
     ipm_repo = get_ipm_repo()
-    existing_pests, _ = ipm_repo.get_all_pests(0, 200)
+    existing_pests = read_all_pages(ipm_repo.get_all_pests)  # not the first 200 (#2025)
     existing_pest_map = {p.scientific_name: p for p in existing_pests}
 
     pest_key_map: dict[str, str] = {}
@@ -828,7 +828,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             pest_key_map[pest.common_name] = created.key or ""
             logger.info("pest_created", name=pest.common_name)
 
-    existing_diseases, _ = ipm_repo.get_all_diseases(0, 200)
+    existing_diseases = read_all_pages(ipm_repo.get_all_diseases)
     existing_disease_map = {d.scientific_name: d for d in existing_diseases}
 
     disease_key_map: dict[str, str] = {}
@@ -844,7 +844,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             disease_key_map[disease.common_name] = created.key or ""
             logger.info("disease_created", name=disease.common_name)
 
-    existing_treatments, _ = ipm_repo.get_all_treatments(0, 200)
+    existing_treatments = read_all_pages(ipm_repo.get_all_treatments)
     existing_treatment_map = {t.name: t for t in existing_treatments}
 
     treatment_key_map: dict[str, str] = {}

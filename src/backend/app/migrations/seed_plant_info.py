@@ -43,6 +43,7 @@ from app.common.enums import (
     WateringMethod,
     WoodStage,
 )
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.botanical_family import BotanicalFamily, PhRange
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
@@ -819,7 +820,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
     ]
 
     pest_key_map: dict[str, str] = {}
-    existing_pests, _ = ipm_repo.get_all_pests(0, 500)
+    existing_pests = read_all_pages(ipm_repo.get_all_pests)  # not the first 500 (#2025)
     existing_pest_names = {p.scientific_name for p in existing_pests}
     for p in existing_pests:
         pest_key_map[p.common_name] = p.key or ""
@@ -833,7 +834,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
         logger.info("pest_created", name=pest.common_name)
 
     disease_key_map: dict[str, str] = {}
-    existing_diseases, _ = ipm_repo.get_all_diseases(0, 500)
+    existing_diseases = read_all_pages(ipm_repo.get_all_diseases)
     existing_disease_names = {d.scientific_name for d in existing_diseases}
     for d in existing_diseases:
         disease_key_map[d.common_name] = d.key or ""
@@ -847,7 +848,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
         logger.info("disease_created", name=disease.common_name)
 
     treatment_key_map: dict[str, str] = {}
-    existing_treatments, _ = ipm_repo.get_all_treatments(0, 500)
+    existing_treatments = read_all_pages(ipm_repo.get_all_treatments)
     existing_treatment_names = {t.name for t in existing_treatments}
     for t in existing_treatments:
         treatment_key_map[t.name] = t.key or ""

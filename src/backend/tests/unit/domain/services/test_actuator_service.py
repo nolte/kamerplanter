@@ -91,6 +91,14 @@ class FakeActuatorRepo:
         matches = [e for e in self.events if e.actuator_key == actuator_key]
         return matches[offset : offset + limit]
 
+    def count_events(self, actuator_key, *, tenant_key):
+        matches = [e for e in self.events if e.actuator_key == actuator_key and e.tenant_key == tenant_key]
+        return {
+            "total": len(matches),
+            "switch_cycles": sum(1 for e in matches if e.previous_state != e.new_state),
+            "failures": sum(1 for e in matches if not e.success),
+        }
+
     def list_events_for_location(self, location_key, tenant_key, offset=0, limit=50):
         matches = [e for e in self.events if e.location_key == location_key]
         return matches[offset : offset + limit]
@@ -806,6 +814,27 @@ class TestStatsAndEnergy:
         energy = service.get_location_energy("loc1", "t1", hours_per_day=12.0)
         assert energy["total_kwh_per_day"] > 0
         assert energy["actuators"][0]["power_watts"] == 50.0
+
+    def test_event_stats_count_the_whole_history_not_the_newest_500(self, repo):
+        """#2025: the stats were computed from one page of 500 events."""
+        repo.actuators["act1"] = _humidifier()
+        for i in range(600):
+            repo.events.append(
+                ControlEvent(
+                    tenant_key="t1",
+                    actuator_key="act1",
+                    event_source=ControlEventSource.MANUAL,
+                    command="turn_on",
+                    previous_state="off" if i % 2 else "on",
+                    new_state="on",
+                    success=i % 3 != 0,
+                )
+            )
+        service = _service(repo, ha=FakeHaClient())
+
+        stats = service.get_event_stats("act1", "t1")
+
+        assert (stats["total_events"], stats["switch_cycles"], stats["failures"]) == (600, 300, 200)
 
     def test_clear_override_and_list_events(self, repo):
         repo.actuators["act1"] = _humidifier(state="on")
