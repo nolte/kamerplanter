@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948); 1.28 (Default `REQUIRE_EMAIL_VERIFICATION=true` und OIDC-Admin-Seite festgelegt, #1948, #1906)
+Version: 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.33 | 2026-10-03 | **Neuer Bestätigungslink über die Login-Ablehnung (#2046):** Das Budget je Adresse von `POST /auth/resend-verification` (§3.2b) zählt jede eingegebene Adresse — wer eine fremde Adresse kennt, konnte es für den Inhaber aufbrauchen und ihm so jeden neuen Link vorenthalten (bisher als Restrisiko geführt). Neu: Die Ablehnung `403 EMAIL_NOT_VERIFIED` (nur nach korrektem Passwort erreichbar) verschickt den neuen Link selbst, nach der Antwort, an die gespeicherte Adresse des Kontos — auf einem eigenen Budget je Konto (Subject `verification-resend-proven:<user_key>`, 3 je Stunde, Valkey-geteilt mit In-Process-Rückfall, nie fail-open), das anonyme Anfragen nicht erreichen. Kein neuer Endpunkt, kein Passwort in einem weiteren Request-Body. Die Antwort bleibt unverändert (Status, Body, Header) — ob gesendet, Budget erschöpft oder Zustellung gescheitert; ein falsches Passwort antwortet wie bisher `401` ohne Mail. Die Login-Route gibt die Ablehnung zurück statt sie zu werfen, weil FastAPI Background-Tasks bei einer Exception verwirft (gemessen). Frontend: der Hinweis stellt den Link in Aussicht (nie „gesendet“), die anonyme Aktion bleibt Rückfall. Details in §3.2b. |
 | 1.32 | 2026-10-03 | **Budget je Adresse beim Passwort-Reset (#2043):** `POST /auth/password-reset/request` war nur je Client-IP begrenzt (`RATE_LIMIT_AUTH`, `20/minute`); gemessen über die echte Route: 20 Reset-Mails an eine Adresse aus einer Quelle in einer Minute, jede mit neuem Link — rechnerisch 1200 je Stunde und Quelle, mit jeder weiteren Quelle mehr. Neu: ein Budget je Adresse wie beim Bestätigungslink (§3.2b) — 3 Anfragen, Auffüllung nach einer Stunde Ruhe, eigenes Budget (Subject `password-reset:<Adresse>`), reserviert vor der Kontosuche für jede eingegebene Adresse gleich, stumm (unverändert `200`, gleicher Body, gleiche Header). Groß-/Kleinschreibung und umgebende Leerzeichen teilen ein Budget. Bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open. Details in §3.2c. |
 | 1.31 | 2026-10-03 | **IP-Rate-Limits geteilt über Replikas (#2045):** Der slowapi-Limiter aller Auth-Routen zählte bisher im Prozessspeicher (`memory://`); N Prozesse vervielfachten jedes Limit um N. Der Zähler liegt jetzt im Speicher aus `RATE_LIMIT_STORAGE_URL` (leer = Valkey aus `REDIS_URL`); scheitert der Speicher mit einem Fehler des Redis-Clients, zählt jeder Prozess für sich weiter (kein Fail-open, kein 500, auch nicht für Anfragen, die beim Ausfall gerade warten; ein frisches Fenster je Prozess und Fenster, nicht je Ausfall); ein hängender Speicher kostet eine Anfrage einen Socket-Timeout von 0,5 s je Verbindungsversuch und Adresse (DNS, mehrere Adressen, Verbindungsaufbau plus Handshake und `NOSCRIPT`-Nachladen nicht abgedeckt); jeder Prozess kehrt mit seiner eigenen nächsten Prüfanfrage zum geteilten Zähler zurück; `RATE_LIMIT_STORAGE_URL` (Schema `redis`, `rediss`, `redis+unix`, `memory` und Form) und `REDIS_URL` (Form) werden beim Laden geprüft, ohne den Wert zu nennen. Neues Log-Ereignis `forwarded_chain_deeper_than_trusted_proxy_hops` bei `TRUSTED_PROXY_HOPS=0` und mehrteiliger `X-Forwarded-For`-Kette (nicht gezählter Proxy oder vom Aufrufer selbst gesendeter Header). Details am Ende von §3.8 (Rate-Limit und Sperre bei Einlösung). |
 | 1.30 | 2026-10-03 | **Neuer Bestätigungslink (#2037):** Neuer §3.2b — `POST /auth/resend-verification` stellt einem Konto, dessen erster Bestätigungslink verloren ging oder abgelaufen ist, einen neuen aus. Ohne ihn kam ein solches Konto mit `REQUIRE_EMAIL_VERIFICATION=true` nie mehr in die Anmeldung (`/auth/register` antwortet einer belegten Adresse nur mit der Info-Mail, ohne neuen Token). Enumerationssicher: immer `202` mit demselben Body für unbekannte, unbestätigte und bestätigte Adressen; vor der Antwort für jede Adresse dieselbe Arbeit (eine Budget-Reservierung), Kontosuche, Token-Schreiben und Versand danach (#1890). Jeder Versand schreibt einen neuen Einmal-Token (24 h) und macht damit alle früheren Links ungültig. Grenzen: je Client-IP `RATE_LIMIT_RESEND_VERIFICATION` (Default `10/hour`, `429`), je Adresse 3 Anfragen mit Auffüllung nach einer Stunde Ruhe (stumm, unveränderte `202`). Keine Mail ohne `REQUIRE_EMAIL_VERIFICATION`, an Service-Accounts, an Konten ohne lokales Passwort (nur föderiert) oder an deaktivierte Konten. Die Login-Ablehnung `EMAIL_NOT_VERIFIED` nennt den Weg; das Frontend bietet ihn auf der Login-Seite und auf der Fehlerseite eines ungültigen Links an (§4.1 `ResendVerificationPage`). |
@@ -972,14 +973,59 @@ NAT). Die Grenze je Adresse ist bewusst nicht konfigurierbar: ein höherer Wert
 macht den Endpunkt wieder zum Werkzeug, ein fremdes Postfach zu fluten.
 
 **Restrisiko.** Wer eine fremde Adresse dauerhaft über ihrem Budget hält (eine
-Anfrage pro Stunde reicht), verhindert neue Links für dieses Konto. Das ist der
-Preis der stummen Grenze je Adresse; ein Plattform-Admin kann `email_verified`
-über `PATCH /admin/platform/users/{key}` setzen.
+Anfrage pro Stunde reicht), verhindert neue Links **über diesen Endpunkt**. Das ist
+der Preis der stummen Grenze je Adresse. Seit #2046 sperrt das den Inhaber nicht
+mehr aus: die Login-Ablehnung mit korrektem Passwort verschickt den Link auf einem
+eigenen Budget (unten). Ein Plattform-Admin kann zusätzlich `email_verified` über
+`PATCH /admin/platform/users/{key}` setzen.
+
+<!-- Quelle: Issue #2046 -->
+**Neuer Link über die Login-Ablehnung (#2046).** Die Ablehnung
+`403 EMAIL_NOT_VERIFIED` von `POST /auth/login` wird erst nach dem korrekten
+Passwort erreicht (nach Sperr-, Passwort- und Aktiv-Prüfung). Sie verschickt den
+neuen Link deshalb selbst, ohne neuen Endpunkt und ohne Passwort in einem
+weiteren Request-Body:
+
+- **Wann:** nur mit `REQUIRE_EMAIL_VERIFICATION=true` und nur für ein Konto, das
+  einen Link braucht (aktiv, unbestätigt, interaktiv, lokales Passwort, keine
+  Tombstone-Adresse — dieselbe Prüfung wie oben).
+- **Budget je Konto:** vor dem Versand eine Reservierung auf einem eigenen Budget,
+  Subject `verification-resend-proven:<user_key>` (Kontoschlüssel, nicht Adresse:
+  keine Schreibweise der Adresse kauft ein zweites Budget, und das anonyme Subject
+  `verification-resend:<Adresse>` kann es nie verbrauchen). 3 Links, Auffüllung
+  nach einer Stunde ohne Anforderung, als SHA-256 abgelegt (NFR-011). Gleiche
+  Mechanik wie oben, eigene Instanz: Valkey-geteilt, bei Ausfall Rückfall auf die
+  eigene In-Process-Stufe, nie fail-open. Diese Stufe übernimmt die bekannte
+  Grenze der Rückfall-Stufen (feste Kapazität, LRU-Verdrängung eines verbrauchten
+  Budgets; getrennt verfolgt) — hier zählen allerdings Konten, die nur mit ihrem
+  Passwort erreichbar sind.
+- **Nach der Antwort:** Token-Schreiben und Versand laufen als eine Einheit über
+  die Background-Tasks (#1890-Muster), Zustellfehler werden gefangen und nur mit
+  Typ geloggt (`auth_mail_send_failed`, `kind=verification_resend_proven`).
+  Empfänger ist `user.email` (gespeicherte Schreibweise), nie die eingegebene.
+  Weil FastAPI Background-Tasks verwirft, wenn der Handler eine Exception wirft,
+  gibt die Login-Route die Ablehnung als Antwort zurück — gebaut von derselben
+  Funktion wie der Exception-Handler (`app_error_response`).
+- **Kein neues Orakel:** Die Ablehnung war schon vorher von der Antwort auf ein
+  falsches Passwort unterscheidbar. Status, Body und Header-Namen bleiben
+  unverändert — gleich, ob eine Mail ging, das Budget erschöpft war oder die
+  Zustellung scheiterte; ein falsches Passwort antwortet unverändert `401` und
+  reserviert und verschickt nichts.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `settings.rate_limit_auth` (`RATE_LIMIT_AUTH`, gilt für den ganzen Login) | `429 Too Many Requests` |
+| Je Konto | 3 Links; Auffüllung, sobald eine Stunde lang kein Link über die Anmeldung angefordert wurde | Unverändert `403 EMAIL_NOT_VERIFIED`, es wird nur nichts verschickt |
+
+Wer das Passwort kennt, kann den Inhaber so höchstens dreimal pro Stunde
+anschreiben lassen — begrenzt, und er hält das Passwort ohnehin.
 
 **Frontend.** Die Login-Seite zeigt bei `error_code=EMAIL_NOT_VERIFIED` statt des
-englischen Backend-Texts einen lokalisierten Hinweis mit der Aktion
-„Neue Bestätigungs-E-Mail senden" (für die Adresse des abgelehnten Logins; Ergebnis
-in einer `role="status"`-Live-Region). Die Fehlerseite eines ungültigen Links
+englischen Backend-Texts einen lokalisierten Hinweis (`role="alert"`), der den
+über die Ablehnung verschickten Link nur in Aussicht stellt — „falls ein neuer
+Link fällig war, ist er unterwegs“, nie „gesendet“ (#2046) —, und darunter als
+Rückfall die Aktion „Neue Bestätigungs-E-Mail senden" (für die Adresse des
+abgelehnten Logins; Ergebnis in einer `role="status"`-Live-Region). Die Fehlerseite eines ungültigen Links
 verweist auf `ResendVerificationPage` (`/resend-verification`, §4.1).
 
 <!-- Quelle: Issue #2043 -->
@@ -1159,7 +1205,7 @@ class UserService:
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | POST | `/auth/register` | Lokale Registrierung | Nein |
-| POST | `/auth/login` | Lokaler Login (Body: `email`, `password`, `remember_me: bool = false`) | Nein |
+| POST | `/auth/login` | Lokaler Login (Body: `email`, `password`, `remember_me: bool = false`); `403 EMAIL_NOT_VERIFIED` nach korrektem Passwort verschickt einen neuen Bestätigungslink, 3 je Konto und Stunde (§3.2b, #2046) | Nein |
 | POST | `/auth/logout` | Logout (aktuelles Gerät) | Ja |
 | POST | `/auth/logout-all` | Logout (alle Geräte) | Ja |
 | POST | `/auth/refresh` | Token-Refresh (Cookie-Pfad **oder** optionaler Body-Token `{"refresh_token"}` für native Clients, #1118 — siehe §3.8) | Nein (Cookie oder Body) |

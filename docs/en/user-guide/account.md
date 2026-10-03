@@ -52,14 +52,15 @@ If the link is older than 24 hours, has already been used or was copied incomple
 
 If the first email never arrived or the link has expired, request a new one. There are two ways:
 
-- **When signing in:** if you enter your correct password but your address is not confirmed yet, the sign-in page shows a yellow notice with a **Send a new verification email** button below it. It sends the link to the address you just tried to sign in with.
+- **When signing in:** if you enter your correct password but your address is not confirmed yet, Kamerplanter itself sends a new link to your account's address, if one is due. The sign-in page shows a yellow notice: if a new link was due, it is now on its way. If nothing arrives, the **Send a new verification email** button below it sends the link to the address you just tried to sign in with.
 - **Without signing in:** via **Request a new verification link** on the error page of the old link (see above).
 
 Afterwards you always see the same message: **If this address belongs to an account that still needs verification, a new link is on its way.** The page deliberately does not tell you whether an email was sent — otherwise anyone could try out which addresses have an account.
 
 !!! info "What to know about the new link"
     - The new link is valid for **24 hours** again. Every new link replaces all earlier ones — always use the one from the most recent email.
-    - Kamerplanter sends at most **three** new links per address. After that, the next one only goes out once nobody has requested one for this address for an hour.
+    - Through the button or the **Request a new verification link** page, Kamerplanter sends at most **three** new links per address. After that, the next one only goes out once nobody has requested one for this address for an hour.
+    - Signing in with your correct password has its own allowance of **three** links per hour. If someone else has used up your address's allowance, you still get a new link by signing in. <!-- REQ-023 -->
     - If you request too often from your connection, the page reports **Too many requests**. Wait a while in that case.
     - Accounts that sign in only through a provider such as Google need no verification link and do not get one.
 

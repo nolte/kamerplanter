@@ -69,7 +69,7 @@ Ein Link gilt 24 Stunden und nur einmal. Ein falscher, abgelaufener oder schon b
 
 ### Bestätigungslink erneut anfordern
 
-Für ein Konto, dessen erster Link verloren gegangen oder abgelaufen ist. Die Anmeldung eines unbestätigten Kontos antwortet `403 Forbidden` mit `error_code` `EMAIL_NOT_VERIFIED` — das ist der Hinweis, diesen Endpunkt anzubieten.
+Für ein Konto, dessen erster Link verloren gegangen oder abgelaufen ist. Die Anmeldung mit dem richtigen Passwort verschickt einen neuen Link selbst (siehe [Neuer Link bei der abgelehnten Anmeldung](#neuer-link-bei-der-abgelehnten-anmeldung)); dieser Endpunkt ist der Weg ohne Passwort — etwa von der Fehlerseite eines abgelaufenen Links — und der Rückfall, wenn über die Anmeldung nichts ankommt.
 
 ```http
 POST /api/v1/auth/resend-verification
@@ -98,6 +98,22 @@ Eine E-Mail geht nur raus, wenn `REQUIRE_EMAIL_VERIFICATION` aktiv ist und das K
 | Je Adresse | 3 Anfragen; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anfrage für die Adresse kam | Unverändert `202` — es geht nur keine E-Mail mehr raus |
 
 Die Grenze je Adresse zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht. Darum antwortet sie stumm: ein `429` würde nichts verraten, aber ein Budget, das nur echte Konten zählt, würde es.
+
+#### Neuer Link bei der abgelehnten Anmeldung
+
+Meldet sich jemand mit dem **richtigen** Passwort an einem unbestätigten Konto an, antwortet `POST /api/v1/auth/login` wie bisher `403 Forbidden` mit `error_code` `EMAIL_NOT_VERIFIED` — und verschickt nach der Antwort selbst einen neuen Bestätigungslink an die **gespeicherte** Adresse des Kontos (nicht an die Schreibweise, die eingetippt wurde). Für den Link gelten dieselben Regeln wie oben: neuer Token, 24 Stunden gültig, alle früheren Links werden ungültig; nur an aktive, interaktive Konten mit lokalem Passwort und nur mit `REQUIRE_EMAIL_VERIFICATION`.
+
+Diese Ablehnung erreicht nur, wer das Passwort kennt. Deshalb hat dieser Weg ein eigenes Budget **je Konto**, das anonyme Anfragen an `resend-verification` nicht aufbrauchen können — wer nur die Adresse kennt, kann dem Kontoinhaber den neuen Link so nicht mehr vorenthalten.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_AUTH` (gilt für den ganzen Login) | `429 Too Many Requests` |
+| Je Konto | 3 Links; das Budget füllt sich wieder auf, sobald eine Stunde lang kein Link über die Anmeldung angefordert wurde | Unverändert `403` `EMAIL_NOT_VERIFIED` — es geht nur keine E-Mail raus |
+
+Die Antwort sagt nicht, ob ein Link verschickt wurde: Status, Body und Header sind dieselben, ob eine E-Mail rausging, das Budget aufgebraucht war oder die Zustellung scheiterte. Ein falsches Passwort antwortet unverändert `401 Unauthorized` und verschickt nichts. Clients stellen den neuen Link deshalb nur in Aussicht und bieten `resend-verification` als Rückfall an.
+
+!!! note "Budget bei Valkey-Ausfall"
+    Das Budget liegt in Valkey, damit alle Replikas gemeinsam zählen. Ist Valkey nicht erreichbar, zählt jeder Prozess für sich weiter — nie ohne Grenze. Diese In-Process-Stufe hat wie die Budgets von `resend-verification` und Passwort-Reset eine feste Kapazität: Wird sie überschritten, verdrängt sie den ältesten Eintrag und mit ihm dessen verbrauchtes Budget. Hier zählen allerdings Konten, nicht frei gewählte Adressen; sie zu füllen, braucht die Passwörter entsprechend vieler Konten. Diese Grenze wird getrennt verfolgt.
 
 ---
 

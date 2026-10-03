@@ -69,7 +69,7 @@ A link is valid for 24 hours and only once. A wrong, expired or already used tok
 
 ### Requesting a New Verification Link
 
-For an account whose first link got lost or has expired. Signing in to an unverified account answers `403 Forbidden` with `error_code` `EMAIL_NOT_VERIFIED` — that is the cue to offer this endpoint.
+For an account whose first link got lost or has expired. Signing in with the correct password sends a new link by itself (see [New link on a refused sign-in](#new-link-on-a-refused-sign-in)); this endpoint is the way without a password — for example from the error page of an expired link — and the fallback when nothing arrives through the sign-in.
 
 ```http
 POST /api/v1/auth/resend-verification
@@ -98,6 +98,22 @@ A mail goes out only when `REQUIRE_EMAIL_VERIFICATION` is on and the account is 
 | Per address | 3 requests; the budget refills once no request for the address has arrived for an hour | Still `202` — only no mail goes out |
 
 The per-address limit counts **every** submitted address alike, whether it has an account or not. That is why it answers silently: a `429` would reveal nothing, but a budget that counted only real accounts would.
+
+#### New Link on a Refused Sign-in
+
+When someone signs in to an unverified account with the **correct** password, `POST /api/v1/auth/login` answers `403 Forbidden` with `error_code` `EMAIL_NOT_VERIFIED` as before — and, after the response, sends a new verification link itself to the account's **stored** address (not to the spelling that was typed). The same rules as above apply to the link: a new token, valid for 24 hours, every earlier link stops working; only to active, interactive accounts with a local password, and only with `REQUIRE_EMAIL_VERIFICATION`.
+
+Only someone who knows the password reaches this refusal. That is why this path has a budget of its own **per account**, which anonymous requests to `resend-verification` cannot spend — someone who only knows the address can no longer keep the new link from the account owner.
+
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_AUTH` (applies to the whole sign-in) | `429 Too Many Requests` |
+| Per account | 3 links; the budget refills once no link has been requested through the sign-in for an hour | Still `403` `EMAIL_NOT_VERIFIED` — only no mail goes out |
+
+The answer does not tell whether a link was sent: status, body and headers are the same whether a mail went out, the budget was spent or the delivery failed. A wrong password still answers `401 Unauthorized` and sends nothing. Clients should therefore only promise the new link and offer `resend-verification` as the fallback.
+
+!!! note "Budget during a Valkey outage"
+    The budget lives in Valkey so that all replicas count together. When Valkey is unreachable, every process keeps counting on its own — never without a limit. Like the budgets of `resend-verification` and the password reset, this in-process tier has a fixed capacity: once it is exceeded, it evicts the oldest entry and with it that entry's spent budget. Here, though, the entries are accounts, not caller-chosen addresses; filling it takes the passwords of that many accounts. This limit is tracked separately.
 
 ---
 
