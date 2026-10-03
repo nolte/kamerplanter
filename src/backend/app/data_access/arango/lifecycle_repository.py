@@ -128,12 +128,13 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         # inventory says so: "children of a growth phase") and go with it. Detaching
         # only the edges left them behind unreachable — 155 orphans of each on a fresh
         # install, and 5 more on every boot while two seeds traded one species' phases
-        # (#2002). Before the edges go, because the edges say which profiles are owned.
-        for profile_collection, edge_collection in (
-            (col.REQUIREMENT_PROFILES, col.REQUIRES_PROFILE),
-            (col.NUTRIENT_PROFILES, col.USES_NUTRIENTS),
-        ):
-            self._delete_owned_profiles(key, phase_id, profile_collection, edge_collection)
+        # (#2002). Which profiles are owned is read FIRST (the edges say so), but they
+        # are removed LAST: the steps are not one transaction, and a failure part-way
+        # must never leave a ``requires_profile`` edge pointing at a removed profile —
+        # ``get_requirement_profile`` then dereferences ``None`` (measured: 500). The
+        # partial states left are the ones this method always had: edges detached,
+        # phase or profiles still present.
+        owned = self._owned_profile_ids(key, phase_id)
         self.delete_edges(col.CONSISTS_OF, phase_id, direction="inbound")
         # `next_phase` is a chain (`create_transition_rule` writes
         # from_phase → to_phase), so a phase in the middle carries one edge on each
@@ -145,36 +146,80 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         self.delete_edges(col.REQUIRES_PROFILE, from_id=phase_id)
         self.delete_edges(col.USES_NUTRIENTS, from_id=phase_id)
         self.delete_edges(col.GOVERNED_BY, from_id=phase_id)
-        return self._phases.delete(key)
+        deleted = self._phases.delete(key)
+        self._remove_unreferenced_profiles(owned)
+        return deleted
 
-    def _delete_owned_profiles(
-        self, key: PhaseKey, phase_id: str, profile_collection: str, edge_collection: str
-    ) -> None:
-        """Remove the profiles of ``profile_collection`` that belong to phase ``key`` alone.
+    def _owned_profile_ids(self, key: PhaseKey, phase_id: str) -> dict[str, list[str]]:
+        """``{"req": ids, "nut": ids}`` — the profiles phase ``key`` alone owns (read-only).
 
         Owned means reached by this phase's own edge or naming it in ``phase_key``
-        (the attribute ``create_*_profile`` writes beside the edge) — and reached by no
+        (the attribute ``create_*_profile`` writes beside the edge), and reached by no
         other phase's edge, so a profile some other phase still points at is kept.
         """
-        self._db.aql.execute(
+        cursor = self._db.aql.execute(
             """
-            LET owned = UNION_DISTINCT(
-                (FOR e IN @@edges FILTER e._from == @phase_id RETURN e._to),
-                (FOR p IN @@profiles FILTER p.phase_key == @key RETURN p._id)
+            LET req = (
+                FOR id IN UNION_DISTINCT(
+                    (FOR e IN @@req_edges FILTER e._from == @phase_id RETURN e._to),
+                    (FOR p IN @@req FILTER p.phase_key == @key RETURN p._id)
+                )
+                FILTER PARSE_IDENTIFIER(id).collection == @req_name
+                FILTER LENGTH(FOR e IN @@req_edges FILTER e._to == id AND e._from != @phase_id LIMIT 1 RETURN 1) == 0
+                RETURN PARSE_IDENTIFIER(id).key
             )
-            FOR profile_id IN owned
-                FILTER PARSE_IDENTIFIER(profile_id).collection == @profile_collection
-                FILTER LENGTH(
-                    FOR e IN @@edges FILTER e._to == profile_id AND e._from != @phase_id LIMIT 1 RETURN 1
-                ) == 0
-                REMOVE PARSE_IDENTIFIER(profile_id).key IN @@profiles OPTIONS { ignoreErrors: true }
+            LET nut = (
+                FOR id IN UNION_DISTINCT(
+                    (FOR e IN @@nut_edges FILTER e._from == @phase_id RETURN e._to),
+                    (FOR p IN @@nut FILTER p.phase_key == @key RETURN p._id)
+                )
+                FILTER PARSE_IDENTIFIER(id).collection == @nut_name
+                FILTER LENGTH(FOR e IN @@nut_edges FILTER e._to == id AND e._from != @phase_id LIMIT 1 RETURN 1) == 0
+                RETURN PARSE_IDENTIFIER(id).key
+            )
+            RETURN {req: req, nut: nut}
             """,
             bind_vars={
-                "@edges": edge_collection,
-                "@profiles": profile_collection,
-                "profile_collection": profile_collection,
+                "@req": col.REQUIREMENT_PROFILES,
+                "@req_edges": col.REQUIRES_PROFILE,
+                "req_name": col.REQUIREMENT_PROFILES,
+                "@nut": col.NUTRIENT_PROFILES,
+                "@nut_edges": col.USES_NUTRIENTS,
+                "nut_name": col.NUTRIENT_PROFILES,
                 "phase_id": phase_id,
                 "key": key,
+            },
+        )
+        owned: dict[str, list[str]] = next(iter(cursor), None) or {"req": [], "nut": []}
+        return owned
+
+    def _remove_unreferenced_profiles(self, owned: dict[str, list[str]]) -> None:
+        """Remove the owned profiles no edge reaches any more — one query, both collections."""
+        if not (owned["req"] or owned["nut"]):
+            return
+        self._db.aql.execute(
+            """
+            LET req = (
+                FOR k IN @req_keys
+                    FILTER LENGTH(FOR e IN @@req_edges FILTER e._to == CONCAT(@req_name, "/", k) LIMIT 1 RETURN 1) == 0
+                    REMOVE k IN @@req OPTIONS { ignoreErrors: true }
+            )
+            LET nut = (
+                FOR k IN @nut_keys
+                    FILTER LENGTH(FOR e IN @@nut_edges FILTER e._to == CONCAT(@nut_name, "/", k) LIMIT 1 RETURN 1) == 0
+                    REMOVE k IN @@nut OPTIONS { ignoreErrors: true }
+            )
+            RETURN 1
+            """,
+            bind_vars={
+                "req_keys": owned["req"],
+                "nut_keys": owned["nut"],
+                "@req": col.REQUIREMENT_PROFILES,
+                "@req_edges": col.REQUIRES_PROFILE,
+                "req_name": col.REQUIREMENT_PROFILES,
+                "@nut": col.NUTRIENT_PROFILES,
+                "@nut_edges": col.USES_NUTRIENTS,
+                "nut_name": col.NUTRIENT_PROFILES,
             },
         )
 

@@ -161,3 +161,38 @@ def test_a_seed_beyond_the_old_fixed_window_is_found_and_not_created_again(db) -
     assert db.collection("fertilizers").count() == after_first
     for product_name, brand in sorted(seed_identities().fertilizers):
         assert len(_global_rows(db, product_name, brand)) == 1, (product_name, brand)
+
+
+def test_a_dosage_binds_to_the_brand_the_seed_ships_not_to_an_older_namesake(db) -> None:
+    """Review follow-up to #2030: dosages name a product by ``product_name`` only.
+
+    A global "CalMag" of another brand, created before the seed product (so with the
+    lower ``_key``), took every RO plan's CalMag dosage.
+    """
+    kind = _seed_entries()[0]["fertilizer_type"]
+    namesake = db.collection("fertilizers").insert(
+        {"product_name": "CalMag", "brand": "Older Namesake", "tenant_key": "", "fertilizer_type": kind}
+    )["_key"]
+
+    _boot()
+
+    seed_brand = next(e["brand"] for e in _seed_entries() if e["product_name"] == "CalMag")
+    (seed_key,) = [row["_key"] for row in _global_rows(db, "CalMag", seed_brand)]
+    dosed = set(
+        db.aql.execute(
+            """
+            FOR p IN nutrient_plans FILTER p.name IN @names
+                FOR e IN nutrient_plan_phase_entries FILTER e.plan_key == p._key
+                    FOR ch IN e.delivery_channels[*]
+                        FOR d IN ch.fertilizer_dosages[*]
+                            FILTER d.fertilizer_key IN [@seed, @namesake]
+                            RETURN d.fertilizer_key
+            """,
+            bind_vars={
+                "names": [p["name"] for p in load_yaml("nutrient_plans_ro.yaml")["nutrient_plans"]],
+                "seed": seed_key,
+                "namesake": namesake,
+            },
+        )
+    )
+    assert dosed == {seed_key}
