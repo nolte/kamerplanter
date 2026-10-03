@@ -1953,6 +1953,19 @@ FERTILIZER_IDENTITY_INDEX_FIELDS = ["tenant_key", "product_name", "brand"]
 #: index cosmetic.
 LEGACY_GLOBAL_FERTILIZER_INDEX_FIELDS = ["product_name", "brand"]
 
+#: Fields of the tank name index (#2029): a tank name is unique **per tenant**.
+#:
+#: ``tanks`` is tenant-owned (every row carries its owner's ``tenant_key``; there is
+#: no shared catalogue). The index used to be collection-wide on ``name``, so tenant
+#: B was refused a tank name tenant A already used, and the ``409`` told B that some
+#: other tenant holds a tank of that name. ``v0075`` creates this index on a legacy
+#: volume and retires the old one.
+TANK_NAME_INDEX_FIELDS = ["tenant_key", "name"]
+
+#: The pre-#2029 collection-wide index; ``v0075`` recognises and drops it, whether
+#: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
+LEGACY_TANK_NAME_INDEX_FIELDS = ["name"]
+
 #: The identity a seed gives a harvest indicator (#1956, #2001):
 #: ``(species, indicator_type, measurement_unit)`` — see
 #: ``ArangoHarvestRepository.find_indicator``. **Sparse**, so a legacy species-less
@@ -2069,7 +2082,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     succession_plans_col.add_persistent_index(fields=["tenant_key"], unique=False)
 
     tanks_col = db.collection(TANKS)
-    tanks_col.add_persistent_index(fields=["name"], unique=True)
+    # Tenant-scoped since #2029; v0075 drops the legacy collection-wide index.
+    # Always creatable on a legacy volume: the old, stricter index implies it holds.
+    tanks_col.add_persistent_index(fields=TANK_NAME_INDEX_FIELDS, unique=True)
 
     tank_states_col = db.collection(TANK_STATES)
     tank_states_col.add_persistent_index(fields=["recorded_at"], unique=False)
