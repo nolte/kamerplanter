@@ -69,7 +69,11 @@ def _warn_once_on_unexplained_chain(chain_length: int) -> None:
         "forwarded_chain_deeper_than_trusted_proxy_hops",
         trusted_proxy_hops=0,
         forwarded_entries=chain_length,
-        hint="Behind more than one proxy, set TRUSTED_PROXY_HOPS to the number of proxies after the first.",
+        hint=(
+            "Either a proxy TRUSTED_PROXY_HOPS does not count, or a caller sent X-Forwarded-For itself "
+            "(then 0 is correct). Raise TRUSTED_PROXY_HOPS to the number of proxies after the first only "
+            "if more than one proxy really sits in front; set too high, every IP-based control becomes forgeable."
+        ),
     )
 
 

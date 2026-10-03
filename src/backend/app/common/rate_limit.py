@@ -13,32 +13,40 @@ default, not an opt-in a deployment has to remember.
 
 **What happens when that storage is gone.** A shared storage is wrapped in
 :class:`FailoverStorage`. Every storage call that fails with the storage's own
-error family is answered from an in-process ``MemoryStorage`` instead — per
-call, so a request that is already inside the storage when it goes away falls
-back on its own failure and never depends on which request noticed first. The
-earlier design relied on slowapi's ``in_memory_fallback_enabled``: only the
-request that flipped slowapi's ``_storage_dead`` flag fell back, and every
-request whose storage call failed after that re-raised and answered 500 —
-measured ``[200, 500, 500, 500]`` for four concurrent requests against a hanging
-Valkey. slowapi's fallback is therefore not enabled any more; the wrapper never
-lets a storage error reach it. During an outage the bound is the per-process one
-this module replaces — weaker than intended, but never open and never a 500. The
-fixed-window count restarts in the fallback, so the request that crosses the
-outage can see up to one fresh window per process.
+error family (``RedisError`` for Redis) is answered from an in-process
+``MemoryStorage`` instead — per call, so a request that is already inside the
+storage when it goes away falls back on its own failure and never depends on
+which request noticed first. The earlier design relied on slowapi's
+``in_memory_fallback_enabled``: only the request that flipped slowapi's
+``_storage_dead`` flag fell back, and every request whose storage call failed
+after that re-raised and answered 500 — measured ``[200, 500, 500, 500]`` for
+four concurrent requests against a hanging Valkey. slowapi's fallback is
+therefore not enabled any more; the wrapper never lets a storage error reach it.
+An error outside that family is a defect and surfaces (a 500), it is not
+swallowed. During an outage the bound is the per-process one this module
+replaces — weaker than intended, but never open. A process's in-memory count
+starts at zero if the process has not counted itself in the current window;
+those counts are kept across a recovery until their own window expires, so a
+flapping storage does not hand out a fresh per-process window per outage.
 
-**Recovery.** While the storage is down, requests do not touch it. One request
-at a time carries a probe, at intervals of 1, 2, 4, 8, 16 and 32 s after the
-failure, and every 32 s from there on. A probe is that request's own
-storage call; when it succeeds the shared count resumes with that request, and
-the in-process counts are dropped so the next outage starts from a fresh window.
+**Recovery, per process.** While the storage is down, requests in this process
+do not touch it. One request at a time carries a probe, at intervals of 1, 2,
+4, 8, 16 and 32 s after the failure, and every 32 s from there on; a probe that
+meets a defect instead of an outage moves the plan on as well. A probe is that
+request's own storage call; when it succeeds, *this* process counts in the
+shared storage again from that request on. Every other process returns with its
+own next probe — up to about 32 s after the storage is back, and only when
+requests reach it.
 
 **Bounded waits.** Each check is one round trip (``INCR`` + ``EXPIRE`` in one
 script) on the request path, so the Redis client gets explicit socket timeouts
 and no retries: a Valkey that hangs instead of refusing costs the request that
-meets the failure, and each probe request, at most one socket timeout (0.5 s).
-Requests already in flight at that moment wait out their own timeout alongside
-it, not after it. Every other request during the outage is answered from memory
-without waiting.
+meets the failure, and each probe request, one socket timeout (0.5 s) per
+connection attempt and address. Not covered by that bound: DNS resolution,
+several addresses for one name, connect and handshake together, and reloading
+the script after ``NOSCRIPT``. Requests already in flight at that moment wait
+out their own timeout alongside it, not after it. Every other request during
+the outage is answered from memory without waiting.
 """
 
 from __future__ import annotations
@@ -49,14 +57,18 @@ from collections.abc import Callable
 from typing import TypeVar
 
 import structlog
-from limits.errors import ConfigurationError
 from limits.storage import MemoryStorage, Storage, storage_from_string
 from redis.backoff import NoBackoff
 from redis.retry import Retry
 from slowapi import Limiter
 from starlette.requests import Request
 
-from app.config.settings import RATE_LIMIT_STORAGE_SCHEMES, rate_limit_storage_scheme_is_usable, settings
+from app.config.settings import (
+    RATE_LIMIT_STORAGE_SCHEMES,
+    rate_limit_storage_scheme_is_usable,
+    settings,
+    storage_url_authority_is_well_formed,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -93,21 +105,26 @@ class RateLimitStorageConfigError(RuntimeError):
 def _unusable_storage_error() -> RateLimitStorageConfigError:
     return RateLimitStorageConfigError(
         "the rate-limit storage (RATE_LIMIT_STORAGE_URL, or REDIS_URL when that is empty) "
-        f"names no usable scheme (value withheld); allowed: {_ALLOWED_TEXT}"
+        f"is not a usable storage URI (value withheld); allowed schemes: {_ALLOWED_TEXT}; "
+        "percent-encode '/', '#', '?' and '@' inside the password"
     )
 
 
 def _build_primary(uri: str, options: dict[str, object]) -> Storage:
+    primary: object = None
     try:
         primary = storage_from_string(uri, **options)  # type: ignore[arg-type]
-    except ConfigurationError:
-        # ``limits`` puts the whole URI — password included — into this message.
+    except Exception:  # noqa: BLE001 — every failure here may quote the URI
+        # ``limits``' ConfigurationError is the whole URI; redis-py's
+        # ``ValueError("Port could not be cast to integer value as '<…>'")``
+        # quotes a password whose unencoded ``/``, ``#`` or ``?`` ended the
+        # authority early. Neither message may reach stderr.
         primary = None
     # Raised outside the ``except`` block, so the original is not even the
     # context of what reaches the interpreter's hook (#1877).
     if not isinstance(primary, Storage):
-        # Unknown scheme, missing client package, or an ``async+…`` storage that
-        # would hand the synchronous limiter coroutines.
+        # Unknown scheme, malformed URI, missing client package, or an
+        # ``async+…`` storage that would hand the synchronous limiter coroutines.
         raise _unusable_storage_error()
     return primary
 
@@ -156,20 +173,25 @@ class FailoverStorage(Storage):
                 return True, True
             return False, False
 
+    def _probe_failed_locked(self) -> None:
+        """Release the probe slot and schedule the next probe; the caller holds ``_lock``."""
+        self._probe_in_flight = False
+        self._probe_delay_s = min(self._probe_delay_s * 2, _PROBE_MAX_DELAY_S)
+        self._next_probe_at = time.monotonic() + self._probe_delay_s
+
     def _primary_failed(self, error: Exception, *, probe: bool) -> None:
         with self._lock:
             if probe:
-                self._probe_in_flight = False
-                self._probe_delay_s = min(self._probe_delay_s * 2, _PROBE_MAX_DELAY_S)
-            elif self._down:
+                self._probe_failed_locked()
+                return
+            if self._down:
                 # A concurrent call already recorded this outage and set the schedule.
                 return
-            else:
-                self._down = True
-                self._probe_delay_s = _PROBE_INITIAL_DELAY_S
-                # Only the type: a redis-py message names host and port.
-                logger.warning("rate_limit_storage_unavailable", error_type=type(error).__name__)
+            self._down = True
+            self._probe_delay_s = _PROBE_INITIAL_DELAY_S
             self._next_probe_at = time.monotonic() + self._probe_delay_s
+        # Only the type: a redis-py message names host and port.
+        logger.warning("rate_limit_storage_unavailable", error_type=type(error).__name__)
 
     def _primary_answered(self, *, probe: bool) -> None:
         if not probe:
@@ -178,8 +200,9 @@ class FailoverStorage(Storage):
             self._probe_in_flight = False
             self._down = False
             self._probe_delay_s = _PROBE_INITIAL_DELAY_S
-        # The next outage starts from a fresh per-process window again.
-        self.fallback.reset()
+        # The per-process counts are deliberately kept: they expire with their
+        # own window. Clearing them here gave every outage/recovery cycle of a
+        # flapping storage — about one a second — a fresh per-process budget.
         logger.info("rate_limit_storage_recovered")
 
     def _call(self, operation: Callable[[Storage], _T]) -> _T:
@@ -190,11 +213,13 @@ class FailoverStorage(Storage):
             except self.primary.base_exceptions as error:
                 self._primary_failed(error, probe=probe)
             except BaseException:
-                # Not an outage (a programming error): surface it, but never
-                # leave the probe slot taken, or the storage is never probed again.
+                # Not an outage (a defect): surface it. A probe still releases
+                # its slot — or the storage is never probed again — and moves
+                # the plan on like a failed probe, so the next request does not
+                # walk into the same defect at once.
                 if probe:
                     with self._lock:
-                        self._probe_in_flight = False
+                        self._probe_failed_locked()
                 raise
             else:
                 self._primary_answered(probe=probe)
@@ -276,9 +301,11 @@ def build_rate_limiter(key_func: Callable[[Request], str], *, storage_url: str |
             message never contains the URI.
     """
     uri = storage_url if storage_url is not None else resolve_rate_limit_storage_url()
-    if storage_url is None and not rate_limit_storage_scheme_is_usable(uri):
-        # ``RATE_LIMIT_STORAGE_URL`` is checked when the settings load;
-        # ``REDIS_URL``, which an empty one falls back to, is not.
+    if storage_url is None and not (
+        rate_limit_storage_scheme_is_usable(uri) and storage_url_authority_is_well_formed(uri)
+    ):
+        # Both settings are checked when they load; ``REDIS_URL`` only for its
+        # shape, not for a scheme the limiter can count in.
         raise _unusable_storage_error()
 
     if _scheme(uri) == "memory":

@@ -2,6 +2,7 @@ import os
 import re
 from collections.abc import Mapping
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, BaseModel, Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings
@@ -45,6 +46,32 @@ def rate_limit_storage_scheme_is_usable(uri: str) -> bool:
     """Return whether ``uri`` names one of :data:`RATE_LIMIT_STORAGE_SCHEMES` as ``<scheme>://``."""
     scheme, separator, _ = uri.partition("://")
     return bool(separator) and scheme in RATE_LIMIT_STORAGE_SCHEMES
+
+
+def storage_url_authority_is_well_formed(uri: str) -> bool:
+    """Return whether ``uri``'s authority parses as ``[user[:password]@]host[:port]`` (#2045, R2-01).
+
+    An unencoded ``/``, ``#`` or ``?`` in a password ends the authority early:
+    ``redis://:pw/x@host:6379`` parses as host ``''`` and port ``'pw'``, and
+    redis-py's ``ValueError`` then quotes that "port" — the password — at
+    import, before any log redaction runs. Such a value is refused when the
+    settings load instead. An ``@`` left in path, query or fragment is the same
+    early end with a numeric "port".
+    """
+    try:
+        parts = urlsplit(uri)
+        _ = parts.port
+        _ = parts.hostname
+    except ValueError:
+        return False
+    return "@" not in parts.path + parts.query + parts.fragment
+
+
+def _malformed_url_message(variable: str) -> str:
+    return (
+        f"{variable} does not parse as scheme://[user[:password]@]host[:port][/db] (value withheld); "
+        "percent-encode '/', '#', '?' and '@' inside the password"
+    )
 
 
 class GBIFSettings(BaseModel):
@@ -145,6 +172,18 @@ class Settings(BaseSettings):
     arangodb_password: str = "rootpassword"
 
     redis_url: str = "redis://localhost:6379/0"
+
+    @field_validator("redis_url")
+    @classmethod
+    def _redis_url_is_well_formed(cls, value: str) -> str:
+        """Refuse a ``REDIS_URL`` whose authority does not parse, without echoing it (#2045, R2-01).
+
+        An empty ``RATE_LIMIT_STORAGE_URL`` hands this value to the IP rate
+        limiter, which is built while the auth router is imported.
+        """
+        if not storage_url_authority_is_well_formed(value):
+            raise ValueError(_malformed_url_message("REDIS_URL"))
+        return value
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
@@ -592,7 +631,7 @@ class Settings(BaseSettings):
     #: ``memory://`` where one process *is* the deployment (the unit-test suite,
     #: a single-process dev server). If the configured storage is unreachable the
     #: limiter counts per process until it is back — the pre-#2045 bound, never
-    #: open and never a 500 (``app/common/rate_limit.py``).
+    #: open, and no 500 for a storage error (``app/common/rate_limit.py``).
     rate_limit_storage_url: str = ""
 
     @field_validator("rate_limit_storage_url")
@@ -610,6 +649,8 @@ class Settings(BaseSettings):
             allowed = ", ".join(f"{scheme}://" for scheme in RATE_LIMIT_STORAGE_SCHEMES)
             msg = f"unsupported rate-limit storage scheme (value withheld); allowed: {allowed}, or empty for REDIS_URL"
             raise ValueError(msg)
+        if value and not storage_url_authority_is_well_formed(value):
+            raise ValueError(_malformed_url_message("RATE_LIMIT_STORAGE_URL"))
         return value
 
     rate_limit_auth: str = "20/minute"

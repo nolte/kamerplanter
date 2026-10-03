@@ -34,6 +34,7 @@ import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI, Request
@@ -62,6 +63,10 @@ _ONE_TIMEOUT_BOUND_S = rate_limit._REDIS_SOCKET_TIMEOUT_S + 0.3
 
 #: A request served from the in-process count touches no socket at all.
 _NO_TIMEOUT_BOUND_S = 0.2
+
+#: Recovery-probe delay for the tests that walk through an outage: short, but
+#: not zero — at zero every request is a probe and "left the outage" is untestable.
+_SHORT_PROBE_DELAY_S = 0.05
 
 #: One backing store both "replicas" talk to — what Valkey is in production.
 _SHARED_BACKING = MemoryStorage()
@@ -98,6 +103,10 @@ class _DroppingStorage(MemoryStorage):
 
     STORAGE_SCHEME = ["kp-dropping-test"]
     down = False
+    #: Fail with an error outside the storage's error family — a defect, not an outage.
+    broken = False
+    #: Storage calls that reached this double, i.e. calls the wrapper sent to the primary.
+    calls = 0
 
     @property
     def base_exceptions(self) -> type[Exception]:
@@ -108,6 +117,9 @@ class _DroppingStorage(MemoryStorage):
         return RedisError
 
     def _fail_if_down(self) -> None:
+        type(self).calls += 1
+        if type(self).broken:
+            raise RuntimeError("not a storage outage")
         if type(self).down:
             raise RedisConnectionError("Connection closed by server.")
 
@@ -131,9 +143,13 @@ class _DroppingStorage(MemoryStorage):
 def _clean_test_storages() -> Iterator[None]:
     _SHARED_BACKING.reset()
     _DroppingStorage.down = False
+    _DroppingStorage.broken = False
+    _DroppingStorage.calls = 0
     yield
     _SHARED_BACKING.reset()
     _DroppingStorage.down = False
+    _DroppingStorage.broken = False
+    _DroppingStorage.calls = 0
 
 
 @pytest.fixture
@@ -266,20 +282,118 @@ class TestStorageOutage:
         assert statuses == [200, 200, 429]
 
     def test_shared_count_resumes_once_the_storage_answers_again(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Probe on the very next request instead of after one second.
-        monkeypatch.setattr(rate_limit, "_PROBE_INITIAL_DELAY_S", 0.0)
+        # A short but non-zero probe delay: with 0 every request would be a
+        # probe, and a wrapper that never leaves the "down" state would pass.
+        monkeypatch.setattr(rate_limit, "_PROBE_INITIAL_DELAY_S", _SHORT_PROBE_DELAY_S)
         client = _client(_build("kp-dropping-test://"))
 
-        assert client.get("/probe").status_code == 200  # shared count: 1
+        assert client.get("/probe-sync").status_code == 200  # shared count: 1
         _DroppingStorage.down = True
-        # Two requests in the per-process count — its budget is now spent.
-        assert [client.get("/probe").status_code for _ in range(2)] == [200, 200]
+        # Spend the whole per-process budget while the storage is down.
+        assert [client.get("/probe-sync").status_code for _ in range(10)] == [200] * 10
         _DroppingStorage.down = False
+        time.sleep(_SHORT_PROBE_DELAY_S + 0.05)
 
-        # Recovered: the request counts in the shared storage again (2 of 2),
-        # not in the exhausted per-process count, where it would be a 429.
-        assert client.get("/probe").status_code == 200
+        with capture_logs() as logs:
+            # Recovered: these count in the shared storage again (2..5 of 10),
+            # not in the exhausted per-process count, where they would be 429.
+            statuses = [client.get("/probe-sync").status_code for _ in range(4)]
+
+        assert statuses == [200] * 4
+        # One return to the shared count, not one "recovery" per request.
+        assert [entry["event"] for entry in logs if entry["event"] == "rate_limit_storage_recovered"] == [
+            "rate_limit_storage_recovered"
+        ]
+
+    def test_a_second_outage_in_the_same_window_grants_no_fresh_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A flapping storage must not hand out one fresh per-process window per flap (R2-03).
+
+        The per-process counts of an outage stay until their own window expires;
+        clearing them on recovery let every outage/recovery cycle — about one a
+        second with a flapping Valkey — start the per-process count from zero.
+        """
+        monkeypatch.setattr(rate_limit, "_PROBE_INITIAL_DELAY_S", _SHORT_PROBE_DELAY_S)
+        client = _client(_build("kp-dropping-test://"))
+
+        assert client.get("/probe").status_code == 200  # shared: 1 of 2
+        _DroppingStorage.down = True
+        assert [client.get("/probe").status_code for _ in range(2)] == [200, 200]  # per process: 2 of 2
+        _DroppingStorage.down = False
+        time.sleep(_SHORT_PROBE_DELAY_S + 0.05)
+        assert client.get("/probe").status_code == 200  # recovered, shared: 2 of 2
+
+        _DroppingStorage.down = True
+        # Second outage, same window: the per-process budget is still spent.
         assert client.get("/probe").status_code == 429
+
+    def test_a_probe_failing_with_a_foreign_error_waits_for_the_next_probe(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An error outside the storage's family surfaces — and is not retried on the next request (R2-06)."""
+        monkeypatch.setattr(rate_limit, "_PROBE_INITIAL_DELAY_S", _SHORT_PROBE_DELAY_S)
+        client = _client(_build("kp-dropping-test://"))
+
+        assert client.get("/probe-sync").status_code == 200
+        _DroppingStorage.down = True
+        assert client.get("/probe-sync").status_code == 200  # falls back
+        time.sleep(_SHORT_PROBE_DELAY_S + 0.05)
+        _DroppingStorage.broken = True
+
+        assert client.get("/probe-sync").status_code == 500  # the probe meets a defect
+        calls_after_probe = _DroppingStorage.calls
+        assert client.get("/probe-sync").status_code == 200  # served per process
+        assert _DroppingStorage.calls == calls_after_probe  # the primary was left alone
+
+
+class TestProbeSchedule:
+    """The recovery plan on a controlled clock (R2-11)."""
+
+    @pytest.fixture
+    def clock(self, monkeypatch: pytest.MonkeyPatch) -> list[float]:
+        now = [1000.0]
+        monkeypatch.setattr(rate_limit, "time", SimpleNamespace(monotonic=lambda: now[0]))
+        return now
+
+    @staticmethod
+    def _storage() -> rate_limit.FailoverStorage:
+        return rate_limit.FailoverStorage(primary_uri="kp-dropping-test://")
+
+    def test_probes_back_off_to_32_seconds_and_stay_there(self, clock: list[float]) -> None:
+        storage = self._storage()
+        _DroppingStorage.down = True
+        storage.incr("k", 60)  # meets the outage at t = 0
+        failed_at = clock[0]
+
+        probe_times: list[float] = []
+        while clock[0] - failed_at < 100:
+            clock[0] += 0.25
+            before = _DroppingStorage.calls
+            storage.incr("k", 60)
+            if _DroppingStorage.calls != before:
+                probe_times.append(clock[0] - failed_at)
+
+        gaps = [later - earlier for earlier, later in zip([0.0, *probe_times], probe_times, strict=False)]
+        assert gaps == [1, 2, 4, 8, 16, 32, 32]
+
+    def test_a_foreign_error_releases_the_probe_slot_and_advances_the_plan(self, clock: list[float]) -> None:
+        storage = self._storage()
+        _DroppingStorage.down = True
+        storage.incr("k", 60)  # t = 0: down, first probe due at t = 1
+
+        clock[0] += 1
+        _DroppingStorage.broken = True
+        with pytest.raises(RuntimeError):
+            storage.incr("k", 60)  # t = 1: the probe meets a defect
+        _DroppingStorage.broken = False
+        calls = _DroppingStorage.calls
+
+        clock[0] += 1.9
+        storage.incr("k", 60)  # t = 2.9: next probe is 2 s after the failed one
+        assert _DroppingStorage.calls == calls
+
+        clock[0] += 0.1
+        storage.incr("k", 60)  # t = 3: the slot was released — this request probes
+        assert _DroppingStorage.calls == calls + 1
 
 
 @pytest.mark.allow_db_connection(
@@ -409,6 +523,43 @@ class TestStorageSelection:
 
         assert "hunter2-secret" not in str(raised.value)
         assert "valkey" not in str(raised.value)
+
+    @pytest.mark.parametrize("separator", ["/", "#", "?"])
+    def test_a_malformed_authority_is_refused_without_echoing_any_part(self, separator: str) -> None:
+        """An unencoded ``/``, ``#`` or ``?`` in the password ends the authority early (R2-01).
+
+        ``urllib`` then reads the password as the port and redis-py raised
+        ``ValueError("Port could not be cast to integer value as '<password>'")``.
+        """
+        with pytest.raises(rate_limit.RateLimitStorageConfigError) as raised:
+            _build(f"redis://:s3cr3t-pw{separator}x@valkey:6379/0")
+
+        assert "s3cr3t" not in str(raised.value)
+        assert raised.value.__context__ is None
+        assert raised.value.__cause__ is None
+
+    @pytest.mark.parametrize("separator", ["/", "#", "?"])
+    def test_a_malformed_redis_url_fails_the_import_without_echoing_it(self, separator: str) -> None:
+        """The ``REDIS_URL`` fallback, at import time, where nothing redacts stderr yet (R2-01)."""
+        env = {
+            **os.environ,
+            "RATE_LIMIT_STORAGE_URL": "",
+            "REDIS_URL": f"redis://:s3cr3t-pw{separator}x@valkey:6379/0",
+            "PYTHONPATH": str(_BACKEND_ROOT),
+        }
+        completed = subprocess.run(  # noqa: S603 — fixed interpreter and script, no shell
+            [sys.executable, "-c", "import app.api.v1.auth.router"],
+            cwd=_BACKEND_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+
+        assert completed.returncode != 0
+        assert "REDIS_URL" in completed.stderr
+        assert "s3cr3t" not in completed.stderr + completed.stdout
 
     def test_production_limiter_counts_in_redis_url_when_no_override_is_set(self) -> None:
         """The module-level ``limiter`` is built through the factory, from the settings it loads with.

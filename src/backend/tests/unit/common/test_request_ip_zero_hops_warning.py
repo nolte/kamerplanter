@@ -65,6 +65,22 @@ class TestZeroHopsWarning:
 
         assert len(_warnings(logs)) == 1
 
+    def test_hint_names_both_causes_and_the_cost_of_raising_the_depth(self) -> None:
+        """A caller-sent header on an install without ingress triggers it too — there 0 is right.
+
+        A hint that only said "raise TRUSTED_PROXY_HOPS" would talk that operator
+        into a depth that lets every caller pick their own address.
+        """
+        with capture_logs() as logs:
+            resolve_client_ip(_make_request(f"{_CLIENT}, {_INGRESS}"))
+
+        [warning] = _warnings(logs)
+        hint = str(warning["hint"])
+        assert "caller sent X-Forwarded-For itself" in hint
+        assert "0 is correct" in hint
+        assert "only if more than one proxy really sits in front" in hint
+        assert "forgeable" in hint
+
     def test_warning_carries_no_address_or_header(self) -> None:
         with capture_logs() as logs:
             resolve_client_ip(_make_request(f"{_CLIENT}, {_INGRESS}"))
