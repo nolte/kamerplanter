@@ -121,6 +121,51 @@ class TestRetireLegacyIndex:
                 dry_run=False,
             )
 
-    def test_a_replacement_equal_to_the_legacy_shape_is_rejected(self) -> None:
-        with pytest.raises(ValueError, match="same index"):
-            retire_legacy_index(_Collection([]), legacy=_LEGACY, replacement=_LEGACY, dry_run=False)
+    def test_a_replacement_equal_to_the_legacy_shape_refuses(self) -> None:
+        collection = _Collection([_PRIMARY, _HASH])
+
+        outcome = retire_legacy_index(collection, legacy=_LEGACY, replacement=_LEGACY, dry_run=False)
+
+        assert outcome.refused
+        assert collection.deleted == []
+
+
+class TestTheLegacyIndexIsNeverItsOwnReplacement:
+    """SEC-001: the same fields as a list in one shape and a tuple in the other.
+
+    ``replacement == legacy`` compared ``["batch_id"]`` with ``("batch_id",)`` and
+    said "different", while both shapes matched the one legacy index — which then
+    counted as its own replacement and was dropped, leaving no unique constraint.
+    """
+
+    def test_mixed_list_and_tuple_fields_refuse_and_drop_nothing(self) -> None:
+        collection = _Collection([_PRIMARY, _HASH])
+        legacy = IndexShape(fields=["batch_id"], unique=True)  # type: ignore[arg-type]
+        replacement = IndexShape(fields=("batch_id",), unique=True)
+
+        outcome = retire_legacy_index(collection, legacy=legacy, replacement=replacement, dry_run=False)
+
+        assert outcome.refused
+        assert outcome.replacement_count == 0
+        assert collection.deleted == []
+
+    def test_fields_are_normalised_to_a_tuple(self) -> None:
+        shape = IndexShape(fields=["batch_id"], unique=True)  # type: ignore[arg-type]
+
+        assert shape.fields == ("batch_id",)
+        assert shape == IndexShape(fields=("batch_id",), unique=True)
+        assert hash(shape) == hash(IndexShape(fields=("batch_id",), unique=True))
+
+    def test_a_bare_string_is_not_split_into_characters(self) -> None:
+        with pytest.raises(TypeError, match="sequence of field names"):
+            IndexShape(fields="batch_id", unique=True)  # type: ignore[arg-type]
+
+    def test_a_legacy_index_matching_both_shapes_is_not_counted_as_replacement(self) -> None:
+        """Defence independent of normalisation: the candidate set excludes legacy ids."""
+        collection = _Collection([_HASH, {**_HASH, "id": "c/9", "type": "persistent"}])
+
+        outcome = retire_legacy_index(collection, legacy=_LEGACY, replacement=_LEGACY, dry_run=False)
+
+        assert outcome.legacy_ids == ("c/1", "c/9")
+        assert outcome.replacement_count == 0
+        assert collection.deleted == []

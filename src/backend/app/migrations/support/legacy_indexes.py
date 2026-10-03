@@ -74,11 +74,20 @@ def indexes_on(collection: StandardCollection, fields: Sequence[str]) -> list[di
 
 @dataclass(frozen=True)
 class IndexShape:
-    """An index definition as far as a constraint is concerned: fields, unique, sparse."""
+    """An index definition as far as a constraint is concerned: fields, unique, sparse.
+
+    ``fields`` is normalised to a tuple, so ``["x"]`` and ``("x",)`` are one shape —
+    equality and hashing must agree with :meth:`matches`, which compares by content.
+    """
 
     fields: tuple[str, ...]
     unique: bool
     sparse: bool = False
+
+    def __post_init__(self) -> None:
+        if isinstance(self.fields, str):
+            raise TypeError("IndexShape.fields must be a sequence of field names, not one string")
+        object.__setattr__(self, "fields", tuple(self.fields))
 
     def matches(self, index: Mapping[str, Any]) -> bool:
         """Whether ``index`` has exactly this shape (any persistent-family type)."""
@@ -124,9 +133,16 @@ def retire_legacy_index(
     """Drop every index of shape ``legacy``, but only while a ``replacement`` exists.
 
     Never drops a constraint without its successor: when a legacy index is present
-    and no index of shape ``replacement`` is, nothing is dropped and the outcome is
-    :attr:`LegacyIndexRetirement.refused`. Idempotent — once the legacy indexes are
-    gone a re-run finds none. ``dry_run`` computes the outcome and drops nothing.
+    and no *other* index of shape ``replacement`` is, nothing is dropped and the
+    outcome is :attr:`LegacyIndexRetirement.refused`. An index the legacy shape
+    matches is never counted as a replacement, whatever its type — a legacy index
+    cannot stand in for itself (so equal shapes refuse rather than drop). Idempotent
+    — once the legacy indexes are gone a re-run finds none. ``dry_run`` computes the
+    outcome and drops nothing.
+
+    The caller is responsible for the replacement being semantically equivalent to
+    what the retirement intends; this only checks that a different unique index of
+    the replacement shape exists, not that it protects the same invariant.
 
     Args:
         collection: The collection carrying both indexes.
@@ -138,16 +154,19 @@ def retire_legacy_index(
         The counts of what was found and dropped.
 
     Raises:
-        ValueError: If ``replacement`` is not unique, or equals ``legacy`` — either
-            would let the call remove the constraint it exists to keep.
+        ValueError: If ``replacement`` is not unique — it would let the call remove
+            the constraint it exists to keep.
     """
     if not replacement.unique:
         raise ValueError("a replacement for a retired constraint must itself be unique")
-    if replacement == legacy:
-        raise ValueError("the legacy shape and its replacement are the same index")
     indexes = _index_rows(collection)
     legacy_found = [idx for idx in indexes if legacy.matches(idx) and "id" in idx]
-    replacement_count = sum(1 for idx in indexes if replacement.matches(idx))
+    legacy_ids = {str(idx["id"]) for idx in legacy_found}
+    replacement_count = sum(
+        1
+        for idx in indexes
+        if replacement.matches(idx) and not legacy.matches(idx) and str(idx.get("id")) not in legacy_ids
+    )
     outcome = LegacyIndexRetirement(
         legacy_ids=tuple(str(idx["id"]) for idx in legacy_found),
         legacy_types=tuple(str(idx.get("type")) for idx in legacy_found),

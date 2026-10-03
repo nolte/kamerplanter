@@ -25,7 +25,11 @@ carries no such comparison at all.
 the type compared against a *name* (``x.get("type") in SOME_TYPES``) — a document
 ``type`` field compared against a constant looks identical and would make the
 guard noisy; a computed key (``x.get(key)``); ``operator.eq`` / ``getattr``; an
-index filter written in AQL. ``"edge"`` is not in the vocabulary: it is also a
+index filter written in AQL; the type read into a variable first and compared
+later (``t = idx["type"]`` … ``if t == "persistent"``) — the comparison then has
+no ``type`` read in it; and every file outside ``app/migrations/versions/v[0-9]*.py``
+— ``app/migrations/support/`` and the ``app/data_access`` helpers are not scanned
+at all. ``"edge"`` is not in the vocabulary: it is also a
 *collection* type (``info["type"] == "edge"`` in the erasure code), and an edge
 index is never retired.
 
