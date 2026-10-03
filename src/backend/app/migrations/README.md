@@ -195,8 +195,18 @@ python -m app.migrations create <slug>           # nächste Migration scaffolden
 
 - **Lock (M-8):** `upgrade`/`downgrade` laufen unter einem `__lock__`-Dokument in
   `schema_migrations`. Ein zweiter Runner wird blockiert; `run_pending_migrations`
-  überspringt bei gehaltenem Lock (der gewinnende Runner migriert). Ein Lock, das
+  wartet bei gehaltenem Lock (begrenzt, 2 × TTL) und versucht `upgrade` danach
+  selbst — bereits angewandte Versionen werden übersprungen. Ein Lock, das
   älter als 5 Minuten ist, gilt als verwaist und wird übernommen.
+- **Seeds unter demselben Lock (S-5, #2028):** `run_seeds` nimmt denselben Lock.
+  Der Halter erneuert ihn nach jedem Seed-Job (`tracking.refresh_lock`) und hält
+  den abgeschlossenen Lauf in `schema_migrations/__seed_run__` fest (Lauf-ID,
+  Fingerprint der Seed-Eingaben, fehlgeschlagene Jobs). Ein wartendes Replica
+  seedet nicht erneut, wenn währenddessen ein Lauf mit gleichem Fingerprint ohne
+  fehlgeschlagenen Job fertig wurde. Läuft das Warten ab, bricht der Startup ab
+  (`SeedBarrierTimeoutError`); wird der Lock zwischen zwei Jobs übernommen, bricht
+  der alte Halter ab (`SeedLockLostError`). Ein neuer Seed braucht dafür nichts zu
+  tun — aber S-1 bleibt Pflicht: der Lock schützt nur vor *gleichzeitigen* Läufen.
 - **Zielbild (O-3):** Migrationen sollen mittelfristig als dediziertes
   Kubernetes-Job / Helm-Hook laufen (nicht in jedem App-Pod). Der
   CLI-Entrypoint `python -m app.migrations upgrade` ist die Grundlage; bis dahin

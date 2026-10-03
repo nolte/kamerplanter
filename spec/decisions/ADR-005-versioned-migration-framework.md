@@ -95,7 +95,10 @@ Ein Dokument je angewandter Version:
 - **Concurrency-Lock:** Ein `_key: "__lock__"`-Dokument (Insert schlägt bei
   Existenz fehl → nur ein Runner gewinnt) mit TTL/`acquired_at`. Konkurrierende
   Replicas warten bzw. überspringen. Verhindert Doppelausführung bei parallelem
-  Pod-Start.
+  Pod-Start. Seit #2028 (NFR-016 S-5) läuft auch die Seed-Registry unter diesem
+  Lock: ein Replica seedet, die anderen warten und seeden nicht erneut, wenn
+  währenddessen ein vollständiger Lauf derselben Seed-Eingaben abgeschlossen wurde
+  (`__seed_run__`); der Halter erneuert den Lock nach jedem Seed-Job.
 
 ### 4. Migration-Protokoll & Runner
 
@@ -171,7 +174,8 @@ idempotent schreiben, `--dry-run` unterstützen, Unit-Test unter
 - **Positiv:** Ein fehlgeschlagener Referenzdaten-Seed reißt den Startup nicht mehr
   mit (Fehler-Isolation); einmalige Migrationen laufen genau einmal, getrackt und
   geordnet; der DB-Stand ist per `current`/`history` inspizierbar; Replica-Races
-  sind durch den Lock ausgeschlossen; `main.py` ist von ~90 Zeilen Inline-Aufrufen
+  sind durch den Lock ausgeschlossen (für die Seeds erst seit #2028 — davor liefen
+  sie ungesperrt auf jedem Replica); `main.py` ist von ~90 Zeilen Inline-Aufrufen
   befreit; neue Migrationen folgen einem einheitlichen, getesteten Muster.
 - **Negativ / Kosten:** Zusätzliche Framework-Komplexität (~300 LOC + Tests); eine
   neue Collection `schema_migrations`; Autoren müssen die Versionierungs- und
