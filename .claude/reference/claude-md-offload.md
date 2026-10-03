@@ -1,6 +1,6 @@
 # CLAUDE.md reference (offloaded sections)
 
-Moved verbatim out of the root `CLAUDE.md` to cut per-turn context cost. The root file keeps a short pointer to each section. Read the relevant section when the topic comes up.
+The sections below were moved verbatim out of the root `CLAUDE.md` to cut per-turn context cost. The root file keeps a condensed summary and a pointer to each section; this file is not auto-loaded. Read the relevant section when the topic comes up.
 
 ## Crash recovery & parallel working copies
 
@@ -86,6 +86,7 @@ stays local for now).
 ## Enforcement status: DAST (CLAUDE.md Key Architectural Decision 11)
 
 **What is actually enforced, as of 2026-08-01** — this paragraph previously described the target state as if it were in force, which is the failure class NFR-018 §1 catalogues:
-    - The Nuclei PR scan runs and reports, but is **advisory**. `develop` requires only `static / Static CI Tests` and `lint-test-build (22)`; verify with `gh api repos/nolte/kamerplanter/branches/develop/protection --jq '.required_status_checks.contexts'`. Promoting it is a decision to be made on measured history per NFR-018 §4, not by editing this sentence — the job runs ~16 minutes and `strict: true` multiplies that across the merge train.
-    - The Nuclei nightly scanned nothing at all until 2026-08-01 (it resolved a staging URL that was never configured); it now builds its own ephemeral stack.
-    - **ZAP became real on 2026-08-01.** `security-zap-baseline.yml` had been a scaffold that checked three files exist and reported green without scanning. It now runs a Baseline (passive + AjaxSpider) and an OpenAPI-driven API scan against an ephemeral stack on every pull request (#890, advisory), and `security-zap-nightly.yml` runs the authenticated Full-Scan with the cross-tenant passive rule and the auth-bypass two-pass (#891). Both are advisory, like the Nuclei lane. ZAP deviates from NFR-015 §4.1's named `zaproxy/action-*` wrappers and runs via `docker run`; the reason is recorded in §4.1 itself.
+
+- The Nuclei PR scan runs and reports, but is **advisory**. `develop` requires only `static / Static CI Tests` and `lint-test-build (22)`; verify with `gh api repos/nolte/kamerplanter/branches/develop/protection --jq '.required_status_checks.contexts'`. Promoting it is a decision to be made on measured history per NFR-018 §4, not by editing this sentence — the job runs ~16 minutes and `strict: true` multiplies that across the merge train.
+- The Nuclei nightly scanned nothing at all until 2026-08-01 (it resolved a staging URL that was never configured); it now builds its own ephemeral stack.
+- **ZAP became real on 2026-08-01.** `security-zap-baseline.yml` had been a scaffold that checked three files exist and reported green without scanning. It now runs a Baseline (passive + AjaxSpider) and an OpenAPI-driven API scan against an ephemeral stack on every pull request (#890, advisory), and `security-zap-nightly.yml` runs the authenticated Full-Scan with the cross-tenant passive rule and the auth-bypass two-pass (#891). Both are advisory, like the Nuclei lane. ZAP deviates from NFR-015 §4.1's named `zaproxy/action-*` wrappers and runs via `docker run`; the reason is recorded in §4.1 itself.

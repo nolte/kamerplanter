@@ -33,11 +33,11 @@ Agents authored under `.claude/agents/` (`distribution: project`) MAY author the
 
 ## Crash recovery & parallel working copies
 
-Session transcripts persist under `~/.claude/projects/<encoded-cwd>/`; resume with `task resume`, `claude --continue` or `claude --resume <id>`. Run long work as a top-level session in a worktree created by `task worktree:add -- feat/<branch>`, never under `.claude/worktrees/` (the `guard-nested-worktree` hook rejects commits there). Worktree-isolated subagents and `Workflow` runs are not recoverable via `claude --resume`. Details: `.claude/reference/claude-md-offload.md`.
+Session transcripts persist under `~/.claude/projects/<encoded-cwd>/`; resume with `task resume`, `claude --continue` or `claude --resume <id>`. Run long work as a top-level session in a worktree created by `task worktree:add -- feat/<branch>` (root `${NOLTE_WORKTREE_ROOT:-~/repos/.worktrees}`), never under `.claude/worktrees/` (the `guard-nested-worktree` hook rejects commits there). Worktree-isolated subagents and `Workflow` runs are not recoverable via `claude --resume`. Details: `.claude/reference/claude-md-offload.md`.
 
 ## Claude Code plugin adoption
 
-Generic delivery capabilities come from the `nolte-shared` + `nolte-engineering` plugins, never from local copies in `.claude/`; only domain assets (Steckbrief, agrobiology, HA, RAG) stay local. Launch with `task claude` (extra args are forwarded). Rules (no copies, verify before remove) and the full adoption notes: `.claude/reference/claude-md-offload.md`.
+Generic delivery capabilities come from the `nolte-shared` + `nolte-engineering` plugins (`nolte-media` is intentionally not loaded), never from local copies in `.claude/`; only domain assets (Steckbrief, agrobiology, HA, RAG) stay local. Launch with `task claude` (`task claude -- --resume` forwards args; checkout via `NOLTE_CLAUDE_SHARED`, default `~/repos/github/claude-shared`). Rules (no copies, verify before remove) and the full adoption notes: `.claude/reference/claude-md-offload.md`.
 
 ## Requirements Overview
 
@@ -76,13 +76,13 @@ These constraints are documented across multiple files and must be respected whe
 
 9. **Multi-tenancy with RBAC Permission Matrix** (REQ-024): Tenant is the isolation container — all resources belong to exactly one tenant. Users can be members of multiple tenants with different roles per tenant (viewer/grower/lead). Assignment-based write control for locations. Platform roles: admin (full KA-Admin) and viewer (read-only admin panel). URL-based routing: `/api/v1/t/{tenant_slug}/...` for tenant-scoped endpoints. Global resources (species, cultivars, IPM data) remain at `/api/v1/...`. Personal tenant auto-created at registration.
 
-    **Enforcement (2026-08-08):** the write gate is wired (#1042) via `require_permission` / `require_tenant_role` / `require_admin_scope` in `src/backend/app/common/auth.py`; delete is lead-only, reads stay open to every member. Full status: `.claude/reference/claude-md-offload.md`.
+    **Enforcement (2026-08-08):** the write gate is wired (#1042) via `require_permission` / `require_tenant_role` / `require_admin_scope` in `src/backend/app/common/auth.py`; delete is lead-only, reads stay open to every member. The `resource` argument of `require_permission` is carried but **not yet decision-bearing** (no per-resource-type matrix); row-level isolation is `tenant_key` stamping plus per-repository filtering. Full status: `.claude/reference/claude-md-offload.md`.
 
 10. **DSGVO by Design** (REQ-025, NFR-011): All personal data has defined retention periods enforced by Celery. DSGVO subject rights (Art. 15–21) as self-service API at `/api/v1/privacy/`. IP addresses anonymized after 7 days. Sensor data downsampled in 3 stages (90d raw → 2y hourly → 5y daily). Consent-checking middleware for optional processing. Harvest/treatment data anonymized (not deleted) when retention laws (CanG, PflSchG) apply.
 
 11. **Two-tier DAST security testing** (NFR-014, NFR-015): Two complementary scanners are specified. **Nuclei** (NFR-014) provides broad, fast template-based scanning per PR and nightly — covering exposures, misconfigurations, default-logins, CVEs and project-specific custom templates (security-headers, CORS, JWT-leak, source-map, tenant-leak); it uploads SARIF to GitHub Code Scanning. **OWASP ZAP** (NFR-015) is specified for deep behaviour-based scanning: Baseline + API scan per PR, Full-Scan with AjaxSpider and authenticated cross-tenant negative tests nightly. NFR-009 covers dependency CVEs *before* deployment, NFR-014/015 cover the deployed app.
 
-    **Enforcement (2026-08-01):** the Nuclei and ZAP lanes run but are **advisory**, not required checks on `develop`; verify with `gh api repos/nolte/kamerplanter/branches/develop/protection --jq '.required_status_checks.contexts'`. Full status: `.claude/reference/claude-md-offload.md`.
+    **Enforcement (2026-08-01):** the Nuclei and ZAP lanes run but are **advisory**; `develop` requires only `static / Static CI Tests` and `lint-test-build (22)` (verify: `gh api repos/nolte/kamerplanter/branches/develop/protection --jq '.required_status_checks.contexts'`). Promoting a scanner to required is decided on measured history per NFR-018 §4, not by editing this sentence. Full status: `.claude/reference/claude-md-offload.md`.
 
 ## Tech Stack Summary
 
