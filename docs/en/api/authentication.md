@@ -713,6 +713,18 @@ After multiple failed login attempts, the account is temporarily locked. The API
 }
 ```
 
+### IP Rate Limits and Proxy Depth
+
+The IP limits on the sign-in routes (login, registration, password reset, device pairing, resending the verification mail) count in storage that all replicas and worker processes share. An installation with several replicas therefore has the same bound as one with a single process. <!-- REQ-023 -->
+
+!!! info "API only / operator configuration"
+    As an operator you choose the storage with `RATE_LIMIT_STORAGE_URL`. If it stays empty, the backend uses the Valkey from `REDIS_URL` — usually you do not need to set anything. Use `memory://` only when a single process is the whole installation.
+
+- **Storage fails:** Each process then keeps counting on its own. Requests are not let through unchecked and none is rejected with an error, but the bound is softer: during the outage a fresh window can apply per process. If the storage hangs, only the first request waits, for at most 0.5 s.
+- **Proxy depth:** The limit applies per client address. `TRUSTED_PROXY_HOPS` tells the backend how many proxies sit in front of it. The Helm chart sets `1` (Traefik in front of nginx).
+
+If you find the line `forwarded_chain_deeper_than_trusted_proxy_hops` in the backend log once per process, `TRUSTED_PROXY_HOPS` is `0` although the `X-Forwarded-For` chain has more than one entry. The backend then reads a proxy's address instead of the caller's, and all callers share one counter. Set `TRUSTED_PROXY_HOPS` to the number of proxies after the first (behind ingress and nginx: `1`). The line carries neither the header value nor an IP address. A run without ingress, where the chain has a single entry, stays silent.
+
 ---
 
 ## Environment Variables (Authentication)
@@ -726,6 +738,7 @@ After multiple failed login attempts, the account is temporarily locked. The API
 | `REQUIRE_EMAIL_VERIFICATION` | `true` | Enforce email verification before first login. Set it to `false` explicitly without outbound mail |
 | `KAMERPLANTER_MODE` | `full` | `light` disables all authentication |
 | `FERNET_KEY` | — | Encryption key for OIDC provider secrets |
+| `RATE_LIMIT_STORAGE_URL` | empty | Storage of the IP rate limits; empty = Valkey from `REDIS_URL` — see [IP Rate Limits and Proxy Depth](#ip-rate-limits-and-proxy-depth) |
 
 ---
 

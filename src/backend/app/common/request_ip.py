@@ -51,9 +51,13 @@ def _warn_once_on_unexplained_chain(chain_length: int) -> None:
     ingress + nginx was silent: the resolver read the ingress address nginx
     appended, and every IP-keyed control — the rate limits, the pairing lockout,
     the ``ip_allowlist`` — bound to one shared bucket (#2045). Behind exactly one
-    proxy (dev, e2e) the chain has one entry and hops 0 is right, so only a
-    longer chain is reported: either a proxy the setting does not count, or a
-    caller who prepended entries. Both are worth a look; neither is decided here.
+    proxy the chain has one entry and hops 0 is right, so only a longer chain is
+    reported: either a proxy the setting does not count, or a caller who
+    prepended entries. Both are worth a look; neither is decided here.
+
+    A one-entry chain is the shape of a local run without ingress (nginx only).
+    The chart's releases, the dev release included, inherit ``TRUSTED_PROXY_HOPS: "1"``
+    from ``values.yaml`` and so never reach this branch.
 
     Logs the entry *count* only — never the header or an address (NFR-011).
     """

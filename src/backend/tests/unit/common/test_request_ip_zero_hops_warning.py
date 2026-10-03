@@ -7,7 +7,7 @@ the entry nginx appended — the ingress address — and every IP-keyed control
 
 The signal is a warning logged **once per process**, raised when a request with
 ``trusted_proxy_hops == 0`` carries a chain of more than one entry. One entry is
-the correct dev/e2e shape (client → nginx → backend, nginx writes the caller),
+the correct shape of a run without ingress (client → nginx → backend, nginx writes the caller),
 so it stays silent there. The warning never carries the header or an address.
 """
 

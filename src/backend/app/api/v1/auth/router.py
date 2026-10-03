@@ -83,9 +83,12 @@ def _rate_limit_key(request: Request) -> str:
     out of reach.
 
     The one path that reading cannot cover is a request that never traverses our
-    proxies — the backend NetworkPolicy currently admits port 8000 without a
-    ``from`` selector (#1159). There the header is whatever its sender wrote, for
-    this limiter as for the lockout and the allowlist.
+    proxies. The chart closes it: the backend NetworkPolicy admits port 8000 only
+    from the frontend controller (#1159, closed), so nginx is the sole way in. A
+    deployment that routes ``/api`` straight to the backend Service re-opens it and
+    must also set ``TRUSTED_PROXY_HOPS`` to match the shorter chain
+    (``helm/kamerplanter/values.yaml``). There the header is whatever its sender
+    wrote, for this limiter as for the lockout and the allowlist.
 
     Falls back to the socket peer when no header is present, which is what a
     direct call (and every ``TestClient`` caller that sets no header) gets.

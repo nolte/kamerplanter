@@ -713,6 +713,18 @@ Nach mehreren fehlgeschlagenen Login-Versuchen wird das Konto temporär gesperrt
 }
 ```
 
+### IP-Rate-Limits und Proxy-Tiefe
+
+Die IP-Limits der Anmelderouten (Login, Registrierung, Passwort-Reset, Gerätekopplung, erneuter Verifizierungs-Mailversand) zählen in einem Speicher, den alle Replikas und Worker-Prozesse gemeinsam nutzen. Eine Installation mit mehreren Replikas hat damit dieselbe Grenze wie eine mit einem Prozess. <!-- REQ-023 -->
+
+!!! info "Nur über API / Betreiber-Konfiguration"
+    Als Betreiber legst du den Speicher mit `RATE_LIMIT_STORAGE_URL` fest. Bleibt der Wert leer, nutzt das Backend den Valkey aus `REDIS_URL` — in der Regel musst du nichts setzen. Setze `memory://` nur, wenn ein einziger Prozess die ganze Installation ist.
+
+- **Speicher fällt aus:** Jeder Prozess zählt dann für sich weiter. Die Anfragen werden nicht offen durchgelassen und mit keinem Fehler abgelehnt, aber die Grenze ist weicher: Während des Ausfalls kann je Prozess ein frisches Zeitfenster gelten. Hängt der Speicher, wartet nur die erste Anfrage höchstens 0,5 s.
+- **Proxy-Tiefe:** Das Limit gilt je Client-Adresse. Wie viele Proxys davor stehen, sagt `TRUSTED_PROXY_HOPS`. Das Helm-Chart setzt `1` (Traefik vor nginx).
+
+Findest du im Backend-Log einmal je Prozess die Zeile `forwarded_chain_deeper_than_trusted_proxy_hops`, steht `TRUSTED_PROXY_HOPS` auf `0`, obwohl die `X-Forwarded-For`-Kette mehr als einen Eintrag hat. Dann liest das Backend die Adresse eines Proxys statt die des Aufrufers, und alle Aufrufer teilen sich einen Zähler. Setze `TRUSTED_PROXY_HOPS` auf die Zahl der Proxys nach dem ersten (hinter Ingress und nginx: `1`). Die Zeile enthält weder den Header-Wert noch eine IP-Adresse. Ein Lauf ohne Ingress, bei dem die Kette nur einen Eintrag hat, bleibt still.
+
 ---
 
 ## Umgebungsvariablen (Authentifizierung)
@@ -726,6 +738,7 @@ Nach mehreren fehlgeschlagenen Login-Versuchen wird das Konto temporär gesperrt
 | `REQUIRE_EMAIL_VERIFICATION` | `true` | E-Mail-Verifikation vor erstem Login erzwingen. Ohne ausgehenden Mailversand ausdrücklich auf `false` setzen |
 | `KAMERPLANTER_MODE` | `full` | `light` deaktiviert die gesamte Authentifizierung |
 | `FERNET_KEY` | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets |
+| `RATE_LIMIT_STORAGE_URL` | leer | Speicher der IP-Rate-Limits; leer = Valkey aus `REDIS_URL` — siehe [IP-Rate-Limits und Proxy-Tiefe](#ip-rate-limits-und-proxy-tiefe) |
 
 ---
 
