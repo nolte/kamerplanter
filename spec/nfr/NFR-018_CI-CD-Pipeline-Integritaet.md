@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: GitHub Actions, pre-commit, Docker, Helm, SLSA-Provenance
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.4
+Version: 1.5 (develop-Branch-Protection ohne `strict`, Betreiberentscheidung 2026-10-03)
 Autor: nolte
 Datum: 2026-08-08
 Tags: [ci, cd, pipeline, gate-integrity, reproducibility, provenance, supply-chain, vacuous-success]
@@ -20,6 +20,7 @@ Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.5 | 2026-10-03 | **`strict` auf `develop` abgeschaltet (Betreiberentscheidung):** `required_status_checks.strict` steht in `.github/settings.yml` auf `false`. Gegeben wird die Zusicherung, dass ein Pull Request, der auf seinem eigenen Stand grün ist, auch auf dem gemergten Ergebnis grün ist; ausgeglichen wird das durch den Lauf auf `develop` nach jedem Merge (Rot wird sofort vorwärts repariert) und die weiter required Wächter. Die Messungen unter §4.3 und die Erwähnungen von `strict: true` beschreiben den Stand bis 2026-10-02. |
 | 1.4 | 2026-09-25 | §4.3: die Messung verlässt die Feature-Pull-Requests (#1794). `lane-inputs.yml` läuft wöchentlich und per Dispatch auf `develop` und schlägt Drift als Bot-Pull-Request vor; die Regeln, die eingecheckte Manifeste gegen die aktuellen Workflows halten, laufen nur dort (Marker `lane_inputs_drift`). Der überholte Übergangszustand (Register, lokale Messung) ist durch den gemessenen Stand ersetzt. |
 | 1.3 | 2026-09-23 | §4.3 (ein Relevanzfilter wird an dem gemessen, was sein Job liest — nicht an dem, was sein Workflow erwähnt, #1596) ergänzt; die Regel stand zuvor nur als Messung in den Pull-Request-Bodies von #1595 und als Kommentar über dem `guards`-Job in `backend-guards.yml`. |
 | 1.2 | 2026-09-21 | §2.3 (ein Gate entscheidet nicht anhand von Prosa) kam mit #1642 und wird hier im Changelog nachgetragen; §2.4 (Skip-Obergrenze je Tier, #1434), §2.5 (ein Ausnahmeregister muss altern können), §4.1 (ein required Check darf nicht pfadgefiltert sein, #1432/#1578) und §4.2 (was eine advisory Lane dem Default-Branch schuldet, #1547/#1617) ergänzt. Alle fünf Regeln standen zuvor nur als Kommentar in einer Workflow-, Taskfile- oder Guard-Datei oder in einem Pull-Request-Body (#1581). |

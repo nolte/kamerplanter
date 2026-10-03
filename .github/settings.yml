@@ -121,7 +121,17 @@ branches:
         # fan-out are unchanged. Reopen #1584 when any lane ends cancelled in
         # the majority of its pull-request runs (spec/project/workflow-health/);
         # the options then are a merge queue or dropping `strict`.
-        strict: true
+        # OPERATOR DECISION 2026-10-03: `strict` is now **false**. With the
+        # required checks at minutes, the serial rebase-and-rerun of every open
+        # pull request after each merge costs more than the drift it prevents
+        # (#792, #1584 named dropping `strict` as the remaining option). What is
+        # given up: a pull request green on its own head is no longer proven
+        # green on the merged result. The compensation is the post-merge run on
+        # `develop` (watch it after every merge; a red `develop` is fixed
+        # forward at once) and `Write-route and tree guards`, which stay
+        # required. Reopen if two merges in a quarter turn `develop` red that
+        # strict mode would have caught.
+        strict: false
         contexts:
           - static / Static CI Tests
           # #828 — the frontend unit suite gated nothing until it was promoted:
