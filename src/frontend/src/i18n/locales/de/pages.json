@@ -681,7 +681,7 @@
       "verificationSuccess": "E-Mail erfolgreich verifiziert! Du kannst dich jetzt anmelden.",
       "verificationFailed": "Verifizierung fehlgeschlagen",
       "invalidToken": "Ungültiger oder abgelaufener Token",
-      "emailNotVerified": "Deine E-Mail-Adresse ist noch nicht bestätigt. Ist der Bestätigungslink verloren gegangen oder abgelaufen, kannst du hier einen neuen anfordern.",
+      "emailNotVerified": "Deine E-Mail-Adresse ist noch nicht bestätigt. Falls ein neuer Bestätigungslink fällig war, ist er jetzt an deine Adresse unterwegs – er ist 24 Stunden gültig und ersetzt ältere Links. Schau auch in deinen Spam-Ordner. Kommt nichts an, kannst du hier einen neuen anfordern.",
       "resendVerification": "Neue Bestätigungs-E-Mail senden",
       "resendVerificationTitle": "Bestätigungslink neu anfordern",
       "resendVerificationIntro": "Gib die E-Mail-Adresse deines Kontos ein. Ist sie noch nicht bestätigt, schicken wir dir einen neuen Link. Jeder neue Link ersetzt die vorherigen.",

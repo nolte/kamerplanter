@@ -681,7 +681,7 @@
       "verificationSuccess": "Email successfully verified! You can now log in.",
       "verificationFailed": "Verification failed",
       "invalidToken": "Invalid or expired token",
-      "emailNotVerified": "Your email address has not been verified yet. If the verification link got lost or has expired, you can request a new one here.",
+      "emailNotVerified": "Your email address has not been verified yet. If a new verification link was due, one is now on its way to your address — it is valid for 24 hours and replaces earlier links. Please also check your spam folder. If nothing arrives, you can request a new one here.",
       "resendVerification": "Send a new verification email",
       "resendVerificationTitle": "Request a new verification link",
       "resendVerificationIntro": "Enter the email address of your account. If it has not been verified yet, we will send you a new link. Every new link replaces the earlier ones.",
