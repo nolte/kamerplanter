@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.16 (Eindeutigkeit in mandantenbezogenen Collections je Mandant, #2029)
+Version: 1.17 (Seed-Abgleich nur gegen globale Zeilen; `activities`/`workflow_templates` je Mandant eindeutig, #2027)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.17 | 2026-10-03 | **#2027 umgesetzt:** Ein Seed-Loader gleicht einen Seed nur gegen globale Zeilen ab (`tenant_key` leer oder fehlend; Abschnitt „Eindeutigkeit in mandantenbezogenen Collections“). Gemessen auf ArangoDB 3.12: Der Aktivitäten- und der Workflow-Seed fanden eine gleichnamige Zeile eines Mandanten und schrieben sie als globale System-Zeile um; der Workflow-Seed hängte zusätzlich seine Phasen an das Template des Mandanten. Ein Substrat eines Mandanten mit der Identität eines Seeds verhinderte die globale Seed-Zeile. `activities` und `workflow_templates` sind von `name` auf `(tenant_key, name)` umgestellt (Migrationen `v0076`, `v0077`; entfernen den Alt-Index auch als `hash` und als `hash` mit `persistent`-Zwilling). |
 | 1.16 | 2026-10-03 | **#2029 umgesetzt:** Ein Unique-Index auf einer mandantenbezogenen Collection gilt je Mandant (Abschnitt „Eindeutigkeit in mandantenbezogenen Collections“). `tanks` ist von `name` auf `(tenant_key, name)` umgestellt (Migration `v0075`, entfernt den Alt-Index auch als `hash`). Ein `409` nennt das kollidierende Feld, nicht `tenant_key` (außer bei einem Index nur auf `tenant_key`, den es nicht gibt). Klassifikation aller Unique-Indizes und Guard `test_tenant_unique_indexes_are_scoped.py`. |
 | 1.15 | 2026-10-03 | **#2009 (Betreiberentscheidung):** Admin-Deaktivierung eines Mandanten und Admin-Entfernung eines Mitglieds verlangen Step-up (AK-56, Umsetzung offen). |
 | 1.14 | 2026-10-03 | **#1949 umgesetzt (brechende API-Änderung):** `DELETE /admin/platform/users/{key}` antwortet `202 Accepted` (Körper `{erasure_key, status, requested_at, message}`) statt `204`. Die Anfrage prüft Step-up und Berechtigung, legt den Löschauftrag an, sperrt das Konto, widerruft Sitzungen und Einladungen und benachrichtigt die anderen Mitglieder der persönlichen Mandanten **jetzt** (Sofortlöschung ohne Karenzzeit bleibt); der Celery-Task `retention.run_account_erasure` beansprucht den Auftrag atomar und führt die Löschung aus — die persönlichen Mandanten über die begrenzten Stapel mit Heartbeat aus §1a.2 (AK-53), danach den ArangoDB-Plan des Kontos. Ein fehlgeschlagener oder unvollständiger Lauf ist kein HTTP-Status mehr, sondern der Auftragsstatus `partially_completed` (täglicher Lauf wiederholt ihn), lesbar über das neue `GET /admin/platform/erasures/{erasure_key}`. Vor dem Schließen des Kontos entschieden und weiter synchron: 401/403/404/422/429 (Step-up, Berechtigung), 409 (ein lebender Lauf hält den Auftrag), 503 (Deployment kann nicht löschen, nichts geändert). |
@@ -704,10 +705,12 @@ Ein Unique-Index auf einer Collection, deren Dokumente einem Mandanten gehören,
 | Klasse | Regel | Collections (Stand 2026-10-03) |
 |---|---|---|
 | Mandanteneigen | Unique nur mit `tenant_key` | `tanks` (`tenant_key, name`; bis v0075 `name`), `climate_normals`, `irrigation_demands`, `season_states`, `weather_source_configs`, `memberships`, `mcp_idempotency_record`, `ha_publish_settings` |
-| Hybrid-Katalog | Unique mit `tenant_key`; global (`tenant_key == ""`) genau einmal | `fertilizers` (`tenant_key, product_name, brand`), `species` (`tenant_key, scientific_name_normalized`) |
+| Hybrid-Katalog | Unique mit `tenant_key`; global (`tenant_key == ""`) genau einmal | `fertilizers` (`tenant_key, product_name, brand`), `species` (`tenant_key, scientific_name_normalized`), `activities` (`tenant_key, name`; bis v0076 `name`), `workflow_templates` (`tenant_key, name`; bis v0077 `name`) |
 | Bewusst mandantenübergreifend eindeutig | Begründung steht im Guard | `calendar_feeds.token`, `invitations.token_hash` (geheimes Token, ohne Mandant aufgelöst), `location_assignments` (`membership_key` gehört genau einem Mandanten), `tasks.care_dedup_key` (berechneter Schlüssel beginnt mit `tenant_key`) |
-| Offen (Defekt dieser Klasse) | Index noch collection-weit | `activities.name`, `workflow_templates.name` (#2027), `species.scientific_name`, `plant_instances.instance_id`, `harvest_batches.batch_id`, `slots.slot_id` |
+| Offen (Defekt dieser Klasse) | Index noch collection-weit | `species.scientific_name`, `plant_instances.instance_id`, `harvest_batches.batch_id`, `slots.slot_id` |
 | Global / kontobezogen | Collection-weit eindeutig ist korrekt | `botanical_families`, `phase_definitions`, `treatments`, `pests`, `diseases`, `beneficials`, `fish_species`, `starter_kits`, `glossary_terms`, `hardiness_zones`, Konto- und Credential-Collections |
+
+**Seed-Abgleich (#2027).** Ein Seed-Loader gleicht einen Seed nur gegen die **globalen** Zeilen eines Hybrid-Katalogs ab (`tenant_key` leer oder fehlend), über den ganzen Katalog und ohne festes Fenster. Eine Zeile eines Mandanten mit der Identität eines Seeds (Name, bei Substraten `(type, name_de oder brand)`) wird weder gefunden noch verändert, und sie ersetzt die globale Seed-Zeile nicht. Die globale Zeile und die des Mandanten bestehen nebeneinander; der Unique-Index je Mandant ist die Voraussetzung dafür. Das gilt für `fertilizers` und `nutrient_plans` (#2000, #1957) sowie für `activities`, `workflow_templates` und `substrates` (#2027).
 
 `pests`, `diseases` und `treatments` tragen heute kein `tenant_key` (nur `origin`). Werden tenant-eigene Einträge nach dem Stammdaten-Scoping unten umgesetzt, fallen ihre Unique-Indizes in die erste oder zweite Klasse.
 
