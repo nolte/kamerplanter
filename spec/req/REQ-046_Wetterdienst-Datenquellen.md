@@ -7,7 +7,7 @@ Kategorie: Monitoring / Integration
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, httpx, ArangoDB, Celery, Home Assistant REST API, React 19, TypeScript 5.9, MUI 7, Redux Toolkit
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (fremder Mandantenschlüssel → 404, #1871)
 Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (Standort), REQ-018 (HA-Aktorik/REST — geteilter HA-Client), REQ-023 (Secret-Storage für API-Keys), REQ-024 (Mandanten-Scoping), REQ-037 (ET — Konsument), REQ-039 (Winterhärte — Konsument), REQ-041 (NASA POWER — registriert Adapter hier)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.1 | 2026-10-03 | **#1871 B8 (Betreiberentscheidung):** Ein fremder Mandantenschlüssel bzw. eine fremde Site wird mit **404** beantwortet (AC-11), nicht mit 403. |
 | 1.0 | 2026-07-05 | Initialer Entwurf — konsolidiert die über REQ-005/039/041 verstreute Wetter-Datenquellen-Schicht in eine SSOT. Führt die nutzerseitige Datenquellen-Auswahl (öffentlicher Wetterdienst **vs.** Home-Assistant-Sensoren) samt Konfigurations-UI und den `HomeAssistantWeatherAdapter` (native `weather.*`-Entität **und** Einzel-Sensor-Mapping) ein. Etabliert `WeatherAdapter`-ABC, `WeatherAdapterRegistry` und `Site.weather_source_priority` als hier beheimatete, geteilte Infrastruktur. |
 
 ## 1. Business Case
@@ -470,7 +471,7 @@ Alle Strings in DE (Default/Fallback) und EN. Namespaces: `pages.siteDetail.weat
 - [ ] **AC-8 (Secret-Sicherheit):** Ein OpenWeatherMap-API-Key wird verschlüsselt (Fernet, REQ-023) gespeichert; `:WeatherSourceConfig` enthält nur `api_key_ref`; kein Endpunkt gibt den Key im Klartext zurück.
 - [ ] **AC-9 (HA optional):** Alle Wetterfunktionen sind mit einer rein öffentlichen Quelle (Open-Meteo, ohne Key) vollständig nutzbar; das Entfernen/Fehlen von HA bricht keine Wetterfunktion.
 - [ ] **AC-10 (Provenance & Warnungen):** HA-Ist-Werte (`is_current_conditions=True`) lösen **keine** Vorhersage-Frühwarnungen (REQ-005) aus; das Quellen-/`data_kind`-Badge unterscheidet in der UI sichtbar Vorhersage, Ist-Wert und Reanalyse.
-- [ ] **AC-11 (Tenant-Isolation):** `:WeatherSourceConfig` erbt `tenant_key` von der Site; das Schreiben mit abweichendem `tenant_key` oder das Verknüpfen einer fremden Site wird abgewiesen (422/403); Routen sind tenant-scoped.
+- [ ] **AC-11 (Tenant-Isolation):** `:WeatherSourceConfig` erbt `tenant_key` von der Site; das Schreiben mit abweichendem `tenant_key` oder das Verknüpfen einer fremden Site wird abgewiesen (422 bei abweichendem `tenant_key`; **404** bei einer fremden Site oder einem fremden Mandantenschlüssel, damit die Existenz fremder Mandanten nicht offengelegt wird — Betreiberentscheidung #1871 B8); Routen sind tenant-scoped.
 - [ ] **AC-12 (SSRF/Sicherheit):** Der HA-Adapter spricht nur die via `validate_ha_url` geprüfte HA-Instanz an; öffentliche Adapter nutzen fest verdrahtete Provider-URLs (keine nutzergesteuerte Ziel-URL).
 - [ ] **AC-13 (Migration):** `weather_source_configs` + `has_weather_source_config` werden idempotent angelegt; additive `:WeatherForecast`-Felder brechen bestehende Records nicht (Defaults greifen).
 - [ ] **AC-14 (i18n):** Alle neuen UI-Strings liegen in DE und EN vor; DE ist Default/Fallback.

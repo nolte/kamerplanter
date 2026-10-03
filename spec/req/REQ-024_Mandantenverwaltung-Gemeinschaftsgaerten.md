@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.14 (Konto-Löschung durch Plattform-Admin asynchron: `202`, #1949; v1.13 Q-L3 umgesetzt: Migration `v0067`, #1878; v1.12 v0004-Altstempel-Migration umgesetzt: AK-54, #1805; v1.11: Q-O1 umgesetzt, asynchrone Mandantenlöschung, #1792)
+Version: 1.15 (Step-up für Admin-Deaktivierung/Mitglieder-Entfernung festgelegt, #2009)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.15 | 2026-10-03 | **#2009 (Betreiberentscheidung):** Admin-Deaktivierung eines Mandanten und Admin-Entfernung eines Mitglieds verlangen Step-up (AK-56, Umsetzung offen). |
 | 1.14 | 2026-10-03 | **#1949 umgesetzt (brechende API-Änderung):** `DELETE /admin/platform/users/{key}` antwortet `202 Accepted` (Körper `{erasure_key, status, requested_at, message}`) statt `204`. Die Anfrage prüft Step-up und Berechtigung, legt den Löschauftrag an, sperrt das Konto, widerruft Sitzungen und Einladungen und benachrichtigt die anderen Mitglieder der persönlichen Mandanten **jetzt** (Sofortlöschung ohne Karenzzeit bleibt); der Celery-Task `retention.run_account_erasure` beansprucht den Auftrag atomar und führt die Löschung aus — die persönlichen Mandanten über die begrenzten Stapel mit Heartbeat aus §1a.2 (AK-53), danach den ArangoDB-Plan des Kontos. Ein fehlgeschlagener oder unvollständiger Lauf ist kein HTTP-Status mehr, sondern der Auftragsstatus `partially_completed` (täglicher Lauf wiederholt ihn), lesbar über das neue `GET /admin/platform/erasures/{erasure_key}`. Vor dem Schließen des Kontos entschieden und weiter synchron: 401/403/404/422/429 (Step-up, Berechtigung), 409 (ein lebender Lauf hält den Auftrag), 503 (Deployment kann nicht löschen, nichts geändert). |
 | 1.13 | 2026-10-02 | **Q-L3 / AK-55 umgesetzt (#1878):** Migration `v0067_clean_legacy_foreign_references` bereinigt die #1871-Altlasten und `SiteRepository.update_slot` verschiebt die `HAS_SLOT`-Kante mit dem Feld `location_key`. Konservativ: Zeilen, deren Mandant nicht zweifelsfrei feststeht, bleiben liegen und werden gezählt. Die Umhänge-Variante für fremde Kanten entfällt, weil jedes Quell-Dokument denselben fremden Schlüssel auch in einem eigenen Feld trägt — ein eindeutiges richtiges Ziel ist aus dem Bestand nicht ableitbar; die Kante wird gelöscht. Messwerte aus echten Installationen liegen nicht vor (Befund war „vermutet, nicht gemessen“). |
 | 1.12 | 2026-10-02 | **AK-54 umgesetzt (#1805).** Migration `v0066` setzt die v0004-Altstempel auf Seed-Zeilen von `fertilizers`, `nutrient_plans` (samt `nutrient_plan_phase_entries`), `workflow_templates` und `task_templates` auf `tenant_key == ""` zurück. Die Messung auf einer echten ArangoDB (synthetisches Altvolumen, echtes `backfill_tenant_key`, danach die Seed-Loader) ergab: die vier Eltern-Collections heilen die Seed-Loader beim Start selbst (`tenant_key` wird aus dem Modell mit `""` neu geschrieben); **nicht** geheilt wurden die Kinder `nutrient_plan_phase_entries` (198 von 198 blieben gestempelt) — die Mandantenlöschung hätte jedem Seed-Plan seine Phaseneinträge genommen. Seed-Identität = Name laut Seed-YAML **und** ein bewiesener Stempel (Kind unter globalem Elternteil oder Schlüssel auf mehr als der Hälfte der erwarteten Seed-Düngemittel/-Workflows); nicht beweisbare Zeilen bleiben unberührt. |
@@ -1567,6 +1568,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 <!-- /Quelle: Datenschutzplan Q-L1/Q-L2, #1805 -->
 <!-- Quelle: Datenschutzplan Q-L3, #1878 -->
 | AK-55 | **Umgesetzt (v1.13, #1878; Migration `v0067`, Test `test_v0067_clean_legacy_foreign_references.py`):** Ein geteiltes globales Template mit dem Namen einer privaten Species wird der aktuellen Eigentümerin dieser Species als privates Template zugeordnet; eine fremde Kante aus den #1871-Lücken wird bei eindeutigem Ziel auf den korrekten Mandanten umgehängt, sonst gelöscht; die Korrektur-Migration ist idempotent und protokolliert nur Anzahlen | Integration |
+| AK-56 | **Step-up für Admin-Eingriffe in Mandanten (Betreiberentscheidung #2009, Umsetzung offen):** Das Deaktivieren eines Mandanten und das Entfernen eines Mitglieds durch einen Plattform-Admin verlangen wie die übrigen Admin-Löschpfade (#2011) einen Step-up des handelnden Admins (REQ-023 §3.9); ohne gültigen Step-up bleibt der Zustand unverändert (401). | Integrationstest |
 <!-- /Quelle: Datenschutzplan Q-L3, #1878 -->
 
 ### Frontend-Kriterien:
