@@ -1209,8 +1209,8 @@ class PrivacyService:
 
         A request is held only when it is a scheduled self-service one — an
         administrator's immediate erasure tells the members it happens now and
-        waits for nobody, a cleanup of an unverified account never had a shared
-        garden. For a request that was told the wait counts from that notice
+        waits for nobody, and the cleanup of an unverified account is told and erased
+        in one run (#1992). For a request that was told the wait counts from that notice
         (so a request told at request time, whose hard delete is months away, is
         not delayed at all, and one told by the beat — it predates #1960 or its
         first mail failed — is erased one wait later); with nobody to tell there is
@@ -1360,23 +1360,67 @@ class PrivacyService:
             Exception: whatever the run raised, after the failed attempt was
                 recorded on the request.
         """
+        now = now or datetime.now(UTC)
+        erasure, deferred = self._open_immediate_erasure(
+            user_key,
+            origin=origin,
+            now=now,
+            step_up=step_up,
+            requested_by_subject=requested_by_subject,
+            refuse_while_held=False,
+        )
+        if erasure is None or deferred:
+            return erasure
+        await self._finalize_erasure(erasure, now, raise_on_failure=True)
+        return erasure
+
+    def _open_immediate_erasure(
+        self,
+        user_key: UserKey,
+        *,
+        origin: ErasureOrigin,
+        now: datetime,
+        step_up: ErasureStepUp | None,
+        requested_by_subject: str | None,
+        refuse_while_held: bool,
+    ) -> tuple[ErasureRequest | None, bool]:
+        """Record, close and announce an immediate erasure — everything before the run (#1949).
+
+        Steps 1-3 of :meth:`erase_account_now` plus the member notice: refuse a
+        deployment that cannot erase, persist the request, close the account
+        (deactivate, revoke sessions, revoke invitations), tell the other members
+        and mark the request immediate. Bounded work (a handful of writes and the
+        notice mails), so the admin route runs it in the request and hands the
+        erasure itself to a worker (:meth:`run_account_erasure_task`), while
+        :meth:`erase_account_now` follows it with the run in-process.
+
+        ``refuse_while_held`` (the asynchronous admin entry) answers a request a live
+        run holds with 409 *before* the account is touched — the claim that
+        decided this at the end of the old synchronous run now lives in the worker.
+
+        Returns ``(request, deferred)``: ``deferred`` is a cleanup request still in
+        its backoff, left to the beat; ``(None, False)`` is a cleanup candidate that is
+        verified, demoted or gone.
+        """
         if not user_key or not user_key.strip():
             msg = "erase_account_now needs a user key; refusing to erase with an empty one"
             raise ValueError(msg)
-        now = now or datetime.now(UTC)
         configuration_error = self._erasure_configuration_error() or self._derived_index_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("account_erasure", configuration_error)
 
         erasure = self._erasure_repo.find_active_for_user(user_key)
+        if refuse_while_held and erasure is not None and self._erasure_held_by_a_live_run(erasure, now):
+            raise WriteConflictError("ErasureRequest", "an erasure of this account is already running")
         if erasure is not None and origin == "unverified_cleanup" and self._erasure_deferred(erasure, now):
-            return erasure
+            return erasure, True
         if origin == "unverified_cleanup" and erasure is None:
             # The cleanup's candidate list is a snapshot; somebody who confirmed
             # their address since is not an abandoned registration (#1767 review).
             user = self._user_repo.get_by_key(user_key)
-            if user is None or user.email_verified:
-                return None
+            # A demoted account (an admin lowered ``email_verified``, #1992) is established, not abandoned.
+            if user is None or user.email_verified or user.email_verified_lowered_at is not None:
+                return None, False
 
         # The request first, so a failure after the account is closed still
         # leaves a duty the beat retries (#1767 review SEC-D).
@@ -1385,9 +1429,11 @@ class PrivacyService:
             erasure = self._create_immediate_request(
                 user_key, now=now, origin=origin, step_up=step_up, requested_by_subject=requested_by_subject
             )
-        elif step_up is not None and erasure.key is not None:
+        elif step_up is not None and erasure.key is not None and erasure.requested_by_subject is None:
             # An admin erasing an account whose own request is still open: the
             # record now also names the admin act that pulled it forward (#1814).
+            # Written once: a repeated request (#1949) must not replace the proof of the admin
+            # who asked first.
             self._erasure_repo.update_fields(
                 erasure.key, {"step_up": step_up, "requested_by_subject": requested_by_subject}
             )
@@ -1405,14 +1451,14 @@ class PrivacyService:
         self._refresh_token_repo.revoke_all_for_user(user_key)
         # REQ-025 AK-IE-06 — at request time, like the self-service entry.
         self._revoke_personal_tenant_invitations(user_key)
-        if origin != "unverified_cleanup" and (
-            newly_requested or pulled_forward or erasure.members_notified_at is None
-        ):
+        if newly_requested or pulled_forward or erasure.members_notified_at is None:
             # #1824 — no grace here, so "before the deletion" is as early as the
             # request: right before the run below. A self-service request pulled
             # forward was told a later date at its own request time (#1961: that date
             # no longer holds, so they are told again, now); one never told at all
-            # (#1960) is told now. An unverified account never had a shared garden.
+            # (#1960) is told now. The unverified cleanup is told too (#1992): an unverified account
+            # rarely has a shared garden, but "rarely" is not "never" — with nobody else the notice
+            # records count 0 and sends nothing.
             self._deliver_member_notice(
                 erasure,
                 now=now,
@@ -1423,7 +1469,7 @@ class PrivacyService:
                 # already told (the dedupe of a request nobody finished telling).
                 resend=pulled_forward and erasure.members_notified_at is not None,
             )
-        if erasure.key is not None and origin != "unverified_cleanup" and not erasure.immediate_erasure:
+        if erasure.key is not None and not erasure.immediate_erasure:
             # #1961 — an administrator's erasure waits for nobody: neither this run nor a retry of it by
             # the beat is held for the notice wait of a self-service request (#1960). Written only now,
             # after the notice: a failure before it leaves a request the beat still tells and holds,
@@ -1437,8 +1483,7 @@ class PrivacyService:
             origin=origin,
             subject=self.log_subject(user_key),
         )
-        await self._finalize_erasure(erasure, now, raise_on_failure=True)
-        return erasure
+        return erasure, False
 
     async def erase_account_by_admin(
         self,
@@ -1450,13 +1495,148 @@ class PrivacyService:
         client_ip: str | None,
         now: datetime | None = None,
     ) -> ErasureRequest | None:
-        """A platform admin erases another account at once — with a step-up (#1814).
+        """A platform admin erases another account at once, in-process — with a step-up (#1814).
 
-        The entry of ``DELETE /admin/platform/users/{key}``. Until #1814 the route
-        called :meth:`erase_account_now` behind ``require_platform_admin`` alone, so
-        a hijacked admin session erased any account with one request. Checked here,
-        not at the router, so the rule cannot drift from the route (the arguments
-        are keyword-only without defaults for that reason):
+        The synchronous form of the admin erasure: the authorisation of
+        :meth:`_authorize_admin_erasure`, then :meth:`erase_account_now`, whose
+        record carries the step-up and the admin as a salted reference. The route
+        ``DELETE /admin/platform/users/{key}`` no longer uses it (#1949 — it runs
+        :meth:`request_account_erasure_by_admin`); it stays for callers that need
+        the finished erasure (an operator script, the unit tier).
+        """
+        step_up, requested_by = self._authorize_admin_erasure(
+            user_key,
+            requester=requester,
+            confirmation=confirmation,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        return await self.erase_account_now(
+            user_key,
+            origin="platform_admin",
+            now=now,
+            step_up=step_up,
+            requested_by_subject=requested_by,
+        )
+
+    def request_account_erasure_by_admin(
+        self,
+        user_key: UserKey,
+        *,
+        requester: User,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+        now: datetime | None = None,
+    ) -> ErasureRequest:
+        """Accept an admin's erasure of another account: record, close, tell, dispatch (#1949).
+
+        The entry of ``DELETE /admin/platform/users/{key}`` since #1949 (breaking:
+        ``204`` -> ``202`` with a body). Everything that must be decided *before the
+        account is closed* stays synchronous and keeps its answer — 403 (own account,
+        no platform membership, an API key), 422 (echo), 401 (step-up), 429 (locked),
+        404 (no such account), 503 (the deployment cannot erase — nothing changed),
+        409 (a live run holds the request) — then :meth:`_open_immediate_erasure`
+        persists the request, deactivates the account, revokes sessions and tells the
+        other members; the erasure itself (object storage, the personal tenants in
+        bounded batches with their heartbeat, the ArangoDB plan) runs in a Celery
+        task (:meth:`run_account_erasure_task`). A failed run is recorded on the
+        request (``partially_completed``, backoff) and retried by the daily beat —
+        visible through ``GET /admin/platform/erasures/{key}`` — it is no longer an
+        HTTP answer. "Immediate, no grace" is unchanged: the members are told now.
+
+        Idempotent: a repeated request re-dispatches the open request, never creates a
+        second one, and a request a live run holds is refused with 409.
+        """
+        now = now or datetime.now(UTC)
+        step_up, requested_by = self._authorize_admin_erasure(
+            user_key,
+            requester=requester,
+            confirmation=confirmation,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        erasure, _ = self._open_immediate_erasure(
+            user_key,
+            origin="platform_admin",
+            now=now,
+            step_up=step_up,
+            requested_by_subject=requested_by,
+            refuse_while_held=True,
+        )
+        if erasure is None or erasure.key is None:  # pragma: no cover - only the cleanup origin returns None
+            raise NotFoundError("ErasureRequest", user_key)
+        self._dispatch_account_erasure(erasure.key)
+        return erasure
+
+    def _dispatch_account_erasure(self, erasure_key: str) -> None:
+        """Enqueue the worker that runs the accepted erasure *erasure_key* (#1949).
+
+        Lazy import — the task module imports the dependency wiring that imports this
+        service. A broker outage must not undo the closed account or fail the request:
+        the request stays open with ``hard_delete_scheduled_at`` already due, so the
+        daily ``retention.execute_scheduled_erasures`` beat claims and runs it (the
+        same recovery as a crashed worker, and as for the tenant erasure).
+        """
+        try:
+            from app.tasks.retention_tasks import run_account_erasure
+
+            # A short, bounded publish retry: an unreachable broker must not hold the request thread.
+            run_account_erasure.apply_async(
+                (erasure_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+            )
+            logger.info("account_erasure.dispatched", erasure_key=erasure_key)
+        except Exception as exc:  # noqa: BLE001 - a broker outage is survivable, the beat retries
+            logger.error("account_erasure.dispatch_failed", erasure_key=erasure_key, error_type=type(exc).__name__)
+
+    async def run_account_erasure_task(self, erasure_key: str, now: datetime | None = None) -> dict[str, str]:
+        """Run the accepted account erasure *erasure_key* names, as the Celery worker (#1949).
+
+        Claims the request atomically in :meth:`_finalize_erasure` — a second dispatch,
+        the daily beat and a still-live run all find the claim held and do nothing —
+        then runs the same erasure as every other path. Never raises for a failed run:
+        the failure is recorded on the request (backoff) and the beat retries it, so
+        the broker does not redeliver an erasure the request already retries.
+        """
+        now = now or datetime.now(UTC)
+        erasure = self._erasure_repo.get_by_key(erasure_key)
+        if erasure is None or erasure.status == "completed":
+            return {"erasure_key": erasure_key, "outcome": "nothing_to_do"}
+        if not erasure.immediate_erasure:
+            # Fail closed (#1949 review SEC-001): only a request that was opened as an immediate erasure
+            # is this task's to run. A self-service request in its grace period has its own due date,
+            # notice wait and undo; a message naming its key must not erase the account early.
+            logger.error("account_erasure.run_refused_not_immediate", erasure_key=erasure_key)
+            return {"erasure_key": erasure_key, "outcome": "not_immediate"}
+        configuration_error = self._erasure_configuration_error() or self._derived_index_configuration_error()
+        if configuration_error is not None:
+            logger.error("account_erasure.run_not_configured", erasure_key=erasure_key, reason=configuration_error)
+            return {"erasure_key": erasure_key, "outcome": "held"}
+        finished = await self._finalize_erasure(erasure, now, raise_on_failure=False)
+        return {"erasure_key": erasure_key, "outcome": "completed" if finished else erasure.status}
+
+    def get_erasure_for_admin(self, erasure_key: str) -> ErasureRequest:
+        """Return one erasure request for the platform-admin status read (#1949).
+
+        The route is guarded by ``require_platform_admin``; this is the read behind
+        the 202 the admin deletion answers, so an administrator can see a run that
+        ended ``partially_completed`` instead of a 500. Unknown keys read as not found.
+        """
+        return self._erasure_repo.get_or_raise(erasure_key)
+
+    def _authorize_admin_erasure(
+        self,
+        user_key: UserKey,
+        *,
+        requester: User,
+        confirmation: StepUpConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> tuple[ErasureStepUp, str]:
+        """Refuse unless *requester* may erase *user_key* now; returns the step-up record and the admin reference.
+
+        Checked here, not at the router, so the rule cannot drift from the route (the
+        arguments are keyword-only without defaults for that reason):
 
         1. not the requester's own account (403) — that is the self-service path;
         2. the requester is a platform admin *by the stored membership* (an active
@@ -1466,9 +1646,6 @@ class PrivacyService:
            **admin's own** current password when the admin has one, the code
            mailed to the admin when not (401, #1815), throttled per admin and
            address (429, #1816).
-
-        Then :meth:`erase_account_now`, whose record carries the step-up and the
-        admin as a salted reference.
         """
         self._refuse_in_light_mode()
         if requester.key == user_key:
@@ -1494,13 +1671,7 @@ class PrivacyService:
             requested_by=requested_by,
             step_up=step_up,
         )
-        return await self.erase_account_now(
-            user_key,
-            origin="platform_admin",
-            now=now,
-            step_up=step_up,
-            requested_by_subject=requested_by,
-        )
+        return step_up, requested_by
 
     def _refuse_in_light_mode(self) -> None:
         """No account erasure through a request in light mode (review SEC-003).
@@ -2453,6 +2624,16 @@ class PrivacyService:
             finalised=finalised,
         )
         return finalised
+
+    def _erasure_held_by_a_live_run(self, erasure: ErasureRequest, now: datetime) -> bool:
+        """Whether a run claimed *erasure* and its claim is still inside the stale window (#1949).
+
+        The same window :meth:`IErasureRepository.claim_for_run` uses to take a claim
+        over, so the admin route refuses exactly the request the worker's claim would.
+        """
+        if erasure.status != "in_progress" or erasure.updated_at is None:
+            return False
+        return erasure.updated_at > now - timedelta(hours=self.ERASURE_STALE_AFTER_HOURS)
 
     def _erasure_deferred(self, erasure: ErasureRequest, now: datetime) -> bool:
         """True while a failed request waits out its backoff (#1666).

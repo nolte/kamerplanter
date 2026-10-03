@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.domain.models.privacy import ErasureRequest
 from app.domain.services.step_up_service import StepUpConfirmation
 
 # ── Data export (Art. 15 / 20) ─────────────────────────────────────
@@ -167,6 +168,52 @@ class ErasureResponse(BaseModel):
     #: fixed on the domain model (``ErasureRequest.pseudonymized_collections``).
     pseudonymized_collections: list[str] = Field(default_factory=list)
     retained_reason: str | None = None
+
+    @classmethod
+    def from_request(cls, erasure: ErasureRequest) -> ErasureResponse:
+        """The response for one stored request — shared by ``/privacy`` and the admin status read (#1949)."""
+        return cls(
+            key=erasure.key or "",
+            status=erasure.status,
+            requested_at=erasure.requested_at,
+            soft_deleted_at=erasure.soft_deleted_at,
+            hard_delete_scheduled_at=erasure.hard_delete_scheduled_at,
+            completed_at=erasure.completed_at,
+            anonymized_collections=list(erasure.anonymized_collections),
+            deleted_collections=list(erasure.deleted_collections),
+            pseudonymized_collections=list(erasure.pseudonymized_collections),
+            retained_reason=erasure.retained_reason,
+        )
+
+
+class AccountDeletionAcceptedResponse(BaseModel):
+    """The ``202 Accepted`` body of the platform-admin account deletion (#1949, REQ-025 AK-PT-01).
+
+    The erasure is *recorded*, the account *closed* (deactivated, sessions revoked)
+    and the other members of its personal gardens *told*; the erasure itself runs
+    afterwards in a Celery task. The body says so — it is never "deleted". Poll
+    ``GET /admin/platform/erasures/{erasure_key}`` for the outcome: ``completed``,
+    or ``partially_completed`` for a run that left a declared step open and that
+    the daily beat retries. Names no account and no address.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "erasure_key": "9f2c0e6a4b1d",
+                    "status": "scheduled",
+                    "requested_at": "2026-10-02T10:00:00Z",
+                    "message": "Account deletion accepted: the account is closed and its data is being erased.",
+                }
+            ]
+        }
+    )
+
+    erasure_key: str
+    status: Literal["scheduled", "in_progress", "completed", "partially_completed"]
+    requested_at: datetime | None = None
+    message: str = "Account deletion accepted: the account is closed and its data is being erased."
 
 
 class PersonalTenantErasurePreviewItem(BaseModel):

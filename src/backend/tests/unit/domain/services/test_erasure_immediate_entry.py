@@ -23,9 +23,10 @@ filters), never on a ``MagicMock`` that would accept any write:
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -39,6 +40,7 @@ from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.models.privacy import ErasureRequest
+from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from tests.support.privacy_doubles import FakeErasureRepo, FakePersonalTenants, RecordingErasureExecutor
 
@@ -61,7 +63,9 @@ class _Recorder:
     def __init__(self, executor: RecordingErasureExecutor) -> None:
         self.events: list[str] = []
         self.user_repo = MagicMock()
-        self.user_repo.get_by_key.return_value = SimpleNamespace(key=USER, email_verified=False)
+        self.user_repo.get_by_key.return_value = User.model_validate(
+            {"_key": USER, "email": f"{USER}@example.org", "display_name": "Subject", "email_verified": False}
+        )
         self.user_repo.update_fields.side_effect = lambda key, fields: self.events.append(
             f"user:{sorted(fields.items())}"
         )
@@ -401,29 +405,37 @@ class TestAnOpenRequestIsReusedNotDuplicated:
 class TestTheEntryPointsGoThroughIt:
     """Red before #1767: both entry points discarded the report of an unreached step."""
 
-    def test_the_admin_route_does_not_answer_success_over_an_unreached_step(self):
-
+    def test_the_admin_route_answers_202_and_an_unreached_step_surfaces_in_the_request_status(self):
+        """#1949 — what was a 500 over an unreached step is now the request's ``partially_completed``."""
         from app.api.v1.admin.platform import router as admin_router
 
         repo = FakeErasureRepo()
         service, recorder = _service(repo, RecordingErasureExecutor(drop=("processing_restrictions",)))
+        dispatched: list[str] = []
+        service._dispatch_account_erasure = dispatched.append  # type: ignore[method-assign]
 
-        with pytest.raises(ErasureIncompleteError):
-            admin_router.delete_user(USER, **_admin_request(service, recorder))
+        accepted = admin_router.delete_user(USER, **_admin_request(service, recorder))
+        asyncio.run(service.run_account_erasure_task(dispatched[0], now=NOW))
+        status = admin_router.get_erasure(accepted.erasure_key, _admin=None, privacy_service=service)
 
         request = _only(repo)
         assert (request.origin, request.status) == ("platform_admin", "partially_completed")
+        assert (status.key, status.status) == (accepted.erasure_key, "partially_completed")
 
-    def test_the_admin_route_persists_a_completed_record(self):
-
+    def test_the_admin_route_persists_a_completed_record_once_the_worker_ran(self):
         from app.api.v1.admin.platform import router as admin_router
 
         repo = FakeErasureRepo()
         service, recorder = _service(repo, RecordingErasureExecutor())
+        dispatched: list[str] = []
+        service._dispatch_account_erasure = dispatched.append  # type: ignore[method-assign]
 
-        admin_router.delete_user(USER, **_admin_request(service, recorder))
+        accepted = admin_router.delete_user(USER, **_admin_request(service, recorder))
+        assert _only(repo).status != "completed", "accepted, not yet erased"
+        asyncio.run(service.run_account_erasure_task(dispatched[0], now=NOW))
 
         assert (_only(repo).origin, _only(repo).status) == ("platform_admin", "completed")
+        assert accepted.status in ("scheduled", "in_progress")
 
     def test_the_cleanup_does_not_count_an_unreached_step_as_removed(self):
         from types import SimpleNamespace
@@ -511,3 +523,185 @@ class TestReviewFindings:
         assert result["blocked"] == 0
         assert result["failed"] == 1
         assert result["removed"] == 1
+
+
+def _accept_args(service: PrivacyService, recorder: _Recorder) -> dict:
+    """Keyword arguments of ``request_account_erasure_by_admin`` for a platform admin with a valid step-up."""
+    route = _admin_request(service, recorder)
+    return {
+        "requester": route["current_user"],
+        "confirmation": route["body"].to_confirmation(),
+        "authenticated_with_api_key": False,
+        "client_ip": route["client_ip"],
+    }
+
+
+class TestTheAdminDeleteAcceptsAndTheWorkerErases:
+    """#1949 — the admin request records, closes and tells; the erasure runs in the Celery task.
+
+    The real ``PrivacyService`` over the faithful :class:`FakeErasureRepo`; only the broker
+    publish (``_dispatch_account_erasure``) is replaced, so the test drives the production
+    split — the request, then the task body — never a mock of either.
+    """
+
+    def _accepting(self, repo: FakeErasureRepo, executor: RecordingErasureExecutor, **kwargs):
+        service, recorder = _service(repo, executor, **kwargs)
+        dispatched: list[str] = []
+        service._dispatch_account_erasure = dispatched.append  # type: ignore[method-assign]
+        return service, recorder, dispatched
+
+    def test_the_request_records_and_closes_the_account_but_erases_nothing(self):
+        repo = FakeErasureRepo()
+        executor = RecordingErasureExecutor()
+        service, recorder, dispatched = self._accepting(repo, executor)
+
+        accepted = service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+
+        request = _only(repo)
+        assert accepted is request
+        assert (request.origin, request.immediate_erasure, request.step_up) == ("platform_admin", True, "email_code")
+        assert request.status != "completed"
+        assert executor.runs == [], "the erasure must not run inside the request"
+        # Closed before anything is erased: deactivated with the password dropped, sessions revoked.
+        assert recorder.events[:2] == ["user:[('is_active', False), ('password_hash', None)]", "revoke"]
+        assert dispatched == [request.key]
+
+    def test_the_worker_runs_the_erasure_and_completes_the_request(self):
+        repo = FakeErasureRepo()
+        executor = RecordingErasureExecutor()
+        service, recorder, dispatched = self._accepting(repo, executor)
+        service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+
+        outcome = asyncio.run(service.run_account_erasure_task(dispatched[0], now=NOW))
+
+        assert outcome["outcome"] == "completed"
+        assert _only(repo).status == "completed"
+        assert [user for user, _ in executor.runs] == [USER]
+
+    def test_a_failed_run_is_recorded_for_the_beat_and_never_raised(self):
+        repo = FakeErasureRepo()
+        service, recorder, dispatched = self._accepting(
+            repo, RecordingErasureExecutor(drop=("processing_restrictions",))
+        )
+        service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+
+        outcome = asyncio.run(service.run_account_erasure_task(dispatched[0], now=NOW))
+
+        request = _only(repo)
+        assert outcome["outcome"] == "partially_completed"
+        assert (request.status, request.attempt_count) == ("partially_completed", 1)
+        after_backoff = request.next_attempt_at + timedelta(minutes=1)
+        assert repo.list_due_for_hard_delete(after_backoff.isoformat(), after_backoff.isoformat()) == [request]
+
+    def test_a_second_dispatch_after_completion_does_nothing(self):
+        repo = FakeErasureRepo()
+        executor = RecordingErasureExecutor()
+        service, recorder, dispatched = self._accepting(repo, executor)
+        service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+        asyncio.run(service.run_account_erasure_task(dispatched[0], now=NOW))
+
+        outcome = asyncio.run(service.run_account_erasure_task(dispatched[0], now=NOW))
+
+        assert outcome["outcome"] == "nothing_to_do"
+        assert len(executor.runs) == 1
+
+    def test_a_worker_that_finds_the_claim_held_does_not_run_it_twice(self):
+        repo = FakeErasureRepo()
+        executor = RecordingErasureExecutor()
+        service, recorder, dispatched = self._accepting(repo, executor)
+        service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+        repo.claim_for_run(
+            dispatched[0], now_iso=NOW.isoformat(), stale_before_iso=(NOW - timedelta(hours=1)).isoformat()
+        )
+
+        outcome = asyncio.run(service.run_account_erasure_task(dispatched[0], now=NOW))
+
+        assert outcome["outcome"] != "completed"
+        assert executor.runs == []
+
+    def test_a_request_a_live_run_holds_is_refused_before_the_account_is_touched(self):
+        held = ErasureRequest(
+            key="er-held",
+            user_key=USER,
+            status="in_progress",
+            hard_delete_scheduled_at=NOW,
+            updated_at=NOW - timedelta(minutes=5),
+        )
+        repo = FakeErasureRepo(held)
+        service, recorder, dispatched = self._accepting(repo, RecordingErasureExecutor())
+
+        with pytest.raises(WriteConflictError):
+            service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+
+        assert recorder.events == [], "409 is decided before the account is closed"
+        assert dispatched == []
+
+    def test_a_repeated_request_redispatches_the_one_open_request(self):
+        repo = FakeErasureRepo()
+        service, recorder, dispatched = self._accepting(repo, RecordingErasureExecutor())
+        args = _accept_args(service, recorder)
+
+        first = service.request_account_erasure_by_admin(USER, now=NOW, **args)
+        # The step-up is pinned elsewhere; the repeat is the act under test, and a mailed code is spent by one act.
+        from tests.support.step_up import PassedStepUpVerifier
+
+        service._step_up_verifier = PassedStepUpVerifier()  # type: ignore[assignment]
+        second = service.request_account_erasure_by_admin(USER, now=NOW, **args)
+
+        assert first.key == second.key and len(repo.stored) == 1
+        assert dispatched == [first.key, first.key]
+
+    def test_a_deployment_that_cannot_erase_changes_nothing_and_dispatches_nothing(self):
+        repo = FakeErasureRepo()
+        service, recorder, dispatched = self._accepting(repo, RecordingErasureExecutor(), salt="")
+
+        with pytest.raises(FeatureNotConfiguredError):
+            service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+
+        assert repo.stored == {} and recorder.events == [] and dispatched == []
+
+    def test_the_broker_being_down_leaves_the_request_for_the_beat(self):
+        repo = FakeErasureRepo()
+        service, recorder = _service(repo, RecordingErasureExecutor())
+        args = _accept_args(service, recorder)
+
+        with patch("app.tasks.retention_tasks.run_account_erasure") as task:
+            task.apply_async.side_effect = ConnectionError("broker down")
+            accepted = service.request_account_erasure_by_admin(USER, now=NOW, **args)
+
+        request = _only(repo)
+        assert accepted is request and request.status != "completed"
+        # Already due: the daily ``execute_scheduled_erasures`` beat selects and runs it.
+        assert repo.list_due_for_hard_delete(NOW.isoformat(), NOW.isoformat()) == [request]
+
+    def test_a_worker_message_for_a_self_service_request_in_its_grace_erases_nothing(self):
+        """#1949 review SEC-001 — the task runs requests opened as immediate erasures, never a scheduled one."""
+        scheduled = ErasureRequest(
+            key="er-grace", user_key=USER, status="scheduled", hard_delete_scheduled_at=NOW + timedelta(days=30)
+        )
+        repo = FakeErasureRepo(scheduled)
+        executor = RecordingErasureExecutor()
+        service, _, _ = self._accepting(repo, executor)
+
+        outcome = asyncio.run(service.run_account_erasure_task("er-grace", now=NOW))
+
+        assert outcome["outcome"] == "not_immediate"
+        assert executor.runs == [] and scheduled.status == "scheduled"
+
+    def test_a_repeated_admin_request_keeps_the_proof_of_the_admin_who_asked_first(self):
+        """#1949 review SEC-004 — the audit record names who asked first; a repeat re-dispatches only."""
+        first_admin = "sub_first_admin_reference"
+        pulled = ErasureRequest(
+            key="er-self",
+            user_key=USER,
+            status="scheduled",
+            hard_delete_scheduled_at=NOW + timedelta(days=30),
+            step_up="password",
+            requested_by_subject=first_admin,
+        )
+        repo = FakeErasureRepo(pulled)
+        service, recorder, _ = self._accepting(repo, RecordingErasureExecutor())
+
+        service.request_account_erasure_by_admin(USER, now=NOW, **_accept_args(service, recorder))
+
+        assert pulled.requested_by_subject == first_admin and pulled.step_up == "password"

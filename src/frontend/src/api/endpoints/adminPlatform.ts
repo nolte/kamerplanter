@@ -1,6 +1,8 @@
 import apiClient from '@/api/client';
 import type {
+  AccountDeletionAccepted,
   AccountErasureRequest,
+  ErasureStatus,
   AdminAddMemberRequest,
   AdminAddUserToTenantRequest,
   AdminPlatformStats,
@@ -72,12 +74,26 @@ export async function deleteAdminTenant(
 }
 
 /**
- * Erase another account at once (#1814). The body echoes the **target's**
- * e-mail and carries the **admin's own** current password when the admin's
+ * Accept the erasure of another account (#1814, 202 since #1949): the account is closed and the
+ * other members told at once, the data is erased afterwards by a worker — not yet gone. The body
+ * echoes the **target's** e-mail and carries the **admin's own** current password when the admin's
  * account has one.
  */
-export async function deleteAdminUser(key: string, stepUp: AccountErasureRequest): Promise<void> {
-  await apiClient.delete(`/admin/platform/users/${encodeURIComponent(key)}`, { data: stepUp });
+export async function deleteAdminUser(key: string, stepUp: AccountErasureRequest): Promise<AccountDeletionAccepted> {
+  const { data } = await apiClient.delete<AccountDeletionAccepted>(
+    `/admin/platform/users/${encodeURIComponent(key)}`,
+    { data: stepUp },
+  );
+  return data;
+}
+
+/**
+ * GET /admin/platform/erasures/{erasure_key} — the status of an account erasure the admin deletion
+ * accepted (#1949): `completed`, `in_progress`, or `partially_completed` for a run the daily beat retries.
+ */
+export async function getAdminErasureStatus(erasureKey: string): Promise<ErasureStatus> {
+  const { data } = await apiClient.get<ErasureStatus>(`/admin/platform/erasures/${encodeURIComponent(erasureKey)}`);
+  return data;
 }
 
 /**

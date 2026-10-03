@@ -135,7 +135,7 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 
 | Fehlercode | HTTP | Beschreibung |
 |-----------|------|-------------|
-| `ERASURE_INCOMPLETE` | 500 | Eine sofortige Konto-Löschung (Platform-Admin, Aufräumlauf für nie bestätigte Konten) hat einen Schritt nicht erreicht; der Löschantrag ist gespeichert und wird automatisch wiederholt |
+| `ERASURE_INCOMPLETE` | 500 | Der Aufräumlauf für nie bestätigte Konten (oder ein synchroner Betreiberlauf) hat einen Schritt nicht erreicht; der Löschantrag ist gespeichert und wird automatisch wiederholt. `DELETE /admin/platform/users/{key}` antwortet damit seit #1949 nicht mehr (`202`): derselbe Zustand ist der Antragsstatus `partially_completed` unter `GET /admin/platform/erasures/{erasure_key}` |
 | `TENANT_ERASURE_INCOMPLETE` | 500 | Eine Mandantenlöschung hat etwas nicht erreicht, das den Mandanten noch hält (nur Sammlungsnamen in der Meldung, keine Mandanten- oder Kontokennung); der Vorgang ist gespeichert und wird automatisch wiederholt. Seit Issue #1792 liefern die Mandanten-Lösch-Endpunkte (`202 Accepted`) diesen Fehler nicht mehr an den Aufrufer — er tritt im Worker auf und steht am Löschungs-Datensatz |
 | `WRITE_CONFLICT` | 409 | Für dieses Konto oder diesen Mandanten läuft bereits eine Löschung |
 | `FEATURE_NOT_CONFIGURED` | 503 | Die Instanz ist für Konto- oder Mandanten-Löschungen nicht korrekt konfiguriert; es wurde nichts geändert |

@@ -174,6 +174,14 @@ class FakeErasureRepo:
     def get_by_key(self, key: str) -> ErasureRequest | None:
         return self.stored.get(key)
 
+    def get_or_raise(self, key: str) -> ErasureRequest:
+        from app.common.exceptions import NotFoundError
+
+        erasure = self.stored.get(key)
+        if erasure is None:
+            raise NotFoundError("ErasureRequest", key)
+        return erasure
+
     def list_by_user(self, user_key: str) -> list[ErasureRequest]:
         return [e for e in self.stored.values() if e.user_key == user_key]
 

@@ -11,6 +11,9 @@ The retention concerns bundled here, all backed by REQ-025 PrivacyService:
   users whose ErasureRequest passed the NFR-011 R-01 soft-delete grace
   period (default 90 days, ``RETENTION_SOFT_DELETE_RETENTION_DAYS``;
   REQ-025 Art. 17).
+- ``run_account_erasure`` — on-demand task dispatched when a platform admin's
+  ``DELETE /admin/platform/users/{key}`` is accepted (``202``, #1949); the daily
+  ``execute_scheduled_erasures`` is its safety net.
 - ``expire_email_change_requests`` — hourly beat task that marks
   unconfirmed email changes past their NFR-011 R-07 ``expires_at``
   (default 24 h, ``RETENTION_EMAIL_CHANGE_RETENTION_HOURS``) as
@@ -139,6 +142,27 @@ async def execute_scheduled_erasures() -> dict:
         processed=processed,
     )
     return {"processed": processed}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.run_account_erasure",
+)
+async def run_account_erasure(erasure_key: str) -> dict:
+    """Run one accepted account erasure (#1949), dispatched by ``DELETE /admin/platform/users/{key}``.
+
+    The request recorded the erasure, closed the account and told the other members,
+    then answered ``202 Accepted``; this task claims the request atomically and runs
+    the declared erasure (object storage, the personal tenants in bounded batches
+    with their heartbeat, the ArangoDB plan). A second dispatch, the daily
+    :func:`execute_scheduled_erasures` beat and a still-live run all find the claim
+    held and do nothing; a run that crashed is claimed again once its claim is stale.
+    A failed run is recorded on the request (``partially_completed``, backoff), never
+    raised — the broker must not redeliver an erasure the request already retries.
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    return await get_privacy_service().run_account_erasure_task(erasure_key)
 
 
 @run_async_task(  # type: ignore[misc]

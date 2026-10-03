@@ -311,14 +311,14 @@ Zehn Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Best
 | Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort / Erneute Anmeldung / Code |
 |---|---|---|---|
 | Eigenes Konto löschen (Art. 17 DSGVO) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes Passwort, sofern lokal vorhanden — sonst `step_up_token` einer frischen Anmeldung, nur bei rein GitHub/Apple der per E-Mail zugeschickte Code (`step_up_code`) |
-| Anderes Konto löschen (Plattform-Admin) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos (`confirm_email`) | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| Anderes Konto löschen (Plattform-Admin; `202`, die Löschung läuft in einem Worker, #1949) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos (`confirm_email`) | das des Admins, sonst dessen `step_up_token` bzw. Code |
 | Mandant löschen | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | E-Mail-Adresse ändern | `POST /privacy/email-change` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | Passwort ändern | `POST /users/me/password` | — | aktuelles (`current_password`) — die **erste** Passwortvergabe eines Kontos ohne eines läuft stattdessen über `step_up_token` bzw. Code |
 | API-Key ausstellen | `POST /auth/api-keys` | — | eigenes Passwort, sonst `step_up_token` bzw. Code. **Light-Modus:** kein Step-up — die Instanz hat nur das eine Systemkonto |
 | Gerät per QR-Code koppeln | `POST /auth/device-pairing` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | Anmeldeweg (Provider-Verknüpfung) entfernen | `DELETE /users/me/providers/{provider_key}` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
-| Vertrauen eines anderen Kontos anheben (Plattform-Admin) | `PATCH /admin/platform/users/{key}`, nur wenn `email_verified` oder `is_active` von `false` auf `true` wechselt | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| Vertrauen eines anderen Kontos ändern (Plattform-Admin) | `PATCH /admin/platform/users/{key}`, sobald sich `email_verified` oder `is_active` ändert (anheben oder senken, #1992) | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
 | OIDC-Provider anlegen, ändern, löschen (Plattform-Admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — beim `PUT` nicht, wenn sich nur `display_name` oder `icon_url` ändert (Ein- und Abschalten verlangen ihn) | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
 
 !!! info "Kein automatischer Widerruf von API-Keys"

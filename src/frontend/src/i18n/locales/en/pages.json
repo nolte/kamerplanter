@@ -777,7 +777,7 @@
       "adminErasurePreviewLoading": "Checking which personal gardens are affected …",
       "adminErasurePreviewError": "We could not check which personal gardens are affected. The account's personal gardens are deleted at once with everything in them in any case, even when other members use them, and those members get no grace period.",
       "adminDeleteUserConfirm": "Are you sure you want to permanently delete user \"{{name}}\" ({{email}}) and all associated data?",
-      "adminUserDeleted": "User deleted",
+      "adminUserDeletionAccepted": "Deletion accepted: the account is closed and its data is being erased in the background",
       "adminConfirmDelete": "Delete permanently",
       "adminTenantMembersTitle": "Members",
       "adminAddMember": "Add member",
@@ -939,7 +939,7 @@
       "unlinkProviderStepUpDescription": "You are removing the sign-in method \"{{provider}}\" from your account. Afterwards you can no longer sign in with it. Because this changes how your account is protected, you confirm this step.",
       "unlinkProviderStepUpConfirm": "Remove sign-in method",
       "adminUpdateUserStepUpTitle": "Confirm the change to this account",
-      "adminUpdateUserStepUpDescription": "You are verifying the email address of \"{{name}}\" ({{email}}) or reactivating the account. A verified address lets sign-in services link to this account automatically - that is why you confirm this change with your own credentials.",
+      "adminUpdateUserStepUpDescription": "You are changing whether the e-mail address of \"{{name}}\" ({{email}}) counts as verified, or whether the account is active. A verified address lets sign-in providers link to this account automatically, an unverified account can be removed by the clean-up, and a deactivated one cannot sign in – so you confirm this change with your own credentials.",
       "adminUpdateUserStepUpConfirm": "Save change",
       "providerUnlinked": "Sign-in method removed"
     },

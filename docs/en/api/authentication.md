@@ -311,14 +311,14 @@ Ten actions require re-confirmation by the signed-in person, in addition to a va
 | Action | Route(s) | Typed-back target (body field) | Password / Fresh sign-in / Code |
 |---|---|---|---|
 | Delete own account (GDPR Art. 17) | `DELETE /users/me`, `POST /privacy/erasure` | own email (`confirm_email`) | own password, if a local one exists — otherwise a `step_up_token` from a fresh sign-in, or, only for GitHub/Apple-only accounts, the emailed code (`step_up_code`) |
-| Delete another account (platform admin) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own, otherwise their `step_up_token` or code |
+| Delete another account (platform admin; `202`, the erasure runs in a worker, #1949) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own, otherwise their `step_up_token` or code |
 | Delete a tenant | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | slug (`confirm_slug`) | own password, otherwise a `step_up_token` or code |
 | Change email address | `POST /privacy/email-change` | — | own password, otherwise a `step_up_token` or code |
 | Change password | `POST /users/me/password` | — | current (`current_password`) — setting the **first** password on an account without one runs through a `step_up_token` or code instead |
 | Issue an API key | `POST /auth/api-keys` | — | own password, otherwise a `step_up_token` or code. **Light Mode:** no step-up — the instance has only the one system account |
 | Pair a device by QR code | `POST /auth/device-pairing` | — | own password, otherwise a `step_up_token` or code |
 | Remove a sign-in method (provider link) | `DELETE /users/me/providers/{provider_key}` | — | own password, otherwise a `step_up_token` or code |
-| Raise another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, only when `email_verified` or `is_active` flips from `false` to `true` | — | the admin's own, otherwise their `step_up_token` or code |
+| Change another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, whenever `email_verified` or `is_active` changes (raising or lowering, #1992) | — | the admin's own, otherwise their `step_up_token` or code |
 | Create, change or delete an OIDC provider (platform admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — not for a `PUT` that only changes `display_name` or `icon_url` (switching it on or off needs it) | — | the admin's own, otherwise their `step_up_token` or code |
 
 !!! info "No automatic revocation of API keys"

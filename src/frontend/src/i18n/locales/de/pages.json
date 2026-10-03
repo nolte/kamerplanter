@@ -778,7 +778,7 @@
       "adminErasurePreviewLoading": "Wir prüfen, welche persönlichen Gärten betroffen sind …",
       "adminErasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Die persönlichen Gärten des Kontos werden in jedem Fall sofort mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind, und diese bekommen keine Frist.",
       "adminDeleteUserConfirm": "Möchtest du den Benutzer \"{{name}}\" ({{email}}) und alle zugehörigen Daten wirklich unwiderruflich löschen?",
-      "adminUserDeleted": "Benutzer gelöscht",
+      "adminUserDeletionAccepted": "Löschung angenommen: Das Konto ist gesperrt, seine Daten werden im Hintergrund gelöscht",
       "adminConfirmDelete": "Endgültig löschen",
       "adminTenantMembersTitle": "Mitglieder",
       "adminAddMember": "Mitglied hinzufügen",
@@ -939,7 +939,7 @@
       "unlinkProviderStepUpDescription": "Du entfernst den Anmeldeweg „{{provider}}“ von deinem Konto. Danach kannst du dich darüber nicht mehr anmelden. Weil das ändert, wie dein Konto geschützt ist, bestätigst du diesen Schritt.",
       "unlinkProviderStepUpConfirm": "Anmeldeweg entfernen",
       "adminUpdateUserStepUpTitle": "Änderung am Benutzerkonto bestätigen",
-      "adminUpdateUserStepUpDescription": "Du bestätigst die E-Mail-Adresse von „{{name}}“ ({{email}}) oder aktivierst das Konto wieder. Eine bestätigte Adresse erlaubt es, Anmeldedienste automatisch mit diesem Konto zu verknüpfen – deshalb bestätigst du diese Änderung mit deinem eigenen Zugang.",
+      "adminUpdateUserStepUpDescription": "Du änderst, ob die E-Mail-Adresse von „{{name}}“ ({{email}}) als bestätigt gilt oder ob das Konto aktiv ist. Eine bestätigte Adresse erlaubt es, Anmeldedienste automatisch mit diesem Konto zu verknüpfen, ein unbestätigtes Konto kann die Bereinigung entfernen, und ein deaktiviertes Konto kann sich nicht anmelden – deshalb bestätigst du diese Änderung mit deinem eigenen Zugang.",
       "adminUpdateUserStepUpConfirm": "Änderung speichern",
       "providerUnlinked": "Anmeldeweg entfernt"
     },

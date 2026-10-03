@@ -213,7 +213,7 @@ _ALLOWED: dict[str, str] = {
         "the frost-forecast group key is built from the site and the forecast date "
         "(frost-forecast:<site_key>:<date>), never from an account key (#1830 triage)"
     ),
-    "app/domain/services/privacy_service.py::PrivacyService.erase_account_by_admin::step_up": (
+    "app/domain/services/privacy_service.py::PrivacyService._authorize_admin_erasure::step_up": (
         "StepUpVerifier.verify returns only how the step-up was confirmed ('password'/'email_code'); the taint "
         "comes from echo_matches(..., target.email) among its arguments, not from the returned label (#1830 triage)"
     ),

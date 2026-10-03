@@ -4944,8 +4944,31 @@ export interface ErasurePreview {
 }
 
 /**
+ * The 202 body of `DELETE /admin/platform/users/{key}` (#1949): the erasure is recorded, the
+ * account closed and the other members told; the erasure itself runs afterwards in a worker.
+ */
+export interface AccountDeletionAccepted {
+  /** Key of the erasure request: poll `GET /admin/platform/erasures/{erasure_key}` for the outcome. */
+  erasure_key: string;
+  /** `scheduled`/`in_progress` for a run just recorded; `partially_completed` for one an earlier run left open. */
+  status: 'scheduled' | 'in_progress' | 'completed' | 'partially_completed';
+  requested_at: string | null;
+  message: string;
+}
+
+/** `GET /admin/platform/erasures/{erasure_key}` (#1949) — an account erasure's progress; names no account. */
+export interface ErasureStatus {
+  key: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'partially_completed';
+  requested_at: string | null;
+  completed_at?: string | null;
+  retained_reason?: string | null;
+}
+
+/**
  * Step-up body of the three account-erasure routes (#1813, #1814):
- * `DELETE /users/me`, `POST /privacy/erasure`, `DELETE /admin/platform/users/{key}`.
+ * `DELETE /users/me`, `POST /privacy/erasure`, `DELETE /admin/platform/users/{key}`
+ * (which answers an {@link AccountDeletionAccepted}, 202, #1949).
  * `confirm_email` is the e-mail of the account being erased; `password` is the
  * *requester's* current password, omitted by a federated-only account.
  */

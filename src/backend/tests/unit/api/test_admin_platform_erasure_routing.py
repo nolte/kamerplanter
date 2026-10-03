@@ -20,6 +20,7 @@ from app.api.v1.admin.platform import router as mod
 from app.api.v1.privacy.schemas import ErasureCreateRequest
 from app.api.v1.tenants.schemas import TenantDeleteRequest
 from app.common.exceptions import ForbiddenError, NotFoundError
+from app.domain.models.privacy import ErasureRequest
 from app.domain.models.tenant_erasure import TenantErasureRecord
 
 _BODY = TenantDeleteRequest(confirm_slug="garden", password="pw")
@@ -102,26 +103,24 @@ class TestDeleteTenantRouting:
 
 
 class TestDeleteUserRouting:
-    """#1664 / #1814 — admin user delete runs the one step-up-guarded erasure entry, nothing beside it.
+    """#1664 / #1814 / #1949 — admin user delete runs the one step-up-guarded request entry, nothing beside it.
 
-    The step-up itself, the self-deletion refusal and the membership re-check live
-    in ``PrivacyService.erase_account_by_admin`` and are driven through the real
-    route in ``test_step_up_irreversible_account_actions.py``.
+    Asynchronous since #1949: the route accepts (``202``) and the service dispatches
+    the erasure to a worker. The step-up, the self-deletion refusal and the
+    membership re-check live in ``PrivacyService.request_account_erasure_by_admin``
+    and are driven through the real route in ``test_step_up_irreversible_account_actions.py``.
     """
 
     _STEP_UP = ErasureCreateRequest(confirm_email="u-1@example.org", password="pw")
 
     def test_routes_user_delete_through_the_step_up_guarded_entry(self):
-        calls: list[tuple[str, dict]] = []
-
-        async def _erase(user_key, **kwargs):
-            calls.append((user_key, kwargs))
-
         privacy_service = MagicMock()
-        privacy_service.erase_account_by_admin.side_effect = _erase
+        privacy_service.request_account_erasure_by_admin.return_value = ErasureRequest(
+            key="er-1", user_key="u-1", status="scheduled"
+        )
         current = SimpleNamespace(key="admin-9")
 
-        mod.delete_user(
+        response = mod.delete_user(
             "u-1",
             body=self._STEP_UP,
             current_user=current,
@@ -130,21 +129,18 @@ class TestDeleteUserRouting:
             privacy_service=privacy_service,
         )
 
-        # The coroutine was awaited, not merely created, with the requester and
-        # the step-up handed to the service, which decides.
-        assert calls == [
-            (
+        # The 202 body names the request, never the account (#1949).
+        assert (response.erasure_key, response.status) == ("er-1", "scheduled")
+        assert "u-1" not in response.model_dump_json()
+        assert privacy_service.method_calls == [
+            call.request_account_erasure_by_admin(
                 "u-1",
-                {
-                    "requester": current,
-                    "confirmation": self._STEP_UP.to_confirmation(),
-                    "authenticated_with_api_key": False,
-                    "client_ip": "203.0.113.1",
-                },
+                requester=current,
+                confirmation=self._STEP_UP.to_confirmation(),
+                authenticated_with_api_key=False,
+                client_ip="203.0.113.1",
             )
         ]
-        # No second, partial erasure beside the shared one (#1664, #1645).
-        assert [name for name, _args, _kwargs in privacy_service.method_calls] == ["erase_account_by_admin"]
 
     def test_the_route_no_longer_reaches_a_separate_cascade(self):
         """The service methods the routes used to call beside the Art. 17 pipeline are gone."""
@@ -156,11 +152,9 @@ class TestDeleteUserRouting:
 
     def test_a_service_refusal_reaches_the_caller(self):
         privacy_service = MagicMock()
-
-        async def _refuse(*_args, **_kwargs):
-            raise ForbiddenError("You cannot delete your own account from the admin panel.")
-
-        privacy_service.erase_account_by_admin.side_effect = _refuse
+        privacy_service.request_account_erasure_by_admin.side_effect = ForbiddenError(
+            "You cannot delete your own account from the admin panel."
+        )
 
         with pytest.raises(ForbiddenError):
             mod.delete_user(
@@ -174,11 +168,7 @@ class TestDeleteUserRouting:
 
     def test_missing_user_raises_not_found(self):
         privacy_service = MagicMock()
-
-        async def _missing(*_args, **_kwargs):
-            raise NotFoundError("User", "ghost")
-
-        privacy_service.erase_account_by_admin.side_effect = _missing
+        privacy_service.request_account_erasure_by_admin.side_effect = NotFoundError("User", "ghost")
 
         with pytest.raises(NotFoundError):
             mod.delete_user(

@@ -82,18 +82,7 @@ def _to_email_change_response(change: EmailChangeRequest) -> EmailChangeResponse
 
 
 def _to_erasure_response(erasure: ErasureRequest) -> ErasureResponse:
-    return ErasureResponse(
-        key=erasure.key or "",
-        status=erasure.status,
-        requested_at=erasure.requested_at,
-        soft_deleted_at=erasure.soft_deleted_at,
-        hard_delete_scheduled_at=erasure.hard_delete_scheduled_at,
-        completed_at=erasure.completed_at,
-        anonymized_collections=list(erasure.anonymized_collections),
-        deleted_collections=list(erasure.deleted_collections),
-        pseudonymized_collections=list(erasure.pseudonymized_collections),
-        retained_reason=erasure.retained_reason,
-    )
+    return ErasureResponse.from_request(erasure)
 
 
 def _to_restriction_response(

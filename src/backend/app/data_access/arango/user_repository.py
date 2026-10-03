@@ -276,6 +276,15 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         R-02 period (``RETENTION_UNVERIFIED_ACCOUNT_DAYS``) passed after its owner
         signed in with it.
 
+        **A demoted account is excluded too (#1992).** ``email_verified_lowered_at`` is
+        stamped when an administrator lowers ``email_verified`` on a verified account.
+        Such an account was verified once and is established; ``email_verified == false``
+        alone made one ``PATCH`` enough to hand it to this reaper. The marker is the
+        record of that transition, so the selector never treats it as abandoned. A
+        demotion made before the marker existed left no record; ``last_login_at`` is
+        the second, conservative signal for those: an account that ever signed in is
+        in use, whatever ``email_verified`` says now.
+
         The distinction the task actually wants is "can this person still get in?",
         not "did they confirm an address". Someone who signs in through a provider
         can, today and every day after, so they are not an abandoned registration
@@ -289,6 +298,8 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         query = """
         FOR doc IN @@collection
           FILTER doc.email_verified == false
+            AND doc.email_verified_lowered_at == null
+            AND doc.last_login_at == null
             AND DATE_TIMESTAMP(doc.created_at) != null
             AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
           LET linked = LENGTH(
@@ -319,6 +330,8 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         query = """
         FOR doc IN @@collection
           FILTER doc.email_verified == false
+            AND doc.email_verified_lowered_at == null
+            AND doc.last_login_at == null
             AND DATE_TIMESTAMP(doc.created_at) == null
           LET linked = LENGTH(
             FOR provider IN @@providers
