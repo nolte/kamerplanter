@@ -6,6 +6,8 @@ ownership guard (AC-11), the available-sources provider filter, and the unsaved
 connection test (AC-7).
 """
 
+import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
@@ -20,7 +22,7 @@ from app.api.v1.tenant_scoped.weather.schemas import (
     WeatherSourceHaConfigRequest,
     WeatherSourcePublicConfigRequest,
 )
-from app.common.exceptions import ForbiddenError, NotFoundError
+from app.common.exceptions import NotFoundError
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.site import Site
@@ -176,24 +178,71 @@ class TestSaveConfig:
         assert stored.sensor_mapping.temp_max_entity == "sensor.outside_temp"
 
 
+_SITE_BOUND_OPERATIONS = ["get_config", "verify_site_owned", "get_climate_normals", "save_config", "test_source"]
+
+
+def _refusal(service: WeatherSourceService, operation: str) -> NotFoundError:
+    """Run one site-bound operation and return the ``NotFoundError`` it raises.
+
+    ``pytest.raises(NotFoundError)`` is the assertion: a ``ForbiddenError`` (the
+    pre-#1871-B8 answer for a foreign site) escapes it and fails the test.
+    """
+    entry = WeatherSourceEntryRequest(source_name="open-meteo", kind="public")
+    empty_request = WeatherSourceConfigRequest(sources=[])
+    calls: dict[str, Callable[[], object]] = {
+        "get_config": lambda: service.get_config(SITE_KEY, TENANT_KEY),
+        "verify_site_owned": lambda: service.verify_site_owned(SITE_KEY, TENANT_KEY),
+        "get_climate_normals": lambda: service.get_climate_normals(SITE_KEY, TENANT_KEY),
+        "save_config": lambda: service.save_config(SITE_KEY, TENANT_KEY, "user-1", empty_request),
+        "test_source": lambda: asyncio.run(service.test_source(SITE_KEY, TENANT_KEY, entry)),
+    }
+    with pytest.raises(NotFoundError) as exc_info:
+        calls[operation]()
+    return exc_info.value
+
+
 class TestOwnershipGuard:
-    def test_get_config_foreign_tenant_forbidden(self):
-        service, _, _, _ = _build_service(site=_site(tenant_key="other-tenant"))
-        with pytest.raises(ForbiddenError):
-            service.get_config(SITE_KEY, TENANT_KEY)
+    """A foreign site answers exactly like an unknown one (REQ-046 AC-11, #1871 B8).
 
-    def test_get_config_missing_site_not_found(self):
-        service, _, site_repo, _ = _build_service()
-        site_repo.get_site_by_key.return_value = None
-        with pytest.raises(NotFoundError):
-            service.get_config(SITE_KEY, TENANT_KEY)
+    Before the operator decision of 2026-10-03 a foreign site raised a 403 while
+    an unknown one raised a 404, so the status alone told a caller that the key
+    exists in another tenant.
+    """
 
-    def test_save_foreign_tenant_forbidden_and_no_write(self):
-        service, config_repo, _, _ = _build_service(site=_site(tenant_key="other-tenant"))
-        request = WeatherSourceConfigRequest(sources=[])
-        with pytest.raises(ForbiddenError):
-            service.save_config(SITE_KEY, TENANT_KEY, "user-1", request)
+    @pytest.mark.parametrize("operation", _SITE_BOUND_OPERATIONS)
+    def test_foreign_and_unknown_site_refusals_are_identical(self, operation):
+        foreign_service, _, _, _ = _build_service(site=_site(tenant_key="other-tenant"))
+        unknown_service, _, unknown_sites, _ = _build_service()
+        unknown_sites.get_site_by_key.return_value = None
+
+        foreign = _refusal(foreign_service, operation)
+        unknown = _refusal(unknown_service, operation)
+
+        assert foreign.status_code == 404
+        assert (foreign.status_code, foreign.error_code, foreign.message, foreign.details) == (
+            unknown.status_code,
+            unknown.error_code,
+            unknown.message,
+            unknown.details,
+        )
+
+    @pytest.mark.parametrize("operation", _SITE_BOUND_OPERATIONS)
+    def test_a_foreign_site_does_no_more_work_than_an_unknown_one(self, operation):
+        # One site lookup and nothing behind it: neither the config store nor the
+        # site document is read further or written.
+        service, config_repo, site_repo, _ = _build_service(site=_site(tenant_key="other-tenant"))
+
+        _refusal(service, operation)
+
+        site_repo.get_site_by_key.assert_called_once_with(SITE_KEY)
+        site_repo.update_site.assert_not_called()
+        config_repo.get_by_site.assert_not_called()
         config_repo.upsert.assert_not_called()
+
+    def test_own_site_passes(self):
+        service, _, _, _ = _build_service()
+
+        service.verify_site_owned(SITE_KEY, TENANT_KEY)
 
 
 class TestAvailableSources:
