@@ -754,6 +754,26 @@ class TestUniqueConflictExtraction:
     def test_extracts_field_name_from_arango_message(self, message):
         assert BaseArangoRepository._extract_unique_field(message) == "batch_id"
 
+    @pytest.mark.parametrize(
+        ("message", "field"),
+        [
+            # Measured on ArangoDB 3.12.8 for a unique index on (tenant_key, name) (#2029).
+            (
+                "unique constraint violated - in index idx_1878047920989667328 of type persistent "
+                "over 'tenant_key, name'; conflicting key: 34084",
+                "name",
+            ),
+            ('... over \'["tenant_key", "product_name", "brand"]\' ...', "product_name"),
+            ('... over ["tenant_key", "scientific_name_normalized"] ...', "scientific_name_normalized"),
+            # A unique index on tenant_key alone still names it — nothing else to name.
+            ("... over 'tenant_key'; conflicting key: 1", "tenant_key"),
+            # A leading field that is not the tenant scope is kept as before.
+            ("... over 'user_key, tenant_key'; conflicting key: 1", "user_key"),
+        ],
+    )
+    def test_a_tenant_scope_is_not_named_as_the_conflicting_field(self, message, field):
+        assert BaseArangoRepository._extract_unique_field(message) == field
+
     def test_returns_none_for_unparseable_message(self):
         assert BaseArangoRepository._extract_unique_field("boom") is None
         assert BaseArangoRepository._extract_unique_field(None) is None

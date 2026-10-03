@@ -329,9 +329,18 @@ class BaseArangoRepository[TModel: BaseModel]:
         doc["_key"] = doc.get("_key", doc.get("_id", "").split("/")[-1])
         return doc
 
-    #: Matches the indexed field name in an ArangoDB unique-constraint message,
-    #: e.g. ``... over '["batch_id"]' ...`` or the older ``... over 'batch_id' ...``.
-    _UNIQUE_INDEX_FIELD_RE: ClassVar[re.Pattern[str]] = re.compile(r"over\s+'?\[?\"?(?P<field>[A-Za-z_][A-Za-z0-9_.]*)")
+    #: Matches the indexed field list in an ArangoDB unique-constraint message:
+    #: ``... over '["batch_id"]' ...``, the older ``... over 'batch_id' ...``, a
+    #: compound ``... over 'tenant_key, name'; ...`` (3.12) or a bare ``over [...]``.
+    _UNIQUE_INDEX_FIELDS_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"over\s+(?:'(?P<quoted>[^']*)'|(?P<bracketed>\[[^\]]*\])|(?P<bare>[A-Za-z_][A-Za-z0-9_.]*))"
+    )
+    _FIELD_NAME_RE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+
+    #: The tenant scope of a compound unique index. It bounds the constraint and is
+    #: never what the caller collided on; naming it would tell the caller its own
+    #: internal tenant key and point the client at no form field (#2029).
+    _UNIQUE_SCOPE_FIELD: ClassVar[str] = "tenant_key"
 
     @classmethod
     def _extract_unique_field(cls, error_message: str | None) -> str | None:
@@ -342,13 +351,21 @@ class BaseArangoRepository[TModel: BaseModel]:
             unique constraint violated - in index 42 of type persistent
             over '["batch_id"]'; conflicting key: '...'
 
-        Returns the first indexed field name, or ``None`` when the message does
-        not follow the recognised shape (so callers can fall back gracefully).
+        Returns the first indexed field that is not the tenant scope
+        (``tenant_key``) — for ``(tenant_key, name)`` that is ``name`` — or the
+        tenant scope itself when it is the only field. ``None`` when the message
+        does not follow the recognised shape (so callers can fall back gracefully).
         """
         if not error_message:
             return None
-        match = cls._UNIQUE_INDEX_FIELD_RE.search(error_message)
-        return match.group("field") if match else None
+        match = cls._UNIQUE_INDEX_FIELDS_RE.search(error_message)
+        if match is None:
+            return None
+        listed = match.group("quoted") or match.group("bracketed") or match.group("bare") or ""
+        names: list[str] = cls._FIELD_NAME_RE.findall(listed)
+        if not names:
+            return None
+        return next((name for name in names if name != cls._UNIQUE_SCOPE_FIELD), names[0])
 
     @classmethod
     def _describe_unique_conflict(
