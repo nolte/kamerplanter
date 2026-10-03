@@ -113,6 +113,7 @@ inventory:
     - docs-audience-tracks-apply
     - docs-dry-refactor
     - github-issue-templates-apply
+    - issue-backlog-partition
     - issue-batch-orchestrate
     - issue-orchestrate
     - lektorat-apply
