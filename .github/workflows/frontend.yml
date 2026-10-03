@@ -59,6 +59,23 @@ defaults:
     working-directory: src/frontend
 
 jobs:
+  # The single Node version of the project is `src/frontend/.tool-versions`
+  # (asdf, local development). Every `setup-node` step below reads that file;
+  # only the reusable coverage workflow takes a version string, so this job
+  # resolves it once. It always runs so the output exists on push and schedule too.
+  node-version:
+    name: Resolve Node version
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: read
+        run: echo "version=$(awk '$1=="nodejs"{print $2}' src/frontend/.tool-versions)" >> "$GITHUB_OUTPUT"
+
   # Which pull requests actually need the frontend lane. Skipping here (rather
   # than at the trigger) keeps the required check reporting on every pull
   # request, including those that touch no frontend file.
@@ -143,7 +160,7 @@ jobs:
         if: env.RUN_FRONTEND == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '25'
+          node-version-file: src/frontend/.tool-versions
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -192,7 +209,7 @@ jobs:
 
   coverage:
     name: Coverage
-    needs: changes
+    needs: [changes, node-version]
     # `needs.changes.result` is load-bearing, for the same reason it is in the
     # `lint-test-build` job above and in e2e-smoke.yml. A failed or cancelled
     # `changes` leaves `outputs.frontend` an empty string; both remaining
@@ -211,7 +228,7 @@ jobs:
           || needs.changes.outputs.frontend == 'true')
     uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@80cb5ebb91a3b49126729de31b1037f11c34b5cd # v2.2.0
     with:
-      node-version: '25'
+      node-version: ${{ needs.node-version.outputs.version }}
       working-directory: src/frontend
       install-command: npm install -g npm@latest && npm ci
       test-command: npm run test:coverage
@@ -243,7 +260,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '25'
+          node-version-file: src/frontend/.tool-versions
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -300,7 +317,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '25'
+          node-version-file: src/frontend/.tool-versions
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -363,7 +380,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '25'
+          node-version-file: src/frontend/.tool-versions
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -423,7 +440,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '25'
+          node-version-file: src/frontend/.tool-versions
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -474,7 +491,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '25'
+          node-version-file: src/frontend/.tool-versions
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm ci
