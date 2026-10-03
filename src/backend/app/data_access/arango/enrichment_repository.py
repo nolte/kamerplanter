@@ -17,6 +17,8 @@ class ArangoExternalSourceRepository(BaseArangoRepository[ExternalSource], IExte
         super().__init__(db, col.EXTERNAL_SOURCES)
 
     def get_all(self) -> list[ExternalSource]:
+        # Bounded by construction (#2015): nothing in app/ writes external_sources; the
+        # rows are the registered enrichment adapters, a handful per deployment.
         items, _ = super().get_all(offset=0, limit=100)
         return items
 

@@ -1,5 +1,6 @@
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_read_access
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -145,7 +146,7 @@ class ActivityPlanService:
             )
 
         # Load all activities
-        activities, _ = self._activity_repo.get_all(offset=0, limit=500)
+        activities = get_all_pages(self._activity_repo)  # every catalogue activity, not the first 500 (#2015)
 
         wt, templates = self._engine.generate_plan(
             species_name=species_name,

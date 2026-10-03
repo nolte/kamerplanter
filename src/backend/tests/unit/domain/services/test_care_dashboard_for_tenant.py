@@ -95,7 +95,7 @@ def test_returns_entries_for_active_plants_with_due_reminders(
     service = _build_service(mock_care_repo, engine, mock_plant_repo)
     entries = service.get_care_dashboard_for_tenant("tenant-1")
 
-    mock_plant_repo.get_all.assert_called_once_with(offset=0, limit=500, tenant_key="tenant-1")
+    mock_plant_repo.get_all.assert_called_once_with(offset=0, limit=1000, tenant_key="tenant-1")
     assert entries, "expected at least one due reminder entry for the active plant"
     assert all(e.plant_key == "plant-1" for e in entries)
     assert entries[0].plant_name == "Plant plant-1"

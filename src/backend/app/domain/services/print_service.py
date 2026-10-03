@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.print_engine import PrintEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -159,11 +160,7 @@ class PrintService:
             PDF file content as bytes.
         """
         # Load all plant instances for the tenant
-        plants, _total = self._plant_repo.get_all(
-            offset=0,
-            limit=500,
-            tenant_key=tenant_key,
-        )
+        plants = get_all_pages(self._plant_repo, tenant_key=tenant_key)  # every plant, not the first 500 (#2015)
 
         # Resolve species names via species_repo (cache to avoid repeated lookups)
         species_cache: dict[str, str] = {}
