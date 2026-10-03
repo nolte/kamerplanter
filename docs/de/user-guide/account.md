@@ -52,14 +52,15 @@ Ist der Link älter als 24 Stunden, schon benutzt oder unvollständig kopiert, z
 
 Ist die erste E-Mail nie angekommen oder der Link abgelaufen, fordere einen neuen an. Das geht auf zwei Wegen:
 
-- **Beim Anmelden:** Gibst du dein richtiges Passwort ein, deine Adresse ist aber noch nicht bestätigt, zeigt die Anmeldeseite einen gelben Hinweis und darunter den Button **Neue Bestätigungs-E-Mail senden**. Er schickt den Link an die Adresse, mit der du dich gerade anmelden wolltest.
+- **Beim Anmelden:** Gibst du dein richtiges Passwort ein, deine Adresse ist aber noch nicht bestätigt, schickt Kamerplanter dir dabei selbst einen neuen Link an die Adresse deines Kontos, sofern einer fällig ist. Die Anmeldeseite zeigt einen gelben Hinweis: Falls ein neuer Link fällig war, ist er jetzt unterwegs. Kommt nichts an, findest du darunter den Button **Neue Bestätigungs-E-Mail senden** — er schickt den Link an die Adresse, mit der du dich gerade anmelden wolltest.
 - **Ohne Anmeldung:** über **Neuen Bestätigungslink anfordern** auf der Fehlerseite des alten Links (siehe oben).
 
 Danach siehst du immer dieselbe Meldung: **Gehört diese Adresse zu einem Konto, das noch bestätigt werden muss, ist ein neuer Link unterwegs.** Ob eine E-Mail verschickt wurde, verrät die Seite bewusst nicht — sonst könnte jeder ausprobieren, welche Adressen ein Konto haben.
 
 !!! info "Was du beim neuen Link wissen solltest"
     - Der neue Link ist wieder **24 Stunden** gültig. Jeder neue Link ersetzt alle vorherigen — benutze immer den aus der neuesten E-Mail.
-    - Pro Adresse verschickt Kamerplanter höchstens **drei** neue Links. Danach kommt erst wieder einer, wenn eine Stunde lang niemand einen für diese Adresse angefordert hat.
+    - Über den Button oder die Seite **Neuen Bestätigungslink anfordern** verschickt Kamerplanter pro Adresse höchstens **drei** neue Links. Danach kommt erst wieder einer, wenn eine Stunde lang niemand einen für diese Adresse angefordert hat.
+    - Die Anmeldung mit deinem richtigen Passwort hat ein eigenes Kontingent von höchstens **drei** Links. Danach kommt erst wieder einer, wenn du eine Stunde lang keinen Anmeldeversuch gemacht hast — jeder weitere Versuch in dieser Zeit verlängert die Wartezeit. Hat jemand anderes das Kontingent deiner Adresse aufgebraucht, bekommst du über die Anmeldung trotzdem einen neuen Link. <!-- REQ-023 -->
     - Fragst du von deinem Anschluss aus zu oft an, meldet die Seite **Zu viele Anfragen**. Warte dann eine Weile.
     - Konten, die sich nur über einen Anbieter wie Google anmelden, brauchen keinen Bestätigungslink und bekommen auch keinen.
 
@@ -269,7 +270,7 @@ Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut
 ## Häufige Fragen
 
 ??? question "Ich habe keine Bestätigungs-E-Mail erhalten. Was kann ich tun?"
-    Prüfe zuerst deinen Spam-Ordner. Der Bestätigungslink ist 24 Stunden gültig; danach musst du dich erneut registrieren, um eine neue E-Mail zu erhalten.
+    Prüfe zuerst deinen Spam-Ordner. Der Bestätigungslink ist 24 Stunden gültig. Ist er abgelaufen oder nie angekommen, melde dich mit deinem Passwort an — dabei schickt Kamerplanter dir einen neuen Link — oder fordere über **Neue Bestätigungs-E-Mail senden** einen an (siehe [Neuen Bestätigungslink anfordern](#neuen-bestatigungslink-anfordern)). Eine erneute Registrierung hilft nicht: Für eine schon vergebene Adresse verschickt sie keinen neuen Link.
 
 ??? question "Kann ich meine E-Mail-Adresse ändern?"
     Ja, im Tab **Profil** der Kontoeinstellungen im Abschnitt **E-Mail-Adresse ändern** (siehe oben). Die neue Adresse muss über einen Bestätigungslink freigeschaltet werden; deine bisherige Adresse kann die Änderung anschließend 7 Tage lang rückgängig machen. Details: [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).

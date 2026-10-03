@@ -116,10 +116,12 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "unauthenticated mail path: the token goes only to the account's own address and grants nothing without "
         "that mailbox; refused silently for service accounts"
     ),
-    ("auth_service.py", "AuthService._send_fresh_verification_link"): (
-        "unauthenticated mail path (#2037): replaces the verification token of an unverified local account and "
-        "mails it only to that account's own address — it grants nothing without that mailbox; per-IP and "
-        "per-address limited, refused silently for service and federated-only accounts"
+    ("auth_service.py", "AuthService._issue_verification_link"): (
+        "the one place a fresh verification token is written (#2037, #2046): reached from the anonymous resend "
+        "(re-read by address) and from the unverified-login refusal (re-read by key), both behind "
+        "_needs_verification_mail; it replaces the token of an unverified local account and mails it only to "
+        "that account's own address — it grants nothing without that mailbox; per-IP and per-address (resend) or "
+        "per-account (login refusal) limited, refused silently for service and federated-only accounts"
     ),
     ("auth_service.py", "AuthService.verify_email"): (
         "proof of the mailbox: the verification token was mailed to the address it verifies"
@@ -304,7 +306,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
     26  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link;
-    # +1 with #2037: _send_fresh_verification_link
+    # +1 with #2037: the verification-token write, now _issue_verification_link (#2046 moved it out of
+    # _send_fresh_verification_link so the anonymous and the proven path share it)
 )
 
 

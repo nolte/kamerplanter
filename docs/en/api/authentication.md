@@ -69,7 +69,7 @@ A link is valid for 24 hours and only once. A wrong, expired or already used tok
 
 ### Requesting a New Verification Link
 
-For an account whose first link got lost or has expired. Signing in to an unverified account answers `403 Forbidden` with `error_code` `EMAIL_NOT_VERIFIED` — that is the cue to offer this endpoint.
+For an account whose first link got lost or has expired. Signing in with the correct password sends a new link by itself (see [New link on a refused sign-in](#new-link-on-a-refused-sign-in)); this endpoint is the way without a password — for example from the error page of an expired link — and the fallback when nothing arrives through the sign-in.
 
 ```http
 POST /api/v1/auth/resend-verification
@@ -98,6 +98,22 @@ A mail goes out only when `REQUIRE_EMAIL_VERIFICATION` is on and the account is 
 | Per address | 3 requests; the budget refills once no request for the address has arrived for an hour | Still `202` — only no mail goes out |
 
 The per-address limit counts **every** submitted address alike, whether it has an account or not. That is why it answers silently: a `429` would reveal nothing, but a budget that counted only real accounts would.
+
+#### New Link on a Refused Sign-in
+
+When someone signs in to an unverified account with the **correct** password, `POST /api/v1/auth/login` answers `403 Forbidden` with `error_code` `EMAIL_NOT_VERIFIED` as before — and, after the response, sends a new verification link itself to the account's **stored** address (not to the spelling that was typed). The same rules as above apply to the link: a new token, valid for 24 hours, every earlier link stops working; only to active, interactive accounts with a local password, and only with `REQUIRE_EMAIL_VERIFICATION`.
+
+Only someone who knows the password reaches this refusal. That is why this path has a budget of its own **per account**, which anonymous requests to `resend-verification` cannot spend — someone who only knows the address can no longer keep the new link from the account owner.
+
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_AUTH` (applies to the whole sign-in) | `429 Too Many Requests` |
+| Per account | 3 links; the budget refills once no sign-in has been refused with `EMAIL_NOT_VERIFIED` for an hour — every such refusal counts, above the budget too, and extends the window | Still `403` `EMAIL_NOT_VERIFIED` — only no mail goes out |
+
+The answer does not tell whether a link was sent: status, body and headers are the same whether a mail went out, the budget was spent or the delivery failed. A wrong password still answers `401 Unauthorized` and sends nothing. Clients should therefore only promise the new link and offer `resend-verification` as the fallback.
+
+!!! note "Budget during a Valkey outage"
+    The budget lives in Valkey so that all replicas count together. When Valkey is unreachable, every process keeps counting on its own — never without a limit. Like the budgets of `resend-verification` and the password reset, this in-process tier has a fixed capacity: once it is exceeded, it evicts the oldest entry and with it that entry's spent budget. Here, though, the entries are accounts, not caller-chosen addresses; filling it takes the passwords of that many accounts. This limit is tracked separately.
 
 ---
 
@@ -218,6 +234,16 @@ Content-Type: application/json
 ```
 
 For security reasons, this endpoint always returns the same success response regardless of whether the email address exists.
+
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_AUTH`, default `20/minute` | `429 Too Many Requests` |
+| Per address | 3 requests; the budget refills once no request for the address has arrived for an hour | Still `200` with the same body — only no link goes out |
+
+The per-address limit works like the one for the [verification link](#requesting-a-new-verification-link), with a budget of its own: it counts **every** submitted address alike, whether it has an account or not, and therefore answers silently. Case and surrounding whitespace do not matter — `Grower@Example.com` and `grower@example.com` share one budget. If you requested three links and none arrived, wait an hour without asking again; your current password stays valid until then.
+
+!!! warning "Limits of this protection"
+    Keeping someone else's address above its budget takes only one request per hour and address, with no knowledge of the account — a single IP can hold roughly 1200 addresses blocked at once with the default limit. If the owner still knows their current password, they sign in with it. If they have forgotten it — exactly when they need the reset — they stay locked out as long as someone keeps spending the budget; there is no admin path that sets a password, triggers a reset link or clears the budget. While Valkey is unreachable, each process counts on its own: up to 3 links per address, hour and worker process across all replicas. A flapping Valkey can release up to 3 more, because the counters of the two tiers are separate; that holds as long as Valkey keeps its keys — a restart that loses them releases another 3 per budget.
 
 ### Set a new password
 
@@ -747,6 +773,21 @@ After multiple failed login attempts, the account is temporarily locked. The API
 }
 ```
 
+### IP Rate Limits and Proxy Depth
+
+The IP limits on the sign-in routes (login, registration, password reset, device pairing) count in storage that all replicas and worker processes share. An installation with several replicas therefore has the same bound as one with a single process. <!-- REQ-023 -->
+
+!!! info "API only / operator configuration"
+    As an operator you choose the storage with `RATE_LIMIT_STORAGE_URL`. If it stays empty, the backend uses the Valkey from `REDIS_URL` — usually you do not need to set anything. Allowed are `redis://`, `rediss://`, `redis+unix://` and `memory://`; any other value stops the start. So does a URL — here or in `REDIS_URL` — whose password contains an unencoded `/`, `#` or `?`, or with an `@` in its path, query or fragment; encode these characters in the password (`%2F`, `%23`, `%3F`). An `@` in the password itself is accepted (`redis://:p@ss@host:6379/0` loads); encoded (`%40`) it is unambiguous. In both cases the message names only the variable and the allowed form, never the value. Use `memory://` only when a single process is the whole installation — without `DEBUG` the backend then logs `rate_limit_storage_counts_per_process` once at start-up.
+
+- **Storage fails:** Each process then keeps counting on its own. If the storage fails with a Redis client error (connection, timeout, error reply), requests are neither let through unchecked nor rejected with an error — not even those waiting on the storage at the moment it fails. Any other error is a defect and is not swallowed. The bound is softer during the outage: a fresh window can apply per process — one per window, not one per outage; a storage that drops out several times does not hand out new room.
+- **Wait time:** If the storage hangs instead of refusing the connection, the request that notices the failure waits one socket timeout of 0.5 s per connection attempt and address, without retry. Not covered by that are DNS resolution, several addresses for one name, connect and handshake together, and reloading the counting script after `NOSCRIPT`. Requests already waiting at that moment wait at the same time, not one after another. Every further request is counted by the limiter in the process, without waiting — it falls back per call and has a check schedule (next point).
+- **Mail budgets:** The budgets for the reset link, the verification link and the link of the login refusal, and the counter for unknown addresses at login, use the same client setting but have **no** check schedule: they ask Valkey on every request. While it hangs, every request that reaches one of these budgets therefore waits at most one socket timeout of 0.5 s per storage call (with the same exceptions as above) and then counts in the process. Most of these requests make one storage call; a failed login with an unknown address makes two.
+- **Recovery:** Each process checks the storage again on its own, at intervals of 1, 2, 4, 8, 16 and 32 s and every 32 s after that, each time with a single request, to which the same wait time applies. Once the storage answers, that process counts in the shared storage again from its check request on. So each process returns with its own next check request: up to about 32 s after the storage is back, and only when requests reach it. The log shows `rate_limit_storage_unavailable` and `rate_limit_storage_recovered`.
+- **Proxy depth:** The limit applies per client address. `TRUSTED_PROXY_HOPS` tells the backend how many proxies sit in front of it. The Helm chart sets `1`: an ingress controller in front of nginx (Contour/Envoy in the reference installation). If your installation routes `/api` straight to the backend without nginx, set `0`.
+
+If you find the line `forwarded_chain_deeper_than_trusted_proxy_hops` in the backend log once per process, `TRUSTED_PROXY_HOPS` is `0` although the `X-Forwarded-For` chain has more than one entry. There are two causes. Either a proxy sits in front that the setting does not count: the backend then reads a proxy's address instead of the caller's, and all callers share one counter. Or a caller sent an `X-Forwarded-For` header itself, on an installation without ingress, where `0` is correct. Raise `TRUSTED_PROXY_HOPS` only if more than one proxy really sits in front, and then to the number of proxies after the first (behind ingress and nginx: `1`). A value that is too high makes every IP-based control forgeable: any caller can then pick their own address. The line carries neither the header value nor an IP address. A run without ingress, where the chain has a single entry, stays silent.
+
 ---
 
 ## Environment Variables (Authentication)
@@ -760,6 +801,7 @@ After multiple failed login attempts, the account is temporarily locked. The API
 | `REQUIRE_EMAIL_VERIFICATION` | `true` | Enforce email verification before first login. Set it to `false` explicitly without outbound mail |
 | `KAMERPLANTER_MODE` | `full` | `light` disables all authentication |
 | `FERNET_KEY` | — | Encryption key for OIDC provider secrets |
+| `RATE_LIMIT_STORAGE_URL` | empty | Storage of the IP rate limits; empty = Valkey from `REDIS_URL` — see [IP Rate Limits and Proxy Depth](#ip-rate-limits-and-proxy-depth) |
 
 ---
 

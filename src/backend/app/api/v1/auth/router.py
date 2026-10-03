@@ -7,7 +7,6 @@ import structlog
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Path, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.v1.auth.csrf import set_csrf_cookie, verify_csrf
@@ -38,7 +37,9 @@ from app.common.auth import (
     require_account_principal,
 )
 from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
+from app.common.error_handlers import app_error_response
 from app.common.exceptions import (
+    EmailNotVerifiedError,
     InvalidTokenError,
     NotFoundError,
     OAuthAutoLinkRefusedError,
@@ -47,6 +48,7 @@ from app.common.exceptions import (
     ValidationError,
 )
 from app.common.openapi_responses import CRUD_RESPONSES, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.rate_limit import build_rate_limiter
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import list_mcp_permissions
@@ -84,9 +86,12 @@ def _rate_limit_key(request: Request) -> str:
     out of reach.
 
     The one path that reading cannot cover is a request that never traverses our
-    proxies — the backend NetworkPolicy currently admits port 8000 without a
-    ``from`` selector (#1159). There the header is whatever its sender wrote, for
-    this limiter as for the lockout and the allowlist.
+    proxies. The chart closes it: the backend NetworkPolicy admits port 8000 only
+    from the frontend controller (#1159, closed), so nginx is the sole way in. A
+    deployment that routes ``/api`` straight to the backend Service re-opens it and
+    must also set ``TRUSTED_PROXY_HOPS`` to match the shorter chain
+    (``helm/kamerplanter/values.yaml``). There the header is whatever its sender
+    wrote, for this limiter as for the lockout and the allowlist.
 
     Falls back to the socket peer when no header is present, which is what a
     direct call (and every ``TestClient`` caller that sets no header) gets.
@@ -94,7 +99,10 @@ def _rate_limit_key(request: Request) -> str:
     return resolve_client_ip(request) or get_remote_address(request)
 
 
-limiter = Limiter(key_func=_rate_limit_key)
+#: The one IP limiter every ``@limiter.limit`` in the API shares. Its counters live
+#: in the storage ``settings.rate_limit_storage_url`` / ``redis_url`` names, so
+#: the limits hold per deployment rather than per process (#2045).
+limiter = build_rate_limiter(_rate_limit_key)
 router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
 #: API-key management, mounted in **both** deployment modes (REQ-027, REQ-033 §4.3).
@@ -279,6 +287,7 @@ def login(
     body: LoginRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     service: AuthService = Depends(get_auth_service),
 ):
     """Authenticate with email and password, issuing access and refresh tokens.
@@ -317,16 +326,30 @@ def login(
 
     ``remember_me`` still decides the refresh token's lifetime in both shapes; it
     is orthogonal to how the token is delivered.
+
+    **Unverified address (REQ-023 §3.2b, #2046).** A correct password for an
+    account whose address is not verified answers ``403 EMAIL_NOT_VERIFIED`` —
+    and, at most three times per account and hour, mails a fresh verification
+    link to the stored address after the response. The answer is the same
+    whether a link was mailed, the budget was spent or the delivery failed.
     """
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
-    token_pair, raw_refresh, is_persistent = service.login_local(
-        body.email,
-        body.password,
-        user_agent,
-        ip_address,
-        remember_me=body.remember_me,
-    )
+    try:
+        token_pair, raw_refresh, is_persistent = service.login_local(
+            body.email,
+            body.password,
+            user_agent,
+            ip_address,
+            remember_me=body.remember_me,
+            defer_mail=background_tasks.add_task,
+        )
+    except EmailNotVerifiedError as exc:
+        # Returned, not raised (#2046): the refusal of a correct password may
+        # have queued a fresh verification link, and FastAPI runs background
+        # tasks only for a response the handler returns. Built by the same
+        # function the exception handler uses, so the answer is unchanged.
+        return app_error_response(request, exc)
     if body.refresh_token_in_body:
         return TokenPairResponse(
             access_token=token_pair.access_token,
@@ -525,6 +548,12 @@ def request_password_reset(
 
     The mail is sent after the response (#1890): its duration and a delivery
     failure must not tell the caller whether the address has an account.
+
+    **Limits.** Per client IP ``settings.rate_limit_auth`` (answers 429 — a
+    property of the source, never of the address); per address three requests,
+    refilled once the address has been left alone for an hour (#2043). The
+    per-address budget is enforced silently and counts unknown addresses alike:
+    a request over it answers exactly like an accepted one and only sends nothing.
     """
     service.request_password_reset(body.email, defer_mail=background_tasks.add_task)
     return MessageResponse(message="If the email exists, a reset link has been sent.")

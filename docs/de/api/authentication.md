@@ -69,7 +69,7 @@ Ein Link gilt 24 Stunden und nur einmal. Ein falscher, abgelaufener oder schon b
 
 ### Bestätigungslink erneut anfordern
 
-Für ein Konto, dessen erster Link verloren gegangen oder abgelaufen ist. Die Anmeldung eines unbestätigten Kontos antwortet `403 Forbidden` mit `error_code` `EMAIL_NOT_VERIFIED` — das ist der Hinweis, diesen Endpunkt anzubieten.
+Für ein Konto, dessen erster Link verloren gegangen oder abgelaufen ist. Die Anmeldung mit dem richtigen Passwort verschickt einen neuen Link selbst (siehe [Neuer Link bei der abgelehnten Anmeldung](#neuer-link-bei-der-abgelehnten-anmeldung)); dieser Endpunkt ist der Weg ohne Passwort — etwa von der Fehlerseite eines abgelaufenen Links — und der Rückfall, wenn über die Anmeldung nichts ankommt.
 
 ```http
 POST /api/v1/auth/resend-verification
@@ -98,6 +98,22 @@ Eine E-Mail geht nur raus, wenn `REQUIRE_EMAIL_VERIFICATION` aktiv ist und das K
 | Je Adresse | 3 Anfragen; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anfrage für die Adresse kam | Unverändert `202` — es geht nur keine E-Mail mehr raus |
 
 Die Grenze je Adresse zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht. Darum antwortet sie stumm: ein `429` würde nichts verraten, aber ein Budget, das nur echte Konten zählt, würde es.
+
+#### Neuer Link bei der abgelehnten Anmeldung
+
+Meldet sich jemand mit dem **richtigen** Passwort an einem unbestätigten Konto an, antwortet `POST /api/v1/auth/login` wie bisher `403 Forbidden` mit `error_code` `EMAIL_NOT_VERIFIED` — und verschickt nach der Antwort selbst einen neuen Bestätigungslink an die **gespeicherte** Adresse des Kontos (nicht an die Schreibweise, die eingetippt wurde). Für den Link gelten dieselben Regeln wie oben: neuer Token, 24 Stunden gültig, alle früheren Links werden ungültig; nur an aktive, interaktive Konten mit lokalem Passwort und nur mit `REQUIRE_EMAIL_VERIFICATION`.
+
+Diese Ablehnung erreicht nur, wer das Passwort kennt. Deshalb hat dieser Weg ein eigenes Budget **je Konto**, das anonyme Anfragen an `resend-verification` nicht aufbrauchen können — wer nur die Adresse kennt, kann dem Kontoinhaber den neuen Link so nicht mehr vorenthalten.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_AUTH` (gilt für den ganzen Login) | `429 Too Many Requests` |
+| Je Konto | 3 Links; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anmeldung mit `EMAIL_NOT_VERIFIED` abgelehnt wurde — jede solche Ablehnung zählt, auch über dem Budget, und verlängert das Fenster | Unverändert `403` `EMAIL_NOT_VERIFIED` — es geht nur keine E-Mail raus |
+
+Die Antwort sagt nicht, ob ein Link verschickt wurde: Status, Body und Header sind dieselben, ob eine E-Mail rausging, das Budget aufgebraucht war oder die Zustellung scheiterte. Ein falsches Passwort antwortet unverändert `401 Unauthorized` und verschickt nichts. Clients stellen den neuen Link deshalb nur in Aussicht und bieten `resend-verification` als Rückfall an.
+
+!!! note "Budget bei Valkey-Ausfall"
+    Das Budget liegt in Valkey, damit alle Replikas gemeinsam zählen. Ist Valkey nicht erreichbar, zählt jeder Prozess für sich weiter — nie ohne Grenze. Diese In-Process-Stufe hat wie die Budgets von `resend-verification` und Passwort-Reset eine feste Kapazität: Wird sie überschritten, verdrängt sie den ältesten Eintrag und mit ihm dessen verbrauchtes Budget. Hier zählen allerdings Konten, nicht frei gewählte Adressen; sie zu füllen, braucht die Passwörter entsprechend vieler Konten. Diese Grenze wird getrennt verfolgt.
 
 ---
 
@@ -218,6 +234,16 @@ Content-Type: application/json
 ```
 
 Aus Sicherheitsgründen gibt dieser Endpunkt immer dieselbe Erfolgsantwort zurück, unabhängig davon, ob die E-Mail-Adresse existiert.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_AUTH`, Default `20/minute` | `429 Too Many Requests` |
+| Je Adresse | 3 Anfragen; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anfrage für die Adresse kam | Unverändert `200` mit demselben Body — es geht nur kein Link mehr raus |
+
+Die Grenze je Adresse funktioniert wie beim [Bestätigungslink](#bestatigungslink-erneut-anfordern), hat aber ihr eigenes Budget: Sie zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht, und antwortet deshalb stumm. Groß-/Kleinschreibung und Leerzeichen um die Adresse spielen keine Rolle — `Gartner@Example.com` und `gartner@example.com` teilen sich ein Budget. Hast du drei Links angefordert und keiner kam an, warte eine Stunde, ohne erneut anzufragen; dein bisheriges Passwort bleibt bis dahin gültig.
+
+!!! warning "Grenzen dieses Schutzes"
+    Wer eine fremde Adresse über ihrem Budget halten will, braucht nur eine Anfrage pro Stunde und Adresse und muss nichts über das Konto wissen — eine einzelne IP kann so mit dem Default-Limit rund 1200 Adressen gleichzeitig blockieren. Kennt die Inhaberin ihr bisheriges Passwort, meldet sie sich damit an. Hat sie es vergessen — also genau dann, wenn sie den Reset braucht —, bleibt sie ausgesperrt, solange jemand das Budget verbraucht; einen Admin-Weg, der ein Passwort setzt, einen Reset-Link auslöst oder das Budget leert, gibt es nicht. Ist Valkey nicht erreichbar, zählt jeder Prozess für sich: bis zu 3 Links je Adresse, Stunde und Worker-Prozess über alle Replikas. Ein flatternder Valkey kann bis zu 3 weitere freigeben, weil die Zähler beider Stufen getrennt sind; das gilt, solange Valkey seine Schlüssel behält — ein Neustart, der sie verliert, gibt je Budget weitere 3 frei.
 
 ### Neues Passwort setzen
 
@@ -747,6 +773,21 @@ Nach mehreren fehlgeschlagenen Login-Versuchen wird das Konto temporär gesperrt
 }
 ```
 
+### IP-Rate-Limits und Proxy-Tiefe
+
+Die IP-Limits der Anmelderouten (Login, Registrierung, Passwort-Reset, Gerätekopplung) zählen in einem Speicher, den alle Replikas und Worker-Prozesse gemeinsam nutzen. Eine Installation mit mehreren Replikas hat damit dieselbe Grenze wie eine mit einem Prozess. <!-- REQ-023 -->
+
+!!! info "Nur über API / Betreiber-Konfiguration"
+    Als Betreiber legst du den Speicher mit `RATE_LIMIT_STORAGE_URL` fest. Bleibt der Wert leer, nutzt das Backend den Valkey aus `REDIS_URL` — in der Regel musst du nichts setzen. Erlaubt sind `redis://`, `rediss://`, `redis+unix://` und `memory://`; jeder andere Wert verhindert den Start. Ebenso eine URL — hier oder in `REDIS_URL` —, deren Passwort ein unkodiertes `/`, `#` oder `?` enthält, oder in deren Pfad, Query oder Fragment ein `@` steht; kodiere diese Zeichen im Passwort (`%2F`, `%23`, `%3F`). Ein `@` im Passwort selbst ist zulässig (`redis://:p@ss@host:6379/0` lädt), kodiert (`%40`) ist es eindeutiger. Die Meldung nennt in beiden Fällen nur die Variable und die erlaubte Form, nie den Wert. Setze `memory://` nur, wenn ein einziger Prozess die ganze Installation ist — ohne `DEBUG` loggt das Backend dann beim Start einmal `rate_limit_storage_counts_per_process`.
+
+- **Speicher fällt aus:** Jeder Prozess zählt dann für sich weiter. Scheitert der Speicher mit einem Fehler des Redis-Clients (Verbindung, Timeout, Antwortfehler), werden die Anfragen weder offen durchgelassen noch mit einem Fehler abgelehnt — auch die nicht, die beim Ausfall gerade auf den Speicher warten. Ein anderer Fehler ist ein Defekt und wird nicht verschluckt. Die Grenze ist während des Ausfalls weicher: Je Prozess kann ein frisches Zeitfenster gelten — eines je Fenster, nicht eines je Ausfall; ein Speicher, der mehrmals kurz ausfällt, gibt keinen neuen Spielraum.
+- **Wartezeit:** Hängt der Speicher, statt die Verbindung abzulehnen, wartet die Anfrage, die den Ausfall bemerkt, einen Socket-Timeout von 0,5 s je Verbindungsversuch und Adresse, ohne Wiederholung. Nicht darin enthalten sind die Namensauflösung (DNS), mehrere Adressen eines Namens, Verbindungsaufbau und Handshake zusammen sowie das erneute Laden des Zähl-Skripts nach `NOSCRIPT`. Anfragen, die in diesem Moment schon warten, warten gleichzeitig, nicht nacheinander. Alle weiteren Anfragen zählt der Limiter ohne Wartezeit im Prozess — er fällt je Aufruf zurück und hat einen Prüfplan (nächster Punkt).
+- **Mail-Budgets:** Die Budgets für Reset-Link, Bestätigungslink und den Link der Login-Ablehnung sowie der Zähler für unbekannte Adressen beim Login nutzen dieselbe Client-Einstellung, haben aber **keinen** Prüfplan: Sie fragen Valkey bei jeder Anfrage. Solange er hängt, wartet deshalb jede Anfrage, die eines dieser Budgets erreicht, höchstens einen Socket-Timeout von 0,5 s je Speicheraufruf (mit denselben Ausnahmen wie oben) und zählt dann im Prozess. Die meisten dieser Anfragen machen einen Speicheraufruf; eine fehlgeschlagene Anmeldung mit unbekannter Adresse macht zwei.
+- **Rückkehr:** Jeder Prozess prüft den Speicher für sich erneut, in Abständen von 1, 2, 4, 8, 16 und 32 s und danach alle 32 s, jeweils mit einer einzigen Anfrage, für die dieselbe Wartezeit gilt. Antwortet er, zählt dieser Prozess ab seiner Prüfanfrage wieder im gemeinsamen Speicher. Jeder Prozess kehrt also mit seiner eigenen nächsten Prüfanfrage zurück: bis zu rund 32 s, nachdem der Speicher wieder da ist, und nur, wenn bei ihm Anfragen eintreffen. Im Log stehen `rate_limit_storage_unavailable` und `rate_limit_storage_recovered`.
+- **Proxy-Tiefe:** Das Limit gilt je Client-Adresse. Wie viele Proxys davor stehen, sagt `TRUSTED_PROXY_HOPS`. Das Helm-Chart setzt `1`: Ingress-Controller vor nginx (in der Referenz-Installation Contour/Envoy). Leitet deine Installation `/api` ohne nginx direkt zum Backend, setze `0`.
+
+Findest du im Backend-Log einmal je Prozess die Zeile `forwarded_chain_deeper_than_trusted_proxy_hops`, steht `TRUSTED_PROXY_HOPS` auf `0`, obwohl die `X-Forwarded-For`-Kette mehr als einen Eintrag hat. Dafür gibt es zwei Ursachen. Entweder steht ein Proxy davor, den die Einstellung nicht zählt: Dann liest das Backend die Adresse eines Proxys statt die des Aufrufers, und alle Aufrufer teilen sich einen Zähler. Oder ein Aufrufer hat selbst einen `X-Forwarded-For`-Header geschickt, auf einer Installation ohne Ingress, für die `0` richtig ist. Erhöhe `TRUSTED_PROXY_HOPS` nur, wenn wirklich mehr als ein Proxy davor steht, und dann auf die Zahl der Proxys nach dem ersten (hinter Ingress und nginx: `1`). Ein zu hoher Wert macht jede IP-basierte Kontrolle fälschbar: Jeder Aufrufer kann sich dann seine Adresse aussuchen. Die Zeile enthält weder den Header-Wert noch eine IP-Adresse. Ein Lauf ohne Ingress, bei dem die Kette nur einen Eintrag hat, bleibt still.
+
 ---
 
 ## Umgebungsvariablen (Authentifizierung)
@@ -760,6 +801,7 @@ Nach mehreren fehlgeschlagenen Login-Versuchen wird das Konto temporär gesperrt
 | `REQUIRE_EMAIL_VERIFICATION` | `true` | E-Mail-Verifikation vor erstem Login erzwingen. Ohne ausgehenden Mailversand ausdrücklich auf `false` setzen |
 | `KAMERPLANTER_MODE` | `full` | `light` deaktiviert die gesamte Authentifizierung |
 | `FERNET_KEY` | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets |
+| `RATE_LIMIT_STORAGE_URL` | leer | Speicher der IP-Rate-Limits; leer = Valkey aus `REDIS_URL` — siehe [IP-Rate-Limits und Proxy-Tiefe](#ip-rate-limits-und-proxy-tiefe) |
 
 ---
 

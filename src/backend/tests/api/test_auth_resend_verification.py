@@ -337,6 +337,20 @@ class TestLimits:
 
         assert len(world.mail.sent) == MAX_VERIFICATION_RESENDS_PER_WINDOW
 
+    def test_a_variant_that_reaches_the_service_unstripped_still_shares_the_budget(self, world: _World) -> None:
+        """The route's ``EmailStr`` strips; the budget does not rely on it (R-9).
+
+        Like ``AuthService.request_password_reset``, the service strips and
+        lowercases the address before it puts the prefix in front. The store's
+        own normalisation would not carry a leading space: it strips the whole
+        subject, so a space between the prefix and the address would survive.
+        """
+        service = world.service()
+        for email in ["a@x.com", " a@x.com", "A@x.com", "a@x.com "]:
+            service.resend_verification_email(email)
+
+        assert world.budget.reserve_attempt("verification-resend:a@x.com") == 5
+
     def test_the_route_is_rate_limited_per_ip(self, client: TestClient) -> None:
         """Distinct addresses, so only the per-IP limit can answer 429."""
         statuses = [_resend(client, f"probe-{i}@example.com").status_code for i in range(_PER_IP_LIMIT + 1)]

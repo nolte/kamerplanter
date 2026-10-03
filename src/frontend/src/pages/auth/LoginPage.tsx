@@ -73,7 +73,10 @@ export default function LoginPage() {
           </Typography>
 
           {/* An unverified address gets its own message and the way out instead of
-              the backend's English refusal text (#2037). */}
+              the backend's English refusal text (#2037). The refusal of a correct
+              password mails a fresh link itself when one is due (#2046), so the
+              message promises it conditionally — the answer never says whether a
+              mail went out. The anonymous resend stays as the fallback. */}
           {unverifiedEmail ? (
             <Box sx={{ mb: 2 }}>
               <Alert severity="warning" data-testid="login-email-not-verified">

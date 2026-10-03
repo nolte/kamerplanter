@@ -45,9 +45,19 @@ _LOCK_PREFIX = "kp:auth:stepup:lock:"
 #: so the backoff keeps growing across consecutive lockouts instead of restarting.
 DEFAULT_TTL_SECONDS = 86_400
 
-#: Entry cap of the in-process tier. Subjects are derived from authenticated
-#: accounts, so the map cannot be flooded anonymously; the cap bounds memory when
-#: Redis is down during a sweep across many sessions.
+#: Entry cap of the in-process tier; it bounds memory while Valkey is down. The
+#: step-up's subjects derive from authenticated accounts and cannot be flooded
+#: anonymously. The two anonymous budgets — the verification resend
+#: (``DEFAULT_VERIFICATION_RESEND_STORE``, #2037) and the password reset
+#: (``DEFAULT_PASSWORD_RESET_STORE``, #2043) — count caller-chosen addresses:
+#: while Valkey is down, more than this many distinct addresses submitted to one
+#: process evict the oldest entry (LRU), and with it that address's spent
+#: budget. Only worthwhile with several source IPs: one IP at the default 20/min
+#: needs about 205 minutes per eviction, while the window refills after 60
+#: minutes anyway. Tracked separately. The password-proven resend budget
+#: (``DEFAULT_VERIFICATION_RESEND_PROVEN_STORE``, #2046) has the same cap and
+#: the same eviction, but its subjects are account keys reached only with the
+#: account's correct password, so filling it takes that many proven accounts.
 _FALLBACK_CAPACITY = 4096
 
 
@@ -170,6 +180,31 @@ VERIFICATION_RESEND_WINDOW_SECONDS = 3_600
 #: one-hour window are never applied to each other's subjects. Module-level for
 #: the same reason as :data:`DEFAULT_STEP_UP_THROTTLE_STORE`.
 DEFAULT_VERIFICATION_RESEND_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
+
+#: Process-wide in-process tier of the password-proven resend budget (#2046) —
+#: the fresh link the login refusal ``EMAIL_NOT_VERIFIED`` mails once the
+#: password was correct — and the degradation target of its Redis tier. Same
+#: one-hour window as the anonymous resend budget, but its own instance and its
+#: own subjects (``verification-resend-proven:<user_key>``): an anonymous caller
+#: who spends the per-address budget never reaches this one, so the owner cannot
+#: be locked out of a new link by someone who only knows the address.
+DEFAULT_VERIFICATION_RESEND_PROVEN_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
+
+
+#: Window of the per-address budget of ``POST /auth/password-reset/request``
+#: (#2043) — the third user of this mechanism, shaped exactly like the resend
+#: budget above: an atomic counter per subject, window renewed by every request,
+#: no strikes, no locks. Its subjects — ``password-reset:<address>`` — digest to
+#: neither a step-up subject nor a ``verification-resend:`` one, so the budgets
+#: never spend each other. One hour, like the resend budget: the reset link
+#: itself lives one hour, so a fourth link inside it would only replace a link
+#: that is still valid.
+PASSWORD_RESET_WINDOW_SECONDS = 3_600
+
+#: Process-wide in-process tier of the reset budget, and the degradation target
+#: of its Redis tier. Its own instance, for the reason
+#: :data:`DEFAULT_VERIFICATION_RESEND_STORE` is one.
+DEFAULT_PASSWORD_RESET_STORE = MemoryStepUpThrottleStore(ttl_seconds=PASSWORD_RESET_WINDOW_SECONDS)
 
 
 class RedisStepUpThrottleStore(IStepUpThrottleStore):

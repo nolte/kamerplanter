@@ -208,6 +208,24 @@ describe('LoginPage', () => {
       expect(screen.getByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeEnabled();
     });
 
+    it('promises the link the refusal mails conditionally and never states it as sent (#2046)', async () => {
+      refuseAsUnverified();
+      const user = userEvent.setup();
+      renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+      await signIn(user);
+
+      const hint = await screen.findByTestId('login-email-not-verified');
+      // The refusal answers alike whether a link went out, the budget was spent or
+      // the delivery failed — so the text can only promise, conditionally.
+      expect(hint).toHaveTextContent(/Falls ein neuer Bestätigungslink fällig war, ist er jetzt an deine Adresse unterwegs/);
+      expect(hint).not.toHaveTextContent(/wurde (gesendet|verschickt)|haben wir (dir )?gesendet/);
+      // Announced as it appears, and the anonymous resend stays as the fallback.
+      expect(hint).toHaveAttribute('role', 'alert');
+      expect(screen.getByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeEnabled();
+      expect(screen.getByTestId('resend-verification-status')).toHaveAttribute('aria-live', 'polite');
+    });
+
     it('requests a new link for the address that was refused and announces the neutral answer', async () => {
       refuseAsUnverified();
       const posted: unknown[] = [];

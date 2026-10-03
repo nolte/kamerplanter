@@ -10,13 +10,23 @@ live values and turns a message into a session failure.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
-import app
-from app.common.exceptions import NotFoundError
+# #2045: the IP limiter counts in ``redis_url`` unless told otherwise. One test
+# process *is* the whole deployment here, and the unit/api tiers refuse a real
+# Valkey connection (tests/support/db_guard.py), so the suite counts in memory —
+# which also keeps ``limiter.reset()`` (MemoryStorage.reset) usable between tests.
+# Set before the first ``app`` import: the limiter is built when the auth router
+# module is imported, from the settings loaded at that moment. ``setdefault`` so
+# a run that deliberately points the limiter elsewhere still can.
+os.environ.setdefault("RATE_LIMIT_STORAGE_URL", "memory://")
+
+import app  # noqa: E402 — must follow the environment default above
+from app.common.exceptions import NotFoundError  # noqa: E402
 from tests.support.execution_guards import (
     find_project_root,
     interpreter_violation,
@@ -233,7 +243,12 @@ def _fresh_step_up_throttle():
     passwords into the next test's lockout, so each test starts clean.
     """
     from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_CODE_STORE, DEFAULT_STEP_UP_REAUTH_STORE
-    from app.data_access.external.step_up_throttle import DEFAULT_STEP_UP_THROTTLE_STORE
+    from app.data_access.external.step_up_throttle import (
+        DEFAULT_PASSWORD_RESET_STORE,
+        DEFAULT_STEP_UP_THROTTLE_STORE,
+        DEFAULT_VERIFICATION_RESEND_PROVEN_STORE,
+        DEFAULT_VERIFICATION_RESEND_STORE,
+    )
 
     def clear() -> None:
         DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()
@@ -244,6 +259,14 @@ def _fresh_step_up_throttle():
         DEFAULT_STEP_UP_CODE_STORE._cooldowns.clear()
         DEFAULT_STEP_UP_CODE_STORE._issues.clear()
         DEFAULT_STEP_UP_REAUTH_STORE._entries.clear()
+        # #2043 — the reset request's per-address budget. A service built without
+        # an explicit store counts here, so three reset requests for one address in
+        # earlier tests would silently stop the next test's mail.
+        DEFAULT_PASSWORD_RESET_STORE._entries.clear()
+        # #2037 / #2046 — the resend budgets, anonymous (per address) and
+        # password-proven (per account): same reason as the reset budget.
+        DEFAULT_VERIFICATION_RESEND_STORE._entries.clear()
+        DEFAULT_VERIFICATION_RESEND_PROVEN_STORE._entries.clear()
 
     clear()
     yield
