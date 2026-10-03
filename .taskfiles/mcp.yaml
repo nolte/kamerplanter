@@ -16,7 +16,7 @@ tasks:
         if command -v npx >/dev/null 2>&1; then
           echo "  ✓ npx: $(npx --version) (node: $(node --version))"
         else
-          echo "  ✗ npx not found — install Node.js (asdf install nodejs 25.9.0 or apt install nodejs npm)"
+          echo "  ✗ npx not found — install Node.js (asdf install nodejs 26.10.0 or apt install nodejs npm)"
         fi
         echo "── chrome-devtools-mcp ──"
         if curl -sf --max-time 1 http://localhost:9222/json/version >/dev/null 2>&1; then
@@ -125,7 +125,7 @@ tasks:
           echo >&2
           echo "  Install via asdf (matches ~/.tool-versions):" >&2
           echo "    asdf plugin add nodejs" >&2
-          echo "    asdf install nodejs 25.9.0" >&2
+          echo "    asdf install nodejs 26.10.0" >&2
           echo >&2
           echo "  Or system package:" >&2
           echo "    sudo apt install nodejs npm" >&2
