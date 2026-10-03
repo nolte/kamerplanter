@@ -104,13 +104,15 @@ jobs:
   # Running the job and skipping its steps costs a few seconds of runner time and
   # produces a green `lint-test-build (22)` on every pull request, which is what
   # branch protection needs.
+  #
+  # Node 25 (same as local development). The check keeps its historical name
+  # `lint-test-build (22)` as a static string because it is the required context
+  # in `.github/settings.yml`; renaming it means changing branch protection first.
   lint-test-build:
+    name: lint-test-build (22)
     needs: changes
     if: always()
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [22]
     env:
       # The run/skip decision, evaluated ONCE. Every step below gates on this
       # single value rather than restating the expression, because seven copies
@@ -137,11 +139,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.RUN_FRONTEND == 'true'
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js 25
         if: env.RUN_FRONTEND == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '25'
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -209,7 +211,7 @@ jobs:
           || needs.changes.outputs.frontend == 'true')
     uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@80cb5ebb91a3b49126729de31b1037f11c34b5cd # v2.2.0
     with:
-      node-version: '22'
+      node-version: '25'
       working-directory: src/frontend
       install-command: npm install -g npm@latest && npm ci
       test-command: npm run test:coverage
@@ -241,7 +243,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '25'
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -298,7 +300,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '25'
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -361,7 +363,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '25'
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -421,7 +423,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '25'
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -472,7 +474,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '25'
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm ci

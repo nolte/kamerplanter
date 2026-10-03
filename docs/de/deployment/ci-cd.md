@@ -184,7 +184,7 @@ jobs:
       - run: npm run build
 ```
 
-1. Nur der `lint-test-build`-Job nutzt Node 22. Die `bundle-budget`- und `lighthouse`-Jobs im selben Workflow laufen auf Node 24 — passend zum Frontend-Dockerfile, das mit `node:24-alpine` baut (siehe [Frontend-Image](#frontend-image) unten).
+1. Alle Frontend-Jobs laufen auf Node 25, wie die lokale Entwicklung. Der Check heißt aus historischen Gründen weiter `lint-test-build (22)`, weil er der required Context in `.github/settings.yml` ist. Das Frontend-Dockerfile baut weiterhin mit `node:24-alpine` (siehe [Frontend-Image](#frontend-image) unten).
 
 !!! tip "Lokale Prüfung vor dem Push"
     ```bash
