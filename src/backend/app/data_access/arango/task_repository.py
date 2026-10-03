@@ -2,8 +2,10 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
+from arango.exceptions import DocumentInsertError, DocumentUpdateError
 
 from app.common.enums import ReminderType, TaskCategory, TaskStatus
+from app.common.exceptions import NotFoundError
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -203,19 +205,42 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return self.get_or_raise_by(self.get_workflow_template_by_key, "WorkflowTemplate", key)
 
     def create_workflow_template(self, template: WorkflowTemplate) -> WorkflowTemplate:
+        """Insert a workflow template; a name the tenant already holds is a ``DuplicateError``.
+
+        The unique index is ``(tenant_key, name)`` (#2027). The raw insert used to let the
+        driver's ``1210`` through, so a create, a duplicate or a copy-on-write fork onto a
+        name the tenant already uses answered a generic 500. Mapped through the shared
+        :meth:`_mapped_insert_error`, the conflict names the field (``name``), never the
+        tenant scope.
+        """
         coll = self._db.collection(col.WORKFLOW_TEMPLATES)
         data = self._to_doc(template)
         now = self._now()
         data["created_at"] = now
         data["updated_at"] = now
-        result = coll.insert(data, return_new=True)
+        try:
+            result = coll.insert(data, return_new=True)
+        except DocumentInsertError as e:
+            mapped = self._mapped_insert_error(e, col.WORKFLOW_TEMPLATES, data)
+            if mapped is not None:
+                raise mapped from e
+            raise
         return WorkflowTemplate(**self._from_doc(result["new"]))
 
     def update_workflow_template(self, key: str, template: WorkflowTemplate) -> WorkflowTemplate:
+        """Rewrite a workflow template; a rename onto a held name is a ``DuplicateError`` (#2027)."""
         coll = self._db.collection(col.WORKFLOW_TEMPLATES)
         data = self._to_doc(template)
         data["updated_at"] = self._now()
-        result = coll.update({"_key": key, **data}, return_new=True)
+        try:
+            result = coll.update({"_key": key, **data}, return_new=True)
+        except DocumentUpdateError as e:
+            if e.error_code == 1202:  # document not found
+                raise NotFoundError("WorkflowTemplate", key) from e
+            mapped = self._mapped_insert_error(e, col.WORKFLOW_TEMPLATES, data)
+            if mapped is not None:
+                raise mapped from e
+            raise
         return WorkflowTemplate(**self._from_doc(result["new"]))
 
     def delete_workflow_template(self, key: str) -> bool:

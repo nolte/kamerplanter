@@ -28,7 +28,9 @@ class WorkflowTemplateCreate(BaseModel):
     difficulty_level: str = "intermediate"
     category: str = "maintenance"
     tags: list[str] = Field(default_factory=list)
-    is_system: bool = False
+    # No ``is_system`` (#2027 review, SEC-B): only the seed writes a system template.
+    # Accepted from a tenant it locked the row against its owner (every write path
+    # refuses ``is_system``) and kept it through the tenant erasure (``keep_when``).
     target_entity_types: list[str] = Field(default_factory=lambda: ["plant_instance"])
 
 
