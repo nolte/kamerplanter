@@ -674,6 +674,24 @@ class Settings(BaseSettings):
     #: behind one NAT address, and stays deliberately below ``rate_limit_auth`` so
     #: the two surfaces cannot be confused for one budget.
     rate_limit_device_pairing_redeem: str = "10/minute"
+    #: ``POST /api/v1/auth/resend-verification`` (REQ-023 §3.2b, #2037), per client IP.
+    #:
+    #: **Why its own setting and not ``rate_limit_auth``.** Like
+    #: ``rate_limit_email_change`` this route may mail a **caller-chosen address**,
+    #: so its budget bounds outbound mail to third parties, not interactive
+    #: retries; 20/minute would fund 1200 mails an hour from one source.
+    #:
+    #: **What it does not bound.** One recipient from many sources — that is the
+    #: per-address budget (three requests, refilled after an hour without one;
+    #: ``AuthService.MAX_VERIFICATION_RESENDS_PER_WINDOW``), which answers
+    #: silently so it cannot become an enumeration oracle. This per-IP limit
+    #: answers 429, which is safe because it is a property of the source, never
+    #: of the address.
+    #:
+    #: **Where 10 an hour comes from — the legitimate side.** A user asks for a
+    #: new link once, perhaps twice; ten leaves room for several people behind
+    #: one NAT address.
+    rate_limit_resend_verification: str = "10/hour"
     #: ``GET /api/health``, per client IP (#1210, SEC-003).
     #:
     #: **Why this endpoint has a limit and the Kubernetes probes do not.** The

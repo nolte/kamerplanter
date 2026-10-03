@@ -5,10 +5,13 @@ import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
+from secrets import token_urlsafe
 from typing import NoReturn
 
 import structlog
 
+from app.common.datetimes import now_utc
 from app.common.decoys import decoy_document_key, email_digest
 from app.common.enums import AuthProviderType, TenantRole
 from app.common.exceptions import (
@@ -29,6 +32,7 @@ from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.external.device_pairing_throttle import DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
 from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
+from app.data_access.external.step_up_throttle import DEFAULT_VERIFICATION_RESEND_STORE
 from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOUNT_STORE
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT
@@ -49,6 +53,7 @@ from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottle
 from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.interfaces.email_service import EmailUndeliverableError, IEmailService
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
+from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.interfaces.unknown_account_store import IUnknownAccountStore
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import (
@@ -134,6 +139,26 @@ class OAuthCallbackOutcome:
 
 
 _INACTIVE_ACCOUNT_MESSAGE = "User account is inactive."
+
+#: Requests one address may make to ``/auth/resend-verification`` before the
+#: mail stops (#2037). Three covers the legitimate case — the first mail went to
+#: spam, the second was clicked too late — with one to spare. The budget's
+#: window is ``step_up_throttle.VERIFICATION_RESEND_WINDOW_SECONDS`` (one hour,
+#: renewed by every request). A request over the budget answers exactly like one
+#: inside it; it only sends nothing. Fixed rather than configurable: raising it
+#: turns the route back into a way to flood a chosen inbox.
+MAX_VERIFICATION_RESENDS_PER_WINDOW = 3
+
+#: Subject prefix of the resend budget in the shared step-up counter store; see
+#: ``step_up_throttle.VERIFICATION_RESEND_WINDOW_SECONDS`` for why it cannot
+#: collide with a step-up subject. The store normalises (strips, lowercases) and
+#: digests the whole subject, so ``Victim@Example.com`` and ``victim@example.com``
+#: share one budget and the address is never stored in the clear.
+_VERIFICATION_RESEND_SUBJECT = "verification-resend:"
+
+#: Lifetime of a mailed e-mail verification link — at registration and on every
+#: resend (#2037). One constant, so the two issuance paths cannot drift apart.
+_VERIFICATION_TOKEN_TTL = timedelta(hours=24)
 
 #: Answer to a service account that tries to acquire an interactive credential (#1559).
 #:
@@ -252,6 +277,7 @@ class AuthService:
         email_change_repo: IEmailChangeRepository | None = None,
         light_mode: bool = False,
         api_key_rate_limiter: ApiKeyRateLimiter | None = None,
+        verification_resend_store: IStepUpThrottleStore | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -301,6 +327,12 @@ class AuthService:
         # #1815 review — light mode has one shared, seeded system account.
         self._light_mode = light_mode
         self._device_pairing_code_store = device_pairing_code_store
+        # #2037 — the per-address budget of the resend endpoint. Never ``None``,
+        # for the reason ``_unknown_account_store`` is not: a missing store would
+        # not disable the endpoint, it would unbound the mail it sends.
+        self._verification_resend_store: IStepUpThrottleStore = (
+            verification_resend_store if verification_resend_store is not None else DEFAULT_VERIFICATION_RESEND_STORE
+        )
         self._device_pairing_throttle_store: IDevicePairingThrottleStore = (
             device_pairing_throttle_store
             if device_pairing_throttle_store is not None
@@ -456,7 +488,7 @@ class AuthService:
             password_hash=self._password_engine.hash_password(password),
             email_verified=skip_verification,
             email_verification_token=verification_token,
-            email_verification_expires=(None if skip_verification else datetime.now(UTC) + timedelta(hours=24)),
+            email_verification_expires=(None if skip_verification else datetime.now(UTC) + _VERIFICATION_TOKEN_TTL),
         )
         created = self._user_repo.create(user)
 
@@ -713,6 +745,85 @@ class AuthService:
             logger.info("email_verified", email_sha256=email_digest(user.email))
             return self._to_profile(updated)
         raise InvalidTokenError("verification token")
+
+    def resend_verification_email(self, email: str, *, defer_mail: MailDeferrer | None = None) -> None:
+        """Issue a fresh verification link to ``email`` if it still needs one (REQ-023 §3.2b, #2037).
+
+        Anonymous and enumeration-safe: the caller learns nothing from this
+        method — it returns nothing and raises nothing, whatever the address. The
+        request path does the **same work for every address**: one reservation
+        against the per-address budget, then (inside the budget) handing one
+        deferred call to ``defer_mail``. The account lookup, the token write and
+        the mail all run in that call, after the response has been written, so
+        neither a database round trip that only a known address would cause nor a
+        delivery failure can be read off the answer or its duration (#1890 shape,
+        one step further than the password reset, whose lookup still runs inline).
+
+        Nothing is sent, and nothing is reserved, while
+        ``require_email_verification`` is off: there is no gate to get past.
+
+        In the deferred half (:meth:`_send_fresh_verification_link`) a mail goes
+        out only to an account that needs it —
+        exists, is active, is not yet verified, may sign in interactively (not a
+        service account, #1559) and holds a local password (a federated-only
+        account signs in at its provider and is never asked for this). Each send
+        writes a **new** single-use token with a fresh 24-hour expiry, which
+        overwrites — and so invalidates — every link mailed before it.
+
+        Args:
+            email: Submitted address.
+            defer_mail: Runs the deferred call after the response (#1890); see
+                :meth:`_deliver_mail`. ``None`` runs it inline, still without
+                letting a failure out.
+        """
+        if not self._require_email_verification:
+            return
+
+        # Counted before anything is known about the address, for every address
+        # alike: the budget is a property of the submitted string, so reaching it
+        # says nothing about whether an account stands behind it. Silent on
+        # purpose — no log line here, so the request path stays one store call.
+        reserved = self._verification_resend_store.reserve_attempt(_VERIFICATION_RESEND_SUBJECT + email)
+        if reserved > MAX_VERIFICATION_RESENDS_PER_WINDOW:
+            return
+
+        # A bound method through ``partial`` rather than a closure: the deferred
+        # work stays a typed call the write-route detector can follow.
+        self._deliver_mail("verification_resend", partial(self._send_fresh_verification_link, email), defer_mail)
+
+    def _send_fresh_verification_link(self, email: str) -> None:
+        """The deferred half of :meth:`resend_verification_email` — runs after the response.
+
+        Writes a new token over the stored one before mailing it, so every link
+        sent earlier stops working the moment this one is issued.
+        """
+        user: User | None = self._user_repo.get_by_email(email)
+        if user is None or user.key is None or not self._needs_verification_mail(user):
+            return
+        token = token_urlsafe(32)
+        self._user_repo.update_fields(
+            user.key,
+            {
+                "email_verification_token": token,
+                "email_verification_expires": _iso(now_utc() + _VERIFICATION_TOKEN_TTL),
+            },
+        )
+        self._email_service.send_verification_email(
+            to_email=user.email,
+            token=token,
+            frontend_url=self._frontend_url,
+        )
+
+    @staticmethod
+    def _needs_verification_mail(user: User) -> bool:
+        """Whether a verification link is the thing standing between ``user`` and a local sign-in (#2037)."""
+        return (
+            user.is_active
+            and not user.email_verified
+            and bool(user.password_hash)
+            and allows_interactive_auth(user)
+            and not is_tombstone_email(user.email)
+        )
 
     # ── Password reset ──────────────────────────────────────────────────
 

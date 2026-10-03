@@ -582,9 +582,21 @@ class UnsupportedMediaTypeError(KamerplanterError):
 
 
 class EmailNotVerifiedError(KamerplanterError):
+    """403 for a local sign-in whose credential was right but whose address is unverified.
+
+    Raised only after the password was accepted, so it tells nothing to a caller
+    who does not already hold the credential. The message names the way out
+    (#2037): a lost or expired link is replaced through
+    ``POST /api/v1/auth/resend-verification``. Clients key on ``error_code``,
+    not on this wording.
+    """
+
     def __init__(self) -> None:
         super().__init__(
-            message="Email address has not been verified.",
+            message=(
+                "Email address has not been verified. "
+                "You can request a new verification email if the link was lost or has expired."
+            ),
             error_code="EMAIL_NOT_VERIFIED",
             status_code=403,
         )

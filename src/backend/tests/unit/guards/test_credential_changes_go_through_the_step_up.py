@@ -116,6 +116,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "unauthenticated mail path: the token goes only to the account's own address and grants nothing without "
         "that mailbox; refused silently for service accounts"
     ),
+    ("auth_service.py", "AuthService._send_fresh_verification_link"): (
+        "unauthenticated mail path (#2037): replaces the verification token of an unverified local account and "
+        "mails it only to that account's own address — it grants nothing without that mailbox; per-IP and "
+        "per-address limited, refused silently for service and federated-only accounts"
+    ),
     ("auth_service.py", "AuthService.verify_email"): (
         "proof of the mailbox: the verification token was mailed to the address it verifies"
     ),
@@ -298,7 +303,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    25  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link
+    26  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link;
+    # +1 with #2037: _send_fresh_verification_link
 )
 
 
