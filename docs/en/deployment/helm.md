@@ -518,6 +518,8 @@ Kamerplanter checks Apprise targets when saving and again when sending (scheme a
 - Apprise follows HTTP redirects and performs Matrix `.well-known` discovery itself; neither can be controlled in the backend.
 - A small window remains between the DNS check and the actual connection (DNS rebinding).
 
+The DNS resolution behind this check is bounded so that a user with host names that never answer cannot slow others down: saving and sending each have their own pool of 8 threads, one user holds at most 3 of them at a time, and an answer must arrive within 3 s. Anything beyond that is refused at once (fail closed), not queued. Answers are cached briefly per host name (60 s, a failure 10 s). The values are built in; there is no setting for them.
+
 The chart therefore already restricts egress for `backend` and `celery-worker` (`networkpolicies.backend` and `networkpolicies.celery-worker` in `values.yaml`): destination `0.0.0.0/0` excluding `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and `169.254.0.0/16`, on ports 80, 443, 465 and 587 only. This keeps cloud metadata and in-cluster targets out of reach even if a redirect leads there.
 
 !!! warning "A LAN Gotify or ntfy needs its own rule"

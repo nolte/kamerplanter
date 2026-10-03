@@ -519,6 +519,8 @@ Kamerplanter prüft Apprise-Ziele beim Speichern und beim Senden (Schema-Positiv
 - Apprise folgt HTTP-Redirects und führt bei Matrix die `.well-known`-Erkennung selbst aus; beides lässt sich im Backend nicht kontrollieren.
 - Zwischen der DNS-Prüfung und dem Verbindungsaufbau bleibt ein kleines Zeitfenster (DNS-Rebinding).
 
+Die DNS-Auflösung dieser Prüfung ist begrenzt, damit ein Nutzer mit nie antwortenden Hostnamen andere nicht ausbremst: Speichern und Senden haben je einen eigenen Pool mit 8 Threads, ein Nutzer belegt darin höchstens 3 gleichzeitig, und eine Antwort muss innerhalb von 3 s kommen. Was darüber hinausgeht, wird sofort abgelehnt (fail closed), nicht eingereiht. Antworten werden pro Hostname kurz zwischengespeichert (60 s, ein Fehlschlag 10 s). Die Werte sind fest eingebaut; es gibt dafür keine Einstellung.
+
 Das Chart schränkt den Egress von `backend` und `celery-worker` deshalb bereits ein (`networkpolicies.backend` und `networkpolicies.celery-worker` in `values.yaml`): Ziel `0.0.0.0/0` ohne `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` und `169.254.0.0/16`, nur auf den Ports 80, 443, 465 und 587. Das schließt Cloud-Metadaten und Cluster-interne Ziele aus, auch wenn eine Weiterleitung dorthin führt.
 
 !!! warning "LAN-Gotify oder -ntfy braucht eine eigene Regel"
