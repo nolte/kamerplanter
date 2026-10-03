@@ -223,6 +223,7 @@ jobs:
     # job should copy the guarded form.
     if: >-
       always()
+      && needs.node-version.result == 'success'
       && (github.event_name != 'pull_request'
           || needs.changes.result != 'success'
           || needs.changes.outputs.frontend == 'true')
