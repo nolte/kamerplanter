@@ -238,7 +238,7 @@ Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — 
 | Full mode (auth + multi-tenant) <!-- REQ-023 / REQ-024 --> | Backend + Frontend | `KAMERPLANTER_MODE=full` (default) | `JWT_SECRET_KEY`, `FERNET_KEY` (both already mandatory regardless, see above) | — | Yes (via the general backend secrets) |
 | GDPR erasure/anonymization <!-- REQ-025 --> | Backend + Celery Beat | Always active, cannot be disabled | `ERASURE_TOMBSTONE_SALT` | one daily Celery task | Yes (`erasure_tombstone_salt`, always checked) |
 | Log pseudonymization (subject references, email digests) <!-- NFR-011 §3.4 --> | Backend + Celery Worker | Always active, cannot be disabled | `LOG_PSEUDONYM_SALT` — rotatable, independent of `ERASURE_TOMBSTONE_SALT` | — | Yes (`log_pseudonym_salt`, always checked; Celery Beat does not check it) |
-| Email verification at registration | Backend | `REQUIRE_EMAIL_VERIFICATION=true` (default `false`) | Email channel configured (see notification system) | — | No |
+| Email verification at registration | Backend | Active by default (`REQUIRE_EMAIL_VERIFICATION=true`); `false` switches it off | Outbound mail (`EMAIL_ADAPTER=smtp` or `resend`); without it set `false` | — | No |
 | "Have I Been Pwned" check | Backend | `HIBP_ENABLED=true` (default `false`) | — | outbound HTTPS requests on password change | No |
 
 ---

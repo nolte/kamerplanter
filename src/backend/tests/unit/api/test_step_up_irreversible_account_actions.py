@@ -256,6 +256,9 @@ class _World:
             throttle_engine=LoginThrottleEngine(),
             email_service=self.mail,
             frontend_url="http://localhost:5173",
+            # This world seeds its accounts without confirming their addresses;
+            # the verification gate is asserted elsewhere (#1948 made it the default).
+            require_email_verification=False,
             # The real target rules (#1884) over this world's repositories, on the
             # process-wide tiers every unwired service here verifies against.
             step_up_verifier=default_step_up_verifier(

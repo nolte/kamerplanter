@@ -225,8 +225,10 @@ def _enqueue_duplicate_registration_notice(user_key: str) -> None:
       awaits ``response.background``, so no part of this — not the import, not
       the broker publish, not a broker that hangs — falls inside the window a
       caller with a stopwatch measures. That is what keeps the duplicate branch
-      indistinguishable from a genuine registration, which sends no mail at all
-      while ``require_email_verification`` is off.
+      indistinguishable from a genuine registration, which sends no mail inside
+      the request either: none at all with ``require_email_verification`` off,
+      and with it on (the default since #1948) its verification mail is a
+      background task of the same response (#1890).
     * **The import is lazy.** It keeps Celery and the whole task-module graph out
       of the API's import chain until something actually dispatches. Every other
       dispatch site in this codebase does the same.
