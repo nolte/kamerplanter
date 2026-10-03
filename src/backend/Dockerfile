@@ -23,7 +23,7 @@ WORKDIR /app
 # for the source tree, and a venv under /app would (a) be copied wholesale into
 # that chown layer (~420 MB per build, measured) and (b) leave site-packages
 # writable by the UID the server runs as.
-COPY --from=ghcr.io/astral-sh/uv:0.12.22@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1 \

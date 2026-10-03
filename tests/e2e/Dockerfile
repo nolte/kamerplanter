@@ -31,7 +31,7 @@ WORKDIR /app
 # without an activation step. It lives in /opt/venv, OUTSIDE /app, because the
 # stage below chowns /app to UID 1000 and a venv inside it would end up
 # writable by the test user.
-COPY --from=ghcr.io/astral-sh/uv:0.12.22@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1 \
