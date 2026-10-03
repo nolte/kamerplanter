@@ -55,7 +55,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Nein | Gültigkeitsdauer des Refresh-Tokens in Tagen |
 | `SESSION_TOKEN_EXPIRE_HOURS` | `24` | Nein | Gültigkeitsdauer serverseitiger Session-Tokens in Stunden. |
 | `FERNET_KEY` | — | Ja | Fernet-Schlüssel zum Verschlüsseln von OIDC-Provider-Secrets und Integrations-Tokens. **Unabhängig davon, ob OIDC genutzt wird** — der Startup-Gate verweigert den Produktionsstart bei leerem Wert (AP-4, INF-S5). Muss ein gültiger Fernet-Schlüssel sein: 32 Bytes, url-safe base64-kodiert (44 Zeichen) — erzeugt z. B. mit `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Denselben Gate prüft inzwischen auch der Celery-Worker beim Start und verweigert bei `DEBUG=false` ebenfalls den Start, wenn der Wert fehlt oder kein gültiger Fernet-Schlüssel ist — Backend und Celery-Worker müssen denselben Schlüssel verwenden. Wird ein gespeicherter Wert mit einem abweichenden Schlüssel entschlüsselt, schlägt das laut fehl (`SecretKeyMismatchError`), statt den Chiffretext unbemerkt als Zugangsdaten weiterzugeben. |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | Nein | E-Mail-Verifikation bei Registrierung erzwingen |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | Nein | E-Mail-Verifikation bei Registrierung erzwingen. Eine Installation ohne ausgehenden Mailversand setzt `false` ausdrücklich |
 | `HIBP_ENABLED` | `false` | Nein | "Have I Been Pwned"-Prüfung bei Passwortänderung aktivieren |
 | `COOKIE_SECURE` | `true` | Nein | Setzt das `Secure`-Flag auf dem Refresh-Token-Cookie. Nur für reine HTTP-E2E-Testumgebungen ohne TLS auf `false` setzen — in Produktion **immer** `true` belassen. |
 
@@ -728,7 +728,8 @@ JWT_SECRET_KEY=erzeugen-mit-openssl-rand-hex-32
 FERNET_KEY=erzeugen-mit-Fernet.generate_key
 ERASURE_TOMBSTONE_SALT=erzeugen-mit-openssl-rand-hex-32
 LOG_PSEUDONYM_SALT=erzeugen-mit-openssl-rand-hex-32
-REQUIRE_EMAIL_VERIFICATION=false
+# Default true; nur ohne ausgehenden Mailversand auf false setzen
+REQUIRE_EMAIL_VERIFICATION=true
 
 # CORS
 CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]

@@ -264,7 +264,7 @@ class AuthService:
         refresh_token_expire_days: int = 30,
         session_token_expire_hours: int = 24,
         tenant_service: TenantService | None = None,
-        require_email_verification: bool = False,
+        require_email_verification: bool = True,  # matches settings since #1948; wiring passes the setting
         oauth_engine: OAuthEngine | None = None,
         oauth_state_store: RedisOAuthStateStore | None = None,
         api_key_repo: IApiKeyRepository | None = None,

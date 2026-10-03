@@ -294,7 +294,7 @@ Alle Konfiguration erfolgt über Umgebungsvariablen. Die wichtigsten:
 | `JWT_SECRET_KEY` | (kein Default!) | JWT-Signing-Key — in Produktion setzen! |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | Erlaubte CORS-Origins (JSON-Array) |
 | `DEBUG` | `false` | Debug-Modus (kein HSTS, farbige Logs) |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | E-Mail-Verifizierung erzwingen |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | E-Mail-Verifizierung erzwingen (ohne ausgehenden Mailversand: `false`) |
 | `PERENUAL_API_KEY` | `""` | API-Key für Perenual-Stammdatenanreicherung |
 
 !!! danger "JWT_SECRET_KEY in Produktion setzen"

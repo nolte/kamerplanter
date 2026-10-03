@@ -52,7 +52,7 @@ Content-Type: application/json
 }
 ```
 
-After registration, a personal tenant is automatically created. If email verification is active (`REQUIRE_EMAIL_VERIFICATION=true`), the email address must be confirmed before the first login.
+After registration, a personal tenant is automatically created. If email verification is active (`REQUIRE_EMAIL_VERIFICATION=true`, the default), the email address must be confirmed before the first login. An installation without outbound mail sets the variable to `false` explicitly.
 
 ### Email Verification
 
@@ -757,7 +757,7 @@ After multiple failed login attempts, the account is temporarily locked. The API
 | `JWT_ALGORITHM` | `HS256` | JWT signing algorithm (HS256 = HMAC-SHA256) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Access token validity in minutes |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Refresh token validity in days |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | Enforce email verification before first login |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | Enforce email verification before first login. Set it to `false` explicitly without outbound mail |
 | `KAMERPLANTER_MODE` | `full` | `light` disables all authentication |
 | `FERNET_KEY` | — | Encryption key for OIDC provider secrets |
 
