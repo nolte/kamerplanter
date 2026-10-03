@@ -88,7 +88,7 @@ planned → active → harvesting → completed
 
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
-| `tanks` | Water tanks | `name` (unique), `capacity_liters`, `tenant_key` |
+| `tanks` | Water tanks | `name` (unique per tenant), `capacity_liters`, `tenant_key` |
 | `tank_states` | Point-in-time tank snapshots | `ec_ms`, `ph`, `volume_liters`, `recorded_at` |
 | `tank_fill_events` | Tank fill events | `filled_at`, `water_mix_ratio_ro_percent` |
 | `fertilizers` | Fertilizer master data | `tenant_key`, `product_name`, `brand` (unique per tenant and pair; exactly once globally), `mixing_priority` |
@@ -316,7 +316,7 @@ Kamerplanter automatically creates the following indexes on startup:
 | `memberships` | `user_key, tenant_key` | Persistent | Yes |
 | `fertilizers` | `product_name, brand` | Persistent | Yes |
 | `harvest_batches` | `batch_id` | Persistent (sparse) | Yes |
-| `tanks` | `name` | Persistent | Yes |
+| `tanks` | `tenant_key, name` | Persistent | Yes |
 | `refresh_tokens` | `token_hash` | Persistent | Yes |
 | `calendar_feeds` | `token` | Persistent | Yes |
 | `tasks` | `status`, `plant_key` | Persistent | No |

@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.15 (Step-up für Admin-Deaktivierung/Mitglieder-Entfernung festgelegt, #2009)
+Version: 1.16 (Eindeutigkeit in mandantenbezogenen Collections je Mandant, #2029)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.16 | 2026-10-03 | **#2029 umgesetzt:** Ein Unique-Index auf einer mandantenbezogenen Collection gilt je Mandant (Abschnitt „Eindeutigkeit in mandantenbezogenen Collections“). `tanks` ist von `name` auf `(tenant_key, name)` umgestellt (Migration `v0075`, entfernt den Alt-Index auch als `hash`). Ein `409` nennt das kollidierende Feld, nie `tenant_key`. Klassifikation aller Unique-Indizes und Guard `test_tenant_unique_indexes_are_scoped.py`. |
 | 1.15 | 2026-10-03 | **#2009 (Betreiberentscheidung):** Admin-Deaktivierung eines Mandanten und Admin-Entfernung eines Mitglieds verlangen Step-up (AK-56, Umsetzung offen). |
 | 1.14 | 2026-10-03 | **#1949 umgesetzt (brechende API-Änderung):** `DELETE /admin/platform/users/{key}` antwortet `202 Accepted` (Körper `{erasure_key, status, requested_at, message}`) statt `204`. Die Anfrage prüft Step-up und Berechtigung, legt den Löschauftrag an, sperrt das Konto, widerruft Sitzungen und Einladungen und benachrichtigt die anderen Mitglieder der persönlichen Mandanten **jetzt** (Sofortlöschung ohne Karenzzeit bleibt); der Celery-Task `retention.run_account_erasure` beansprucht den Auftrag atomar und führt die Löschung aus — die persönlichen Mandanten über die begrenzten Stapel mit Heartbeat aus §1a.2 (AK-53), danach den ArangoDB-Plan des Kontos. Ein fehlgeschlagener oder unvollständiger Lauf ist kein HTTP-Status mehr, sondern der Auftragsstatus `partially_completed` (täglicher Lauf wiederholt ihn), lesbar über das neue `GET /admin/platform/erasures/{erasure_key}`. Vor dem Schließen des Kontos entschieden und weiter synchron: 401/403/404/422/429 (Step-up, Berechtigung), 409 (ein lebender Lauf hält den Auftrag), 503 (Deployment kann nicht löschen, nichts geändert). |
 | 1.13 | 2026-10-02 | **Q-L3 / AK-55 umgesetzt (#1878):** Migration `v0067_clean_legacy_foreign_references` bereinigt die #1871-Altlasten und `SiteRepository.update_slot` verschiebt die `HAS_SLOT`-Kante mit dem Feld `location_key`. Konservativ: Zeilen, deren Mandant nicht zweifelsfrei feststeht, bleiben liegen und werden gezählt. Die Umhänge-Variante für fremde Kanten entfällt, weil jedes Quell-Dokument denselben fremden Schlüssel auch in einem eigenen Feld trägt — ein eindeutiges richtiges Ziel ist aus dem Bestand nicht ableitbar; die Kante wird gelöscht. Messwerte aus echten Installationen liegen nicht vor (Befund war „vermutet, nicht gemessen“). |
@@ -695,6 +696,22 @@ Alle bestehenden Ressourcen-Collections erhalten ein `tenant_key: str`-Feld:
 | `treatment_applications` | Node | `tenant_key` |
 | `care_profiles` | Node | `tenant_key` (transitiv über PlantInstance) |
 | `workflow_templates` | Node | `tenant_key` (Custom-Templates pro Tenant) |
+
+#### Eindeutigkeit in mandantenbezogenen Collections (#2029)
+
+Ein Unique-Index auf einer Collection, deren Dokumente einem Mandanten gehören, gilt **je Mandant**: Er enthält `tenant_key` oder, bei transitiv zugeordneten Collections, den Elternschlüssel. Ein collection-weiter Unique-Index verweigert Mandant B einen Wert, den Mandant A belegt. Der `409` verrät B außerdem, dass ein anderer Mandant diesen Wert hält. Ein `409` nennt das kollidierende Feld (z. B. `name`), nie `tenant_key`.
+
+| Klasse | Regel | Collections (Stand 2026-10-03) |
+|---|---|---|
+| Mandanteneigen | Unique nur mit `tenant_key` | `tanks` (`tenant_key, name`; bis v0075 `name`), `climate_normals`, `irrigation_demands`, `season_states`, `weather_source_configs`, `memberships`, `mcp_idempotency_record`, `ha_publish_settings` |
+| Hybrid-Katalog | Unique mit `tenant_key`; global (`tenant_key == ""`) genau einmal | `fertilizers` (`tenant_key, product_name, brand`), `species` (`tenant_key, scientific_name_normalized`) |
+| Bewusst mandantenübergreifend eindeutig | Begründung steht im Guard | `calendar_feeds.token`, `invitations.token_hash` (geheimes Token, ohne Mandant aufgelöst), `location_assignments` (`membership_key` gehört genau einem Mandanten), `tasks.care_dedup_key` (berechneter Schlüssel beginnt mit `tenant_key`) |
+| Offen (Defekt dieser Klasse) | Index noch collection-weit | `activities.name`, `workflow_templates.name` (#2027), `species.scientific_name`, `plant_instances.instance_id`, `harvest_batches.batch_id`, `slots.slot_id` |
+| Global / kontobezogen | Collection-weit eindeutig ist korrekt | `botanical_families`, `phase_definitions`, `treatments`, `pests`, `diseases`, `beneficials`, `fish_species`, `starter_kits`, `glossary_terms`, `hardiness_zones`, Konto- und Credential-Collections |
+
+`pests`, `diseases` und `treatments` tragen heute kein `tenant_key` (nur `origin`). Werden tenant-eigene Einträge nach dem Stammdaten-Scoping unten umgesetzt, fallen ihre Unique-Indizes in die erste oder zweite Klasse.
+
+Der Guard `src/backend/tests/unit/guards/test_tenant_unique_indexes_are_scoped.py` leitet die Klasse ab. Er nimmt jeden Unique-Index, den `ensure_collections` anlegt, und die mandantenbezogenen Collections aus der Modellableitung. Ein neuer collection-weiter Unique-Index auf einer solchen Collection schlägt fehl, bis er mandantenbezogen ist oder mit Begründung deklariert wird. Die Liste der offenen Einträge darf nur schrumpfen.
 
 <!-- Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
 **Globale Collections mit Stammdaten-Scoping (`tenant_has_access`):**
