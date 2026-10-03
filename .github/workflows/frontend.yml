@@ -171,11 +171,12 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Node 22 bundles npm 10, which resolves optional peers differently from the
-      # npm 11 that writes the lockfile; keep CI on the current npm.
+      # npm is the one bundled with the Node version of .tool-versions (npm 11 for
+      # Node 25), i.e. the same npm that writes the lockfile locally. Do not
+      # `npm install -g npm@latest`: npm 12 refuses Node 25 (EBADENGINE).
       - name: Install dependencies
         if: env.RUN_FRONTEND == 'true'
-        run: npm install -g npm@latest && npm ci
+        run: npm ci
 
       # Invoked through the Taskfile (continuous-integration §E). `lint:frontend`
       # previously linted only `src/` while this job linted the whole project, so
@@ -231,7 +232,7 @@ jobs:
     with:
       node-version: ${{ needs.node-version.outputs.version }}
       working-directory: src/frontend
-      install-command: npm install -g npm@latest && npm ci
+      install-command: npm ci
       test-command: npm run test:coverage
       fail-under: 80
 
