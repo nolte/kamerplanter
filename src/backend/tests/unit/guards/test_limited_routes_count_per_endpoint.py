@@ -24,6 +24,7 @@ old style.
 
 from __future__ import annotations
 
+import gc
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -64,6 +65,20 @@ def _limited_routes(limiter: Limiter) -> list[tuple[str, APIRoute]]:
     return [(path, route) for path, route in _leaf_routes(app.router.routes) if _name(route) in names]
 
 
+def _app_limiters() -> list[Limiter]:
+    """Every ``Limiter`` alive after the app is assembled that limits one of its routes.
+
+    Found on the heap rather than imported by name, so a limiter added in a
+    module this guard never heard of — ``/api/health`` has its own since #2048 —
+    is measured too.
+    """
+    from app.main import app
+
+    names = {_name(route) for _, route in _leaf_routes(app.router.routes)}
+    found = [obj for obj in gc.get_objects() if isinstance(obj, Limiter)]
+    return [each for each in found if names & (set(each._route_limits) | set(each._dynamic_route_limits))]
+
+
 def _variants(path: str) -> tuple[str, str]:
     if _PATH_PARAMETER.search(path):
         return _PATH_PARAMETER.sub("value-a", path), _PATH_PARAMETER.sub("value-b", path)
@@ -95,21 +110,25 @@ def _bucket(limiter: Limiter, route: APIRoute, path: str) -> tuple[str, ...]:
 def shared_limiter() -> Iterator[Limiter]:
     from app.api.v1.auth.router import limiter
 
-    limiter.reset()
+    limiters = _app_limiters()
+    for each in limiters:
+        each.reset()
     yield limiter
-    limiter.reset()
+    for each in limiters:
+        each.reset()
 
 
 def test_every_limited_route_counts_one_bucket_whatever_the_path_says(shared_limiter: Limiter) -> None:
-    limited = _limited_routes(shared_limiter)
-    reached = {_name(route) for _, route in limited}
+    limited = [(limiter, path, route) for limiter in _app_limiters() for path, route in _limited_routes(limiter)]
+    reached = {_name(route) for _, _, route in limited}
     assert reached >= _MEASURED_ROUTES, f"the walk missed {sorted(_MEASURED_ROUTES - reached)}"
+    assert "app.main.root_health" in reached, "the walk missed the limiter of /api/health"
     assert len(limited) >= 15, len(limited)
 
     split = []
-    for path, route in limited:
+    for limiter, path, route in limited:
         first, second = _variants(path)
-        if _bucket(shared_limiter, route, first) != _bucket(shared_limiter, route, second):
+        if _bucket(limiter, route, first) != _bucket(limiter, route, second):
             split.append(f"{sorted(route.methods or [])} {path} ({_name(route)})")
 
     assert not split, "these limited routes open a fresh bucket per path value:\n" + "\n".join(split)

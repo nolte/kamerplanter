@@ -51,20 +51,32 @@ limiter only. The mail-budget stores of the sign-in routes use the same client
 options (:func:`bounded_redis_client_options`) but have no probe plan: they try
 Valkey on every request, so while it hangs every request that reaches one of
 them waits one socket timeout per store call before it falls back.
+
+**Off the event loop (#2048).** slowapi runs the limit check synchronously,
+also inside the wrapper of an ``async def`` route — there it is a storage round
+trip on the event loop, and every other request of the process waits behind it
+(measured: 0.007 s → 0.935 s for an unrelated async route while three limited
+async requests met a storage answering in 0.3 s). :class:`OffLoopLimiter` runs
+the check of an ``async`` route through ``run_in_threadpool``, where the check
+of every ``def`` route already runs. ``GET /api/health`` does not use the shared
+storage at all: :func:`build_process_memory_rate_limiter`.
 """
 
 from __future__ import annotations
 
+import asyncio
+import functools
 import threading
 import time
 from collections.abc import Callable
-from typing import Final, Literal, TypeVar
+from typing import Any, Final, Literal, TypeVar
 
 import structlog
 from limits.storage import MemoryStorage, Storage, storage_from_string
 from redis.backoff import NoBackoff
 from redis.retry import Retry
 from slowapi import Limiter
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 
 from app.config.settings import (
@@ -302,6 +314,69 @@ def bounded_redis_client_options() -> dict[str, object]:
     }
 
 
+#: Set on the wrapper :class:`OffLoopLimiter` puts around an ``async`` route, so a
+#: guard can tell a route whose check runs in the threadpool from one whose check
+#: runs on the event loop (``tests/unit/guards/test_async_limited_routes_check_off_the_loop.py``).
+LIMIT_CHECK_OFF_LOOP_ATTRIBUTE = "_kp_limit_check_off_loop"
+
+
+class OffLoopLimiter(Limiter):
+    """A slowapi ``Limiter`` whose ``async`` routes run the limit check in the threadpool (#2048).
+
+    slowapi's ``async_wrapper`` calls the synchronous ``_check_request_limit``
+    directly, so against a networked storage every check of an ``async def``
+    route blocks the event loop for a round trip — a socket timeout while the
+    storage hangs. This limiter puts one more wrapper around such a route: it
+    runs the same check through ``run_in_threadpool`` and marks the request as
+    checked (``request.state._rate_limiting_complete``, slowapi's own flag), so
+    slowapi's wrapper skips its own check and only adds its headers.
+
+    ``def`` routes are unchanged: FastAPI already runs them, check included, in
+    the threadpool. A call that does not pass ``request`` by keyword — FastAPI
+    always does — falls through to slowapi's own (on-loop) check rather than
+    going unchecked.
+    """
+
+    def limit(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
+        decorate = super().limit(*args, **kwargs)
+
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            wrapped = decorate(func)
+            if not asyncio.iscoroutinefunction(func):
+                return wrapped
+
+            @functools.wraps(func)
+            async def check_off_the_loop(*call_args: Any, **call_kwargs: Any) -> Any:
+                request = call_kwargs.get("request")
+                if (
+                    self.enabled
+                    and self._auto_check
+                    and isinstance(request, Request)
+                    and not getattr(request.state, "_rate_limiting_complete", False)
+                ):
+                    await run_in_threadpool(self._check_request_limit, request, func, False)
+                    request.state._rate_limiting_complete = True
+                return await wrapped(*call_args, **call_kwargs)
+
+            setattr(check_off_the_loop, LIMIT_CHECK_OFF_LOOP_ATTRIBUTE, True)
+            return check_off_the_loop
+
+        return decorator
+
+
+def build_process_memory_rate_limiter(key_func: Callable[[Request], str]) -> Limiter:
+    """Build a limiter that counts in this process's memory only, whatever the settings say (#2048).
+
+    For ``GET /api/health``: an unauthenticated M2M endpoint whose limit bounds
+    amplification into internal services (SEC-003), not a security budget that
+    must hold across replicas. Counting it in the shared storage cost every
+    health request a Valkey round trip, and a socket timeout during an outage —
+    the moment an operator or a client asks whether the backend is healthy.
+    Per process, the bound is ``rate_limit_health`` times the process count.
+    """
+    return OffLoopLimiter(key_func=key_func, storage_uri="memory://", key_style=LIMITER_KEY_STYLE)
+
+
 def build_rate_limiter(key_func: Callable[[Request], str], *, storage_url: str | None = None) -> Limiter:
     """Build a slowapi ``Limiter`` that counts in a shared storage and degrades per process.
 
@@ -315,8 +390,8 @@ def build_rate_limiter(key_func: Callable[[Request], str], *, storage_url: str |
             :data:`~app.config.settings.RATE_LIMIT_STORAGE_SCHEMES`.
 
     Returns:
-        The configured limiter. ``memory://`` is used as it is; any other
-        storage is wrapped in :class:`FailoverStorage`.
+        The configured :class:`OffLoopLimiter`. ``memory://`` is used as it is;
+        any other storage is wrapped in :class:`FailoverStorage`.
 
     Raises:
         RateLimitStorageConfigError: The URI cannot be used as a storage. The
@@ -339,12 +414,12 @@ def build_rate_limiter(key_func: Callable[[Request], str], *, storage_url: str |
                 "rate_limit_storage_counts_per_process",
                 detail="IP rate limits count per process; every replica and worker grants the full budget",
             )
-        return Limiter(key_func=key_func, storage_uri=uri, key_style=LIMITER_KEY_STYLE)
+        return OffLoopLimiter(key_func=key_func, storage_uri=uri, key_style=LIMITER_KEY_STYLE)
 
     options: dict[str, object] = {"primary_uri": uri}
     if _scheme(uri) in _REDIS_SCHEMES:
         options.update(bounded_redis_client_options())
-    return Limiter(
+    return OffLoopLimiter(
         key_func=key_func,
         key_style=LIMITER_KEY_STYLE,
         storage_uri=f"{_FAILOVER_SCHEME}://",
