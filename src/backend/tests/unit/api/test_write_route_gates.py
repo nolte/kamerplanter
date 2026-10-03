@@ -44,6 +44,7 @@ from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
 from tests.unit.api._write_call_graph import (
+    CallGraph,
     call_graph,
     direct_writers,
     persists,
@@ -2368,6 +2369,138 @@ class TestTheDetectorCanFail:
 
         assert pathlib.Path(app.__file__).resolve().parent == APP_ROOT
         assert call_graph().modules_parsed > 500
+
+
+#: Receivers whose type IS written down, in a spelling the detector used to
+#: read as untyped. Each `run_*` handler makes exactly one call on such a
+#: receiver; a detector that types it links the handler to
+#: `InventedRepository.create`, one that does not counts it as unresolved and,
+#: since `create` is write vocabulary, guesses by name instead.
+_RECEIVER_SPELLINGS_TREE = {
+    **_SYNTHETIC_TREE,
+    "domain/receiver_spellings.py": """
+from app.data_access.invented_repository import InventedRepository
+
+
+class Holder:
+    def __init__(self, repo: InventedRepository | None = None, other: InventedRepository | None = None) -> None:
+        self._defaulted = repo or InventedRepository(None)
+        self._conditional = other if other is not None else InventedRepository(None)
+        self._raw = repo
+
+    @property
+    def exposed(self) -> InventedRepository:
+        return InventedRepository(None)
+
+    @staticmethod
+    def build(key: str) -> dict:
+        return {"key": key}
+
+
+def run_loop(repos: list[InventedRepository]):
+    for repo in repos:
+        repo.create({})
+
+
+def run_comprehension(repos: list[InventedRepository]):
+    return [repo.create({}) for repo in repos]
+
+
+def run_class_name(key: str):
+    return Holder.build(key)
+
+
+def run_bool_op(repo: InventedRepository | None):
+    (repo or InventedRepository(None)).create({})
+
+
+def run_defaulted_attribute(holder: Holder):
+    holder._defaulted.create({})
+
+
+def run_conditional_attribute(holder: Holder):
+    holder._conditional.create({})
+
+
+def run_property(holder: Holder):
+    holder.exposed.create({})
+
+
+def control_unparameterised_loop(repos: list):
+    for repo in repos:
+        repo.create({})
+
+
+def control_dict_loop(repos: dict[str, InventedRepository]):
+    for name in repos:
+        name.create({})
+""",
+}
+
+
+class TestTheDetectorTypesWhatIsWrittenDown:
+    """Spellings of an annotated receiver the detector read as untyped (unresolved-count headroom).
+
+    Each of these was counted by `unresolved_call_count()` although the type was
+    in the source: a loop variable over `list[Repo]`, a comprehension variable, a
+    class named as the receiver of its own static method, `a or b`, a `self.X`
+    defaulted with `or` / `if … else` in `__init__`, and a `@property` with a
+    return annotation. Against the detector before this change every `run_*`
+    assertion here fails — measured, not assumed — and the two controls hold the
+    line the other way: a loop over an unparameterised `list` or over a `dict`
+    (whose iteration yields KEYS) must stay untyped and keep its name fallback.
+    """
+
+    @pytest.fixture
+    def graph(self, tmp_path: pathlib.Path) -> CallGraph:
+        for relative, source in _RECEIVER_SPELLINGS_TREE.items():
+            target = tmp_path / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source, encoding="utf-8")
+        graph = CallGraph()
+        graph.parse_tree(tmp_path)
+        graph.link()
+        return graph
+
+    @staticmethod
+    def _typed_callees(graph: CallGraph, function_name: str) -> set[str]:
+        caller = graph.by_id[f"app.domain.receiver_spellings::{function_name}"]
+        return {callee.id for callee in caller.callees if (caller.id, callee.id) not in graph.fallback_edges}
+
+    @pytest.mark.parametrize(
+        "function_name",
+        [
+            "run_loop",
+            "run_comprehension",
+            "run_bool_op",
+            "run_defaulted_attribute",
+            "run_conditional_attribute",
+            "run_property",
+        ],
+    )
+    def test_the_receiver_resolves_by_its_written_type(self, graph: CallGraph, function_name: str) -> None:
+        callees = self._typed_callees(graph, function_name)
+        caller = graph.by_id[f"app.domain.receiver_spellings::{function_name}"]
+
+        assert "app.data_access.invented_repository::InventedRepository.create" in callees, (
+            f"{function_name}: the receiver's type is written down but the call did not resolve by it; "
+            f"callees={sorted(callees)}, unresolved={caller.unresolved}"
+        )
+        assert "create" not in caller.unresolved
+
+    def test_a_class_named_as_receiver_resolves_to_its_static_method(self, graph: CallGraph) -> None:
+        assert self._typed_callees(graph, "run_class_name") == {"app.domain.receiver_spellings::Holder.build"}
+
+    @pytest.mark.parametrize("function_name", ["control_unparameterised_loop", "control_dict_loop"])
+    def test_a_loop_variable_without_an_element_type_stays_untyped(self, graph: CallGraph, function_name: str) -> None:
+        """The guard against over-reach: typing these would SILENCE the name fallback."""
+        caller = graph.by_id[f"app.domain.receiver_spellings::{function_name}"]
+
+        assert caller.unresolved == ["create"], f"{function_name}: {caller.unresolved}"
+        assert self._typed_callees(graph, function_name) == set()
+        assert any(edge[0] == caller.id for edge in graph.fallback_edges), (
+            f"{function_name}: an untyped write-vocabulary call no longer falls back by name"
+        )
 
 
 class TestPersistingReadsAreSweptLikeWrites:

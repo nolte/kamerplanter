@@ -9,6 +9,7 @@ import qrcode
 import qrcode.constants
 import structlog
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from PIL import Image
 from weasyprint import HTML
 
 logger = structlog.get_logger(__name__)
@@ -195,9 +196,11 @@ class PrintEngine:
         qr.add_data(url)
         qr.make(fit=True)
 
-        img = qr.make_image(fill_color="black", back_color="white")
-        # Resize to target pixel dimensions
-        img = img.resize((target_pixels, target_pixels))
+        qr_image = qr.make_image(fill_color="black", back_color="white")
+        # Resize to target pixel dimensions. The resized value is a plain Pillow
+        # image; the annotation keeps `img.save(...)` below from reading as an
+        # untyped receiver of the repository write vocabulary (#1443 detector).
+        img: Image.Image = qr_image.resize((target_pixels, target_pixels))
 
         buffer = BytesIO()
         img.save(buffer, format="PNG")
