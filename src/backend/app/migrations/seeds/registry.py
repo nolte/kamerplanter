@@ -8,19 +8,57 @@ Fatal jobs (structurally required reference data — e.g. location types) abort 
 startup when they fail.  Non-fatal reference-data seeds are isolated: a failure is
 logged as ``seed_failed`` and the remaining seeds still run (S-2), so a single bad
 seed file can no longer wedge the whole startup.
+
+**One seeding replica at a time (#2028).** Most loaders look a row up by name and
+create it when absent, on collections without a unique index for that identity. Two
+replicas booting together both read "absent" and both create: a measured concurrent
+first boot left 40 phase sequences instead of 21, 66 nutrient plans instead of 38,
+and the replica that lost the ``location_types`` insert race aborted its startup.
+:func:`run_seeds` therefore runs under the migration lock (``tracking``), the same
+document the versioned migrations already serialise on — no second lock:
+
+* the replica that holds the lock seeds; it renews the lock after every job
+  (:func:`~app.migrations.framework.tracking.refresh_lock`) and records the completed
+  run in ``schema_migrations/__seed_run__`` before releasing;
+* a replica that finds the lock held waits, polling like the migration barrier
+  (``BARRIER_TIMEOUT_SECONDS``). When it gets the lock and a run with the same seed
+  inputs (:func:`seed_fingerprint`) and no failed job completed while it waited, it
+  does not seed again: the other replica's run is the one this boot needed. Otherwise
+  (no run completed meanwhile, other seed inputs, a failed job) it seeds itself, which
+  is safe because it is now the only seeder;
+* a holder that crashes leaves a lock that goes stale after ``LOCK_TTL_SECONDS``; a
+  waiter takes it over (revision-checked, as for migrations) and seeds. The crashed
+  run recorded nothing, so nobody skips on its account;
+* a holder that finds its lock taken over between two jobs stops with
+  :class:`SeedLockLostError` instead of seeding beside the new holder;
+* a waiter that does not get the lock within the budget fails startup with
+  :class:`SeedBarrierTimeoutError` (readiness fails, the pod restarts) rather than
+  skipping the seeds silently: on a fresh volume that would serve an application
+  without its reference data.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import hashlib
+import time
+import uuid
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import structlog
 from arango.database import StandardDatabase
 
 from app.config.settings import settings
+from app.migrations.framework import tracking
+from app.migrations.framework.report import MigrationLockError, SeedBarrierTimeoutError, SeedLockLostError
+from app.migrations.framework.runner import BARRIER_POLL_INTERVAL_SECONDS, BARRIER_TIMEOUT_SECONDS
 
 logger = structlog.get_logger()
+
+#: ``app/migrations``: the seed loaders and their ``seed_data`` files live here.
+_MIGRATIONS_DIR = Path(__file__).resolve().parents[1]
 
 
 @dataclass(frozen=True)
@@ -122,14 +160,82 @@ def _build_jobs() -> list[SeedJob]:
     return jobs
 
 
-def run_seeds(db: StandardDatabase, jobs: list[SeedJob] | None = None) -> None:
-    """Run the seed registry with per-seed error isolation (S-2).
+def seed_fingerprint(job_names: Iterable[str], root: Path = _MIGRATIONS_DIR) -> str:
+    """A digest of what a seed run applies: the job list, the loaders and their data files.
 
-    ``jobs`` may be injected for testing; otherwise the default registry is built.
-    Fatal-job failures propagate (aborting startup); non-fatal failures are logged
-    and skipped so the remaining seeds and the app still start.
+    Two replicas of the same image compute the same value; a replica of another image
+    (a rolling update racing a restart) computes another, so it never skips a run
+    whose inputs differ from its own. Covers ``app/migrations/*.py`` (the loaders),
+    ``seeds/`` and every file under ``seed_data/``.
     """
-    for job in jobs if jobs is not None else _build_jobs():
+    digest = hashlib.sha256()
+    for name in job_names:
+        digest.update(name.encode())
+        digest.update(b"\0")
+    files = sorted([*root.glob("*.py"), *(root / "seeds").glob("*.py"), *(root / "seed_data").rglob("*")])
+    for path in files:
+        if path.is_file():
+            digest.update(path.relative_to(root).as_posix().encode())
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+class _Uncontended:
+    """Sentinel: the lock was free on the first attempt, nobody else was seeding."""
+
+
+_UNCONTENDED = _Uncontended()
+
+
+def _acquire_seed_lock(db: StandardDatabase) -> tuple[str, dict[str, Any] | None | _Uncontended]:
+    """Take the migration lock, waiting (bounded) while another replica holds it.
+
+    Returns the owner token and what this replica knew about the last seed run when it
+    started to wait — :data:`_UNCONTENDED` if it never had to.
+    """
+    deadline = time.monotonic() + BARRIER_TIMEOUT_SECONDS
+    seen: dict[str, Any] | None | _Uncontended = _UNCONTENDED
+    attempt = 0
+    while True:
+        try:
+            return tracking.acquire_lock(db), seen
+        except MigrationLockError:
+            if isinstance(seen, _Uncontended):
+                # Read once, after the first refusal: a run recorded after this read
+                # completed while we waited. A run that completed between the refusal
+                # and this read is missed, which only costs a redundant re-seed.
+                seen = tracking.seed_run_marker(db)
+            attempt += 1
+            if time.monotonic() >= deadline:
+                raise SeedBarrierTimeoutError(
+                    f"Timed out waiting for the seeding replica to release the lock (attempts={attempt})"
+                ) from None
+            logger.info("seeds_locked_by_other_runner_waiting", attempt=attempt)
+            time.sleep(BARRIER_POLL_INTERVAL_SECONDS)
+
+
+def _seeded_while_waiting(
+    seen: dict[str, Any] | None | _Uncontended, current: dict[str, Any] | None, fingerprint: str
+) -> bool:
+    """Whether a complete, failure-free run of these seed inputs finished while we waited."""
+    if isinstance(seen, _Uncontended) or current is None:
+        return False
+    seen_run = seen.get("run_id") if seen is not None else None
+    return (
+        current.get("run_id") != seen_run
+        and current.get("fingerprint") == fingerprint
+        and not current.get("failed_jobs")
+    )
+
+
+def _run_jobs(db: StandardDatabase, jobs: list[SeedJob], owner: str) -> list[str]:
+    """Run the jobs in order with per-seed isolation (S-2); return the names that failed.
+
+    The lock is renewed after every job; a lock that is no longer ours stops the run.
+    """
+    failed: list[str] = []
+    for job in jobs:
         try:
             job.run(db)
             logger.info("seed_completed", seed=job.name)
@@ -138,3 +244,30 @@ def run_seeds(db: StandardDatabase, jobs: list[SeedJob] | None = None) -> None:
                 logger.critical("seed_failed_fatal", seed=job.name, exc_info=True)
                 raise
             logger.error("seed_failed", seed=job.name, exc_info=True)
+            failed.append(job.name)
+        if not tracking.refresh_lock(db, owner):
+            raise SeedLockLostError(f"the migration lock was taken over while seeding (after seed={job.name})")
+    return failed
+
+
+def run_seeds(db: StandardDatabase, jobs: list[SeedJob] | None = None) -> None:
+    """Run the seed registry under the migration lock, with per-seed error isolation (S-2).
+
+    ``jobs`` may be injected for testing; otherwise the default registry is built.
+    Fatal-job failures propagate (aborting startup); non-fatal failures are logged
+    and skipped so the remaining seeds and the app still start. Concurrency, waiting,
+    the skip after another replica's run and the failure modes: module docstring
+    (#2028).
+    """
+    selected = jobs if jobs is not None else _build_jobs()
+    fingerprint = seed_fingerprint(job.name for job in selected)
+    owner, seen = _acquire_seed_lock(db)
+    try:
+        current = tracking.seed_run_marker(db)
+        if _seeded_while_waiting(seen, current, fingerprint):
+            logger.info("seeds_completed_by_other_replica", run_id=current.get("run_id") if current else None)
+            return
+        failed = _run_jobs(db, selected, owner)
+        tracking.record_seed_run(db, run_id=str(uuid.uuid4()), fingerprint=fingerprint, failed_jobs=failed)
+    finally:
+        tracking.release_lock(db, owner)
