@@ -24,10 +24,11 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeoutError
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from urllib.parse import unquote_plus, urlsplit
 
 import structlog
@@ -710,7 +711,142 @@ _APPRISE_HOST_SCHEMES = frozenset({"gotify", "gotifys", "matrix", "matrixs"})
 _APPRISE_NTFY_SCHEMES = frozenset({"ntfy", "ntfys"})
 #: Schemes whose syntax has no use for ``#``; elsewhere it names a channel or room.
 _APPRISE_NO_FRAGMENT_SCHEMES = frozenset({"gotify", "gotifys", "ntfy", "ntfys"})
-_resolver_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="apprise-dns")
+
+#: Threads per resolver lane. A ``getaddrinfo`` against a nameserver that never
+#: answers holds its thread for the system resolver's own timeout (10-30 s);
+#: ``Future.cancel`` cannot stop it (#1995).
+APPRISE_RESOLVER_WORKERS = 8
+#: Resolutions one owner (the user whose URL list it is) may have running in one
+#: lane at a time. A running resolution keeps its slot until its thread returns —
+#: past the request's deadline — so never-answering names hold at most this many
+#: threads per owner. Beyond it a host is refused at once (as a timeout), never
+#: queued (#1995).
+APPRISE_RESOLUTIONS_PER_OWNER = 3
+#: Seconds a resolver answer is reused: an address list (``ok`` or ``blocked``),
+#: and a failure (NXDOMAIN, resolver error). A *timeout* is never cached: it says
+#: nothing about the name, and caching it would refuse a legitimate host for a
+#: slow moment of the nameserver. A stuck lookup that ends after the deadline
+#: caches what it ended with, under these TTLs.
+APPRISE_RESOLVE_CACHE_TTL_SECONDS = 60.0
+APPRISE_RESOLVE_NEGATIVE_CACHE_TTL_SECONDS = 10.0
+#: Host names the cache holds at most; the oldest entry goes first.
+APPRISE_RESOLVE_CACHE_MAX_ENTRIES = 1024
+
+
+class _HostCache:
+    """Recent resolver answers per host name: address tuple, or ``None`` for a failure.
+
+    Bounded, thread-safe, clock injectable. Reusing an answer does not widen the
+    DNS-rebinding window: Apprise resolves again when it connects, so a name can
+    flip between check and connect with or without the cache.
+    """
+
+    def __init__(
+        self,
+        *,
+        ttl: float = APPRISE_RESOLVE_CACHE_TTL_SECONDS,
+        negative_ttl: float = APPRISE_RESOLVE_NEGATIVE_CACHE_TTL_SECONDS,
+        max_entries: int = APPRISE_RESOLVE_CACHE_MAX_ENTRIES,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._ttl = ttl
+        self._negative_ttl = negative_ttl
+        self._max_entries = max_entries
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._entries: OrderedDict[str, tuple[float, tuple[str, ...] | None]] = OrderedDict()
+
+    def lookup(self, host: str) -> tuple[bool, tuple[str, ...] | None]:
+        """``(hit, addresses)``; ``addresses`` is ``None`` for a cached failure."""
+        key = host.lower()
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None:
+                return False, None
+            expires, addresses = entry
+            if self._clock() >= expires:
+                del self._entries[key]
+                return False, None
+            return True, addresses
+
+    def store(self, host: str, addresses: tuple[str, ...] | None) -> None:
+        """Remember an answer (``None`` = the name failed to resolve)."""
+        key = host.lower()
+        ttl = self._ttl if addresses else self._negative_ttl
+        with self._lock:
+            self._entries.pop(key, None)
+            self._entries[key] = (self._clock() + ttl, addresses or None)
+            while len(self._entries) > self._max_entries:
+                self._entries.popitem(last=False)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._entries)
+
+
+class _ResolverLane:
+    """A resolver thread pool that never queues and caps each owner (#1995).
+
+    At most ``workers`` resolutions run at once, so a submitted one always has a
+    thread and never waits behind a stuck lookup; at most ``per_owner`` of them
+    belong to one owner. A slot is held until the resolution *ends* (returns,
+    raises or is cancelled), not until the caller stops waiting.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        workers: int = APPRISE_RESOLVER_WORKERS,
+        per_owner: int = APPRISE_RESOLUTIONS_PER_OWNER,
+    ) -> None:
+        self.name = name
+        self._workers = workers
+        self._per_owner = per_owner
+        self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=f"apprise-dns-{name}")
+        self._lock = threading.Lock()
+        self._by_owner: dict[str, int] = {}
+        self._running = 0
+
+    def try_submit(self, owner_key: str, fn: Callable[[str], list[str]], host: str) -> Future[list[str]] | None:
+        """Start ``fn(host)`` for ``owner_key``; ``None`` when the owner or the lane is full."""
+        with self._lock:
+            if self._running >= self._workers or self._by_owner.get(owner_key, 0) >= self._per_owner:
+                return None
+            self._by_owner[owner_key] = self._by_owner.get(owner_key, 0) + 1
+            self._running += 1
+        try:
+            future = self._pool.submit(fn, host)
+        except BaseException:
+            self._release(owner_key)
+            raise
+        future.add_done_callback(lambda _done: self._release(owner_key))
+        return future
+
+    def outstanding(self, owner_key: str | None = None) -> int:
+        """Resolutions still running — of ``owner_key``, or of the whole lane."""
+        with self._lock:
+            return self._running if owner_key is None else self._by_owner.get(owner_key, 0)
+
+    def _release(self, owner_key: str) -> None:
+        with self._lock:
+            self._running -= 1
+            left = self._by_owner.get(owner_key, 0) - 1
+            if left > 0:
+                self._by_owner[owner_key] = left
+            else:
+                self._by_owner.pop(owner_key, None)
+
+
+_resolution_cache = _HostCache()
+#: Save (a user's PUT) and send (delivery) resolve in separate lanes, so a burst
+#: of saves cannot hold the threads delivery needs, nor the other way round.
+_save_lane = _ResolverLane("save")
+_send_lane = _ResolverLane("send")
 
 
 def resolve_host_addresses(host: str) -> list[str]:
@@ -785,44 +921,100 @@ def _apprise_host_to_resolve(url: str) -> tuple[str, bool] | None:
     return None
 
 
-def _apprise_resolution_refusals(urls: list[str]) -> dict[int, str]:
+def _apprise_resolved_verdict(addresses: tuple[str, ...] | None) -> str:
+    """``ok`` / ``blocked`` / ``unresolvable`` for a resolver answer (``None`` = failed)."""
+    if not addresses:
+        return "unresolvable"
+    try:
+        parsed = [ipaddress.ip_address(a.split("%", 1)[0]) for a in addresses]
+    except ValueError:
+        return "unresolvable"
+    if any(_is_apprise_blocked_address(a, resolved=True) for a in parsed):
+        return "blocked"
+    return "ok"
+
+
+def _apprise_answer(future: Future[list[str]]) -> tuple[str, ...] | None:
+    """The address tuple a finished resolution returned; ``None`` when it raised."""
+    try:
+        return tuple(str(a) for a in future.result(timeout=0))
+    except Exception:
+        return None
+
+
+def _apprise_cache_on_end(host: str) -> Callable[[Future[list[str]]], None]:
+    """Done-callback: cache what a resolution ended with — also after the deadline."""
+
+    def _store(future: Future[list[str]]) -> None:
+        if not future.cancelled():
+            _resolution_cache.store(host, _apprise_answer(future))
+
+    return _store
+
+
+def _apprise_resolve_hosts(hosts: list[str], *, owner_key: str, lane: _ResolverLane) -> dict[str, str]:
+    """Host -> ``ok`` / ``blocked`` / ``unresolvable`` / ``timeout``, within one deadline.
+
+    Cached answers first. The rest runs in ``lane`` under ``owner_key``'s slots:
+    when no slot is free and nothing of this call is running, the remaining hosts
+    are refused at once; otherwise they take the slot the next finished lookup of
+    this call frees, until the deadline.
+    """
+    verdict: dict[str, str] = {}
+    pending: list[str] = []
+    for host in hosts:
+        hit, addresses = _resolution_cache.lookup(host)
+        if hit:
+            verdict[host] = _apprise_resolved_verdict(addresses)
+        else:
+            pending.append(host)
+    resolve: Callable[[str], list[str]] = resolve_host_addresses
+    deadline = time.monotonic() + APPRISE_RESOLVE_TIMEOUT_SECONDS
+    running: dict[Future[list[str]], str] = {}
+    capped = 0
+    while pending:
+        while pending and (future := lane.try_submit(owner_key, resolve, pending[0])) is not None:
+            future.add_done_callback(_apprise_cache_on_end(pending[0]))
+            running[future] = pending.pop(0)
+        if not pending:
+            break
+        if not running:  # the owner's share (or the lane) is held by earlier calls
+            capped = len(pending)
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        done, _ = wait(running, timeout=remaining, return_when=FIRST_COMPLETED)
+        if not done:
+            break
+        for future in done:
+            verdict[running.pop(future)] = _apprise_resolved_verdict(_apprise_answer(future))
+    if running:
+        finished, _ = wait(running, timeout=max(0.0, deadline - time.monotonic()))
+        for future, host in running.items():
+            verdict[host] = _apprise_resolved_verdict(_apprise_answer(future)) if future in finished else "timeout"
+    for host in pending:
+        verdict[host] = "timeout"
+    if capped:
+        logger.warning("apprise_resolution_capped", lane=lane.name, refused_hosts=capped)
+    return verdict
+
+
+def _apprise_resolution_refusals(urls: list[str], *, owner_key: str, lane: _ResolverLane) -> dict[int, str]:
     """Index -> reason for every URL whose host resolves to blocked space, or not at all.
 
     All distinct hosts are resolved concurrently under one shared deadline, so a
-    list of ten slow names costs one timeout, not ten. Fail closed: NXDOMAIN
-    (except for a possible ntfy topic), a resolver error and a timeout each refuse
-    the URL. A DNS-rebinding window remains between this check and the connect
-    Apprise performs itself.
+    list of ten slow names costs one timeout, not ten — within ``owner_key``'s
+    share of ``lane`` (#1995). Fail closed: NXDOMAIN (except for a possible ntfy
+    topic), a resolver error, a timeout and a host over the owner's share each
+    refuse the URL; the last two read alike. A DNS-rebinding window remains
+    between this check and the connect Apprise performs itself.
     """
     targets = {i: t for i, u in enumerate(urls) if (t := _apprise_host_to_resolve(u)) is not None}
     if not targets:
         return {}
-    resolve: Callable[[str], list[str]] = resolve_host_addresses
-    futures = {h: _resolver_pool.submit(resolve, h) for h in {host for host, _ in targets.values()}}
-    verdict: dict[str, str] = {}  # host -> "ok" | "blocked" | "unresolvable" | "timeout"
-    started = time.monotonic()
-    for host, future in futures.items():
-        remaining = max(0.0, APPRISE_RESOLVE_TIMEOUT_SECONDS - (time.monotonic() - started))
-        try:
-            addresses = future.result(timeout=remaining)
-        except FutureTimeoutError:
-            future.cancel()
-            verdict[host] = "timeout"
-            continue
-        except Exception:
-            verdict[host] = "unresolvable"
-            continue
-        try:
-            parsed = [ipaddress.ip_address(a.split("%", 1)[0]) for a in addresses]
-        except ValueError:
-            verdict[host] = "unresolvable"
-            continue
-        if not parsed:
-            verdict[host] = "unresolvable"
-        elif any(_is_apprise_blocked_address(a, resolved=True) for a in parsed):
-            verdict[host] = "blocked"
-        else:
-            verdict[host] = "ok"
+    hosts = list(dict.fromkeys(host for host, _ in targets.values()))
+    verdict = _apprise_resolve_hosts(hosts, owner_key=owner_key, lane=lane)
     reasons = {
         "blocked": "An Apprise URL host resolves to a loopback, link-local or reserved address.",
         "unresolvable": "An Apprise URL host could not be resolved.",
@@ -892,24 +1084,28 @@ def _apprise_url_refusal(url: object) -> str | None:
     return None
 
 
-def partition_apprise_urls(urls: object) -> tuple[list[str], int]:
+def partition_apprise_urls(urls: object, *, owner_key: str) -> tuple[list[str], int]:
     """Split a stored ``urls`` value into ``(allowed, refused_count)``.
 
     Never raises: the send path uses it so a legacy row that predates the
     allow-list neither delivers to a refused target nor aborts the rest. Blocking
     (it resolves host targets, bounded by :data:`APPRISE_RESOLVE_TIMEOUT_SECONDS`);
-    async callers run it in an executor.
+    async callers run it in an executor. ``owner_key`` (the recipient's user key)
+    picks the share of the send lane the resolution may use (#1995).
     """
     if not isinstance(urls, list):
         return [], 1 if urls else 0
     literal_ok = [u for u in urls[:APPRISE_MAX_URLS] if _apprise_url_refusal(u) is None]
-    refused_by_dns = _apprise_resolution_refusals(literal_ok)
+    refused_by_dns = _apprise_resolution_refusals(literal_ok, owner_key=owner_key, lane=_send_lane)
     allowed = [u for i, u in enumerate(literal_ok) if i not in refused_by_dns]
     return allowed, len(urls) - len(allowed)
 
 
-def validate_apprise_urls(urls: object) -> list[str]:
+def validate_apprise_urls(urls: object, *, owner_key: str) -> list[str]:
     """Validate the ``urls`` of an Apprise channel preference on save.
+
+    ``owner_key`` (the saving user's key) picks the share of the save lane the
+    host resolution may use (#1995); it never reaches a log line.
 
     Raises:
         ValidationError: a value-free message when the list is not a list of at
@@ -945,7 +1141,7 @@ def validate_apprise_urls(urls: object) -> list[str]:
                     }
                 ],
             )
-    for index, reason in sorted(_apprise_resolution_refusals(urls).items()):
+    for index, reason in sorted(_apprise_resolution_refusals(urls, owner_key=owner_key, lane=_save_lane).items()):
         logger.warning("apprise_url_rejected", index=index, reason=reason)
         raise ValidationError(
             "An Apprise URL is not allowed.",

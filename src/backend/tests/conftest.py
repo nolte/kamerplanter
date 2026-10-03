@@ -271,3 +271,18 @@ def _fresh_step_up_throttle():
     clear()
     yield
     clear()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_apprise_resolution_cache():
+    """Start every test with an empty Apprise host cache (#1995).
+
+    The cache is process-wide by design: an answer outlives the request that got
+    it. Across *tests* it would hand one test's resolver double's answer to the
+    next test's lookup of the same name, which then never reaches its own double.
+    """
+    from app.common.url_safety import _resolution_cache
+
+    _resolution_cache.clear()
+    yield
+    _resolution_cache.clear()

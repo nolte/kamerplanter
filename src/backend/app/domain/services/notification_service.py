@@ -406,7 +406,7 @@ class NotificationService:
         """
         apprise = preferences.channels.get("apprise")
         if apprise is not None and "urls" in apprise.config:
-            validate_apprise_urls(apprise.config["urls"])
+            validate_apprise_urls(apprise.config["urls"], owner_key=user_key)
         home_assistant = preferences.channels.get("home_assistant")
         if home_assistant is not None:
             validate_ha_channel_config(home_assistant.config)
