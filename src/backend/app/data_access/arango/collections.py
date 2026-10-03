@@ -1970,6 +1970,11 @@ EDGE_PAIR_FIELDS = ["_from", "_to"]
 UNIQUE_PAIR_EDGE_COLLECTIONS = (TARGETS_PEST, TARGETS_DISEASE, CONTRAINDICATED_WITH)
 
 
+#: ArangoDB's ``ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED`` — what a unique index
+#: creation over duplicate values fails with.
+_UNIQUE_CONSTRAINT_VIOLATED = 1210
+
+
 def has_unique_index(collection: StandardCollection, fields: list[str], *, sparse: bool = False) -> bool:
     """Whether ``collection`` carries a unique persistent index on exactly ``fields``."""
     return any(
@@ -1990,12 +1995,20 @@ def ensure_unique_index_when_clean(collection: StandardCollection, fields: list[
     creation fails — and must not take startup down. The collection is then left
     unconstrained (the shape of :func:`ensure_care_task_dedup_index`); the migration
     that removes the duplicates calls this again, and every later boot retries.
+
+    Only the duplicate refusal is absorbed: ArangoDB answers it with ``1210`` (unique
+    constraint violated; measured on 3.12). Any other ``IndexCreateError`` — a
+    permission, a timeout, a server fault — is re-raised, like every other index
+    creation in ``ensure_collections``: read as "duplicates" it would leave the
+    collection unconstrained silently and send an operator after rows that do not exist.
     """
     if has_unique_index(collection, fields, sparse=sparse):
         return True
     try:
         collection.add_persistent_index(fields=fields, unique=True, sparse=sparse)
-    except IndexCreateError:
+    except IndexCreateError as exc:
+        if exc.error_code != _UNIQUE_CONSTRAINT_VIOLATED:
+            raise
         return False
     return True
 
